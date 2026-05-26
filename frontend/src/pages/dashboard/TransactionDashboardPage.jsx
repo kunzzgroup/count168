@@ -66,6 +66,8 @@ export default function TransactionDashboardPage() {
             kpiFooter={page.kpiFooter}
             loading={page.loading}
             dashboardData={page.dashboardData}
+            earningsKpiLoading={page.earningsKpiLoading}
+            earningsConversionNote={page.earningsConversionNote}
           />
 
           <div className="dashboard-panels-row">

@@ -1,8 +1,18 @@
 import { DashboardKpiCard } from "./DashboardKpiCard.jsx";
 import { formatCurrency } from "../lib/dashboardFormat.js";
 
-export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loading, dashboardData }) {
+export function DashboardKpiGrid({
+  i18n,
+  kpi,
+  kpiCompareLabel,
+  kpiFooter,
+  loading,
+  dashboardData,
+  earningsKpiLoading = false,
+  earningsConversionNote = "",
+}) {
   const kpiLoading = loading && !dashboardData;
+  const earningsLoading = kpiLoading || earningsKpiLoading;
 
   return (
     <div
@@ -44,7 +54,8 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
           compare={kpi.comparisons?.earnings}
           compareLabel={kpiCompareLabel}
           fallbackFoot={kpiFooter}
-          loading={kpiLoading}
+          footNote={earningsConversionNote || undefined}
+          loading={earningsLoading}
           id="earnings-card-wrapper"
         />
       )}

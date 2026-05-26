@@ -7,6 +7,7 @@ import {
   computePieCenterMetrics,
   computeSectorTooltipPosition,
   getCurrencyColor,
+  resolveEarningsShareDenominator,
 } from "../lib/dashboardEarnings.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { EarningsPieSectorTooltip } from "./EarningsPieSectorTooltip.jsx";
@@ -42,19 +43,22 @@ export function DashboardEarningsSummary({
     [earningsCurrencyRows, useConvertedEarnings]
   );
 
-  const earningsShareTotal = useMemo(() => {
-    if (useConvertedEarnings && convertedEarningsTotal != null) {
-      return Math.abs(convertedEarningsTotal);
-    }
-    return earningsCurrencyRows.reduce((sum, row) => {
-      if (row.earnings == null) return sum;
-      return sum + Math.abs(parseFloat(row.earnings) || 0);
-    }, 0);
-  }, [useConvertedEarnings, convertedEarningsTotal, earningsCurrencyRows]);
+  const earningsShareTotal = useMemo(
+    () =>
+      resolveEarningsShareDenominator(earningsCurrencyRows, {
+        useConverted: useConvertedEarnings,
+        convertedTotal: convertedEarningsTotal,
+      }),
+    [useConvertedEarnings, convertedEarningsTotal, earningsCurrencyRows]
+  );
 
   const pieCenterMetrics = useMemo(
-    () => computePieCenterMetrics(earningsPieSlices, currencyCode),
-    [earningsPieSlices, currencyCode]
+    () =>
+      computePieCenterMetrics(earningsCurrencyRows, currencyCode, {
+        useConverted: useConvertedEarnings,
+        shareTotal: earningsShareTotal,
+      }),
+    [earningsCurrencyRows, currencyCode, useConvertedEarnings, earningsShareTotal]
   );
 
   const currencyPieFillByCode = useMemo(() => {
@@ -130,8 +134,13 @@ export function DashboardEarningsSummary({
     );
     if (!pos) return null;
     const slice = hoveredPieSector.slice;
-    const total = earningsPieSlices.reduce((sum, row) => sum + (row.value || 0), 0);
-    const sharePct = total > 0 && slice?.value != null ? (slice.value / total) * 100 : null;
+    const row = earningsCurrencyRows.find(
+      (r) => String(r.code).toUpperCase() === String(slice?.code || "").toUpperCase()
+    );
+    const sharePct =
+      row && earningsShareTotal
+        ? computeCurrencySharePct(row, earningsShareTotal, useConvertedEarnings)
+        : null;
     return {
       slice,
       sharePct,
@@ -140,7 +149,14 @@ export function DashboardEarningsSummary({
       placeAbove: pos.placeAbove,
       radial: pos.radial,
     };
-  }, [hoveredPieSector, earningsPieSlices, pieShellLayout]);
+  }, [
+    hoveredPieSector,
+    earningsPieSlices,
+    earningsCurrencyRows,
+    earningsShareTotal,
+    useConvertedEarnings,
+    pieShellLayout,
+  ]);
 
   return (
     <div className="dashboard-panel-card dashboard-panel-card--summary">

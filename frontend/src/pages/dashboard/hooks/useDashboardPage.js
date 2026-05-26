@@ -58,6 +58,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const [dashboardDataPrev, setDashboardDataPrev] = useState(null);
   const [loading, setLoading] = useState(true);
   const [earningsByCurrency, setEarningsByCurrency] = useState([]);
+  const [earningsByCurrencyPrev, setEarningsByCurrencyPrev] = useState([]);
   const [earningsByCurrencyLoading, setEarningsByCurrencyLoading] = useState(false);
   const [exchangeRates, setExchangeRates] = useState({ rates: {}, date: null, unsupported: [] });
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
@@ -394,9 +395,30 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [companyId, groupAllMode, selectedGroup, mergedSubsetIds, companies, fetchDashboardPayload]
   );
 
+  const fetchEarningsRowsForRange = useCallback(
+    async (rangeFrom, rangeTo, gen) => {
+      const rows = await Promise.all(
+        currencies.map(async (code) => {
+          try {
+            const payload = await loadMergedDashboard(rangeFrom, rangeTo, code);
+            if (gen !== earningsFetchGenRef.current) return null;
+            const metrics = computeKpiMetrics(payload, selectedGroup);
+            return { code, earnings: metrics?.earnings ?? 0 };
+          } catch {
+            if (gen !== earningsFetchGenRef.current) return null;
+            return { code, earnings: 0 };
+          }
+        })
+      );
+      return rows.filter(Boolean);
+    },
+    [currencies, loadMergedDashboard, selectedGroup]
+  );
+
   const loadEarningsByCurrency = useCallback(async () => {
     if (!companyId || currencies.length <= 1) {
       setEarningsByCurrency([]);
+      setEarningsByCurrencyPrev([]);
       setEarningsByCurrencyLoading(false);
       return;
     }
@@ -412,34 +434,28 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return { code, earnings: hit?.earnings ?? null };
       })
     );
+    setEarningsByCurrencyPrev([]);
 
-    const rows = await Promise.all(
-      currencies.map(async (code) => {
-        try {
-          const current = await loadMergedDashboard(dateFrom, dateTo, code);
-          if (gen !== earningsFetchGenRef.current) return null;
-          const metrics = computeKpiMetrics(current, selectedGroup);
-          return { code, earnings: metrics?.earnings ?? 0 };
-        } catch {
-          if (gen !== earningsFetchGenRef.current) return null;
-          return { code, earnings: 0 };
-        }
-      })
-    );
+    const prevRange = previousPeriodRange(dateFrom, dateTo);
+    const [currentRows, prevRows] = await Promise.all([
+      fetchEarningsRowsForRange(dateFrom, dateTo, gen),
+      fetchEarningsRowsForRange(prevRange.from, prevRange.to, gen).catch(() => []),
+    ]);
 
     if (gen === earningsFetchGenRef.current) {
-      const next = rows.filter(Boolean);
-      setEarningsByCurrency(next);
+      setEarningsByCurrency(currentRows);
+      setEarningsByCurrencyPrev(prevRows);
       setEarningsByCurrencyLoading(false);
-      if (cacheKey && next.length) patchDashboardCache(cacheKey, { earnings: next });
+      if (cacheKey && currentRows.length) {
+        patchDashboardCache(cacheKey, { earnings: currentRows });
+      }
     }
   }, [
     companyId,
     currencies,
     dateFrom,
     dateTo,
-    loadMergedDashboard,
-    selectedGroup,
+    fetchEarningsRowsForRange,
     dashboardScopeKey,
   ]);
 
@@ -723,6 +739,37 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRows, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRows, currencyCode, exchangeRates.rates]);
 
+  const earningsCurrencyRowsPrev = useMemo(() => {
+    if (!earningsByCurrencyPrev.length) return [];
+    const base = String(currencyCode || "").toUpperCase();
+    const rates = exchangeRates.rates || {};
+    const canConvert =
+      currencies.length > 1 &&
+      !exchangeRatesError &&
+      Object.keys(rates).length > 0 &&
+      !exchangeRatesLoading;
+
+    return earningsByCurrencyPrev.map((row) => ({
+      ...row,
+      earningsConverted:
+        canConvert && row.earnings != null
+          ? convertToBaseAmount(row.earnings, row.code, base, rates)
+          : null,
+    }));
+  }, [
+    earningsByCurrencyPrev,
+    currencyCode,
+    currencies.length,
+    exchangeRates.rates,
+    exchangeRatesError,
+    exchangeRatesLoading,
+  ]);
+
+  const convertedEarningsTotalPrev = useMemo(() => {
+    if (!useConvertedEarnings || !earningsCurrencyRowsPrev.length) return null;
+    return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
+  }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
+
   const summaryEarningsValue = useMemo(() => {
     if (useConvertedEarnings && convertedEarningsTotal != null) {
       return convertedEarningsTotal;
@@ -762,9 +809,41 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     i18n,
   ]);
 
+  const kpiForDisplay = useMemo(() => {
+    if (!kpi) return kpi;
+    const useConverted =
+      useConvertedEarnings && convertedEarningsTotal != null && !earningsByCurrencyLoading;
+    if (!useConverted) return kpi;
+
+    const earningsCompare =
+      convertedEarningsTotalPrev != null
+        ? buildKpiCompare(convertedEarningsTotal, convertedEarningsTotalPrev)
+        : kpi.comparisons?.earnings;
+
+    return {
+      ...kpi,
+      earnings: convertedEarningsTotal,
+      comparisons: kpi.comparisons
+        ? { ...kpi.comparisons, earnings: earningsCompare ?? kpi.comparisons.earnings }
+        : earningsCompare
+          ? { earnings: earningsCompare }
+          : null,
+    };
+  }, [
+    kpi,
+    useConvertedEarnings,
+    convertedEarningsTotal,
+    convertedEarningsTotalPrev,
+    earningsByCurrencyLoading,
+  ]);
+
   const scopeDataPending =
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
   const summaryEarningsLoading = scopeDataPending || (loading && !dashboardData);
+  const earningsKpiLoading =
+    summaryEarningsLoading ||
+    (currencies.length > 1 &&
+      (earningsByCurrencyLoading || exchangeRatesLoading || !allCurrencyEarningsReady));
   const kpiLoading = summaryEarningsLoading;
 
   const handlePickGroup = useCallback(
@@ -880,8 +959,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     setCurrencyCode,
     loading: kpiLoading,
     dashboardData,
-    kpi,
+    kpi: kpiForDisplay ?? kpi,
     kpiCompareLabel,
+    earningsKpiLoading,
+    earningsConversionNote: summaryConversionNote,
     kpiFooter,
     chartRows,
     chartSeries,

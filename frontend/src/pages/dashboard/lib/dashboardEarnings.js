@@ -82,23 +82,41 @@ export function computeSectorTooltipPosition(sector, shellWidth, shellHeight) {
   return { left, top, placeAbove: top <= cy, radial: true };
 }
 
-export function computePieCenterMetrics(slices, selectedCode) {
-  const total = (slices || []).reduce((sum, row) => sum + (row.value || 0), 0);
-  const selected = String(selectedCode || "").toUpperCase();
-  if (total <= 0) {
-    return { pct: "0", code: selected || "—" };
+/** Denominator for share %: algebraic converted total, or sum of abs native amounts. */
+export function resolveEarningsShareDenominator(rows, { useConverted = false, convertedTotal = null } = {}) {
+  if (useConverted && convertedTotal != null && Number.isFinite(convertedTotal)) {
+    return convertedTotal;
   }
-  const match = (slices || []).find((row) => String(row.code || "").toUpperCase() === selected);
-  const pct = match ? ((match.value / total) * 100).toFixed(0) : "0";
+  return (rows || []).reduce((sum, row) => {
+    if (row.earnings == null) return sum;
+    return sum + Math.abs(parseFloat(row.earnings) || 0);
+  }, 0);
+}
+
+export function computePieCenterMetrics(rows, selectedCode, { useConverted = false, shareTotal = null } = {}) {
+  const selected = String(selectedCode || "").toUpperCase();
+  const match = (rows || []).find((row) => String(row.code || "").toUpperCase() === selected);
+  const total = resolveEarningsShareDenominator(rows, {
+    useConverted,
+    convertedTotal: shareTotal,
+  });
+  if (!match || !total || total === 0) {
+    return { pct: "0", code: selected || match?.code || "—" };
+  }
+  const val =
+    useConverted && match.earningsConverted != null
+      ? parseFloat(match.earningsConverted) || 0
+      : parseFloat(match.earnings) || 0;
+  const pct = ((val / total) * 100).toFixed(0);
   return { pct, code: selected || match?.code || "—" };
 }
 
 export function computeCurrencySharePct(row, total, useConverted) {
   const val =
     useConverted && row.earningsConverted != null
-      ? Math.abs(row.earningsConverted)
-      : Math.abs(parseFloat(row.earnings) || 0);
-  if (!total || total <= 0) return 0;
+      ? parseFloat(row.earningsConverted) || 0
+      : parseFloat(row.earnings) || 0;
+  if (!total || total === 0) return 0;
   return (val / total) * 100;
 }
 
