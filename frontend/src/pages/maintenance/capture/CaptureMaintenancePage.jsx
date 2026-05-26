@@ -369,8 +369,14 @@ export default function CaptureMaintenancePage() {
   }, [companyId]);
 
   // -- Handlers --
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setCompanyCode("");
+    setSelectedIds([]);
+  }, []);
+
   const handleSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    if (!c?.id) return;
     const nextId = Number(c.id);
     const nextCode = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
@@ -425,22 +431,17 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  const {
-    groupFilterKind,
-    snapGroupIds,
-    visibleCompanies,
-    handlePickAllGroups,
-    handleGroupClick,
-    followCurrentCompanyGroup,
-  } = useMaintenanceGroupCompanyFilter({
-    companies,
-    companyId,
-    selectedGroup,
-    setSelectedGroup,
-    switchCompany: handleSwitchCompany,
-  });
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+    useMaintenanceGroupCompanyFilter({
+      companies,
+      companyId,
+      selectedGroup,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+      onClearCompany: handleClearCompany,
+    });
 
-  followGroupRef.current = followCurrentCompanyGroup;
+  followGroupRef.current = () => {};
 
   const handlePermissionSwitch = (p) => {
     if (p === activePermission) return;
@@ -545,13 +546,12 @@ export default function CaptureMaintenancePage() {
           setDateTo={setDateTo}
           today={todayDmy}
           companyId={companyId}
-          groupFilterKind={groupFilterKind}
           snapGroupIds={snapGroupIds}
           visibleCompanies={visibleCompanies}
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
-          onPickAllGroups={handlePickAllGroups}
-          onSwitchCompany={handleSwitchCompany}
+          onPickCompany={handlePickCompany}
+          onClearCompany={handleClearCompany}
           onDelete={handleDeleteClick}
           canDelete={selectedIds.length > 0}
           confirmDelete={confirmDelete}

@@ -1,13 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
-import {
-  applySharedGroupClickWithCompanySwitch,
-  filterMaintenanceVisibleCompanies,
-  sortedUniqueGroupIds,
-  toggleGroupFilterKind,
-} from "../../../utils/company/sharedCompanyFilter.js";
+import { useDashboardStyleGcFilter } from "../../../utils/company/useDashboardStyleGcFilter.js";
 
 /**
- * Maintenance 各页 Group / Company 筛选（对齐 Process List、Account List 的 groupFilterKind 行为）。
+ * Maintenance Group / Company filters — Dashboard-aligned (no group ALL/ungrouped, company can be empty).
  */
 export function useMaintenanceGroupCompanyFilter({
   companies,
@@ -15,53 +9,30 @@ export function useMaintenanceGroupCompanyFilter({
   selectedGroup,
   setSelectedGroup,
   switchCompany,
+  onClearCompany,
   switchingCompany = false,
 }) {
-  const [groupFilterKind, setGroupFilterKind] = useState("follow");
-
-  const snapGroupIds = useMemo(() => sortedUniqueGroupIds(companies), [companies]);
-
-  const visibleCompanies = useMemo(
-    () =>
-      filterMaintenanceVisibleCompanies(companies, {
-        groupFilterKind,
-        selectedGroup,
-        groupIds: snapGroupIds,
-        preferredCompanyId: companyId,
-      }),
-    [companies, groupFilterKind, selectedGroup, snapGroupIds, companyId],
-  );
-
-  const handlePickAllGroups = useCallback(() => {
-    if (switchingCompany) return;
-    setGroupFilterKind((k) => toggleGroupFilterKind(k));
-  }, [switchingCompany]);
-
-  const handleGroupClick = useCallback(
-    async (gid) => {
-      setGroupFilterKind("follow");
-      await applySharedGroupClickWithCompanySwitch({
-        clickedGroupId: gid,
-        currentSelectedGroup: selectedGroup,
-        companies,
-        currentCompanyId: companyId,
-        setSelectedGroup,
-        switchCompany,
-      });
-    },
-    [selectedGroup, companies, companyId, setSelectedGroup, switchCompany],
-  );
-
-  const followCurrentCompanyGroup = useCallback(() => {
-    setGroupFilterKind("follow");
-  }, []);
+  const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: switchCompany,
+    onClearCompany,
+    switchingCompany,
+    preferredCompanyId: companyId,
+  });
 
   return {
-    groupFilterKind,
-    snapGroupIds,
-    visibleCompanies,
-    handlePickAllGroups,
-    handleGroupClick,
-    followCurrentCompanyGroup,
+    snapGroupIds: groupIds,
+    visibleCompanies: companiesForPicker,
+    handleGroupClick: handlePickGroup,
+    handlePickCompany,
+    /** @deprecated Dashboard layout has no group ALL; kept for callers that still destructure it */
+    groupFilterKind: "follow",
+    /** @deprecated */
+    handlePickAllGroups: () => {},
+    /** @deprecated */
+    followCurrentCompanyGroup: () => {},
   };
 }

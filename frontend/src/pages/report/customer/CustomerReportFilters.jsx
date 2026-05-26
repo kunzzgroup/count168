@@ -7,10 +7,9 @@ const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMon
 export default function CustomerReportFilters({
   companyId,
   onSwitchCompany,
+  onClearCompany,
   groupIds,
-  groupFilterKind,
-  selectedGroupKey,
-  onPickAllGroups,
+  selectedGroup,
   onPickGroup,
   companyButtons,
   highlightCompanyId,
@@ -171,15 +170,15 @@ export default function CustomerReportFilters({
       </div>
 
       <ReportGcFilterPanel
+        layout="dashboard"
         groupIds={groupIds}
-        groupFilterKind={groupFilterKind}
-        selectedGroupKey={selectedGroupKey}
-        onPickAllGroups={onPickAllGroups}
+        selectedGroup={selectedGroup}
         onPickGroup={onPickGroup}
         companyButtons={companyButtons}
         companyId={companyId}
         highlightCompanyId={highlightCompanyId}
         onSwitchCompany={onSwitchCompany}
+        onClearCompany={onClearCompany}
         currencyList={currencyList}
         showAllCurrencies={showAllCurrencies}
         selectedCurrencies={selectedCurrencies}

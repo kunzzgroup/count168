@@ -21,14 +21,13 @@ export default function BankprocessMaintenanceFilters({
   setQuery,
   onSearch,
   groupedIds,
-  groupFilterKind,
   selectedGroup,
   onGroupClick,
-  onPickAllGroups,
+  onPickCompany,
+  onClearCompany,
   companies,
   visibleCompanies,
   companyId,
-  handleSwitchCompany,
   currencies,
   allCurrenciesSelected,
   selectedCurrencies,
@@ -133,15 +132,15 @@ export default function BankprocessMaintenanceFilters({
       <div className="maintenance-filter-row">
         <div className="maintenance-filter-left-full">
           <ReportGcFilterPanel
+              layout="dashboard"
               groupIds={groupedIds}
-              groupFilterKind={groupFilterKind}
-              selectedGroupKey={selectedGroup}
-              onPickAllGroups={onPickAllGroups}
+              selectedGroup={selectedGroup}
               onPickGroup={(g) => onGroupClick(g)}
               companyButtons={visibleCompanies}
               companyId={companyId}
               highlightCompanyId={companyId}
-              onSwitchCompany={handleSwitchCompany}
+              onSwitchCompany={onPickCompany}
+              onClearCompany={onClearCompany}
               currencyList={currencies}
               showAllCurrencies={allCurrenciesSelected}
               selectedCurrencies={selectedCurrencies}

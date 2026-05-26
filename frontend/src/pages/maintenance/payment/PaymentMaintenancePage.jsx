@@ -393,8 +393,15 @@ export default function PaymentMaintenancePage() {
   );
 
   // -- Handlers --
+  const handleClearCompany = useCallback(() => {
+    companyIdRef.current = null;
+    setCompanyId(null);
+    setCompanyCode("");
+    setSelectedIds([]);
+  }, []);
+
   const handleSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    if (!c?.id) return;
     const nextId = Number(c.id);
     const nextCode = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
@@ -443,22 +450,17 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  const {
-    groupFilterKind,
-    snapGroupIds,
-    visibleCompanies,
-    handlePickAllGroups,
-    handleGroupClick,
-    followCurrentCompanyGroup,
-  } = useMaintenanceGroupCompanyFilter({
-    companies,
-    companyId,
-    selectedGroup,
-    setSelectedGroup,
-    switchCompany: handleSwitchCompany,
-  });
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+    useMaintenanceGroupCompanyFilter({
+      companies,
+      companyId,
+      selectedGroup,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+      onClearCompany: handleClearCompany,
+    });
 
-  followGroupRef.current = followCurrentCompanyGroup;
+  followGroupRef.current = () => {};
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
@@ -545,13 +547,12 @@ export default function PaymentMaintenancePage() {
         setDateTo={setDateTo}
         today={todayDmy}
         companyId={companyId}
-        groupFilterKind={groupFilterKind}
         snapGroupIds={snapGroupIds}
         visibleCompanies={visibleCompanies}
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
-        onPickAllGroups={handlePickAllGroups}
-        onSwitchCompany={handleSwitchCompany}
+        onPickCompany={handlePickCompany}
+        onClearCompany={handleClearCompany}
         currencies={currencies}
         selectedCurrency={selectedCurrency}
         setSelectedCurrency={setSelectedCurrency}

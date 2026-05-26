@@ -4,6 +4,22 @@
  */
 
 export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
+export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-changed";
+
+/**
+ * Notify layout (sidebar Process visibility) when dashboard Group / Company filter changes.
+ * Process is hidden only while a group is selected with no company (see AuthenticatedLayout).
+ */
+export function notifyDashboardGroupFilterChanged(selectedGroup, companyId) {
+  const value = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+  const cid =
+    companyId != null && companyId !== "" && Number.isFinite(Number(companyId))
+      ? Number(companyId)
+      : null;
+  window.dispatchEvent(
+    new CustomEvent(DASHBOARD_GROUP_FILTER_EVENT, { detail: { selectedGroup: value, companyId: cid } })
+  );
+}
 
 /** In-memory cache so report/maintenance remounts do not re-block on companies API. */
 let ownerCompaniesCache = null;
@@ -126,6 +142,15 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
 
 export function filterCompaniesWithDisplayId(companies) {
   return (companies || []).filter((c) => c?.company_id && String(c.company_id).trim() !== "");
+}
+
+/** Companies visible in the Company row when a GroupID is selected (Dashboard-aligned). */
+export function companiesInGroupList(companies, gid) {
+  if (!gid) {
+    return filterCompaniesWithDisplayId(companies).filter((c) => !normalizeCompanyGroupId(c));
+  }
+  const g = String(gid).trim().toUpperCase();
+  return filterCompaniesWithDisplayId(companies).filter((c) => normalizeCompanyGroupId(c) === g);
 }
 
 /**

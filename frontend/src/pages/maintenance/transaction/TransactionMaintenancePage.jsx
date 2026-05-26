@@ -595,8 +595,18 @@ export default function TransactionMaintenancePage() {
   ]);
 
   // -- Handlers --
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setCompanyCode("");
+    setMetaReady(false);
+    setProcesses([]);
+    setPermissions([]);
+    setActivePermission("");
+    setSelectedProcess("");
+  }, []);
+
   const handleSwitchCompany = useCallback(async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    if (!c?.id) return;
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
@@ -656,22 +666,17 @@ export default function TransactionMaintenancePage() {
     }
   }, [companyId, navigate, notify, t]);
 
-  const {
-    groupFilterKind,
-    snapGroupIds,
-    visibleCompanies,
-    handlePickAllGroups,
-    handleGroupClick,
-    followCurrentCompanyGroup,
-  } = useMaintenanceGroupCompanyFilter({
-    companies,
-    companyId,
-    selectedGroup,
-    setSelectedGroup,
-    switchCompany: handleSwitchCompany,
-  });
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+    useMaintenanceGroupCompanyFilter({
+      companies,
+      companyId,
+      selectedGroup,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+      onClearCompany: handleClearCompany,
+    });
 
-  followGroupRef.current = followCurrentCompanyGroup;
+  followGroupRef.current = () => {};
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
@@ -718,13 +723,12 @@ export default function TransactionMaintenancePage() {
           today={todayDmy}
           companyId={companyId}
           companies={companies}
-          groupFilterKind={groupFilterKind}
           snapGroupIds={snapGroupIds}
           visibleCompanies={visibleCompanies}
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
-          onPickAllGroups={handlePickAllGroups}
-          onSwitchCompany={handleSwitchCompany}
+          onPickCompany={handlePickCompany}
+          onClearCompany={handleClearCompany}
           m={m}
         />
 

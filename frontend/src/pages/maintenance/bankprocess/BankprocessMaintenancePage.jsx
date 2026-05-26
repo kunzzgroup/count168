@@ -399,10 +399,18 @@ export default function BankprocessMaintenancePage() {
 
   const followGroupRef = useRef(() => {});
 
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setCompanyCode("");
+    setSelectedIds([]);
+    setRows([]);
+    setHasSearched(false);
+    currentCompanyIdRef.current = null;
+  }, []);
+
   const handleSwitchCompany = useCallback(async (targetCompany) => {
     if (!targetCompany?.id) return;
     const nextId = Number(targetCompany.id);
-    if (nextId === Number(currentCompanyIdRef.current)) return;
     try {
       await updateSessionCompany(nextId);
       const newGroup = targetCompany.group_id
@@ -423,21 +431,20 @@ export default function BankprocessMaintenancePage() {
   }, [notify, t]);
 
   const {
-    groupFilterKind,
     snapGroupIds: groupedIdsFromHook,
     visibleCompanies,
-    handlePickAllGroups,
     handleGroupClick: onGroupClick,
-    followCurrentCompanyGroup,
+    handlePickCompany,
   } = useMaintenanceGroupCompanyFilter({
     companies,
     companyId,
     selectedGroup,
     setSelectedGroup,
     switchCompany: handleSwitchCompany,
+    onClearCompany: handleClearCompany,
   });
 
-  followGroupRef.current = followCurrentCompanyGroup;
+  followGroupRef.current = () => {};
 
   const groupedIds = groupedIdsFromHook;
 
@@ -523,14 +530,13 @@ export default function BankprocessMaintenancePage() {
         setQuery={setQuery}
         onSearch={performSearch}
         groupedIds={groupedIds}
-        groupFilterKind={groupFilterKind}
         selectedGroup={selectedGroup}
         onGroupClick={onGroupClick}
-        onPickAllGroups={handlePickAllGroups}
+        onPickCompany={handlePickCompany}
+        onClearCompany={handleClearCompany}
         companies={companies}
         visibleCompanies={visibleCompanies}
         companyId={companyId}
-        handleSwitchCompany={handleSwitchCompany}
         currencies={currencies}
         allCurrenciesSelected={allCurrenciesSelected}
         selectedCurrencies={selectedCurrencies}

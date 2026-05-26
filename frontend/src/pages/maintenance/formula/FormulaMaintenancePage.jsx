@@ -465,8 +465,17 @@ export default function FormulaMaintenancePage() {
   }, [bootLoading, companyId, searchFilter, selectedProcess, performSearch]);
 
   // -- Handlers --
+  const handleClearCompany = useCallback(() => {
+    companyIdRef.current = null;
+    setCompanyId(null);
+    setCompanyCode("");
+    setSearchFilter("");
+    setSelectedProcess(null);
+    clearFormulaList();
+  }, [clearFormulaList]);
+
   const handleSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    if (!c?.id) return;
     const nextId = Number(c.id);
     try {
       await updateSessionCompany(c.id);
@@ -498,22 +507,17 @@ export default function FormulaMaintenancePage() {
     }
   };
 
-  const {
-    groupFilterKind,
-    snapGroupIds,
-    visibleCompanies,
-    handlePickAllGroups,
-    handleGroupClick,
-    followCurrentCompanyGroup,
-  } = useMaintenanceGroupCompanyFilter({
-    companies,
-    companyId,
-    selectedGroup,
-    setSelectedGroup,
-    switchCompany: handleSwitchCompany,
-  });
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+    useMaintenanceGroupCompanyFilter({
+      companies,
+      companyId,
+      selectedGroup,
+      setSelectedGroup,
+      switchCompany: handleSwitchCompany,
+      onClearCompany: handleClearCompany,
+    });
 
-  followGroupRef.current = followCurrentCompanyGroup;
+  followGroupRef.current = () => {};
 
   const handlePermissionSwitch = (p) => {
     startTransition(() => {
@@ -695,13 +699,12 @@ export default function FormulaMaintenancePage() {
         searchFilter={searchFilter}
         setSearchFilter={setSearchFilter}
         companyId={companyId}
-        groupFilterKind={groupFilterKind}
         snapGroupIds={snapGroupIds}
         visibleCompanies={visibleCompanies}
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
-        onPickAllGroups={handlePickAllGroups}
-        onSwitchCompany={handleSwitchCompany}
+        onPickCompany={handlePickCompany}
+        onClearCompany={handleClearCompany}
         onClearFilters={handleClearFilters}
         selectedIds={selectedIds}
         confirmDelete={confirmDelete}

@@ -16,6 +16,7 @@ import {
   canAccessPermission,
   showMaintenanceInSidebar,
 } from "../utils/auth/sidebarPermissions.js";
+import { DASHBOARD_GROUP_FILTER_EVENT } from "../utils/company/sharedCompanyFilter.js";
 import "../../public/css/modal-close-unified.css";
 
 function formatSidebarExpirationHint(hint, i18n) {
@@ -86,6 +87,9 @@ export default function AuthenticatedLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => typeof window !== "undefined" && localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1"
   );
+  /** Group/company filter: hide Process when a group is selected but no company (all aligned pages). */
+  const [dashboardSelectedGroup, setDashboardSelectedGroup] = useState(null);
+  const [dashboardCompanyId, setDashboardCompanyId] = useState(null);
   const i18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
   const {
     showModal: showExpirationModal,
@@ -168,7 +172,25 @@ export default function AuthenticatedLayout() {
   };
 
   const path = location.pathname;
+  const hideProcessWhenGroupOnly =
+    path !== "/process-list" &&
+    path !== "/bank-process-list" &&
+    Boolean(dashboardSelectedGroup) &&
+    dashboardCompanyId == null;
   const prevPathRef = useRef(path);
+
+  useEffect(() => {
+    const onFilterChange = (e) => {
+      const nextGroup = e?.detail?.selectedGroup ?? null;
+      setDashboardSelectedGroup(nextGroup ? String(nextGroup).trim().toUpperCase() : null);
+      const nextCompanyId = e?.detail?.companyId;
+      setDashboardCompanyId(
+        nextCompanyId != null && Number.isFinite(Number(nextCompanyId)) ? Number(nextCompanyId) : null
+      );
+    };
+    window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
+    return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
+  }, []);
   useEffect(() => {
     if (!isTabletViewport || sidebarCollapsed) {
       prevPathRef.current = path;
@@ -514,7 +536,7 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
-          {canAccess("process") && (
+          {canAccess("process") && !hideProcessWhenGroupOnly && (
             <div className="informationmenu-section">
               <div
                 className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
