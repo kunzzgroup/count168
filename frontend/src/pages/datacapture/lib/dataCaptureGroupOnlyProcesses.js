@@ -6,10 +6,10 @@ export function isGroupOnlyProcessId(id) {
   return GROUP_ONLY_PROCESS_IDS.has(String(id || "").toLowerCase());
 }
 
-/** @param {(key: string) => string} t */
-export function getGroupOnlyProcessOptions(t) {
+/** Group-only Process dropdown labels: uppercase codes only (no "1." / "2." prefix). */
+export function getGroupOnlyProcessOptions() {
   return [
-    { id: "salary", process_id: "SALARY", displayText: t("groupProcessSalary") },
-    { id: "bonus", process_id: "BONUS", displayText: t("groupProcessBonus") },
+    { id: "salary", process_id: "SALARY", displayText: "SALARY" },
+    { id: "bonus", process_id: "BONUS", displayText: "BONUS" },
   ];
 }

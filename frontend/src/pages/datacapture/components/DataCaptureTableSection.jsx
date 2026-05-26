@@ -17,6 +17,7 @@ export default function DataCaptureTableSection({
   captureType,
   citibetMode = false,
   formatGridReady = false,
+  hideCaptureTypeSelector = false,
   onCaptureTypeChange,
   submitDisabled = true,
   onSubmit,
@@ -32,28 +33,41 @@ export default function DataCaptureTableSection({
   return (
     <div className="bottom-section">
       <div className={containerClass}>
-        <div className="excel-table-header dc-table-header-bar">
+        <div
+          className={`excel-table-header dc-table-header-bar${hideCaptureTypeSelector ? " dc-table-header-bar--group-only" : ""}`.trim()}
+        >
           <div className="dc-table-header-main">
             <span className="dc-table-header-title">{t("dataCaptureTable")}</span>
+            {hideCaptureTypeSelector ? (
+              <button
+                type="button"
+                className="btn btn-cancel dc-table-header-reset-btn"
+                onClick={() => (onReset ? onReset() : window.resetForm?.())}
+              >
+                {t("reset")}
+              </button>
+            ) : null}
           </div>
-          <div className="dc-table-header-controls">
-            <select
-              id="dataCaptureTypeSelector"
-              className="data-capture-type-selector"
-              value={captureType}
-              onChange={onCaptureTypeChange}
-              aria-label={t("captureFormatAria")}
-            >
-              {CAPTURE_TYPE_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {captureTypeLabel(opt, t)}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="btn btn-cancel" onClick={() => (onReset ? onReset() : window.resetForm?.())}>
-              {t("reset")}
-            </button>
-          </div>
+          {!hideCaptureTypeSelector ? (
+            <div className="dc-table-header-controls">
+              <select
+                id="dataCaptureTypeSelector"
+                className="data-capture-type-selector"
+                value={captureType}
+                onChange={onCaptureTypeChange}
+                aria-label={t("captureFormatAria")}
+              >
+                {CAPTURE_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {captureTypeLabel(opt, t)}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="btn btn-cancel" onClick={() => (onReset ? onReset() : window.resetForm?.())}>
+                {t("reset")}
+              </button>
+            </div>
+          ) : null}
         </div>
         <DataCaptureGrid />
       </div>

@@ -1093,6 +1093,7 @@ export default function DataCapturePage() {
         captureType={captureType}
         citibetMode={citibetMode}
         formatGridReady={formatGridReady}
+        hideCaptureTypeSelector={!isCompanySelected}
         onCaptureTypeChange={handleCaptureTypeChange}
         submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         onSubmit={() => void submitReset.submit()}
