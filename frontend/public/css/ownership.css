@@ -1555,7 +1555,11 @@ body.ownership-page {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.own-month-trigger-wrap {
     position: relative;
+    display: inline-flex;
 }
 
 .own-month-trigger {
