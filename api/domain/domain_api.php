@@ -1836,13 +1836,11 @@ function domainApiValidateCompanyGroupCodesUniqueWithinPayload(array $rows): ?st
 }
 
 /**
- * 全局唯一：payload 中出现的每个非空代码（任一行的 company_id 或 group_id）在数据库中不可再出现在
- * 任意 owner 的 company 行上（company_id 与 group_id 同一命名空间）。
- * create：与全库比对；update：传入 $excludeOwnerId，排除该 owner 当前已有 company 行，便于整单重存而不误报「与自身冲突」。
+ * 从 company 行中提取所有非空 company_id / group_id（同一命名空间，大写去重）。
  *
- * （须与 domainApiValidateGroupCompanyIdMutualExclusivity、domainApiValidateCompanyGroupCodesUniqueWithinPayload 配合。）
+ * @return string[]
  */
-function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $rows, ?int $excludeOwnerId): ?string
+function domainApiCollectCompanyGroupCodesFromRows(array $rows): array
 {
     $codesSet = [];
     foreach ($rows as $row) {
@@ -1859,10 +1857,60 @@ function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $row
             $codesSet[$gid] = true;
         }
     }
-    if ($codesSet === []) {
+    return array_keys($codesSet);
+}
+
+/**
+ * 读取某 owner 当前已占用的 company_id / group_id 代码集合。
+ *
+ * @return string[]
+ */
+function domainApiLoadOwnerCompanyGroupCodes(PDO $pdo, int $ownerId): array
+{
+    if ($ownerId <= 0) {
+        return [];
+    }
+    $stmt = $pdo->prepare('SELECT company_id, group_id FROM company WHERE owner_id = ?');
+    $stmt->execute([$ownerId]);
+    return domainApiCollectCompanyGroupCodesFromRows($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+/**
+ * update 保存前：仅保留 payload 中相对该 owner 数据库快照「新出现」的代码行（供跨 owner 唯一性校验）。
+ */
+function domainApiFilterRowsToNewCompanyGroupCodes(PDO $pdo, int $ownerId, array $rows): array
+{
+    $existingSet = array_flip(domainApiLoadOwnerCompanyGroupCodes($pdo, $ownerId));
+    $filtered = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $gidRaw = $row['group_id'] ?? null;
+        $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+        $hasNewCode = ($cid !== '' && !isset($existingSet[$cid])) || ($gid !== '' && !isset($existingSet[$gid]));
+        if ($hasNewCode) {
+            $filtered[] = $row;
+        }
+    }
+    return $filtered;
+}
+
+/**
+ * 全局唯一：payload 中出现的每个非空代码（任一行的 company_id 或 group_id）在数据库中不可再出现在
+ * 任意 owner 的 company 行上（company_id 与 group_id 同一命名空间）。
+ * create：与全库比对；update：仅校验相对该 owner 新增加的代码（见 domainApiFilterRowsToNewCompanyGroupCodes）。
+ * validate_domain_code：单码添加前校验，可传 $excludeOwnerId 排除当前 owner 已有行。
+ *
+ * （须与 domainApiValidateGroupCompanyIdMutualExclusivity、domainApiValidateCompanyGroupCodesUniqueWithinPayload 配合。）
+ */
+function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $rows, ?int $excludeOwnerId): ?string
+{
+    $codes = domainApiCollectCompanyGroupCodesFromRows($rows);
+    if ($codes === []) {
         return null;
     }
-    $codes = array_keys($codesSet);
     $in = implode(',', array_fill(0, count($codes), '?'));
 
     /*
@@ -2537,10 +2585,14 @@ try {
                 exit;
             }
 
-            $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $companies_data, (int) $id);
-            if ($crossOwnerErr !== null) {
-                echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
-                exit;
+            // 编辑保存：仅对新添加的 Company/Group ID 做跨 domain 唯一性校验（与前端 Add 按钮行为一致）
+            $newCodeRows = domainApiFilterRowsToNewCompanyGroupCodes($pdo, (int) $id, $companies_data);
+            if ($newCodeRows !== []) {
+                $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $newCodeRows, null);
+                if ($crossOwnerErr !== null) {
+                    echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
+                    exit;
+                }
             }
             
             // DDL 在 MySQL 中会隐式提交并结束当前事务，须在 beginTransaction 之前执行

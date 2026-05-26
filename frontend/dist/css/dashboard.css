@@ -863,7 +863,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .kpi-card-head-label {
     font-size: clamp(13px, 0.95vw, 15px);
     font-weight: 700;
-    color: #6b7280;
+    color: #111827;
     font-family: var(--font-heading-page);
     letter-spacing: 0.01em;
     white-space: nowrap;
