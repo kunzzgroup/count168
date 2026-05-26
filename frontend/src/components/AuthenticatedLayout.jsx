@@ -7,6 +7,7 @@ import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 import ExpirationReminderModal from "./ExpirationReminderModal.jsx";
 import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
+import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
 import { getExpirationReminderText } from "../translateFile/shell/expirationReminderTranslate.js";
 import { getAutoRenewText } from "../translateFile/pages/autoRenewTranslate.js";
 import { useExpirationReminder } from "../hooks/useExpirationReminder.js";
