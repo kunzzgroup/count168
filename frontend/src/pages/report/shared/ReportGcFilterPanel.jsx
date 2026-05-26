@@ -16,6 +16,8 @@ export default function ReportGcFilterPanel({
   highlightCompanyId,
   onSwitchCompany,
   onClearCompany,
+  /** When false (company login), clicking the active company pill does not clear selection. */
+  allowClearCompany = true,
   /** "dashboard" = no group ALL, company toggle-off, group highlight from selectedGroup */
   layout = "legacy",
   currencyList,
@@ -87,6 +89,7 @@ export default function ReportGcFilterPanel({
                     className={`user-gc-segment${active ? " is-on" : ""}`}
                     onClick={() => {
                       if (active && isDashboardLayout) {
+                        if (!allowClearCompany) return;
                         persistDashboardFilterState(selectedGroup, null);
                         onClearCompany?.();
                         return;

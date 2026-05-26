@@ -8,6 +8,7 @@ export default function CustomerReportFilters({
   companyId,
   onSwitchCompany,
   onClearCompany,
+  allowClearCompany = true,
   groupIds,
   selectedGroup,
   onPickGroup,
@@ -179,6 +180,7 @@ export default function CustomerReportFilters({
         highlightCompanyId={highlightCompanyId}
         onSwitchCompany={onSwitchCompany}
         onClearCompany={onClearCompany}
+        allowClearCompany={allowClearCompany}
         currencyList={currencyList}
         showAllCurrencies={showAllCurrencies}
         selectedCurrencies={selectedCurrencies}

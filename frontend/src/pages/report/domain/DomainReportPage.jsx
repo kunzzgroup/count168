@@ -335,6 +335,7 @@ export default function DomainReportPage() {
     companiesForPicker: companyButtons,
     handlePickGroup,
     handlePickCompany,
+    allowClearCompany,
   } = useDashboardStyleGcFilter({
     companies,
     companyId,
@@ -344,6 +345,7 @@ export default function DomainReportPage() {
     onClearCompany: handleClearCompany,
     switchingCompany: companyHighlightId != null,
     preferredCompanyId: companyHighlightId ?? companyId,
+    me,
   });
 
   const persistCurrencyPrefs = useCallback((compId, currencies, showAll) => {
@@ -515,6 +517,7 @@ export default function DomainReportPage() {
           highlightCompanyId={companyHighlightId}
           onSwitchCompany={handlePickCompany}
           onClearCompany={handleClearCompany}
+          allowClearCompany={allowClearCompany}
           groupIds={groupIds}
           selectedGroup={selectedGroup}
           onPickGroup={handlePickGroup}

@@ -17,7 +17,10 @@ import {
   persistDashboardSelectedCompany,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
+  filterCompaniesForLoginScope,
+  persistAccessibleGroupIdsFromApi,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { canUseGroupOnlyMode } from "../../utils/company/loginScope.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 
 import "../../../public/css/userlist.css";
@@ -249,7 +252,7 @@ export default function DataCapturePage() {
   } = useDataCaptureLegacyChrome();
 
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
-  const groupOnlyTable = !isCompanySelected;
+  const groupOnlyTable = !isCompanySelected && canUseGroupOnlyMode(me);
   const submitReset = useDataCaptureSubmitReset({
     companyId: effectiveCompanyId,
     form,
@@ -370,6 +373,7 @@ export default function DataCapturePage() {
           credentials: "include",
         });
         const companiesJson = await companiesRes.json();
+        persistAccessibleGroupIdsFromApi(companiesJson);
 
         const perms = Array.isArray(u.company_permissions) ? u.company_permissions : [];
         if (cancelled) return;
@@ -378,7 +382,10 @@ export default function DataCapturePage() {
           return;
         }
 
-        const raw = Array.isArray(companiesJson?.data) ? companiesJson.data.map(normalizeOwnerCompanyRow) : [];
+        const raw = filterCompaniesForLoginScope(
+          Array.isArray(companiesJson?.data) ? companiesJson.data.map(normalizeOwnerCompanyRow) : [],
+          u
+        );
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
@@ -386,11 +393,13 @@ export default function DataCapturePage() {
         const submittedFromUrl = url.searchParams.get("submitted") === "1";
         const queryGroupOnly = url.searchParams.get("group_only") === "1";
         const sessionMeta = restoreFromUrl ? readCaptureSessionMeta() : null;
+        const allowGroupOnly = canUseGroupOnlyMode(u);
         const groupOnlyBoot =
-          queryGroupOnly ||
-          (sessionMeta?.groupOnlyCapture && restoreFromUrl) ||
-          (submittedFromUrl && queryGroupOnly) ||
-          (isDashboardGroupOnlyMode() && !queryCompany);
+          allowGroupOnly &&
+          (queryGroupOnly ||
+            (sessionMeta?.groupOnlyCapture && restoreFromUrl) ||
+            (submittedFromUrl && queryGroupOnly) ||
+            (isDashboardGroupOnlyMode() && !queryCompany));
 
         let effectiveCompany = groupOnlyBoot
           ? null
@@ -663,6 +672,7 @@ export default function DataCapturePage() {
     onClearCompany: handleClearCompany,
     preferredCompanyId: companyId,
     enableGroupAnchorSession: false,
+    me,
   });
 
   useEffect(() => {

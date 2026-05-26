@@ -457,7 +457,7 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
     useMaintenanceGroupCompanyFilter({
       companies,
       companyId,
@@ -560,6 +560,7 @@ export default function PaymentMaintenancePage() {
         onGroupClick={handleGroupClick}
         onPickCompany={handlePickCompany}
         onClearCompany={handleClearCompany}
+        allowClearCompany={allowClearCompany}
         currencies={currencies}
         selectedCurrency={selectedCurrency}
         setSelectedCurrency={setSelectedCurrency}

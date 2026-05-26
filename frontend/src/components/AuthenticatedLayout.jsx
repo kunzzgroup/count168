@@ -25,6 +25,12 @@ import {
   shouldHideSidebarProcess,
 } from "../utils/company/sharedCompanyFilter.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
+import {
+  canUseGroupOnlyMode,
+  isCompanyLogin,
+  isGroupLogin,
+  loginScopeBodyClass,
+} from "../utils/company/loginScope.js";
 import "../../public/css/modal-close-unified.css";
 
 function formatSidebarExpirationHint(hint, i18n) {
@@ -132,6 +138,15 @@ export default function AuthenticatedLayout() {
       document.body.classList.add("bg");
     };
   }, []);
+
+  useLayoutEffect(() => {
+    const scopeClass = loginScopeBodyClass(me);
+    document.body.classList.toggle("ec-login-scope-group", scopeClass === "ec-login-scope-group");
+    document.body.classList.toggle("ec-login-scope-company", scopeClass === "ec-login-scope-company");
+    return () => {
+      document.body.classList.remove("ec-login-scope-group", "ec-login-scope-company");
+    };
+  }, [me]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -399,6 +414,9 @@ export default function AuthenticatedLayout() {
       sessionReady: !loading && Boolean(me),
       refreshSession,
       lang,
+      isGroupLogin: isGroupLogin(me),
+      isCompanyLogin: isCompanyLogin(me),
+      canUseGroupOnlyMode: canUseGroupOnlyMode(me),
     }),
     [me, loading, refreshSession, lang]
   );

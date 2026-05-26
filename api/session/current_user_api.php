@@ -12,6 +12,7 @@ try {
     require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
     require_once __DIR__ . '/../includes/member_linked_closure.php';
     require_once __DIR__ . '/../../includes/expiration_status.php';
+    require_once __DIR__ . '/../../includes/group_company_access.php';
 } catch (Throwable $e) {
     // Do not fail bootstrap because of DB wiring errors; session data is still enough for routing.
     error_log('current_user_api config load failed: ' . $e->getMessage());
@@ -251,6 +252,10 @@ echo json_encode([
         'login_identifier' => isset($_SESSION['login_identifier'])
             ? (string) $_SESSION['login_identifier']
             : null,
+        'login_group_id' => isset($_SESSION['login_group_id']) && trim((string) $_SESSION['login_group_id']) !== ''
+            ? strtoupper(trim((string) $_SESSION['login_group_id']))
+            : null,
+        'accessible_group_ids' => gc_session_accessible_group_ids(),
         'needs_owner_secondary' => $needsOwnerSecondary,
         'needs_user_secondary' => $needsUserSecondary,
         'expiration_date' => $companyExpirationDateRaw,

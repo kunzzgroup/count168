@@ -514,7 +514,7 @@ export default function FormulaMaintenancePage() {
     }
   };
 
-  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
     useMaintenanceGroupCompanyFilter({
       companies,
       companyId,
@@ -712,6 +712,7 @@ export default function FormulaMaintenancePage() {
         onGroupClick={handleGroupClick}
         onPickCompany={handlePickCompany}
         onClearCompany={handleClearCompany}
+        allowClearCompany={allowClearCompany}
         onClearFilters={handleClearFilters}
         selectedIds={selectedIds}
         confirmDelete={confirmDelete}

@@ -13,6 +13,7 @@ require_once __DIR__ . '/../api_response.php';
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../get_companies_helper.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 
 
 
@@ -21,6 +22,8 @@ try {
         api_error('用户未登录', 401);
         exit;
     }
+
+    gc_hydrate_company_login_group_id($pdo);
 
     $fetchAll = isset($_GET['all']) && $_GET['all'] == '1';
 
@@ -38,7 +41,19 @@ try {
             $active_companies[] = $c; // Keep active or no-expiration
         }
         
-        // Users normally don't have large complex group mapping in dashboard
+        $active_companies = gc_filter_companies_for_login_scope($active_companies);
+        gc_hydrate_accessible_group_ids($pdo, $active_companies);
+
+        if (gc_is_company_login()) {
+            echo json_encode([
+                'success' => true,
+                'message' => '',
+                'data' => $active_companies,
+                'accessible_group_ids' => gc_session_accessible_group_ids(),
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
         api_success($active_companies);
         exit;
     }
@@ -55,6 +70,19 @@ try {
         $active_companies[] = $c; // Keep active or no-expiration
     }
     
+    $active_companies = gc_filter_companies_for_login_scope($active_companies);
+    gc_hydrate_accessible_group_ids($pdo, $active_companies);
+
+    if (gc_is_company_login()) {
+        echo json_encode([
+            'success' => true,
+            'message' => '',
+            'data' => $active_companies,
+            'accessible_group_ids' => gc_session_accessible_group_ids(),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     api_success($active_companies);
 } catch (PDOException $e) {
     api_error('数据库错误: ' . $e->getMessage(), 500);

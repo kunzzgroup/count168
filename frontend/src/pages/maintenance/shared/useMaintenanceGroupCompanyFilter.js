@@ -1,3 +1,4 @@
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { useDashboardStyleGcFilter } from "../../../utils/company/useDashboardStyleGcFilter.js";
 
 /**
@@ -14,7 +15,14 @@ export function useMaintenanceGroupCompanyFilter({
   switchingCompany = false,
   selectFirstCompanyOnGroupChange = false,
 }) {
-  const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
+  const { me } = useAuthSession();
+  const {
+    groupIds,
+    companiesForPicker,
+    handlePickGroup,
+    handlePickCompany,
+    allowClearCompany,
+  } = useDashboardStyleGcFilter({
     companies,
     companyId,
     selectedGroup,
@@ -24,6 +32,7 @@ export function useMaintenanceGroupCompanyFilter({
     switchingCompany,
     preferredCompanyId: companyId,
     selectFirstCompanyOnGroupChange,
+    me,
   });
 
   return {
@@ -37,5 +46,6 @@ export function useMaintenanceGroupCompanyFilter({
     handlePickAllGroups: () => {},
     /** @deprecated */
     followCurrentCompanyGroup: () => {},
+    allowClearCompany,
   };
 }

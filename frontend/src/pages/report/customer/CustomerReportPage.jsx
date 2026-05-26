@@ -337,6 +337,7 @@ export default function CustomerReportPage() {
     companiesForPicker: companyButtons,
     handlePickGroup,
     handlePickCompany,
+    allowClearCompany,
   } = useDashboardStyleGcFilter({
     companies,
     companyId,
@@ -346,6 +347,7 @@ export default function CustomerReportPage() {
     onClearCompany: handleClearCompany,
     switchingCompany: companyHighlightId != null,
     preferredCompanyId: companyHighlightId ?? companyId,
+    me,
   });
 
   const persistCurrencyPrefs = useCallback((compId, currencies, showAll) => {
@@ -516,6 +518,7 @@ export default function CustomerReportPage() {
           companyId={companyId}
           onSwitchCompany={handlePickCompany}
           onClearCompany={handleClearCompany}
+          allowClearCompany={allowClearCompany}
           groupIds={groupIds}
           selectedGroup={selectedGroup}
           onPickGroup={handlePickGroup}

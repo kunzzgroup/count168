@@ -752,7 +752,7 @@ export default function TransactionMaintenancePage() {
     }
   }, [companyId, navigate, notify, t]);
 
-  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
     useMaintenanceGroupCompanyFilter({
       companies,
       companyId,
@@ -815,6 +815,7 @@ export default function TransactionMaintenancePage() {
           onGroupClick={handleGroupClick}
           onPickCompany={handlePickCompany}
           onClearCompany={handleClearCompany}
+          allowClearCompany={allowClearCompany}
           m={m}
         />
 

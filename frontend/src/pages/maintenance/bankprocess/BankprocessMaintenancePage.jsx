@@ -449,6 +449,7 @@ export default function BankprocessMaintenancePage() {
     visibleCompanies,
     handleGroupClick: onGroupClick,
     handlePickCompany,
+    allowClearCompany,
   } = useMaintenanceGroupCompanyFilter({
     companies,
     companyId,
@@ -548,6 +549,7 @@ export default function BankprocessMaintenancePage() {
         onGroupClick={onGroupClick}
         onPickCompany={handlePickCompany}
         onClearCompany={handleClearCompany}
+        allowClearCompany={allowClearCompany}
         companies={companies}
         visibleCompanies={visibleCompanies}
         companyId={companyId}

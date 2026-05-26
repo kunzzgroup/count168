@@ -407,6 +407,7 @@ export default function UserListPage() {
     onClearCompany: handleClearCompany,
     switchingCompany,
     preferredCompanyId: pickerCompanyId,
+    me,
   });
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {

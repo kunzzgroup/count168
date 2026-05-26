@@ -8,6 +8,7 @@
 define('SESSION_KEEP_OPEN', true);
 
 require_once __DIR__ . '/../../includes/session_check.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 
 header('Content-Type: application/json');
 
@@ -160,6 +161,8 @@ try {
         exit;
     }
 
+    gc_hydrate_company_login_group_id($pdo);
+
     $current_user_id = $_SESSION['user_id'];
     $current_user_role = strtolower($_SESSION['role'] ?? '');
     $current_user_type = strtolower($_SESSION['user_type'] ?? '');
@@ -196,6 +199,13 @@ try {
     }
     if (!$valid) {
         jsonResponse(false, '无权限访问该公司', null, 403);
+        exit;
+    }
+
+    try {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $requested_company_id);
+    } catch (RuntimeException $e) {
+        jsonResponse(false, $e->getMessage(), null, 403);
         exit;
     }
     if ($blockedReason === 'expired') {
