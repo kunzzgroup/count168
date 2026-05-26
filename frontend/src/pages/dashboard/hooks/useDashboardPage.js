@@ -38,6 +38,7 @@ import {
   notifyDashboardGroupFilterChanged,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  applyLoginScopeToSessionStorageIfNeeded,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -115,6 +116,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
       setCompanies(cj.data);
+      applyLoginScopeToSessionStorageIfNeeded(u, cj.data);
 
       const fallbackId =
         cj.data.length === 1
@@ -129,7 +131,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       const current =
         cid != null ? cj.data.find((c) => parseInt(c.id, 10) === parseInt(cid, 10)) : null;
-      const group = resolveInitialSelectedGroupFromSession(cj.data, current);
+      const group = resolveInitialSelectedGroupFromSession(cj.data, current, u);
       setSelectedGroup(group);
 
       if (isDashboardGroupOnlyMode()) {

@@ -8,7 +8,93 @@ export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
 export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
 /** Last explicitly selected company id (SPA navigation; overrides stale PHP session when set). */
 export const DASHBOARD_SELECTED_COMPANY_KEY = "dashboard_selected_company_id";
+/** Prevents re-applying login defaults on refresh while the same login session is active. */
+export const DASHBOARD_LOGIN_FILTER_APPLIED_KEY = "dashboard_login_filter_applied";
 export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-changed";
+
+export function clearDashboardFilterSession() {
+  sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
+  sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
+  sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
+  sessionStorage.removeItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY);
+}
+
+export function buildLoginFilterAppliedKey(me) {
+  if (!me?.login_scope || !me?.login_identifier) return null;
+  const uid = me.user_id != null ? String(me.user_id) : "";
+  const scope = String(me.login_scope).trim().toLowerCase();
+  const ident = String(me.login_identifier).trim().toUpperCase();
+  if (!uid || !scope || !ident) return null;
+  return `${uid}|${scope}|${ident}`;
+}
+
+/**
+ * Seed dashboard Group / Company sessionStorage from login scope (company code vs group id).
+ * @returns {{ selectedGroup: string|null, companyId: number|null, groupOnly: boolean }}
+ */
+export function seedDashboardFilterFromLogin({
+  loginScope,
+  loginIdentifier,
+  companies = [],
+  sessionCompanyId = null,
+  sessionCompanyCode = null,
+}) {
+  const ident = String(loginIdentifier || "").trim().toUpperCase();
+  const list = filterCompaniesWithDisplayId(companies);
+
+  if (loginScope === "group" && ident) {
+    persistDashboardGroupFilter(ident);
+    persistDashboardGroupOnlyMode(true);
+    persistDashboardSelectedCompany(null);
+    stripCompanyIdFromUrl();
+    notifyDashboardGroupFilterChanged(ident, null);
+    return { selectedGroup: ident, companyId: null, groupOnly: true };
+  }
+
+  let row = list.find((c) => String(c.company_id || "").trim().toUpperCase() === ident);
+  if (!row && sessionCompanyId != null) {
+    row = list.find((c) => Number(c.id) === Number(sessionCompanyId));
+  }
+  if (
+    !row &&
+    sessionCompanyCode &&
+    String(sessionCompanyCode).trim().toUpperCase() === ident &&
+    sessionCompanyId != null
+  ) {
+    row = { id: sessionCompanyId, company_id: sessionCompanyCode, group_id: null };
+  }
+
+  const cidRaw = row?.id != null ? Number(row.id) : Number(sessionCompanyId);
+  const cid = Number.isFinite(cidRaw) && cidRaw > 0 ? cidRaw : null;
+  const group = row?.group_id ? normalizeCompanyGroupId(row) : null;
+
+  persistDashboardGroupOnlyMode(false);
+  if (group) persistDashboardGroupFilter(group);
+  else sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
+  if (cid) persistDashboardSelectedCompany(cid);
+  else persistDashboardSelectedCompany(null);
+  stripCompanyIdFromUrl();
+  notifyDashboardGroupFilterChanged(group, cid);
+
+  return { selectedGroup: group, companyId: cid, groupOnly: false };
+}
+
+/** Apply login defaults once per login (see {@link buildLoginFilterAppliedKey}). */
+export function applyLoginScopeToSessionStorageIfNeeded(me, companies = []) {
+  const key = buildLoginFilterAppliedKey(me);
+  if (!key || sessionStorage.getItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY) === key) {
+    return false;
+  }
+  seedDashboardFilterFromLogin({
+    loginScope: me.login_scope,
+    loginIdentifier: me.login_identifier,
+    companies,
+    sessionCompanyId: me.company_id,
+    sessionCompanyCode: me.company_code,
+  });
+  sessionStorage.setItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY, key);
+  return true;
+}
 
 export function isDashboardGroupOnlyMode() {
   return sessionStorage.getItem(DASHBOARD_GROUP_ONLY_KEY) === "1";
@@ -229,11 +315,21 @@ export function persistDashboardGroupFilter(selectedGroup) {
 /**
  * Boot-time resolution (matches transaction/maintenance pages): honour session only when it matches current company's group.
  */
-export function resolveInitialSelectedGroupFromSession(companies, currentCompany) {
+export function resolveInitialSelectedGroupFromSession(companies, currentCompany, loginMe = null) {
   const savedRaw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
   const savedGroup = savedRaw ? String(savedRaw).trim().toUpperCase() : null;
   const groups = sortedUniqueGroupIds(companies);
   let selGroup = null;
+
+  if (
+    loginMe?.login_scope === "group" &&
+    loginMe?.login_identifier &&
+    groups.includes(String(loginMe.login_identifier).trim().toUpperCase())
+  ) {
+    const g = String(loginMe.login_identifier).trim().toUpperCase();
+    sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, g);
+    return g;
+  }
 
   if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
     return savedGroup;

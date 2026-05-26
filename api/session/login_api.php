@@ -27,6 +27,7 @@ header('Content-Type: application/json');
 ob_start();
 
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/login_scope.php';
 
 // 检查 $pdo 是否已定义
 if (!isset($pdo) || !$pdo) {
@@ -142,10 +143,15 @@ try {
             $stmt = $pdo->prepare("UPDATE account SET last_login = NOW() WHERE id = ?");
             $stmt->execute([$account['id']]);
 
+            persist_login_filter_scope($pdo, $company_id);
+            $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
             echo json_encode([
                 'status' => 'success',
                 'redirect' => '/member',
                 'user_type' => 'member',
+                'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
+                'login_scope' => $loginFilter['scope'],
+                'login_identifier' => $loginFilter['identifier'],
             ]);
             exit;
         } else {
@@ -238,13 +244,28 @@ try {
             }
         }
 
+        persist_login_filter_scope($pdo, $company_id);
+        $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
+
         if ($needs_secondary_password) {
             // 需要二级密码验证，跳转到二级密码验证页面
-            echo json_encode(['status' => 'success', 'redirect' => '/user-secondary-password']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => '/user-secondary-password',
+                'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
+                'login_scope' => $loginFilter['scope'],
+                'login_identifier' => $loginFilter['identifier'],
+            ]);
         } else {
             // 不需要二级密码验证，直接跳转到dashboard
             $_SESSION['secondary_password_verified'] = true; // 标记为已验证（对于不需要二级密码的用户）
-            echo json_encode(['status' => 'success', 'redirect' => '/dashboard']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => '/dashboard',
+                'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
+                'login_scope' => $loginFilter['scope'],
+                'login_identifier' => $loginFilter['identifier'],
+            ]);
         }
         exit;
         
@@ -319,10 +340,15 @@ try {
                 // Owner 的 remember me 可以存在 session 或另外处理
             }
 
+            persist_login_filter_scope($pdo, $company_id);
+            $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
             echo json_encode([
                 'status' => 'success',
                 'redirect' => '/owner-secondary-password',
                 'user_type' => 'owner',
+                'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
+                'login_scope' => $loginFilter['scope'],
+                'login_identifier' => $loginFilter['identifier'],
             ]);
         } else {
             if ($owner_password_match && $owner_has_expired) {

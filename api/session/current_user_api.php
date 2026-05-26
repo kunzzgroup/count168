@@ -249,6 +249,10 @@ echo json_encode([
         'company_permissions' => is_array($companyPermissionsList) ? $companyPermissionsList : [],
         'company_id' => $companyId ?: null,
         'company_code' => $companyCodeForResponse !== '' ? $companyCodeForResponse : null,
+        'login_scope' => isset($_SESSION['login_scope']) ? (string) $_SESSION['login_scope'] : null,
+        'login_identifier' => isset($_SESSION['login_identifier'])
+            ? (string) $_SESSION['login_identifier']
+            : null,
         'needs_owner_secondary' => $needsOwnerSecondary,
         'needs_user_secondary' => $needsUserSecondary,
         'expiration_date' => $companyExpirationDateRaw,
