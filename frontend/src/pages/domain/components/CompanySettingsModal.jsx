@@ -1,6 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
+import FormDateField from "../../../components/FormDateField.jsx";
+import MaintenanceCalendarPopup from "../../../components/MaintenanceCalendarPopup.jsx";
+import {
+  bindMaintenanceCalendarDismissListeners,
+  closeMaintenanceCalendarPopup,
+  ensureMaintenanceDateRangePicker,
+} from "../../../utils/date/dateRangePicker.js";
+import { parseDdMmYyyyToYmd } from "../../../utils/date/dateUtils.js";
 import {
   SINGLE_CATEGORY_MODE,
   calculateExpirationDate,
@@ -27,6 +36,13 @@ const PERMISSION_LIST = [
 ];
 
 const SHARE_ROLES = ["profit", "sales", "cs", "it"];
+const START_DATE_FIELD_KEY = "company_exp_start_date";
+const START_DATE_FROM_ID = `${START_DATE_FIELD_KEY}_drp_from`;
+
+const MONTH_LABELS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_LABELS_ZH = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS_ZH = ["日", "一", "二", "三", "四", "五", "六"];
 
 /**
  * Company Settings Modal — expiration date + permissions + share %
@@ -57,6 +73,44 @@ export default function CompanySettingsModal({
   const [expDisplay, setExpDisplay] = useState(initCompany.expiration_date ? formatDate(initCompany.expiration_date) : t("notSet"));
   const [permissions, setPermissions] = useState(Array.isArray(initCompany.permissions) ? initCompany.permissions : []);
   const [chargeOnSave, setChargeOnSave] = useState(!!initCompany.apply_commission_payments_on_domain_save);
+  const startDateHandlerRef = useRef(null);
+
+  const monthLabels = isZh ? MONTH_LABELS_ZH : MONTH_LABELS_EN;
+  const weekdaysShort = isZh ? WEEKDAYS_ZH : WEEKDAYS_EN;
+
+  useEffect(() => {
+    startDateHandlerRef.current = (iso) => {
+      if (iso) setStartDate(iso);
+    };
+  });
+
+  useEffect(() => {
+    bindMaintenanceCalendarDismissListeners();
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.init?.({
+      allowEmpty: false,
+      placeholder: t("selectStartDateHint"),
+      clearDateLabel: t("clearDate"),
+      monthLabels,
+      onChange: () => {
+        const binding = window.MaintenanceDateRangePicker?.getActiveRangeBinding?.() || {};
+        if (binding.dateFromId !== START_DATE_FROM_ID) return;
+        const fromDmy = document.getElementById(START_DATE_FROM_ID)?.value?.trim() || "";
+        const iso = parseDdMmYyyyToYmd(fromDmy);
+        startDateHandlerRef.current?.(iso);
+      },
+    });
+    window.MaintenanceDateRangePicker?.bindPickers?.();
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectStartDateHint"),
+      clearDateLabel: t("clearDate"),
+      monthLabels,
+    });
+
+    return () => {
+      closeMaintenanceCalendarPopup();
+    };
+  }, [monthLabels, t]);
 
   // Share %
   const [shareAccounts, setShareAccounts] = useState([]);       // for sales/cs/it
@@ -287,6 +341,7 @@ export default function CompanySettingsModal({
   const companySettingsOverlayZ = 2147483001;
 
   return (
+    <>
     <DomainModalPortal>
       <div
         style={{
@@ -323,13 +378,17 @@ export default function CompanySettingsModal({
               </div>
               {/* Start Date + Period */}
               <div className="company-settings-date-row">
-                <div className="form-group company-settings-field-half">
-                  <label className="cs-company-field-label" htmlFor="expDateStartDate">{t("startDate")}</label>
-                  <input
-                    type="date"
-                    id="expDateStartDate"
+                <div className="form-group company-settings-field-half company-settings-start-date-field">
+                  <FormDateField
+                    fieldKey={START_DATE_FIELD_KEY}
+                    htmlFor="expDateStartDate"
+                    label={t("startDate")}
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    placeholder={t("pickDate")}
+                    clearLabel={t("clearDate")}
+                    className="company-settings-form-date-field"
+                    wrapClassName="company-settings-form-datepicker-wrap"
+                    inputClassName="company-settings-form-datepicker-input"
                   />
                   <small id="expDateStartDateHelp" className="company-settings-start-hint">
                     {t("selectStartDateHint")}
@@ -587,5 +646,17 @@ export default function CompanySettingsModal({
         )}
       </div>
     </DomainModalPortal>
+    {typeof document !== "undefined"
+      ? createPortal(
+          <MaintenanceCalendarPopup
+            className="calendar-popup--domain-company-settings"
+            monthLabels={monthLabels}
+            weekdaysShort={weekdaysShort}
+            clearLabel={t("clearDate")}
+          />,
+          document.body
+        )
+      : null}
+    </>
   );
 }

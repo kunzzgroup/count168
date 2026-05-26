@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/domain.css";
+import "../../../public/css/date-range-picker.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import {

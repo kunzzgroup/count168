@@ -27,7 +27,8 @@ function isCalendarDismissIgnoredTarget(target) {
     target.closest(`#${CALENDAR_POPUP_ID}`) ||
     target.closest(".report-date-range-picker-container") ||
     target.closest(".bank-form-day-picker") ||
-    target.closest(".bank-form-datepicker-wrap")
+    target.closest(".bank-form-datepicker-wrap") ||
+    target.closest(".form-datepicker-wrap")
   );
 }
 
@@ -591,7 +592,7 @@ export function ensureMaintenanceDateRangePicker() {
       syncRangeStateFromHiddenInputs();
       let rect = picker.getBoundingClientRect();
       let barWidth = rect.width;
-      const bankWrap = picker.closest(".bank-form-datepicker-wrap");
+      const bankWrap = picker.closest(".bank-form-datepicker-wrap") || picker.closest(".form-datepicker-wrap");
       const shell = picker.closest(".report-outlined-shell");
       if (bankWrap) {
         rect = bankWrap.getBoundingClientRect();
