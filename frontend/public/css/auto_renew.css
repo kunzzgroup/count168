@@ -5,6 +5,7 @@ body.auto-renew-page-body {
   --auto-renew-toolbar-search-width: clamp(180px, 16vw, 260px);
   --auto-renew-toolbar-date-width: clamp(200px, 15vw, 248px);
   --auto-renew-control-height: 28px;
+  --auto-renew-row-padding-y: 7px;
 }
 
 body.auto-renew-page-body .auto-renew-page .content {
@@ -199,14 +200,20 @@ body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-
 
 /* Header / row share same horizontal inset so grid columns line up */
 body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header.auto-renew-table-header {
+  padding-top: calc(var(--auto-renew-row-padding-y) + 2px) !important;
+  padding-bottom: calc(var(--auto-renew-row-padding-y) + 2px) !important;
   padding-left: 22px !important;
   padding-right: 22px !important;
   box-sizing: border-box;
 }
 
 body.auto-renew-page-body .user-list-table.auto-renew-table .user-card.user-list-row.auto-renew-table-row {
+  padding-top: var(--auto-renew-row-padding-y) !important;
+  padding-bottom: var(--auto-renew-row-padding-y) !important;
   padding-left: 22px !important;
   padding-right: 22px !important;
+  align-items: center;
+  min-height: calc(var(--auto-renew-control-height) + var(--auto-renew-row-padding-y) * 2);
   box-sizing: border-box;
 }
 
@@ -766,8 +773,8 @@ body.auto-renew-page-body .auto-renew-toast.error {
 
   body.auto-renew-page-body .auto-renew-table-panel .user-list-table-header {
     font-size: 11px !important;
-    padding-top: 4px !important;
-    padding-bottom: 4px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
   }
 
   body.auto-renew-page-body .auto-renew-table-panel .user-list-table-header .header-item,
