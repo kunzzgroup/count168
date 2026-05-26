@@ -532,7 +532,10 @@ function auto_renew_count_pending(PDO $pdo): int
 }
 
 /**
- * @return array<string, string> company_code => pending (Domain page badge — pending only)
+ * Domain page company-chip renew badges removed — use Auto Renew page + sidebar pending count.
+ * Kept for API compatibility; returns pending companies not yet renewed for current expiration.
+ *
+ * @return array<string, string> company_code => pending
  */
 function auto_renew_status_map(PDO $pdo): array
 {
@@ -545,6 +548,13 @@ function auto_renew_status_map(PDO $pdo): array
           AND r.status = 'pending'
           AND r.expiration_snapshot = c.expiration_date
           AND DATEDIFF(c.expiration_date, CURDATE()) <= " . (int) AUTO_RENEW_WINDOW_DAYS . "
+          AND NOT EXISTS (
+            SELECT 1
+            FROM company_auto_renew_request ap
+            WHERE ap.company_id = c.id
+              AND ap.status = 'approved'
+              AND ap.new_expiration_date = c.expiration_date
+          )
     ");
     $map = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
