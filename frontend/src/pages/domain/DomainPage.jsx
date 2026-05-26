@@ -21,6 +21,8 @@ import DomainFeeModal from "./components/DomainFeeModal.jsx";
 import CompanyExpirationModal from "./components/CompanyExpirationModal.jsx";
 import DomainFormModal from "./components/DomainFormModal.jsx";
 import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
+import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
+import { fetchAutoRenewStatusMap } from "../autorenew/autoRenewLogic.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 
@@ -29,6 +31,7 @@ export default function DomainPage() {
   const { me, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = (key, params) => getDomainText(lang, key, params);
+  const tRenew = (key, params) => getAutoRenewText(lang, key, params);
 
   // ── Boot / domain data ───────────────────────────────────────────────────────
   const [bootDone, setBootDone] = useState(false);
@@ -61,6 +64,7 @@ export default function DomainPage() {
 
   // ── Domain list ────────────────────────────────────────────────────────────
   const [domains, setDomains] = useState([]);
+  const [renewStatusMap, setRenewStatusMap] = useState({});
 
   // ── Search / Pagination ────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
@@ -107,6 +111,14 @@ export default function DomainPage() {
           return;
         }
         if (!cancelled) setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
+        try {
+          const statusData = await fetchAutoRenewStatusMap();
+          if (!cancelled) {
+            setRenewStatusMap(statusData?.status_map && typeof statusData.status_map === "object" ? statusData.status_map : {});
+          }
+        } catch {
+          if (!cancelled) setRenewStatusMap({});
+        }
         refreshFeeSummary();
       } catch {
         if (!cancelled) setLoadError(t("failedToLoadDomainData"));
@@ -360,12 +372,13 @@ export default function DomainPage() {
                       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                         {visible.map((cid) => {
                           const exp = companiesFull.find((c) => c.company_id === cid)?.expiration_date || "";
+                          const renewStatus = renewStatusMap[String(cid || "").toUpperCase()] || "";
                           return (
                             <span
                               key={cid}
                               role="button"
                               tabIndex={0}
-                              className="domain-company-chip company-badge"
+                              className={`domain-company-chip company-badge${renewStatus === "pending" ? " has-renew-pending" : renewStatus === "approved" ? " has-renew-approved" : ""}`}
                               data-exp={exp || undefined}
                               onClick={(e) => handleCompanyBadgeClick(e, companiesFull)}
                               onKeyDown={(e) => {
@@ -376,6 +389,12 @@ export default function DomainPage() {
                               }}
                             >
                               {cid}
+                              {renewStatus === "pending" ? (
+                                <span className="domain-renew-badge domain-renew-badge--pending">{tRenew("renewBadgePending")}</span>
+                              ) : null}
+                              {renewStatus === "approved" ? (
+                                <span className="domain-renew-badge domain-renew-badge--approved">{tRenew("renewBadgeApproved")}</span>
+                              ) : null}
                             </span>
                           );
                         })}

@@ -83,6 +83,7 @@ $permissions = [];
 $isCurrentCompanyC168 = false;
 $hasC168DomainPageAccess = false;
 $hasC168AutoRenewAccess = false;
+$pendingAutoRenewCount = 0;
 $companyHasGambling = false;
 $companyHasBank = false;
 $companyPermissionsList = [];
@@ -122,6 +123,15 @@ if ($companyId && $pdo instanceof PDO) {
         $hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower((string) ($_SESSION['role'] ?? '')));
         $hasC168AutoRenewAccess = $pdo instanceof PDO
             && userHasC168AutoRenewAccess($pdo, strtolower((string) ($_SESSION['role'] ?? '')), $userType);
+        if ($hasC168AutoRenewAccess) {
+            require_once __DIR__ . '/../includes/auto_renew.php';
+            try {
+                auto_renew_ensure_request_table($pdo);
+                $pendingAutoRenewCount = auto_renew_count_pending($pdo);
+            } catch (Throwable $e) {
+                error_log('current_user_api pending_auto_renew_count: ' . $e->getMessage());
+            }
+        }
 
         if ($userType === 'user' && $isCurrentCompanyC168) {
             $stmtUserSecondary = $pdo->prepare("SELECT secondary_password FROM user WHERE id = ?");
@@ -233,6 +243,7 @@ echo json_encode([
         'is_current_company_c168' => $isCurrentCompanyC168,
         'has_c168_domain_page_access' => $hasC168DomainPageAccess,
         'has_c168_auto_renew_access' => $hasC168AutoRenewAccess,
+        'pending_auto_renew_count' => $pendingAutoRenewCount,
         'company_has_gambling' => $companyHasGambling,
         'company_has_bank' => $companyHasBank,
         'company_permissions' => is_array($companyPermissionsList) ? $companyPermissionsList : [],

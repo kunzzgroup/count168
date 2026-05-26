@@ -1,31 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl } from "../../utils/core/apiUrl.js";
-import { formatDate } from "../domain/domainHelpers.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
+import { formatDate, formatDomainFeeDisplay2 } from "../domain/domainHelpers.js";
 import {
-  fetchAutoRenewCompanies,
-  fetchAutoRenewSettings,
-  saveAutoRenewSettings,
+  approveAutoRenew,
+  AUTO_RENEW_PERIODS,
+  fetchAutoRenewApprovals,
+  rejectAutoRenew,
 } from "./autoRenewLogic.js";
 import {
-  AUTO_RENEW_FILTER_KEYS,
   AUTO_RENEW_PAGE_SIZE,
+  canApproveRow,
   filterAutoRenewRows,
   formatRemainingForRow,
+  getRowDraftValues,
   paginateRows,
+  periodToLabelKey,
   sortAutoRenewRows,
 } from "./autoRenewPageHelpers.js";
-import AutoRenewEditModal, { AutoRenewPeriodCell } from "./components/AutoRenewEditModal.jsx";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/auto_renew.css";
-import "../../../public/css/domain.css";
 
-function FilterChip({ active, label, onClick }) {
+function FilterChip({ active, label, count, onClick }) {
   return (
     <button type="button" className={`user-filter-chip${active ? " is-selected" : ""}`} aria-pressed={active} onClick={onClick}>
       <span className="user-filter-chip__dot" aria-hidden>
@@ -35,8 +35,29 @@ function FilterChip({ active, label, onClick }) {
           </svg>
         ) : null}
       </span>
-      <span className="user-filter-chip__label">{label}</span>
+      <span className="user-filter-chip__label">
+        {label}
+        {count != null ? <span className="auto-renew-chip-count">{count}</span> : null}
+      </span>
     </button>
+  );
+}
+
+function AccountSelect({ value, accounts, placeholder, disabled, onChange }) {
+  return (
+    <select
+      className="auto-renew-inline-select"
+      value={value || ""}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : "")}
+    >
+      <option value="">{placeholder}</option>
+      {(accounts || []).map((acc) => (
+        <option key={acc.id} value={acc.id}>
+          {acc.account_code}{acc.name ? ` — ${acc.name}` : ""}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -48,20 +69,17 @@ export default function AutoRenewPage() {
 
   const [bootDone, setBootDone] = useState(false);
   const [loadError, setLoadError] = useState("");
-  const [companies, setCompanies] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
   const [canEditGlobal, setCanEditGlobal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState(() =>
-    Object.fromEntries(AUTO_RENEW_FILTER_KEYS.map((key) => [key, false])),
-  );
-  const [sortColumn, setSortColumn] = useState("company");
+  const [sortColumn, setSortColumn] = useState("expiration");
   const [sortDirection, setSortDirection] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
-  const [editRow, setEditRow] = useState(null);
-  const [editEnabled, setEditEnabled] = useState(false);
-  const [editPeriod, setEditPeriod] = useState("1month");
-  const [editLoading, setEditLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [rowDrafts, setRowDrafts] = useState({});
+  const [busyRequestId, setBusyRequestId] = useState(null);
   const [toasts, setToasts] = useState([]);
 
   const notify = useCallback((message, type = "success") => {
@@ -78,6 +96,15 @@ export default function AutoRenewPage() {
     };
   }, []);
 
+  const loadList = useCallback(async (status) => {
+    const data = await fetchAutoRenewApprovals(status);
+    setRows(Array.isArray(data?.rows) ? data.rows : []);
+    setAccounts(Array.isArray(data?.accounts) ? data.accounts : []);
+    setCounts(data?.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
+    setCanEditGlobal(Boolean(data?.can_edit));
+    setRowDrafts({});
+  }, []);
+
   useEffect(() => {
     if (!sessionReady || !me) return;
 
@@ -92,11 +119,8 @@ export default function AutoRenewPage() {
       }
 
       try {
-        const listData = await fetchAutoRenewCompanies();
-        if (cancelled) return;
-        setCompanies(Array.isArray(listData?.companies) ? listData.companies : []);
-        setCanEditGlobal(Boolean(listData?.can_edit));
-        setBootDone(true);
+        await loadList(statusFilter);
+        if (!cancelled) setBootDone(true);
       } catch (err) {
         if (cancelled) return;
         setLoadError(err.message || "load");
@@ -107,15 +131,58 @@ export default function AutoRenewPage() {
     return () => {
       cancelled = true;
     };
-  }, [me, navigate, sessionReady]);
+  }, [me, navigate, sessionReady, statusFilter, loadList]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filters, sortColumn, sortDirection]);
+  }, [searchTerm, statusFilter, sortColumn, sortDirection]);
 
-  const toggleFilter = useCallback((key) => {
-    setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
+  const updateDraft = useCallback((requestId, patch) => {
+    setRowDrafts((prev) => ({
+      ...prev,
+      [requestId]: { ...(prev[requestId] || {}), ...patch },
+    }));
   }, []);
+
+  const handleApprove = useCallback(async (row) => {
+    if (!canEditGlobal || busyRequestId) return;
+    const { period, fromAccountId, toAccountId } = getRowDraftValues(row, rowDrafts);
+    if (!canApproveRow(row, rowDrafts)) return;
+
+    if (!window.confirm(t("confirmApprove", { company: row.company_code }))) return;
+
+    setBusyRequestId(row.request_id);
+    try {
+      await approveAutoRenew({
+        requestId: row.request_id,
+        period,
+        fromAccountId,
+        toAccountId,
+      });
+      notify(t("approvedSuccess"), "success");
+      await loadList(statusFilter);
+    } catch (err) {
+      notify(t("approveFailed", { message: err.message }), "error");
+    } finally {
+      setBusyRequestId(null);
+    }
+  }, [busyRequestId, canEditGlobal, loadList, notify, rowDrafts, statusFilter, t]);
+
+  const handleReject = useCallback(async (row) => {
+    if (!canEditGlobal || busyRequestId) return;
+    if (!window.confirm(t("confirmReject", { company: row.company_code }))) return;
+
+    setBusyRequestId(row.request_id);
+    try {
+      await rejectAutoRenew({ requestId: row.request_id });
+      notify(t("rejectedSuccess"), "success");
+      await loadList(statusFilter);
+    } catch (err) {
+      notify(t("rejectFailed", { message: err.message }), "error");
+    } finally {
+      setBusyRequestId(null);
+    }
+  }, [busyRequestId, canEditGlobal, loadList, notify, statusFilter, t]);
 
   const handleSort = useCallback(
     (column) => {
@@ -126,60 +193,14 @@ export default function AutoRenewPage() {
   );
 
   const filteredRows = useMemo(
-    () => sortAutoRenewRows(filterAutoRenewRows(companies, { searchTerm, filters }), sortColumn, sortDirection),
-    [companies, filters, searchTerm, sortColumn, sortDirection],
+    () => sortAutoRenewRows(filterAutoRenewRows(rows, { searchTerm }), sortColumn, sortDirection),
+    [rows, searchTerm, sortColumn, sortDirection],
   );
 
   const pagination = useMemo(
     () => paginateRows(filteredRows, currentPage, AUTO_RENEW_PAGE_SIZE),
     [filteredRows, currentPage],
   );
-
-  const openEdit = useCallback(async (row) => {
-    setEditRow(row);
-    setEditEnabled(Boolean(row.auto_renew_enabled));
-    setEditPeriod(row.auto_renew_period || "1month");
-    setEditLoading(true);
-    try {
-      const fresh = await fetchAutoRenewSettings(row.company_numeric_id);
-      setEditRow({ ...row, ...fresh });
-      setEditEnabled(Boolean(fresh.auto_renew_enabled));
-      setEditPeriod(fresh.auto_renew_period || "1month");
-    } catch (err) {
-      notify(t("loadFailed", { message: err.message }), "error");
-      setEditRow(null);
-    } finally {
-      setEditLoading(false);
-    }
-  }, [notify, t]);
-
-  const closeEdit = useCallback(() => {
-    if (saving) return;
-    setEditRow(null);
-  }, [saving]);
-
-  const handleSave = useCallback(async () => {
-    if (!editRow || saving) return;
-    setSaving(true);
-    try {
-      const saved = await saveAutoRenewSettings({
-        targetCompanyId: editRow.company_numeric_id,
-        autoRenewEnabled: editEnabled,
-        autoRenewPeriod: editEnabled ? editPeriod : null,
-      });
-      setCompanies((prev) =>
-        prev.map((row) =>
-          row.company_numeric_id === editRow.company_numeric_id ? { ...row, ...saved } : row,
-        ),
-      );
-      notify(t("saved"), "success");
-      setEditRow(null);
-    } catch (err) {
-      notify(t("saveFailed", { message: err.message }), "error");
-    } finally {
-      setSaving(false);
-    }
-  }, [editEnabled, editPeriod, editRow, notify, saving, t]);
 
   const renderSortIcon = (column) => (
     <span className={`account-sort-icon${sortColumn === column ? ` is-active is-${sortDirection}` : ""}`} aria-hidden="true">
@@ -205,6 +226,41 @@ export default function AutoRenewPage() {
       {renderSortIcon(column)}
     </div>
   );
+
+  const renderStatusCell = (row) => {
+    if (row.status === "pending" && canEditGlobal) {
+      const approveEnabled = canApproveRow(row, rowDrafts) && busyRequestId !== row.request_id;
+      return (
+        <div className="auto-renew-action-btns">
+          <button
+            type="button"
+            className="auto-renew-btn auto-renew-btn-primary auto-renew-btn--sm"
+            disabled={!approveEnabled}
+            title={!row.price ? t("noPriceHint") : undefined}
+            onClick={() => handleApprove(row)}
+          >
+            {busyRequestId === row.request_id ? t("processing") : t("approve")}
+          </button>
+          <button
+            type="button"
+            className="auto-renew-btn auto-renew-btn-secondary auto-renew-btn--sm"
+            disabled={busyRequestId === row.request_id}
+            onClick={() => handleReject(row)}
+          >
+            {t("reject")}
+          </button>
+        </div>
+      );
+    }
+
+    const statusClass =
+      row.status === "approved" ? "is-approved" : row.status === "rejected" ? "is-rejected" : "is-pending";
+    return (
+      <span className={`auto-renew-approval-badge ${statusClass}`}>
+        {t(`status${row.status.charAt(0).toUpperCase()}${row.status.slice(1)}`)}
+      </span>
+    );
+  };
 
   if (!sessionReady || !bootDone) {
     return <PageContentLoader />;
@@ -249,80 +305,143 @@ export default function AutoRenewPage() {
                     />
                   </div>
                   <div className="userlist-filter-chips" role="group" aria-label={t("filterGroupLabel")}>
-                    <FilterChip active={filters.showAutoRenew} label={t("filterShowAutoRenew")} onClick={() => toggleFilter("showAutoRenew")} />
-                    <FilterChip active={filters.autoRenewOff} label={t("filterAutoRenewOff")} onClick={() => toggleFilter("autoRenewOff")} />
-                    <FilterChip active={filters.expiringSoon} label={t("filterExpiringSoon")} onClick={() => toggleFilter("expiringSoon")} />
-                    <FilterChip active={filters.expired} label={t("filterExpired")} onClick={() => toggleFilter("expired")} />
-                    <FilterChip active={filters.noExpiration} label={t("filterNoExpiration")} onClick={() => toggleFilter("noExpiration")} />
+                    <FilterChip
+                      active={statusFilter === "pending"}
+                      label={t("filterPending")}
+                      count={counts.pending}
+                      onClick={() => setStatusFilter("pending")}
+                    />
+                    <FilterChip
+                      active={statusFilter === "approved"}
+                      label={t("filterApproved")}
+                      count={counts.approved}
+                      onClick={() => setStatusFilter("approved")}
+                    />
+                    <FilterChip
+                      active={statusFilter === "rejected"}
+                      label={t("filterRejected")}
+                      count={counts.rejected}
+                      onClick={() => setStatusFilter("rejected")}
+                    />
+                    <FilterChip
+                      active={statusFilter === "all"}
+                      label={t("filterShowAll")}
+                      count={counts.total}
+                      onClick={() => setStatusFilter("all")}
+                    />
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
+          {!canEditGlobal && (
+            <div className="auto-renew-notice warn">{t("readOnlyNotice")}</div>
+          )}
+
           <div className="user-list-table auto-renew-table">
             <div className="user-list-table-inner">
               <div className="table-header user-list-table-header auto-renew-table-header">
+                <div className="header-item"><span className="header-item__label">{t("colNo")}</span></div>
                 {renderHeader("company", t("colCompany"))}
-                {renderHeader("group", t("colGroup"))}
+                {renderHeader("name", t("colName"))}
+                {renderHeader("price", t("colPrice"))}
                 {renderHeader("expiration", t("colExpiration"))}
                 {renderHeader("remaining", t("colRemaining"))}
-                {renderHeader("autoRenew", t("colAutoRenew"))}
                 {renderHeader("period", t("colPeriod"))}
-                <div className="header-item header-item--action">
-                  <span className="header-item__label">{t("colAction")}</span>
-                </div>
+                {renderHeader("status", t("colStatus"))}
+                <div className="header-item"><span className="header-item__label">{t("colFromAccount")}</span></div>
+                <div className="header-item"><span className="header-item__label">{t("colToAccount")}</span></div>
               </div>
 
-              <div className="user-cards" aria-busy={editLoading}>
+              <div className="user-cards" aria-busy={Boolean(busyRequestId)}>
                 {pagination.rows.length === 0 ? (
                   <div className="user-card user-list-row auto-renew-table-empty show-card row-even" role="status">
                     {t("noResults")}
                   </div>
                 ) : (
-                  pagination.rows.map((row, idx) => (
-                    <div
-                      key={row.company_numeric_id}
-                      className={`user-card user-list-row auto-renew-table-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
-                    >
-                      <div className="card-item card-item--strong">{row.company_code}</div>
-                      <div className="card-item">{row.group_id || "-"}</div>
-                      <div className="card-item">
-                        {row.expiration_date ? formatDate(row.expiration_date) : t("notSet")}
+                  pagination.rows.map((row, idx) => {
+                    const globalIdx = (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
+                    const isPendingEditable = row.status === "pending" && canEditGlobal;
+                    const draft = getRowDraftValues(row, rowDrafts);
+                    const rowBusy = busyRequestId === row.request_id;
+
+                    return (
+                      <div
+                        key={row.request_id}
+                        className={`user-card user-list-row auto-renew-table-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
+                      >
+                        <div className="card-item auto-renew-table-muted">{globalIdx}</div>
+                        <div className="card-item card-item--strong">{row.company_code}</div>
+                        <div className="card-item">{row.owner_name || "-"}</div>
+                        <div className="card-item">
+                          {row.price ? formatDomainFeeDisplay2(row.price) : <span className="auto-renew-table-muted">—</span>}
+                        </div>
+                        <div className="card-item">{row.expiration_date ? formatDate(row.expiration_date) : "-"}</div>
+                        <div className="card-item">
+                          <span className={`auto-renew-status-badge ${row.expiration_status || "normal"}`}>
+                            {formatRemainingForRow(row, t)}
+                          </span>
+                        </div>
+                        <div className="card-item">
+                          {isPendingEditable ? (
+                            <select
+                              className="auto-renew-inline-select"
+                              value={draft.period}
+                              disabled={rowBusy}
+                              onChange={(e) => updateDraft(row.request_id, { period: e.target.value })}
+                            >
+                              <option value="">{t("selectPeriod")}</option>
+                              {AUTO_RENEW_PERIODS.map((p) => (
+                                <option key={p.value} value={p.value}>
+                                  {t(p.labelKey)}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span>{row.period ? t(periodToLabelKey(row.period)) : "-"}</span>
+                          )}
+                        </div>
+                        <div className="card-item">{renderStatusCell(row)}</div>
+                        <div className="card-item">
+                          {isPendingEditable ? (
+                            <AccountSelect
+                              value={draft.fromAccountId}
+                              accounts={accounts}
+                              placeholder={t("selectFromAccount")}
+                              disabled={rowBusy}
+                              onChange={(val) => updateDraft(row.request_id, { fromAccountId: val })}
+                            />
+                          ) : (
+                            <span className="auto-renew-table-muted">
+                              {accounts.find((a) => a.id === row.from_account_id)?.account_code || "-"}
+                            </span>
+                          )}
+                        </div>
+                        <div className="card-item">
+                          {isPendingEditable ? (
+                            <AccountSelect
+                              value={draft.toAccountId}
+                              accounts={accounts}
+                              placeholder={t("selectToAccount")}
+                              disabled={rowBusy}
+                              onChange={(val) => updateDraft(row.request_id, { toAccountId: val })}
+                            />
+                          ) : (
+                            <span className="auto-renew-table-muted">
+                              {accounts.find((a) => a.id === row.to_account_id)?.account_code || "-"}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="card-item">
-                        <span className={`auto-renew-status-badge ${row.expiration_status || "normal"}`}>
-                          {formatRemainingForRow(row, t)}
-                        </span>
-                      </div>
-                      <div className="card-item">
-                        <span className={`auto-renew-pill${row.auto_renew_enabled ? " is-on" : ""}`}>
-                          {row.auto_renew_enabled ? t("autoRenewOnShort") : t("autoRenewOffShort")}
-                        </span>
-                      </div>
-                      <div className="card-item">
-                        <AutoRenewPeriodCell period={row.auto_renew_period} t={t} />
-                      </div>
-                      <div className="card-item card-item--action">
-                        <button
-                          type="button"
-                          className="btn btn-edit"
-                          aria-label={t("edit")}
-                          disabled={!canEditGlobal}
-                          style={{ opacity: canEditGlobal ? 1 : 0.35 }}
-                          onClick={() => openEdit(row)}
-                        >
-                          <img src={assetUrl("images/edit.svg")} alt="" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
           </div>
 
-          {pagination.totalPages > 1 && (
+          {filteredRows.length > 0 && (
             <div className="auto-renew-pagination">
               <button
                 type="button"
@@ -333,13 +452,13 @@ export default function AutoRenewPage() {
                 {t("prevPage")}
               </button>
               <span className="auto-renew-page-info">
-                {t("pageInfo", { page: pagination.page, total: pagination.totalPages, count: pagination.total })}
+                {t("pageInfo", { page: pagination.page, total: pagination.totalPages, count: filteredRows.length })}
               </span>
               <button
                 type="button"
                 className="auto-renew-page-btn"
                 disabled={pagination.page >= pagination.totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
+                onClick={() => setCurrentPage((p) => p + 1)}
               >
                 {t("nextPage")}
               </button>
@@ -347,20 +466,6 @@ export default function AutoRenewPage() {
           )}
         </div>
       </div>
-
-      <AutoRenewEditModal
-        open={Boolean(editRow) && !editLoading}
-        row={editRow}
-        enabled={editEnabled}
-        period={editPeriod}
-        saving={saving}
-        canEdit={canEditGlobal}
-        onEnabledChange={setEditEnabled}
-        onPeriodChange={setEditPeriod}
-        onClose={closeEdit}
-        onSave={handleSave}
-        t={t}
-      />
     </>
   );
 }

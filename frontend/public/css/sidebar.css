@@ -1905,3 +1905,19 @@ body.ec-auth-shell #root > :is(
     box-sizing: border-box;
 }
 
+.informationmenu-section-title .sidebar-pending-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    margin-left: auto;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+

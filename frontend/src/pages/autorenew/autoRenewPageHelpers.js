@@ -2,14 +2,6 @@ import { calculateCountdown } from "../domain/domainHelpers.js";
 
 export const AUTO_RENEW_PAGE_SIZE = 20;
 
-export const AUTO_RENEW_FILTER_KEYS = [
-  "showAutoRenew",
-  "autoRenewOff",
-  "expiringSoon",
-  "expired",
-  "noExpiration",
-];
-
 export function periodToLabelKey(period) {
   const map = {
     "7days": "period7days",
@@ -36,33 +28,13 @@ export function rowMatchesSearch(row, searchTerm) {
   const q = String(searchTerm || "").trim().toUpperCase();
   if (!q) return true;
   const company = String(row.company_code || "").toUpperCase();
+  const name = String(row.owner_name || "").toUpperCase();
   const group = String(row.group_id || "").toUpperCase();
-  return company.includes(q) || group.includes(q);
+  return company.includes(q) || name.includes(q) || group.includes(q);
 }
 
-export function rowMatchesFilters(row, filters) {
-  const active = AUTO_RENEW_FILTER_KEYS.filter((key) => filters[key]);
-  if (active.length === 0) return true;
-
-  const days = row.days_until_expiration;
-  const hasExp = Boolean(row.expiration_date);
-  const enabled = Boolean(row.auto_renew_enabled);
-
-  const checks = {
-    showAutoRenew: enabled,
-    autoRenewOff: !enabled,
-    expiringSoon: hasExp && days != null && days >= 0 && days <= 30,
-    expired: hasExp && days != null && days < 0,
-    noExpiration: !hasExp,
-  };
-
-  return active.some((key) => checks[key]);
-}
-
-export function filterAutoRenewRows(rows, { searchTerm, filters }) {
-  return (Array.isArray(rows) ? rows : []).filter(
-    (row) => rowMatchesSearch(row, searchTerm) && rowMatchesFilters(row, filters),
-  );
+export function filterAutoRenewRows(rows, { searchTerm }) {
+  return (Array.isArray(rows) ? rows : []).filter((row) => rowMatchesSearch(row, searchTerm));
 }
 
 export function sortAutoRenewRows(rows, sortColumn, sortDirection) {
@@ -73,6 +45,14 @@ export function sortAutoRenewRows(rows, sortColumn, sortDirection) {
     let av;
     let bv;
     switch (sortColumn) {
+      case "name":
+        av = String(a.owner_name || "").toUpperCase();
+        bv = String(b.owner_name || "").toUpperCase();
+        break;
+      case "price":
+        av = parseFloat(a.price || "0") || 0;
+        bv = parseFloat(b.price || "0") || 0;
+        break;
       case "group":
         av = String(a.group_id || "").toUpperCase();
         bv = String(b.group_id || "").toUpperCase();
@@ -85,13 +65,13 @@ export function sortAutoRenewRows(rows, sortColumn, sortDirection) {
         av = a.days_until_expiration ?? 999999;
         bv = b.days_until_expiration ?? 999999;
         break;
-      case "autoRenew":
-        av = a.auto_renew_enabled ? 1 : 0;
-        bv = b.auto_renew_enabled ? 1 : 0;
+      case "status":
+        av = String(a.status || "");
+        bv = String(b.status || "");
         break;
       case "period":
-        av = String(a.auto_renew_period || "");
-        bv = String(b.auto_renew_period || "");
+        av = String(a.period || "");
+        bv = String(b.period || "");
         break;
       case "company":
       default:
@@ -118,4 +98,19 @@ export function paginateRows(rows, page, pageSize = AUTO_RENEW_PAGE_SIZE) {
     total,
     rows: rows.slice(start, start + pageSize),
   };
+}
+
+export function getRowDraftValues(row, drafts) {
+  const draft = drafts[row.request_id] || {};
+  return {
+    period: draft.period ?? row.period ?? "",
+    fromAccountId: draft.fromAccountId ?? row.from_account_id ?? row.default_from_account_id ?? "",
+    toAccountId: draft.toAccountId ?? row.to_account_id ?? "",
+  };
+}
+
+export function canApproveRow(row, drafts) {
+  if (row.status !== "pending" || !row.can_approve) return false;
+  const { period, fromAccountId, toAccountId } = getRowDraftValues(row, drafts);
+  return Boolean(period && fromAccountId && toAccountId && row.price);
 }

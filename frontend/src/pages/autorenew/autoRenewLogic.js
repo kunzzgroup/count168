@@ -8,6 +8,8 @@ export const AUTO_RENEW_PERIODS = [
   { value: "1year", labelKey: "period1year" },
 ];
 
+export const AUTO_RENEW_STATUS_FILTERS = ["pending", "approved", "rejected", "all"];
+
 async function postAutoRenew(body) {
   const res = await fetch(buildApiUrl("api/subscription/auto_renew_api.php"), {
     method: "POST",
@@ -22,19 +24,38 @@ async function postAutoRenew(body) {
   return json.data;
 }
 
-export async function fetchAutoRenewCompanies() {
-  return postAutoRenew({ action: "list_companies" });
+export async function fetchAutoRenewApprovals(status = "pending") {
+  return postAutoRenew({ action: "list", status });
 }
 
-export async function fetchAutoRenewSettings(targetCompanyId) {
-  return postAutoRenew({ action: "get", target_company_id: targetCompanyId });
+export async function fetchAutoRenewStatusMap() {
+  return postAutoRenew({ action: "status_map" });
 }
 
-export async function saveAutoRenewSettings({ targetCompanyId, autoRenewEnabled, autoRenewPeriod }) {
+export async function saveAutoRenewDraft({ requestId, period, fromAccountId, toAccountId }) {
   return postAutoRenew({
-    action: "update",
-    target_company_id: targetCompanyId,
-    auto_renew_enabled: autoRenewEnabled,
-    auto_renew_period: autoRenewPeriod,
+    action: "save_draft",
+    request_id: requestId,
+    period: period || null,
+    from_account_id: fromAccountId || null,
+    to_account_id: toAccountId || null,
+  });
+}
+
+export async function approveAutoRenew({ requestId, period, fromAccountId, toAccountId }) {
+  return postAutoRenew({
+    action: "approve",
+    request_id: requestId,
+    period,
+    from_account_id: fromAccountId,
+    to_account_id: toAccountId,
+  });
+}
+
+export async function rejectAutoRenew({ requestId, rejectReason }) {
+  return postAutoRenew({
+    action: "reject",
+    request_id: requestId,
+    reject_reason: rejectReason || "",
   });
 }

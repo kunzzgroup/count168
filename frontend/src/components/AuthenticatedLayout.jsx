@@ -507,6 +507,11 @@ export default function AuthenticatedLayout() {
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
                 </svg>
                 <span className="sidebar-menu-label">{i18n.sidebarAutoRenew}</span>
+                {me?.pending_auto_renew_count > 0 ? (
+                  <span className="sidebar-pending-badge" aria-label={`${me.pending_auto_renew_count} pending`}>
+                    {me.pending_auto_renew_count}
+                  </span>
+                ) : null}
               </div>
             </div>
           )}

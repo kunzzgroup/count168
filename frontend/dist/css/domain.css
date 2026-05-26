@@ -4559,3 +4559,35 @@ body.domain-page .domain-confirm-modal-content .confirmDeleteBtn {
     }
 }
 
+body.domain-page .domain-react-page .domain-company-chip.has-renew-pending {
+    gap: 4px;
+    padding-right: 4px;
+}
+
+body.domain-page .domain-react-page .domain-company-chip.has-renew-approved {
+    gap: 4px;
+    padding-right: 4px;
+}
+
+body.domain-page .domain-react-page .domain-renew-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    text-transform: none;
+}
+
+body.domain-page .domain-react-page .domain-renew-badge--pending {
+    background: rgba(251, 191, 36, 0.35);
+    color: #92400e;
+}
+
+body.domain-page .domain-react-page .domain-renew-badge--approved {
+    background: rgba(16, 185, 129, 0.25);
+    color: #047857;
+}
+
