@@ -45,14 +45,6 @@ body.auto-renew-page-body .auto-renew-toolbar-panel .action-buttons-container {
 }
 
 /* Table panel */
-body.auto-renew-page-body .auto-renew-table-panel {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
-}
-
 body.auto-renew-page-body .auto-renew-table-panel .user-list-table {
   margin: 0;
 }
@@ -68,7 +60,8 @@ body.auto-renew-page-body .auto-renew-table-panel .auto-renew-pagination {
   margin-top: 0;
 }
 
-/* 10-column grid */
+/* 10-column grid — beat global-13inch 9-col override on laptop */
+body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
 body.auto-renew-page-body .user-list-table.auto-renew-table {
   --user-list-grid-cols:
     48px
@@ -83,6 +76,7 @@ body.auto-renew-page-body .user-list-table.auto-renew-table {
     minmax(120px, 1fr);
 }
 
+body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
 body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table {
   --user-list-grid-cols:
     54px
@@ -97,8 +91,38 @@ body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table {
     minmax(120px, 1fr);
 }
 
-body.auto-renew-page-body .auto-renew-table-inner {
+body.auto-renew-page-body .auto-renew-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .auto-renew-table-panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+}
+
+/* Scroll lives on inner — panel must not clip horizontal scroll */
+body.auto-renew-page-body .auto-renew-table-panel.user-table-wrapper {
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+body.auto-renew-page-body .auto-renew-table-panel .user-list-table-inner {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+body.auto-renew-page-body .auto-renew-table-panel .user-cards.auto-renew-cards {
+  overflow-x: visible;
+  overflow-y: visible;
 }
 
 body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(1) {
@@ -379,5 +403,178 @@ body.auto-renew-page-body .auto-renew-toast.error {
   body.auto-renew-page-body .auto-renew-toolbar-panel,
   body.auto-renew-page-body .auto-renew-table-panel {
     border-radius: 12px;
+  }
+
+  body.auto-renew-page-body .auto-renew-page-header {
+    margin-bottom: 12px;
+  }
+
+  body.auto-renew-page-body .auto-renew-page-subtitle {
+    font-size: 13px;
+  }
+
+  /* Laptop: table wider than content — enable horizontal scroll */
+  body.auto-renew-page-body .auto-renew-table-panel .user-list-table-inner {
+    min-width: max(100%, 1080px);
+  }
+
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
+  body.auto-renew-page-body .user-list-table.auto-renew-table {
+    --user-list-grid-cols:
+      44px
+      72px
+      96px
+      68px
+      92px
+      88px
+      96px
+      112px
+      112px
+      112px !important;
+  }
+}
+
+/* Tablet ≤1024 — align with admin-responsive user-page patterns */
+@media (max-width: 1024px) {
+  body.auto-renew-page-body .container.auto-renew-page {
+    padding-right: clamp(12px, 1.5vw, 24px);
+  }
+
+  body.auto-renew-page-body .auto-renew-toolbar-panel {
+    padding: 12px;
+  }
+
+  body.auto-renew-page-body .auto-renew-toolbar-row {
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 10px;
+  }
+
+  body.auto-renew-page-body .auto-renew-toolbar-left {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  body.auto-renew-page-body .search-container.userlist-search-bar {
+    flex: 1 1 100%;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  body.auto-renew-page-body .auto-renew-filter-chips {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip {
+    min-width: 0 !important;
+    flex: 1 1 calc(50% - 6px);
+    justify-content: flex-start;
+  }
+
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(1),
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(2),
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(3),
+  body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:nth-child(4) {
+    min-width: 0 !important;
+  }
+
+  body.auto-renew-page-body .auto-renew-table-panel .user-list-table-inner {
+    min-width: max(100%, 1040px);
+  }
+
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
+  body.auto-renew-page-body .user-list-table.auto-renew-table {
+    --user-list-grid-cols:
+      40px
+      68px
+      88px
+      64px
+      84px
+      80px
+      88px
+      100px
+      100px
+      100px !important;
+  }
+
+  body.auto-renew-page-body .auto-renew-table-panel .user-list-table-header {
+    font-size: 11px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  body.auto-renew-page-body .auto-renew-table-panel .user-list-table-header .header-item,
+  body.auto-renew-page-body .auto-renew-table-row .card-item {
+    font-size: 10px !important;
+    line-height: 1.35;
+  }
+
+  body.auto-renew-page-body .auto-renew-inline-select {
+    font-size: 10px;
+    padding: 5px 6px;
+  }
+
+  body.auto-renew-page-body .auto-renew-btn {
+    font-size: 10px;
+    padding: 5px 8px;
+    min-width: 56px;
+  }
+
+  body.auto-renew-page-body .auto-renew-empty-state {
+    padding: 36px 16px 44px;
+  }
+
+  body.auto-renew-page-body .auto-renew-empty-state__hint {
+    max-width: 22rem;
+    font-size: 12px;
+  }
+}
+
+/* Counter global-13inch.css 9-column override (loads via app-shell, max-width 1440px) */
+@media screen and (max-width: 1440px) {
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table {
+    --user-list-grid-cols:
+      48px
+      minmax(72px, 0.85fr)
+      minmax(100px, 1fr)
+      minmax(72px, 0.75fr)
+      minmax(100px, 0.9fr)
+      minmax(96px, 0.85fr)
+      minmax(100px, 0.9fr)
+      minmax(120px, 1fr)
+      minmax(120px, 1fr)
+      minmax(120px, 1fr) !important;
+    --user-list-grid-cols-bulk:
+      48px
+      minmax(72px, 0.85fr)
+      minmax(100px, 1fr)
+      minmax(72px, 0.75fr)
+      minmax(100px, 0.9fr)
+      minmax(96px, 0.85fr)
+      minmax(100px, 0.9fr)
+      minmax(120px, 1fr)
+      minmax(120px, 1fr)
+      minmax(120px, 1fr) !important;
+  }
+
+  body.lang-zh.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table {
+    --user-list-grid-cols:
+      54px
+      minmax(72px, 0.85fr)
+      minmax(100px, 1fr)
+      minmax(72px, 0.75fr)
+      minmax(100px, 0.9fr)
+      minmax(96px, 0.85fr)
+      minmax(100px, 0.9fr)
+      minmax(120px, 1fr)
+      minmax(120px, 1fr)
+      minmax(120px, 1fr) !important;
+  }
+
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table .table-header.user-list-table-header,
+  body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table .user-card.auto-renew-table-row {
+    grid-template-columns: var(--user-list-grid-cols) !important;
   }
 }

@@ -322,8 +322,8 @@ export default function AutoRenewPage() {
 
           <div className="auto-renew-toolbar-panel">
             <div className="action-buttons-container">
-              <div className="action-buttons">
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div className="action-buttons auto-renew-toolbar-row">
+                <div className="auto-renew-toolbar-left">
                   <div className="search-container userlist-search-bar">
                     <span className="userlist-search-bar__icon" aria-hidden="true">
                       <svg fill="currentColor" viewBox="0 0 24 24">
@@ -373,7 +373,7 @@ export default function AutoRenewPage() {
             <div className="auto-renew-notice warn">{t("readOnlyNotice")}</div>
           )}
 
-          <div className="auto-renew-table-panel">
+          <div className="auto-renew-table-panel user-table-wrapper">
           <div className="user-list-table auto-renew-table">
             <div className="user-list-table-inner">
               <div className="table-header user-list-table-header auto-renew-table-header">
