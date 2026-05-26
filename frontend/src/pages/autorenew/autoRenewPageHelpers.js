@@ -2,6 +2,39 @@ import { calculateCountdown } from "../domain/domainHelpers.js";
 
 export const AUTO_RENEW_PAGE_SIZE = 20;
 
+const PERIOD_SORT_ORDER = {
+  "7days": 1,
+  "1month": 2,
+  "3months": 3,
+  "6months": 4,
+  "1year": 5,
+};
+
+const STATUS_SORT_ORDER = {
+  pending: 0,
+  approved: 1,
+  rejected: 2,
+};
+
+function compareStrings(a, b) {
+  return String(a ?? "").localeCompare(String(b ?? ""), undefined, { sensitivity: "base", numeric: true });
+}
+
+function compareNullableNumber(a, b, nullsLast = true) {
+  if (a == null && b == null) return 0;
+  if (a == null) return nullsLast ? 1 : -1;
+  if (b == null) return nullsLast ? -1 : 1;
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+function rowSortKey(row) {
+  if (row?.request_id) return Number(row.request_id);
+  if (row?.deleted_payment_id) return Number(row.deleted_payment_id);
+  return 0;
+}
+
 export function periodToLabelKey(period) {
   const map = {
     "7days": "period7days",
@@ -41,51 +74,64 @@ export function sortAutoRenewRows(rows, sortColumn, sortDirection) {
   const list = [...rows];
   const dir = sortDirection === "desc" ? -1 : 1;
 
+  const tiebreak = (a, b) => {
+    let r = compareStrings(a.company_code, b.company_code);
+    if (r !== 0) return r;
+    r = compareStrings(a.expiration_date, b.expiration_date);
+    if (r !== 0) return r;
+    return rowSortKey(a) - rowSortKey(b);
+  };
+
   list.sort((a, b) => {
-    let av;
-    let bv;
+    let result = 0;
     switch (sortColumn) {
-      case "name":
-        av = String(a.owner_name || "").toUpperCase();
-        bv = String(b.owner_name || "").toUpperCase();
-        break;
-      case "price":
-        av = parseFloat(a.price || "0") || 0;
-        bv = parseFloat(b.price || "0") || 0;
-        break;
-      case "group":
-        av = String(a.group_id || "").toUpperCase();
-        bv = String(b.group_id || "").toUpperCase();
-        break;
-      case "expiration":
-        av = a.expiration_date || "";
-        bv = b.expiration_date || "";
-        break;
-      case "remaining":
-        av = a.days_until_expiration ?? 999999;
-        bv = b.days_until_expiration ?? 999999;
-        break;
-      case "submitter":
-        av = String(a.submitter || a.processed_by || "").toUpperCase();
-        bv = String(b.submitter || b.processed_by || "").toUpperCase();
-        break;
-      case "status":
-        av = String(a.status || "");
-        bv = String(b.status || "");
-        break;
-      case "period":
-        av = String(a.period || "");
-        bv = String(b.period || "");
+      case "no":
+        result = rowSortKey(a) - rowSortKey(b);
         break;
       case "company":
+        result = compareStrings(a.company_code, b.company_code);
+        break;
+      case "name":
+        result = compareStrings(a.owner_name, b.owner_name);
+        break;
+      case "price":
+        result = compareNullableNumber(parseFloat(a.price || "0") || 0, parseFloat(b.price || "0") || 0, false);
+        break;
+      case "group":
+        result = compareStrings(a.group_id, b.group_id);
+        break;
+      case "expiration":
+        result = compareStrings(a.expiration_date, b.expiration_date);
+        break;
+      case "remaining":
+        result = compareNullableNumber(a.days_until_expiration, b.days_until_expiration, true);
+        break;
+      case "submitter":
+        result = compareStrings(a.submitter || a.processed_by, b.submitter || b.processed_by);
+        if (result === 0) {
+          result = compareStrings(a.submitter_at || a.processed_at, b.submitter_at || b.processed_at);
+        }
+        break;
+      case "status": {
+        const av = STATUS_SORT_ORDER[a.status] ?? 99;
+        const bv = STATUS_SORT_ORDER[b.status] ?? 99;
+        result = av - bv;
+        if (result === 0) result = compareStrings(a.status, b.status);
+        break;
+      }
+      case "period": {
+        const av = PERIOD_SORT_ORDER[a.period] ?? 99;
+        const bv = PERIOD_SORT_ORDER[b.period] ?? 99;
+        result = av - bv;
+        if (result === 0) result = compareStrings(a.period, b.period);
+        break;
+      }
       default:
-        av = String(a.company_code || "").toUpperCase();
-        bv = String(b.company_code || "").toUpperCase();
+        result = compareStrings(a.company_code, b.company_code);
         break;
     }
-    if (av < bv) return -1 * dir;
-    if (av > bv) return 1 * dir;
-    return 0;
+    if (result === 0) result = tiebreak(a, b);
+    return result * dir;
   });
 
   return list;

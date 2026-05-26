@@ -369,7 +369,7 @@ export default function AutoRenewPage() {
     );
   };
 
-  const showSubmitterColumn = statusFilter === "approved";
+  const showSubmitterColumn = statusFilter === "approved" || statusFilter === "rejected";
 
   if (!sessionReady || !bootDone) {
     return (
@@ -489,7 +489,7 @@ export default function AutoRenewPage() {
           >
             <div className="user-list-table-inner">
               <div className="table-header user-list-table-header auto-renew-table-header">
-                <div className="header-item"><span className="header-item__label">{t("colNo")}</span></div>
+                {renderHeader("no", t("colNo"))}
                 {renderHeader("company", t("colCompany"))}
                 {renderHeader("name", t("colName"))}
                 {renderHeader("price", t("colPrice"))}
@@ -592,7 +592,7 @@ export default function AutoRenewPage() {
           </div>
 
           {filteredRows.length > 0 && (
-            <div className="pagination-container auto-renew-pagination">
+            <div className="pagination-container">
               <button
                 type="button"
                 className="pagination-btn"
@@ -603,7 +603,7 @@ export default function AutoRenewPage() {
                 ◀
               </button>
               <span className="pagination-info">
-                {t("pageInfo", { page: pagination.page, total: pagination.totalPages, count: filteredRows.length })}
+                {t("paginationOf", { page: pagination.page, total: pagination.totalPages })}
               </span>
               <button
                 type="button"
