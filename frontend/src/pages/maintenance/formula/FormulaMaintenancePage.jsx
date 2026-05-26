@@ -10,6 +10,8 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   isDashboardGroupOnlyMode,
+  persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -299,8 +301,9 @@ export default function FormulaMaintenancePage() {
             : null;
         const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
         setSelectedGroup(bootGroup);
-        if (isDashboardGroupOnlyMode() && bootGroup) {
+        if (isDashboardGroupOnlyMode()) {
           setCompanyId(null);
+          setCompanyCode("");
           return;
         }
         setCompanyId(initialCompanyId);
@@ -470,13 +473,15 @@ export default function FormulaMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
+    persistDashboardGroupOnlyMode(true);
+    if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
     companyIdRef.current = null;
     setCompanyId(null);
     setCompanyCode("");
     setSearchFilter("");
     setSelectedProcess(null);
     clearFormulaList();
-  }, [clearFormulaList]);
+  }, [clearFormulaList, selectedGroup]);
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;

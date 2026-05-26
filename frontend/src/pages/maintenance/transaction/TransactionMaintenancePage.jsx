@@ -486,9 +486,7 @@ export default function TransactionMaintenancePage() {
         const bootGroup = resolveInitialSelectedGroupFromSession(filtered, currentComp);
         setSelectedGroup(bootGroup);
 
-        const groupOnlyBoot = isDashboardGroupOnlyMode() && bootGroup;
-
-        if (groupOnlyBoot) {
+        if (isDashboardGroupOnlyMode()) {
           setCompanyId(null);
           setCompanyCode("");
           const meta = await bootstrapTransactionMaintenanceMeta({

@@ -6,6 +6,8 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   isDashboardGroupOnlyMode,
+  persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
   resolveInitialCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -232,8 +234,9 @@ export default function PaymentMaintenancePage() {
             : null;
         const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
         setSelectedGroup(bootGroup);
-        if (isDashboardGroupOnlyMode() && bootGroup) {
+        if (isDashboardGroupOnlyMode()) {
           setCompanyId(null);
+          setCompanyCode("");
           companyIdRef.current = null;
           return;
         }
@@ -399,11 +402,13 @@ export default function PaymentMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
+    persistDashboardGroupOnlyMode(true);
+    if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
     companyIdRef.current = null;
     setCompanyId(null);
     setCompanyCode("");
     setSelectedIds([]);
-  }, []);
+  }, [selectedGroup]);
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;

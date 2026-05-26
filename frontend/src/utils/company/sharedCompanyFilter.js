@@ -17,6 +17,14 @@ export function persistDashboardGroupOnlyMode(groupOnly) {
   else sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
 }
 
+/** Align session flag with live filter state so SPA route changes keep company cleared. */
+export function syncDashboardGroupOnlyFromFilter(selectedGroup, companyId) {
+  const hasGroup = Boolean(String(selectedGroup || "").trim());
+  const noCompany = companyId == null || companyId === "";
+  if (hasGroup && noCompany) persistDashboardGroupOnlyMode(true);
+  else if (!noCompany || !hasGroup) persistDashboardGroupOnlyMode(false);
+}
+
 /** Company id for page boot: null when group-only is persisted, otherwise numeric fallback. */
 export function resolveInitialCompanyId(fallbackCompanyId) {
   if (isDashboardGroupOnlyMode()) return null;

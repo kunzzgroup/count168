@@ -4,14 +4,13 @@ import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
-  companiesInGroupList,
   dedupeOwnerCompaniesByCode,
-  filterCompaniesWithDisplayId,
   normalizeOwnerCompanyRow,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
   persistDashboardGroupOnlyMode,
   resolveInitialCompanyId,
+  syncDashboardGroupOnlyFromFilter,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -211,6 +210,7 @@ export function useTransactionData({
 
   useLayoutEffect(() => {
     if (!filterSnapshot) return;
+    syncDashboardGroupOnlyFromFilter(filterSnapshot.selectedGroup, filterSnapshot.companyId);
     notifyDashboardGroupFilterChanged(filterSnapshot.selectedGroup, filterSnapshot.companyId);
   }, [filterSnapshot?.selectedGroup, filterSnapshot?.companyId]);
 
@@ -276,22 +276,18 @@ export function useTransactionData({
     [queryClient],
   );
 
-  const onGroupButtonClick = useCallback(
-    async (gid) => {
-      const snap = filterSnapshotRef.current;
-      if (!snap) return;
-      const g = String(gid || "").trim().toUpperCase();
-      if (!g || g === snap.selectedGroup) return;
+  const onGroupButtonClick = useCallback(async (gid) => {
+    const snap = filterSnapshotRef.current;
+    if (!snap) return;
+    const g = String(gid || "").trim().toUpperCase();
+    if (!g || g === snap.selectedGroup) return;
 
-      persistDashboardGroupFilter(g);
-      setFilterSnapshot((prev) => (prev ? { ...prev, selectedGroup: g } : prev));
-
-      const list = filterCompaniesWithDisplayId(companiesInGroupList(snap.snapCompanies, g));
-      const first = list[0] ?? null;
-      if (first) await onCompanyButtonClick(first);
-    },
-    [onCompanyButtonClick],
-  );
+    persistDashboardGroupFilter(g);
+    persistDashboardGroupOnlyMode(true);
+    setFilterSnapshot((prev) =>
+      prev ? { ...prev, selectedGroup: g, companyId: null } : prev,
+    );
+  }, []);
 
   return {
     loading,
