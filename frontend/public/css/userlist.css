@@ -2547,9 +2547,11 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
 }
 
 @media (max-width: 1699px) {
-    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
-        width: clamp(120px, 11vw, 180px);
-        max-width: clamp(120px, 11vw, 180px);
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
+        width: clamp(96px, 8vw, 140px) !important;
+        max-width: clamp(96px, 8vw, 140px) !important;
+        flex: 0 0 auto !important;
     }
 }
 

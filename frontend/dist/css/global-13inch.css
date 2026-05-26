@@ -442,9 +442,11 @@
         max-width: clamp(100px, 7.5vw, 150px) !important;
     }
 
+    /* <1700px 由 processCSS 收窄 Search；此处勿再放大 bank 顶栏药丸搜索 */
     body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
-        width: clamp(200px, 22vw, 280px) !important;
-        max-width: clamp(200px, 22vw, 280px) !important;
+        width: clamp(96px, 8vw, 140px) !important;
+        max-width: clamp(96px, 8vw, 140px) !important;
+        flex: 0 0 auto !important;
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar .userlist-search-input,
@@ -838,6 +840,12 @@ body:not(.dashboard-page) *::-webkit-scrollbar-thumb:hover {
 
 /* Bank Process List：<1700px 与 payment maintenance 一致 — 整页不滚，仅列表区纵向滚动，分页不被顶出视口 */
 @media screen and (max-width: 1699px) {
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
+        width: clamp(96px, 8vw, 140px) !important;
+        max-width: clamp(96px, 8vw, 140px) !important;
+        flex: 0 0 auto !important;
+    }
+
     body.ec-auth-shell.process-page.process-page--bank {
         height: 100vh !important;
         max-height: 100vh !important;
