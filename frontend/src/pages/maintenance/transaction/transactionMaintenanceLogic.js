@@ -551,9 +551,9 @@ export function getMaintenanceCacheRows(data) {
   return Array.isArray(data.rows) ? data.rows : [];
 }
 
-/** 仅 complete===true 视为可长期复用的完整结果；数组旧缓存视为未完成。 */
+/** 仅 complete===true 视为可长期复用的完整结果；无缓存/数组旧缓存视为未完成。 */
 export function isMaintenanceCacheComplete(data) {
-  if (!data) return true;
+  if (!data) return false;
   if (Array.isArray(data)) return false;
   return data.complete === true;
 }

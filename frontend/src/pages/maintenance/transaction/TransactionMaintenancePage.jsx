@@ -96,6 +96,7 @@ export default function TransactionMaintenancePage() {
   /** Boot finished metadata; date picker synced — avoids racing search with boot/meta fetches. */
   const [filtersReady, setFiltersReady] = useState(false);
   const [dateRangeReady, setDateRangeReady] = useState(false);
+  const [searchDeferredReady, setSearchDeferredReady] = useState(false);
   /** Meta (process list + permission/category) ready for querying. */
   const [metaReady, setMetaReady] = useState(false);
   const followGroupRef = useRef(() => {});
@@ -140,6 +141,15 @@ export default function TransactionMaintenancePage() {
     activePermission,
   );
 
+  const bootPending =
+    !filtersReady ||
+    !dateRangeReady ||
+    !metaReady ||
+    !companyId ||
+    !dateFrom ||
+    !dateTo ||
+    !activePermission;
+
   const maintenancePlaceholder = useCallback(
     (previousData, previousQuery) => {
       const cached = queryClient.getQueryData(maintenanceQueryKey);
@@ -180,7 +190,7 @@ export default function TransactionMaintenancePage() {
       queryClient.setQueryData(maintenanceQueryKey, packed);
       return packed;
     },
-    enabled: listQueryEnabled,
+    enabled: listQueryEnabled && searchDeferredReady,
     initialData: () => {
       const cached = queryClient.getQueryData(maintenanceQueryKey);
       return isMaintenanceCacheComplete(cached) ? cached : undefined;
@@ -209,9 +219,11 @@ export default function TransactionMaintenancePage() {
     isMaintenanceRecoverableError(transactionQuery.error);
   /** 无数据：加载中或可恢复错误 — 显示 Loading，不出现 Search failed */
   const showListSkeleton =
-    listQueryEnabled &&
     listRowCount === 0 &&
-    (transactionQuery.isLoading ||
+    (bootPending ||
+      !searchDeferredReady ||
+      (listQueryEnabled && !transactionQuery.isFetched) ||
+      transactionQuery.isLoading ||
       transactionQuery.isFetching ||
       (searchRecoverable && !recoverableExhausted));
   const recoverableRetryRef = useRef(0);
@@ -286,6 +298,7 @@ export default function TransactionMaintenancePage() {
 
   const showNoDataEmpty =
     listQueryEnabled &&
+    searchDeferredReady &&
     transactionQuery.isFetched &&
     !transactionQuery.isFetching &&
     listRowCount === 0 &&
@@ -364,6 +377,19 @@ export default function TransactionMaintenancePage() {
     if (!sessionReady || !me) return;
     setDateRangeReady(true);
   }, [sessionReady, me]);
+
+  // Defer first search one tick after filters are ready (align with Capture/Payment maintenance).
+  useEffect(() => {
+    if (!listQueryEnabled) {
+      setSearchDeferredReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setSearchDeferredReady(true), 0);
+    return () => {
+      clearTimeout(timer);
+      setSearchDeferredReady(false);
+    };
+  }, [listQueryEnabled]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -450,6 +476,13 @@ export default function TransactionMaintenancePage() {
             navigate("/dashboard", { replace: true });
             return;
           }
+
+          try {
+            await updateSessionCompany(initialCompanyId);
+          } catch (err) {
+            console.error("Session company sync error:", err);
+          }
+          if (cancelled) return;
 
           setPermissions(companyPerms);
 
