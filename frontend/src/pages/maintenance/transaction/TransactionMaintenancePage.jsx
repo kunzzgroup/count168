@@ -96,7 +96,6 @@ export default function TransactionMaintenancePage() {
   /** Boot finished metadata; date picker synced — avoids racing search with boot/meta fetches. */
   const [filtersReady, setFiltersReady] = useState(false);
   const [dateRangeReady, setDateRangeReady] = useState(false);
-  const [searchDeferredReady, setSearchDeferredReady] = useState(false);
   /** Meta (process list + permission/category) ready for querying. */
   const [metaReady, setMetaReady] = useState(false);
   const followGroupRef = useRef(() => {});
@@ -181,7 +180,7 @@ export default function TransactionMaintenancePage() {
       queryClient.setQueryData(maintenanceQueryKey, packed);
       return packed;
     },
-    enabled: listQueryEnabled && searchDeferredReady,
+    enabled: listQueryEnabled,
     initialData: () => {
       const cached = queryClient.getQueryData(maintenanceQueryKey);
       return isMaintenanceCacheComplete(cached) ? cached : undefined;
@@ -285,6 +284,14 @@ export default function TransactionMaintenancePage() {
     t,
   ]);
 
+  const showNoDataEmpty =
+    listQueryEnabled &&
+    transactionQuery.isFetched &&
+    !transactionQuery.isFetching &&
+    listRowCount === 0 &&
+    !showListSkeleton &&
+    !listStatusMessage;
+
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
     setToasts(prev => {
@@ -357,35 +364,6 @@ export default function TransactionMaintenancePage() {
     if (!sessionReady || !me) return;
     setDateRangeReady(true);
   }, [sessionReady, me]);
-
-  useEffect(() => {
-    if (!me || companyId != null) return;
-    const cached = getCachedOwnerCompanies();
-    let initialCompanyId = resolveInitialCompanyId(
-      me.company_id ? Number(me.company_id) : cached?.[0]?.id ? Number(cached[0].id) : null,
-    );
-    if (
-      initialCompanyId &&
-      cached?.length &&
-      !cached.some((c) => Number(c.id) === initialCompanyId)
-    ) {
-      initialCompanyId = resolveInitialCompanyId(cached[0]?.id);
-    }
-    if (initialCompanyId != null) setCompanyId(initialCompanyId);
-  }, [me, companyId]);
-
-  // Defer first search one tick after filters are ready (align with Payment/Capture maintenance).
-  useEffect(() => {
-    if (!listQueryEnabled) {
-      setSearchDeferredReady(false);
-      return;
-    }
-    const timer = setTimeout(() => setSearchDeferredReady(true), 0);
-    return () => {
-      clearTimeout(timer);
-      setSearchDeferredReady(false);
-    };
-  }, [listQueryEnabled]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -509,7 +487,7 @@ export default function TransactionMaintenancePage() {
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId || !companyCode) return;
     if (skipMetaAfterBootRef.current) {
       skipMetaAfterBootRef.current = false;
       return;
@@ -592,6 +570,7 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (!listQueryEnabled) return;
     if (!transactionQuery.isSuccess) return;
+    if (!transactionQuery.isFetched) return;
     if (transactionQuery.isFetching) return;
     if (transactionData.length > 0) return;
     const key = `${transactionQuery.dataUpdatedAt ?? ""}:empty`;
@@ -600,6 +579,7 @@ export default function TransactionMaintenancePage() {
   }, [
     listQueryEnabled,
     transactionQuery.isSuccess,
+    transactionQuery.isFetched,
     transactionQuery.isFetching,
     transactionData.length,
     transactionQuery.dataUpdatedAt,
@@ -748,6 +728,7 @@ export default function TransactionMaintenancePage() {
         <TransactionMaintenanceTable
           data={transactionData}
           showSkeleton={showListSkeleton && !listSyncing}
+          showEmptyState={showNoDataEmpty}
           statusMessage={listStatusMessage}
           isPlaceholderData={transactionQuery.isPlaceholderData || listSyncing}
           m={m}
