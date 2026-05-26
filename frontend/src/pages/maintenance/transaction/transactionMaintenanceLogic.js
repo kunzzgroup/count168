@@ -71,6 +71,10 @@ export async function fetchProcesses(companyId) {
   return fetchMaintenanceProcesses(companyId, { credentials: true });
 }
 
+export async function fetchProcessesForPermission(companyId, permission) {
+  return fetchMaintenanceProcesses(companyId, { credentials: true, permission });
+}
+
 /** Transaction Maintenance 仅 Games/Gambling/Bank 有数据；Loan/Rate/Money 与其它维护页共用 localStorage 时会误传。 */
 const TXN_MAINTENANCE_SEARCH_CATEGORIES = new Set(["games", "gambling", "bank"]);
 const TXN_MAINTENANCE_EMPTY_CATEGORIES = new Set(["loan", "rate", "money"]);
