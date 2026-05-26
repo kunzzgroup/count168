@@ -378,7 +378,7 @@ export default function DomainPage() {
                               key={cid}
                               role="button"
                               tabIndex={0}
-                              className={`domain-company-chip company-badge${renewStatus === "pending" ? " has-renew-pending" : renewStatus === "approved" ? " has-renew-approved" : ""}`}
+                              className={`domain-company-chip company-badge${renewStatus === "pending" ? " has-renew-pending" : ""}`}
                               data-exp={exp || undefined}
                               onClick={(e) => handleCompanyBadgeClick(e, companiesFull)}
                               onKeyDown={(e) => {
@@ -391,9 +391,6 @@ export default function DomainPage() {
                               {cid}
                               {renewStatus === "pending" ? (
                                 <span className="domain-renew-badge domain-renew-badge--pending">{tRenew("renewBadgePending")}</span>
-                              ) : null}
-                              {renewStatus === "approved" ? (
-                                <span className="domain-renew-badge domain-renew-badge--approved">{tRenew("renewBadgeApproved")}</span>
                               ) : null}
                             </span>
                           );

@@ -532,29 +532,25 @@ function auto_renew_count_pending(PDO $pdo): int
 }
 
 /**
- * @return array<string, string> company_code => pending|approved|rejected
+ * @return array<string, string> company_code => pending (Domain page badge — pending only)
  */
 function auto_renew_status_map(PDO $pdo): array
 {
     auto_renew_sync_window_requests($pdo);
     $stmt = $pdo->query("
-        SELECT UPPER(TRIM(c.company_id)) AS company_code, r.status
+        SELECT UPPER(TRIM(c.company_id)) AS company_code
         FROM company_auto_renew_request r
         INNER JOIN company c ON c.id = r.company_id
         WHERE UPPER(TRIM(c.company_id)) <> 'C168'
-          AND (
-                (r.expiration_snapshot = c.expiration_date AND DATEDIFF(c.expiration_date, CURDATE()) <= " . (int) AUTO_RENEW_WINDOW_DAYS . ")
-                OR (r.status IN ('approved','rejected') AND r.processed_at >= DATE_SUB(NOW(), INTERVAL " . (int) AUTO_RENEW_HISTORY_DAYS . ' DAY))
-          )
-    ');
+          AND r.status = 'pending'
+          AND r.expiration_snapshot = c.expiration_date
+          AND DATEDIFF(c.expiration_date, CURDATE()) <= " . (int) AUTO_RENEW_WINDOW_DAYS . "
+    ");
     $map = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
         $code = (string) ($row['company_code'] ?? '');
-        $status = (string) ($row['status'] ?? '');
-        if ($code !== '' && in_array($status, ['pending', 'approved', 'rejected'], true)) {
-            if (!isset($map[$code]) || $status === 'pending') {
-                $map[$code] = $status;
-            }
+        if ($code !== '') {
+            $map[$code] = 'pending';
         }
     }
     return $map;
