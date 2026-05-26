@@ -6110,6 +6110,7 @@ function addFormulaValidation() {
                 previousValue = formulaValue;
                 // 即使来自 cell click，也要更新显示框
                 updateFormulaDisplay(formulaValue, processValue);
+                refreshEditFormulaModalDisplayWithSource();
                 return;
             }
 
@@ -6119,6 +6120,7 @@ function addFormulaValidation() {
             // 立即更新显示框：将 formula 中的 $数字 或列引用转换为实际值显示
             // 每次输入时立即更新，不需要等待
             updateFormulaDisplay(formulaValue, processValue);
+            refreshEditFormulaModalDisplayWithSource();
 
             // CRITICAL FIX: 同步更新 data-clicked-cell-refs，只保留 formula 中实际使用的引用
             // 这确保删除数据后，data-clicked-cell-refs 也被正确更新
@@ -6588,6 +6590,7 @@ function addFormulaValidation() {
             const formulaValue = this.value;
             const processValue = document.getElementById('process')?.value;
             updateFormulaDisplay(formulaValue, processValue);
+            refreshEditFormulaModalDisplayWithSource();
 
             // 当按下 Backspace 或 Delete 键后，确保值被正确更新
             if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -7031,12 +7034,45 @@ function addInputMethodChangeListeners() {
 
     if (sourcePercentInput) {
         sourcePercentInput.addEventListener('input', function () {
+            refreshEditFormulaModalDisplayWithSource();
             recalculateProcessedAmountInForm();
         });
     }
 }
 
 // Recalculate processed amount in the form (for preview)
+function refreshEditFormulaModalDisplayWithSource() {
+    const formulaInput = document.getElementById('formula');
+    const sourcePercentInput = document.getElementById('sourcePercent');
+    const formulaDisplayInput = document.getElementById('formulaDisplay');
+    const processInput = document.getElementById('process');
+    if (!formulaInput || !formulaDisplayInput) {
+        return;
+    }
+    const formulaValue = formulaInput.value.trim();
+    const processValue = processInput ? processInput.value.trim() : null;
+    if (!formulaValue) {
+        formulaDisplayInput.value = '';
+        return;
+    }
+    const convertedBase = formulaDisplayInput.value.trim();
+    const sourcePercentValue = sourcePercentInput ? sourcePercentInput.value.trim() : '1';
+    const enableSourcePercent = sourcePercentValue !== '';
+    const rowIdxOverride = typeof getEditFormulaDataCaptureRowIndexOverride === 'function'
+        ? getEditFormulaDataCaptureRowIndexOverride()
+        : null;
+    const clickedRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+    const display = createFormulaDisplayFromExpression(
+        convertedBase || formulaValue,
+        sourcePercentValue,
+        enableSourcePercent,
+        processValue,
+        clickedRefs || undefined,
+        rowIdxOverride
+    );
+    formulaDisplayInput.value = display;
+}
+
 function recalculateProcessedAmountInForm() {
     const sourcePercentInput = document.getElementById('sourcePercent');
     const formulaInput = document.getElementById('formula');
@@ -7172,6 +7208,7 @@ function populateFormWithData(data) {
 
                 if (hasNewFormat) {
                     updateFormulaDisplay(formulaValueToSet || '', processValue);
+                    refreshEditFormulaModalDisplayWithSource();
                 }
 
                 // Restore clicked columns if provided
@@ -7248,6 +7285,7 @@ function populateFormWithData(data) {
                                 // Just update display without conversion
                                 const processValue = document.getElementById('process')?.value;
                                 updateFormulaDisplay(currentFormula, processValue);
+                                refreshEditFormulaModalDisplayWithSource();
                             } else {
                                 // Get current editing row's id_product from the row itself, not from input
                                 // This ensures we get the complete value even if it contains special characters
@@ -7410,6 +7448,10 @@ function populateFormWithData(data) {
 
         // Update formula data grid after form is populated
         updateFormulaDataGrid();
+
+        if (data.formulaDisplay === undefined) {
+            refreshEditFormulaModalDisplayWithSource();
+        }
 
         // Set input method if provided
         if (data.inputMethod) {
@@ -7598,14 +7640,7 @@ function extractRowDataForTemplate(row, formData) {
     const formulaDisplayFromData = formData.formulaDisplay || '';
     const isFormulaEmpty = !formulaDisplayFromData || formulaDisplayFromData.trim() === '' || formulaDisplayFromData === 'Formula';
     const sourceColumns = isFormulaEmpty ? '' : (row.getAttribute('data-source-columns') || formData.clickedColumnsDisplay || '');
-    // 优先使用 Edit Formula 中的原始公式（formData.formulaValue），确保包含 $2 / 引用格式时能被完整保存到 formula_operators
-    // 只有在当前保存没有提供公式值时，才回退到已有的 data-formula-operators
-    let formulaOperators = '';
-    if (formData.formulaValue && String(formData.formulaValue).trim() !== '') {
-        formulaOperators = String(formData.formulaValue).trim();
-    } else {
-        formulaOperators = row.getAttribute('data-formula-operators') || '';
-    }
+    const formulaOperators = resolveFormulaOperatorsBodyForSave(row, formData);
     const sourcePercentAttr = row.getAttribute('data-source-percent') || '';
     const sourcePercent = sourcePercentAttr || formData.sourcePercentValue || '1';
     // Auto-enable if source percent has value
@@ -7623,12 +7658,6 @@ function extractRowDataForTemplate(row, formData) {
         // If checkbox doesn't exist, default to unchecked (0)
         batchSelection = 0;
     }
-
-    // Get source value from Formula column (index 4)
-    // Correct column indices:
-    // 0=Id Product, 1=Account, 2=Add, 3=Currency, 4=Formula, 5=Source %, 6=Rate, 7=Processed Amount, 8=Skip, 9=Delete
-    const formulaCell = cells[4];
-    const sourceValue = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : formData.formulaValue || '';
 
     // Get formula_variant from row attribute if available
     // This ensures that when updating an existing row, we use the same formula_variant
@@ -7687,7 +7716,7 @@ function extractRowDataForTemplate(row, formData) {
         batch_selection: batchSelection,
         columns_display: formData.columnsDisplay || '',
         formula_display: formData.formulaDisplay || '',
-        last_source_value: sourceValue || '',
+        last_source_value: resolveLastSourceValueForSave(row, formData),
         last_processed_amount: formData.processedAmount || '0',
         template_key: templateKey,
         process_id: getCurrentProcessId(),
@@ -7855,25 +7884,13 @@ function buildFormDataFromRow(row) {
 
     const formulaCell = cells[4];
     const formulaDisplay = formulaCell?.querySelector('.formula-text')?.textContent.trim() || formulaCell?.textContent.trim() || '';
-    // Get formula_operators from data attribute (should be source expression without Source %)
-    // If not available, extract from formulaDisplay by removing trailing Source % part
-    let formulaValue = row.getAttribute('data-formula-operators') || '';
+    // formula_operators = reference 本体（含 row 系数 *0.90），优先 template 属性
+    let formulaValue = (row.getAttribute('data-template-formula-operators') || '').trim();
+    if (!formulaValue) {
+        formulaValue = (row.getAttribute('data-formula-operators') || '').trim();
+    }
     if (!formulaValue && formulaDisplay) {
-        // Extract source expression from formulaDisplay (remove trailing Source % part like *(1))
-        let sourceExpression = formulaDisplay;
-        const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-        const trailingMatch = sourceExpression.match(trailingSourcePercentPattern);
-        if (trailingMatch) {
-            sourceExpression = trailingMatch[1].trim();
-        } else {
-            // Try pattern without parentheses
-            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-            const simpleMatch = sourceExpression.match(simplePattern);
-            if (simpleMatch) {
-                sourceExpression = simpleMatch[1].trim();
-            }
-        }
-        formulaValue = sourceExpression;
+        formulaValue = removeTrailingSourcePercentExpression(formulaDisplay);
     }
 
     const processedAmountCell = cells[8]; // Processed Amount column
@@ -8677,10 +8694,17 @@ function saveFormula() {
             isSubIdProduct: isSubForTemplate
         });
 
-        // Override last_source_value with formulaValue to ensure correct source expression is saved
-        // This is important because formulaValue is the user's original expression (e.g., "9+5")
-        // and should be preserved exactly as entered, not recalculated from Data Capture Table
-        rowData.last_source_value = formulaValue || '';
+        // last_source_value = 数值公式（含 row 系数）；formula_operators = reference 本体
+        rowData.formula_operators = resolveFormulaOperatorsBodyForSave(targetRow, {
+            formulaValue,
+            formulaDisplay,
+            sourcePercentValue
+        });
+        rowData.last_source_value = resolveLastSourceValueForSave(targetRow, {
+            formulaValue,
+            formulaDisplay,
+            sourcePercentValue
+        });
 
         // 二次校验：Currency、Formula 任一项空则绝不调用 saveTemplateAsync
         const hasCurrencyForSave = (rowData.currency_id != null && String(rowData.currency_id).trim() !== '');
@@ -10205,6 +10229,87 @@ function removeTrailingSourcePercentExpression(formulaText) {
     }
 
     return result;
+}
+
+/**
+ * 用已解析的公式（last_source_value / formula_display）补全 formula_operators 缺失的末尾 row 系数（如 *0.90）。
+ * 与 Maintenance formula_fields_helper.mergeFormulaBaseWithDisplayTail 对齐。
+ */
+function mergeFormulaOperatorsWithResolvedTail(operatorsBase, formulaResolved) {
+    const ops = removeTrailingSourcePercentExpression(String(operatorsBase || '').trim());
+    const fd = removeTrailingSourcePercentExpression(String(formulaResolved || '').trim());
+    if (!ops) {
+        return fd;
+    }
+    if (!fd) {
+        return ops;
+    }
+    const m = fd.match(/^(.*)(\*(?:\([^)]+\)|[0-9.]+))\s*$/);
+    if (!m) {
+        return ops;
+    }
+    const fdTail = m[2].trim();
+    const opsNorm = ops.replace(/\s+/g, '');
+    const tailNorm = fdTail.replace(/\s+/g, '');
+    if (!tailNorm || opsNorm.endsWith(tailNorm)) {
+        return ops;
+    }
+    return ops + fdTail;
+}
+
+/** 套用模板或保存前：reference 本体 + 从 display/last_source 补 row 尾段 */
+function resolveFormulaOperatorsForTemplateRow(formulaOperatorsValue, savedSourceValue, formulaDisplay, resolvedSourceExpression) {
+    let body = removeTrailingSourcePercentExpression(String(formulaOperatorsValue || '').trim());
+    if (!body && resolvedSourceExpression) {
+        body = removeTrailingSourcePercentExpression(resolvedSourceExpression);
+    }
+    [savedSourceValue, formulaDisplay, resolvedSourceExpression].forEach((candidate) => {
+        const c = candidate == null ? '' : String(candidate).trim();
+        if (c !== '' && c !== 'Source') {
+            body = mergeFormulaOperatorsWithResolvedTail(body, c);
+        }
+    });
+    return body;
+}
+
+/** 写入 DB 的 formula_operators：reference 本体（含 row 系数），不含 Source 列 *(...) */
+function resolveFormulaOperatorsBodyForSave(row, formData) {
+    formData = formData || {};
+    const templateOps = (row.getAttribute('data-template-formula-operators') || '').trim();
+    const opsAttr = (row.getAttribute('data-formula-operators') || '').trim();
+    let body = '';
+    if (formData.formulaValue && String(formData.formulaValue).trim() !== '') {
+        body = String(formData.formulaValue).trim();
+    } else if (templateOps) {
+        body = templateOps;
+    } else {
+        body = opsAttr;
+    }
+    body = removeTrailingSourcePercentExpression(body);
+    const lastResolved = (row.getAttribute('data-last-source-value') || '').trim();
+    const formulaDisplay = (formData.formulaDisplay || '').trim();
+    if (lastResolved && lastResolved !== 'Source') {
+        body = mergeFormulaOperatorsWithResolvedTail(body, lastResolved);
+    }
+    if (formulaDisplay && formulaDisplay !== 'Formula') {
+        body = mergeFormulaOperatorsWithResolvedTail(body, formulaDisplay);
+    }
+    return body;
+}
+
+/** 写入 DB 的 last_source_value：Data Capture 解析后的数值公式（含 *0.90），不含 Source *(...) */
+function resolveLastSourceValueForSave(row, formData) {
+    formData = formData || {};
+    const formulaDisplay = (formData.formulaDisplay || '').trim();
+    if (formulaDisplay && formulaDisplay !== 'Formula') {
+        const stripped = removeTrailingSourcePercentExpression(formulaDisplay);
+        return stripped || formulaDisplay;
+    }
+    const existing = (row.getAttribute('data-last-source-value') || '').trim();
+    if (existing && existing !== 'Source') {
+        return existing;
+    }
+    return resolveFormulaOperatorsBodyForSave(row, formData);
 }
 
 function getFormulaEditButtonHtml(formulaText) {
@@ -12495,6 +12600,7 @@ function updateRowFormulaFromColumns(row) {
     // Store updated data in row attributes
     row.setAttribute('data-source-columns', columnNumbers.join(' '));
     row.setAttribute('data-formula-operators', formulaOperators);
+    row.setAttribute('data-template-formula-operators', formulaOperators);
 
     updateProcessedAmountTotal();
 }
@@ -16589,6 +16695,16 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 }
             }
 
+            const operatorsForRow = resolveFormulaOperatorsForTemplateRow(
+                formulaOperatorsValue,
+                savedSourceValue,
+                formulaDisplay,
+                resolvedSourceExpression
+            );
+            const lastSourceForRow = resolveLastSourceValueForSave(targetRow, { formulaDisplay })
+                || removeTrailingSourcePercentExpression(resolvedSourceExpression)
+                || savedSourceValue;
+
             const data = {
                 idProduct: idProduct,
                 description: mainTemplate.description || '',
@@ -16605,7 +16721,8 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 sourcePercent: convertedPercentValue || '1',
                 formula: formulaDisplay,
                 formulaDisplay: formulaDisplay || mainTemplate.formula_display || '',
-                formulaOperators: formulaOperatorsValue,
+                formulaOperators: operatorsForRow,
+                lastSourceValue: lastSourceForRow,
                 processedAmount: processedAmount,
                 inputMethod: mainTemplate.input_method || '',
                 enableInputMethod: (mainTemplate.input_method && mainTemplate.input_method.trim() !== '') ? true : false,
@@ -17634,6 +17751,16 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             formulaDisplay = removeTrailingSourcePercentExpression(formulaDisplay) || formulaDisplay;
         }
 
+        const operatorsForRow = resolveFormulaOperatorsForTemplateRow(
+            formulaOperatorsValue,
+            savedSourceValue,
+            formulaDisplay,
+            resolvedSourceExpression
+        );
+        const lastSourceForRow = resolveLastSourceValueForSave(targetRow, { formulaDisplay })
+            || removeTrailingSourcePercentExpression(resolvedSourceExpression)
+            || savedSourceValue;
+
         const data = {
             idProduct: idProduct,
             description: mainTemplate.description || '',
@@ -17649,7 +17776,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             sourcePercent: convertedPercentValue || '1',
             formula: formulaDisplay,
             formulaDisplay: formulaDisplay || mainTemplate.formula_display || '',
-            formulaOperators: formulaOperatorsValue,
+            formulaOperators: operatorsForRow,
+            lastSourceValue: lastSourceForRow,
             processedAmount: processedAmount,
             inputMethod: mainTemplate.input_method || '',
             enableInputMethod: mainTemplate.enable_input_method == 1,
@@ -19024,6 +19152,16 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             // If value is < 10, it's already in multiplier format, use as-is
         }
 
+        const operatorsForRow = resolveFormulaOperatorsForTemplateRow(
+            formulaOperatorsValue,
+            savedSourceValue,
+            formulaDisplay,
+            resolvedSourceExpression
+        );
+        const lastSourceForRow = resolveLastSourceValueForSave(targetRow, { formulaDisplay })
+            || removeTrailingSourcePercentExpression(resolvedSourceExpression)
+            || savedSourceValue;
+
         const data = {
             idProduct: template.id_product || idProduct,
             description: template.description || '',
@@ -19039,7 +19177,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             sourcePercent: convertedPercentValue || '1',
             formula: formulaDisplay,
             formulaDisplay: formulaDisplay || template.formula_display || '',
-            formulaOperators: formulaOperatorsValue || formulaDisplay,
+            formulaOperators: operatorsForRow,
+            lastSourceValue: lastSourceForRow,
             processedAmount: processedAmount,
             inputMethod: template.input_method || '',
             enableInputMethod: (template.input_method && template.input_method.trim() !== '') ? true : false,

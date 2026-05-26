@@ -215,18 +215,15 @@ try {
 
     <!-- Domain list: global price -->
     <div id="domainFeeSettingsModal" class="modal" style="z-index: 10004;">
-        <div class="modal-content" style="max-width: 440px;">
+        <div class="modal-content domain-fee-settings-modal-content">
             <span class="close" onclick="closeDomainFeeSettingsModal()">&times;</span>
             <h2>Price</h2>
-            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
-                <p style="color: #64748b; font-size: clamp(10px, 0.78vw, 14px); margin: 0 0 10px 0;">Set default amounts for the domain list (saved for C168 admin use).</p>
+            <div class="modal-body domain-fee-settings-modal-body">
+                <p class="domain-fee-settings-intro">Set default amounts for each period (saved for C168 admin use).</p>
                 <div id="domainFeeSummaryDisplay" class="domain-fee-summary-display" aria-live="polite"></div>
-                <p class="domain-fee-edit-hint">Edit fields below support up to 2 decimal places.</p>
-                <div class="form-group">
-                    <label for="domainFeePrice">Price <span class="domain-fee-decimals-hint">(edit)</span></label>
-                    <input type="text" id="domainFeePrice" class="form-group input" inputmode="decimal" placeholder="0.00" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(10px, 0.83vw, 16px); box-sizing: border-box;">
-                </div>
-                <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <p class="domain-fee-edit-hint">Edit each period below (up to 2 decimal places). Display above updates as you type.</p>
+                <div id="domainFeePeriodEditGrid" class="domain-fee-period-edit-grid"></div>
+                <div class="form-actions domain-fee-form-actions">
                     <button type="button" class="btn btn-save" onclick="saveDomainFeeSettings()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="closeDomainFeeSettingsModal()">Cancel</button>
                 </div>
@@ -336,7 +333,7 @@ try {
                             <div class="company-share-charge-on-save" title="On: After you Confirm the domain (main modal), post domain list fee and Share% commission to Transaction Payment / Payment History. Off: allocations only until Confirm.">
                                 <span class="company-share-charge-on-save__state" id="companyShareChargeState" aria-hidden="true">Off</span>
                                 <label class="company-share-charge-switch">
-                                    <input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" aria-label="Charge when domain is confirmed" onchange="syncCompanyShareChargeToggleUi()">
+                                    <input type="checkbox" id="companyShareChargeToggle" class="company-share-charge-switch__input" role="switch" aria-checked="false" aria-label="Charge when domain is confirmed" onchange="onCompanyShareChargeToggleChange()">
                                     <span class="company-share-charge-switch__track" aria-hidden="true"><span class="company-share-charge-switch__thumb"></span></span>
                                 </label>
                             </div>
