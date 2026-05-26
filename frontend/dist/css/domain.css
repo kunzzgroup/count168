@@ -1827,10 +1827,41 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     cursor: pointer;
 }
 
+.company-settings-react-modal .form-datepicker-hitbox.date-range-picker {
+    margin: 0;
+    padding: 0;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    min-height: 100%;
+    opacity: 0;
+}
+
+.company-settings-react-modal .form-datepicker-hitbox.date-range-picker:hover,
+.company-settings-react-modal .form-datepicker-hitbox.date-range-picker:focus,
+.company-settings-react-modal .form-datepicker-hitbox.date-range-picker:focus-visible {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
 .company-settings-react-modal .company-settings-form-datepicker-wrap:focus-within .company-settings-form-datepicker-input {
     outline: none;
     border-color: var(--color-focus-ring);
     box-shadow: var(--shadow-input-focus);
+}
+
+.company-settings-react-modal .form-datepicker-hitbox {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    min-width: 0;
+    padding: 0;
 }
 
 .company-settings-react-modal .form-datepicker-icon {
