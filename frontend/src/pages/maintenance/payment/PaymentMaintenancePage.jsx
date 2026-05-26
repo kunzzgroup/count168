@@ -403,12 +403,11 @@ export default function PaymentMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
-    persistDashboardFilterState(selectedGroup, null);
     companyIdRef.current = null;
     setCompanyId(null);
     setCompanyCode("");
     setSelectedIds([]);
-  }, [selectedGroup]);
+  }, []);
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;

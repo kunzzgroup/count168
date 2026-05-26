@@ -38,9 +38,11 @@ import {
   notifyDashboardGroupFilterChanged,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  applyLoginScopeToSessionStorageIfNeeded,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const { me, sessionReady } = useAuthSession();
@@ -114,6 +116,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
       setCompanies(cj.data);
+      applyLoginScopeToSessionStorageIfNeeded(u, cj.data);
 
       const fallbackId =
         cj.data.length === 1
@@ -128,7 +131,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       const current =
         cid != null ? cj.data.find((c) => parseInt(c.id, 10) === parseInt(cid, 10)) : null;
-      const group = resolveInitialSelectedGroupFromSession(cj.data, current);
+      const group = resolveInitialSelectedGroupFromSession(cj.data, current, u);
       setSelectedGroup(group);
 
       if (isDashboardGroupOnlyMode()) {
@@ -154,6 +157,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useLayoutEffect(() => {
     notifyDashboardGroupFilterChanged(selectedGroup, companyId);
   }, [selectedGroup, companyId]);
+
+  useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: me?.company_id,
+  });
 
   const companiesForPicker = useMemo(
     () => companiesInGroupList(companies, selectedGroup),
@@ -762,40 +772,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const g = String(gid || "").trim().toUpperCase();
       if (!g || g === selectedGroup) return;
 
-      const switchGen = ++companySwitchGenRef.current;
-      const prevId = companyId;
-
       setSelectedGroup(g);
       sessionStorage.setItem("dashboard_group_filter", g);
-
-      const list = companiesInGroupList(companies, g);
-      const first = list[0] ?? null;
-      if (!first) {
-        clearCompanySelection(g);
-        return;
-      }
-
-      const id = parseInt(first.id, 10);
-      persistDashboardFilterState(g, id);
-      applyCompanySelection(id);
-      void syncCompanySession(id).then((ok) => {
-        if (switchGen !== companySwitchGenRef.current) return;
-        if (!ok && prevId != null) {
-          const prevCo = companies.find((x) => parseInt(x.id, 10) === parseInt(prevId, 10));
-          const prevGroup = prevCo?.group_id ? String(prevCo.group_id).toUpperCase() : null;
-          if (prevGroup) {
-            setSelectedGroup(prevGroup);
-            sessionStorage.setItem("dashboard_group_filter", prevGroup);
-          } else {
-            setSelectedGroup(null);
-            sessionStorage.removeItem("dashboard_group_filter");
-          }
-          persistDashboardFilterState(prevGroup, prevId);
-          applyCompanySelection(prevId);
-        }
-      });
+      clearCompanySelection(g);
+      notifyDashboardGroupFilterChanged(g, null);
     },
-    [selectedGroup, companies, companyId, clearCompanySelection, applyCompanySelection, syncCompanySession]
+    [selectedGroup, clearCompanySelection]
   );
 
   const handlePickCompany = useCallback(

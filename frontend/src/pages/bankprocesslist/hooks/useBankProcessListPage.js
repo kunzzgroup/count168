@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import {
+  notifyDashboardGroupFilterChanged,
+  persistDashboardFilterState,
+  persistDashboardGroupFilter,
+  resolveBootCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
@@ -114,6 +122,7 @@ export function useBankProcessListPage() {
   const [tableLoading, setTableLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [switchingCompany, setSwitchingCompany] = useState(false);
   const [rows, setRows] = useState([]);
@@ -587,9 +596,14 @@ export function useBankProcessListPage() {
           return;
         }
         const url = new URL(window.location.href);
-        const effectiveCompany = url.searchParams.get("company_id") || sessionUser.company_id || cs[0]?.id || null;
-        const effectiveNum = effectiveCompany ? Number(effectiveCompany) : null;
-        const currentCompanyRow = effectiveNum != null ? cs.find((c) => Number(c.id) === Number(effectiveNum)) : null;
+        const queryCompany = url.searchParams.get("company_id");
+        const effectiveNum = resolveBootCompanyId({
+          urlCompanyId: queryCompany,
+          sessionCompanyId: sessionUser.company_id,
+          defaultRowId: cs[0]?.id,
+        });
+        const currentCompanyRow =
+          effectiveNum != null ? cs.find((c) => Number(c.id) === Number(effectiveNum)) : null;
         if (currentCompanyRow?.company_id) {
           const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (!bankCategory) {
@@ -610,8 +624,13 @@ export function useBankProcessListPage() {
             return;
           }
         }
+        const bootGroup = resolveInitialSelectedGroupFromSession(cs, currentCompanyRow);
+        setSelectedGroup(bootGroup);
         setCompanyId(effectiveNum);
         setGroupFilterKind("follow");
+        if (effectiveNum != null) {
+          persistDashboardFilterState(bootGroup, effectiveNum);
+        }
         setSearch(url.searchParams.get("search") || "");
         setCurrencyFilterCode(String(url.searchParams.get("currency") || "").trim().toUpperCase());
         setDateFrom(url.searchParams.get("date_from") || "");
@@ -1051,6 +1070,13 @@ export function useBankProcessListPage() {
         navigate(`/process-list?company_id=${c.id}`, { replace: true, state: { processListPrefetch } });
         return;
       }
+      const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup;
+      if (gid) {
+        persistDashboardGroupFilter(gid);
+        setSelectedGroup(gid);
+      }
+      persistDashboardFilterState(gid, Number(c.id));
+
       setRows([]);
       setTableLoading(true);
       setCompanyId(Number(c.id));
@@ -1523,10 +1549,26 @@ export function useBankProcessListPage() {
     () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
     [allCompanyButtons, companyId]
   );
-  const selectedGroupKey = useMemo(
-    () => String(selectedCompany?.group_id || "").trim().toUpperCase(),
-    [selectedCompany?.group_id]
-  );
+  const selectedGroupKey = useMemo(() => {
+    if (groupFilterKind !== "follow") return "";
+    if (selectedGroup) return String(selectedGroup).trim().toUpperCase();
+    return String(selectedCompany?.group_id || "").trim().toUpperCase();
+  }, [groupFilterKind, selectedGroup, selectedCompany?.group_id]);
+
+  const { resetAnchorSessionRef } = useGroupAnchorSessionSync({
+    companies,
+    selectedGroup: groupFilterKind === "follow" ? selectedGroup : null,
+    companyId: groupFilterKind === "follow" ? companyId : null,
+    sessionCompanyId: authMe?.company_id,
+  });
+
+  useLayoutEffect(() => {
+    if (loading) return;
+    notifyDashboardGroupFilterChanged(
+      groupFilterKind === "follow" ? selectedGroup : null,
+      groupFilterKind === "follow" ? companyId : null
+    );
+  }, [loading, groupFilterKind, selectedGroup, companyId]);
   const companyButtons = useMemo(() => {
     if (groupFilterKind === "all") {
       const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
@@ -1558,14 +1600,29 @@ export function useBankProcessListPage() {
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
         setGroupFilterKind("ungrouped");
+        setSelectedGroup(null);
+        persistDashboardGroupFilter(null);
         return;
       }
       setGroupFilterKind("follow");
       if (g === selectedGroupKey) return;
-      const first = allCompanyButtons.find((c) => String(c.group_id || "").trim().toUpperCase() === g);
-      if (first) void onSwitchCompany(first);
+
+      persistDashboardGroupFilter(g);
+      setSelectedGroup(g);
+      persistDashboardFilterState(g, null);
+      resetAnchorSessionRef();
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete("company_id");
+      const qs = url.searchParams.toString();
+      window.history.replaceState(null, "", qs ? `${url.pathname}?${qs}` : url.pathname);
+
+      setCompanyId(null);
+      setRows([]);
+      setTableLoading(false);
+      notifyDashboardGroupFilterChanged(g, null);
     },
-    [allCompanyButtons, groupFilterKind, onSwitchCompany, selectedGroupKey, switchingCompany]
+    [groupFilterKind, selectedGroupKey, switchingCompany, resetAnchorSessionRef]
   );
 
   const handlePickAllGroups = useCallback(() => {

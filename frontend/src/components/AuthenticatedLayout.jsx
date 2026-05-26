@@ -19,6 +19,8 @@ import {
   showMaintenanceInSidebar,
 } from "../utils/auth/sidebarPermissions.js";
 import {
+  applyLoginScopeToSessionStorageIfNeeded,
+  clearDashboardFilterSession,
   DASHBOARD_GROUP_FILTER_EVENT,
   shouldHideSidebarProcess,
 } from "../utils/company/sharedCompanyFilter.js";
@@ -191,11 +193,6 @@ export default function AuthenticatedLayout() {
   const prevPathRef = useRef(path);
 
   useEffect(() => {
-    const onFilterChange = () => setSidebarGcTick((n) => n + 1);
-    window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-    return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-  }, []);
-  useEffect(() => {
     if (!isTabletViewport || sidebarCollapsed) {
       prevPathRef.current = path;
       return;
@@ -235,6 +232,7 @@ export default function AuthenticatedLayout() {
           navigate("/user-secondary-password", { replace: true });
           return;
         }
+        applyLoginScopeToSessionStorageIfNeeded(u);
         setMe(u);
       } catch (err) {
         if (cancelled || err?.name === "AbortError") return;
@@ -258,6 +256,7 @@ export default function AuthenticatedLayout() {
       const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
       const json = await res.json();
       if (res.ok && json.success && json.data) {
+        applyLoginScopeToSessionStorageIfNeeded(json.data);
         setMe(json.data);
         return json.data;
       }
@@ -273,6 +272,15 @@ export default function AuthenticatedLayout() {
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+  }, [refreshSession]);
+
+  useEffect(() => {
+    const onFilterChange = () => {
+      setSidebarGcTick((n) => n + 1);
+      void refreshSession();
+    };
+    window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
+    return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
   }, [refreshSession]);
 
   useEffect(() => {
@@ -359,6 +367,7 @@ export default function AuthenticatedLayout() {
     } catch {
       // Even if request fails, clear client route to login.
     } finally {
+      clearDashboardFilterSession();
       setLogoutLoading(false);
       setShowLogoutConfirm(false);
       navigate("/login", { replace: true });

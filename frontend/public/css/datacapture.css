@@ -309,6 +309,19 @@ body.datacapture-page .process-form .dc-form-two-col.dc-form-two-col--stacked .f
     width: 100%;
 }
 
+/* Group-only (no Company): Currency | Remark same row as Date | Process */
+body.datacapture-page .process-form.dc-form--group-only .dc-form-two-col--stacked > .form-group > input#capture_remark {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
+    font-size: clamp(10px, 0.74vw, 14px);
+    font-weight: 600;
+}
+
 /* Bottom block: Replace Word outside the 2-col grid so Remove | Remark get equal tracks (spanning rows skew column sizing) */
 body.datacapture-page .process-form .dc-form-bottom-block {
     display: flex;

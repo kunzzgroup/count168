@@ -378,11 +378,10 @@ export default function CaptureMaintenancePage() {
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
-    persistDashboardFilterState(selectedGroup, null);
     setCompanyId(null);
     setCompanyCode("");
     setSelectedIds([]);
-  }, [selectedGroup]);
+  }, []);
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;

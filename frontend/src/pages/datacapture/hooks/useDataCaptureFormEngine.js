@@ -37,7 +37,7 @@ function readRestoredSelectedProcess(restoredProcessData) {
   };
 }
 
-function applyProcessDetailToFields(data, setters, currenciesSnapshot) {
+function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyCompanyOnlyFields = true) {
   const {
     setCurrencyId,
     setRemoveWord,
@@ -49,16 +49,19 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot) {
 
   const pd = data || {};
 
-  if (pd.remove_word) setRemoveWord(String(pd.remove_word).toUpperCase());
-  if (pd.replace_word_from) setReplaceFrom(String(pd.replace_word_from).toUpperCase());
-  if (pd.replace_word_to) setReplaceTo(String(pd.replace_word_to).toUpperCase());
-  if (pd.remarks) setRemark(String(pd.remarks).toUpperCase());
+  if (applyCompanyOnlyFields) {
+    if (pd.remove_word) setRemoveWord(String(pd.remove_word).toUpperCase());
+    if (pd.replace_word_from) setReplaceFrom(String(pd.replace_word_from).toUpperCase());
+    if (pd.replace_word_to) setReplaceTo(String(pd.replace_word_to).toUpperCase());
 
-  if (pd.description_names) {
-    const arr = Array.isArray(pd.description_names) ? pd.description_names : [pd.description_names];
-    window.selectedDescriptions = [...arr];
-    setDescriptionDisplay(arr.join(", "));
+    if (pd.description_names) {
+      const arr = Array.isArray(pd.description_names) ? pd.description_names : [pd.description_names];
+      window.selectedDescriptions = [...arr];
+      setDescriptionDisplay(arr.join(", "));
+    }
   }
+
+  if (pd.remarks) setRemark(String(pd.remarks).toUpperCase());
 
   const currencyIdStr = pd.currency_id != null ? String(pd.currency_id) : "";
   const list = currenciesSnapshot || [];
@@ -76,7 +79,7 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot) {
   }
 }
 
-export function useDataCaptureFormEngine(companyId) {
+export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = true } = {}) {
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
   const restoredProcessData = useMemo(() => readRestoredProcessData(), []);
@@ -115,6 +118,9 @@ export function useDataCaptureFormEngine(companyId) {
   const companyIdRef = useRef(companyId);
   companyIdRef.current = companyId;
 
+  const applyCompanyOnlyFieldsRef = useRef(applyCompanyOnlyFields);
+  applyCompanyOnlyFieldsRef.current = applyCompanyOnlyFields;
+
   useLayoutEffect(() => {
     const url = new URLSearchParams(window.location.search);
     if (url.get("restore") === "1") {
@@ -127,6 +133,7 @@ export function useDataCaptureFormEngine(companyId) {
 
   const reloadProcessesForDate = useCallback(async (dateStr, options = {}) => {
     const { preserveSelection = false } = options;
+    if (!applyCompanyOnlyFieldsRef.current) return;
     const cid = companyIdRef.current;
     if (!cid) return;
     const result = await fetchProcessesByDay(dateStr, cid);
@@ -140,12 +147,14 @@ export function useDataCaptureFormEngine(companyId) {
     if (!preserveSelection && !restoring) {
       setSelectedProcess(null);
       setCurrencyId("");
-      setRemoveWord("");
-      setReplaceFrom("");
-      setReplaceTo("");
+      if (applyCompanyOnlyFieldsRef.current) {
+        setRemoveWord("");
+        setReplaceFrom("");
+        setReplaceTo("");
+        window.selectedDescriptions = [];
+        setDescriptionDisplay("");
+      }
       setRemark("");
-      window.selectedDescriptions = [];
-      setDescriptionDisplay("");
     }
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
@@ -153,6 +162,7 @@ export function useDataCaptureFormEngine(companyId) {
   }, []);
 
   const loadInitialForm = useCallback(async () => {
+    if (!applyCompanyOnlyFieldsRef.current) return;
     const cid = companyIdRef.current;
     if (!cid) return;
     const result = await fetchAddProcessFormData(cid);
@@ -168,12 +178,12 @@ export function useDataCaptureFormEngine(companyId) {
   }, [companyId, loadInitialForm]);
 
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId || !applyCompanyOnlyFields) return;
     if (window.__DC_IS_RESTORING__) return;
     const url = new URLSearchParams(window.location.search);
     if (url.get("restore") === "1") return;
     void reloadProcessesForDate(captureDate, { preserveSelection: false });
-  }, [companyId, captureDate, reloadProcessesForDate]);
+  }, [companyId, applyCompanyOnlyFields, captureDate, reloadProcessesForDate]);
 
   const onDateChange = useCallback(
     (e) => {
@@ -192,7 +202,23 @@ export function useDataCaptureFormEngine(companyId) {
     [reloadProcessesForDate]
   );
 
+  const selectGroupOnlyProcess = useCallback((option) => {
+    if (!option?.id) return;
+    setSelectedProcess({
+      id: String(option.id),
+      displayText: option.displayText || String(option.id),
+      process_id: option.process_id || String(option.id).toUpperCase(),
+      description_name: null,
+    });
+    setProcessOpen(false);
+    setProcessFilter("");
+    setTimeout(() => {
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+    }, 0);
+  }, []);
+
   const selectProcessRow = useCallback(async (row) => {
+    if (!applyCompanyOnlyFieldsRef.current) return;
     const displayText = displayTextFromProcessRow(row);
     setSelectedProcess({
       id: String(row.id),
@@ -215,9 +241,21 @@ export function useDataCaptureFormEngine(companyId) {
           setRemark,
           setDescriptionDisplay,
         },
-        currenciesRef.current
+        currenciesRef.current,
+        applyCompanyOnlyFieldsRef.current
       );
     }
+    setTimeout(() => {
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+    }, 0);
+  }, []);
+
+  const clearCompanyOnlyFields = useCallback(() => {
+    setRemoveWord("");
+    setReplaceFrom("");
+    setReplaceTo("");
+    window.selectedDescriptions = [];
+    setDescriptionDisplay("");
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
     }, 0);
@@ -226,12 +264,14 @@ export function useDataCaptureFormEngine(companyId) {
   const clearProcessSelection = useCallback(() => {
     setSelectedProcess(null);
     setCurrencyId("");
-    setRemoveWord("");
-    setReplaceFrom("");
-    setReplaceTo("");
+    if (applyCompanyOnlyFieldsRef.current) {
+      setRemoveWord("");
+      setReplaceFrom("");
+      setReplaceTo("");
+      window.selectedDescriptions = [];
+      setDescriptionDisplay("");
+    }
     setRemark("");
-    window.selectedDescriptions = [];
-    setDescriptionDisplay("");
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
     }, 0);
@@ -382,7 +422,9 @@ export function useDataCaptureFormEngine(companyId) {
     processRowsCount: processRows.length,
     selectedProcess,
     selectProcessRow,
+    selectGroupOnlyProcess,
     clearProcessSelection,
     displayTextFromProcessRow,
+    clearCompanyOnlyFields,
   };
 }

@@ -670,8 +670,8 @@ export default function TransactionMaintenancePage() {
   ]);
 
   // -- Handlers --
-  const handleClearCompany = useCallback(() => {
-    persistDashboardFilterState(selectedGroup, null);
+  const handleClearCompany = useCallback((groupForPersist) => {
+    const g = groupForPersist ?? selectedGroup;
     setCompanyId(null);
     setCompanyCode("");
     setSelectedProcess("");
@@ -680,7 +680,7 @@ export default function TransactionMaintenancePage() {
       try {
         const meta = await bootstrapTransactionMaintenanceMeta({
           companies,
-          groupId: selectedGroup,
+          groupId: g,
         });
         setPermissions(meta.permissions);
         setActivePermission(meta.activePermission);

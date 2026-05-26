@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LOGIN_I18N } from "../../translateFile/auth/authTranslate.js";
+import {
+  clearDashboardFilterSession,
+  seedDashboardFilterFromLogin,
+} from "../../utils/company/sharedCompanyFilter.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 
 function escapeHtml(text) {
@@ -264,6 +268,18 @@ export default function LoginPage() {
       const res = await fetch("/api/session/login_api.php", { method: "POST", body: fd, credentials: "include" });
       const data = await res.json();
       if (data.status === "success" && data.redirect) {
+        clearDashboardFilterSession();
+        const loginScope = String(data.login_scope || "").trim().toLowerCase();
+        const loginIdentifier = String(data.login_identifier || companyId).trim().toUpperCase();
+        if (loginScope === "group" || loginScope === "company") {
+          seedDashboardFilterFromLogin({
+            loginScope,
+            loginIdentifier,
+            sessionCompanyId: data.company_id != null ? Number(data.company_id) : null,
+            sessionCompanyCode: loginScope === "company" ? loginIdentifier : null,
+          });
+        }
+
         const userType = String(data.user_type || "").toLowerCase();
         const redirect = String(data.redirect || "");
         const loginRole = role;
