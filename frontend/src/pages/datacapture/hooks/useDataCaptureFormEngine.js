@@ -3,6 +3,7 @@ import {
   buildDateOptions,
   displayTextFromProcessRow,
   fetchAddProcessFormData,
+  fetchCurrenciesForCompanyIds,
   fetchProcessDetail,
   fetchProcessesByDay,
   getLocalDateString,
@@ -79,7 +80,10 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
   }
 }
 
-export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = true } = {}) {
+export function useDataCaptureFormEngine(
+  companyId,
+  { applyCompanyOnlyFields = true, groupCompanyIds = null } = {},
+) {
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
   const restoredProcessData = useMemo(() => readRestoredProcessData(), []);
@@ -168,14 +172,43 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
     const result = await fetchAddProcessFormData(cid);
     if (!result.success) return;
     const list = Array.isArray(result.currencies) ? result.currencies : [];
-    const norm = list.map((c) => ({ id: String(c.id), code: c.code }));
+    const norm = list.map((c) => ({
+      id: String(c.id),
+      code: String(c.code || "").trim().toUpperCase(),
+    }));
     setCurrencies(norm);
   }, []);
 
+  const groupCompanyIdsRef = useRef(groupCompanyIds);
+  groupCompanyIdsRef.current = groupCompanyIds;
+
+  const loadGroupOnlyCurrencies = useCallback(async () => {
+    if (applyCompanyOnlyFieldsRef.current) return;
+    const ids = groupCompanyIdsRef.current;
+    if (!ids?.length) {
+      setCurrencies([]);
+      setCurrencyId("");
+      return;
+    }
+    const list = await fetchCurrenciesForCompanyIds(ids, companyIdRef.current);
+    setCurrencies(list);
+    setCurrencyId((prev) => {
+      if (!prev) return "";
+      return list.some((c) => String(c.id) === String(prev)) ? prev : "";
+    });
+  }, []);
+
   useEffect(() => {
-    if (!companyId) return;
-    void loadInitialForm();
-  }, [companyId, loadInitialForm]);
+    if (applyCompanyOnlyFields) {
+      if (!companyId) {
+        setCurrencies([]);
+        return;
+      }
+      void loadInitialForm();
+      return;
+    }
+    void loadGroupOnlyCurrencies();
+  }, [companyId, applyCompanyOnlyFields, groupCompanyIds, loadInitialForm, loadGroupOnlyCurrencies]);
 
   useEffect(() => {
     if (!companyId || !applyCompanyOnlyFields) return;

@@ -44,6 +44,59 @@ export async function fetchAddProcessFormData(companyId) {
   return response.json();
 }
 
+/**
+ * Group-only: merge currencies from all companies in the selected group (dedupe by code).
+ * When the same code exists in multiple companies, prefer `preferredCompanyId` (anchor session).
+ */
+export async function fetchCurrenciesForCompanyIds(companyIds, preferredCompanyId = null) {
+  const ids = [...new Set((companyIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
+  if (!ids.length) return [];
+
+  const rows = (
+    await Promise.all(
+      ids.map(async (cid) => {
+        try {
+          const response = await fetch(
+            buildApiUrl(
+              `api/transactions/get_company_currencies_api.php?company_id=${encodeURIComponent(cid)}`,
+            ),
+            { credentials: "include" },
+          );
+          const json = await response.json();
+          if (!response.ok || !json.success || !Array.isArray(json.data)) return [];
+          return json.data.map((r) => ({
+            id: String(r.id),
+            code: String(r.code || "").trim().toUpperCase(),
+            companyId: cid,
+          }));
+        } catch {
+          return [];
+        }
+      }),
+    )
+  ).flat();
+
+  const byCode = new Map();
+  const pref = preferredCompanyId != null ? Number(preferredCompanyId) : null;
+
+  for (const row of rows) {
+    const code = row.code;
+    if (!code) continue;
+    const existing = byCode.get(code);
+    if (!existing) {
+      byCode.set(code, row);
+      continue;
+    }
+    if (pref != null && Number(row.companyId) === pref) {
+      byCode.set(code, row);
+    }
+  }
+
+  return Array.from(byCode.values())
+    .map(({ id, code }) => ({ id, code }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
 /** Same as legacy loadProcessesByDate */
 export async function fetchProcessesByDay(selectedDate, companyId) {
   let url = buildApiUrl(

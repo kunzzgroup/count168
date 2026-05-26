@@ -1,6 +1,16 @@
 /** Default grid size (A–Z rows). Matches legacy `initializeTable(26, 20)`. */
 export const DEFAULT_GRID_ROWS = 26;
 export const DEFAULT_GRID_COLS = 20;
+
+/** Group-only mode (Group selected, no Company): 11 columns × 11 rows (A–K). */
+export const GROUP_ONLY_GRID_ROWS = 11;
+export const GROUP_ONLY_GRID_COLS = 11;
+
+export function resolveDataCaptureGridDimensions(groupOnly) {
+  return groupOnly
+    ? { rows: GROUP_ONLY_GRID_ROWS, cols: GROUP_ONLY_GRID_COLS }
+    : { rows: DEFAULT_GRID_ROWS, cols: DEFAULT_GRID_COLS };
+}
 /** ZZ row index + 1 in legacy. */
 export const MAX_GRID_ROWS = 702;
 

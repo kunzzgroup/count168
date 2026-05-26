@@ -18,6 +18,7 @@ export default function DataCaptureTableSection({
   citibetMode = false,
   formatGridReady = false,
   hideCaptureTypeSelector = false,
+  groupOnlyTable = false,
   onCaptureTypeChange,
   submitDisabled = true,
   onSubmit,
@@ -25,6 +26,7 @@ export default function DataCaptureTableSection({
 }) {
   const containerClass = [
     "excel-table-container",
+    groupOnlyTable ? "excel-table-container--group-only" : "",
     citibetMode ? "citibet-mode" : "",
   ]
     .filter(Boolean)
@@ -69,7 +71,7 @@ export default function DataCaptureTableSection({
             </div>
           ) : null}
         </div>
-        <DataCaptureGrid />
+        <DataCaptureGrid groupOnly={groupOnlyTable} />
       </div>
 
       <div className="form-actions">

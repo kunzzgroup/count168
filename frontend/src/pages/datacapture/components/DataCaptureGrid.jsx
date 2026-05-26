@@ -1,18 +1,19 @@
 import { memo, useLayoutEffect } from "react";
-import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS } from "../grid/dataCaptureGridMeta.js";
+import { resolveDataCaptureGridDimensions } from "../grid/dataCaptureGridMeta.js";
 
 /**
  * Stable grid shell — React builds and manages #dataTable rows/cells.
  */
-function DataCaptureGrid() {
+function DataCaptureGrid({ groupOnly = false }) {
   useLayoutEffect(() => {
     let cancelled = false;
     let attempts = 0;
+    const { rows, cols } = resolveDataCaptureGridDimensions(groupOnly);
 
     const tryEnsure = () => {
       if (cancelled) return;
       if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
-        window.__DC_ENSURE_GRID_READY__(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
+        window.__DC_ENSURE_GRID_READY__(rows, cols);
         const dims =
           typeof window.__DC_GET_GRID_DIMENSIONS__ === "function"
             ? window.__DC_GET_GRID_DIMENSIONS__()
@@ -29,7 +30,7 @@ function DataCaptureGrid() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [groupOnly]);
 
   return (
     <>
@@ -60,4 +61,4 @@ function DataCaptureGrid() {
   );
 }
 
-export default memo(DataCaptureGrid, () => true);
+export default memo(DataCaptureGrid);

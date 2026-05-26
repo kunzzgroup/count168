@@ -33,6 +33,7 @@ import {
   getGroupOnlyProcessOptions,
   isGroupOnlyProcessId,
 } from "./lib/dataCaptureGroupOnlyProcesses.js";
+import { resolveDataCaptureGridDimensions } from "./grid/dataCaptureGridMeta.js";
 import DataCaptureContextMenus from "./components/DataCaptureContextMenus.jsx";
 import DataCaptureDeleteDialog from "./components/DataCaptureDeleteDialog.jsx";
 import DataCaptureTableSection from "./components/DataCaptureTableSection.jsx";
@@ -201,6 +202,13 @@ export default function DataCapturePage() {
 
   const effectiveCompanyId = isCompanySelected ? companyId : anchorCompanyRow?.id ?? null;
 
+  const groupCompanyIds = useMemo(() => {
+    if (isCompanySelected || !selectedGroup) return [];
+    return companiesInGroupList(companiesDeduped, selectedGroup)
+      .map((c) => Number(c.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+  }, [isCompanySelected, selectedGroup, companiesDeduped]);
+
   const companyCode = useMemo(() => {
     const raw = (isCompanySelected ? currentCompanyRow : anchorCompanyRow)?.company_id;
     if (raw != null && String(raw).trim() !== "") return String(raw).trim();
@@ -208,7 +216,10 @@ export default function DataCapturePage() {
     return "";
   }, [isCompanySelected, currentCompanyRow, anchorCompanyRow, effectiveCompanyId]);
 
-  const form = useDataCaptureFormEngine(effectiveCompanyId, { applyCompanyOnlyFields: isCompanySelected });
+  const form = useDataCaptureFormEngine(effectiveCompanyId, {
+    applyCompanyOnlyFields: isCompanySelected,
+    groupCompanyIds: isCompanySelected ? null : groupCompanyIds,
+  });
 
   const groupOnlyProcessOptions = useMemo(() => getGroupOnlyProcessOptions(t), [t]);
 
@@ -245,7 +256,8 @@ export default function DataCapturePage() {
     requireDescriptions: isCompanySelected,
   });
 
-  useDataCaptureGrid(scriptsReady);
+  const groupOnlyTable = !isCompanySelected;
+  useDataCaptureGrid(scriptsReady, groupOnlyTable);
   useDataCaptureGridInteraction(scriptsReady);
   useDataCapturePaste();
   useDataCaptureFormatPaste();
@@ -687,7 +699,8 @@ export default function DataCapturePage() {
         }
         if (!alive) return;
         if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
-          window.__DC_ENSURE_GRID_READY__(26, 20);
+          const { rows, cols } = resolveDataCaptureGridDimensions(!isCompanySelected);
+          window.__DC_ENSURE_GRID_READY__(rows, cols);
         }
         scriptsBootedRef.current = true;
         if (alive) setScriptsReady(true);
@@ -704,7 +717,7 @@ export default function DataCapturePage() {
     return () => {
       alive = false;
     };
-  }, [bootLoading, me, effectiveCompanyId, companyCode]);
+  }, [bootLoading, me, effectiveCompanyId, companyCode, isCompanySelected]);
 
   useEffect(() => {
     if (!scriptsReady) return;
@@ -1093,7 +1106,8 @@ export default function DataCapturePage() {
         captureType={captureType}
         citibetMode={citibetMode}
         formatGridReady={formatGridReady}
-        hideCaptureTypeSelector={!isCompanySelected}
+        hideCaptureTypeSelector={groupOnlyTable}
+        groupOnlyTable={groupOnlyTable}
         onCaptureTypeChange={handleCaptureTypeChange}
         submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         onSubmit={() => void submitReset.submit()}

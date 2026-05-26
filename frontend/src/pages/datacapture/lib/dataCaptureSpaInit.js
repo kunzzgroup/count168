@@ -7,8 +7,12 @@ import {
   stripSearchParamsFromUrl,
 } from "./dataCaptureStorage.js";
 import { clearStaleFormatPreviewForFreshEntry } from "../format/dataCaptureFormat.js";
-import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS } from "../grid/dataCaptureGridMeta.js";
+import { resolveDataCaptureGridDimensions } from "../grid/dataCaptureGridMeta.js";
 import { readInitialCaptureType } from "./dataCaptureFormRules.js";
+
+function spaGridDimensions() {
+  return resolveDataCaptureGridDimensions(window.__DC_IS_GROUP_ONLY_GRID__ === true);
+}
 
 export async function initDataCaptureSpaPage() {
   const dcFormGate = document.getElementById("dataCaptureForm");
@@ -27,7 +31,8 @@ export async function initDataCaptureSpaPage() {
 
     if (!shouldRestore) {
       window.__DC_APPLY_CAPTURE_TYPE__?.(readInitialCaptureType());
-      await window.__DC_ENSURE_GRID_READY__?.(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
+      const { rows, cols } = spaGridDimensions();
+      await window.__DC_ENSURE_GRID_READY__?.(rows, cols);
       await window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
     }
 
@@ -42,7 +47,8 @@ export async function initDataCaptureSpaPage() {
 
   if (shouldRestore) {
     await window.__DC_RESTORE_FROM_STORAGE__?.();
-    await window.__DC_ENSURE_GRID_READY__?.(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
+    const { rows, cols } = spaGridDimensions();
+    await window.__DC_ENSURE_GRID_READY__?.(rows, cols);
   }
 
   window.__DC_RECOMPUTE_SUBMIT_STATE__?.();

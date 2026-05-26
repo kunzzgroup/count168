@@ -1,7 +1,11 @@
 /**
  * Reset / restore grid snapshot — extracted from js/datacapture.js (Phase 5g).
  */
-import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS } from "./dataCaptureGridMeta.js";
+import { resolveDataCaptureGridDimensions } from "./dataCaptureGridMeta.js";
+
+function activeGridDimensions() {
+  return resolveDataCaptureGridDimensions(window.__DC_IS_GROUP_ONLY_GRID__ === true);
+}
 import { clearAllSelections } from "./dataCaptureGridSelection.js";
 import {
   clearEditableGridCells,
@@ -21,9 +25,9 @@ import {
   snapshotDataCellDomIndex,
 } from "../lib/dataCaptureTableSnapshot.js";
 
-function rebuildDefaultColumnHeaders(headerRow) {
+function rebuildDefaultColumnHeaders(headerRow, cols) {
   headerRow.innerHTML = "<th></th>";
-  for (let j = 0; j < DEFAULT_GRID_COLS; j += 1) {
+  for (let j = 0; j < cols; j += 1) {
     const header = document.createElement("th");
     header.textContent = String(j + 1);
     window.__DC_GRID_ATTACH_COLUMN_HEADER__?.(header);
@@ -55,7 +59,7 @@ export function clearCaptureTableForReset() {
       });
 
       if (currentCols === 0) {
-        rebuildDefaultColumnHeaders(headerRow);
+        rebuildDefaultColumnHeaders(headerRow, activeGridDimensions().cols);
       }
     }
   }
@@ -89,7 +93,8 @@ export async function restoreCaptureTableFromData(tableData, savedType) {
 
   if (!tableData?.rows?.length) {
     if (type) window.__DC_APPLY_CAPTURE_TYPE__?.(type);
-    window.__DC_ENSURE_GRID_READY__?.(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
+    const { rows, cols } = activeGridDimensions();
+    window.__DC_ENSURE_GRID_READY__?.(rows, cols);
     return;
   }
 
