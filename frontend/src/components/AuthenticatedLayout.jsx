@@ -7,7 +7,8 @@ import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 import ExpirationReminderModal from "./ExpirationReminderModal.jsx";
 import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
 import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
-import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
+import { getExpirationReminderText } from "../translateFile/shell/expirationReminderTranslate.js";
+import { getAutoRenewText } from "../translateFile/pages/autoRenewTranslate.js";
 import { useExpirationReminder } from "../hooks/useExpirationReminder.js";
 import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
 import {
@@ -107,6 +108,16 @@ export default function AuthenticatedLayout() {
     () => mergeAnnouncements(announcements),
     [announcements, mergeAnnouncements],
   );
+  const showAutoRenewEntry = Boolean(
+    me && me.user_type !== "member" && !me.is_current_company_c168,
+  );
+  const goAutoRenew = useCallback(() => {
+    navigate("/auto-renew");
+  }, [navigate]);
+  const handleExpirationModalSecondary = useCallback(() => {
+    dismissExpirationModal();
+    navigate("/auto-renew");
+  }, [dismissExpirationModal, navigate]);
   const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
   const sidebarTabletExpanded = isTabletViewport && !sidebarCollapsed;
 
@@ -741,7 +752,23 @@ export default function AuthenticatedLayout() {
         </div>
 
         <div className="informationmenu-footer">
-          <div className={`company-expiration-countdown ${me?.expiration_status || "normal"}`}>
+          <div
+            className={`company-expiration-countdown ${me?.expiration_status || "normal"}${showAutoRenewEntry ? " is-clickable" : ""}`}
+            title={showAutoRenewEntry ? getAutoRenewText(lang, "manageAutoRenew") : undefined}
+            role={showAutoRenewEntry ? "button" : undefined}
+            tabIndex={showAutoRenewEntry ? 0 : undefined}
+            onClick={showAutoRenewEntry ? goAutoRenew : undefined}
+            onKeyDown={
+              showAutoRenewEntry
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      goAutoRenew();
+                    }
+                  }
+                : undefined
+            }
+          >
             <svg className="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
@@ -815,6 +842,8 @@ export default function AuthenticatedLayout() {
         message={expirationModalMessage}
         confirmLabel={expirationModalI18n.confirm}
         onConfirm={dismissExpirationModal}
+        secondaryLabel={showAutoRenewEntry ? getExpirationReminderText(lang, "expReminderAutoRenew") : undefined}
+        onSecondary={showAutoRenewEntry ? handleExpirationModalSecondary : undefined}
       />
 
       <ConfirmLogoutModal

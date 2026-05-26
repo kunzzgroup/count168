@@ -1,6 +1,14 @@
 import { useEffect } from "react";
 
-export default function ExpirationReminderModal({ open, title, message, confirmLabel, onConfirm }) {
+export default function ExpirationReminderModal({
+  open,
+  title,
+  message,
+  confirmLabel,
+  onConfirm,
+  secondaryLabel,
+  onSecondary,
+}) {
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (e) => {
@@ -38,7 +46,16 @@ export default function ExpirationReminderModal({ open, title, message, confirmL
           {title}
         </h3>
         <p className="dashboard-alert-modal-message">{message}</p>
-        <div className="dashboard-alert-modal-actions">
+        <div className={`dashboard-alert-modal-actions${secondaryLabel && onSecondary ? " dashboard-alert-modal-actions--dual" : ""}`}>
+          {secondaryLabel && onSecondary ? (
+            <button
+              type="button"
+              className="dashboard-alert-modal-btn dashboard-alert-modal-btn-secondary"
+              onClick={onSecondary}
+            >
+              {secondaryLabel}
+            </button>
+          ) : null}
           <button
             type="button"
             className="dashboard-alert-modal-btn dashboard-alert-modal-btn-primary"

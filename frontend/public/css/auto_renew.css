@@ -1,0 +1,261 @@
+/* Auto Renew page */
+
+.auto-renew-page {
+  padding: clamp(16px, 2vw, 32px);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.auto-renew-page-title {
+  margin: 0 0 clamp(16px, 2vw, 24px);
+  font-size: clamp(20px, 1.6vw, 28px);
+  font-weight: 700;
+  color: var(--scd-heading, #1e293b);
+}
+
+.auto-renew-card {
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  padding: clamp(16px, 1.6vw, 24px);
+  margin-bottom: clamp(14px, 1.4vw, 20px);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.auto-renew-card-title {
+  margin: 0 0 14px;
+  font-size: clamp(14px, 1.1vw, 18px);
+  font-weight: 700;
+  color: #334155;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.auto-renew-info-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 140px) 1fr;
+  gap: 10px 16px;
+  font-size: clamp(13px, 0.95vw, 15px);
+}
+
+.auto-renew-info-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.auto-renew-info-value {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.auto-renew-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auto-renew-status-badge.normal {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.auto-renew-status-badge.warning {
+  background: rgba(251, 191, 36, 0.2);
+  color: #b45309;
+}
+
+.auto-renew-status-badge.expired {
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+}
+
+.auto-renew-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.auto-renew-toggle-label {
+  font-size: clamp(14px, 1vw, 16px);
+  font-weight: 600;
+  color: #334155;
+}
+
+.auto-renew-toggle-state {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-right: 8px;
+}
+
+.auto-renew-toggle-state.is-on {
+  color: #059669;
+}
+
+.auto-renew-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.auto-renew-field {
+  margin-bottom: 16px;
+}
+
+.auto-renew-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.auto-renew-period-select {
+  width: 100%;
+  max-width: 280px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  color: #0f172a;
+}
+
+.auto-renew-period-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auto-renew-preview {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.auto-renew-preview strong {
+  color: #0f172a;
+}
+
+.auto-renew-notice {
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.auto-renew-notice.info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.auto-renew-notice.warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.auto-renew-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.auto-renew-btn {
+  min-width: 100px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.auto-renew-btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+}
+
+.auto-renew-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.auto-renew-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auto-renew-btn-secondary {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.auto-renew-meta {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.auto-renew-toast-wrap {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auto-renew-toast {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.auto-renew-toast.success {
+  background: #059669;
+}
+
+.auto-renew-toast.error {
+  background: #dc2626;
+}
+
+.company-expiration-countdown.is-clickable {
+  cursor: pointer;
+}
+
+.company-expiration-countdown.is-clickable:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dashboard-alert-modal-actions--dual {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-alert-modal-btn-secondary {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.dashboard-alert-modal-btn-secondary:hover {
+  background: #e2e8f0;
+}

@@ -24,6 +24,7 @@ import MemberPage from "./pages/member/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
 import UserAccessPage from "./pages/useraccess/UserAccessPage.jsx";
 import DeletedLogPage from "./pages/deletedlog/DeletedLogPage.jsx";
+import AutoRenewPage from "./pages/autorenew/AutoRenewPage.jsx";
 
 export default function App() {
   return (
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/payment-maintenance" element={<PaymentMaintenancePage />} />
         <Route path="/useraccess" element={<UserAccessPage />} />
         <Route path="/deleted-log" element={<DeletedLogPage />} />
+        <Route path="/auto-renew" element={<AutoRenewPage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
@@ -96,6 +98,8 @@ export default function App() {
       <Route path="/owner_secondary_password.php" element={<Navigate to="/owner-secondary-password" replace />} />
       <Route path="/api/users/user_secondary_password.php" element={<Navigate to="/user-secondary-password" replace />} />
       <Route path="/useraccess.php" element={<Navigate to="/useraccess" replace />} />
+      <Route path="/auto_renew.php" element={<Navigate to="/auto-renew" replace />} />
+      <Route path="/auto_renew" element={<Navigate to="/auto-renew" replace />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
