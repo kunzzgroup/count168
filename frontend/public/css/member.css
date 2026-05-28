@@ -2204,16 +2204,33 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     min-width: min-content;
 }
 
-/* Mini balance matrix — single CSS grid so every row shares column tracks (vertical lines align) */
+/* Mini balance matrix — single CSS grid; 列宽随内容，从左排列，不拉伸填满 */
 .member-balance-mini-grid.member-balance-mini-matrix {
     display: grid;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
+    width: max-content;
+    max-width: none;
+    min-width: max-content;
     border-collapse: collapse;
     font-size: 13px;
     line-height: 1.25;
     box-sizing: border-box;
+}
+
+.member-balance-mini-matrix--ccy-compact .member-balance-matrix-th,
+.member-balance-mini-matrix--ccy-compact .member-balance-matrix-cell {
+    min-width: var(--member-wl-ccy-fill-col-w, 6rem);
+    max-width: var(--member-wl-ccy-fill-col-w, 6rem);
+    width: var(--member-wl-ccy-fill-col-w, 6rem);
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.member-balance-mini-matrix--ccy-compact .member-balance-matrix-th {
+    justify-content: center;
+}
+
+.member-balance-mini-matrix--ccy-compact .member-balance-matrix-cell {
+    justify-content: flex-end;
 }
 
 .member-balance-mini-matrix--many-ccy:not(.member-balance-mini-matrix--ccy-scroll) {
@@ -2431,14 +2448,9 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     -webkit-overflow-scrolling: touch;
 }
 
-.member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-fill) {
-    width: max-content;
-    max-width: 100%;
-    margin-inline-start: 0;
-}
-
+.member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-compact),
 .member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-scroll) {
-    width: 100%;
+    width: max-content;
     max-width: 100%;
     margin-inline-start: 0;
 }
