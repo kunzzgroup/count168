@@ -2419,15 +2419,28 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     -webkit-overflow-scrolling: touch;
 }
 
-/* 1–9 列：白卡宽度随表内容；贴右，随币种列数向左增宽 */
-.member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-fill) {
+/* 矩阵表：币种为列、账户为行；列多时横向滚动，账户行全部展示 */
+.member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix) {
     display: block;
-    width: max-content;
+    width: 100%;
     max-width: 100%;
     flex: 0 1 auto;
-    margin-inline-start: auto;
+    min-width: 0;
     overflow-x: auto;
     overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+
+.member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-fill) {
+    width: max-content;
+    max-width: 100%;
+    margin-inline-start: 0;
+}
+
+.member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-scroll) {
+    width: 100%;
+    max-width: 100%;
+    margin-inline-start: 0;
 }
 
 .member-winloss-page .member-balance-mini-grid.member-balance-mini-matrix.member-balance-mini-matrix--ccy-fill {
@@ -2452,7 +2465,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     width: max-content;
     max-width: none;
     min-width: max-content;
-    margin-inline-start: auto;
+    margin-inline-start: 0;
     font-size: 13px;
     line-height: 1.3;
 }
@@ -2479,8 +2492,16 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 
 /* Win/Loss 迷你矩阵 — 可读优先；单层 grid 列宽一致（行高由 .member-dash-columns--three-col 变量统一） */
 .member-winloss-page .member-balance-matrix-corner {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
     min-height: var(--member-wl-matrix-hdr-h, 40px);
-    padding: 2px 6px;
+    padding: 8px 12px;
+    font-weight: 700;
+    font-size: var(--text-medium);
+    color: #1e3a5f;
+    letter-spacing: 0.02em;
+    box-sizing: border-box;
 }
 
 .member-winloss-page .member-balance-matrix-th {
