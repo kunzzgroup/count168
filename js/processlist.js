@@ -3979,7 +3979,28 @@ if (addCountryForm && !window.__processlistModalAddCountryFormBound) {
             showNotification('Please enter a country name', 'danger');
             return;
         }
+        const currencyCode = countryName.toUpperCase();
         try {
+            const existingCurrency = bankAccountCurrencies.find(function (c) {
+                return String(c.code || '').toUpperCase() === currencyCode;
+            });
+            if (!existingCurrency) {
+                const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+                const currencyRes = await fetch(buildApiUrl('api/accounts/addcurrencyapi.php'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId })
+                });
+                const currencyResult = await currencyRes.json();
+                if (!currencyResult.success) {
+                    showNotification(currencyResult.error || currencyResult.message || 'Failed to create currency', 'danger');
+                    return;
+                }
+                if (currencyResult.data && currencyResult.data.id) {
+                    bankAccountCurrencies.push({ id: currencyResult.data.id, code: currencyResult.data.code || currencyCode });
+                }
+            }
+
             const formData = new FormData();
             formData.append('country', countryName);
             const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -3998,6 +4019,11 @@ if (addCountryForm && !window.__processlistModalAddCountryFormBound) {
         if (!availableCountriesList.includes(countryName)) {
             availableCountriesList.push(countryName);
             availableCountriesList.sort((a, b) => a.localeCompare(b));
+        }
+        try {
+            await syncCurrencyListsForOpenAccountModals();
+        } catch (syncErr) {
+            console.warn('syncCurrencyListsForOpenAccountModals after add country', syncErr);
         }
         loadExistingCountries();
         if (nameInput) nameInput.value = '';
@@ -4036,6 +4062,33 @@ let bankAccountCurrencies = [];
 // Edit Account modal state (for + button when account selected)
 let selectedCompanyIdsForEdit = [];
 let currentEditAccountIdForBank = null;
+
+function isBankModalVisible(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return false;
+    return modal.style.display === 'block' || modal.classList.contains('show');
+}
+
+async function syncCurrencyListsForOpenAccountModals() {
+    await loadEditDataBank();
+    if (isBankModalVisible('addAccountModal')) {
+        await loadAccountCurrenciesBank(null, 'add');
+    }
+    if (isBankModalVisible('editAccountModal') && currentEditAccountIdForBank) {
+        await loadAccountCurrenciesBank(currentEditAccountIdForBank, 'edit');
+    }
+}
+
+async function getCompanyCurrencyByCodeBank(code) {
+    const normalizedCode = String(code || '').trim().toUpperCase();
+    if (!normalizedCode) return null;
+    const res = await fetch(buildApiUrl('api/accounts/account_currency_api.php?action=get_available_currencies'));
+    const result = await res.json();
+    const list = (result.success && Array.isArray(result.data)) ? result.data : [];
+    return list.find(function (item) {
+        return String(item.code || '').trim().toUpperCase() === normalizedCode;
+    }) || null;
+}
 /** 从 Supplier 或 Customer 的 + 打开 Add Account 时记录，添加成功后自动选中新账户；Company 不自动选 */
 let bankAddAccountTriggerFieldId = null;
 // For Profit Sharing rows: remember which hidden input should receive the new account id
@@ -5355,6 +5408,31 @@ async function removeCountryFromAvailable(countryName, itemEl) {
         if (itemEl && itemEl.parentNode) itemEl.remove();
         return;
     }
+
+    const code = name.toUpperCase();
+    try {
+        const matchedCurrency = await getCompanyCurrencyByCodeBank(code);
+        if (matchedCurrency && matchedCurrency.id) {
+            const deleteCurrencyRes = await fetch(buildApiUrl('api/accounts/delete_currency_api.php'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: matchedCurrency.id })
+            });
+            const deleteCurrencyResult = await deleteCurrencyRes.json();
+            if (!deleteCurrencyResult.success) {
+                showNotification(deleteCurrencyResult.error || deleteCurrencyResult.message || 'Failed to delete currency', 'danger');
+                return;
+            }
+            selectedCurrencyIdsForAdd = selectedCurrencyIdsForAdd.filter(function (id) { return id !== matchedCurrency.id; });
+            bankAccountCurrencies = bankAccountCurrencies.filter(function (c) { return c.id !== matchedCurrency.id; });
+            if (!deletedCurrencyIds.includes(matchedCurrency.id)) deletedCurrencyIds.push(matchedCurrency.id);
+        }
+    } catch (currencyErr) {
+        console.warn('delete currency for country failed', currencyErr);
+        showNotification('Failed to delete currency', 'danger');
+        return;
+    }
+
     const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
     if (companyId) {
         try {
@@ -5381,6 +5459,11 @@ async function removeCountryFromAvailable(countryName, itemEl) {
         if (idx > -1) availableCountriesList.splice(idx, 1);
     }
     if (itemEl && itemEl.parentNode) itemEl.remove();
+    try {
+        await syncCurrencyListsForOpenAccountModals();
+    } catch (syncErr) {
+        console.warn('syncCurrencyListsForOpenAccountModals after remove country', syncErr);
+    }
 }
 
 function closeCountrySelectionModal() {
