@@ -1937,25 +1937,27 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 
 .bank-form .bank-day-end-label-row {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
     gap: 8px;
-    width: 100%;
+    width: auto;
 }
 
 #addBankModal .bank-form .bank-day-end-label-row > label {
     width: auto;
     flex: 0 0 auto;
+    margin-bottom: 0;
 }
 
 .bank-form .bank-day-end-monthly-cap-wrap {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
+    flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-    gap: 2px;
+    gap: 6px;
     flex: 0 0 auto;
-    margin-top: 1px;
+    margin: 0;
     min-width: 0;
 }
 
@@ -1965,10 +1967,64 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     color: #64748b;
     letter-spacing: 0.02em;
     user-select: none;
+    line-height: 1;
 }
 
-.bank-form .bank-day-end-cap-switch {
-    margin-bottom: 2px;
+/* Bank modal：独立 toggle 样式（勿用 userlist read-only toggle 的 top/bottom 偏移） */
+#addBankModal .bank-day-end-cap-switch.toggle-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 38px;
+    height: 21px;
+    flex-shrink: 0;
+    cursor: pointer;
+    margin: 0;
+}
+
+#addBankModal .bank-day-end-cap-switch.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+#addBankModal .bank-day-end-cap-switch .toggle-slider {
+    position: absolute;
+    inset: 0;
+    top: 0;
+    bottom: 0;
+    background: #cbd5e1;
+    border-radius: 999px;
+    transition: background 0.25s ease;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+#addBankModal .bank-day-end-cap-switch .toggle-slider::before {
+    content: "";
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    top: 50%;
+    left: 3px;
+    transform: translateY(-50%);
+    background: #fff;
+    border-radius: 50%;
+    transition: left 0.25s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+#addBankModal .bank-day-end-cap-switch input:checked + .toggle-slider {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+#addBankModal .bank-day-end-cap-switch input:checked + .toggle-slider::before {
+    left: calc(100% - 18px);
+}
+
+#addBankModal .bank-day-end-cap-switch input:disabled + .toggle-slider {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 /* Add/Edit Bank Process + Resend modal — localized MaintenanceDateRangePicker (replaces native type="date") */
