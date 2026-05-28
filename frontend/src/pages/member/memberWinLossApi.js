@@ -41,6 +41,16 @@ export function parseJsonResponse(text) {
   }
 }
 
+/** Map get_all_linked_accounts API rows to member page account objects. */
+export function mapLinkedAccountsApiList(data) {
+  if (!Array.isArray(data)) return [];
+  return data.map((acc) => ({
+    id: acc.id,
+    account_id: acc.account_id || "",
+    name: acc.name || "",
+  }));
+}
+
 /** Map batch account-currencies API rows to accountId → Set(currency codes). */
 export function mapBatchCurrencies(data, currencySortOrderRef) {
   const map = new Map();

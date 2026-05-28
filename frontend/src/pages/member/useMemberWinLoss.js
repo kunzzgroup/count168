@@ -5,7 +5,6 @@ import {
   MINI_GRID_SHELL_CCY,
   accountHoldsMiniGridCurrency,
   applyCurrencyToggle,
-  applyDefaultWLGridSelection,
   formatPaymentHistoryMoney,
   getAvailableCurrencies,
   getMemberMiniGridCurrencies,
@@ -16,7 +15,7 @@ import {
   saveWLGridSelection,
   sanitizeCurrencySelection,
 } from "./memberPageHelpers.js";
-import { mapBatchCurrencies, parseJsonResponse } from "./memberWinLossApi.js";
+import { mapBatchCurrencies, mapLinkedAccountsApiList, parseJsonResponse } from "./memberWinLossApi.js";
 
 export function useMemberWinLoss({ showNotification, lang }) {
   const t = useCallback((key, params) => getMemberText(lang, key, params), [lang]);
@@ -32,6 +31,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [linkedAccounts, setLinkedAccounts] = useState([]);
+  const [viewGridAccounts, setViewGridAccounts] = useState([]);
   const [wlGridSelectedIds, setWlGridSelectedIds] = useState([]);
   const [linkedAccountCurrenciesMap, setLinkedAccountCurrenciesMap] = useState(() => new Map());
   const [linkedCurrenciesLoaded, setLinkedCurrenciesLoaded] = useState(false);
@@ -136,10 +136,78 @@ export function useMemberWinLoss({ showNotification, lang }) {
     }
   }, []);
 
+  const fetchLinkedAccountsForAccount = useCallback(async (accountId, compId) => {
+    if (!accountId || !compId) return [];
+    const res = await fetch(
+      buildApiUrl(
+        `api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${compId}`,
+      ),
+      { credentials: "include", cache: "no-store" },
+    );
+    const json = await parseJsonResponse(await res.text());
+    return json?.success ? mapLinkedAccountsApiList(json.data) : [];
+  }, []);
+
+  const fetchDirectLinkedAccountsForAccount = useCallback(async (accountId, compId) => {
+    if (!accountId || !compId) return [];
+    const res = await fetch(
+      buildApiUrl(
+        `api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${compId}`,
+      ),
+      { credentials: "include", cache: "no-store" },
+    );
+    const json = await parseJsonResponse(await res.text());
+    return json?.success ? mapLinkedAccountsApiList(json.data?.accounts) : [];
+  }, []);
+
+  const buildViewGridAccounts = useCallback(
+    async (viewId, compId, preferList = null, accountPool = []) => {
+      if (!viewId || !compId) return [];
+      if (preferList?.length) return preferList;
+
+      const viewAcc = accountPool.find((a) => Number(a.id) === Number(viewId));
+      const directLinked = await fetchDirectLinkedAccountsForAccount(viewId, compId);
+      const seen = new Set();
+      const list = [];
+      const push = (acc) => {
+        const id = Number(acc?.id);
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        list.push(acc);
+      };
+      if (viewAcc) push(viewAcc);
+      directLinked.forEach(push);
+      if (!viewAcc && list.length) return list;
+      if (!viewAcc && !list.length) {
+        const fallback = await fetchLinkedAccountsForAccount(viewId, compId);
+        return fallback.length ? fallback : [];
+      }
+      return list;
+    },
+    [fetchDirectLinkedAccountsForAccount, fetchLinkedAccountsForAccount],
+  );
+
+  const syncGridSelectionToViewAccount = useCallback(
+    async (viewId, compId, preferList = null, accountPool = []) => {
+      if (!viewId || !compId) {
+        setViewGridAccounts([]);
+        setWlGridSelectedIds([]);
+        return;
+      }
+      const list = await buildViewGridAccounts(viewId, compId, preferList, accountPool);
+      setViewGridAccounts(list);
+      const ids = list.map((a) => Number(a.id)).filter(Boolean);
+      setWlGridSelectedIds(ids);
+      saveWLGridSelection(ids, compId, loginRootAccountId);
+    },
+    [buildViewGridAccounts, loginRootAccountId],
+  );
+
   const loadLinkedAccounts = useCallback(
     async (rootId, compId) => {
       if (!rootId || !compId) {
         setLinkedAccounts([]);
+        setViewGridAccounts([]);
         setWlGridSelectedIds([]);
         setLinkedAccountCurrenciesMap(new Map());
         setLinkedCurrenciesLoaded(true);
@@ -147,31 +215,12 @@ export function useMemberWinLoss({ showNotification, lang }) {
         return;
       }
       try {
-        const res = await fetch(
-          buildApiUrl(
-            `api/accounts/account_link_api.php?action=get_all_linked_accounts&account_id=${rootId}&company_id=${compId}`,
-          ),
-          { credentials: "include", cache: "no-store" },
-        );
-        const json = await parseJsonResponse(await res.text());
-        const list =
-          json?.success && Array.isArray(json.data)
-            ? json.data.map((acc) => ({
-                id: acc.id,
-                account_id: acc.account_id || "",
-                name: acc.name || "",
-              }))
-            : [];
+        const list = await fetchLinkedAccountsForAccount(rootId, compId);
         setLinkedAccounts(list);
-        const selected = applyDefaultWLGridSelection(
-          list.map((a) => a.id),
-          compId,
-          rootId,
-        );
-        setWlGridSelectedIds(selected);
         await loadLinkedCurrenciesMap(list, compId);
       } catch {
         setLinkedAccounts([]);
+        setViewGridAccounts([]);
         setWlGridSelectedIds([]);
         setLinkedAccountCurrenciesMap(new Map());
         setLinkedCurrenciesLoaded(true);
@@ -179,8 +228,10 @@ export function useMemberWinLoss({ showNotification, lang }) {
         setLinkedDataReady(true);
       }
     },
-    [loadLinkedCurrenciesMap],
+    [fetchLinkedAccountsForAccount, loadLinkedCurrenciesMap],
   );
+
+  const gridAccountPool = viewGridAccounts.length ? viewGridAccounts : linkedAccounts;
 
   const availableCurrencies = useMemo(
     () =>
@@ -226,14 +277,14 @@ export function useMemberWinLoss({ showNotification, lang }) {
   const miniGridAccounts = useMemo(
     () =>
       getOrderedMiniGridAccounts(
-        linkedAccounts,
+        gridAccountPool,
         wlGridSelectedIds,
         miniGridShell ? MINI_GRID_SHELL_CCY : miniGridCurrencies,
         linkedAccountCurrenciesMap,
         linkedCurrenciesLoaded,
       ),
     [
-      linkedAccounts,
+      gridAccountPool,
       wlGridSelectedIds,
       miniGridShell,
       miniGridCurrencies,
@@ -249,7 +300,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
 
   const refreshMiniGrid = useCallback(
     async (seq, gridCurrencies, fromDate, toDate, viewId, compId) => {
-      if (!linkedAccounts.length || !fromDate || !toDate || !viewId || !compId) {
+      if (!gridAccountPool.length || !fromDate || !toDate || !viewId || !compId) {
         setMiniGridBalances(new Map());
         setMiniGridTotals(new Map());
         setMiniGridHint("");
@@ -263,7 +314,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         return;
       }
       const orderedAccounts = getOrderedMiniGridAccounts(
-        linkedAccounts,
+        gridAccountPool,
         wlGridSelectedIds,
         orderUpper,
         linkedAccountCurrenciesMap,
@@ -339,7 +390,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         if (seq === searchSeqRef.current) setMiniGridLoading(false);
       }
     },
-    [linkedAccounts, wlGridSelectedIds, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, lang, t],
+    [gridAccountPool, wlGridSelectedIds, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, lang, t],
   );
 
   const fetchMemberHistory = useCallback(
@@ -613,7 +664,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         linkedCurrenciesLoaded,
         linkedAccountCurrenciesMap,
         ids,
-        linkedAccounts,
+        gridAccountPool,
       );
       setIsAllSelected(sanitized.isAllSelected);
       setSelectedCurrencies(sanitized.selectedCurrencies);
@@ -627,7 +678,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
       selectedCurrencies,
       linkedCurrenciesLoaded,
       linkedAccountCurrenciesMap,
-      linkedAccounts,
+      gridAccountPool,
       performMemberSearch,
     ],
   );
@@ -693,15 +744,25 @@ export function useMemberWinLoss({ showNotification, lang }) {
   }, [viewAccountId, companyId, loadOwnedCurrencies]);
 
   useEffect(() => {
-    if (!linkedDataReady || !viewAccountId || !dateFrom || !dateTo) return;
-    performMemberSearch();
+    if (!linkedDataReady || !viewAccountId || !companyId || !dateFrom || !dateTo) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      const preferList =
+        Number(viewAccountId) === Number(loginRootAccountId) && linkedAccounts.length ? linkedAccounts : null;
+      await syncGridSelectionToViewAccount(viewAccountId, companyId, preferList, linkedAccounts);
+      if (cancelled) return;
+      performMemberSearch();
+    })();
+
     return () => {
+      cancelled = true;
       if (summaryAbortRef.current) summaryAbortRef.current.abort();
       if (historyAbortRef.current) historyAbortRef.current.abort();
       if (gridAbortRef.current) gridAbortRef.current.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- date/company/view drive search like legacy performMemberSearch
-  }, [linkedDataReady, viewAccountId, companyId, dateFrom, dateTo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync grid to view account, then search
+  }, [linkedDataReady, viewAccountId, companyId, dateFrom, dateTo, loginRootAccountId, linkedAccounts, syncGridSelectionToViewAccount, performMemberSearch]);
 
   return {
     loginRootAccountId,
@@ -713,6 +774,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
     dateTo,
     setDateTo,
     linkedAccounts,
+    viewGridAccounts,
     wlGridSelectedIds,
     linkedAccountCurrenciesMap,
     linkedCurrenciesLoaded,
