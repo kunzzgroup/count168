@@ -957,7 +957,7 @@ body.process-page {
 .process-page.process-page--bank {
     --bank-list-cell-padding-y: clamp(4px, 0.4vw, 7px);
     --bank-list-cell-padding-x: clamp(6px, 0.65vw, 12px);
-    --bank-list-cell-min-height: clamp(32px, 2.4vw, 44px);
+    --bank-list-cell-min-height: clamp(28px, 2.4vw, 34px);
     --bank-list-header-row-height: clamp(40px, 2.8vw, 48px);
     --bank-list-cell-line-height: 1.35;
     /* Country / Insurance / Customer 列设最小像素宽，保证表头英文标题+排序角标完整显示 */
