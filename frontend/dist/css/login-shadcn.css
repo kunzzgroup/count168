@@ -55,7 +55,6 @@ body.bg::before {
 .sc-login-lang-ios-wrap {
   display: flex;
   justify-content: center;
-  margin-top: 12px;
 }
 
 .sc-login-lang-switch,
