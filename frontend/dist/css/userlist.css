@@ -3112,8 +3112,8 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     }
 }
 
-/* 分页样式 - 修改为图片中的设计 */
-.pagination-container {
+/* 分页样式 - 仅 User List 页固定右下角（勿污染 Bank Process / Games Process 等页的 pagination-container） */
+body.user-page .pagination-container {
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom, 0px));
     right: max(40px, env(safe-area-inset-right, 0px));

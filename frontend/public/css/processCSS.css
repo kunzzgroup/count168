@@ -1334,18 +1334,62 @@ body.lang-zh.process-page.process-page--bank .action-buttons-container .user-gc-
     scrollbar-gutter: stable;
 }
 
-/* Bank 分页：在列表 flex 末尾、右对齐（非 Show All）；数据少时贴页面底部，数据多时在表格下方 */
-.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body > .pagination-container,
-.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-pagination.pagination-container {
+/* Bank 分页：独立 class，避免 userlist.css 全局 .pagination-container { position:fixed } 叠在表格上 */
+.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body > .bank-process-pagination-bar {
     position: relative;
     margin-top: auto;
     margin-left: auto;
     margin-right: 0;
     margin-bottom: 0;
+    padding-top: 12px;
     align-self: flex-end;
     flex: 0 0 auto;
-    padding-top: 8px;
     z-index: 1;
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    font-family: inherit;
+}
+
+.process-page.process-page--bank .bank-process-pagination-btn {
+    background: transparent;
+    border: none;
+    color: #007aff;
+    font-size: clamp(8px, 0.83vw, 16px);
+    font-weight: 500;
+    width: clamp(20px, 1.46vw, 28px);
+    height: clamp(20px, 1.46vw, 28px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+}
+
+.process-page.process-page--bank .bank-process-pagination-btn:hover:not(:disabled) {
+    background-color: rgba(0, 122, 255, 0.1);
+}
+
+.process-page.process-page--bank .bank-process-pagination-btn:disabled {
+    color: #cbd5e1;
+    cursor: not-allowed;
+}
+
+.process-page.process-page--bank .bank-process-pagination-info {
+    font-size: clamp(10px, 0.73vw, 14px);
+    font-weight: 500;
+    color: #64748b;
+    padding: 0 clamp(6px, 0.5vw, 10px);
+    min-width: clamp(52px, 4vw, 72px);
+    text-align: center;
+    user-select: none;
 }
 
 /* Bank Process List 顶栏：日期 / Search / filter chip / Delete·Add 同一行 */
@@ -6564,7 +6608,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     justify-content: center;
 }
 
-/* Bank list: pagination at flex end of .bank-process-list-body (see rules above) */
+/* Bank list: pagination uses .bank-process-pagination-bar (see rules above) */
 
 .process-page.process-page--bank .bank-table-wrapper,
 .process-page.process-page--bank .process-table-wrapper {

@@ -577,14 +577,14 @@ export default function BankProcessListPage() {
           />
         </div>
         {!showAll && (
-          <div className="pagination-container bank-process-pagination">
-            <button type="button" className="pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+          <div className="bank-process-pagination-bar">
+            <button type="button" className="bank-process-pagination-btn" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
               ◀
             </button>
-            <span className="pagination-info">{t("pageOf", { current: currentPage, total: totalPages })}</span>
+            <span className="bank-process-pagination-info">{t("pageOf", { current: currentPage, total: totalPages })}</span>
             <button
               type="button"
-              className="pagination-btn"
+              className="bank-process-pagination-btn"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             >

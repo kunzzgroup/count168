@@ -1926,6 +1926,20 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     width: 100%;
 }
 
+.bank-form .bank-day-end-field-with-cap {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.bank-form .bank-day-end-field-with-cap > .form-group {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
 .bank-form .bank-day-end-monthly-cap-wrap {
     display: flex;
     flex-direction: column;
