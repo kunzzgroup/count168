@@ -711,6 +711,62 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         padding-bottom: 52px !important;
     }
 
+    /* Games Process List（非 Bank / 非 Show All）：与 User List 一屏 flex 布局，禁止整页纵向滚动 */
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) {
+        overflow-y: hidden !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .container {
+        height: 100vh !important;
+        min-height: 0 !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+        padding-bottom: 0 !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .content {
+        height: calc(100vh - var(--layout-page-top-inset)) !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding-bottom: 0 !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .action-buttons-container {
+        flex-shrink: 0 !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-table-wrapper {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-cards:not(.bank-virtual-scroll) {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .games-process-table-header,
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-table-wrapper > .table-header {
+        flex-shrink: 0 !important;
+    }
+
+    body.process-page:not(.process-page--bank):not(.process-page--show-all) .pagination-container {
+        flex-shrink: 0 !important;
+    }
+
     /* 3. Ensure the aesthetic background doesn't tear or tile awkwardly when scrolling a long page natively */
     body.ec-auth-shell:not(.transaction-page) {
         background-attachment: fixed !important;

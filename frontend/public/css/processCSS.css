@@ -3730,6 +3730,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 
 .process-page:not(.process-page--bank) .action-buttons-container {
     margin-top: clamp(12px, 1.04vw, 20px);
+    flex-shrink: 0;
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper {
@@ -5895,8 +5896,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 }
 
 @media (max-width: 1024px) {
-    .process-page:not(.process-page--bank) .process-cards {
-        min-height: calc(100vh - 250px);
+    .process-page:not(.process-page--bank):not(.process-page--show-all) .process-cards {
+        min-height: 0;
     }
 
     /* Edit Process 弹窗：仅占侧栏右侧整块，随侧栏展开/收起贴合 */
