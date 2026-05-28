@@ -39,6 +39,8 @@ export default function AccountModal({
   overlayZIndex,
   /** Render on document.body so z-index is not trapped inside #root .container (default: true) */
   portalToBody = true,
+  /** Group-only mode: picker behaves as Choose Group (single-select). */
+  groupPickerMode = false,
 }) {
   const [companyPickerOpen, setCompanyPickerOpen] = useState(false);
   const [companySearchQuery, setCompanySearchQuery] = useState("");
@@ -354,7 +356,7 @@ export default function AccountModal({
                   <div className="form-group company-field-group account-modal-company-field">
                     <div className="user-modal-company-heading-row">
                       <label id="account-modal-company-trigger-label" htmlFor="account-modal-company-open-btn">
-                        {text("companyRequiredMark")}
+                        {groupPickerMode ? text("groupRequiredMark") : text("companyRequiredMark")}
                       </label>
                       <button
                         id="account-modal-company-open-btn"
@@ -366,14 +368,16 @@ export default function AccountModal({
                           setCompanyPickerOpen(true);
                         }}
                       >
-                        {text("selectCompanies")}
+                        {groupPickerMode ? text("selectGroups") : text("selectCompanies")}
                       </button>
                     </div>
                     <div className="user-modal-company-summary" aria-labelledby="account-modal-company-trigger-label">
                       {selectedCompanyLabels.length ? (
                         <span className="user-modal-company-summary-text">{selectedCompanyLabels.join(", ")}</span>
                       ) : (
-                        <span className="user-modal-company-summary-empty">{text("companyNoneSelected")}</span>
+                        <span className="user-modal-company-summary-empty">
+                          {groupPickerMode ? text("groupNoneSelected") : text("companyNoneSelected")}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -419,7 +423,9 @@ export default function AccountModal({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="user-modal-company-picker-header">
-                <span id="account-modal-company-picker-title">{text("companyPickerTitle")}</span>
+                <span id="account-modal-company-picker-title">
+                  {groupPickerMode ? text("groupPickerTitle") : text("companyPickerTitle")}
+                </span>
                 <button
                   type="button"
                   className="user-modal-company-picker-close"
@@ -433,21 +439,23 @@ export default function AccountModal({
                 <input
                   type="search"
                   className="user-modal-company-picker-search"
-                  placeholder={text("companySearchPlaceholder")}
+                  placeholder={groupPickerMode ? text("groupSearchPlaceholder") : text("companySearchPlaceholder")}
                   value={companySearchQuery}
                   onChange={(e) => setCompanySearchQuery(e.target.value)}
                   autoComplete="off"
                 />
-                <button
-                  type="button"
-                  className="user-modal-company-picker-select-all"
-                  disabled={companyRows.length === 0}
-                  onClick={() => {
-                    setDraftCompanyIds(companyRows.map((c) => Number(c.id)));
-                  }}
-                >
-                  {text("selectAll")}
-                </button>
+                {groupPickerMode ? null : (
+                  <button
+                    type="button"
+                    className="user-modal-company-picker-select-all"
+                    disabled={companyRows.length === 0}
+                    onClick={() => {
+                      setDraftCompanyIds(companyRows.map((c) => Number(c.id)));
+                    }}
+                  >
+                    {text("selectAll")}
+                  </button>
+                )}
               </div>
               <ul className="user-modal-company-picker-list">
                 {companyPickerFiltered.map((c) => {
@@ -457,10 +465,12 @@ export default function AccountModal({
                     <li key={c.id} className="user-modal-company-picker-row">
                       <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
                         <input
-                          type="checkbox"
+                          type={groupPickerMode ? "radio" : "checkbox"}
+                          name={groupPickerMode ? "account-group-picker" : undefined}
                           checked={checked}
                           onChange={() =>
                             setDraftCompanyIds((prev) => {
+                              if (groupPickerMode) return [id];
                               if (prev.includes(id)) return prev.filter((x) => x !== id);
                               return [...prev, id];
                             })
@@ -481,7 +491,7 @@ export default function AccountModal({
                     closeCompanyPicker();
                   }}
                 >
-                  {text("companyPickerDone")}
+                  {groupPickerMode ? text("groupPickerDone") : text("companyPickerDone")}
                 </button>
               </div>
             </div>

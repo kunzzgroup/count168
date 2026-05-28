@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
+  companiesGroupEntityList,
+  pickDefaultCompanyForGroup,
   isDashboardGroupOnlyMode,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -345,6 +347,26 @@ export default function AccountListPage() {
     preferredCompanyId: pickerCompanyId,
     me: sessionMe,
   });
+  const groupOnlyAccountMode = useMemo(
+    () => Boolean(selectedGroup && !companyId && isDashboardGroupOnlyMode()),
+    [selectedGroup, companyId]
+  );
+  const groupPickerCompanies = useMemo(() => {
+    if (!groupOnlyAccountMode) return [];
+    return groupIds
+      .map((gid) => {
+        const entity =
+          companiesGroupEntityList(companies, gid)[0] ||
+          pickDefaultCompanyForGroup(companies, gid, { me: sessionMe });
+        if (!entity || !entity.id) return null;
+        return { ...entity, company_id: gid, group_id: gid };
+      })
+      .filter(Boolean);
+  }, [groupOnlyAccountMode, groupIds, companies, sessionMe]);
+  const modalPickerCompanies = useMemo(
+    () => (groupOnlyAccountMode ? groupPickerCompanies : allCompanyButtons),
+    [groupOnlyAccountMode, groupPickerCompanies, allCompanyButtons]
+  );
 
   useEffect(() => {
     if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
@@ -410,7 +432,15 @@ export default function AccountListPage() {
       }
       if (compJ.success) {
         const linked = compJ.data.filter(c => c.is_linked).map(c => Number(c.id));
-        setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
+        if (groupOnlyAccountMode) {
+          const defaultGroupEntity =
+            groupPickerCompanies.find((c) => String(c.group_id || c.company_id || "") === String(selectedGroup || "")) ||
+            groupPickerCompanies[0] ||
+            null;
+          setSelectedCompanyIds(defaultGroupEntity?.id ? [Number(defaultGroupEntity.id)] : []);
+        } else {
+          setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
+        }
       }
     } catch { /* silent */ }
   };
@@ -1130,7 +1160,7 @@ export default function AccountListPage() {
         setForm={setForm}
         orderedRoles={orderedRoles}
         currencies={accountModalCurrencies}
-        companies={allCompanyButtons}
+        companies={modalPickerCompanies}
         selectedCurrencyIds={selectedCurrencyIds}
         setSelectedCurrencyIds={setSelectedCurrencyIds}
         selectedCompanyIds={selectedCompanyIds}
@@ -1150,6 +1180,7 @@ export default function AccountListPage() {
           setEditModalOpen(false);
           setHiddenCurrencyIds([]);
         }}
+        groupPickerMode={groupOnlyAccountMode}
         t={t}
       />
       <AccountConfirmModal open={confirmDeleteOpen} message={t("deleteConfirmMessage", { count: selectedDeleteIds.size })} onConfirm={confirmDelete} onClose={() => setConfirmDeleteOpen(false)} t={t} />

@@ -17,6 +17,7 @@ export function DashboardFilterPanel({
   onCurrencyChange,
   onToggleAllCurrencies,
   showAllCurrencies = false,
+  canShowAllCurrencies = false,
 }) {
   const showPanel =
     groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0;
@@ -115,13 +116,15 @@ export function DashboardFilterPanel({
               <span className="user-gc-inline-label">{i18n.currency}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={i18n.currency}>
-                  <button
-                    type="button"
-                    className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
-                    onClick={() => onToggleAllCurrencies?.()}
-                  >
-                    {i18n.all}
-                  </button>
+                  {canShowAllCurrencies ? (
+                    <button
+                      type="button"
+                      className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
+                      onClick={() => onToggleAllCurrencies?.()}
+                    >
+                      {i18n.all}
+                    </button>
+                  ) : null}
                   {currencies.map((code) => (
                     <button
                       key={code}
