@@ -1056,16 +1056,18 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     align-items: flex-start;
     align-self: flex-start;
     margin-inline-start: 0;
-    width: max-content;
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
     height: auto;
 }
 
 .member-winloss-page .member-dash-columns--two-col .member-dash-rail-matrix,
 .member-winloss-page .member-dash-columns--three-col .member-dash-rail-matrix {
     flex: 0 0 auto;
-    width: max-content;
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
     height: auto;
     align-self: flex-start;
     margin-inline-start: 0;
@@ -1096,22 +1098,23 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     margin-inline-start: 0;
 }
 
-.member-winloss-page .member-dash-columns--two-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll),
-.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll) {
-    align-items: stretch;
-    align-self: flex-start;
-    width: 100%;
+.member-winloss-page .member-dash-columns--two-col .member-dash-matrix-center-wrap:has(.member-dash-matrix-scroll--compact),
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-dash-matrix-scroll--compact) {
+    width: max-content;
     max-width: 100%;
     min-width: 0;
 }
 
-.member-winloss-page .member-dash-columns--two-col .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll),
-.member-winloss-page .member-dash-columns--three-col .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll) {
-    width: 100%;
+.member-winloss-page .member-dash-columns--two-col .member-dash-rail-matrix:has(.member-dash-matrix-scroll--compact),
+.member-winloss-page .member-dash-columns--three-col .member-dash-rail-matrix:has(.member-dash-matrix-scroll--compact) {
+    width: max-content;
     max-width: 100%;
     min-width: 0;
-    align-self: flex-start;
-    margin-inline-start: 0;
+}
+
+.member-winloss-page .member-dash-columns--two-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll),
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll) {
+    align-items: stretch;
 }
 
 @media (min-width: 1181px) {
@@ -2452,7 +2455,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 
 .member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-compact),
 .member-winloss-page .member-dash-matrix-scroll:has(.member-balance-mini-matrix--ccy-scroll) {
-    width: max-content;
+    width: 100%;
     max-width: 100%;
     margin-inline-start: 0;
 }

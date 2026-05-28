@@ -13,7 +13,6 @@ import {
   measureMatrixCurrencyColumnWidths,
   WINLOSS_MATRIX_MIN_CCY_COL_WIDTH,
   WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
-  WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD,
 } from "../memberPageHelpers.js";
 
 function resolveBalanceCell({
@@ -329,7 +328,7 @@ export default function MemberMiniGrid({
   const compactMode = ncu === 1;
   const singleCu = compactMode ? orderUpper[0] : "";
   const manyCcy = ncu >= 12;
-  const scrollMode = ncu >= WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD;
+  const scrollMode = ncu > 1;
   const showTotalRow = miniGridShowsTotalRow(shellMode, listOrdered);
   const gridRef = useRef(null);
 
