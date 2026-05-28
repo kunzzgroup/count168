@@ -318,39 +318,68 @@ body.dashboard-page.maintenance-page .maintenance-virtual-spacer {
     margin-top: 0 !important;
 }
 
-/* Created At — date only; muted time on hover/focus (all maintenance pages) */
+/* Created At — date only; portal tooltip on hover (all maintenance pages) */
 body.maintenance-page .maintenance-created-at-display {
-    display: inline;
+    display: inline-block;
+    max-width: 100%;
     text-align: left;
     line-height: 1.35;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
 }
 
 body.maintenance-page .maintenance-created-at-date {
     color: inherit;
 }
 
-body.maintenance-page .maintenance-created-at-time-reveal {
-    display: none;
-    margin-left: 0.35em;
-    font-weight: 400;
-    color: var(--color-muted-fg, #6b7280);
-}
-
-body.maintenance-page .maintenance-created-at-display--has-time:hover .maintenance-created-at-time-reveal,
-body.maintenance-page .maintenance-created-at-display--has-time:focus-visible .maintenance-created-at-time-reveal {
-    display: inline;
-}
-
-body.maintenance-page .maintenance-created-at-display:focus {
-    outline: none;
-}
-
 body.maintenance-page .maintenance-virtual-cell--created-at {
     justify-content: flex-start;
     text-align: left;
+}
+
+/* Fixed portal — escapes virtual-row overflow:hidden */
+.maintenance-created-at-tooltip-portal {
+    position: fixed;
+    z-index: 10050;
+    display: block;
+    padding: 5px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+    color: #fff;
     white-space: nowrap;
+    pointer-events: none;
+    background: var(--color-heading, #002c49);
+    border-radius: 6px;
+    box-shadow:
+        0 4px 14px rgba(0, 44, 73, 0.24),
+        0 1px 3px rgba(0, 0, 0, 0.1);
+    transform: translateY(-100%);
+}
+
+.maintenance-created-at-tooltip-portal::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 10px;
+    border: 5px solid transparent;
+    border-top-color: var(--color-heading, #002c49);
+}
+
+.maintenance-created-at-tooltip-portal--below {
+    transform: none;
+}
+
+.maintenance-created-at-tooltip-portal--below::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--color-heading, #002c49);
 }
 
 /* All maintenance virtual lists: left-align every header and cell */
