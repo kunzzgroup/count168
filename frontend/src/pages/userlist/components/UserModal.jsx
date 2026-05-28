@@ -162,6 +162,7 @@ export default function UserModal({
   modalCompanies,
   selectedCompanyIds,
   setSelectedCompanyIds,
+  groupPickerMode = false,
   modalAccounts,
   selectedAccountIds,
   setSelectedAccountIds,
@@ -314,13 +315,18 @@ export default function UserModal({
 
   const selectedCompanyLabels = useMemo(() => {
     const set = new Set(selectedCompanyIds.map(Number));
-    return modalCompanies.filter((c) => set.has(Number(c.id))).map((c) => String(c.company_id || "").toUpperCase());
+    return modalCompanies
+      .filter((c) => set.has(Number(c.id)))
+      .map((c) => String(c.company_id || c.group_id || "").toUpperCase());
   }, [modalCompanies, selectedCompanyIds]);
 
   const companyPickerFiltered = useMemo(() => {
     const q = companySearchQuery.trim().toUpperCase();
     if (!q) return modalCompanies;
-    return modalCompanies.filter((c) => String(c.company_id || "").toUpperCase().includes(q));
+    return modalCompanies.filter((c) => {
+      const label = String(c.company_id || c.group_id || "").toUpperCase();
+      return label.includes(q);
+    });
   }, [modalCompanies, companySearchQuery]);
 
   const selectedPermissionLabels = useMemo(
@@ -446,7 +452,7 @@ export default function UserModal({
                   <div className="form-group user-info-field company-field-group">
                     <div className="user-modal-company-heading-row">
                       <label id="user-modal-company-trigger-label" htmlFor="user-modal-company-open-btn">
-                        {t("companyRequired")}
+                        {groupPickerMode ? t("groupRequired") : t("companyRequired")}
                       </label>
                       <button
                         id="user-modal-company-open-btn"
@@ -458,14 +464,16 @@ export default function UserModal({
                           setCompanyPickerOpen(true);
                         }}
                       >
-                        {t("selectCompanies")}
+                        {groupPickerMode ? t("selectGroups") : t("selectCompanies")}
                       </button>
                     </div>
                     <div className="user-modal-company-summary" aria-labelledby="user-modal-company-trigger-label">
                       {selectedCompanyLabels.length ? (
                         <span className="user-modal-company-summary-text">{selectedCompanyLabels.join(", ")}</span>
                       ) : (
-                        <span className="user-modal-company-summary-empty">{t("companyNoneSelected")}</span>
+                        <span className="user-modal-company-summary-empty">
+                          {groupPickerMode ? t("groupNoneSelected") : t("companyNoneSelected")}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -636,7 +644,9 @@ export default function UserModal({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="user-modal-company-picker-header">
-                <span id="user-modal-company-picker-title">{t("companyPickerTitle")}</span>
+                <span id="user-modal-company-picker-title">
+                  {groupPickerMode ? t("groupPickerTitle") : t("companyPickerTitle")}
+                </span>
                 <button
                   type="button"
                   className="user-modal-company-picker-close"
@@ -653,43 +663,51 @@ export default function UserModal({
                 <input
                   type="search"
                   className="user-modal-company-picker-search"
-                  placeholder={t("companySearchPlaceholder")}
+                  placeholder={groupPickerMode ? t("groupSearchPlaceholder") : t("companySearchPlaceholder")}
                   value={companySearchQuery}
                   disabled={pageReadOnlyLock}
                   onChange={(e) => setCompanySearchQuery(e.target.value)}
                   autoComplete="off"
                 />
-                <button
-                  type="button"
-                  className="user-modal-company-picker-select-all"
-                  disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0 || pageReadOnlyLock}
-                  onClick={() => {
-                    setSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
-                  }}
-                >
-                  {t("selectAll")}
-                </button>
+                {!groupPickerMode ? (
+                  <button
+                    type="button"
+                    className="user-modal-company-picker-select-all"
+                    disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0 || pageReadOnlyLock}
+                    onClick={() => {
+                      setSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
+                    }}
+                  >
+                    {t("selectAll")}
+                  </button>
+                ) : null}
               </div>
               <ul className="user-modal-company-picker-list">
                 {companyPickerFiltered.map((c) => {
                   const id = Number(c.id);
+                  const label = String(c.company_id || c.group_id || "").toUpperCase();
                   const checked = selectedCompanyIds.includes(id);
                   const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
                   return (
                     <li key={c.id} className="user-modal-company-picker-row">
                       <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
                         <input
-                          type="checkbox"
+                          type={groupPickerMode ? "radio" : "checkbox"}
+                          name={groupPickerMode ? "user-modal-group-pick" : undefined}
                           checked={checked}
                           disabled={rowDisabled}
-                          onChange={() =>
+                          onChange={() => {
+                            if (groupPickerMode) {
+                              setSelectedCompanyIds([id]);
+                              return;
+                            }
                             setSelectedCompanyIds((prev) => {
                               if (prev.includes(id)) return prev.filter((x) => x !== id);
                               return [...prev, id];
-                            })
-                          }
+                            });
+                          }}
                         />
-                        <span>{String(c.company_id || "").toUpperCase()}</span>
+                        <span>{label}</span>
                       </label>
                     </li>
                   );
@@ -704,7 +722,7 @@ export default function UserModal({
                     setCompanySearchQuery("");
                   }}
                 >
-                  {t("companyPickerDone")}
+                  {groupPickerMode ? t("groupPickerDone") : t("companyPickerDone")}
                 </button>
               </div>
             </div>

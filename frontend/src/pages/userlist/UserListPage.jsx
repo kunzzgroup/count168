@@ -4,14 +4,18 @@ import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
   companiesGroupEntityList,
+  companyRowIsGroupEntity,
+  companiesInGroupList,
   isDashboardGroupOnlyMode,
   isVirtualGroupLinkCompanyRow,
   persistDashboardGroupOnlyMode,
   pickDefaultCompanyForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
+  sortedUniqueGroupIds,
 } from "../../utils/company/sharedCompanyFilter.js";
-import { isCompanyLogin, isGroupLogin } from "../../utils/company/loginScope.js";
+import { isGroupLogin, resolveVisibleGroupIds } from "../../utils/company/loginScope.js";
+import { isCompanyLogin } from "../../utils/company/loginScope.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
@@ -69,6 +73,36 @@ function buildModalCompanyList(raw) {
     seen.add(key);
     return true;
   });
+}
+
+/** Group login add/edit user: one row per accessible group (AP, IG), id = group entity company id. */
+function buildModalGroupOptions(companies, me) {
+  const gids = resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies);
+  const out = [];
+  for (const gid of gids) {
+    const entities = companiesGroupEntityList(companies, gid);
+    const entity =
+      entities.find((c) => companyRowIsGroupEntity(c, gid)) ||
+      entities[0] ||
+      pickDefaultCompanyForGroup(companies, gid, { me });
+    const id = entity?.id != null ? Number(entity.id) : Number.NaN;
+    if (!Number.isFinite(id) || id <= 0) continue;
+    out.push({
+      id,
+      company_id: gid,
+      group_id: gid,
+    });
+  }
+  return out;
+}
+
+function resolveGroupIdFromEntityCompanyId(companies, entityCompanyId) {
+  const row = (companies || []).find((c) => Number(c.id) === Number(entityCompanyId));
+  if (!row) return null;
+  const code = String(row.company_id || "").trim().toUpperCase();
+  if (code && companyRowIsGroupEntity(row, code)) return code;
+  const gid = String(row.group_id || "").trim().toUpperCase();
+  return gid || null;
 }
 
 export default function UserListPage() {
@@ -224,9 +258,20 @@ export default function UserListPage() {
   }, [companyId, groupOnlyUserList, anchorCompanyId, selectedGroup, companies, me]);
   /** Group-only list/add-user: group entity only (e.g. AP), not subsidiaries (e.g. C168). */
   const groupScopedModalCompanies = useMemo(() => {
-    const base = selectedGroup ? groupEntityCompanies : allCompanyButtons;
+    if (isGroupLogin(me) && !groupOnlyUserList) {
+      // Group login + company-selected mode:
+      // allow choosing across all companies visible to this login scope (AP+IG linked set).
+      return buildModalCompanyList(companies);
+    }
+    // Company-selected mode: show normal company list (within selected group if present).
+    // Group-only mode uses group picker (handled in `modalPickerCompanies`).
+    const base = selectedGroup ? companiesInGroupList(companies, selectedGroup) : allCompanyButtons;
     return buildModalCompanyList(base);
-  }, [allCompanyButtons, groupEntityCompanies, selectedGroup]);
+  }, [allCompanyButtons, companies, selectedGroup, me, groupOnlyUserList]);
+  const modalPickerCompanies = useMemo(() => {
+    if (groupOnlyUserList) return buildModalGroupOptions(companies, me);
+    return groupScopedModalCompanies;
+  }, [groupOnlyUserList, companies, me, groupScopedModalCompanies]);
   const pickerCompanyId = pendingCompanyId ?? companyId;
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
@@ -322,7 +367,10 @@ export default function UserListPage() {
     setTableLoading(true);
     try {
       const body = { action: "get" };
-      if (groupOnlyUserList && selectedGroup) body.group_id = selectedGroup;
+      // Group login should always query by the selected group tab.
+      // Otherwise, newly created group-scoped users can be saved successfully
+      // but remain invisible when session company stays on C168.
+      if (isGroupLogin(me) && selectedGroup) body.group_id = selectedGroup;
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -560,21 +608,32 @@ export default function UserListPage() {
   }, [bootLoading, scopeCompanyId, me, fetchModalAccountsProcesses]);
 
   useEffect(() => {
-    modalCompaniesCacheRef.current = groupScopedModalCompanies;
-    setModalCompanies(groupScopedModalCompanies);
-  }, [groupScopedModalCompanies]);
+    modalCompaniesCacheRef.current = modalPickerCompanies;
+    setModalCompanies(modalPickerCompanies);
+  }, [modalPickerCompanies]);
 
   const loadCompaniesForModal = async () => {
-    if (groupScopedModalCompanies.length) {
-      setModalCompanies(groupScopedModalCompanies);
-      return groupScopedModalCompanies;
+    if (modalPickerCompanies.length) {
+      setModalCompanies(modalPickerCompanies);
+      return modalPickerCompanies;
     }
     try {
       const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
       const json = await res.json();
       const rows = Array.isArray(json.data) ? json.data.map(normalizeCompanyRow) : [];
-      const base = selectedGroup ? companiesGroupEntityList(rows, selectedGroup) : rows;
-      const list = buildModalCompanyList(base.filter((c) => !isVirtualGroupLinkCompanyRow(c)));
+      // Group-only mode => choose group list.
+      // Company-selected mode => choose companies visible under selected group, including linked groups (AP<->IG).
+      if (groupOnlyUserList) {
+        const groupOptions = buildModalGroupOptions(rows, me);
+        setModalCompanies(groupOptions);
+        return groupOptions;
+      }
+      const base = isGroupLogin(me)
+        ? rows
+        : selectedGroup
+          ? companiesInGroupList(rows, selectedGroup)
+          : rows;
+      const list = buildModalCompanyList(base);
       setModalCompanies(list);
       return list;
     } catch {
@@ -642,14 +701,18 @@ export default function UserListPage() {
     setSelectedAccountIds(ap === null ? new Set(accList.map(a => Number(a.id))) : new Set((Array.isArray(ap) ? ap : []).map(x => Number(x.id || x))));
     setSelectedProcessIds(pp === null ? new Set(procList.map(p => Number(p.id))) : new Set((Array.isArray(pp) ? pp : []).map(x => Number(x.id || x))));
     if (Array.isArray(detail.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) {
-      const allowed = new Set(groupScopedModalCompanies.map((c) => Number(c.id)));
+      const allowed = new Set(modalPickerCompanies.map((c) => Number(c.id)));
       const ids = detail.company_ids.map(Number).filter((id) => allowed.has(id));
-      setSelectedCompanyIds(ids.length ? ids : groupScopedModalCompanies.map((c) => Number(c.id)));
+      if (groupOnlyUserList) {
+        setSelectedCompanyIds(ids.length ? [ids[0]] : modalPickerCompanies[0] ? [Number(modalPickerCompanies[0].id)] : []);
+      } else {
+        setSelectedCompanyIds(ids.length ? ids : modalPickerCompanies.map((c) => Number(c.id)));
+      }
     } else {
       setSelectedCompanyIds(scopeCompanyId ? [Number(scopeCompanyId)] : []);
     }
     if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
-  }, [scopeCompanyId, currentUserRole, groupScopedModalCompanies]);
+  }, [scopeCompanyId, currentUserRole, modalPickerCompanies, groupOnlyUserList]);
 
   useEffect(() => {
     if (!modalAccessReady) return;
@@ -682,7 +745,16 @@ export default function UserListPage() {
     setSelectedAccountIds(new Set(initialAccess.accounts.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(initialAccess.processes.map((p) => Number(p.id))));
     if (currentUserRole === "admin" || currentUserRole === "owner") {
       if (groupOnlyUserList) {
-        setSelectedCompanyIds(groupScopedModalCompanies.map((c) => Number(c.id)));
+        const defaultGroup =
+          selectedGroup && modalPickerCompanies.some((c) => c.company_id === selectedGroup)
+            ? selectedGroup
+            : modalPickerCompanies[0]?.company_id;
+        const pick = modalPickerCompanies.find(
+          (c) => String(c.company_id || "").toUpperCase() === String(defaultGroup || "").toUpperCase()
+        );
+        setSelectedCompanyIds(pick?.id != null ? [Number(pick.id)] : []);
+      } else if (groupOnlyUserList) {
+        setSelectedCompanyIds(modalPickerCompanies.map((c) => Number(c.id)));
       } else {
         setSelectedCompanyIds(companyId ? [Number(companyId)] : []);
       }
@@ -773,7 +845,20 @@ export default function UserListPage() {
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: emailCheck.normalized, role: form.role, status: form.status };
-    if (groupOnlyUserList && selectedGroup) payload.group_id = selectedGroup;
+    let saveGroupId = null;
+    let saveCompanyIds = selectedCompanyIds;
+    if (groupOnlyUserList && (currentUserRole === "admin" || currentUserRole === "owner")) {
+      const entityId = selectedCompanyIds[0] != null ? Number(selectedCompanyIds[0]) : null;
+      saveGroupId = resolveGroupIdFromEntityCompanyId(companies, entityId);
+      if (!saveGroupId || !Number.isFinite(entityId) || entityId <= 0) {
+        notify(t("groupSelectionRequired"), "danger");
+        return;
+      }
+      saveCompanyIds = [entityId];
+      payload.group_id = saveGroupId;
+    } else if (groupOnlyUserList && selectedGroup) {
+      payload.group_id = selectedGroup;
+    }
     if (form.password.trim()) payload.password = form.password;
     const allowSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
     if (allowSecondaryPassword && form.secondary_password.trim()) {
@@ -789,7 +874,7 @@ export default function UserListPage() {
     }
     if (editingRow?.is_owner_shadow) {
       payload.role = "owner";
-    } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = selectedCompanyIds; } else {
+    } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = saveCompanyIds; } else {
       const caps = computeRowCapabilities(editingRow, currentUserId, currentUserRole);
       if (caps.isSelf || caps.isHigherLevel || caps.isSameLevel) {
         payload.account_permissions = accountPerms;
@@ -799,7 +884,10 @@ export default function UserListPage() {
         payload.account_permissions = accountPerms;
         payload.process_permissions = processPerms;
       }
-      if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) payload.company_ids = selectedCompanyIds;
+      if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) {
+        payload.company_ids = groupOnlyUserList ? saveCompanyIds : selectedCompanyIds;
+        if (groupOnlyUserList && saveGroupId) payload.group_id = saveGroupId;
+      }
     }
     try {
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(payload) });
@@ -1188,7 +1276,7 @@ export default function UserListPage() {
             document.body
           )
         : null}
-      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} currentUserId={currentUserId} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
+      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} currentUserId={currentUserId} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} groupPickerMode={groupOnlyUserList} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
       <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} confirmDisabled={userMutationsBlocked} t={t} />
     </>
   );

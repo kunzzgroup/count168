@@ -177,10 +177,19 @@ export default function AccountListPage() {
   }, [companyId, searchTerm, showInactive, showAll]);
 
   const fetchAccounts = useCallback(async () => {
-    if (!companyId) return;
+    const groupOnlyModeActive = Boolean(selectedGroup && !companyId && isDashboardGroupOnlyMode());
+    if (!companyId && !(groupOnlyModeActive && selectedGroup)) return;
     setTableLoading(true);
     try {
-      const url = buildAccountsUrl(companyId, searchTerm, showInactive, showAll);
+      const url = groupOnlyModeActive
+        ? new URL(buildApiUrl("api/accounts/accountlistapi.php"))
+        : buildAccountsUrl(companyId, searchTerm, showInactive, showAll);
+      if (groupOnlyModeActive) {
+        url.searchParams.set("group_id", String(selectedGroup || ""));
+        if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
+        if (showInactive) url.searchParams.set("showInactive", "1");
+        if (showAll) url.searchParams.set("showAll", "1");
+      }
       const res = await fetch(url.toString(), { credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "failedToLoadAccounts", "danger");
@@ -190,7 +199,7 @@ export default function AccountListPage() {
       syncUrl();
     } catch { notifyApi(null, "networkError", "danger"); }
     finally { setTableLoading(false); }
-  }, [companyId, searchTerm, showInactive, showAll, syncUrl, notify]);
+  }, [companyId, selectedGroup, searchTerm, showInactive, showAll, syncUrl, notify]);
 
   // -- Boot --
   useEffect(() => {
@@ -251,15 +260,17 @@ export default function AccountListPage() {
   }, [sessionReady, sessionMe, navigate]);
 
   useEffect(() => {
-    if (!bootLoading && companyId) {
-      const key = buildAccountsFetchKey(companyId, searchTerm, showInactive, showAll);
+    const groupOnlyModeActive = Boolean(selectedGroup && !companyId && isDashboardGroupOnlyMode());
+    if (!bootLoading && (companyId || (groupOnlyModeActive && selectedGroup))) {
+      const scopeKey = groupOnlyModeActive ? `group:${selectedGroup || ""}` : `company:${companyId || ""}`;
+      const key = buildAccountsFetchKey(scopeKey, searchTerm, showInactive, showAll);
       if (bootFetchedAccountsKeyRef.current === key) {
         bootFetchedAccountsKeyRef.current = null;
         return;
       }
       fetchAccounts();
     }
-  }, [bootLoading, companyId, searchTerm, showInactive, showAll, fetchAccounts]);
+  }, [bootLoading, companyId, selectedGroup, searchTerm, showInactive, showAll, fetchAccounts]);
 
   // -- Computed --
   const allCompanyButtons = useMemo(
@@ -345,6 +356,25 @@ export default function AccountListPage() {
     preferredCompanyId: pickerCompanyId,
     me: sessionMe,
   });
+  const groupOnlyAccountMode = useMemo(
+    () => Boolean(selectedGroup && !companyId && isDashboardGroupOnlyMode()),
+    [selectedGroup, companyId]
+  );
+  const groupPickerCompanies = useMemo(() => {
+    if (!groupOnlyAccountMode) return [];
+    return groupIds
+      .map((gid) => {
+        const groupCode = String(gid || "").trim().toUpperCase();
+        if (!groupCode) return null;
+        // Group picker options are group identities, not company rows.
+        return { id: groupCode, company_id: groupCode, group_id: groupCode };
+      })
+      .filter(Boolean);
+  }, [groupOnlyAccountMode, groupIds]);
+  const modalPickerCompanies = useMemo(
+    () => (groupOnlyAccountMode ? groupPickerCompanies : allCompanyButtons),
+    [groupOnlyAccountMode, groupPickerCompanies, allCompanyButtons]
+  );
 
   useEffect(() => {
     if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
@@ -393,6 +423,7 @@ export default function AccountListPage() {
       const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
       if (id) currencyParams.set("account_id", String(id));
       if (companyId) currencyParams.set("company_id", String(companyId));
+      if (groupOnlyAccountMode && selectedGroup) currencyParams.set("group_id", String(selectedGroup));
       const [curRes, compRes] = await Promise.all([
         fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/accounts/account_company_api.php?action=get_available_companies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
@@ -410,7 +441,15 @@ export default function AccountListPage() {
       }
       if (compJ.success) {
         const linked = compJ.data.filter(c => c.is_linked).map(c => Number(c.id));
-        setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
+        if (groupOnlyAccountMode) {
+          const defaultGroupEntity =
+            groupPickerCompanies.find((c) => String(c.group_id || c.company_id || "") === String(selectedGroup || "")) ||
+            groupPickerCompanies[0] ||
+            null;
+          setSelectedCompanyIds(defaultGroupEntity?.id ? [String(defaultGroupEntity.id)] : []);
+        } else {
+          setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
+        }
       }
     } catch { /* silent */ }
   };
@@ -507,7 +546,12 @@ export default function AccountListPage() {
     const amount = normalizeAlertAmount(form.alert_amount);
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => fd.append(k, k === "alert_amount" ? amount : (v ?? "")));
-    if (selectedCompanyIds.length) fd.set("company_ids", JSON.stringify(selectedCompanyIds));
+    if (!groupOnlyAccountMode && selectedCompanyIds.length) {
+      fd.set("company_ids", JSON.stringify(selectedCompanyIds));
+    }
+    if (groupOnlyAccountMode && selectedGroup) {
+      fd.set("group_id", String(selectedGroup));
+    }
     if (!isEditMode) {
       if (companyId) fd.set("company_id", String(companyId));
       if (selectedCurrencyIds.length) fd.set("currency_ids", JSON.stringify(selectedCurrencyIds));
@@ -517,6 +561,7 @@ export default function AccountListPage() {
       const res = await fetch(buildApiUrl(ep), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "saveFailed", "danger");
+      let postSaveCurrencyError = null;
       if (!isEditMode && json?.data?.id && selectedCurrencyIds.length) {
         for (const cid of selectedCurrencyIds) {
           const currencyRes = await fetch(accountCurrencyApiUrl("add_currency"), {
@@ -526,7 +571,10 @@ export default function AccountListPage() {
             credentials: "include",
           });
           const currencyJson = await currencyRes.json();
-          if (!currencyRes.ok || !currencyJson.success) return notifyApi(currencyJson.message, "saveFailed", "danger");
+          if (!currencyRes.ok || !currencyJson.success) {
+            postSaveCurrencyError = String(currencyJson?.message || "");
+            break;
+          }
         }
       }
       if (isEditMode && form.id) {
@@ -542,9 +590,12 @@ export default function AccountListPage() {
             credentials: "include",
           });
           const currencyJson = await currencyRes.json();
-          if (!currencyRes.ok || !currencyJson.success) return notifyApi(currencyJson.message, "saveFailed", "danger");
+          if (!currencyRes.ok || !currencyJson.success) {
+            postSaveCurrencyError = String(currencyJson?.message || "");
+            break;
+          }
         }
-        for (const cid of toRemove) {
+        for (const cid of postSaveCurrencyError ? [] : toRemove) {
           const currencyRes = await fetch(accountCurrencyApiUrl("remove_currency"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -552,14 +603,21 @@ export default function AccountListPage() {
             credentials: "include",
           });
           const currencyJson = await currencyRes.json();
-          if (!currencyRes.ok || !currencyJson.success) return notifyApi(currencyJson.message, "saveFailed", "danger");
+          if (!currencyRes.ok || !currencyJson.success) {
+            postSaveCurrencyError = String(currencyJson?.message || "");
+            break;
+          }
         }
         setInitialEditCurrencyIds([...after]);
         if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
       }
       setAddModalOpen(false); setEditModalOpen(false);
       setHiddenCurrencyIds([]);
-      notify(t("accountSavedSuccessfully"));
+      if (postSaveCurrencyError) {
+        notify(`Account saved, but currency sync failed: ${postSaveCurrencyError}`, "danger");
+      } else {
+        notify(t("accountSavedSuccessfully"));
+      }
       void fetchAccounts();
     } catch { notify(t("saveFailed"), "danger"); }
   };
@@ -579,7 +637,10 @@ export default function AccountListPage() {
       return;
     }
     try {
-      const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, company_id: companyId }), credentials: "include" });
+      const payload = { code };
+      if (companyId) payload.company_id = Number(companyId);
+      if (groupOnlyAccountMode && selectedGroup) payload.group_id = String(selectedGroup);
+      const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" });
       const json = await res.json();
       if (json.success) {
         const newId = Number(json.data.id);
@@ -596,9 +657,10 @@ export default function AccountListPage() {
     (action) => {
       const params = new URLSearchParams({ action });
       if (companyId) params.set("company_id", String(companyId));
+      if (groupOnlyAccountMode && selectedGroup) params.set("group_id", String(selectedGroup));
       return buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`);
     },
-    [companyId]
+    [companyId, groupOnlyAccountMode, selectedGroup]
   );
 
   const fetchAccountsUsingCurrency = async (currencyId) => {
@@ -608,6 +670,7 @@ export default function AccountListPage() {
         currency_id: String(currencyId),
       });
       if (companyId) params.set("company_id", String(companyId));
+      if (groupOnlyAccountMode && selectedGroup) params.set("group_id", String(selectedGroup));
       const res = await fetch(
         buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`),
         { method: "POST", credentials: "include" },
@@ -748,6 +811,7 @@ export default function AccountListPage() {
     try {
       const params = new URLSearchParams({ action: "get_linked_accounts_by_currency", currency_id: String(curId) });
       if (companyId) params.set("company_id", String(companyId));
+      if (groupOnlyAccountMode && selectedGroup) params.set("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", credentials: "include" });
       const json = await res.json();
       const ids = new Set((json.data?.linked_account_ids || []).map(Number));
@@ -768,6 +832,7 @@ export default function AccountListPage() {
     try {
       const params = new URLSearchParams({ action: "bulk_update" });
       if (companyId) params.set("company_id", String(companyId));
+      if (groupOnlyAccountMode && selectedGroup) params.set("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success) return notifyApi(json.message, "saveFailed", "danger");
@@ -1130,7 +1195,7 @@ export default function AccountListPage() {
         setForm={setForm}
         orderedRoles={orderedRoles}
         currencies={accountModalCurrencies}
-        companies={allCompanyButtons}
+        companies={modalPickerCompanies}
         selectedCurrencyIds={selectedCurrencyIds}
         setSelectedCurrencyIds={setSelectedCurrencyIds}
         selectedCompanyIds={selectedCompanyIds}
@@ -1150,6 +1215,7 @@ export default function AccountListPage() {
           setEditModalOpen(false);
           setHiddenCurrencyIds([]);
         }}
+        groupPickerMode={groupOnlyAccountMode}
         t={t}
       />
       <AccountConfirmModal open={confirmDeleteOpen} message={t("deleteConfirmMessage", { count: selectedDeleteIds.size })} onConfirm={confirmDelete} onClose={() => setConfirmDeleteOpen(false)} t={t} />
