@@ -96,10 +96,13 @@ body.ec-auth-shell.maintenance-page
   margin-top: clamp(12px, 1.04vw, 20px) !important;
 }
 
-/* 一屏 flex 布局：content 高度扣除页顶总留白 */
+/* 一屏 flex 布局：content 高度扣除页顶总留白（Show All 时由页内规则覆盖） */
 body.ec-auth-shell.user-page:not(.user-page--show-all) .content,
-body.ec-auth-shell.account-page:not(.account-page--show-all) .content,
-body.ec-auth-shell.process-page:not(.process-page--bank):not(.process-page--show-all) .content {
+body.ec-auth-shell.account-page:not(.account-page--show-all) .content {
   height: calc(100vh - var(--layout-page-top-inset)) !important;
   min-height: calc(100vh - var(--layout-page-top-inset)) !important;
+}
+
+body.ec-auth-shell.process-page:not(.process-page--bank):not(.process-page--show-all) .content {
+  min-height: 0 !important;
 }

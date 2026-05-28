@@ -20,6 +20,38 @@ body.process-page {
     position: relative;
 }
 
+/* Games Process List（非 Bank / 非 Show All）：全视口一屏，禁止整页纵向滚动（含普通 desktop） */
+html:has(body.process-page:not(.process-page--bank):not(.process-page--show-all)) {
+    height: 100%;
+    overflow: hidden;
+}
+
+body.process-page:not(.process-page--bank):not(.process-page--show-all) {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+}
+
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .container {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+}
+
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .content {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
 .process-page .container {
     max-width: none;
     margin: 0;
@@ -2075,10 +2107,13 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-card 
     flex-shrink: 0;
 }
 
-/* Process Cards - copied from accountCSS.css */
+/* Process Cards - legacy；Games 分页一屏见下方 body.process-page 规则 */
 .process-page .process-cards {
     display: flex;
     flex-direction: column;
+}
+
+.process-page.process-page--bank .bank-process-table-region .process-cards.bank-mode:not(.bank-virtual-scroll) {
     max-height: calc(100vh - 280px);
     overflow-y: auto;
 }
@@ -3698,17 +3733,11 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     font-family: inherit;
 }
 
-/* Games list: pagination fixed to viewport bottom-right (does not move with row count / list scroll) */
+/* Games list: 分页在分页模式下 fixed（见 body.process-page 规则）；Show All 为 relative */
 .process-page:not(.process-page--bank) .pagination-container {
-    position: relative;
     margin-top: 6px;
     margin-left: auto;
     margin-right: 0;
-    right: auto;
-    bottom: auto;
-    left: auto;
-    top: auto;
-    z-index: 1;
 }
 
 /* Reserve space inside the scrollable list so the last row is not hidden under fixed pagination */
@@ -3717,13 +3746,6 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 }
 
 /* Non-bank Process List: fixed viewport layout, 25 rows visible without scrolling */
-.process-page:not(.process-page--bank) .content {
-    height: calc(100vh - var(--layout-page-top-inset));
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
 .process-page:not(.process-page--bank) .content > div:first-child {
     margin-top: 0 !important;
 }
@@ -3733,24 +3755,35 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     flex-shrink: 0;
 }
 
-.process-page:not(.process-page--bank) .process-table-wrapper {
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-table-wrapper {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    padding-bottom: 52px;
+    box-sizing: border-box;
 }
 
-.process-page:not(.process-page--bank):not(.process-page--show-all) .pagination-container {
-    margin-top: 8px !important;
-    margin-bottom: 0 !important;
-    margin-left: auto !important;
-    align-self: flex-end;
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-table-wrapper .games-process-table-header,
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-table-wrapper > .table-header {
     flex-shrink: 0;
 }
 
-.process-page:not(.process-page--bank) .process-cards {
-    flex: 1;
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .pagination-container {
+    position: fixed;
+    right: max(40px, env(safe-area-inset-right, 0px));
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    left: auto;
+    top: auto;
+    margin: 0 !important;
+    z-index: 120;
+    width: fit-content;
+    flex-shrink: 0;
+}
+
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-cards {
+    flex: 1 1 auto;
     min-height: 0;
     max-height: none;
     overflow: hidden;
@@ -3759,11 +3792,60 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     justify-content: flex-start;
 }
 
-.process-page:not(.process-page--bank) .process-card {
+body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-card {
     flex: 0 1 auto;
     height: auto;
     min-height: 0;
     box-sizing: border-box;
+}
+
+/* Show All：整页可滚动，分页回文档流 */
+body.process-page.process-page--show-all:not(.process-page--bank) {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+}
+
+html:has(body.process-page.process-page--show-all:not(.process-page--bank)) {
+    height: auto;
+    overflow: visible;
+}
+
+body.process-page.process-page--show-all:not(.process-page--bank) .container {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+}
+
+body.process-page.process-page--show-all:not(.process-page--bank) .content {
+    height: auto !important;
+    min-height: calc(100vh - var(--layout-page-top-inset)) !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: none !important;
+}
+
+body.process-page.process-page--show-all:not(.process-page--bank) .process-table-wrapper {
+    flex: 0 1 auto !important;
+    min-height: 0 !important;
+    padding-bottom: 0 !important;
+    overflow: hidden !important;
+}
+
+body.process-page.process-page--show-all:not(.process-page--bank) .pagination-container {
+    position: relative !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin-top: 8px !important;
+    margin-left: auto !important;
+    align-self: flex-end;
+    z-index: 1 !important;
 }
 
 /*

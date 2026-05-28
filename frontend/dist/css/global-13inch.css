@@ -723,12 +723,16 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         min-height: 0 !important;
         max-height: 100vh !important;
         overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
         padding-bottom: 0 !important;
+        box-sizing: border-box !important;
     }
 
     body.process-page:not(.process-page--bank):not(.process-page--show-all) .content {
-        height: calc(100vh - var(--layout-page-top-inset)) !important;
+        flex: 1 1 auto !important;
         min-height: 0 !important;
+        height: auto !important;
         max-height: none !important;
         overflow: hidden !important;
         display: flex !important;
@@ -747,6 +751,8 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         overflow: hidden !important;
         display: flex !important;
         flex-direction: column !important;
+        padding-bottom: 52px !important;
+        box-sizing: border-box !important;
     }
 
     body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-cards:not(.bank-virtual-scroll) {
@@ -764,6 +770,14 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.process-page:not(.process-page--bank):not(.process-page--show-all) .pagination-container {
+        position: fixed !important;
+        right: max(40px, env(safe-area-inset-right, 0px)) !important;
+        bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+        left: auto !important;
+        top: auto !important;
+        margin: 0 !important;
+        z-index: 120 !important;
+        width: fit-content !important;
         flex-shrink: 0 !important;
     }
 
