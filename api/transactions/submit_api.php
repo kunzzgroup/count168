@@ -7,9 +7,8 @@
  * - WIN: 赢钱
  * - LOSE: 输钱
  * - PAYMENT: 付款
- * - RECEIVE: 收款
  * - CONTRA: 对冲/转账
- * - CLAIM: 索赔（算法与 RECEIVE 相同）
+ * - CLAIM: 索赔
  */
 
 session_start();
@@ -56,12 +55,12 @@ function requiresTransactionApproval(string $role, string $transactionDateDb): b
 
 /**
  * 需要审批的交易类型：
- * CONTRA / PAYMENT / RECEIVE / CLAIM / CLEAR / ADJUSTMENT / PROFIT(实际落库为 WIN/LOSE)
+ * CONTRA / PAYMENT / CLAIM / CLEAR / ADJUSTMENT / PROFIT(实际落库为 WIN/LOSE)
  */
 function requiresApprovalForType(string $transactionType): bool
 {
     $type = strtoupper(trim($transactionType));
-    return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
+    return in_array($type, ['CONTRA', 'PAYMENT', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
 }
 
 function tableHasColumn(PDO $pdo, string $table, string $column): bool
@@ -90,7 +89,7 @@ function insertTransactionRow(PDO $pdo, array $data): int
  *
  * Transaction List 使用 api/transactions/search_api.php，并在系统临时目录下
  * 的 count168_tx_search 目录里做 60 秒文件缓存。
- * 当这里提交新交易（PAYMENT / RECEIVE / CONTRA / RATE 等）后，需要清掉这些缓存文件，
+ * 当这里提交新交易（PAYMENT / CONTRA / RATE 等）后，需要清掉这些缓存文件，
  * 不然在缓存过期前再次搜索会拿到旧数据，看不到刚提交的余额变化。
  */
 function clearTransactionSearchCache(): void
@@ -304,7 +303,7 @@ try {
         throw new Exception('请选择交易类型');
     }
     
-    if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'ADJUSTMENT'])) {
+    if (!in_array($transaction_type, ['WIN', 'LOSE', 'PAYMENT', 'CONTRA', 'CLAIM', 'RATE', 'CLEAR', 'ADJUSTMENT'])) {
         throw new Exception('无效的交易类型');
     }
     
@@ -364,10 +363,10 @@ try {
     }
 
     // WIN/LOSE（PROFIT）：数据库触发器要求 from_account_id 必须为 NULL，插入前会强制置空；前端可选填 From Account 仅用于展示
-    // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR 需要，RATE 有特殊处理）
-    if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'])) {
+    // 验证 From Account（PAYMENT/CONTRA/CLAIM/CLEAR 需要，RATE 有特殊处理）
+    if (in_array($transaction_type, ['PAYMENT', 'CONTRA', 'CLAIM', 'CLEAR'])) {
         if (!$from_account_id || $from_account_id <= 0) {
-            throw new Exception('PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR 交易必须选择 From Account');
+            throw new Exception('PAYMENT/CONTRA/CLAIM/CLEAR 交易必须选择 From Account');
         }
         
         if ($from_account_id == $account_id) {
@@ -441,7 +440,7 @@ try {
     // 自动生成 description（如果为空）
     if (empty($description) && $transaction_type === 'ADJUSTMENT') {
         $description = 'ADJUSTMENT - WIN/LOSS';
-    } elseif (empty($description) && in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'])) {
+    } elseif (empty($description) && in_array($transaction_type, ['PAYMENT', 'CONTRA', 'CLAIM', 'CLEAR'])) {
         // 从 To Account 的视角生成描述
         $description = $transaction_type . ' FROM ' . $from_account['account_id'];
     }
