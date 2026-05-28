@@ -1992,8 +1992,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 #addBankModal .bank-day-end-cap-switch {
     position: relative;
     display: inline-block;
-    width: 48px;
-    height: 26px;
+    width: 44px;
+    height: 24px;
     flex-shrink: 0;
     cursor: pointer;
     margin: 0;
@@ -2015,24 +2015,26 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     position: absolute;
     inset: 0;
     display: block;
-    background: #dce4ee;
+    background: #d8e2ed;
     border-radius: 999px;
     border: 1px solid #b8c9dc;
     box-sizing: border-box;
+    overflow: hidden;
     transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 #addBankModal .bank-day-end-cap-switch__track::before {
     content: "";
     position: absolute;
-    width: 20px;
-    height: 20px;
-    top: 2px;
-    left: 2px;
+    width: 18px;
+    height: 18px;
+    top: 50%;
+    left: 3px;
+    transform: translateY(-50%);
     background: #ffffff;
     border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
-    transition: left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    transition: left 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
 }
 
 #addBankModal .bank-day-end-cap-switch input:checked + .bank-day-end-cap-switch__track {
@@ -2041,8 +2043,8 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 }
 
 #addBankModal .bank-day-end-cap-switch input:checked + .bank-day-end-cap-switch__track::before {
-    left: 24px;
-    box-shadow: 0 1px 4px rgba(29, 78, 216, 0.3);
+    left: calc(100% - 21px);
+    box-shadow: 0 1px 3px rgba(29, 78, 216, 0.28);
 }
 
 #addBankModal .bank-day-end-cap-switch:hover .bank-day-end-cap-switch__track {
@@ -2056,8 +2058,13 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 }
 
 #addBankModal .bank-day-end-cap-switch input:focus-visible + .bank-day-end-cap-switch__track {
-    outline: 2px solid rgba(59, 130, 246, 0.45);
+    outline: none;
+}
+
+#addBankModal .bank-day-end-cap-switch:has(input:focus-visible) {
+    outline: 2px solid rgba(59, 130, 246, 0.4);
     outline-offset: 2px;
+    border-radius: 999px;
 }
 
 #addBankModal .bank-day-end-cap-switch input:disabled + .bank-day-end-cap-switch__track {
