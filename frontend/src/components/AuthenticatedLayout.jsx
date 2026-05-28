@@ -26,7 +26,6 @@ import {
 } from "../utils/company/sharedCompanyFilter.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
-import { dismissAllPortalTooltips } from "./PortalTooltip.jsx";
 import {
   canAccessC168AutoRenew,
   canAccessC168DomainPages,
@@ -409,7 +408,6 @@ export default function AuthenticatedLayout() {
   };
   const openHoverSubmenu = (section, el) => {
     if (!el) return;
-    dismissAllPortalTooltips();
     const rect = el.getBoundingClientRect();
     setSubmenuPos((prev) => ({
       ...prev,
@@ -681,7 +679,7 @@ export default function AuthenticatedLayout() {
                   <span className="section-arrow">▶</span>
                 </div>
                 <div
-                  className="submenu"
+                  className={`submenu${sidebarIconOnly ? " submenu--icon-flyout" : ""}`}
                   id="report-submenu"
                   style={{
                     position: "fixed",
@@ -697,6 +695,9 @@ export default function AuthenticatedLayout() {
                   onMouseLeave={() => setHoverSection(null)}
                 >
                   <div className="submenu-content">
+                    {sidebarIconOnly ? (
+                      <div className="submenu-flyout-heading">{i18n.sidebarReport}</div>
+                    ) : null}
                     <a
                       href={webHref("/customer-report")}
                       className={`submenu-item ${path === "/customer-report" ? "current-page" : ""}`}
@@ -739,7 +740,7 @@ export default function AuthenticatedLayout() {
                   <span className="section-arrow">▶</span>
                 </div>
                 <div
-                  className="submenu"
+                  className={`submenu${sidebarIconOnly ? " submenu--icon-flyout" : ""}`}
                   id="maintenance-submenu"
                   style={{
                     position: "fixed",
@@ -755,6 +756,9 @@ export default function AuthenticatedLayout() {
                   onMouseLeave={() => setHoverSection(null)}
                 >
                   <div className="submenu-content">
+                    {sidebarIconOnly ? (
+                      <div className="submenu-flyout-heading">{i18n.sidebarMaintenance}</div>
+                    ) : null}
                     {showFullMaintenanceMenu && me?.company_has_gambling && (
                       <a
                         href={webHref("/capture-maintenance")}
