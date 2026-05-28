@@ -12,6 +12,20 @@
     --ec-fb-thumb-active: rgba(0, 0, 0, 0.58);
 }
 
+/* Hide native viewport scrollbars once app boots */
+html.ec-fb-scroll-enabled,
+html.ec-fb-scroll-enabled body {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+html.ec-fb-scroll-enabled::-webkit-scrollbar,
+html.ec-fb-scroll-enabled body::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
 /* Hide native scrollbar on enhanced containers */
 .ec-fb-scroll-root {
     scrollbar-width: none !important;
@@ -37,6 +51,10 @@
     transition: opacity 0.2s ease;
 }
 
+.ec-fb-scroll-root.ec-fb-page-scroll .ec-fb-scroll-rail--y {
+    opacity: 0.5;
+}
+
 .ec-fb-scroll-root:hover .ec-fb-scroll-rail,
 .ec-fb-scroll-root.ec-fb-scroll--active .ec-fb-scroll-rail,
 .ec-fb-scroll-rail:focus-within {
@@ -48,6 +66,7 @@
     right: var(--ec-fb-rail-inset);
     bottom: var(--ec-fb-rail-inset);
     width: var(--ec-fb-rail-width);
+    z-index: 10000;
 }
 
 .ec-fb-scroll-rail--x {
