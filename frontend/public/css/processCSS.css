@@ -1004,7 +1004,7 @@ body.process-page {
     max-width: 100%;
     display: grid;
     grid-template-columns: var(--bank-virtual-grid-active);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     flex: 1 1 0;
     min-height: 0;
     height: 100%;
@@ -1012,9 +1012,15 @@ body.process-page {
     box-sizing: border-box;
 }
 
-/* 表头不参与独立 grid：与数据行共用 inner 的列轨道（subgrid），避免每行 max-content 宽度不一致 */
-.process-page.process-page--bank .bank-virtual-thead {
-    display: contents;
+/* 表头与数据区同在 scroll-clip 内，共用宽度（含 scrollbar），sticky 固定表头 */
+.process-page.process-page--bank .bank-virtual-scroll-clip > .bank-virtual-thead {
+    grid-column: 1 / -1;
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: grid;
+    grid-template-columns: subgrid;
+    align-self: start;
 }
 
 .process-page.process-page--bank .bank-virtual-head-row,
@@ -1039,6 +1045,13 @@ body.process-page {
         display: block;
     }
 
+    .process-page.process-page--bank .bank-virtual-scroll-clip > .bank-virtual-thead {
+        display: block;
+        position: sticky;
+        top: 0;
+        z-index: 4;
+    }
+
     .process-page.process-page--bank .bank-virtual-head-row,
     .process-page.process-page--bank .bank-virtual-data-row {
         grid-template-columns: var(--bank-virtual-grid-active);
@@ -1050,10 +1063,10 @@ body.process-page {
     }
 }
 
-/* 数据区：隐藏滚动条，仍可用滚轮/触控板/触摸滑动 */
+/* 数据区：纵向滚动；表头 sticky 在 clip 内与数据行同宽 */
 .process-page.process-page--bank .bank-virtual-scroll-clip {
     grid-column: 1 / -1;
-    grid-row: 2;
+    grid-row: 1;
     align-self: stretch;
     flex: 1 1 0;
     min-height: var(--bank-list-scroll-body-min-height);
@@ -1114,7 +1127,6 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     border-radius: 8px 8px 0 0;
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%);
     padding: 0;
-    padding-right: 0;
     overflow: visible;
     grid-auto-rows: var(--bank-list-header-row-height, var(--bank-list-cell-min-height));
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
@@ -1122,12 +1134,6 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
-    margin-right: 0;
-}
-
-/* 数据区出现纵向滚动条时，表头右侧预留同等宽度，避免 Action 列右侧出现空白条 */
-.process-page.process-page--bank .bank-virtual-table-inner:has(.bank-virtual-scroll-clip--cap-rows) .bank-virtual-head-row.table-header {
-    padding-right: var(--dash-scrollbar-size, 12px);
 }
 
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
