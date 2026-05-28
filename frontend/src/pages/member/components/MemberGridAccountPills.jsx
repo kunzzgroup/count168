@@ -39,33 +39,34 @@ export default function MemberGridAccountPills({
       <div
         className="user-gc-inline-pills member-winloss-account-pills member-winloss-grid-account-pills"
         id="member_grid_account_buttons"
-        role="group"
         aria-label={t("linkedFilterTitle")}
       >
-        {showAllBtn && (
-          <button
-            type="button"
-            className={`user-gc-segment${allSelected ? " is-on" : ""}`}
-            onClick={handleAll}
-          >
-            {t("all")}
-          </button>
-        )}
-        {accounts.map((acc) => {
-          const id = Number(acc.id);
-          const label = String(acc.account_id || acc.name || acc.id);
-          const isOn = showAllBtn ? !allSelected && included.has(id) : true;
-          return (
+        <div className="user-gc-segment-group member-winloss-grid-account-segments" role="group">
+          {showAllBtn && (
             <button
-              key={acc.id}
               type="button"
-              className={`user-gc-segment${isOn ? " is-on" : ""}`}
-              onClick={() => handleToggle(id)}
+              className={`user-gc-segment${allSelected ? " is-on" : ""}`}
+              onClick={handleAll}
             >
-              <span className="member-winloss-account-pill-label">{label}</span>
+              {t("all")}
             </button>
-          );
-        })}
+          )}
+          {accounts.map((acc) => {
+            const id = Number(acc.id);
+            const label = String(acc.account_id || acc.name || acc.id);
+            const isOn = showAllBtn ? !allSelected && included.has(id) : true;
+            return (
+              <button
+                key={acc.id}
+                type="button"
+                className={`user-gc-segment${isOn ? " is-on" : ""}`}
+                onClick={() => handleToggle(id)}
+              >
+                <span className="member-winloss-account-pill-label">{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
