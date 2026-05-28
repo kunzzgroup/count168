@@ -233,8 +233,77 @@ export function companyToDomainPayloadEntry(c) {
 
 // ===================== Display Helpers =====================
 
-/** Domain Price 弹窗未配置时的默认金额 */
+/** Domain Price 弹窗未配置时的默认金额（1 年，兼容旧逻辑） */
 export const DEFAULT_DOMAIN_FEE_PRICE = "2400";
+
+/** 各周期默认价（编辑框初始值） */
+export const DOMAIN_FEE_PERIOD_KEYS = ["7days", "1month", "3months", "6months", "1year"];
+
+export function defaultDomainPeriodPrices() {
+  return {
+    "7days": "",
+    "1month": "",
+    "3months": "",
+    "6months": "",
+    "1year": DEFAULT_DOMAIN_FEE_PRICE,
+  };
+}
+
+/** @param {Record<string, unknown>|null|undefined} raw */
+export function normalizeDomainPeriodPricesFromApi(raw) {
+  const out = defaultDomainPeriodPrices();
+  if (!raw || typeof raw !== "object") return out;
+  const source =
+    raw.period_prices && typeof raw.period_prices === "object"
+      ? raw.period_prices
+      : raw;
+  DOMAIN_FEE_PERIOD_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const formatted = formatDomainFeeEdit2(source[key]);
+      out[key] = formatted !== "" ? formatted : "";
+    }
+  });
+  const hasAny = DOMAIN_FEE_PERIOD_KEYS.some((k) => out[k] !== "" && out[k] != null);
+  if (!hasAny) {
+    const legacy = formatDomainFeeEdit2(raw.company_price ?? raw.price);
+    if (legacy !== "") {
+      out["6months"] = legacy;
+    }
+  }
+  return out;
+}
+
+/**
+ * 按所选周期取 Domain Price（Company Settings 中 C168 金额基数）
+ * @param {Record<string, string>|null|undefined} periodPrices
+ * @param {string} period
+ */
+export function resolveDomainFeePriceForPeriod(periodPrices, period) {
+  if (!period) return 0;
+  if (periodPrices && periodPrices[period] !== undefined && periodPrices[period] !== "") {
+    const n = Number(periodPrices[period]);
+    if (isFinite(n)) return n;
+  }
+  return 0;
+}
+
+/** 工具栏摘要：列出已配置的非零周期价 */
+export function formatDomainPeriodPricesInlineSummary(periodPrices, t) {
+  if (!periodPrices || typeof periodPrices !== "object") return "";
+  const parts = [];
+  const labels = {
+    "7days": t("sevenDays"),
+    "1month": t("oneMonth"),
+    "3months": t("threeMonths"),
+    "6months": t("sixMonths"),
+    "1year": t("oneYear"),
+  };
+  DOMAIN_FEE_PERIOD_KEYS.forEach((key) => {
+    const disp = formatDomainFeeDisplay2(periodPrices[key]);
+    if (disp !== "—") parts.push(`${labels[key]} ${disp}`);
+  });
+  return parts.join(" · ");
+}
 
 /** 固定两位小数展示 */
 export function formatDomainFeeDisplay2(val) {

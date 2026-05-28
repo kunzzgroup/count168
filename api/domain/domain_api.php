@@ -184,9 +184,13 @@ function ensureDomainListFeePriceColumns(PDO $pdo): void {
         return;
     }
     ensureDomainListFeeSettingsTable($pdo);
-    foreach (['group_price', 'company_price'] as $col) {
+    foreach (['group_price', 'company_price', 'period_prices'] as $col) {
         try {
-            $pdo->exec("ALTER TABLE `domain_list_fee_settings` ADD COLUMN `{$col}` DECIMAL(25,8) NULL DEFAULT NULL");
+            if ($col === 'period_prices') {
+                $pdo->exec("ALTER TABLE `domain_list_fee_settings` ADD COLUMN `period_prices` JSON NULL DEFAULT NULL");
+            } else {
+                $pdo->exec("ALTER TABLE `domain_list_fee_settings` ADD COLUMN `{$col}` DECIMAL(25,8) NULL DEFAULT NULL");
+            }
         } catch (Exception $e) {
             // Column may already exist.
         }
@@ -194,16 +198,80 @@ function ensureDomainListFeePriceColumns(PDO $pdo): void {
     $columnsEnsured = true;
 }
 
+/** @return list<string> */
+function domainListFeePeriodKeys(): array
+{
+    return ['7days', '1month', '3months', '6months', '1year'];
+}
+
 /**
- * @return array{price: ?string, group_price: ?string, company_price: ?string}
+ * @param array<string, mixed>|null $raw
+ * @return array<string, ?string>
+ */
+function normalizeDomainListFeePeriodPrices(?array $raw): array
+{
+    $out = [];
+    foreach (domainListFeePeriodKeys() as $key) {
+        $out[$key] = null;
+    }
+    if (!is_array($raw)) {
+        return $out;
+    }
+    foreach (domainListFeePeriodKeys() as $key) {
+        if (!array_key_exists($key, $raw)) {
+            continue;
+        }
+        $val = normalizeOptionalDecimal($raw[$key]);
+        if ($val === false) {
+            return [];
+        }
+        $out[$key] = $val !== null ? money_out($val) : null;
+    }
+    return $out;
+}
+
+/**
+ * @param array<string, mixed> $row
+ * @return array<string, ?string>
+ */
+function decodeDomainListFeePeriodPricesFromRow(array $row): array
+{
+    $periodPrices = normalizeDomainListFeePeriodPrices(null);
+    if (!empty($row['period_prices'])) {
+        $decoded = is_string($row['period_prices'])
+            ? json_decode($row['period_prices'], true)
+            : $row['period_prices'];
+        $parsed = normalizeDomainListFeePeriodPrices(is_array($decoded) ? $decoded : null);
+        if ($parsed !== []) {
+            $periodPrices = $parsed;
+        }
+    }
+    $hasAny = false;
+    foreach ($periodPrices as $v) {
+        if ($v !== null && $v !== '' && money_cmp($v, '0') > 0) {
+            $hasAny = true;
+            break;
+        }
+    }
+    if (!$hasAny) {
+        $legacy = $row['company_price'] ?? $row['price'] ?? null;
+        if ($legacy !== null && $legacy !== '' && money_cmp($legacy, '0') > 0) {
+            $periodPrices['6months'] = money_out($legacy);
+        }
+    }
+    return $periodPrices;
+}
+
+/**
+ * @return array{price: ?string, group_price: ?string, company_price: ?string, period_prices: array<string, ?string>}
  */
 function fetchDomainListFeeSettingsRow(PDO $pdo): array
 {
     ensureDomainListFeePriceColumns($pdo);
-    $stmt = $pdo->query("SELECT `price`, `group_price`, `company_price` FROM `domain_list_fee_settings` WHERE `id` = 1");
+    $stmt = $pdo->query("SELECT `price`, `group_price`, `company_price`, `period_prices` FROM `domain_list_fee_settings` WHERE `id` = 1");
     $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
     if (!$row) {
-        return ['price' => null, 'group_price' => null, 'company_price' => null];
+        return ['price' => null, 'group_price' => null, 'company_price' => null, 'period_prices' => normalizeDomainListFeePeriodPrices(null)];
     }
     foreach (['price', 'group_price', 'company_price'] as $key) {
         if ($row[$key] !== null && $row[$key] !== '') {
@@ -211,6 +279,12 @@ function fetchDomainListFeeSettingsRow(PDO $pdo): array
         } else {
             $row[$key] = null;
         }
+    }
+    $row['period_prices'] = decodeDomainListFeePeriodPricesFromRow($row);
+    $syncCompany = $row['period_prices']['6months'] ?? null;
+    if ($syncCompany !== null && $syncCompany !== '') {
+        $row['company_price'] = $syncCompany;
+        $row['price'] = $syncCompany;
     }
     return $row;
 }
@@ -3305,24 +3379,40 @@ try {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
-            $groupPrice = normalizeOptionalDecimal($data['group_price'] ?? ($data['price'] ?? null));
-            $companyPrice = normalizeOptionalDecimal($data['company_price'] ?? ($data['price'] ?? null));
+            $periodInput = isset($data['period_prices']) && is_array($data['period_prices'])
+                ? $data['period_prices']
+                : null;
+            $periodPrices = normalizeDomainListFeePeriodPrices($periodInput);
+            if ($periodPrices === []) {
+                jsonResponse(false, 'Price must be a number or empty', null);
+                exit;
+            }
+            $groupPrice = normalizeOptionalDecimal($data['group_price'] ?? null);
+            $companyPrice = normalizeOptionalDecimal(
+                $data['company_price']
+                ?? ($periodPrices['6months'] ?? ($data['price'] ?? null))
+            );
             if ($groupPrice === false || $companyPrice === false) {
                 jsonResponse(false, 'Price must be a number or empty', null);
                 exit;
             }
+            if ($companyPrice === null && ($periodPrices['6months'] ?? null) !== null) {
+                $companyPrice = $periodPrices['6months'];
+            }
             try {
                 ensureDomainListFeePriceColumns($pdo);
+                $periodJson = json_encode($periodPrices, JSON_UNESCAPED_UNICODE);
                 $stmt = $pdo->prepare("
                     UPDATE `domain_list_fee_settings`
-                    SET `group_price` = ?, `company_price` = ?, `price` = ?
+                    SET `group_price` = ?, `company_price` = ?, `price` = ?, `period_prices` = ?
                     WHERE `id` = 1
                 ");
-                $stmt->execute([$groupPrice, $companyPrice, $companyPrice]);
+                $stmt->execute([$groupPrice, $companyPrice, $companyPrice, $periodJson]);
                 jsonResponse(true, 'Saved successfully', [
                     'price' => $companyPrice !== null ? money_out($companyPrice) : null,
                     'group_price' => $groupPrice !== null ? money_out($groupPrice) : null,
                     'company_price' => $companyPrice !== null ? money_out($companyPrice) : null,
+                    'period_prices' => $periodPrices,
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);

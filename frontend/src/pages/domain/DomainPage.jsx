@@ -10,8 +10,8 @@ import {
   MAX_VISIBLE_CHIPS,
   hasProtectedCompany,
   forceSearchValue,
-  formatDomainFeeDisplay2,
-  formatDomainFeeEdit2,
+  formatDomainPeriodPricesInlineSummary,
+  normalizeDomainPeriodPricesFromApi,
 } from "./domainHelpers.js";
 
 // Sub-components
@@ -79,7 +79,7 @@ export default function DomainPage() {
   const [expModal, setExpModal] = useState(null);       // companies array
 
   // ── Domain fee price (for share calc) ─────────────────────────────────────
-  const [domainFeePrice, setDomainFeePrice] = useState(0);
+  const [domainPeriodPrices, setDomainPeriodPrices] = useState(null);
   const [feeInlineSummary, setFeeInlineSummary] = useState("");
 
   // ── Initial data load (session from AuthenticatedLayout) ─────────────────────
@@ -129,14 +129,9 @@ export default function DomainPage() {
       .then((r) => r.json())
       .then((res) => {
         if (res.success && res.data) {
-          const g = formatDomainFeeDisplay2(res.data.group_price ?? res.data.price);
-          const c = formatDomainFeeDisplay2(res.data.company_price ?? res.data.price);
-          if (g !== "—" && c !== "—") {
-            setFeeInlineSummary(t("feeInlineSummary", { group: g, company: c }));
-          } else {
-            setFeeInlineSummary("");
-          }
-          setDomainFeePrice(Number(res.data.company_price ?? res.data.price) || 0);
+          const prices = normalizeDomainPeriodPricesFromApi(res.data);
+          setDomainPeriodPrices(prices);
+          setFeeInlineSummary(formatDomainPeriodPricesInlineSummary(prices, t));
         }
       })
       .catch(() => {});
@@ -459,7 +454,7 @@ export default function DomainPage() {
           isOwnerOrAdmin={isOwnerOrAdmin}
           sessionCompanyId={me?.company_id ?? null}
           sessionCompanyCode={String(me?.company_code || "")}
-          domainFeePrice={domainFeePrice}
+          domainPeriodPrices={domainPeriodPrices}
           onClose={() => setShowDomainForm(false)}
           onSaved={handleDomainSaved}
         />
@@ -479,14 +474,9 @@ export default function DomainPage() {
           lang={lang}
           onClose={() => setFeeModal(false)}
           onFeeSaved={(data) => {
-            const g = formatDomainFeeDisplay2(data.group_price ?? data.price);
-            const c = formatDomainFeeDisplay2(data.company_price ?? data.price);
-            if (g !== "—" && c !== "—") {
-              setFeeInlineSummary(t("feeInlineSummary", { group: g, company: c }));
-            } else {
-              setFeeInlineSummary("");
-            }
-            setDomainFeePrice(Number(data.company_price ?? data.price) || 0);
+            const prices = normalizeDomainPeriodPricesFromApi(data);
+            setDomainPeriodPrices(prices);
+            setFeeInlineSummary(formatDomainPeriodPricesInlineSummary(prices, t));
           }}
         />
       )}

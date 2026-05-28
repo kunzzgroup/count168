@@ -22,6 +22,7 @@ import {
   sumFeeShareRolePercentages,
   computeShareTotals,
   formatShareRowAmount2,
+  resolveDomainFeePriceForPeriod,
 } from "../domainHelpers.js";
 import AddAccountModal from "./AddAccountModal.jsx";
 import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
@@ -49,7 +50,7 @@ const WEEKDAYS_ZH = ["日", "一", "二", "三", "四", "五", "六"];
  *
  * Props:
  *   company          — the tempCompanies entry being edited (snapshot for cancel)
- *   domainFeePrice   — number, for share amount calculation
+ *   domainPeriodPrices — { 7days, 1month, … } for share amount by selected period
  *   sessionCompanyId — fallback if company.company_id is missing
  *   sessionCompanyCode — used for adding accounts
  *   onSave(updatedCompany) — callback with updated company data
@@ -58,7 +59,7 @@ const WEEKDAYS_ZH = ["日", "一", "二", "三", "四", "五", "六"];
 export default function CompanySettingsModal({
   lang = "en",
   company: initCompany,
-  domainFeePrice,
+  domainPeriodPrices,
   sessionCompanyId,
   sessionCompanyCode,
   onSave,
@@ -68,7 +69,7 @@ export default function CompanySettingsModal({
   const t = (key, params) => getDomainText(lang, key, params);
   // Local copy of company being edited
   const [company, setCompany] = useState(() => JSON.parse(JSON.stringify(initCompany)));
-  const [period, setPeriod] = useState("");
+  const [period, setPeriod] = useState(initCompany.selectedPeriod || "");
   const [startDate, setStartDate] = useState(() => {
     const raw = initCompany.startDate || "";
     const ymd = raw.includes("-") ? raw.split("T")[0] : parseDdMmYyyyToYmd(raw);
@@ -291,8 +292,9 @@ export default function CompanySettingsModal({
       });
   }
 
-  // ─── Share % helpers ───────────────────────────────────────────────────────
-  const totals = computeShareTotals(fsa, domainFeePrice);
+  // ─── Share % helpers（周期变更时按 Price 中对应金额重算，含 C168 行） ─────
+  const effectiveFeePrice = resolveDomainFeePriceForPeriod(domainPeriodPrices, period);
+  const totals = computeShareTotals(fsa, effectiveFeePrice);
 
   function updateShareRow(role, idx, field, value) {
     setFsa((prev) => {

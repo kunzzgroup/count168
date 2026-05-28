@@ -39,14 +39,14 @@ function findGroupCompanyCodeOverlap(tempGroups, tempCompanies) {
  *   isOwnerOrAdmin  — boolean
  *   sessionCompanyId   — number
  *   sessionCompanyCode — string
- *   domainFeePrice  — number (for share calc)
+ *   domainPeriodPrices — per-period default amounts (for share calc in company settings)
  *   onClose()
  *   onSaved(domainData) — called after successful save
  */
 export default function DomainFormModal({
   lang = "en",
   isEditMode, editingDomain, hasC168Context, isOwnerOrAdmin,
-  sessionCompanyId, sessionCompanyCode, domainFeePrice,
+  sessionCompanyId, sessionCompanyCode, domainPeriodPrices,
   onClose, onSaved,
 }) {
   const isZh = lang === "zh";
@@ -667,7 +667,7 @@ export default function DomainFormModal({
         <CompanySettingsModal
           lang={lang}
           company={csCompany}
-          domainFeePrice={domainFeePrice}
+          domainPeriodPrices={domainPeriodPrices}
           sessionCompanyId={sessionCompanyId}
           sessionCompanyCode={sessionCompanyCode}
           onSave={handleCompanySettingsSaved}

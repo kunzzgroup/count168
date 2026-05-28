@@ -985,6 +985,71 @@ body.domain-page .domain-fee-react-modal.modal-content {
     max-width: 440px !important;
 }
 
+body.domain-page .domain-fee-react-modal.domain-fee-react-modal--periods.modal-content,
+.domain-fee-react-modal.domain-fee-react-modal--periods {
+    width: min(560px, 94vw) !important;
+    max-width: 560px !important;
+}
+
+.domain-fee-summary-display-title {
+    margin: 0 0 10px 0;
+    font-size: var(--domain-text-13);
+    font-weight: 600;
+    color: var(--color-text-label);
+}
+
+.domain-fee-period-display-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 14px;
+    margin-bottom: 8px;
+}
+
+.domain-fee-period-display-row:last-child {
+    margin-bottom: 0;
+}
+
+.domain-fee-period-display-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--domain-text-14);
+}
+
+.domain-fee-period-display-label {
+    color: var(--color-text-caption);
+    font-size: var(--domain-text-12);
+}
+
+.domain-fee-period-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 14px;
+}
+
+.domain-fee-period-form-group {
+    margin-bottom: 0 !important;
+}
+
+.domain-fee-period-input.form-group-input {
+    width: 100%;
+    height: 40.31px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 6px;
+    background: var(--color-surface);
+    padding: 0 12px;
+    font-size: var(--domain-text-16);
+    color: var(--color-text-ink-strong);
+}
+
+@media (max-width: 520px) {
+    .domain-fee-period-display-row,
+    .domain-fee-period-edit-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 .domain-fee-react-modal .modal-header.domain-fee-modal-header {
     padding: 19.968px 28px 19.968px 32px;
     border-bottom: 1px solid var(--color-border-slate);
