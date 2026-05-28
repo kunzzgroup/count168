@@ -393,10 +393,9 @@ button.sc-login-lang-seg.active {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #656565;
-  font-size: var(--text-base);
-  font-weight: 400;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #666;
+  font-size: var(--text-small);
+  font-weight: 500;
 }
 
 .sc-login-forgot-link {
@@ -404,8 +403,8 @@ button.sc-login-lang-seg.active {
   max-width: 100%;
   color: #56ccf2;
   text-decoration: none;
-  font-size: var(--text-base);
-  font-weight: 400;
+  font-size: var(--text-small);
+  font-weight: 500;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   white-space: nowrap;
   overflow: hidden;

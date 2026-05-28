@@ -210,7 +210,7 @@ body.process-page {
 
 /* Controls Section - copied from accountCSS.css */
 .process-page .action-buttons-container {
-    margin-top: 20px;
+    margin-top: clamp(12px, 1.04vw, 20px);
     background-color: #ffffff;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -3718,18 +3718,18 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 
 /* Non-bank Process List: fixed viewport layout, 20 rows visible without scrolling */
 .process-page:not(.process-page--bank) .content {
-    height: calc(100vh - 22px);
+    height: calc(100vh - var(--layout-page-top-inset));
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.process-page:not(.process-page--bank) .content>div:first-child {
-    margin-top: 8px !important;
+.process-page:not(.process-page--bank) .content > div:first-child {
+    margin-top: 0 !important;
 }
 
 .process-page:not(.process-page--bank) .action-buttons-container {
-    margin-top: 20px;
+    margin-top: clamp(12px, 1.04vw, 20px);
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper {

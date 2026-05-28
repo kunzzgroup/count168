@@ -67,7 +67,7 @@ body.ownership-page {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-top: 16px;
+    margin-top: var(--layout-page-first-block-mt);
     flex-wrap: wrap;
     flex-shrink: 0;
 }

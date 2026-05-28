@@ -66,6 +66,10 @@
   --layout-main-offset: calc(var(--layout-sidebar-width) + var(--layout-main-gap));
   /* 各业务页主容器顶边距（去掉页面 h1 标题后的统一留白） */
   --layout-page-top-gap: 10px;
+  /* 首块工具栏/筛选卡与容器顶 padding 之间的间距（与 Dashboard .dashboard-filter-panel 一致） */
+  --layout-page-first-block-mt: 10px;
+  /* 视口顶 → 首块白卡总留白（container padding-top + 首块 margin-top） */
+  --layout-page-top-inset: calc(var(--layout-page-top-gap) + var(--layout-page-first-block-mt));
 
   /* --- 品牌 / 文本色（列表页与 dashboard 壳层对齐，供 var 消重）--- */
   --color-page-bg: #e9f1ff;
@@ -126,7 +130,7 @@
 
   /* --- 列表页主标题（对应 clamp(26px, 2.08vw, 40px)）--- */
   --text-page-title: clamp(2.6rem, 2.08vw, 4rem);
-  --text-page-title-mt: clamp(1.2rem, 1.04vw, 2rem);
+  --text-page-title-mt: var(--layout-page-first-block-mt);
   --text-page-title-mb: clamp(1.6rem, 1.35vw, 2.6rem);
   --font-weight-page-title: 600;
   --letter-spacing-page-title: -0.025em;

@@ -398,7 +398,7 @@ export function CurrencySettingModal({
               </div>
             </div>
 
-            <div className="currency-setting-account-list account-grid account-grid--five account-grid--process">
+            <div className="currency-setting-account-list account-grid account-grid--eight account-grid--process">
               {filteredAccounts.map(a => (
                 <label key={a.id} className="account-item-compact account-item-compact--process currency-setting-select-card">
                   <input

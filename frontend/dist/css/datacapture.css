@@ -137,7 +137,7 @@ body.datacapture-page .dc-page-toolbar {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin: 8px 0 10px;
+    margin: var(--layout-page-first-block-mt) 0 10px;
     min-width: 0;
 }
 

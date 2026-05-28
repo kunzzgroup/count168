@@ -34,7 +34,7 @@ body.dashboard-page.report-page .container {
     background: white;
     border-radius: 12px;
     padding: clamp(12px, 1.25vw, 20px);
-    margin-top: clamp(16px, 1.35vw, 26px);
+    margin-top: var(--layout-page-first-block-mt);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 

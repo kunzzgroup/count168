@@ -52,7 +52,7 @@ body.account-page:not(.account-page--show-all) .container {
 }
 
 body.account-page:not(.account-page--show-all) .content {
-    height: calc(100vh - 22px) !important;
+    height: calc(100vh - var(--layout-page-top-inset)) !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -60,7 +60,7 @@ body.account-page:not(.account-page--show-all) .content {
 }
 
 body.account-page .action-buttons-container {
-    margin-top: 12px;
+    margin-top: var(--layout-page-first-block-mt);
     background-color: #ffffff;
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -601,7 +601,7 @@ body.account-page--show-all .container {
 
 body.account-page--show-all .content {
     height: auto !important;
-    min-height: calc(100vh - 22px) !important;
+    min-height: calc(100vh - var(--layout-page-top-inset)) !important;
     overflow: visible !important;
     display: flex;
     flex-direction: column;
@@ -2971,7 +2971,7 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     }
 
     body.account-page .action-buttons-container {
-        margin-top: 8px;
+        margin-top: var(--layout-page-first-block-mt);
     }
 
     body.account-page .action-buttons-container > .action-buttons {

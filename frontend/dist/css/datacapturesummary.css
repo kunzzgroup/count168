@@ -31,7 +31,7 @@
         h1 {
             color: #002C49;
             text-align: left;
-            margin-top: clamp(12px, 1.04vw, 20px);
+            margin-top: var(--layout-page-first-block-mt);
             margin-bottom: clamp(16px, 1.35vw, 26px);
             font-size: clamp(26px, 2.08vw, 40px);
             font-family: var(--font-heading-page);
