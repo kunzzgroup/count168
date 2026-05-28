@@ -7,7 +7,7 @@ let showBlock = (typeof window.PROCESSLIST_SHOW_BLOCK !== 'undefined' ? window.P
 let showAll = (typeof window.PROCESSLIST_SHOW_ALL !== 'undefined' ? window.PROCESSLIST_SHOW_ALL : false);
 let waiting = false;
 let currentPage = 1;
-const pageSize = 20;
+const pageSize = 25;
 let selectedPermission = null;
 const currentProcessListPage = (typeof window.PROCESSLIST_PAGE_FILE === 'string' ? window.PROCESSLIST_PAGE_FILE.trim() : '');
 const forcedPermission = (typeof window.PROCESSLIST_FORCED_PERMISSION === 'string' ? window.PROCESSLIST_FORCED_PERMISSION.trim() : '');
