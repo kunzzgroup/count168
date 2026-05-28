@@ -966,12 +966,12 @@ body.transaction-page.member-winloss-page .transaction-main-content.member-winlo
 
 body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-dash-columns--two-col,
 body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-dash-columns--three-col {
-    align-items: stretch;
+    align-items: flex-start;
 }
 
 body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-dash-columns--two-col .member-dash-col-filters,
 body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-dash-columns--three-col .member-dash-col-filters {
-    align-self: stretch;
+    align-self: flex-start;
 }
 
 /* Win/Loss 顶栏：三栏 — 筛选 | Win/Loss 矩阵 | Total */
@@ -994,10 +994,10 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 
 .member-winloss-page .member-dash-columns--two-col,
 .member-winloss-page .member-dash-columns--three-col {
-    /* Flex：左栏固定；中栏表格为核心展示；stretch 使左栏竖线随矩阵高度延伸 */
+    /* Flex：左栏固定；中栏表格为核心展示 */
     display: flex !important;
     flex-wrap: nowrap;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 0;
     width: 100%;
     min-width: 0;
@@ -1173,17 +1173,31 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 
 .member-winloss-page .member-dash-columns--two-col > .member-dash-col-filters,
 .member-winloss-page .member-dash-columns--three-col > .member-dash-col-filters {
-    align-self: stretch;
+    align-self: flex-start;
     height: auto;
     max-height: none;
     box-sizing: border-box;
 }
 
-/* 宽屏：左栏竖线 min-height 随矩阵增高（--member-winloss-filters-h 由 JS 写入两栏较大值） */
+/* 宽屏：竖线独立绘制，随矩阵增高；左栏内容区间距不变 */
 @media (min-width: 1181px) {
+    .member-winloss-page .member-dash-columns--two-col.member-dash-columns--wl-sync-h::before,
+    .member-winloss-page .member-dash-columns--three-col.member-dash-columns--wl-sync-h::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: var(--member-wl-filters-col-w);
+        width: 0;
+        height: var(--member-winloss-filters-h, auto);
+        border-right: 1px solid #d1dae6;
+        pointer-events: none;
+        z-index: 2;
+        box-sizing: border-box;
+    }
+
     .member-winloss-page .member-dash-columns--two-col.member-dash-columns--wl-sync-h > .member-dash-col-filters,
     .member-winloss-page .member-dash-columns--three-col.member-dash-columns--wl-sync-h > .member-dash-col-filters {
-        min-height: var(--member-winloss-filters-h, auto);
+        border-right-color: transparent;
     }
 }
 
@@ -1266,8 +1280,7 @@ body.member-winloss-page #member_currency_filter {
 /* Account / Currency：同 transaction-bottom-filters 标签列（完整显示 + 与胶囊 column-gap 分隔） */
 body.member-winloss-page #member_account_filter > .user-gc-inline-label,
 body.member-winloss-page #member_currency_filter > .user-gc-inline-label,
-body.member-winloss-page #member_company_filter > .user-gc-inline-label,
-body.member-winloss-page #member_grid_account_filter > .user-gc-inline-label {
+body.member-winloss-page #member_company_filter > .user-gc-inline-label {
     justify-self: start;
     width: auto;
     min-width: var(--member-winloss-label-w, 6.75rem);
@@ -1685,7 +1698,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     overflow: hidden;
     padding-inline: var(--member-winloss-matrix-inline-gutter, 10px);
     padding-block: 0;
-    border-right: 1px solid #d1dae6;
+    border-right: none;
     box-sizing: border-box;
     align-self: start;
 }
@@ -1742,11 +1755,10 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     max-width: 100%;
 }
 
-body.member-winloss-page #member_grid_account_filter {
+.member-winloss-page .member-winloss-grid-account-filter {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     column-gap: var(--user-gc-inline-column-gap, 4px);
-    row-gap: var(--user-gc-inline-row-gap, 4px);
     align-items: start;
     width: 100%;
     max-width: 100%;
@@ -1754,15 +1766,32 @@ body.member-winloss-page #member_grid_account_filter {
     box-sizing: border-box;
 }
 
-/* 矩阵 Select：单条 segment 白底带，内部 7 列网格换行（与左栏 Account 多段分带区分） */
-body.member-winloss-page #member_grid_account_buttons.member-winloss-grid-account-pills {
+.member-winloss-page .member-winloss-grid-account-filter > .user-gc-inline-label {
+    justify-self: start;
+    width: auto;
+    min-width: var(--member-winloss-label-w, 6.75rem);
+    max-width: none;
+    padding-right: 0;
+    text-align: left;
+    white-space: nowrap;
+    overflow: visible;
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-bold);
+    color: #1f2937;
+}
+
+body.lang-zh.member-winloss-page .member-winloss-grid-account-filter > .user-gc-inline-label {
+    min-width: var(--member-winloss-label-w, 4.75rem);
+}
+
+body.member-winloss-page .member-winloss-grid-account-pills {
     margin-left: 0;
     flex-direction: row;
-    flex-wrap: nowrap;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
     align-self: stretch;
     overflow: visible;
-    gap: 0;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -1770,20 +1799,7 @@ body.member-winloss-page #member_grid_account_buttons.member-winloss-grid-accoun
     box-sizing: border-box;
 }
 
-body.member-winloss-page .member-winloss-grid-account-segments {
-    --member-winloss-grid-account-cols: 7;
-    display: grid;
-    grid-template-columns: repeat(var(--member-winloss-grid-account-cols), minmax(max-content, 1fr));
-    width: 100%;
-    max-width: 100%;
-    align-items: stretch;
-    min-width: 0;
-    box-sizing: border-box;
-    row-gap: 0;
-    column-gap: 0;
-}
-
-body.member-winloss-page .member-winloss-grid-account-segments .user-gc-segment {
+body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment {
     padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
     box-sizing: border-box;
     min-height: clamp(28px, 1.85vw, 32px);
@@ -1796,7 +1812,7 @@ body.member-winloss-page .member-winloss-grid-account-segments .user-gc-segment 
     justify-content: center;
 }
 
-body.member-winloss-page .member-winloss-grid-account-segments .user-gc-segment .member-winloss-account-pill-label {
+body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .member-winloss-account-pill-label {
     display: block;
     width: max-content;
     max-width: none;
@@ -1805,18 +1821,6 @@ body.member-winloss-page .member-winloss-grid-account-segments .user-gc-segment 
     font-weight: inherit;
     white-space: nowrap;
     overflow: visible;
-}
-
-body.member-winloss-page .member-winloss-grid-account-segments .user-gc-segment:nth-child(7n) {
-    border-right: none;
-    border-top-right-radius: clamp(8px, 0.7vw, 10px);
-    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
-}
-
-body.member-winloss-page .member-winloss-grid-account-segments .user-gc-segment:last-child {
-    border-right: none;
-    border-top-right-radius: clamp(8px, 0.7vw, 10px);
-    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
 }
 
 .member-winloss-page .member-dash-rail-composite {
