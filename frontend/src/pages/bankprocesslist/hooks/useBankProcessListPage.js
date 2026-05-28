@@ -251,6 +251,29 @@ export function useBankProcessListPage() {
     [form.card_merchant_id, form.customer_id, form.profit_account_id, profitShareRows]
   );
 
+  const mergeAccountModalCurrency = useCallback((currencyRow) => {
+    if (!currencyRow?.id || !currencyRow?.code) return;
+    const id = Number(currencyRow.id);
+    const code = toUpper(currencyRow.code);
+    setAccountModalCurrencies((prev) => {
+      if (prev.some((c) => Number(c.id) === id || toUpper(c.code) === code)) return prev;
+      return [...prev, { id, code, is_linked: false }];
+    });
+  }, []);
+
+  const removeAccountModalCurrencyByCode = useCallback((code) => {
+    const upper = toUpper(code).trim();
+    if (!upper) return;
+    setAccountModalCurrencies((prev) => {
+      const removed = prev.find((c) => toUpper(c.code) === upper);
+      if (removed) {
+        const removedId = Number(removed.id);
+        setAccountModalSelectedCurrencyIds((ids) => ids.filter((id) => Number(id) !== removedId));
+      }
+      return prev.filter((c) => toUpper(c.code) !== upper);
+    });
+  }, []);
+
   const loadAccountModalSelectionMeta = useCallback(
     async (accountId, isEdit) => {
       try {
@@ -289,6 +312,18 @@ export function useBankProcessListPage() {
     },
     [companyId]
   );
+
+  const refreshAccountModalCurrenciesIfOpen = useCallback(async () => {
+    if (!addAccountModalOpen || !companyId) return;
+    const accountId = accountModalIsEditMode && accountModalForm.id ? accountModalForm.id : null;
+    await loadAccountModalSelectionMeta(accountId, accountModalIsEditMode);
+  }, [
+    addAccountModalOpen,
+    companyId,
+    accountModalIsEditMode,
+    accountModalForm.id,
+    loadAccountModalSelectionMeta,
+  ]);
 
   const resetAccountModalToAdd = useCallback(() => {
     setAccountModalIsEditMode(false);
@@ -359,8 +394,30 @@ export function useBankProcessListPage() {
       });
       const json = await res.json();
       if (!json.success) return notify(apiMsg(json, "failedDeleteCurrency"), "danger");
+      const removed = accountModalCurrencies.find((c) => Number(c.id) === Number(cid));
       setAccountModalCurrencies((prev) => prev.filter((c) => Number(c.id) !== Number(cid)));
       setAccountModalSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== Number(cid)));
+      if (removed?.code && companyId) {
+        const code = String(removed.code).trim();
+        setCountriesList((prev) => prev.filter((c) => String(c).trim().toUpperCase() !== toUpper(code)));
+        setSelectedCountryChips((prev) => {
+          const next = prev.filter((c) => String(c).trim().toUpperCase() !== toUpper(code));
+          void persistSelectedCountries(next);
+          return next;
+        });
+        try {
+          const fd = new FormData();
+          fd.append("company_id", String(companyId));
+          fd.append("country", code);
+          await fetch(buildApiUrl("api/processes/processlist_api.php?action=remove_country"), {
+            method: "POST",
+            body: fd,
+            credentials: "include",
+          });
+        } catch {
+          /* country list already updated in UI */
+        }
+      }
     } catch {
       notify(t("failedDeleteCurrency"), "danger");
     }
@@ -1113,6 +1170,7 @@ export function useBankProcessListPage() {
         body: fd,
         credentials: "include",
       });
+      void refreshAccountModalCurrenciesIfOpen();
     } catch {
       /* ignore */
     }
@@ -1156,6 +1214,11 @@ export function useBankProcessListPage() {
       const json = await res.json();
       if (!res.ok || !json.success) return notify(apiMsg(json, "addCountryFailed"), "danger");
       setCountriesList((prev) => [...new Set([...prev, name])].sort());
+      if (json.data?.id && json.data?.code) {
+        mergeAccountModalCurrency(json.data);
+      } else {
+        void refreshAccountModalCurrenciesIfOpen();
+      }
       setNewCountryName("");
       notify(t("countryAdded"));
     } catch { notify(t("addCountryFailed"), "danger"); }
@@ -1203,7 +1266,16 @@ export function useBankProcessListPage() {
         return next;
       });
       setForm((f) => (f.country === country ? { ...f, country: "", bank: "" } : f));
-      notify(t("countryRemoved"));
+      if (json.data?.currency_deleted) {
+        removeAccountModalCurrencyByCode(country);
+      } else {
+        void refreshAccountModalCurrenciesIfOpen();
+      }
+      if (json.data?.currency_blocked) {
+        notify(t("currencyInUseKeepInAccountList", { code: toUpper(country) }), "warning");
+      } else {
+        notify(t("countryRemoved"));
+      }
     } catch { notify(t("removeCountryFailed"), "danger"); }
   };
 

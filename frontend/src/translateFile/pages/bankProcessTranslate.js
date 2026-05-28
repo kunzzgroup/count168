@@ -41,6 +41,8 @@ export const BANK_PROCESS_I18N = {
     bankAdded: "Bank added",
     removeCountryFailed: "Remove country failed",
     countryRemoved: "Country removed",
+    currencyInUseKeepInAccountList:
+      "Country removed from the list. Currency {code} is still used by accounts and remains in Other Currency.",
     removeBankFailed: "Remove bank failed",
     bankRemoved: "Bank removed",
     removeCountryConfirm: "Remove country \"{country}\" and all its banks?",
@@ -273,6 +275,7 @@ export const BANK_PROCESS_I18N = {
     bankAdded: "银行已新增",
     removeCountryFailed: "删除国家失败",
     countryRemoved: "国家已删除",
+    currencyInUseKeepInAccountList: "已从列表移除该国家/货币，但 {code} 仍被账号使用，Other Currency 中仍会保留。",
     removeBankFailed: "删除银行失败",
     bankRemoved: "银行已删除",
     removeCountryConfirm: "删除国家“{country}”及其所有银行？",

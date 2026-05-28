@@ -1218,6 +1218,95 @@ function updateBankProcess() {
  * 按 Country 获取该 Country 下的 Bank 列表（用于 Bank 下拉联动）
  */
 /**
+ * Ensure account-list currency row exists for a bank-process country/currency code.
+ * Keeps Add Account → Other Currency in sync when countries are added on Bank Process.
+ */
+function ensureCompanyCurrencyCode(PDO $pdo, int $companyId, string $code): ?array
+{
+    $code = strtoupper(trim($code));
+    if ($code === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare("SELECT id, code FROM currency WHERE code = ? AND company_id = ?");
+    $stmt->execute([$code, $companyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        return ['id' => (int) $row['id'], 'code' => (string) $row['code']];
+    }
+    $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
+    $stmt->execute([$code, $companyId]);
+    return ['id' => (int) $pdo->lastInsertId(), 'code' => $code];
+}
+
+/**
+ * Sync all given country codes into the currency table for the company.
+ */
+function ensureCompanyCurrencyCodes(PDO $pdo, int $companyId, array $codes): void
+{
+    foreach ($codes as $code) {
+        ensureCompanyCurrencyCode($pdo, $companyId, (string) $code);
+    }
+}
+
+/**
+ * Remove matching currency row when a bank-process country is deleted.
+ * Skips delete when any account in the company still links to the currency.
+ *
+ * @return array{deleted: bool, id: int|null, blocked: bool}
+ */
+function deleteCompanyCurrencyCode(PDO $pdo, int $companyId, string $code): array
+{
+    $code = strtoupper(trim($code));
+    $result = ['deleted' => false, 'id' => null, 'blocked' => false];
+    if ($code === '') {
+        return $result;
+    }
+
+    $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
+    $stmt->execute([$code, $companyId]);
+    $id = $stmt->fetchColumn();
+    if (!$id) {
+        return $result;
+    }
+    $id = (int) $id;
+    $result['id'] = $id;
+
+    try {
+        $chk = $pdo->query("SHOW TABLES LIKE 'account_currency'");
+        if ($chk && $chk->rowCount() > 0) {
+            $chkAc = $pdo->query("SHOW TABLES LIKE 'account_company'");
+            if ($chkAc && $chkAc->rowCount() > 0) {
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(DISTINCT ac.account_id)
+                    FROM account_currency ac
+                    INNER JOIN account_company acc ON ac.account_id = acc.account_id
+                    WHERE ac.currency_id = ? AND acc.company_id = ?
+                ");
+                $stmt->execute([$id, $companyId]);
+                if ((int) $stmt->fetchColumn() > 0) {
+                    $result['blocked'] = true;
+                    return $result;
+                }
+            } else {
+                $stmt = $pdo->prepare("SELECT COUNT(DISTINCT account_id) FROM account_currency WHERE currency_id = ?");
+                $stmt->execute([$id]);
+                if ((int) $stmt->fetchColumn() > 0) {
+                    $result['blocked'] = true;
+                    return $result;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('deleteCompanyCurrencyCode usage check: ' . $e->getMessage());
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM currency WHERE id = ? AND company_id = ?");
+    $stmt->execute([$id, $companyId]);
+    $result['deleted'] = $stmt->rowCount() > 0;
+    return $result;
+}
+
+/**
  * Get all countries for the current company (from country_bank + company_countries).
  * Used to populate Country dropdown. Accepts company_id from GET to scope by selected company (like account-list currency).
  */
@@ -1276,7 +1365,8 @@ function addCountry() {
         }
         $stmt = $pdo->prepare("INSERT IGNORE INTO company_countries (company_id, country) VALUES (?, ?)");
         $stmt->execute([$companyId, $country]);
-        jsonResponse(true, 'Saved', null);
+        $currency = ensureCompanyCurrencyCode($pdo, $companyId, $country);
+        jsonResponse(true, 'Saved', $currency);
     } catch (Exception $e) {
         error_log("addCountry: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
@@ -1311,7 +1401,25 @@ function removeCountry() {
         }
         $stmt = $pdo->prepare("DELETE FROM company_countries WHERE company_id = ? AND country = ?");
         $stmt->execute([$companyId, $country]);
-        jsonResponse(true, 'Removed', ['deleted' => (int) $stmt->rowCount()]);
+        $companyCountriesDeleted = (int) $stmt->rowCount();
+
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_countries'");
+            if ($chk && $chk->rowCount() > 0) {
+                $delSel = $pdo->prepare("DELETE FROM company_selected_countries WHERE company_id = ? AND country = ?");
+                $delSel->execute([$companyId, $country]);
+            }
+        } catch (Throwable $e) {
+            error_log('removeCountry selected countries: ' . $e->getMessage());
+        }
+
+        $currencyResult = deleteCompanyCurrencyCode($pdo, $companyId, $country);
+        jsonResponse(true, 'Removed', [
+            'deleted' => $companyCountriesDeleted,
+            'currency_id' => $currencyResult['id'],
+            'currency_deleted' => $currencyResult['deleted'],
+            'currency_blocked' => $currencyResult['blocked'],
+        ]);
     } catch (Exception $e) {
         error_log("removeCountry: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
@@ -1503,6 +1611,7 @@ function saveSelectedCountries() {
                 $ins->execute([$companyId, $country, $i]);
             }
             $pdo->commit();
+            ensureCompanyCurrencyCodes($pdo, $companyId, $countries);
             jsonResponse(true, 'Saved', null);
         } catch (Exception $e) {
             $pdo->rollBack();
