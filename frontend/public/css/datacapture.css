@@ -198,6 +198,7 @@ body.datacapture-page .top-section .submitted-column {
 }
 
 body.datacapture-page .top-section .form-column > .form-container {
+    margin-top: 10px;
     flex: 1 1 auto;
     min-height: 100%;
     height: auto;

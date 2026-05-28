@@ -2838,7 +2838,7 @@ body.transaction-page .transaction-header-left {
 
 .transaction-table th,
 .transaction-table td {
-    padding: clamp(2px, 0.21vw, 4px) 8px;
+    padding: 0px 8px;
     line-height: 1.1;
     font-weight: 600;
     font-size: clamp(9px, 0.73vw, 14px);

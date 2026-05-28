@@ -1,7 +1,7 @@
 import { parseMaintenanceDateTime } from "./maintenanceCreatedAtDisplay.js";
 
 /**
- * Created At column: date on top, time in parentheses below (transaction maintenance style).
+ * Created At column: date only; time revealed inline on hover/focus (virtual list safe).
  * @param {{ value?: string | null, fallback?: string }} props
  */
 export default function MaintenanceCreatedAtDisplay({ value, fallback = "-" }) {
@@ -9,12 +9,20 @@ export default function MaintenanceCreatedAtDisplay({ value, fallback = "-" }) {
   if (!parsed) return fallback;
 
   const { date, time } = parsed;
-  const title = time ? `${date} ${time}` : date;
+  const hasTime = Boolean(time);
 
   return (
-    <span className="maintenance-created-at-display" title={title}>
+    <span
+      className={`maintenance-created-at-display${hasTime ? " maintenance-created-at-display--has-time" : ""}`}
+      tabIndex={hasTime ? 0 : undefined}
+      aria-label={hasTime ? `${date} ${time}` : date}
+    >
       <span className="maintenance-created-at-date">{date}</span>
-      {time ? <span className="maintenance-created-at-time">({time})</span> : null}
+      {hasTime ? (
+        <span className="maintenance-created-at-time-reveal" aria-hidden="true">
+          {time}
+        </span>
+      ) : null}
     </span>
   );
 }
