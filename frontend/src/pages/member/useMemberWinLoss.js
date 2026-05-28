@@ -54,6 +54,28 @@ export function useMemberWinLoss({ showNotification, lang }) {
   const historyAbortRef = useRef(null);
   const gridAbortRef = useRef(null);
   const searchSeqRef = useRef(0);
+  const linkedAccountsRef = useRef(linkedAccounts);
+  linkedAccountsRef.current = linkedAccounts;
+  const performMemberSearchRef = useRef(null);
+  const loginRootAccountIdRef = useRef(loginRootAccountId);
+  loginRootAccountIdRef.current = loginRootAccountId;
+  const viewGridAccountsRef = useRef(viewGridAccounts);
+  viewGridAccountsRef.current = viewGridAccounts;
+  const wlGridSelectedIdsRef = useRef(wlGridSelectedIds);
+  wlGridSelectedIdsRef.current = wlGridSelectedIds;
+
+  const sameAccountIdList = useCallback((left, right) => {
+    const a = (left || []).map(Number).filter(Boolean);
+    const b = (right || []).map(Number).filter(Boolean);
+    if (a.length !== b.length) return false;
+    return a.every((id, idx) => id === b[idx]);
+  }, []);
+
+  const sameLinkedAccountList = useCallback((left, right) => {
+    const a = (left || []).map((acc) => Number(acc.id)).filter(Boolean);
+    const b = (right || []).map((acc) => Number(acc.id)).filter(Boolean);
+    return sameAccountIdList(a, b);
+  }, [sameAccountIdList]);
 
   const linkedAccountCurrenciesMapRef = useRef(linkedAccountCurrenciesMap);
   linkedAccountCurrenciesMapRef.current = linkedAccountCurrenciesMap;
@@ -195,12 +217,16 @@ export function useMemberWinLoss({ showNotification, lang }) {
         return;
       }
       const list = await buildViewGridAccounts(viewId, compId, preferList, accountPool);
-      setViewGridAccounts(list);
       const ids = list.map((a) => Number(a.id)).filter(Boolean);
-      setWlGridSelectedIds(ids);
-      saveWLGridSelection(ids, compId, loginRootAccountId);
+      if (!sameLinkedAccountList(viewGridAccountsRef.current, list)) {
+        setViewGridAccounts(list);
+      }
+      if (!sameAccountIdList(wlGridSelectedIdsRef.current, ids)) {
+        setWlGridSelectedIds(ids);
+        saveWLGridSelection(ids, compId, loginRootAccountIdRef.current);
+      }
     },
-    [buildViewGridAccounts, loginRootAccountId],
+    [buildViewGridAccounts, sameAccountIdList, sameLinkedAccountList],
   );
 
   const loadLinkedAccounts = useCallback(
@@ -564,6 +590,8 @@ export function useMemberWinLoss({ showNotification, lang }) {
     }
   }, [viewAccountId, companyId, dateFrom, dateTo, fetchMemberSummary, fetchMemberHistory, loadCurrencyOrder]);
 
+  performMemberSearchRef.current = performMemberSearch;
+
   const initSession = useCallback((u, compId, from, to) => {
     const loginId = Number(u.member_login_account_id || u.user_id) || 0;
     const viewId = Number(u.member_winloss_view_account_id || u.winloss_view_account_id || u.user_id) || 0;
@@ -748,11 +776,12 @@ export function useMemberWinLoss({ showNotification, lang }) {
 
     let cancelled = false;
     (async () => {
+      const pool = linkedAccountsRef.current;
       const preferList =
-        Number(viewAccountId) === Number(loginRootAccountId) && linkedAccounts.length ? linkedAccounts : null;
-      await syncGridSelectionToViewAccount(viewAccountId, companyId, preferList, linkedAccounts);
+        Number(viewAccountId) === Number(loginRootAccountIdRef.current) && pool.length ? pool : null;
+      await syncGridSelectionToViewAccount(viewAccountId, companyId, preferList, pool);
       if (cancelled) return;
-      performMemberSearch();
+      await performMemberSearchRef.current?.();
     })();
 
     return () => {
@@ -761,8 +790,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
       if (historyAbortRef.current) historyAbortRef.current.abort();
       if (gridAbortRef.current) gridAbortRef.current.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync grid to view account, then search
-  }, [linkedDataReady, viewAccountId, companyId, dateFrom, dateTo, loginRootAccountId, linkedAccounts, syncGridSelectionToViewAccount, performMemberSearch]);
+  }, [linkedDataReady, viewAccountId, companyId, dateFrom, dateTo, syncGridSelectionToViewAccount]);
 
   return {
     loginRootAccountId,
