@@ -56,7 +56,11 @@ export default function TransactionDashboardPage() {
             onPickGroup={page.handlePickGroup}
             onPickCompany={page.handlePickCompany}
             onPickAllInGroup={page.handlePickAllInGroup}
-            onCurrencyChange={page.setCurrencyCode}
+            onCurrencyChange={page.handleCurrencyChange}
+            onToggleAllCurrencies={page.handleToggleAllCurrencies}
+            showAllInGroup={page.showAllInGroup}
+            showAllCurrencyOption={page.showAllCurrencyOption}
+            showAllCurrencies={page.showAllCurrencies}
           />
 
           <DashboardKpiGrid

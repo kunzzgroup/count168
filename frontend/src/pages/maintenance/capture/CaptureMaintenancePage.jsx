@@ -437,7 +437,7 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany } =
+  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
     useMaintenanceGroupCompanyFilter({
       companies,
       companyId,
@@ -558,6 +558,7 @@ export default function CaptureMaintenancePage() {
           onGroupClick={handleGroupClick}
           onPickCompany={handlePickCompany}
           onClearCompany={handleClearCompany}
+          allowClearCompany={allowClearCompany}
           onDelete={handleDeleteClick}
           canDelete={selectedIds.length > 0}
           confirmDelete={confirmDelete}

@@ -24,6 +24,7 @@ export default function CaptureMaintenanceFilters({
   onGroupClick,
   onPickCompany,
   onClearCompany,
+  allowClearCompany = true,
   onDelete,
   canDelete,
   confirmDelete,
@@ -102,6 +103,7 @@ export default function CaptureMaintenanceFilters({
             highlightCompanyId={companyId}
             onSwitchCompany={onPickCompany}
             onClearCompany={onClearCompany}
+            allowClearCompany={allowClearCompany}
             t={(key) => {
               if (key === "groupId") return m.groupId;
               if (key === "company") return m.company;

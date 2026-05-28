@@ -3,10 +3,15 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
+  companiesGroupEntityList,
   isDashboardGroupOnlyMode,
+  isVirtualGroupLinkCompanyRow,
+  persistDashboardGroupOnlyMode,
+  pickDefaultCompanyForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { isCompanyLogin, isGroupLogin } from "../../utils/company/loginScope.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
@@ -54,12 +59,6 @@ function normalizeCompanyRow(row) {
     group_id: row.group_id ?? row.groupId ?? row.group ?? null,
     company_id: row.company_id ?? row.companyId ?? row.code ?? "",
   };
-}
-
-/** 集团分润/合并虚拟行（get_companies_helper _applyGroupLinkVirtualRows）；User List 分组只按库表真实 group_id */
-function isVirtualGroupLinkCompanyRow(c) {
-  const ls = c?.link_source_group ?? c?.linkSourceGroup;
-  return ls != null && String(ls).trim() !== "";
 }
 
 function buildModalCompanyList(raw) {
@@ -173,6 +172,61 @@ export default function UserListPage() {
       ),
     [companies]
   );
+  const groupOnlyUserList = useMemo(
+    () =>
+      Boolean(
+        selectedGroup &&
+          companyId == null &&
+          isDashboardGroupOnlyMode() &&
+          isGroupLogin(me),
+      ),
+    [selectedGroup, companyId, me],
+  );
+  const groupEntityCompanies = useMemo(
+    () => (selectedGroup ? companiesGroupEntityList(companies, selectedGroup) : []),
+    [companies, selectedGroup],
+  );
+  const anchorCompanyId = useMemo(() => {
+    if (!groupOnlyUserList || !selectedGroup) return null;
+    const entityPick = pickDefaultCompanyForGroup(companies, selectedGroup, {
+      me,
+      preferredCompanyId: me?.company_id,
+      groupEntityOnly: true,
+    });
+    if (entityPick?.id != null) {
+      const eid = Number(entityPick.id);
+      if (Number.isFinite(eid) && eid > 0) return eid;
+    }
+    const fallback = pickDefaultCompanyForGroup(companies, selectedGroup, {
+      me,
+      preferredCompanyId: me?.company_id,
+    });
+    const id = fallback?.id != null ? Number(fallback.id) : Number.NaN;
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }, [groupOnlyUserList, selectedGroup, companies, me]);
+  /** API/modal scope: selected company, group anchor, or login/default company in the active group. */
+  const scopeCompanyId = useMemo(() => {
+    if (companyId != null) {
+      const id = Number(companyId);
+      if (Number.isFinite(id) && id > 0) return id;
+    }
+    if (groupOnlyUserList && anchorCompanyId != null) return anchorCompanyId;
+    if (selectedGroup) {
+      const pick = pickDefaultCompanyForGroup(companies, selectedGroup, {
+        me,
+        preferredCompanyId: me?.company_id ?? companyId,
+      });
+      const pid = pick?.id != null ? Number(pick.id) : Number.NaN;
+      if (Number.isFinite(pid) && pid > 0) return pid;
+    }
+    const sessionId = me?.company_id != null ? Number(me.company_id) : Number.NaN;
+    return Number.isFinite(sessionId) && sessionId > 0 ? sessionId : null;
+  }, [companyId, groupOnlyUserList, anchorCompanyId, selectedGroup, companies, me]);
+  /** Group-only list/add-user: group entity only (e.g. AP), not subsidiaries (e.g. C168). */
+  const groupScopedModalCompanies = useMemo(() => {
+    const base = selectedGroup ? groupEntityCompanies : allCompanyButtons;
+    return buildModalCompanyList(base);
+  }, [allCompanyButtons, groupEntityCompanies, selectedGroup]);
   const pickerCompanyId = pendingCompanyId ?? companyId;
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
@@ -181,7 +235,10 @@ export default function UserListPage() {
 
   const canCreateUser = useMemo(() => getAvailableRolesForCreation(currentUserRole).length > 0, [currentUserRole]);
   const userMutationsBlocked = useMemo(() => isPartnershipAuditReadOnlyLocked(me), [me]);
-  const modalAccessReady = companyId != null && modalAccessReadyCompanyId != null && Number(modalAccessReadyCompanyId) === Number(companyId);
+  const modalAccessReady =
+    scopeCompanyId != null &&
+    modalAccessReadyCompanyId != null &&
+    Number(modalAccessReadyCompanyId) === Number(scopeCompanyId);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
@@ -253,17 +310,24 @@ export default function UserListPage() {
   }, []);
 
   const fetchUsers = useCallback(async () => {
-    if (!companyId || !me) return;
+    if (!me) return;
+    if (groupOnlyUserList) {
+      if (!selectedGroup) return;
+    } else if (!companyId) {
+      return;
+    }
     listFetchAbortRef.current?.abort();
     const ac = new AbortController();
     listFetchAbortRef.current = ac;
     setTableLoading(true);
     try {
+      const body = { action: "get" };
+      if (groupOnlyUserList && selectedGroup) body.group_id = selectedGroup;
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ action: "get" }),
+        body: JSON.stringify(body),
         signal: ac.signal,
       });
       const json = await res.json();
@@ -314,7 +378,7 @@ export default function UserListPage() {
     } finally {
       if (!ac.signal.aborted) setTableLoading(false);
     }
-  }, [companyId, me, notify]);
+  }, [companyId, groupOnlyUserList, me, notify, selectedGroup]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -336,15 +400,29 @@ export default function UserListPage() {
         setModalCompanies(modalCompanyList);
         const url = new URL(window.location.href);
         const urlCompanyId = url.searchParams.get("company_id");
-        const effectiveNum = resolveBootCompanyId({
+        if (isCompanyLogin(me) && isDashboardGroupOnlyMode()) {
+          persistDashboardGroupOnlyMode(false);
+        }
+        let effectiveNum = resolveBootCompanyId({
           urlCompanyId,
           sessionCompanyId: me.company_id,
           defaultRowId: rows[0]?.id,
         });
-        const row =
-          effectiveNum != null ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null : null;
-        const bootGroup = resolveInitialSelectedGroupFromSession(rows, row);
-        setCompanyId(isDashboardGroupOnlyMode() ? null : effectiveNum);
+        const bootGroup = resolveInitialSelectedGroupFromSession(
+          rows,
+          effectiveNum != null
+            ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null
+            : null,
+        );
+        if (isCompanyLogin(me) && (effectiveNum == null || !Number.isFinite(Number(effectiveNum)))) {
+          const pick = pickDefaultCompanyForGroup(rows, bootGroup, {
+            me,
+            preferredCompanyId: me.company_id,
+          });
+          if (pick?.id != null) effectiveNum = Number(pick.id);
+          else if (me.company_id != null) effectiveNum = Number(me.company_id);
+        }
+        setCompanyId(isGroupLogin(me) && isDashboardGroupOnlyMode() ? null : effectiveNum);
         setSelectedGroup(bootGroup);
         setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
@@ -360,8 +438,8 @@ export default function UserListPage() {
   }, [sessionReady, me, navigate]);
 
   useEffect(() => {
-    if (!bootLoading && companyId && me) void fetchUsers();
-  }, [bootLoading, companyId, me, fetchUsers]);
+    if (!bootLoading && me && (companyId || groupOnlyUserList)) void fetchUsers();
+  }, [bootLoading, companyId, groupOnlyUserList, me, fetchUsers]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
@@ -407,6 +485,7 @@ export default function UserListPage() {
     onClearCompany: handleClearCompany,
     switchingCompany,
     preferredCompanyId: pickerCompanyId,
+    me,
   });
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
@@ -446,43 +525,46 @@ export default function UserListPage() {
       modalAccessCompanyIdRef.current = Number(cid);
       setModalAccounts(next.accounts); setModalProcesses(next.processes); setModalAccessReadyCompanyId(Number(cid)); return next;
     } catch {
-      if (cached) {
-        setModalAccounts(cached.accounts);
-        setModalProcesses(cached.processes);
-        setModalAccessReadyCompanyId(Number(cid));
-        return cached;
-      }
-      setModalAccessReadyCompanyId(null);
-      setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] };
+      const empty = { accounts: [], processes: [] };
+      modalAccessCacheRef.current.set(cacheKey, cached || empty);
+      modalAccessCompanyIdRef.current = Number(cid);
+      setModalAccounts((cached || empty).accounts);
+      setModalProcesses((cached || empty).processes);
+      setModalAccessReadyCompanyId(Number(cid));
+      return cached || empty;
     }
     finally { modalAccessPendingRef.current.delete(cacheKey); }
   }, []);
 
   useEffect(() => {
-    if (!bootLoading && companyId && me) {
-      if (!modalAccessCacheRef.current.has(String(companyId))) setModalAccessReadyCompanyId(null);
-      void fetchModalAccountsProcesses(companyId);
+    if (!bootLoading && scopeCompanyId && me) {
+      if (!modalAccessCacheRef.current.has(String(scopeCompanyId))) setModalAccessReadyCompanyId(null);
+      void fetchModalAccountsProcesses(scopeCompanyId);
     }
-  }, [bootLoading, companyId, me, fetchModalAccountsProcesses]);
+  }, [bootLoading, scopeCompanyId, me, fetchModalAccountsProcesses]);
+
+  useEffect(() => {
+    modalCompaniesCacheRef.current = groupScopedModalCompanies;
+    setModalCompanies(groupScopedModalCompanies);
+  }, [groupScopedModalCompanies]);
 
   const loadCompaniesForModal = async () => {
-    if (modalCompaniesCacheRef.current.length) {
-      setModalCompanies(modalCompaniesCacheRef.current);
-      return modalCompaniesCacheRef.current;
-    }
-    const currentList = buildModalCompanyList(companies);
-    if (currentList.length) {
-      modalCompaniesCacheRef.current = currentList;
-      setModalCompanies(currentList);
-      return currentList;
+    if (groupScopedModalCompanies.length) {
+      setModalCompanies(groupScopedModalCompanies);
+      return groupScopedModalCompanies;
     }
     try {
       const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
       const json = await res.json();
-      const list = buildModalCompanyList(json.data);
-      modalCompaniesCacheRef.current = list;
-      setModalCompanies(list); return list;
-    } catch { setModalCompanies([]); return []; }
+      const rows = Array.isArray(json.data) ? json.data.map(normalizeCompanyRow) : [];
+      const base = selectedGroup ? companiesGroupEntityList(rows, selectedGroup) : rows;
+      const list = buildModalCompanyList(base.filter((c) => !isVirtualGroupLinkCompanyRow(c)));
+      setModalCompanies(list);
+      return list;
+    } catch {
+      setModalCompanies([]);
+      return [];
+    }
   };
 
   const markEditReady = useCallback((id) => {
@@ -543,9 +625,15 @@ export default function UserListPage() {
     try { if (detail.process_permissions != null) pp = typeof detail.process_permissions === "string" ? JSON.parse(detail.process_permissions) : detail.process_permissions; } catch { pp = []; }
     setSelectedAccountIds(ap === null ? new Set(accList.map(a => Number(a.id))) : new Set((Array.isArray(ap) ? ap : []).map(x => Number(x.id || x))));
     setSelectedProcessIds(pp === null ? new Set(procList.map(p => Number(p.id))) : new Set((Array.isArray(pp) ? pp : []).map(x => Number(x.id || x))));
-    if (Array.isArray(detail.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) { setSelectedCompanyIds(detail.company_ids.map(Number)); } else { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
+    if (Array.isArray(detail.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) {
+      const allowed = new Set(groupScopedModalCompanies.map((c) => Number(c.id)));
+      const ids = detail.company_ids.map(Number).filter((id) => allowed.has(id));
+      setSelectedCompanyIds(ids.length ? ids : groupScopedModalCompanies.map((c) => Number(c.id)));
+    } else {
+      setSelectedCompanyIds(scopeCompanyId ? [Number(scopeCompanyId)] : []);
+    }
     if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
-  }, [companyId, currentUserRole]);
+  }, [scopeCompanyId, currentUserRole, groupScopedModalCompanies]);
 
   useEffect(() => {
     if (!modalAccessReady) return;
@@ -560,7 +648,7 @@ export default function UserListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    if (!companyId) return;
+    if (!scopeCompanyId) return;
     if (!modalAccessReady) return;
     const avail = getAvailableRolesForCreation(currentUserRole);
     if (avail.length === 0) { notify(t("noPermissionCreateAccounts"), "danger"); return; }
@@ -571,14 +659,20 @@ export default function UserListPage() {
     setFieldLocks({ name: false, email: false, role: false, password: false, sidebar: false, company: false });
     const allP = new Set(PERMISSION_KEYS.filter((k) => !permDisabledMap[k])); setPermSelected(allP);
     void loadCompaniesForModal();
-    const cachedAccess = modalAccessCacheRef.current.get(String(companyId || ""));
-    const currentAccess = Number(modalAccessCompanyIdRef.current) === Number(companyId) ? { accounts: modalAccounts, processes: modalProcesses } : null;
+    const cachedAccess = modalAccessCacheRef.current.get(String(scopeCompanyId || ""));
+    const currentAccess = Number(modalAccessCompanyIdRef.current) === Number(scopeCompanyId) ? { accounts: modalAccounts, processes: modalProcesses } : null;
     const initialAccess = cachedAccess || currentAccess || { accounts: [], processes: [] };
     if (!cachedAccess && !currentAccess) { setModalAccounts([]); setModalProcesses([]); }
     setSelectedAccountIds(new Set(initialAccess.accounts.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(initialAccess.processes.map((p) => Number(p.id))));
-    if (currentUserRole === "admin" || currentUserRole === "owner") { setSelectedCompanyIds(companyId ? [Number(companyId)] : []); }
+    if (currentUserRole === "admin" || currentUserRole === "owner") {
+      if (groupOnlyUserList) {
+        setSelectedCompanyIds(groupScopedModalCompanies.map((c) => Number(c.id)));
+      } else {
+        setSelectedCompanyIds(companyId ? [Number(companyId)] : []);
+      }
+    }
     setModalOpen(true);
-    void fetchModalAccountsProcesses(companyId, true).then(({ accounts: accList, processes: procList }) => {
+    void fetchModalAccountsProcesses(scopeCompanyId, true).then(({ accounts: accList, processes: procList }) => {
       if (loadSeq !== modalLoadSeqRef.current) return;
       setSelectedAccountIds(new Set(accList.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
     });
@@ -594,13 +688,13 @@ export default function UserListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    if (!companyId) return;
+    if (!scopeCompanyId) return;
     if (row.is_owner_shadow && currentUserRole !== "owner") { notify(t("onlyOwnerCanEditOwner"), "danger"); return; }
     if (!modalAccessReady) return;
     const cachedDetail = editUserDetailCacheRef.current.get(String(row.id));
     if (!cachedDetail) return;
     const loadSeq = ++modalLoadSeqRef.current;
-    const cachedAccess = modalAccessCacheRef.current.get(String(companyId || "")) || { accounts: modalAccounts, processes: modalProcesses };
+    const cachedAccess = modalAccessCacheRef.current.get(String(scopeCompanyId || "")) || { accounts: modalAccounts, processes: modalProcesses };
     setIsEditMode(true); setEditingRow(row);
     setForm({ id: String(row.id), login_id: row.login_id || "", name: row.name || "", email: row.email || "", role: normRole(row.role), password: "", secondary_password: "", status: normRole(row.status) || "active", read_only: true });
     setRoleSelectDisabled(!!row.is_owner_shadow); setLoginDisabled(true);
@@ -608,7 +702,7 @@ export default function UserListPage() {
     void loadCompaniesForModal();
     applyEditDetail(row, cachedDetail, cachedAccess.accounts, cachedAccess.processes);
     setModalOpen(true);
-    void Promise.all([fetchModalAccountsProcesses(companyId, true), fetchEditUserDetail(row.id, true)]).then(([access, detail]) => {
+    void Promise.all([fetchModalAccountsProcesses(scopeCompanyId, true), fetchEditUserDetail(row.id, true)]).then(([access, detail]) => {
       if (loadSeq !== modalLoadSeqRef.current || !detail) return;
       applyEditDetail(row, detail, access.accounts, access.processes);
     });
@@ -659,6 +753,7 @@ export default function UserListPage() {
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: emailCheck.normalized, role: form.role, status: form.status };
+    if (groupOnlyUserList && selectedGroup) payload.group_id = selectedGroup;
     if (form.password.trim()) payload.password = form.password;
     const allowSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
     if (allowSecondaryPassword && form.secondary_password.trim()) {

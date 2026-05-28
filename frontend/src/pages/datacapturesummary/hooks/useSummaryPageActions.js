@@ -8,6 +8,8 @@ import {
   runLegacyRateSelectAll,
   saveSummaryRefreshState,
 } from "../lib/summaryPageActions.js";
+import { loadCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
+import { isDashboardGroupOnlyMode } from "../../../utils/company/sharedCompanyFilter.js";
 import { requestSummaryDeleteConfirmation } from "../lib/summaryDeleteFlow.js";
 import { syncSummaryDeleteButtonLabel } from "../lib/summaryDeleteButtonLabel.js";
 import { useSummarySubmit } from "./useSummarySubmit.js";
@@ -39,12 +41,18 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
   const navigateBack = useCallback(() => {
     saveSummaryRefreshState();
     window.isNavigatingAwayByBackOrSubmit = true;
-    navigate(buildSummaryRestoreCapturePath(companyId), { replace: true });
+    const session = loadCaptureSession();
+    const groupOnly =
+      session?.processData?.groupOnlyCapture === true || isDashboardGroupOnlyMode();
+    navigate(buildSummaryRestoreCapturePath(companyId, { groupOnly }), { replace: true });
   }, [navigate, companyId]);
 
   const navigateAfterSubmitSuccess = useCallback(() => {
-    clearSummarySessionAfterSubmit();
-    navigate(buildSummarySubmittedCapturePath(companyId), { replace: true });
+    const session = loadCaptureSession();
+    const groupOnly =
+      session?.processData?.groupOnlyCapture === true || isDashboardGroupOnlyMode();
+    clearSummarySessionAfterSubmit({ groupOnly });
+    navigate(buildSummarySubmittedCapturePath(companyId, { groupOnly }), { replace: true });
   }, [navigate, companyId]);
 
   const { submitSummary, isSubmitting } = useSummarySubmit({

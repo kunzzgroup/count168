@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  applyGroupOnlyCaptureRestoreFilter,
   loadCaptureSession,
   saveCaptureSession,
   shouldRestoreFromUrl,
   stripRestoreParamFromUrl,
 } from "../lib/dataCaptureStorage.js";
+import { isGroupOnlyProcessId } from "../lib/dataCaptureGroupOnlyProcesses.js";
 import {
   captureTableDataFromDom,
   pickRicherTableSnapshot,
@@ -54,6 +56,8 @@ export function useDataCaptureSubmitReset({
   navigate,
   t,
   requireDescriptions = true,
+  groupOnlyCapture = false,
+  selectedGroup = null,
 }) {
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreInFlightRef = useRef(false);
@@ -170,7 +174,10 @@ export function useDataCaptureSubmitReset({
         pushDataCaptureNotification(t("pleaseEnterTableData"), "danger");
         return;
       }
-      saveCaptureSession(finalTableData, processData, activeCaptureType);
+      saveCaptureSession(finalTableData, processData, activeCaptureType, {
+        groupOnly: groupOnlyCapture,
+        selectedGroup,
+      });
 
       markSummaryFreshNavigation();
       if (typeof navigate === "function") {
@@ -182,7 +189,7 @@ export function useDataCaptureSubmitReset({
       console.error("Error submitting data:", error);
       pushDataCaptureNotification(t("failedCaptureData"), "danger");
     }
-  }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions]);
+  }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions, groupOnlyCapture, selectedGroup]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {
@@ -218,8 +225,13 @@ export function useDataCaptureSubmitReset({
 
     window.__DC_IS_RESTORING__ = true;
     const { tableData, processData, captureType: savedType } = session;
+    const restoringGroupOnly = processData.groupOnlyCapture === true;
 
     try {
+      if (restoringGroupOnly) {
+        applyGroupOnlyCaptureRestoreFilter(processData);
+      }
+
       if (typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === "function") {
         await window.__DC_POST_LEGACY_RESTORE_SYNC__(processData);
       }
@@ -238,7 +250,7 @@ export function useDataCaptureSubmitReset({
       }
 
       const pid = processData.process != null ? String(processData.process) : "";
-      if (pid && companyId) {
+      if (pid && companyId && !restoringGroupOnly && !isGroupOnlyProcessId(pid)) {
         const res = await fetchProcessDetail(pid, companyId);
         if (res.success && res.data && typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === "function") {
           await window.__DC_POST_LEGACY_RESTORE_SYNC__({

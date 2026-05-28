@@ -13,6 +13,10 @@ export function DashboardFilterPanel({
   onPickCompany,
   onPickAllInGroup,
   onCurrencyChange,
+  onToggleAllCurrencies,
+  showAllInGroup = true,
+  showAllCurrencyOption = false,
+  showAllCurrencies = false,
 }) {
   const showPanel =
     groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0;
@@ -70,7 +74,7 @@ export function DashboardFilterPanel({
               <span className="user-gc-inline-label">{i18n.company}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={i18n.company}>
-                  {selectedGroup && companiesForPicker.length > 1 && (
+                  {showAllInGroup && selectedGroup && companiesForPicker.length > 1 && (
                     <button
                       type="button"
                       className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
@@ -106,11 +110,22 @@ export function DashboardFilterPanel({
               <span className="user-gc-inline-label">{i18n.currency}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={i18n.currency}>
+                  {showAllCurrencyOption && (
+                    <button
+                      type="button"
+                      className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
+                      onClick={() => onToggleAllCurrencies?.()}
+                    >
+                      {i18n.all}
+                    </button>
+                  )}
                   {currencies.map((code) => (
                     <button
                       key={code}
                       type="button"
-                      className={`user-gc-segment${currencyCode === code ? " is-on" : ""}`}
+                      className={`user-gc-segment${
+                        !showAllCurrencies && currencyCode === code ? " is-on" : ""
+                      }`}
                       onClick={() => onCurrencyChange(code)}
                     >
                       {code}

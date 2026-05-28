@@ -343,6 +343,7 @@ export default function AccountListPage() {
     onClearCompany: handleClearCompany,
     switchingCompany,
     preferredCompanyId: pickerCompanyId,
+    me: sessionMe,
   });
 
   useEffect(() => {

@@ -25,6 +25,7 @@ export default function BankprocessMaintenanceFilters({
   onGroupClick,
   onPickCompany,
   onClearCompany,
+  allowClearCompany = true,
   companies,
   visibleCompanies,
   companyId,
@@ -141,6 +142,7 @@ export default function BankprocessMaintenanceFilters({
               highlightCompanyId={companyId}
               onSwitchCompany={onPickCompany}
               onClearCompany={onClearCompany}
+              allowClearCompany={allowClearCompany}
               currencyList={currencies}
               showAllCurrencies={allCurrenciesSelected}
               selectedCurrencies={selectedCurrencies}

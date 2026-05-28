@@ -125,6 +125,33 @@ export function sumConvertedEarnings(rows, baseCode, rates) {
   return { total, hasMissing };
 }
 
+/** Sum KPI fields from per-currency metrics into one base currency. */
+export function sumConvertedKpiMetrics(rows, baseCode, rates) {
+  const empty = {
+    profit: 0,
+    expenses: 0,
+    netProfit: 0,
+    earnings: 0,
+    showEarnings: false,
+  };
+  if (!rows?.length) return empty;
+
+  let showEarnings = false;
+  const totals = { profit: 0, expenses: 0, netProfit: 0, earnings: 0 };
+
+  for (const row of rows) {
+    const code = String(row.code || "").toUpperCase();
+    for (const key of ["profit", "expenses", "netProfit", "earnings"]) {
+      const converted = convertToBaseAmount(row[key], code, baseCode, rates);
+      if (converted == null && code !== String(baseCode).toUpperCase()) continue;
+      totals[key] += converted ?? (parseFloat(row[key]) || 0);
+    }
+    if (row.showEarnings) showEarnings = true;
+  }
+
+  return { ...totals, showEarnings };
+}
+
 /** Pick rate date: use range end if not in the future, else latest. */
 export function resolveFrankfurterDate(endYmd) {
   if (!endYmd) return null;

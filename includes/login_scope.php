@@ -30,4 +30,17 @@ function persist_login_filter_scope(PDO $pdo, string $loginInput): void
     $resolved = resolve_login_identifier_scope($pdo, $loginInput);
     $_SESSION['login_scope'] = $resolved['scope'];
     $_SESSION['login_identifier'] = $resolved['identifier'];
+    unset($_SESSION['login_group_id']);
+    unset($_SESSION['accessible_group_ids']);
+
+    if ($resolved['scope'] === 'company' && $resolved['identifier'] !== '') {
+        $stmt = $pdo->prepare(
+            'SELECT UPPER(TRIM(group_id)) AS group_id FROM company WHERE UPPER(company_id) = ? LIMIT 1'
+        );
+        $stmt->execute([$resolved['identifier']]);
+        $gid = $stmt->fetchColumn();
+        $_SESSION['login_group_id'] = ($gid !== false && $gid !== null && trim((string) $gid) !== '')
+            ? strtoupper(trim((string) $gid))
+            : '';
+    }
 }

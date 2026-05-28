@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { buildDataCaptureTable } from "../grid/dataCaptureBuildGrid.js";
-import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS } from "../grid/dataCaptureGridMeta.js";
+import {
+  DEFAULT_GRID_COLS,
+  DEFAULT_GRID_ROWS,
+  resolveDataCaptureGridDimensions,
+} from "../grid/dataCaptureGridMeta.js";
 import {
   clearCaptureTableForReset,
   restoreCaptureTableFromData,
@@ -19,8 +23,10 @@ function gridLooksInitialized(dims) {
 /**
  * Phase 3+: Grid lifecycle in React — build, init dimensions, clear, restore cell values.
  */
-export function useDataCaptureGrid(scriptsReady) {
-  const dimensionsRef = useRef({ rows: DEFAULT_GRID_ROWS, cols: DEFAULT_GRID_COLS });
+export function useDataCaptureGrid(scriptsReady, groupOnly = false) {
+  const dimensionsRef = useRef(resolveDataCaptureGridDimensions(groupOnly));
+  const groupOnlyRef = useRef(groupOnly);
+  groupOnlyRef.current = groupOnly;
 
   const initializeGrid = useCallback((rows = DEFAULT_GRID_ROWS, cols = DEFAULT_GRID_COLS) => {
     const r = Math.max(1, Number(rows) || DEFAULT_GRID_ROWS);
@@ -119,10 +125,18 @@ export function useDataCaptureGrid(scriptsReady) {
     };
   }, []);
 
+  useLayoutEffect(() => {
+    window.__DC_IS_GROUP_ONLY_GRID__ = groupOnly;
+    return () => {
+      delete window.__DC_IS_GROUP_ONLY_GRID__;
+    };
+  }, [groupOnly]);
+
   useEffect(() => {
     if (!scriptsReady) return;
-    handlersRef.current.ensureGridReady(DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS);
-  }, [scriptsReady]);
+    const { rows, cols } = resolveDataCaptureGridDimensions(groupOnly);
+    handlersRef.current.initializeGrid(rows, cols);
+  }, [scriptsReady, groupOnly]);
 
   useEffect(() => {
     if (!scriptsReady) return;

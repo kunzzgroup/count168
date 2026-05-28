@@ -3,10 +3,16 @@ import {
   buildDateOptions,
   displayTextFromProcessRow,
   fetchAddProcessFormData,
+  fetchCurrenciesForCompanyIds,
   fetchProcessDetail,
   fetchProcessesByDay,
   getLocalDateString,
 } from "../lib/dataCaptureApi.js";
+import {
+  readGroupOnlyProcessPrefs,
+  saveGroupOnlyProcessPrefs,
+  selectedProcessFromGroupOnlyPrefs,
+} from "../lib/dataCaptureGroupOnlyProcessPersistence.js";
 
 const PROCESS_PLACEHOLDER = "Select Process";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
@@ -79,12 +85,31 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
   }
 }
 
-export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = true } = {}) {
+function readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData) {
+  if (restoredProcessData?.process) return null;
+  return readGroupOnlyProcessPrefs(selectedGroup);
+}
+
+export function useDataCaptureFormEngine(
+  companyId,
+  { applyCompanyOnlyFields = true, groupCompanyIds = null, selectedGroup = null } = {},
+) {
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
   const restoredProcessData = useMemo(() => readRestoredProcessData(), []);
+  const initialGroupOnlyPrefs = useMemo(
+    () =>
+      !applyCompanyOnlyFields
+        ? readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData)
+        : null,
+    [applyCompanyOnlyFields, selectedGroup, restoredProcessData]
+  );
 
-  const [captureDate, setCaptureDate] = useState(() => restoredProcessData?.date || defaultDate);
+  const [captureDate, setCaptureDate] = useState(() => {
+    if (restoredProcessData?.date) return restoredProcessData.date;
+    if (initialGroupOnlyPrefs?.date) return initialGroupOnlyPrefs.date;
+    return defaultDate;
+  });
   const [currencies, setCurrencies] = useState([]);
   const currenciesRef = useRef([]);
   currenciesRef.current = currencies;
@@ -92,9 +117,11 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
   const [processRows, setProcessRows] = useState([]);
   const processRowsRef = useRef([]);
   processRowsRef.current = processRows;
-  const [currencyId, setCurrencyId] = useState(() =>
-    restoredProcessData?.currency ? String(restoredProcessData.currency) : "",
-  );
+  const [currencyId, setCurrencyId] = useState(() => {
+    if (restoredProcessData?.currency) return String(restoredProcessData.currency);
+    if (initialGroupOnlyPrefs?.currency) return String(initialGroupOnlyPrefs.currency);
+    return "";
+  });
   const [replaceFrom, setReplaceFrom] = useState(() =>
     restoredProcessData?.replaceWordFrom ? String(restoredProcessData.replaceWordFrom).toUpperCase() : "",
   );
@@ -113,7 +140,15 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
 
   const [processOpen, setProcessOpen] = useState(false);
   const [processFilter, setProcessFilter] = useState("");
-  const [selectedProcess, setSelectedProcess] = useState(() => readRestoredSelectedProcess(restoredProcessData));
+  const [selectedProcess, setSelectedProcess] = useState(
+    () =>
+      readRestoredSelectedProcess(restoredProcessData) ||
+      selectedProcessFromGroupOnlyPrefs(initialGroupOnlyPrefs)
+  );
+
+  const selectedGroupRef = useRef(selectedGroup);
+  selectedGroupRef.current = selectedGroup;
+  const skipGroupPrefsOnceRef = useRef(!!restoredProcessData?.process);
 
   const companyIdRef = useRef(companyId);
   companyIdRef.current = companyId;
@@ -168,14 +203,43 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
     const result = await fetchAddProcessFormData(cid);
     if (!result.success) return;
     const list = Array.isArray(result.currencies) ? result.currencies : [];
-    const norm = list.map((c) => ({ id: String(c.id), code: c.code }));
+    const norm = list.map((c) => ({
+      id: String(c.id),
+      code: String(c.code || "").trim().toUpperCase(),
+    }));
     setCurrencies(norm);
   }, []);
 
+  const groupCompanyIdsRef = useRef(groupCompanyIds);
+  groupCompanyIdsRef.current = groupCompanyIds;
+
+  const loadGroupOnlyCurrencies = useCallback(async () => {
+    if (applyCompanyOnlyFieldsRef.current) return;
+    const ids = groupCompanyIdsRef.current;
+    if (!ids?.length) {
+      setCurrencies([]);
+      setCurrencyId("");
+      return;
+    }
+    const list = await fetchCurrenciesForCompanyIds(ids, companyIdRef.current);
+    setCurrencies(list);
+    setCurrencyId((prev) => {
+      if (!prev) return "";
+      return list.some((c) => String(c.id) === String(prev)) ? prev : "";
+    });
+  }, []);
+
   useEffect(() => {
-    if (!companyId) return;
-    void loadInitialForm();
-  }, [companyId, loadInitialForm]);
+    if (applyCompanyOnlyFields) {
+      if (!companyId) {
+        setCurrencies([]);
+        return;
+      }
+      void loadInitialForm();
+      return;
+    }
+    void loadGroupOnlyCurrencies();
+  }, [companyId, applyCompanyOnlyFields, groupCompanyIds, loadInitialForm, loadGroupOnlyCurrencies]);
 
   useEffect(() => {
     if (!companyId || !applyCompanyOnlyFields) return;
@@ -202,20 +266,44 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
     [reloadProcessesForDate]
   );
 
+  const persistGroupOnlyFormPrefs = useCallback(
+    (processOverride = null) => {
+      if (applyCompanyOnlyFieldsRef.current) return;
+      const proc = processOverride || selectedProcess;
+      if (!proc?.id) return;
+      saveGroupOnlyProcessPrefs(selectedGroupRef.current, {
+        process: proc.id,
+        processCode: proc.process_id,
+        processName: proc.displayText,
+        currency: currencyId,
+        date: captureDate,
+      });
+    },
+    [selectedProcess, currencyId, captureDate]
+  );
+
   const selectGroupOnlyProcess = useCallback((option) => {
     if (!option?.id) return;
-    setSelectedProcess({
+    const next = {
       id: String(option.id),
       displayText: option.displayText || String(option.id),
       process_id: option.process_id || String(option.id).toUpperCase(),
       description_name: null,
+    };
+    setSelectedProcess(next);
+    saveGroupOnlyProcessPrefs(selectedGroupRef.current, {
+      process: next.id,
+      processCode: next.process_id,
+      processName: next.displayText,
+      currency: currencyId,
+      date: captureDate,
     });
     setProcessOpen(false);
     setProcessFilter("");
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
     }, 0);
-  }, []);
+  }, [currencyId, captureDate]);
 
   const selectProcessRow = useCallback(async (row) => {
     if (!applyCompanyOnlyFieldsRef.current) return;
@@ -261,6 +349,18 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
     }, 0);
   }, []);
 
+  const applyGroupOnlyPrefsForGroup = useCallback((groupId) => {
+    if (applyCompanyOnlyFieldsRef.current) return;
+    const prefs = readGroupOnlyProcessPrefs(groupId);
+    const proc = selectedProcessFromGroupOnlyPrefs(prefs);
+    setSelectedProcess(proc);
+    if (prefs?.currency) setCurrencyId(String(prefs.currency));
+    if (prefs?.date) setCaptureDate(String(prefs.date));
+    setTimeout(() => {
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+    }, 0);
+  }, []);
+
   const clearProcessSelection = useCallback(() => {
     setSelectedProcess(null);
     setCurrencyId("");
@@ -280,9 +380,16 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
   const applyReactFormDefaults = useCallback(() => {
     const today = getLocalDateString();
     setCaptureDate(today);
-    clearProcessSelection();
-    void reloadProcessesForDate(today, { preserveSelection: false });
-  }, [clearProcessSelection, reloadProcessesForDate]);
+    if (applyCompanyOnlyFieldsRef.current) {
+      clearProcessSelection();
+      void reloadProcessesForDate(today, { preserveSelection: false });
+      return;
+    }
+    persistGroupOnlyFormPrefs();
+    setTimeout(() => {
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+    }, 0);
+  }, [clearProcessSelection, reloadProcessesForDate, persistGroupOnlyFormPrefs]);
 
   const windowHooksRef = useRef({});
   windowHooksRef.current = {
@@ -354,6 +461,22 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
           process_id: pcode,
           description_name: null,
         });
+      } else if (!applyCompanyOnlyFieldsRef.current && processData.groupOnlyCapture) {
+        const prefs = readGroupOnlyProcessPrefs(
+          processData.captureSelectedGroup || selectedGroupRef.current
+        );
+        const proc = selectedProcessFromGroupOnlyPrefs(prefs);
+        if (proc) setSelectedProcess(proc);
+      }
+
+      if (!applyCompanyOnlyFieldsRef.current && pid) {
+        saveGroupOnlyProcessPrefs(processData.captureSelectedGroup || selectedGroupRef.current, {
+          process: pid,
+          processCode: pcode,
+          processName: pname,
+          currency: processData.currency,
+          date: processData.date,
+        });
       }
 
       setTimeout(() => {
@@ -395,6 +518,34 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
     }
   }, [processOpen]);
 
+  useEffect(() => {
+    if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
+    if (window.__DC_IS_RESTORING__) return;
+    persistGroupOnlyFormPrefs();
+  }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, currencyId, captureDate, persistGroupOnlyFormPrefs]);
+
+  useEffect(() => {
+    if (applyCompanyOnlyFields || !selectedGroup) return;
+    if (window.__DC_IS_RESTORING__) return;
+    const url = new URLSearchParams(window.location.search);
+    if (url.get("restore") === "1") return;
+    if (skipGroupPrefsOnceRef.current) {
+      skipGroupPrefsOnceRef.current = false;
+      return;
+    }
+    applyGroupOnlyPrefsForGroup(selectedGroup);
+  }, [applyCompanyOnlyFields, selectedGroup, applyGroupOnlyPrefsForGroup]);
+
+  useLayoutEffect(() => {
+    window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__ = async () => {
+      if (applyCompanyOnlyFieldsRef.current) return;
+      applyGroupOnlyPrefsForGroup(selectedGroupRef.current);
+    };
+    return () => {
+      delete window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__;
+    };
+  }, [applyGroupOnlyPrefsForGroup]);
+
   return {
     dateOptions,
     captureDate,
@@ -423,6 +574,7 @@ export function useDataCaptureFormEngine(companyId, { applyCompanyOnlyFields = t
     selectedProcess,
     selectProcessRow,
     selectGroupOnlyProcess,
+    applyGroupOnlyPrefsForGroup,
     clearProcessSelection,
     displayTextFromProcessRow,
     clearCompanyOnlyFields,

@@ -11,6 +11,8 @@ header('Access-Control-Allow-Headers: Content-Type');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/email_validation.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../get_companies_helper.php';
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
@@ -141,6 +143,114 @@ function userlistDuplicateEntryClientMessage(string $msg): string
         return 'Duplicate record';
     }
     return 'Duplicate value';
+}
+
+/** @return array<int, array<string, mixed>> */
+function userlist_fetch_accessible_companies(PDO $pdo): array
+{
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    if ($userId <= 0) {
+        return [];
+    }
+    $rows = getCompaniesByUser($pdo, $userId, true, false);
+    gc_hydrate_accessible_group_ids($pdo, $rows);
+
+    return gc_filter_companies_for_login_scope($rows);
+}
+
+/** @param list<int|string> $companyIds */
+function userlist_validate_company_ids_allowed(PDO $pdo, array $companyIds): array
+{
+    $ids = array_values(array_unique(array_map('intval', $companyIds)));
+    $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+    if ($ids === []) {
+        return [];
+    }
+    $allowed = gc_resolve_allowed_company_numeric_ids($pdo, userlist_fetch_accessible_companies($pdo));
+    foreach ($ids as $cid) {
+        if (!in_array($cid, $allowed, true)) {
+            sendResponse(false, 'One or more selected companies are not allowed');
+        }
+    }
+
+    return $ids;
+}
+
+function userlist_normalize_group_id(?string $groupId): ?string
+{
+    $g = strtoupper(trim((string) $groupId));
+
+    return $g !== '' ? $g : null;
+}
+
+/**
+ * Group entity company ids only (e.g. AP) — not subsidiaries (e.g. C168 with group_id AP).
+ *
+ * @return list<int>
+ */
+function userlist_company_ids_for_group(array $accessibleCompanies, string $groupId): array
+{
+    $g = userlist_normalize_group_id($groupId);
+    if ($g === null) {
+        return [];
+    }
+    $out = [];
+    foreach ($accessibleCompanies as $c) {
+        if (!gc_company_row_matches_login_scope($c)) {
+            continue;
+        }
+        $linkSrc = strtoupper(trim((string) ($c['link_source_group'] ?? '')));
+        if ($linkSrc !== '') {
+            continue;
+        }
+        $code = strtoupper(trim((string) ($c['company_id'] ?? '')));
+        $gid = strtoupper(trim((string) ($c['group_id'] ?? '')));
+        $isGroupEntity = $code === $g || ($code === '' && $gid === $g);
+        if (!$isGroupEntity) {
+            continue;
+        }
+        $id = (int) ($c['id'] ?? 0);
+        if ($id > 0) {
+            $out[] = $id;
+        }
+    }
+
+    return array_values(array_unique($out));
+}
+
+/** @param list<int> $companyIds */
+function userlist_assert_company_ids_match_group_entity(PDO $pdo, array $companyIds, string $groupId): void
+{
+    $g = userlist_normalize_group_id($groupId);
+    if ($g === null || $companyIds === []) {
+        return;
+    }
+    userlist_assert_group_id_allowed($g);
+    $entityIds = userlist_company_ids_for_group(userlist_fetch_accessible_companies($pdo), $g);
+    foreach ($companyIds as $cid) {
+        if (!in_array((int) $cid, $entityIds, true)) {
+            sendResponse(false, 'One or more selected companies are not allowed for this group');
+        }
+    }
+}
+
+function userlist_assert_group_id_allowed(string $groupId): void
+{
+    $g = userlist_normalize_group_id($groupId);
+    if ($g === null) {
+        sendResponse(false, 'Invalid group');
+    }
+    if (!gc_is_group_login()) {
+        sendResponse(false, 'Group filter is not allowed for company login');
+    }
+    $accessible = gc_session_accessible_group_ids();
+    if ($accessible !== [] && !in_array($g, $accessible, true)) {
+        sendResponse(false, 'Group not accessible');
+    }
+    $ident = gc_session_login_identifier();
+    if ($accessible === [] && $ident !== null && $ident !== $g) {
+        sendResponse(false, 'Group not accessible');
+    }
 }
 
 function userlistFriendlyDbError(Throwable $e): string
@@ -293,6 +403,11 @@ try {
             if (empty($company_ids)) {
                 // 如果没有提供 company_ids，使用当前 session 的 company_id
                 $company_ids = [$current_company_id];
+            }
+            $company_ids = userlist_validate_company_ids_allowed($pdo, $company_ids);
+            $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
+            if ($groupScope !== null) {
+                userlist_assert_company_ids_match_group_entity($pdo, $company_ids, $groupScope);
             }
             
             // 验证所有 company_ids 是否存在
@@ -708,6 +823,11 @@ try {
                 
                 // 如果提供了 company_ids，更新 company 关联
                 if (isset($input['company_ids']) && is_array($input['company_ids']) && count($input['company_ids']) > 0) {
+                    $input['company_ids'] = userlist_validate_company_ids_allowed($pdo, $input['company_ids']);
+                    $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
+                    if ($groupScope !== null) {
+                        userlist_assert_company_ids_match_group_entity($pdo, $input['company_ids'], $groupScope);
+                    }
                     // 验证所有 company_ids 是否存在
                     $placeholders = str_repeat('?,', count($input['company_ids']) - 1) . '?';
                     $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
@@ -1244,12 +1364,26 @@ try {
                     }
                 }
             } else {
-                // Get all users - 添加permissions字段 并通过 user_company_map 过滤company_id
+                // Get all users — single company or group-only aggregate (group login)
+                $groupId = userlist_normalize_group_id($input['group_id'] ?? null);
+                $filterCompanyIds = [$current_company_id];
+
+                if ($groupId !== null) {
+                    userlist_assert_group_id_allowed($groupId);
+                    $accessible = userlist_fetch_accessible_companies($pdo);
+                    $groupCompanyIds = userlist_company_ids_for_group($accessible, $groupId);
+                    if ($groupCompanyIds === []) {
+                        sendResponse(true, 'Users retrieved successfully', []);
+                    }
+                    $filterCompanyIds = $groupCompanyIds;
+                }
+
+                $placeholders = implode(',', array_fill(0, count($filterCompanyIds), '?'));
                 $stmt = $pdo->prepare("
                     SELECT DISTINCT u.id, u.login_id, u.name, u.email, u.role, u.permissions, u.status, u.created_by, u.created_at, u.last_login 
                     FROM user u
                     INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-                    WHERE ucm.company_id = ? 
+                    WHERE ucm.company_id IN ($placeholders)
                     ORDER BY 
                         CASE 
                             WHEN u.login_id REGEXP '^[0-9]' THEN 0 
@@ -1261,7 +1395,7 @@ try {
                         END,
                         u.login_id ASC
                 ");
-                $stmt->execute([$current_company_id]);
+                $stmt->execute($filterCompanyIds);
                 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 sendResponse(true, 'Users retrieved successfully', $users);
             }

@@ -11,15 +11,20 @@ export function buildDashboardCacheKey({
   selectedGroup,
   groupAllMode,
   mergedSubsetIds,
+  showAllCurrencies = false,
+  conversionBaseCurrency = "",
 }) {
   const subset = mergedSubsetIds?.length
     ? [...mergedSubsetIds].sort((a, b) => a - b).join(",")
     : "";
+  const currencyKey = showAllCurrencies
+    ? `ALL:${conversionBaseCurrency || currencyCode || ""}`
+    : currencyCode || "";
   return [
     companyId ?? "",
     dateFrom,
     dateTo,
-    currencyCode || "",
+    currencyKey,
     selectedGroup || "",
     groupAllMode ? "1" : "0",
     subset,

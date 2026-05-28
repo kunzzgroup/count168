@@ -24,6 +24,7 @@ export default function TransactionMaintenanceFilters({
   onGroupClick,
   onPickCompany,
   onClearCompany,
+  allowClearCompany = true,
   m,
 }) {
   const periodPresets = useMemo(() => buildMaintenancePeriodPresets(m), [m]);
@@ -86,6 +87,7 @@ export default function TransactionMaintenanceFilters({
             highlightCompanyId={companyId}
             onSwitchCompany={onPickCompany}
             onClearCompany={onClearCompany}
+            allowClearCompany={allowClearCompany}
             t={(key) => {
               if (key === "groupId") return m.groupId;
               if (key === "company") return m.company;

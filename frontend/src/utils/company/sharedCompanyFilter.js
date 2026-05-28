@@ -1,7 +1,27 @@
 /**
  * Pure helpers mirroring legacy `js/shared_company_filter.js` + PHP `api/company/company_filter.php` (SSR, unused by SPA).
  * React pages should use these for session key `dashboard_group_filter` and group/company visibility logic.
+ *
+ * Login scope rules: see `loginScope.js` and `includes/group_company_access.php`.
  */
+import {
+  canUseGroupOnlyMode,
+  filterCompaniesForLoginScope,
+  getLoginIdentifier,
+  getLoginScope,
+  isCompanyLogin,
+  isGroupLogin,
+  resolveAccessibleGroupIds,
+} from "./loginScope.js";
+
+export {
+  canUseGroupOnlyMode,
+  filterCompaniesForLoginScope,
+  getLoginIdentifier,
+  getLoginScope,
+  isCompanyLogin,
+  isGroupLogin,
+} from "./loginScope.js";
 
 export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
 /** Set to "1" when user cleared company but kept a group (group-only mode across pages). */
@@ -10,6 +30,8 @@ export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
 export const DASHBOARD_SELECTED_COMPANY_KEY = "dashboard_selected_company_id";
 /** Prevents re-applying login defaults on refresh while the same login session is active. */
 export const DASHBOARD_LOGIN_FILTER_APPLIED_KEY = "dashboard_login_filter_applied";
+/** Linked group ids (AP+IG) from get_owner_companies_api for company login filter pills. */
+export const DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY = "dashboard_accessible_group_ids";
 export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-changed";
 
 export function clearDashboardFilterSession() {
@@ -17,6 +39,31 @@ export function clearDashboardFilterSession() {
   sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
   sessionStorage.removeItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY);
+  sessionStorage.removeItem(DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY);
+}
+
+/** Store linked group ids from companies API (company login: AP+IG). */
+export function persistAccessibleGroupIdsFromApi(json) {
+  const ids = Array.isArray(json?.accessible_group_ids) ? json.accessible_group_ids : [];
+  if (!ids.length) return;
+  sessionStorage.setItem(
+    DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY,
+    JSON.stringify(ids.map((g) => String(g).trim().toUpperCase()).filter(Boolean))
+  );
+}
+
+export function readAccessibleGroupIds(me) {
+  if (Array.isArray(me?.accessible_group_ids) && me.accessible_group_ids.length) {
+    return me.accessible_group_ids.map((g) => String(g).trim().toUpperCase()).filter(Boolean);
+  }
+  try {
+    const raw = sessionStorage.getItem(DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map((g) => String(g).trim().toUpperCase()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function buildLoginFilterAppliedKey(me) {
@@ -49,6 +96,10 @@ export function seedDashboardFilterFromLogin({
     stripCompanyIdFromUrl();
     notifyDashboardGroupFilterChanged(ident, null);
     return { selectedGroup: ident, companyId: null, groupOnly: true };
+  }
+
+  if (loginScope === "company" && ident) {
+    persistDashboardGroupOnlyMode(false);
   }
 
   let row = list.find((c) => String(c.company_id || "").trim().toUpperCase() === ident);
@@ -138,12 +189,14 @@ export function stripCompanyIdFromUrl() {
  * Persist Group / Company filter for cross-page SPA navigation (call on user action only).
  * Cleared company → group-only until user picks a company again.
  */
-export function persistDashboardFilterState(selectedGroup, companyId) {
+export function persistDashboardFilterState(selectedGroup, companyId, options = {}) {
   const noCompany = companyId == null || companyId === "";
+  const allowGroupOnly = options.allowGroupOnly !== false;
 
   if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
 
   if (noCompany) {
+    if (!allowGroupOnly) return;
     persistDashboardGroupOnlyMode(true);
     persistDashboardSelectedCompany(null);
     stripCompanyIdFromUrl();
@@ -321,14 +374,16 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
   const groups = sortedUniqueGroupIds(companies);
   let selGroup = null;
 
-  if (
-    loginMe?.login_scope === "group" &&
-    loginMe?.login_identifier &&
-    groups.includes(String(loginMe.login_identifier).trim().toUpperCase())
-  ) {
+  if (loginMe?.login_scope === "group" && loginMe?.login_identifier) {
+    const visible = resolveAccessibleGroupIds(loginMe, companies);
+    if (savedGroup && visible.includes(savedGroup)) {
+      return savedGroup;
+    }
     const g = String(loginMe.login_identifier).trim().toUpperCase();
-    sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, g);
-    return g;
+    if (visible.includes(g) || groups.includes(g)) {
+      sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, g);
+      return g;
+    }
   }
 
   if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
@@ -358,13 +413,106 @@ export function filterCompaniesWithDisplayId(companies) {
   return (companies || []).filter((c) => c?.company_id && String(c.company_id).trim() !== "");
 }
 
+/**
+ * Default company when switching GroupID. Company login must never stay empty.
+ * Prefers login company code, then current selection, then first in group.
+ */
+export function pickDefaultCompanyForGroup(companies, groupId, options = {}) {
+  const {
+    me = null,
+    preferredCompanyId = null,
+    preferredCompanyCode = null,
+    nativeOnly = false,
+    groupEntityOnly = false,
+  } = options;
+  const list = groupEntityOnly
+    ? companiesGroupEntityList(companies, groupId)
+    : nativeOnly
+      ? companiesNativeInGroupList(companies, groupId)
+      : companiesInGroupList(companies, groupId);
+  if (!list.length) return null;
+
+  const loginCode =
+    preferredCompanyCode || (me ? getLoginIdentifier(me) : null);
+  if (loginCode) {
+    const code = String(loginCode).trim().toUpperCase();
+    const byLogin = list.find(
+      (c) => String(c.company_id || "").trim().toUpperCase() === code
+    );
+    if (byLogin) return byLogin;
+  }
+
+  if (preferredCompanyId != null) {
+    const byId = list.find((c) => Number(c.id) === Number(preferredCompanyId));
+    if (byId) return byId;
+  }
+
+  return list[0] ?? null;
+}
+
+/** Virtual row from group_ownership merge (shown under another group_id). */
+export function isVirtualGroupLinkCompanyRow(c) {
+  const ls = c?.link_source_group ?? c?.linkSourceGroup;
+  return ls != null && String(ls).trim() !== "";
+}
+
 /** Companies visible in the Company row when a GroupID is selected (Dashboard-aligned). */
 export function companiesInGroupList(companies, gid) {
   if (!gid) {
     return filterCompaniesWithDisplayId(companies).filter((c) => !normalizeCompanyGroupId(c));
   }
   const g = String(gid).trim().toUpperCase();
-  return filterCompaniesWithDisplayId(companies).filter((c) => normalizeCompanyGroupId(c) === g);
+  return filterCompaniesWithDisplayId(companies).filter((c) => {
+    if (normalizeCompanyGroupId(c) === g) return true;
+    const linkSrc = c.link_source_group
+      ? String(c.link_source_group).trim().toUpperCase()
+      : "";
+    return linkSrc === g;
+  });
+}
+
+/**
+ * Companies natively in a group (database group_id only).
+ * Excludes virtual link rows — not for group-only entity scope (use companiesGroupEntityList).
+ */
+export function companiesNativeInGroupList(companies, gid) {
+  if (!gid) {
+    return filterCompaniesWithDisplayId(companies).filter(
+      (c) => !normalizeCompanyGroupId(c) && !isVirtualGroupLinkCompanyRow(c),
+    );
+  }
+  const g = String(gid).trim().toUpperCase();
+  return filterCompaniesWithDisplayId(companies).filter((c) => {
+    if (isVirtualGroupLinkCompanyRow(c)) return false;
+    return normalizeCompanyGroupId(c) === g;
+  });
+}
+
+/**
+ * Group entity only (e.g. AP itself) — not subsidiaries such as C168 under group_id AP.
+ * Matches company_id === group code, or GROUPONLY placeholder (empty company_id, group_id set).
+ */
+export function companiesGroupEntityList(companies, gid) {
+  if (!gid) return [];
+  const g = String(gid).trim().toUpperCase();
+  return (companies || []).filter((c) => {
+    if (!c || isVirtualGroupLinkCompanyRow(c)) return false;
+    const code = String(c.company_id ?? c.companyId ?? c.code ?? "").trim().toUpperCase();
+    const grp = normalizeCompanyGroupId(c);
+    if (code === g) return true;
+    return code === "" && grp === g;
+  });
+}
+
+export function companyRowIsGroupEntity(companyRow, groupId) {
+  const g = String(groupId || "").trim().toUpperCase();
+  if (!g || !companyRow) return false;
+  if (isVirtualGroupLinkCompanyRow(companyRow)) return false;
+  const code = String(companyRow.company_id ?? companyRow.companyId ?? companyRow.code ?? "")
+    .trim()
+    .toUpperCase();
+  if (code === g) return true;
+  return code === "" && normalizeCompanyGroupId(companyRow) === g;
 }
 
 /**
