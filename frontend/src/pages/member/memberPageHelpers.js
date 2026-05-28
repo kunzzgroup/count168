@@ -19,18 +19,6 @@ export const WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ = "(max-width: 1409px)";
 
 /** Win/Loss Currency：每条 segment 白底带最多按钮数（含第一段的「All」占位），多出的自动再开新带 */
 export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS = 8;
-export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS_LAPTOP = 6;
-export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS_TABLET = 5;
-export const WINLOSS_VIEWPORT_TABLET_MQ = "(max-width: 1180px)";
-export const WINLOSS_VIEWPORT_LAPTOP_MQ = "(max-width: 1409px)";
-/** 仅桌面宽屏才尝试关闭矩阵横向滚动（ccy-fits） */
-export const WINLOSS_MATRIX_CCY_FITS_MQ = "(min-width: 1410px)";
-
-export function getWinLossCurrencySegmentMaxButtons({ tabletViewport, laptopViewport }) {
-  if (tabletViewport) return WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS_TABLET;
-  if (laptopViewport) return WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS_LAPTOP;
-  return WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
-}
 
 /** Win/Loss 矩阵：<10 列白卡随内容收缩；≥10 列单列宽=9 列参考宽并横向滚动 */
 export const WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD = 10;

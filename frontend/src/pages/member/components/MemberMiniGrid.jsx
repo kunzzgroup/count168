@@ -10,7 +10,6 @@ import {
   MINI_GRID_SHELL_ROWS,
   measureCompactMatrixColumnWidths,
   measureMatrixCurrencyColumnWidths,
-  WINLOSS_MATRIX_CCY_FITS_MQ,
 } from "../memberPageHelpers.js";
 
 function resolveBalanceCell({
@@ -388,9 +387,7 @@ export default function MemberMiniGrid({
         grid.style.maxWidth = "none";
 
         const containerW = matrixColEl?.clientWidth || scroll.clientWidth || 0;
-        const desktopWide =
-          typeof window !== "undefined" && window.matchMedia(WINLOSS_MATRIX_CCY_FITS_MQ).matches;
-        const fits = desktopWide && containerW > 0 && totalW <= containerW;
+        const fits = containerW > 0 && totalW <= containerW;
         scroll.classList.toggle("member-dash-matrix-scroll--ccy-fits", fits);
         grid.classList.toggle("member-balance-mini-matrix--ccy-fits", fits);
 
