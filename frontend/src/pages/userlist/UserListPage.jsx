@@ -367,10 +367,10 @@ export default function UserListPage() {
     setTableLoading(true);
     try {
       const body = { action: "get" };
-      // Group login should always query by the selected group tab.
-      // Otherwise, newly created group-scoped users can be saved successfully
-      // but remain invisible when session company stays on C168.
-      if (isGroupLogin(me) && selectedGroup) body.group_id = selectedGroup;
+      // Only group-only mode uses group aggregate query.
+      // Company mode must stay scoped to selected company_id.
+      if (groupOnlyUserList && selectedGroup) body.group_id = selectedGroup;
+      if (!groupOnlyUserList && companyId != null) body.company_id = Number(companyId);
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -813,7 +813,7 @@ export default function UserListPage() {
     try {
       const fd = new FormData();
       fd.append("id", String(row.id));
-      const useGroupScopeForToggle = isGroupLogin(me) && !!selectedGroup;
+      const useGroupScopeForToggle = groupOnlyUserList && !!selectedGroup;
       const toggleCompanyId = useGroupScopeForToggle ? scopeCompanyId : (groupOnlyUserList ? scopeCompanyId : companyId);
       if (toggleCompanyId != null) fd.append("company_id", String(toggleCompanyId));
       if (useGroupScopeForToggle) fd.append("group_id", selectedGroup);
@@ -854,18 +854,25 @@ export default function UserListPage() {
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: emailCheck.normalized, role: form.role, status: form.status };
     let saveGroupId = null;
     let saveCompanyIds = selectedCompanyIds;
-    if (groupOnlyUserList && (currentUserRole === "admin" || currentUserRole === "owner")) {
-      const entityId = selectedCompanyIds[0] != null ? Number(selectedCompanyIds[0]) : null;
-      const selectedGroupOption = modalPickerCompanies.find((c) => Number(c.id) === Number(entityId));
-      saveGroupId = String(selectedGroupOption?.group_id || "").trim().toUpperCase();
-      if (!saveGroupId || !Number.isFinite(entityId) || entityId <= 0) {
-        notify(t("groupSelectionRequired"), "danger");
-        return;
-      }
-      saveCompanyIds = [entityId];
+    const inferredGroupIdFromPicker = (() => {
+      const selectedId = selectedCompanyIds[0] != null ? Number(selectedCompanyIds[0]) : Number.NaN;
+      if (!Number.isFinite(selectedId) || selectedId <= 0) return null;
+      const selectedOption = modalPickerCompanies.find((c) => Number(c.id) === selectedId);
+      const gid = String(selectedOption?.group_id || "").trim().toUpperCase();
+      return gid || null;
+    })();
+    const shouldForceGroupScope = groupOnlyUserList && !!(selectedGroup || inferredGroupIdFromPicker);
+    if (shouldForceGroupScope) {
+      saveGroupId = String(selectedGroup || inferredGroupIdFromPicker || "").trim().toUpperCase();
       payload.group_id = saveGroupId;
-    } else if (groupOnlyUserList && selectedGroup) {
-      payload.group_id = selectedGroup;
+      const entityPick = pickDefaultCompanyForGroup(companies, saveGroupId, {
+        me,
+        preferredCompanyId: me?.company_id ?? companyId,
+        groupEntityOnly: true,
+      });
+      const entityId = entityPick?.id != null ? Number(entityPick.id) : Number.NaN;
+      // Do not block save here; backend already hard-locks to group entity company by group_id.
+      saveCompanyIds = Number.isFinite(entityId) && entityId > 0 ? [entityId] : [];
     }
     if (form.password.trim()) payload.password = form.password;
     const allowSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
@@ -893,8 +900,8 @@ export default function UserListPage() {
         if (shouldSendProcessPermissions) payload.process_permissions = processPerms;
       }
       if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) {
-        payload.company_ids = groupOnlyUserList ? saveCompanyIds : selectedCompanyIds;
-        if (groupOnlyUserList && saveGroupId) payload.group_id = saveGroupId;
+        payload.company_ids = shouldForceGroupScope ? saveCompanyIds : (groupOnlyUserList ? saveCompanyIds : selectedCompanyIds);
+        if (shouldForceGroupScope && saveGroupId) payload.group_id = saveGroupId;
       }
     }
     try {
