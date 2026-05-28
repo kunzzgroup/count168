@@ -206,7 +206,7 @@ function MatrixAccountRow({
   return (
     <>
       <div
-        className={`member-balance-matrix-rowhead${isLastRow ? " member-balance-matrix-rowhead--edge" : ""}`}
+        className={`member-balance-matrix-rowhead${accIdx % 2 === 1 ? " member-balance-matrix-rowhead--alt" : ""}${isLastRow ? " member-balance-matrix-rowhead--edge" : ""}`}
         role="rowheader"
         title={code}
       >

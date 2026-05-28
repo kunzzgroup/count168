@@ -2226,25 +2226,19 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 }
 
 .member-balance-mini-matrix--ccy-compact .member-balance-matrix-th {
-    justify-content: center;
+    justify-content: flex-end;
+    text-align: right;
 }
 
 .member-balance-mini-matrix--ccy-compact .member-balance-matrix-cell {
     justify-content: flex-end;
 }
 
-.member-balance-mini-matrix--many-ccy:not(.member-balance-mini-matrix--ccy-scroll) {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-}
-
-.member-balance-mini-matrix--many-ccy .member-balance-matrix-th,
-.member-balance-mini-matrix--many-ccy .member-balance-matrix-rowhead,
-.member-balance-mini-matrix--many-ccy .member-balance-matrix-cell {
-    padding: 6px 8px;
-    font-size: 11px;
-    min-height: 34px;
+.member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-compact,
+.member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-scroll {
+    width: max-content;
+    max-width: none;
+    min-width: max-content;
 }
 
 .member-balance-matrix-corner,
@@ -2256,23 +2250,24 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 
 .member-balance-matrix-corner {
     z-index: 3;
-    background: linear-gradient(180deg, #eef4fc 0%, #dce9f8 100%);
-    border-right: 1px solid #c5daf2;
-    border-bottom: 1px solid #c5daf2;
-    min-height: 36px;
+    background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%);
+    border-right: 1px solid #b8cfe8;
+    border-bottom: 1px solid #b8cfe8;
+    min-height: var(--member-wl-matrix-hdr-h, 40px);
 }
 
 .member-balance-matrix-th {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 8px 10px;
-    min-height: 36px;
+    justify-content: flex-end;
+    padding: 8px 12px;
+    min-height: var(--member-wl-matrix-hdr-h, 40px);
     background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%);
     color: #1e3a5f;
     font-weight: 700;
     font-size: 12px;
     letter-spacing: 0.03em;
+    text-align: right;
     border-right: 1px solid #b8cfe8;
     border-bottom: 1px solid #b8cfe8;
     box-sizing: border-box;
@@ -2286,15 +2281,20 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    padding: 7px 12px;
-    min-height: 36px;
+    padding: 8px 12px;
+    min-height: var(--member-wl-matrix-row-h, 40px);
     font-weight: 700;
+    font-size: var(--text-small, 13px);
     color: #1e293b;
-    background: #f1f5f9;
+    background: #fff;
     border-right: 1px solid #e2e8f0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e8eef5;
     white-space: nowrap;
     box-sizing: border-box;
+}
+
+.member-balance-matrix-rowhead--alt {
+    background: #f8fafc;
 }
 
 .member-balance-matrix-rowhead--edge {
@@ -2308,13 +2308,14 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     width: 100%;
     min-width: 0;
     overflow: visible;
-    padding: 7px 10px;
-    min-height: 36px;
+    padding: 8px 12px;
+    min-height: var(--member-wl-matrix-row-h, 40px);
     background: #ffffff;
     border-right: 1px solid #e8eef5;
     border-bottom: 1px solid #e8eef5;
     color: #0f172a;
     font-weight: 600;
+    font-size: var(--text-small, 13px);
     font-variant-numeric: tabular-nums;
     box-sizing: border-box;
 }
@@ -2325,6 +2326,9 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 
 .member-balance-matrix-cell--na {
     justify-content: center;
+    color: #94a3b8;
+    font-weight: 500;
+    text-align: center;
 }
 
 /* 0.00 的 "-" 在矩阵格内水平居中，并强化可见度 */
@@ -2502,7 +2506,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     line-height: 1.3;
 }
 
-/* Win/Loss 迷你矩阵 — 可读优先；单层 grid 列宽一致（行高由 .member-dash-columns--three-col 变量统一） */
+/* Win/Loss 迷你矩阵 — 单/多币种统一图一视觉与字体 */
 .member-winloss-page .member-balance-matrix-corner {
     display: flex;
     align-items: center;
@@ -2510,33 +2514,85 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     min-height: var(--member-wl-matrix-hdr-h, 40px);
     padding: 8px 12px;
     font-weight: 700;
-    font-size: var(--text-medium);
+    font-size: 12px;
     color: #1e3a5f;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.03em;
     box-sizing: border-box;
 }
 
 .member-winloss-page .member-balance-matrix-th {
     min-height: var(--member-wl-matrix-hdr-h, 40px);
-    padding: 10px 12px;
-    font-size: var(--text-medium);
-    letter-spacing: 0.02em;
+    padding: 8px 12px;
+    font-size: 12px;
+    letter-spacing: 0.03em;
 }
 
 .member-winloss-page .member-balance-matrix-rowhead {
     min-height: var(--member-wl-matrix-row-h, 40px);
-    padding: 10px 14px;
-    font-size: var(--text-small);
+    padding: 8px 12px;
+    font-size: var(--text-small, 13px);
 }
 
 .member-winloss-page .member-balance-matrix-cell {
     min-height: var(--member-wl-matrix-row-h, 40px);
-    padding: 10px 12px;
-    font-size: 13px;
+    padding: 8px 12px;
+    font-size: var(--text-small, 13px);
 }
 
-.member-winloss-page .member-balance-matrix-amt {
-    font-size: var(--text-small);
+.member-winloss-page .member-balance-matrix-amt,
+.member-winloss-page .member-balance-matrix-na {
+    font-size: var(--text-small, 13px);
+}
+
+.member-winloss-page .member-wl-compact-matrix__account-hd,
+.member-winloss-page .member-wl-compact-matrix__amt-hd {
+    min-height: var(--member-wl-matrix-hdr-h, 40px);
+    font-size: 12px;
+}
+
+.member-winloss-page .member-wl-compact-matrix__account,
+.member-winloss-page .member-wl-compact-matrix__amt {
+    min-height: var(--member-wl-matrix-row-h, 40px);
+    font-size: var(--text-small, 13px);
+}
+
+.member-winloss-page .member-wl-compact-matrix__account {
+    font-size: var(--text-small, 13px);
+}
+
+.member-winloss-page .member-wl-compact-matrix__amt .member-balance-matrix-amt,
+.member-winloss-page .member-wl-compact-matrix__amt .member-balance-matrix-na {
+    font-size: var(--text-small, 13px);
+}
+
+/* 多币种矩阵与单币种紧凑表共用字号，many-ccy 不再单独缩小 */
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-compact .member-balance-matrix-th,
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-compact .member-balance-matrix-rowhead,
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-compact .member-balance-matrix-cell,
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-scroll .member-balance-matrix-th,
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-scroll .member-balance-matrix-rowhead,
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-scroll .member-balance-matrix-cell {
+    padding: 8px 12px;
+    font-size: var(--text-small, 13px);
+    min-height: var(--member-wl-matrix-row-h, 40px);
+}
+
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-compact .member-balance-matrix-corner,
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-scroll .member-balance-matrix-corner {
+    min-height: var(--member-wl-matrix-hdr-h, 40px);
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-compact .member-balance-matrix-th,
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-scroll .member-balance-matrix-th {
+    min-height: var(--member-wl-matrix-hdr-h, 40px);
+    font-size: 12px;
+}
+
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-compact .member-balance-matrix-amt,
+.member-winloss-page .member-balance-mini-matrix--many-ccy.member-balance-mini-matrix--ccy-scroll .member-balance-matrix-amt {
+    font-size: var(--text-small, 13px);
 }
 
 .member-winloss-page .member-balance-matrix-cell:has(.member-balance-matrix-amt--zero) .member-balance-matrix-amt--zero {
@@ -2547,33 +2603,6 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 
 .member-winloss-page .member-total-val--zero {
     font-size: 13px;
-    font-weight: 800;
-    color: #002c49;
-}
-
-.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-th,
-.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-rowhead,
-.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-cell {
-    padding: 8px 9px;
-    font-size: 11px;
-    min-height: var(--member-wl-matrix-row-h, 34px);
-}
-
-.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-corner {
-    min-height: var(--member-wl-matrix-hdr-h, 34px);
-    padding: 2px 5px;
-}
-
-.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-th {
-    min-height: var(--member-wl-matrix-hdr-h, 34px);
-}
-
-.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-amt {
-    font-size: 11px;
-}
-
-.member-winloss-page .member-balance-mini-matrix--many-ccy .member-balance-matrix-amt--zero {
-    font-size: 12px;
     font-weight: 800;
     color: #002c49;
 }
@@ -2623,6 +2652,11 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 .member-balance-matrix-rowhead--total,
 .member-balance-matrix-cell--total {
     font-weight: 700;
+    background: #fff;
+}
+
+.member-balance-matrix-rowhead--total.member-balance-matrix-rowhead--alt,
+.member-balance-matrix-cell--total.member-balance-matrix-cell--alt {
     background: #fff;
 }
 
@@ -2745,14 +2779,6 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 .member-winloss-page .member-wl-compact-matrix__account,
 .member-winloss-page .member-wl-compact-matrix__amt {
     min-height: var(--member-wl-matrix-row-h, 40px);
-}
-
-.member-winloss-page .member-wl-compact-matrix__account {
-    font-size: var(--text-small);
-}
-
-.member-winloss-page .member-wl-compact-matrix__amt .member-balance-matrix-amt {
-    font-size: var(--text-tiny);
 }
 
 /* Accounts in grid modal */
