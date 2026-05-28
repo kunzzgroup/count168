@@ -4089,6 +4089,60 @@ async function getCompanyCurrencyByCodeBank(code) {
         return String(item.code || '').trim().toUpperCase() === normalizedCode;
     }) || null;
 }
+
+async function syncCountryModalAfterCurrencyDelete(currencyCode) {
+    const code = String(currencyCode || '').trim().toUpperCase();
+    if (!code) return;
+
+    if (Array.isArray(window.selectedCountries)) {
+        window.selectedCountries = window.selectedCountries.filter(function (name) {
+            return String(name || '').trim().toUpperCase() !== code;
+        });
+    }
+    if (Array.isArray(availableCountriesList)) {
+        availableCountriesList = availableCountriesList.filter(function (name) {
+            return String(name || '').trim().toUpperCase() !== code;
+        });
+    }
+
+    if (typeof persistSelectedCountriesToStorage === 'function') {
+        persistSelectedCountriesToStorage();
+    }
+
+    const select = document.getElementById('bank_country');
+    if (select && select.options) {
+        const currentVal = String(select.value || '').trim().toUpperCase();
+        Array.from(select.options).forEach(function (opt) {
+            if (String(opt.value || '').trim().toUpperCase() === code) {
+                opt.remove();
+            }
+        });
+        if (currentVal === code) {
+            select.value = '';
+            if (typeof applySelectedBanksToDropdown === 'function') {
+                applySelectedBanksToDropdown('');
+            }
+        }
+    }
+
+    const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
+    if (companyId) {
+        try {
+            const list = Array.isArray(window.selectedCountries) ? window.selectedCountries : [];
+            const fd = new FormData();
+            fd.append('company_id', String(companyId));
+            list.forEach(function (c) { fd.append('countries[]', c); });
+            await fetch(buildApiUrl('api/processes/processlist_api.php?action=save_selected_countries'), { method: 'POST', body: fd });
+        } catch (e) {
+            console.warn('save_selected_countries after currency delete', e);
+        }
+    }
+
+    if (isBankModalVisible('countrySelectionModal')) {
+        if (typeof updateSelectedCountriesInModal === 'function') updateSelectedCountriesInModal();
+        if (typeof loadExistingCountries === 'function') loadExistingCountries();
+    }
+}
 /** 从 Supplier 或 Customer 的 + 打开 Add Account 时记录，添加成功后自动选中新账户；Company 不自动选 */
 let bankAddAccountTriggerFieldId = null;
 // For Profit Sharing rows: remember which hidden input should receive the new account id
@@ -4344,6 +4398,7 @@ async function deleteCurrencyPermanentlyBank(currencyId, currencyCode, itemEleme
         if (data.success) {
             if (itemElement && itemElement.parentNode) itemElement.remove();
             if (!deletedCurrencyIds.includes(currencyId)) deletedCurrencyIds.push(currencyId);
+            await syncCountryModalAfterCurrencyDelete(currencyCode);
             showNotification('Currency ' + currencyCode + ' deleted successfully!', 'success');
         } else {
             showNotification(data.error || 'Failed to delete currency', 'danger');
