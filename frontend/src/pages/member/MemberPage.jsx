@@ -463,7 +463,6 @@ export default function MemberPage() {
                         <MemberGridAccountPills
                           linkedAccounts={viewGridAccounts.length ? viewGridAccounts : linkedAccounts}
                           selectedIds={wlGridSelectedIds}
-                          maxPerBand={accountMaxPerBand}
                           onApply={applyWlGridSelection}
                           onNotify={showNotification}
                           t={t}
