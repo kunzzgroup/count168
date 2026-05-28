@@ -28,6 +28,8 @@ export default function FormDateField({
   showCalendarIcon = true,
   allowClear = true,
   labelClassName = "",
+  labelExtra = null,
+  labelRowClassName = "",
   onValueChange,
 }) {
   const fromId = `${fieldKey}_drp_from`;
@@ -102,7 +104,20 @@ export default function FormDateField({
 
   return (
     <div className={`form-group ${className}`.trim()}>
-      {label ? <label className={labelClassName || undefined} htmlFor={htmlFor || fieldKey}>{label}</label> : null}
+      {label ? (
+        labelExtra ? (
+          <div className={`form-date-label-row${labelRowClassName ? ` ${labelRowClassName}` : ""}`.trim()}>
+            <label className={labelClassName || undefined} htmlFor={htmlFor || fieldKey}>
+              {label}
+            </label>
+            {labelExtra}
+          </div>
+        ) : (
+          <label className={labelClassName || undefined} htmlFor={htmlFor || fieldKey}>
+            {label}
+          </label>
+        )
+      ) : null}
       <div
         className={`form-datepicker-wrap ${wrapClassName}`.trim()}
         onClick={handleWrapActivate}

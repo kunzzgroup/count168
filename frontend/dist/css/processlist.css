@@ -1917,6 +1917,11 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     flex-wrap: wrap;
 }
 
+.bank-form .bank-day-start-row > .form-group {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 .bank-form .bank-day-start-input-wrap,
 .bank-form .bank-day-end-input-wrap {
     flex: 1 1 0; /* Balanced widths */
@@ -1926,29 +1931,32 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     width: 100%;
 }
 
-.bank-form .bank-day-end-field-with-cap {
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
-    flex: 1 1 0;
+.bank-form .bank-day-end-field-group {
     min-width: 0;
 }
 
-.bank-form .bank-day-end-field-with-cap > .form-group {
-    flex: 1 1 0;
-    min-width: 0;
-    margin-bottom: 0;
+.bank-form .bank-day-end-label-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+}
+
+#addBankModal .bank-form .bank-day-end-label-row > label {
+    width: auto;
+    flex: 0 0 auto;
 }
 
 .bank-form .bank-day-end-monthly-cap-wrap {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
-    gap: 4px;
+    justify-content: flex-start;
+    gap: 2px;
     flex: 0 0 auto;
-    padding-bottom: 2px;
-    min-width: 52px;
+    margin-top: 1px;
+    min-width: 0;
 }
 
 .bank-form .bank-day-end-cap-label {
