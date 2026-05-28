@@ -24,6 +24,7 @@ import MemberMiniGrid from "./components/MemberMiniGrid.jsx";
 import MemberMoneyCell from "./components/MemberMoneyCell.jsx";
 import MemberGridAccountPills from "./components/MemberGridAccountPills.jsx";
 import {
+  buildWinLossPillBands,
   computeTableTotals,
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS,
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
@@ -40,6 +41,7 @@ export default function MemberPage() {
   const maintenanceLocale = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
 
   const wlFiltersColRef = useRef(null);
+  const wlMatrixColRef = useRef(null);
   const [wlFiltersSyncPx, setWlFiltersSyncPx] = useState(null);
   const [accountNarrowViewport, setAccountNarrowViewport] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -140,11 +142,10 @@ export default function MemberPage() {
   /** Account 多段：每段最多 N 格，超出自动换行；窄屏减少每行格数以完整显示户名 */
   const accountFilterBands = useMemo(() => {
     const accounts = Array.isArray(linkedAccounts) ? linkedAccounts : [];
-    const bands = [];
-    for (let i = 0; i < accounts.length; i += accountMaxPerBand) {
-      bands.push(accounts.slice(i, i + accountMaxPerBand));
-    }
-    return bands;
+    return buildWinLossPillBands(
+      accounts.map((acc) => ({ type: "account", acc })),
+      accountMaxPerBand,
+    );
   }, [linkedAccounts, accountMaxPerBand]);
 
   useEffect(() => {
@@ -212,27 +213,28 @@ export default function MemberPage() {
       setWlFiltersSyncPx(null);
       return undefined;
     }
-    const el = wlFiltersColRef.current;
+    const filtersEl = wlFiltersColRef.current;
+    const matrixEl = wlMatrixColRef.current;
     const mq = window.matchMedia("(min-width: 1181px)");
     const update = () => {
       if (!showMiniRail || !mq.matches || !wlFiltersColRef.current) {
         setWlFiltersSyncPx(null);
         return;
       }
-      setWlFiltersSyncPx(Math.ceil(wlFiltersColRef.current.scrollHeight));
+      const filtersH = wlFiltersColRef.current.scrollHeight;
+      const matrixH = wlMatrixColRef.current?.scrollHeight ?? 0;
+      setWlFiltersSyncPx(Math.ceil(Math.max(filtersH, matrixH)));
     };
     update();
-    let ro;
-    if (el) {
-      ro = new ResizeObserver(() => update());
-      ro.observe(el);
-    }
+    const ro = new ResizeObserver(() => update());
+    if (filtersEl) ro.observe(filtersEl);
+    if (matrixEl) ro.observe(matrixEl);
     mq.addEventListener("change", update);
     window.addEventListener("resize", update);
     return () => {
       mq.removeEventListener("change", update);
       window.removeEventListener("resize", update);
-      ro?.disconnect();
+      ro.disconnect();
     };
   }, [
     showMiniRail,
@@ -246,6 +248,9 @@ export default function MemberPage() {
     viewAccountId,
     miniGridDisplayCurrencies.length,
     selectedCurrencies.length,
+    miniGridAccounts.length,
+    wlGridSelectedIds.length,
+    miniGridLoading,
   ]);
 
   if (loading || !me) return null;
@@ -379,7 +384,8 @@ export default function MemberPage() {
                           gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
                         }}
                       >
-                        {band.map((acc) => {
+                        {band.map((cell) => {
+                          const acc = cell.acc;
                           const accountLabel = String(acc.account_id || acc.name || acc.id);
                           return (
                             <button
@@ -451,12 +457,13 @@ export default function MemberPage() {
               </div>
               {showMiniRail && (
                 <>
-                  <div className="member-dash-col member-dash-col-matrix" aria-hidden="false">
+                  <div className="member-dash-col member-dash-col-matrix" ref={wlMatrixColRef} aria-hidden="false">
                     {(viewGridAccounts.length > 0 || linkedAccounts.length > 0) && (
                       <div className="member-dash-rail-toolbar member-dash-matrix-toolbar">
                         <MemberGridAccountPills
                           linkedAccounts={viewGridAccounts.length ? viewGridAccounts : linkedAccounts}
                           selectedIds={wlGridSelectedIds}
+                          maxPerBand={accountMaxPerBand}
                           onApply={applyWlGridSelection}
                           onNotify={showNotification}
                           t={t}
