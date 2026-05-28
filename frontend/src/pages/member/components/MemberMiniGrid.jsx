@@ -336,12 +336,19 @@ export default function MemberMiniGrid({
       const syncCompactWidth = () => {
         const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
         const { accountColPx, amtColPx } = measureCompactMatrixColumnWidths(grid, rem);
+        const totalW = accountColPx + amtColPx;
         const accW = `${accountColPx}px`;
         const amtW = `${amtColPx}px`;
+        const rail = scroll.closest(".member-dash-rail-matrix");
+        const wrap = scroll.closest(".member-dash-matrix-center-wrap");
         scroll.style.setProperty("--member-wl-compact-acc-col-w", accW);
         scroll.style.setProperty("--member-wl-ccy-fill-col-w", amtW);
         grid.style.setProperty("--member-wl-compact-acc-col-w", accW);
         grid.style.setProperty("--member-wl-ccy-fill-col-w", amtW);
+        const boxW = `${totalW}px`;
+        scroll.style.width = boxW;
+        if (rail) rail.style.width = boxW;
+        if (wrap) wrap.style.width = boxW;
       };
       syncCompactWidth();
       requestAnimationFrame(syncCompactWidth);
@@ -354,8 +361,11 @@ export default function MemberMiniGrid({
         window.removeEventListener("resize", syncCompactWidth);
         scroll.style.removeProperty("--member-wl-compact-acc-col-w");
         scroll.style.removeProperty("--member-wl-ccy-fill-col-w");
+        scroll.style.removeProperty("width");
         grid.style.removeProperty("--member-wl-compact-acc-col-w");
         grid.style.removeProperty("--member-wl-ccy-fill-col-w");
+        scroll.closest(".member-dash-rail-matrix")?.style.removeProperty("width");
+        scroll.closest(".member-dash-matrix-center-wrap")?.style.removeProperty("width");
       };
     }
 
@@ -369,15 +379,22 @@ export default function MemberMiniGrid({
       const applyColumns = ({ rowheadPx, colPx }) => {
         const colParts = colPx.map((w) => `${w}px`).join(" ");
         const totalW = rowheadPx + colPx.reduce((sum, w) => sum + w, 0);
+        const rail = scroll.closest(".member-dash-rail-matrix");
+        const wrap = scroll.closest(".member-dash-matrix-center-wrap");
 
         grid.style.gridTemplateColumns = `${rowheadPx}px ${colParts}`;
         grid.style.width = `${totalW}px`;
         grid.style.maxWidth = "none";
 
-        const containerW = scroll.clientWidth || matrixColEl?.clientWidth || 0;
+        const containerW = matrixColEl?.clientWidth || scroll.clientWidth || 0;
         const fits = containerW > 0 && totalW <= containerW;
         scroll.classList.toggle("member-dash-matrix-scroll--ccy-fits", fits);
         grid.classList.toggle("member-balance-mini-matrix--ccy-fits", fits);
+
+        const boxW = fits ? `${totalW}px` : "100%";
+        scroll.style.width = fits ? `${totalW}px` : "100%";
+        if (rail) rail.style.width = boxW;
+        if (wrap) wrap.style.width = boxW;
       };
 
       applyColumns(measureMatrixCurrencyColumnWidths(grid, rem, ncu));
@@ -394,10 +411,13 @@ export default function MemberMiniGrid({
       scroll.classList.remove("member-dash-matrix-scroll--ccy-fits");
       grid.classList.remove("member-balance-mini-matrix--ccy-fits");
       scroll.style.removeProperty("--member-wl-ccy-fill-col-w");
+      scroll.style.removeProperty("width");
       grid.style.removeProperty("--member-wl-ccy-fill-col-w");
       grid.style.removeProperty("grid-template-columns");
       grid.style.removeProperty("width");
       grid.style.removeProperty("max-width");
+      scroll.closest(".member-dash-rail-matrix")?.style.removeProperty("width");
+      scroll.closest(".member-dash-matrix-center-wrap")?.style.removeProperty("width");
     };
   }, [ncu, compactMode, orderUpper.join("|"), listOrdered.length, balanceMap?.size, shellMode, showTotalRow]);
 
