@@ -177,24 +177,6 @@ function userlist_fetch_accessible_companies(PDO $pdo): array
     return gc_filter_companies_for_login_scope($active);
 }
 
-/** @param list<int|string> $companyIds */
-function userlist_validate_company_ids_allowed(PDO $pdo, array $companyIds): array
-{
-    $ids = array_values(array_unique(array_map('intval', $companyIds)));
-    $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
-    if ($ids === []) {
-        return [];
-    }
-    $allowed = gc_resolve_allowed_company_numeric_ids($pdo, userlist_fetch_accessible_companies($pdo));
-    foreach ($ids as $cid) {
-        if (!in_array($cid, $allowed, true)) {
-            sendResponse(false, 'One or more selected companies are not allowed');
-        }
-    }
-
-    return $ids;
-}
-
 function userlist_normalize_group_id(?string $groupId): ?string
 {
     $g = strtoupper(trim((string) $groupId));
@@ -235,6 +217,24 @@ function userlist_company_ids_for_group(array $accessibleCompanies, string $grou
     }
 
     return array_values(array_unique($out));
+}
+
+/** @param list<int|string> $companyIds */
+function userlist_validate_company_ids_allowed(PDO $pdo, array $companyIds): array
+{
+    $ids = array_values(array_unique(array_map('intval', $companyIds)));
+    $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+    if ($ids === []) {
+        return [];
+    }
+    $allowed = gc_resolve_allowed_company_numeric_ids($pdo, userlist_fetch_accessible_companies($pdo));
+    foreach ($ids as $cid) {
+        if (!in_array($cid, $allowed, true)) {
+            sendResponse(false, 'One or more selected companies are not allowed');
+        }
+    }
+
+    return $ids;
 }
 
 /** @param list<int> $companyIds */

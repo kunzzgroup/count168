@@ -408,6 +408,22 @@ export default function UserListPage() {
           sessionCompanyId: me.company_id,
           defaultRowId: rows[0]?.id,
         });
+        if (urlCompanyId && effectiveNum && Number(effectiveNum) !== Number(me.company_id)) {
+          try {
+            const syncRes = await fetch(
+              buildApiUrl(`api/session/update_company_session_api.php?company_id=${effectiveNum}`),
+              { credentials: "include" },
+            );
+            const syncJson = await syncRes.json();
+            if (!syncJson.success) {
+              effectiveNum = me.company_id != null ? Number(me.company_id) : effectiveNum;
+            } else {
+              notifyCompanySessionUpdated();
+            }
+          } catch {
+            effectiveNum = me.company_id != null ? Number(me.company_id) : effectiveNum;
+          }
+        }
         const bootGroup = resolveInitialSelectedGroupFromSession(
           rows,
           effectiveNum != null
@@ -718,7 +734,11 @@ export default function UserListPage() {
     const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
     if (!caps.canToggleStatus) return;
     try {
-      const fd = new FormData(); fd.append("id", String(row.id));
+      const fd = new FormData();
+      fd.append("id", String(row.id));
+      const toggleCompanyId = groupOnlyUserList ? scopeCompanyId : companyId;
+      if (toggleCompanyId != null) fd.append("company_id", String(toggleCompanyId));
+      if (groupOnlyUserList && selectedGroup) fd.append("group_id", selectedGroup);
       const res = await fetch(buildApiUrl("api/users/toggle_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json(); const newStatus = json?.data?.newStatus || json?.newStatus;
       if (!json.success || !newStatus) { notifyApi(json.message, "toggleFailed", "danger"); return; }
