@@ -26,6 +26,7 @@ import {
 } from "../utils/company/sharedCompanyFilter.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
+import { dismissAllPortalTooltips } from "./PortalTooltip.jsx";
 import {
   canAccessC168AutoRenew,
   canAccessC168DomainPages,
@@ -408,6 +409,7 @@ export default function AuthenticatedLayout() {
   };
   const openHoverSubmenu = (section, el) => {
     if (!el) return;
+    dismissAllPortalTooltips();
     const rect = el.getBoundingClientRect();
     setSubmenuPos((prev) => ({
       ...prev,
@@ -665,21 +667,19 @@ export default function AuthenticatedLayout() {
           {canAccess("report") && me?.company_has_gambling && (
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
-                <SidebarNavTip label={i18n.sidebarReport} enabled={sidebarIconOnly && hoverSection !== "report"}>
-                  <div
-                    ref={reportTitleRef}
-                    className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
-                    data-section="report"
-                    onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
-                    role="presentation"
-                  >
-                    <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-                    </svg>
-                    <span className="sidebar-menu-label">{i18n.sidebarReport}</span>
-                    <span className="section-arrow">▶</span>
-                  </div>
-                </SidebarNavTip>
+                <div
+                  ref={reportTitleRef}
+                  className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
+                  data-section="report"
+                  onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarReport}</span>
+                  <span className="section-arrow">▶</span>
+                </div>
                 <div
                   className="submenu"
                   id="report-submenu"
@@ -725,21 +725,19 @@ export default function AuthenticatedLayout() {
           {showMaintenanceMenu && (
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
-                <SidebarNavTip label={i18n.sidebarMaintenance} enabled={sidebarIconOnly && hoverSection !== "maintenance"}>
-                  <div
-                    ref={maintenanceTitleRef}
-                    className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
-                    data-section="maintenance"
-                    onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
-                    role="presentation"
-                  >
-                    <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-                    </svg>
-                    <span className="sidebar-menu-label">{i18n.sidebarMaintenance}</span>
-                    <span className="section-arrow">▶</span>
-                  </div>
-                </SidebarNavTip>
+                <div
+                  ref={maintenanceTitleRef}
+                  className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
+                  data-section="maintenance"
+                  onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarMaintenance}</span>
+                  <span className="section-arrow">▶</span>
+                </div>
                 <div
                   className="submenu"
                   id="maintenance-submenu"

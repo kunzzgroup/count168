@@ -4,6 +4,21 @@ import { createPortal } from "react-dom";
 const GAP = 6;
 const VIEWPORT_TOP_MIN = 44;
 
+/** Only one portal tooltip visible at a time (sidebar, maintenance, etc.). */
+let dismissActiveTooltip = null;
+
+function dismissOtherTooltips() {
+  if (dismissActiveTooltip) {
+    dismissActiveTooltip();
+    dismissActiveTooltip = null;
+  }
+}
+
+/** Hide any visible portal tooltip (e.g. before opening a sidebar submenu). */
+export function dismissAllPortalTooltips() {
+  dismissOtherTooltips();
+}
+
 /**
  * Fixed portal tooltip — not clipped by overflow:hidden ancestors.
  * @param {{
@@ -25,6 +40,11 @@ export default function PortalTooltip({
   const [tooltipPos, setTooltipPos] = useState(null);
   const text = String(content ?? "").trim();
   const active = enabled && text.length > 0;
+
+  const hideTooltip = useCallback(() => {
+    setTooltipPos(null);
+    if (dismissActiveTooltip === hideTooltip) dismissActiveTooltip = null;
+  }, []);
 
   const updateTooltipPos = useCallback(() => {
     const el = anchorRef.current;
@@ -67,12 +87,17 @@ export default function PortalTooltip({
   }, [active, placement]);
 
   const showTooltip = useCallback(() => {
+    dismissOtherTooltips();
+    dismissActiveTooltip = hideTooltip;
     updateTooltipPos();
-  }, [updateTooltipPos]);
+  }, [hideTooltip, updateTooltipPos]);
 
-  const hideTooltip = useCallback(() => {
-    setTooltipPos(null);
-  }, []);
+  useEffect(
+    () => () => {
+      if (dismissActiveTooltip === hideTooltip) dismissActiveTooltip = null;
+    },
+    [hideTooltip],
+  );
 
   useEffect(() => {
     if (!tooltipPos) return undefined;
