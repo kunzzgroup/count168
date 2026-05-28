@@ -1498,20 +1498,7 @@ body.account-page #confirmDeleteModal .confirm-delete {
     text-align: center;
 }
 
-/* Scrollbar for long messages */
-.account-confirm-message::-webkit-scrollbar {
-    width: 6px;
-}
-
-.account-confirm-message::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-}
-
-.account-confirm-message::-webkit-scrollbar-thumb {
-    background: #6f7b8d;
-    border-radius: 10px;
-}
+/* Scrollbars: app-wide — dashboard-scrollbar.css */
 
 .account-modal-content {
     background-color: #ffffff;

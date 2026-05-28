@@ -480,28 +480,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
    Global SaaS "Premium Feel" Upgrades
    ========================================================================== */
 
-/* 1. Login / non-dashboard scrollbars (dashboard uses dashboard-scrollbar.css) */
-body:not(.dashboard-page)::-webkit-scrollbar,
-body:not(.dashboard-page) *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-body:not(.dashboard-page)::-webkit-scrollbar-track,
-body:not(.dashboard-page) *::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-body:not(.dashboard-page)::-webkit-scrollbar-thumb,
-body:not(.dashboard-page) *::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.4);
-    border-radius: 10px;
-}
-
-body:not(.dashboard-page)::-webkit-scrollbar-thumb:hover,
-body:not(.dashboard-page) *::-webkit-scrollbar-thumb:hover {
-    background: rgba(148, 163, 184, 0.7);
-}
+/* 1. Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */
 
 /* 2. Modal/Dialog Smart Overflow for 13-inch Screens */
 @media screen and (max-height: 800px) {

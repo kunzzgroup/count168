@@ -242,23 +242,7 @@
     height: clamp(32px, 2.8vw, 48px);
 }
 
-.avatar-options::-webkit-scrollbar {
-    width: 4px;
-}
-
-.avatar-options::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 2px;
-}
-
-.avatar-options::-webkit-scrollbar-thumb {
-    background: rgba(102, 126, 234, 0.3);
-    border-radius: 2px;
-}
-
-.avatar-options::-webkit-scrollbar-thumb:hover {
-    background: rgba(102, 126, 234, 0.5);
-}
+/* .avatar-options scrollbars: app-wide — dashboard-scrollbar.css */
 
 .user-info {
     display: flex;
@@ -909,24 +893,7 @@
 }
 
 /* 滚动条样式 */
-.informationmenu-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.informationmenu-content::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-}
-
-.informationmenu-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
-}
-
-.informationmenu-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
-}
-
+/* .informationmenu-content scrollbars: app-wide — dashboard-scrollbar.css */
 
 /* Keep sidebar language switch size stable across pages/viewports */
 .informationmenu-header .sidebar-lang-switch-wrap {

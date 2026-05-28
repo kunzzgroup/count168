@@ -821,20 +821,7 @@ body.maintenance-page #confirmDeleteModal .confirm-delete {
     text-align: center;
 }
 
-/* Scrollbar for long messages */
-.maintenance-confirm-message::-webkit-scrollbar {
-    width: 6px;
-}
-
-.maintenance-confirm-message::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-}
-
-.maintenance-confirm-message::-webkit-scrollbar-thumb {
-    background: #94a3b8;
-    border-radius: 10px;
-}
+/* Scrollbars: app-wide — dashboard-scrollbar.css */
 
 /* Button styles for confirm modal (scoped — avoid overriding sidebar .logout-btn) */
 body.maintenance-page .maintenance-modal .btn {

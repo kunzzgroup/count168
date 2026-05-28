@@ -2183,14 +2183,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     scrollbar-gutter: stable;
 }
 
-.company-share-scroll::-webkit-scrollbar {
-    width: 6px;
-}
-
-.company-share-scroll::-webkit-scrollbar-thumb {
-    background: var(--account-select-card-border);
-    border-radius: 6px;
-}
+/* .company-share-scroll scrollbars: app-wide — dashboard-scrollbar.css */
 
 .company-share-intro {
     color: var(--color-text-caption);
@@ -4039,24 +4032,7 @@ body.domain-page .domain-react-page .pagination-info {
     margin-top: clamp(18px, 1.67vw, 32px);
 }
 
-/* Scrollbar for long domain lists */
-.confirm-message::-webkit-scrollbar {
-    width: 6px;
-}
-
-.confirm-message::-webkit-scrollbar-track {
-    background: var(--color-surface-slate-100);
-    border-radius: 10px;
-}
-
-.confirm-message::-webkit-scrollbar-thumb {
-    background: var(--account-select-card-border);
-    border-radius: 10px;
-}
-
-.confirm-message::-webkit-scrollbar-thumb:hover {
-    background: var(--color-text-placeholder);
-}
+/* Scrollbars: app-wide — dashboard-scrollbar.css */
 
 /* React Confirm Delete modal hard lock (avoid global override) */
 body.domain-page .domain-confirm-modal-content {
@@ -4435,22 +4411,7 @@ body.domain-page .domain-confirm-modal-content .confirmDeleteBtn {
     flex: 1;
 }
 
-.companies-list-box::-webkit-scrollbar {
-    width: 7px;
-}
-
-.companies-list-box::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.companies-list-box::-webkit-scrollbar-thumb {
-    background-color: var(--account-select-card-border);
-    border-radius: 4px;
-}
-
-.companies-list-box::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-text-placeholder);
-}
+/* .companies-list-box scrollbars: app-wide — dashboard-scrollbar.css */
 
 /* Company Item in the new list */
 .companies-list-box .company-item {

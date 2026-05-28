@@ -397,4 +397,4 @@ body.maintenance-page .maintenance-table td.maintenance-table-cell {
     text-align: left !important;
 }
 
-/* Scrollbars: shared dashboard style — see dashboard-scrollbar.css (app-shell) */
+/* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

@@ -264,23 +264,7 @@
     background: #f0f9ff;
 }
 
-#countrySelectionModal #existingCountries.country-list::-webkit-scrollbar,
-#countrySelectionModal .selected-countries-list::-webkit-scrollbar {
-    width: 10px;
-}
-
-#countrySelectionModal #existingCountries.country-list::-webkit-scrollbar-thumb,
-#countrySelectionModal .selected-countries-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 6px;
-    border: 2px solid #fff;
-}
-
-#countrySelectionModal #existingCountries.country-list::-webkit-scrollbar-track,
-#countrySelectionModal .selected-countries-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 6px;
-}
+/* Country modal scrollbars: app-wide — dashboard-scrollbar.css */
 
 .country-list {
     flex: 1 1 auto;
@@ -785,23 +769,7 @@
     background: #fff;
 }
 
-#bankSelectionModal #existingBanks.bank-list::-webkit-scrollbar,
-#bankSelectionModal .selected-banks-list::-webkit-scrollbar {
-    width: 10px;
-}
-
-#bankSelectionModal #existingBanks.bank-list::-webkit-scrollbar-thumb,
-#bankSelectionModal .selected-banks-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 6px;
-    border: 2px solid #fff;
-}
-
-#bankSelectionModal #existingBanks.bank-list::-webkit-scrollbar-track,
-#bankSelectionModal .selected-banks-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 6px;
-}
+/* Bank modal scrollbars: app-wide — dashboard-scrollbar.css */
 
 .bank-list {
     flex: 1 1 auto;
@@ -3084,19 +3052,7 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     background: #ffffff;
 }
 
-/* Scrollbar for the list */
-.bank-profit-sharing-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.bank-profit-sharing-list::-webkit-scrollbar-track {
-    background: #f1f5f9;
-}
-
-.bank-profit-sharing-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-}
+/* Scrollbars: app-wide — dashboard-scrollbar.css */
 
 /* Empty State */
 .no-profit-sharing {

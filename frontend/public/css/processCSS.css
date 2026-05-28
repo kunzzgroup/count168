@@ -1496,7 +1496,6 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .userlist-fil
 body.process-page.process-page--bank .bank-process-filter-panel.is-open .userlist-filter-chips--bank-process {
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: thin;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 1px;
 }
@@ -5821,20 +5820,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     min-height: 45px !important;
 }
 
-/* Scrollbar for long messages */
-.process-confirm-message::-webkit-scrollbar {
-    width: 6px;
-}
-
-.process-confirm-message::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-}
-
-.process-confirm-message::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
-}
+/* Scrollbars: app-wide — dashboard-scrollbar.css */
 
 /* Notification styles - 与accountlist保持一致但使用process前缀 */
 .process-notification-container {

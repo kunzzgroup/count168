@@ -372,24 +372,7 @@
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
-/* scrollbar styling for account list */
-.currency-setting-account-list::-webkit-scrollbar {
-    width: 10px;
-}
-
-.currency-setting-account-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 5px;
-}
-
-.currency-setting-account-list::-webkit-scrollbar-thumb {
-    background: #d1d5db;
-    border-radius: 5px;
-}
-
-.currency-setting-account-list::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
-}
+/* Scrollbars: app-wide — dashboard-scrollbar.css */
 
 /* ==========================================
    CSS for Currency Setting Modal

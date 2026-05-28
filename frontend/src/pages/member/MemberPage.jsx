@@ -13,6 +13,7 @@ import {
   parseDmy,
 } from "../maintenance/shared/maintenanceDateHelpers.js";
 import "../../../public/css/member.css";
+import "../../../public/css/sidebar.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/report-outlined-fields.css";
@@ -201,10 +202,20 @@ export default function MemberPage() {
   );
 
   useLayoutEffect(() => {
-    document.body.classList.remove("bg", "dashboard-page");
-    document.body.classList.add("transaction-page", "member-winloss-page", "ec-auth-shell");
+    document.body.classList.remove("bg");
+    document.body.classList.add(
+      "dashboard-page",
+      "transaction-page",
+      "member-winloss-page",
+      "ec-auth-shell",
+    );
     return () => {
-      document.body.classList.remove("transaction-page", "member-winloss-page", "ec-auth-shell");
+      document.body.classList.remove(
+        "dashboard-page",
+        "transaction-page",
+        "member-winloss-page",
+        "ec-auth-shell",
+      );
     };
   }, []);
 
