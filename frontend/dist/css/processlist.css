@@ -1953,10 +1953,10 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 
 .bank-form .bank-day-end-monthly-cap-wrap {
     display: inline-flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    gap: 4px;
+    justify-content: flex-start;
+    gap: 8px;
     flex: 0 0 auto;
     margin: 0;
     padding: 0;
@@ -1964,27 +1964,28 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 }
 
 .bank-form .bank-day-end-cap-label {
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-heading-page, inherit);
     color: #94a3b8;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     user-select: none;
     line-height: 1;
-    min-width: 24px;
-    text-align: center;
+    min-width: 0;
+    text-align: left;
 }
 
 .bank-form .bank-day-end-cap-label.is-on {
-    color: #1d4ed8;
+    color: #3b82f6;
 }
 
-/* Bank modal：Day end 旁 toggle（独立 class，避免 userlist 污染） */
+/* Bank modal：Day end 旁 toggle — 参考 OFF + pill 横排 */
 #addBankModal .bank-day-end-cap-switch {
     position: relative;
     display: inline-block;
-    width: 42px;
-    height: 24px;
+    width: 40px;
+    height: 22px;
     flex-shrink: 0;
     cursor: pointer;
     margin: 0;
@@ -2006,55 +2007,45 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     position: absolute;
     inset: 0;
     display: block;
-    background: linear-gradient(180deg, #eef2f7 0%, #e2e8f0 100%);
+    background: #d1dce8;
     border-radius: 999px;
-    box-shadow:
-        inset 0 1px 2px rgba(15, 23, 42, 0.08),
-        0 0 0 1px rgba(148, 163, 184, 0.45);
-    transition: background 0.22s ease, box-shadow 0.22s ease;
+    box-shadow: none;
+    transition: background 0.2s ease;
 }
 
 #addBankModal .bank-day-end-cap-switch__track::before {
     content: "";
     position: absolute;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     top: 2px;
     left: 2px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background: #ffffff;
     border-radius: 50%;
-    box-shadow:
-        0 1px 3px rgba(15, 23, 42, 0.18),
-        0 0 0 1px rgba(148, 163, 184, 0.2);
-    transition: left 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    transition: left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #addBankModal .bank-day-end-cap-switch input:checked + .bank-day-end-cap-switch__track {
-    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
-    box-shadow:
-        inset 0 1px 2px rgba(29, 78, 216, 0.25),
-        0 0 0 1px rgba(37, 99, 235, 0.35);
+    background: #3b82f6;
 }
 
 #addBankModal .bank-day-end-cap-switch input:checked + .bank-day-end-cap-switch__track::before {
     left: 20px;
-    box-shadow:
-        0 2px 4px rgba(29, 78, 216, 0.35),
-        0 0 0 1px rgba(255, 255, 255, 0.65);
+    box-shadow: 0 1px 3px rgba(29, 78, 216, 0.25);
 }
 
 #addBankModal .bank-day-end-cap-switch:hover .bank-day-end-cap-switch__track {
-    background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+    background: #c4d0de;
 }
 
 #addBankModal .bank-day-end-cap-switch:hover input:checked + .bank-day-end-cap-switch__track {
-    background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+    background: #2563eb;
 }
 
 #addBankModal .bank-day-end-cap-switch input:focus-visible + .bank-day-end-cap-switch__track {
-    box-shadow:
-        inset 0 1px 2px rgba(15, 23, 42, 0.08),
-        0 0 0 2px rgba(59, 130, 246, 0.45);
+    outline: 2px solid rgba(59, 130, 246, 0.45);
+    outline-offset: 2px;
 }
 
 #addBankModal .bank-day-end-cap-switch input:disabled + .bank-day-end-cap-switch__track {
