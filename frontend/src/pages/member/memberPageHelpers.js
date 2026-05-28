@@ -90,29 +90,49 @@ export function measureCompactMatrixColumnWidths(gridEl, remPx) {
   return { accountColPx: Math.ceil(accountColPx), amtColPx: Math.ceil(amtColPx) };
 }
 
-/** 多币种矩阵：按表头/金额文字量宽，避免列宽锁死后数字贴边溢出 */
-export function measureMatrixCurrencyColumnWidths(gridEl, remPx) {
+/** 多币种矩阵：按列量宽（表头 + 该列各格），避免一列大金额把所有币种列撑同样宽 */
+export function measureMatrixCurrencyColumnWidths(gridEl, remPx, ncu) {
   const parseRem = (s, fallbackRem) => {
     const hit = String(s).match(/^([\d.]+)rem$/);
     return hit ? parseFloat(hit[1]) * remPx : fallbackRem * remPx;
   };
   const minColPx = parseRem(WINLOSS_MATRIX_MIN_CCY_COL_WIDTH, 6);
+  const minRowheadPx = parseRem(WINLOSS_MATRIX_ROWHEAD_COL_WIDTH, 5.75);
+  const pad = WINLOSS_MATRIX_CCY_CELL_PAD_X;
   const probe =
     gridEl.querySelector(".member-balance-matrix-amt") ||
     gridEl.querySelector(".member-balance-matrix-th") ||
     gridEl.querySelector(".member-balance-matrix-cell");
 
-  let colPx = minColPx;
-  const pad = WINLOSS_MATRIX_CCY_CELL_PAD_X;
-  const measure = (el, text) => {
-    colPx = Math.max(colPx, measureElementTextWidthPx(probe || el, text) + pad);
+  const measureText = (el, text) => measureElementTextWidthPx(probe || el, text) + pad;
+
+  let rowheadPx = minRowheadPx;
+  gridEl.querySelectorAll(".member-balance-matrix-corner, .member-balance-matrix-rowhead").forEach((el) => {
+    rowheadPx = Math.max(rowheadPx, measureText(el, el.textContent));
+  });
+
+  const headers = [...gridEl.querySelectorAll(".member-balance-matrix-th")];
+  const colCount = ncu > 0 ? ncu : headers.length;
+  const colPx = Array.from({ length: colCount }, (_, ci) => {
+    const th = headers[ci];
+    let w = th ? measureText(th, th.textContent) : minColPx;
+    w = Math.max(w, minColPx * 0.55);
+    return w;
+  });
+
+  const cells = [...gridEl.querySelectorAll(".member-balance-matrix-cell")];
+  cells.forEach((cell, idx) => {
+    const ci = idx % colCount;
+    const amt = cell.querySelector(".member-balance-matrix-amt");
+    const na = cell.querySelector(".member-balance-matrix-na");
+    if (amt) colPx[ci] = Math.max(colPx[ci], measureText(amt, amt.textContent));
+    if (na) colPx[ci] = Math.max(colPx[ci], measureText(na, na.textContent));
+  });
+
+  return {
+    rowheadPx: Math.ceil(rowheadPx),
+    colPx: colPx.map((w) => Math.ceil(w)),
   };
-
-  gridEl.querySelectorAll(".member-balance-matrix-th").forEach((el) => measure(el, el.textContent));
-  gridEl.querySelectorAll(".member-balance-matrix-amt").forEach((el) => measure(el, el.textContent));
-  gridEl.querySelectorAll(".member-balance-matrix-na").forEach((el) => measure(el, el.textContent));
-
-  return Math.ceil(colPx);
 }
 
 export function normalizeNumber(value) {

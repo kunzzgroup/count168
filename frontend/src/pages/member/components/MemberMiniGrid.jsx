@@ -7,12 +7,9 @@ import {
   miniGridAmountTone,
   miniGridShowsTotalRow,
   MEMBER_AMOUNT_NA_MARK,
-  miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
   measureCompactMatrixColumnWidths,
   measureMatrixCurrencyColumnWidths,
-  WINLOSS_MATRIX_MIN_CCY_COL_WIDTH,
-  WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
 } from "../memberPageHelpers.js";
 
 function resolveBalanceCell({
@@ -251,7 +248,6 @@ function MultiCurrencyGrid({
 }) {
   const lastCi = orderUpper.length - 1;
   const lastRi = listOrdered.length - 1;
-  const gridCols = miniMatrixGridTemplateColumns(orderUpper.length);
 
   return (
     <div
@@ -260,7 +256,6 @@ function MultiCurrencyGrid({
       className={`member-balance-mini-grid member-balance-mini-matrix member-balance-mini-matrix--ccy-compact${manyCcy ? " member-balance-mini-matrix--many-ccy" : ""}${scrollMode ? " member-balance-mini-matrix--ccy-scroll" : ""}`}
       role="grid"
       aria-label={t?.("balancesGridAria") || "Balances by account and currency"}
-      style={{ gridTemplateColumns: gridCols }}
     >
       <div className="member-balance-matrix-corner" role="columnheader">
         {t?.("colCurrency") || "Currency"}
@@ -366,36 +361,38 @@ export default function MemberMiniGrid({
 
     if (ncu < 1) return undefined;
 
+    const matrixColEl = scroll.closest(".member-dash-col-matrix");
+
     const syncColWidth = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const parseRem = (s, fallbackRem) => {
-        const hit = String(s).match(/^([\d.]+)rem$/);
-        return hit ? parseFloat(hit[1]) * rem : fallbackRem * rem;
-      };
-      const rowheadPx = parseRem(WINLOSS_MATRIX_ROWHEAD_COL_WIDTH, 5.75);
 
-      const applyColumns = (px) => {
-        const colW = `${px}px`;
-        scroll.style.setProperty("--member-wl-ccy-fill-col-w", colW);
-        grid.style.setProperty("--member-wl-ccy-fill-col-w", colW);
-        grid.style.gridTemplateColumns = `minmax(${WINLOSS_MATRIX_ROWHEAD_COL_WIDTH}, max-content) repeat(${ncu}, minmax(${colW}, max-content))`;
-        grid.style.width = `${rowheadPx + ncu * px}px`;
+      const applyColumns = ({ rowheadPx, colPx }) => {
+        const colParts = colPx.map((w) => `${w}px`).join(" ");
+        const totalW = rowheadPx + colPx.reduce((sum, w) => sum + w, 0);
+
+        grid.style.gridTemplateColumns = `${rowheadPx}px ${colParts}`;
+        grid.style.width = `${totalW}px`;
         grid.style.maxWidth = "none";
+
+        const containerW = scroll.clientWidth || matrixColEl?.clientWidth || 0;
+        const fits = containerW > 0 && totalW <= containerW;
+        scroll.classList.toggle("member-dash-matrix-scroll--ccy-fits", fits);
+        grid.classList.toggle("member-balance-mini-matrix--ccy-fits", fits);
       };
 
-      const colPx = measureMatrixCurrencyColumnWidths(grid, rem);
-      applyColumns(colPx);
+      applyColumns(measureMatrixCurrencyColumnWidths(grid, rem, ncu));
     };
 
     syncColWidth();
     requestAnimationFrame(syncColWidth);
     const ro = new ResizeObserver(syncColWidth);
-    const matrixColEl = scroll.closest(".member-dash-col-matrix");
     if (matrixColEl) ro.observe(matrixColEl);
     window.addEventListener("resize", syncColWidth);
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", syncColWidth);
+      scroll.classList.remove("member-dash-matrix-scroll--ccy-fits");
+      grid.classList.remove("member-balance-mini-matrix--ccy-fits");
       scroll.style.removeProperty("--member-wl-ccy-fill-col-w");
       grid.style.removeProperty("--member-wl-ccy-fill-col-w");
       grid.style.removeProperty("grid-template-columns");
