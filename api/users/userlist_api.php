@@ -197,9 +197,6 @@ function userlist_company_ids_for_group(array $accessibleCompanies, string $grou
     }
     $out = [];
     foreach ($accessibleCompanies as $c) {
-        if (!gc_company_row_matches_login_scope($c)) {
-            continue;
-        }
         $linkSrc = strtoupper(trim((string) ($c['link_source_group'] ?? '')));
         if ($linkSrc !== '') {
             continue;
@@ -263,6 +260,15 @@ function userlist_assert_group_id_allowed(string $groupId): void
         sendResponse(false, 'Group filter is not allowed for company login');
     }
     $accessible = gc_session_accessible_group_ids();
+    if ($accessible === [] || !in_array($g, $accessible, true)) {
+        // Self-heal stale session cache before denying (AP -> IG switch case).
+        try {
+            userlist_fetch_accessible_companies($GLOBALS['pdo']);
+        } catch (Throwable $e) {
+            // Keep original fallback checks below.
+        }
+        $accessible = gc_session_accessible_group_ids();
+    }
     if ($accessible !== [] && !in_array($g, $accessible, true)) {
         sendResponse(false, 'Group not accessible');
     }
@@ -298,6 +304,124 @@ function userlistFriendlyDbError(Throwable $e): string
         return 'Could not save changes. Please try again.';
     }
     return $raw;
+}
+
+function userlist_safe_rollback(PDO $pdo): void
+{
+    try {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+    } catch (Throwable $ignored) {
+        // Ignore rollback errors to avoid masking the original exception.
+    }
+}
+
+/**
+ * Resolve group entity company ids from company table directly (same strategy as account list API).
+ * Priority:
+ * 1) company.company_id == GROUP_ID (e.g. AP)
+ * 2) placeholder row: empty company_id + group_id == GROUP_ID
+ *
+ * @return list<int>
+ */
+function userlist_group_entity_company_ids(PDO $pdo, string $groupScope): array
+{
+    $g = userlist_normalize_group_id($groupScope);
+    if ($g === null) {
+        return [];
+    }
+
+    $ids = [];
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        ORDER BY id ASC
+    ");
+    $stmt->execute([$g]);
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        $nid = (int) $id;
+        if ($nid > 0) {
+            $ids[] = $nid;
+        }
+    }
+
+    if ($ids === []) {
+        $placeholderStmt = $pdo->prepare("
+            SELECT id
+            FROM company
+            WHERE TRIM(COALESCE(company_id, '')) = ''
+              AND UPPER(TRIM(group_id)) = ?
+            ORDER BY id ASC
+        ");
+        $placeholderStmt->execute([$g]);
+        foreach ($placeholderStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $nid = (int) $id;
+            if ($nid > 0) {
+                $ids[] = $nid;
+            }
+        }
+    }
+
+    // Safety: keep only ids the current login scope can access.
+    $allowed = [];
+    foreach (array_values(array_unique($ids)) as $cid) {
+        if (gc_session_can_access_company_id($pdo, (int) $cid, $g)) {
+            $allowed[] = (int) $cid;
+        }
+    }
+
+    return $allowed;
+}
+
+/**
+ * Resolve effective company scope for group/company modes.
+ * - Group mode: lock to group entity company id (e.g. AP), never subsidiary (e.g. C168).
+ * - Company mode: use current session company id.
+ *
+ * @param list<int> $validatedCompanyIds
+ */
+function userlist_resolve_scope_company_id(PDO $pdo, ?string $groupScope, array $validatedCompanyIds, int $currentCompanyId): int
+{
+    if ($groupScope === null) {
+        return $currentCompanyId;
+    }
+    userlist_assert_group_id_allowed($groupScope);
+    $entityIds = userlist_group_entity_company_ids($pdo, $groupScope);
+    if ($entityIds === []) {
+        sendResponse(false, 'No group entity company found for selected group');
+    }
+    foreach ($validatedCompanyIds as $cid) {
+        if (in_array((int) $cid, $entityIds, true)) {
+            return (int) $cid;
+        }
+    }
+    return (int) $entityIds[0];
+}
+
+/**
+ * For group mode, lock company_ids to one valid group-entity company id.
+ * Frontend may still send stale company_ids; backend must not reject when group is explicit.
+ *
+ * @param list<int|string> $rawCompanyIds
+ * @return list<int>
+ */
+function userlist_resolve_company_ids_for_group_scope(PDO $pdo, string $groupScope, array $rawCompanyIds): array
+{
+    userlist_assert_group_id_allowed($groupScope);
+    $entityIds = userlist_group_entity_company_ids($pdo, $groupScope);
+    if ($entityIds === []) {
+        sendResponse(false, 'No group entity company found for selected group');
+    }
+    $candidateIds = array_values(array_unique(array_filter(array_map('intval', $rawCompanyIds), static fn (int $id): bool => $id > 0)));
+    foreach ($candidateIds as $cid) {
+        if (in_array($cid, $entityIds, true)) {
+            return [$cid];
+        }
+    }
+    return [(int) $entityIds[0]];
 }
 
 // Validate required fields for create/update
@@ -416,18 +540,21 @@ try {
                 sendResponse(false, "Invalid status");
             }
             
+            $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
             // 验证 company_ids
             global $current_company_id;
-            $company_ids = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
-            if (empty($company_ids)) {
-                // 如果没有提供 company_ids，使用当前 session 的 company_id
-                $company_ids = [$current_company_id];
-            }
-            $company_ids = userlist_validate_company_ids_allowed($pdo, $company_ids);
-            $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
+            $rawCompanyIds = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
             if ($groupScope !== null) {
-                userlist_assert_company_ids_match_group_entity($pdo, $company_ids, $groupScope);
+                $company_ids = userlist_resolve_company_ids_for_group_scope($pdo, $groupScope, $rawCompanyIds);
+            } else {
+                $company_ids = $rawCompanyIds;
+                if (empty($company_ids)) {
+                    // Company mode fallback keeps original behavior.
+                    $company_ids = [$current_company_id];
+                }
+                $company_ids = userlist_validate_company_ids_allowed($pdo, $company_ids);
             }
+            $scope_company_id = userlist_resolve_scope_company_id($pdo, $groupScope, $company_ids, (int) $current_company_id);
             
             // 验证所有 company_ids 是否存在
             if (count($company_ids) > 0) {
@@ -577,39 +704,53 @@ try {
                     
                     // 只在当前公司下设置权限
                     $permStmt = $pdo->prepare("INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions) VALUES (?, ?, ?, ?)");
-                    $permStmt->execute([$newUserId, $current_company_id, $accountPerms, $processPerms]);
+                    $permStmt->execute([$newUserId, $scope_company_id, $accountPerms, $processPerms]);
                 }
                 
                 // 提交事务
                 $pdo->commit();
                 
-                // 获取新创建的用户信息，包括当前公司的权限
-                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?");
-                $stmt->execute([$newUserId]);
-                $newUser = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                // 获取当前公司的权限（如果存在）
-                $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
-                $stmt->execute([$newUserId, $current_company_id]);
-                $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if ($companyPermissions) {
-                    $newUser['account_permissions'] = $companyPermissions['account_permissions'];
-                    $newUser['process_permissions'] = $companyPermissions['process_permissions'];
-                } else {
-                    $newUser['account_permissions'] = null;
-                    $newUser['process_permissions'] = null;
+                // Post-commit reads must never fail the create result.
+                $newUser = [
+                    'id' => (int)$newUserId,
+                    'login_id' => (string)$input['login_id'],
+                    'name' => (string)$input['name'],
+                    'email' => (string)$input['email'],
+                    'role' => (string)$input['role'],
+                    'status' => (string)$input['status'],
+                    'last_login' => null,
+                    'created_by' => getCurrentUser(),
+                    'account_permissions' => null,
+                    'process_permissions' => null,
+                ];
+                try {
+                    $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?");
+                    $stmt->execute([$newUserId]);
+                    $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($dbUser) {
+                        $newUser = array_merge($newUser, $dbUser);
+                    }
+
+                    $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+                    $stmt->execute([$newUserId, $scope_company_id]);
+                    $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($companyPermissions) {
+                        $newUser['account_permissions'] = $companyPermissions['account_permissions'];
+                        $newUser['process_permissions'] = $companyPermissions['process_permissions'];
+                    }
+                } catch (Throwable $postCommitReadError) {
+                    error_log("Create user post-commit read error: " . $postCommitReadError->getMessage());
                 }
                 
                 sendResponse(true, 'User created successfully', $newUser);
             } catch (PDOException $e) {
-                $pdo->rollBack();
+                userlist_safe_rollback($pdo);
                 error_log("Create user PDO error: " . $e->getMessage());
                 error_log("SQL State: " . $e->getCode());
                 error_log("Error Info: " . print_r($e->errorInfo, true));
                 sendResponse(false, userlistFriendlyDbError($e));
             } catch (Exception $e) {
-                $pdo->rollBack();
+                userlist_safe_rollback($pdo);
                 error_log("Create user error: " . $e->getMessage());
                 sendResponse(false, userlistFriendlyDbError($e));
             }
@@ -624,9 +765,17 @@ try {
             }
             
             global $current_company_id, $current_user_role;
+            $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
+            $rawCompanyIds = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
+            if ($groupScope !== null) {
+                $validatedScopeCompanyIds = userlist_resolve_company_ids_for_group_scope($pdo, $groupScope, $rawCompanyIds);
+            } else {
+                $validatedScopeCompanyIds = userlist_validate_company_ids_allowed($pdo, $rawCompanyIds);
+            }
+            $scope_company_id = userlist_resolve_scope_company_id($pdo, $groupScope, $validatedScopeCompanyIds, (int) $current_company_id);
             
             // 检查是否是owner影子
-            if (isOwnerShadow($pdo, $input['id'], $current_company_id)) {
+            if (isOwnerShadow($pdo, $input['id'], $scope_company_id)) {
                 // 只有owner本人可以更新owner记录
                 if ($current_user_role !== 'owner') {
                     sendResponse(false, '只有owner本人可以编辑owner记录');
@@ -693,7 +842,7 @@ try {
                         INNER JOIN company c ON c.owner_id = o.id
                         WHERE o.id = ? AND c.id = ?
                     ");
-                    $stmt->execute([$input['id'], $current_company_id]);
+                    $stmt->execute([$input['id'], $scope_company_id]);
                     $updatedOwner = $stmt->fetch(PDO::FETCH_ASSOC);
                     
                     sendResponse(true, 'Owner updated successfully', $updatedOwner);
@@ -724,7 +873,7 @@ try {
                 FROM user_company_map 
                 WHERE user_id = ? AND company_id = ?
             ");
-            $stmt->execute([$input['id'], $current_company_id]);
+            $stmt->execute([$input['id'], $scope_company_id]);
             $belongsToCurrentCompany = $stmt->fetchColumn() > 0;
             
             // 如果没有提交 login_id，使用原有的
@@ -746,7 +895,7 @@ try {
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
                 WHERE u.login_id = ? AND u.id != ? AND ucm.company_id = ?
             ");
-            $stmt->execute([$input['login_id'], $input['id'], $current_company_id]);
+            $stmt->execute([$input['login_id'], $input['id'], $scope_company_id]);
             if ($stmt->fetchColumn() > 0) {
                 sendResponse(false, 'Login ID already exists in current company');
             }
@@ -759,7 +908,7 @@ try {
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
                 WHERE u.email = ? AND u.id != ? AND ucm.company_id = ?
             ");
-            $stmt->execute([$input['email'], $input['id'], $current_company_id]);
+            $stmt->execute([$input['email'], $input['id'], $scope_company_id]);
             if ($stmt->fetchColumn() > 0) {
                 sendResponse(false, 'Email already exists in current company');
             }
@@ -837,15 +986,15 @@ try {
                 // 同步 read_only 到 company_ownership
                 if ($current_user_role === 'owner' && isset($input['read_only']) && strtolower($input['role']) === 'partnership') {
                     $updCoStmt = $pdo->prepare("UPDATE company_ownership SET read_only = ? WHERE company_id = ? AND account_id = ? AND owner_type = 'user'");
-                    $updCoStmt->execute([(int)$input['read_only'], $current_company_id, $input['id']]);
+                    $updCoStmt->execute([(int)$input['read_only'], $scope_company_id, $input['id']]);
                 }
                 
                 // 如果提供了 company_ids，更新 company 关联
                 if (isset($input['company_ids']) && is_array($input['company_ids']) && count($input['company_ids']) > 0) {
-                    $input['company_ids'] = userlist_validate_company_ids_allowed($pdo, $input['company_ids']);
-                    $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
                     if ($groupScope !== null) {
-                        userlist_assert_company_ids_match_group_entity($pdo, $input['company_ids'], $groupScope);
+                        $input['company_ids'] = userlist_resolve_company_ids_for_group_scope($pdo, $groupScope, $input['company_ids']);
+                    } else {
+                        $input['company_ids'] = userlist_validate_company_ids_allowed($pdo, $input['company_ids']);
                     }
                     // 验证所有 company_ids 是否存在
                     $placeholders = str_repeat('?,', count($input['company_ids']) - 1) . '?';
@@ -860,7 +1009,7 @@ try {
                     // 检查移除后用户是否还属于当前公司（用于提示）
                     // 允许移除当前公司的关联，但会在响应中标记
                     $will_lose_access = false;
-                    if ($belongsToCurrentCompany && !in_array($current_company_id, $input['company_ids'])) {
+                    if ($belongsToCurrentCompany && !in_array($scope_company_id, $input['company_ids'])) {
                         $will_lose_access = true;
                     }
                     
@@ -914,7 +1063,7 @@ try {
                     ");
                     $stmt->execute([
                         $input['id'], 
-                        $current_company_id, 
+                        $scope_company_id, 
                         $accountPerms, 
                         $processPerms,
                         $accountPerms, // 用于条件判断
@@ -932,7 +1081,7 @@ try {
                 
                 // 获取当前公司的权限（从 user_company_permissions 表）
                 $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
-                $stmt->execute([$input['id'], $current_company_id]);
+                $stmt->execute([$input['id'], $scope_company_id]);
                 $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($companyPermissions) {

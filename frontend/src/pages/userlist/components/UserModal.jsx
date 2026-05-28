@@ -313,21 +313,27 @@ export default function UserModal({
     bulkSelectionTimerRef.current = setTimeout(() => setBulkSelectionSettling(false), 120);
   };
 
+  const getCompanyPickerLabel = (companyRow) => {
+    if (groupPickerMode) return String(companyRow?.group_id || "").trim().toUpperCase();
+    return String(companyRow?.company_id || companyRow?.group_id || "").trim().toUpperCase();
+  };
+
   const selectedCompanyLabels = useMemo(() => {
     const set = new Set(selectedCompanyIds.map(Number));
     return modalCompanies
       .filter((c) => set.has(Number(c.id)))
-      .map((c) => String(c.company_id || c.group_id || "").toUpperCase());
-  }, [modalCompanies, selectedCompanyIds]);
+      .map((c) => getCompanyPickerLabel(c))
+      .filter(Boolean);
+  }, [modalCompanies, selectedCompanyIds, groupPickerMode]);
 
   const companyPickerFiltered = useMemo(() => {
     const q = companySearchQuery.trim().toUpperCase();
     if (!q) return modalCompanies;
     return modalCompanies.filter((c) => {
-      const label = String(c.company_id || c.group_id || "").toUpperCase();
+      const label = getCompanyPickerLabel(c);
       return label.includes(q);
     });
-  }, [modalCompanies, companySearchQuery]);
+  }, [modalCompanies, companySearchQuery, groupPickerMode]);
 
   const selectedPermissionLabels = useMemo(
     () => PERMISSION_KEYS.filter((k) => permSelected.has(k)).map((k) => getPermissionLabel(k, t)),
@@ -577,35 +583,37 @@ export default function UserModal({
                 </div>
               </div>
 
-            <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
-                <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
-                <div ref={processGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
-                  {modalProcesses.map((p) => (
-                    <label key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
-                      <input
-                        type="checkbox"
-                        id={`proc-${p.id}`}
-                        checked={selectedProcessIds.has(Number(p.id))}
-                        disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
-                        onChange={(e) => {
-                          setSelectedProcessIds((prev) => {
-                            const n = new Set(prev);
-                            if (e.target.checked) n.add(Number(p.id)); else n.delete(Number(p.id));
-                            return n;
-                          });
-                        }}
-                      />
-                      <span className="account-label account-label--process">
-                        {p.process_id}{p.description ? <span className="account-label-desc">{p.description}</span> : null}
-                      </span>
-                    </label>
-                  ))}
+            {!groupPickerMode ? (
+              <div className="user-modal-col user-modal-col--process account-process-col" style={userModalColStyle}>
+                  <label className="acc-proc-label user-modal-col-title">{t("process")}</label>
+                  <div ref={processGridRef} className={`account-grid account-grid--four account-grid--process${bulkSelectionSettling ? " account-grid--bulk-settling" : ""}`}>
+                    {modalProcesses.map((p) => (
+                      <label key={p.id} className="account-item-compact account-item-compact--process user-modal-select-card">
+                        <input
+                          type="checkbox"
+                          id={`proc-${p.id}`}
+                          checked={selectedProcessIds.has(Number(p.id))}
+                          disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock}
+                          onChange={(e) => {
+                            setSelectedProcessIds((prev) => {
+                              const n = new Set(prev);
+                              if (e.target.checked) n.add(Number(p.id)); else n.delete(Number(p.id));
+                              return n;
+                            });
+                          }}
+                        />
+                        <span className="account-label account-label--process">
+                          {p.process_id}{p.description ? <span className="account-label-desc">{p.description}</span> : null}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="account-control-buttons user-modal-col-actions">
+                    <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}>{t("selectAll")}</button>
+                    <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}>{t("clearAll")}</button>
+                  </div>
                 </div>
-                <div className="account-control-buttons user-modal-col-actions">
-                  <button type="button" className="btn-account-control" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set(processIdList)))}>{t("selectAll")}</button>
-                  <button type="button" className="btn-clearall" disabled={!!editingRow?.is_owner_shadow || pageReadOnlyLock} onClick={() => runBulkSelection(() => setSelectedProcessIds(new Set()))}>{t("clearAll")}</button>
-                </div>
-              </div>
+            ) : null}
           </div>
         </div>
         <div className="user-modal-footer">
@@ -685,7 +693,7 @@ export default function UserModal({
               <ul className="user-modal-company-picker-list">
                 {companyPickerFiltered.map((c) => {
                   const id = Number(c.id);
-                  const label = String(c.company_id || c.group_id || "").toUpperCase();
+                  const label = getCompanyPickerLabel(c);
                   const checked = selectedCompanyIds.includes(id);
                   const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
                   return (

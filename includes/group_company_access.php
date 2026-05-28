@@ -363,13 +363,6 @@ function gc_hydrate_accessible_group_ids(PDO $pdo, array $companies): void
     if (gc_session_login_scope() === null) {
         return;
     }
-    if (
-        isset($_SESSION['accessible_group_ids'])
-        && is_array($_SESSION['accessible_group_ids'])
-        && $_SESSION['accessible_group_ids'] !== []
-    ) {
-        return;
-    }
 
     $groups = [];
 

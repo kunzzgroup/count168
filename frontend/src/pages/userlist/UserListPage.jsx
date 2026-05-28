@@ -553,7 +553,9 @@ export default function UserListPage() {
   });
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
-    const cacheKey = String(cid || "");
+    const normalizedGroupId = String(selectedGroup || "").trim().toUpperCase();
+    const useGroupScopedAccounts = groupOnlyUserList && normalizedGroupId !== "";
+    const cacheKey = useGroupScopedAccounts ? `group:${normalizedGroupId}` : `company:${String(cid || "")}`;
     const cached = modalAccessCacheRef.current.get(cacheKey);
     if (cached && !force) {
       modalAccessCompanyIdRef.current = Number(cid);
@@ -574,8 +576,11 @@ export default function UserListPage() {
       } catch { setModalAccounts([]); setModalProcesses([]); return { accounts: [], processes: [] }; }
     }
     try {
+      const accountQuery = useGroupScopedAccounts
+        ? `group_id=${encodeURIComponent(normalizedGroupId)}`
+        : `company_id=${cid}`;
       const request = Promise.all([
-        fetch(buildApiUrl(`api/accounts/accountlistapi.php?company_id=${cid}`), { credentials: "include" }),
+        fetch(buildApiUrl(`api/accounts/accountlistapi.php?${accountQuery}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/processes/processlist_api.php?company_id=${cid}&showAll=1`), { credentials: "include" }),
       ]).then(async ([accRes, procRes]) => {
         const accJ = await accRes.json(); const procJ = await procRes.json();
@@ -598,7 +603,7 @@ export default function UserListPage() {
       return cached || empty;
     }
     finally { modalAccessPendingRef.current.delete(cacheKey); }
-  }, []);
+  }, [groupOnlyUserList, selectedGroup]);
 
   useEffect(() => {
     if (!bootLoading && scopeCompanyId && me) {
@@ -746,11 +751,11 @@ export default function UserListPage() {
     if (currentUserRole === "admin" || currentUserRole === "owner") {
       if (groupOnlyUserList) {
         const defaultGroup =
-          selectedGroup && modalPickerCompanies.some((c) => c.company_id === selectedGroup)
+          selectedGroup && modalPickerCompanies.some((c) => String(c.group_id || "").toUpperCase() === String(selectedGroup).toUpperCase())
             ? selectedGroup
-            : modalPickerCompanies[0]?.company_id;
+            : modalPickerCompanies[0]?.group_id;
         const pick = modalPickerCompanies.find(
-          (c) => String(c.company_id || "").toUpperCase() === String(defaultGroup || "").toUpperCase()
+          (c) => String(c.group_id || "").toUpperCase() === String(defaultGroup || "").toUpperCase()
         );
         setSelectedCompanyIds(pick?.id != null ? [Number(pick.id)] : []);
       } else if (groupOnlyUserList) {
@@ -808,9 +813,10 @@ export default function UserListPage() {
     try {
       const fd = new FormData();
       fd.append("id", String(row.id));
-      const toggleCompanyId = groupOnlyUserList ? scopeCompanyId : companyId;
+      const useGroupScopeForToggle = isGroupLogin(me) && !!selectedGroup;
+      const toggleCompanyId = useGroupScopeForToggle ? scopeCompanyId : (groupOnlyUserList ? scopeCompanyId : companyId);
       if (toggleCompanyId != null) fd.append("company_id", String(toggleCompanyId));
-      if (groupOnlyUserList && selectedGroup) fd.append("group_id", selectedGroup);
+      if (useGroupScopeForToggle) fd.append("group_id", selectedGroup);
       const res = await fetch(buildApiUrl("api/users/toggle_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json(); const newStatus = json?.data?.newStatus || json?.newStatus;
       if (!json.success || !newStatus) { notifyApi(json.message, "toggleFailed", "danger"); return; }
@@ -843,13 +849,15 @@ export default function UserListPage() {
     const emailCheck = validateEmail(form.email);
     if (!emailCheck.ok) { notify(t("invalidEmailFormat"), "danger"); return; }
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
+    const shouldSendProcessPermissions = !groupOnlyUserList;
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: emailCheck.normalized, role: form.role, status: form.status };
     let saveGroupId = null;
     let saveCompanyIds = selectedCompanyIds;
     if (groupOnlyUserList && (currentUserRole === "admin" || currentUserRole === "owner")) {
       const entityId = selectedCompanyIds[0] != null ? Number(selectedCompanyIds[0]) : null;
-      saveGroupId = resolveGroupIdFromEntityCompanyId(companies, entityId);
+      const selectedGroupOption = modalPickerCompanies.find((c) => Number(c.id) === Number(entityId));
+      saveGroupId = String(selectedGroupOption?.group_id || "").trim().toUpperCase();
       if (!saveGroupId || !Number.isFinite(entityId) || entityId <= 0) {
         notify(t("groupSelectionRequired"), "danger");
         return;
@@ -874,15 +882,15 @@ export default function UserListPage() {
     }
     if (editingRow?.is_owner_shadow) {
       payload.role = "owner";
-    } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = saveCompanyIds; } else {
+    } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; if (shouldSendProcessPermissions) payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = saveCompanyIds; } else {
       const caps = computeRowCapabilities(editingRow, currentUserId, currentUserRole);
       if (caps.isSelf || caps.isHigherLevel || caps.isSameLevel) {
         payload.account_permissions = accountPerms;
-        payload.process_permissions = processPerms;
+        if (shouldSendProcessPermissions) payload.process_permissions = processPerms;
       } else {
         payload.permissions = Array.from(permSelected);
         payload.account_permissions = accountPerms;
-        payload.process_permissions = processPerms;
+        if (shouldSendProcessPermissions) payload.process_permissions = processPerms;
       }
       if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) {
         payload.company_ids = groupOnlyUserList ? saveCompanyIds : selectedCompanyIds;
