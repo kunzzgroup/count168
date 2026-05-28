@@ -318,7 +318,7 @@ export default function MemberPage() {
         <div className="transaction-main-content member-winloss-dash">
           <div className="transaction-search-section member-dash-unified-bar">
             <div
-              className={`member-dash-columns${showMiniRail ? " member-dash-columns--two-col" : " member-dash-columns--no-mini-rail"}${showMiniRail && miniGridDisplayCurrencies.length === 1 ? " member-dash-columns--single-ccy-rail" : ""}${wlFiltersSyncPx != null && !miniGridLoading ? " member-dash-columns--wl-sync-h" : ""}${miniGridLoading ? " member-dash-columns--grid-loading" : ""}`}
+              className={`member-dash-columns${showMiniRail ? " member-dash-columns--two-col" : " member-dash-columns--no-mini-rail"}${wlFiltersSyncPx != null && !miniGridLoading ? " member-dash-columns--wl-sync-h" : ""}${miniGridLoading ? " member-dash-columns--grid-loading" : ""}`}
               style={wlFiltersSyncPx != null ? { ["--member-winloss-filters-h"]: `${wlFiltersSyncPx}px` } : undefined}
             >
               <div className="member-dash-col member-dash-col-filters" ref={wlFiltersColRef}>

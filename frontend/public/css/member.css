@@ -2555,13 +2555,30 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     display: none;
 }
 
-/* 单币种紧凑表：账户 | 金额 两列贴近，表宽随内容 */
+/* 紧凑两列表：单/多币种统一布局，纵向堆叠；列宽随内容，通常不触发横向滚动 */
 .member-dash-matrix-scroll--compact {
     width: max-content;
     max-width: 100%;
     flex: 0 1 auto;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
+}
+
+.member-wl-compact-matrix-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(10px, 1vw, 14px);
+    width: max-content;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.member-wl-compact-matrix-stack .member-wl-compact-matrix {
+    width: max-content;
+    max-width: 100%;
+    min-width: max-content;
+    margin-inline: 0;
 }
 
 /* 单层 grid + display:contents；列宽由 JS 按文字量取紧凑值（图二） */
