@@ -22,14 +22,13 @@ import ExpirationReminderModal from "../../components/ExpirationReminderModal.js
 import SidebarExpirationCountdown from "../../components/SidebarExpirationCountdown.jsx";
 import MemberMiniGrid, { MemberMiniGridTotals } from "./components/MemberMiniGrid.jsx";
 import MemberMoneyCell from "./components/MemberMoneyCell.jsx";
-import MemberLinkedFilterModal from "./components/MemberLinkedFilterModal.jsx";
+import MemberGridAccountPills from "./components/MemberGridAccountPills.jsx";
 import {
   computeTableTotals,
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS,
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
   WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ,
   WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
-  winLossMiniMatrixNeedsAccountScroll,
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 import { useMemberPageShell } from "./useMemberPageShell.js";
@@ -81,8 +80,6 @@ export default function MemberPage() {
     showMiniRail,
     groupedRows,
     loadingTable,
-    showLinkedFilterModal,
-    setShowLinkedFilterModal,
     initSession,
     switchCompany,
     switchAccount,
@@ -148,11 +145,6 @@ export default function MemberPage() {
     }
     return bands;
   }, [linkedAccounts, accountMaxPerBand]);
-
-  const matrixNeedsAccountScroll = useMemo(
-    () => winLossMiniMatrixNeedsAccountScroll(miniGridShell, miniGridAccounts),
-    [miniGridShell, miniGridAccounts],
-  );
 
   useEffect(() => {
     const mq = window.matchMedia(WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ);
@@ -326,7 +318,7 @@ export default function MemberPage() {
         <div className="transaction-main-content member-winloss-dash">
           <div className="transaction-search-section member-dash-unified-bar">
             <div
-              className={`member-dash-columns${showMiniRail ? " member-dash-columns--three-col" : " member-dash-columns--no-mini-rail"}${showMiniRail && miniGridDisplayCurrencies.length === 1 ? " member-dash-columns--single-ccy-rail" : ""}${wlFiltersSyncPx != null && !miniGridLoading ? " member-dash-columns--wl-sync-h" : ""}${matrixNeedsAccountScroll ? " member-dash-columns--matrix-accounts-scroll" : ""}${miniGridLoading ? " member-dash-columns--grid-loading" : ""}`}
+              className={`member-dash-columns${showMiniRail ? " member-dash-columns--three-col" : " member-dash-columns--no-mini-rail"}${showMiniRail && miniGridDisplayCurrencies.length === 1 ? " member-dash-columns--single-ccy-rail" : ""}${wlFiltersSyncPx != null && !miniGridLoading ? " member-dash-columns--wl-sync-h" : ""}${miniGridLoading ? " member-dash-columns--grid-loading" : ""}`}
               style={wlFiltersSyncPx != null ? { ["--member-winloss-filters-h"]: `${wlFiltersSyncPx}px` } : undefined}
             >
               <div className="member-dash-col member-dash-col-filters" ref={wlFiltersColRef}>
@@ -461,16 +453,13 @@ export default function MemberPage() {
                   <div className="member-dash-col member-dash-col-matrix" aria-hidden="false">
                     {linkedAccounts.length > 0 && (
                       <div className="member-dash-rail-toolbar member-dash-matrix-toolbar">
-                        <button
-                          type="button"
-                          className="member-dash-filter-trigger"
-                          id="member_linked_filter_btn"
-                          title={t("accountsFilterTitle")}
-                          onClick={() => setShowLinkedFilterModal(true)}
-                        >
-                          <i className="fas fa-filter" aria-hidden="true" />
-                          <span>{t("accounts")}</span>
-                        </button>
+                        <MemberGridAccountPills
+                          linkedAccounts={linkedAccounts}
+                          selectedIds={wlGridSelectedIds}
+                          onApply={applyWlGridSelection}
+                          onNotify={showNotification}
+                          t={t}
+                        />
                       </div>
                     )}
                     <div className="member-dash-matrix-center-wrap">
@@ -657,16 +646,6 @@ export default function MemberPage() {
           )}
         </div>
       </div>
-
-      <MemberLinkedFilterModal
-        open={showLinkedFilterModal}
-        linkedAccounts={linkedAccounts}
-        selectedIds={wlGridSelectedIds}
-        onClose={() => setShowLinkedFilterModal(false)}
-        onApply={applyWlGridSelection}
-        onNotify={showNotification}
-        t={t}
-      />
 
       <ExpirationReminderModal
         open={expirationReminder.showModal}

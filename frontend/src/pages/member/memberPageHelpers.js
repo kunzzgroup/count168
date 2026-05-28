@@ -3,13 +3,12 @@ import { MoneyDecimal } from "../../utils/money/moneyDecimal.js";
 export const MINI_GRID_SHELL_CCY = ["MYR", "SGD"];
 export const MINI_GRID_SHELL_ROWS = 5;
 
-/** Win/Loss 迷你矩阵：账户行数大于此值时，矩阵区域纵向滚动，默认可见约 5 个账户行 + 表头 */
+/** @deprecated 账户矩阵不再纵向滚动，始终展示全部筛选账户 */
 export const WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD = 5;
 
-export function winLossMiniMatrixNeedsAccountScroll(shellMode, accounts) {
-  if (shellMode) return false;
-  const n = Array.isArray(accounts) ? accounts.length : 0;
-  return n > WINLOSS_MINI_MATRIX_ACCOUNT_SCROLL_THRESHOLD;
+/** 账户矩阵始终随内容增高，不启用纵向滚动 */
+export function winLossMiniMatrixNeedsAccountScroll() {
+  return false;
 }
 
 /** Win/Loss Account：每条 segment 白底带最多按钮数，多出的自动再开新带 */
@@ -185,6 +184,38 @@ export function getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds) {
   let sel = wlGridSelectedIds.map(Number).filter((id) => allow.has(id));
   if (!sel.length) sel = [...allow];
   return sel;
+}
+
+export function isWlGridAllSelected(linkedAccounts, wlGridSelectedIds) {
+  const allow = linkedAccounts.map((a) => Number(a.id)).filter(Boolean);
+  if (!allow.length) return true;
+  const included = getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds);
+  return included.length === allow.length;
+}
+
+export function applyWlGridAccountAll(linkedAccounts) {
+  return linkedAccounts.map((a) => Number(a.id)).filter(Boolean);
+}
+
+export function applyWlGridAccountToggle(linkedAccounts, wlGridSelectedIds, accountId) {
+  const allow = linkedAccounts.map((a) => Number(a.id)).filter(Boolean);
+  const id = Number(accountId);
+  if (!allow.includes(id)) return getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds);
+
+  let sel = wlGridSelectedIds.map(Number).filter((x) => allow.includes(x));
+  if (!sel.length) sel = [...allow];
+
+  if (sel.length === allow.length) {
+    return [id];
+  }
+
+  if (sel.includes(id)) {
+    const next = sel.filter((x) => x !== id);
+    return next.length ? next : [...allow];
+  }
+
+  const next = [...sel, id];
+  return next.length === allow.length ? [...allow] : next;
 }
 
 export function collectLinkedUnionCurrencyCodes(linkedAccountCurrenciesMap, includedIds) {

@@ -48,7 +48,6 @@ export function useMemberWinLoss({ showNotification, lang }) {
   const [miniGridBalances, setMiniGridBalances] = useState(() => new Map());
   const [miniGridTotals, setMiniGridTotals] = useState(() => new Map());
   const [miniGridHint, setMiniGridHint] = useState("");
-  const [showLinkedFilterModal, setShowLinkedFilterModal] = useState(false);
 
   const currencySortOrderRef = useRef({});
   const summaryAbortRef = useRef(null);
@@ -731,8 +730,6 @@ export function useMemberWinLoss({ showNotification, lang }) {
     showMiniRail,
     groupedRows,
     loadingTable,
-    showLinkedFilterModal,
-    setShowLinkedFilterModal,
     initSession,
     switchCompany,
     switchAccount,
