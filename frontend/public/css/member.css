@@ -2479,10 +2479,20 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 
 .member-winloss-page .member-dash-matrix-scroll--ccy-fits {
     overflow-x: hidden !important;
+    width: max-content;
+    max-width: 100%;
 }
 
 .member-winloss-page .member-balance-mini-matrix--ccy-fits {
     max-width: 100%;
+}
+
+/* 表格放得下时：白底外框随内容收窄，避免 THB 列右侧留白 */
+.member-winloss-page .member-dash-matrix-center-wrap:has(.member-dash-matrix-scroll--ccy-fits),
+.member-winloss-page .member-dash-rail-matrix:has(.member-dash-matrix-scroll--ccy-fits) {
+    width: max-content;
+    max-width: 100%;
+    align-self: flex-start;
 }
 
 /* 列宽由 JS measureMatrixCurrencyColumnWidths 写入 grid-template-columns，此处只保留布局 */
