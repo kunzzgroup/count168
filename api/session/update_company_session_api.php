@@ -9,6 +9,7 @@ define('SESSION_KEEP_OPEN', true);
 
 require_once __DIR__ . '/../../includes/session_check.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../get_companies_helper.php';
 
 header('Content-Type: application/json');
 
@@ -89,59 +90,27 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     if (strtolower($user_role) === 'owner') {
-        // Always use the REAL owner_id (never the swapped one) for listing companies
-        $owner_id = $_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $user_id;
-
-        // Check if group_ownership table exists (group-level partner linking)
-        $hasGroupOwnership = false;
-        try {
-            $hasGroupOwnership = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
-        } catch (Exception $e) { /* ignore */ }
-
-        // Allow access to companies where this owner is linked via group_ownership
-        // (e.g. TEST linked to JK's group 'IG' should be able to switch into any
-        //  of JK's IG companies).
-        $groupVisibleSQL = $hasGroupOwnership
-            ? "OR EXISTS (
-                    SELECT 1 FROM group_ownership go
-                    WHERE go.owner_type = 'owner'
-                      AND go.account_id = ?
-                      AND go.percentage > 0
-                      AND c.group_id IS NOT NULL
-                      AND TRIM(c.group_id) <> ''
-                      AND LOWER(TRIM(go.group_id)) COLLATE utf8mb4_unicode_ci
-                          = LOWER(TRIM(c.group_id)) COLLATE utf8mb4_unicode_ci
-                )"
-            : "";
-
-        $sql = "
-            SELECT DISTINCT c.id, c.company_id, c.expiration_date,
-                   IF(c.owner_id = ?, 0, 1) as is_external,
-                   c.owner_id as real_owner_id
-            FROM company c
-            LEFT JOIN company_ownership co ON c.id = co.company_id AND co.owner_type = 'owner'
-            WHERE c.owner_id = ?
-               OR (co.account_id = ? AND co.percentage > 0)
-               $groupVisibleSQL
-            ORDER BY c.company_id ASC
-        ";
-        $params = [$owner_id, $owner_id, $owner_id];
-        if ($hasGroupOwnership) {
-            $params[] = $owner_id;
-        }
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Keep scope exactly aligned with get_owner_companies_api + dashboard company pills.
+        $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $user_id);
+        $rows = getCompaniesByOwner($pdo, $owner_id, true, true);
+        return array_map(static function ($c) {
+            return [
+                'id' => isset($c['id']) ? (int)$c['id'] : 0,
+                'company_id' => $c['company_id'] ?? '',
+                'expiration_date' => $c['expiration_date'] ?? null,
+                'is_external' => isset($c['is_external']) ? (int)$c['is_external'] : 0,
+            ];
+        }, $rows);
     }
-    $stmt = $pdo->prepare("
-        SELECT DISTINCT c.id, c.company_id, c.expiration_date
-        FROM company c
-        INNER JOIN user_company_map ucm ON c.id = ucm.company_id
-        WHERE ucm.user_id = ?
-        ORDER BY c.company_id ASC
-    ");
-    $stmt->execute([$user_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = getCompaniesByUser($pdo, (int)$user_id, true, true);
+    return array_map(static function ($c) {
+        return [
+            'id' => isset($c['id']) ? (int)$c['id'] : 0,
+            'company_id' => $c['company_id'] ?? '',
+            'expiration_date' => $c['expiration_date'] ?? null,
+            'is_external' => 0,
+        ];
+    }, $rows);
 }
 
 try {
@@ -191,9 +160,6 @@ try {
             if (isset($comp['is_external']) && $comp['is_external'] == 1) {
                 $is_external_view = true;
             }
-            if (isset($comp['real_owner_id'])) {
-                $real_owner_id = $comp['real_owner_id'];
-            }
             break;
         }
     }
@@ -202,13 +168,11 @@ try {
         exit;
     }
 
-    try {
-        $viewGroupForAccess = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : null;
-        gc_assert_company_id_allowed_for_login_scope($pdo, $requested_company_id, $viewGroupForAccess);
-    } catch (RuntimeException $e) {
-        jsonResponse(false, $e->getMessage(), null, 403);
-        exit;
-    }
+    // NOTE:
+    // Permission is already validated by matching requested_company_id against
+    // getUserCompanies() result (same source as dashboard company visibility).
+    // Do not apply an additional group-scope assert here, otherwise some valid
+    // linked/virtual rows can be falsely rejected.
     if ($blockedReason === 'expired') {
         jsonResponse(false, 'Company has expired', ['reason' => 'expired'], 403);
         exit;
@@ -216,6 +180,12 @@ try {
     if ($blockedReason === 'no_set') {
         jsonResponse(false, 'Company expiration date is not set', ['reason' => 'no_set'], 403);
         exit;
+    }
+
+    if ($current_user_role === 'owner' && $is_external_view) {
+        $ownerStmt = $pdo->prepare("SELECT owner_id FROM company WHERE id = ? LIMIT 1");
+        $ownerStmt->execute([$requested_company_id]);
+        $real_owner_id = (int)($ownerStmt->fetchColumn() ?: 0);
     }
 
     // 更新当前会话的公司 ID 和外部视图状态

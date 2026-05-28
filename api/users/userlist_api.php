@@ -1534,16 +1534,26 @@ try {
             } else {
                 // Get all users — single company or group-only aggregate (group login)
                 $groupId = userlist_normalize_group_id($input['group_id'] ?? null);
+                $requestedCompanyId = (int) ($input['company_id'] ?? 0);
                 $filterCompanyIds = [$current_company_id];
 
                 if ($groupId !== null) {
                     userlist_assert_group_id_allowed($groupId);
                     $accessible = userlist_fetch_accessible_companies($pdo);
+                    // Group tab list must stay on group-entity company only (AP tab => AP entity),
+                    // never mix subsidiary/company rows like C168.
                     $groupCompanyIds = userlist_company_ids_for_group($accessible, $groupId);
                     if ($groupCompanyIds === []) {
                         sendResponse(true, 'Users retrieved successfully', []);
                     }
                     $filterCompanyIds = $groupCompanyIds;
+                } elseif ($requestedCompanyId > 0) {
+                    // Company mode list should follow explicit UI company selection instead of stale session company.
+                    $validated = userlist_validate_company_ids_allowed($pdo, [$requestedCompanyId]);
+                    if ($validated === []) {
+                        sendResponse(true, 'Users retrieved successfully', []);
+                    }
+                    $filterCompanyIds = $validated;
                 }
 
                 $placeholders = implode(',', array_fill(0, count($filterCompanyIds), '?'));

@@ -230,7 +230,10 @@ export default function AccountListPage() {
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
         if (initialCompanyId) {
-          const accountRes = await fetch(buildAccountsUrl(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll).toString(), { credentials: "include" });
+          const accountRes = await fetch(
+            buildAccountsUrl(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll).toString(),
+            { credentials: "include" }
+          );
           const accountJson = await accountRes.json();
           if (cancelled) return;
           if (accountJson.success) {
@@ -335,7 +338,9 @@ export default function AccountListPage() {
     setPendingCompanyId(nextCompanyId);
     setSwitchingCompany(true);
     try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
+      const switchUrl = new URL(buildApiUrl("api/session/update_company_session_api.php"));
+      switchUrl.searchParams.set("company_id", String(nextCompanyId));
+      const res = await fetch(switchUrl.toString(), { credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "failedToSwitchCompany", "danger");
       setCompanyId(nextCompanyId);

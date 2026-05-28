@@ -5,6 +5,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../get_companies_helper.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
@@ -53,7 +54,56 @@ function getAccountPermissionFilterForCompany(PDO $pdo, int $company_id, string 
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
     if (gc_is_group_login()) {
-        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
+        $current_user_id = (int)($_SESSION['user_id'] ?? 0);
+        $current_user_role = strtolower((string)($_SESSION['role'] ?? ''));
+        $current_user_type = strtolower((string)($_SESSION['user_type'] ?? ''));
+
+        if ($current_user_id <= 0) {
+            throw new Exception('无权限访问该公司');
+        }
+
+        // Keep account-list visibility aligned with the same helper used by
+        // dashboard company pills / session switch (supports linked & virtual rows).
+        if ($current_user_type === 'member') {
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM company c
+                INNER JOIN account_company ac ON c.id = ac.company_id
+                WHERE c.id = ? AND ac.account_id = ?
+            ");
+            $stmt->execute([$company_id, $current_user_id]);
+            $memberAllowed = (int)$stmt->fetchColumn() > 0;
+            if (!$memberAllowed) {
+                $stmt2 = $pdo->prepare("
+                    SELECT COUNT(*)
+                    FROM company c
+                    INNER JOIN user_company_map ucm ON c.id = ucm.company_id
+                    WHERE c.id = ? AND ucm.user_id = ?
+                ");
+                $stmt2->execute([$company_id, $current_user_id]);
+                $memberAllowed = (int)$stmt2->fetchColumn() > 0;
+            }
+            if (!$memberAllowed) {
+                throw new Exception('无权限访问该公司');
+            }
+        } else {
+            if ($current_user_role === 'owner') {
+                $owner_id = (int)($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $current_user_id);
+                $rows = getCompaniesByOwner($pdo, $owner_id, true, true);
+            } else {
+                $rows = getCompaniesByUser($pdo, $current_user_id, true, true);
+            }
+            $allowed = false;
+            foreach ($rows as $row) {
+                if ((int)($row['id'] ?? 0) === $company_id) {
+                    $allowed = true;
+                    break;
+                }
+            }
+            if (!$allowed) {
+                throw new Exception('无权限访问该公司');
+            }
+        }
         return;
     }
     $current_user_id = $_SESSION['user_id'];
@@ -287,13 +337,35 @@ try {
         $company_id = (int) $_SESSION['company_id'];
     }
     if ($group_scope_id !== null) {
-        $group_entity_company_id = resolveGroupEntityCompanyId($pdo, $group_scope_id);
-        if ($group_entity_company_id <= 0) {
-            throw new Exception('缺少公司信息');
-        }
-        $company_id = $group_entity_company_id;
-        if (gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
+        // Group tab + selected company: keep explicit company target.
+        // Group tab + no company: fallback to group entity company.
+        if ($company_id > 0) {
+            // Keep explicit company selection in group tab.
+            // Access is validated later by validateCompanyAccess() with unified source.
+        } else {
+            $group_entity_company_id = resolveGroupEntityCompanyId($pdo, $group_scope_id);
+            if ($group_entity_company_id <= 0) {
+                // Some linked groups may not have a dedicated group-entity company row.
+                // Keep group-only behavior without hard error: return empty list until a company is picked.
+                echo json_encode([
+                    'success' => true,
+                    'message' => '',
+                    'data' => [
+                        'accounts' => [],
+                        'count' => 0,
+                        'searchTerm' => isset($_GET['search']) ? trim((string)$_GET['search']) : '',
+                        'showInactive' => isset($_GET['showInactive']) ? filter_var($_GET['showInactive'], FILTER_VALIDATE_BOOLEAN) : false,
+                        'showAll' => isset($_GET['showAll']) ? filter_var($_GET['showAll'], FILTER_VALIDATE_BOOLEAN) : false,
+                        'company_id' => null,
+                        'user_permissions_count' => 0,
+                    ],
+                ]);
+                exit;
+            }
+            $company_id = $group_entity_company_id;
+            if (gc_is_group_login()) {
+                gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
+            }
         }
     }
     if (!$company_id) {
