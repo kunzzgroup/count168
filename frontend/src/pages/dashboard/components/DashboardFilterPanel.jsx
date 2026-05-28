@@ -3,6 +3,7 @@ export function DashboardFilterPanel({
   effectiveDateRangeText,
   groupIds,
   selectedGroup,
+  groupsAllMode,
   groupAllMode,
   companiesForPicker,
   companyId,
@@ -10,12 +11,11 @@ export function DashboardFilterPanel({
   currencies,
   currencyCode,
   onPickGroup,
+  onPickAllGroups,
   onPickCompany,
   onPickAllInGroup,
   onCurrencyChange,
   onToggleAllCurrencies,
-  showAllInGroup = true,
-  showAllCurrencyOption = false,
   showAllCurrencies = false,
 }) {
   const showPanel =
@@ -55,11 +55,18 @@ export function DashboardFilterPanel({
               <span className="user-gc-inline-label">{i18n.groupId}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={i18n.groupId}>
+                  <button
+                    type="button"
+                    className={`user-gc-segment${groupsAllMode ? " is-on" : ""}`}
+                    onClick={() => void onPickAllGroups?.()}
+                  >
+                    {i18n.all}
+                  </button>
                   {groupIds.map((gid) => (
                     <button
                       key={gid}
                       type="button"
-                      className={`user-gc-segment${selectedGroup === gid && !groupAllMode ? " is-on" : ""}`}
+                      className={`user-gc-segment${selectedGroup === gid && !groupsAllMode ? " is-on" : ""}`}
                       onClick={() => void onPickGroup(gid)}
                     >
                       {gid}
@@ -74,15 +81,13 @@ export function DashboardFilterPanel({
               <span className="user-gc-inline-label">{i18n.company}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={i18n.company}>
-                  {showAllInGroup && selectedGroup && companiesForPicker.length > 1 && (
-                    <button
-                      type="button"
-                      className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
-                      onClick={() => void onPickAllInGroup()}
-                    >
-                      {i18n.all}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
+                    onClick={() => void onPickAllInGroup()}
+                  >
+                    {i18n.all}
+                  </button>
                   {companiesForPicker.map((c) => {
                     const id = parseInt(c.id, 10);
                     const active = groupAllMode
@@ -110,15 +115,13 @@ export function DashboardFilterPanel({
               <span className="user-gc-inline-label">{i18n.currency}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={i18n.currency}>
-                  {showAllCurrencyOption && (
-                    <button
-                      type="button"
-                      className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
-                      onClick={() => onToggleAllCurrencies?.()}
-                    >
-                      {i18n.all}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
+                    onClick={() => onToggleAllCurrencies?.()}
+                  >
+                    {i18n.all}
+                  </button>
                   {currencies.map((code) => (
                     <button
                       key={code}

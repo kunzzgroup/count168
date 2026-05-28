@@ -26,6 +26,8 @@ import {
 } from "../utils/company/sharedCompanyFilter.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import {
+  canAccessC168AutoRenew,
+  canAccessC168DomainPages,
   canUseGroupOnlyMode,
   isCompanyLogin,
   isGroupLogin,
@@ -118,7 +120,8 @@ export default function AuthenticatedLayout() {
     () => mergeAnnouncements(announcements),
     [announcements, mergeAnnouncements],
   );
-  const showAutoRenewEntry = Boolean(me?.has_c168_auto_renew_access);
+  const showC168DomainPages = canAccessC168DomainPages(me);
+  const showAutoRenewEntry = canAccessC168AutoRenew(me);
   const goAutoRenew = useCallback(() => {
     navigate("/auto-renew");
   }, [navigate]);
@@ -508,7 +511,7 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
-          {me?.has_c168_domain_page_access && (
+          {showC168DomainPages && (
             <div className="informationmenu-section">
               <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarDomain)} onClick={() => navigate("/domain")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -518,7 +521,7 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
-          {me?.has_c168_domain_page_access && (
+          {showC168DomainPages && (
             <div className="informationmenu-section">
               <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarAnnouncement)} onClick={() => navigate("/announcement")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -528,7 +531,7 @@ export default function AuthenticatedLayout() {
               </div>
             </div>
           )}
-          {me?.has_c168_auto_renew_access && (
+          {showAutoRenewEntry && (
             <div className="informationmenu-section">
               <div className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`} title={sidebarMenuTitle(i18n.sidebarAutoRenew)} onClick={() => navigate("/auto-renew")} role="presentation">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">

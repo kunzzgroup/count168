@@ -47,6 +47,7 @@ export default function TransactionDashboardPage() {
             effectiveDateRangeText={effectiveDateRangeText}
             groupIds={page.groupIds}
             selectedGroup={page.selectedGroup}
+            groupsAllMode={page.groupsAllMode}
             groupAllMode={page.groupAllMode}
             companiesForPicker={page.companiesForPicker}
             companyId={page.companyId}
@@ -54,12 +55,11 @@ export default function TransactionDashboardPage() {
             currencies={page.currencies}
             currencyCode={page.currencyCode}
             onPickGroup={page.handlePickGroup}
+            onPickAllGroups={page.handlePickAllGroups}
             onPickCompany={page.handlePickCompany}
             onPickAllInGroup={page.handlePickAllInGroup}
             onCurrencyChange={page.handleCurrencyChange}
             onToggleAllCurrencies={page.handleToggleAllCurrencies}
-            showAllInGroup={page.showAllInGroup}
-            showAllCurrencyOption={page.showAllCurrencyOption}
             showAllCurrencies={page.showAllCurrencies}
           />
 

@@ -130,14 +130,183 @@ function gc_filter_companies_for_login_scope(array $companies): array
 }
 
 /**
- * Company login: access is enforced by getUserCompanies / owner map (incl. linked groups).
+ * Normalize optional dashboard view_group (GroupID pill).
  */
-function gc_assert_company_id_allowed_for_login_scope(PDO $pdo, int $numericCompanyId): void
+function gc_normalize_view_group(?string $viewGroup): ?string
 {
-    if (!gc_is_company_login()) {
+    $g = strtoupper(trim((string) $viewGroup));
+    return $g !== '' ? $g : null;
+}
+
+/**
+ * Whether a company is pooled into $targetGroup via group_ownership / company_ownership
+ * (same rules as get_companies_helper virtual rows / companiesInGroupList).
+ */
+function gc_company_linked_to_target_group(PDO $pdo, int $companyId, string $sourceGroup, string $targetGroup): bool
+{
+    $src = strtoupper(trim($sourceGroup));
+    $tgt = strtoupper(trim($targetGroup));
+    if ($companyId <= 0 || $src === '' || $tgt === '') {
+        return false;
+    }
+    if ($src === $tgt) {
+        return true;
+    }
+
+    $ownerId = 0;
+    try {
+        $stmt = $pdo->prepare('SELECT owner_id FROM company WHERE id = ? LIMIT 1');
+        $stmt->execute([$companyId]);
+        $ownerId = (int) ($stmt->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        return false;
+    }
+
+    try {
+        if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0 && $ownerId > 0) {
+            $goStmt = $pdo->prepare("
+                SELECT 1 FROM group_ownership
+                WHERE percentage > 0
+                  AND UPPER(TRIM(partner_group_id)) = ?
+                  AND UPPER(TRIM(group_id)) = ?
+                  AND (
+                    (owner_type = 'group' AND owner_id = ?)
+                    OR (owner_type = 'owner' AND account_id = ?)
+                  )
+                LIMIT 1
+            ");
+            $goStmt->execute([$tgt, $src, $ownerId, $ownerId]);
+            if ($goStmt->fetchColumn()) {
+                return true;
+            }
+        }
+    } catch (Throwable $e) {
+        // continue
+    }
+
+    try {
+        if ($pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0) {
+            $coStmt = $pdo->prepare("
+                SELECT 1 FROM company_ownership
+                WHERE company_id = ?
+                  AND owner_type = 'group'
+                  AND percentage > 0
+                  AND UPPER(TRIM(partner_group_id)) = ?
+                LIMIT 1
+            ");
+            $coStmt->execute([$companyId, $tgt]);
+            if ($coStmt->fetchColumn()) {
+                return true;
+            }
+        }
+    } catch (Throwable $e) {
+        // continue
+    }
+
+    return false;
+}
+
+/**
+ * Whether the numeric company id is visible under the current login scope.
+ * Group login: native group, group_company_map, ownership link, or view_group pill (IG tab).
+ * Company login: caller should still validate owner/user_company_map; this returns true.
+ *
+ * @param string|null $viewGroup Dashboard GroupID filter (e.g. IG); aligns with companiesInGroupList.
+ */
+function gc_session_can_access_company_id(PDO $pdo, int $companyId, ?string $viewGroup = null): bool
+{
+    if ($companyId <= 0) {
+        return false;
+    }
+
+    if (!gc_is_group_login()) {
+        return true;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT id, UPPER(TRIM(group_id)) AS group_id FROM company WHERE id = ? LIMIT 1'
+    );
+    $stmt->execute([$companyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return false;
+    }
+
+    $nativeGid = strtoupper(trim((string) ($row['group_id'] ?? '')));
+    $viewGroupNorm = gc_normalize_view_group($viewGroup);
+
+    $groupCodes = gc_session_accessible_group_ids();
+    $ident = gc_session_login_identifier();
+    if ($ident !== null) {
+        $groupCodes[] = $ident;
+    }
+    if ($viewGroupNorm !== null) {
+        $groupCodes[] = $viewGroupNorm;
+    }
+    $groupCodes = array_values(array_unique(array_filter($groupCodes)));
+
+    try {
+        if ($pdo->query("SHOW TABLES LIKE 'group_company_map'")->rowCount() > 0 && !empty($groupCodes)) {
+            $placeholders = implode(',', array_fill(0, count($groupCodes), '?'));
+            $mapStmt = $pdo->prepare("
+                SELECT 1
+                FROM group_company_map gcm
+                INNER JOIN `groups` g ON g.id = gcm.group_id
+                WHERE gcm.company_id = ?
+                  AND UPPER(TRIM(g.group_code)) IN ($placeholders)
+                LIMIT 1
+            ");
+            $mapStmt->execute(array_merge([$companyId], $groupCodes));
+            if ($mapStmt->fetchColumn()) {
+                return true;
+            }
+        }
+    } catch (Throwable $e) {
+        // fall through
+    }
+
+    foreach ($groupCodes as $g) {
+        if ($nativeGid !== '' && $nativeGid === $g) {
+            return true;
+        }
+        if ($nativeGid !== '' && gc_company_linked_to_target_group($pdo, $companyId, $nativeGid, $g)) {
+            return true;
+        }
+    }
+
+    if ($viewGroupNorm !== null) {
+        if ($nativeGid === $viewGroupNorm) {
+            return true;
+        }
+        if ($nativeGid !== '' && gc_company_linked_to_target_group($pdo, $companyId, $nativeGid, $viewGroupNorm)) {
+            return true;
+        }
+    }
+
+    $linkSrc = '';
+    if ($viewGroupNorm !== null && $nativeGid !== '' && $nativeGid !== $viewGroupNorm
+        && gc_company_linked_to_target_group($pdo, $companyId, $nativeGid, $viewGroupNorm)) {
+        $linkSrc = $nativeGid;
+    }
+
+    return gc_company_row_matches_login_scope([
+        'group_id' => $nativeGid,
+        'link_source_group' => $linkSrc,
+    ]);
+}
+
+/**
+ * Company login: access is enforced by getUserCompanies / owner map (incl. linked groups).
+ * Group login: company must pass gc_session_can_access_company_id.
+ */
+function gc_assert_company_id_allowed_for_login_scope(PDO $pdo, int $numericCompanyId, ?string $viewGroup = null): void
+{
+    if (!gc_is_group_login()) {
         return;
     }
-    // update_company_session_api already validates against the user's company list.
+    if (!gc_session_can_access_company_id($pdo, $numericCompanyId, $viewGroup)) {
+        throw new RuntimeException('No permission to access this company');
+    }
 }
 
 /** Block company-login callers from group-only APIs. */

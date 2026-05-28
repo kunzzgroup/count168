@@ -42,7 +42,7 @@ export function useGroupAnchorSessionSync({
 
     let cancelled = false;
     (async () => {
-      const json = await syncCompanySessionApi(anchorId);
+      const json = await syncCompanySessionApi(anchorId, g);
       if (cancelled || !json?.success) return;
       ref.current = { group: g, companyId: anchorId };
       notifyCompanySessionUpdated();

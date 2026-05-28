@@ -10,6 +10,7 @@ import { AnnouncementToast, AnnouncementConfirmModal } from "./components/Announ
 import { EditAnnouncementModal, EditMaintenanceModal } from "./components/AnnouncementModals.jsx";
 import { AnnouncementPanel, MaintenancePanel } from "./components/AnnouncementPanels.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { canAccessC168DomainPages } from "../../utils/company/loginScope.js";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 export default function AnnouncementPage() {
@@ -95,7 +96,7 @@ export default function AnnouncementPage() {
     setReady(false);
     (async () => {
       try {
-        if (!me.has_c168_domain_page_access) {
+        if (!canAccessC168DomainPages(me)) {
           navigate("/dashboard", { replace: true });
           return;
         }
