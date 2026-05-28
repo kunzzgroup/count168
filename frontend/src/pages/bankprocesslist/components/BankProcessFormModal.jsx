@@ -281,7 +281,10 @@ export default function BankProcessFormModal({
                               />
                               <span className="toggle-slider" />
                             </label>
-                            <span id="bank_day_end_monthly_cap_label_text" className="bank-day-end-cap-label">
+                            <span
+                              id="bank_day_end_monthly_cap_label_text"
+                              className={`bank-day-end-cap-label${capOn ? " is-on" : ""}`}
+                            >
                               {capOn ? "ON" : "OFF"}
                             </span>
                             <input
