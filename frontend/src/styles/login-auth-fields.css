@@ -44,3 +44,32 @@ body.bg .login-container .input-group input::placeholder {
   color: var(--login-bg-end);
   font-weight: 400;
 }
+
+/* Remember me / Forgot password — bundle 内最后加载，避免被 Tailwind base 覆盖 */
+body.bg .sc-login-remember-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--login-muted, #666);
+  font-size: var(--text-small, 1.3rem);
+  font-weight: 500;
+}
+
+body.bg .sc-login-forgot-link {
+  justify-self: end;
+  max-width: 100%;
+  color: #56ccf2;
+  text-decoration: none;
+  font-size: var(--text-small, 1.3rem);
+  font-weight: 500;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+body.bg .sc-login-forgot-link:hover {
+  color: var(--login-bg-start);
+  text-decoration: underline;
+}
