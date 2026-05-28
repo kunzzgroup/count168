@@ -3986,7 +3986,7 @@ if (addCountryForm && !window.__processlistModalAddCountryFormBound) {
             });
             if (!existingCurrency) {
                 const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-                const currencyRes = await fetch(buildApiUrl('api/accounts/addcurrencyapi.php'), {
+                const currencyRes = await fetch(buildApiUrl('api/accounts/create_currency_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId })
@@ -4438,7 +4438,7 @@ async function addCurrencyFromInputBank(type) {
     }
     try {
         const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-        const res = await fetch(buildApiUrl('api/accounts/addcurrencyapi.php'), {
+        const res = await fetch(buildApiUrl('api/accounts/create_currency_api.php'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId })
@@ -4778,7 +4778,7 @@ async function ensureAccountHasCountryCurrency(accountId) {
         let currency = currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
         if (!currency || !currency.id) {
             const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
-            const createRes = await fetch(buildApiUrl('api/accounts/addcurrencyapi.php'), {
+            const createRes = await fetch(buildApiUrl('api/accounts/create_currency_api.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId || undefined })
