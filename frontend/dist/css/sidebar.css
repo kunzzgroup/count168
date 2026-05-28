@@ -822,57 +822,6 @@
     color: white;
 }
 
-/* Icon-only sidebar: Report / Maintenance flyout — portal-tooltip look */
-.informationmenu.is-collapsed .submenu--icon-flyout {
-    position: fixed;
-    width: max-content;
-    min-width: 10.5rem;
-    background: var(--color-heading, #002c49);
-    border-radius: 6px;
-    box-shadow:
-        0 4px 14px rgba(0, 44, 73, 0.24),
-        0 1px 3px rgba(0, 0, 0, 0.1);
-    backdrop-filter: none;
-    margin-left: 6px;
-    overflow: visible;
-}
-
-.informationmenu.is-collapsed .submenu--icon-flyout::before {
-    content: "";
-    position: absolute;
-    top: 14px;
-    right: 100%;
-    border: 5px solid transparent;
-    border-right-color: var(--color-heading, #002c49);
-}
-
-.informationmenu.is-collapsed .submenu--icon-flyout .submenu-content {
-    padding: 4px 0 6px;
-}
-
-.informationmenu.is-collapsed .submenu-flyout-heading {
-    padding: 6px 12px 5px;
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1.3;
-    color: #fff;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-    white-space: nowrap;
-}
-
-.informationmenu.is-collapsed .submenu--icon-flyout .submenu-item {
-    font-size: 13px;
-    font-weight: 600;
-    padding: 6px 12px;
-    margin: 0;
-    border-radius: 0;
-    white-space: nowrap;
-}
-
-.informationmenu.is-collapsed .submenu--icon-flyout .submenu-item::after {
-    display: none;
-}
-
 .submenu-item::after {
     content: '›';
     margin-left: auto;
@@ -1878,8 +1827,7 @@ body.ec-auth-shell .informationmenu .submenu-item {
     .informationmenu.is-collapsed .sidebar-lang-switch-wrap,
     .informationmenu.is-collapsed .company-expiration-countdown,
     .informationmenu.is-collapsed .content-separator,
-    .informationmenu.is-collapsed .sidebar-menu-label,
-    .informationmenu.is-collapsed .sidebar-menu-label-wrap {
+    .informationmenu.is-collapsed .sidebar-menu-label {
         display: none !important;
     }
 
@@ -1945,8 +1893,7 @@ body.ec-auth-shell .informationmenu .submenu-item {
         overflow: hidden !important;
     }
 
-    body.ec-auth-shell .informationmenu.is-collapsed .sidebar-menu-label,
-    body.ec-auth-shell .informationmenu.is-collapsed .sidebar-menu-label-wrap {
+    body.ec-auth-shell .informationmenu.is-collapsed .sidebar-menu-label {
         display: none !important;
         width: 0 !important;
         max-width: 0 !important;
