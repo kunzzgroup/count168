@@ -329,6 +329,19 @@ export function getAvailableCurrencies({
   return sortCurrencyList(baseOrder, currencySortOrder, currencyDisplayOrder, fromLinkedUnion);
 }
 
+export function formatCompactCurrencyLabel(code) {
+  const s = String(code || "").trim();
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+export function miniGridShowsTotalRow(shellMode, accounts) {
+  if (shellMode) return false;
+  const list = Array.isArray(accounts) ? accounts : [];
+  const real = list.filter((a) => Number(a?.id) > 0);
+  return real.length > 1;
+}
+
 export function getMemberMiniGridCurrencies(availableCurrencies, isAllSelected, selectedCurrencies) {
   if (!availableCurrencies.length) return [];
   if (isAllSelected) return [...availableCurrencies];

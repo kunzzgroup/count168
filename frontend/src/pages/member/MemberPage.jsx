@@ -20,7 +20,7 @@ import "../../../public/css/transaction.css";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import ExpirationReminderModal from "../../components/ExpirationReminderModal.jsx";
 import SidebarExpirationCountdown from "../../components/SidebarExpirationCountdown.jsx";
-import MemberMiniGrid, { MemberMiniGridTotals } from "./components/MemberMiniGrid.jsx";
+import MemberMiniGrid from "./components/MemberMiniGrid.jsx";
 import MemberMoneyCell from "./components/MemberMoneyCell.jsx";
 import MemberGridAccountPills from "./components/MemberGridAccountPills.jsx";
 import {
@@ -318,7 +318,7 @@ export default function MemberPage() {
         <div className="transaction-main-content member-winloss-dash">
           <div className="transaction-search-section member-dash-unified-bar">
             <div
-              className={`member-dash-columns${showMiniRail ? " member-dash-columns--three-col" : " member-dash-columns--no-mini-rail"}${showMiniRail && miniGridDisplayCurrencies.length === 1 ? " member-dash-columns--single-ccy-rail" : ""}${wlFiltersSyncPx != null && !miniGridLoading ? " member-dash-columns--wl-sync-h" : ""}${miniGridLoading ? " member-dash-columns--grid-loading" : ""}`}
+              className={`member-dash-columns${showMiniRail ? " member-dash-columns--two-col" : " member-dash-columns--no-mini-rail"}${showMiniRail && miniGridDisplayCurrencies.length === 1 ? " member-dash-columns--single-ccy-rail" : ""}${wlFiltersSyncPx != null && !miniGridLoading ? " member-dash-columns--wl-sync-h" : ""}${miniGridLoading ? " member-dash-columns--grid-loading" : ""}`}
               style={wlFiltersSyncPx != null ? { ["--member-winloss-filters-h"]: `${wlFiltersSyncPx}px` } : undefined}
             >
               <div className="member-dash-col member-dash-col-filters" ref={wlFiltersColRef}>
@@ -474,34 +474,13 @@ export default function MemberPage() {
                             currencies={miniGridDisplayCurrencies}
                             accounts={miniGridAccounts}
                             balanceMap={miniGridBalances}
+                            totalsByCu={miniGridTotals}
                             hint={miniGridHint}
                             linkedCurrenciesLoaded={linkedCurrenciesLoaded}
                             linkedAccountCurrenciesMap={linkedAccountCurrenciesMap}
                             t={t}
                           />
                         )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="member-dash-col member-dash-col-total">
-                    <div className="member-dash-rail-total">
-                      <div className="member-dash-total-matrix" role="region" aria-label={t("balanceTotalsAria")}>
-                        <div className="member-dash-total-matrix-hd">{t("total")}</div>
-                        <div className="member-dash-total-matrix-body">
-                          {miniGridLoading ? (
-                            <p className="member-dash-matrix-loading" role="status">
-                              {t("loading")}
-                            </p>
-                          ) : (
-                            <div id="member_balance_total_value" className="member-dash-total-values" aria-live="polite">
-                              <MemberMiniGridTotals
-                                currencyOrder={miniGridDisplayCurrencies}
-                                totalsByCu={miniGridTotals}
-                                t={t}
-                              />
-                            </div>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </div>

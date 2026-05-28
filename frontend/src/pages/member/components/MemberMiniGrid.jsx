@@ -3,8 +3,10 @@ import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 
 import {
   accountHoldsMiniGridCurrency,
+  formatCompactCurrencyLabel,
   formatMiniGridMoney,
   miniGridAmountTone,
+  miniGridShowsTotalRow,
   MEMBER_AMOUNT_NA_MARK,
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
@@ -85,6 +87,17 @@ export function MemberMiniGridTotals({ currencyOrder, totalsByCu, t }) {
   );
 }
 
+function CompactAmountCell({ isNa, balDec }) {
+  const tone = isNa ? null : miniGridAmountTone(balDec);
+  return isNa ? (
+    <span className="member-balance-matrix-na">{MEMBER_AMOUNT_NA_MARK}</span>
+  ) : (
+    <span className={`member-balance-matrix-amt member-balance-matrix-amt--${tone}`}>
+      {formatMiniGridMoney(balDec)}
+    </span>
+  );
+}
+
 function CompactGridRow({
   idNum,
   code,
@@ -104,7 +117,6 @@ function CompactGridRow({
     linkedCurrenciesLoaded,
     linkedAccountCurrenciesMap,
   });
-  const tone = isNa ? null : miniGridAmountTone(balDec);
   return (
     <div
       className={`member-wl-compact-matrix__row${accIdx % 2 === 1 ? " member-wl-compact-matrix__row--alt" : ""}${isLastRow ? " member-wl-compact-matrix__row--last" : ""}`}
@@ -117,15 +129,74 @@ function CompactGridRow({
         className={`member-wl-compact-matrix__amt${isNa ? " member-wl-compact-matrix__amt--na" : ""}`}
         role="gridcell"
       >
+        <CompactAmountCell isNa={isNa} balDec={balDec} />
+      </div>
+    </div>
+  );
+}
+
+function CompactTotalRow({ totalDec, rowIdx, t }) {
+  const hasTotal = totalDec != null && typeof totalDec.lt === "function";
+  const tone = hasTotal ? miniGridAmountTone(totalDec) : null;
+  const isNa = !hasTotal;
+  return (
+    <div
+      className={`member-wl-compact-matrix__row member-wl-compact-matrix__row--total${rowIdx % 2 === 1 ? " member-wl-compact-matrix__row--alt" : ""}`}
+      role="row"
+    >
+      <div className="member-wl-compact-matrix__account member-wl-compact-matrix__account--total" role="rowheader">
+        {t?.("total") || "Total"}
+      </div>
+      <div
+        className={`member-wl-compact-matrix__amt member-wl-compact-matrix__amt--total${isNa ? " member-wl-compact-matrix__amt--na" : ""}`}
+        role="gridcell"
+      >
         {isNa ? (
           <span className="member-balance-matrix-na">{MEMBER_AMOUNT_NA_MARK}</span>
         ) : (
           <span className={`member-balance-matrix-amt member-balance-matrix-amt--${tone}`}>
-            {formatMiniGridMoney(balDec)}
+            {formatMiniGridMoney(totalDec)}
           </span>
         )}
       </div>
     </div>
+  );
+}
+
+function MiniGridTotalRow({
+  orderUpper,
+  lastCi,
+  totalsByCu,
+  shellMode,
+  t,
+}) {
+  return (
+    <>
+      <div className="member-balance-matrix-rowhead member-balance-matrix-rowhead--total" role="rowheader">
+        {t?.("total") || "Total"}
+      </div>
+      {orderUpper.map((cu, ci) => {
+        const raw = totalsByCu?.get(cu);
+        const balDec = raw != null && typeof raw.lt === "function" ? raw : null;
+        const hasBalance = balDec != null;
+        const tone = hasBalance ? miniGridAmountTone(balDec) : null;
+        return (
+          <div
+            key={`total-${cu}`}
+            className={`member-balance-matrix-cell member-balance-matrix-cell--total${!hasBalance ? " member-balance-matrix-cell--na" : ""}${ci === lastCi ? " member-balance-matrix-cell--edge" : ""}`}
+            role="gridcell"
+          >
+            {!hasBalance || shellMode ? (
+              <span className="member-balance-matrix-na">{MEMBER_AMOUNT_NA_MARK}</span>
+            ) : (
+              <span className={`member-balance-matrix-amt member-balance-matrix-amt--${tone}`}>
+                {formatMiniGridMoney(balDec)}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -185,6 +256,7 @@ export default function MemberMiniGrid({
   currencies,
   accounts,
   balanceMap,
+  totalsByCu,
   hint,
   linkedCurrenciesLoaded,
   linkedAccountCurrenciesMap,
@@ -208,6 +280,7 @@ export default function MemberMiniGrid({
   const singleCu = compactMode ? orderUpper[0] : "";
   const lastCi = ncu - 1;
   const lastRi = listOrdered.length - 1;
+  const showTotalRow = miniGridShowsTotalRow(shellMode, listOrdered);
   const gridRef = useRef(null);
   const fillMode = !compactMode && ncu > 0 && ncu < WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD;
   const gridCols = !compactMode && ncu > 0 ? miniMatrixGridTemplateColumns(ncu) : undefined;
@@ -324,7 +397,7 @@ export default function MemberMiniGrid({
       grid.style.removeProperty("width");
       grid.style.removeProperty("max-width");
     };
-  }, [ncu, compactMode, orderUpper.join("|"), listOrdered.length, balanceMap?.size, shellMode]);
+  }, [ncu, compactMode, orderUpper.join("|"), listOrdered.length, balanceMap?.size, shellMode, showTotalRow]);
 
   return (
     <>
@@ -341,12 +414,19 @@ export default function MemberMiniGrid({
           >
             <div className="member-wl-compact-matrix__hd" role="row">
               <div className="member-wl-compact-matrix__account-hd" role="columnheader">
-                {t?.("accounts") || "Accounts"}
+                {t?.("colCurrency") || "Currency"}
               </div>
               <div className="member-wl-compact-matrix__amt-hd" role="columnheader">
-                {singleCu}
+                {formatCompactCurrencyLabel(singleCu)}
               </div>
             </div>
+            {showTotalRow && (
+              <CompactTotalRow
+                totalDec={totalsByCu?.get(singleCu)}
+                rowIdx={0}
+                t={t}
+              />
+            )}
             {listOrdered.map((acc, accIdx) => (
               <CompactGridRow
                 key={`compact-${acc.id}-${accIdx}`}
@@ -354,7 +434,7 @@ export default function MemberMiniGrid({
                 code={String(acc.account_id || acc.name || acc.id).trim() || String(acc.id)}
                 cu={singleCu}
                 isLastRow={accIdx === lastRi}
-                accIdx={accIdx}
+                accIdx={showTotalRow ? accIdx + 1 : accIdx}
                 shellMode={shellMode}
                 balanceMap={balanceMap}
                 linkedCurrenciesLoaded={linkedCurrenciesLoaded}
@@ -383,13 +463,22 @@ export default function MemberMiniGrid({
                     {cu}
                   </div>
                 ))}
+                {showTotalRow && (
+                  <MiniGridTotalRow
+                    orderUpper={orderUpper}
+                    lastCi={lastCi}
+                    totalsByCu={totalsByCu}
+                    shellMode={shellMode}
+                    t={t}
+                  />
+                )}
                 {listOrdered.map((acc, accIdx) => (
                   <MiniGridRow
                     key={`row-${acc.id}-${accIdx}`}
                     idNum={Number(acc.id)}
                     code={String(acc.account_id || acc.name || acc.id).trim() || String(acc.id)}
                     isLastRow={accIdx === lastRi}
-                    accIdx={accIdx}
+                    accIdx={showTotalRow ? accIdx + 1 : accIdx}
                     orderUpper={orderUpper}
                     lastCi={lastCi}
                     shellMode={shellMode}
