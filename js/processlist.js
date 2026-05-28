@@ -4128,6 +4128,11 @@ async function syncCountryModalAfterCurrencyDelete(currencyCode) {
     const companyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
     if (companyId) {
         try {
+            const removeFd = new FormData();
+            removeFd.append('company_id', String(companyId));
+            removeFd.append('country', code);
+            await fetch(buildApiUrl('api/processes/processlist_api.php?action=remove_country'), { method: 'POST', body: removeFd });
+
             const list = Array.isArray(window.selectedCountries) ? window.selectedCountries : [];
             const fd = new FormData();
             fd.append('company_id', String(companyId));
