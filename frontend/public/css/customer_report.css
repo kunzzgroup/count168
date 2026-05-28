@@ -37,7 +37,7 @@ body.dashboard-page.report-page .container {
     background: white;
     border-radius: 12px;
     padding: clamp(12px, 1.25vw, 20px);
-    margin-top: var(--layout-page-first-block-mt);
+    margin-top: var(--layout-page-first-block-mt, 10px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -379,6 +379,14 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
     justify-content: flex-start;
     gap: clamp(10px, 0.83vw, 16px);
     flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+}
+
+/* 标题已移除：占位 header 不参与顶距计算 */
+body.dashboard-page.report-page .content > .report-header:empty {
+    display: none;
 }
 
 /* Report Date Range：字号、颜色、框的 border 与 Account 一致 */

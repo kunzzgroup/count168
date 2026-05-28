@@ -511,9 +511,6 @@ export default function CustomerReportPage() {
   return (
     <div className="container">
       <div className="content">
-        <div className="report-header">
-        </div>
-
         <CustomerReportFilters
           companyId={companyId}
           onSwitchCompany={handlePickCompany}

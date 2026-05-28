@@ -509,9 +509,6 @@ export default function DomainReportPage() {
   return (
     <div className="container">
       <div className="content">
-        <div className="report-header">
-        </div>
-
         <DomainReportFilters
           companyId={companyId}
           highlightCompanyId={companyHighlightId}

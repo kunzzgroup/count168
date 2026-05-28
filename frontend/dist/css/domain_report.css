@@ -34,7 +34,7 @@ body.dashboard-page.report-page .container {
     background: white;
     border-radius: 12px;
     padding: clamp(12px, 1.25vw, 20px);
-    margin-top: var(--layout-page-first-block-mt);
+    margin-top: var(--layout-page-first-block-mt, 10px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -278,8 +278,14 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
     justify-content: flex-start;
     gap: clamp(10px, 0.83vw, 16px);
     flex-wrap: wrap;
-    margin-top: clamp(12px, 1.04vw, 20px);
-    margin-bottom: clamp(16px, 1.35vw, 26px);
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+}
+
+/* 与 customer_report 一致：空占位 header 不占顶距 */
+body.dashboard-page.report-page .content > .report-header:empty {
+    display: none;
 }
 
 
