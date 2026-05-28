@@ -30,6 +30,7 @@ import {
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
   WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ,
   WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
+  getWinLossCurrencySegmentMaxButtons,
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 import { useMemberPageShell } from "./useMemberPageShell.js";
@@ -44,6 +45,8 @@ export default function MemberPage() {
   const wlMatrixColRef = useRef(null);
   const [wlFiltersSyncPx, setWlFiltersSyncPx] = useState(null);
   const [accountNarrowViewport, setAccountNarrowViewport] = useState(false);
+  const [tabletViewport, setTabletViewport] = useState(false);
+  const [laptopViewport, setLaptopViewport] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
   const showNotification = useCallback((message, type = "info") => {
@@ -149,19 +152,36 @@ export default function MemberPage() {
     return bands;
   }, [linkedAccounts, accountMaxPerBand]);
 
+  const currencyMaxPerBand = useMemo(
+    () => getWinLossCurrencySegmentMaxButtons({ tablet: tabletViewport, laptop: laptopViewport }),
+    [tabletViewport, laptopViewport],
+  );
+
   useEffect(() => {
-    const mq = window.matchMedia(WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ);
-    const update = () => setAccountNarrowViewport(mq.matches);
+    const mqAccount = window.matchMedia(WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ);
+    const mqTablet = window.matchMedia(WINLOSS_VIEWPORT_TABLET_MQ);
+    const mqLaptop = window.matchMedia(WINLOSS_VIEWPORT_LAPTOP_MQ);
+    const update = () => {
+      setAccountNarrowViewport(mqAccount.matches);
+      setTabletViewport(mqTablet.matches);
+      setLaptopViewport(mqLaptop.matches);
+    };
     update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+    mqAccount.addEventListener("change", update);
+    mqTablet.addEventListener("change", update);
+    mqLaptop.addEventListener("change", update);
+    return () => {
+      mqAccount.removeEventListener("change", update);
+      mqTablet.removeEventListener("change", update);
+      mqLaptop.removeEventListener("change", update);
+    };
   }, []);
 
-  /** Currency 多段：每段最多 8 格（含 All），每满一行新开一条 segment 白底条，列仍按 8 列对齐 */
+  /** Currency 多段：每段最多 N 格（含 All），视口越窄每行越少 */
   const currencyFilterBands = useMemo(() => {
     const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
     const showAllBtn = codes.length === 0 || codes.length > 1;
-    const maxPerBand = WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
+    const maxPerBand = currencyMaxPerBand;
 
     const cells = [];
     if (showAllBtn) cells.push({ type: "all" });
@@ -172,7 +192,7 @@ export default function MemberPage() {
       bands.push(cells.slice(i, i + maxPerBand));
     }
     return bands;
-  }, [availableCurrencies]);
+  }, [availableCurrencies, currencyMaxPerBand]);
 
   const handleWinLossCurrencyCodeDrop = useCallback(
     (e) => {
@@ -426,8 +446,9 @@ export default function MemberPage() {
                       key={`member-ccy-band-${segIdx}`}
                       className="user-gc-segment-group member-winloss-currency-segments"
                       style={{
-                        width: `${(band.length / WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) * 100}%`,
-                        gridTemplateColumns: `repeat(${band.length}, minmax(0, 1fr))`,
+                        width: `${(band.length / currencyMaxPerBand) * 100}%`,
+                        maxWidth: "100%",
+                        gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
                       }}
                     >
                       {band.map((cell) =>
