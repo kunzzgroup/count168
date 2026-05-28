@@ -375,6 +375,15 @@ export default function AccountListPage() {
     () => (groupOnlyAccountMode ? groupPickerCompanies : allCompanyButtons),
     [groupOnlyAccountMode, groupPickerCompanies, allCompanyButtons]
   );
+  const scopeCompanyId = useMemo(() => {
+    if (companyId) return Number(companyId);
+    if (!groupOnlyAccountMode || !selectedGroup) return null;
+    const groupCode = String(selectedGroup).trim().toUpperCase();
+    const entity = allCompanyButtons.find(
+      (c) => String(c.company_id || "").trim().toUpperCase() === groupCode
+    );
+    return entity?.id ? Number(entity.id) : null;
+  }, [companyId, groupOnlyAccountMode, selectedGroup, allCompanyButtons]);
 
   useEffect(() => {
     if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
@@ -387,6 +396,8 @@ export default function AccountListPage() {
     }
     try {
       const fd = new FormData(); fd.append("id", id);
+      if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
+      if (groupOnlyAccountMode && selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (json.success) {
@@ -403,6 +414,8 @@ export default function AccountListPage() {
     }
     try {
       const fd = new FormData(); fd.append("id", id);
+      if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
+      if (groupOnlyAccountMode && selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (json.success) {
@@ -491,6 +504,8 @@ export default function AccountListPage() {
       const detailUrl = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
       detailUrl.searchParams.set("id", String(id));
       if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
+      else if (scopeCompanyId) detailUrl.searchParams.set("company_id", String(scopeCompanyId));
+      if (groupOnlyAccountMode && selectedGroup) detailUrl.searchParams.set("group_id", String(selectedGroup));
       detailUrl.searchParams.set("_", String(Date.now()));
       const res = await fetch(detailUrl.toString(), {
         credentials: "include",
@@ -522,7 +537,8 @@ export default function AccountListPage() {
     try {
       const fd = new FormData();
       selectedDeleteIds.forEach(id => fd.append("ids[]", id));
-      if (companyId) fd.append("company_id", String(companyId));
+      if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
+      if (groupOnlyAccountMode && selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/delete_accounts_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "deleteFailed", "danger");
@@ -546,6 +562,7 @@ export default function AccountListPage() {
     const amount = normalizeAlertAmount(form.alert_amount);
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => fd.append(k, k === "alert_amount" ? amount : (v ?? "")));
+    if (scopeCompanyId) fd.set("company_id", String(scopeCompanyId));
     if (!groupOnlyAccountMode && selectedCompanyIds.length) {
       fd.set("company_ids", JSON.stringify(selectedCompanyIds));
     }
@@ -784,10 +801,20 @@ export default function AccountListPage() {
     }
 
     try {
-      const res = await fetch(buildApiUrl("api/accounts/delete_currency_api.php"), {
+      const deleteUrl = new URL(buildApiUrl("api/accounts/delete_currency_api.php"));
+      if (groupOnlyAccountMode && selectedGroup) {
+        deleteUrl.searchParams.set("group_id", String(selectedGroup));
+      } else if (scopeCompanyId) {
+        deleteUrl.searchParams.set("company_id", String(scopeCompanyId));
+      }
+      const res = await fetch(deleteUrl.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({
+          id,
+          company_id: scopeCompanyId || undefined,
+          group_id: groupOnlyAccountMode && selectedGroup ? String(selectedGroup) : undefined,
+        }),
         credentials: "include",
       });
       const json = await res.json();
@@ -850,13 +877,24 @@ export default function AccountListPage() {
       return;
     }
     try {
-      if (!companyId) return notify(t("pleaseSelectCompanyFirst"), "danger");
+      if (!scopeCompanyId && !(groupOnlyAccountMode && selectedGroup)) {
+        return notify(t("pleaseSelectCompanyFirst"), "danger");
+      }
       setLinkingAccountId(Number(id));
       setLinkType("bidirectional");
       setLinkSearchTerm("");
+      const allUrl = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+      allUrl.searchParams.set("showAll", "1");
+      if (groupOnlyAccountMode && selectedGroup) allUrl.searchParams.set("group_id", String(selectedGroup));
+      else allUrl.searchParams.set("company_id", String(scopeCompanyId));
+      const linkedUrl = new URL(buildApiUrl("api/accounts/account_link_api.php"));
+      linkedUrl.searchParams.set("action", "get_linked_accounts");
+      linkedUrl.searchParams.set("account_id", String(id));
+      if (groupOnlyAccountMode && selectedGroup) linkedUrl.searchParams.set("group_id", String(selectedGroup));
+      else linkedUrl.searchParams.set("company_id", String(scopeCompanyId));
       const [allRes, linkedRes] = await Promise.all([
-        fetch(buildApiUrl(`api/accounts/accountlistapi.php?company_id=${companyId}&showAll=1`), { credentials: "include" }),
-        fetch(buildApiUrl(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${id}&company_id=${companyId}`), { credentials: "include" }),
+        fetch(allUrl.toString(), { credentials: "include" }),
+        fetch(linkedUrl.toString(), { credentials: "include" }),
       ]);
       const allJson = await allRes.json();
       const linkedJson = await linkedRes.json();
@@ -891,10 +929,20 @@ export default function AccountListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    if (!linkingAccountId || !companyId) return;
+    if (!linkingAccountId || (!scopeCompanyId && !(groupOnlyAccountMode && selectedGroup))) return;
     try {
-      const refRes = await fetch(buildApiUrl(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${linkingAccountId}&company_id=${companyId}`), { credentials: "include" });
+      const refUrl = new URL(buildApiUrl("api/accounts/account_link_api.php"));
+      refUrl.searchParams.set("action", "get_linked_accounts");
+      refUrl.searchParams.set("account_id", String(linkingAccountId));
+      if (groupOnlyAccountMode && selectedGroup) refUrl.searchParams.set("group_id", String(selectedGroup));
+      else refUrl.searchParams.set("company_id", String(scopeCompanyId));
+      const refRes = await fetch(refUrl.toString(), { credentials: "include" });
       const refJson = await refRes.json();
+      const linkScopeCompanyId = Number(refJson?.data?.company_id) || Number(scopeCompanyId);
+      if (!Number.isFinite(linkScopeCompanyId) || linkScopeCompanyId <= 0) {
+        notify(t("pleaseSelectCompanyFirst"), "danger");
+        return;
+      }
       const typesMap = refJson?.data?.link_types_map || {};
       const currentTypeIds = new Set(
         (Array.isArray(refJson?.data?.accounts) ? refJson.data.accounts : [])
@@ -909,7 +957,7 @@ export default function AccountListPage() {
         await fetch(buildApiUrl("api/accounts/account_link_api.php?action=unlink_accounts"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ account_id_1: Number(linkingAccountId), account_id_2: Number(linkedId), company_id: Number(companyId) }),
+          body: JSON.stringify({ account_id_1: Number(linkingAccountId), account_id_2: Number(linkedId), company_id: linkScopeCompanyId }),
           credentials: "include",
         });
       }
@@ -920,7 +968,7 @@ export default function AccountListPage() {
           body: JSON.stringify({
             account_id_1: Number(linkingAccountId),
             account_id_2: Number(linkedId),
-            company_id: Number(companyId),
+            company_id: linkScopeCompanyId,
             link_type: linkType,
             source_account_id: linkType === "unidirectional" ? Number(linkingAccountId) : null,
           }),
@@ -935,7 +983,7 @@ export default function AccountListPage() {
             body: JSON.stringify({
               account_id_1: Number(linkingAccountId),
               account_id_2: Number(linkedId),
-              company_id: Number(companyId),
+              company_id: linkScopeCompanyId,
               link_type: linkType,
               source_account_id: linkType === "unidirectional" ? Number(linkingAccountId) : null,
             }),
