@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import AccountModal from "../../components/AccountModal.jsx";
 import { accountModalOverlayZIndex, processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
@@ -20,7 +20,7 @@ import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModa
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
-import { bankProcessFrequencyNormalized } from "./lib/bankProcessHelpers.js";
+import { bankProcessFrequencyNormalized, normalizeBankProcessStatus } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 
 export default function BankProcessListPage() {
@@ -245,6 +245,11 @@ export default function BankProcessListPage() {
   const searchInputRef = useRef(null);
   const hasActiveFilters = showInactive || showAll || showOfficial || showEInvoice || showBlock;
   const isSearchCollapsed = isNarrowToolbar && !searchExpanded && !search.trim();
+
+  const hasDeletableRows = useMemo(
+    () => visibleRows.some((r) => normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions),
+    [visibleRows],
+  );
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1699px)");
@@ -537,7 +542,7 @@ export default function BankProcessListPage() {
           <BankProcessTable
             tableLoading={tableLoading}
             showAll={showAll}
-            showSelectColumn={showInactive || showAll || showOfficial || showEInvoice || showBlock}
+            showSelectColumn={hasDeletableRows}
             pageRows={pageRows}
             currentPage={currentPage}
             PAGE_SIZE={PAGE_SIZE}

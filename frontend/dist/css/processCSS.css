@@ -965,13 +965,13 @@ body.process-page {
         minmax(0, 1.05fr) minmax(0, 1.78fr)
         minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
-        minmax(0, 0.6fr) minmax(0, 0.56fr) minmax(0, 0.52fr);
+        minmax(0, 0.6fr) minmax(0, 0.56fr) max-content;
     --bank-virtual-grid-columns-with-select:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
         minmax(0, 1.05fr) minmax(0, 1.78fr)
         minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
-        minmax(0, 0.6fr) minmax(0, 0.56fr) minmax(0, 0.52fr) minmax(0, 0.34fr);
+        minmax(0, 0.6fr) minmax(0, 0.56fr) max-content max-content;
     --bank-virtual-grid-active: var(--bank-virtual-grid-columns);
 }
 
@@ -2320,11 +2320,16 @@ body.process-page.process-page--bank .bank-process-table-region .bank-col-date.b
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-col-action.bank-virtual-th,
-body.process-page.process-page--bank .bank-process-table-region .bank-col-action.bank-virtual-cell {
+body.process-page.process-page--bank .bank-process-table-region .bank-col-action.bank-virtual-cell,
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-action-cell {
     padding-left: clamp(4px, 0.35vw, 6px);
     padding-right: clamp(4px, 0.28vw, 6px);
     justify-content: flex-start;
     overflow: visible;
+    width: auto;
+    min-width: max-content;
+    max-width: max-content;
+    flex: 0 0 auto;
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-action.bank-action-header {
@@ -2564,13 +2569,13 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
             minmax(108px, 0.82fr) minmax(128px, 1.42fr)
             minmax(70px, 0.38fr) minmax(max-content, 0.34fr) minmax(max-content, 0.32fr)
             minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
-            minmax(56px, 0.48fr) minmax(90px, 0.54fr) minmax(80px, 0.44fr);
+            minmax(56px, 0.48fr) minmax(90px, 0.54fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(30px, 0.16fr) minmax(70px, 0.4fr) minmax(max-content, 0.3fr)
             minmax(108px, 0.82fr) minmax(128px, 1.42fr)
             minmax(70px, 0.38fr) minmax(max-content, 0.34fr) minmax(max-content, 0.32fr)
             minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
-            minmax(56px, 0.48fr) minmax(90px, 0.54fr) minmax(80px, 0.44fr) minmax(38px, 0.28fr);
+            minmax(56px, 0.48fr) minmax(90px, 0.54fr) max-content max-content;
     }
 
     /* 表头：单行对齐；角标 ↕/▲/▼ 贴列右上，文字同一基线 */
@@ -2719,13 +2724,13 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
             minmax(52px, 0.62fr) minmax(96px, 1.12fr)
             minmax(66px, 0.36fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(52px, 0.46fr) minmax(88px, 0.56fr) minmax(76px, 0.44fr);
+            minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(max-content, 0.28fr)
             minmax(52px, 0.62fr) minmax(96px, 1.12fr)
             minmax(66px, 0.36fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(52px, 0.46fr) minmax(88px, 0.56fr) minmax(76px, 0.44fr) minmax(34px, 0.26fr);
+            minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content max-content;
     }
 
     /* Supplier：<1700px 仍单行省略 */
@@ -2975,13 +2980,13 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
             minmax(100px, 0.72fr) minmax(72px, 1.05fr)
             minmax(66px, 0.36fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(52px, 0.46fr) minmax(88px, 0.56fr) minmax(76px, 0.44fr);
+            minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(66px, 0.4fr) minmax(max-content, 0.28fr)
             minmax(100px, 0.72fr) minmax(72px, 1.05fr)
             minmax(66px, 0.36fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(52px, 0.46fr) minmax(88px, 0.56fr) minmax(76px, 0.44fr) minmax(34px, 0.26fr);
+            minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content max-content;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
@@ -3025,13 +3030,13 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
             minmax(104px, 0.76fr) minmax(68px, 1.02fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.46fr) minmax(66px, 0.46fr) minmax(62px, 0.44fr)
-            minmax(52px, 0.44fr) minmax(90px, 0.56fr) minmax(78px, 0.44fr);
+            minmax(52px, 0.44fr) minmax(90px, 0.56fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
             minmax(104px, 0.76fr) minmax(68px, 1.02fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.46fr) minmax(66px, 0.46fr) minmax(62px, 0.44fr)
-            minmax(52px, 0.44fr) minmax(90px, 0.56fr) minmax(78px, 0.44fr) minmax(34px, 0.26fr);
+            minmax(52px, 0.44fr) minmax(90px, 0.56fr) max-content max-content;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
@@ -3093,13 +3098,13 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
             minmax(104px, 0.74fr) minmax(66px, 1fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.44fr) minmax(66px, 0.44fr) minmax(62px, 0.42fr)
-            minmax(52px, 0.42fr) minmax(94px, 0.58fr) minmax(82px, 0.46fr);
+            minmax(52px, 0.42fr) minmax(94px, 0.58fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
             minmax(104px, 0.74fr) minmax(66px, 1fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.44fr) minmax(66px, 0.44fr) minmax(62px, 0.42fr)
-            minmax(52px, 0.42fr) minmax(94px, 0.58fr) minmax(82px, 0.46fr) minmax(34px, 0.26fr);
+            minmax(52px, 0.42fr) minmax(94px, 0.58fr) max-content max-content;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-col-date.bank-virtual-th,
