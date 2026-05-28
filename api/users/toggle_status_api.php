@@ -67,9 +67,6 @@ function toggle_company_ids_for_group(array $accessibleCompanies, string $groupI
     }
     $out = [];
     foreach ($accessibleCompanies as $c) {
-        if (!gc_company_row_matches_login_scope($c)) {
-            continue;
-        }
         $linkSrc = strtoupper(trim((string) ($c['link_source_group'] ?? '')));
         if ($linkSrc !== '') {
             continue;
@@ -90,6 +87,57 @@ function toggle_company_ids_for_group(array $accessibleCompanies, string $groupI
 }
 
 /** @return list<int> */
+function toggle_group_entity_company_ids(PDO $pdo, string $groupId): array
+{
+    $g = toggle_normalize_group_id($groupId);
+    if ($g === null) {
+        return [];
+    }
+
+    $ids = [];
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        ORDER BY id ASC
+    ");
+    $stmt->execute([$g]);
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        $nid = (int) $id;
+        if ($nid > 0) {
+            $ids[] = $nid;
+        }
+    }
+
+    if ($ids === []) {
+        $placeholderStmt = $pdo->prepare("
+            SELECT id
+            FROM company
+            WHERE TRIM(COALESCE(company_id, '')) = ''
+              AND UPPER(TRIM(group_id)) = ?
+            ORDER BY id ASC
+        ");
+        $placeholderStmt->execute([$g]);
+        foreach ($placeholderStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $nid = (int) $id;
+            if ($nid > 0) {
+                $ids[] = $nid;
+            }
+        }
+    }
+
+    $allowed = [];
+    foreach (array_values(array_unique($ids)) as $cid) {
+        if (gc_session_can_access_company_id($pdo, (int) $cid, $g)) {
+            $allowed[] = (int) $cid;
+        }
+    }
+
+    return $allowed;
+}
+
+/** @return list<int> */
 function toggle_resolve_scope_company_ids(PDO $pdo, ?int $postedCompanyId, ?string $groupId): array
 {
     $sessionCompanyId = (int) ($_SESSION['company_id'] ?? 0);
@@ -99,7 +147,10 @@ function toggle_resolve_scope_company_ids(PDO $pdo, ?int $postedCompanyId, ?stri
 
     $groupNorm = toggle_normalize_group_id($groupId);
     if ($groupNorm !== null) {
-        $groupIds = toggle_company_ids_for_group($accessible, $groupNorm);
+        $groupIds = toggle_group_entity_company_ids($pdo, $groupNorm);
+        if ($groupIds === []) {
+            $groupIds = toggle_company_ids_for_group($accessible, $groupNorm);
+        }
         if ($groupIds !== []) {
             return $groupIds;
         }
