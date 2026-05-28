@@ -4,6 +4,7 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
@@ -51,6 +52,10 @@ function normalizeAlertAmount(?string $value): ?string {
 }
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
+    if (gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
+        return;
+    }
     $current_user_id = $_SESSION['user_id'];
     $current_user_role = $_SESSION['role'] ?? '';
     if ($current_user_role === 'owner') {
@@ -67,6 +72,108 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
             throw new Exception('无权限访问该公司');
         }
     }
+}
+
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId, ?int $ownerId = null): int {
+    // Strict group entity row: company_id equals group code.
+    $sql = "
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+    ";
+    $params = [$groupId];
+    if ($ownerId !== null && $ownerId > 0) {
+        $sql .= " AND owner_id = ? ";
+        $params[] = $ownerId;
+    }
+    $sql .= " LIMIT 1 ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) {
+        return $id;
+    }
+
+    // Legacy placeholder entity form: empty company_id + group_id = group code.
+    $placeholderSql = "
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+    ";
+    $placeholderParams = [$groupId];
+    if ($ownerId !== null && $ownerId > 0) {
+        $placeholderSql .= " AND owner_id = ? ";
+        $placeholderParams[] = $ownerId;
+    }
+    $placeholderSql .= "
+        ORDER BY id ASC
+        LIMIT 1
+    ";
+    $placeholderStmt = $pdo->prepare($placeholderSql);
+    $placeholderStmt->execute($placeholderParams);
+    return (int)($placeholderStmt->fetchColumn() ?: 0);
+}
+
+function resolveOwnerIdForGroupScope(PDO $pdo, string $groupId, int $currentUserId, string $currentUserRole): int {
+    if ($currentUserRole === 'owner') {
+        $ownerId = (int)($_SESSION['owner_id'] ?? $currentUserId);
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM company
+            WHERE owner_id = ?
+              AND UPPER(TRIM(COALESCE(group_id, ''))) = ?
+        ");
+        $stmt->execute([$ownerId, $groupId]);
+        return ((int)$stmt->fetchColumn() > 0) ? $ownerId : 0;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT c.owner_id
+        FROM user_company_map ucm
+        INNER JOIN company c ON c.id = ucm.company_id
+        WHERE ucm.user_id = ?
+          AND c.owner_id IS NOT NULL
+          AND UPPER(TRIM(COALESCE(c.group_id, ''))) = ?
+        ORDER BY c.id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$currentUserId, $groupId]);
+    return (int)($stmt->fetchColumn() ?: 0);
+}
+
+/**
+ * Ensure a dedicated group entity company row exists (company_id == group code).
+ * Returns that row id when available/created, otherwise 0.
+ */
+function ensureGroupEntityCompanyId(PDO $pdo, string $groupId, int $ownerId, int $currentUserId): int {
+    $existing = resolveGroupEntityCompanyId($pdo, $groupId, $ownerId);
+    if ($existing > 0) {
+        return $existing;
+    }
+    if ($ownerId <= 0) {
+        return 0;
+    }
+
+    try {
+        $insertStmt = $pdo->prepare("
+            INSERT INTO company (company_id, owner_id, created_by, group_id)
+            VALUES (?, ?, ?, ?)
+        ");
+        $insertStmt->execute([$groupId, $ownerId, (string)$currentUserId, $groupId]);
+    } catch (PDOException $e) {
+        // Duplicate/parallel create: ignore and re-read.
+        if ((string)$e->getCode() !== '23000') {
+            throw $e;
+        }
+    }
+
+    return resolveGroupEntityCompanyId($pdo, $groupId, $ownerId);
 }
 
 function hasAccountCompanyTable(PDO $pdo): bool {
@@ -91,6 +198,29 @@ function accountExistsInCompany(PDO $pdo, string $account_id, int $company_id): 
         $stmt->execute([$account_id, $company_id]);
     }
     return $stmt->fetchColumn() > 0;
+}
+
+function resolveCompanyScopeLabel(PDO $pdo, int $companyId): string {
+    $stmt = $pdo->prepare("
+        SELECT company_id, group_id
+        FROM company
+        WHERE id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$companyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $companyCode = strtoupper(trim((string)($row['company_id'] ?? '')));
+    $groupCode = strtoupper(trim((string)($row['group_id'] ?? '')));
+    if ($companyCode !== '' && $groupCode !== '') {
+        return $companyCode . ' (Group ' . $groupCode . ')';
+    }
+    if ($companyCode !== '') {
+        return $companyCode;
+    }
+    if ($groupCode !== '') {
+        return 'Group ' . $groupCode;
+    }
+    return '当前作用域';
 }
 
 function roleExists(PDO $pdo, string $role): bool {
@@ -159,6 +289,9 @@ function linkAccountToCompanies(PDO $pdo, int $accountId, array $companyIds): vo
 }
 
 function userCanAccessCompany(PDO $pdo, int $userId, int $companyId, string $role): bool {
+    if (gc_is_group_login()) {
+        return gc_session_can_access_company_id($pdo, $companyId);
+    }
     if ($role === 'owner') {
         $owner_id = $_SESSION['owner_id'] ?? $userId;
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
@@ -240,15 +373,18 @@ try {
         exit;
     }
 
+    $group_scope_id = normalizeGroupId($_POST['group_id'] ?? null);
+
     $company_id = null;
     if (isset($_POST['company_id']) && $_POST['company_id'] !== '') {
         $company_id = (int)$_POST['company_id'];
-    } elseif (isset($_SESSION['company_id'])) {
+    } elseif ($group_scope_id === null && isset($_SESSION['company_id'])) {
+        // Group-scoped add must not implicitly fall back to session company (e.g. C168).
         $company_id = (int)$_SESSION['company_id'];
     }
 
     // 容错：前端有时仅传 company_ids，不传 company_id
-    if (!$company_id) {
+    if (!$company_id && $group_scope_id === null) {
         if (isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {
             $decodedCompanyIds = json_decode($_POST['company_ids'], true);
             if (is_array($decodedCompanyIds)) {
@@ -262,6 +398,38 @@ try {
             }
         }
     }
+
+    $forced_company_ids_to_link = [];
+    if ($group_scope_id !== null) {
+        $current_user_id = (int)($_SESSION['user_id'] ?? 0);
+        $current_user_role = (string)($_SESSION['role'] ?? '');
+        $group_scope_owner_id = resolveOwnerIdForGroupScope(
+            $pdo,
+            $group_scope_id,
+            $current_user_id,
+            $current_user_role
+        );
+        if ($group_scope_owner_id <= 0) {
+            throw new Exception('无权限访问该公司');
+        }
+        // Group-only mode must bind to the selected group entity only,
+        // not to all companies in that group (prevents AP data leaking into C168).
+        $group_entity_company_id = ensureGroupEntityCompanyId(
+            $pdo,
+            $group_scope_id,
+            $group_scope_owner_id,
+            $current_user_id
+        );
+        if ($group_entity_company_id <= 0) {
+            throw new Exception('Missing company information');
+        }
+        $company_id = $group_entity_company_id;
+        $forced_company_ids_to_link = [$group_entity_company_id];
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
+        }
+    }
+
     if (!$company_id) {
         throw new Exception('缺少公司信息');
     }
@@ -340,7 +508,8 @@ try {
     }
     try {
         if (accountExistsInCompany($pdo, $account_id, $company_id)) {
-            throw new Exception('账户ID已存在');
+            $scopeLabel = resolveCompanyScopeLabel($pdo, $company_id);
+            throw new Exception('账户ID已存在于 ' . $scopeLabel);
         }
         if (!roleExists($pdo, $role_db_code)) {
             throw new Exception('选择的角色无效');
@@ -353,7 +522,8 @@ try {
         try {
             // Re-check inside transaction while holding lock to avoid duplicate inserts under concurrency.
             if (accountExistsInCompany($pdo, $account_id, $company_id)) {
-                throw new Exception('账户ID已存在');
+                $scopeLabel = resolveCompanyScopeLabel($pdo, $company_id);
+                throw new Exception('账户ID已存在于 ' . $scopeLabel);
             }
 
             $newAccountId = insertAccount($pdo, [
@@ -369,7 +539,12 @@ try {
             ]);
 
             $company_ids_to_link = [];
-            if (isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {
+            if (!empty($forced_company_ids_to_link)) {
+                $company_ids_to_link = $forced_company_ids_to_link;
+            }
+            // Group-only add must be scoped by group selection only.
+            // Do not merge caller-provided company_ids (can drag links back to C168).
+            if (empty($forced_company_ids_to_link) && isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {
                 $company_ids = json_decode($_POST['company_ids'], true);
                 if (is_array($company_ids) && !empty($company_ids)) {
                     foreach ($company_ids as $comp_id) {

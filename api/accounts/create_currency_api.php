@@ -5,6 +5,7 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -17,6 +18,9 @@ function jsonOut(bool $success, string $message, $data = null) {
 }
 
 function userCanAccessCompany(PDO $pdo, int $companyId): bool {
+    if (gc_is_group_login()) {
+        return gc_session_can_access_company_id($pdo, $companyId);
+    }
     $userId = $_SESSION['user_id'] ?? 0;
     $role = $_SESSION['role'] ?? '';
     $ownerId = $_SESSION['owner_id'] ?? $userId;
@@ -28,6 +32,36 @@ function userCanAccessCompany(PDO $pdo, int $companyId): bool {
         $stmt->execute([$userId, $companyId]);
     }
     return (bool) $stmt->fetchColumn();
+}
+
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) {
+        return $id;
+    }
+
+    $placeholderStmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $placeholderStmt->execute([$groupId]);
+    return (int)($placeholderStmt->fetchColumn() ?: 0);
 }
 
 try {
@@ -64,8 +98,14 @@ try {
     }
     $code = strtoupper($code);
 
+    $groupScopeId = normalizeGroupId($input['group_id'] ?? null);
     $companyId = 0;
-    if (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
+    if ($groupScopeId !== null) {
+        $companyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
+        if ($companyId > 0 && gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $groupScopeId);
+        }
+    } elseif (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
         $companyId = (int) $input['company_id'];
     }
     if ($companyId <= 0 && isset($_SESSION['company_id'])) {

@@ -9,6 +9,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
 
 /**
@@ -54,6 +55,36 @@ function dbAccountBelongsToCompany($pdo, $account_id, $company_id) {
  * 获取当前公司 ID（支持 GET company_id 覆盖，仅 owner）
  */
 function resolveCompanyId($pdo) {
+    $group_scope_id = isset($_GET['group_id']) ? strtoupper(trim((string)$_GET['group_id'])) : '';
+    if ($group_scope_id !== '') {
+        $stmt = $pdo->prepare("
+            SELECT id
+            FROM company
+            WHERE UPPER(TRIM(company_id)) = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$group_scope_id]);
+        $groupEntityId = (int)($stmt->fetchColumn() ?: 0);
+        if ($groupEntityId <= 0) {
+            $placeholderStmt = $pdo->prepare("
+                SELECT id
+                FROM company
+                WHERE TRIM(COALESCE(company_id, '')) = ''
+                  AND UPPER(TRIM(group_id)) = ?
+                ORDER BY id ASC
+                LIMIT 1
+            ");
+            $placeholderStmt->execute([$group_scope_id]);
+            $groupEntityId = (int)($placeholderStmt->fetchColumn() ?: 0);
+        }
+        if ($groupEntityId > 0) {
+            if (gc_is_group_login()) {
+                gc_assert_company_id_allowed_for_login_scope($pdo, $groupEntityId, $group_scope_id);
+            }
+            return $groupEntityId;
+        }
+    }
+
     $company_id = $_SESSION['company_id'] ?? null;
     $requested = isset($_GET['company_id']) ? (int)$_GET['company_id'] : null;
     if (!$requested) {

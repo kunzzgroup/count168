@@ -4,6 +4,7 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
@@ -51,6 +52,10 @@ function getAccountPermissionFilterForCompany(PDO $pdo, int $company_id, string 
 }
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
+    if (gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
+        return;
+    }
     $current_user_id = $_SESSION['user_id'];
     $current_user_role = $_SESSION['role'] ?? '';
     if ($current_user_role === 'owner') {
@@ -67,6 +72,36 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
             throw new Exception('无权限访问该公司');
         }
     }
+}
+
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) {
+        return $id;
+    }
+
+    $placeholderStmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $placeholderStmt->execute([$groupId]);
+    return (int)($placeholderStmt->fetchColumn() ?: 0);
 }
 
 function hasAccountCreatedSourceColumn(PDO $pdo): bool {
@@ -244,11 +279,22 @@ try {
         throw new Exception('用户未登录');
     }
 
+    $group_scope_id = normalizeGroupId($_GET['group_id'] ?? null);
     $company_id = null;
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
         $company_id = (int) $_GET['company_id'];
-    } elseif (isset($_SESSION['company_id'])) {
+    } elseif ($group_scope_id === null && isset($_SESSION['company_id'])) {
         $company_id = (int) $_SESSION['company_id'];
+    }
+    if ($group_scope_id !== null) {
+        $group_entity_company_id = resolveGroupEntityCompanyId($pdo, $group_scope_id);
+        if ($group_entity_company_id <= 0) {
+            throw new Exception('缺少公司信息');
+        }
+        $company_id = $group_entity_company_id;
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
+        }
     }
     if (!$company_id) {
         throw new Exception('缺少公司信息');

@@ -6,6 +6,10 @@ function upper(v) {
   return String(v || "").toUpperCase();
 }
 
+function normalizePickerValue(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
 /**
  * Single shared Account modal (Add/Edit) UI component.
  *
@@ -79,13 +83,18 @@ export default function AccountModal({
       .map((c) => ({
         ...c,
         company_id: c?.company_id ?? c?.company_code ?? c?.companyId ?? c?.code ?? "",
+        picker_value: groupPickerMode
+          ? normalizePickerValue(c?.group_id ?? c?.company_id ?? c?.id ?? "")
+          : normalizePickerValue(c?.id),
       }))
-      .filter((c) => String(c.company_id || "").trim() !== "");
-  }, [companies]);
+      .filter((c) => String(c.company_id || "").trim() !== "" && c.picker_value !== "");
+  }, [companies, groupPickerMode]);
 
   const selectedCompanyLabels = useMemo(() => {
-    const set = new Set(selectedCompanyIds.map(Number));
-    return companyRows.filter((c) => set.has(Number(c.id))).map((c) => String(c.company_id || "").toUpperCase());
+    const selectedSet = new Set((selectedCompanyIds || []).map((id) => normalizePickerValue(id)));
+    return companyRows
+      .filter((c) => selectedSet.has(c.picker_value))
+      .map((c) => String(c.company_id || "").toUpperCase());
   }, [companyRows, selectedCompanyIds]);
 
   const companyPickerFiltered = useMemo(() => {
@@ -450,7 +459,7 @@ export default function AccountModal({
                     className="user-modal-company-picker-select-all"
                     disabled={companyRows.length === 0}
                     onClick={() => {
-                      setDraftCompanyIds(companyRows.map((c) => Number(c.id)));
+                      setDraftCompanyIds(companyRows.map((c) => c.picker_value));
                     }}
                   >
                     {text("selectAll")}
@@ -459,10 +468,10 @@ export default function AccountModal({
               </div>
               <ul className="user-modal-company-picker-list">
                 {companyPickerFiltered.map((c) => {
-                  const id = Number(c.id);
-                  const checked = draftCompanyIds.includes(id);
+                  const id = c.picker_value;
+                  const checked = draftCompanyIds.map((v) => normalizePickerValue(v)).includes(id);
                   return (
-                    <li key={c.id} className="user-modal-company-picker-row">
+                    <li key={id} className="user-modal-company-picker-row">
                       <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
                         <input
                           type={groupPickerMode ? "radio" : "checkbox"}

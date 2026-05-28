@@ -367,7 +367,10 @@ export default function UserListPage() {
     setTableLoading(true);
     try {
       const body = { action: "get" };
-      if (groupOnlyUserList && selectedGroup) body.group_id = selectedGroup;
+      // Group login should always query by the selected group tab.
+      // Otherwise, newly created group-scoped users can be saved successfully
+      // but remain invisible when session company stays on C168.
+      if (isGroupLogin(me) && selectedGroup) body.group_id = selectedGroup;
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
