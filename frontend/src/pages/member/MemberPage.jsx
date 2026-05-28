@@ -31,6 +31,8 @@ import {
   WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ,
   WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
   getWinLossCurrencySegmentMaxButtons,
+  WINLOSS_VIEWPORT_LAPTOP_MQ,
+  WINLOSS_VIEWPORT_TABLET_MQ,
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 import { useMemberPageShell } from "./useMemberPageShell.js";
