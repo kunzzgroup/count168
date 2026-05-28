@@ -57,7 +57,7 @@ body.datacapture-page #root {
 body.datacapture-page .container {
     max-width: none;
     margin: 0;
-    padding: var(--layout-page-top-gap) clamp(24px, 2.2vw, 36px) 12px var(--layout-main-offset);
+    padding: 0 clamp(24px, 2.2vw, 36px) 12px var(--layout-main-offset);
     width: 100%;
     height: 100vh;
     height: 100dvh;
@@ -137,7 +137,7 @@ body.datacapture-page .dc-page-toolbar {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin: var(--layout-page-first-block-mt) 0 10px;
+    margin: 0 0 10px;
     min-width: 0;
 }
 

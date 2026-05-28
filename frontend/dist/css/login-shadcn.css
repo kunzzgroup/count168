@@ -260,9 +260,9 @@ button.sc-login-lang-seg.active {
 .sc-login-role-tab {
   flex: 1;
   min-width: 0;
-  min-height: 57.5px;
+  min-height: 46.5px;
   box-sizing: border-box;
-  padding: 15px;
+  padding: 12px;
   border: none;
   background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
@@ -282,7 +282,7 @@ button.sc-login-lang-seg.active {
 }
 
 .sc-login-card-content {
-  padding: 24px 20px;
+  padding: 18px 20px;
   min-width: 0;
   font-size: 16px;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
