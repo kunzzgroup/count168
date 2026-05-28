@@ -314,31 +314,9 @@ button.sc-login-lang-seg.active {
   z-index: 2;
 }
 
-.sc-login-input {
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  min-height: 46.5px;
-  padding: 12px 25px 12px 46px;
-  border: 2px solid var(--login-bg-end);
-  border-radius: var(--login-radius-pill);
-  font-size: var(--text-base);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--login-text);
-}
-
+/* 输入框 chrome 见 style.css + src/styles/login-auth-fields.css */
 .sc-login-input:focus {
-  outline: none;
-  border-color: var(--login-bg-start);
-  box-shadow: 0 0 0 3px rgba(0, 79, 249, 0.1);
   animation: sc-login-pulse 0.3s ease-out;
-}
-
-.sc-login-input::placeholder {
-  color: var(--login-bg-end);
-  font-weight: 400;
 }
 
 .sc-login-options {

@@ -9,6 +9,7 @@ import "./index.css";
 import "./styles/app-shell.css";
 import "./styles/maintenanceToolbarUnified.css";
 import "./styles/login-surface-lock.css";
+import "./styles/login-auth-fields.css";
 import "../public/css/modal-close-unified.css";
 
 const queryClient = new QueryClient({
