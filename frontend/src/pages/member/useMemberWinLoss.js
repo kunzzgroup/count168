@@ -10,12 +10,11 @@ import {
   getMemberMiniGridCurrencies,
   getOrderedMiniGridAccounts,
   groupHistoryForDisplay,
-  memberHistoryClosingBalancesForAllCurrencies,
   normalizeNumber,
   saveWLGridSelection,
   sanitizeCurrencySelection,
 } from "./memberPageHelpers.js";
-import { mapBatchCurrencies, mapLinkedAccountsApiList, parseJsonResponse } from "./memberWinLossApi.js";
+import { fetchAccountHistoryClosingBalance, mapBatchCurrencies, mapLinkedAccountsApiList, parseJsonResponse } from "./memberWinLossApi.js";
 
 export function useMemberWinLoss({ showNotification, lang }) {
   const t = useCallback((key, params) => getMemberText(lang, key, params), [lang]);
@@ -265,7 +264,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         linkedCurrenciesLoaded,
         linkedAccountCurrenciesMap,
         wlGridSelectedIds,
-        linkedAccounts,
+        linkedAccounts: gridAccountPool.length ? gridAccountPool : linkedAccounts,
         ownedCurrencies,
         currencySummary,
         currencySortOrder: currencySortOrderRef.current,
@@ -276,6 +275,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
       linkedAccountCurrenciesMap,
       wlGridSelectedIds,
       linkedAccounts,
+      gridAccountPool,
       ownedCurrencies,
       currencySummary,
       currencyOrder,
@@ -361,47 +361,34 @@ export function useMemberWinLoss({ showNotification, lang }) {
       gridAbortRef.current = new AbortController();
       const signal = gridAbortRef.current.signal;
       try {
-        const pairs = await Promise.all(
-          orderedAccounts.map(async (acc) => {
-            const id = Number(acc.id);
-            const params = new URLSearchParams({
-              account_id: String(id),
-              date_from: fromDate,
-              date_to: toDate,
-              company_id: String(compId),
-            });
-            if (orderUpper.length === 1) params.append("currency", orderUpper[0]);
-            const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params}&_t=${Date.now()}`), {
-              credentials: "include",
-              cache: "no-store",
-              signal,
-            });
-            const json = await parseJsonResponse(await res.text());
-            if (!json?.success) throw new Error(json?.error || t("couldNotLoadHistory"));
-            const wanted = new Set(orderUpper);
-            const byCur = memberHistoryClosingBalancesForAllCurrencies(json.data?.history ?? [], wanted);
-            return { id, byCurMap: byCur };
-          }),
-        );
+        const tasks = [];
+        for (const acc of orderedAccounts) {
+          const id = Number(acc.id);
+          if (id <= 0) continue;
+          for (const cu of orderUpper) {
+            if (
+              linkedCurrenciesLoaded &&
+              !accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, id, cu)
+            ) {
+              continue;
+            }
+            tasks.push(
+              (async () => {
+                const dec = await fetchAccountHistoryClosingBalance(id, cu, fromDate, toDate, compId, signal);
+                return { id, cu, dec };
+              })(),
+            );
+          }
+        }
+        const pairs = await Promise.all(tasks);
         if (seq !== searchSeqRef.current) return;
         const balanceMap = new Map();
         const totalsByCu = new Map();
         orderUpper.forEach((cu) => totalsByCu.set(cu, normalizeNumber("0")));
-        pairs.forEach(({ id, byCurMap }) => {
-          if (id <= 0 || !(byCurMap instanceof Map)) return;
-          orderUpper.forEach((cu) => {
-            const holds = accountHoldsMiniGridCurrency(
-              linkedAccountCurrenciesMap,
-              linkedCurrenciesLoaded,
-              id,
-              cu,
-            );
-            const dec = byCurMap.get(cu);
-            if (dec != null && typeof dec.plus === "function") {
-              balanceMap.set(`${id}|${cu}`, dec);
-              if (holds) totalsByCu.set(cu, totalsByCu.get(cu).plus(dec));
-            }
-          });
+        pairs.forEach(({ id, cu, dec }) => {
+          if (id <= 0 || dec == null || typeof dec.plus !== "function") return;
+          balanceMap.set(`${id}|${cu}`, dec);
+          totalsByCu.set(cu, totalsByCu.get(cu).plus(dec));
         });
         setMiniGridBalances(balanceMap);
         setMiniGridTotals(totalsByCu);
