@@ -1939,7 +1939,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 10px;
+    gap: 8px;
     width: auto;
     max-width: 100%;
 }
@@ -1956,7 +1956,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 2px;
     flex: 0 0 auto;
     margin: 0;
     padding: 0;
@@ -1964,14 +1964,14 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 }
 
 .bank-form .bank-day-end-cap-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     color: #94a3b8;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     user-select: none;
     line-height: 1;
-    min-width: 22px;
+    min-width: 20px;
     text-align: center;
 }
 
@@ -1979,71 +1979,70 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     color: #2563eb;
 }
 
-/* Bank modal：Day end 旁 compact toggle */
-#addBankModal .bank-day-end-cap-switch.toggle-switch {
+/* Bank modal：Day end 旁 mini toggle（独立 class，避免 userlist .toggle-switch 污染） */
+#addBankModal .bank-day-end-cap-switch {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    width: 36px;
-    height: 20px;
+    display: inline-block;
+    width: 28px;
+    height: 16px;
     flex-shrink: 0;
     cursor: pointer;
     margin: 0;
     vertical-align: middle;
 }
 
-#addBankModal .bank-day-end-cap-switch.toggle-switch input {
+#addBankModal .bank-day-end-cap-switch input {
+    position: absolute;
     opacity: 0;
     width: 0;
     height: 0;
-    position: absolute;
     margin: 0;
+    pointer-events: none;
 }
 
-#addBankModal .bank-day-end-cap-switch .toggle-slider {
+#addBankModal .bank-day-end-cap-switch__track {
     position: absolute;
     inset: 0;
+    display: block;
     background: #e2e8f0;
     border-radius: 999px;
-    transition: background 0.2s ease, box-shadow 0.2s ease;
     box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+    transition: background 0.2s ease;
 }
 
-#addBankModal .bank-day-end-cap-switch .toggle-slider::before {
+#addBankModal .bank-day-end-cap-switch__track::before {
     content: "";
     position: absolute;
-    width: 14px;
-    height: 14px;
-    top: 50%;
-    left: 3px;
-    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    top: 2px;
+    left: 2px;
     background: #fff;
     border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.16);
     transition: left 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
 }
 
-#addBankModal .bank-day-end-cap-switch input:checked + .toggle-slider {
+#addBankModal .bank-day-end-cap-switch input:checked + .bank-day-end-cap-switch__track {
     background: #3b82f6;
-    box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.25);
+    box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.2);
 }
 
-#addBankModal .bank-day-end-cap-switch input:checked + .toggle-slider::before {
-    left: calc(100% - 17px);
-    box-shadow: 0 1px 3px rgba(29, 78, 216, 0.35);
+#addBankModal .bank-day-end-cap-switch input:checked + .bank-day-end-cap-switch__track::before {
+    left: 14px;
+    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.28);
 }
 
-#addBankModal .bank-day-end-cap-switch:hover .toggle-slider {
+#addBankModal .bank-day-end-cap-switch:hover .bank-day-end-cap-switch__track {
     background: #cbd5e1;
 }
 
-#addBankModal .bank-day-end-cap-switch:hover input:checked + .toggle-slider {
+#addBankModal .bank-day-end-cap-switch:hover input:checked + .bank-day-end-cap-switch__track {
     background: #2563eb;
 }
 
-#addBankModal .bank-day-end-cap-switch input:disabled + .toggle-slider {
+#addBankModal .bank-day-end-cap-switch input:disabled + .bank-day-end-cap-switch__track {
     opacity: 0.45;
-    cursor: not-allowed;
 }
 
 #addBankModal .bank-day-end-cap-switch:has(input:disabled) {

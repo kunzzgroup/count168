@@ -267,7 +267,7 @@ export default function BankProcessFormModal({
                             className="bank-day-end-monthly-cap-wrap"
                             title={t("dayEndMonthlyCapTooltip")}
                           >
-                            <label className="toggle-switch bank-day-end-cap-switch" htmlFor="bank_day_end_monthly_cap_switch">
+                            <label className="bank-day-end-cap-switch" htmlFor="bank_day_end_monthly_cap_switch">
                               <input
                                 type="checkbox"
                                 id="bank_day_end_monthly_cap_switch"
@@ -279,7 +279,7 @@ export default function BankProcessFormModal({
                                   }))
                                 }
                               />
-                              <span className="toggle-slider" />
+                              <span className="bank-day-end-cap-switch__track" aria-hidden="true" />
                             </label>
                             <span
                               id="bank_day_end_monthly_cap_label_text"
