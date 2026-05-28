@@ -321,7 +321,7 @@ button.sc-login-lang-seg.active {
   box-sizing: border-box;
   min-height: 46.5px;
   padding: 12px 25px 12px 46px;
-  border: 1px solid var(--login-bg-end);
+  border: 2px solid var(--login-bg-end);
   border-radius: var(--login-radius-pill);
   font-size: var(--text-base);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
