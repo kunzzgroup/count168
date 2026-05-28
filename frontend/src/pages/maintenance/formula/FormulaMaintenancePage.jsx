@@ -60,7 +60,6 @@ export default function FormulaMaintenancePage() {
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedProcess, setSelectedProcess] = useState(null);
-  const [searchFilter, setSearchFilter] = useState("");
   const [activePermission, setActivePermission] = useState("");
   const [processes, setProcesses] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -413,7 +412,6 @@ export default function FormulaMaintenancePage() {
         companyId: searchCompanyId,
         category: activePermission,
         process: selectedProcess,
-        search: searchFilter,
       });
       if (seq !== searchSeqRef.current) return;
       if (searchCompanyId !== Number(companyIdRef.current)) return;
@@ -447,7 +445,6 @@ export default function FormulaMaintenancePage() {
     companyId,
     activePermission,
     selectedProcess,
-    searchFilter,
     notify,
     t,
     hydrateFormulaList,
@@ -470,14 +467,13 @@ export default function FormulaMaintenancePage() {
         performSearch();
       }, 300);
     }
-  }, [bootLoading, companyId, searchFilter, selectedProcess, performSearch]);
+  }, [bootLoading, companyId, selectedProcess, performSearch]);
 
   // -- Handlers --
   const handleClearCompany = useCallback(() => {
     companyIdRef.current = null;
     setCompanyId(null);
     setCompanyCode("");
-    setSearchFilter("");
     setSelectedProcess(null);
     clearFormulaList();
   }, [clearFormulaList]);
@@ -503,7 +499,6 @@ export default function FormulaMaintenancePage() {
       persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
 
-      setSearchFilter("");
       setSelectedProcess(null);
       clearFormulaList();
 
@@ -531,7 +526,6 @@ export default function FormulaMaintenancePage() {
       setActivePermission(p);
     });
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
-    setSearchFilter("");
     setSelectedProcess(null);
     clearFormulaList();
     setConfirmDelete(false);
@@ -544,7 +538,6 @@ export default function FormulaMaintenancePage() {
   }, []);
 
   const handleClearFilters = () => {
-    setSearchFilter("");
     setSelectedProcess(null);
     clearFormulaList();
   };
@@ -703,8 +696,6 @@ export default function FormulaMaintenancePage() {
         processes={processes}
         selectedProcess={selectedProcess}
         setSelectedProcess={handleSetSelectedProcess}
-        searchFilter={searchFilter}
-        setSearchFilter={setSearchFilter}
         companyId={companyId}
         snapGroupIds={snapGroupIds}
         visibleCompanies={visibleCompanies}

@@ -1,13 +1,10 @@
 import ProcessSelect from "../../shared/ProcessSelect.jsx";
 import ReportGcFilterPanel from "../../../report/shared/ReportGcFilterPanel.jsx";
-import { normalizeMaintenanceSearchInput } from "../../shared/maintenanceSearchInput.js";
 
 export default function FormulaMaintenanceFilters({
   processes,
   selectedProcess,
   setSelectedProcess,
-  searchFilter,
-  setSearchFilter,
   companyId,
   snapGroupIds,
   visibleCompanies,
@@ -23,7 +20,7 @@ export default function FormulaMaintenanceFilters({
   onDelete,
   m,
 }) {
-  const showClear = Boolean(searchFilter || selectedProcess !== null);
+  const showClear = selectedProcess !== null;
 
   return (
     <div className="customer-report-filter-container">
@@ -58,29 +55,6 @@ export default function FormulaMaintenanceFilters({
                   <line x1="9" y1="9" x2="15" y2="15" />
                 </svg>
               </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="customer-report-filter-group report-outlined-anchor">
-          <div className="report-outlined-shell">
-            <span id="formula-maint-search-legend" className="report-outlined-label">
-              {m.search}
-            </span>
-            <div className="report-outlined-inner">
-              <div className="search-input-container formula-search-input-container" style={{ width: "100%", position: "relative" }}>
-                <i className="fas fa-search search-icon" aria-hidden={true} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }} />
-                <input
-                  type="text"
-                  id="search_filter"
-                  className="maintenance-input"
-                  placeholder={m.searchFormulaPlaceholder}
-                  value={searchFilter}
-                  aria-labelledby="formula-maint-search-legend"
-                  onChange={(e) => setSearchFilter(normalizeMaintenanceSearchInput(e.target.value))}
-                  style={{ paddingLeft: "30px", width: "100%", border: "none", outline: "none", background: "transparent", minHeight: "38px", textTransform: "uppercase" }}
-                />
-              </div>
             </div>
           </div>
         </div>
