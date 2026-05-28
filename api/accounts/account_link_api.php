@@ -3,6 +3,7 @@
  * 账户关联 API：获取/建立/解除账户关联及连接类型
  */
 require_once __DIR__ . '/../../includes/session_check.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 header('Content-Type: application/json');
@@ -16,12 +17,67 @@ if (!isset($_SESSION['user_id'])) {
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $isDirectRequest = (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'account_link_api.php');
 
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) return $id;
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    return (int)($stmt->fetchColumn() ?: 0);
+}
+
+function resolveScopeCompanyIdFromRequest(PDO $pdo, ?int $companyId, ?string $groupId): int {
+    $gid = normalizeGroupId($groupId);
+    if ($gid !== null) {
+        $resolved = resolveGroupEntityCompanyId($pdo, $gid);
+        if ($resolved <= 0) {
+            throw new Exception('缺少必要参数');
+        }
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $resolved, $gid);
+        }
+        return $resolved;
+    }
+
+    $cid = (int)($companyId ?? 0);
+    if ($cid <= 0) {
+        throw new Exception('缺少必要参数');
+    }
+    if (gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $cid);
+    }
+    return $cid;
+}
+
 if ($isDirectRequest) {
     try {
         switch ($action) {
             case 'get_linked_accounts':
                 $account_id = isset($_GET['account_id']) ? (int)$_GET['account_id'] : 0;
-                $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($_GET['company_id']) ? (int)$_GET['company_id'] : null,
+                    $_GET['group_id'] ?? null
+                );
                 if (!$account_id || !$company_id) {
                     throw new Exception('缺少必要参数');
                 }
@@ -37,6 +93,7 @@ if ($isDirectRequest) {
                         'accounts' => $linked_accounts_data['accounts'],
                         'link_type_info' => $link_type_info,
                         'link_types_map' => $linked_accounts_data['link_types_map'],
+                        'company_id' => $company_id,
                     ],
                 ]);
                 break;
@@ -96,7 +153,11 @@ if ($isDirectRequest) {
 
             case 'get_all_linked_accounts':
                 $account_id = isset($_GET['account_id']) ? (int)$_GET['account_id'] : 0;
-                $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($_GET['company_id']) ? (int)$_GET['company_id'] : null,
+                    $_GET['group_id'] ?? null
+                );
                 if (!$account_id || !$company_id) {
                     throw new Exception('缺少必要参数');
                 }

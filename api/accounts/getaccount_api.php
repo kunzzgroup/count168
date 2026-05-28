@@ -5,11 +5,16 @@ header('Cache-Control: no-store, no-cache, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 
 function validateCompanyAccess(PDO $pdo, int $company_id): void {
     $current_user_id = $_SESSION['user_id'] ?? null;
     if (!$current_user_id) {
         throw new Exception('用户未登录');
+    }
+    if (gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
+        return;
     }
     $current_user_role = $_SESSION['role'] ?? '';
     if ($current_user_role === 'owner') {
@@ -41,14 +46,53 @@ function formatAccountIdForDisplay(string $rawAccountId): string {
     return $rawAccountId;
 }
 
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) return $id;
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    return (int)($stmt->fetchColumn() ?: 0);
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         throw new Exception('用户未登录或缺少公司信息');
     }
 
-    $company_id = isset($_GET['company_id']) && $_GET['company_id'] !== ''
-        ? (int)$_GET['company_id']
-        : (int)($_SESSION['company_id'] ?? 0);
+    $group_scope_id = normalizeGroupId($_GET['group_id'] ?? null);
+    if ($group_scope_id !== null) {
+        $company_id = resolveGroupEntityCompanyId($pdo, $group_scope_id);
+        if ($company_id > 0 && gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
+        }
+    } else {
+        $company_id = isset($_GET['company_id']) && $_GET['company_id'] !== ''
+            ? (int)$_GET['company_id']
+            : (int)($_SESSION['company_id'] ?? 0);
+        if ($company_id > 0 && gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
+        }
+    }
     if (!$company_id) {
         throw new Exception('用户未登录或缺少公司信息');
     }

@@ -8,6 +8,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -21,6 +22,64 @@ function jsonResponse(bool $success, string $message, $data = null): void {
         $out['error'] = $message;
     }
     echo json_encode($out, JSON_UNESCAPED_UNICODE);
+}
+
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) return $id;
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    return (int)($stmt->fetchColumn() ?: 0);
+}
+
+function resolveScopeCompanyId(PDO $pdo, array $input): int {
+    $groupScopeId = normalizeGroupId(
+        $input['group_id'] ?? ($_GET['group_id'] ?? null)
+    );
+    if ($groupScopeId !== null) {
+        $groupEntityCompanyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
+        if ($groupEntityCompanyId <= 0) {
+            throw new Exception('缺少公司信息');
+        }
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $groupEntityCompanyId, $groupScopeId);
+        }
+        return $groupEntityCompanyId;
+    }
+
+    $explicitCompanyId = (int)($input['company_id'] ?? ($_GET['company_id'] ?? 0));
+    if ($explicitCompanyId > 0) {
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $explicitCompanyId);
+        }
+        return $explicitCompanyId;
+    }
+
+    if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] > 0) {
+        return (int)$_SESSION['company_id'];
+    }
+
+    throw new Exception('用户未登录或缺少公司信息');
 }
 
 // ---------- 数据层：表/列检查 ----------
@@ -332,11 +391,10 @@ function collectCurrencyUsage(PDO $pdo, int $currencyId, int $companyId, string 
 
 // ---------- 主逻辑 ----------
 try {
-    if (!isset($_SESSION['company_id'])) {
+    if (!isset($_SESSION['user_id'])) {
         jsonResponse(false, '用户未登录或缺少公司信息', null);
         exit;
     }
-    $company_id = (int)$_SESSION['company_id'];
 
     $rawInput = file_get_contents('php://input');
     $input = json_decode($rawInput, true);
@@ -344,6 +402,12 @@ try {
         jsonResponse(false, 'Invalid JSON input: ' . json_last_error_msg(), null);
         exit;
     }
+    if (!is_array($input)) {
+        $input = [];
+    }
+
+    $company_id = resolveScopeCompanyId($pdo, $input);
+
     if (!isset($input['id']) || empty($input['id'])) {
         jsonResponse(false, 'Currency ID is required', null);
         exit;
