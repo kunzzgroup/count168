@@ -25,6 +25,7 @@ import {
   shouldHideSidebarProcess,
 } from "../utils/company/sharedCompanyFilter.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
+import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import {
   canAccessC168AutoRenew,
   canAccessC168DomainPages,
@@ -50,6 +51,15 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
 /** iPad Air 11" (M2) landscape Safari ≈ 1180px; use 1200px to include that viewport. */
 /** Galaxy Tab S7 横屏约 1280px，需纳入平板侧栏逻辑 */
 const TABLET_MEDIA_QUERY = "(max-width: 1280px)";
+
+/** Icon-only sidebar: portal tooltip to the right of each nav item. */
+function SidebarNavTip({ label, enabled, children }) {
+  return (
+    <SidebarMenuTooltip label={label} enabled={enabled}>
+      {children}
+    </SidebarMenuTooltip>
+  );
+}
 
 const AVATAR_MAP = {
   male1: assetUrl("images/avatar1.png"),
@@ -219,8 +229,6 @@ export default function AuthenticatedLayout() {
     if (prevPathRef.current !== path) collapseSidebar();
     prevPathRef.current = path;
   }, [path, isTabletViewport, sidebarCollapsed, collapseSidebar]);
-
-  const sidebarMenuTitle = (label) => label;
 
   useEffect(() => {
     let cancelled = false;
@@ -439,23 +447,24 @@ export default function AuthenticatedLayout() {
         <div className="informationmenu-header">
           <div className="header-logo-section">
             {isTabletViewport && sidebarCollapsed && (
-              <button
-                type="button"
-                className="sidebar-hamburger-toggle"
-                onClick={onHamburgerClick}
-                aria-label={i18n.sidebarExpand}
-                aria-expanded={false}
-                title={i18n.sidebarExpand}
-              >
-                <span className="sidebar-hamburger-box" aria-hidden="true">
-                  <span className="sidebar-hamburger-line" />
-                  <span className="sidebar-hamburger-line" />
-                  <span className="sidebar-hamburger-line" />
-                </span>
-              </button>
+              <SidebarMenuTooltip label={i18n.sidebarExpand} enabled={sidebarIconOnly}>
+                <button
+                  type="button"
+                  className="sidebar-hamburger-toggle"
+                  onClick={onHamburgerClick}
+                  aria-label={i18n.sidebarExpand}
+                  aria-expanded={false}
+                >
+                  <span className="sidebar-hamburger-box" aria-hidden="true">
+                    <span className="sidebar-hamburger-line" />
+                    <span className="sidebar-hamburger-line" />
+                    <span className="sidebar-hamburger-line" />
+                  </span>
+                </button>
+              </SidebarMenuTooltip>
             )}
             <img src={assetUrl("images/count_whitelogo.png")} alt="EAZYCOUNT" className="header-logo" />
-            <div className={`notification-bell${hasBellBadge ? " has-unread" : ""}`} title={i18n.notifications} onClick={toggleNotifications}>
+            <div className={`notification-bell${hasBellBadge ? " has-unread" : ""}`} onClick={toggleNotifications}>
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z" />
                 </svg>
@@ -503,158 +512,174 @@ export default function AuthenticatedLayout() {
           <div className="content-separator" />
           {canAccess("home") && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarHome)} onClick={() => navigate("/dashboard")} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarHome}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarHome} enabled={sidebarIconOnly}>
+                <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} onClick={() => navigate("/dashboard")} role="presentation">
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarHome}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {showC168DomainPages && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarDomain)} onClick={() => navigate("/domain")} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarDomain}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarDomain} enabled={sidebarIconOnly}>
+                <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} onClick={() => navigate("/domain")} role="presentation">
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarDomain}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {showC168DomainPages && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarAnnouncement)} onClick={() => navigate("/announcement")} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarAnnouncement}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarAnnouncement} enabled={sidebarIconOnly}>
+                <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} onClick={() => navigate("/announcement")} role="presentation">
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarAnnouncement}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {showAutoRenewEntry && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`} title={sidebarMenuTitle(i18n.sidebarAutoRenew)} onClick={() => navigate("/auto-renew")} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
-                </svg>
-                <span className="sidebar-menu-label-wrap">
-                  <span className="sidebar-menu-label">{i18n.sidebarAutoRenew}</span>
-                  {me?.pending_auto_renew_count > 0 ? (
-                    <span className="sidebar-pending-badge" aria-label={`${me.pending_auto_renew_count} pending`}>
-                      {me.pending_auto_renew_count}
-                    </span>
-                  ) : null}
-                </span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarAutoRenew} enabled={sidebarIconOnly}>
+                <div className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`} onClick={() => navigate("/auto-renew")} role="presentation">
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
+                  </svg>
+                  <span className="sidebar-menu-label-wrap">
+                    <span className="sidebar-menu-label">{i18n.sidebarAutoRenew}</span>
+                    {me?.pending_auto_renew_count > 0 ? (
+                      <span className="sidebar-pending-badge" aria-label={`${me.pending_auto_renew_count} pending`}>
+                        {me.pending_auto_renew_count}
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {canAccess("admin") && (
             <div className="informationmenu-section">
-              <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} title={sidebarMenuTitle(i18n.sidebarAdmin)} onClick={() => navigate("/userlist")} role="presentation">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarAdmin}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarAdmin} enabled={sidebarIconOnly}>
+                <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} onClick={() => navigate("/userlist")} role="presentation">
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarAdmin}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {canAccess("account") && (
             <div className="informationmenu-section">
-              <div
-                className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
-                title={sidebarMenuTitle(i18n.sidebarAccount)}
-                onClick={() => navigate("/account-list")}
-                role="presentation"
-              >
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarAccount}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarAccount} enabled={sidebarIconOnly}>
+                <div
+                  className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
+                  onClick={() => navigate("/account-list")}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarAccount}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {canAccess("ownership") && (
             <div className="informationmenu-section">
-              <div
-                className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
-                title={sidebarMenuTitle(i18n.sidebarOwnership)}
-                onClick={() => navigate("/ownership")}
-                role="presentation"
-              >
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarOwnership}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarOwnership} enabled={sidebarIconOnly}>
+                <div
+                  className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
+                  onClick={() => navigate("/ownership")}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarOwnership}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {canAccess("process") && !hideProcessWhenGroupOnly && (
             <div className="informationmenu-section">
-              <div
-                className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
-                title={sidebarMenuTitle(i18n.sidebarProcess)}
-                onClick={() => navigate(processSpaPath)}
-                role="presentation"
-              >
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarProcess}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarProcess} enabled={sidebarIconOnly}>
+                <div
+                  className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
+                  onClick={() => navigate(processSpaPath)}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarProcess}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {canAccess("datacapture") && me?.company_has_gambling && (
             <div className="informationmenu-section">
-              <div
-                className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
-                title={sidebarMenuTitle(i18n.sidebarDataCapture)}
-                onClick={() => {
-                  if (path === "/datacapturesummary") {
-                    clearDataCaptureRoundLocalStorage();
-                  }
-                  navigate("/datacapture");
-                }}
-                role="presentation"
-              >
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarDataCapture}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarDataCapture} enabled={sidebarIconOnly}>
+                <div
+                  className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
+                  onClick={() => {
+                    if (path === "/datacapturesummary") {
+                      clearDataCaptureRoundLocalStorage();
+                    }
+                    navigate("/datacapture");
+                  }}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarDataCapture}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {canAccess("payment") && (
             <div className="informationmenu-section informationmenu-section--transaction-payment">
-              <div
-                className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
-                title={sidebarMenuTitle(i18n.sidebarTransactionPayment)}
-                onClick={() => navigate("/transaction")}
-                role="presentation"
-              >
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
-                </svg>
-                <span className="sidebar-menu-label">{i18n.sidebarTransactionPayment}</span>
-              </div>
+              <SidebarNavTip label={i18n.sidebarTransactionPayment} enabled={sidebarIconOnly}>
+                <div
+                  className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
+                  onClick={() => navigate("/transaction")}
+                  role="presentation"
+                >
+                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
+                  </svg>
+                  <span className="sidebar-menu-label">{i18n.sidebarTransactionPayment}</span>
+                </div>
+              </SidebarNavTip>
             </div>
           )}
           {canAccess("report") && me?.company_has_gambling && (
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
-                <div
-                  ref={reportTitleRef}
-                  className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
-                  data-section="report"
-                  title={sidebarMenuTitle(i18n.sidebarReport)}
-                  onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
-                  role="presentation"
-                >
-                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-                  </svg>
-                  <span className="sidebar-menu-label">{i18n.sidebarReport}</span>
-                  <span className="section-arrow">▶</span>
-                </div>
+                <SidebarNavTip label={i18n.sidebarReport} enabled={sidebarIconOnly && hoverSection !== "report"}>
+                  <div
+                    ref={reportTitleRef}
+                    className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
+                    data-section="report"
+                    onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
+                    role="presentation"
+                  >
+                    <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                    </svg>
+                    <span className="sidebar-menu-label">{i18n.sidebarReport}</span>
+                    <span className="section-arrow">▶</span>
+                  </div>
+                </SidebarNavTip>
                 <div
                   className="submenu"
                   id="report-submenu"
@@ -700,20 +725,21 @@ export default function AuthenticatedLayout() {
           {showMaintenanceMenu && (
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
-                <div
-                  ref={maintenanceTitleRef}
-                  className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
-                  data-section="maintenance"
-                  title={sidebarMenuTitle(i18n.sidebarMaintenance)}
-                  onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
-                  role="presentation"
-                >
-                  <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
-                  </svg>
-                  <span className="sidebar-menu-label">{i18n.sidebarMaintenance}</span>
-                  <span className="section-arrow">▶</span>
-                </div>
+                <SidebarNavTip label={i18n.sidebarMaintenance} enabled={sidebarIconOnly && hoverSection !== "maintenance"}>
+                  <div
+                    ref={maintenanceTitleRef}
+                    className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
+                    data-section="maintenance"
+                    onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
+                    role="presentation"
+                  >
+                    <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
+                    </svg>
+                    <span className="sidebar-menu-label">{i18n.sidebarMaintenance}</span>
+                    <span className="section-arrow">▶</span>
+                  </div>
+                </SidebarNavTip>
                 <div
                   className="submenu"
                   id="maintenance-submenu"
@@ -817,22 +843,23 @@ export default function AuthenticatedLayout() {
                 : undefined
             }
           />
-          <button
-            type="button"
-            className="btn logout-btn"
-            title={sidebarMenuTitle(i18n.logout)}
-            onClick={() => setShowLogoutConfirm(true)}
-          >
-            {sidebarIconOnly ? (
-              <svg className="logout-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
-                <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round" />
-                <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            ) : (
-              i18n.logout
-            )}
-          </button>
+          <SidebarNavTip label={i18n.logout} enabled={sidebarIconOnly}>
+            <button
+              type="button"
+              className="btn logout-btn"
+              onClick={() => setShowLogoutConfirm(true)}
+            >
+              {sidebarIconOnly ? (
+                <svg className="logout-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round" />
+                  <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ) : (
+                i18n.logout
+              )}
+            </button>
+          </SidebarNavTip>
         </div>
       </div>
 

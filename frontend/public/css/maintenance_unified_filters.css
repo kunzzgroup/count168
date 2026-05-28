@@ -340,48 +340,6 @@ body.maintenance-page .maintenance-virtual-cell--created-at {
     text-align: left;
 }
 
-/* Fixed portal — escapes virtual-row overflow:hidden */
-.maintenance-created-at-tooltip-portal {
-    position: fixed;
-    z-index: 10050;
-    display: block;
-    padding: 5px 10px;
-    font-size: 13px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.02em;
-    line-height: 1.3;
-    color: #fff;
-    white-space: nowrap;
-    pointer-events: none;
-    background: var(--color-heading, #002c49);
-    border-radius: 6px;
-    box-shadow:
-        0 4px 14px rgba(0, 44, 73, 0.24),
-        0 1px 3px rgba(0, 0, 0, 0.1);
-    transform: translateY(-100%);
-}
-
-.maintenance-created-at-tooltip-portal::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 10px;
-    border: 5px solid transparent;
-    border-top-color: var(--color-heading, #002c49);
-}
-
-.maintenance-created-at-tooltip-portal--below {
-    transform: none;
-}
-
-.maintenance-created-at-tooltip-portal--below::after {
-    top: auto;
-    bottom: 100%;
-    border-top-color: transparent;
-    border-bottom-color: var(--color-heading, #002c49);
-}
-
 /* All maintenance virtual lists: left-align every header and cell */
 body.maintenance-page .maintenance-virtual-th,
 body.maintenance-page .maintenance-virtual-cell,
