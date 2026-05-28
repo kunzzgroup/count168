@@ -122,9 +122,13 @@ if ($companyId && $pdo instanceof PDO) {
             $stmtC168->execute([$companyId]);
             $isCurrentCompanyC168 = ((int) $stmtC168->fetchColumn()) > 0;
         }
-        $hasC168DomainPageAccess = $isCurrentCompanyC168 && userHasC168DomainPageAccess(strtolower((string) ($_SESSION['role'] ?? '')));
-        $hasC168AutoRenewAccess = $pdo instanceof PDO
-            && userHasC168AutoRenewAccess($pdo, strtolower((string) ($_SESSION['role'] ?? '')), $userType);
+        $hasC168DomainPageAccess = $isCurrentCompanyC168
+            && userHasC168DomainPageAccess(strtolower((string) ($_SESSION['role'] ?? '')));
+        $hasC168AutoRenewAccess = userHasC168AutoRenewAccess(
+            $pdo,
+            strtolower((string) ($_SESSION['role'] ?? '')),
+            $userType
+        );
         if ($hasC168AutoRenewAccess) {
             require_once __DIR__ . '/../includes/auto_renew.php';
             try {

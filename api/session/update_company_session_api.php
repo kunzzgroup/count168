@@ -203,7 +203,8 @@ try {
     }
 
     try {
-        gc_assert_company_id_allowed_for_login_scope($pdo, $requested_company_id);
+        $viewGroupForAccess = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : null;
+        gc_assert_company_id_allowed_for_login_scope($pdo, $requested_company_id, $viewGroupForAccess);
     } catch (RuntimeException $e) {
         jsonResponse(false, $e->getMessage(), null, 403);
         exit;

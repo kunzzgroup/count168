@@ -22,6 +22,7 @@ import CompanyExpirationModal from "./components/CompanyExpirationModal.jsx";
 import DomainFormModal from "./components/DomainFormModal.jsx";
 import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { canAccessC168DomainPages } from "../../utils/company/loginScope.js";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 export default function DomainPage() {
@@ -90,7 +91,7 @@ export default function DomainPage() {
     setBootDone(false);
     (async () => {
       try {
-        if (!me.has_c168_domain_page_access) {
+        if (!canAccessC168DomainPages(me)) {
           navigate("/dashboard", { replace: true });
           return;
         }
@@ -450,7 +451,7 @@ export default function DomainPage() {
           lang={lang}
           isEditMode={isEditMode}
           editingDomain={editingDomain}
-          hasC168Context={!!me?.has_c168_domain_page_access}
+          hasC168Context={canAccessC168DomainPages(me)}
           isOwnerOrAdmin={isOwnerOrAdmin}
           sessionCompanyId={me?.company_id ?? null}
           sessionCompanyCode={String(me?.company_code || "")}

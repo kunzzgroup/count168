@@ -1,7 +1,10 @@
 /**
  * Group vs Company login scope — mirrors {@link includes/group_company_access.php}.
  */
-import { readAccessibleGroupIds } from "./sharedCompanyFilter.js";
+import {
+  isDashboardGroupOnlyMode,
+  readAccessibleGroupIds,
+} from "./sharedCompanyFilter.js";
 
 export const LOGIN_SCOPE_GROUP = "group";
 export const LOGIN_SCOPE_COMPANY = "company";
@@ -125,4 +128,30 @@ export function loginScopeBodyClass(me) {
   if (isGroupLogin(me)) return "ec-login-scope-group";
   if (isCompanyLogin(me)) return "ec-login-scope-company";
   return "";
+}
+
+/** Session / current_user reflects active company (after dashboard company pick + session sync). */
+export function isActiveCompanyContextC168(me) {
+  if (!me) return false;
+  if (me.is_current_company_c168) return true;
+  return String(me.company_code || "")
+    .trim()
+    .toUpperCase() === "C168";
+}
+
+/**
+ * Domain & Announcement — only while viewing company C168 (any login: group or company).
+ * Hidden in group-only dashboard mode (no company selected) even if anchor session is C168.
+ */
+export function canAccessC168DomainPages(me) {
+  if (!me?.has_c168_domain_page_access) return false;
+  if (isGroupLogin(me) && isDashboardGroupOnlyMode()) return false;
+  return isActiveCompanyContextC168(me);
+}
+
+/** Auto Renew — same rules as Domain / Announcement. */
+export function canAccessC168AutoRenew(me) {
+  if (!me?.has_c168_auto_renew_access) return false;
+  if (isGroupLogin(me) && isDashboardGroupOnlyMode()) return false;
+  return isActiveCompanyContextC168(me);
 }

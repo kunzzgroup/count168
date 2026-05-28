@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { canAccessC168AutoRenew } from "../../utils/company/loginScope.js";
 import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
@@ -167,7 +168,7 @@ export default function AutoRenewPage() {
     setLoadError("");
 
     (async () => {
-      if (!me.has_c168_auto_renew_access) {
+      if (!canAccessC168AutoRenew(me)) {
         navigate("/dashboard", { replace: true });
         return;
       }
@@ -374,7 +375,7 @@ export default function AutoRenewPage() {
     return (
       <>
         <PageContentLoader />
-        {me?.has_c168_auto_renew_access ? (
+        {canAccessC168AutoRenew(me) ? (
           <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
         ) : null}
       </>
@@ -605,7 +606,7 @@ export default function AutoRenewPage() {
         </div>
       </div>
 
-      {me?.has_c168_auto_renew_access ? (
+      {canAccessC168AutoRenew(me) ? (
         <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
       ) : null}
     </>
