@@ -632,7 +632,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.user-page,
     body.transaction-page,
     body.dashboard-page:not(.datacapture-page),
-    body.ec-auth-shell:not(.datacapture-page):not(.process-page--bank) {
+    body.ec-auth-shell:not(.datacapture-page) {
         height: auto !important;
         min-height: 100vh !important;
         max-height: none !important;
@@ -640,11 +640,11 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         overflow-x: hidden !important;
     }
 
-    body.ec-auth-shell:not(.datacapture-page):not(.process-page--bank) .container,
-    body.ec-auth-shell:not(.datacapture-page):not(.process-page--bank) .content,
-    body.ec-auth-shell:not(.datacapture-page):not(.process-page--bank) .transaction-container,
-    body.ec-auth-shell:not(.datacapture-page):not(.process-page--bank) .datacapture-container,
-    body.ec-auth-shell:not(.datacapture-page):not(.process-page--bank) .dashboard-container {
+    body.ec-auth-shell:not(.datacapture-page) .container,
+    body.ec-auth-shell:not(.datacapture-page) .content,
+    body.ec-auth-shell:not(.datacapture-page) .transaction-container,
+    body.ec-auth-shell:not(.datacapture-page) .datacapture-container,
+    body.ec-auth-shell:not(.datacapture-page) .dashboard-container {
         height: auto !important;
         min-height: 100vh !important;
         max-height: none !important;
@@ -678,7 +678,11 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.ec-auth-shell .table-container,
     body.ec-auth-shell .account-cards,
     body.ec-auth-shell .process-cards:not(.bank-virtual-scroll),
-    body.ec-auth-shell .process-table-wrapper:not(.bank-process-table-region),
+    body.ec-auth-shell .process-table-wrapper,
+    body.ec-auth-shell .bank-virtual-scroll-clip,
+    body.ec-auth-shell .bank-virtual-table,
+    body.ec-auth-shell .bank-process-list-body,
+    body.ec-auth-shell .bank-process-list-scroll-region,
     body.ec-auth-shell .dashboard-content,
     body.ec-auth-shell .transaction-main-content,
     body.ec-auth-shell .transaction-table-wrapper,
@@ -688,73 +692,6 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         max-height: none !important;
         overflow: visible !important;
         /* This forces the data to completely render out, triggering the global browser scrollbar */
-    }
-
-    /* Bank Process List：保留 100vh flex + 列表区 .bank-virtual-scroll-clip 内滚动 */
-    body.ec-auth-shell.process-page.process-page--bank {
-        height: 100vh !important;
-        max-height: 100vh !important;
-        overflow-x: hidden !important;
-        overflow-y: hidden !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .container,
-    body.ec-auth-shell.process-page.process-page--bank #root > .container {
-        display: flex !important;
-        flex-direction: column !important;
-        height: 100vh !important;
-        max-height: 100vh !important;
-        min-height: 0 !important;
-        overflow: hidden !important;
-        padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .content {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
-        max-width: 100% !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-list-body,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-list-scroll-region {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        overflow: hidden !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper.bank-process-table-region,
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-table {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        max-height: 100% !important;
-        overflow: hidden !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll-clip {
-        flex: 1 1 0 !important;
-        min-height: var(--bank-list-scroll-body-min-height) !important;
-        max-height: 100% !important;
-        overflow-x: hidden !important;
-        overflow-y: visible !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll-clip.bank-virtual-scroll-clip--cap-rows {
-        max-height: min(100%, var(--bank-list-scroll-body-max-height)) !important;
-        overflow-y: auto !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll.process-cards {
-        min-height: min-content !important;
-        max-height: none !important;
-        overflow: visible !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll .bank-virtual-data-row.process-card {
-        min-height: var(--bank-list-data-row-estimate) !important;
     }
 
     body.user-page:not(.user-page--show-all) .user-cards {
@@ -809,75 +746,6 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         min-height: 0 !important;
     }
 
-}
-
-/* Bank Process List：<1700px 与 payment maintenance 一致 — 整页不滚，仅列表区纵向滚动，分页不被顶出视口 */
-@media screen and (max-width: 1699px) {
-    body.ec-auth-shell.process-page.process-page--bank {
-        height: 100vh !important;
-        max-height: 100vh !important;
-        overflow-x: hidden !important;
-        overflow-y: hidden !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .container,
-    body.ec-auth-shell.process-page.process-page--bank #root > .container {
-        display: flex !important;
-        flex-direction: column !important;
-        height: 100vh !important;
-        max-height: 100vh !important;
-        min-height: 0 !important;
-        overflow: hidden !important;
-        padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .content {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
-        max-width: 100% !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-list-body,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-list-scroll-region {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        overflow: hidden !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .process-table-wrapper.bank-process-table-region,
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-table {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        max-height: 100% !important;
-        overflow: hidden !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll-clip {
-        flex: 1 1 0 !important;
-        min-height: var(--bank-list-scroll-body-min-height) !important;
-        max-height: 100% !important;
-        overflow-x: hidden !important;
-        overflow-y: visible !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll-clip.bank-virtual-scroll-clip--cap-rows {
-        max-height: min(100%, var(--bank-list-scroll-body-max-height)) !important;
-        overflow-y: auto !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll.process-cards {
-        min-height: min-content !important;
-        max-height: none !important;
-        overflow: visible !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-virtual-scroll .bank-virtual-data-row.process-card {
-        min-height: var(--bank-list-data-row-estimate) !important;
-    }
 }
 
 /* ==========================================================================

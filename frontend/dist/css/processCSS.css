@@ -503,7 +503,7 @@ body.process-page {
     width: 100%;
 }
 
-/* 横向滚动仅由 .process-table-wrapper 承担，避免表头与数据行错位（Bank 列表在 .bank-virtual-scroll-clip 内滚动） */
+/* 横向滚动仅由 .process-table-wrapper 承担；Bank 列表用浏览器默认纵向滚动，避免 nested scrollbar 导致表头/数据列宽不一致 */
 .process-page:not(.process-page--bank) .process-table-wrapper .process-cards.bank-mode {
     overflow-x: visible;
     overflow-y: auto;
@@ -865,9 +865,10 @@ body.process-page {
 .process-page.process-page--bank .container {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    height: 100vh;
-    max-height: 100vh;
+    overflow: visible;
+    height: auto;
+    min-height: 100vh;
+    max-height: none;
     padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
     padding-left: var(--layout-main-offset);
 }
@@ -885,7 +886,7 @@ body.process-page {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     max-width: 100%;
 }
 
@@ -894,38 +895,38 @@ body.process-page {
     flex-shrink: 0;
 }
 
-/* 列表 + 分页：flex 列，分页固定在底部，中间列表区域纵向滚动 */
+/* 列表 + 分页：整页滚动（浏览器默认 scrollbar），避免表头/数据区宽度不一致 */
 .process-page.process-page--bank .bank-process-list-body {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
 }
 
-/* 列表滚动槽：占满标题/筛选与分页之间的剩余高度 */
+/* 列表区随内容增高，不在此层产生 nested scrollbar */
 .process-page.process-page--bank .bank-process-list-scroll-region {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
 }
 
 .process-page.process-page--bank .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-height: 0;
-    height: 100%;
-    max-height: 100%;
+    height: auto;
+    max-height: none;
     width: 100%;
     align-self: stretch;
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Bank 标题行字号与间距与 Games 完全统一（由 processlist.php 标题行的 inline margin-top/bottom: 20px 控制，此处不再 override） */
@@ -982,19 +983,20 @@ body.process-page {
 .process-page.process-page--bank .process-table-wrapper.bank-process-table-region {
     display: flex;
     flex-direction: column;
+    overflow: visible;
     overflow-x: hidden;
-    overflow-y: hidden;
+    overflow-y: visible;
 }
 
 .process-page.process-page--bank .bank-virtual-table {
     display: flex;
     flex-direction: column;
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-height: 0;
-    height: 100%;
+    height: auto;
     width: 100%;
     max-width: 100%;
-    overflow: hidden;
+    overflow: visible;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -1004,11 +1006,11 @@ body.process-page {
     max-width: 100%;
     display: grid;
     grid-template-columns: var(--bank-virtual-grid-active);
-    grid-template-rows: auto minmax(0, 1fr);
-    flex: 1 1 0;
+    grid-template-rows: auto auto;
+    flex: 0 1 auto;
     min-height: 0;
-    height: 100%;
-    overflow: hidden;
+    height: auto;
+    overflow: visible;
     box-sizing: border-box;
 }
 
@@ -1050,29 +1052,27 @@ body.process-page {
     }
 }
 
-/* 数据区纵向滚动 */
+/* 数据区：不嵌套滚动，由浏览器默认 scrollbar 承担纵向滚动 */
 .process-page.process-page--bank .bank-virtual-scroll-clip {
     grid-column: 1 / -1;
     grid-row: 2;
     align-self: stretch;
-    flex: 1 1 0;
-    min-height: var(--bank-list-scroll-body-min-height);
-    max-height: 100%;
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: none;
     display: grid;
     grid-template-columns: subgrid;
     grid-template-rows: auto;
     align-content: start;
     overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    overflow-y: visible;
+    overscroll-behavior: auto;
     border-radius: 0 0 8px 8px;
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
     margin-right: 0;
     padding-right: 0;
-    scroll-padding-bottom: 8px;
 }
 
 .process-page.process-page--bank .bank-virtual-scroll-shell {
@@ -1121,17 +1121,6 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
-}
-
-/* 数据区有纵向滚动条时，表头缩至与数据行同宽（须 !important 压过 ec-auth-shell 的 padding-right:0） */
-.process-page.process-page--bank .bank-virtual-table-inner:has(.bank-virtual-scroll-clip--cap-rows) .bank-virtual-head-row.table-header,
-body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-table-inner:has(.bank-virtual-scroll-clip--cap-rows) .bank-virtual-head-row.table-header {
-    width: calc(100% - var(--dash-scrollbar-size, 12px)) !important;
-    max-width: calc(100% - var(--dash-scrollbar-size, 12px)) !important;
-}
-
-.process-page.process-page--bank .bank-virtual-scroll-clip.bank-virtual-scroll-clip--cap-rows {
-    scrollbar-gutter: stable;
 }
 
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
@@ -2675,33 +2664,29 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
     margin-left: 0.28em;
 }
 
-/* 视口 < 1700px：表头/数据最多两行换行，列表区内滚动，分页固定底部 */
+/* 视口 < 1700px：表头/数据最多两行换行；整页滚动，不在列表内嵌套 scrollbar */
 @media (max-width: 1699px) {
     .process-page.process-page--bank .bank-process-list-body,
     .process-page.process-page--bank .bank-process-list-scroll-region {
-        flex: 1 1 0;
+        flex: 0 1 auto;
         min-height: 0;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .process-page.process-page--bank .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
     .process-page.process-page--bank .bank-virtual-table {
-        flex: 1 1 0;
+        flex: 0 1 auto;
+        height: auto;
+        max-height: none;
     }
 
     .process-page.process-page--bank .bank-virtual-scroll-clip {
-        flex: 1 1 0;
-        min-height: var(--bank-list-scroll-body-min-height);
-        max-height: 100%;
+        flex: 0 1 auto;
+        min-height: 0;
+        max-height: none;
         grid-template-rows: auto;
         overflow-y: visible;
-        overscroll-behavior: contain;
-    }
-
-    /* 超过 9 行：列表区高度 ≈ 9 行，内部滚动，避免挤压重叠 */
-    .process-page.process-page--bank .bank-virtual-scroll-clip.bank-virtual-scroll-clip--cap-rows {
-        max-height: min(100%, var(--bank-list-scroll-body-max-height)) !important;
-        overflow-y: auto !important;
+        overscroll-behavior: auto;
     }
 
     .process-page.process-page--bank .bank-virtual-scroll.process-cards {
