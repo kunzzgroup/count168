@@ -10,7 +10,6 @@ import {
   MINI_GRID_SHELL_ROWS,
   measureCompactMatrixColumnWidths,
   measureMatrixCurrencyColumnWidths,
-  WINLOSS_MATRIX_CCY_FITS_MQ,
 } from "../memberPageHelpers.js";
 
 function resolveBalanceCell({
@@ -388,8 +387,7 @@ export default function MemberMiniGrid({
         grid.style.maxWidth = "none";
 
         const containerW = matrixColEl?.clientWidth || scroll.clientWidth || 0;
-        const desktopWide = window.matchMedia(WINLOSS_MATRIX_CCY_FITS_MQ).matches;
-        const fits = desktopWide && containerW > 0 && totalW <= containerW;
+        const fits = containerW > 0 && totalW <= containerW;
         scroll.classList.toggle("member-dash-matrix-scroll--ccy-fits", fits);
         grid.classList.toggle("member-balance-mini-matrix--ccy-fits", fits);
 
@@ -397,7 +395,6 @@ export default function MemberMiniGrid({
         scroll.style.width = fits ? `${totalW}px` : "100%";
         if (rail) rail.style.width = boxW;
         if (wrap) wrap.style.width = boxW;
-        scroll.style.overflowX = fits ? "" : "auto";
       };
 
       applyColumns(measureMatrixCurrencyColumnWidths(grid, rem, ncu));
@@ -415,7 +412,6 @@ export default function MemberMiniGrid({
       grid.classList.remove("member-balance-mini-matrix--ccy-fits");
       scroll.style.removeProperty("--member-wl-ccy-fill-col-w");
       scroll.style.removeProperty("width");
-      scroll.style.removeProperty("overflowX");
       grid.style.removeProperty("--member-wl-ccy-fill-col-w");
       grid.style.removeProperty("grid-template-columns");
       grid.style.removeProperty("width");
