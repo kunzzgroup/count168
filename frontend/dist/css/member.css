@@ -2219,8 +2219,6 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
 .member-balance-mini-matrix--ccy-compact .member-balance-matrix-th,
 .member-balance-mini-matrix--ccy-compact .member-balance-matrix-cell {
     min-width: var(--member-wl-ccy-fill-col-w, 6rem);
-    max-width: var(--member-wl-ccy-fill-col-w, 6rem);
-    width: var(--member-wl-ccy-fill-col-w, 6rem);
     box-sizing: border-box;
     overflow: visible;
 }
@@ -2308,7 +2306,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     width: 100%;
     min-width: 0;
     overflow: visible;
-    padding: 8px 12px;
+    padding: 8px 14px 8px 12px;
     min-height: var(--member-wl-matrix-row-h, 40px);
     background: #ffffff;
     border-right: 1px solid #e8eef5;
@@ -2737,7 +2735,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment .me
     align-items: center;
     justify-content: flex-end;
     min-height: var(--member-wl-matrix-row-h, 40px);
-    padding: 8px 12px;
+    padding: 8px 14px 8px 12px;
     text-align: right;
     font-weight: 600;
     font-variant-numeric: tabular-nums;

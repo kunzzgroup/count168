@@ -31,8 +31,10 @@ export const WINLOSS_MATRIX_MIN_CCY_COL_WIDTH = "6rem";
 /** 单币种紧凑表：列最小宽与单元格水平 padding（须与 member.css 一致） */
 export const WINLOSS_COMPACT_ACCOUNT_COL_MIN = "5.5rem";
 export const WINLOSS_COMPACT_AMT_COL_MIN = "5.25rem";
-export const WINLOSS_COMPACT_ACCOUNT_CELL_PAD_X = 24;
-export const WINLOSS_COMPACT_AMT_CELL_PAD_X = 24;
+export const WINLOSS_COMPACT_ACCOUNT_CELL_PAD_X = 32;
+export const WINLOSS_COMPACT_AMT_CELL_PAD_X = 32;
+/** 多币种矩阵列：水平 padding 总和 + 右缘缓冲（须与 member.css 单元格 padding 一致） */
+export const WINLOSS_MATRIX_CCY_CELL_PAD_X = 32;
 
 export function measureElementTextWidthPx(referenceEl, text) {
   if (!referenceEl || typeof document === "undefined") return 0;
@@ -86,6 +88,31 @@ export function measureCompactMatrixColumnWidths(gridEl, remPx) {
   });
 
   return { accountColPx: Math.ceil(accountColPx), amtColPx: Math.ceil(amtColPx) };
+}
+
+/** 多币种矩阵：按表头/金额文字量宽，避免列宽锁死后数字贴边溢出 */
+export function measureMatrixCurrencyColumnWidths(gridEl, remPx) {
+  const parseRem = (s, fallbackRem) => {
+    const hit = String(s).match(/^([\d.]+)rem$/);
+    return hit ? parseFloat(hit[1]) * remPx : fallbackRem * remPx;
+  };
+  const minColPx = parseRem(WINLOSS_MATRIX_MIN_CCY_COL_WIDTH, 6);
+  const probe =
+    gridEl.querySelector(".member-balance-matrix-amt") ||
+    gridEl.querySelector(".member-balance-matrix-th") ||
+    gridEl.querySelector(".member-balance-matrix-cell");
+
+  let colPx = minColPx;
+  const pad = WINLOSS_MATRIX_CCY_CELL_PAD_X;
+  const measure = (el, text) => {
+    colPx = Math.max(colPx, measureElementTextWidthPx(probe || el, text) + pad);
+  };
+
+  gridEl.querySelectorAll(".member-balance-matrix-th").forEach((el) => measure(el, el.textContent));
+  gridEl.querySelectorAll(".member-balance-matrix-amt").forEach((el) => measure(el, el.textContent));
+  gridEl.querySelectorAll(".member-balance-matrix-na").forEach((el) => measure(el, el.textContent));
+
+  return Math.ceil(colPx);
 }
 
 export function normalizeNumber(value) {
@@ -330,9 +357,7 @@ export function getAvailableCurrencies({
 }
 
 export function formatCompactCurrencyLabel(code) {
-  const s = String(code || "").trim();
-  if (!s) return "";
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  return String(code || "").trim().toUpperCase();
 }
 
 export function miniGridShowsTotalRow(shellMode, accounts) {

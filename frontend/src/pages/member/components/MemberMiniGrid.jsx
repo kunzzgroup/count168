@@ -10,6 +10,7 @@ import {
   miniMatrixGridTemplateColumns,
   MINI_GRID_SHELL_ROWS,
   measureCompactMatrixColumnWidths,
+  measureMatrixCurrencyColumnWidths,
   WINLOSS_MATRIX_MIN_CCY_COL_WIDTH,
   WINLOSS_MATRIX_ROWHEAD_COL_WIDTH,
   WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD,
@@ -373,16 +374,6 @@ export default function MemberMiniGrid({
         return hit ? parseFloat(hit[1]) * rem : fallbackRem * rem;
       };
       const rowheadPx = parseRem(WINLOSS_MATRIX_ROWHEAD_COL_WIDTH, 5.75);
-      const minColPx = parseRem(WINLOSS_MATRIX_MIN_CCY_COL_WIDTH, 6);
-
-      const measureContentColPx = () => {
-        let maxPx = 0;
-        grid.querySelectorAll(".member-balance-matrix-th, .member-balance-matrix-cell").forEach((el) => {
-          const w = el.scrollWidth;
-          if (w > maxPx) maxPx = w;
-        });
-        return maxPx;
-      };
 
       const applyColumns = (px) => {
         const colW = `${px}px`;
@@ -393,13 +384,8 @@ export default function MemberMiniGrid({
         grid.style.maxWidth = "none";
       };
 
-      let colPx = minColPx;
+      const colPx = measureMatrixCurrencyColumnWidths(grid, rem);
       applyColumns(colPx);
-      const contentPx = measureContentColPx();
-      if (contentPx > colPx) {
-        colPx = contentPx;
-        applyColumns(colPx);
-      }
     };
 
     syncColWidth();
