@@ -1412,6 +1412,11 @@ export function useBankProcessListPage() {
         profit_sharing: formatProfitSharingStringFixed2(d.profit_sharing || ""),
         day_start: d.day_start ? String(d.day_start).slice(0, 10) : "",
         day_end: d.day_end ? String(d.day_end).slice(0, 10) : "",
+        day_end_monthly_cap_enabled:
+          bankProcessFrequencyNormalized(d.day_start_frequency) === "1st_of_every_month" &&
+          (d.day_end_monthly_cap_enabled === 1 ||
+            d.day_end_monthly_cap_enabled === true ||
+            String(d.day_end_monthly_cap_enabled) === "1"),
         day_start_frequency: bankProcessFrequencyNormalized(d.day_start_frequency),
         status: d.status || "active", remark: d.remark || "", sop: d.sop || "",
       };
@@ -1431,6 +1436,14 @@ export function useBankProcessListPage() {
     const dayEnd = String(form.day_end || "").trim();
     if (dayStart && dayEnd && dayEnd < dayStart) {
       notify(t("dayEndEarlierThanStart"), "danger");
+      return;
+    }
+    let dayEndMonthlyCapEnabled = !!form.day_end_monthly_cap_enabled;
+    if (rawFreq !== "1st_of_every_month" || !dayEnd) {
+      dayEndMonthlyCapEnabled = false;
+    }
+    if (dayEndMonthlyCapEnabled && !/^\d{4}-\d{2}-\d{2}$/.test(dayEnd)) {
+      notify(t("dayEndRequiredForCap"), "danger");
       return;
     }
     if (!isOnceSubmit && !String(form.contract || "").trim()) {
@@ -1461,6 +1474,7 @@ export function useBankProcessListPage() {
     const fd = new FormData();
     Object.entries(moneyNormalized).forEach(([k, v]) => {
       if (k === "id" && !editMode) return;
+      if (k === "day_end_monthly_cap_enabled") return;
       if (k === "day_start_frequency") {
         fd.append(k, normalizedFreq);
         return;
@@ -1471,6 +1485,9 @@ export function useBankProcessListPage() {
       }
       fd.append(k, v ?? "");
     });
+    if (editMode) {
+      fd.append("day_end_monthly_cap_enabled", dayEndMonthlyCapEnabled ? "1" : "0");
+    }
     if (companyId) fd.append("company_id", String(companyId));
     fd.append("permission", "Bank");
     try {

@@ -39,6 +39,9 @@ export default function BankProcessFormModal({
   const contract = String(form.contract || "").trim();
   const frequency = bankProcessFrequencyNormalized(form.day_start_frequency);
   const isOnce = frequency === "once";
+  const showCapSwitch = editMode && frequency === "1st_of_every_month";
+  const capOn = !!form.day_end_monthly_cap_enabled;
+  const datesLockedByCap = showCapSwitch && capOn;
   const profitSharingRows = parseProfitSharingToRows(form.profit_sharing, accounts);
 
   const profitSharingDisplayLabel = (row) => {
@@ -248,21 +251,54 @@ export default function BankProcessFormModal({
                       htmlFor="bank_day_start"
                       label={t("dayStart")}
                       value={form.day_start}
+                      disabled={datesLockedByCap}
                       placeholder={t("pickDate")}
                       clearLabel={t("clearDate")}
                       wrapClassName="bank-day-start-input-wrap"
+                      className={datesLockedByCap ? "bank-day-end-input-wrap--muted" : ""}
                     />
+                    {showCapSwitch ? (
+                      <div
+                        id="bank_day_end_monthly_cap_wrap"
+                        className="bank-day-end-monthly-cap-wrap"
+                        title={t("dayEndMonthlyCapTooltip")}
+                      >
+                        <label className="toggle-switch bank-day-end-cap-switch" htmlFor="bank_day_end_monthly_cap_switch">
+                          <input
+                            type="checkbox"
+                            id="bank_day_end_monthly_cap_switch"
+                            checked={capOn}
+                            onChange={(ev) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                day_end_monthly_cap_enabled: ev.target.checked,
+                              }))
+                            }
+                          />
+                          <span className="toggle-slider" />
+                        </label>
+                        <span id="bank_day_end_monthly_cap_label_text" className="bank-day-end-cap-label">
+                          {capOn ? "ON" : "OFF"}
+                        </span>
+                        <input
+                          type="hidden"
+                          id="bank_day_end_monthly_cap_enabled"
+                          name="day_end_monthly_cap_enabled"
+                          value={capOn ? "1" : "0"}
+                        />
+                      </div>
+                    ) : null}
                     <BankFormDateField
                       fieldKey="bank_day_end"
                       htmlFor="bank_day_end"
                       label={t("dayEnd")}
                       value={form.day_end}
-                      disabled={isOnce}
+                      disabled={isOnce || datesLockedByCap}
                       minYmd={isOnce ? undefined : dayEndMin}
                       placeholder={t("pickDate")}
                       clearLabel={t("clearDate")}
                       wrapClassName="bank-day-end-input-wrap"
-                      className={isOnce ? "bank-day-end-input-wrap--muted" : ""}
+                      className={isOnce || datesLockedByCap ? "bank-day-end-input-wrap--muted" : ""}
                     />
                   </div>
                 </div>
@@ -318,7 +354,17 @@ export default function BankProcessFormModal({
                         setForm((prev) => {
                           const prevNorm = bankProcessFrequencyNormalized(prev.day_start_frequency);
                           if (next === "once" && prevNorm !== "once") {
-                            return { ...prev, day_start_frequency: next, day_end: "", contract: "", insurance: "" };
+                            return {
+                              ...prev,
+                              day_start_frequency: next,
+                              day_end: "",
+                              contract: "",
+                              insurance: "",
+                              day_end_monthly_cap_enabled: false,
+                            };
+                          }
+                          if (next !== "1st_of_every_month") {
+                            return { ...prev, day_start_frequency: next, day_end_monthly_cap_enabled: false };
                           }
                           return { ...prev, day_start_frequency: next };
                         });

@@ -1334,18 +1334,22 @@ body.lang-zh.process-page.process-page--bank .action-buttons-container .user-gc-
     scrollbar-gutter: stable;
 }
 
-/* Bank 分页：在 .bank-process-list-body 内流式布局（见上方 bank-process-list-body 规则） */
-.process-page.process-page--bank .bank-process-list-body > .pagination-container,
-.process-page.process-page--bank .bank-process-pagination.pagination-container {
-    position: static !important;
+/* Bank 分页：与 User List 等页一致，固定于视口右下角（非 Show All） */
+.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body > .pagination-container,
+.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-pagination.pagination-container {
+    position: fixed !important;
+    bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+    right: max(40px, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
+    top: auto !important;
+    margin: 0 !important;
+    align-self: auto !important;
     flex: 0 0 auto;
-    align-self: flex-end;
-    margin: 8px 0 max(8px, env(safe-area-inset-bottom, 0px)) 0 !important;
-    margin-left: auto !important;
-    margin-right: 0 !important;
-    right: auto !important;
-    bottom: auto !important;
-    z-index: 2 !important;
+    z-index: 120 !important;
+}
+
+.process-page.process-page--bank:not(.process-page--bank-show-all) .container {
+    padding-bottom: max(56px, calc(20px + env(safe-area-inset-bottom, 0px))) !important;
 }
 
 /* Bank Process List 顶栏：日期 / Search / filter chip / Delete·Add 同一行 */
@@ -1947,11 +1951,10 @@ body.process-page.process-page--bank .search-container.userlist-search-bar .user
         margin-bottom: 0px;
     }
 
-    .process-page.process-page--bank .bank-process-list-body > .pagination-container,
-    .process-page.process-page--bank .bank-process-pagination.pagination-container {
-        position: static !important;
-        margin: 6px 0 max(6px, env(safe-area-inset-bottom, 0px)) 0 !important;
-        margin-left: auto !important;
+    .process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body > .pagination-container,
+    .process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-pagination.pagination-container {
+        bottom: max(16px, env(safe-area-inset-bottom, 0px)) !important;
+        right: max(24px, env(safe-area-inset-right, 0px)) !important;
     }
 }
 
@@ -6571,7 +6574,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     justify-content: center;
 }
 
-/* Bank list: pagination in flex footer (see .bank-process-list-body rules above) */
+/* Bank list: pagination fixed bottom-right (see .bank-process-pagination rules above) */
 
 .process-page.process-page--bank .bank-table-wrapper,
 .process-page.process-page--bank .process-table-wrapper {

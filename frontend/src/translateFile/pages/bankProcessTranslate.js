@@ -121,6 +121,9 @@ export const BANK_PROCESS_I18N = {
     enterCardOwner: "Enter Card Owner",
     dayStart: "Day start",
     dayEnd: "Day end",
+    dayEndMonthlyCapTooltip:
+      "When on, Day start and Day end cannot be edited; also enables day-end monthly cap (1st of Every Month).",
+    dayEndRequiredForCap: "Please select a valid Day end before enabling Day-end cap.",
     companyAccount: "Company",
     autoCalculated: "Auto calculated",
     frequency: "Frequency",
@@ -354,6 +357,9 @@ export const BANK_PROCESS_I18N = {
     enterCardOwner: "输入卡主",
     dayStart: "起始日",
     dayEnd: "结束日",
+    dayEndMonthlyCapTooltip:
+      "开启后，起始日与结束日不可编辑，并启用月末封顶（每月 1 日频率）。",
+    dayEndRequiredForCap: "启用月末封顶前请先选择有效的结束日。",
     companyAccount: "公司",
     autoCalculated: "自动计算",
     frequency: "频率",

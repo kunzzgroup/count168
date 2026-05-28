@@ -522,6 +522,7 @@ export const EMPTY_BANK_FORM = {
   profit_sharing: "",
   day_start: "",
   day_end: "",
+  day_end_monthly_cap_enabled: false,
   /** Add Process: default Frequency = 1st of Every Month (edit uses saved `day_start_frequency`, including `once`). */
   day_start_frequency: "1st_of_every_month",
   status: "active",
