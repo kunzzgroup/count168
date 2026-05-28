@@ -222,38 +222,38 @@ export default function BankProcessTable({
     >
       <div className={tableShellClass}>
         <div className="bank-virtual-table-inner">
-          <div className={scrollClipClass}>
-            <div className="bank-virtual-thead">
-              <div className="table-header bank-virtual-head-row" role="row">
-                {bankHeaders.map((h) => {
-                  if (h.isSelect) {
-                    return (
-                      <div
-                        key={h.key}
-                        role="columnheader"
-                        className={`header-item bank-header bank-virtual-th bank-virtual-th-checkbox header-item--select ${bankColClass("bulk")}`}
-                      >
-                        {h.label}
-                      </div>
-                    );
-                  }
-                  if (h.sortable) {
-                    return renderSortableHeader(h);
-                  }
+          <div className="bank-virtual-thead">
+            <div className="table-header bank-virtual-head-row" role="row">
+              {bankHeaders.map((h) => {
+                if (h.isSelect) {
                   return (
                     <div
                       key={h.key}
                       role="columnheader"
-                      className={`header-item bank-header bank-virtual-th ${bankColClass(h.key)}${
-                        h.key === "action" ? " bank-action-header" : ""
-                      }`}
+                      className={`header-item bank-header bank-virtual-th bank-virtual-th-checkbox header-item--select ${bankColClass("bulk")}`}
                     >
-                      <span className="header-item__label bank-virtual-th__label">{h.labelText}</span>
+                      {h.label}
                     </div>
                   );
-                })}
-              </div>
+                }
+                if (h.sortable) {
+                  return renderSortableHeader(h);
+                }
+                return (
+                  <div
+                    key={h.key}
+                    role="columnheader"
+                    className={`header-item bank-header bank-virtual-th ${bankColClass(h.key)}${
+                      h.key === "action" ? " bank-action-header" : ""
+                    }`}
+                  >
+                    <span className="header-item__label bank-virtual-th__label">{h.labelText}</span>
+                  </div>
+                );
+              })}
             </div>
+          </div>
+          <div className={scrollClipClass}>
             <div className="bank-virtual-scroll-shell">
             <div className="process-cards bank-mode bank-virtual-scroll">
             {tableLoading && pageRows.length === 0 && (
