@@ -51,13 +51,10 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
 /** iPad Air 11" (M2) landscape Safari ≈ 1180px; use 1200px to include that viewport. */
 /** Galaxy Tab S7 横屏约 1280px，需纳入平板侧栏逻辑 */
 const TABLET_MEDIA_QUERY = "(max-width: 1280px)";
-/** Icon-only: gap between portal label tooltip and submenu flyout */
-const SIDEBAR_SUBMENU_AFTER_TOOLTIP = 108;
-
 /** Icon-only sidebar: portal tooltip to the right of each nav item. */
-function SidebarNavTip({ label, enabled, children }) {
+function SidebarNavTip({ label, enabled, children, placement = "right" }) {
   return (
-    <SidebarMenuTooltip label={label} enabled={enabled}>
+    <SidebarMenuTooltip label={label} enabled={enabled} placement={placement}>
       {children}
     </SidebarMenuTooltip>
   );
@@ -411,12 +408,11 @@ export default function AuthenticatedLayout() {
   const openHoverSubmenu = (section, el) => {
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const submenuLeft = sidebarIconOnly ? rect.right + SIDEBAR_SUBMENU_AFTER_TOOLTIP : rect.right;
     setSubmenuPos((prev) => ({
       ...prev,
       [section]: {
         top: Math.max(8, rect.top - 2),
-        left: submenuLeft,
+        left: rect.right,
       },
     }));
     setHoverSection(section);
@@ -668,7 +664,7 @@ export default function AuthenticatedLayout() {
           {canAccess("report") && me?.company_has_gambling && (
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
-                <SidebarNavTip label={i18n.sidebarReport} enabled={sidebarIconOnly}>
+                <SidebarNavTip label={i18n.sidebarReport} enabled={sidebarIconOnly} placement="top">
                   <div
                     ref={reportTitleRef}
                     className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
@@ -728,7 +724,7 @@ export default function AuthenticatedLayout() {
           {showMaintenanceMenu && (
             <div className="informationmenu-section">
               <div className="menu-item-wrapper" onMouseLeave={() => setHoverSection(null)}>
-                <SidebarNavTip label={i18n.sidebarMaintenance} enabled={sidebarIconOnly}>
+                <SidebarNavTip label={i18n.sidebarMaintenance} enabled={sidebarIconOnly} placement="top">
                   <div
                     ref={maintenanceTitleRef}
                     className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
