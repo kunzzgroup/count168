@@ -2,7 +2,7 @@
 
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 25;
 
 export const ROLE_PRIORITY = ["CAPITAL", "BANK", "CASH", "PROFIT", "EXPENSES", "COMPANY", "PARTNER", "STAFF", "SUPPLIER", "AGENT", "MEMBER", "DEBTOR"];
 

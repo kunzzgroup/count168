@@ -52,7 +52,7 @@ body.account-page:not(.account-page--show-all) .container {
 }
 
 body.account-page:not(.account-page--show-all) .content {
-    height: calc(100vh - var(--layout-page-top-inset)) !important;
+    height: calc(118vh - var(--layout-page-top-inset)) !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;
