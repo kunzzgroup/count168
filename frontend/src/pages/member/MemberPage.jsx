@@ -24,7 +24,6 @@ import MemberMiniGrid from "./components/MemberMiniGrid.jsx";
 import MemberMoneyCell from "./components/MemberMoneyCell.jsx";
 import MemberGridAccountPills from "./components/MemberGridAccountPills.jsx";
 import {
-  buildWinLossPillBands,
   computeTableTotals,
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS,
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
@@ -142,10 +141,11 @@ export default function MemberPage() {
   /** Account 多段：每段最多 N 格，超出自动换行；窄屏减少每行格数以完整显示户名 */
   const accountFilterBands = useMemo(() => {
     const accounts = Array.isArray(linkedAccounts) ? linkedAccounts : [];
-    return buildWinLossPillBands(
-      accounts.map((acc) => ({ type: "account", acc })),
-      accountMaxPerBand,
-    );
+    const bands = [];
+    for (let i = 0; i < accounts.length; i += accountMaxPerBand) {
+      bands.push(accounts.slice(i, i + accountMaxPerBand));
+    }
+    return bands;
   }, [linkedAccounts, accountMaxPerBand]);
 
   useEffect(() => {
@@ -384,8 +384,7 @@ export default function MemberPage() {
                           gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
                         }}
                       >
-                        {band.map((cell) => {
-                          const acc = cell.acc;
+                        {band.map((acc) => {
                           const accountLabel = String(acc.account_id || acc.name || acc.id);
                           return (
                             <button
@@ -463,7 +462,6 @@ export default function MemberPage() {
                         <MemberGridAccountPills
                           linkedAccounts={viewGridAccounts.length ? viewGridAccounts : linkedAccounts}
                           selectedIds={wlGridSelectedIds}
-                          maxPerBand={accountMaxPerBand}
                           onApply={applyWlGridSelection}
                           onNotify={showNotification}
                           t={t}
