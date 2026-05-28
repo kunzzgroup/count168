@@ -47,7 +47,7 @@ body.user-page:not(.user-page--show-all) {
 
 /* 与 processlist / account-list 一致：主区域 flex 占满一屏，中间列表不触发整页滚动 */
 .user-page .content {
-    height: calc(118vh - var(--layout-page-top-inset));
+    height: calc(100vh - var(--layout-page-top-inset));
     display: flex;
     flex-direction: column;
     overflow: hidden;

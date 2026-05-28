@@ -3718,7 +3718,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 
 /* Non-bank Process List: fixed viewport layout, 25 rows visible without scrolling */
 .process-page:not(.process-page--bank) .content {
-    height: calc(118vh - var(--layout-page-top-inset));
+    height: calc(100vh - var(--layout-page-top-inset));
     display: flex;
     flex-direction: column;
     overflow: hidden;

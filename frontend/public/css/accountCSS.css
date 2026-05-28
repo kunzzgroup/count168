@@ -52,7 +52,7 @@ body.account-page:not(.account-page--show-all) .container {
 }
 
 body.account-page:not(.account-page--show-all) .content {
-    height: calc(118vh - var(--layout-page-top-inset)) !important;
+    height: calc(100vh - var(--layout-page-top-inset)) !important;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -138,7 +138,7 @@ body.account-page .account-table-wrapper {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 0;
+    padding-bottom: 52px;
     box-sizing: border-box;
 }
 
@@ -254,19 +254,15 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-sizing: border-box;
 }
 
-/* 分页：与 process-page .pagination-container 相同（流内右下，非 fixed） */
+/* 分页：固定右下角（与 User List 一致），避免 25 行时流内分页被挤出视口 */
 body.account-page:not(.account-page--show-all) .account-pagination-container {
-    position: relative;
-    right: auto;
-    bottom: auto;
+    position: fixed;
+    right: max(40px, env(safe-area-inset-right, 0px));
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
     left: auto;
     top: auto;
-    margin-top: 8px !important;
-    margin-bottom: 0 !important;
-    margin-left: auto !important;
-    align-self: flex-end;
-    flex-shrink: 0;
-    z-index: 1;
+    margin: 0 !important;
+    z-index: 120;
     width: fit-content;
     display: flex;
     align-items: center;
@@ -277,6 +273,7 @@ body.account-page:not(.account-page--show-all) .account-pagination-container {
     backdrop-filter: blur(8px);
     border: 1px solid rgba(148, 163, 184, 0.2);
     font-family: inherit;
+    flex-shrink: 0;
 }
 
 .page-header {
