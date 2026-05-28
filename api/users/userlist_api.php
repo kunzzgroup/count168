@@ -152,10 +152,29 @@ function userlist_fetch_accessible_companies(PDO $pdo): array
     if ($userId <= 0) {
         return [];
     }
-    $rows = getCompaniesByUser($pdo, $userId, true, false);
-    gc_hydrate_accessible_group_ids($pdo, $rows);
 
-    return gc_filter_companies_for_login_scope($rows);
+    gc_hydrate_company_login_group_id($pdo);
+
+    $userRole = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+    $userType = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
+    if ($userRole === 'owner' || $userType === 'owner') {
+        $ownerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+        $rows = getCompaniesByOwner($pdo, $ownerId, true, true);
+    } else {
+        $rows = getCompaniesByUser($pdo, $userId, true, true);
+    }
+
+    $active = [];
+    foreach ($rows as $c) {
+        if (!empty($c['expiration_date']) && strtotime((string) $c['expiration_date']) < strtotime(date('Y-m-d'))) {
+            continue;
+        }
+        $active[] = $c;
+    }
+
+    gc_hydrate_accessible_group_ids($pdo, $active);
+
+    return gc_filter_companies_for_login_scope($active);
 }
 
 /** @param list<int|string> $companyIds */
