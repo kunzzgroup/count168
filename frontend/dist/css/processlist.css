@@ -1935,20 +1935,25 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     min-width: 0;
 }
 
-.bank-form .bank-day-end-label-row {
-    display: inline-flex;
+.bank-form .bank-day-end-label-row,
+#addBankModal .bank-form .form-date-label-row.bank-day-end-label-row {
+    display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 8px;
-    width: auto;
+    flex-wrap: nowrap;
+    gap: 10px;
+    width: 100%;
     max-width: 100%;
+    box-sizing: border-box;
 }
 
-#addBankModal .bank-form .bank-day-end-label-row > label {
-    width: auto;
+#addBankModal .bank-form .bank-day-end-label-row > label,
+#addBankModal .bank-form .form-date-label-row.bank-day-end-label-row > label {
+    width: auto !important;
     flex: 0 0 auto;
     margin-bottom: 0;
     line-height: 1.2;
+    white-space: nowrap;
 }
 
 .bank-form .bank-day-end-monthly-cap-wrap {
@@ -1956,36 +1961,39 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-    gap: 8px;
+    gap: 10px;
     flex: 0 0 auto;
+    flex-shrink: 0;
     margin: 0;
     padding: 0;
     min-width: 0;
+    white-space: nowrap;
 }
 
 .bank-form .bank-day-end-cap-label {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     font-family: var(--font-heading-page, inherit);
-    color: #94a3b8;
-    letter-spacing: 0.02em;
+    color: #64748b;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     user-select: none;
     line-height: 1;
-    min-width: 0;
+    flex-shrink: 0;
+    white-space: nowrap;
     text-align: left;
 }
 
 .bank-form .bank-day-end-cap-label.is-on {
-    color: #3b82f6;
+    color: #2563eb;
 }
 
-/* Bank modal：Day end 旁 toggle — 参考 OFF + pill 横排 */
+/* Bank modal：Day end 旁 toggle — OFF 在左，pill 在右 */
 #addBankModal .bank-day-end-cap-switch {
     position: relative;
     display: inline-block;
-    width: 40px;
-    height: 22px;
+    width: 48px;
+    height: 26px;
     flex-shrink: 0;
     cursor: pointer;
     margin: 0;
@@ -2007,40 +2015,44 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     position: absolute;
     inset: 0;
     display: block;
-    background: #d1dce8;
+    background: #dce4ee;
     border-radius: 999px;
-    box-shadow: none;
-    transition: background 0.2s ease;
+    border: 1px solid #b8c9dc;
+    box-sizing: border-box;
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 #addBankModal .bank-day-end-cap-switch__track::before {
     content: "";
     position: absolute;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     top: 2px;
     left: 2px;
     background: #ffffff;
     border-radius: 50%;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
     transition: left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #addBankModal .bank-day-end-cap-switch input:checked + .bank-day-end-cap-switch__track {
     background: #3b82f6;
+    border-color: #2563eb;
 }
 
 #addBankModal .bank-day-end-cap-switch input:checked + .bank-day-end-cap-switch__track::before {
-    left: 20px;
-    box-shadow: 0 1px 3px rgba(29, 78, 216, 0.25);
+    left: 24px;
+    box-shadow: 0 1px 4px rgba(29, 78, 216, 0.3);
 }
 
 #addBankModal .bank-day-end-cap-switch:hover .bank-day-end-cap-switch__track {
-    background: #c4d0de;
+    background: #cfd9e6;
+    border-color: #a8bdd4;
 }
 
 #addBankModal .bank-day-end-cap-switch:hover input:checked + .bank-day-end-cap-switch__track {
     background: #2563eb;
+    border-color: #1d4ed8;
 }
 
 #addBankModal .bank-day-end-cap-switch input:focus-visible + .bank-day-end-cap-switch__track {
