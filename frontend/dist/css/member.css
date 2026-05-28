@@ -2311,7 +2311,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 }
 
 .member-balance-matrix-th--edge {
-    border-right-color: #b8cfe8;
+    border-right: none;
 }
 
 .member-balance-matrix-rowhead {
@@ -2389,7 +2389,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 }
 
 .member-balance-matrix-cell--edge {
-    border-right-color: #e8eef5;
+    border-right: none;
 }
 
 .member-balance-matrix-cell--edge-row {
@@ -2488,11 +2488,20 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 }
 
 /* 表格放得下时：白底外框随内容收窄，避免 THB 列右侧留白 */
-.member-winloss-page .member-dash-matrix-center-wrap:has(.member-dash-matrix-scroll--ccy-fits),
-.member-winloss-page .member-dash-rail-matrix:has(.member-dash-matrix-scroll--ccy-fits) {
-    width: max-content;
+.member-winloss-page .member-dash-columns--two-col .member-dash-matrix-center-wrap:has(.member-dash-matrix-scroll--ccy-fits),
+.member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap:has(.member-dash-matrix-scroll--ccy-fits),
+.member-winloss-page .member-dash-columns--two-col .member-dash-rail-matrix:has(.member-dash-matrix-scroll--ccy-fits),
+.member-winloss-page .member-dash-columns--three-col .member-dash-rail-matrix:has(.member-dash-matrix-scroll--ccy-fits),
+.member-winloss-page .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll):has(.member-dash-matrix-scroll--ccy-fits) {
+    width: max-content !important;
     max-width: 100%;
     align-self: flex-start;
+}
+
+/* 最右列由外框描边，去掉列内右边线避免双线+白缝 */
+.member-winloss-page .member-balance-matrix-th--edge,
+.member-winloss-page .member-balance-matrix-cell--edge {
+    border-right: none;
 }
 
 /* 列宽由 JS measureMatrixCurrencyColumnWidths 写入 grid-template-columns，此处只保留布局 */
