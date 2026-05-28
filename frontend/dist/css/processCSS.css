@@ -1125,6 +1125,11 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     margin-right: 0;
 }
 
+/* 数据区出现纵向滚动条时，表头右侧预留同等宽度，避免 Action 列右侧出现空白条 */
+.process-page.process-page--bank .bank-virtual-table-inner:has(.bank-virtual-scroll-clip--cap-rows) .bank-virtual-head-row.table-header {
+    padding-right: var(--dash-scrollbar-size, 12px);
+}
+
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
     /* min-content 会撑开 grid 行轨道，导致 .bank-virtual-scroll-clip 无法产生纵向溢出 */
     min-height: 0;
@@ -2330,6 +2335,16 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     min-width: max-content;
     max-width: max-content;
     flex: 0 0 auto;
+}
+
+body.process-page.process-page--bank .bank-process-table-region.process-table-wrapper--select-col .bank-col-bulk.bank-virtual-th,
+body.process-page.process-page--bank .bank-process-table-region.process-table-wrapper--select-col .bank-row-select-cell {
+    width: auto;
+    min-width: max-content;
+    max-width: max-content;
+    flex: 0 0 auto;
+    padding-left: clamp(2px, 0.2vw, 4px) !important;
+    padding-right: clamp(2px, 0.2vw, 4px) !important;
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-head-row .bank-header.bank-col-action.bank-action-header {
