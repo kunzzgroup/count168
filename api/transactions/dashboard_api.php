@@ -184,8 +184,8 @@ function dashboardShouldExcludeClearForRole(?string $role): bool
         return false;
     }
     $role = strtoupper(trim((string) $role));
-    // 与 Transaction List/search_api 口径对齐：不排除 CLEAR（EXPENSES 也要算入）
-    return false;
+    // Dashboard Profit 卡片：PROFIT 角色账户的 CLEAR 不计入（Transaction 页仍正常展示/提交）
+    return $role === 'PROFIT';
 }
 
 /**
