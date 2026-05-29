@@ -1543,7 +1543,7 @@ body.ownership-page {
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    margin-top: 16px;
+    margin-top: 10px;
     margin-bottom: 12px;
     flex-shrink: 0;
 }
