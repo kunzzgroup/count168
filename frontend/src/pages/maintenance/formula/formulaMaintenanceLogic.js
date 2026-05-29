@@ -16,16 +16,23 @@ import {
   formulaMaintenanceUsesGroupProcesses,
 } from "./formulaMaintenanceScope.js";
 
+const FORMULA_PAYROLL_PROCESS_CODES = new Set(["SALARY", "BONUS"]);
+
 /** ProcessSelect expects process_name; domain report rows use process / display_text. */
-export function mapProcessesForMaintenanceSelect(apiList) {
+export function mapProcessesForMaintenanceSelect(apiList, { groupPayrollShort = false } = {}) {
   return (Array.isArray(apiList) ? apiList : []).map((row) => {
     const processName = String(
       row.process_name ?? row.process ?? row.process_id ?? "",
     ).trim();
+    const upper = processName.toUpperCase();
+    let description = row.description ?? null;
+    if (FORMULA_PAYROLL_PROCESS_CODES.has(upper)) {
+      description = groupPayrollShort ? null : upper;
+    }
     return {
       id: row.id,
       process_name: processName,
-      description: row.description ?? null,
+      description,
     };
   });
 }
@@ -69,11 +76,13 @@ export { isBankOnlyCategoryCompany } from "../shared/maintenanceCompanyApi.js";
 export async function fetchProcesses(companyId, scope = null) {
   if (scope && formulaMaintenanceUsesGroupProcesses(scope)) {
     const apiList = await fetchDomainReportProcesses(scope, { credentials: "include" });
-    return mapProcessesForMaintenanceSelect(mapDomainGroupProcesses(apiList));
+    return mapProcessesForMaintenanceSelect(mapDomainGroupProcesses(apiList), {
+      groupPayrollShort: true,
+    });
   }
   const effectiveId = scope?.scopeCompanyId ?? companyId;
   const rows = await fetchMaintenanceProcesses(effectiveId, { credentials: "include" });
-  return mapProcessesForMaintenanceSelect(rows);
+  return mapProcessesForMaintenanceSelect(rows, { groupPayrollShort: false });
 }
 
 export async function bootstrapFormulaMaintenanceMeta({ companies, groupId = null }) {
