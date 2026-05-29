@@ -8,6 +8,17 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+
+if (!$pdo instanceof PDO) {
+    http_response_code(503);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Database connection failed',
+        'data' => null,
+        'error' => 'Database connection failed',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
@@ -1118,13 +1129,14 @@ try {
         ]
     ]);
 
-} catch (Exception $e) {
-    http_response_code(400);
+} catch (Throwable $e) {
+    error_log('dashboard_api: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
         'data' => null,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
     ], JSON_UNESCAPED_UNICODE);
 }
 
