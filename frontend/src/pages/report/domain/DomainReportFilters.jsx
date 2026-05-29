@@ -17,6 +17,7 @@ export default function DomainReportFilters({
   processId,
   setProcessId,
   processes,
+  isGroupScope = false,
   currencyList,
   selectedCurrencies,
   toggleCurrency,
@@ -43,21 +44,22 @@ export default function DomainReportFilters({
   }, []);
 
   const filteredProcesses = useMemo(() => {
-    const all = [{ id: "", display_text: t("allProcess") }, ...processes];
-    if (!processSearch.trim()) return all;
+    const list = isGroupScope ? [...processes] : [{ id: "", display_text: t("allProcess") }, ...processes];
+    if (!processSearch.trim() || isGroupScope) return list;
     const s = processSearch.toLowerCase();
     const allLabel = t("allProcess").toLowerCase();
-    return all.filter((p) => {
+    return list.filter((p) => {
       const text = (p.display_text || "").toLowerCase();
       return text.includes(s) || (p.id === "" && allLabel.includes(s));
     });
-  }, [processes, processSearch, t]);
+  }, [processes, processSearch, t, isGroupScope]);
 
   const selectedProcessLabel = useMemo(() => {
-    if (!processId) return t("allProcess");
-    const found = processes.find(p => String(p.id) === String(processId));
-    return found ? found.display_text : t("allProcess");
-  }, [processes, processId, t]);
+    if (!processId) return isGroupScope ? t("selectProcess") : t("allProcess");
+    const found = processes.find((p) => String(p.id) === String(processId));
+    if (found) return found.display_text;
+    return isGroupScope ? t("selectProcess") : t("allProcess");
+  }, [processes, processId, t, isGroupScope]);
 
   const periodPresets = useMemo(
     () => QUICK_RANGE_KEYS.map((key) => ({ key, label: t(key) })),
@@ -85,16 +87,18 @@ export default function DomainReportFilters({
                 </button>
                 {processDropdownOpen && (
                   <div className="custom-select-dropdown show">
-                    <div className="custom-select-search">
-                      <input
-                        type="text"
-                        placeholder={t("searchProcess")}
-                        autoComplete="off"
-                        value={processSearch}
-                        onChange={(e) => setProcessSearch(e.target.value)}
-                        autoFocus
-                      />
-                    </div>
+                    {!isGroupScope && (
+                      <div className="custom-select-search">
+                        <input
+                          type="text"
+                          placeholder={t("searchProcess")}
+                          autoComplete="off"
+                          value={processSearch}
+                          onChange={(e) => setProcessSearch(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    )}
                     <div className="custom-select-options">
                       {filteredProcesses.map(p => (
                         <div

@@ -112,6 +112,27 @@ function tx_resolve_request_company_id(PDO $pdo, array $params): int
             return $requested;
         }
 
+        // Group entity company: user session may be a subsidiary (e.g. C168) while API targets AP entity id.
+        if ($viewGroup !== null) {
+            $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+            if ($entityId > 0 && $requested === $entityId) {
+                $grpStmt = $pdo->prepare("
+                    SELECT COUNT(*)
+                    FROM user_company_map ucm
+                    INNER JOIN company c ON c.id = ucm.company_id
+                    WHERE ucm.user_id = ?
+                      AND UPPER(TRIM(COALESCE(c.group_id, ''))) = ?
+                ");
+                $grpStmt->execute([$_SESSION['user_id'], $viewGroup]);
+                if ((int) $grpStmt->fetchColumn() > 0) {
+                    return $requested;
+                }
+            }
+            if (gc_session_can_access_company_id($pdo, $requested, $viewGroup)) {
+                return $requested;
+            }
+        }
+
         throw new Exception('无权访问该公司');
     }
 

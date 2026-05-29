@@ -7,6 +7,7 @@ import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/ma
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
+  companiesInGroupList,
   getCachedOwnerCompanies,
   isDashboardGroupOnlyMode,
   loadOwnerCompaniesCached,
@@ -23,6 +24,7 @@ import "../../../../public/css/customer_report.css";
 import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/transaction_maintenance.css";
+import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import {
   fetchCompanyPermissions,
   fetchProcessesForPermission,
@@ -40,6 +42,12 @@ import {
   buildTransactionMaintenanceQueryKey,
   bootstrapTransactionMaintenanceMeta,
 } from "./transactionMaintenanceLogic.js";
+import {
+  resolveTransactionMaintenanceScope,
+  transactionMaintenanceScopeCacheKey,
+  transactionMaintenanceScopeIsReady,
+  transactionMaintenanceUsesGroupProcesses,
+} from "./transactionMaintenanceScope.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 
@@ -121,26 +129,50 @@ export default function TransactionMaintenancePage() {
     [permissions],
   );
 
+  const transactionScope = useMemo(
+    () =>
+      resolveTransactionMaintenanceScope({
+        companies,
+        selectedGroup,
+        companyId,
+      }),
+    [companies, selectedGroup, companyId],
+  );
+
+  const transactionScopeKey = useMemo(
+    () => transactionMaintenanceScopeCacheKey(transactionScope),
+    [transactionScope],
+  );
+
   const maintenanceQueryKey = useMemo(
     () =>
       buildTransactionMaintenanceQueryKey({
-        companyId,
+        scope: transactionScope,
         dateFrom,
         dateTo,
         process: processFilter,
         category: activePermission || "",
       }),
-    [companyId, dateFrom, dateTo, processFilter, activePermission],
+    [transactionScope, dateFrom, dateTo, processFilter, activePermission],
   );
 
   const listQueryEnabled = Boolean(
     filtersReady &&
     dateRangeReady &&
     metaReady &&
+    transactionMaintenanceScopeIsReady(transactionScope) &&
     dateFrom &&
     dateTo &&
     activePermission,
   );
+
+  useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: me?.company_id,
+    enabled: true,
+  });
 
   const bootPending =
     !filtersReady ||
@@ -157,14 +189,14 @@ export default function TransactionMaintenancePage() {
       if (cachedRows.length > 0) {
         return packMaintenanceCache(cachedRows, isMaintenanceCacheComplete(cached));
       }
-      const prevCompanyId = previousQuery?.queryKey?.[1];
+      const prevScopeKey = previousQuery?.queryKey?.[1];
       const prevRows = getMaintenanceCacheRows(previousData);
-      if (prevCompanyId === companyId && prevRows.length > 0) {
+      if (prevScopeKey === transactionScopeKey && prevRows.length > 0) {
         return packMaintenanceCache(prevRows, isMaintenanceCacheComplete(previousData));
       }
       return undefined;
     },
-    [queryClient, maintenanceQueryKey, companyId],
+    [queryClient, maintenanceQueryKey, transactionScopeKey],
   );
 
   const transactionQuery = useQuery({
@@ -176,6 +208,7 @@ export default function TransactionMaintenancePage() {
         process: processFilter,
         companyId,
         category: activePermission,
+        scope: transactionScope,
         signal,
         onProgress: (progressRows) => {
           const existing = queryClient.getQueryData(maintenanceQueryKey);
@@ -245,13 +278,13 @@ export default function TransactionMaintenancePage() {
   const searchQueryKey = useMemo(
     () =>
       JSON.stringify([
-        companyId,
+        transactionScopeKey,
         dateFrom,
         dateTo,
         processFilter,
         activePermission || "",
       ]),
-    [companyId, dateFrom, dateTo, processFilter, activePermission],
+    [transactionScopeKey, dateFrom, dateTo, processFilter, activePermission],
   );
 
   useEffect(() => {
@@ -498,7 +531,6 @@ export default function TransactionMaintenancePage() {
           if (cancelled) return;
           setPermissions(meta.permissions);
           setActivePermission(meta.activePermission);
-          setProcesses(meta.processes);
           setMetaReady(true);
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           return;
@@ -542,7 +574,16 @@ export default function TransactionMaintenancePage() {
 
           // Process list is a UI nicety; do not block initial list query on this.
           try {
-            const procList = await fetchProcessesForPermission(initialCompanyId, initialActive);
+            const bootScope = resolveTransactionMaintenanceScope({
+              companies: filtered,
+              selectedGroup: bootGroup,
+              companyId: initialCompanyId,
+            });
+            const procList = await fetchProcessesForPermission(
+              initialCompanyId,
+              initialActive,
+              bootScope,
+            );
             if (!cancelled) setProcesses(procList);
           } catch (err) {
             console.error("Process list load error:", err);
@@ -569,49 +610,56 @@ export default function TransactionMaintenancePage() {
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
-    if (!companyId || !companyCode || !filtersReady) return;
+    if (!filtersReady || !transactionMaintenanceScopeIsReady(transactionScope)) return;
     if (skipMetaAfterBootRef.current) {
       skipMetaAfterBootRef.current = false;
       return;
     }
 
     let cancelled = false;
+    const scope = transactionScope;
     const cid = companyId;
-    const ccode = companyCode;
+    const permCode =
+      companyCode ||
+      (selectedGroup
+        ? companiesInGroupList(companies, selectedGroup)[0]?.company_id
+        : "") ||
+      "";
 
     (async () => {
       try {
         setMetaReady(false);
         const cached = switchPermsCacheRef.current;
         let permList;
-        if (cached && cached.companyCode === ccode) {
+        if (cached && cached.companyCode === permCode) {
           permList = cached.perms;
           switchPermsCacheRef.current = null;
+        } else if (permCode) {
+          permList = await fetchCompanyPermissions(permCode);
         } else {
-          permList = await fetchCompanyPermissions(ccode);
+          permList = filterTransactionMaintenancePermissions(["Games", "Gambling", "Bank"]);
         }
         if (cancelled) return;
         setPermissions(permList);
 
         const nextPerm = pickTransactionMaintenancePermission(
           permList,
-          localStorage.getItem(`selectedPermission_${ccode}`),
+          permCode ? localStorage.getItem(`selectedPermission_${permCode}`) : null,
         );
-        setActivePermission(
-          pickTransactionMaintenancePermission(
-            permList,
-            localStorage.getItem(`selectedPermission_${ccode}`),
-          ),
-        );
+        setActivePermission(nextPerm);
         setMetaReady(true);
 
         try {
-          const procList = await fetchProcessesForPermission(cid, nextPerm);
+          const procList = await fetchProcessesForPermission(cid, nextPerm, scope);
           if (cancelled) return;
           setProcesses(procList);
+          const usesGroup = transactionMaintenanceUsesGroupProcesses(scope);
           setSelectedProcess((prev) => {
             const filter = normalizeMaintenanceProcessFilter(prev);
             if (!filter) return "";
+            if (usesGroup) {
+              return procList.some((p) => String(p.id) === String(filter)) ? filter : "";
+            }
             return procList.some((p) => String(p.process_name) === filter) ? filter : "";
           });
         } catch (err) {
@@ -628,7 +676,16 @@ export default function TransactionMaintenancePage() {
     return () => {
       cancelled = true;
     };
-  }, [companyId, companyCode, notify, t]);
+  }, [
+    filtersReady,
+    transactionScope,
+    companyId,
+    companyCode,
+    selectedGroup,
+    companies,
+    notify,
+    t,
+  ]);
 
   useEffect(() => {
     if (!transactionQuery.isSuccess || !maintenanceDataComplete || !transactionData.length) return;
@@ -684,7 +741,6 @@ export default function TransactionMaintenancePage() {
         });
         setPermissions(meta.permissions);
         setActivePermission(meta.activePermission);
-        setProcesses(meta.processes);
         setMetaReady(true);
       } catch (err) {
         console.error("Meta bootstrap after clear company:", err);
@@ -732,8 +788,14 @@ export default function TransactionMaintenancePage() {
       setMetaReady(true);
 
       try {
-        const procList = await fetchProcessesForPermission(nextCompanyId, nextActive);
+        const nextScope = resolveTransactionMaintenanceScope({
+          companies,
+          selectedGroup: newGroup,
+          companyId: nextCompanyId,
+        });
+        const procList = await fetchProcessesForPermission(nextCompanyId, nextActive, nextScope);
         setProcesses(procList);
+        setSelectedProcess("");
       } catch (err) {
         console.error("Process list load error:", err);
       }
@@ -750,7 +812,7 @@ export default function TransactionMaintenancePage() {
       }
       notify(err.message || t("switchFailed"), "error");
     }
-  }, [companyId, navigate, notify, t]);
+  }, [companies, navigate, notify, t]);
 
   const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
     useMaintenanceGroupCompanyFilter({
@@ -800,6 +862,9 @@ export default function TransactionMaintenancePage() {
           processes={processes}
           selectedProcess={selectedProcess}
           setSelectedProcess={setSelectedProcess}
+          processValueMode={
+            transactionMaintenanceUsesGroupProcesses(transactionScope) ? "id" : "processName"
+          }
           dateFrom={dateFrom}
           dateTo={dateTo}
           setDateFrom={setDateFrom}

@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fetchSubmissionsByCaptureDate } from "../lib/dataCaptureApi.js";
+import { dataCaptureScopeIsReady } from "../lib/dataCaptureScope.js";
 
-export function useDataCaptureSubmittedList(companyId, captureDate) {
+export function useDataCaptureSubmittedList(captureScope, captureDate) {
   const [items, setItems] = useState([]);
 
   const refreshSubmitted = useCallback(async () => {
-    if (!companyId) {
+    if (!dataCaptureScopeIsReady(captureScope)) {
       setItems([]);
       return;
     }
     try {
-      const res = await fetchSubmissionsByCaptureDate(captureDate, companyId);
+      const res = await fetchSubmissionsByCaptureDate(captureDate, captureScope);
       if (res.success) {
         setItems(Array.isArray(res.data) ? res.data : []);
       } else {
@@ -19,7 +20,7 @@ export function useDataCaptureSubmittedList(companyId, captureDate) {
     } catch {
       setItems([]);
     }
-  }, [companyId, captureDate]);
+  }, [captureScope, captureDate]);
 
   const refreshRef = useRef(refreshSubmitted);
   refreshRef.current = refreshSubmitted;

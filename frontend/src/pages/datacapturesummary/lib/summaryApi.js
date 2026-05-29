@@ -1,4 +1,14 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { appendDataCaptureScopeParams } from "../../datacapture/lib/dataCaptureApi.js";
+
+function withCaptureScope(url, captureScope) {
+  if (!captureScope) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  const params = new URLSearchParams();
+  appendDataCaptureScopeParams(params, captureScope);
+  const qs = params.toString();
+  return qs ? `${url}${sep}${qs}` : url;
+}
 
 function withCompany(url, companyId) {
   if (companyId == null || companyId === "") return url;
@@ -27,8 +37,8 @@ export async function fetchSummarySessionUser() {
 }
 
 /** Default load: currencies + accounts for Edit Formula / Add Account */
-export async function fetchSummaryFormCatalog(companyId) {
-  const url = withCompany(buildApiUrl("api/datacapture_summary/summary_api.php"), companyId);
+export async function fetchSummaryFormCatalog(captureScope) {
+  const url = withCaptureScope(buildApiUrl("api/datacapture_summary/summary_api.php"), captureScope);
   const response = await fetch(url, { credentials: "include" });
   const json = await parseJsonResponse(response);
   if (!json.success) {
@@ -41,13 +51,11 @@ export async function fetchSummaryFormCatalog(companyId) {
 }
 
 /** GET ?action=get_summary_state */
-export async function fetchSummaryServerState({ companyId, processId, processCode, signal }) {
+export async function fetchSummaryServerState({ captureScope, processId, processCode, signal }) {
   const params = new URLSearchParams({ action: "get_summary_state" });
   if (processId != null && processId !== "") params.set("process_id", String(processId));
   if (processCode != null && processCode !== "") params.set("process_code", String(processCode));
-  if (companyId != null && String(companyId).trim() !== "") {
-    params.set("company_id", String(companyId));
-  }
+  appendDataCaptureScopeParams(params, captureScope);
   const url = buildApiUrl(`api/datacapture_summary/summary_api.php?${params.toString()}`);
   const response = await fetch(url, { credentials: "include", signal });
   const json = await response.json();
@@ -58,10 +66,10 @@ export async function fetchSummaryServerState({ companyId, processId, processCod
 }
 
 /** POST ?action=save_summary_state (fire-and-forget friendly) */
-export async function saveSummaryServerState(companyId, payload) {
-  const url = withCompany(
+export async function saveSummaryServerState(captureScope, payload) {
+  const url = withCaptureScope(
     buildApiUrl("api/datacapture_summary/summary_api.php?action=save_summary_state"),
-    companyId
+    captureScope,
   );
   const response = await fetch(url, {
     method: "POST",
@@ -73,10 +81,10 @@ export async function saveSummaryServerState(companyId, payload) {
 }
 
 /** POST ?action=submit — returns parsed JSON or throws with { status, message, isSizeError }. */
-export async function submitSummaryPayload(companyId, payload) {
-  const url = withCompany(
+export async function submitSummaryPayload(captureScope, payload) {
+  const url = withCaptureScope(
     buildApiUrl("api/datacapture_summary/summary_api.php?action=submit"),
-    companyId
+    captureScope,
   );
   const response = await fetch(url, {
     method: "POST",
@@ -123,4 +131,11 @@ export async function submitSummaryPayload(companyId, payload) {
   }
 
   return json;
+}
+
+/** Backward-compatible alias when only numeric company id is known. */
+export function companyScopeFromId(companyId) {
+  const id = Number(companyId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  return { mode: "company", scopeCompanyId: id, uiCompanyId: id, groupId: null, viewGroup: null };
 }

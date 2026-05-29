@@ -1,4 +1,5 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { appendDataCaptureScopeParams } from "../../datacapture/lib/dataCaptureApi.js";
 import { submitSummaryPayload } from "../lib/summaryApi.js";
 import { SUMMARY_SUBMIT_MAX_ROWS_PER_BATCH } from "./summarySubmitConstants.js";
 import { buildSummarySubmitPayload } from "./summarySubmitPayload.js";
@@ -12,20 +13,20 @@ function notify(title, message, type = "success") {
   pushSummaryNotification(title, message, type);
 }
 
-async function postSubmitBatch(companyId, batchData, options = {}) {
+async function postSubmitBatch(captureScope, batchData, options = {}) {
   const payload = {
     ...batchData,
     immediateAck: options.immediateAck ? 1 : 0,
-    company_id: companyId ?? null,
+    company_id: captureScope?.scopeCompanyId ?? null,
   };
   if (options.captureId != null) {
     payload.captureId = options.captureId;
   }
 
-  return submitSummaryPayload(companyId, payload);
+  return submitSummaryPayload(captureScope, payload);
 }
 
-async function recordSubmittedProcess(companyId, parsedProcessData) {
+async function recordSubmittedProcess(captureScope, parsedProcessData) {
   if (!parsedProcessData?.process) return;
   try {
     const formData = new FormData();
@@ -36,9 +37,11 @@ async function recordSubmittedProcess(companyId, parsedProcessData) {
       `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
     formData.append("date_submitted", selectedDate);
     formData.append("capture_date", selectedDate);
-    if (companyId != null) {
-      formData.append("company_id", String(companyId));
-    }
+    const scopeParams = new URLSearchParams();
+    appendDataCaptureScopeParams(scopeParams, captureScope);
+    scopeParams.forEach((value, key) => {
+      formData.append(key, value);
+    });
     await fetch(buildApiUrl("api/processes/submitted_processes_api.php"), {
       method: "POST",
       body: formData,
@@ -74,6 +77,7 @@ function verifySubmitPayload(submitData) {
  * React-owned summary submit execution (batching + quick-ack fallback).
  */
 export async function executeSummarySubmit({
+  captureScope,
   companyId,
   parsedProcessData,
   summaryRows,
@@ -92,7 +96,7 @@ export async function executeSummarySubmit({
 
   const submitBatch = async (batchData, captureId, batchNumber, totalBatches, options = {}) => {
     onProgress?.({ batchNumber, totalBatches });
-    return postSubmitBatch(companyId, batchData, {
+    return postSubmitBatch(captureScope, batchData, {
       captureId,
       immediateAck: options.immediateAck,
     });
@@ -208,7 +212,7 @@ export async function executeSummarySubmit({
     "success"
   );
 
-  await recordSubmittedProcess(companyId, parsedProcessData);
+  await recordSubmittedProcess(captureScope, parsedProcessData);
 
   try {
     localStorage.removeItem("capturedCaptureId");

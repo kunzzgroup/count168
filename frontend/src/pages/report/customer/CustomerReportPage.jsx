@@ -38,6 +38,12 @@ import {
   setReportSnapshot,
 } from "../shared/reportPageSnapshotCache.js";
 import { useReportAbortSeq } from "../shared/useReportAbortSeq.js";
+import {
+  customerReportScopeCacheCompanyKey,
+  customerReportScopeCacheKey,
+  customerReportScopeIsReady,
+  resolveCustomerReportScope,
+} from "../shared/reportScope.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 const REPORT_PAGE_KEY = "customer";
@@ -95,9 +101,9 @@ export default function CustomerReportPage() {
     useReportAbortSeq();
   const pageBootOnceRef = useRef(false);
   const prevCompanyIdRef = useRef(null);
+  const prevScopeKeyRef = useRef(null);
   /** Per-company / per-group currency filter prefs */
   const currencyPrefsByCompanyRef = useRef({});
-  const currencyPrefsByGroupRef = useRef({});
   const selectedCurrenciesRef = useRef(selectedCurrencies);
   const showAllCurrenciesRef = useRef(showAllCurrencies);
 
@@ -239,21 +245,35 @@ export default function CustomerReportPage() {
     });
   }, [companies, companyId]);
 
+  const reportScope = useMemo(
+    () => resolveCustomerReportScope({ companies, selectedGroup, companyId }),
+    [companies, selectedGroup, companyId],
+  );
+
   const reportParams = useMemo(
     () => ({
       accountId,
       dateFrom,
       dateTo,
       showAll,
-      companyId,
+      reportScope,
       selectedCurrencies,
       showAllCurrencies,
+      scopeKey: customerReportScopeCacheKey(reportScope),
     }),
-    [accountId, dateFrom, dateTo, showAll, companyId, selectedCurrencies, showAllCurrencies],
+    [
+      accountId,
+      dateFrom,
+      dateTo,
+      showAll,
+      reportScope,
+      selectedCurrencies,
+      showAllCurrencies,
+    ],
   );
 
   const loadReport = useCallback(async () => {
-    if (!companyId || !dateFrom || !dateTo) return;
+    if (!customerReportScopeIsReady(reportScope) || !dateFrom || !dateTo) return;
     const { signal, seq } = beginReportFetch();
     const quietRefresh = reportDataRef.current != null;
     if (quietRefresh) setReportSyncing(true);
@@ -281,7 +301,7 @@ export default function CustomerReportPage() {
         setReportSyncing(false);
       }
     }
-  }, [companyId, dateFrom, dateTo, reportParams, beginReportFetch, isReportFetchCurrent, t, notify]);
+  }, [reportScope, dateFrom, dateTo, reportParams, beginReportFetch, isReportFetchCurrent, t, notify]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
@@ -303,6 +323,7 @@ export default function CustomerReportPage() {
     setReportData(null);
     setError("");
     setAccounts([]);
+    setAccountId("");
     const groupKey = groupForScope ? String(groupForScope).trim().toUpperCase() : "";
     if (!groupKey) {
       setCurrencyFilterReady(false);
@@ -356,21 +377,18 @@ export default function CustomerReportPage() {
     me,
   });
 
-  const persistCurrencyPrefs = useCallback((compId, groupKey, currencies, showAll) => {
-    const prefs = { selectedCurrencies: currencies, showAllCurrencies: showAll };
-    if (compId) {
-      currencyPrefsByCompanyRef.current[Number(compId)] = prefs;
-    } else if (groupKey) {
-      currencyPrefsByGroupRef.current[String(groupKey).trim().toUpperCase()] = prefs;
-    }
+  const persistCurrencyPrefs = useCallback((scope, currencies, showAll) => {
+    const key = customerReportScopeCacheCompanyKey(scope);
+    if (key == null) return;
+    currencyPrefsByCompanyRef.current[key] = {
+      selectedCurrencies: currencies,
+      showAllCurrencies: showAll,
+    };
   }, []);
 
-  const applySavedCurrencyPrefs = useCallback((compId, groupKey, curs) => {
-    const saved = compId
-      ? currencyPrefsByCompanyRef.current[Number(compId)]
-      : groupKey
-        ? currencyPrefsByGroupRef.current[String(groupKey).trim().toUpperCase()]
-        : null;
+  const applySavedCurrencyPrefs = useCallback((scope, curs) => {
+    const key = customerReportScopeCacheCompanyKey(scope);
+    const saved = key != null ? currencyPrefsByCompanyRef.current[key] : null;
     if (!saved) return false;
     if (saved.showAllCurrencies) {
       setShowAllCurrencies(true);
@@ -391,25 +409,17 @@ export default function CustomerReportPage() {
   }, []);
 
   const loadMetaData = useCallback(async () => {
-    const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-    if (!companyId && !groupKey) return;
+    if (!customerReportScopeIsReady(reportScope)) return;
     const { signal, seq } = beginMetaFetch();
     try {
-      const curs = await fetchReportScopeCurrencies(
-        { companyId, selectedGroup: groupKey, companies },
-        { signal },
-      );
+      const curs = await fetchReportScopeCurrencies(reportScope, { signal });
       if (!isMetaFetchCurrent(seq)) return;
-      if (companyId) {
-        const accs = await fetchAccounts(companyId, { signal });
-        if (!isMetaFetchCurrent(seq)) return;
-        setAccounts(accs);
-      } else {
-        setAccounts([]);
-      }
+      const accs = await fetchAccounts(reportScope, { signal });
+      if (!isMetaFetchCurrent(seq)) return;
+      setAccounts(accs);
       setCurrencyList(curs);
 
-      if (applySavedCurrencyPrefs(companyId, groupKey, curs)) return;
+      if (applySavedCurrencyPrefs(reportScope, curs)) return;
 
       if (
         curs.length > 0 &&
@@ -421,7 +431,7 @@ export default function CustomerReportPage() {
         const codes = [def.code];
         setSelectedCurrencies(codes);
         setShowAllCurrencies(false);
-        persistCurrencyPrefs(companyId, groupKey, codes, false);
+        persistCurrencyPrefs(reportScope, codes, false);
       }
     } catch (err) {
       if (err?.name === "AbortError" || !isMetaFetchCurrent(seq)) return;
@@ -432,9 +442,7 @@ export default function CustomerReportPage() {
       }
     }
   }, [
-    companyId,
-    selectedGroup,
-    companies,
+    reportScope,
     applySavedCurrencyPrefs,
     persistCurrencyPrefs,
     beginMetaFetch,
@@ -447,13 +455,20 @@ export default function CustomerReportPage() {
     if (prev != null && Number(prev) !== Number(companyId)) {
       invalidateReportFetch();
       setReportSyncing(false);
+      const prevScope = resolveCustomerReportScope({
+        companies,
+        selectedGroup,
+        companyId: prev,
+      });
       persistCurrencyPrefs(
-        prev,
-        null,
+        prevScope,
         selectedCurrenciesRef.current,
         showAllCurrenciesRef.current,
       );
-      const saved = currencyPrefsByCompanyRef.current[Number(companyId)];
+      const savedKey = customerReportScopeCacheCompanyKey(
+        resolveCustomerReportScope({ companies, selectedGroup, companyId }),
+      );
+      const saved = savedKey != null ? currencyPrefsByCompanyRef.current[savedKey] : null;
       if (saved?.showAllCurrencies) {
         setShowAllCurrencies(true);
         setSelectedCurrencies([]);
@@ -471,7 +486,7 @@ export default function CustomerReportPage() {
       if (reportDataRef.current != null) setReportSyncing(true);
     }
     prevCompanyIdRef.current = companyId;
-  }, [companyId, persistCurrencyPrefs, invalidateReportFetch]);
+  }, [companyId, companies, selectedGroup, persistCurrencyPrefs, invalidateReportFetch]);
 
   useEffect(() => {
     if (!currencyFilterReady) {
@@ -481,11 +496,28 @@ export default function CustomerReportPage() {
   }, [currencyFilterReady, invalidateReportFetch]);
 
   useEffect(() => {
-    if (companyId || selectedGroup) loadMetaData();
-  }, [companyId, selectedGroup, loadMetaData]);
+    if (!customerReportScopeIsReady(reportScope)) {
+      setCurrencyFilterReady(false);
+      return;
+    }
+    setCurrencyFilterReady(false);
+    loadMetaData();
+  }, [reportScope, loadMetaData]);
 
   useEffect(() => {
-    if (!companyId || !currencyFilterReady) return undefined;
+    const scopeKey = customerReportScopeCacheKey(reportScope);
+    const prev = prevScopeKeyRef.current;
+    if (prev != null && prev !== scopeKey) {
+      invalidateReportFetch();
+      setReportData(null);
+      setError("");
+      setAccountId("");
+    }
+    prevScopeKeyRef.current = scopeKey || null;
+  }, [reportScope, invalidateReportFetch]);
+
+  useEffect(() => {
+    if (!customerReportScopeIsReady(reportScope) || !currencyFilterReady) return undefined;
     const handler = window.setTimeout(() => {
       loadReport();
     }, REPORT_FETCH_DEBOUNCE_MS);
@@ -493,10 +525,10 @@ export default function CustomerReportPage() {
       window.clearTimeout(handler);
       invalidateReportFetch();
     };
-  }, [companyId, currencyFilterReady, loadReport, invalidateReportFetch]);
+  }, [reportScope, currencyFilterReady, loadReport, invalidateReportFetch]);
 
   useEffect(() => {
-    if (!companyId || !currencyFilterReady) return;
+    if (!customerReportScopeIsReady(reportScope) || !currencyFilterReady) return;
     const key = buildReportSnapshotKey(reportParams);
     const snap = getReportSnapshot(REPORT_PAGE_KEY);
     if (snap?.key === key && snap.data && reportDataRef.current == null) {
@@ -505,15 +537,13 @@ export default function CustomerReportPage() {
         setReportData(snap.data);
       });
     }
-  }, [companyId, currencyFilterReady, reportParams]);
-
-  const activeGroupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+  }, [reportScope, currencyFilterReady, reportParams]);
 
   const toggleCurrency = (code) => {
     setShowAllCurrencies(false);
     setSelectedCurrencies((prev) => {
       const next = prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code];
-      persistCurrencyPrefs(companyId, activeGroupKey, next, false);
+      persistCurrencyPrefs(reportScope, next, false);
       return next;
     });
   };
@@ -523,9 +553,9 @@ export default function CustomerReportPage() {
     setShowAllCurrencies(nextAll);
     if (nextAll) {
       setSelectedCurrencies([]);
-      persistCurrencyPrefs(companyId, activeGroupKey, [], true);
+      persistCurrencyPrefs(reportScope, [], true);
     } else {
-      persistCurrencyPrefs(companyId, activeGroupKey, selectedCurrenciesRef.current, false);
+      persistCurrencyPrefs(reportScope, selectedCurrenciesRef.current, false);
     }
   };
 

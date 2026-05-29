@@ -10,6 +10,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
+require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -55,7 +56,14 @@ function ensureDeletedLogTable(PDO $pdo) {
 /**
  * 验证 capture_id 是否属于当前公司且在日期范围内，返回有效 ID 列表
  */
-function validateCaptureIds(PDO $pdo, int $company_id, array $captureIds, string $date_from_db, string $date_to_db) {
+function validateCaptureIds(
+    PDO $pdo,
+    int $company_id,
+    array $captureIds,
+    string $date_from_db,
+    string $date_to_db,
+    string $scopeProcessFilter = ''
+) {
     if (empty($captureIds)) {
         return [];
     }
@@ -66,7 +74,8 @@ function validateCaptureIds(PDO $pdo, int $company_id, array $captureIds, string
             WHERE dc.company_id = ?
               AND dc.id IN ($placeholders)
               AND dc.capture_date BETWEEN ? AND ?
-              AND p.company_id = ?";
+              AND p.company_id = ?
+              $scopeProcessFilter";
     $params = array_merge([$company_id], $captureIds, [$date_from_db, $date_to_db, $company_id]);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -94,10 +103,9 @@ function backupToDeletedLog(PDO $pdo, int $company_id, array $validCaptureIds, ?
 }
 
 try {
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('缺少公司信息');
+    if (!isset($_SESSION['user_id'])) {
+        throw new Exception('用户未登录');
     }
-    $company_id = (int)$_SESSION['company_id'];
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('只支持 POST 请求');
@@ -107,6 +115,34 @@ try {
     if (!is_array($payload)) {
         throw new Exception('无效的请求数据');
     }
+
+    $scopeParams = $payload;
+    $capture_scope_group = false;
+    $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
+
+    if ($hasExplicitScope) {
+        $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
+        $company_id = (int) $scopeResolved['company_id'];
+        $capture_scope_group = (bool) $scopeResolved['is_group_scope'];
+        $viewGroupForAccess = dcNormalizeGroupId(
+            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+        );
+        dcAssertUserCanAccessCompany(
+            $pdo,
+            $company_id,
+            $viewGroupForAccess !== '' ? $viewGroupForAccess : null
+        );
+    } else {
+        if (!isset($_SESSION['company_id'])) {
+            throw new Exception('缺少公司信息');
+        }
+        $company_id = (int) $_SESSION['company_id'];
+        $capture_scope_group = false;
+    }
+
+    $scopeProcessFilter = $capture_scope_group
+        ? dcSqlGroupProcessFilter('p')
+        : dcSqlCompanyProcessFilter('p');
 
     $date_from = $payload['date_from'] ?? null;
     $date_to = $payload['date_to'] ?? null;
@@ -149,7 +185,14 @@ try {
 
     $pdo->beginTransaction();
 
-    $validCaptureIds = validateCaptureIds($pdo, $company_id, $captureIds, $date_from_db, $date_to_db);
+    $validCaptureIds = validateCaptureIds(
+        $pdo,
+        $company_id,
+        $captureIds,
+        $date_from_db,
+        $date_to_db,
+        $scopeProcessFilter
+    );
     if (empty($validCaptureIds)) {
         $pdo->rollBack();
         throw new Exception('没有找到符合条件且属于当前公司的记录');

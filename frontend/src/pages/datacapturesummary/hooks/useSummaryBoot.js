@@ -1,9 +1,14 @@
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
 } from "../../datacapture/lib/dataCaptureCompanyAccess.js";
+import {
+  dataCaptureScopeIsReady,
+  resolveDataCaptureScopeFromSessionMeta,
+} from "../../datacapture/lib/dataCaptureScope.js";
+import { loadActiveCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
 import { consumeSummaryFreshNavigation } from "../lib/summaryStorage.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { usePartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
@@ -16,11 +21,42 @@ export function useSummaryBoot() {
   const { me, sessionReady } = useAuthSession();
 
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
+
+  const captureScope = useMemo(() => {
+    const session = loadActiveCaptureSession();
+    const processData = session?.processData ?? null;
+    const groupOnly = processData?.groupOnlyCapture === true;
+    const fromSession = resolveDataCaptureScopeFromSessionMeta(processData);
+    if (fromSession) {
+      if (Number(fromSession.scopeCompanyId) > 0) return fromSession;
+      if (groupOnly && fromSession.mode === "group" && fromSession.groupId) {
+        return fromSession;
+      }
+    }
+    if (groupOnly) {
+      return fromSession;
+    }
+    const sessionCompanyId =
+      me?.company_id != null && Number.isFinite(Number(me.company_id)) ? Number(me.company_id) : null;
+    if (sessionCompanyId) {
+      return {
+        mode: "company",
+        scopeCompanyId: sessionCompanyId,
+        uiCompanyId: sessionCompanyId,
+        groupId: null,
+        viewGroup: null,
+      };
+    }
+    return fromSession;
+  }, [me?.company_id, sessionReady]);
+
   const companyId =
-    me?.company_id != null && Number.isFinite(Number(me.company_id)) ? Number(me.company_id) : null;
+    captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
+      ? Number(captureScope.scopeCompanyId)
+      : null;
 
   useEffect(() => {
-    if (!sessionReady || !me || companyId == null) return;
+    if (!sessionReady || !me) return;
 
     const freshNav =
       consumeSummaryFreshNavigation() ||
@@ -34,13 +70,21 @@ export function useSummaryBoot() {
 
     let cancelled = false;
     (async () => {
+      const scopeCid =
+        captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
+          ? Number(captureScope.scopeCompanyId)
+          : companyId;
       const companyCode =
-        me.company_code != null && String(me.company_code).trim() !== ""
-          ? String(me.company_code).trim()
-          : String(companyId);
+        captureScope?.mode === "group" && captureScope?.groupId
+          ? String(captureScope.groupId)
+          : me.company_code != null && String(me.company_code).trim() !== ""
+            ? String(me.company_code).trim()
+            : scopeCid != null
+              ? String(scopeCid)
+              : "";
 
       const allowed = await resolveCompanyGamesAccess({
-        companyId,
+        companyId: scopeCid,
         companyCode,
         sessionUser: me,
       });
@@ -52,18 +96,24 @@ export function useSummaryBoot() {
     return () => {
       cancelled = true;
     };
-  }, [me, companyId, sessionReady, navigate]);
+  }, [me, companyId, captureScope, sessionReady, navigate]);
 
   useLayoutEffect(() => {
     window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
+    window.DATACAPTURESUMMARY_CAPTURE_SCOPE = captureScope;
     return () => {
       window.DATACAPTURESUMMARY_COMPANY_ID = null;
+      window.DATACAPTURESUMMARY_CAPTURE_SCOPE = null;
     };
-  }, [companyId]);
+  }, [companyId, captureScope]);
+
+  const scopeReady = dataCaptureScopeIsReady(captureScope);
 
   return {
     me,
     companyId,
+    captureScope,
+    scopeReady,
     mutationsBlocked,
     bootLoading: !sessionReady,
     bootError: sessionReady && !me,

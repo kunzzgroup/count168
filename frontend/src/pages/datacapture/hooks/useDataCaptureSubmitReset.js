@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   applyGroupOnlyCaptureRestoreFilter,
+  captureSessionMatchesScope,
   loadCaptureSession,
   saveCaptureSession,
   shouldRestoreFromUrl,
@@ -18,7 +19,7 @@ import {
   isSubmitReady,
   validateDataCaptureForm,
 } from "../lib/dataCaptureFormRules.js";
-import { fetchProcessDetail } from "../lib/dataCaptureApi.js";
+import { fetchProcessDetail, fetchGroupProcessIdByCode } from "../lib/dataCaptureApi.js";
 import { convertTableFormatOnSubmit } from "../lib/dataCaptureConvertTableOnSubmit.js";
 import { prepareFormatSubmitSnapshot } from "../format/dataCaptureFormat.js";
 import { buildSpaPath } from "../../../utils/core/apiUrl.js";
@@ -49,7 +50,7 @@ function buildProcessCapturePayload(form, captureType, currencies) {
  * Submit-time table transform lives in dataCaptureConvertTableOnSubmit.js (Phase 5b).
  */
 export function useDataCaptureSubmitReset({
-  companyId,
+  captureScope,
   form,
   captureType,
   mutationsBlocked = false,
@@ -165,6 +166,25 @@ export function useDataCaptureSubmitReset({
 
     try {
       const processData = buildProcessCapturePayload(form, activeCaptureType, form.currencies);
+      if (groupOnlyCapture && isGroupOnlyProcessId(processData.process)) {
+        const code =
+          form.selectedProcess?.process_id ||
+          processData.processCode ||
+          String(processData.process || "").toUpperCase();
+        let numericId;
+        try {
+          numericId = await fetchGroupProcessIdByCode(captureScope, code);
+        } catch (resolveErr) {
+          pushDataCaptureNotification(
+            resolveErr?.message || t("failedCaptureData"),
+            "danger"
+          );
+          return;
+        }
+        processData.process = numericId;
+        processData.processCode = String(code).trim().toUpperCase();
+      }
+
       const capturedAfterConvert = captureTableDataFromDom(activeCaptureType);
       const finalTableData =
         activeCaptureType === "2.Format" && formatSnapshotBeforeConvert
@@ -177,6 +197,8 @@ export function useDataCaptureSubmitReset({
       saveCaptureSession(finalTableData, processData, activeCaptureType, {
         groupOnly: groupOnlyCapture,
         selectedGroup,
+        scope: captureScope,
+        scopeCompanyId: captureScope?.scopeCompanyId,
       });
 
       markSummaryFreshNavigation();
@@ -189,7 +211,7 @@ export function useDataCaptureSubmitReset({
       console.error("Error submitting data:", error);
       pushDataCaptureNotification(t("failedCaptureData"), "danger");
     }
-  }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions, groupOnlyCapture, selectedGroup]);
+  }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions, groupOnlyCapture, selectedGroup, captureScope]);
 
   const reset = useCallback(() => {
     if (typeof window.__DC_REACT_FORM_RESET__ === "function") {
@@ -215,8 +237,8 @@ export function useDataCaptureSubmitReset({
     if (restoreInFlightRef.current) return;
     restoreInFlightRef.current = true;
 
-    const session = loadCaptureSession();
-    if (!session) {
+    const session = loadCaptureSession(captureScope);
+    if (!session || !captureSessionMatchesScope(session, captureScope)) {
       restoreInFlightRef.current = false;
       window.__DC_IS_RESTORING__ = false;
       stripRestoreParamFromUrl();
@@ -250,8 +272,8 @@ export function useDataCaptureSubmitReset({
       }
 
       const pid = processData.process != null ? String(processData.process) : "";
-      if (pid && companyId && !restoringGroupOnly && !isGroupOnlyProcessId(pid)) {
-        const res = await fetchProcessDetail(pid, companyId);
+      if (pid && captureScope && !restoringGroupOnly && !isGroupOnlyProcessId(pid)) {
+        const res = await fetchProcessDetail(pid, captureScope);
         if (res.success && res.data && typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === "function") {
           await window.__DC_POST_LEGACY_RESTORE_SYNC__({
             ...processData,
@@ -278,7 +300,7 @@ export function useDataCaptureSubmitReset({
       window.__DC_IS_RESTORING__ = false;
       recomputeSubmitState();
     }
-  }, [companyId, recomputeSubmitState]);
+  }, [captureScope, recomputeSubmitState]);
 
   const handlersRef = useRef({});
   handlersRef.current = { submit, reset, restoreFromStorage, recomputeSubmitState };
