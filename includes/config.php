@@ -1,8 +1,8 @@
 <?php
-$host = 'localhost';
+$host = 'srv1234.hstgr.io';              // ← 面板里的 MySQL Hostname
 $dbname = 'u857194726_c168site';
 $dbuser = 'u857194726_c168site';
-$dbpass = 'C168_site';
+$dbpass = 'C168_site';                   // ← 与 Hostinger 一致
 
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
