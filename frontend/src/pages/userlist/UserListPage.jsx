@@ -106,24 +106,6 @@ function resolveGroupIdFromEntityCompanyId(companies, entityCompanyId) {
   return gid || null;
 }
 
-const USERLIST_SKELETON_ROWS = 8;
-
-function UserListSkeletonRows({ columns }) {
-  return Array.from({ length: USERLIST_SKELETON_ROWS }, (_, idx) => (
-    <div
-      key={`userlist-sk-${idx}`}
-      className={`user-card user-list-row user-card--skeleton show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
-      aria-hidden="true"
-    >
-      {Array.from({ length: columns }, (__, col) => (
-        <div key={col} className="card-item">
-          <span className="userlist-skeleton-bar" style={{ width: `${52 + ((idx + col) * 11) % 36}%` }} />
-        </div>
-      ))}
-    </div>
-  ));
-}
-
 export default function UserListPage() {
   const navigate = useNavigate();
   const { me, sessionReady } = useAuthSession();
@@ -136,7 +118,6 @@ export default function UserListPage() {
   const [companyId, setCompanyId] = useState(null);
   const [usersRaw, setUsersRaw] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
-  const [tableSwapAnimating, setTableSwapAnimating] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
   const [pendingCompanyId, setPendingCompanyId] = useState(null);
   const [search, setSearch] = useState("");
@@ -152,8 +133,6 @@ export default function UserListPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
   const toastTimerRef = useRef(null);
-  const tableSwapTimerRef = useRef(null);
-  const hasLoadedUsersRef = useRef(false);
   const pendingDeleteRef = useRef(null);
   const listFetchAbortRef = useRef(null);
   const modalCompaniesCacheRef = useRef([]);
@@ -364,7 +343,6 @@ export default function UserListPage() {
       document.body.classList.remove("user-page", "user-page--show-all", "bg");
       document.body.classList.add("dashboard-page");
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
     };
   }, []);
 
@@ -450,7 +428,6 @@ export default function UserListPage() {
   const handleClearCompany = useCallback(() => {
     setCompanyId(null);
     setUsersRaw([]);
-    hasLoadedUsersRef.current = false;
   }, []);
 
   const onSwitchCompany = async (c) => {
@@ -563,18 +540,9 @@ export default function UserListPage() {
           if (ac.signal.aborted) return;
         }
       }
-      const shouldAnimateSwap = hasLoadedUsersRef.current;
-      if (shouldAnimateSwap) {
-        if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
-        setTableSwapAnimating(true);
-      }
       setUsersRaw(list);
       editUserDetailCacheRef.current.clear();
       setEditReadyIds(new Set());
-      hasLoadedUsersRef.current = true;
-      if (shouldAnimateSwap) {
-        tableSwapTimerRef.current = setTimeout(() => setTableSwapAnimating(false), 180);
-      }
       setCurrentPage(1);
       setSelectedDeleteIds(new Set());
       setSelectAllUsers(false);
@@ -1293,10 +1261,7 @@ export default function UserListPage() {
                 </div>
               )}
             </div>
-            <div className={`user-cards${tableSwapAnimating ? " user-cards--settling" : ""}`} aria-busy={listBusy}>
-              {(bootLoading || listBusy) && pageRows.length === 0 ? (
-                <UserListSkeletonRows columns={showBulkDeleteColumn ? 10 : 9} />
-              ) : null}
+            <div className="user-cards" aria-busy={listBusy}>
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);

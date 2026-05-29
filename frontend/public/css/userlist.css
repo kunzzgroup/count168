@@ -2994,22 +2994,6 @@ body.user-page:not(.user-page--show-all) .user-card.show-card {
     display: grid !important;
 }
 
-.user-cards--settling .user-card.show-card {
-    animation: userlist-row-settle 180ms ease-out both;
-}
-
-@keyframes userlist-row-settle {
-    from {
-        opacity: 0.88;
-        transform: translateY(2px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 /* Zebra striping for cards - 基于索引而不是 DOM 位置 */
 .user-card.row-even {
     background: #cceeff99;
@@ -3073,43 +3057,6 @@ body.ec-auth-shell.user-page .user-card .card-item--select {
     justify-content: center;
     align-items: center;
     min-height: 48px;
-}
-
-/* Company switch / refetch: multi-row skeleton keeps table height & grid stable (avoids single “Loading…” strip). */
-.user-card.user-card--skeleton {
-    pointer-events: none;
-    user-select: none;
-}
-
-.user-card.user-card--skeleton .userlist-skeleton-bar {
-    display: block;
-    height: clamp(10px, 1.1vw, 14px);
-    max-width: 100%;
-    border-radius: 6px;
-    background: linear-gradient(90deg, #e4dcf1 0%, #f6f1fc 42%, #ebe3f5 100%);
-    background-size: 220% 100%;
-    animation: userlist-skeleton-shimmer 1.05s ease-in-out infinite;
-}
-
-@keyframes userlist-skeleton-shimmer {
-    0% {
-        background-position: 100% 0;
-    }
-
-    100% {
-        background-position: -100% 0;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .user-cards--settling .user-card.show-card {
-        animation: none;
-    }
-
-    .user-card.user-card--skeleton .userlist-skeleton-bar {
-        animation: none;
-        background: #e8e0f2;
-    }
 }
 
 /* 分页样式 - 仅 User List 页固定右下角（勿污染 Bank Process / Games Process 等页的 pagination-container） */
