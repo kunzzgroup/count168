@@ -1,5 +1,5 @@
 <?php
-$host = 'srv1234.hstgr.io';              // ← 面板里的 MySQL Hostname
+$host = 'srv1858.hstgr.io';              // ← 面板里的 MySQL Hostname
 $dbname = 'u857194726_c168site';
 $dbuser = 'u857194726_c168site';
 $dbpass = 'C168_site';                   // ← 与 Hostinger 一致
