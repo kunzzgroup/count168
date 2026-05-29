@@ -243,13 +243,6 @@ export default function DataCapturePage() {
     ? companyId
     : groupEntityRow?.id ?? anchorCompanyRow?.id ?? null;
 
-  const groupCompanyIds = useMemo(() => {
-    if (isCompanySelected || !selectedGroup) return [];
-    return companiesInGroupList(companiesDeduped, selectedGroup)
-      .map((c) => Number(c.id))
-      .filter((id) => Number.isFinite(id) && id > 0);
-  }, [isCompanySelected, selectedGroup, companiesDeduped]);
-
   const companyCode = useMemo(() => {
     if (isCompanySelected) {
       const raw = currentCompanyRow?.company_id;
@@ -265,7 +258,6 @@ export default function DataCapturePage() {
 
   const form = useDataCaptureFormEngine(captureScope, {
     applyCompanyOnlyFields: isCompanySelected,
-    groupCompanyIds: isCompanySelected ? null : groupCompanyIds,
     selectedGroup,
   });
 

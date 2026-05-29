@@ -3,7 +3,7 @@ import {
   buildDateOptions,
   displayTextFromProcessRow,
   fetchAddProcessFormData,
-  fetchCurrenciesForCompanyIds,
+  fetchGroupCaptureCurrencies,
   fetchProcessDetail,
   fetchProcessesByDay,
   getLocalDateString,
@@ -92,7 +92,7 @@ function readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData) {
 
 export function useDataCaptureFormEngine(
   captureScope,
-  { applyCompanyOnlyFields = true, groupCompanyIds = null, selectedGroup = null } = {},
+  { applyCompanyOnlyFields = true, selectedGroup = null } = {},
 ) {
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
@@ -216,18 +216,17 @@ export function useDataCaptureFormEngine(
     setCurrencies(norm);
   }, []);
 
-  const groupCompanyIdsRef = useRef(groupCompanyIds);
-  groupCompanyIdsRef.current = groupCompanyIds;
-
   const loadGroupOnlyCurrencies = useCallback(async () => {
     if (applyCompanyOnlyFieldsRef.current) return;
-    const ids = groupCompanyIdsRef.current;
-    if (!ids?.length) {
+    const viewGroup = selectedGroupRef.current
+      ? String(selectedGroupRef.current).trim().toUpperCase()
+      : "";
+    if (!viewGroup) {
       setCurrencies([]);
       setCurrencyId("");
       return;
     }
-    const list = await fetchCurrenciesForCompanyIds(ids, companyIdRef.current);
+    const list = await fetchGroupCaptureCurrencies(viewGroup);
     setCurrencies(list);
     setCurrencyId((prev) => {
       if (!prev) return "";
@@ -245,7 +244,13 @@ export function useDataCaptureFormEngine(
       return;
     }
     void loadGroupOnlyCurrencies();
-  }, [companyId, applyCompanyOnlyFields, groupCompanyIds, loadInitialForm, loadGroupOnlyCurrencies]);
+  }, [
+    companyId,
+    applyCompanyOnlyFields,
+    selectedGroup,
+    loadInitialForm,
+    loadGroupOnlyCurrencies,
+  ]);
 
   useEffect(() => {
     if (!companyId || !applyCompanyOnlyFields) return;

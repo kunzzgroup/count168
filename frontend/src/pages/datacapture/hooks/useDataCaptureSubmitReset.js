@@ -173,7 +173,7 @@ export function useDataCaptureSubmitReset({
           String(processData.process || "").toUpperCase();
         let numericId;
         try {
-          numericId = await fetchGroupProcessIdByCode(captureScope, code);
+          numericId = await fetchGroupProcessIdByCode(captureScope, code, form.currencyId);
         } catch (resolveErr) {
           pushDataCaptureNotification(
             resolveErr?.message || t("failedCaptureData"),

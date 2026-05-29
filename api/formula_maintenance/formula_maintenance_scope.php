@@ -208,3 +208,53 @@ function formulaMaintenanceResolveProcessFilter(
     }
     return ['process_id' => (int) $resolvedId, 'legacy_code' => null];
 }
+
+/**
+ * Group payroll processes: show process code only (avoid "BONUS (SALARY)" from shared description).
+ */
+function formulaMaintenanceFormatProcessDisplay(string $processCode, ?string $descriptionName = null): string
+{
+    $code = strtoupper(trim($processCode));
+    if (in_array($code, ['SALARY', 'BONUS'], true)) {
+        return $code;
+    }
+    $desc = trim((string) ($descriptionName ?? ''));
+    if ($desc !== '') {
+        return $processCode . ' (' . $desc . ')';
+    }
+    return $processCode;
+}
+
+/**
+ * SQL JOIN process + template binding; when filtering by process id, never attach SALARY legacy rows to BONUS.
+ */
+function formulaMaintenanceSqlTemplateProcessJoin(?int $processIdFilter = null): string
+{
+    if ($processIdFilter !== null && $processIdFilter > 0) {
+        $pid = (int) $processIdFilter;
+        return "INNER JOIN process p ON p.company_id = dct.company_id
+            AND p.id = {$pid}
+            AND (
+                (dct.process_id REGEXP '^[0-9]+$' AND CAST(dct.process_id AS UNSIGNED) = {$pid})
+                OR (
+                    dct.process_id NOT REGEXP '^[0-9]+$'
+                    AND UPPER(TRIM(dct.process_id)) = UPPER(TRIM(p.process_id))
+                )
+            )";
+    }
+
+    return "INNER JOIN process p ON p.company_id = dct.company_id
+        AND (
+            (dct.process_id REGEXP '^[0-9]+$' AND p.id = CAST(dct.process_id AS UNSIGNED))
+            OR (
+                dct.process_id NOT REGEXP '^[0-9]+$'
+                AND UPPER(TRIM(dct.process_id)) = UPPER(TRIM(p.process_id))
+                AND p.id = (
+                    SELECT MIN(p2.id)
+                    FROM process p2
+                    WHERE p2.company_id = dct.company_id
+                      AND UPPER(TRIM(p2.process_id)) = UPPER(TRIM(dct.process_id))
+                )
+            )
+        )";
+}

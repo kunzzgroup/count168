@@ -91,20 +91,7 @@ function fetchFormulaListRaw(
                 a.name AS account_name,
                 c.code AS currency_code
             FROM data_capture_templates dct
-            INNER JOIN process p ON p.company_id = dct.company_id
-                AND (
-                    (dct.process_id REGEXP '^[0-9]+$' AND p.id = CAST(dct.process_id AS UNSIGNED))
-                    OR (
-                        dct.process_id NOT REGEXP '^[0-9]+$'
-                        AND UPPER(TRIM(dct.process_id)) = UPPER(TRIM(p.process_id))
-                        AND p.id = (
-                            SELECT MIN(p2.id)
-                            FROM process p2
-                            WHERE p2.company_id = dct.company_id
-                              AND UPPER(TRIM(p2.process_id)) = UPPER(TRIM(dct.process_id))
-                        )
-                    )
-                )
+            " . formulaMaintenanceSqlTemplateProcessJoin($processIdFilter) . "
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN account a ON dct.account_id = a.id
             LEFT JOIN currency c ON dct.currency_id = c.id
@@ -113,10 +100,7 @@ function fetchFormulaListRaw(
     if ($scopeProcessSql !== '') {
         $sql .= $scopeProcessSql;
     }
-    if ($processIdFilter !== null && $processIdFilter > 0) {
-        $sql .= ' AND p.id = ?';
-        $params[] = $processIdFilter;
-    }
+    // processIdFilter is enforced in formulaMaintenanceSqlTemplateProcessJoin().
     if ($search !== '') {
         $like = '%' . $search . '%';
         $sql .= " AND (
@@ -155,10 +139,7 @@ function mapRowsToDisplay(array $rows) {
         $formulaEdit = buildFormulaEditFromRow($row);
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
-        $processDisplay = $processCode;
-        if ($descriptionName !== '') {
-            $processDisplay = $processCode . ' (' . $descriptionName . ')';
-        }
+        $processDisplay = formulaMaintenanceFormatProcessDisplay($processCode, $descriptionName);
         $accountDisplay = $row['account_code'] ?? ($row['account_display'] ?? '');
         $currencyDisplay = $row['currency_code'] ?? ($row['currency_display'] ?? '');
         $product = $row['id_product'] ?? '';
@@ -269,6 +250,9 @@ try {
     if ($processParam !== '' && $processIdFilter === null && $processResolved['legacy_code'] !== null) {
         jsonResponse(true, 'success', ['list' => [], 'total' => 0]);
         exit;
+    }
+    if ($processIdFilter !== null && $processIdFilter > 0) {
+        dcFixGroupPayrollProcessDescription($pdo, $processIdFilter);
     }
     $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processIdFilter, $scopeProcessSql);
     $list = mapRowsToDisplay($rows);
