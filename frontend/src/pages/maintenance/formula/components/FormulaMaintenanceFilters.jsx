@@ -32,6 +32,7 @@ export default function FormulaMaintenanceFilters({
             </span>
             <div className="report-outlined-inner custom-select-wrapper formula-process-control">
               <ProcessSelect
+                valueMode="id"
                 processes={processes}
                 selectedValue={selectedProcess}
                 onSelect={setSelectedProcess}

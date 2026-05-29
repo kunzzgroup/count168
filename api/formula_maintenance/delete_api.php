@@ -9,6 +9,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
+require_once __DIR__ . '/formula_maintenance_scope.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -72,7 +73,8 @@ try {
     if (!$input) {
         throw new Exception('无效的请求数据');
     }
-    $company_id = getCompanyIdFromInput($pdo, $input);
+    $scopeCtx = formulaMaintenanceResolveRequestScope($pdo, $input);
+    $company_id = (int) $scopeCtx['company_id'];
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('只支持 POST 请求');

@@ -9,6 +9,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/formula_fields_helper.php';
+require_once __DIR__ . '/formula_maintenance_scope.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -290,7 +291,8 @@ try {
         throw new Exception('无效的请求数据');
     }
 
-    $companyId = getCompanyIdFromInput($pdo, $input);
+    $scopeCtx = formulaMaintenanceResolveRequestScope($pdo, $input);
+    $companyId = (int) $scopeCtx['company_id'];
     $templateId = isset($input['template_id']) ? (int)$input['template_id'] : 0;
     $accountId = isset($input['account_id']) ? (int)$input['account_id'] : 0;
     $sourceColumns = isset($input['source_columns']) ? trim($input['source_columns']) : '';
