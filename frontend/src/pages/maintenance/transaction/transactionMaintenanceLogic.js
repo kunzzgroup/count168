@@ -6,6 +6,13 @@ import {
   fetchMaintenanceProcesses,
   isBankOnlyCategoryCompany,
 } from "../shared/maintenanceCompanyApi.js";
+import { fetchProcesses as fetchDomainReportProcesses } from "../../report/domain/domainReportApi.js";
+import { mapDomainGroupProcesses } from "../../report/domain/domainReportGroupProcesses.js";
+import {
+  transactionMaintenanceScopeApiParams,
+  transactionMaintenanceScopeCacheKey,
+  transactionMaintenanceUsesGroupProcesses,
+} from "./transactionMaintenanceScope.js";
 
 /** 宽日期兜底分片（游标分页下通常整段一次查完；仅超范围或失败再分片）。 */
 const MAINTENANCE_CHUNK_DAYS = 90;
@@ -68,12 +75,50 @@ export async function fetchCompanyPermissions(companyCode) {
 
 export { isBankOnlyCategoryCompany };
 
-export async function fetchProcesses(companyId) {
-  return fetchMaintenanceProcesses(companyId, { credentials: true });
+/** ProcessSelect rows: { id, process_name, description }. */
+export function mapProcessesForMaintenanceSelect(apiList) {
+  return (Array.isArray(apiList) ? apiList : []).map((row) => {
+    const processName = String(
+      row.process_name ?? row.process ?? row.process_id ?? "",
+    ).trim();
+    return {
+      id: row.id,
+      process_name: processName,
+      description: row.description ?? null,
+    };
+  });
 }
 
-export async function fetchProcessesForPermission(companyId, permission) {
-  return fetchMaintenanceProcesses(companyId, { credentials: true, permission });
+function appendMaintenanceScopeToParams(params, scope) {
+  const { companyId, viewGroup, groupId, reportScope } =
+    transactionMaintenanceScopeApiParams(scope);
+  if (companyId) params.append("company_id", String(companyId));
+  const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+  if (vg) params.append("view_group", vg);
+  const gid = groupId ? String(groupId).trim().toUpperCase() : "";
+  if (gid) params.append("group_id", gid);
+  if (reportScope) params.append("report_scope", reportScope);
+}
+
+export async function fetchProcesses(companyId, scope = null) {
+  return fetchProcessesForMaintenance(companyId, "", scope);
+}
+
+export async function fetchProcessesForPermission(companyId, permission, scope = null) {
+  return fetchProcessesForMaintenance(companyId, permission, scope);
+}
+
+export async function fetchProcessesForMaintenance(companyId, permission, scope = null) {
+  if (scope && transactionMaintenanceUsesGroupProcesses(scope)) {
+    const apiList = await fetchDomainReportProcesses(scope, { credentials: "include" });
+    return mapProcessesForMaintenanceSelect(mapDomainGroupProcesses(apiList));
+  }
+  const effectiveId = scope?.scopeCompanyId ?? companyId;
+  const rows = await fetchMaintenanceProcesses(effectiveId, {
+    credentials: true,
+    permission,
+  });
+  return mapProcessesForMaintenanceSelect(rows);
 }
 
 /**
@@ -96,8 +141,7 @@ export async function bootstrapTransactionMaintenanceMeta({
     : filterTransactionMaintenancePermissions(["Games", "Gambling", "Bank"]);
   const savedPerm = code ? localStorage.getItem(`selectedPermission_${code}`) : null;
   const activePermission = pickTransactionMaintenancePermission(companyPerms, savedPerm);
-  const processes = await fetchProcessesForPermission(anchor?.id ?? null, activePermission);
-  return { permissions: companyPerms, activePermission, processes };
+  return { permissions: companyPerms, activePermission };
 }
 
 /** Transaction Maintenance 仅 Games/Gambling/Bank 有数据；Loan/Rate/Money 与其它维护页共用 localStorage 时会误传。 */
@@ -210,6 +254,7 @@ export async function searchTransactionData({
   process,
   companyId,
   category,
+  scope,
   signal,
   onFirstPage,
   onProgress,
@@ -228,6 +273,7 @@ export async function searchTransactionData({
     process: processFilter,
     companyId,
     category: categoryFilter,
+    scope,
     signal,
     onProgress: emitProgress,
   });
@@ -240,6 +286,7 @@ async function fetchMaintenanceDateRangeResilient({
   process,
   companyId,
   category,
+  scope,
   signal,
   onProgress,
 }) {
@@ -257,6 +304,7 @@ async function fetchMaintenanceDateRangeResilient({
       process,
       companyId,
       category,
+      scope,
       signal,
       onProgress,
     });
@@ -273,6 +321,7 @@ async function fetchMaintenanceDateRangeResilient({
       process,
       companyId,
       category,
+      scope,
       signal,
     });
     if (!part.length) continue;
@@ -459,6 +508,7 @@ async function searchTransactionMaintenanceOnce({
   process,
   companyId,
   category,
+  scope,
   signal,
   page = 1,
   pageSize = MAINTENANCE_FIRST_PAGE_SIZE,
@@ -476,6 +526,7 @@ async function searchTransactionMaintenanceOnce({
   }
   if (process) params.append("process", process);
   if (companyId) params.append("company_id", companyId);
+  appendMaintenanceScopeToParams(params, scope);
   if (category) params.append("category", category);
 
   const url = buildApiUrl(`api/transactions/maintenance_search_api.php?${params.toString()}`);
@@ -585,7 +636,7 @@ export function isMaintenanceCacheComplete(data) {
 
 /** React Query queryKey（与 TransactionMaintenancePage 一致）。 */
 export function buildTransactionMaintenanceQueryKey({
-  companyId,
+  scope,
   dateFrom,
   dateTo,
   process,
@@ -593,7 +644,7 @@ export function buildTransactionMaintenanceQueryKey({
 }) {
   return [
     "transaction-maintenance",
-    companyId,
+    transactionMaintenanceScopeCacheKey(scope),
     dateFrom,
     dateTo,
     normalizeMaintenanceProcessFilter(process),

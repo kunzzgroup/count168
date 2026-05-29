@@ -25,6 +25,7 @@ export default function TransactionMaintenanceFilters({
   onPickCompany,
   onClearCompany,
   allowClearCompany = true,
+  processValueMode = "processName",
   m,
 }) {
   const periodPresets = useMemo(() => buildMaintenancePeriodPresets(m), [m]);
@@ -42,7 +43,8 @@ export default function TransactionMaintenanceFilters({
             </span>
             <div className="report-outlined-inner">
               <ProcessSelect
-                key={`process-select-${companyId ?? "none"}`}
+                key={`process-select-${companyId ?? "none"}-${processValueMode}`}
+                valueMode={processValueMode}
                 processes={processes}
                 selectedValue={selectedProcess}
                 onSelect={setSelectedProcess}
