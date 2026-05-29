@@ -7,38 +7,12 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/report_scope_common.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 function reportMoneyOut($value): string {
     return money_out($value ?? '0');
-}
-
-function resolveCompanyId(PDO $pdo): int {
-    if (!isset($_SESSION['user_id'])) {
-        throw new Exception('用户未登录');
-    }
-    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requested = (int) $_GET['company_id'];
-        $role = strtolower($_SESSION['role'] ?? '');
-        if ($role === 'owner') {
-            $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested, $ownerId]);
-            if ($stmt->fetchColumn()) {
-                return $requested;
-            }
-            throw new Exception('无权访问该公司');
-        }
-        if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requested) {
-            return $requested;
-        }
-        throw new Exception('无权访问该公司');
-    }
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('缺少公司信息');
-    }
-    return (int) $_SESSION['company_id'];
 }
 
 function tableExists(PDO $pdo, string $tableName): bool {
@@ -346,10 +320,8 @@ function jsonResponse(bool $success, string $message, $data = null, array $extra
 }
 
 try {
-    $companyId = resolveCompanyId($pdo);
-
-    if (!checkCompanyCategoryPermission($pdo, $companyId, 'Games')) {
-        throw new Exception('Unauthorized permission category');
+    if (!isset($_SESSION['user_id'])) {
+        throw new Exception('用户未登录');
     }
 
     $dateFrom = trim($_GET['date_from'] ?? '');
@@ -377,13 +349,38 @@ try {
     $showAll = filter_var($_GET['show_all'] ?? false, FILTER_VALIDATE_BOOLEAN);
     $currencyFilter = trim($_GET['currency'] ?? '');
 
-    list($reportData, $totalWin, $totalLose) = buildReportData($pdo, $companyId, $accountId, $dateFrom, $dateTo, $showAll, $currencyFilter);
+    $resolved = resolveReportRequestCompanyScope($pdo, $_GET);
+    $companyId = $resolved['company_id'];
+    $groupId = $resolved['group_id'];
+    $reportScopeHint = $resolved['report_scope_hint'];
+
+    $scope = $reportScopeHint === 'group' ? 'group' : 'company';
+    $coMeta = fetchCompanyReportMeta($pdo, $companyId);
+    if (
+        $scope !== 'group'
+        && $groupId !== ''
+        && !empty($coMeta['company_id'])
+        && reportNormalizeGroupId($coMeta['company_id']) === $groupId
+    ) {
+        $scope = 'group';
+    }
+
+    list($reportData, $totalWin, $totalLose) = buildReportData(
+        $pdo,
+        $companyId,
+        $accountId,
+        $dateFrom,
+        $dateTo,
+        $showAll,
+        $currencyFilter
+    );
 
     jsonResponse(true, '', $reportData, [
+        'scope' => $scope,
         'total_win' => $totalWin,
         'total_lose' => $totalLose,
         'date_from' => $dateFrom,
-        'date_to' => $dateTo
+        'date_to' => $dateTo,
     ]);
 
 } catch (Exception $e) {

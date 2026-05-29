@@ -8,8 +8,8 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
-require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/report_scope_common.php';
 
 function domainReportMoneyOut($value): string {
     return money_out($value ?? '0');
@@ -29,53 +29,39 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
-/**
- * 解析并验证请求中的 company_id
- */
-function getCompanyIdForRequest(PDO $pdo) {
-    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requestedCompanyId = (int)$_GET['company_id'];
-        $userRole = strtolower($_SESSION['role'] ?? '');
-
-        if ($userRole === 'owner') {
-            $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? null;
-            if (!$ownerId) {
-                throw new Exception('缺少 Owner 信息');
-            }
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ? LIMIT 1");
-            $stmt->execute([$requestedCompanyId, $ownerId]);
-            if (!$stmt->fetchColumn()) {
-                throw new Exception('无权访问该公司');
-            }
-            return $requestedCompanyId;
-        }
-
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('缺少公司信息');
-        }
-        if ((int)$_SESSION['company_id'] !== $requestedCompanyId) {
-            throw new Exception('无权访问该公司');
-        }
-        return $requestedCompanyId;
+function resolveDomainReportGroupScope(PDO $pdo, array $resolved, int $companyId): bool {
+    if (($resolved['report_scope_hint'] ?? '') === 'group') {
+        return true;
     }
-
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('缺少公司信息');
+    $groupId = reportNormalizeGroupId($resolved['group_id'] ?? '');
+    if ($groupId === '') {
+        return false;
     }
-    return (int)$_SESSION['company_id'];
+    $coMeta = fetchCompanyReportMeta($pdo, $companyId);
+    if (
+        !empty($coMeta['company_id'])
+        && reportNormalizeGroupId($coMeta['company_id']) === $groupId
+    ) {
+        return true;
+    }
+    return false;
 }
 
 /**
  * 查询 Process 列表（id, process_id, description）
  */
-function fetchProcesses(PDO $pdo, int $company_id) {
-    $stmt = $pdo->prepare("
+function fetchProcesses(PDO $pdo, int $company_id, bool $groupScope = false) {
+    $sql = "
         SELECT p.id, p.process_id, d.name AS description
         FROM process p
         LEFT JOIN description d ON p.description_id = d.id
         WHERE p.company_id = ?
-        ORDER BY p.process_id ASC
-    ");
+    ";
+    if ($groupScope) {
+        $sql .= " AND UPPER(TRIM(p.process_id)) IN ('SALARY', 'BONUS')";
+    }
+    $sql .= " ORDER BY FIELD(UPPER(TRIM(p.process_id)), 'SALARY', 'BONUS'), p.process_id ASC";
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -83,17 +69,20 @@ function fetchProcesses(PDO $pdo, int $company_id) {
 /**
  * 格式化为前端下拉所需结构
  */
-function formatProcesses(array $processes) {
-    return array_map(function ($row) {
-        $label = $row['process_id'];
-        if (!empty($row['description'])) {
+function formatProcesses(array $processes, bool $groupScope = false) {
+    return array_map(function ($row) use ($groupScope) {
+        $code = strtoupper(trim((string) ($row['process_id'] ?? '')));
+        $label = $groupScope
+            ? $code
+            : $row['process_id'];
+        if (!$groupScope && !empty($row['description'])) {
             $label .= ' (' . $row['description'] . ')';
         }
         return [
-            'id' => (int)$row['id'],
+            'id' => (int) $row['id'],
             'process' => $row['process_id'],
             'description' => $row['description'],
-            'display_text' => $label
+            'display_text' => $label,
         ];
     }, $processes);
 }
@@ -122,7 +111,15 @@ function fetchCompanyReportMeta(PDO $pdo, int $company_id): array {
  * 查询 Domain 报表原始行（按 Process 汇总 Turnover / Win / Lose）
  * 以 process 为主表，无数据的 process 也显示（0）；过滤 dcd.company_id 保证 Win/Lose 只计当前公司
  */
-function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, string $date_to, ?int $process_id, array $currency_codes = []) {
+function fetchDomainReportRows(
+    PDO $pdo,
+    int $company_id,
+    string $date_from,
+    string $date_to,
+    ?int $process_id,
+    array $currency_codes = [],
+    bool $groupScope = false
+) {
     $currency_codes = array_values(array_filter(array_map(
         static fn($code) => strtoupper(trim((string)$code)),
         $currency_codes
@@ -166,11 +163,14 @@ function fetchDomainReportRows(PDO $pdo, int $company_id, string $date_from, str
         WHERE p.company_id = ?
     ";
     $params[] = $company_id;
+    if ($groupScope) {
+        $sql .= " AND UPPER(TRIM(p.process_id)) IN ('SALARY', 'BONUS')";
+    }
     if ($process_id !== null && $process_id > 0) {
         $sql .= " AND p.id = ? ";
         $params[] = $process_id;
     }
-    $sql .= " GROUP BY p.id, p.process_id, d.name ORDER BY p.process_id ASC ";
+    $sql .= " GROUP BY p.id, p.process_id, d.name ORDER BY FIELD(UPPER(TRIM(p.process_id)), 'SALARY', 'BONUS'), p.process_id ASC ";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -226,16 +226,18 @@ function buildReportResult(array $rows, string $date_from, string $date_to, arra
 }
 
 try {
-    $action = isset($_GET['action']) ? trim($_GET['action']) : '';
-    $company_id = getCompanyIdForRequest($pdo);
-
-    if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
-        throw new Exception('Unauthorized permission category');
+    if (!isset($_SESSION['user_id'])) {
+        throw new Exception('用户未登录');
     }
 
+    $action = isset($_GET['action']) ? trim($_GET['action']) : '';
+    $resolved = resolveReportRequestCompanyScope($pdo, $_GET);
+    $company_id = $resolved['company_id'];
+    $groupScope = resolveDomainReportGroupScope($pdo, $resolved, $company_id);
+
     if ($action === 'processes') {
-        $processes = fetchProcesses($pdo, $company_id);
-        $formatted = formatProcesses($processes);
+        $processes = fetchProcesses($pdo, $company_id, $groupScope);
+        $formatted = formatProcesses($processes, $groupScope);
         echo json_encode([
             'success' => true,
             'message' => 'OK',
@@ -246,7 +248,8 @@ try {
 
     $date_from = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
     $date_to = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
-    $process_id = isset($_GET['process_id']) ? (int)$_GET['process_id'] : null;
+    $process_id_raw = $_GET['process_id'] ?? '';
+    $process_id = ($process_id_raw !== '' && (int) $process_id_raw > 0) ? (int) $process_id_raw : null;
     $currency_raw = isset($_GET['currency']) ? trim((string)$_GET['currency']) : '';
     $currency_codes = $currency_raw !== '' ? explode(',', $currency_raw) : [];
 
@@ -263,7 +266,7 @@ try {
         throw new Exception('开始日期不能大于结束日期');
     }
 
-    $rows = fetchDomainReportRows($pdo, $company_id, $date_from, $date_to, $process_id, $currency_codes);
+    $rows = fetchDomainReportRows($pdo, $company_id, $date_from, $date_to, $process_id, $currency_codes, $groupScope);
     $co_meta = fetchCompanyReportMeta($pdo, $company_id);
     $currency_scope = 'ALL';
     if (!empty($currency_codes)) {

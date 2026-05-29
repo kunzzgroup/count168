@@ -1,5 +1,31 @@
-import { companiesInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { resolveCustomerReportScope } from "./reportScope.js";
+
+function normalizeReportScopeInput(scopeOrLegacy) {
+  if (!scopeOrLegacy || typeof scopeOrLegacy !== "object") return null;
+  if (scopeOrLegacy.mode != null || scopeOrLegacy.resolveCompanyViaGroupId != null) {
+    return scopeOrLegacy;
+  }
+  const { companies, selectedGroup, companyId, scopeCompanyId, viewGroup } = scopeOrLegacy;
+  const resolved = resolveCustomerReportScope({
+    companies: companies ?? [],
+    selectedGroup: selectedGroup || viewGroup || null,
+    companyId: companyId ?? scopeCompanyId ?? null,
+  });
+  if (resolved) return resolved;
+  const cid = Number(scopeCompanyId ?? companyId);
+  if (Number.isFinite(cid) && cid > 0) {
+    const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+    return {
+      mode: "company",
+      scopeCompanyId: cid,
+      groupId: g || null,
+      viewGroup: viewGroup || g || null,
+      uiCompanyId: Number(companyId) > 0 ? Number(companyId) : null,
+    };
+  }
+  return null;
+}
 
 export async function fetchCompanyPermissions(companyCode) {
   if (!companyCode) return [];
@@ -44,45 +70,37 @@ export async function fetchCurrencies(companyId, options = {}) {
   return json.data || [];
 }
 
-/** Union of currencies across all companies in a group (dashboard-aligned). */
-export async function fetchMergedGroupCurrencies(companies, groupId, options = {}) {
-  const groupKey = String(groupId || "").trim().toUpperCase();
-  if (!groupKey || !Array.isArray(companies) || !companies.length) return [];
-
-  const rows = companiesInGroupList(companies, groupKey);
-  const ids = [
-    ...new Set(
-      rows.map((c) => Number(c.id)).filter((n) => Number.isFinite(n) && n > 0),
-    ),
-  ];
-  if (!ids.length) return [];
-
-  const lists = await Promise.all(
-    ids.map((cid) => fetchCurrencies(cid, { ...options, viewGroup: groupKey })),
+/** Currencies for the active report scope company (group entity or subsidiary). */
+export async function fetchReportScopeCurrencies(scopeOrLegacy, options = {}) {
+  const reportScope = normalizeReportScopeInput(scopeOrLegacy);
+  if (!reportScope) return [];
+  const { signal } = options;
+  const q = new URLSearchParams();
+  const cid = Number(reportScope.scopeCompanyId);
+  const vg = reportScope.viewGroup || reportScope.groupId || "";
+  if (
+    reportScope.resolveCompanyViaGroupId ||
+    (reportScope.mode === "group" && (!Number.isFinite(cid) || cid <= 0))
+  ) {
+    const gid = reportScope.groupId ? String(reportScope.groupId).trim().toUpperCase() : "";
+    if (!gid) return [];
+    q.set("group_id", gid);
+    if (vg) q.set("view_group", String(vg).trim().toUpperCase());
+  } else {
+    if (!Number.isFinite(cid) || cid <= 0) return [];
+    q.set("company_id", String(cid));
+    if (vg) q.set("view_group", String(vg).trim().toUpperCase());
+    const gid = reportScope.groupId ? String(reportScope.groupId).trim().toUpperCase() : "";
+    if (gid) q.set("group_id", gid);
+  }
+  const qs = q.toString();
+  const url = buildApiUrl(
+    `api/transactions/get_company_currencies_api.php${qs ? `?${qs}` : ""}`,
   );
-
-  const byCode = new Map();
-  for (const list of lists) {
-    for (const row of list) {
-      const code = String(row.code || "").trim().toUpperCase();
-      if (!code || byCode.has(code)) continue;
-      byCode.set(code, { ...row, code });
-    }
+  const res = await fetch(url, { credentials: "include", signal });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || json.error || "Failed to load currencies");
   }
-  return [...byCode.values()].sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
-}
-
-/** Load currencies for a selected company and/or group (group-only shows pills before company pick). */
-export async function fetchReportScopeCurrencies(
-  { companyId, selectedGroup, companies },
-  options = {},
-) {
-  const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-  if (companyId) {
-    return fetchCurrencies(companyId, { ...options, viewGroup: groupKey || undefined });
-  }
-  if (groupKey) {
-    return fetchMergedGroupCurrencies(companies, groupKey, options);
-  }
-  return [];
+  return json.data || [];
 }
