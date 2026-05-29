@@ -14,18 +14,28 @@ import { formatYmd } from "../../../utils/date/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
+  companiesInGroupList,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import {
+  bootstrapCaptureMaintenanceMeta,
   fetchCompanyPermissions,
   fetchProcesses,
   searchCaptureData,
   deleteCaptureItems,
   updateSessionCompany,
 } from "./captureMaintenanceLogic.js";
+import {
+  captureMaintenanceScopeCacheCompanyKey,
+  captureMaintenanceScopeCacheKey,
+  captureMaintenanceScopeIsReady,
+  captureMaintenanceUsesGroupProcesses,
+  resolveCaptureMaintenanceScope,
+} from "./captureMaintenanceScope.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
@@ -82,13 +92,38 @@ export default function CaptureMaintenancePage() {
 
   const captureSeqRef = useRef(0);
   const captureAbortRef = useRef(null);
-  const companyIdRef = useRef(null);
+  const scopeKeyRef = useRef("");
   const captureDataRef = useRef(captureData);
   captureDataRef.current = captureData;
   const initialCaptureSearchDoneRef = useRef(false);
   /** 切换公司已手动触发拉数时跳过 useEffect 里下一次重复请求，少等一轮渲染 */
   const suppressNextSearchEffectRef = useRef(false);
-  const followGroupRef = useRef(() => {});
+
+  const captureScope = useMemo(
+    () =>
+      resolveCaptureMaintenanceScope({
+        companies,
+        selectedGroup,
+        companyId,
+      }),
+    [companies, selectedGroup, companyId],
+  );
+
+  const captureScopeKey = useMemo(
+    () => captureMaintenanceScopeCacheKey(captureScope),
+    [captureScope],
+  );
+
+  const listQueryEnabled =
+    captureMaintenanceScopeIsReady(captureScope) && Boolean(dateFrom) && Boolean(dateTo);
+
+  useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: me?.company_id,
+    enabled: true,
+  });
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -213,6 +248,21 @@ export default function CaptureMaintenancePage() {
         if (isDashboardGroupOnlyMode()) {
           setCompanyId(null);
           setCompanyCode("");
+          const bootScope = resolveCaptureMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: null,
+          });
+          const meta = await bootstrapCaptureMaintenanceMeta({
+            companies: rows,
+            groupId: bootGroup,
+          });
+          if (cancelled) return;
+          const procList = bootScope ? await fetchProcesses(null, bootScope) : [];
+          setProcesses(procList);
+          setPermissions(meta.permissions);
+          setActivePermission(meta.activePermission);
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           return;
         }
         setCompanyId(initialCompanyId);
@@ -221,10 +271,16 @@ export default function CaptureMaintenancePage() {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
 
+          const bootScope = resolveCaptureMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: initialCompanyId,
+          });
+
           // Fetch initial metadata here to ensure the first query starts with the correct activePermission
           const [procList, companyPerms] = await Promise.all([
-            fetchProcesses(initialCompanyId),
-            fetchCompanyPermissions(code)
+            fetchProcesses(initialCompanyId, bootScope),
+            fetchCompanyPermissions(code),
           ]);
           if (cancelled) return;
 
@@ -263,89 +319,114 @@ export default function CaptureMaintenancePage() {
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
-    if (bootLoading || !companyId) return;
+    if (bootLoading || !captureMaintenanceScopeIsReady(captureScope)) return;
 
+    let cancelled = false;
     (async () => {
       try {
+        const anchor =
+          companyId == null && selectedGroup
+            ? companiesInGroupList(companies, selectedGroup)[0]
+            : null;
+        const permCode = companyCode || anchor?.company_id || "";
         const [procList, permList] = await Promise.all([
-          fetchProcesses(companyId),
-          fetchCompanyPermissions(companyCode)
+          fetchProcesses(companyId, captureScope),
+          permCode ? fetchCompanyPermissions(permCode) : Promise.resolve([]),
         ]);
+        if (cancelled) return;
         setProcesses(procList);
-        setPermissions(permList);
-        
-        // Initial permission from localStorage or first one
-        const saved = localStorage.getItem(`selectedPermission_${companyCode}`);
+        if (permList.length > 0) setPermissions(permList);
+
+        const saved = permCode ? localStorage.getItem(`selectedPermission_${permCode}`) : null;
         if (saved && permList.includes(saved)) {
           setActivePermission(saved);
         } else if (permList.length > 0) {
           setActivePermission(permList[0]);
+        }
+
+        if (captureMaintenanceUsesGroupProcesses(captureScope)) {
+          setSelectedProcess((prev) =>
+            prev && procList.some((p) => String(p.id) === String(prev)) ? prev : "",
+          );
         }
       } catch (err) {
         console.error("Meta data load error:", err);
         notify(t("failedLoadProcesses"), "error");
       }
     })();
-  }, [bootLoading, companyId, companyCode, notify, t]);
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, captureScope, companyId, companyCode, selectedGroup, companies, notify, t]);
 
   // -- Search Logic --
-  const performSearch = useCallback(async (overrides = {}) => {
-    const effectiveCompanyId = overrides.companyId ?? companyId;
-    if (!effectiveCompanyId || !dateFrom || !dateTo) return;
-    const searchCompanyId = Number(effectiveCompanyId);
-    captureAbortRef.current?.abort();
-    const ac = new AbortController();
-    captureAbortRef.current = ac;
-    const seq = ++captureSeqRef.current;
-    const quietRefresh = initialCaptureSearchDoneRef.current;
-    if (!quietRefresh) setLoading(true);
-    else {
-      setLoading(false);
-      setListSyncing(true);
-    }
-    setSelectedIds([]);
-    try {
-      const data = await searchCaptureData(
-        {
-          dateFrom,
-          dateTo,
-          process: selectedProcess,
-          companyId: effectiveCompanyId,
-          category: activePermission,
-        },
-        { signal: ac.signal },
-      );
-      if (seq !== captureSeqRef.current) return;
-      if (searchCompanyId !== Number(companyIdRef.current)) return;
-      setCaptureListEpoch((e) => e + 1);
-      setCaptureData(data);
-      setCaptureDataSourceCompanyId(searchCompanyId);
-      if (!quietRefresh) {
-        if (data.length > 0) {
-          notify(t("foundRecords", { n: data.length }), "success");
-        } else {
-          notify(t("noDataAdjustSearch"), "info");
+  const performSearch = useCallback(
+    async (overrides = {}) => {
+      const effectiveScope =
+        overrides.scope ??
+        resolveCaptureMaintenanceScope({
+          companies,
+          selectedGroup: overrides.selectedGroup ?? selectedGroup,
+          companyId: overrides.companyId ?? companyId,
+        });
+      if (!captureMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
+
+      const searchScopeKey = captureMaintenanceScopeCacheKey(effectiveScope);
+      captureAbortRef.current?.abort();
+      const ac = new AbortController();
+      captureAbortRef.current = ac;
+      const seq = ++captureSeqRef.current;
+      const quietRefresh = initialCaptureSearchDoneRef.current;
+      if (!quietRefresh) setLoading(true);
+      else {
+        setLoading(false);
+        setListSyncing(true);
+      }
+      setSelectedIds([]);
+      try {
+        const data = await searchCaptureData(
+          {
+            dateFrom,
+            dateTo,
+            process: selectedProcess,
+            category: activePermission,
+            scope: effectiveScope,
+          },
+          { signal: ac.signal },
+        );
+        if (seq !== captureSeqRef.current) return;
+        if (searchScopeKey !== scopeKeyRef.current) return;
+        setCaptureListEpoch((e) => e + 1);
+        setCaptureData(data);
+        setCaptureDataSourceCompanyId(captureMaintenanceScopeCacheCompanyKey(effectiveScope));
+        if (!quietRefresh) {
+          if (data.length > 0) {
+            notify(t("foundRecords", { n: data.length }), "success");
+          } else {
+            notify(t("noDataAdjustSearch"), "info");
+          }
+        }
+      } catch (err) {
+        if (err?.name === "AbortError" || seq !== captureSeqRef.current) return;
+        if (searchScopeKey !== scopeKeyRef.current) return;
+        notify(err.message, "error");
+        setCaptureListEpoch((e) => e + 1);
+        setCaptureData([]);
+        setCaptureDataSourceCompanyId(null);
+      } finally {
+        initialCaptureSearchDoneRef.current = true;
+        if (seq === captureSeqRef.current) {
+          setLoading(false);
+          setListSyncing(false);
         }
       }
-    } catch (err) {
-      if (err?.name === "AbortError" || seq !== captureSeqRef.current) return;
-      if (searchCompanyId !== Number(companyIdRef.current)) return;
-      notify(err.message, "error");
-      setCaptureListEpoch((e) => e + 1);
-      setCaptureData([]);
-      setCaptureDataSourceCompanyId(null);
-    } finally {
-      initialCaptureSearchDoneRef.current = true;
-      if (seq === captureSeqRef.current) {
-        setLoading(false);
-        setListSyncing(false);
-      }
-    }
-  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t]);
+    },
+    [companies, selectedGroup, companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t],
+  );
 
   // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
   useEffect(() => {
-    if (!bootLoading && companyId) {
+    if (!bootLoading && listQueryEnabled) {
       if (suppressNextSearchEffectRef.current) {
         suppressNextSearchEffectRef.current = false;
         return;
@@ -355,7 +436,16 @@ export default function CaptureMaintenancePage() {
       }, 0);
       return () => clearTimeout(h);
     }
-  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch]);
+  }, [
+    bootLoading,
+    listQueryEnabled,
+    captureScopeKey,
+    selectedProcess,
+    dateFrom,
+    dateTo,
+    activePermission,
+    performSearch,
+  ]);
 
   useEffect(
     () => () => {
@@ -365,15 +455,21 @@ export default function CaptureMaintenancePage() {
   );
 
   useEffect(() => {
-    companyIdRef.current = companyId;
-  }, [companyId]);
+    scopeKeyRef.current = captureScopeKey;
+  }, [captureScopeKey]);
 
   // -- Handlers --
-  const handleClearCompany = useCallback(() => {
-    setCompanyId(null);
-    setCompanyCode("");
-    setSelectedIds([]);
-  }, []);
+  const handleClearCompany = useCallback(
+    (groupForPersist) => {
+      const g = groupForPersist ?? selectedGroup;
+      setCompanyId(null);
+      setCompanyCode("");
+      setSelectedProcess("");
+      setSelectedIds([]);
+      persistDashboardFilterState(g, null);
+    },
+    [selectedGroup],
+  );
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;
@@ -382,14 +478,19 @@ export default function CaptureMaintenancePage() {
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
     const isOwner = String(me?.role || "").toLowerCase() === "owner";
 
+    const nextScope = resolveCaptureMaintenanceScope({
+      companies,
+      selectedGroup: newGroup,
+      companyId: nextId,
+    });
+
     if (isOwner) {
       suppressNextSearchEffectRef.current = true;
       setCompanyId(nextId);
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
-      followGroupRef.current();
-      void performSearch({ companyId: nextId });
+      void performSearch({ scope: nextScope });
       notify(t("switchedTo", { company: nextCode }), "success");
       try {
         const sessionData = await updateSessionCompany(c.id);
@@ -418,11 +519,10 @@ export default function CaptureMaintenancePage() {
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
-      followGroupRef.current();
 
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: nextCode }), "success");
-      void performSearch({ companyId: nextId });
+      void performSearch({ scope: nextScope });
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
       navigate("/dashboard", { replace: true });
@@ -438,8 +538,6 @@ export default function CaptureMaintenancePage() {
       switchCompany: handleSwitchCompany,
       onClearCompany: handleClearCompany,
     });
-
-  followGroupRef.current = () => {};
 
   const handlePermissionSwitch = (p) => {
     if (p === activePermission) return;
@@ -496,7 +594,8 @@ export default function CaptureMaintenancePage() {
       await deleteCaptureItems({
         items: itemsToDelete,
         dateFrom,
-        dateTo
+        dateTo,
+        scope: captureScope,
       });
 
       notify(t("deleteSuccessful"), "success");
@@ -565,10 +664,10 @@ export default function CaptureMaintenancePage() {
             </div>
           )}
           <CaptureMaintenanceTable
-            key={captureDataSourceCompanyId ?? companyId ?? "no-company"}
+            key={captureDataSourceCompanyId ?? captureScopeKey ?? "no-scope"}
             data={captureData}
             listEpoch={captureListEpoch}
-            rowKeyCompanyId={captureDataSourceCompanyId ?? companyId}
+            rowKeyCompanyId={captureDataSourceCompanyId ?? captureScopeKey}
             loading={tableLoading}
             listSyncing={listSyncing}
             selectedIds={selectedIds}
