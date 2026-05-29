@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
@@ -27,7 +27,7 @@ import {
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import AnimatedOutlet from "./AnimatedOutlet.jsx";
-import { prefetchAuthenticatedRoutes, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
+import { prefetchAuthenticatedRoutes, prefetchAutoRenewList, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
 import {
   canAccessC168AutoRenew,
   canAccessC168DomainPages,
@@ -85,6 +85,14 @@ const AVATAR_MAP = {
 
 export default function AuthenticatedLayout() {
   const navigate = useNavigate();
+  const goTo = useCallback(
+    (path) => {
+      startTransition(() => {
+        navigate(path);
+      });
+    },
+    [navigate],
+  );
   const location = useLocation();
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -327,11 +335,16 @@ export default function AuthenticatedLayout() {
     const warmRoute = (event) => {
       const target = event.target.closest("[data-prefetch-path]");
       const routePath = target?.dataset?.prefetchPath;
-      if (routePath) prefetchRouteModule(routePath);
+      if (routePath) {
+        prefetchRouteModule(routePath);
+        if (routePath === "/auto-renew") prefetchAutoRenewList();
+      }
     };
+    root.addEventListener("pointerdown", warmRoute, { capture: true });
     root.addEventListener("mouseover", warmRoute);
     root.addEventListener("focusin", warmRoute);
     return () => {
+      root.removeEventListener("pointerdown", warmRoute, { capture: true });
       root.removeEventListener("mouseover", warmRoute);
       root.removeEventListener("focusin", warmRoute);
     };
@@ -536,7 +549,7 @@ export default function AuthenticatedLayout() {
           {canAccess("home") && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarHome} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} data-prefetch-path="/dashboard" onClick={() => navigate("/dashboard")} role="presentation">
+                <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} data-prefetch-path="/dashboard" onClick={() => goTo("/dashboard")} role="presentation">
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                   </svg>
@@ -548,7 +561,7 @@ export default function AuthenticatedLayout() {
           {showC168DomainPages && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarDomain} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} data-prefetch-path="/domain" onClick={() => navigate("/domain")} role="presentation">
+                <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} data-prefetch-path="/domain" onClick={() => goTo("/domain")} role="presentation">
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
                   </svg>
@@ -560,7 +573,7 @@ export default function AuthenticatedLayout() {
           {showC168DomainPages && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarAnnouncement} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} data-prefetch-path="/announcement" onClick={() => navigate("/announcement")} role="presentation">
+                <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} data-prefetch-path="/announcement" onClick={() => goTo("/announcement")} role="presentation">
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
                   </svg>
@@ -572,7 +585,7 @@ export default function AuthenticatedLayout() {
           {showAutoRenewEntry && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarAutoRenew} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`} data-prefetch-path="/auto-renew" onClick={() => navigate("/auto-renew")} role="presentation">
+                <div className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`} data-prefetch-path="/auto-renew" onClick={() => goTo("/auto-renew")} role="presentation">
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
                   </svg>
@@ -591,7 +604,7 @@ export default function AuthenticatedLayout() {
           {canAccess("admin") && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarAdmin} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} data-prefetch-path="/userlist" onClick={() => navigate("/userlist")} role="presentation">
+                <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} data-prefetch-path="/userlist" onClick={() => goTo("/userlist")} role="presentation">
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                   </svg>
@@ -606,7 +619,7 @@ export default function AuthenticatedLayout() {
                 <div
                   className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
                   data-prefetch-path="/account-list"
-                  onClick={() => navigate("/account-list")}
+                  onClick={() => goTo("/account-list")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -623,7 +636,7 @@ export default function AuthenticatedLayout() {
                 <div
                   className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
                   data-prefetch-path="/ownership"
-                  onClick={() => navigate("/ownership")}
+                  onClick={() => goTo("/ownership")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -640,7 +653,7 @@ export default function AuthenticatedLayout() {
                 <div
                   className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
                   data-prefetch-path={processSpaPath}
-                  onClick={() => navigate(processSpaPath)}
+                  onClick={() => goTo(processSpaPath)}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -661,7 +674,7 @@ export default function AuthenticatedLayout() {
                     if (path === "/datacapturesummary") {
                       clearDataCaptureRoundLocalStorage();
                     }
-                    navigate("/datacapture");
+                    goTo("/datacapture");
                   }}
                   role="presentation"
                 >
@@ -679,7 +692,7 @@ export default function AuthenticatedLayout() {
                 <div
                   className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
                   data-prefetch-path="/transaction"
-                  onClick={() => navigate("/transaction")}
+                  onClick={() => goTo("/transaction")}
                   role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -731,7 +744,7 @@ export default function AuthenticatedLayout() {
                       data-prefetch-path="/customer-report"
                       onClick={(e) => {
                         e.preventDefault();
-                        navigate("/customer-report");
+                        goTo("/customer-report");
                       }}
                     >
                       <span>{i18n.sidebarCustomerReport}</span>
@@ -742,7 +755,7 @@ export default function AuthenticatedLayout() {
                       data-prefetch-path="/domain-report"
                       onClick={(e) => {
                         e.preventDefault();
-                        navigate("/domain-report");
+                        goTo("/domain-report");
                       }}
                     >
                       <span>{i18n.sidebarDomainReport}</span>
@@ -794,7 +807,7 @@ export default function AuthenticatedLayout() {
                         data-prefetch-path="/capture-maintenance"
                         onClick={(e) => {
                           e.preventDefault();
-                          navigate("/capture-maintenance");
+                          goTo("/capture-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarDataCapture}</span>
@@ -807,7 +820,7 @@ export default function AuthenticatedLayout() {
                         data-prefetch-path="/transaction-maintenance"
                         onClick={(e) => {
                           e.preventDefault();
-                          navigate("/transaction-maintenance");
+                          goTo("/transaction-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarTransaction}</span>
@@ -820,7 +833,7 @@ export default function AuthenticatedLayout() {
                         data-prefetch-path="/payment-maintenance"
                         onClick={(e) => {
                           e.preventDefault();
-                          navigate("/payment-maintenance");
+                          goTo("/payment-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarPayment}</span>
@@ -833,7 +846,7 @@ export default function AuthenticatedLayout() {
                         data-prefetch-path="/formula-maintenance"
                         onClick={(e) => {
                           e.preventDefault();
-                          navigate("/formula-maintenance");
+                          goTo("/formula-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarFormula}</span>
@@ -846,7 +859,7 @@ export default function AuthenticatedLayout() {
                         data-prefetch-path="/bankprocess-maintenance"
                         onClick={(e) => {
                           e.preventDefault();
-                          navigate("/bankprocess-maintenance");
+                          goTo("/bankprocess-maintenance");
                         }}
                       >
                         <span>{i18n.sidebarProcess}</span>

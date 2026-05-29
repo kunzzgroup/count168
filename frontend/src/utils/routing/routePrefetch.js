@@ -1,7 +1,18 @@
 const prefetchedModules = new Set();
 const prefetchedData = new Set();
 
-const EAGER_ROUTE_PATHS = new Set(["/userlist", "/account-list", "/add-account"]);
+/** Sync-imported in App.jsx — skip dynamic prefetch to avoid duplicate chunks. */
+const EAGER_ROUTE_PATHS = new Set([
+  "/userlist",
+  "/account-list",
+  "/add-account",
+  "/process-list",
+  "/games-process-list",
+  "/auto-renew",
+  "/announcement",
+  "/domain",
+  "/ownership",
+]);
 
 function prefetchModule(key, loader) {
   if (prefetchedModules.has(key)) return;
@@ -11,15 +22,10 @@ function prefetchModule(key, loader) {
   });
 }
 
-/** Warm common authenticated routes after session boot (staggered to avoid network spike). */
+/** Warm remaining lazy routes in parallel right after session boot. */
 export function prefetchAuthenticatedRoutes() {
   const routes = [
     "/dashboard",
-    "/domain",
-    "/announcement",
-    "/auto-renew",
-    "/ownership",
-    "/process-list",
     "/bank-process-list",
     "/datacapture",
     "/datacapturesummary",
@@ -34,35 +40,16 @@ export function prefetchAuthenticatedRoutes() {
     "/useraccess",
     "/deleted-log",
   ];
-  routes.forEach((path, index) => {
-    window.setTimeout(() => prefetchRouteModule(path), index * 120);
-  });
+  routes.forEach((path) => prefetchRouteModule(path));
 }
 
-/** Prefetch route JS chunk on sidebar hover / focus. */
+/** Prefetch route JS chunk on sidebar hover / pointer down. */
 export function prefetchRouteModule(pathname) {
   const path = String(pathname || "").split("?")[0];
   if (EAGER_ROUTE_PATHS.has(path)) return;
   switch (path) {
     case "/dashboard":
       prefetchModule(path, () => import("../../pages/dashboard/TransactionDashboardPage.jsx"));
-      break;
-    case "/domain":
-      prefetchModule(path, () => import("../../pages/domain/DomainPage.jsx"));
-      break;
-    case "/announcement":
-      prefetchModule(path, () => import("../../pages/announcement/AnnouncementPage.jsx"));
-      break;
-    case "/auto-renew":
-      prefetchModule(path, () => import("../../pages/autorenew/AutoRenewPage.jsx"));
-      prefetchAutoRenewList();
-      break;
-    case "/ownership":
-      prefetchModule(path, () => import("../../pages/ownership/OwnershipPage.jsx"));
-      break;
-    case "/process-list":
-    case "/games-process-list":
-      prefetchModule(path, () => import("../../pages/processlist/ProcessListPage.jsx"));
       break;
     case "/bank-process-list":
       prefetchModule(path, () => import("../../pages/bankprocesslist/BankProcessListPage.jsx"));

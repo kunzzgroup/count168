@@ -7,13 +7,14 @@ import MemberPage from "./pages/member/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
 import UserListPage from "./pages/userlist/UserListPage.jsx";
 import AccountListPage from "./pages/account/AccountListPage.jsx";
+import ProcessListPage from "./pages/processlist/ProcessListPage.jsx";
+import AutoRenewPage from "./pages/autorenew/AutoRenewPage.jsx";
+import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
+import DomainPage from "./pages/domain/DomainPage.jsx";
+import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 
 const TransactionDashboardPage = lazy(() => import("./pages/dashboard/TransactionDashboardPage.jsx"));
-const DomainPage = lazy(() => import("./pages/domain/DomainPage.jsx"));
-const AnnouncementPage = lazy(() => import("./pages/announcement/AnnouncementPage.jsx"));
-const ProcessListPage = lazy(() => import("./pages/processlist/ProcessListPage.jsx"));
 const BankProcessListPage = lazy(() => import("./pages/bankprocesslist/BankProcessListPage.jsx"));
-const OwnershipPage = lazy(() => import("./pages/ownership/OwnershipPage.jsx"));
 const DataCapturePage = lazy(() => import("./pages/datacapture/DataCapturePage.jsx"));
 const DataCaptureSummaryPage = lazy(() => import("./pages/datacapturesummary/DataCaptureSummaryPage.jsx"));
 const TransactionPaymentPage = lazy(() => import("./pages/transaction/TransactionPaymentPage.jsx"));
@@ -26,7 +27,6 @@ const BankprocessMaintenancePage = lazy(() => import("./pages/maintenance/bankpr
 const PaymentMaintenancePage = lazy(() => import("./pages/maintenance/payment/PaymentMaintenancePage.jsx"));
 const UserAccessPage = lazy(() => import("./pages/useraccess/UserAccessPage.jsx"));
 const DeletedLogPage = lazy(() => import("./pages/deletedlog/DeletedLogPage.jsx"));
-const AutoRenewPage = lazy(() => import("./pages/autorenew/AutoRenewPage.jsx"));
 
 export default function App() {
   return (

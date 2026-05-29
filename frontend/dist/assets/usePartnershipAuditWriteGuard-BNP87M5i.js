@@ -1,0 +1,1 @@
+import{aT as i,r as o,ca as c}from"./index-DmULwuCq.js";function s(t,r,a){const u=i(t),e="Read-only account: this action is not allowed.",n=o.useCallback(()=>c(t,()=>{typeof r=="function"&&r(a||e,"danger")}),[t,r,a]);return{mutationsBlocked:u,guardWrite:n,isLocked:u}}export{s as u};
