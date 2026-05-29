@@ -711,15 +711,6 @@ body.auto-renew-page-body .auto-renew-toast.error {
   }
 }
 
-body.auto-renew-page-body .auto-renew-table-shell {
-  position: relative;
-}
-
-body.auto-renew-page-body .auto-renew-table-shell.is-refreshing .user-list-table-inner {
-  opacity: 0.72;
-  transition: opacity 0.22s ease;
-}
-
 body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip {
   transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
 }

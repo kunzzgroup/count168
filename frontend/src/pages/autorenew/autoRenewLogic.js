@@ -14,12 +14,13 @@ export const AUTO_RENEW_PERIODS = [
 
 export const AUTO_RENEW_STATUS_FILTERS = ["pending", "approved", "rejected", "all"];
 
-async function postAutoRenew(body) {
+async function postAutoRenew(body, { signal } = {}) {
   const res = await fetch(buildApiUrl("api/subscription/auto_renew_api.php"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
   const json = await res.json();
   if (!json.success) {
@@ -28,11 +29,11 @@ async function postAutoRenew(body) {
   return json.data;
 }
 
-export async function fetchAutoRenewApprovals(status = "pending", { dateFrom, dateTo } = {}) {
+export async function fetchAutoRenewApprovals(status = "pending", { dateFrom, dateTo, signal } = {}) {
   const body = { action: "list", status };
   if (dateFrom) body.date_from = dateFrom;
   if (dateTo) body.date_to = dateTo;
-  return postAutoRenew(body);
+  return postAutoRenew(body, { signal });
 }
 
 export async function fetchAutoRenewStatusMap() {

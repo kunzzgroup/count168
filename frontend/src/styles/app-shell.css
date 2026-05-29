@@ -107,43 +107,11 @@
   animation: ec-page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Inline table refresh — avoid full-page loader flash on filter change */
-.ec-list-refresh-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: clamp(48px, 12vh, 120px);
-  background: rgba(248, 250, 252, 0.55);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  border-radius: inherit;
-  pointer-events: none;
-  animation: ec-page-enter 0.2s ease both;
-}
-
-.ec-list-refresh-overlay__spinner {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2.5px solid rgba(226, 232, 240, 0.9);
-  border-top-color: #3b82f6;
-  animation: ec-shell-spin 0.65s linear infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ec-page-shell__content,
-  .ec-page-shell--enter .ec-page-shell__content,
-  .ec-list-refresh-overlay {
+  .ec-page-shell--enter .ec-page-shell__content {
     animation: none;
     transform: none;
     opacity: 1;
-  }
-
-  .ec-list-refresh-overlay__spinner {
-    animation: none;
-    border-top-color: #3b82f6;
   }
 }

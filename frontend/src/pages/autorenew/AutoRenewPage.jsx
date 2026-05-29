@@ -109,14 +109,14 @@ export default function AutoRenewPage() {
   const lang = useLoginLang();
   const t = useCallback((key, params) => getAutoRenewText(lang, key, params), [lang]);
   const dashI18n = useMemo(() => DASHBOARD_I18N[lang === "zh" ? "zh" : "en"], [lang]);
-  const [bootDone, setBootDone] = useState(false);
-  const [listLoading, setListLoading] = useState(false);
+  const [bootLoading, setBootLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const skipNextFilterFetchRef = useRef(true);
+  const bootFetchedListKeyRef = useRef(null);
+  const listFetchAbortRef = useRef(null);
   const { dateFrom, setDateFrom, dateTo, setDateTo } = useAutoRenewDateRangeState();
   const { periodPresets } = useAutoRenewDateRange({
     me,
-    ready: sessionReady && bootDone && !loadError,
+    ready: sessionReady && !bootLoading && !loadError,
     i18n: dashI18n,
     dateFrom,
     dateTo,
@@ -159,14 +159,29 @@ export default function AutoRenewPage() {
     setRowDrafts({});
   }, []);
 
-  const loadList = useCallback(async (status, range) => {
-    const data = await fetchAutoRenewApprovals(status, {
-      dateFrom: range?.dateFrom,
-      dateTo: range?.dateTo,
-    });
-    applyListData(data);
-    return data;
-  }, [applyListData]);
+  const listFetchKey = useCallback(
+    (status, range) => `${status}|${range?.dateFrom || ""}|${range?.dateTo || ""}`,
+    [],
+  );
+
+  const fetchList = useCallback(async () => {
+    listFetchAbortRef.current?.abort();
+    const ac = new AbortController();
+    listFetchAbortRef.current = ac;
+
+    try {
+      const data = await fetchAutoRenewApprovals(statusFilter, {
+        dateFrom,
+        dateTo,
+        signal: ac.signal,
+      });
+      if (ac.signal.aborted) return;
+      applyListData(data);
+    } catch (err) {
+      if (ac.signal.aborted || err?.name === "AbortError") return;
+      notify(t("loadFailed", { message: err.message }), "error");
+    }
+  }, [applyListData, dateFrom, dateTo, notify, statusFilter, t]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -190,11 +205,12 @@ export default function AutoRenewPage() {
           }));
         if (cancelled) return;
         applyListData(data);
-        setBootDone(true);
+        bootFetchedListKeyRef.current = listFetchKey(statusFilter, { dateFrom, dateTo });
       } catch (err) {
         if (cancelled) return;
         setLoadError(err.message || "load");
-        setBootDone(true);
+      } finally {
+        if (!cancelled) setBootLoading(false);
       }
     })();
 
@@ -204,29 +220,16 @@ export default function AutoRenewPage() {
   }, [me, navigate, sessionReady, applyListData]);
 
   useEffect(() => {
-    if (!sessionReady || !me || !bootDone) return;
-    if (skipNextFilterFetchRef.current) {
-      skipNextFilterFetchRef.current = false;
+    if (bootLoading || !sessionReady || !me) return;
+    const key = listFetchKey(statusFilter, { dateFrom, dateTo });
+    if (bootFetchedListKeyRef.current === key) {
+      bootFetchedListKeyRef.current = null;
       return;
     }
+    void fetchList();
+  }, [bootLoading, dateFrom, dateTo, fetchList, listFetchKey, me, sessionReady, statusFilter]);
 
-    let cancelled = false;
-    setListLoading(true);
-
-    (async () => {
-      try {
-        await loadList(statusFilter, { dateFrom, dateTo });
-      } catch (err) {
-        if (!cancelled) notify(t("loadFailed", { message: err.message }), "error");
-      } finally {
-        if (!cancelled) setListLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [bootDone, dateFrom, dateTo, loadList, me, notify, sessionReady, statusFilter, t]);
+  useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -255,13 +258,13 @@ export default function AutoRenewPage() {
         toAccountId,
       });
       notify(t("approvedSuccess"), "success");
-      await loadList(statusFilter, { dateFrom, dateTo });
+      await fetchList();
     } catch (err) {
       notify(t("approveFailed", { message: err.message }), "error");
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, dateFrom, dateTo, loadList, notify, rowDrafts, statusFilter, t]);
+  }, [busyRequestId, canEditGlobal, fetchList, notify, rowDrafts, t]);
 
   const handleReject = useCallback(async (row) => {
     if (!canEditGlobal || busyRequestId || row.is_payment_deleted) return;
@@ -276,13 +279,13 @@ export default function AutoRenewPage() {
         return next;
       });
       notify(t("rejectedSuccess"), "success");
-      await loadList(statusFilter, { dateFrom, dateTo });
+      await fetchList();
     } catch (err) {
       notify(t("rejectFailed", { message: err.message }), "error");
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, dateFrom, dateTo, loadList, notify, statusFilter, t]);
+  }, [busyRequestId, canEditGlobal, fetchList, notify, t]);
 
   const handleDelete = useCallback(async (row) => {
     if (!canEditGlobal || busyRequestId || !row.can_delete) return;
@@ -293,13 +296,13 @@ export default function AutoRenewPage() {
       await deleteAutoRenew({ requestId: row.request_id });
       invalidateTransactionListCache("auto_renew_delete");
       notify(t("deletedSuccess"), "success");
-      await loadList(statusFilter, { dateFrom, dateTo });
+      await fetchList();
     } catch (err) {
       notify(t("deleteFailed", { message: err.message }), "error");
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, dateFrom, dateTo, loadList, notify, statusFilter, t]);
+  }, [busyRequestId, canEditGlobal, fetchList, notify, t]);
 
   const handleSort = useCallback(
     (column) => {
@@ -411,7 +414,7 @@ export default function AutoRenewPage() {
 
   const showSubmitterColumn = statusFilter === "approved" || statusFilter === "rejected";
 
-  if (!sessionReady || !bootDone) {
+  if (bootLoading || !sessionReady || !me) {
     return (
       <>
         <PageContentLoader />
@@ -512,13 +515,8 @@ export default function AutoRenewPage() {
           )}
 
           <div
-            className={`user-table-wrapper user-list-table auto-renew-table auto-renew-table-shell${showSubmitterColumn ? " auto-renew-table--with-submitter" : ""}${listLoading ? " is-refreshing" : ""}`}
+            className={`user-table-wrapper user-list-table auto-renew-table${showSubmitterColumn ? " auto-renew-table--with-submitter" : ""}`}
           >
-            {listLoading ? (
-              <div className="ec-list-refresh-overlay" aria-hidden="true">
-                <div className="ec-list-refresh-overlay__spinner" />
-              </div>
-            ) : null}
             <div className="user-list-table-inner">
               <div className="table-header user-list-table-header auto-renew-table-header">
                 {renderHeader("no", t("colNo"))}
