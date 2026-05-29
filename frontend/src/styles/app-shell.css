@@ -84,6 +84,8 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .ec-page-shell__content:not(.is-active) {
