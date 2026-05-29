@@ -75,3 +75,75 @@
     border-top-color: #3b82f6;
   }
 }
+
+/* --- Authenticated main content: route enter + in-layout refresh --- */
+@keyframes ec-page-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.ec-page-shell {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  contain: layout style;
+}
+
+.ec-page-shell__content {
+  width: 100%;
+  min-height: min(72vh, calc(100vh - 120px));
+  animation: ec-page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+.ec-page-shell--enter .ec-page-shell__content {
+  animation: ec-page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Inline table refresh — avoid full-page loader flash on filter change */
+.ec-list-refresh-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: clamp(48px, 12vh, 120px);
+  background: rgba(248, 250, 252, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: ec-page-enter 0.2s ease both;
+}
+
+.ec-list-refresh-overlay__spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(226, 232, 240, 0.9);
+  border-top-color: #3b82f6;
+  animation: ec-shell-spin 0.65s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-page-shell__content,
+  .ec-page-shell--enter .ec-page-shell__content,
+  .ec-list-refresh-overlay {
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+
+  .ec-list-refresh-overlay__spinner {
+    animation: none;
+    border-top-color: #3b82f6;
+  }
+}
