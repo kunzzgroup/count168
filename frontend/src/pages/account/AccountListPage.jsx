@@ -6,6 +6,7 @@ import {
   isDashboardGroupOnlyMode,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
+  loadOwnerCompaniesCached,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
@@ -204,15 +205,18 @@ export default function AccountListPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [compRes, editRes] = await Promise.all([
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-          fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }),
+        const [rows, editJson] = await Promise.all([
+          loadOwnerCompaniesCached(async () => {
+            const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+              credentials: "include",
+            });
+            const compJson = await compRes.json();
+            return Array.isArray(compJson?.data) ? compJson.data : [];
+          }).then((list) => list.map(normalizeCompanyRow)),
+          fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }).then((r) => r.json()),
         ]);
-        const compJson = await compRes.json();
-        const editJson = await editRes.json();
         if (cancelled) return;
 
-        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
         setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 

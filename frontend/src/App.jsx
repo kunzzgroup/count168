@@ -10,10 +10,10 @@ import AccountListPage from "./pages/account/AccountListPage.jsx";
 import ProcessListPage from "./pages/processlist/ProcessListPage.jsx";
 import AutoRenewPage from "./pages/autorenew/AutoRenewPage.jsx";
 import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
-import DomainPage from "./pages/domain/DomainPage.jsx";
-import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
 
 const TransactionDashboardPage = lazy(() => import("./pages/dashboard/TransactionDashboardPage.jsx"));
+const DomainPage = lazy(() => import("./pages/domain/DomainPage.jsx"));
+const OwnershipPage = lazy(() => import("./pages/ownership/OwnershipPage.jsx"));
 const BankProcessListPage = lazy(() => import("./pages/bankprocesslist/BankProcessListPage.jsx"));
 const DataCapturePage = lazy(() => import("./pages/datacapture/DataCapturePage.jsx"));
 const DataCaptureSummaryPage = lazy(() => import("./pages/datacapturesummary/DataCaptureSummaryPage.jsx"));

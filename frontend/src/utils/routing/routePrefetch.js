@@ -10,8 +10,6 @@ const EAGER_ROUTE_PATHS = new Set([
   "/games-process-list",
   "/auto-renew",
   "/announcement",
-  "/domain",
-  "/ownership",
 ]);
 
 function prefetchModule(key, loader) {
@@ -26,6 +24,8 @@ function prefetchModule(key, loader) {
 export function prefetchAuthenticatedRoutes() {
   const routes = [
     "/dashboard",
+    "/domain",
+    "/ownership",
     "/bank-process-list",
     "/datacapture",
     "/datacapturesummary",
@@ -50,6 +50,12 @@ export function prefetchRouteModule(pathname) {
   switch (path) {
     case "/dashboard":
       prefetchModule(path, () => import("../../pages/dashboard/TransactionDashboardPage.jsx"));
+      break;
+    case "/domain":
+      prefetchModule(path, () => import("../../pages/domain/DomainPage.jsx"));
+      break;
+    case "/ownership":
+      prefetchModule(path, () => import("../../pages/ownership/OwnershipPage.jsx"));
       break;
     case "/bank-process-list":
       prefetchModule(path, () => import("../../pages/bankprocesslist/BankProcessListPage.jsx"));

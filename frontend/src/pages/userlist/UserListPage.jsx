@@ -12,6 +12,7 @@ import {
   pickDefaultCompanyForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
+  loadOwnerCompaniesCached,
   sortedUniqueGroupIds,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { isGroupLogin, resolveVisibleGroupIds } from "../../utils/company/loginScope.js";
@@ -102,6 +103,24 @@ function resolveGroupIdFromEntityCompanyId(companies, entityCompanyId) {
   if (code && companyRowIsGroupEntity(row, code)) return code;
   const gid = String(row.group_id || "").trim().toUpperCase();
   return gid || null;
+}
+
+const USERLIST_SKELETON_ROWS = 8;
+
+function UserListSkeletonRows({ columns }) {
+  return Array.from({ length: USERLIST_SKELETON_ROWS }, (_, idx) => (
+    <div
+      key={`userlist-sk-${idx}`}
+      className={`user-card user-list-row user-card--skeleton show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}
+      aria-hidden="true"
+    >
+      {Array.from({ length: columns }, (__, col) => (
+        <div key={col} className="card-item">
+          <span className="userlist-skeleton-bar" style={{ width: `${52 + ((idx + col) * 11) % 36}%` }} />
+        </div>
+      ))}
+    </div>
+  ));
 }
 
 export default function UserListPage() {
@@ -432,10 +451,14 @@ export default function UserListPage() {
           navigate("/dashboard", { replace: true });
           return;
         }
-        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-        const compJson = await compRes.json();
+        const rows = (await loadOwnerCompaniesCached(async () => {
+          const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+            credentials: "include",
+          });
+          const compJson = await compRes.json();
+          return Array.isArray(compJson?.data) ? compJson.data : [];
+        })).map(normalizeCompanyRow);
         if (cancelled) return;
-        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
         const modalCompanyList = buildModalCompanyList(rows);
         modalCompaniesCacheRef.current = modalCompanyList;
@@ -1210,6 +1233,9 @@ export default function UserListPage() {
               )}
             </div>
             <div className={`user-cards${tableSwapAnimating ? " user-cards--settling" : ""}`} aria-busy={listBusy}>
+              {(bootLoading || listBusy) && pageRows.length === 0 ? (
+                <UserListSkeletonRows columns={showBulkDeleteColumn ? 10 : 9} />
+              ) : null}
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);

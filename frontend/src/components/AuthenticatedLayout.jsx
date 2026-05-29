@@ -22,6 +22,7 @@ import {
   applyLoginScopeToSessionStorageIfNeeded,
   clearDashboardFilterSession,
   DASHBOARD_GROUP_FILTER_EVENT,
+  loadOwnerCompaniesCached,
   shouldHideSidebarProcess,
 } from "../utils/company/sharedCompanyFilter.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
@@ -327,6 +328,13 @@ export default function AuthenticatedLayout() {
   useEffect(() => {
     if (loading || !me) return;
     prefetchAuthenticatedRoutes();
+    void loadOwnerCompaniesCached(async () => {
+      const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+        credentials: "include",
+      });
+      const json = await res.json();
+      return Array.isArray(json?.data) ? json.data : [];
+    });
   }, [loading, me]);
 
   useEffect(() => {
