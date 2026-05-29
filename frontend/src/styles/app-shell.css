@@ -72,4 +72,29 @@
 .ec-page-shell__content {
   width: 100%;
   min-height: min(72vh, calc(100vh - 120px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.24s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)),
+    visibility 0.24s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+
+.ec-page-shell__content.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.ec-page-shell__content:not(.is-active) {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-page-shell__content {
+    transition: none;
+  }
 }

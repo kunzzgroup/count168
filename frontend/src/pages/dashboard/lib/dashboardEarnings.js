@@ -9,6 +9,23 @@ export function getCurrencyColor(code, fallbackIndex = 0) {
   return DASHBOARD_CURRENCY_FALLBACK_PALETTE[fallbackIndex % DASHBOARD_CURRENCY_FALLBACK_PALETTE.length];
 }
 
+/** Safe id fragment for SVG gradient defs */
+export function pieGradientId(code) {
+  return `pieGrad-${String(code || "x").replace(/[^a-zA-Z0-9]/g, "")}`;
+}
+
+/** Lighten a #RRGGBB hex for gradient highlights */
+export function lightenHex(hex, mix = 0.22) {
+  const raw = String(hex || "").replace("#", "");
+  if (raw.length !== 6) return hex || "#6366f1";
+  const n = parseInt(raw, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const blend = (c) => Math.round(c + (255 - c) * mix);
+  return `#${[blend(r), blend(g), blend(b)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
 export function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
   return rows
     .filter((row) => row.earnings != null)
@@ -16,13 +33,17 @@ export function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
       const originalEarnings = row.earnings;
       const earnings =
         useConverted && row.earningsConverted != null ? row.earningsConverted : row.earnings;
+      const fill = getCurrencyColor(row.code, index);
       return {
         code: row.code,
         earnings,
         originalEarnings,
         earningsConverted: row.earningsConverted,
         value: Math.abs(earnings),
-        fill: getCurrencyColor(row.code, index),
+        fill,
+        gradientId: pieGradientId(row.code),
+        gradientFrom: lightenHex(fill, 0.28),
+        gradientTo: fill,
       };
     })
     .filter((row) => row.value > 0)
