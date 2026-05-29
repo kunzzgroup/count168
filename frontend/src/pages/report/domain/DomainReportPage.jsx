@@ -45,9 +45,12 @@ import { useReportAbortSeq } from "../shared/useReportAbortSeq.js";
 import {
   customerReportScopeCacheCompanyKey,
   customerReportScopeCacheKey,
-  customerReportScopeIsReady,
-  resolveCustomerReportScope,
 } from "../shared/reportScope.js";
+import {
+  domainReportScopeIsReady,
+  domainReportUsesSalaryBonusProcesses,
+  resolveDomainReportScope,
+} from "./domainReportScope.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 const REPORT_PAGE_KEY = "domain";
@@ -249,11 +252,11 @@ export default function DomainReportPage() {
   }, [companies, companyId]);
 
   const reportScope = useMemo(
-    () => resolveCustomerReportScope({ companies, selectedGroup, companyId }),
+    () => resolveDomainReportScope({ companies, selectedGroup, companyId }),
     [companies, selectedGroup, companyId],
   );
 
-  const isGroupScope = reportScope?.mode === "group";
+  const isGroupScope = domainReportUsesSalaryBonusProcesses(reportScope);
 
   const reportParams = useMemo(
     () => ({
@@ -269,7 +272,7 @@ export default function DomainReportPage() {
   );
 
   const loadReport = useCallback(async () => {
-    if (!customerReportScopeIsReady(reportScope) || !dateFrom || !dateTo) return;
+    if (!domainReportScopeIsReady(reportScope) || !dateFrom || !dateTo) return;
     const { signal, seq } = beginReportFetch();
     const quietRefresh = reportDataRef.current != null;
     if (quietRefresh) setReportSyncing(true);
@@ -405,7 +408,7 @@ export default function DomainReportPage() {
   }, []);
 
   const loadMetaData = useCallback(async () => {
-    if (!customerReportScopeIsReady(reportScope)) return;
+    if (!domainReportScopeIsReady(reportScope)) return;
     const { signal, seq } = beginMetaFetch();
     try {
       const curs = await fetchReportScopeCurrencies(reportScope, { signal });
@@ -457,7 +460,7 @@ export default function DomainReportPage() {
     if (prev != null && Number(prev) !== Number(companyId)) {
       invalidateReportFetch();
       setReportSyncing(false);
-      const prevScope = resolveCustomerReportScope({
+      const prevScope = resolveDomainReportScope({
         companies,
         selectedGroup,
         companyId: prev,
@@ -468,7 +471,7 @@ export default function DomainReportPage() {
         showAllCurrenciesRef.current,
       );
       const savedKey = customerReportScopeCacheCompanyKey(
-        resolveCustomerReportScope({ companies, selectedGroup, companyId }),
+        resolveDomainReportScope({ companies, selectedGroup, companyId }),
       );
       const saved = savedKey != null ? currencyPrefsByCompanyRef.current[savedKey] : null;
       if (saved?.showAllCurrencies) {
@@ -498,7 +501,7 @@ export default function DomainReportPage() {
   }, [currencyFilterReady, invalidateReportFetch]);
 
   useEffect(() => {
-    if (!customerReportScopeIsReady(reportScope)) {
+    if (!domainReportScopeIsReady(reportScope)) {
       setCurrencyFilterReady(false);
       return;
     }
@@ -519,7 +522,7 @@ export default function DomainReportPage() {
   }, [reportScope, invalidateReportFetch]);
 
   useEffect(() => {
-    if (!customerReportScopeIsReady(reportScope) || !currencyFilterReady) return undefined;
+    if (!domainReportScopeIsReady(reportScope) || !currencyFilterReady) return undefined;
     const handler = window.setTimeout(() => {
       loadReport();
     }, REPORT_FETCH_DEBOUNCE_MS);
@@ -530,7 +533,7 @@ export default function DomainReportPage() {
   }, [reportScope, currencyFilterReady, loadReport, invalidateReportFetch]);
 
   useEffect(() => {
-    if (!customerReportScopeIsReady(reportScope) || !currencyFilterReady) return;
+    if (!domainReportScopeIsReady(reportScope) || !currencyFilterReady) return;
     const key = buildReportSnapshotKey(reportParams);
     const snap = getReportSnapshot(REPORT_PAGE_KEY);
     if (snap?.key === key && snap.data && reportDataRef.current == null) {

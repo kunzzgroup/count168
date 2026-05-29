@@ -381,6 +381,10 @@ function getLinkedProcessTargets(PDO $pdo, int $processId, int $companyId): arra
  * 当源 Process 的 Formula 更新时，自动同步到所有 sync_source_process_id 指向该源 Process 的 Processes
  */
 function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $templateData, int $companyId) {
+    global $capture_scope_group;
+    if (!empty($capture_scope_group)) {
+        return;
+    }
     try {
         $syncedProcesses = getLinkedProcessTargets($pdo, $sourceProcessId, $companyId);
         
@@ -528,6 +532,10 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
  * A_ID 删除某行时，同步删除所有 sync_source_process_id = A_ID 的 process 中对应行（按 id_product/account_id/product_type/formula_variant/sub_order 匹配）
  */
 function syncDeleteTemplateToMultiUseProcesses(PDO $pdo, int $sourceProcessId, string $idProduct, $accountId, string $productType, $formulaVariant, $subOrder, int $companyId) {
+    global $capture_scope_group;
+    if (!empty($capture_scope_group)) {
+        return;
+    }
     try {
         $syncedProcesses = getLinkedProcessTargets($pdo, $sourceProcessId, $companyId);
         if (empty($syncedProcesses)) {
@@ -586,18 +594,18 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         } elseif (is_string($processIdValue) && trim($processIdValue) !== '') {
             // If it's a string (process.process_id like 'KKKAB'), try to find process.id
             // This is for backward compatibility during migration
-            try {
-                $stmt = $pdo->prepare("SELECT id FROM process WHERE process_id = ? AND company_id = ? LIMIT 1");
-                $stmt->execute([trim($processIdValue), $companyId]);
-                $processRow = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($processRow) {
-                    $processId = (int)$processRow['id'];
-                    error_log("Converted process_id from string '{$processIdValue}' to int {$processId}");
-                } else {
-                    error_log("Warning: Could not find process.id for process_id '{$processIdValue}'");
-                }
-            } catch (Exception $e) {
-                error_log("Error converting process_id '{$processIdValue}': " . $e->getMessage());
+            global $capture_scope_group;
+            $resolvedPid = dcResolveProcessIdByCode(
+                $pdo,
+                (int) $companyId,
+                trim($processIdValue),
+                (bool) $capture_scope_group
+            );
+            if ($resolvedPid !== null) {
+                $processId = $resolvedPid;
+                error_log("Converted process_id from string '{$processIdValue}' to int {$processId}");
+            } else {
+                error_log("Warning: Could not find process.id for process_id '{$processIdValue}'");
             }
         }
     }
@@ -2010,7 +2018,8 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null, ?array &$r
     return $templates;
 }
 
-// Check if this is a submit action
+require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
+
 // 检查用户是否登录
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -2018,21 +2027,37 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// 优先使用请求中的 company_id（如果提供了），否则使用 session 中的
-$company_id = null;
-if (isset($_GET['company_id']) && !empty($_GET['company_id'])) {
-    $company_id = (int)$_GET['company_id'];
-} elseif (isset($_POST['company_id']) && !empty($_POST['company_id'])) {
-    $company_id = (int)$_POST['company_id'];
-} elseif (isset($_SESSION['company_id'])) {
-    $company_id = $_SESSION['company_id'];
-}
+$scopeParams = array_merge($_GET, $_POST);
+$capture_scope_group = false;
+$req_action_for_company = isset($_GET['action']) ? (string) $_GET['action'] : '';
+$hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
 
-// Summary 状态读写必须与当前会话公司一致；忽略 query 里可能过期的 company_id（多标签切公司、缓存页等），避免 403
-$req_action_for_company = isset($_GET['action']) ? (string)$_GET['action'] : '';
-if (($req_action_for_company === 'save_summary_state' || $req_action_for_company === 'get_summary_state')
-    && isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] > 0) {
-    $company_id = (int)$_SESSION['company_id'];
+try {
+    if ($hasExplicitScope) {
+        $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
+        $company_id = (int) $scopeResolved['company_id'];
+        $capture_scope_group = (bool) $scopeResolved['is_group_scope'];
+    } else {
+        $company_id = null;
+        if (isset($scopeParams['company_id']) && $scopeParams['company_id'] !== '') {
+            $company_id = (int) $scopeParams['company_id'];
+        } elseif (isset($_SESSION['company_id'])) {
+            $company_id = (int) $_SESSION['company_id'];
+        }
+        if (
+            !$hasExplicitScope
+            && ($req_action_for_company === 'save_summary_state' || $req_action_for_company === 'get_summary_state')
+            && isset($_SESSION['company_id'])
+            && (int) $_SESSION['company_id'] > 0
+        ) {
+            $company_id = (int) $_SESSION['company_id'];
+        }
+        $capture_scope_group = false;
+    }
+} catch (Exception $scopeException) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => $scopeException->getMessage(), 'data' => null]);
+    exit;
 }
 
 if (!$company_id) {
@@ -2041,50 +2066,27 @@ if (!$company_id) {
     exit;
 }
 
-// 验证 company_id 是否属于当前用户（与 submit_api / update_company_session_api 等逻辑一致）
-$current_user_id = $_SESSION['user_id'];
-$current_user_role = isset($_SESSION['role']) ? strtolower(trim($_SESSION['role'])) : '';
-$current_user_type = isset($_SESSION['user_type']) ? strtolower(trim($_SESSION['user_type'])) : '';
-
-// 若本次请求的 company_id 与 session 中一致，说明用户已在选公司时通过校验（如 update_company_session_api），直接放行
-$session_company_id = isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 0;
-$company_access_ok = false;
-if ($session_company_id > 0 && $session_company_id === (int)$company_id) {
-    $company_access_ok = true;
+$groupIdForAccess = dcNormalizeGroupId($scopeParams['group_id'] ?? '');
+if (!checkReportGamesAccess($pdo, $company_id, $groupIdForAccess !== '' ? $groupIdForAccess : null)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized permission category', 'data' => null]);
+    exit;
 }
 
-if (!$company_access_ok) {
-// owner：验证 company 是否属于该 owner（role 或 user_type 为 owner 均按 owner 处理）
-if ($current_user_role === 'owner' || $current_user_type === 'owner') {
-    $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-    $stmt->execute([$company_id, $owner_id]);
-    if ($stmt->fetchColumn() == 0) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
-        exit;
-    }
-} else {
-    // 普通用户：先查 user_company_map；若无则再允许“该公司 owner 为当前用户”（兜底，避免 session role 未正确设置）
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM user_company_map 
-        WHERE user_id = ? AND company_id = ?
-    ");
-    $stmt->execute([$current_user_id, $company_id]);
-    if ($stmt->fetchColumn() > 0) {
-        // 已通过 user_company_map 授权
-    } else {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-        $stmt->execute([$company_id, $current_user_id]);
-        if ($stmt->fetchColumn() == 0) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => '无权限访问该公司', 'data' => null]);
-            exit;
-        }
-    }
+$viewGroupForAccess = dcNormalizeGroupId(
+    $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+);
+try {
+    dcAssertUserCanAccessCompany(
+        $pdo,
+        (int) $company_id,
+        $viewGroupForAccess !== '' ? $viewGroupForAccess : null
+    );
+} catch (Exception $accessException) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => $accessException->getMessage(), 'data' => null]);
+    exit;
 }
-} // end !$company_access_ok
 
 $action = isset($_GET['action']) ? $_GET['action'] : 'load';
 
@@ -2137,6 +2139,15 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'template_id' => isset($row['template_id']) && !empty($row['template_id']) ? (int)$row['template_id'] : null,
             'formula_variant' => isset($row['formula_variant']) && $row['formula_variant'] !== null && $row['formula_variant'] !== '' ? (int)$row['formula_variant'] : null,
         ];
+
+        if (!empty($templatePayload['process_id'])) {
+            dcAssertProcessIdInCaptureScope(
+                $pdo,
+                (int) $templatePayload['process_id'],
+                (int) $company_id,
+                (bool) $capture_scope_group
+            );
+        }
         
         $templateResult = saveTemplateRow($pdo, $templatePayload, $company_id);
         
@@ -2491,6 +2502,8 @@ if ($action === 'templates') {
         if ($processId === null) {
             throw new Exception('Process ID is required');
         }
+
+        dcAssertProcessIdInCaptureScope($pdo, (int) $processId, (int) $company_id, (bool) $capture_scope_group);
 
         // 在 Data Capture 选择的 Process 下设置的 formula 只在该 Process 显示；若该 Process 有 sync 到其他 Process 则同步显示
         // Summary 的 formula 仅来自 Maintenance（data_capture_templates）；Process 在 Maintenance 无记录则不显示 formula
@@ -3204,10 +3217,12 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'success' => true,
             'currencies' => $currencies,
             'accounts' => $accounts,
+            'scope' => !empty($capture_scope_group) ? 'group' : 'company',
             'debug' => [
                 'accounts_count' => count($accounts),
                 'currencies_count' => count($currencies),
-                'company_id' => $company_id
+                'company_id' => $company_id,
+                'capture_scope_group' => !empty($capture_scope_group),
             ]
         ]);
         

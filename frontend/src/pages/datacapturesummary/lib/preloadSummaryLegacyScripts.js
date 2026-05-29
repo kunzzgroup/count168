@@ -78,7 +78,7 @@ export function areSummaryLegacyScriptsLoaded() {
 }
 
 /** Bump when js/datacapturesummary.js changes so browsers fetch the latest legacy bundle. */
-const SUMMARY_LEGACY_SCRIPT_VERSION = "20260523-delete-i18n";
+const SUMMARY_LEGACY_SCRIPT_VERSION = "20260529-currency-scope";
 
 /** Load decimal + money + summary legacy bundle (parallel). */
 export async function ensureSummaryLegacyScriptsLoaded() {

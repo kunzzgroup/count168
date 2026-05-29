@@ -30,6 +30,12 @@ import "../../../public/css/datacapture.css";
 import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
 import { readCaptureSessionMeta } from "./lib/dataCaptureStorage.js";
 import {
+  dataCaptureScopeCacheKey,
+  dataCaptureScopeIsReady,
+  resolveDataCaptureScope,
+} from "./lib/dataCaptureScope.js";
+import { resolveGroupEntityRowFromSnap } from "../transaction/lib/transactionScope.js";
+import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
   syncDataCaptureCompanySession,
@@ -164,6 +170,7 @@ export default function DataCapturePage() {
   const bootCompletedRef = useRef(false);
   const scriptsBootedRef = useRef(false);
   const prevGroupOnlyGroupRef = useRef(null);
+  const prevScopeKeyRef = useRef(null);
   /** Tracks anchor session sync per group (sidebar flags follow PHP session company). */
   const groupAnchorSessionRef = useRef({ group: null, companyId: null });
 
@@ -204,7 +211,37 @@ export default function DataCapturePage() {
     return inGroup[0] ?? null;
   }, [isCompanySelected, currentCompanyRow, companiesDeduped, selectedGroup]);
 
-  const effectiveCompanyId = isCompanySelected ? companyId : anchorCompanyRow?.id ?? null;
+  const groupOnlyTable = !isCompanySelected && canUseGroupOnlyMode(me);
+
+  const captureScope = useMemo(
+    () =>
+      resolveDataCaptureScope({
+        companies: companiesNormalized,
+        selectedGroup,
+        companyId,
+        groupOnlyMode: groupOnlyTable,
+      }),
+    [companiesNormalized, selectedGroup, companyId, groupOnlyTable],
+  );
+
+  const scopeCompanyId =
+    captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
+      ? Number(captureScope.scopeCompanyId)
+      : null;
+
+  const groupEntityRow = useMemo(
+    () =>
+      selectedGroup ? resolveGroupEntityRowFromSnap(companiesDeduped, selectedGroup) : null,
+    [companiesDeduped, selectedGroup],
+  );
+
+  /** API + storage company id (group entity vs subsidiary). */
+  const effectiveCompanyId = scopeCompanyId;
+
+  /** PHP session sync: group entity in group-only mode. */
+  const sessionSyncCompanyId = isCompanySelected
+    ? companyId
+    : groupEntityRow?.id ?? anchorCompanyRow?.id ?? null;
 
   const groupCompanyIds = useMemo(() => {
     if (isCompanySelected || !selectedGroup) return [];
@@ -214,13 +251,19 @@ export default function DataCapturePage() {
   }, [isCompanySelected, selectedGroup, companiesDeduped]);
 
   const companyCode = useMemo(() => {
-    const raw = (isCompanySelected ? currentCompanyRow : anchorCompanyRow)?.company_id;
+    if (isCompanySelected) {
+      const raw = currentCompanyRow?.company_id;
+      if (raw != null && String(raw).trim() !== "") return String(raw).trim();
+    } else if (groupOnlyTable && selectedGroup) {
+      return String(selectedGroup).trim().toUpperCase();
+    }
+    const raw = anchorCompanyRow?.company_id;
     if (raw != null && String(raw).trim() !== "") return String(raw).trim();
-    if (effectiveCompanyId != null && Number(effectiveCompanyId) > 0) return String(effectiveCompanyId);
+    if (scopeCompanyId != null && Number(scopeCompanyId) > 0) return String(scopeCompanyId);
     return "";
-  }, [isCompanySelected, currentCompanyRow, anchorCompanyRow, effectiveCompanyId]);
+  }, [isCompanySelected, currentCompanyRow, groupOnlyTable, selectedGroup, anchorCompanyRow, scopeCompanyId]);
 
-  const form = useDataCaptureFormEngine(effectiveCompanyId, {
+  const form = useDataCaptureFormEngine(captureScope, {
     applyCompanyOnlyFields: isCompanySelected,
     groupCompanyIds: isCompanySelected ? null : groupCompanyIds,
     selectedGroup,
@@ -228,7 +271,7 @@ export default function DataCapturePage() {
 
   const groupOnlyProcessOptions = useMemo(() => getGroupOnlyProcessOptions(t), [t]);
 
-  const { submittedItems } = useDataCaptureSubmittedList(effectiveCompanyId, form.captureDate);
+  const { submittedItems } = useDataCaptureSubmittedList(captureScope, form.captureDate);
 
   const { topSectionRef, formColumnRef } = useDataCaptureSubmittedPanelHeight();
 
@@ -251,9 +294,8 @@ export default function DataCapturePage() {
   } = useDataCaptureLegacyChrome();
 
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
-  const groupOnlyTable = !isCompanySelected && canUseGroupOnlyMode(me);
   const submitReset = useDataCaptureSubmitReset({
-    companyId: effectiveCompanyId,
+    captureScope,
     form,
     captureType,
     mutationsBlocked,
@@ -552,11 +594,11 @@ export default function DataCapturePage() {
     form.clearProcessSelection?.();
   }, [companyId, selectedGroup, currentCompanyRow, navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
 
-  /** Group-only UI keeps company unselected; sync anchor company so sidebar matches AP vs IG. */
+  /** Group-only UI: sync PHP session to group entity so Summary/API match scope. */
   useEffect(() => {
     if (bootLoading || isCompanySelected || !selectedGroup) return;
     const anchorId =
-      anchorCompanyRow?.id != null ? Number(anchorCompanyRow.id) : Number.NaN;
+      sessionSyncCompanyId != null ? Number(sessionSyncCompanyId) : Number.NaN;
     if (!Number.isFinite(anchorId) || anchorId <= 0) return;
 
     const g = String(selectedGroup).trim().toUpperCase();
@@ -590,10 +632,22 @@ export default function DataCapturePage() {
     bootLoading,
     isCompanySelected,
     selectedGroup,
-    anchorCompanyRow?.id,
+    sessionSyncCompanyId,
     me?.company_id,
     navigate,
   ]);
+
+  useEffect(() => {
+    const scopeKey = dataCaptureScopeCacheKey(captureScope);
+    const prev = prevScopeKeyRef.current;
+    if (prev != null && prev !== scopeKey) {
+      window.__DC_CLEAR_CAPTURE_TABLE__?.();
+      window.__DC_REACT_FORM_RESET__?.();
+      window.selectedDescriptions = [];
+      void window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
+    }
+    prevScopeKeyRef.current = scopeKey || null;
+  }, [captureScope]);
 
   const switchCompanySessionAndNavigate = useCallback(async (nextCompanyId) => {
     const id = Number(nextCompanyId);
@@ -702,14 +756,15 @@ export default function DataCapturePage() {
   useEffect(() => {
     if (bootLoading || !me) return;
 
-    if (effectiveCompanyId) {
+    if (dataCaptureScopeIsReady(captureScope)) {
       window.DATACAPTURE_COMPANY_ID = effectiveCompanyId;
       window.DATACAPTURE_COMPANY_CODE = companyCode || String(effectiveCompanyId);
+      window.DATACAPTURE_CAPTURE_SCOPE = captureScope;
     }
     window.DATACAPTURE_USER_ROLE = String(me.role || "").toLowerCase();
 
     const syncCompanyContext = async () => {
-      if (!effectiveCompanyId) return;
+      if (!dataCaptureScopeIsReady(captureScope)) return;
       try {
         await window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
       } catch {
@@ -723,7 +778,7 @@ export default function DataCapturePage() {
       return;
     }
 
-    if (!effectiveCompanyId) return;
+    if (!dataCaptureScopeIsReady(captureScope)) return;
 
     let alive = true;
     setEngineError("");
@@ -756,7 +811,12 @@ export default function DataCapturePage() {
     return () => {
       alive = false;
     };
-  }, [bootLoading, me, effectiveCompanyId, companyCode, isCompanySelected]);
+  }, [bootLoading, me, captureScope, effectiveCompanyId, companyCode, isCompanySelected]);
+
+  useEffect(() => {
+    if (!scriptsReady || !dataCaptureScopeIsReady(captureScope)) return;
+    submitReset.restoreFromStorage();
+  }, [scriptsReady, captureScope, submitReset.restoreFromStorage]);
 
   useEffect(() => {
     if (!scriptsReady) return;
@@ -764,7 +824,7 @@ export default function DataCapturePage() {
   }, [scriptsReady]);
 
   const list = filterCompaniesWithDisplayId(companiesForPicker);
-  const pageShellKey = isCompanySelected ? `company-${companyId}` : "group-only";
+  const pageShellKey = dataCaptureScopeCacheKey(captureScope) || "pending";
 
   return (
     <DataCaptureErrorBoundary key={pageShellKey}>

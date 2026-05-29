@@ -8,7 +8,7 @@ import { pushSummaryNotification } from "../lib/summaryNotify.js";
 /**
  * Phase 7: React-owned Summary Submit orchestration.
  */
-export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutationsBlocked = false, t }) {
+export function useSummarySubmit({ captureScope, companyId, scriptsReady, onSuccess, mutationsBlocked = false, t }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inFlightRef = useRef(false);
   const onSuccessRef = useRef(onSuccess);
@@ -60,6 +60,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutations
       }
 
       const result = await executeSummarySubmit({
+        captureScope,
         companyId,
         parsedProcessData: session.processData,
         summaryRows: prep.rows,
@@ -86,7 +87,7 @@ export function useSummarySubmit({ companyId, scriptsReady, onSuccess, mutations
       inFlightRef.current = false;
       setSubmitting(false);
     }
-  }, [companyId, setSubmitting, mutationsBlocked, t]);
+  }, [captureScope, companyId, setSubmitting, mutationsBlocked, t]);
 
   useEffect(() => {
     if (!scriptsReady) return undefined;

@@ -91,7 +91,7 @@ function readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData) {
 }
 
 export function useDataCaptureFormEngine(
-  companyId,
+  captureScope,
   { applyCompanyOnlyFields = true, groupCompanyIds = null, selectedGroup = null } = {},
 ) {
   const dateOptions = useMemo(() => buildDateOptions(), []);
@@ -150,8 +150,12 @@ export function useDataCaptureFormEngine(
   selectedGroupRef.current = selectedGroup;
   const skipGroupPrefsOnceRef = useRef(!!restoredProcessData?.process);
 
+  const companyId = captureScope?.scopeCompanyId ?? null;
+
   const companyIdRef = useRef(companyId);
   companyIdRef.current = companyId;
+  const captureScopeRef = useRef(captureScope);
+  captureScopeRef.current = captureScope;
 
   const applyCompanyOnlyFieldsRef = useRef(applyCompanyOnlyFields);
   applyCompanyOnlyFieldsRef.current = applyCompanyOnlyFields;
@@ -170,8 +174,9 @@ export function useDataCaptureFormEngine(
     const { preserveSelection = false } = options;
     if (!applyCompanyOnlyFieldsRef.current) return;
     const cid = companyIdRef.current;
-    if (!cid) return;
-    const result = await fetchProcessesByDay(dateStr, cid);
+    const scope = captureScopeRef.current;
+    if (!cid || !scope) return;
+    const result = await fetchProcessesByDay(dateStr, scope);
     if (!result.success) return;
     const rows = Array.isArray(result.data) ? result.data : [];
     setProcessRows(rows);
@@ -199,8 +204,9 @@ export function useDataCaptureFormEngine(
   const loadInitialForm = useCallback(async () => {
     if (!applyCompanyOnlyFieldsRef.current) return;
     const cid = companyIdRef.current;
-    if (!cid) return;
-    const result = await fetchAddProcessFormData(cid);
+    const scope = captureScopeRef.current;
+    if (!cid || !scope) return;
+    const result = await fetchAddProcessFormData(scope);
     if (!result.success) return;
     const list = Array.isArray(result.currencies) ? result.currencies : [];
     const norm = list.map((c) => ({

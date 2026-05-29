@@ -8,7 +8,7 @@ import {
   runLegacyRateSelectAll,
   saveSummaryRefreshState,
 } from "../lib/summaryPageActions.js";
-import { loadCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
+import { loadActiveCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
 import { isDashboardGroupOnlyMode } from "../../../utils/company/sharedCompanyFilter.js";
 import { requestSummaryDeleteConfirmation } from "../lib/summaryDeleteFlow.js";
 import { syncSummaryDeleteButtonLabel } from "../lib/summaryDeleteButtonLabel.js";
@@ -17,7 +17,7 @@ import { useSummarySubmit } from "./useSummarySubmit.js";
 /**
  * Phase 4/7: React owns page chrome actions; Submit orchestration in useSummarySubmit.
  */
-export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked = false, t }) {
+export function useSummaryPageActions({ captureScope, companyId, scriptsReady, mutationsBlocked = false, t }) {
   const navigate = useNavigate();
   const rateSelectAllRef = useRef(null);
   const handleRefreshRef = useRef(async () => {});
@@ -41,14 +41,14 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
   const navigateBack = useCallback(() => {
     saveSummaryRefreshState();
     window.isNavigatingAwayByBackOrSubmit = true;
-    const session = loadCaptureSession();
+    const session = loadActiveCaptureSession();
     const groupOnly =
       session?.processData?.groupOnlyCapture === true || isDashboardGroupOnlyMode();
     navigate(buildSummaryRestoreCapturePath(companyId, { groupOnly }), { replace: true });
   }, [navigate, companyId]);
 
   const navigateAfterSubmitSuccess = useCallback(() => {
-    const session = loadCaptureSession();
+    const session = loadActiveCaptureSession();
     const groupOnly =
       session?.processData?.groupOnlyCapture === true || isDashboardGroupOnlyMode();
     clearSummarySessionAfterSubmit({ groupOnly });
@@ -56,6 +56,7 @@ export function useSummaryPageActions({ companyId, scriptsReady, mutationsBlocke
   }, [navigate, companyId]);
 
   const { submitSummary, isSubmitting } = useSummarySubmit({
+    captureScope,
     companyId,
     scriptsReady,
     mutationsBlocked,

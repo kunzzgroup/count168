@@ -10,6 +10,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../transactions/transaction_scope.php';
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
 
 /**
@@ -52,43 +53,54 @@ function dbAccountBelongsToCompany($pdo, $account_id, $company_id) {
 }
 
 /**
- * 获取当前公司 ID（支持 GET company_id 覆盖，仅 owner）
+ * 获取当前公司 ID（与 Summary / Data Capture scope 一致，支持集团实体 company_id）
  */
 function resolveCompanyId($pdo) {
-    $group_scope_id = isset($_GET['group_id']) ? strtoupper(trim((string)$_GET['group_id'])) : '';
-    $company_id = $_SESSION['company_id'] ?? null;
-    $requested = isset($_GET['company_id']) ? (int)$_GET['company_id'] : null;
-    if ($requested && gc_is_group_login()) {
-        gc_assert_company_id_allowed_for_login_scope($pdo, $requested, $group_scope_id !== '' ? $group_scope_id : null);
-        return $requested;
+    $viewGroup = isset($_GET['view_group']) ? strtoupper(trim((string) $_GET['view_group'])) : '';
+    $groupScopeId = isset($_GET['group_id']) ? strtoupper(trim((string) $_GET['group_id'])) : '';
+    if ($viewGroup === '' && $groupScopeId !== '') {
+        $viewGroup = $groupScopeId;
     }
-    if ($group_scope_id !== '') {
-        $stmt = $pdo->prepare("
-            SELECT id
-            FROM company
-            WHERE UPPER(TRIM(company_id)) = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$group_scope_id]);
-        $groupEntityId = (int)($stmt->fetchColumn() ?: 0);
-        if ($groupEntityId <= 0) {
-            $placeholderStmt = $pdo->prepare("
-                SELECT id
-                FROM company
-                WHERE TRIM(COALESCE(company_id, '')) = ''
-                  AND UPPER(TRIM(group_id)) = ?
-                ORDER BY id ASC
-                LIMIT 1
-            ");
-            $placeholderStmt->execute([$group_scope_id]);
-            $groupEntityId = (int)($placeholderStmt->fetchColumn() ?: 0);
+    if ($groupScopeId === '' && $viewGroup !== '') {
+        $groupScopeId = $viewGroup;
+    }
+
+    $requestedRaw = $_GET['company_id'] ?? null;
+    if ($requestedRaw !== null && $requestedRaw !== '') {
+        try {
+            return tx_resolve_request_company_id($pdo, [
+                'company_id' => (string) (int) $requestedRaw,
+                'view_group' => $viewGroup !== '' ? $viewGroup : null,
+                'group_id' => $groupScopeId !== '' ? $groupScopeId : null,
+            ]);
+        } catch (Exception $e) {
+            // fall through to legacy resolution below
         }
-        if ($groupEntityId > 0) {
-            if (gc_is_group_login()) {
-                gc_assert_company_id_allowed_for_login_scope($pdo, $groupEntityId, $group_scope_id);
+    }
+
+    if ($groupScopeId !== '') {
+        $entityId = tx_resolve_group_entity_company_id($pdo, $groupScopeId);
+        if ($entityId > 0) {
+            try {
+                return tx_resolve_request_company_id($pdo, [
+                    'company_id' => (string) $entityId,
+                    'view_group' => $viewGroup !== '' ? $viewGroup : $groupScopeId,
+                    'group_id' => $groupScopeId,
+                ]);
+            } catch (Exception $e) {
+                if (gc_is_group_login()) {
+                    gc_assert_company_id_allowed_for_login_scope($pdo, $entityId, $groupScopeId);
+                    return $entityId;
+                }
             }
-            return $groupEntityId;
         }
+    }
+
+    $company_id = $_SESSION['company_id'] ?? null;
+    $requested = isset($_GET['company_id']) ? (int) $_GET['company_id'] : null;
+    if ($requested && gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $requested, $groupScopeId !== '' ? $groupScopeId : null);
+        return $requested;
     }
 
     if (!$requested) {
@@ -98,14 +110,15 @@ function resolveCompanyId($pdo) {
     $role = $_SESSION['role'] ?? '';
     if ($role === 'owner') {
         $owner_id = $_SESSION['owner_id'] ?? $user_id;
-        $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
+        $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
         $stmt->execute([$requested, $owner_id]);
         if ($stmt->fetchColumn()) {
             return $requested;
         }
-    } elseif ($requested === (int)$_SESSION['company_id']) {
+    } elseif ($requested === (int) $_SESSION['company_id']) {
         return $requested;
     }
+
     return $company_id;
 }
 

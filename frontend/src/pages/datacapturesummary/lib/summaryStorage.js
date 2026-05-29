@@ -1,4 +1,5 @@
-/** localStorage keys shared with legacy datacapturesummary.js */
+import { loadActiveCaptureSession, CAPTURE_SCOPE_POINTER_KEY } from "../../datacapture/lib/dataCaptureStorage.js";
+import { dataCaptureScopeCacheCompanyKey } from "../../datacapture/lib/dataCaptureScope.js";
 export const SUMMARY_CAPTURE_STORAGE_KEYS = [
   "capturedTableData",
   "capturedProcessData",
@@ -38,12 +39,25 @@ export function consumeSummaryFreshNavigation() {
 
 export function clearSummaryCaptureRoundStorage() {
   try {
+    const session = loadActiveCaptureSession();
+    const scopeKey = session?.processData
+      ? dataCaptureScopeCacheCompanyKey({
+          mode: session.processData.groupOnlyCapture ? "group" : "company",
+          scopeCompanyId: session.processData.scopeCompanyId,
+          groupId: session.processData.captureSelectedGroup,
+        })
+      : localStorage.getItem(CAPTURE_SCOPE_POINTER_KEY);
+
     for (const key of SUMMARY_CAPTURE_STORAGE_KEYS) {
       localStorage.removeItem(key);
+      if (scopeKey != null) {
+        localStorage.removeItem(`${key}:${scopeKey}`);
+      }
       if (key === "capturedFormatPreviewHtml" || key === "captured655PreviewHtml") {
         sessionStorage.removeItem(key);
       }
     }
+    localStorage.removeItem(CAPTURE_SCOPE_POINTER_KEY);
   } catch {
     /* ignore */
   }
@@ -67,17 +81,12 @@ export function stripSummarySuccessParamFromUrl() {
 }
 
 export function readCaptureSessionFromStorage() {
-  try {
-    const tableDataStr = localStorage.getItem("capturedTableData");
-    const processDataStr = localStorage.getItem("capturedProcessData");
-    if (!tableDataStr || !processDataStr) return null;
-    return {
-      tableData: JSON.parse(tableDataStr),
-      processData: JSON.parse(processDataStr),
-    };
-  } catch {
-    return null;
-  }
+  const session = loadActiveCaptureSession();
+  if (!session) return null;
+  return {
+    tableData: session.tableData,
+    processData: session.processData,
+  };
 }
 
 /** Fresh capture round: drop stale captureId before rendering summary. */

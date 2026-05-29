@@ -1,4 +1,5 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { dataCaptureScopeApiParams } from "./dataCaptureScope.js";
 
 /** YYYY-MM-DD in local timezone */
 export function getLocalDateString(date = null) {
@@ -30,6 +31,25 @@ export function buildDateOptions() {
   return opts;
 }
 
+export function appendDataCaptureScopeParams(params, scope) {
+  const { companyId, viewGroup, groupId, reportScope } = dataCaptureScopeApiParams(scope);
+  if (companyId) params.set("company_id", String(companyId));
+  const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+  if (vg) params.set("view_group", vg);
+  const gid = groupId ? String(groupId).trim().toUpperCase() : "";
+  if (gid) params.set("group_id", gid);
+  if (reportScope) params.set("report_scope", reportScope);
+}
+
+function withScope(url, scope) {
+  if (!scope) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  const params = new URLSearchParams();
+  appendDataCaptureScopeParams(params, scope);
+  const qs = params.toString();
+  return qs ? `${url}${sep}${qs}` : url;
+}
+
 function withCompany(url, companyId) {
   if (!companyId) return url;
   const sep = url.includes("?") ? "&" : "?";
@@ -37,9 +57,16 @@ function withCompany(url, companyId) {
 }
 
 /** Same as legacy loadFormData: GET api/processes/addprocess_api.php */
-export async function fetchAddProcessFormData(companyId) {
+export async function fetchAddProcessFormData(scopeOrCompanyId) {
+  const scope =
+    scopeOrCompanyId != null && typeof scopeOrCompanyId === "object"
+      ? scopeOrCompanyId
+      : scopeOrCompanyId
+        ? { mode: "company", scopeCompanyId: Number(scopeOrCompanyId) }
+        : null;
   let url = buildApiUrl("api/processes/addprocess_api.php");
-  url = withCompany(url, companyId);
+  url = scope ? withScope(url, scope) : url;
+  if (!scope && scopeOrCompanyId) url = withCompany(url, scopeOrCompanyId);
   const response = await fetch(url, { credentials: "include" });
   return response.json();
 }
@@ -98,29 +125,61 @@ export async function fetchCurrenciesForCompanyIds(companyIds, preferredCompanyI
 }
 
 /** Same as legacy loadProcessesByDate */
-export async function fetchProcessesByDay(selectedDate, companyId) {
-  let url = buildApiUrl(
-    `api/processes/submitted_processes_api.php?action=get_processes_by_day&date=${encodeURIComponent(selectedDate)}`
-  );
-  url = withCompany(url, companyId);
+export async function fetchProcessesByDay(selectedDate, scope) {
+  const params = new URLSearchParams({
+    action: "get_processes_by_day",
+    date: selectedDate,
+  });
+  appendDataCaptureScopeParams(params, scope);
+  const url = buildApiUrl(`api/processes/submitted_processes_api.php?${params.toString()}`);
   const response = await fetch(url, { credentials: "include" });
   return response.json();
 }
 
 /** Same as legacy loadProcessData */
-export async function fetchProcessDetail(processId, companyId) {
-  let url = buildApiUrl(`api/processes/processlist_api.php?action=get_process&id=${encodeURIComponent(processId)}`);
-  url = withCompany(url, companyId);
+export async function fetchProcessDetail(processId, scope) {
+  const params = new URLSearchParams({
+    action: "get_process",
+    id: String(processId),
+  });
+  appendDataCaptureScopeParams(params, scope);
+  const url = buildApiUrl(`api/processes/processlist_api.php?${params.toString()}`);
   const response = await fetch(url, { credentials: "include" });
   return response.json();
 }
 
+/** Resolve numeric process.id for SALARY/BONUS under group entity company. */
+export async function fetchGroupProcessIdByCode(scope, processCode) {
+  const params = new URLSearchParams({
+    action: "get_group_process_id",
+    process_code: String(processCode || "").trim().toUpperCase(),
+  });
+  appendDataCaptureScopeParams(params, scope);
+  const url = buildApiUrl(`api/processes/submitted_processes_api.php?${params.toString()}`);
+  const response = await fetch(url, { credentials: "include" });
+  const json = await response.json();
+  if (!json?.success) {
+    const msg = json?.error || json?.message;
+    throw new Error(msg || "Process not found for scope");
+  }
+  if (json.data?.process_id == null) {
+    throw new Error("Process not found for scope");
+  }
+  const id = Number(json.data.process_id);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error("Process not found for scope");
+  }
+  return id;
+}
+
 /** Same as legacy `loadSubmittedProcesses`: GET get_submissions_by_capture_date */
-export async function fetchSubmissionsByCaptureDate(captureDate, companyId) {
-  let url = buildApiUrl(
-    `api/processes/submitted_processes_api.php?action=get_submissions_by_capture_date&capture_date=${encodeURIComponent(captureDate)}`
-  );
-  url = withCompany(url, companyId);
+export async function fetchSubmissionsByCaptureDate(captureDate, scope) {
+  const params = new URLSearchParams({
+    action: "get_submissions_by_capture_date",
+    capture_date: captureDate,
+  });
+  appendDataCaptureScopeParams(params, scope);
+  const url = buildApiUrl(`api/processes/submitted_processes_api.php?${params.toString()}`);
   const response = await fetch(url, { credentials: "include" });
   return response.json();
 }
@@ -177,20 +236,35 @@ export function displayTextFromProcessRow(process) {
 }
 
 /** GET addprocess_api.php — returns `descriptions` at top level (and under `data`). */
-export async function fetchDescriptionCatalog(companyId) {
+export async function fetchDescriptionCatalog(scopeOrCompanyId) {
+  const scope =
+    scopeOrCompanyId != null && typeof scopeOrCompanyId === "object"
+      ? scopeOrCompanyId
+      : scopeOrCompanyId
+        ? { mode: "company", scopeCompanyId: Number(scopeOrCompanyId) }
+        : null;
   let url = buildApiUrl("api/processes/addprocess_api.php");
-  url = withCompany(url, companyId);
+  url = scope ? withScope(url, scope) : withCompany(url, scopeOrCompanyId);
   const response = await fetch(url, { credentials: "include" });
   return response.json();
 }
 
 /** POST action=add_description — same fields as legacy `addDescriptionForm` handler. */
-export async function postAddDescription(companyId, descriptionName) {
+export async function postAddDescription(scopeOrCompanyId, descriptionName) {
   const formData = new FormData();
   formData.append("action", "add_description");
   formData.append("description_name", descriptionName);
-  if (companyId) {
-    formData.append("company_id", String(companyId));
+  const scope =
+    scopeOrCompanyId != null && typeof scopeOrCompanyId === "object"
+      ? scopeOrCompanyId
+      : null;
+  if (scope) {
+    const { companyId, groupId, reportScope } = dataCaptureScopeApiParams(scope);
+    if (companyId) formData.append("company_id", String(companyId));
+    if (groupId) formData.append("group_id", String(groupId));
+    if (reportScope) formData.append("report_scope", reportScope);
+  } else if (scopeOrCompanyId) {
+    formData.append("company_id", String(scopeOrCompanyId));
   }
   const response = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
     method: "POST",
@@ -212,3 +286,5 @@ export async function postDeleteDescription(descriptionId) {
   });
   return response.json();
 }
+
+export { appendDataCaptureScopeParams as appendScopeParams };

@@ -104,16 +104,24 @@ function DataCaptureSummaryPageInner() {
     };
   }, [lang]);
 
-  const { companyId, mutationsBlocked, bootLoading: sessionBootLoading, bootError } = useSummaryBoot();
+  const {
+    companyId,
+    captureScope,
+    scopeReady,
+    mutationsBlocked,
+    bootLoading: sessionBootLoading,
+    bootError,
+  } = useSummaryBoot();
 
   const [scriptsReady, setScriptsReady] = useState(() => areSummaryLegacyScriptsLoaded());
   const [engineError, setEngineError] = useState("");
   const [legacyInitDone, setLegacyInitDone] = useState(false);
   const [dataPopulating, setDataPopulating] = useState(false);
 
-  const sessionReady = !sessionBootLoading && !bootError && companyId != null;
+  const sessionReady = !sessionBootLoading && !bootError && scopeReady;
 
   const capture = useSummaryCaptureBootstrap({
+    captureScope,
     companyId,
     searchParams,
     enabled: sessionReady,
@@ -147,7 +155,7 @@ function DataCaptureSummaryPageInner() {
     }
   }, [capture.hasCaptureData, scriptsReady]);
 
-  const pageActions = useSummaryPageActions({ companyId, scriptsReady, mutationsBlocked, t });
+  const pageActions = useSummaryPageActions({ captureScope, companyId, scriptsReady, mutationsBlocked, t });
   const editFormula = useSummaryEditFormula({ scriptsReady, t });
   const overlays = useSummaryOverlays();
   const addAccount = useSummaryAddAccount({

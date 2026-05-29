@@ -10,6 +10,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/report_scope_common.php';
+require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 
 function domainReportMoneyOut($value): string {
     return money_out($value ?? '0');
@@ -29,11 +30,20 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
+function domainReportIsSalaryBonusGroup(string $groupId): bool
+{
+    $g = reportNormalizeGroupId($groupId);
+    return $g === 'AP' || $g === 'IG';
+}
+
 function resolveDomainReportGroupScope(PDO $pdo, array $resolved, int $companyId): bool {
+    $groupId = reportNormalizeGroupId($resolved['group_id'] ?? '');
+    if (!domainReportIsSalaryBonusGroup($groupId)) {
+        return false;
+    }
     if (($resolved['report_scope_hint'] ?? '') === 'group') {
         return true;
     }
-    $groupId = reportNormalizeGroupId($resolved['group_id'] ?? '');
     if ($groupId === '') {
         return false;
     }
@@ -45,6 +55,30 @@ function resolveDomainReportGroupScope(PDO $pdo, array $resolved, int $companyId
         return true;
     }
     return false;
+}
+
+/** Use group entity company id for SALARY/BONUS when scope is group. */
+function domainReportResolveEntityCompanyId(PDO $pdo, array $resolved, int $companyId, bool $groupScope): int
+{
+    if (!$groupScope) {
+        return $companyId;
+    }
+    $groupId = reportNormalizeGroupId($resolved['group_id'] ?? '');
+    if ($groupId === '') {
+        return $companyId;
+    }
+    $entityId = tx_resolve_group_entity_company_id($pdo, $groupId);
+    return $entityId > 0 ? $entityId : $companyId;
+}
+
+/** Group Domain Report: ensure SALARY + BONUS on entity, then return both rows. */
+function fetchGroupDomainProcesses(PDO $pdo, int $company_id, string $groupId): array
+{
+    $g = reportNormalizeGroupId($groupId);
+    foreach (['SALARY', 'BONUS'] as $code) {
+        dcEnsureProcessIdByCode($pdo, $company_id, $code, true, $g !== '' ? $g : null);
+    }
+    return fetchProcesses($pdo, $company_id, true);
 }
 
 /**
@@ -234,10 +268,17 @@ try {
     $resolved = resolveReportRequestCompanyScope($pdo, $_GET);
     $company_id = $resolved['company_id'];
     $groupScope = resolveDomainReportGroupScope($pdo, $resolved, $company_id);
+    $company_id = domainReportResolveEntityCompanyId($pdo, $resolved, $company_id, $groupScope);
 
     if ($action === 'processes') {
-        $processes = fetchProcesses($pdo, $company_id, $groupScope);
-        $formatted = formatProcesses($processes, $groupScope);
+        if ($groupScope) {
+            $groupIdForProcesses = reportNormalizeGroupId($resolved['group_id'] ?? '');
+            $processes = fetchGroupDomainProcesses($pdo, $company_id, $groupIdForProcesses);
+            $formatted = formatProcesses($processes, true);
+        } else {
+            $processes = fetchProcesses($pdo, $company_id, false);
+            $formatted = formatProcesses($processes, false);
+        }
         echo json_encode([
             'success' => true,
             'message' => 'OK',

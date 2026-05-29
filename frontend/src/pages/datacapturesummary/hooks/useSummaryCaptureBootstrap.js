@@ -16,7 +16,7 @@ import {
  * Phase 1: React owns capture-session read + server state prefetch.
  * Legacy script still renders the table; globals are hydrated before init.
  */
-export function useSummaryCaptureBootstrap({ companyId, searchParams, enabled }) {
+export function useSummaryCaptureBootstrap({ captureScope, companyId, searchParams, enabled }) {
   const freshFromCapture = isSummaryFreshFromCapture(searchParams);
   /** Sticky for this mount — URL ?success=1 is stripped after toast, must not flip hydrate mid-populate. */
   const freshPinnedRef = useRef(false);
@@ -55,7 +55,7 @@ export function useSummaryCaptureBootstrap({ companyId, searchParams, enabled })
   const serverStateQuery = useQuery({
     queryKey: summaryQueryKeys.serverState(companyId, processId, processCode),
     queryFn: ({ signal }) =>
-      fetchSummaryServerState({ companyId, processId, processCode, signal }),
+      fetchSummaryServerState({ captureScope, processId, processCode, signal }),
     enabled: serverStateQueryEnabled,
     staleTime: 0,
   });
@@ -73,6 +73,9 @@ export function useSummaryCaptureBootstrap({ companyId, searchParams, enabled })
 
     if (companyId != null) {
       window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
+    }
+    if (captureScope) {
+      window.DATACAPTURESUMMARY_CAPTURE_SCOPE = captureScope;
     }
 
     if (!hasCaptureData) {

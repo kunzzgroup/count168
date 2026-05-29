@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
+require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 
 // 开启 session
 if (session_status() === PHP_SESSION_NONE) {
@@ -25,14 +26,27 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// 优先使用请求中的 company_id（如果提供了），否则使用 session 中的
-$company_id = null;
-if (isset($_GET['company_id']) && !empty($_GET['company_id'])) {
-    $company_id = (int) $_GET['company_id'];
-} elseif (isset($_POST['company_id']) && !empty($_POST['company_id'])) {
-    $company_id = (int) $_POST['company_id'];
-} elseif (isset($_SESSION['company_id'])) {
-    $company_id = $_SESSION['company_id'];
+$scopeParams = array_merge($_GET, $_POST);
+$capture_scope_group = false;
+
+try {
+    if (dcRequestHasExplicitScope($scopeParams)) {
+        $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
+        $company_id = (int) $scopeResolved['company_id'];
+        $capture_scope_group = (bool) $scopeResolved['is_group_scope'];
+    } else {
+        $company_id = null;
+        if (isset($scopeParams['company_id']) && $scopeParams['company_id'] !== '') {
+            $company_id = (int) $scopeParams['company_id'];
+        } elseif (isset($_SESSION['company_id'])) {
+            $company_id = (int) $_SESSION['company_id'];
+        }
+        $capture_scope_group = false;
+    }
+} catch (Exception $scopeException) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => $scopeException->getMessage()]);
+    exit;
 }
 
 if (!$company_id) {
@@ -41,43 +55,22 @@ if (!$company_id) {
     exit;
 }
 
-// 验证 company_id 是否属于当前用户
-$current_user_id = $_SESSION['user_id'];
-$current_user_role = $_SESSION['role'] ?? '';
-
-// 如果是 owner，验证 company 是否属于该 owner
-if ($current_user_role === 'owner') {
-    $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-    $stmt->execute([$company_id, $owner_id]);
-    if ($stmt->fetchColumn() == 0) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'error' => '无权限访问该公司']);
-        exit;
-    }
-} else {
-    // 普通用户，验证是否通过 user_company_map 关联到该 company
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM user_company_map 
-        WHERE user_id = ? AND company_id = ?
-    ");
-    $stmt->execute([$current_user_id, $company_id]);
-    if ($stmt->fetchColumn() == 0) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'error' => '无权限访问该公司']);
-        exit;
-    }
-}
-
 $user_id = $_SESSION['user_id'];
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-// Enforce Data-Level Category Permission for Data Capture (Currently inherently 'Games')
-if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
+$groupIdForAccess = dcNormalizeGroupId($scopeParams['group_id'] ?? '');
+if (!checkReportGamesAccess($pdo, $company_id, $groupIdForAccess !== '' ? $groupIdForAccess : null)) {
     http_response_code(403);
     echo json_encode(['success' => false, 'error' => 'Unauthorized category permission (Games required)']);
     exit;
+}
+
+function dcSubmittedProcessScopeFilter(string $processAlias = 'p'): string
+{
+    global $capture_scope_group;
+    return $capture_scope_group
+        ? dcSqlGroupProcessFilter($processAlias)
+        : dcSqlCompanyProcessFilter($processAlias);
 }
 
 try {
@@ -104,6 +97,10 @@ try {
 
         case 'save_submission':
             saveSubmission($user_id);
+            break;
+
+        case 'get_group_process_id':
+            getGroupProcessId();
             break;
 
         default:
@@ -453,6 +450,8 @@ function getSubmissionsByCaptureDate($user_id)
             ? "DATE(COALESCE(spx.capture_date, spx.date_submitted)) = DATE(dc.capture_date)"
             : "DATE(spx.date_submitted) = DATE(dc.capture_date)";
 
+        $scopeProcessFilter = dcSubmittedProcessScopeFilter('p');
+
         // 合并 submitted_processes 与已有 data_captures（Summary 成功但 save_submission 未写入时仍能显示/去重）
         $stmt = $pdo->prepare("
             SELECT * FROM (
@@ -473,6 +472,7 @@ function getSubmissionsByCaptureDate($user_id)
                 WHERE sp.company_id = ?
                   AND $spDateFilter
                   AND p.company_id = ?
+                $scopeProcessFilter
                 $permissionCondition
 
                 UNION ALL
@@ -494,6 +494,7 @@ function getSubmissionsByCaptureDate($user_id)
                 WHERE dc.company_id = ?
                   AND DATE(dc.capture_date) = ?
                   AND p.company_id = ?
+                $scopeProcessFilter
                   AND NOT EXISTS (
                       SELECT 1 FROM submitted_processes spx
                       WHERE spx.process_id = dc.process_id
@@ -569,6 +570,8 @@ function getProcessesByDay($user_id)
         ? "DATE(COALESCE(sp.capture_date, sp.date_submitted)) = ?"
         : "DATE(sp.date_submitted) = ?";
 
+    $scopeProcessFilter = dcSubmittedProcessScopeFilter('p');
+
     // 已提交：submitted_processes 或已有 data_captures（与维护页一致，避免仅一侧有数据时下拉仍可选）
     // 按 process.process_id（业务代码，如 MGALAXYDM683）排除：同一公司+账务日下任一变体（不同 id / 不同币别描述）已提交则整组不再出现在下拉
     $baseSql = "
@@ -584,6 +587,7 @@ function getProcessesByDay($user_id)
         WHERE day.id = ?
         AND p.status = 'active'
         AND p.company_id = ?
+        $scopeProcessFilter
         AND NOT EXISTS (
             SELECT 1 FROM submitted_processes sp
             WHERE sp.process_id = p.id
@@ -850,5 +854,37 @@ function getTodayEntries($user_id)
         error_log("Error in getTodayEntries: " . $e->getMessage());
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
+}
+
+function getGroupProcessId()
+{
+    global $pdo, $company_id, $capture_scope_group, $scopeParams;
+
+    $processCode = strtoupper(trim((string) ($_GET['process_code'] ?? '')));
+    if ($processCode === '') {
+        echo json_encode(['success' => false, 'error' => 'Missing process_code']);
+        return;
+    }
+
+    $groupIdForEnsure = dcNormalizeGroupId($scopeParams['group_id'] ?? '');
+    $processId = dcEnsureProcessIdByCode(
+        $pdo,
+        (int) $company_id,
+        $processCode,
+        (bool) $capture_scope_group,
+        $groupIdForEnsure !== '' ? $groupIdForEnsure : null
+    );
+    if ($processId === null) {
+        echo json_encode(['success' => false, 'error' => 'Process not found for scope']);
+        return;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'process_id' => $processId,
+            'process_code' => $processCode,
+        ],
+    ]);
 }
 ?>

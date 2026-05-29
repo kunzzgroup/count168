@@ -24,6 +24,58 @@ function buildApiUrl(pathAndQuery) {
     return new URL(pathAndQuery, base).href;
 }
 
+/** Append Data Capture / Summary scope (group entity vs subsidiary) to API query params. */
+function appendSummaryCaptureScopeParams(params) {
+    const scope = window.DATACAPTURESUMMARY_CAPTURE_SCOPE;
+    if (!scope || typeof scope !== 'object') {
+        const cid = window.DATACAPTURESUMMARY_COMPANY_ID;
+        if (cid != null && String(cid).trim() !== '') {
+            params.set('company_id', String(cid));
+        }
+        return;
+    }
+    const mode = scope.mode || '';
+    if (scope.scopeCompanyId != null && Number(scope.scopeCompanyId) > 0) {
+        params.set('company_id', String(scope.scopeCompanyId));
+    }
+    const viewGroup = scope.viewGroup || scope.groupId || '';
+    if (viewGroup) {
+        params.set('view_group', String(viewGroup).trim().toUpperCase());
+    }
+    if (mode === 'group') {
+        params.set('report_scope', 'group');
+        const gid = scope.groupId || scope.viewGroup || '';
+        if (gid) {
+            params.set('group_id', String(gid).trim().toUpperCase());
+        }
+    } else if (mode === 'company') {
+        params.set('report_scope', 'company');
+        if (scope.groupId) {
+            params.set('group_id', String(scope.groupId).trim().toUpperCase());
+        }
+    }
+}
+
+function buildSummaryApiUrl(pathAndQuery) {
+    const path = pathAndQuery || '';
+    const qIdx = path.indexOf('?');
+    const basePath = qIdx >= 0 ? path.slice(0, qIdx) : path;
+    const existing = qIdx >= 0 ? path.slice(qIdx + 1) : '';
+    const params = new URLSearchParams(existing);
+    appendSummaryCaptureScopeParams(params);
+    const qs = params.toString();
+    return buildApiUrl(qs ? basePath + '?' + qs : basePath);
+}
+
+function getSummaryScopeCompanyId() {
+    const scope = window.DATACAPTURESUMMARY_CAPTURE_SCOPE;
+    if (scope && scope.scopeCompanyId != null && Number(scope.scopeCompanyId) > 0) {
+        return Number(scope.scopeCompanyId);
+    }
+    const cid = window.DATACAPTURESUMMARY_COMPANY_ID;
+    return cid != null && String(cid).trim() !== '' ? Number(cid) : null;
+}
+
 /** React owns summary tbody — never appendChild/reorder DOM rows directly. */
 function isSummaryReactManagedTable() {
     return window.__SUMMARY_REACT_TABLE__ === true
@@ -1026,13 +1078,11 @@ function saveFormulaSourceForRefresh(opts) {
 
 // 从服务端获取 Summary 状态（行顺序 + 公式/Source/Rate），失败或为空则返回 null
 function fetchSummaryStateFromServer(processId, processCode) {
-    const base = 'api/datacapture_summary/summary_api.php?action=get_summary_state';
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ action: 'get_summary_state' });
     if (processId != null && processId !== '') params.set('process_id', String(processId));
     if (processCode != null && processCode !== '') params.set('process_code', String(processCode));
-    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null)
-    if (currentCompanyId != null && String(currentCompanyId).trim() !== '') params.set('company_id', String(currentCompanyId))
-    const url = buildApiUrl(base + '&' + params.toString());
+    appendSummaryCaptureScopeParams(params);
+    const url = buildApiUrl('api/datacapture_summary/summary_api.php?' + params.toString());
     return fetch(url, { credentials: 'same-origin' })
         .then(function (res) { return res.json(); })
         .then(function (json) {
@@ -1048,9 +1098,9 @@ function saveSummaryStateToServer(payload) {
     // 保存 Summary 状态需要通过后端的 company 权限校验：
     // - JSON body 不会进 $_POST，因此必须通过 querystring 传 company_id
     // - 同时显式带上 credentials，避免部分环境下 Cookie 未发送导致后端识别成未授权
-    const baseUrl = 'api/datacapture_summary/summary_api.php?action=save_summary_state'
-    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null)
-    const url = buildApiUrl(currentCompanyId ? `${baseUrl}&company_id=${encodeURIComponent(String(currentCompanyId))}` : baseUrl)
+    const params = new URLSearchParams({ action: 'save_summary_state' });
+    appendSummaryCaptureScopeParams(params);
+    const url = buildApiUrl('api/datacapture_summary/summary_api.php?' + params.toString());
     fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3645,6 +3695,20 @@ function initAccountInput() {
                     }
                 }
             }
+            if (!preferredCurrency) {
+                const pd = window.capturedProcessData || (function () {
+                    try {
+                        const raw = localStorage.getItem('capturedProcessData');
+                        return raw ? JSON.parse(raw) : null;
+                    } catch (e) {
+                        return null;
+                    }
+                })();
+                if (pd) {
+                    preferredCurrency = (pd.currencyName && String(pd.currencyName).trim())
+                        || (pd.currency != null && String(pd.currency).trim() !== '' ? String(pd.currency).trim() : '');
+                }
+            }
             await loadCurrenciesForAccount(accountId, preferredCurrency || undefined);
         } else {
             // Reset currency dropdown if no account selected
@@ -3700,19 +3764,24 @@ async function loadFormData() {
     try {
         console.log('Loading form data...');
 
-        // Load currency and account data from api/datacapture_summary/summary_api.php
-        // 添加当前选择的 company_id
-        const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-        const url = 'api/datacapture_summary/summary_api.php';
-        const finalUrl = currentCompanyId ? `${url}?company_id=${currentCompanyId}` : url;
+        const finalUrl = buildSummaryApiUrl('api/datacapture_summary/summary_api.php');
 
-        const response = await fetch(buildApiUrl(finalUrl));
+        const response = await fetch(finalUrl, { credentials: 'same-origin' });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        let result;
+        try {
+            result = await response.json();
+        } catch (parseErr) {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            throw parseErr;
         }
 
-        const result = await response.json();
+        if (!response.ok) {
+            const apiMsg = result && (result.message || result.error);
+            throw new Error(apiMsg || `HTTP error! status: ${response.status}`);
+        }
         console.log('API Response:', result);
 
         if (result.success) {
@@ -3838,17 +3907,30 @@ async function loadCurrenciesForAccount(accountId, preferredCurrency) {
         }
         console.log('Loading currencies for account:', accountId, 'preferredCurrency:', preferredCurrency);
 
-        const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-        const url = `api/accounts/account_currency_api.php?action=get_account_currencies&account_id=${accountId}`;
-        const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+        const currencyParams = new URLSearchParams({
+            action: 'get_account_currencies',
+            account_id: String(accountId),
+        });
+        appendSummaryCaptureScopeParams(currencyParams);
+        const finalUrl = buildApiUrl('api/accounts/account_currency_api.php?' + currencyParams.toString());
 
-        const response = await fetch(buildApiUrl(finalUrl));
+        const response = await fetch(finalUrl, { credentials: 'same-origin' });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        let result;
+        try {
+            result = await response.json();
+        } catch (parseErr) {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            throw parseErr;
         }
 
-        const result = await response.json();
+        if (!response.ok) {
+            const apiMsg = result && (result.message || result.error);
+            throw new Error(apiMsg || `HTTP error! status: ${response.status}`);
+        }
+
         console.log('Account currencies API Response:', result);
 
         if (result.success) {
@@ -4920,10 +5002,14 @@ async function loadAccountCurrencies(accountId, type) {
     }
 
     try {
-        const url = accountId
-            ? `api/accounts/account_currency_api.php?action=get_available_currencies&account_id=${accountId}`
-            : `api/accounts/account_currency_api.php?action=get_available_currencies`;
-        const response = await fetch(buildApiUrl(url));
+        const availParams = new URLSearchParams({ action: 'get_available_currencies' });
+        if (accountId) {
+            availParams.set('account_id', String(accountId));
+        }
+        appendSummaryCaptureScopeParams(availParams);
+        const response = await fetch(buildApiUrl('api/accounts/account_currency_api.php?' + availParams.toString()), {
+            credentials: 'same-origin',
+        });
         const result = await response.json();
 
         if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
@@ -8230,13 +8316,12 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
             console.warn('Process ID missing while saving template.');
         }
 
-        // 添加当前选择的 company_id
-        const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-        const url = 'api/datacapture_summary/summary_api.php?action=save_template';
-        const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+        const currentCompanyId = getSummaryScopeCompanyId();
+        const finalUrl = buildSummaryApiUrl('api/datacapture_summary/summary_api.php?action=save_template');
 
-        const response = await fetch(buildApiUrl(finalUrl), {
+        const response = await fetch(finalUrl, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -8515,13 +8600,12 @@ async function deleteTemplateAsync(templateKey, productType, templateId = null, 
             payload.process_id = processId;
         }
 
-        // 添加当前选择的 company_id
-        const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-        const url = 'api/datacapture_summary/summary_api.php?action=delete_template';
-        const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+        const currentCompanyId = getSummaryScopeCompanyId();
+        const finalUrl = buildSummaryApiUrl('api/datacapture_summary/summary_api.php?action=delete_template');
 
-        const response = await fetch(buildApiUrl(finalUrl), {
+        const response = await fetch(finalUrl, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -16263,8 +16347,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             return;
         }
 
-        // 添加当前选择的 company_id
-        const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
+        const currentCompanyId = getSummaryScopeCompanyId();
         let captureIdForTemplates = null;
         if (typeof window.DATACAPTURESUMMARY_CAPTURE_ID !== 'undefined' && window.DATACAPTURESUMMARY_CAPTURE_ID != null && window.DATACAPTURESUMMARY_CAPTURE_ID !== '') {
             captureIdForTemplates = window.DATACAPTURESUMMARY_CAPTURE_ID;
@@ -16274,8 +16357,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 if (stored != null && stored !== '') captureIdForTemplates = parseInt(stored, 10);
             } catch (e) { }
         }
-        const url = 'api/datacapture_summary/summary_api.php?action=templates';
-        const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+        const finalUrl = buildSummaryApiUrl('api/datacapture_summary/summary_api.php?action=templates');
         const bodyPayload = {
             idProducts: uniqueIds,
             processId,
@@ -16284,8 +16366,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         if (captureIdForTemplates != null && !isNaN(captureIdForTemplates) && captureIdForTemplates > 0) {
             bodyPayload.captureId = captureIdForTemplates;
         }
-        const response = await fetch(buildApiUrl(finalUrl), {
+        const response = await fetch(finalUrl, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -21217,12 +21300,10 @@ async function submitSummaryData() {
                 batchData.captureId = captureId;
             }
 
-            // 添加当前选择的 company_id
-            const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-            const url = 'api/datacapture_summary/summary_api.php?action=submit';
-            const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+            const currentCompanyId = getSummaryScopeCompanyId();
+            const finalUrl = buildSummaryApiUrl('api/datacapture_summary/summary_api.php?action=submit');
 
-            const response = await fetch(buildApiUrl(finalUrl), {
+            const response = await fetch(finalUrl, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -21599,10 +21680,8 @@ function getAccountIdByAccountText(accountText, accountListCache) {
 // Fetch accounts for current company (for Submit fallback when row has no data-account-id).
 async function fetchSummaryAccountList() {
     try {
-        const url = buildApiUrl((typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' && window.DATACAPTURESUMMARY_COMPANY_ID)
-            ? 'api/datacapture_summary/summary_api.php?company_id=' + encodeURIComponent(String(window.DATACAPTURESUMMARY_COMPANY_ID))
-            : 'api/datacapture_summary/summary_api.php');
-        const res = await fetch(url);
+        const url = buildSummaryApiUrl('api/datacapture_summary/summary_api.php');
+        const res = await fetch(url, { credentials: 'same-origin' });
         const data = await res.json();
         return (data.success && data.accounts) ? data.accounts : [];
     } catch (e) {
