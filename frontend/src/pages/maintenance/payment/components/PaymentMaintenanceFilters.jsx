@@ -21,8 +21,10 @@ export default function PaymentMaintenanceFilters({
   selectedGroup,
   onGroupClick,
   onPickCompany,
-  onClearCompany,
-  allowClearCompany = true,
+  onPickAllGroups,
+  onPickAllInGroup,
+  groupsAllMode = false,
+  groupAllMode = false,
   currencies,
   selectedCurrency,
   setSelectedCurrency,
@@ -101,16 +103,17 @@ export default function PaymentMaintenanceFilters({
             groupIds={snapGroupIds}
             selectedGroup={selectedGroup}
             onPickGroup={(g) => onGroupClick(g)}
+            onPickAllGroups={onPickAllGroups}
+            onPickAllInGroup={onPickAllInGroup}
+            groupsAllMode={groupsAllMode}
+            groupAllMode={groupAllMode}
             companyButtons={visibleCompanies}
             companyId={companyId}
             highlightCompanyId={companyId}
             onSwitchCompany={onPickCompany}
-            onClearCompany={onClearCompany}
-            allowClearCompany={allowClearCompany}
             currencyList={currencies}
             showAllCurrencies={!selectedCurrency}
             selectedCurrencies={selectedCurrency ? [selectedCurrency] : []}
-            toggleAllCurrencies={() => setSelectedCurrency("")}
             toggleCurrency={(code) => setSelectedCurrency(code)}
             t={(key) => {
               if (key === "groupId") return m.groupId;

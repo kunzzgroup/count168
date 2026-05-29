@@ -1,31 +1,25 @@
 import {
   resolveViewGroupForCompany,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { resolveCustomerReportScope } from "../../report/shared/reportScope.js";
 import { resolveGroupEntityRowFromSnap } from "../../transaction/lib/transactionScope.js";
 
 /**
  * Data Capture scope: group entity (SALARY/BONUS) vs subsidiary company.
- *
- * @returns {{
- *   mode: "group"|"company",
- *   scopeCompanyId: number,
- *   groupId: string|null,
- *   viewGroup: string|null,
- *   uiCompanyId: number|null,
- *   resolveCompanyViaGroupId?: boolean,
- * }|null}
  */
 export function resolveDataCaptureScope({
   companies,
   selectedGroup,
   companyId,
   groupOnlyMode = false,
+  groupsAllMode = false,
+  groupAllMode = false,
 }) {
   const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
   const uiCompanyId =
     companyId != null && companyId !== "" && Number(companyId) > 0 ? Number(companyId) : null;
 
-  if (groupOnlyMode && groupKey) {
+  if (groupOnlyMode && groupKey && !groupsAllMode) {
     const entityRow = resolveGroupEntityRowFromSnap(companies, groupKey);
     const entityId = entityRow?.id != null ? Number(entityRow.id) : 0;
     return {
@@ -35,6 +29,28 @@ export function resolveDataCaptureScope({
       viewGroup: groupKey,
       uiCompanyId: null,
       resolveCompanyViaGroupId: entityId <= 0,
+    };
+  }
+
+  const reportScope = resolveCustomerReportScope({
+    companies,
+    selectedGroup,
+    companyId,
+    groupsAllMode,
+    groupAllMode,
+  });
+  if (!reportScope) return null;
+
+  if (reportScope.mode === "aggregate") {
+    return {
+      mode: "aggregate",
+      scopeCompanyId: 0,
+      groupId: reportScope.groupId,
+      viewGroup: reportScope.viewGroup,
+      uiCompanyId: null,
+      groupsAllMode: reportScope.groupsAllMode,
+      groupAllMode: reportScope.groupAllMode,
+      mergeCompanyIds: reportScope.mergeCompanyIds,
     };
   }
 
@@ -50,11 +66,26 @@ export function resolveDataCaptureScope({
     };
   }
 
+  if (reportScope.mode === "group") {
+    return {
+      mode: "group",
+      scopeCompanyId: reportScope.scopeCompanyId,
+      groupId: reportScope.groupId,
+      viewGroup: reportScope.viewGroup,
+      uiCompanyId: null,
+      resolveCompanyViaGroupId: reportScope.resolveCompanyViaGroupId,
+    };
+  }
+
   return null;
 }
 
 export function dataCaptureScopeIsReady(scope) {
   if (!scope) return false;
+  if (scope.mode === "aggregate") {
+    if (scope.mergeCompanyIds?.length) return true;
+    return Boolean(scope.groupsAllMode && scope.resolveCompanyViaGroupId);
+  }
   if (Number(scope.scopeCompanyId) > 0) return true;
   return Boolean(scope.resolveCompanyViaGroupId && scope.groupId);
 }
@@ -62,6 +93,18 @@ export function dataCaptureScopeIsReady(scope) {
 /** Params for Data Capture / Summary / submitted-process APIs. */
 export function dataCaptureScopeApiParams(scope) {
   if (!scope) return {};
+  if (scope.mode === "aggregate") {
+    const viewGroup = scope.viewGroup || scope.groupId || undefined;
+    const groupId = scope.groupId || undefined;
+    return {
+      companyId: undefined,
+      viewGroup,
+      groupId,
+      groupsAll: scope.groupsAllMode || undefined,
+      groupAll: scope.groupAllMode || undefined,
+      reportScope: "aggregate",
+    };
+  }
   const viewGroup = scope.viewGroup || scope.groupId || undefined;
   const groupId = scope.mode === "group" ? scope.groupId : undefined;
   if (
@@ -80,6 +123,12 @@ export function dataCaptureScopeApiParams(scope) {
 
 export function dataCaptureScopeCacheCompanyKey(scope) {
   if (!scope) return null;
+  if (scope.mode === "aggregate") {
+    if (scope.mergeCompanyIds?.length) {
+      return `aggregate:${scope.mergeCompanyIds.join(",")}`;
+    }
+    return "aggregate:groups";
+  }
   if (Number(scope.scopeCompanyId) > 0) {
     return scope.mode === "group"
       ? `group:${scope.groupId || scope.scopeCompanyId}`

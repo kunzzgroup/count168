@@ -37,8 +37,10 @@ import { canUseGroupOnlyMode, resolveVisibleGroupIds } from "../../../utils/comp
 import { sortIds } from "../lib/dashboardEarnings.js";
 import {
   companiesInGroupList,
+  companyRowIsGroupEntity,
   filterCompaniesWithDisplayId,
   pickDefaultCompanyForGroup,
+  pickGroupAnchorCompany,
   notifyDashboardGroupFilterChanged,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
@@ -114,8 +116,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       canUseGroupOnlyMode(me)
   );
 
+  /**
+   * Group-level KPI (AP/IG): group ledger API or group-entity row only — never merge subsidiaries (e.g. C168).
+   */
+  const usesGroupLedgerDashboard = useMemo(() => {
+    if (groupsAllMode && !groupAllMode) return false;
+    if (!selectedGroup) return false;
+    if (!companyId || groupAllMode) return true;
+    const row = companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
+    return companyRowIsGroupEntity(row, selectedGroup);
+  }, [groupsAllMode, groupAllMode, selectedGroup, companyId, companies]);
+
   const groupsAllGroupLevel = groupsAllMode && companyId == null && !groupAllMode;
-  const groupAggregateMode = groupAllMode || groupOnlyDashboard || groupsAllGroupLevel;
+  const groupAggregateMode =
+    groupAllMode || groupOnlyDashboard || groupsAllGroupLevel || usesGroupLedgerDashboard;
   /** All-currency merge: any scope with 2+ currencies (single company or group aggregate). */
   const canShowAllCurrencies = currencies.length > 1;
   const conversionBaseCurrency =
@@ -123,7 +137,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const dashboardScopeKey = useMemo(() => {
     let scopeCompanyKey = companyId ?? null;
-    if (scopeCompanyKey == null && groupOnlyDashboard) {
+    if (scopeCompanyKey == null && usesGroupLedgerDashboard && selectedGroup) {
       scopeCompanyKey = `group:${selectedGroup}`;
     }
     if (scopeCompanyKey == null && groupsAllMode) {
@@ -151,7 +165,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     });
   }, [
     companyId,
-    groupOnlyDashboard,
+    usesGroupLedgerDashboard,
     selectedGroup,
     groupsAllMode,
     dateFrom,
@@ -400,15 +414,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       companyIds = mergedSubsetIds.filter((id) => Number.isFinite(id));
     } else if (singleCid) {
       companyIds = [singleCid];
-    } else if (groupKey && groupOnlyDashboard) {
-      const cached = currenciesByGroupRef.current.get(groupKey);
-      if (cached?.length) {
-        applyCurrencyCodes(cached, null);
+    } else if (groupKey && usesGroupLedgerDashboard) {
+      const anchor = pickGroupAnchorCompany(companies, groupKey);
+      const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
+      if (anchorId) {
+        companyIds = [anchorId];
       } else {
-        applyCurrencyCodes(["MYR"], null);
-        currenciesByGroupRef.current.set(groupKey, ["MYR"]);
+        const cached = currenciesByGroupRef.current.get(groupKey);
+        if (cached?.length) {
+          applyCurrencyCodes(cached, null);
+        } else {
+          applyCurrencyCodes(["MYR"], null);
+          currenciesByGroupRef.current.set(groupKey, ["MYR"]);
+        }
+        return;
       }
-      return;
     } else if (groupKey) {
       companyIds = companiesInGroupList(companies, groupKey)
         .map((c) => parseInt(c.id, 10))
@@ -485,7 +505,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
   }, [
     companyId,
-    groupOnlyDashboard,
+    usesGroupLedgerDashboard,
     selectedGroup,
     groupsAllMode,
     groupAllMode,
@@ -511,31 +531,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useEffect(() => {
     currencyCodeRef.current = currencyCode;
   }, [currencyCode]);
-
-  const fetchGroupDashboardPayload = useCallback(
-    async (rangeFrom, rangeTo, currencyOverride, groupIdOverride = null) => {
-      const q = new URLSearchParams({
-        date_from: rangeFrom,
-        date_to: rangeTo,
-      });
-      const cur = currencyOverride ?? currencyCodeRef.current;
-      if (cur) q.append("currency", cur);
-      const vg =
-        groupIdOverride != null
-          ? String(groupIdOverride).trim().toUpperCase()
-          : selectedGroup
-            ? String(selectedGroup).trim().toUpperCase()
-            : "";
-      if (vg) q.append("view_group", vg);
-      const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
-      const json = await res.json();
-      if (!res.ok || !json.success || !json.data) {
-        throw new Error(json.message || json.error || i18n.dashboardApiError);
-      }
-      return json.data;
-    },
-    [selectedGroup, i18n]
-  );
 
   const fetchDashboardPayload = useCallback(
     async (cid, rangeFrom, rangeTo, currencyOverride, viewGroupOverride) => {
@@ -574,9 +569,38 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [selectedGroup, companies, i18n]
   );
 
+  const fetchGroupDashboardPayload = useCallback(
+    async (rangeFrom, rangeTo, currencyOverride, groupIdOverride = null) => {
+      const q = new URLSearchParams({
+        date_from: rangeFrom,
+        date_to: rangeTo,
+      });
+      const cur = currencyOverride ?? currencyCodeRef.current;
+      if (cur) q.append("currency", cur);
+      const vg =
+        groupIdOverride != null
+          ? String(groupIdOverride).trim().toUpperCase()
+          : selectedGroup
+            ? String(selectedGroup).trim().toUpperCase()
+            : "";
+      if (!vg) {
+        throw new Error(i18n.failedToLoadDashboard);
+      }
+      q.append("view_group", vg);
+      q.append("group_id", vg);
+      const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.data) {
+        throw new Error(json.message || json.error || i18n.dashboardApiError);
+      }
+      return json.data;
+    },
+    [selectedGroup, i18n]
+  );
+
   const loadMergedDashboard = useCallback(
     async (rangeFrom, rangeTo, currencyOverride) => {
-      if (groupOnlyDashboard) {
+      if (usesGroupLedgerDashboard && selectedGroup) {
         return fetchGroupDashboardPayload(rangeFrom, rangeTo, currencyOverride);
       }
 
@@ -597,24 +621,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
       }
 
-      if (groupAllMode) {
-        const groupCompanies = resolveMergeCompanyList();
-        if (!groupCompanies.length) {
-          throw new Error(i18n.failedToLoadDashboard);
-        }
-        const results = await Promise.all(
-          groupCompanies.map((c) =>
-            fetchDashboardPayload(
-              c.id,
-              rangeFrom,
-              rangeTo,
-              currencyOverride,
-              resolveViewGroupForCompany(c, selectedGroup)
-            )
-          )
-        );
-        return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
-      }
       if (mergedSubsetIds && mergedSubsetIds.length > 1) {
         const results = await Promise.all(
           mergedSubsetIds.map((cid) => {
@@ -634,14 +640,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     },
     [
       companyId,
-      groupOnlyDashboard,
+      usesGroupLedgerDashboard,
       groupAllMode,
       groupsAllMode,
       groupIds,
       selectedGroup,
       mergedSubsetIds,
       companies,
-      resolveMergeCompanyList,
       fetchDashboardPayload,
       fetchGroupDashboardPayload,
       i18n.failedToLoadDashboard,

@@ -8,11 +8,13 @@ export default function DomainReportFilters({
   companyId,
   highlightCompanyId,
   onSwitchCompany,
-  onClearCompany,
-  allowClearCompany = true,
   groupIds,
   selectedGroup,
   onPickGroup,
+  onPickAllGroups,
+  onPickAllInGroup,
+  groupsAllMode = false,
+  groupAllMode = false,
   companyButtons,
   processId,
   setProcessId,
@@ -142,16 +144,17 @@ export default function DomainReportFilters({
         groupIds={groupIds}
         selectedGroup={selectedGroup}
         onPickGroup={onPickGroup}
+        onPickAllGroups={onPickAllGroups}
+        onPickAllInGroup={onPickAllInGroup}
+        groupsAllMode={groupsAllMode}
+        groupAllMode={groupAllMode}
         companyButtons={companyButtons}
         companyId={companyId}
         highlightCompanyId={highlightCompanyId}
         onSwitchCompany={onSwitchCompany}
-        onClearCompany={onClearCompany}
-        allowClearCompany={allowClearCompany}
         currencyList={currencyList}
         showAllCurrencies={showAllCurrencies}
         selectedCurrencies={selectedCurrencies}
-        toggleAllCurrencies={toggleAllCurrencies}
         toggleCurrency={toggleCurrency}
         t={t}
       />

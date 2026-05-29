@@ -1,9 +1,8 @@
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import { useDashboardStyleGcFilter } from "../../../utils/company/useDashboardStyleGcFilter.js";
+import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 
 /**
- * Maintenance Group / Company filters — Dashboard-aligned (no group ALL/ungrouped, company can be empty).
- * `onClearCompany` receives the target group id when invoked from group switch (avoid stale session writes).
+ * Maintenance Group / Company filters — All pills (never sent as group_id / company code).
  */
 export function useMaintenanceGroupCompanyFilter({
   companies,
@@ -13,16 +12,9 @@ export function useMaintenanceGroupCompanyFilter({
   switchCompany,
   onClearCompany,
   switchingCompany = false,
-  selectFirstCompanyOnGroupChange = false,
 }) {
   const { me } = useAuthSession();
-  const {
-    groupIds,
-    companiesForPicker,
-    handlePickGroup,
-    handlePickCompany,
-    allowClearCompany,
-  } = useDashboardStyleGcFilter({
+  const gc = useGcFilterWithAllModes({
     companies,
     companyId,
     selectedGroup,
@@ -31,21 +23,19 @@ export function useMaintenanceGroupCompanyFilter({
     onClearCompany,
     switchingCompany,
     preferredCompanyId: companyId,
-    selectFirstCompanyOnGroupChange,
     me,
   });
 
   return {
-    snapGroupIds: groupIds,
-    visibleCompanies: companiesForPicker,
-    handleGroupClick: handlePickGroup,
-    handlePickCompany,
-    /** @deprecated Dashboard layout has no group ALL; kept for callers that still destructure it */
-    groupFilterKind: "follow",
-    /** @deprecated */
-    handlePickAllGroups: () => {},
-    /** @deprecated */
-    followCurrentCompanyGroup: () => {},
-    allowClearCompany,
+    snapGroupIds: gc.groupIds,
+    visibleCompanies: gc.companiesForPicker,
+    handleGroupClick: gc.handlePickGroup,
+    handlePickCompany: gc.handlePickCompany,
+    handlePickAllGroups: gc.handlePickAllGroups,
+    handlePickAllInGroup: gc.handlePickAllInGroup,
+    groupsAllMode: gc.groupsAllMode,
+    groupAllMode: gc.groupAllMode,
+    allowClearCompany: gc.allowClearCompany,
+    isListScopeReady: gc.isListScopeReady,
   };
 }

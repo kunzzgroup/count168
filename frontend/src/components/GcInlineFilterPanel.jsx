@@ -18,16 +18,20 @@ export default function GcInlineFilterPanel({
   showGroupRow = true,
   showCompanyRow = true,
   allLabelKey = "groupFilterAll",
+  /** When true, render rows only (parent already provides .user-gc-inline-panel grid). */
+  embedded = false,
   children = null,
 }) {
   const selectedGroupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-  const allLabel = typeof t === "function" ? t(allLabelKey) : allLabelKey;
+  const allLabelRaw = typeof t === "function" ? t(allLabelKey) : allLabelKey;
+  const allLabel =
+    allLabelRaw && allLabelRaw !== allLabelKey ? allLabelRaw : "ALL";
 
   if (!showGroupRow && !showCompanyRow && !children) return null;
   if (!groupIds.length && !companiesForPicker.length && !children) return null;
 
-  return (
-    <div className="user-gc-inline-panel">
+  const rows = (
+    <>
       {showGroupRow && groupIds.length > 0 && (
         <div className="user-gc-inline-row">
           <span className="user-gc-inline-label">{t("groupId")}</span>
@@ -87,6 +91,10 @@ export default function GcInlineFilterPanel({
         </div>
       )}
       {children}
-    </div>
+    </>
   );
+
+  if (embedded) return rows;
+
+  return <div className="user-gc-inline-panel">{rows}</div>;
 }

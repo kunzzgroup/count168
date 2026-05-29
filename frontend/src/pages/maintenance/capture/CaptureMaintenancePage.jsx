@@ -98,6 +98,27 @@ export default function CaptureMaintenancePage() {
   const initialCaptureSearchDoneRef = useRef(false);
   /** 切换公司已手动触发拉数时跳过 useEffect 里下一次重复请求，少等一轮渲染 */
   const suppressNextSearchEffectRef = useRef(false);
+  const switchCompanyRef = useRef(async () => {});
+  const onClearCompanyRef = useRef(() => {});
+
+  const {
+    snapGroupIds,
+    visibleCompanies,
+    handleGroupClick,
+    handlePickCompany,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    groupsAllMode,
+    groupAllMode,
+    allowClearCompany,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: (c) => switchCompanyRef.current(c),
+    onClearCompany: (...args) => onClearCompanyRef.current(...args),
+  });
 
   const captureScope = useMemo(
     () =>
@@ -105,8 +126,10 @@ export default function CaptureMaintenancePage() {
         companies,
         selectedGroup,
         companyId,
+        groupsAllMode,
+        groupAllMode,
       }),
-    [companies, selectedGroup, companyId],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
   );
 
   const captureScopeKey = useMemo(
@@ -529,15 +552,8 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
-    useMaintenanceGroupCompanyFilter({
-      companies,
-      companyId,
-      selectedGroup,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-      onClearCompany: handleClearCompany,
-    });
+  switchCompanyRef.current = handleSwitchCompany;
+  onClearCompanyRef.current = handleClearCompany;
 
   const handlePermissionSwitch = (p) => {
     if (p === activePermission) return;
@@ -648,8 +664,10 @@ export default function CaptureMaintenancePage() {
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
           onPickCompany={handlePickCompany}
-          onClearCompany={handleClearCompany}
-          allowClearCompany={allowClearCompany}
+          onPickAllGroups={handlePickAllGroups}
+          onPickAllInGroup={handlePickAllInGroup}
+          groupsAllMode={groupsAllMode}
+          groupAllMode={groupAllMode}
           onDelete={handleDeleteClick}
           canDelete={selectedIds.length > 0}
           confirmDelete={confirmDelete}

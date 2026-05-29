@@ -96,6 +96,27 @@ export default function FormulaMaintenancePage() {
   const initialFormulaSearchDoneRef = useRef(false);
   const suppressNextSearchEffectRef = useRef(false);
   const followGroupRef = useRef(() => {});
+  const switchCompanyRef = useRef(async () => {});
+  const onClearCompanyRef = useRef(() => {});
+
+  const {
+    snapGroupIds,
+    visibleCompanies,
+    handleGroupClick,
+    handlePickCompany,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    groupsAllMode,
+    groupAllMode,
+    allowClearCompany,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: (c) => switchCompanyRef.current(c),
+    onClearCompany: (...args) => onClearCompanyRef.current(...args),
+  });
 
   const formulaScope = useMemo(
     () =>
@@ -103,8 +124,10 @@ export default function FormulaMaintenancePage() {
         companies,
         selectedGroup,
         companyId,
+        groupsAllMode,
+        groupAllMode,
       }),
-    [companies, selectedGroup, companyId],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
   );
 
   const formulaScopeKey = useMemo(
@@ -655,15 +678,8 @@ export default function FormulaMaintenancePage() {
     }
   };
 
-  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
-    useMaintenanceGroupCompanyFilter({
-      companies,
-      companyId,
-      selectedGroup,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-      onClearCompany: handleClearCompany,
-    });
+  switchCompanyRef.current = handleSwitchCompany;
+  onClearCompanyRef.current = handleClearCompany;
 
   followGroupRef.current = () => {};
 
@@ -854,8 +870,10 @@ export default function FormulaMaintenancePage() {
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
         onPickCompany={handlePickCompany}
-        onClearCompany={handleClearCompany}
-        allowClearCompany={allowClearCompany}
+        onPickAllGroups={handlePickAllGroups}
+        onPickAllInGroup={handlePickAllInGroup}
+        groupsAllMode={groupsAllMode}
+        groupAllMode={groupAllMode}
         onClearFilters={handleClearFilters}
         selectedIds={selectedIds}
         confirmDelete={confirmDelete}

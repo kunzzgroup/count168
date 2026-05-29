@@ -32,12 +32,15 @@ export function buildDateOptions() {
 }
 
 export function appendDataCaptureScopeParams(params, scope) {
-  const { companyId, viewGroup, groupId, reportScope } = dataCaptureScopeApiParams(scope);
+  const { companyId, viewGroup, groupId, reportScope, groupsAll, groupAll } =
+    dataCaptureScopeApiParams(scope);
   if (companyId) params.set("company_id", String(companyId));
   const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
   if (vg) params.set("view_group", vg);
   const gid = groupId ? String(groupId).trim().toUpperCase() : "";
   if (gid) params.set("group_id", gid);
+  if (groupsAll) params.set("groups_all", "1");
+  if (groupAll) params.set("group_all", "1");
   if (reportScope) params.set("report_scope", reportScope);
 }
 

@@ -21,7 +21,8 @@ import {
   persistAccessibleGroupIdsFromApi,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { canUseGroupOnlyMode } from "../../utils/company/loginScope.js";
-import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
+import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
+import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
@@ -213,6 +214,30 @@ export default function DataCapturePage() {
 
   const groupOnlyTable = !isCompanySelected && canUseGroupOnlyMode(me);
 
+  const onClearCompanyRef = useRef(() => {});
+  const onSelectCompanyRef = useRef(async () => {});
+
+  const {
+    groupIds,
+    companiesForPicker,
+    groupsAllMode,
+    groupAllMode,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    handlePickGroup,
+    handlePickCompany,
+  } = useGcFilterWithAllModes({
+    companies: companiesDeduped,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: (comp) => onSelectCompanyRef.current(comp),
+    onClearCompany: (...args) => onClearCompanyRef.current(...args),
+    preferredCompanyId: companyId,
+    enableGroupAnchorSession: false,
+    me,
+  });
+
   const captureScope = useMemo(
     () =>
       resolveDataCaptureScope({
@@ -220,8 +245,17 @@ export default function DataCapturePage() {
         selectedGroup,
         companyId,
         groupOnlyMode: groupOnlyTable,
+        groupsAllMode,
+        groupAllMode,
       }),
-    [companiesNormalized, selectedGroup, companyId, groupOnlyTable],
+    [
+      companiesNormalized,
+      selectedGroup,
+      companyId,
+      groupOnlyTable,
+      groupsAllMode,
+      groupAllMode,
+    ],
   );
 
   const scopeCompanyId =
@@ -678,6 +712,11 @@ export default function DataCapturePage() {
     form.clearProcessSelection?.();
   }, [navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
 
+  onClearCompanyRef.current = handleClearCompany;
+  onSelectCompanyRef.current = async (comp) => {
+    if (comp?.id) await switchCompanySessionAndNavigate(comp.id);
+  };
+
   useEffect(() => {
     if (isCompanySelected) return;
     form.clearCompanyOnlyFields?.();
@@ -705,20 +744,6 @@ export default function DataCapturePage() {
     }
     prevGroupOnlyGroupRef.current = selectedGroup;
   }, [selectedGroup, isCompanySelected, form.applyGroupOnlyPrefsForGroup, form.clearCompanyOnlyFields]);
-
-  const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
-    companies: companiesDeduped,
-    companyId,
-    selectedGroup,
-    setSelectedGroup,
-    onSelectCompany: async (comp) => {
-      if (comp?.id) await switchCompanySessionAndNavigate(comp.id);
-    },
-    onClearCompany: handleClearCompany,
-    preferredCompanyId: companyId,
-    enableGroupAnchorSession: false,
-    me,
-  });
 
   useEffect(() => {
     if (bootLoading || !me) return;
@@ -867,53 +892,20 @@ export default function DataCapturePage() {
             >
               {(groupIds.length > 0 || list.length > 0) && (
                 <div className="user-gc-inline-panel dc-data-capture-gc-panel">
-                  {groupIds.length > 0 ? (
-                    <div id="group-buttons-wrapper" className="user-gc-inline-row shared-group-wrapper">
-                      <span className="user-gc-inline-label">{t("groupId")}</span>
-                      <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                        <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label={t("groupAria")}>
-                          {groupIds.map((gid) => (
-                            <button
-                              key={gid}
-                              type="button"
-                              className={`user-gc-segment shared-group-btn ${selectedGroup === gid ? "active is-on" : ""}`.trim()}
-                              data-group-id={gid}
-                              onClick={() => void handlePickGroup(gid)}
-                            >
-                              {gid}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {list.length > 0 ? (
-                    <div id="company-buttons-wrapper" className="user-gc-inline-row shared-company-wrapper">
-                      <span className="user-gc-inline-label">{t("company")}</span>
-                      <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                        <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label={t("companyAria")}>
-                          {list.map((comp) => {
-                            const gid = String(comp.group_id || "").trim().toUpperCase();
-                            const active = Number(comp.id) === Number(companyId);
-                            return (
-                              <button
-                                key={comp.id}
-                                type="button"
-                                className={`user-gc-segment shared-company-btn ${active ? "active is-on" : ""}`.trim()}
-                                data-company-id={comp.id}
-                                data-group-id={gid}
-                                data-company-code={comp.company_id || ""}
-                                onClick={() => void handlePickCompany(comp)}
-                              >
-                                {comp.company_id}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
+                  <GcInlineFilterPanel
+                    embedded
+                    t={t}
+                    groupIds={groupIds}
+                    groupsAllMode={groupsAllMode}
+                    selectedGroup={selectedGroup}
+                    onPickAllGroups={handlePickAllGroups}
+                    onPickGroup={handlePickGroup}
+                    companiesForPicker={list}
+                    groupAllMode={groupAllMode}
+                    pickerCompanyId={companyId}
+                    onPickAllInGroup={handlePickAllInGroup}
+                    onPickCompany={handlePickCompany}
+                  />
                 </div>
               )}
 

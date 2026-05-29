@@ -129,14 +129,38 @@ export default function TransactionMaintenancePage() {
     [permissions],
   );
 
+  const switchCompanyRef = useRef(async () => {});
+  const onClearCompanyRef = useRef(() => {});
+
+  const {
+    snapGroupIds,
+    visibleCompanies,
+    handleGroupClick,
+    handlePickCompany,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    groupsAllMode,
+    groupAllMode,
+    allowClearCompany,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: (c) => switchCompanyRef.current(c),
+    onClearCompany: (...args) => onClearCompanyRef.current(...args),
+  });
+
   const transactionScope = useMemo(
     () =>
       resolveTransactionMaintenanceScope({
         companies,
         selectedGroup,
         companyId,
+        groupsAllMode,
+        groupAllMode,
       }),
-    [companies, selectedGroup, companyId],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
   );
 
   const transactionScopeKey = useMemo(
@@ -814,15 +838,8 @@ export default function TransactionMaintenancePage() {
     }
   }, [companies, navigate, notify, t]);
 
-  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
-    useMaintenanceGroupCompanyFilter({
-      companies,
-      companyId,
-      selectedGroup,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-      onClearCompany: handleClearCompany,
-    });
+  switchCompanyRef.current = handleSwitchCompany;
+  onClearCompanyRef.current = handleClearCompany;
 
   followGroupRef.current = () => {};
 
@@ -877,8 +894,10 @@ export default function TransactionMaintenancePage() {
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
           onPickCompany={handlePickCompany}
-          onClearCompany={handleClearCompany}
-          allowClearCompany={allowClearCompany}
+          onPickAllGroups={handlePickAllGroups}
+          onPickAllInGroup={handlePickAllInGroup}
+          groupsAllMode={groupsAllMode}
+          groupAllMode={groupAllMode}
           m={m}
         />
 
