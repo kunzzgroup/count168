@@ -569,6 +569,22 @@ export default function UserListPage() {
     me,
   });
 
+  const onPickGroupPill = useCallback(
+    async (gid) => {
+      const g = String(gid || "").trim().toUpperCase();
+      const current = String(selectedGroup || "").trim().toUpperCase();
+      // Group login UX: clicking the active group pill returns to group-only scope.
+      if (isGroupLogin(me) && g && g === current && companyId != null) {
+        persistDashboardGroupOnlyMode(true);
+        setSelectedGroup(g);
+        handleClearCompany();
+        return;
+      }
+      await handlePickGroup(gid);
+    },
+    [selectedGroup, companyId, me, handlePickGroup, handleClearCompany]
+  );
+
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
     const normalizedGroupId = String(selectedGroup || "").trim().toUpperCase();
     const useGroupScopedAccounts = groupOnlyUserList && normalizedGroupId !== "";
@@ -775,8 +791,20 @@ export default function UserListPage() {
           (c) => String(c.group_id || "").toUpperCase() === String(defaultGroup || "").toUpperCase()
         );
         setSelectedCompanyIds(pick?.id != null ? [Number(pick.id)] : []);
-      } else if (groupOnlyUserList) {
-        setSelectedCompanyIds(modalPickerCompanies.map((c) => Number(c.id)));
+      } else if (isGroupLogin(me) && selectedGroup) {
+        // Group login add-user default should stay on group entity (AP/IG),
+        // not whichever subsidiary company chip is currently active (e.g. 95).
+        const entityPick = pickDefaultCompanyForGroup(companies, selectedGroup, {
+          me,
+          preferredCompanyId: me?.company_id ?? companyId,
+          groupEntityOnly: true,
+        });
+        const entityId = entityPick?.id != null ? Number(entityPick.id) : Number.NaN;
+        if (Number.isFinite(entityId) && entityId > 0) {
+          setSelectedCompanyIds([entityId]);
+        } else {
+          setSelectedCompanyIds(companyId ? [Number(companyId)] : []);
+        }
       } else {
         setSelectedCompanyIds(companyId ? [Number(companyId)] : []);
       }
@@ -849,10 +877,43 @@ export default function UserListPage() {
     }
     const ids = pendingDeleteRef.current || []; pendingDeleteRef.current = []; setConfirmOpen(false);
     if (!ids.length) return;
-    const results = await Promise.all(ids.map((id) => fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "delete", id }) }).then((r) => r.json().catch(() => ({ success: false })))));
-    const ok = results.filter((r) => r.success).length;
-    if (ok === ids.length) notify(t("deletedUsersSuccess", { count: ok }), "success"); else notify(t("deletionResult", { ok, fail: ids.length - ok }), "danger");
-    setUsersRaw((prev) => prev.filter((u) => !ids.includes(Number(u.id)))); setSelectedDeleteIds(new Set()); setSelectAllUsers(false);
+
+    const buildDeleteBody = (id) => {
+      const body = { action: "delete", id };
+      if (groupOnlyUserList && selectedGroup) body.group_id = selectedGroup;
+      if (!groupOnlyUserList && companyId != null) body.company_id = Number(companyId);
+      return body;
+    };
+
+    const results = await Promise.all(
+      ids.map((id) =>
+        fetch(buildApiUrl("api/users/userlist_api.php"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(buildDeleteBody(id)),
+        }).then((r) => r.json().catch(() => ({ success: false }))),
+      ),
+    );
+
+    const succeededIds = ids.filter((_, index) => results[index]?.success);
+    const failCount = ids.length - succeededIds.length;
+
+    if (succeededIds.length === ids.length) {
+      notify(t("deletedUsersSuccess", { count: succeededIds.length }), "success");
+    } else if (succeededIds.length > 0) {
+      notify(t("deletionResult", { ok: succeededIds.length, fail: failCount }), "danger");
+    } else {
+      notifyApi(results.find((r) => !r?.success)?.message, "apiDeleteUserFailed", "danger");
+    }
+
+    if (succeededIds.length > 0) {
+      const succeededSet = new Set(succeededIds.map(Number));
+      setUsersRaw((prev) => prev.filter((u) => !succeededSet.has(Number(u.id))));
+    }
+    setSelectedDeleteIds(new Set());
+    setSelectAllUsers(false);
+    if (succeededIds.length > 0) void fetchUsers();
   };
 
   const saveUser = async (e) => {
@@ -1050,7 +1111,7 @@ export default function UserListPage() {
                           key={gid}
                           type="button"
                           className={`user-gc-segment${gid === selectedGroup ? " is-on" : ""}`}
-                          onClick={() => void handlePickGroup(gid)}
+                          onClick={() => void onPickGroupPill(gid)}
                         >
                           {gid}
                         </button>

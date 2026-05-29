@@ -8,6 +8,7 @@ import {
   toUpper,
 } from "../../account/accountLogic.js";
 import { getAccountText, translateAccountApiMessage } from "../../../translateFile/pages/accountTranslate.js";
+import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 
 function normalizeCompanyRow(row) {
   if (!row || typeof row !== "object") return row;
@@ -54,16 +55,12 @@ function bindSummaryAddAccountWindowApi(showFn, closeFn) {
  * Summary Add Account — same shared AccountModal as Account List / Bank Process.
  */
 export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
-  const [lang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const lang = useLoginLang();
   const t = useCallback((key, params) => getAccountText(lang, key, params), [lang]);
   const apiMsg = useCallback(
     (json, fallbackKey) =>
-      translateAccountApiMessage(
-        lang,
-        { message: json?.message ?? json?.error, errorCode: json?.data?.error },
-        fallbackKey ? t(fallbackKey) : ""
-      ),
-    [lang, t]
+      translateAccountApiMessage(lang, json?.message ?? json?.error, fallbackKey || ""),
+    [lang],
   );
 
   const [open, setOpen] = useState(false);

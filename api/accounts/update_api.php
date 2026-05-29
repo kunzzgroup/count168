@@ -67,6 +67,14 @@ function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
 
 function resolveScopeCompanyId(PDO $pdo): int {
     $groupScopeId = normalizeGroupId($_POST['group_id'] ?? null);
+    if (isset($_POST['company_id']) && (int)$_POST['company_id'] > 0) {
+        $explicitCompanyId = (int)$_POST['company_id'];
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $explicitCompanyId, $groupScopeId);
+        }
+        return $explicitCompanyId;
+    }
+
     if ($groupScopeId !== null) {
         $groupEntityCompanyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
         if ($groupEntityCompanyId <= 0) {
@@ -76,14 +84,6 @@ function resolveScopeCompanyId(PDO $pdo): int {
             gc_assert_company_id_allowed_for_login_scope($pdo, $groupEntityCompanyId, $groupScopeId);
         }
         return $groupEntityCompanyId;
-    }
-
-    if (isset($_POST['company_id']) && (int)$_POST['company_id'] > 0) {
-        $explicitCompanyId = (int)$_POST['company_id'];
-        if (gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $explicitCompanyId);
-        }
-        return $explicitCompanyId;
     }
 
     if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] > 0) {
@@ -189,7 +189,7 @@ try {
     }
 
     if (gc_is_group_login()) {
-        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, normalizeGroupId($_POST['group_id'] ?? null));
         $stmt = $pdo->prepare("
             SELECT a.status
             FROM account a
@@ -255,7 +255,7 @@ try {
     }
 
     if (is_array($submitted_company_ids) && !empty($submitted_company_ids)) {
-        if (normalizeGroupId($_POST['group_id'] ?? null) !== null) {
+        if (normalizeGroupId($_POST['group_id'] ?? null) !== null && (!isset($_POST['company_id']) || (int)$_POST['company_id'] <= 0)) {
             // Group-scope edit must remain inside the resolved group entity company.
             $submitted_company_ids = [$company_id];
         }

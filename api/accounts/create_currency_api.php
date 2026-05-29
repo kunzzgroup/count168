@@ -17,9 +17,9 @@ function jsonOut(bool $success, string $message, $data = null) {
     echo json_encode(['success' => $success, 'message' => $message, 'data' => $data]);
 }
 
-function userCanAccessCompany(PDO $pdo, int $companyId): bool {
+function userCanAccessCompany(PDO $pdo, int $companyId, ?string $viewGroup = null): bool {
     if (gc_is_group_login()) {
-        return gc_session_can_access_company_id($pdo, $companyId);
+        return gc_session_can_access_company_id($pdo, $companyId, $viewGroup);
     }
     $userId = $_SESSION['user_id'] ?? 0;
     $role = $_SESSION['role'] ?? '';
@@ -100,13 +100,16 @@ try {
 
     $groupScopeId = normalizeGroupId($input['group_id'] ?? null);
     $companyId = 0;
-    if ($groupScopeId !== null) {
+    if (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
+        $companyId = (int) $input['company_id'];
+        if ($companyId > 0 && gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $groupScopeId);
+        }
+    } elseif ($groupScopeId !== null) {
         $companyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
         if ($companyId > 0 && gc_is_group_login()) {
             gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $groupScopeId);
         }
-    } elseif (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
-        $companyId = (int) $input['company_id'];
     }
     if ($companyId <= 0 && isset($_SESSION['company_id'])) {
         $companyId = (int) $_SESSION['company_id'];
@@ -117,7 +120,7 @@ try {
         exit;
     }
 
-    if (!userCanAccessCompany($pdo, $companyId)) {
+    if (!userCanAccessCompany($pdo, $companyId, $groupScopeId)) {
         http_response_code(403);
         jsonOut(false, '无权限访问该公司', null);
         exit;

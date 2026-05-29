@@ -26,7 +26,14 @@ function translateApiMessage(string $message): string {
         '账户创建成功！' => 'Account created successfully!',
     ];
 
-    return $map[$message] ?? $message;
+    if (isset($map[$message])) {
+        return $map[$message];
+    }
+    if (preg_match('/^账户ID已存在于\s+(.+)$/u', $message, $m)) {
+        return 'Account ID already exists in ' . $m[1];
+    }
+
+    return $message;
 }
 
 function jsonResponse(bool $success, string $message, $data = null): void {
@@ -51,9 +58,9 @@ function normalizeAlertAmount(?string $value): ?string {
     return money_normalize($value);
 }
 
-function validateCompanyAccess(PDO $pdo, int $company_id): void {
+function validateCompanyAccess(PDO $pdo, int $company_id, ?string $view_group = null): void {
     if (gc_is_group_login()) {
-        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $view_group);
         return;
     }
     $current_user_id = $_SESSION['user_id'];
@@ -290,7 +297,8 @@ function linkAccountToCompanies(PDO $pdo, int $accountId, array $companyIds): vo
 
 function userCanAccessCompany(PDO $pdo, int $userId, int $companyId, string $role): bool {
     if (gc_is_group_login()) {
-        return gc_session_can_access_company_id($pdo, $companyId);
+        $viewGroup = normalizeGroupId($_POST['group_id'] ?? null);
+        return gc_session_can_access_company_id($pdo, $companyId, $viewGroup);
     }
     if ($role === 'owner') {
         $owner_id = $_SESSION['owner_id'] ?? $userId;
@@ -400,7 +408,7 @@ try {
     }
 
     $forced_company_ids_to_link = [];
-    if ($group_scope_id !== null) {
+    if ($group_scope_id !== null && (!$company_id || $company_id <= 0)) {
         $current_user_id = (int)($_SESSION['user_id'] ?? 0);
         $current_user_role = (string)($_SESSION['role'] ?? '');
         $group_scope_owner_id = resolveOwnerIdForGroupScope(
@@ -430,11 +438,15 @@ try {
         }
     }
 
+    if ($company_id > 0 && gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
+    }
+
     if (!$company_id) {
         throw new Exception('缺少公司信息');
     }
 
-    validateCompanyAccess($pdo, $company_id);
+    validateCompanyAccess($pdo, $company_id, $group_scope_id);
 
     $account_id = trim($_POST['account_id'] ?? '');
     $name = trim($_POST['name'] ?? '');

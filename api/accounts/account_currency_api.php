@@ -56,6 +56,12 @@ function dbAccountBelongsToCompany($pdo, $account_id, $company_id) {
  */
 function resolveCompanyId($pdo) {
     $group_scope_id = isset($_GET['group_id']) ? strtoupper(trim((string)$_GET['group_id'])) : '';
+    $company_id = $_SESSION['company_id'] ?? null;
+    $requested = isset($_GET['company_id']) ? (int)$_GET['company_id'] : null;
+    if ($requested && gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $requested, $group_scope_id !== '' ? $group_scope_id : null);
+        return $requested;
+    }
     if ($group_scope_id !== '') {
         $stmt = $pdo->prepare("
             SELECT id
@@ -85,8 +91,6 @@ function resolveCompanyId($pdo) {
         }
     }
 
-    $company_id = $_SESSION['company_id'] ?? null;
-    $requested = isset($_GET['company_id']) ? (int)$_GET['company_id'] : null;
     if (!$requested) {
         return $company_id;
     }

@@ -403,7 +403,7 @@ export default function AccountListPage() {
     try {
       const fd = new FormData(); fd.append("id", id);
       if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
-      if (groupOnlyAccountMode && selectedGroup) fd.append("group_id", String(selectedGroup));
+      if (selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (json.success) {
@@ -421,7 +421,7 @@ export default function AccountListPage() {
     try {
       const fd = new FormData(); fd.append("id", id);
       if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
-      if (groupOnlyAccountMode && selectedGroup) fd.append("group_id", String(selectedGroup));
+      if (selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (json.success) {
@@ -442,7 +442,7 @@ export default function AccountListPage() {
       const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
       if (id) currencyParams.set("account_id", String(id));
       if (companyId) currencyParams.set("company_id", String(companyId));
-      if (groupOnlyAccountMode && selectedGroup) currencyParams.set("group_id", String(selectedGroup));
+      if (selectedGroup) currencyParams.set("group_id", String(selectedGroup));
       const [curRes, compRes] = await Promise.all([
         fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/accounts/account_company_api.php?action=get_available_companies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
@@ -511,7 +511,7 @@ export default function AccountListPage() {
       detailUrl.searchParams.set("id", String(id));
       if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
       else if (scopeCompanyId) detailUrl.searchParams.set("company_id", String(scopeCompanyId));
-      if (groupOnlyAccountMode && selectedGroup) detailUrl.searchParams.set("group_id", String(selectedGroup));
+      if (selectedGroup) detailUrl.searchParams.set("group_id", String(selectedGroup));
       detailUrl.searchParams.set("_", String(Date.now()));
       const res = await fetch(detailUrl.toString(), {
         credentials: "include",
@@ -544,7 +544,7 @@ export default function AccountListPage() {
       const fd = new FormData();
       selectedDeleteIds.forEach(id => fd.append("ids[]", id));
       if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
-      if (groupOnlyAccountMode && selectedGroup) fd.append("group_id", String(selectedGroup));
+      if (selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/delete_accounts_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (!json.success) return notifyApi(json.message, "deleteFailed", "danger");
@@ -572,7 +572,10 @@ export default function AccountListPage() {
     if (!groupOnlyAccountMode && selectedCompanyIds.length) {
       fd.set("company_ids", JSON.stringify(selectedCompanyIds));
     }
-    if (groupOnlyAccountMode && selectedGroup) {
+    // Group login may still target a concrete company (not group-only).
+    // Always send selectedGroup as view context so backend scope checks
+    // can validate cross-linked groups consistently (AP <-> IG, etc.).
+    if (selectedGroup) {
       fd.set("group_id", String(selectedGroup));
     }
     if (!isEditMode) {
@@ -637,7 +640,12 @@ export default function AccountListPage() {
       setAddModalOpen(false); setEditModalOpen(false);
       setHiddenCurrencyIds([]);
       if (postSaveCurrencyError) {
-        notify(`Account saved, but currency sync failed: ${postSaveCurrencyError}`, "danger");
+        notify(
+          t("accountSavedCurrencySyncFailed", {
+            detail: translateAccountApiMessage(lang, postSaveCurrencyError, "saveFailed"),
+          }),
+          "danger",
+        );
       } else {
         notify(t("accountSavedSuccessfully"));
       }
@@ -662,7 +670,7 @@ export default function AccountListPage() {
     try {
       const payload = { code };
       if (companyId) payload.company_id = Number(companyId);
-      if (groupOnlyAccountMode && selectedGroup) payload.group_id = String(selectedGroup);
+      if (selectedGroup) payload.group_id = String(selectedGroup);
       const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" });
       const json = await res.json();
       if (json.success) {
@@ -680,7 +688,7 @@ export default function AccountListPage() {
     (action) => {
       const params = new URLSearchParams({ action });
       if (companyId) params.set("company_id", String(companyId));
-      if (groupOnlyAccountMode && selectedGroup) params.set("group_id", String(selectedGroup));
+      if (selectedGroup) params.set("group_id", String(selectedGroup));
       return buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`);
     },
     [companyId, groupOnlyAccountMode, selectedGroup]
@@ -693,7 +701,7 @@ export default function AccountListPage() {
         currency_id: String(currencyId),
       });
       if (companyId) params.set("company_id", String(companyId));
-      if (groupOnlyAccountMode && selectedGroup) params.set("group_id", String(selectedGroup));
+      if (selectedGroup) params.set("group_id", String(selectedGroup));
       const res = await fetch(
         buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`),
         { method: "POST", credentials: "include" },
@@ -808,7 +816,7 @@ export default function AccountListPage() {
 
     try {
       const deleteUrl = new URL(buildApiUrl("api/accounts/delete_currency_api.php"));
-      if (groupOnlyAccountMode && selectedGroup) {
+      if (selectedGroup) {
         deleteUrl.searchParams.set("group_id", String(selectedGroup));
       } else if (scopeCompanyId) {
         deleteUrl.searchParams.set("company_id", String(scopeCompanyId));
@@ -819,7 +827,7 @@ export default function AccountListPage() {
         body: JSON.stringify({
           id,
           company_id: scopeCompanyId || undefined,
-          group_id: groupOnlyAccountMode && selectedGroup ? String(selectedGroup) : undefined,
+          group_id: selectedGroup ? String(selectedGroup) : undefined,
         }),
         credentials: "include",
       });
@@ -844,7 +852,7 @@ export default function AccountListPage() {
     try {
       const params = new URLSearchParams({ action: "get_linked_accounts_by_currency", currency_id: String(curId) });
       if (companyId) params.set("company_id", String(companyId));
-      if (groupOnlyAccountMode && selectedGroup) params.set("group_id", String(selectedGroup));
+      if (selectedGroup) params.set("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", credentials: "include" });
       const json = await res.json();
       const ids = new Set((json.data?.linked_account_ids || []).map(Number));
@@ -865,7 +873,7 @@ export default function AccountListPage() {
     try {
       const params = new URLSearchParams({ action: "bulk_update" });
       if (companyId) params.set("company_id", String(companyId));
-      if (groupOnlyAccountMode && selectedGroup) params.set("group_id", String(selectedGroup));
+      if (selectedGroup) params.set("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success) return notifyApi(json.message, "saveFailed", "danger");
@@ -891,12 +899,12 @@ export default function AccountListPage() {
       setLinkSearchTerm("");
       const allUrl = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
       allUrl.searchParams.set("showAll", "1");
-      if (groupOnlyAccountMode && selectedGroup) allUrl.searchParams.set("group_id", String(selectedGroup));
+      if (selectedGroup) allUrl.searchParams.set("group_id", String(selectedGroup));
       else allUrl.searchParams.set("company_id", String(scopeCompanyId));
       const linkedUrl = new URL(buildApiUrl("api/accounts/account_link_api.php"));
       linkedUrl.searchParams.set("action", "get_linked_accounts");
       linkedUrl.searchParams.set("account_id", String(id));
-      if (groupOnlyAccountMode && selectedGroup) linkedUrl.searchParams.set("group_id", String(selectedGroup));
+      if (selectedGroup) linkedUrl.searchParams.set("group_id", String(selectedGroup));
       else linkedUrl.searchParams.set("company_id", String(scopeCompanyId));
       const [allRes, linkedRes] = await Promise.all([
         fetch(allUrl.toString(), { credentials: "include" }),
@@ -940,7 +948,7 @@ export default function AccountListPage() {
       const refUrl = new URL(buildApiUrl("api/accounts/account_link_api.php"));
       refUrl.searchParams.set("action", "get_linked_accounts");
       refUrl.searchParams.set("account_id", String(linkingAccountId));
-      if (groupOnlyAccountMode && selectedGroup) refUrl.searchParams.set("group_id", String(selectedGroup));
+      if (selectedGroup) refUrl.searchParams.set("group_id", String(selectedGroup));
       else refUrl.searchParams.set("company_id", String(scopeCompanyId));
       const refRes = await fetch(refUrl.toString(), { credentials: "include" });
       const refJson = await refRes.json();
@@ -963,7 +971,12 @@ export default function AccountListPage() {
         await fetch(buildApiUrl("api/accounts/account_link_api.php?action=unlink_accounts"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ account_id_1: Number(linkingAccountId), account_id_2: Number(linkedId), company_id: linkScopeCompanyId }),
+          body: JSON.stringify({
+            account_id_1: Number(linkingAccountId),
+            account_id_2: Number(linkedId),
+            company_id: linkScopeCompanyId,
+            group_id: selectedGroup ? String(selectedGroup) : undefined,
+          }),
           credentials: "include",
         });
       }
@@ -975,6 +988,7 @@ export default function AccountListPage() {
             account_id_1: Number(linkingAccountId),
             account_id_2: Number(linkedId),
             company_id: linkScopeCompanyId,
+            group_id: selectedGroup ? String(selectedGroup) : undefined,
             link_type: linkType,
             source_account_id: linkType === "unidirectional" ? Number(linkingAccountId) : null,
           }),
@@ -990,6 +1004,7 @@ export default function AccountListPage() {
               account_id_1: Number(linkingAccountId),
               account_id_2: Number(linkedId),
               company_id: linkScopeCompanyId,
+              group_id: selectedGroup ? String(selectedGroup) : undefined,
               link_type: linkType,
               source_account_id: linkType === "unidirectional" ? Number(linkingAccountId) : null,
             }),

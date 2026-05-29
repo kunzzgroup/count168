@@ -57,6 +57,7 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
         $current_user_id = (int)($_SESSION['user_id'] ?? 0);
         $current_user_role = strtolower((string)($_SESSION['role'] ?? ''));
         $current_user_type = strtolower((string)($_SESSION['user_type'] ?? ''));
+        $view_group = normalizeGroupId($_GET['group_id'] ?? null);
 
         if ($current_user_id <= 0) {
             throw new Exception('无权限访问该公司');
@@ -83,6 +84,12 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
                 $stmt2->execute([$company_id, $current_user_id]);
                 $memberAllowed = (int)$stmt2->fetchColumn() > 0;
             }
+            if (
+                !$memberAllowed
+                && gc_session_can_access_company_id($pdo, $company_id, $view_group)
+            ) {
+                $memberAllowed = true;
+            }
             if (!$memberAllowed) {
                 throw new Exception('无权限访问该公司');
             }
@@ -99,6 +106,12 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
                     $allowed = true;
                     break;
                 }
+            }
+            if (
+                !$allowed
+                && gc_session_can_access_company_id($pdo, $company_id, $view_group)
+            ) {
+                $allowed = true;
             }
             if (!$allowed) {
                 throw new Exception('无权限访问该公司');

@@ -64,6 +64,14 @@ function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
 
 function resolveScopeCompanyId(PDO $pdo): int {
     $groupScopeId = normalizeGroupId($_POST['group_id'] ?? null);
+    if (isset($_POST['company_id']) && (int)$_POST['company_id'] > 0) {
+        $explicitCompanyId = (int)$_POST['company_id'];
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $explicitCompanyId, $groupScopeId);
+        }
+        return $explicitCompanyId;
+    }
+
     if ($groupScopeId !== null) {
         $groupEntityCompanyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
         if ($groupEntityCompanyId <= 0) {
@@ -73,14 +81,6 @@ function resolveScopeCompanyId(PDO $pdo): int {
             gc_assert_company_id_allowed_for_login_scope($pdo, $groupEntityCompanyId, $groupScopeId);
         }
         return $groupEntityCompanyId;
-    }
-
-    if (isset($_POST['company_id']) && (int)$_POST['company_id'] > 0) {
-        $explicitCompanyId = (int)$_POST['company_id'];
-        if (gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $explicitCompanyId);
-        }
-        return $explicitCompanyId;
     }
 
     if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] > 0) {
