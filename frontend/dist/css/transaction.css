@@ -48,6 +48,7 @@ body.transaction-page .transaction-container {
 .transaction-page .transaction-main {
     display: flex;
     flex-direction: column;
+    gap: 0;
     width: 100%;
     min-height: 0;
 }
