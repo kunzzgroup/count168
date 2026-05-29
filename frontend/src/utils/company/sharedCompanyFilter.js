@@ -311,7 +311,22 @@ export function normalizeOwnerCompanyRow(row) {
   };
 }
 
-/** One pill per company code; prefer the row matching `preferredCompanyId` when duplicates exist (same as maintenance transaction filters). */
+/** True when row is a group entity (AP/IG), including GROUPONLY placeholder (empty company_id). */
+export function companyRowIsGroupEntityAnyShape(companyRow) {
+  if (!companyRow || isVirtualGroupLinkCompanyRow(companyRow)) return false;
+  const grp = normalizeCompanyGroupId(companyRow);
+  if (!grp) return false;
+  const code = String(companyRow.company_id ?? companyRow.companyId ?? companyRow.code ?? "")
+    .trim()
+    .toUpperCase();
+  if (code === grp) return true;
+  return code === "";
+}
+
+/**
+ * One pill per company code; prefer the row matching `preferredCompanyId` when duplicates exist.
+ * Always merges group-entity rows (e.g. AP placeholder with empty company_id) so Transaction scope can resolve them.
+ */
 export function dedupeOwnerCompaniesByCode(companies, preferredCompanyId) {
   const list = filterCompaniesWithDisplayId(companies);
   const byCode = new Map();
@@ -328,7 +343,16 @@ export function dedupeOwnerCompaniesByCode(companies, preferredCompanyId) {
     const currentIsCurrent = Number(comp.id) === Number(preferredCompanyId);
     if (!existingIsCurrent && currentIsCurrent) byCode.set(key, comp);
   }
-  return Array.from(byCode.values());
+  const out = Array.from(byCode.values());
+  const seenIds = new Set(out.map((c) => Number(c.id)).filter((id) => id > 0));
+  for (const comp of companies || []) {
+    if (!companyRowIsGroupEntityAnyShape(comp)) continue;
+    const id = Number(comp.id);
+    if (!Number.isFinite(id) || id <= 0 || seenIds.has(id)) continue;
+    out.push(comp);
+    seenIds.add(id);
+  }
+  return out;
 }
 
 export function normalizeCompanyGroupId(comp) {
@@ -457,6 +481,15 @@ export function isVirtualGroupLinkCompanyRow(c) {
 }
 
 /** Per-company view_group for API access (linked companies under AP/IG, etc.). */
+/** Prefer group-entity row for session anchor (AP/IG), not first subsidiary in list order. */
+export function pickGroupAnchorCompany(companies, gid) {
+  if (!gid) return null;
+  const entities = companiesGroupEntityList(companies, gid);
+  if (entities.length > 0) return entities[0];
+  const list = companiesInGroupList(companies, gid);
+  return list[0] ?? null;
+}
+
 export function resolveViewGroupForCompany(companyRow, fallbackGroup = null) {
   if (!companyRow) {
     return fallbackGroup ? String(fallbackGroup).trim().toUpperCase() : null;

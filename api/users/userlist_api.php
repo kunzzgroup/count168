@@ -507,15 +507,82 @@ function userlist_resolve_scope_company_id(PDO $pdo, ?string $groupScope, array 
  *
  * @return list<int>
  */
+/**
+ * All companies in a group scope (subsidiaries + linked), not group-entity rows only.
+ *
+ * @return list<int>
+ */
+function userlist_company_ids_in_group_scope(array $accessibleCompanies, string $groupId): array
+{
+    $g = userlist_normalize_group_id($groupId);
+    if ($g === null) {
+        return [];
+    }
+    $out = [];
+    foreach ($accessibleCompanies as $c) {
+        $code = strtoupper(trim((string) ($c['company_id'] ?? '')));
+        if ($code === '') {
+            continue;
+        }
+        $gid = strtoupper(trim((string) ($c['group_id'] ?? '')));
+        $linkSrc = strtoupper(trim((string) ($c['link_source_group'] ?? '')));
+        if ($gid !== $g && $linkSrc !== $g) {
+            continue;
+        }
+        $id = (int) ($c['id'] ?? 0);
+        if ($id > 0) {
+            $out[] = $id;
+        }
+    }
+
+    return array_values(array_unique($out));
+}
+
 function userlist_resolve_filter_company_ids(PDO $pdo, array $input): array
 {
     global $current_company_id;
+    $groupsAll = !empty($input['groups_all']);
+    $groupAll = !empty($input['group_all']);
     $groupId = userlist_normalize_group_id($input['group_id'] ?? null);
     $requestedCompanyId = (int) ($input['company_id'] ?? 0);
+    $accessible = userlist_fetch_accessible_companies($pdo);
+
+    if ($groupsAll) {
+        if ($groupAll) {
+            $allowed = gc_resolve_allowed_company_numeric_ids($pdo, $accessible);
+            return array_values(array_filter($allowed, static fn (int $id): bool => $id > 0));
+        }
+        $out = [];
+        foreach (gc_session_accessible_group_ids() as $gid) {
+            $g = userlist_normalize_group_id($gid);
+            if ($g === null) {
+                continue;
+            }
+            $entityIds = userlist_group_entity_company_ids($pdo, $g);
+            if ($entityIds !== []) {
+                $out = array_merge($out, $entityIds);
+                continue;
+            }
+            $scoped = userlist_company_ids_in_group_scope($accessible, $g);
+            if ($scoped !== []) {
+                $out = array_merge($out, $scoped);
+            }
+        }
+        if ($out === []) {
+            $allowed = gc_resolve_allowed_company_numeric_ids($pdo, $accessible);
+            return array_values(array_filter($allowed, static fn (int $id): bool => $id > 0));
+        }
+        return array_values(array_unique(array_map('intval', $out)));
+    }
 
     if ($groupId !== null) {
         userlist_assert_group_id_allowed($groupId);
-        $accessible = userlist_fetch_accessible_companies($pdo);
+        if ($groupAll) {
+            $scoped = userlist_company_ids_in_group_scope($accessible, $groupId);
+            if ($scoped !== []) {
+                return $scoped;
+            }
+        }
         $groupCompanyIds = userlist_company_ids_for_group($accessible, $groupId);
         if ($groupCompanyIds === []) {
             $groupCompanyIds = userlist_group_entity_company_ids($pdo, $groupId);

@@ -4,11 +4,18 @@ import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
   isDashboardGroupOnlyMode,
+  persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   loadOwnerCompaniesCached,
 } from "../../utils/company/sharedCompanyFilter.js";
-import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
+import { getLoginIdentifier, isGroupLogin } from "../../utils/company/loginScope.js";
+import {
+  groupIdsForGroupsAllAggregate,
+  useGcFilterWithAllModes,
+} from "../../utils/company/useGcFilterWithAllModes.js";
+import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
@@ -26,6 +33,7 @@ import {
   isVirtualGroupLinkCompanyRow,
   buildAccountsFetchKey,
   buildAccountsUrl,
+  fetchMergedAccounts,
   pickDefaultAddCurrencyIds,
 } from "./accountLogic.js";
 
@@ -174,30 +182,73 @@ export default function AccountListPage() {
     window.history.replaceState({}, document.title, url.toString());
   }, [companyId, searchTerm, showInactive, showAll]);
 
-  const fetchAccounts = useCallback(async () => {
-    const groupOnlyModeActive = Boolean(selectedGroup && !companyId && isDashboardGroupOnlyMode());
-    if (!companyId && !(groupOnlyModeActive && selectedGroup)) return;
-    setTableLoading(true);
-    try {
-      const url = groupOnlyModeActive
-        ? new URL(buildApiUrl("api/accounts/accountlistapi.php"))
-        : buildAccountsUrl(companyId, searchTerm, showInactive, showAll);
-      if (groupOnlyModeActive) {
-        url.searchParams.set("group_id", String(selectedGroup || ""));
-        if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
-        if (showInactive) url.searchParams.set("showInactive", "1");
-        if (showAll) url.searchParams.set("showAll", "1");
+  const fetchAccounts = useCallback(
+    async (gcScope) => {
+      const scope = gcScope || {};
+      const {
+        companyId: cid,
+        selectedGroup: sg,
+        groupsAllMode: gAll,
+        groupAllMode: cAll,
+        mergeCompanyIds: mergeIds = [],
+        groupIds: gids = [],
+        isListScopeReady: ready,
+      } = scope;
+      if (!ready) return;
+      const groupOnlyModeActive = Boolean(sg && !cid && !cAll && !gAll && isDashboardGroupOnlyMode());
+      setTableLoading(true);
+      try {
+        let accounts = [];
+        if (cid) {
+          const res = await fetch(buildAccountsUrl(cid, searchTerm, showInactive, showAll).toString(), {
+            credentials: "include",
+          });
+          const json = await res.json();
+          if (!json.success) return notifyApi(json.message, "failedToLoadAccounts", "danger");
+          accounts = Array.isArray(json?.data?.accounts) ? json.data.accounts : [];
+        } else if (cAll) {
+          const merged = await fetchMergedAccounts({
+            companyIds: mergeIds,
+            searchTerm,
+            showInactive,
+            showAll,
+          });
+          if (!merged.success) return notifyApi(merged.message, "failedToLoadAccounts", "danger");
+          accounts = merged.accounts;
+        } else if (gAll) {
+          const merged = await fetchMergedAccounts({
+            groupIds: groupIdsForGroupsAllAggregate(companies, gids),
+            searchTerm,
+            showInactive,
+            showAll,
+          });
+          if (!merged.success) return notifyApi(merged.message, "failedToLoadAccounts", "danger");
+          accounts = merged.accounts;
+        } else if (groupOnlyModeActive && sg) {
+          const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+          url.searchParams.set("group_id", String(sg));
+          if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
+          if (showInactive) url.searchParams.set("showInactive", "1");
+          if (showAll) url.searchParams.set("showAll", "1");
+          const res = await fetch(url.toString(), { credentials: "include" });
+          const json = await res.json();
+          if (!json.success) return notifyApi(json.message, "failedToLoadAccounts", "danger");
+          accounts = Array.isArray(json?.data?.accounts) ? json.data.accounts : [];
+        } else {
+          return;
+        }
+        setAccounts(accounts);
+        setSelectedDeleteIds(new Set());
+        setCurrentPage(1);
+        syncUrl();
+      } catch {
+        notifyApi(null, "networkError", "danger");
+      } finally {
+        setTableLoading(false);
       }
-      const res = await fetch(url.toString(), { credentials: "include" });
-      const json = await res.json();
-      if (!json.success) return notifyApi(json.message, "failedToLoadAccounts", "danger");
-      setAccounts(Array.isArray(json?.data?.accounts) ? json.data.accounts : []);
-      setSelectedDeleteIds(new Set());
-      setCurrentPage(1);
-      syncUrl();
-    } catch { notifyApi(null, "networkError", "danger"); }
-    finally { setTableLoading(false); }
-  }, [companyId, selectedGroup, searchTerm, showInactive, showAll, syncUrl, notify]);
+    },
+    [companies, searchTerm, showInactive, showAll, syncUrl, notify],
+  );
 
   // -- Boot --
   useEffect(() => {
@@ -246,7 +297,16 @@ export default function AccountListPage() {
           initialCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(initialCompanyId)) || null
             : null;
-        const bootGroup = resolveInitialSelectedGroupFromSession(rows, row);
+        let bootGroup = resolveInitialSelectedGroupFromSession(rows, row, sessionMe);
+        if (!bootGroup && isGroupLogin(sessionMe)) {
+          bootGroup = getLoginIdentifier(sessionMe);
+        }
+        if (bootGroup) {
+          persistDashboardGroupFilter(bootGroup);
+          if (isGroupLogin(sessionMe) && isDashboardGroupOnlyMode()) {
+            persistDashboardGroupOnlyMode(true);
+          }
+        }
         setCompanyId(isDashboardGroupOnlyMode() ? null : initialCompanyId);
         setSelectedGroup(bootGroup);
         setSearchTerm(initialSearchTerm);
@@ -263,26 +323,108 @@ export default function AccountListPage() {
     };
   }, [sessionReady, sessionMe, navigate]);
 
-  useEffect(() => {
-    const groupOnlyModeActive = Boolean(selectedGroup && !companyId && isDashboardGroupOnlyMode());
-    if (!bootLoading && (companyId || (groupOnlyModeActive && selectedGroup))) {
-      const scopeKey = groupOnlyModeActive ? `group:${selectedGroup || ""}` : `company:${companyId || ""}`;
-      const key = buildAccountsFetchKey(scopeKey, searchTerm, showInactive, showAll);
-      if (bootFetchedAccountsKeyRef.current === key) {
-        bootFetchedAccountsKeyRef.current = null;
-        return;
-      }
-      fetchAccounts();
-    }
-  }, [bootLoading, companyId, selectedGroup, searchTerm, showInactive, showAll, fetchAccounts]);
-
-  // -- Computed --
   const allCompanyButtons = useMemo(
     () => companies.filter(c => c.company_id && String(c.company_id).trim() !== "" && !isVirtualGroupLinkCompanyRow(c)),
     [companies]
   );
   const pickerCompanyId = pendingCompanyId ?? companyId;
 
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setAccounts([]);
+  }, []);
+
+  const onSwitchCompany = async (c) => {
+    const nextCompanyId = Number(c?.id);
+    if (!nextCompanyId || switchingCompany) return;
+    setPendingCompanyId(nextCompanyId);
+    setSwitchingCompany(true);
+    try {
+      const switchUrl = new URL(buildApiUrl("api/session/update_company_session_api.php"));
+      switchUrl.searchParams.set("company_id", String(nextCompanyId));
+      const res = await fetch(switchUrl.toString(), { credentials: "include" });
+      const json = await res.json();
+      if (!json.success) return notifyApi(json.message, "failedToSwitchCompany", "danger");
+      setCompanyId(nextCompanyId);
+      notifyCompanySessionUpdated();
+      notify(t("switchedTo", { company: c.company_id }));
+    } catch { notify(t("failedToSwitchCompany"), "danger"); }
+    finally { setPendingCompanyId(null); setSwitchingCompany(false); }
+  };
+
+  const {
+    groupIds,
+    companiesForPicker,
+    handlePickGroup,
+    handlePickCompany,
+    groupsAllMode,
+    groupAllMode,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    isListScopeReady,
+    mergeCompanyIds,
+    setGroupsAllMode,
+    setGroupAllMode,
+  } = useGcFilterWithAllModes({
+    companies: allCompanyButtons,
+    companyId: pickerCompanyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: onSwitchCompany,
+    onClearCompany: handleClearCompany,
+    switchingCompany,
+    preferredCompanyId: pickerCompanyId,
+    me: sessionMe,
+  });
+
+  useEffect(() => {
+    if (bootLoading || !selectedGroup) return;
+    setGroupsAllMode(false);
+    setGroupAllMode(false);
+  }, [bootLoading, selectedGroup, setGroupsAllMode, setGroupAllMode]);
+
+  useEffect(() => {
+    if (!bootLoading && isListScopeReady) {
+      const scopeKey = groupsAllMode
+        ? groupAllMode
+          ? "groups-all:companies-all"
+          : "groups-all"
+        : groupAllMode
+          ? `group-all:${selectedGroup || ""}`
+          : companyId
+            ? `company:${companyId}`
+            : `group:${selectedGroup || ""}`;
+      const key = buildAccountsFetchKey(scopeKey, searchTerm, showInactive, showAll);
+      if (bootFetchedAccountsKeyRef.current === key) {
+        bootFetchedAccountsKeyRef.current = null;
+        return;
+      }
+      fetchAccounts({
+        companyId,
+        selectedGroup,
+        groupsAllMode,
+        groupAllMode,
+        mergeCompanyIds,
+        groupIds,
+        isListScopeReady,
+      });
+    }
+  }, [
+    bootLoading,
+    companyId,
+    selectedGroup,
+    groupsAllMode,
+    groupAllMode,
+    mergeCompanyIds,
+    groupIds,
+    isListScopeReady,
+    searchTerm,
+    showInactive,
+    showAll,
+    fetchAccounts,
+  ]);
+
+  // -- Computed --
   const sortedAccounts = useMemo(() => {
     const arr = [...accounts];
     arr.sort((a, b) => {
@@ -327,44 +469,16 @@ export default function AccountListPage() {
     return filteredForMode.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
   }, [filteredForMode, showAll, currentPage, totalPages]);
 
-  // -- Handlers --
-  const handleClearCompany = useCallback(() => {
-    setCompanyId(null);
-    setAccounts([]);
-  }, []);
-
-  const onSwitchCompany = async (c) => {
-    const nextCompanyId = Number(c?.id);
-    if (!nextCompanyId || switchingCompany) return;
-    setPendingCompanyId(nextCompanyId);
-    setSwitchingCompany(true);
-    try {
-      const switchUrl = new URL(buildApiUrl("api/session/update_company_session_api.php"));
-      switchUrl.searchParams.set("company_id", String(nextCompanyId));
-      const res = await fetch(switchUrl.toString(), { credentials: "include" });
-      const json = await res.json();
-      if (!json.success) return notifyApi(json.message, "failedToSwitchCompany", "danger");
-      setCompanyId(nextCompanyId);
-      notifyCompanySessionUpdated();
-      notify(t("switchedTo", { company: c.company_id }));
-    } catch { notify(t("failedToSwitchCompany"), "danger"); }
-    finally { setPendingCompanyId(null); setSwitchingCompany(false); }
-  };
-
-  const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
-    companies: allCompanyButtons,
-    companyId: pickerCompanyId,
-    selectedGroup,
-    setSelectedGroup,
-    onSelectCompany: onSwitchCompany,
-    onClearCompany: handleClearCompany,
-    switchingCompany,
-    preferredCompanyId: pickerCompanyId,
-    me: sessionMe,
-  });
   const groupOnlyAccountMode = useMemo(
-    () => Boolean(selectedGroup && !companyId && isDashboardGroupOnlyMode()),
-    [selectedGroup, companyId]
+    () =>
+      Boolean(
+        selectedGroup &&
+          !companyId &&
+          !groupAllMode &&
+          !groupsAllMode &&
+          isDashboardGroupOnlyMode(),
+      ),
+    [selectedGroup, companyId, groupAllMode, groupsAllMode],
   );
   const groupPickerCompanies = useMemo(() => {
     if (!groupOnlyAccountMode) return [];
@@ -1138,50 +1252,20 @@ export default function AccountListPage() {
                 </div>
               </div>
             </div>
-            <div className="user-gc-inline-panel">
-              {groupIds.length > 0 && (
-                <div className="user-gc-inline-row">
-                  <span className="user-gc-inline-label">{t("groupId")}</span>
-                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                    <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-                      {groupIds.map((gid) => (
-                        <button
-                          key={gid}
-                          type="button"
-                          className={`user-gc-segment${gid === selectedGroup ? " is-on" : ""}`}
-                          onClick={() => void handlePickGroup(gid)}
-                        >
-                          {gid}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="user-gc-inline-row">
-                <span className="user-gc-inline-label">{t("company")}</span>
-                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                  <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
-                    {companiesForPicker.map((c) => {
-                      const active = Number(pickerCompanyId) === Number(c.id);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className={`user-gc-segment${active ? " is-on" : ""}`}
-                          onClick={() => {
-                            if (switchingCompany) return;
-                            void handlePickCompany(c);
-                          }}
-                        >
-                          {String(c.company_id || "").toUpperCase()}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <GcInlineFilterPanel
+              t={t}
+              groupIds={groupIds}
+              groupsAllMode={groupsAllMode}
+              selectedGroup={selectedGroup}
+              onPickAllGroups={handlePickAllGroups}
+              onPickGroup={handlePickGroup}
+              companiesForPicker={companiesForPicker}
+              groupAllMode={groupAllMode}
+              pickerCompanyId={pickerCompanyId}
+              onPickAllInGroup={handlePickAllInGroup}
+              onPickCompany={handlePickCompany}
+              switchingCompany={switchingCompany}
+            />
           </div>
 
           <div className="account-table-wrapper account-list-table">
