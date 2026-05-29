@@ -23,6 +23,11 @@ try {
         exit;
     }
 
+    if (!$pdo instanceof PDO) {
+        api_error('Database connection failed', 503);
+        exit;
+    }
+
     gc_hydrate_company_login_group_id($pdo);
 
     $fetchAll = isset($_GET['all']) && $_GET['all'] == '1';
