@@ -456,6 +456,22 @@ export function isVirtualGroupLinkCompanyRow(c) {
   return ls != null && String(ls).trim() !== "";
 }
 
+/** Per-company view_group for API access (linked companies under AP/IG, etc.). */
+export function resolveViewGroupForCompany(companyRow, fallbackGroup = null) {
+  if (!companyRow) {
+    return fallbackGroup ? String(fallbackGroup).trim().toUpperCase() : null;
+  }
+  const link = companyRow.link_source_group
+    ? String(companyRow.link_source_group).trim().toUpperCase()
+    : "";
+  if (link) return link;
+  const native = companyRow.group_id
+    ? String(companyRow.group_id).trim().toUpperCase()
+    : "";
+  if (native) return native;
+  return fallbackGroup ? String(fallbackGroup).trim().toUpperCase() : null;
+}
+
 /** Companies visible in the Company row when a GroupID is selected (Dashboard-aligned). */
 export function companiesInGroupList(companies, gid) {
   if (!gid) {

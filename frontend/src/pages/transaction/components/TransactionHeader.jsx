@@ -19,7 +19,7 @@ export default function TransactionHeader({
   refreshContraInbox,
   approveContra,
   rejectContra,
-  fsCompanyId,
+  scopeApi,
   mutationsBlocked = false,
   m,
   t,
@@ -226,7 +226,7 @@ export default function TransactionHeader({
                               if (mutationsBlocked) return;
                               const tid = it.transaction_id || it.id;
                               if (!tid) return;
-                              await approveContra({ transactionId: tid, companyId: fsCompanyId });
+                              await approveContra({ transactionId: tid, scopeApi });
                             }}
                           >
                             {m.approve}
@@ -240,7 +240,7 @@ export default function TransactionHeader({
                               if (!confirm(m.confirmRejectContra)) return;
                               const tid = it.transaction_id || it.id;
                               if (!tid) return;
-                              await rejectContra({ transactionId: tid, companyId: fsCompanyId });
+                              await rejectContra({ transactionId: tid, scopeApi });
                             }}
                           >
                             {m.reject}

@@ -107,6 +107,18 @@ export function dedupeRowsByAccountAndCurrency(rows) {
 }
 
 /** 去重左右表并按行重算 totals（修复竞态/缓存叠行导致的重复 CAPITAL 等）。 */
+/** Merge multiple search_api payloads (group/company All modes). */
+export function mergeSearchApiDataList(dataList) {
+  const left = [];
+  const right = [];
+  for (const d of dataList) {
+    if (!d || typeof d !== "object") continue;
+    if (Array.isArray(d.left_table)) left.push(...d.left_table);
+    if (Array.isArray(d.right_table)) right.push(...d.right_table);
+  }
+  return sanitizeSearchApiData({ left_table: left, right_table: right });
+}
+
 export function sanitizeSearchApiData(data) {
   if (!data || typeof data !== "object") return data;
   const left = dedupeRowsByAccountAndCurrency(data.left_table);
