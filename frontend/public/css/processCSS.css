@@ -2278,7 +2278,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.b
     min-width: 0;
 }
 
-/* Card Owner：略窄于 Bank，收紧与 Contract 间距 */
+/* Card Owner：桌面列宽略窄于 Bank；<1700px 由 media query 加宽以完整显示 */
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
     padding-left: clamp(6px, 0.42vw, 9px);
@@ -2675,20 +2675,22 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     }
 }
 
-/* Bank 列：全视口单行「SUNCROP ABN (BUSINESS)」— name 与 (TYPE) 同一行 */
-body.process-page.process-page--bank .bank-cell-display--typed {
-    display: inline;
-    max-width: 100%;
-    white-space: nowrap;
-}
+@media (min-width: 1700px) {
+    /* Bank 列：宽屏单行「SUNCROP ABN (BUSINESS)」— name 与 (TYPE) 同一行 */
+    body.process-page.process-page--bank .bank-cell-display--typed {
+        display: inline;
+        max-width: 100%;
+        white-space: nowrap;
+    }
 
-body.process-page.process-page--bank .bank-cell-display__name,
-body.process-page.process-page--bank .bank-cell-display__type {
-    display: inline;
-}
+    body.process-page.process-page--bank .bank-cell-display__name,
+    body.process-page.process-page--bank .bank-cell-display__type {
+        display: inline;
+    }
 
-body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-display__type {
-    margin-left: 0.28em;
+    body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-display__type {
+        margin-left: 0.28em;
+    }
 }
 
 /* 视口 < 1700px：表头/数据最多两行换行；整页滚动，不在列表内嵌套 scrollbar */
@@ -2749,19 +2751,7 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
             )
         );
         --bank-header-th-font-size: clamp(9px, 0.65vw, 11px);
-        /* 列宽按表头完整词 + 排序图标预留（No…Action） */
-        --bank-virtual-grid-columns:
-            minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(max-content, 0.28fr)
-            minmax(88px, 0.92fr) minmax(72px, 0.82fr)
-            minmax(66px, 0.36fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
-            minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content;
-        --bank-virtual-grid-columns-with-select:
-            minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(max-content, 0.28fr)
-            minmax(88px, 0.92fr) minmax(72px, 0.82fr)
-            minmax(66px, 0.36fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
-            minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
-            minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content max-content;
+        /* 列宽由上方 @2584 统一 media 定义，此处不再覆盖（避免平板 Card Owner 被挤窄） */
     }
 
     /* Supplier：<1700px 仍单行省略 */
@@ -2844,7 +2834,7 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
         text-align: left;
     }
 
-    /* Bank：<1700px 有 type 时仍单行「BANK (TYPE)」，列宽加宽后不再拆成两行 */
+    /* Bank：<1700px 有 type 时固定两行（银行名 / 类型），行高随内容撑开 */
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-bank.bank-virtual-cell:has(.bank-cell-display--typed),
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-bank.bank-virtual-cell--wrap:has(.bank-cell-display--typed) {
         display: flex !important;
@@ -2852,31 +2842,40 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
         align-self: stretch !important;
         align-items: center !important;
         justify-content: flex-start !important;
-        white-space: nowrap !important;
+        white-space: normal !important;
         overflow: hidden !important;
-        text-overflow: ellipsis !important;
+        text-overflow: clip !important;
         -webkit-line-clamp: unset;
         line-clamp: unset;
     }
 
     body.process-page.process-page--bank .bank-cell-display--typed {
-        display: inline;
-        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        width: 100%;
         min-width: 0;
-        white-space: nowrap;
+        min-height: calc(
+            2 * var(--bank-list-cell-line-height, 1.28) * var(--text-medium, 14px)
+        );
         line-height: var(--bank-list-cell-line-height, 1.28);
         overflow: hidden;
-        text-overflow: ellipsis;
+        gap: 1px;
     }
 
     body.process-page.process-page--bank .bank-cell-display__name,
     body.process-page.process-page--bank .bank-cell-display__type {
-        display: inline;
+        display: block;
+        width: 100%;
+        max-width: 100%;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-display__type {
-        margin-left: 0.28em;
+        margin-left: 0;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
@@ -2999,13 +2998,13 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
         --bank-list-cell-padding-x: clamp(4px, 0.45vw, 8px);
         --bank-virtual-grid-columns:
             minmax(28px, 0.14fr) minmax(66px, 0.4fr) minmax(max-content, 0.28fr)
-            minmax(112px, 0.94fr) minmax(64px, 0.76fr)
+            minmax(100px, 0.72fr) minmax(72px, 1.05fr)
             minmax(66px, 0.36fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
             minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(66px, 0.4fr) minmax(max-content, 0.28fr)
-            minmax(112px, 0.94fr) minmax(64px, 0.76fr)
+            minmax(100px, 0.72fr) minmax(72px, 1.05fr)
             minmax(66px, 0.36fr) minmax(max-content, 0.32fr) minmax(max-content, 0.3fr)
             minmax(40px, 0.34fr) minmax(44px, 0.34fr) minmax(46px, 0.34fr)
             minmax(52px, 0.46fr) minmax(88px, 0.56fr) max-content max-content;
@@ -3044,18 +3043,18 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
     }
 }
 
-/* 视口 ≤ 1408px：加宽 Cost/Price/Profit；Bank 加宽单行显示 BANK (TYPE) */
+/* 视口 ≤ 1408px：加宽 Cost/Price/Profit；Bank 保持足够宽以完整显示两行（RHB / (BUSINESS)） */
 @media (max-width: 1408px) {
     .process-page.process-page--bank {
         --bank-virtual-grid-columns:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
-            minmax(112px, 0.96fr) minmax(58px, 0.74fr)
+            minmax(104px, 0.76fr) minmax(68px, 1.02fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.46fr) minmax(66px, 0.46fr) minmax(62px, 0.44fr)
             minmax(52px, 0.44fr) minmax(90px, 0.56fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
-            minmax(112px, 0.96fr) minmax(58px, 0.74fr)
+            minmax(104px, 0.76fr) minmax(68px, 1.02fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.46fr) minmax(66px, 0.46fr) minmax(62px, 0.44fr)
             minmax(52px, 0.44fr) minmax(90px, 0.56fr) max-content max-content;
@@ -3065,9 +3064,9 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
     body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-cell,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-cell {
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-col-cost.bank-virtual-th,
@@ -3117,13 +3116,13 @@ body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-displa
     .process-page.process-page--bank {
         --bank-virtual-grid-columns:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
-            minmax(112px, 0.94fr) minmax(56px, 0.72fr)
+            minmax(104px, 0.74fr) minmax(66px, 1fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.44fr) minmax(66px, 0.44fr) minmax(62px, 0.42fr)
             minmax(52px, 0.42fr) minmax(94px, 0.58fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(28px, 0.14fr) minmax(64px, 0.38fr) minmax(60px, 0.26fr)
-            minmax(112px, 0.94fr) minmax(56px, 0.72fr)
+            minmax(104px, 0.74fr) minmax(66px, 1fr)
             minmax(66px, 0.36fr) minmax(70px, 0.32fr) minmax(66px, 0.3fr)
             minmax(66px, 0.44fr) minmax(66px, 0.44fr) minmax(62px, 0.42fr)
             minmax(52px, 0.42fr) minmax(94px, 0.58fr) max-content max-content;
@@ -3352,9 +3351,9 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
         height: auto !important;
     }
 
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-virtual-cell.bank-virtual-cell--wrap:not(.bank-col-bank),
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-virtual-cell.bank-virtual-cell--wrap,
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-bank.bank-virtual-cell:has(.bank-cell-display--typed) {
-        white-space: nowrap !important;
+        white-space: normal !important;
     }
 }
 
