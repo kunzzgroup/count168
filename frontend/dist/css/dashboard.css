@@ -839,43 +839,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     gap: var(--dashboard-section-gap);
 }
 
-@keyframes dashboard-section-in {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.dashboard-content > * {
-    animation: dashboard-section-in 0.46s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
-}
-
-.dashboard-content > *:nth-child(1) {
-    animation-delay: 0ms;
-}
-
-.dashboard-content > *:nth-child(2) {
-    animation-delay: 55ms;
-}
-
-.dashboard-content > *:nth-child(3) {
-    animation-delay: 110ms;
-}
-
-.dashboard-content > *:nth-child(4) {
-    animation-delay: 165ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .dashboard-content > * {
-        animation: none;
-    }
-}
-
 .dashboard-card {
     background-color: var(--scd-card);
     border: 1px solid var(--scd-border);
@@ -1236,16 +1199,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     overflow: visible;
 }
 
-.dashboard-summary-pie-chart-shell::before {
-    content: "";
-    position: absolute;
-    inset: 12% 18%;
-    border-radius: 50%;
-    background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.55) 55%, rgba(241, 245, 249, 0) 72%);
-    pointer-events: none;
-    z-index: 2;
-}
-
 .dashboard-summary-pie-wrap .recharts-responsive-container,
 .dashboard-summary-pie-chart-shell .recharts-responsive-container {
     width: 100% !important;
@@ -1351,26 +1304,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     gap: 2px;
     pointer-events: none;
     z-index: 6;
-    animation: dashboard-pie-center-in 0.52s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
-}
-
-.dashboard-summary-pie-center-ring {
-    position: absolute;
-    width: clamp(72px, 9.5vw, 92px);
-    height: clamp(72px, 9.5vw, 92px);
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    box-shadow:
-        0 0 0 6px rgba(255, 255, 255, 0.55),
-        0 8px 24px rgba(15, 23, 42, 0.06);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    animation: dashboard-pie-center-in 0.48s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 }
 
 .dashboard-summary-pie-center-badge {
-    position: relative;
-    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1378,6 +1315,9 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     gap: 2px;
     min-width: 52px;
     padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--color-surface, #ffffff);
+    box-shadow: 0 0 0 5px var(--color-surface, #ffffff);
 }
 
 .dashboard-summary-pie-center-pct {
@@ -1411,10 +1351,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-pie-wrap .recharts-pie-sector,
 .dashboard-summary-pie-chart-shell .recharts-pie-sector {
     outline: none;
-    cursor: pointer;
-    transition:
-        opacity var(--duration-fast, 0.2s) var(--ease-out-soft, ease),
-        filter var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
+    cursor: default;
+    transition: opacity var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Sector } from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { formatFrankfurterUnitRate } from "../../../utils/dashboard/frankfurterRates.js";
 import {
   buildEarningsPieSlices,
@@ -11,30 +11,6 @@ import {
 } from "../lib/dashboardEarnings.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { EarningsPieSectorTooltip } from "./EarningsPieSectorTooltip.jsx";
-
-const PIE_INNER = "56%";
-const PIE_OUTER = "82%";
-const PIE_CORNER = 5;
-const PIE_PAD = 3;
-
-function renderActivePieSector(props) {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, stroke, strokeWidth } = props;
-  return (
-    <Sector
-      cx={cx}
-      cy={cy}
-      innerRadius={innerRadius}
-      outerRadius={outerRadius + 6}
-      startAngle={startAngle}
-      endAngle={endAngle}
-      fill={fill}
-      stroke={stroke}
-      strokeWidth={strokeWidth}
-      cornerRadius={PIE_CORNER}
-      style={{ filter: "drop-shadow(0 4px 10px rgba(15, 23, 42, 0.14))" }}
-    />
-  );
-}
 
 export function DashboardEarningsSummary({
   i18n,
@@ -94,7 +70,6 @@ export function DashboardEarningsSummary({
   }, [earningsCurrencyRows]);
 
   const summaryPieReady = earningsPieSlices.length > 0 && !summaryEarningsLoading;
-  const pieDataKey = `${currencyCode || "pie"}-${useConvertedEarnings ? "c" : "n"}-${earningsPieSlices.map((s) => s.code).join(",")}`;
 
   const isRowEarningsLoading = useCallback(
     (code) => {
@@ -183,10 +158,6 @@ export function DashboardEarningsSummary({
     pieShellLayout,
   ]);
 
-  const placeholderSlice = [{ code: "—", earnings: 0, value: 1, fill: "#e2e8f0" }];
-  const chartSlices = earningsPieSlices.length ? earningsPieSlices : placeholderSlice;
-  const multiSlice = earningsPieSlices.length > 1;
-
   return (
     <div className="dashboard-panel-card dashboard-panel-card--summary">
       <div className="dashboard-summary-layout">
@@ -211,77 +182,42 @@ export function DashboardEarningsSummary({
           >
             <div ref={pieShellRef} className="dashboard-summary-pie-chart-shell">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart margin={{ top: 6, right: 6, bottom: 6, left: 6 }}>
-                  <defs>
-                    <filter id="dashboardPieSoftShadow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#0f172a" floodOpacity="0.08" />
-                    </filter>
-                    {earningsPieSlices.map((slice) => (
-                      <linearGradient
-                        key={slice.gradientId}
-                        id={slice.gradientId}
-                        x1="0"
-                        y1="0"
-                        x2="1"
-                        y2="1"
-                      >
-                        <stop offset="0%" stopColor={slice.gradientFrom} />
-                        <stop offset="100%" stopColor={slice.gradientTo} />
-                      </linearGradient>
-                    ))}
-                  </defs>
+                <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                   <Pie
-                    data={[{ value: 1 }]}
-                    dataKey="value"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={PIE_INNER}
-                    outerRadius={PIE_OUTER}
-                    fill="#f1f5f9"
-                    stroke="none"
-                    isAnimationActive={false}
-                  />
-                  <Pie
-                    key={pieDataKey}
-                    data={chartSlices}
+                    key={currencyCode || "pie"}
+                    data={
+                      earningsPieSlices.length
+                        ? earningsPieSlices
+                        : [{ code: "—", earnings: 0, value: 1, fill: "#e0e7ff" }]
+                    }
                     dataKey="value"
                     nameKey="code"
                     cx="50%"
                     cy="50%"
-                    innerRadius={PIE_INNER}
-                    outerRadius={PIE_OUTER}
-                    paddingAngle={multiSlice ? PIE_PAD : 0}
-                    cornerRadius={multiSlice ? PIE_CORNER : 0}
-                    stroke="#ffffff"
-                    strokeWidth={2.5}
+                    innerRadius="58%"
+                    outerRadius="78%"
+                    paddingAngle={earningsPieSlices.length > 1 ? 2 : 0}
+                    stroke="#fff"
+                    strokeWidth={2}
                     label={false}
-                    activeShape={summaryPieReady ? renderActivePieSector : false}
+                    activeShape={false}
                     isAnimationActive={summaryPieReady && !earningsByCurrencyLoading}
-                    animationBegin={80}
-                    animationDuration={680}
+                    animationBegin={0}
+                    animationDuration={320}
                     animationEasing="ease-out"
-                    style={{ filter: "url(#dashboardPieSoftShadow)" }}
                     onMouseEnter={handlePieSectorEnter}
                     onMouseLeave={() => setHoveredPieSector(null)}
                   >
-                    {chartSlices.map((entry, index) => (
-                      <Cell
-                        key={entry.code || index}
-                        fill={
-                          entry.gradientId && earningsPieSlices.length
-                            ? `url(#${entry.gradientId})`
-                            : entry.fill
-                        }
-                        stroke="#ffffff"
-                        strokeWidth={2.5}
-                      />
-                    ))}
+                    {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
+                      (entry, index) => (
+                        <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={2} />
+                      )
+                    )}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
               {!summaryEarningsLoading && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
                 <div key={currencyCode || "center"} className="dashboard-summary-pie-center" aria-hidden="true">
-                  <div className="dashboard-summary-pie-center-ring" aria-hidden="true" />
                   <div className="dashboard-summary-pie-center-badge">
                     <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
                     <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
