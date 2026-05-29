@@ -3573,6 +3573,13 @@ if (addProcessForm) {
             const result = await response.json();
 
             if (result.success) {
+                const createdCount = Array.isArray(result.data && result.data.created_processes)
+                    ? result.data.created_processes.length
+                    : (Array.isArray(result.created_processes) ? result.created_processes.length : null);
+                if (createdCount === 0) {
+                    showNotification(result.error || result.message || 'Process was not created', 'danger');
+                    return;
+                }
                 let message = result.message || 'Process added successfully!';
                 // 如果有 copy_from 相关的调试信息，添加到消息中
                 if (result.copy_from_used !== undefined) {
@@ -3592,7 +3599,10 @@ if (addProcessForm) {
                 closeAddModal();
                 fetchProcesses(); // 刷新列表
             } else {
-                let errorMessage = result.error || 'Unknown error occurred';
+                let errorMessage = result.error || result.message || 'Unknown error occurred';
+                if (result.data && result.data.duplicate) {
+                    errorMessage = result.error || result.message || 'Process ID already exists';
+                }
                 showNotification(errorMessage, 'danger');
             }
         } catch (error) {
