@@ -1,5 +1,16 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { fetchDomainCompanyPermissions } from "../shared/maintenanceCompanyApi.js";
+import { paymentMaintenanceScopeApiParams } from "./paymentMaintenanceScope.js";
+
+function appendPaymentScopeToParams(params, scope) {
+  const { companyId, viewGroup, groupId, reportScope } = paymentMaintenanceScopeApiParams(scope);
+  if (companyId) params.append("company_id", String(companyId));
+  const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+  if (vg) params.append("view_group", vg);
+  const gid = groupId ? String(groupId).trim().toUpperCase() : "";
+  if (gid) params.append("group_id", gid);
+  if (reportScope) params.append("report_scope", reportScope);
+}
 
 export async function fetchCompanyPermissions(companyCode) {
   return fetchDomainCompanyPermissions(companyCode, { emptyForC168: true });
@@ -8,9 +19,15 @@ export async function fetchCompanyPermissions(companyCode) {
 /**
  * Fetch currencies for a specific company
  */
-export async function fetchCompanyCurrencies(companyId) {
-  const url = buildApiUrl(`api/transactions/get_company_currencies_api.php${companyId ? `?company_id=${companyId}` : ''}`);
-  const response = await fetch(url);
+export async function fetchCompanyCurrencies(companyId, scope = null) {
+  const params = new URLSearchParams();
+  if (companyId) params.append("company_id", String(companyId));
+  appendPaymentScopeToParams(params, scope);
+  const qs = params.toString();
+  const url = buildApiUrl(
+    `api/transactions/get_company_currencies_api.php${qs ? `?${qs}` : ""}`,
+  );
+  const response = await fetch(url, { credentials: "include" });
   const data = await response.json();
   if (data.success) {
     return data.data || [];
@@ -23,12 +40,21 @@ export async function fetchCompanyCurrencies(companyId) {
  * @param {object} opts
  * @param {AbortSignal} [opts.signal] — cancel in-flight request when company / filters change
  */
-export async function searchPaymentData({ dateFrom, dateTo, transactionType, companyId, currency, signal }) {
+export async function searchPaymentData({
+  dateFrom,
+  dateTo,
+  transactionType,
+  companyId,
+  currency,
+  scope,
+  signal,
+}) {
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
   if (transactionType) params.append("transaction_type", transactionType);
-  if (companyId) params.append("company_id", companyId);
+  if (companyId) params.append("company_id", String(companyId));
+  appendPaymentScopeToParams(params, scope);
   if (currency) params.append("currency", currency);
   
   const url = buildApiUrl(`api/payment_maintenance/search_api.php?${params.toString()}`);
@@ -46,11 +72,19 @@ export async function searchPaymentData({ dateFrom, dateTo, transactionType, com
 /**
  * Delete payment records
  */
-export async function deletePaymentRecords(transactionIds) {
-  const response = await fetch(buildApiUrl('api/payment_maintenance/delete_api.php'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ transaction_ids: transactionIds })
+export async function deletePaymentRecords(transactionIds, scope = null) {
+  const payload = { transaction_ids: transactionIds };
+  const { companyId, viewGroup, groupId, reportScope } = paymentMaintenanceScopeApiParams(scope);
+  if (companyId) payload.company_id = companyId;
+  if (viewGroup) payload.view_group = viewGroup;
+  if (groupId) payload.group_id = groupId;
+  if (reportScope) payload.report_scope = reportScope;
+
+  const response = await fetch(buildApiUrl("api/payment_maintenance/delete_api.php"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
   });
   const data = await response.json();
   if (!data.success) {

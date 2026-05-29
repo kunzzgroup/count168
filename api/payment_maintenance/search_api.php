@@ -12,6 +12,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -838,7 +839,24 @@ try {
         throw new Exception('请先登录');
     }
 
-    $company_id = resolveCompanyId($pdo);
+    $scopeParams = $_GET;
+    $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
+
+    if ($hasExplicitScope) {
+        $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
+        $company_id = (int) $scopeResolved['company_id'];
+        $viewGroupForAccess = dcNormalizeGroupId(
+            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+        );
+        dcAssertUserCanAccessCompany(
+            $pdo,
+            $company_id,
+            $viewGroupForAccess !== '' ? $viewGroupForAccess : null
+        );
+    } else {
+        $company_id = resolveCompanyId($pdo);
+    }
+
     $companyOwnerCode = resolveCompanyOwnerCode($pdo, (int)$company_id);
     $profitDisplayCode = resolveProfitDisplayCode($pdo, (int)$company_id);
 

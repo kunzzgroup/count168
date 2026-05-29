@@ -10,6 +10,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/payment_delete_shared.php';
+require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -29,10 +30,6 @@ try {
     if (!isset($_SESSION['user_id'])) {
         throw new Exception('请先登录');
     }
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('缺少公司信息');
-    }
-    $company_id = (int) $_SESSION['company_id'];
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('只支持 POST 请求');
@@ -41,6 +38,26 @@ try {
     $payload = json_decode(file_get_contents('php://input'), true);
     if (!is_array($payload)) {
         throw new Exception('无效的请求数据');
+    }
+
+    $hasExplicitScope = dcRequestHasExplicitScope($payload);
+
+    if ($hasExplicitScope) {
+        $scopeResolved = resolveDataCaptureRequestScope($pdo, $payload);
+        $company_id = (int) $scopeResolved['company_id'];
+        $viewGroupForAccess = dcNormalizeGroupId(
+            $payload['view_group'] ?? $payload['group_id'] ?? ''
+        );
+        dcAssertUserCanAccessCompany(
+            $pdo,
+            $company_id,
+            $viewGroupForAccess !== '' ? $viewGroupForAccess : null
+        );
+    } else {
+        if (!isset($_SESSION['company_id'])) {
+            throw new Exception('缺少公司信息');
+        }
+        $company_id = (int) $_SESSION['company_id'];
     }
 
     $ids = $payload['transaction_ids'] ?? [];
