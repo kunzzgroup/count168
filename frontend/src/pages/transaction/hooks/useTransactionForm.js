@@ -28,7 +28,15 @@ export function useTransactionForm({
   m,
   t,
 }) {
-  const [txType, setTxType] = useState("CONTRA");
+  const [txType, setTxTypeRaw] = useState("CONTRA");
+  const setTxType = useCallback((next) => {
+    const v = String(next || "").trim().toUpperCase();
+    if (v === "RECEIVE") return;
+    setTxTypeRaw(v || "CONTRA");
+  }, []);
+  useEffect(() => {
+    if (txType === "RECEIVE") setTxTypeRaw("CONTRA");
+  }, [txType]);
   const [txDate, setTxDate] = useState(null);
   const [txToAccount, setTxToAccount] = useState(null);
   const [txFromAccount, setTxFromAccount] = useState(null);
@@ -163,7 +171,7 @@ export function useTransactionForm({
     [accountOptions, filterSnapshot?.mutationsBlocked, pushToast, txType, m, t],
   );
 
-  const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
+  const needsFromTo = ["CONTRA", "PAYMENT", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
   const showStandardFromAndReverse = txType !== "RATE" && needsFromTo;
   const isAdjustment = txType === "ADJUSTMENT";
 
@@ -254,6 +262,10 @@ export function useTransactionForm({
       pushToast(m.pleaseSelectTransactionType, "error");
       return;
     }
+    if (txType === "RECEIVE") {
+      pushToast(m.receiveTypeDisabled, "error");
+      return;
+    }
 
     const toId = txToAccount?.id ? String(txToAccount.id) : "";
     const fromId = txFromAccount?.id ? String(txFromAccount.id) : "";
@@ -263,7 +275,7 @@ export function useTransactionForm({
       return;
     }
 
-    const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
+    const needsFromTo = ["CONTRA", "PAYMENT", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
     const isAdjustment = txType === "ADJUSTMENT";
 
     if (txType === "PROFIT") {
