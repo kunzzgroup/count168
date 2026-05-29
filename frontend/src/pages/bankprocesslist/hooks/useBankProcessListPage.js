@@ -117,7 +117,7 @@ export function useBankProcessListPage() {
       clearBtn.style.display = nextFrom || nextTo ? "inline-flex" : "none";
     }
   }, []);
-  const [cssReady, setCssReady] = useState(false);
+  const [cssReady, setCssReady] = useState(true);
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
   const [companies, setCompanies] = useState([]);
@@ -524,7 +524,6 @@ export function useBankProcessListPage() {
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page", "process-page--bank");
-    setCssReady(true);
     return () => {
       document.body.classList.remove("process-page", "process-page--bank", "process-page--bank-show-all");
       document.body.classList.add("dashboard-page");

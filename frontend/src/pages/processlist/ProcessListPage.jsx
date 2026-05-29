@@ -64,7 +64,6 @@ export default function ProcessListPage() {
   const { me: sessionMeFromLayout, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getProcessListText(lang, key, params), [lang]);
-  const [cssReady, setCssReady] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -124,7 +123,6 @@ export default function ProcessListPage() {
   useLayoutEffect(() => {
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page");
-    setCssReady(true);
     return () => {
       document.body.classList.remove("process-page");
       document.body.classList.add("dashboard-page");
@@ -1110,8 +1108,6 @@ export default function ProcessListPage() {
   const onSearchChange = (e) => {
     setSearch(filterSearchInput(e.target.value));
   };
-
-  if (loading || !cssReady || !sessionReady) return null;
 
   return (
     <div className="container">

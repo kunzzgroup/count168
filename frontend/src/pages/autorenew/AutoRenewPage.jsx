@@ -413,8 +413,6 @@ export default function AutoRenewPage() {
 
   const showSubmitterColumn = statusFilter === "approved" || statusFilter === "rejected";
 
-  if (!sessionReady || !me) return null;
-
   if (loadError) {
     return (
       <div className="auto-renew-page">

@@ -12,15 +12,14 @@
 @import "../../public/css/portal-tooltip.css";
 @import "../../public/css/sidebar.css";
 
-/* --- Shared loading surfaces (session boot + in-layout page boot) --- */
+/* --- Session boot loading (login → dashboard, once per session) --- */
 @keyframes ec-shell-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.ec-app-boot-loading,
-.ec-page-content-loader {
+.ec-app-boot-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -28,9 +27,6 @@
   gap: 16px;
   font-family: Inter, "Segoe UI", sans-serif;
   color: #334155;
-}
-
-.ec-app-boot-loading {
   position: fixed;
   inset: 0;
   z-index: 5000;
@@ -45,15 +41,7 @@
   background-blend-mode: screen, screen, multiply, screen, normal;
 }
 
-.ec-page-content-loader {
-  min-height: min(72vh, calc(100vh - 120px));
-  width: 100%;
-  padding: 48px 24px;
-  box-sizing: border-box;
-}
-
-.ec-app-boot-loading__spinner,
-.ec-page-content-loader__spinner {
+.ec-app-boot-loading__spinner {
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -62,29 +50,15 @@
   animation: ec-shell-spin 0.75s linear infinite;
 }
 
-.ec-app-boot-loading__label,
-.ec-page-content-loader__label {
+.ec-app-boot-loading__label {
   font-size: 14px;
   font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ec-app-boot-loading__spinner,
-  .ec-page-content-loader__spinner {
+  .ec-app-boot-loading__spinner {
     animation: none;
     border-top-color: #3b82f6;
-  }
-}
-
-/* --- Authenticated main content: route enter + in-layout refresh --- */
-@keyframes ec-page-enter {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 10px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -93,25 +67,9 @@
   min-width: 0;
   min-height: 0;
   position: relative;
-  contain: layout style;
 }
 
 .ec-page-shell__content {
   width: 100%;
   min-height: min(72vh, calc(100vh - 120px));
-  animation: ec-page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
-  will-change: opacity, transform;
-}
-
-.ec-page-shell--enter .ec-page-shell__content {
-  animation: ec-page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ec-page-shell__content,
-  .ec-page-shell--enter .ec-page-shell__content {
-    animation: none;
-    transform: none;
-    opacity: 1;
-  }
 }

@@ -10,8 +10,6 @@ import {
 export function useOwnershipPageShell() {
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getOwnershipText(lang, key, params), [lang]);
-  const [boot, setBoot] = useState(true);
-  const [cssReady, setCssReady] = useState(false);
   const [activeTab, setActiveTab] = useState("account-ownership");
   const [loadingList, setLoadingList] = useState(false);
   const [allCompanies, setAllCompanies] = useState([]);
@@ -36,10 +34,8 @@ export function useOwnershipPageShell() {
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("dashboard-page", "ownership-page");
-    setCssReady(true);
     return () => {
       document.body.classList.remove("ownership-page");
-      setCssReady(false);
     };
   }, []);
 
@@ -77,7 +73,6 @@ export function useOwnershipPageShell() {
         showToast("Server error", "error");
       } finally {
         setLoadingList(false);
-        setBoot(false);
       }
     },
     [showToast],
@@ -90,8 +85,6 @@ export function useOwnershipPageShell() {
   return {
     lang,
     t,
-    boot,
-    cssReady,
     activeTab,
     setActiveTab,
     loadingList,

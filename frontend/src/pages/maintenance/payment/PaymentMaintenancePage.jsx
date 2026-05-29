@@ -63,7 +63,6 @@ export default function PaymentMaintenancePage() {
   }, [today]);
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
-  const [cssReady, setCssReady] = useState(false);
 
   // -- Data State --
   const [paymentData, setPaymentData] = useState([]);
@@ -147,22 +146,15 @@ export default function PaymentMaintenancePage() {
       el.style.setProperty("max-height", "none", "important");
     });
 
-    let cancelled = false;
-
     removeOtherMaintenanceStylesheets("payment_maintenance.css");
 
     const links = [
       "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
-      // local styles are imported statically so only external stylesheets need runtime loading
     ];
-
-    Promise.all(links.map(waitForStylesheet)).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
+    links.forEach((href) => waitForStylesheet(href));
 
     return () => {
-      cancelled = true;
       searchAbortRef.current?.abort();
       originalStyles.forEach((item) => {
         const { el } = item;
@@ -383,7 +375,7 @@ export default function PaymentMaintenancePage() {
 
   // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
   useEffect(() => {
-    if (bootLoading || !companyId || !cssReady) return;
+    if (bootLoading || !companyId) return;
     if (suppressNextSearchEffectRef.current) {
       suppressNextSearchEffectRef.current = false;
       return;
@@ -392,7 +384,7 @@ export default function PaymentMaintenancePage() {
       void performSearch();
     }, 0);
     return () => clearTimeout(h);
-  }, [bootLoading, companyId, transactionType, dateFrom, dateTo, selectedCurrency, performSearch, cssReady]);
+  }, [bootLoading, companyId, transactionType, dateFrom, dateTo, selectedCurrency, performSearch]);
 
   useEffect(
     () => () => {
@@ -521,7 +513,7 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  const tableLoading = loading || bootLoading || !cssReady;
+  const tableLoading = loading || bootLoading;
 
   return (
     <div className="payment-maintenance-page-root container">

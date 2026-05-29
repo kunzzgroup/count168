@@ -79,7 +79,6 @@ export default function CaptureMaintenancePage() {
   // -- UI State --
   const [toasts, setToasts] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [cssReady, setCssReady] = useState(false);
 
   const captureSeqRef = useRef(0);
   const captureAbortRef = useRef(null);
@@ -139,20 +138,13 @@ export default function CaptureMaintenancePage() {
 
     removeOtherMaintenanceStylesheets("capture_maintenance.css");
 
-    let cancelled = false;
-
     const links = [
       "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
     ];
-
-    Promise.all(links.map(waitForStylesheet)).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
+    links.forEach((href) => waitForStylesheet(href));
 
     return () => {
-      cancelled = true;
-      setCssReady(false);
       originalStyles.forEach((item) => {
         const { el } = item;
         if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
@@ -173,13 +165,13 @@ export default function CaptureMaintenancePage() {
   }, []);
 
   useEffect(() => {
-    if (bootLoading || !me || !cssReady) return;
+    if (bootLoading || !me) return;
     window.MaintenanceDateRangePicker?.setLocaleStrings?.({
       placeholder: t("selectDateRange"),
       selectEndDateHint: t("selectEndDate"),
       monthLabels: m.monthsShort,
     });
-  }, [bootLoading, me, cssReady, lang, t, m]);
+  }, [bootLoading, me, lang, t, m]);
 
   // -- Boot Logic --
   useEffect(() => {
@@ -353,7 +345,7 @@ export default function CaptureMaintenancePage() {
 
   // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
   useEffect(() => {
-    if (!bootLoading && companyId && cssReady) {
+    if (!bootLoading && companyId) {
       if (suppressNextSearchEffectRef.current) {
         suppressNextSearchEffectRef.current = false;
         return;
@@ -363,7 +355,7 @@ export default function CaptureMaintenancePage() {
       }, 0);
       return () => clearTimeout(h);
     }
-  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch, cssReady]);
+  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch]);
 
   useEffect(
     () => () => {
@@ -516,7 +508,7 @@ export default function CaptureMaintenancePage() {
     }
   };
 
-  const tableLoading = loading || bootLoading || !cssReady;
+  const tableLoading = loading || bootLoading;
 
   return (
     <div className="container">

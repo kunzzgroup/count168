@@ -916,8 +916,6 @@ export default function UserListPage() {
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
-  if (!sessionReady || !me) return null;
-
   return (
     <>
       <div className="container">

@@ -251,8 +251,6 @@ export default function UserAccessPage() {
     setSelectedProcessIds(new Set());
   }
 
-  if (!sessionReady || !me) return null;
-
   return (
     <div style={{ marginLeft: 260, padding: 16 }}>
       <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>

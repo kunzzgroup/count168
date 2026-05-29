@@ -769,8 +769,6 @@ export default function TransactionMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  if (!sessionReady || !me) return null;
-
   const listSyncing =
     transactionQuery.isFetching &&
     (transactionQuery.isPlaceholderData || listRowCount > 0 || !maintenanceDataComplete);

@@ -506,8 +506,6 @@ export default function CustomerReportPage() {
     }
   };
 
-  if (!sessionReady || !me) return null;
-
   return (
     <div className="container">
       <div className="content">

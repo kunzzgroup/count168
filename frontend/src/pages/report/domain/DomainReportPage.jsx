@@ -504,8 +504,6 @@ export default function DomainReportPage() {
     }
   };
 
-  if (!sessionReady || !me) return null;
-
   return (
     <div className="container">
       <div className="content">

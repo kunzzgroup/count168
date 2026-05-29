@@ -1,18 +1,14 @@
 const prefetchedModules = new Set();
 const prefetchedData = new Set();
 
+const EAGER_ROUTE_PATHS = new Set(["/userlist", "/account-list", "/add-account"]);
+
 function prefetchModule(key, loader) {
   if (prefetchedModules.has(key)) return;
   prefetchedModules.add(key);
   void loader().catch(() => {
     prefetchedModules.delete(key);
   });
-}
-
-/** Prefetch frequently paired admin routes after login. */
-export function prefetchAdminCluster() {
-  prefetchRouteModule("/userlist");
-  prefetchRouteModule("/account-list");
 }
 
 /** Warm common authenticated routes after session boot (staggered to avoid network spike). */
@@ -46,6 +42,7 @@ export function prefetchAuthenticatedRoutes() {
 /** Prefetch route JS chunk on sidebar hover / focus. */
 export function prefetchRouteModule(pathname) {
   const path = String(pathname || "").split("?")[0];
+  if (EAGER_ROUTE_PATHS.has(path)) return;
   switch (path) {
     case "/dashboard":
       prefetchModule(path, () => import("../../pages/dashboard/TransactionDashboardPage.jsx"));
@@ -59,13 +56,6 @@ export function prefetchRouteModule(pathname) {
     case "/auto-renew":
       prefetchModule(path, () => import("../../pages/autorenew/AutoRenewPage.jsx"));
       prefetchAutoRenewList();
-      break;
-    case "/userlist":
-      prefetchModule(path, () => import("../../pages/userlist/UserListPage.jsx"));
-      break;
-    case "/account-list":
-    case "/add-account":
-      prefetchModule(path, () => import("../../pages/account/AccountListPage.jsx"));
       break;
     case "/ownership":
       prefetchModule(path, () => import("../../pages/ownership/OwnershipPage.jsx"));

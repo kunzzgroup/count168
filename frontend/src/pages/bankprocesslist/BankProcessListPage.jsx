@@ -34,7 +34,6 @@ export default function BankProcessListPage() {
     apiMsg,
     tAccount,
     handleDatePickerChange,
-    cssReady,
     loading,
     setLoading,
     tableLoading,
@@ -298,8 +297,6 @@ export default function BankProcessListPage() {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [isNarrowToolbar, searchExpanded, search]);
-
-  if (loading || !cssReady) return null;
 
   return (
     <div className="container">

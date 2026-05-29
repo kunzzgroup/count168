@@ -1000,8 +1000,6 @@ export default function AccountListPage() {
     }
   };
 
-  if (!sessionReady || !sessionMe) return null;
-
   const handleSort = (column) => {
     setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));
     setSortColumn(column);
