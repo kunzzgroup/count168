@@ -353,11 +353,11 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
 }
 
 .customer-report-total-win {
-    color: #10b981;
+    color: #0b2557;
 }
 
 .customer-report-total-lose {
-    color: #ef4444;
+    color: #b91c1c;
 }
 
 .customer-report-amount {
@@ -366,11 +366,11 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
 }
 
 .customer-report-amount.win {
-    color: #10b981;
+    color: #0b2557;
 }
 
 .customer-report-amount.lose {
-    color: #ef4444;
+    color: #b91c1c;
 }
 
 .report-header {
