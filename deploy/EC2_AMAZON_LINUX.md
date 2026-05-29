@@ -102,6 +102,31 @@ sudo chcon -R -t httpd_sys_content_t /var/www/count168
 
 检查 `includes/config.php` 与 MariaDB 是否已建库、导入。
 
+**登录弹窗 “An error occurred during login” / 接口 HTTP 500**
+
+不是密码错，是 **PHP 连不上 MySQL**。SSH 到 EC2：
+
+```bash
+sudo systemctl status mariadb
+mysql -u admin -p -h 127.0.0.1 u857194726_c168site -e "SELECT 1"
+```
+
+推荐在服务器创建 `includes/config.local.php`（已在 .gitignore，不会被 git pull 覆盖）：
+
+```bash
+sudo cp /var/www/count168/includes/config.local.php.example /var/www/count168/includes/config.local.php
+sudo nano /var/www/count168/includes/config.local.php
+```
+
+填入 EC2 本地 MySQL 的 `$dbname` / `$dbuser` / `$dbpass`，保存后测试：
+
+```bash
+curl -sS -X POST https://count168.site/api/session/login_api.php \
+  -F action=login -F company_id=TEST -F login_id=TEST -F password=x -F login_role=admin
+```
+
+应返回 JSON（如 `Database connection failed` 或 `Username or password is incorrect`），而不是空白的 HTTP 500。
+
 ## 日常更新（推荐：只 push，EC2 自动部署）
 
 **本地一次配置 GitHub Secrets 后**，日常只需：

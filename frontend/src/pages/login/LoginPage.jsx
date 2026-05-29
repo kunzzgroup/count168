@@ -266,7 +266,17 @@ export default function LoginPage() {
       }
 
       const res = await fetch("/api/session/login_api.php", { method: "POST", body: fd, credentials: "include" });
-      const data = await res.json();
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        const msg = res.ok
+          ? i18n.loginInvalidResponse
+          : i18n.loginServerError.replace("{status}", String(res.status));
+        showNotice(msg);
+        return;
+      }
       if (data.status === "success" && data.redirect) {
         clearDashboardFilterSession();
         const loginScope = String(data.login_scope || "").trim().toLowerCase();

@@ -1,0 +1,9 @@
+<?php
+/**
+ * 复制为 config.local.php（已在 .gitignore，不会 push 到 GitHub）
+ * EC2 / 生产服务器上填写真实 MySQL 账号，覆盖 config.php 默认值。
+ */
+$host = '127.0.0.1';
+$dbname = 'count168';          // 或你导入的库名
+$dbuser = 'count168';
+$dbpass = '你的数据库密码';

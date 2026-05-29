@@ -18,6 +18,11 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
+if (!isset($pdo) || !$pdo instanceof PDO) {
+    jsonResponse(false, 'Database unavailable', null, 503);
+    exit;
+}
+
 /**
  * 获取 C168 公司下所有活跃的维护跑马灯内容
  */
