@@ -198,6 +198,54 @@ Nginx 配置里已设 `client_max_body_size 64M;`。改 php.ini 后：`sudo syst
 
 ---
 
+## 性能优化（换服务器后建议做）
+
+更新 Nginx 配置后，在 **SSH** 里：
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+仓库里的 `deploy/nginx/count168.site.conf` 已包含：
+
+- **gzip** — 压缩 JS/CSS/JSON，减少传输体积
+- **静态资源缓存** — `/frontend/dist/assets/` 长期缓存；`/images/`、`/js/` 短期缓存
+- **API fastcgi buffer** — 略减大 JSON 响应时的缓冲开销
+
+### 开启 PHP OPcache（接口加速）
+
+新装 PHP 常默认未开 OPcache。SSH 里检查：
+
+```bash
+php -m | grep -i opcache
+```
+
+若无输出，新建（Ubuntu 示例）：
+
+```bash
+sudo tee /etc/php/8.2/fpm/conf.d/99-opcache.ini <<'EOF'
+opcache.enable=1
+opcache.memory_consumption=128
+opcache.max_accelerated_files=10000
+opcache.validate_timestamps=1
+opcache.revalidate_freq=2
+EOF
+sudo systemctl restart php8.2-fpm
+```
+
+### 启用 HTTPS + HTTP/2（可选，进一步加速多资源加载）
+
+用 Certbot 申请免费证书后，在 Nginx 里启用 `listen 443 ssl http2;`（见 `count168.site.conf` 顶部注释）。
+
+### 验证是否生效
+
+浏览器 F12 → Network → 刷新：
+
+- 静态 `.js` / `.css` 响应头应有 `content-encoding: gzip`
+- `/frontend/dist/assets/*.js` 第二次访问应显示 `(disk cache)` 或 `304`
+
+---
+
 ## 数据库导入
 
 见 [`database/HOSTINGER_IMPORT.md`](../database/HOSTINGER_IMPORT.md)。

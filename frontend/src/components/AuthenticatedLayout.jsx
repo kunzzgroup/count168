@@ -28,7 +28,7 @@ import {
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import AnimatedOutlet from "./AnimatedOutlet.jsx";
-import { prefetchAuthenticatedRoutes, prefetchAutoRenewList, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
+import { prefetchAutoRenewList, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
 import {
   canAccessC168AutoRenew,
   canAccessC168DomainPages,
@@ -327,7 +327,6 @@ export default function AuthenticatedLayout() {
 
   useEffect(() => {
     if (loading || !me) return;
-    prefetchAuthenticatedRoutes();
     void loadOwnerCompaniesCached(async () => {
       const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
         credentials: "include",
