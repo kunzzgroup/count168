@@ -102,7 +102,38 @@ sudo chcon -R -t httpd_sys_content_t /var/www/count168
 
 检查 `includes/config.php` 与 MariaDB 是否已建库、导入。
 
-## 日常更新
+## 日常更新（推荐：只 push，EC2 自动部署）
+
+**本地一次配置 GitHub Secrets 后**，日常只需：
+
+```bash
+# 若改了 frontend 源码，先 build 并一起 commit dist/
+cd frontend && npm run build && cd ..
+git add -A
+git commit -m "你的说明"
+git push origin main
+```
+
+push 后 GitHub Actions 会自动 SSH 到 EC2 执行 `deploy/deploy.sh`（`git pull` + reload nginx），**不必再手动 SSH**。
+
+### 一次性配置（GitHub → Settings → Secrets and variables → Actions）
+
+| Secret | 值 |
+|--------|-----|
+| `EC2_HOST` | `56.68.48.190`（或你的 EC2 公网 IP） |
+| `EC2_USER` | `ec2-user` |
+| `EC2_SSH_KEY` | 登录 EC2 用的 **私钥** 全文（`.pem` 文件内容） |
+
+EC2 上需已 `git clone` 到 `/var/www/count168`，且能 `git pull`（公开仓库即可；私有仓库要在 EC2 配 deploy key 或 PAT）。
+
+手动部署（备用）：
+
+```bash
+cd /var/www/count168
+bash deploy/deploy.sh
+```
+
+## 日常更新（手动 pull，无 Actions 时）
 
 ```bash
 cd /var/www/count168

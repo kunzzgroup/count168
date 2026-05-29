@@ -1,7 +1,8 @@
 <?php
-$host = 'srv1858.hstgr.io';
+// EC2 上 PHP 与 MySQL 同机：用 127.0.0.1；本机 DBeaver 连 AWS 用公网 IP 56.68.48.190:3306
+$host = '127.0.0.1';
 $dbname = 'u857194726_c168site';
-$dbuser = 'u857194726_c168site';
+$dbuser = 'admin';
 $dbpass = 'C168_site';
 
 // 设置PHP时区为马来西亚时间
