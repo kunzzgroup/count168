@@ -3,6 +3,7 @@ import {
   companiesInGroupList,
   filterCompaniesWithDisplayId,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import GcInlineFilterPanel from "../../../components/GcInlineFilterPanel.jsx";
 
 export default function TransactionSearchSection({
   selectedCategories,
@@ -18,10 +19,10 @@ export default function TransactionSearchSection({
   fs,
   onGroupButtonClick,
   onCompanyButtonClick,
+  onPickAllGroups,
+  onPickAllInGroup,
   currencyRowsOrdered,
-  showAllCurrencies,
   selectedCurrencies,
-  toggleAllCurrenciesBtn,
   onCurrencyDragStart,
   onCurrencyDropOn,
   toggleCurrencyBtn,
@@ -36,9 +37,10 @@ export default function TransactionSearchSection({
   ], [m]);
 
   const companiesForCompanyStrip = useMemo(() => {
-    const list = fs.snapCompanies || [];
+    const list = fs.snapCompaniesAll || fs.snapCompanies || [];
+    if (fs.groupsAllMode) return filterCompaniesWithDisplayId(list);
     return filterCompaniesWithDisplayId(companiesInGroupList(list, fs.selectedGroup));
-  }, [fs.snapCompanies, fs.selectedGroup]);
+  }, [fs.snapCompanies, fs.snapCompaniesAll, fs.selectedGroup, fs.groupsAllMode]);
 
   return (
     <div className="transaction-search-section">
@@ -188,74 +190,31 @@ export default function TransactionSearchSection({
 
       {(fs.snapGroupIds.length > 0 || fs.snapCompanies.length > 0 || currencyRowsOrdered.length > 0) && (
         <div className="transaction-bottom-filters">
-          <div className="user-gc-inline-panel">
-            {fs.snapGroupIds.length > 0 && (
-              <div id="group-buttons-wrapper" className="user-gc-inline-row">
-                <span className="user-gc-inline-label">{m.groupId}</span>
-                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                  <div id="group-buttons-container" className="user-gc-segment-group" role="group" aria-label="Group ID">
-                    {fs.snapGroupIds.map((gid) => (
-                      <button
-                        key={gid}
-                        type="button"
-                        className={`user-gc-segment${fs.selectedGroup === gid ? " is-on" : ""}`}
-                        data-group-id={gid}
-                        onClick={() => onGroupButtonClick(gid)}
-                      >
-                        {gid}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {fs.snapCompanies.length > 0 && (
-              <div id="company-buttons-wrapper" className="user-gc-inline-row">
-                <span className="user-gc-inline-label">{m.company}</span>
-                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                  <div id="company-buttons-container" className="user-gc-segment-group" role="group" aria-label="Company">
-                    {companiesForCompanyStrip.map((comp) => {
-                      const active = Number(comp.id) === Number(fs.companyId);
-                      return (
-                        <button
-                          key={comp.id}
-                          type="button"
-                          className={`user-gc-segment${active ? " is-on" : ""}`}
-                          data-company-id={comp.id}
-                          data-group-id={comp.group_id != null ? String(comp.group_id).toUpperCase().trim() : ""}
-                          data-company-code={comp.company_id}
-                          onClick={() => onCompanyButtonClick(comp)}
-                        >
-                          {String(comp.company_id || "").toUpperCase()}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
+          <GcInlineFilterPanel
+            t={(key) => m[key] ?? key}
+            groupIds={fs.snapGroupIds}
+            groupsAllMode={Boolean(fs.groupsAllMode)}
+            selectedGroup={fs.selectedGroup}
+            onPickAllGroups={onPickAllGroups}
+            onPickGroup={onGroupButtonClick}
+            companiesForPicker={companiesForCompanyStrip}
+            groupAllMode={Boolean(fs.groupAllMode)}
+            pickerCompanyId={fs.companyId}
+            onPickAllInGroup={onPickAllInGroup}
+            onPickCompany={onCompanyButtonClick}
+          >
             {currencyRowsOrdered.length > 0 && (
               <div id="currency-buttons-wrapper" className="user-gc-inline-row">
                 <span className="user-gc-inline-label">{m.currencyLabel}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div id="currency-buttons-container" className="user-gc-segment-group" role="group" aria-label="Currency">
-                    <button
-                      type="button"
-                      className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
-                      data-currency-code="ALL"
-                      onClick={toggleAllCurrenciesBtn}
-                    >
-                      {m.all}
-                    </button>
                     {currencyRowsOrdered.map((c) => {
                       const code = c.code;
                       return (
                         <button
                           key={code}
                           type="button"
-                          className={`user-gc-segment${!showAllCurrencies && selectedCurrencies.includes(code) ? " is-on" : ""}`}
+                          className={`user-gc-segment${selectedCurrencies.includes(code) ? " is-on" : ""}`}
                           data-currency-code={code}
                           draggable
                           onDragStart={() => onCurrencyDragStart(code)}
@@ -271,7 +230,7 @@ export default function TransactionSearchSection({
                 </div>
               </div>
             )}
-          </div>
+          </GcInlineFilterPanel>
         </div>
       )}
     </div>

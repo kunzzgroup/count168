@@ -10,6 +10,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/permissions.php';
+require_once __DIR__ . '/transaction_scope.php';
 
 try {
     if (!isset($_SESSION['user_id'])) {
@@ -28,33 +29,7 @@ try {
         throw new Exception('account_company 表不存在，请先执行 create_account_company_table.sql');
     }
 
-    $company_id = null;
-    $requested_company_id = isset($_GET['company_id']) ? trim($_GET['company_id']) : '';
-
-    if ($requested_company_id !== '') {
-        $requested_company_id = (int)$requested_company_id;
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        if ($userRole === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested_company_id, $owner_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        } else {
-            if (!isset($_SESSION['company_id']) || $requested_company_id !== (int)$_SESSION['company_id']) {
-                throw new Exception('无权访问该公司');
-            }
-            $company_id = (int)$_SESSION['company_id'];
-        }
-    } else {
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('用户未登录或缺少公司信息');
-        }
-        $company_id = (int)$_SESSION['company_id'];
-    }
+    $company_id = tx_resolve_request_company_id($pdo, $_GET);
 
     $role = $_GET['role'] ?? null;
     $status = $_GET['status'] ?? 'active';

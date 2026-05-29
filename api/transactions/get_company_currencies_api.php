@@ -8,57 +8,10 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once __DIR__ . '/../../includes/config.php';
-require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
-
-function resolveCompanyId(PDO $pdo): int
-{
-    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requested = (int) $_GET['company_id'];
-        if ($requested <= 0) {
-            throw new Exception('无效的 company_id');
-        }
-
-        if (gc_is_group_login()) {
-            $viewGroup = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : null;
-            if (!gc_session_can_access_company_id($pdo, $requested, $viewGroup)) {
-                throw new Exception('无权访问该 company');
-            }
-            return $requested;
-        }
-
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        if ($userRole === 'owner') {
-            $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
-            $stmt->execute([$requested, $ownerId]);
-            if ($stmt->fetchColumn()) {
-                return $requested;
-            }
-            throw new Exception('无权访问该 company');
-        }
-
-        if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requested) {
-            return $requested;
-        }
-
-        $ucm = $pdo->prepare('SELECT 1 FROM user_company_map WHERE user_id = ? AND company_id = ? LIMIT 1');
-        $ucm->execute([$_SESSION['user_id'], $requested]);
-        if ($ucm->fetchColumn()) {
-            return $requested;
-        }
-
-        throw new Exception('无权访问该 company');
-    }
-
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('缺少公司信息');
-    }
-
-    return (int) $_SESSION['company_id'];
-}
 
 function getCompanyCurrencies(PDO $pdo, int $companyId): array
 {
@@ -78,7 +31,7 @@ try {
         api_error('用户未登录', 401);
         exit;
     }
-    $companyId = resolveCompanyId($pdo);
+    $companyId = tx_resolve_request_company_id($pdo, $_GET);
     $currencies = getCompanyCurrencies($pdo, $companyId);
     api_success($currencies);
 } catch (PDOException $e) {

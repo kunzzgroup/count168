@@ -48,6 +48,16 @@ function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
 
 function resolveScopeCompanyId(PDO $pdo, array $input): int {
     $groupScopeId = normalizeGroupId($input['group_id'] ?? ($_POST['group_id'] ?? null));
+    $requestedCompany = (int)($input['company_id'] ?? ($_POST['company_id'] ?? 0));
+    if ($requestedCompany > 0) {
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $requestedCompany, $groupScopeId);
+        } elseif (!deleted_log_user_can_use_company($pdo, $requestedCompany)) {
+            throw new Exception('No permission for requested company');
+        }
+        return $requestedCompany;
+    }
+
     if ($groupScopeId !== null) {
         $groupEntityCompanyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
         if ($groupEntityCompanyId <= 0) {
@@ -57,16 +67,6 @@ function resolveScopeCompanyId(PDO $pdo, array $input): int {
             gc_assert_company_id_allowed_for_login_scope($pdo, $groupEntityCompanyId, $groupScopeId);
         }
         return $groupEntityCompanyId;
-    }
-
-    $requestedCompany = (int)($input['company_id'] ?? ($_POST['company_id'] ?? 0));
-    if ($requestedCompany > 0) {
-        if (gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $requestedCompany);
-        } elseif (!deleted_log_user_can_use_company($pdo, $requestedCompany)) {
-            throw new Exception('No permission for requested company');
-        }
-        return $requestedCompany;
     }
 
     $sessionCompany = (int)($_SESSION['company_id'] ?? 0);

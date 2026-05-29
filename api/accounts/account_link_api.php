@@ -63,7 +63,7 @@ function resolveScopeCompanyIdFromRequest(PDO $pdo, ?int $companyId, ?string $gr
         throw new Exception('缺少必要参数');
     }
     if (gc_is_group_login()) {
-        gc_assert_company_id_allowed_for_login_scope($pdo, $cid);
+        gc_assert_company_id_allowed_for_login_scope($pdo, $cid, $gid);
     }
     return $cid;
 }
@@ -105,7 +105,11 @@ if ($isDirectRequest) {
                 $input = json_decode(file_get_contents('php://input'), true) ?: [];
                 $account_id_1 = isset($input['account_id_1']) ? (int)$input['account_id_1'] : 0;
                 $account_id_2 = isset($input['account_id_2']) ? (int)$input['account_id_2'] : 0;
-                $company_id = isset($input['company_id']) ? (int)$input['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($input['company_id']) ? (int)$input['company_id'] : null,
+                    $input['group_id'] ?? ($_GET['group_id'] ?? null)
+                );
                 $link_type = isset($input['link_type']) ? $input['link_type'] : 'bidirectional';
                 $source_account_id = isset($input['source_account_id']) ? (int)$input['source_account_id'] : null;
                 if (!$account_id_1 || !$account_id_2 || !$company_id) {
@@ -140,7 +144,11 @@ if ($isDirectRequest) {
                 $input = json_decode(file_get_contents('php://input'), true) ?: [];
                 $account_id_1 = isset($input['account_id_1']) ? (int)$input['account_id_1'] : 0;
                 $account_id_2 = isset($input['account_id_2']) ? (int)$input['account_id_2'] : 0;
-                $company_id = isset($input['company_id']) ? (int)$input['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($input['company_id']) ? (int)$input['company_id'] : null,
+                    $input['group_id'] ?? ($_GET['group_id'] ?? null)
+                );
                 if (!$account_id_1 || !$account_id_2 || !$company_id) {
                     throw new Exception('缺少必要参数');
                 }
@@ -187,7 +195,11 @@ if ($isDirectRequest) {
                 $input = json_decode(file_get_contents('php://input'), true) ?: [];
                 $account_id_1 = isset($input['account_id_1']) ? (int)$input['account_id_1'] : 0;
                 $account_id_2 = isset($input['account_id_2']) ? (int)$input['account_id_2'] : 0;
-                $company_id = isset($input['company_id']) ? (int)$input['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($input['company_id']) ? (int)$input['company_id'] : null,
+                    $input['group_id'] ?? ($_GET['group_id'] ?? null)
+                );
                 $link_type = isset($input['link_type']) ? $input['link_type'] : 'bidirectional';
                 $source_account_id = isset($input['source_account_id']) ? (int)$input['source_account_id'] : null;
                 if (!$account_id_1 || !$account_id_2 || !$company_id) {

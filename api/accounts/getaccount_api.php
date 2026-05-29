@@ -7,13 +7,13 @@ header('Expires: 0');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
 
-function validateCompanyAccess(PDO $pdo, int $company_id): void {
+function validateCompanyAccess(PDO $pdo, int $company_id, ?string $view_group = null): void {
     $current_user_id = $_SESSION['user_id'] ?? null;
     if (!$current_user_id) {
         throw new Exception('用户未登录');
     }
     if (gc_is_group_login()) {
-        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $view_group);
         return;
     }
     $current_user_role = $_SESSION['role'] ?? '';
@@ -80,23 +80,20 @@ try {
     }
 
     $group_scope_id = normalizeGroupId($_GET['group_id'] ?? null);
-    if ($group_scope_id !== null) {
+    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
+        $company_id = (int)$_GET['company_id'];
+    } elseif ($group_scope_id !== null) {
         $company_id = resolveGroupEntityCompanyId($pdo, $group_scope_id);
-        if ($company_id > 0 && gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
-        }
     } else {
-        $company_id = isset($_GET['company_id']) && $_GET['company_id'] !== ''
-            ? (int)$_GET['company_id']
-            : (int)($_SESSION['company_id'] ?? 0);
-        if ($company_id > 0 && gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $company_id);
-        }
+        $company_id = (int)($_SESSION['company_id'] ?? 0);
+    }
+    if ($company_id > 0 && gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
     }
     if (!$company_id) {
         throw new Exception('用户未登录或缺少公司信息');
     }
-    validateCompanyAccess($pdo, $company_id);
+    validateCompanyAccess($pdo, $company_id, $group_scope_id);
 
     $account_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
     

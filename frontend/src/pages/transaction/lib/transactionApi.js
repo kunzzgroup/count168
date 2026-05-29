@@ -4,6 +4,7 @@ export const transactionQueryKeys = {
   searchRoot: () => ["tx-search"],
   search: ({
     companyId,
+    viewGroup,
     dateFrom,
     dateTo,
     showInactive,
@@ -15,6 +16,7 @@ export const transactionQueryKeys = {
     "tx-search",
     {
       companyId: Number(companyId ?? 0),
+      viewGroup: viewGroup ? String(viewGroup).trim().toUpperCase() : "",
       dateFrom: String(dateFrom || ""),
       dateTo: String(dateTo || ""),
       showInactive: !!showInactive,
@@ -25,19 +27,26 @@ export const transactionQueryKeys = {
     },
   ],
   categories: () => ["tx-categories"],
-  accounts: (companyId) => ["tx-accounts", Number(companyId ?? 0)],
-  companyCurrencies: (companyId) => ["tx-company-currencies", Number(companyId ?? 0)],
+  /** scopeKey from transactionScopeCacheKey — separates group-only vs subsidiary drill-down. */
+  accounts: (scopeKey) => ["tx-accounts", String(scopeKey || "")],
+  companyCurrencies: (scopeKey) => ["tx-company-currencies", String(scopeKey || "")],
   userCurrencyOrder: () => ["tx-user-currency-order"],
-  history: ({ companyId, accountDbId, dateFrom, dateTo, currency, virtualCompanyCode }) => [
+  history: ({ companyId, viewGroup, accountDbId, dateFrom, dateTo, currency, virtualCompanyCode }) => [
     "tx-history",
     Number(companyId ?? 0),
+    viewGroup ? String(viewGroup).trim().toUpperCase() : "",
     String(accountDbId || ""),
     String(dateFrom || ""),
     String(dateTo || ""),
     String(currency || "").toUpperCase().trim(),
     String(virtualCompanyCode || "").toUpperCase().trim(),
   ],
-  contraInbox: (companyId) => ["tx-contra-inbox", Number(companyId ?? 0)],
+  contraInbox: ({ companyId, viewGroup, groupId } = {}) => [
+    "tx-contra-inbox",
+    Number(companyId ?? 0),
+    viewGroup ? String(viewGroup).trim().toUpperCase() : "",
+    groupId ? String(groupId).trim().toUpperCase() : "",
+  ],
   contraInboxRoot: () => ["tx-contra-inbox"],
 };
 
@@ -54,19 +63,46 @@ export async function getCategories() {
   return safeJson(res);
 }
 
-export async function getAccounts({ companyId, role, status = "active", currency } = {}) {
+function appendViewGroup(params, viewGroup) {
+  const vg = viewGroup != null ? String(viewGroup).trim().toUpperCase() : "";
+  if (vg) params.set("view_group", vg);
+}
+
+/** Append company_id / view_group / group_id (same rules as transactionScopeApiParams). */
+function appendTransactionScope(target, { companyId, viewGroup, groupId }, kind = "params") {
+  const cid = companyId != null && companyId !== "" ? Number(companyId) : 0;
+  if (Number.isFinite(cid) && cid > 0) {
+    if (kind === "form") target.append("company_id", String(cid));
+    else target.set("company_id", String(cid));
+  }
+  const vg = viewGroup != null ? String(viewGroup).trim().toUpperCase() : "";
+  if (vg) {
+    if (kind === "form") target.append("view_group", vg);
+    else target.set("view_group", vg);
+  }
+  const gid = groupId != null ? String(groupId).trim().toUpperCase() : "";
+  if (gid) {
+    if (kind === "form") target.append("group_id", gid);
+    else target.set("group_id", gid);
+  }
+}
+
+export async function getAccounts({ companyId, viewGroup, groupId, role, status = "active", currency, signal } = {}) {
   const params = new URLSearchParams();
-  if (companyId != null) params.set("company_id", String(companyId));
+  appendTransactionScope(params, { companyId, viewGroup, groupId });
   if (role) params.set("role", role);
   if (status) params.set("status", status);
   if (currency) params.set("currency", currency);
-  const res = await fetch(buildApiUrl(`api/transactions/get_accounts_api.php?${params.toString()}`), { credentials: "include" });
+  const res = await fetch(buildApiUrl(`api/transactions/get_accounts_api.php?${params.toString()}`), {
+    credentials: "include",
+    signal,
+  });
   return safeJson(res);
 }
 
-export async function getCompanyCurrencies({ companyId } = {}) {
+export async function getCompanyCurrencies({ companyId, viewGroup, groupId } = {}) {
   const params = new URLSearchParams();
-  if (companyId != null) params.set("company_id", String(companyId));
+  appendTransactionScope(params, { companyId, viewGroup, groupId });
   const res = await fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?${params.toString()}`), { credentials: "include" });
   return safeJson(res);
 }
@@ -127,6 +163,8 @@ function logTxSearchResponse(body) {
 
 export async function searchTransactions({
   companyId,
+  viewGroup,
+  groupId,
   dateFrom,
   dateTo,
   showInactive,
@@ -137,7 +175,7 @@ export async function searchTransactions({
   signal,
 } = {}) {
   const params = new URLSearchParams();
-  if (companyId != null) params.set("company_id", String(companyId));
+  appendTransactionScope(params, { companyId, viewGroup, groupId });
   params.set("date_from", String(dateFrom || ""));
   params.set("date_to", String(dateTo || ""));
   params.set("show_inactive", showInactive ? "1" : "0");
@@ -161,9 +199,9 @@ export async function searchTransactions({
   return body;
 }
 
-export async function submitTransaction({ companyId, payload, clientRequestId }) {
+export async function submitTransaction({ companyId, viewGroup, groupId, payload, clientRequestId }) {
   const fd = new FormData();
-  if (companyId != null) fd.append("company_id", String(companyId));
+  appendTransactionScope(fd, { companyId, viewGroup, groupId }, "form");
   if (clientRequestId) fd.append("client_request_id", clientRequestId);
   Object.entries(payload || {}).forEach(([k, v]) => {
     if (v === undefined || v === null) return;
@@ -179,6 +217,8 @@ export async function submitTransaction({ companyId, payload, clientRequestId })
 
 export async function getHistory({
   companyId,
+  viewGroup,
+  groupId,
   accountId,
   dateFrom,
   dateTo,
@@ -187,7 +227,7 @@ export async function getHistory({
   signal,
 } = {}) {
   const params = new URLSearchParams();
-  if (companyId != null) params.set("company_id", String(companyId));
+  appendTransactionScope(params, { companyId, viewGroup, groupId });
   if (accountId != null && accountId !== "") params.set("account_id", String(accountId));
   if (dateFrom) params.set("date_from", String(dateFrom));
   if (dateTo) params.set("date_to", String(dateTo));
@@ -219,9 +259,9 @@ export async function getHistory({
   return body;
 }
 
-export async function loadContraInbox({ companyId, signal } = {}) {
+export async function loadContraInbox({ companyId, viewGroup, groupId, signal } = {}) {
   const params = new URLSearchParams();
-  if (companyId != null) params.set("company_id", String(companyId));
+  appendTransactionScope(params, { companyId, viewGroup, groupId });
   const res = await fetch(buildApiUrl(`api/transactions/contra_inbox_api.php?${params.toString()}`), {
     credentials: "include",
     cache: "no-cache",
@@ -230,18 +270,18 @@ export async function loadContraInbox({ companyId, signal } = {}) {
   return safeJson(res);
 }
 
-export async function approveContra({ transactionId, companyId }) {
+export async function approveContra({ transactionId, companyId, viewGroup, groupId }) {
   const fd = new FormData();
   fd.append("transaction_id", String(transactionId));
-  if (companyId != null) fd.append("company_id", String(companyId));
+  appendTransactionScope(fd, { companyId, viewGroup, groupId }, "form");
   const res = await fetch(buildApiUrl("api/transactions/contra_approve_api.php"), { method: "POST", body: fd, credentials: "include" });
   return safeJson(res);
 }
 
-export async function rejectContra({ transactionId, companyId }) {
+export async function rejectContra({ transactionId, companyId, viewGroup, groupId }) {
   const fd = new FormData();
   fd.append("transaction_id", String(transactionId));
-  if (companyId != null) fd.append("company_id", String(companyId));
+  appendTransactionScope(fd, { companyId, viewGroup, groupId }, "form");
   const res = await fetch(buildApiUrl("api/transactions/contra_reject_api.php"), { method: "POST", body: fd, credentials: "include" });
   return safeJson(res);
 }

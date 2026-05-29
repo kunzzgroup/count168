@@ -17,7 +17,8 @@ import {
 } from "../../utils/company/sharedCompanyFilter.js";
 import { isGroupLogin, resolveVisibleGroupIds } from "../../utils/company/loginScope.js";
 import { isCompanyLogin } from "../../utils/company/loginScope.js";
-import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
+import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
+import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
@@ -367,80 +368,6 @@ export default function UserListPage() {
     };
   }, []);
 
-  const fetchUsers = useCallback(async () => {
-    if (!me) return;
-    if (groupOnlyUserList) {
-      if (!selectedGroup) return;
-    } else if (!companyId) {
-      return;
-    }
-    listFetchAbortRef.current?.abort();
-    const ac = new AbortController();
-    listFetchAbortRef.current = ac;
-    setTableLoading(true);
-    try {
-      const body = { action: "get" };
-      // Only group-only mode uses group aggregate query.
-      // Company mode must stay scoped to selected company_id.
-      if (groupOnlyUserList && selectedGroup) body.group_id = selectedGroup;
-      if (!groupOnlyUserList && companyId != null) body.company_id = Number(companyId);
-      const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-        signal: ac.signal,
-      });
-      const json = await res.json();
-      if (ac.signal.aborted) return;
-      if (!res.ok || !json.success) {
-        notifyApi(json.message, "failedToLoadUsers", "danger");
-        setUsersRaw([]);
-        return;
-      }
-      let list = Array.isArray(json.data) ? json.data.map((u) => ({ ...u, is_owner_shadow: false })) : [];
-      if (normRole(me.role) === "owner" && me.user_id) {
-        try {
-          const r2 = await fetch(buildApiUrl("api/users/userlist_api.php"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ action: "get", id: me.user_id }),
-            signal: ac.signal,
-          });
-          const j2 = await r2.json();
-          if (ac.signal.aborted) return;
-          if (j2.success && j2.data && normRole(j2.data.role) === "owner") {
-            const shadow = { ...j2.data, is_owner_shadow: true };
-            if (!list.some((u) => Number(u.id) === Number(shadow.id))) list = [shadow, ...list];
-          }
-        } catch {
-          if (ac.signal.aborted) return;
-        }
-      }
-      const shouldAnimateSwap = hasLoadedUsersRef.current;
-      if (shouldAnimateSwap) {
-        if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
-        setTableSwapAnimating(true);
-      }
-      setUsersRaw(list);
-      editUserDetailCacheRef.current.clear();
-      setEditReadyIds(new Set());
-      hasLoadedUsersRef.current = true;
-      if (shouldAnimateSwap) {
-        tableSwapTimerRef.current = setTimeout(() => setTableSwapAnimating(false), 180);
-      }
-      setCurrentPage(1);
-      setSelectedDeleteIds(new Set());
-      setSelectAllUsers(false);
-    } catch (e) {
-      if (ac.signal.aborted) return;
-      notifyApi(null, "failedToLoadUsers", "danger");
-    } finally {
-      if (!ac.signal.aborted) setTableLoading(false);
-    }
-  }, [companyId, groupOnlyUserList, me, notify, selectedGroup]);
-
   useEffect(() => {
     if (!sessionReady || !me) return;
     let cancelled = false;
@@ -518,10 +445,6 @@ export default function UserListPage() {
     };
   }, [sessionReady, me, navigate]);
 
-  useEffect(() => {
-    if (!bootLoading && me && (companyId || groupOnlyUserList)) void fetchUsers();
-  }, [bootLoading, companyId, groupOnlyUserList, me, fetchUsers]);
-
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
   const handleClearCompany = useCallback(() => {
@@ -557,7 +480,17 @@ export default function UserListPage() {
     }
   };
 
-  const { groupIds, companiesForPicker, handlePickGroup, handlePickCompany } = useDashboardStyleGcFilter({
+  const {
+    groupIds,
+    companiesForPicker,
+    handlePickGroup,
+    handlePickCompany,
+    groupsAllMode,
+    groupAllMode,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    isListScopeReady,
+  } = useGcFilterWithAllModes({
     companies: allCompanyButtons,
     companyId: pickerCompanyId,
     selectedGroup,
@@ -568,6 +501,119 @@ export default function UserListPage() {
     preferredCompanyId: pickerCompanyId,
     me,
   });
+
+  const aggregateUserList = useMemo(
+    () => Boolean((groupsAllMode || groupAllMode) && companyId == null),
+    [groupsAllMode, groupAllMode, companyId],
+  );
+
+  const fetchUsers = useCallback(async () => {
+    if (!me) return;
+    if (!aggregateUserList && groupOnlyUserList) {
+      if (!selectedGroup) return;
+    } else if (!aggregateUserList && !companyId) {
+      return;
+    }
+    listFetchAbortRef.current?.abort();
+    const ac = new AbortController();
+    listFetchAbortRef.current = ac;
+    setTableLoading(true);
+    try {
+      const body = { action: "get" };
+      if (aggregateUserList) {
+        if (groupsAllMode) body.groups_all = 1;
+        if (groupAllMode || groupsAllMode) body.group_all = 1;
+        if (selectedGroup && !groupsAllMode) body.group_id = selectedGroup;
+      } else if (groupOnlyUserList && selectedGroup) {
+        body.group_id = selectedGroup;
+      } else if (companyId != null) {
+        body.company_id = Number(companyId);
+      }
+      const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+        signal: ac.signal,
+      });
+      const json = await res.json();
+      if (ac.signal.aborted) return;
+      if (!res.ok || !json.success) {
+        notifyApi(json.message, "failedToLoadUsers", "danger");
+        setUsersRaw([]);
+        return;
+      }
+      let list = Array.isArray(json.data) ? json.data.map((u) => ({ ...u, is_owner_shadow: false })) : [];
+      if (normRole(me.role) === "owner" && me.user_id) {
+        try {
+          const r2 = await fetch(buildApiUrl("api/users/userlist_api.php"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ action: "get", id: me.user_id }),
+            signal: ac.signal,
+          });
+          const j2 = await r2.json();
+          if (ac.signal.aborted) return;
+          if (j2.success && j2.data && normRole(j2.data.role) === "owner") {
+            const shadow = { ...j2.data, is_owner_shadow: true };
+            if (!list.some((u) => Number(u.id) === Number(shadow.id))) list = [shadow, ...list];
+          }
+        } catch {
+          if (ac.signal.aborted) return;
+        }
+      }
+      const shouldAnimateSwap = hasLoadedUsersRef.current;
+      if (shouldAnimateSwap) {
+        if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
+        setTableSwapAnimating(true);
+      }
+      setUsersRaw(list);
+      editUserDetailCacheRef.current.clear();
+      setEditReadyIds(new Set());
+      hasLoadedUsersRef.current = true;
+      if (shouldAnimateSwap) {
+        tableSwapTimerRef.current = setTimeout(() => setTableSwapAnimating(false), 180);
+      }
+      setCurrentPage(1);
+      setSelectedDeleteIds(new Set());
+      setSelectAllUsers(false);
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      notifyApi(null, "failedToLoadUsers", "danger");
+    } finally {
+      if (!ac.signal.aborted) setTableLoading(false);
+    }
+  }, [
+    companyId,
+    groupOnlyUserList,
+    aggregateUserList,
+    groupsAllMode,
+    groupAllMode,
+    me,
+    notify,
+    selectedGroup,
+  ]);
+
+  useEffect(() => {
+    if (!bootLoading && me && (isListScopeReady || groupOnlyUserList)) void fetchUsers();
+  }, [bootLoading, companyId, groupOnlyUserList, aggregateUserList, isListScopeReady, me, fetchUsers]);
+
+  const onPickGroupPill = useCallback(
+    async (gid) => {
+      const g = String(gid || "").trim().toUpperCase();
+      const current = String(selectedGroup || "").trim().toUpperCase();
+      // Group login UX: clicking the active group pill returns to group-only scope.
+      if (isGroupLogin(me) && g && g === current && companyId != null) {
+        persistDashboardGroupOnlyMode(true);
+        setSelectedGroup(g);
+        handleClearCompany();
+        return;
+      }
+      await handlePickGroup(gid);
+    },
+    [selectedGroup, companyId, me, handlePickGroup, handleClearCompany]
+  );
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
     const normalizedGroupId = String(selectedGroup || "").trim().toUpperCase();
@@ -775,8 +821,20 @@ export default function UserListPage() {
           (c) => String(c.group_id || "").toUpperCase() === String(defaultGroup || "").toUpperCase()
         );
         setSelectedCompanyIds(pick?.id != null ? [Number(pick.id)] : []);
-      } else if (groupOnlyUserList) {
-        setSelectedCompanyIds(modalPickerCompanies.map((c) => Number(c.id)));
+      } else if (isGroupLogin(me) && selectedGroup) {
+        // Group login add-user default should stay on group entity (AP/IG),
+        // not whichever subsidiary company chip is currently active (e.g. 95).
+        const entityPick = pickDefaultCompanyForGroup(companies, selectedGroup, {
+          me,
+          preferredCompanyId: me?.company_id ?? companyId,
+          groupEntityOnly: true,
+        });
+        const entityId = entityPick?.id != null ? Number(entityPick.id) : Number.NaN;
+        if (Number.isFinite(entityId) && entityId > 0) {
+          setSelectedCompanyIds([entityId]);
+        } else {
+          setSelectedCompanyIds(companyId ? [Number(companyId)] : []);
+        }
       } else {
         setSelectedCompanyIds(companyId ? [Number(companyId)] : []);
       }
@@ -849,10 +907,43 @@ export default function UserListPage() {
     }
     const ids = pendingDeleteRef.current || []; pendingDeleteRef.current = []; setConfirmOpen(false);
     if (!ids.length) return;
-    const results = await Promise.all(ids.map((id) => fetch(buildApiUrl("api/users/userlist_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ action: "delete", id }) }).then((r) => r.json().catch(() => ({ success: false })))));
-    const ok = results.filter((r) => r.success).length;
-    if (ok === ids.length) notify(t("deletedUsersSuccess", { count: ok }), "success"); else notify(t("deletionResult", { ok, fail: ids.length - ok }), "danger");
-    setUsersRaw((prev) => prev.filter((u) => !ids.includes(Number(u.id)))); setSelectedDeleteIds(new Set()); setSelectAllUsers(false);
+
+    const buildDeleteBody = (id) => {
+      const body = { action: "delete", id };
+      if (groupOnlyUserList && selectedGroup) body.group_id = selectedGroup;
+      if (!groupOnlyUserList && companyId != null) body.company_id = Number(companyId);
+      return body;
+    };
+
+    const results = await Promise.all(
+      ids.map((id) =>
+        fetch(buildApiUrl("api/users/userlist_api.php"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(buildDeleteBody(id)),
+        }).then((r) => r.json().catch(() => ({ success: false }))),
+      ),
+    );
+
+    const succeededIds = ids.filter((_, index) => results[index]?.success);
+    const failCount = ids.length - succeededIds.length;
+
+    if (succeededIds.length === ids.length) {
+      notify(t("deletedUsersSuccess", { count: succeededIds.length }), "success");
+    } else if (succeededIds.length > 0) {
+      notify(t("deletionResult", { ok: succeededIds.length, fail: failCount }), "danger");
+    } else {
+      notifyApi(results.find((r) => !r?.success)?.message, "apiDeleteUserFailed", "danger");
+    }
+
+    if (succeededIds.length > 0) {
+      const succeededSet = new Set(succeededIds.map(Number));
+      setUsersRaw((prev) => prev.filter((u) => !succeededSet.has(Number(u.id))));
+    }
+    setSelectedDeleteIds(new Set());
+    setSelectAllUsers(false);
+    if (succeededIds.length > 0) void fetchUsers();
   };
 
   const saveUser = async (e) => {
@@ -1039,50 +1130,20 @@ export default function UserListPage() {
                 </button>
               </div>
             </div>
-            <div className="user-gc-inline-panel">
-              {groupIds.length > 0 && (
-                <div className="user-gc-inline-row">
-                  <span className="user-gc-inline-label">{t("groupId")}</span>
-                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                    <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-                      {groupIds.map((gid) => (
-                        <button
-                          key={gid}
-                          type="button"
-                          className={`user-gc-segment${gid === selectedGroup ? " is-on" : ""}`}
-                          onClick={() => void handlePickGroup(gid)}
-                        >
-                          {gid}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="user-gc-inline-row">
-                <span className="user-gc-inline-label">{t("company")}</span>
-                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                  <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
-                    {companiesForPicker.map((c) => {
-                      const active = Number(pickerCompanyId) === Number(c.id);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className={`user-gc-segment${active ? " is-on" : ""}`}
-                          onClick={() => {
-                            if (switchingCompany) return;
-                            void handlePickCompany(c);
-                          }}
-                        >
-                          {String(c.company_id || "").toUpperCase()}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <GcInlineFilterPanel
+              t={t}
+              groupIds={groupIds}
+              groupsAllMode={groupsAllMode}
+              selectedGroup={selectedGroup}
+              onPickAllGroups={handlePickAllGroups}
+              onPickGroup={onPickGroupPill}
+              companiesForPicker={companiesForPicker}
+              groupAllMode={groupAllMode}
+              pickerCompanyId={pickerCompanyId}
+              onPickAllInGroup={handlePickAllInGroup}
+              onPickCompany={handlePickCompany}
+              switchingCompany={switchingCompany}
+            />
           </div>
           <div className={`user-table-wrapper user-list-table${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
             <div className="user-list-table-inner">

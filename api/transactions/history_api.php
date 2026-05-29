@@ -17,6 +17,7 @@ header('Pragma: no-cache');
 header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 header('X-Count168-History-Sort: calendar');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
@@ -1013,51 +1014,7 @@ try {
     $sessionUserType = isset($_SESSION['user_type']) ? strtolower((string) $_SESSION['user_type']) : '';
     $isMemberUser = ($sessionUserType === 'member');
 
-    // 确定要访问的 company_id：优先使用参数，否则使用 session
-    $company_id = null;
-    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requested_company_id = (int) $_GET['company_id'];
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
-
-        if ($userRole === 'owner') {
-            // owner 可以访问自己名下的其他公司
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested_company_id, $owner_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        } elseif ($userType === 'member') {
-            // member：公司以登录账号的 account_company 为准
-            $memberAccountId = member_session_canonical_account_id();
-            $stmt = $pdo->prepare("
-                SELECT 1 
-                FROM account_company ac
-                WHERE ac.account_id = ? AND ac.company_id = ?
-            ");
-            $stmt->execute([$memberAccountId, $requested_company_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        } else {
-            // 普通用户只能访问当前 session 公司
-            if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requested_company_id) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        }
-    } else {
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('缺少公司信息');
-        }
-        $company_id = (int) $_SESSION['company_id'];
-    }
+    $company_id = tx_resolve_request_company_id($pdo, $_GET);
 
     // 获取参数
     $account_id = (int) ($_GET['account_id'] ?? 0);

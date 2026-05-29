@@ -24,7 +24,7 @@ import "../../../../public/css/maintenance_notifications.css";
 import { fetchDomainReport, fetchProcesses } from "./domainReportApi.js";
 import {
   fetchCompanyPermissions,
-  fetchCurrencies,
+  fetchReportScopeCurrencies,
   isBankOnlyCategoryCompany,
 } from "../shared/reportCompanyApi.js";
 import { formatYmd } from "../../../utils/date/dateUtils.js";
@@ -94,8 +94,9 @@ export default function DomainReportPage() {
     useReportAbortSeq();
   const pageBootOnceRef = useRef(false);
   const prevCompanyIdRef = useRef(null);
-  /** Per-company currency filter: { [companyId]: { selectedCurrencies, showAllCurrencies } } */
+  /** Per-company / per-group currency filter prefs */
   const currencyPrefsByCompanyRef = useRef({});
+  const currencyPrefsByGroupRef = useRef({});
   const selectedCurrenciesRef = useRef(selectedCurrencies);
   const showAllCurrenciesRef = useRef(showAllCurrencies);
 
@@ -293,17 +294,22 @@ export default function DomainReportPage() {
     }
   }, [companies]);
 
-  const handleClearCompany = useCallback(() => {
+  const handleClearCompany = useCallback((groupForScope) => {
     invalidateReportFetch();
     setCompanyId(null);
     setCompanyHighlightId(null);
     setReportData(null);
     setError("");
-    setCurrencyFilterReady(false);
-    setCurrencyList([]);
-    setSelectedCurrencies([]);
-    setShowAllCurrencies(false);
     setProcesses([]);
+    const groupKey = groupForScope ? String(groupForScope).trim().toUpperCase() : "";
+    if (!groupKey) {
+      setCurrencyFilterReady(false);
+      setCurrencyList([]);
+      setSelectedCurrencies([]);
+      setShowAllCurrencies(false);
+    } else {
+      setCurrencyFilterReady(false);
+    }
   }, [invalidateReportFetch]);
 
   const onSwitchCompany = useCallback(async (c) => {
@@ -348,16 +354,21 @@ export default function DomainReportPage() {
     me,
   });
 
-  const persistCurrencyPrefs = useCallback((compId, currencies, showAll) => {
-    if (!compId) return;
-    currencyPrefsByCompanyRef.current[Number(compId)] = {
-      selectedCurrencies: currencies,
-      showAllCurrencies: showAll,
-    };
+  const persistCurrencyPrefs = useCallback((compId, groupKey, currencies, showAll) => {
+    const prefs = { selectedCurrencies: currencies, showAllCurrencies: showAll };
+    if (compId) {
+      currencyPrefsByCompanyRef.current[Number(compId)] = prefs;
+    } else if (groupKey) {
+      currencyPrefsByGroupRef.current[String(groupKey).trim().toUpperCase()] = prefs;
+    }
   }, []);
 
-  const applySavedCurrencyPrefs = useCallback((compId, curs) => {
-    const saved = currencyPrefsByCompanyRef.current[Number(compId)];
+  const applySavedCurrencyPrefs = useCallback((compId, groupKey, curs) => {
+    const saved = compId
+      ? currencyPrefsByCompanyRef.current[Number(compId)]
+      : groupKey
+        ? currencyPrefsByGroupRef.current[String(groupKey).trim().toUpperCase()]
+        : null;
     if (!saved) return false;
     if (saved.showAllCurrencies) {
       setShowAllCurrencies(true);
@@ -378,18 +389,25 @@ export default function DomainReportPage() {
   }, []);
 
   const loadMetaData = useCallback(async () => {
-    if (!companyId) return;
+    const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+    if (!companyId && !groupKey) return;
     const { signal, seq } = beginMetaFetch();
     try {
-      const [procs, curs] = await Promise.all([
-        fetchProcesses(companyId, { signal }),
-        fetchCurrencies(companyId, { signal }),
-      ]);
+      const curs = await fetchReportScopeCurrencies(
+        { companyId, selectedGroup: groupKey, companies },
+        { signal },
+      );
       if (!isMetaFetchCurrent(seq)) return;
-      setProcesses(procs);
+      if (companyId) {
+        const procs = await fetchProcesses(companyId, { signal });
+        if (!isMetaFetchCurrent(seq)) return;
+        setProcesses(procs);
+      } else {
+        setProcesses([]);
+      }
       setCurrencyList(curs);
 
-      if (applySavedCurrencyPrefs(companyId, curs)) return;
+      if (applySavedCurrencyPrefs(companyId, groupKey, curs)) return;
 
       if (
         curs.length > 0 &&
@@ -401,7 +419,7 @@ export default function DomainReportPage() {
         const codes = [def.code];
         setSelectedCurrencies(codes);
         setShowAllCurrencies(false);
-        persistCurrencyPrefs(companyId, codes, false);
+        persistCurrencyPrefs(companyId, groupKey, codes, false);
       }
     } catch (err) {
       if (err?.name === "AbortError" || !isMetaFetchCurrent(seq)) return;
@@ -413,6 +431,8 @@ export default function DomainReportPage() {
     }
   }, [
     companyId,
+    selectedGroup,
+    companies,
     applySavedCurrencyPrefs,
     persistCurrencyPrefs,
     beginMetaFetch,
@@ -427,6 +447,7 @@ export default function DomainReportPage() {
       setReportSyncing(false);
       persistCurrencyPrefs(
         prev,
+        null,
         selectedCurrenciesRef.current,
         showAllCurrenciesRef.current,
       );
@@ -458,8 +479,8 @@ export default function DomainReportPage() {
   }, [currencyFilterReady, invalidateReportFetch]);
 
   useEffect(() => {
-    if (companyId) loadMetaData();
-  }, [companyId, loadMetaData]);
+    if (companyId || selectedGroup) loadMetaData();
+  }, [companyId, selectedGroup, loadMetaData]);
 
   useEffect(() => {
     if (!companyId || !currencyFilterReady) return undefined;
@@ -484,11 +505,13 @@ export default function DomainReportPage() {
     }
   }, [companyId, currencyFilterReady, reportParams]);
 
+  const activeGroupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+
   const toggleCurrency = (code) => {
     setShowAllCurrencies(false);
     setSelectedCurrencies((prev) => {
       const next = prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code];
-      persistCurrencyPrefs(companyId, next, false);
+      persistCurrencyPrefs(companyId, activeGroupKey, next, false);
       return next;
     });
   };
@@ -498,9 +521,9 @@ export default function DomainReportPage() {
     setShowAllCurrencies(nextAll);
     if (nextAll) {
       setSelectedCurrencies([]);
-      persistCurrencyPrefs(companyId, [], true);
+      persistCurrencyPrefs(companyId, activeGroupKey, [], true);
     } else {
-      persistCurrencyPrefs(companyId, selectedCurrenciesRef.current, false);
+      persistCurrencyPrefs(companyId, activeGroupKey, selectedCurrenciesRef.current, false);
     }
   };
 

@@ -12,12 +12,13 @@ export function useTransactionInitialization({
   loading,
   forbidden,
   filterSnapshot,
+  transactionScope,
   currencyRowsOrdered,
   todayDmy,
   search,
   form,
 }) {
-  const currencyInitCompanyRef = useRef(null);
+  const currencyInitScopeKeyRef = useRef(null);
   const searchRef = useRef(search);
   const formRef = useRef(form);
   searchRef.current = search;
@@ -30,9 +31,17 @@ export function useTransactionInitialization({
     const activeForm = formRef.current;
     if (!activeSearch || !activeForm) return;
 
-    const cid = filterSnapshot.companyId;
-    const resetSelection = currencyInitCompanyRef.current !== cid;
-    currencyInitCompanyRef.current = cid;
+    const cid =
+      transactionScope?.scopeCompanyId > 0
+        ? transactionScope.scopeCompanyId
+        : transactionScope?.selectedGroup
+          ? `group:${transactionScope.selectedGroup}`
+          : filterSnapshot.companyId ?? null;
+    const scopeKey = transactionScope
+      ? `${transactionScope.scopeCompanyId > 0 ? transactionScope.scopeCompanyId : `group:${transactionScope.selectedGroup || ""}`}:${transactionScope.viewGroup || ""}`
+      : String(cid ?? "");
+    const resetSelection = currencyInitScopeKeyRef.current !== scopeKey;
+    currencyInitScopeKeyRef.current = scopeKey;
 
     activeSearch.setDateFrom((v) => v || todayDmy);
     activeSearch.setDateTo((v) => v || todayDmy);
@@ -79,8 +88,8 @@ export function useTransactionInitialization({
     let nextSel = [];
 
     if (saved?.showAll) {
-      nextShowAll = true;
-      nextSel = [];
+      nextShowAll = false;
+      nextSel = rows.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
     } else if (saved?.currencies?.length) {
       const valid = saved.currencies.filter((code) => rows.some((c) => String(c.code) === String(code)));
       if (valid.length > 0) nextSel = valid;
@@ -102,5 +111,13 @@ export function useTransactionInitialization({
       activeForm.setRateCurrencyFrom((v) => (v === pickDefault.code ? v : pickDefault.code));
       if (codes.includes("MYR")) activeForm.setRateCurrencyTo((v) => (v === "MYR" ? v : "MYR"));
     }
-  }, [loading, forbidden, filterSnapshot?.companyId, currencyRowsOrdered, todayDmy]);
+  }, [
+    loading,
+    forbidden,
+    filterSnapshot,
+    transactionScope?.scopeCompanyId,
+    transactionScope?.viewGroup,
+    currencyRowsOrdered,
+    todayDmy,
+  ]);
 }

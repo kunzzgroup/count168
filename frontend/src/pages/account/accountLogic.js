@@ -91,6 +91,58 @@ export function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
   return url;
 }
 
+function buildGroupAccountsUrl(groupId, searchTerm, showInactive, showAll) {
+  const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+  url.searchParams.set("group_id", String(groupId));
+  if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
+  if (showInactive) url.searchParams.set("showInactive", "1");
+  if (showAll) url.searchParams.set("showAll", "1");
+  return url;
+}
+
+function mergeAccountRows(jsonList) {
+  const byId = new Map();
+  for (const json of jsonList) {
+    if (!json?.success) continue;
+    const rows = Array.isArray(json?.data?.accounts) ? json.data.accounts : [];
+    for (const row of rows) {
+      const id = Number(row?.id);
+      if (Number.isFinite(id) && id > 0) byId.set(id, row);
+    }
+  }
+  return [...byId.values()];
+}
+
+/** Fetch and merge accounts across multiple companies / groups (All modes). */
+export async function fetchMergedAccounts({
+  companyIds = [],
+  groupIds = [],
+  searchTerm = "",
+  showInactive = false,
+  showAll = false,
+}) {
+  const tasks = [];
+  for (const cid of companyIds) {
+    tasks.push(
+      fetch(buildAccountsUrl(cid, searchTerm, showInactive, showAll).toString(), {
+        credentials: "include",
+      }).then((r) => r.json()),
+    );
+  }
+  for (const gid of groupIds) {
+    tasks.push(
+      fetch(buildGroupAccountsUrl(gid, searchTerm, showInactive, showAll).toString(), {
+        credentials: "include",
+      }).then((r) => r.json()),
+    );
+  }
+  if (!tasks.length) return { success: false, accounts: [] };
+  const results = await Promise.all(tasks);
+  const failed = results.find((j) => !j?.success);
+  if (failed) return { success: false, message: failed.message, accounts: [] };
+  return { success: true, accounts: mergeAccountRows(results) };
+}
+
 /** Add Account：列表中有 MYR 时默认勾选 */
 export function pickDefaultAddCurrencyIds(currencies) {
   const myr = (currencies || []).find((c) => toUpper(c.code) === "MYR");
