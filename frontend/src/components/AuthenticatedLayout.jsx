@@ -27,7 +27,7 @@ import {
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import AnimatedOutlet from "./AnimatedOutlet.jsx";
-import { prefetchAdminCluster, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
+import { prefetchAdminCluster, prefetchAuthenticatedRoutes, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
 import {
   canAccessC168AutoRenew,
   canAccessC168DomainPages,
@@ -319,6 +319,7 @@ export default function AuthenticatedLayout() {
   useEffect(() => {
     if (loading || !me) return;
     prefetchAdminCluster();
+    prefetchAuthenticatedRoutes();
   }, [loading, me]);
 
   useEffect(() => {

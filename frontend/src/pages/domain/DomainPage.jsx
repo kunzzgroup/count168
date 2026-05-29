@@ -23,7 +23,6 @@ import DomainFormModal from "./components/DomainFormModal.jsx";
 import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { canAccessC168DomainPages } from "../../utils/company/loginScope.js";
-import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 export default function DomainPage() {
   const navigate = useNavigate();
@@ -32,7 +31,6 @@ export default function DomainPage() {
   const t = (key, params) => getDomainText(lang, key, params);
 
   // ── Boot / domain data ───────────────────────────────────────────────────────
-  const [bootDone, setBootDone] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
@@ -88,7 +86,6 @@ export default function DomainPage() {
     if (!sessionReady || !me) return;
 
     let cancelled = false;
-    setBootDone(false);
     (async () => {
       try {
         if (!canAccessC168DomainPages(me)) {
@@ -111,8 +108,6 @@ export default function DomainPage() {
         refreshFeeSummary();
       } catch {
         if (!cancelled) setLoadError(t("failedToLoadDomainData"));
-      } finally {
-        if (!cancelled) setBootDone(true);
       }
     })();
     return () => {
@@ -254,8 +249,6 @@ export default function DomainPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (!bootDone) return <PageContentLoader />;
-
   const isOwnerOrAdmin = ["owner", "admin"].includes(String(me?.role || "").toLowerCase());
 
   return (

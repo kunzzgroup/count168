@@ -59,7 +59,6 @@ import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js"
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
 import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
-import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
 import { getDataCaptureText } from "../../translateFile/pages/dataCaptureTranslate.js";
@@ -763,10 +762,6 @@ export default function DataCapturePage() {
     if (!scriptsReady) return;
     preloadSummaryLegacyScriptsInBackground();
   }, [scriptsReady]);
-
-  if (bootLoading) {
-    return <PageContentLoader />;
-  }
 
   const list = filterCompaniesWithDisplayId(companiesForPicker);
   const pageShellKey = isCompanySelected ? `company-${companyId}` : "group-only";

@@ -19,7 +19,6 @@ import ProfitSharingModal from "./components/ProfitSharingModal.jsx";
 import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModals.jsx";
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
-import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { bankProcessFrequencyNormalized, normalizeBankProcessStatus } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 
@@ -300,7 +299,7 @@ export default function BankProcessListPage() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [isNarrowToolbar, searchExpanded, search]);
 
-  if (loading || !cssReady) return <PageContentLoader />;
+  if (loading || !cssReady) return null;
 
   return (
     <div className="container">

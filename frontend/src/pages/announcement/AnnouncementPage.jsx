@@ -11,7 +11,6 @@ import { EditAnnouncementModal, EditMaintenanceModal } from "./components/Announ
 import { AnnouncementPanel, MaintenancePanel } from "./components/AnnouncementPanels.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { canAccessC168DomainPages } from "../../utils/company/loginScope.js";
-import PageContentLoader from "../../components/PageContentLoader.jsx";
 
 export default function AnnouncementPage() {
   const navigate = useNavigate();
@@ -19,7 +18,6 @@ export default function AnnouncementPage() {
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getAnnouncementText(lang, key, params), [lang]);
 
-  const [ready, setReady] = useState(false);
   const [activeTab, setActiveTab] = useState("announcement");
   const [notices, setNotices] = useState([]);
 
@@ -93,7 +91,6 @@ export default function AnnouncementPage() {
     if (!sessionReady || !me) return;
 
     let cancelled = false;
-    setReady(false);
     (async () => {
       try {
         if (!canAccessC168DomainPages(me)) {
@@ -101,7 +98,6 @@ export default function AnnouncementPage() {
           return;
         }
         await Promise.all([loadAnnouncements(), loadMaintenance()]);
-        if (!cancelled) setReady(true);
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
       }
@@ -110,8 +106,6 @@ export default function AnnouncementPage() {
       cancelled = true;
     };
   }, [sessionReady, me, navigate, loadAnnouncements, loadMaintenance]);
-
-  if (!ready) return <PageContentLoader />;
 
   // Handlers
   function handleAnnouncementEdit(item) {

@@ -15,6 +15,34 @@ export function prefetchAdminCluster() {
   prefetchRouteModule("/account-list");
 }
 
+/** Warm common authenticated routes after session boot (staggered to avoid network spike). */
+export function prefetchAuthenticatedRoutes() {
+  const routes = [
+    "/dashboard",
+    "/domain",
+    "/announcement",
+    "/auto-renew",
+    "/ownership",
+    "/process-list",
+    "/bank-process-list",
+    "/datacapture",
+    "/datacapturesummary",
+    "/transaction",
+    "/customer-report",
+    "/domain-report",
+    "/capture-maintenance",
+    "/transaction-maintenance",
+    "/formula-maintenance",
+    "/bankprocess-maintenance",
+    "/payment-maintenance",
+    "/useraccess",
+    "/deleted-log",
+  ];
+  routes.forEach((path, index) => {
+    window.setTimeout(() => prefetchRouteModule(path), index * 120);
+  });
+}
+
 /** Prefetch route JS chunk on sidebar hover / focus. */
 export function prefetchRouteModule(pathname) {
   const path = String(pathname || "").split("?")[0];

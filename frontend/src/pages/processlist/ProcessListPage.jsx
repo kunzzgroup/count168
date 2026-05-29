@@ -35,7 +35,6 @@ import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.jsx";
 import AddProcessIcon from "./components/AddProcessIcon.jsx";
 import { getProcessListText } from "../../translateFile/pages/processListTranslate.js";
-import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 
 function filterSearchInput(raw) {
@@ -1112,7 +1111,7 @@ export default function ProcessListPage() {
     setSearch(filterSearchInput(e.target.value));
   };
 
-  if (loading || !cssReady || !sessionReady) return <PageContentLoader />;
+  if (loading || !cssReady || !sessionReady) return null;
 
   return (
     <div className="container">

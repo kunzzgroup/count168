@@ -344,39 +344,13 @@ function DataCaptureSummaryPageInner() {
     return () => window.clearInterval(timer);
   }, [navigate]);
 
-  const pageBootLoading = sessionBootLoading || (sessionReady && !scriptsReady && !engineError);
-
-  const showPageBootOverlay = pageBootLoading;
-  const showDataLoading =
-    !showPageBootOverlay && capture.hasCaptureData && dataPopulating && !engineError;
-
   return (
     <div className="container">
-      {showPageBootOverlay ? (
-        <div
-          className="loading-container"
-          style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 24px" }}
-          aria-busy="true"
-        >
-          <div className="loading-spinner" />
-          <p style={{ margin: "12px 0 0" }}>{t("loading")}</p>
-        </div>
-      ) : null}
-
       {engineError ? (
         <div style={{ marginBottom: 12, color: "#b91c1c" }} role="alert">
           {engineError}
         </div>
       ) : null}
-
-      <div
-        id="loadingState"
-        className="loading-container"
-        style={{ display: showDataLoading ? undefined : "none" }}
-      >
-        <div className="loading-spinner" />
-        <p>{t("loadingData")}</p>
-      </div>
 
       <SummaryActionBar
         t={t}
