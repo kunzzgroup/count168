@@ -821,7 +821,7 @@ body.transaction-page {
     font-weight: var(--font-weight-semibold, 600);
 }
 .member-amount--pos {
-    color: #15803d;
+    color: #0b2557;
 }
 .member-amount--neg {
     color: #b91c1c;
