@@ -8,6 +8,7 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
@@ -25,25 +26,6 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool {
 function canApproveTransactionType(string $transactionType): bool {
     $type = strtoupper(trim($transactionType));
     return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
-}
-
-function resolveContraCompanyIdPost(PDO $pdo): int {
-    $userRole = strtolower($_SESSION['role'] ?? '');
-    $rid = isset($_POST['company_id']) ? trim($_POST['company_id']) : '';
-    if ($rid !== '') {
-        $rid = (int)$rid;
-        if ($userRole === 'owner') {
-            $oid = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$rid, $oid]);
-            if ($stmt->fetchColumn()) return $rid;
-            throw new Exception('无权访问该公司');
-        }
-        if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] === $rid) return $rid;
-        throw new Exception('无权访问该公司');
-    }
-    if (!isset($_SESSION['company_id'])) throw new Exception('缺少公司信息');
-    return (int)$_SESSION['company_id'];
 }
 
 function approveContraTransaction(PDO $pdo, int $transactionId, int $companyId, string $userType): void {
@@ -79,7 +61,7 @@ try {
         api_error('系统未启用 Contra 审批字段（approval_status），请先更新数据库', 400);
         exit;
     }
-    $companyId = resolveContraCompanyIdPost($pdo);
+    $companyId = tx_resolve_request_company_id($pdo, $_POST);
     $pdo->beginTransaction();
     try {
         approveContraTransaction($pdo, $transactionId, $companyId, $userType);

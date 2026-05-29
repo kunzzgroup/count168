@@ -8,6 +8,7 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../api_response.php';
 
 header('Content-Type: application/json');
@@ -19,25 +20,6 @@ function isManagerOrAboveRole(string $role): bool {
 function canRejectTransactionType(string $transactionType): bool {
     $type = strtoupper(trim($transactionType));
     return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
-}
-
-function resolveContraCompanyIdPost(PDO $pdo): int {
-    $userRole = strtolower($_SESSION['role'] ?? '');
-    $rid = isset($_POST['company_id']) ? trim($_POST['company_id']) : '';
-    if ($rid !== '') {
-        $rid = (int)$rid;
-        if ($userRole === 'owner') {
-            $oid = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$rid, $oid]);
-            if ($stmt->fetchColumn()) return $rid;
-            throw new Exception('无权访问该公司');
-        }
-        if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] === $rid) return $rid;
-        throw new Exception('无权访问该公司');
-    }
-    if (!isset($_SESSION['company_id'])) throw new Exception('缺少公司信息');
-    return (int)$_SESSION['company_id'];
 }
 
 function deleteContraTransaction(PDO $pdo, int $transactionId, int $companyId): void {
@@ -71,7 +53,7 @@ try {
     if ($userType === 'member' || !isManagerOrAboveRole($userRole)) { api_error('无权操作', 403); exit; }
     $transactionId = (int)($_POST['transaction_id'] ?? 0);
     if ($transactionId <= 0) { api_error('transaction_id 无效', 400); exit; }
-    $companyId = resolveContraCompanyIdPost($pdo);
+    $companyId = tx_resolve_request_company_id($pdo, $_POST);
     $pdo->beginTransaction();
     try {
         deleteContraTransaction($pdo, $transactionId, $companyId);

@@ -18,6 +18,7 @@ header('Content-Type: application/json');
 
 try {
     require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
     require_once __DIR__ . '/../includes/money_decimal.php';
 } catch (Throwable $e) {
     http_response_code(500);
@@ -214,9 +215,6 @@ try {
         throw new Exception('请先登录');
     }
     
-    // 确定要操作的 company_id（支持 owner 切换公司）
-    $company_id = null;
-    $requested_company_id = isset($_POST['company_id']) ? trim($_POST['company_id']) : '';
     $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
     // Audit / Partnership 在 read_only=1（或未设置时默认只读）时禁止写入
     if (in_array($userRole, ['audit', 'partnership'], true)) {
@@ -226,29 +224,7 @@ try {
         }
     }
 
-    if ($requested_company_id !== '') {
-        $requested_company_id = (int)$requested_company_id;
-        if ($userRole === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested_company_id, $owner_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        } else {
-            if (!isset($_SESSION['company_id']) || (int)$_SESSION['company_id'] !== $requested_company_id) {
-                throw new Exception('无权访问该公司');
-            }
-            $company_id = (int)$_SESSION['company_id'];
-        }
-    } else {
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('用户未登录或缺少公司信息');
-        }
-        $company_id = (int)$_SESSION['company_id'];
-    }
+    $company_id = tx_resolve_request_company_id($pdo, $_POST);
     
     // 检查请求方法
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
