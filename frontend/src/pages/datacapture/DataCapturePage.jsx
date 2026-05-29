@@ -920,7 +920,7 @@ export default function DataCapturePage() {
                             placeholder={t("searchProcess")}
                             autoComplete="off"
                             value={form.processFilter}
-                            onChange={(e) => form.setProcessFilter(e.target.value)}
+                            onChange={(e) => form.setProcessFilter(e.target.value.toUpperCase())}
                             onKeyDown={(e) => {
                               if (e.key === "Escape") {
                                 form.setProcessOpen(false);

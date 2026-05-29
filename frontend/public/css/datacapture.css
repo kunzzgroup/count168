@@ -692,6 +692,7 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     border-radius: 4px;
     font-size: 14px;
     box-sizing: border-box;
+    text-transform: uppercase;
 }
 
 .custom-select-options {
