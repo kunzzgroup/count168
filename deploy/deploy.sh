@@ -15,6 +15,16 @@ if command -v chcon >/dev/null 2>&1; then
   chcon -R -t httpd_sys_content_t "$APP_ROOT" 2>/dev/null || true
 fi
 
+# 同步 Nginx 站点配置（git pull 不会自动更新 /etc/nginx/）
+NGINX_SRC="$APP_ROOT/deploy/nginx/count168.site.amazon-linux.conf"
+NGINX_DST="/etc/nginx/conf.d/count168.site.conf"
+if [[ -f "$NGINX_SRC" ]]; then
+  echo "==> sync nginx site config"
+  sudo cp "$NGINX_SRC" "$NGINX_DST"
+  sudo rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
+  sudo nginx -t
+fi
+
 if systemctl is-active --quiet nginx 2>/dev/null; then
   sudo systemctl reload nginx || true
 fi
