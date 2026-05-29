@@ -19,7 +19,6 @@ import { isCompanyLogin } from "../../utils/company/loginScope.js";
 import { useDashboardStyleGcFilter } from "../../utils/company/useDashboardStyleGcFilter.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
-import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
@@ -132,7 +131,6 @@ export default function UserListPage() {
   const [toast, setToast] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
-  const [cssReady, setCssReady] = useState(false);
   const toastTimerRef = useRef(null);
   const tableSwapTimerRef = useRef(null);
   const hasLoadedUsersRef = useRef(false);
@@ -297,8 +295,6 @@ export default function UserListPage() {
   }, [filteredSorted, currentPage, showAll]);
 
   const listBusy = tableLoading || switchingCompany;
-  /** 仅首次无数据时显示简单加载行；有缓存数据时保持表格行（切换公司/刷新不闪骨架条） */
-  const showInitialTableLoading = listBusy && usersRaw.length === 0;
 
   const permDisabledMap = useMemo(() => {
     const allowed = new Set(getCurrentUserRolePermissions(currentUserRole));
@@ -344,11 +340,9 @@ export default function UserListPage() {
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page");
-    setCssReady(true);
     return () => {
       document.body.classList.remove("user-page", "user-page--show-all", "bg");
       document.body.classList.add("dashboard-page");
-      setCssReady(false);
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       if (tableSwapTimerRef.current) clearTimeout(tableSwapTimerRef.current);
     };
@@ -922,7 +916,7 @@ export default function UserListPage() {
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
-  if (bootLoading || !sessionReady || !me || !cssReady) return <PageContentLoader />;
+  if (!sessionReady || !me) return null;
 
   return (
     <>
@@ -1218,12 +1212,7 @@ export default function UserListPage() {
               )}
             </div>
             <div className={`user-cards${tableSwapAnimating ? " user-cards--settling" : ""}`} aria-busy={listBusy}>
-              {showInitialTableLoading ? (
-                <div key="userlist-initial-loading" className="user-card user-card--loading show-card row-even" role="status">
-                  {t("loading")}
-                </div>
-              ) : (
-                pageRows.map((r, idx) => {
+              {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
                 const editReady = caps.canEditDelete && modalAccessReady && editReadyIds.has(Number(r.id));
@@ -1263,8 +1252,7 @@ export default function UserListPage() {
                     )}
                   </div>
                 );
-              })
-              )}
+              })}
             </div>
             </div>
           </div>

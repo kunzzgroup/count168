@@ -9,6 +9,12 @@ function prefetchModule(key, loader) {
   });
 }
 
+/** Prefetch frequently paired admin routes after login. */
+export function prefetchAdminCluster() {
+  prefetchRouteModule("/userlist");
+  prefetchRouteModule("/account-list");
+}
+
 /** Prefetch route JS chunk on sidebar hover / focus. */
 export function prefetchRouteModule(pathname) {
   const path = String(pathname || "").split("?")[0];

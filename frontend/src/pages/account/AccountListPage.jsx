@@ -42,7 +42,6 @@ import {
   translateAccountApiMessage,
 } from "../../translateFile/pages/accountTranslate.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
-import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 
 export default function AccountListPage() {
@@ -55,7 +54,6 @@ export default function AccountListPage() {
 
   // -- Status --
   const [bootLoading, setBootLoading] = useState(true);
-  const [cssReady, setCssReady] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
   const [pendingCompanyId, setPendingCompanyId] = useState(null);
@@ -148,7 +146,6 @@ export default function AccountListPage() {
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("account-page");
-    setCssReady(true);
 
     return () => {
       document.body.classList.remove("account-page", "account-page--show-all", "bg");
@@ -1003,7 +1000,7 @@ export default function AccountListPage() {
     }
   };
 
-  if (bootLoading || !sessionReady || !cssReady) return <PageContentLoader />;
+  if (!sessionReady || !sessionMe) return null;
 
   const handleSort = (column) => {
     setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { canAccessC168AutoRenew } from "../../utils/company/loginScope.js";
-import PageContentLoader from "../../components/PageContentLoader.jsx";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
@@ -116,7 +115,7 @@ export default function AutoRenewPage() {
   const { dateFrom, setDateFrom, dateTo, setDateTo } = useAutoRenewDateRangeState();
   const { periodPresets } = useAutoRenewDateRange({
     me,
-    ready: sessionReady && !bootLoading && !loadError,
+    ready: sessionReady && Boolean(me) && !loadError,
     i18n: dashI18n,
     dateFrom,
     dateTo,
@@ -414,16 +413,7 @@ export default function AutoRenewPage() {
 
   const showSubmitterColumn = statusFilter === "approved" || statusFilter === "rejected";
 
-  if (bootLoading || !sessionReady || !me) {
-    return (
-      <>
-        <PageContentLoader />
-        {canAccessC168AutoRenew(me) ? (
-          <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
-        ) : null}
-      </>
-    );
-  }
+  if (!sessionReady || !me) return null;
 
   if (loadError) {
     return (

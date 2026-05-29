@@ -5,14 +5,14 @@ import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
 import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
 import MemberPage from "./pages/member/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
+import UserListPage from "./pages/userlist/UserListPage.jsx";
+import AccountListPage from "./pages/account/AccountListPage.jsx";
 
 const TransactionDashboardPage = lazy(() => import("./pages/dashboard/TransactionDashboardPage.jsx"));
 const DomainPage = lazy(() => import("./pages/domain/DomainPage.jsx"));
 const AnnouncementPage = lazy(() => import("./pages/announcement/AnnouncementPage.jsx"));
-const AccountListPage = lazy(() => import("./pages/account/AccountListPage.jsx"));
 const ProcessListPage = lazy(() => import("./pages/processlist/ProcessListPage.jsx"));
 const BankProcessListPage = lazy(() => import("./pages/bankprocesslist/BankProcessListPage.jsx"));
-const UserListPage = lazy(() => import("./pages/userlist/UserListPage.jsx"));
 const OwnershipPage = lazy(() => import("./pages/ownership/OwnershipPage.jsx"));
 const DataCapturePage = lazy(() => import("./pages/datacapture/DataCapturePage.jsx"));
 const DataCaptureSummaryPage = lazy(() => import("./pages/datacapturesummary/DataCaptureSummaryPage.jsx"));

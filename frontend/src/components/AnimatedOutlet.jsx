@@ -1,8 +1,7 @@
 import { Suspense, useEffect, useRef } from "react";
 import { useLocation, useOutlet } from "react-router-dom";
-import PageContentLoader from "./PageContentLoader.jsx";
 
-/** Keeps sidebar mounted; animates main content on route change. */
+/** Keeps sidebar mounted; animates main content on route change (no loading spinner). */
 export default function AnimatedOutlet() {
   const location = useLocation();
   const outlet = useOutlet();
@@ -18,7 +17,7 @@ export default function AnimatedOutlet() {
 
   return (
     <main ref={shellRef} className="ec-page-shell" aria-live="polite">
-      <Suspense fallback={<PageContentLoader />}>
+      <Suspense fallback={null}>
         <div key={location.pathname} className="ec-page-shell__content">
           {outlet}
         </div>
