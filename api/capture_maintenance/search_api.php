@@ -77,11 +77,12 @@ function fetchCaptureRecords(
         $params[] = $process_name;
     }
     $where_sql = 'AND ' . implode(' AND ', $where_conditions);
+    $productLabelSql = dcSqlCaptureProductLabel('p', 'd');
 
-    $sql = "SELECT dc.id as capture_id, p.process_id, COALESCE(d.name, p.process_id) as product_name,
+    $sql = "SELECT dc.id as capture_id, p.process_id, {$productLabelSql} as product_name,
             MIN(dcd.currency_id) as currency_id, MIN(c.code) as currency_code,
             dc.capture_date, DATE_FORMAT(dc.created_at, '%d/%m/%Y %H:%i:%s') as dts_created,
-            COALESCE(d.name, p.process_id) as wl_group, MAX(COALESCE(u.login_id, o.owner_code)) as submitted_by
+            {$productLabelSql} as wl_group, MAX(COALESCE(u.login_id, o.owner_code)) as submitted_by
             FROM data_captures dc
             INNER JOIN process p ON dc.process_id = p.id
             LEFT JOIN description d ON p.description_id = d.id
@@ -90,8 +91,8 @@ function fetchCaptureRecords(
             LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
             LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
             WHERE dc.company_id = ? AND dcd.company_id = ? $where_sql $scopeProcessFilter
-            GROUP BY dc.id, p.process_id, COALESCE(d.name, p.process_id), dc.capture_date, dc.created_at
-            ORDER BY dc.capture_date DESC, p.process_id, COALESCE(d.name, p.process_id)";
+            GROUP BY dc.id, p.process_id, {$productLabelSql}, dc.capture_date, dc.created_at
+            ORDER BY dc.capture_date DESC, p.process_id, {$productLabelSql}";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -124,10 +125,11 @@ function fetchDeletedRecords(
     }
     $deletedWhereSql = 'AND ' . implode(' AND ', $deletedWhereConditions);
     $deletedParams[] = $company_id;
+    $productLabelSql = dcSqlCaptureProductLabel('p', 'd');
 
-    $sql = "SELECT dcd.capture_id, p.process_id, COALESCE(d.name, p.process_id) as product_name, dcd.currency_id, c.code as currency_code,
+    $sql = "SELECT dcd.capture_id, p.process_id, {$productLabelSql} as product_name, dcd.currency_id, c.code as currency_code,
             dcd.capture_date, DATE_FORMAT(dcd.created_at, '%d/%m/%Y %H:%i:%s') as dts_created,
-            COALESCE(d.name, p.process_id) as wl_group, COALESCE(u.login_id, o.owner_code) as submitted_by,
+            {$productLabelSql} as wl_group, COALESCE(u.login_id, o.owner_code) as submitted_by,
             COALESCE(du.login_id, do.owner_code) as deleted_by,
             DATE_FORMAT(dcd.deleted_at, '%d/%m/%Y %H:%i:%s') as dts_deleted
             FROM data_captures_deleted dcd
@@ -139,7 +141,7 @@ function fetchDeletedRecords(
             LEFT JOIN user du ON dcd.deleted_by_user_id = du.id
             LEFT JOIN owner do ON dcd.deleted_by_owner_id = do.id
             WHERE dcd.company_id = ? AND dcd.capture_date BETWEEN ? AND ? $deletedWhereSql $scopeProcessFilter
-            ORDER BY dcd.capture_date DESC, p.process_id, COALESCE(d.name, p.process_id)";
+            ORDER BY dcd.capture_date DESC, p.process_id, {$productLabelSql}";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($deletedParams);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

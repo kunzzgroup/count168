@@ -866,18 +866,40 @@ function getGroupProcessId()
         return;
     }
 
-    $groupIdForEnsure = dcNormalizeGroupId($scopeParams['group_id'] ?? '');
+    $groupIdForEnsure = dcNormalizeGroupId(
+        $scopeParams['group_id'] ?? $scopeParams['view_group'] ?? ''
+    );
+    $preferredCurrencyId = isset($_GET['currency_id']) ? (int) $_GET['currency_id'] : 0;
+    if ($preferredCurrencyId <= 0 && isset($_POST['currency_id'])) {
+        $preferredCurrencyId = (int) $_POST['currency_id'];
+    }
+
+    $entityCompanyId = (int) $company_id;
+    if ($capture_scope_group && $groupIdForEnsure !== '') {
+        $resolvedEntity = tx_resolve_group_entity_company_id($pdo, $groupIdForEnsure);
+        if ($resolvedEntity > 0) {
+            $entityCompanyId = $resolvedEntity;
+        }
+    }
+
     $processId = dcEnsureProcessIdByCode(
         $pdo,
-        (int) $company_id,
+        $entityCompanyId,
         $processCode,
         (bool) $capture_scope_group,
-        $groupIdForEnsure !== '' ? $groupIdForEnsure : null
+        $groupIdForEnsure !== '' ? $groupIdForEnsure : null,
+        $preferredCurrencyId > 0 ? $preferredCurrencyId : null
     );
     if ($processId === null) {
-        echo json_encode(['success' => false, 'error' => 'Process not found for scope']);
+        $detail = dcGroupProcessEnsureLastError();
+        echo json_encode([
+            'success' => false,
+            'error' => $detail !== '' ? $detail : 'Process not found for scope',
+        ]);
         return;
     }
+
+    dcFixGroupPayrollProcessDescription($pdo, (int) $processId);
 
     echo json_encode([
         'success' => true,

@@ -176,6 +176,108 @@ function dcFindSiblingGroupProcessRow(PDO $pdo, string $groupId, string $process
 }
 
 /**
+ * Active (preferred) or any SALARY/BONUS row on the group entity company.
+ *
+ * @return array<string, mixed>|null
+ */
+function dcFindGroupEntityProcessRow(PDO $pdo, int $entityCompanyId, string $processCode): ?array
+{
+    $code = strtoupper(trim($processCode));
+    if ($entityCompanyId <= 0 || !in_array($code, ['SALARY', 'BONUS'], true)) {
+        return null;
+    }
+    $stmt = $pdo->prepare("
+        SELECT p.id, p.currency_id, p.description_id, p.remove_word, p.replace_word_from,
+               p.replace_word_to, p.remark, p.company_id AS source_company_id
+        FROM process p
+        WHERE p.company_id = ?
+          AND UPPER(TRIM(p.process_id)) = ?
+        ORDER BY CASE WHEN p.status = 'active' THEN 0 ELSE 1 END, p.id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$entityCompanyId, $code]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function dcSetGroupProcessEnsureError(string $message): void
+{
+    $GLOBALS['dc_group_process_ensure_error'] = $message;
+}
+
+function dcGroupProcessEnsureLastError(): string
+{
+    return (string) ($GLOBALS['dc_group_process_ensure_error'] ?? '');
+}
+
+/**
+ * Currency from the capture form must belong to the group entity or a subsidiary in the group.
+ */
+function dcValidatePreferredCurrencyId(
+    PDO $pdo,
+    int $currencyId,
+    int $entityCompanyId,
+    string $groupId
+): bool {
+    if ($currencyId <= 0 || $entityCompanyId <= 0) {
+        return false;
+    }
+    $stmt = $pdo->prepare('SELECT company_id FROM currency WHERE id = ? LIMIT 1');
+    $stmt->execute([$currencyId]);
+    $curCompanyId = (int) ($stmt->fetchColumn() ?: 0);
+    if ($curCompanyId <= 0) {
+        return false;
+    }
+    if ($curCompanyId === $entityCompanyId) {
+        return true;
+    }
+    $g = dcNormalizeGroupId($groupId);
+    if ($g === '') {
+        return false;
+    }
+    $grpStmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM company c
+        WHERE c.id = ?
+          AND UPPER(TRIM(COALESCE(c.group_id, ''))) = ?
+    ");
+    $grpStmt->execute([$curCompanyId, $g]);
+    return (int) $grpStmt->fetchColumn() > 0;
+}
+
+/**
+ * Pick template row for auto-create: same code on subsidiary, else SALARY on entity/subsidiary for BONUS.
+ *
+ * @return array<string, mixed>|null
+ */
+function dcResolveGroupProcessTemplateRow(
+    PDO $pdo,
+    int $entityCompanyId,
+    string $groupId,
+    string $processCode
+): ?array {
+    $code = strtoupper(trim($processCode));
+    $g = dcNormalizeGroupId($groupId);
+
+    $template = $g !== '' ? dcFindSiblingGroupProcessRow($pdo, $g, $code) : null;
+    if ($template !== null) {
+        return $template;
+    }
+
+    if ($code === 'BONUS') {
+        $template = dcFindGroupEntityProcessRow($pdo, $entityCompanyId, 'SALARY');
+        if ($template !== null) {
+            return $template;
+        }
+        if ($g !== '') {
+            return dcFindSiblingGroupProcessRow($pdo, $g, 'SALARY');
+        }
+    }
+
+    return null;
+}
+
+/**
  * @return array{created_by: ?int, created_by_type: string, created_by_owner_id: ?int}
  */
 function dcCaptureCreatedByFields(): array
@@ -233,10 +335,65 @@ function dcInsertProcessDays(PDO $pdo, int $processId, array $dayIds): void
     }
 }
 
-function dcCopyTemplatesToProcess(PDO $pdo, int $companyId, int $targetProcessId, int $sourceProcessId): void
+/**
+ * SQL expression: group SALARY/BONUS use process code as product label (not shared description name).
+ */
+function dcSqlCaptureProductLabel(string $processAlias = 'p', string $descriptionAlias = 'd'): string
 {
+    $p = preg_replace('/[^a-zA-Z0-9_]/', '', $processAlias) ?: 'p';
+    $d = preg_replace('/[^a-zA-Z0-9_]/', '', $descriptionAlias) ?: 'd';
+    return "CASE WHEN UPPER(TRIM({$p}.process_id)) IN ('SALARY', 'BONUS') "
+        . "THEN UPPER(TRIM({$p}.process_id)) ELSE COALESCE({$d}.name, {$p}.process_id) END";
+}
+
+function dcRemapTemplateProductFieldsForTargetCode(array $templateRow, string $targetProcessCode): array
+{
+    $target = strtoupper(trim($targetProcessCode));
+    if ($target === '') {
+        return $templateRow;
+    }
+    $remap = static function ($value) use ($target) {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+        $v = strtoupper(trim((string) $value));
+        if ($v === 'SALARY' && $target === 'BONUS') {
+            return 'BONUS';
+        }
+        if ($v === 'BONUS' && $target === 'SALARY') {
+            return 'SALARY';
+        }
+        return $value;
+    };
+
+    $templateRow['id_product'] = $remap($templateRow['id_product'] ?? '');
+    $templateRow['parent_id_product'] = $remap($templateRow['parent_id_product'] ?? null);
+    $key = trim((string) ($templateRow['template_key'] ?? ''));
+    if ($key !== '') {
+        $upper = strtoupper($key);
+        if ($upper === 'SALARY' && $target === 'BONUS') {
+            $templateRow['template_key'] = 'BONUS';
+        } elseif ($upper === 'BONUS' && $target === 'SALARY') {
+            $templateRow['template_key'] = 'SALARY';
+        }
+    }
+    return $templateRow;
+}
+
+function dcCopyTemplatesToProcess(
+    PDO $pdo,
+    int $companyId,
+    int $targetProcessId,
+    int $sourceProcessId,
+    ?string $targetProcessCode = null
+): void {
     if ($targetProcessId <= 0 || $sourceProcessId <= 0) {
         return;
+    }
+    if ($targetProcessCode === null || $targetProcessCode === '') {
+        $codeStmt = $pdo->prepare('SELECT UPPER(TRIM(process_id)) FROM process WHERE id = ? LIMIT 1');
+        $codeStmt->execute([$targetProcessId]);
+        $targetProcessCode = (string) ($codeStmt->fetchColumn() ?: '');
     }
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM data_capture_templates WHERE process_id = ? AND company_id = ?');
     $stmt->execute([$targetProcessId, $companyId]);
@@ -259,6 +416,7 @@ function dcCopyTemplatesToProcess(PDO $pdo, int $companyId, int $targetProcessId
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())';
     $ins = $pdo->prepare($sql);
     foreach ($templates as $t) {
+        $t = dcRemapTemplateProductFieldsForTargetCode($t, (string) $targetProcessCode);
         try {
             $ins->execute([
                 $companyId,
@@ -295,10 +453,18 @@ function dcCopyTemplatesToProcess(PDO $pdo, int $companyId, int $targetProcessId
 }
 
 /**
- * Create SALARY/BONUS on group entity when missing (clone settings from a subsidiary when possible).
+ * Create SALARY/BONUS on group entity when missing.
+ * Uses form currency when provided; clones days/templates from subsidiary or entity SALARY.
  */
-function dcCreateGroupProcessByCode(PDO $pdo, int $companyId, string $processCode, ?string $groupId = null): ?int
-{
+function dcCreateGroupProcessByCode(
+    PDO $pdo,
+    int $companyId,
+    string $processCode,
+    ?string $groupId = null,
+    ?int $preferredCurrencyId = null
+): ?int {
+    dcSetGroupProcessEnsureError('');
+
     $code = strtoupper(trim($processCode));
     if (!in_array($code, ['SALARY', 'BONUS'], true)) {
         return null;
@@ -309,8 +475,16 @@ function dcCreateGroupProcessByCode(PDO $pdo, int $companyId, string $processCod
         $g = dcCompanyGroupId($pdo, $companyId);
     }
 
-    $sibling = $g !== '' ? dcFindSiblingGroupProcessRow($pdo, $g, $code) : null;
-    $currencyId = isset($sibling['currency_id']) ? (int) $sibling['currency_id'] : 0;
+    $template = dcResolveGroupProcessTemplateRow($pdo, $companyId, $g, $code);
+
+    $currencyId = 0;
+    if ($preferredCurrencyId !== null && $preferredCurrencyId > 0
+        && dcValidatePreferredCurrencyId($pdo, $preferredCurrencyId, $companyId, $g)) {
+        $currencyId = $preferredCurrencyId;
+    }
+    if ($currencyId <= 0 && $template !== null) {
+        $currencyId = (int) ($template['currency_id'] ?? 0);
+    }
     if ($currencyId <= 0) {
         $currencyId = (int) (dcFirstCurrencyIdForCompany($pdo, $companyId) ?? 0);
     }
@@ -318,15 +492,23 @@ function dcCreateGroupProcessByCode(PDO $pdo, int $companyId, string $processCod
         $currencyId = (int) (dcFirstCurrencyIdInGroup($pdo, $g) ?? 0);
     }
     if ($currencyId <= 0) {
+        dcSetGroupProcessEnsureError(
+            'Cannot create process: select a currency or add a currency for the group entity first'
+        );
         return null;
     }
 
     $created = dcCaptureCreatedByFields();
-    $descriptionId = isset($sibling['description_id']) && $sibling['description_id'] !== ''
-        ? (int) $sibling['description_id']
+    $templateDescriptionId = isset($template['description_id']) && $template['description_id'] !== ''
+        ? (int) $template['description_id']
         : null;
-    if ($descriptionId !== null && $descriptionId <= 0) {
-        $descriptionId = null;
+    if ($templateDescriptionId !== null && $templateDescriptionId <= 0) {
+        $templateDescriptionId = null;
+    }
+    $descriptionId = dcResolveProcessDescriptionId($pdo, $companyId, $code, $templateDescriptionId);
+    if ($descriptionId === null || $descriptionId <= 0) {
+        dcSetGroupProcessEnsureError('Cannot create process: unable to resolve description for scope');
+        return null;
     }
 
     $pdo->beginTransaction();
@@ -341,34 +523,35 @@ function dcCreateGroupProcessByCode(PDO $pdo, int $companyId, string $processCod
             $code,
             $descriptionId,
             $currencyId,
-            $sibling['remove_word'] ?? null,
-            $sibling['replace_word_from'] ?? null,
-            $sibling['replace_word_to'] ?? null,
-            $sibling['remark'] ?? null,
+            $template['remove_word'] ?? null,
+            $template['replace_word_from'] ?? null,
+            $template['replace_word_to'] ?? null,
+            $template['remark'] ?? null,
             $created['created_by'],
             $created['created_by_type'],
             $created['created_by_owner_id'],
             date('Y-m-d H:i:s'),
             $companyId,
-            isset($sibling['id']) ? (int) $sibling['id'] : null,
+            isset($template['id']) ? (int) $template['id'] : null,
         ]);
         $newId = (int) $pdo->lastInsertId();
         if ($newId <= 0) {
             $pdo->rollBack();
+            dcSetGroupProcessEnsureError('Cannot create process for group scope');
             return null;
         }
 
         $dayIds = [];
-        if (!empty($sibling['id'])) {
-            $dayIds = dcDayIdsForProcess($pdo, (int) $sibling['id']);
+        if (!empty($template['id'])) {
+            $dayIds = dcDayIdsForProcess($pdo, (int) $template['id']);
         }
         if (empty($dayIds)) {
             $dayIds = dcAllDayIds($pdo);
         }
         dcInsertProcessDays($pdo, $newId, $dayIds);
 
-        if (!empty($sibling['id'])) {
-            dcCopyTemplatesToProcess($pdo, $companyId, $newId, (int) $sibling['id']);
+        if (!empty($template['id'])) {
+            dcCopyTemplatesToProcess($pdo, $companyId, $newId, (int) $template['id'], $code);
         }
 
         $pdo->commit();
@@ -378,23 +561,125 @@ function dcCreateGroupProcessByCode(PDO $pdo, int $companyId, string $processCod
             $pdo->rollBack();
         }
         error_log('dcCreateGroupProcessByCode: ' . $e->getMessage());
+        dcSetGroupProcessEnsureError('Cannot create process for group scope');
         return null;
     }
 }
 
 /**
+ * Find or create description row for company (process.description_id is NOT NULL + FK).
+ */
+function dcEnsureDescriptionIdForCompany(PDO $pdo, int $companyId, string $name): ?int
+{
+    $label = trim($name);
+    if ($companyId <= 0 || $label === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare('
+        SELECT id FROM description
+        WHERE company_id = ? AND UPPER(TRIM(name)) = UPPER(TRIM(?))
+        ORDER BY id ASC
+        LIMIT 1
+    ');
+    $stmt->execute([$companyId, $label]);
+    $existing = (int) ($stmt->fetchColumn() ?: 0);
+    if ($existing > 0) {
+        return $existing;
+    }
+    $ins = $pdo->prepare('INSERT INTO description (name, company_id) VALUES (?, ?)');
+    $ins->execute([$label, $companyId]);
+    $newId = (int) $pdo->lastInsertId();
+    return $newId > 0 ? $newId : null;
+}
+
+/**
+ * Use template description only when it exists for this company; otherwise create by process code.
+ */
+function dcResolveProcessDescriptionId(
+    PDO $pdo,
+    int $companyId,
+    string $processCode,
+    ?int $templateDescriptionId
+): ?int {
+    $code = strtoupper(trim($processCode));
+    if ($companyId <= 0 || $code === '') {
+        return null;
+    }
+    if (in_array($code, ['SALARY', 'BONUS'], true)) {
+        return dcEnsureDescriptionIdForCompany($pdo, $companyId, $code);
+    }
+    if ($templateDescriptionId !== null && $templateDescriptionId > 0) {
+        $chk = $pdo->prepare('SELECT id FROM description WHERE id = ? AND company_id = ? LIMIT 1');
+        $chk->execute([$templateDescriptionId, $companyId]);
+        if ((int) ($chk->fetchColumn() ?: 0) > 0) {
+            return $templateDescriptionId;
+        }
+    }
+    return dcEnsureDescriptionIdForCompany($pdo, $companyId, $code);
+}
+
+/**
+ * Point group SALARY/BONUS at a description named like the process code (not shared "SALARY" on BONUS).
+ */
+function dcFixGroupPayrollProcessDescription(PDO $pdo, int $processId): void
+{
+    if ($processId <= 0) {
+        return;
+    }
+    $stmt = $pdo->prepare('
+        SELECT p.company_id,
+               UPPER(TRIM(p.process_id)) AS process_code,
+               UPPER(TRIM(COALESCE(d.name, ""))) AS description_name
+        FROM process p
+        LEFT JOIN description d ON p.description_id = d.id
+        WHERE p.id = ?
+        LIMIT 1
+    ');
+    $stmt->execute([$processId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return;
+    }
+    $companyId = (int) ($row['company_id'] ?? 0);
+    $code = strtoupper(trim((string) ($row['process_code'] ?? '')));
+    if ($companyId <= 0 || !in_array($code, ['SALARY', 'BONUS'], true)) {
+        return;
+    }
+    $descName = strtoupper(trim((string) ($row['description_name'] ?? '')));
+    if ($descName === $code) {
+        return;
+    }
+    $newDescId = dcEnsureDescriptionIdForCompany($pdo, $companyId, $code);
+    if ($newDescId === null || $newDescId <= 0) {
+        return;
+    }
+    $upd = $pdo->prepare('UPDATE process SET description_id = ? WHERE id = ?');
+    $upd->execute([$newDescId, $processId]);
+}
+
+/**
  * Resolve process.id; for group SALARY/BONUS auto-create on entity company when missing.
  */
-function dcEnsureProcessIdByCode(PDO $pdo, int $companyId, string $processCode, bool $groupScope, ?string $groupId = null): ?int
-{
+function dcEnsureProcessIdByCode(
+    PDO $pdo,
+    int $companyId,
+    string $processCode,
+    bool $groupScope,
+    ?string $groupId = null,
+    ?int $preferredCurrencyId = null
+): ?int {
+    dcSetGroupProcessEnsureError('');
+
     $existing = dcResolveProcessIdByCode($pdo, $companyId, $processCode, $groupScope);
     if ($existing !== null) {
+        dcFixGroupPayrollProcessDescription($pdo, $existing);
         return $existing;
     }
     if (!$groupScope) {
+        dcSetGroupProcessEnsureError('Process not found for scope');
         return null;
     }
-    return dcCreateGroupProcessByCode($pdo, $companyId, $processCode, $groupId);
+    return dcCreateGroupProcessByCode($pdo, $companyId, $processCode, $groupId, $preferredCurrencyId);
 }
 
 /**

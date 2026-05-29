@@ -5,11 +5,19 @@ import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../u
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
+  companiesInGroupList,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
+import {
+  resolvePaymentMaintenanceScope,
+  paymentMaintenanceScopeCacheCompanyKey,
+  paymentMaintenanceScopeCacheKey,
+  paymentMaintenanceScopeIsReady,
+} from "./paymentMaintenanceScope.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/customer_report.css";
@@ -80,6 +88,7 @@ export default function PaymentMaintenancePage() {
   // -- UI State --
   const [toasts, setToasts] = useState([]);
   const companyIdRef = useRef(null);
+  const scopeKeyRef = useRef("");
   const searchSeqRef = useRef(0);
   const searchAbortRef = useRef(null);
   const initialPaymentSearchDoneRef = useRef(false);
@@ -88,6 +97,36 @@ export default function PaymentMaintenancePage() {
   const followGroupRef = useRef(() => {});
   const paymentDataRef = useRef(paymentData);
   paymentDataRef.current = paymentData;
+
+  const paymentScope = useMemo(
+    () =>
+      resolvePaymentMaintenanceScope({
+        companies,
+        selectedGroup,
+        companyId,
+      }),
+    [companies, selectedGroup, companyId],
+  );
+
+  const paymentScopeKey = useMemo(
+    () => paymentMaintenanceScopeCacheKey(paymentScope),
+    [paymentScope],
+  );
+
+  const listQueryEnabled =
+    !bootLoading && paymentMaintenanceScopeIsReady(paymentScope) && Boolean(dateFrom) && Boolean(dateTo);
+
+  useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: me?.company_id,
+    enabled: true,
+  });
+
+  useEffect(() => {
+    scopeKeyRef.current = paymentScopeKey;
+  }, [paymentScopeKey]);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -231,6 +270,34 @@ export default function PaymentMaintenancePage() {
           setCompanyId(null);
           setCompanyCode("");
           companyIdRef.current = null;
+          const bootScope = resolvePaymentMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: null,
+          });
+          const anchor = bootGroup ? companiesInGroupList(rows, bootGroup)[0] : null;
+          const code = anchor?.company_id ? String(anchor.company_id) : "";
+          const scopeCompanyId = bootScope?.scopeCompanyId;
+          const [companyPerms, currList] = await Promise.all([
+            code ? fetchCompanyPermissions(code) : Promise.resolve([]),
+            scopeCompanyId
+              ? fetchCompanyCurrencies(scopeCompanyId, bootScope)
+              : Promise.resolve([]),
+          ]);
+          if (cancelled) return;
+          setPermissions(companyPerms);
+          setCurrencies(currList);
+          const savedPerm = code ? localStorage.getItem(`selectedPermission_${code}`) : null;
+          setActivePermission(
+            savedPerm && companyPerms.includes(savedPerm)
+              ? savedPerm
+              : companyPerms.length > 0
+                ? companyPerms[0]
+                : "",
+          );
+          const hasMYR = currList.some((c) => c.code === "MYR");
+          setSelectedCurrency(hasMYR ? "MYR" : currList[0]?.code || null);
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           return;
         }
         setCompanyId(initialCompanyId);
@@ -239,11 +306,16 @@ export default function PaymentMaintenancePage() {
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
-          
-          // Fetch initial metadata here to ensure the first query starts with the correct activePermission
+
+          const bootScope = resolvePaymentMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: initialCompanyId,
+          });
+
           const [companyPerms, currList] = await Promise.all([
             fetchCompanyPermissions(code),
-            fetchCompanyCurrencies(initialCompanyId)
+            fetchCompanyCurrencies(initialCompanyId, bootScope),
           ]);
           setPermissions(companyPerms);
           setCurrencies(currList);
@@ -272,31 +344,40 @@ export default function PaymentMaintenancePage() {
 
   // -- Load Meta Data (Permissions & Currencies) --
   useEffect(() => {
-    if (bootLoading || !companyId) return;
+    if (bootLoading || !paymentMaintenanceScopeIsReady(paymentScope)) return;
 
     let cancelled = false;
+    const scope = paymentScope;
+    const permCode =
+      companyCode ||
+      (selectedGroup
+        ? companiesInGroupList(companies, selectedGroup)[0]?.company_id
+        : "") ||
+      "";
+    const currencyCompanyId = scope?.scopeCompanyId ?? companyId;
+
     (async () => {
       try {
         const [permList, currList] = await Promise.all([
-          fetchCompanyPermissions(companyCode),
-          fetchCompanyCurrencies(companyId)
+          permCode ? fetchCompanyPermissions(permCode) : Promise.resolve([]),
+          currencyCompanyId
+            ? fetchCompanyCurrencies(currencyCompanyId, scope)
+            : Promise.resolve([]),
         ]);
         if (cancelled) return;
         setPermissions(permList);
         setCurrencies(currList);
         
         // Initial permission
-        const savedPerm = localStorage.getItem(`selectedPermission_${companyCode}`);
+        const savedPerm = permCode ? localStorage.getItem(`selectedPermission_${permCode}`) : null;
         if (savedPerm && permList.includes(savedPerm)) {
           setActivePermission(savedPerm);
         } else if (permList.length > 0) {
           setActivePermission(permList[0]);
         }
 
-        // Initial currency
-        const hasMYR = currList.some(c => c.code === "MYR");
-        setSelectedCurrency(hasMYR ? "MYR" : (currList[0]?.code || null));
-        
+        const hasMYR = currList.some((c) => c.code === "MYR");
+        setSelectedCurrency(hasMYR ? "MYR" : currList[0]?.code || null);
       } catch (err) {
         if (cancelled) return;
         console.error("Meta data load error:", err);
@@ -306,17 +387,22 @@ export default function PaymentMaintenancePage() {
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, companyId, companyCode, notify, t]);
+  }, [bootLoading, paymentScope, companyId, companyCode, selectedGroup, companies, notify, t]);
 
   // -- Search Logic --
   /** 与 Capture Maintenance 对齐：支持 overrides.companyId；seq + ref + Abort；首次 Loading / 之后 listSyncing 保留旧表 */
   const performSearch = useCallback(
     async (overrides = {}) => {
-      const { companyId: overrideCompanyId } = overrides;
-      const effectiveCompanyId = overrideCompanyId ?? companyId;
-      if (!effectiveCompanyId || !dateFrom || !dateTo) return;
+      const effectiveScope =
+        overrides.scope ??
+        resolvePaymentMaintenanceScope({
+          companies,
+          selectedGroup: overrides.selectedGroup ?? selectedGroup,
+          companyId: overrides.companyId ?? companyId,
+        });
+      if (!paymentMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
 
-      const searchCompanyId = Number(effectiveCompanyId);
+      const searchScopeKey = paymentMaintenanceScopeCacheKey(effectiveScope);
       const quietRefresh = initialPaymentSearchDoneRef.current;
 
       searchAbortRef.current?.abort();
@@ -335,15 +421,16 @@ export default function PaymentMaintenancePage() {
           dateFrom,
           dateTo,
           transactionType,
-          companyId: effectiveCompanyId,
+          companyId: effectiveScope.scopeCompanyId,
           currency: selectedCurrency,
+          scope: effectiveScope,
           signal: controller.signal,
         });
         if (seq !== searchSeqRef.current) return;
-        if (searchCompanyId !== Number(companyIdRef.current)) return;
+        if (searchScopeKey !== scopeKeyRef.current) return;
         setPaymentListEpoch((e) => e + 1);
         setPaymentData(data);
-        setPaymentDataSourceCompanyId(searchCompanyId);
+        setPaymentDataSourceCompanyId(paymentMaintenanceScopeCacheCompanyKey(effectiveScope));
         setConfirmDelete(false);
         if (!quietRefresh) {
           if (data.length > 0) {
@@ -354,7 +441,7 @@ export default function PaymentMaintenancePage() {
         }
       } catch (err) {
         if (err?.name === "AbortError" || seq !== searchSeqRef.current) return;
-        if (searchCompanyId !== Number(companyIdRef.current)) return;
+        if (searchScopeKey !== scopeKeyRef.current) return;
         notify(err.message, "error");
         setPaymentListEpoch((e) => e + 1);
         setPaymentData([]);
@@ -370,12 +457,12 @@ export default function PaymentMaintenancePage() {
         }
       }
     },
-    [companyId, dateFrom, dateTo, transactionType, selectedCurrency, notify, t],
+    [companies, selectedGroup, companyId, dateFrom, dateTo, transactionType, selectedCurrency, notify, t],
   );
 
   // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
   useEffect(() => {
-    if (bootLoading || !companyId) return;
+    if (!listQueryEnabled) return;
     if (suppressNextSearchEffectRef.current) {
       suppressNextSearchEffectRef.current = false;
       return;
@@ -384,7 +471,15 @@ export default function PaymentMaintenancePage() {
       void performSearch();
     }, 0);
     return () => clearTimeout(h);
-  }, [bootLoading, companyId, transactionType, dateFrom, dateTo, selectedCurrency, performSearch]);
+  }, [
+    listQueryEnabled,
+    paymentScopeKey,
+    transactionType,
+    dateFrom,
+    dateTo,
+    selectedCurrency,
+    performSearch,
+  ]);
 
   useEffect(
     () => () => {
@@ -394,12 +489,48 @@ export default function PaymentMaintenancePage() {
   );
 
   // -- Handlers --
-  const handleClearCompany = useCallback(() => {
-    companyIdRef.current = null;
-    setCompanyId(null);
-    setCompanyCode("");
-    setSelectedIds([]);
-  }, []);
+  const handleClearCompany = useCallback(
+    (groupForPersist) => {
+      const g = groupForPersist ?? selectedGroup;
+      companyIdRef.current = null;
+      setCompanyId(null);
+      setCompanyCode("");
+      setSelectedIds([]);
+      void (async () => {
+        try {
+          const scope = resolvePaymentMaintenanceScope({
+            companies,
+            selectedGroup: g,
+            companyId: null,
+          });
+          const anchor = g ? companiesInGroupList(companies, g)[0] : null;
+          const code = anchor?.company_id ? String(anchor.company_id) : "";
+          const scopeCompanyId = scope?.scopeCompanyId;
+          const [permList, currList] = await Promise.all([
+            code ? fetchCompanyPermissions(code) : Promise.resolve([]),
+            scopeCompanyId
+              ? fetchCompanyCurrencies(scopeCompanyId, scope)
+              : Promise.resolve([]),
+          ]);
+          setPermissions(permList);
+          setCurrencies(currList);
+          const savedPerm = code ? localStorage.getItem(`selectedPermission_${code}`) : null;
+          setActivePermission(
+            savedPerm && permList.includes(savedPerm)
+              ? savedPerm
+              : permList.length > 0
+                ? permList[0]
+                : "",
+          );
+          const hasMYR = currList.some((c) => c.code === "MYR");
+          setSelectedCurrency(hasMYR ? "MYR" : currList[0]?.code || null);
+        } catch (err) {
+          console.error("Meta bootstrap after clear company:", err);
+        }
+      })();
+    },
+    [companies, selectedGroup],
+  );
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;
@@ -416,11 +547,10 @@ export default function PaymentMaintenancePage() {
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
-      void performSearch({ companyId: nextId });
+      void performSearch({ companyId: nextId, selectedGroup: newGroup });
       notify(t("switchedTo", { company: nextCode }), "success");
       try {
         await updateSessionCompany(c.id);
-        // Stay on Payment Maintenance: bank-only companies (e.g. CX) still have PAYMENT rows to maintain.
         notifyCompanySessionUpdated();
       } catch (err) {
         notify(err.message || t("switchFailed"), "error");
@@ -442,7 +572,7 @@ export default function PaymentMaintenancePage() {
 
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: nextCode }), "success");
-      void performSearch({ companyId: nextId });
+      void performSearch({ companyId: nextId, selectedGroup: newGroup });
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
       navigate("/dashboard", { replace: true });
@@ -505,9 +635,9 @@ export default function PaymentMaintenancePage() {
   const handleConfirmDelete = async () => {
     setIsDeleteModalOpen(false);
     try {
-      await deletePaymentRecords(selectedIds);
+      await deletePaymentRecords(selectedIds, paymentScope);
       notify(t("successfullyDeletedN", { n: selectedIds.length }), "success");
-      performSearch();
+      performSearch({ scope: paymentScope });
     } catch (err) {
       notify(err.message || t("deleteFailed"), "error");
     }
@@ -570,7 +700,7 @@ export default function PaymentMaintenancePage() {
           </div>
         )}
         <PaymentMaintenanceTable
-          key={paymentDataSourceCompanyId ?? companyId ?? "no-company"}
+          key={`${paymentScopeKey}:${paymentDataSourceCompanyId ?? "no-company"}`}
           data={paymentData}
           listEpoch={paymentListEpoch}
           rowKeyCompanyId={paymentDataSourceCompanyId ?? companyId}

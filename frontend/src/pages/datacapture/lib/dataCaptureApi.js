@@ -72,20 +72,59 @@ export async function fetchAddProcessFormData(scopeOrCompanyId) {
 }
 
 /**
- * Group-only: merge currencies from all companies in the selected group (dedupe by code).
- * When the same code exists in multiple companies, prefer `preferredCompanyId` (anchor session).
+ * Group Data Capture: currencies from the group entity only (same as Account / report group scope).
+ * Do not pass subsidiary company_id — backend resolves entity via group_id.
  */
-export async function fetchCurrenciesForCompanyIds(companyIds, preferredCompanyId = null) {
+export async function fetchGroupCaptureCurrencies(viewGroup) {
+  const gid = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+  if (!gid) return [];
+  const params = new URLSearchParams({ group_id: gid, view_group: gid });
+  try {
+    const response = await fetch(
+      buildApiUrl(
+        `api/transactions/get_company_currencies_api.php?${params.toString()}`,
+      ),
+      { credentials: "include" },
+    );
+    const json = await response.json();
+    if (!response.ok || !json.success || !Array.isArray(json.data)) return [];
+    return json.data
+      .map((r) => ({
+        id: String(r.id),
+        code: String(r.code || "").trim().toUpperCase(),
+      }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * @deprecated Group capture should use fetchGroupCaptureCurrencies. Kept for legacy callers.
+ * Merge currencies from multiple company rows (dedupe by code).
+ */
+export async function fetchCurrenciesForCompanyIds(
+  companyIds,
+  preferredCompanyId = null,
+  viewGroup = null,
+) {
   const ids = [...new Set((companyIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))];
   if (!ids.length) return [];
+
+  const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
 
   const rows = (
     await Promise.all(
       ids.map(async (cid) => {
         try {
+          const params = new URLSearchParams({ company_id: String(cid) });
+          if (vg) {
+            params.set("view_group", vg);
+            params.set("group_id", vg);
+          }
           const response = await fetch(
             buildApiUrl(
-              `api/transactions/get_company_currencies_api.php?company_id=${encodeURIComponent(cid)}`,
+              `api/transactions/get_company_currencies_api.php?${params.toString()}`,
             ),
             { credentials: "include" },
           );
@@ -149,11 +188,16 @@ export async function fetchProcessDetail(processId, scope) {
 }
 
 /** Resolve numeric process.id for SALARY/BONUS under group entity company. */
-export async function fetchGroupProcessIdByCode(scope, processCode) {
+export async function fetchGroupProcessIdByCode(scope, processCode, currencyId = null) {
   const params = new URLSearchParams({
     action: "get_group_process_id",
     process_code: String(processCode || "").trim().toUpperCase(),
   });
+  const cid =
+    currencyId != null && String(currencyId).trim() !== "" ? Number(currencyId) : 0;
+  if (Number.isFinite(cid) && cid > 0) {
+    params.set("currency_id", String(cid));
+  }
   appendDataCaptureScopeParams(params, scope);
   const url = buildApiUrl(`api/processes/submitted_processes_api.php?${params.toString()}`);
   const response = await fetch(url, { credentials: "include" });

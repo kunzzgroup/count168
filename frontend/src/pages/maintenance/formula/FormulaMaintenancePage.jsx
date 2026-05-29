@@ -9,11 +9,13 @@ import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/ma
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
+  companiesInGroupList,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
@@ -21,8 +23,9 @@ import "../../../../public/css/transaction.css";
 import "../../../../public/css/customer_report.css";
 import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/formula_maintenance.css";
-import { 
-  fetchCompanyPermissions, 
+import {
+  bootstrapFormulaMaintenanceMeta,
+  fetchCompanyPermissions,
   fetchCompanyPermissionsRaw,
   fetchProcesses,
   fetchAccounts,
@@ -35,6 +38,14 @@ import {
   formulaRowIdsMatch,
   patchFormulaRowAfterSave,
 } from "./formulaMaintenanceLogic.js";
+import {
+  formulaMaintenanceEffectiveCompanyId,
+  formulaMaintenanceScopeCacheCompanyKey,
+  formulaMaintenanceScopeCacheKey,
+  formulaMaintenanceScopeIsReady,
+  formulaMaintenanceUsesGroupProcesses,
+  resolveFormulaMaintenanceScope,
+} from "./formulaMaintenanceScope.js";
 
 // Components
 import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.jsx";
@@ -66,6 +77,7 @@ export default function FormulaMaintenancePage() {
   
   // -- Data State --
   const [formulaData, setFormulaData] = useState([]);
+  const [formulaDataSourceCompanyId, setFormulaDataSourceCompanyId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -80,9 +92,40 @@ export default function FormulaMaintenancePage() {
   const searchSeqRef = useRef(0);
   const listScrollActiveRef = useRef(false);
   const companyIdRef = useRef(null);
+  const scopeKeyRef = useRef("");
   const initialFormulaSearchDoneRef = useRef(false);
   const suppressNextSearchEffectRef = useRef(false);
   const followGroupRef = useRef(() => {});
+
+  const formulaScope = useMemo(
+    () =>
+      resolveFormulaMaintenanceScope({
+        companies,
+        selectedGroup,
+        companyId,
+      }),
+    [companies, selectedGroup, companyId],
+  );
+
+  const formulaScopeKey = useMemo(
+    () => formulaMaintenanceScopeCacheKey(formulaScope),
+    [formulaScope],
+  );
+
+  const listQueryEnabled =
+    !bootLoading && formulaMaintenanceScopeIsReady(formulaScope) && selectedProcess !== null;
+
+  useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: me?.company_id,
+    enabled: true,
+  });
+
+  useEffect(() => {
+    scopeKeyRef.current = formulaScopeKey;
+  }, [formulaScopeKey]);
 
   const [totalRowCount, setTotalRowCount] = useState(0);
   const [listHydrating, setListHydrating] = useState(false);
@@ -304,20 +347,58 @@ export default function FormulaMaintenancePage() {
         if (isDashboardGroupOnlyMode()) {
           setCompanyId(null);
           setCompanyCode("");
+          companyIdRef.current = null;
+          const bootScope = resolveFormulaMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: null,
+          });
+          const meta = await bootstrapFormulaMaintenanceMeta({
+            companies: rows,
+            groupId: bootGroup,
+          });
+          if (cancelled) return;
+          const hasGames =
+            meta.rawPerms.includes("Games") || meta.rawPerms.includes("Gambling");
+          const bankOnly = meta.rawPerms.includes("Bank") && !hasGames;
+          if (bankOnly) {
+            navigate("/process-list", { replace: true });
+            return;
+          }
+          if (!hasGames && meta.rawPerms.length > 0) {
+            navigate("/dashboard", { replace: true });
+            return;
+          }
+          const procList = bootScope ? await fetchProcesses(null, bootScope) : [];
+          setPermissions(meta.permissions);
+          setActivePermission(meta.activePermission);
+          setProcesses(procList);
+          if (bootScope?.scopeCompanyId) {
+            setAccounts(await fetchAccounts(bootScope.scopeCompanyId, bootScope));
+          }
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           return;
         }
         setCompanyId(initialCompanyId);
+        companyIdRef.current = initialCompanyId;
 
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
 
-          // Pre-load metadata to ensure first search is correct and avoid double-query
+          const bootScope = resolveFormulaMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: initialCompanyId,
+          });
+
           const [rawPerms, procList, accList] = await Promise.all([
             fetchCompanyPermissionsRaw(code),
-            fetchProcesses(initialCompanyId),
-            fetchAccounts(initialCompanyId)
+            fetchProcesses(initialCompanyId, bootScope),
+            fetchAccounts(initialCompanyId, bootScope),
           ]);
+
+          if (cancelled) return;
 
           const hasGames = rawPerms.includes("Games") || rawPerms.includes("Gambling");
           const bankOnly = rawPerms.includes("Bank") && !hasGames;
@@ -330,15 +411,16 @@ export default function FormulaMaintenancePage() {
             return;
           }
 
-          const permList = rawPerms.filter(p => p !== 'Bank');
+          const permList = rawPerms.filter((p) => p !== "Bank");
           setPermissions(permList);
           setProcesses(procList);
           setAccounts(accList);
 
           const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
-          const initialActive = savedPerm && permList.includes(savedPerm) ? savedPerm : (permList.length > 0 ? permList[0] : "");
+          const initialActive =
+            savedPerm && permList.includes(savedPerm) ? savedPerm : permList.length > 0 ? permList[0] : "";
           setActivePermission(initialActive);
-          
+
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         }
 
@@ -356,41 +438,67 @@ export default function FormulaMaintenancePage() {
 
   // -- Load Meta Data --
   useEffect(() => {
-    if (bootLoading || !companyId) return;
+    if (bootLoading || !formulaMaintenanceScopeIsReady(formulaScope)) return;
+
+    let cancelled = false;
+    const scope = formulaScope;
+    const permCode =
+      companyCode ||
+      (selectedGroup ? companiesInGroupList(companies, selectedGroup)[0]?.company_id : "") ||
+      "";
+    const accountCompanyId = scope?.scopeCompanyId ?? companyId;
 
     (async () => {
       try {
         const [permList, procList, accList] = await Promise.all([
-          fetchCompanyPermissions(companyCode),
-          fetchProcesses(companyId),
-          fetchAccounts(companyId)
+          permCode ? fetchCompanyPermissions(permCode) : Promise.resolve([]),
+          fetchProcesses(companyId, scope),
+          accountCompanyId ? fetchAccounts(accountCompanyId, scope) : Promise.resolve([]),
         ]);
+        if (cancelled) return;
         setPermissions(permList);
         setProcesses(procList);
         setAccounts(accList);
-        
-        const savedPerm = localStorage.getItem(`selectedPermission_${companyCode}`);
+
+        const savedPerm = permCode ? localStorage.getItem(`selectedPermission_${permCode}`) : null;
         if (savedPerm && permList.includes(savedPerm)) {
           setActivePermission(savedPerm);
         } else if (permList.length > 0) {
           setActivePermission(permList[0]);
         }
+
+        setSelectedProcess((prev) => {
+          if (prev === null) return prev;
+          if (prev === "") return prev;
+          const ids = procList.map((p) => String(p.id));
+          return ids.includes(String(prev)) ? prev : null;
+        });
       } catch (err) {
-        notify(t("failedLoadCompanyMetadata"), "error");
+        if (!cancelled) notify(t("failedLoadCompanyMetadata"), "error");
       }
     })();
-  }, [bootLoading, companyId, companyCode, notify]);
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, formulaScope, companyId, companyCode, selectedGroup, companies, notify, t]);
 
   // -- Search Logic --
   /** 首次整表 Loading；之后（切换公司等）listSyncing 保留旧表直至新数据返回 */
   const [scrollRestoreRowId, setScrollRestoreRowId] = useState(null);
 
   const performSearch = useCallback(async (overrides = {}) => {
-    const { companyId: overrideCompanyId, scrollRestoreRowId: restoreRowId = null } = overrides;
-    const effectiveCompanyId = overrideCompanyId ?? companyId;
-    if (!effectiveCompanyId || selectedProcess === null) return;
+    const { scrollRestoreRowId: restoreRowId = null } = overrides;
+    const effectiveScope =
+      overrides.scope ??
+      resolveFormulaMaintenanceScope({
+        companies,
+        selectedGroup: overrides.selectedGroup ?? selectedGroup,
+        companyId: overrides.companyId ?? companyId,
+      });
+    if (!formulaMaintenanceScopeIsReady(effectiveScope) || selectedProcess === null) return;
 
-    const searchCompanyId = Number(effectiveCompanyId);
+    const searchScopeKey = formulaMaintenanceScopeCacheKey(effectiveScope);
+    const searchCompanyId = Number(effectiveScope.scopeCompanyId);
     const quietRefresh = initialFormulaSearchDoneRef.current;
     const seq = ++searchSeqRef.current;
 
@@ -411,12 +519,14 @@ export default function FormulaMaintenancePage() {
       const data = await listFormulaTemplates({
         companyId: searchCompanyId,
         category: activePermission,
-        process: selectedProcess,
+        process: selectedProcess === "" ? undefined : selectedProcess,
+        scope: effectiveScope,
       });
       if (seq !== searchSeqRef.current) return;
-      if (searchCompanyId !== Number(companyIdRef.current)) return;
+      if (searchScopeKey !== scopeKeyRef.current) return;
 
       setConfirmDelete(false);
+      setFormulaDataSourceCompanyId(formulaMaintenanceScopeCacheCompanyKey(effectiveScope));
       hydrateFormulaList(data, { ensureRowId: restoreRowId });
 
       if (!quietRefresh) {
@@ -428,7 +538,7 @@ export default function FormulaMaintenancePage() {
       }
     } catch (err) {
       if (seq !== searchSeqRef.current) return;
-      if (searchCompanyId !== Number(companyIdRef.current)) return;
+      if (searchScopeKey !== scopeKeyRef.current) return;
       notify(err.message, "error");
       formulaDataFullRef.current = [];
       setTotalRowCount(0);
@@ -442,6 +552,8 @@ export default function FormulaMaintenancePage() {
       }
     }
   }, [
+    companies,
+    selectedGroup,
     companyId,
     activePermission,
     selectedProcess,
@@ -457,26 +569,54 @@ export default function FormulaMaintenancePage() {
 
   // Debounced search — only after user picks a process or Select All
   useEffect(() => {
-    if (!bootLoading && companyId && selectedProcess !== null) {
-      if (suppressNextSearchEffectRef.current) {
-        suppressNextSearchEffectRef.current = false;
-        return;
-      }
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-      searchDebounceRef.current = setTimeout(() => {
-        performSearch();
-      }, 300);
+    if (!listQueryEnabled) return;
+    if (suppressNextSearchEffectRef.current) {
+      suppressNextSearchEffectRef.current = false;
+      return;
     }
-  }, [bootLoading, companyId, selectedProcess, performSearch]);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      performSearch();
+    }, 300);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [listQueryEnabled, formulaScopeKey, activePermission, selectedProcess, performSearch]);
 
   // -- Handlers --
-  const handleClearCompany = useCallback(() => {
-    companyIdRef.current = null;
-    setCompanyId(null);
-    setCompanyCode("");
-    setSelectedProcess(null);
-    clearFormulaList();
-  }, [clearFormulaList]);
+  const handleClearCompany = useCallback(
+    (groupForPersist) => {
+      const g = groupForPersist ?? selectedGroup;
+      companyIdRef.current = null;
+      setCompanyId(null);
+      setCompanyCode("");
+      setSelectedProcess(null);
+      clearFormulaList();
+      persistDashboardFilterState(g, null);
+      void (async () => {
+        try {
+          const scope = resolveFormulaMaintenanceScope({
+            companies,
+            selectedGroup: g,
+            companyId: null,
+          });
+          const meta = await bootstrapFormulaMaintenanceMeta({ companies, groupId: g });
+          const procList = scope ? await fetchProcesses(null, scope) : [];
+          setPermissions(meta.permissions);
+          setActivePermission(meta.activePermission);
+          setProcesses(procList);
+          if (scope?.scopeCompanyId) {
+            setAccounts(await fetchAccounts(scope.scopeCompanyId, scope));
+          } else {
+            setAccounts([]);
+          }
+        } catch (err) {
+          console.error("Meta bootstrap after clear company:", err);
+        }
+      })();
+    },
+    [companies, selectedGroup, clearFormulaList],
+  );
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;
@@ -489,12 +629,17 @@ export default function FormulaMaintenancePage() {
         return;
       }
 
+      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      const nextScope = resolveFormulaMaintenanceScope({
+        companies,
+        selectedGroup: newGroup,
+        companyId: nextId,
+      });
+
       suppressNextSearchEffectRef.current = true;
       companyIdRef.current = nextId;
       setCompanyId(nextId);
       setCompanyCode(c.company_id || "");
-
-      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
@@ -504,6 +649,7 @@ export default function FormulaMaintenancePage() {
 
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }), "success");
+      void performSearch({ companyId: nextId, selectedGroup: newGroup, scope: nextScope });
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
     }
@@ -525,7 +671,11 @@ export default function FormulaMaintenancePage() {
     startTransition(() => {
       setActivePermission(p);
     });
-    localStorage.setItem(`selectedPermission_${companyCode}`, p);
+    const permCode =
+      companyCode ||
+      (selectedGroup ? companiesInGroupList(companies, selectedGroup)[0]?.company_id : "") ||
+      "";
+    if (permCode) localStorage.setItem(`selectedPermission_${permCode}`, p);
     setSelectedProcess(null);
     clearFormulaList();
     setConfirmDelete(false);
@@ -626,9 +776,10 @@ export default function FormulaMaintenancePage() {
     setIsDeleteModalOpen(false);
     const idsToDelete = resolveSelectedIds();
     try {
-      await deleteFormulaTemplates(companyId, idsToDelete);
+      const effectiveCompanyId = formulaMaintenanceEffectiveCompanyId(formulaScope, companyId);
+      await deleteFormulaTemplates(effectiveCompanyId, idsToDelete, formulaScope);
       notify(t("successfullyDeletedN", { n: idsToDelete.length }), "success");
-      performSearch();
+      performSearch({ scope: formulaScope });
     } catch (err) {
       notify(err.message || t("deleteFailed"), "error");
     }
@@ -637,9 +788,10 @@ export default function FormulaMaintenancePage() {
   const handleSaveRow = async (id, editForm) => {
     if (guardWrite()) return;
     try {
+      const effectiveCompanyId = formulaMaintenanceEffectiveCompanyId(formulaScope, companyId);
       const payload = {
         template_id: id,
-        company_id: companyId,
+        ...(effectiveCompanyId != null ? { company_id: effectiveCompanyId } : {}),
         account_id: editForm.account_id,
         source_columns: editForm.source_ref ?? "",
         source_percent: editForm.source_percent ?? "",
@@ -647,7 +799,7 @@ export default function FormulaMaintenancePage() {
         formula: editForm.formula ?? "",
         description: editForm.description ?? "",
       };
-      const serverData = await updateFormulaTemplate(payload);
+      const serverData = await updateFormulaTemplate(payload, formulaScope);
       notify(t("updateSuccessful"), "success");
 
       const account = accounts.find((a) => formulaRowIdsMatch(a.id, editForm.account_id));
@@ -719,6 +871,7 @@ export default function FormulaMaintenancePage() {
           </div>
         )}
       <FormulaMaintenanceTable
+        key={`${formulaScopeKey}:${formulaDataSourceCompanyId ?? "no-scope"}`}
         data={formulaData}
         loading={tableLoading}
         listSyncing={listSyncing}
