@@ -184,8 +184,8 @@ function dashboardShouldExcludeClearForRole(?string $role): bool
         return false;
     }
     $role = strtoupper(trim((string) $role));
-    // 与 Transaction List/search_api 口径对齐：不排除 CLEAR（EXPENSES 也要算入）
-    return false;
+    // Dashboard Profit / Expenses 卡片不计 CLEAR；CAPITAL 仍与 CONTRA 一致计入
+    return in_array($role, ['EXPENSES', 'PROFIT'], true);
 }
 
 function dashboardMoneyZero(): string

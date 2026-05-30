@@ -218,6 +218,24 @@ function processExists(PDO $pdo, string $processId, $descriptionId, int $company
     return $stmt->fetch() !== false;
 }
 
+/** 同一公司下 process_id 是否已存在（不区分 description） */
+function processIdExistsForCompany(PDO $pdo, string $processId, int $companyId): bool {
+    $processId = trim($processId);
+    if ($processId === '') {
+        return false;
+    }
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM process
+        WHERE process_id = ?
+          AND company_id = ?
+          AND status IN ('active', 'inactive')
+        LIMIT 1
+    ");
+    $stmt->execute([$processId, $companyId]);
+    return $stmt->fetch() !== false;
+}
+
 function insertProcess(PDO $pdo, array $row): int {
     $stmt = $pdo->prepare("
         INSERT INTO process (
@@ -571,6 +589,11 @@ try {
         if (empty($processIds) && !empty($_POST['process_id'])) {
             $processIds = [trim($_POST['process_id'])];
         }
+        $processIds = array_values(array_unique(array_filter(array_map(static function ($id) {
+            return trim((string)$id);
+        }, $processIds), static function ($id) {
+            return $id !== '';
+        })));
 
         $descriptionIds = [];
         if (!empty($_POST['selected_descriptions'])) {
@@ -626,6 +649,16 @@ try {
             $currentUserId = getCurrentUserId($pdo);
         }
 
+        foreach ($processIds as $processId) {
+            if (processIdExistsForCompany($pdo, $processId, $companyId)) {
+                jsonResponse(false, 'Process ID "' . $processId . '" already exists for this company', [
+                    'duplicate' => true,
+                    'process_id' => $processId
+                ]);
+                exit;
+            }
+        }
+
         $createdProcesses = [];
         $errors = [];
         $copiedTemplatesCount = 0;
@@ -633,6 +666,10 @@ try {
         try {
             foreach ($processIds as $processId) {
                 foreach ($descriptionIds as $descriptionId) {
+                    if (processIdExistsForCompany($pdo, $processId, $companyId)) {
+                        $errors[] = "Process ID \"$processId\" already exists for this company";
+                        continue;
+                    }
                     if (processExists($pdo, $processId, $descriptionId, $companyId)) {
                         $errors[] = "Process already exists for process_id $processId and description $descriptionId";
                         continue;
@@ -665,6 +702,18 @@ try {
         } catch (Exception $e) {
             $pdo->rollBack();
             throw $e;
+        }
+
+        if (count($createdProcesses) === 0) {
+            $failMessage = !empty($errors)
+                ? $errors[0]
+                : 'No process was created';
+            jsonResponse(false, $failMessage, [
+                'duplicate' => !empty($errors),
+                'created_processes' => [],
+                'errors' => $errors
+            ]);
+            exit;
         }
 
         $message = "Successfully created " . count($createdProcesses) . " process(es)";

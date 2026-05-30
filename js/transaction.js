@@ -3146,12 +3146,12 @@
         const filteredRight = lastSearchData.right_table.filter(hasTxn);
 
         if (filteredLeft.length === 0 && filteredRight.length === 0) {
-            showNotification('No PAYMENT/RECEIVE/CONTRA/CLAIM transactions in current date range', 'info');
+            showNotification('No PAYMENT/CONTRA/CLAIM transactions in current date range', 'info');
             return;
         }
 
         renderTables(filteredLeft, filteredRight);
-        showNotification('Hidden accounts without PAYMENT/RECEIVE/CONTRA/CLAIM transactions', 'success');
+        showNotification('Hidden accounts without PAYMENT/CONTRA/CLAIM transactions', 'success');
     }
 
     // ==================== 处理 Show Payment Only 过滤（与 Search 按钮功能相同）====================
@@ -3205,7 +3205,7 @@
         }
 
         if (filteredLeft.length === 0 && filteredRight.length === 0) {
-            showNotification('No PAYMENT/RECEIVE/CONTRA/CLAIM transactions in current date range', 'info');
+            showNotification('No PAYMENT/CONTRA/CLAIM transactions in current date range', 'info');
             return;
         }
 
@@ -3253,8 +3253,8 @@
         const rateToAccountInput = document.getElementById('rate_account_to');
         const rateFromAccountInput = document.getElementById('rate_account_from');
 
-        // PROFIT：第一个下拉为 To、第二个为 From；CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR 与 RATE：第一个为 To、第二个为 From，与 UI 标签一致
-        const needsFromTo = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR'].includes(effectiveType);
+        // PROFIT：第一个下拉为 To、第二个为 From；CONTRA/PAYMENT/CLAIM/CLEAR 与 RATE：第一个为 To、第二个为 From，与 UI 标签一致
+        const needsFromTo = ['CONTRA', 'PAYMENT', 'CLAIM', 'CLEAR'].includes(effectiveType);
         const accountId = isRate ? getAccountId(rateFromAccountInput) : ((type === 'PROFIT' || isAdjustment) ? getAccountId(standardFromAccountInput) : (needsFromTo ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput)));
         const fromAccountId = isRate ? getAccountId(rateToAccountInput) : (isAdjustment ? '' : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : (needsFromTo ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput))));
 
@@ -3481,7 +3481,7 @@
                 showNotification('Please select Currency', 'error');
                 return;
             }
-            if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'CLEAR'].includes(effectiveType) && !fromAccountId) {
+            if (['PAYMENT', 'CONTRA', 'CLAIM', 'CLEAR'].includes(effectiveType) && !fromAccountId) {
                 showNotification('This transaction type requires From Account', 'error');
                 return;
             }
@@ -3845,7 +3845,7 @@
         // 控制「From Account」与「Reverse」的显示（不隐藏 To Account，保证排版一致）
         const accountInputs = document.querySelector('.transaction-account-inputs');
         const fromAccountWrapper = document.getElementById('action_account_id')?.closest('.custom-select-wrapper');
-        const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT', 'CLEAR'].includes(typeSel.value);
+        const needsFrom = ['CONTRA', 'PAYMENT', 'CLAIM', 'PROFIT', 'CLEAR'].includes(typeSel.value);
         const showFromAndReverse = !isRate && needsFrom;
         if (fromAccountWrapper) {
             fromAccountWrapper.style.display = showFromAndReverse ? '' : 'none';

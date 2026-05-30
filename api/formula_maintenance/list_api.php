@@ -73,6 +73,7 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
                 dct.input_method,
                 dct.formula_display,
                 dct.formula_operators,
+                dct.last_source_value,
                 dct.source_percent,
                 dct.enable_source_percent,
                 dct.description,
@@ -128,10 +129,9 @@ function mapRowsToDisplay(array $rows) {
     $displayRowsByKey = [];
     foreach ($rows as $row) {
         $sourceRef = $row['columns_display'] ?? $row['source_columns'] ?? '';
-        // Source 列与 Data Capture Summary 一致：展示 source_percent（列引用仍放在 source_ref 供保存）
-        $sourceDisplay = formatSourcePercentForMaintenanceList($row['source_percent'] ?? null);
-        // 列表展示：$5 * (0.18)；编辑框用 $5*0.18（与 update 解析一致）
-        $formulaDisplayParen = buildFormulaDisplayParenFromRow($row);
+        list($base, $sourcePct, $sourceEn) = resolveTemplateFormulaBaseAndPercent($row);
+        $sourceDisplay = formatSourcePercentForMaintenanceList($sourcePct);
+        $formulaDisplayParen = buildFormulaDisplayParenFromParts($base, $sourcePct, $sourceEn);
         $formulaEdit = buildFormulaEditFromRow($row);
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
@@ -163,9 +163,11 @@ function mapRowsToDisplay(array $rows) {
         $dedupKey = implode('|', $keyParts);
 
         $currentId = isset($row['id']) ? (int)$row['id'] : 0;
+        $currentScore = scoreTemplateRowForMaintenanceDedup($row);
         if (!isset($displayRowsByKey[$dedupKey])) {
             $displayRowsByKey[$dedupKey] = [
                 'id' => $currentId,
+                '_dedup_score' => $currentScore,
                 'process' => $processDisplay,
                 'account' => $accountDisplay,
                 'account_id' => $row['account_id'],
@@ -181,10 +183,13 @@ function mapRowsToDisplay(array $rows) {
                 'product_type' => $productType
             ];
         } else {
-            // 同一个界面组合只保留最新一条，避免历史重复记录在列表中多占一行
+            $existingScore = (int)($displayRowsByKey[$dedupKey]['_dedup_score'] ?? 0);
             $existingId = (int)$displayRowsByKey[$dedupKey]['id'];
-            if ($currentId > $existingId) {
+            $shouldReplace = $currentScore > $existingScore
+                || ($currentScore === $existingScore && $currentId > $existingId);
+            if ($shouldReplace) {
                 $displayRowsByKey[$dedupKey]['id'] = $currentId;
+                $displayRowsByKey[$dedupKey]['_dedup_score'] = $currentScore;
                 $displayRowsByKey[$dedupKey]['formula'] = $formulaDisplayParen;
                 $displayRowsByKey[$dedupKey]['formula_edit'] = $formulaEdit;
                 $displayRowsByKey[$dedupKey]['source'] = $sourceDisplay;
@@ -204,10 +209,12 @@ function mapRowsToDisplay(array $rows) {
     $data = [];
     $no = 1;
     foreach ($displayRowsByKey as $row) {
+        unset($row['_dedup_score']);
         $row['no'] = $no++;
         $row['id'] = (int)$row['id'];
         $data[] = $row;
     }
+    applyPeerRowCoefficientInferenceToDisplayRows($data);
     return $data;
 }
 

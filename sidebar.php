@@ -496,9 +496,11 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <!-- Maintenance Section：主项始终显示；子项按用户是否勾选 maintenance + 公司 category 控制 -->
             <?php
             $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions));
-            $isSupervisorRole = (strtolower((string)$role) === 'supervisor');
-            // Supervisor 在 Games 公司下，即使未勾选 maintenance，也保留 Maintenance（仅显示 Games 相关项）
-            $showMaintenanceSection = $hasMaintenance || ($isSupervisorRole && $companyHasGambling);
+            $rolesWithImplicitGamesMaintenance = ['supervisor', 'accountant', 'audit', 'customer service'];
+            $roleLower = strtolower((string) $role);
+            $hasImplicitGamesMaintenance = in_array($roleLower, $rolesWithImplicitGamesMaintenance, true);
+            // Supervisor / Accountant / Audit / Customer Service：Games 公司下即使未勾选 maintenance，也保留 Maintenance（仅 Transaction、Formula）
+            $showMaintenanceSection = $hasMaintenance || ($hasImplicitGamesMaintenance && $companyHasGambling);
             ?>
             <?php if ($showMaintenanceSection): ?>
                 <div class="informationmenu-section">

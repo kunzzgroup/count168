@@ -105,6 +105,11 @@ function getTemplateProcessInfo(PDO $pdo, int $templateId) {
 function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accountDisplay,
     string $sourceColumns, string $sourceDisplay, string $inputMethod, string $formulaBase, string $description,
     $sourcePercent = null, $enableSourcePercent = null) {
+    $formulaDisplay = buildFormulaDisplayParenFromParts(
+        $formulaBase,
+        $sourcePercent !== null ? (string) $sourcePercent : '',
+        $sourcePercent !== null ? (int) $enableSourcePercent : 0
+    );
     if ($sourcePercent !== null && $enableSourcePercent !== null) {
         $sql = "UPDATE data_capture_templates
             SET account_id = :account_id,
@@ -114,6 +119,7 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
                 input_method = :input_method,
                 formula_display = :formula_display,
                 formula_operators = :formula_operators,
+                last_source_value = :last_source_value,
                 source_percent = :source_percent,
                 enable_source_percent = :enable_source_percent,
                 description = :description,
@@ -126,8 +132,9 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
             ':source_columns' => $sourceColumns,
             ':columns_display' => $sourceDisplay,
             ':input_method' => $inputMethod ?: null,
-            ':formula_display' => $formulaBase,
+            ':formula_display' => $formulaDisplay,
             ':formula_operators' => $formulaBase,
+            ':last_source_value' => $formulaBase,
             ':source_percent' => (string) $sourcePercent,
             ':enable_source_percent' => (int) $enableSourcePercent,
             ':description' => $description,
@@ -143,6 +150,7 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
                 input_method = :input_method,
                 formula_display = :formula_display,
                 formula_operators = :formula_operators,
+                last_source_value = :last_source_value,
                 description = :description,
                 updated_at = NOW()
             WHERE id = :id";
@@ -153,8 +161,9 @@ function updateTemplate(PDO $pdo, int $templateId, int $accountId, string $accou
         ':source_columns' => $sourceColumns,
         ':columns_display' => $sourceDisplay,
         ':input_method' => $inputMethod ?: null,
-        ':formula_display' => $formulaBase,
+        ':formula_display' => $formulaDisplay,
         ':formula_operators' => $formulaBase,
+        ':last_source_value' => $formulaBase,
         ':description' => $description,
         ':id' => $templateId
     ]);
@@ -204,6 +213,7 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
             input_method = ?,
             formula_display = ?,
             formula_operators = ?,
+            last_source_value = ?,
             source_percent = ?,
             enable_source_percent = ?,
             description = ?,
@@ -220,11 +230,17 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
             input_method = ?,
             formula_display = ?,
             formula_operators = ?,
+            last_source_value = ?,
             description = ?,
             updated_at = NOW()
         WHERE id = ?
     ");
     }
+    $formulaDisplay = buildFormulaDisplayParenFromParts(
+        $formulaBase,
+        $sourcePercent !== null ? (string) $sourcePercent : '',
+        $sourcePercent !== null ? (int) $enableSourcePercent : 0
+    );
     foreach ($syncedProcesses as $proc) {
         $targetProcessId = $proc['id'];
         $findStmt->execute([
@@ -244,6 +260,7 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
                     $sourceColumns,
                     $sourceDisplay,
                     $inputMethod ?: null,
+                    $formulaDisplay,
                     $formulaBase,
                     $formulaBase,
                     (string) $sourcePercent,
@@ -258,6 +275,7 @@ function syncFormulaToTargetTemplates(PDO $pdo, int $companyId, array $templateI
                     $sourceColumns,
                     $sourceDisplay,
                     $inputMethod ?: null,
+                    $formulaDisplay,
                     $formulaBase,
                     $formulaBase,
                     $description,
@@ -288,6 +306,7 @@ try {
     $sourceDisplay = isset($input['source_display']) ? trim($input['source_display']) : $sourceColumns;
     $inputMethod = isset($input['input_method']) ? trim($input['input_method']) : '';
     $formulaRaw = isset($input['formula']) ? trim($input['formula']) : '';
+    $sourcePercentInput = array_key_exists('source_percent', $input) ? $input['source_percent'] : null;
     $description = isset($input['description']) ? trim($input['description']) : '';
 
     if ($templateId <= 0) {
@@ -302,10 +321,15 @@ try {
     $templateInfo = getTemplateProcessInfo($pdo, $templateId);
     $sourceProcessId = $templateInfo ? (int)$templateInfo['process_id'] : null;
 
-    $parsed = parseMaintenanceFormulaInput($formulaRaw);
+    $parsed = parseMaintenanceFormulaInput($formulaRaw, $sourcePercentInput);
     $formulaBase = $parsed['base'];
     $sp = $parsed['source_percent'];
     $en = $parsed['enable_source_percent'];
+
+    if ($sp === null && $templateInfo) {
+        $sp = isset($templateInfo['source_percent']) ? trim((string) $templateInfo['source_percent']) : '1';
+        $en = isset($templateInfo['enable_source_percent']) ? (int) $templateInfo['enable_source_percent'] : 1;
+    }
 
     $pdo->beginTransaction();
     try {
@@ -318,9 +342,11 @@ try {
             syncFormulaToTargetTemplates($pdo, $companyId, $templateInfo, $accountId, $accountDisplay, $sourceColumns, $sourceDisplay, $inputMethod, $formulaBase, $description, $sp, $en);
         }
         $pdo->commit();
+        $respEn = $en !== null ? (int) $en : 0;
+        $respSp = $sp !== null ? (string) $sp : '';
         $respData = [
-            'formula_display_paren' => buildFormulaDisplayParenFromParts($formulaBase, $sp !== null ? $sp : '', $sp !== null ? $en : 0),
-            'formula_edit' => buildFormulaEditFromParts($formulaBase, $sp !== null ? $sp : '', $sp !== null ? $en : 0),
+            'formula_display_paren' => buildFormulaDisplayParenFromParts($formulaBase, $respSp, $respEn),
+            'formula_edit' => buildFormulaEditFromParts($formulaBase, $respSp, $respEn),
         ];
         $stmtFresh = $pdo->prepare('SELECT source_percent, columns_display, source_columns FROM data_capture_templates WHERE id = ?');
         $stmtFresh->execute([$templateId]);
