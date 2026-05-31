@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
@@ -9,6 +9,9 @@ import {
   isDashboardGroupOnlyMode,
   isVirtualGroupLinkCompanyRow,
   persistDashboardGroupOnlyMode,
+  persistDashboardGroupFilter,
+  persistDashboardFilterState,
+  notifyDashboardGroupFilterChanged,
   pickDefaultCompanyForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -106,6 +109,18 @@ function resolveGroupIdFromEntityCompanyId(companies, entityCompanyId) {
   return gid || null;
 }
 
+function resolveUserListCacheKey(activeCompanyId, groupOnlyUserList, selectedGroup, aggregateUserList, groupsAllMode, groupAllMode) {
+  if (aggregateUserList) {
+    if (groupsAllMode) return "aggregate:groups-all";
+    if (groupAllMode && selectedGroup) return `aggregate:group:${String(selectedGroup).trim().toUpperCase()}`;
+    return "aggregate:all";
+  }
+  if (groupOnlyUserList && selectedGroup) {
+    return `group:${String(selectedGroup).trim().toUpperCase()}`;
+  }
+  return `company:${String(activeCompanyId || "")}`;
+}
+
 function resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup) {
   const normalizedGroupId = String(selectedGroup || "").trim().toUpperCase();
   const useGroupScopedAccounts = groupOnlyUserList && normalizedGroupId !== "";
@@ -140,6 +155,8 @@ export default function UserListPage() {
   const listFetchAbortRef = useRef(null);
   const skipCompanyFetchEffectRef = useRef(false);
   const companySessionAbortRef = useRef(null);
+  const userListCacheRef = useRef(new Map());
+  const userListFetchPendingRef = useRef(new Map());
   const modalCompaniesCacheRef = useRef([]);
   const modalAccessCacheRef = useRef(new Map());
   const modalAccessPendingRef = useRef(new Map());
@@ -434,48 +451,7 @@ export default function UserListPage() {
     setUsersRaw([]);
   }, []);
 
-  const onSwitchCompany = async (c) => {
-    const nextCompanyId = Number(c?.id);
-    if (!nextCompanyId || Number(companyId) === nextCompanyId) return;
-
-    const previousCompanyId = companyId;
-    companySessionAbortRef.current?.abort();
-    const ac = new AbortController();
-    companySessionAbortRef.current = ac;
-
-    skipCompanyFetchEffectRef.current = true;
-    setCompanyId(nextCompanyId);
-    void fetchUsers(nextCompanyId, { silent: true });
-
-    try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), {
-        credentials: "include",
-        signal: ac.signal,
-      });
-      const json = await res.json();
-      if (ac.signal.aborted) return;
-      if (!json.success) {
-        listFetchAbortRef.current?.abort();
-        skipCompanyFetchEffectRef.current = true;
-        setCompanyId(previousCompanyId);
-        void fetchUsers(previousCompanyId, { silent: true });
-        notifyApi(json.error || json.message, "couldNotSwitchCompany", "danger");
-        return;
-      }
-      notifyCompanySessionUpdated();
-    } catch (e) {
-      if (ac.signal.aborted) return;
-      listFetchAbortRef.current?.abort();
-      skipCompanyFetchEffectRef.current = true;
-      setCompanyId(previousCompanyId);
-      void fetchUsers(previousCompanyId, { silent: true });
-      notify(t("companySwitchFailed"), "danger");
-    } finally {
-      if (companySessionAbortRef.current === ac) {
-        companySessionAbortRef.current = null;
-      }
-    }
-  };
+  const onSwitchCompanyRef = useRef(null);
 
   const {
     groupIds,
@@ -492,7 +468,7 @@ export default function UserListPage() {
     companyId,
     selectedGroup,
     setSelectedGroup,
-    onSelectCompany: onSwitchCompany,
+    onSelectCompany: (c) => onSwitchCompanyRef.current?.(c),
     onClearCompany: handleClearCompany,
     switchingCompany: false,
     preferredCompanyId: companyId,
@@ -504,6 +480,67 @@ export default function UserListPage() {
     [groupsAllMode, groupAllMode, companyId],
   );
 
+  const loadUsersListFromApi = useCallback(async (activeCompanyId, signal) => {
+    const body = { action: "get" };
+    if (aggregateUserList) {
+      if (groupsAllMode) body.groups_all = 1;
+      if (groupAllMode || groupsAllMode) body.group_all = 1;
+      if (selectedGroup && !groupsAllMode) body.group_id = selectedGroup;
+    } else if (groupOnlyUserList && selectedGroup) {
+      body.group_id = selectedGroup;
+    } else if (activeCompanyId != null) {
+      body.company_id = Number(activeCompanyId);
+    }
+    const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+      signal,
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json?.message || "failedToLoadUsers");
+    }
+    let list = Array.isArray(json.data) ? json.data.map((u) => ({ ...u, is_owner_shadow: false })) : [];
+    if (normRole(me.role) === "owner" && me.user_id) {
+      try {
+        const r2 = await fetch(buildApiUrl("api/users/userlist_api.php"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ action: "get", id: me.user_id }),
+          signal,
+        });
+        const j2 = await r2.json();
+        if (j2.success && j2.data && normRole(j2.data.role) === "owner") {
+          const shadow = { ...j2.data, is_owner_shadow: true };
+          if (!list.some((u) => Number(u.id) === Number(shadow.id))) list = [shadow, ...list];
+        }
+      } catch {
+        /* owner shadow optional */
+      }
+    }
+    return list;
+  }, [aggregateUserList, groupOnlyUserList, groupsAllMode, groupAllMode, me, selectedGroup]);
+
+  const applyUserListCache = useCallback((activeCompanyId) => {
+    const cacheKey = resolveUserListCacheKey(
+      activeCompanyId,
+      groupOnlyUserList,
+      selectedGroup,
+      aggregateUserList,
+      groupsAllMode,
+      groupAllMode,
+    );
+    const cached = userListCacheRef.current.get(cacheKey);
+    if (!cached) return false;
+    setUsersRaw(cached);
+    const nextIds = new Set(cached.map((u) => Number(u.id)));
+    setEditReadyIds((prev) => new Set([...prev].filter((id) => nextIds.has(id))));
+    return true;
+  }, [groupOnlyUserList, selectedGroup, aggregateUserList, groupsAllMode, groupAllMode]);
+
   const fetchUsers = useCallback(async (companyIdOverride = null, { silent = false } = {}) => {
     if (!me) return;
     const activeCompanyId = companyIdOverride ?? companyId;
@@ -512,53 +549,21 @@ export default function UserListPage() {
     } else if (!aggregateUserList && activeCompanyId == null) {
       return;
     }
+    const cacheKey = resolveUserListCacheKey(
+      activeCompanyId,
+      groupOnlyUserList,
+      selectedGroup,
+      aggregateUserList,
+      groupsAllMode,
+      groupAllMode,
+    );
     listFetchAbortRef.current?.abort();
     const ac = new AbortController();
     listFetchAbortRef.current = ac;
     try {
-      const body = { action: "get" };
-      if (aggregateUserList) {
-        if (groupsAllMode) body.groups_all = 1;
-        if (groupAllMode || groupsAllMode) body.group_all = 1;
-        if (selectedGroup && !groupsAllMode) body.group_id = selectedGroup;
-      } else if (groupOnlyUserList && selectedGroup) {
-        body.group_id = selectedGroup;
-      } else if (activeCompanyId != null) {
-        body.company_id = Number(activeCompanyId);
-      }
-      const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-        signal: ac.signal,
-      });
-      const json = await res.json();
+      const list = await loadUsersListFromApi(activeCompanyId, ac.signal);
       if (ac.signal.aborted) return;
-      if (!res.ok || !json.success) {
-        notifyApi(json.message, "failedToLoadUsers", "danger");
-        return;
-      }
-      let list = Array.isArray(json.data) ? json.data.map((u) => ({ ...u, is_owner_shadow: false })) : [];
-      if (normRole(me.role) === "owner" && me.user_id) {
-        try {
-          const r2 = await fetch(buildApiUrl("api/users/userlist_api.php"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ action: "get", id: me.user_id }),
-            signal: ac.signal,
-          });
-          const j2 = await r2.json();
-          if (ac.signal.aborted) return;
-          if (j2.success && j2.data && normRole(j2.data.role) === "owner") {
-            const shadow = { ...j2.data, is_owner_shadow: true };
-            if (!list.some((u) => Number(u.id) === Number(shadow.id))) list = [shadow, ...list];
-          }
-        } catch {
-          if (ac.signal.aborted) return;
-        }
-      }
+      userListCacheRef.current.set(cacheKey, list);
       setUsersRaw(list);
       if (silent) {
         const nextIds = new Set(list.map((u) => Number(u.id)));
@@ -572,18 +577,103 @@ export default function UserListPage() {
       setSelectAllUsers(false);
     } catch (e) {
       if (ac.signal.aborted) return;
-      notifyApi(null, "failedToLoadUsers", "danger");
+      if (!silent) notifyApi(null, "failedToLoadUsers", "danger");
     }
   }, [
     companyId,
     groupOnlyUserList,
     aggregateUserList,
+    loadUsersListFromApi,
+    me,
+    notifyApi,
+    selectedGroup,
     groupsAllMode,
     groupAllMode,
-    me,
-    notify,
-    selectedGroup,
   ]);
+
+  const prefetchUsersForCompany = useCallback(async (activeCompanyId) => {
+    if (!me || aggregateUserList || groupOnlyUserList || activeCompanyId == null) return;
+    const cacheKey = resolveUserListCacheKey(
+      activeCompanyId,
+      false,
+      selectedGroup,
+      false,
+      false,
+      false,
+    );
+    if (userListCacheRef.current.has(cacheKey)) return;
+    const pending = userListFetchPendingRef.current.get(cacheKey);
+    if (pending) return pending;
+    const request = (async () => {
+      try {
+        const ac = new AbortController();
+        const list = await loadUsersListFromApi(activeCompanyId, ac.signal);
+        userListCacheRef.current.set(cacheKey, list);
+      } catch {
+        /* prefetch is best-effort */
+      } finally {
+        userListFetchPendingRef.current.delete(cacheKey);
+      }
+    })();
+    userListFetchPendingRef.current.set(cacheKey, request);
+    return request;
+  }, [aggregateUserList, groupOnlyUserList, loadUsersListFromApi, me, selectedGroup]);
+
+  const onSwitchCompany = useCallback(async (c) => {
+    const nextCompanyId = Number(c?.id);
+    if (!nextCompanyId) return;
+
+    const sessionCompanyId = me?.company_id != null ? Number(me.company_id) : null;
+    void fetchUsers(nextCompanyId, { silent: true });
+
+    if (sessionCompanyId === nextCompanyId) return;
+
+    const previousCompanyId = Number(companyId) === nextCompanyId ? sessionCompanyId : companyId;
+    companySessionAbortRef.current?.abort();
+    const ac = new AbortController();
+    companySessionAbortRef.current = ac;
+
+    try {
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), {
+        credentials: "include",
+        signal: ac.signal,
+      });
+      const json = await res.json();
+      if (ac.signal.aborted) return;
+      if (!json.success) {
+        listFetchAbortRef.current?.abort();
+        if (previousCompanyId != null && Number(previousCompanyId) !== nextCompanyId) {
+          skipCompanyFetchEffectRef.current = true;
+          flushSync(() => {
+            setCompanyId(previousCompanyId);
+            applyUserListCache(previousCompanyId);
+          });
+          void fetchUsers(previousCompanyId, { silent: true });
+        }
+        notifyApi(json.error || json.message, "couldNotSwitchCompany", "danger");
+        return;
+      }
+      notifyCompanySessionUpdated();
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      listFetchAbortRef.current?.abort();
+      if (previousCompanyId != null && Number(previousCompanyId) !== nextCompanyId) {
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setCompanyId(previousCompanyId);
+          applyUserListCache(previousCompanyId);
+        });
+        void fetchUsers(previousCompanyId, { silent: true });
+      }
+      notify(t("companySwitchFailed"), "danger");
+    } finally {
+      if (companySessionAbortRef.current === ac) {
+        companySessionAbortRef.current = null;
+      }
+    }
+  }, [applyUserListCache, companyId, fetchUsers, me, notify, notifyApi, t]);
+
+  onSwitchCompanyRef.current = onSwitchCompany;
 
   useEffect(() => {
     if (!bootLoading && me && (isListScopeReady || groupOnlyUserList)) {
@@ -594,6 +684,15 @@ export default function UserListPage() {
       void fetchUsers();
     }
   }, [bootLoading, companyId, groupOnlyUserList, aggregateUserList, isListScopeReady, me, fetchUsers]);
+
+  useEffect(() => {
+    if (bootLoading || !me || aggregateUserList || groupOnlyUserList) return;
+    companiesForPicker.forEach((c) => {
+      const cid = Number(c?.id);
+      if (!Number.isFinite(cid) || cid <= 0 || cid === Number(companyId)) return;
+      void prefetchUsersForCompany(cid);
+    });
+  }, [bootLoading, companiesForPicker, companyId, aggregateUserList, groupOnlyUserList, me, prefetchUsersForCompany]);
 
   const onPickGroupPill = useCallback(
     async (gid) => {
@@ -611,12 +710,33 @@ export default function UserListPage() {
     [selectedGroup, companyId, me, handlePickGroup, handleClearCompany]
   );
 
-  const onPickCompanyPill = useCallback(
-    async (c) => {
-      await handlePickCompany(c);
-    },
-    [handlePickCompany]
-  );
+  const onPickCompanyPill = useCallback((c) => {
+    const nextCompanyId = Number(c?.id);
+    if (!nextCompanyId) return;
+
+    const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const sel = String(selectedGroup || "").trim().toUpperCase();
+    const isActive = companyId != null && Number(companyId) === nextCompanyId && (!gid || gid === sel);
+    if (isActive) {
+      void handlePickCompany(c);
+      return;
+    }
+
+    const nextGroup = gid || null;
+    skipCompanyFetchEffectRef.current = true;
+    flushSync(() => {
+      if (nextGroup && nextGroup !== sel) setSelectedGroup(nextGroup);
+      setCompanyId(nextCompanyId);
+      applyUserListCache(nextCompanyId);
+    });
+
+    if (nextGroup) persistDashboardGroupFilter(nextGroup);
+    else persistDashboardGroupFilter(null);
+    persistDashboardFilterState(nextGroup, nextCompanyId, { allowGroupOnly: false });
+    notifyDashboardGroupFilterChanged(nextGroup, nextCompanyId);
+
+    void onSwitchCompany(c);
+  }, [applyUserListCache, companyId, handlePickCompany, onSwitchCompany, selectedGroup]);
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
     const normalizedGroupId = String(selectedGroup || "").trim().toUpperCase();
