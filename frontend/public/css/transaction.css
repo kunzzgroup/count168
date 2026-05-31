@@ -3790,3 +3790,47 @@ body.transaction-page .transaction-add-section .transaction-account-inputs--to-o
     max-width: none;
 }
 
+/* Unlock native page scroll — dashboard-page sets body overflow:hidden + height:100vh */
+html:has(body.dashboard-page.transaction-page:not(.member-winloss-page)) {
+    height: auto;
+    overflow-y: auto;
+}
+
+body.dashboard-page.transaction-page:not(.member-winloss-page),
+body.ec-auth-shell.dashboard-page.transaction-page:not(.member-winloss-page) {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+body.dashboard-page.transaction-page:not(.member-winloss-page) #root {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body.dashboard-page.transaction-page:not(.member-winloss-page) .ec-page-shell,
+body.dashboard-page.transaction-page:not(.member-winloss-page) .ec-page-shell__content {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body.dashboard-page.transaction-page:not(.member-winloss-page) .transaction-container {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding-bottom: clamp(24px, 3vh, 48px) !important;
+}
+
+body.dashboard-page.transaction-page:not(.member-winloss-page) .transaction-main,
+body.dashboard-page.transaction-page:not(.member-winloss-page) .transaction-tables-section {
+    overflow: visible !important;
+    max-height: none !important;
+}
+
