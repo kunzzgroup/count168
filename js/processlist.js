@@ -2067,19 +2067,8 @@ function bindBankResendModalFrequencySyncOnce() {
     const freq = document.getElementById('bank_resend_frequency');
     if (!dayEnd || !freq) return;
     function syncResendFreq() {
-        if (freq.value === 'once') {
-            const monthlyOptOnce = freq.querySelector('option[value="monthly"]');
-            if (monthlyOptOnce) monthlyOptOnce.disabled = false;
-            return;
-        }
         const monthlyOpt = freq.querySelector('option[value="monthly"]');
-        const hasEnd = !!(dayEnd.value && String(dayEnd.value).trim());
-        if (hasEnd) {
-            freq.value = '1st_of_every_month';
-            if (monthlyOpt) monthlyOpt.disabled = true;
-        } else if (monthlyOpt) {
-            monthlyOpt.disabled = false;
-        }
+        if (monthlyOpt) monthlyOpt.disabled = false;
     }
     function onDayEndOrFreqChange() {
         syncBankResendModalOnceDayEndUi();
@@ -2272,21 +2261,10 @@ function showConfirmBankResendModal(processId) {
     if (fqEl) {
         fqEl.value = bankResendModalFrequencyFromStored(scheduleSeed.day_start_frequency);
     }
-    const dayEndSync = document.getElementById('bank_resend_day_end');
     const freqSync = document.getElementById('bank_resend_frequency');
-    if (dayEndSync && freqSync) {
+    if (freqSync) {
         const monthlyOpt = freqSync.querySelector('option[value="monthly"]');
-        if (freqSync.value === 'once') {
-            if (monthlyOpt) monthlyOpt.disabled = false;
-        } else {
-            const hasEnd = !!(dayEndSync.value && String(dayEndSync.value).trim());
-            if (hasEnd) {
-                freqSync.value = '1st_of_every_month';
-                if (monthlyOpt) monthlyOpt.disabled = true;
-            } else if (monthlyOpt) {
-                monthlyOpt.disabled = false;
-            }
-        }
+        if (monthlyOpt) monthlyOpt.disabled = false;
     }
     syncBankResendModalOnceDayEndUi();
     const confirmBtn = document.getElementById('confirmBankResendBtn');
