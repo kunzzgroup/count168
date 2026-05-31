@@ -15,9 +15,30 @@ COMPANY_ID_TABLES = {
     "user_company_permissions", "transactions_rate", "transactions_deleted", "data_captures_deleted",
     "bank_process_maintenance_resend_pending", "bank_process_accounting_resend_daily_guard",
     "process_accounting_posted", "process_accounting_due_dismissed",
+    "transactions_backup", "transaction_entry_backup",
 }
 
-INSERT_RE = re.compile(r"INSERT INTO `(\w+)` \(([^)]+)\) VALUES\s*", re.IGNORECASE)
+ALLOWED_BACKUP_TABLES = {"transactions_backup", "transaction_entry_backup"}
+
+INSERT_RE = re.compile(
+    r"INSERT INTO `(\w+)`(?: \(([^)]+)\))? VALUES\s*",
+    re.IGNORECASE,
+)
+
+CREATE_TABLE_RE = re.compile(
+    r"CREATE TABLE `(\w+)` \((.*?)\)\s*ENGINE=",
+    re.DOTALL | re.IGNORECASE,
+)
+
+TX_RESTORE_COLS = (
+    "`id`, `company_id`, `transaction_type`, `account_id`, `from_account_id`, "
+    "`currency_id`, `amount`, `transaction_date`, `description`, `sms`, "
+    "`created_by`, `created_by_owner`, `created_at`, `updated_at`, "
+    "`approval_status`, `approved_by`, `approved_by_owner`, `approved_at`, "
+    "`source_bank_process_id`, `source_bank_process_period_type`"
+)
+
+TX_RESTORE_COL_LIST = [c.strip().strip("`") for c in TX_RESTORE_COLS.split(",")]
 
 # Set by resolve_company() before extraction
 COMPANY_IDS: set[int] = set()
@@ -25,18 +46,67 @@ MAIN_COMPANY_ID: int = 0
 COMPANY_CODE: str = ""
 
 
-def resolve_company(source: Path, code: str) -> tuple[int, set[int]]:
-    """Find main company id and all related ids (incl. sub-companies) from backup."""
-    content = source.read_text(encoding="utf-8", errors="replace")
-    code_upper = code.upper()
-    main_id = None
+def parse_schemas(content: str) -> dict[str, list[str]]:
+    schemas: dict[str, list[str]] = {}
+    for m in CREATE_TABLE_RE.finditer(content):
+        cols: list[str] = []
+        for line in m.group(2).splitlines():
+            line = line.strip()
+            if not line.startswith("`"):
+                continue
+            cm = re.match(r"`(\w+)`", line)
+            if cm:
+                cols.append(cm.group(1))
+        if cols:
+            schemas[m.group(1)] = cols
+    return schemas
+
+
+def read_dump(path: Path) -> tuple[str, dict[str, list[str]]]:
+    content = path.read_text(encoding="utf-8", errors="replace")
+    return content, parse_schemas(content)
+
+
+def resolve_columns(table: str, columns_raw: str | None, schemas: dict[str, list[str]]) -> str:
+    if columns_raw:
+        return columns_raw
+    col_list = schemas.get(table)
+    if not col_list:
+        return ""
+    return ", ".join(f"`{c}`" for c in col_list)
+
+
+def align_row(row: str, source_cols: list[str], target_cols: list[str]) -> str:
+    vals = parse_row_values(row)
+    smap = {source_cols[i]: vals[i] for i in range(min(len(source_cols), len(vals)))}
+    return "(" + ", ".join(smap.get(c, "NULL") for c in target_cols) + ")"
+
+
+def backup_row_to_transaction_row(row: str, columns: str) -> str:
+    cols = [c.strip().strip("`") for c in columns.split(",")]
+    vals = parse_row_values(row)
+    smap = {cols[i]: vals[i] for i in range(min(len(cols), len(vals)))}
+    defaults = {
+        "approval_status": "'APPROVED'",
+        "approved_by": "NULL",
+        "approved_by_owner": "NULL",
+        "approved_at": smap.get("updated_at", smap.get("created_at", "NULL")),
+        "source_bank_process_id": "NULL",
+        "source_bank_process_period_type": "NULL",
+    }
+    out = [smap[c] if c in smap else defaults.get(c, "NULL") for c in TX_RESTORE_COL_LIST]
+    return "(" + ", ".join(out) + ")"
+
+
+def scan_inserts(content: str, schemas: dict[str, list[str]]):
     pos = 0
-    all_company_rows = []
     while True:
         m = INSERT_RE.search(content, pos)
         if not m:
             break
-        if m.group(1) != "company":
+        table = m.group(1)
+        columns = resolve_columns(table, m.group(2), schemas)
+        if not columns:
             pos = m.end()
             continue
         start = m.end()
@@ -45,8 +115,21 @@ def resolve_company(source: Path, code: str) -> tuple[int, set[int]]:
             end = content.find(";", start)
         if end == -1:
             break
-        all_company_rows.extend(split_rows(content[start:end]))
+        rows = split_rows(content[start:end])
         pos = end + 1
+        yield table, columns, rows
+
+
+def resolve_company(source: Path, code: str) -> tuple[int, set[int]]:
+    """Find main company id and all related ids (incl. sub-companies) from backup."""
+    content, schemas = read_dump(source)
+    code_upper = code.upper()
+    main_id = None
+    all_company_rows = []
+    for table, columns, rows in scan_inserts(content, schemas):
+        if table != "company":
+            continue
+        all_company_rows.extend(rows)
 
     for row in all_company_rows:
         vals = parse_row_values(row)
@@ -181,23 +264,10 @@ def row_matches_company_table(row: str, company_ids: set) -> bool:
 
 
 def extract_from_dump(source: Path):
-    content = source.read_text(encoding="utf-8", errors="replace")
+    content, schemas = read_dump(source)
     extracted, insert_headers = {}, {}
-    pos = 0
-    while True:
-        m = INSERT_RE.search(content, pos)
-        if not m:
-            break
-        table, columns = m.group(1), m.group(2)
-        start = m.end()
-        end = content.find(";\n", start)
-        if end == -1:
-            end = content.find(";", start)
-        if end == -1:
-            break
-        rows = split_rows(content[start:end])
-        pos = end + 1
-        if table.endswith("_backup"):
+    for table, columns, rows in scan_inserts(content, schemas):
+        if table.endswith("_backup") and table not in ALLOWED_BACKUP_TABLES:
             continue
         matched = []
         if table == "company":
@@ -274,25 +344,14 @@ def collect_transaction_ids(extracted: dict) -> set[int]:
     return ids
 
 
-def second_pass_accounts(content: str, account_ids: set[int]):
+def second_pass_accounts(content: str, account_ids: set[int], schemas: dict[str, list[str]] | None = None):
     extracted, headers = {}, {}
     if not account_ids:
         return extracted, headers
-    pos = 0
-    while True:
-        m = INSERT_RE.search(content, pos)
-        if not m:
-            break
-        table, columns = m.group(1), m.group(2)
-        start, end = m.end(), None
-        end = content.find(";\n", start)
-        if end == -1:
-            end = content.find(";", start)
-        if end == -1:
-            break
-        rows = split_rows(content[start:end])
-        pos = end + 1
-        if table.endswith("_backup"):
+    if schemas is None:
+        schemas = parse_schemas(content)
+    for table, columns, rows in scan_inserts(content, schemas):
+        if table.endswith("_backup") and table not in ALLOWED_BACKUP_TABLES:
             continue
         matched = []
         if table == "account":
@@ -323,23 +382,15 @@ def second_pass_accounts(content: str, account_ids: set[int]):
     return extracted, headers
 
 
-def second_pass_related(content: str, process_ids: set, capture_ids: set, tx_ids: set):
+def second_pass_related(
+    content: str, process_ids: set, capture_ids: set, tx_ids: set,
+    schemas: dict[str, list[str]] | None = None,
+):
     extracted, headers = {}, {}
-    pos = 0
-    while True:
-        m = INSERT_RE.search(content, pos)
-        if not m:
-            break
-        table, columns = m.group(1), m.group(2)
-        start = m.end()
-        end = content.find(";\n", start)
-        if end == -1:
-            end = content.find(";", start)
-        if end == -1:
-            break
-        rows = split_rows(content[start:end])
-        pos = end + 1
-        if table.endswith("_backup"):
+    if schemas is None:
+        schemas = parse_schemas(content)
+    for table, columns, rows in scan_inserts(content, schemas):
+        if table.endswith("_backup") and table not in ALLOWED_BACKUP_TABLES:
             continue
         matched = []
         if table == "process_day" and process_ids:
@@ -361,24 +412,13 @@ def second_pass_related(content: str, process_ids: set, capture_ids: set, tx_ids
     return extracted, headers
 
 
-def third_pass_descriptions(content: str, desc_ids: set[int]):
+def third_pass_descriptions(content: str, desc_ids: set[int], schemas: dict[str, list[str]] | None = None):
     extracted, headers = {}, {}
     if not desc_ids:
         return extracted, headers
-    pos = 0
-    while True:
-        m = INSERT_RE.search(content, pos)
-        if not m:
-            break
-        table, columns = m.group(1), m.group(2)
-        start = m.end()
-        end = content.find(";\n", start)
-        if end == -1:
-            end = content.find(";", start)
-        if end == -1:
-            break
-        rows = split_rows(content[start:end])
-        pos = end + 1
+    if schemas is None:
+        schemas = parse_schemas(content)
+    for table, columns, rows in scan_inserts(content, schemas):
         if table.endswith("_backup") or table != "description":
             continue
         matched = [r for r in rows if parse_row_values(r) and int(parse_row_values(r)[0].strip()) in desc_ids]
@@ -388,29 +428,22 @@ def third_pass_descriptions(content: str, desc_ids: set[int]):
     return extracted, headers
 
 
-def fourth_pass_transactions_by_account(content: str, account_ids: set[int], existing_tx_ids: set[int]):
+def fourth_pass_transactions_by_account(
+    content: str, account_ids: set[int], existing_tx_ids: set[int],
+    schemas: dict[str, list[str]] | None = None,
+):
     extra, header = [], None
     if not account_ids:
         return extra, header
-    pos = 0
-    while True:
-        m = INSERT_RE.search(content, pos)
-        if not m:
-            break
-        table, columns = m.group(1), m.group(2)
-        start = m.end()
-        end = content.find(";\n", start)
-        if end == -1:
-            end = content.find(";", start)
-        if end == -1:
-            break
-        pos = end + 1
+    if schemas is None:
+        schemas = parse_schemas(content)
+    for table, columns, rows in scan_inserts(content, schemas):
         if table != "transactions":
             continue
         acc_idx = col_index(columns, "account_id")
         from_idx = col_index(columns, "from_account_id")
         id_idx = col_index(columns, "id")
-        for r in split_rows(content[start:end]):
+        for r in rows:
             vals = parse_row_values(r)
             if not vals:
                 continue
@@ -485,31 +518,31 @@ def write_sql(output: Path, extracted: dict, headers: dict):
 
 def run_extraction(source: Path, output: Path):
     global COMPANY_IDS, MAIN_COMPANY_ID, COMPANY_CODE
-    content = source.read_text(encoding="utf-8", errors="replace")
+    content, schemas = read_dump(source)
     extracted, headers = extract_from_dump(source)
     account_ids = collect_account_ids(extracted)
-    acc_ext, acc_hdr = second_pass_accounts(content, account_ids)
+    acc_ext, acc_hdr = second_pass_accounts(content, account_ids, schemas)
     extracted.update(acc_ext)
     headers.update(acc_hdr)
     proc_ids = collect_process_ids(extracted)
     cap_ids = collect_capture_ids(extracted)
     tx_ids = collect_transaction_ids(extracted)
-    rel_ext, rel_hdr = second_pass_related(content, proc_ids, cap_ids, tx_ids)
+    rel_ext, rel_hdr = second_pass_related(content, proc_ids, cap_ids, tx_ids, schemas)
     for k, v in rel_ext.items():
         extracted.setdefault(k, []).extend(v)
     headers.update(rel_hdr)
-    desc_ext, desc_hdr = third_pass_descriptions(content, collect_description_ids(extracted))
+    desc_ext, desc_hdr = third_pass_descriptions(content, collect_description_ids(extracted), schemas)
     for k, v in desc_ext.items():
         extracted.setdefault(k, []).extend(v)
     headers.update(desc_hdr)
     tx_ids = collect_transaction_ids(extracted)
-    extra_tx, tx_header = fourth_pass_transactions_by_account(content, account_ids, set(tx_ids))
+    extra_tx, tx_header = fourth_pass_transactions_by_account(content, account_ids, set(tx_ids), schemas)
     if extra_tx:
         if tx_header:
             headers["transactions"] = tx_header
         extracted.setdefault("transactions", []).extend(extra_tx)
         tx_ids = collect_transaction_ids(extracted)
-        rel_ext2, rel_hdr2 = second_pass_related(content, set(), set(), set(tx_ids))
+        rel_ext2, rel_hdr2 = second_pass_related(content, set(), set(), set(tx_ids), schemas)
         for k, v in rel_ext2.items():
             if k == "transaction_entry":
                 extracted.setdefault(k, []).extend(v)
