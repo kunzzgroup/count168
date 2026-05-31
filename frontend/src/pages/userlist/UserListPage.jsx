@@ -123,8 +123,6 @@ export default function UserListPage() {
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [usersRaw, setUsersRaw] = useState([]);
-  const [tableLoading, setTableLoading] = useState(false);
-  const [pendingCompanyId, setPendingCompanyId] = useState(null);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -276,9 +274,7 @@ export default function UserListPage() {
     if (groupOnlyUserList) return buildModalGroupOptions(companies, me);
     return groupScopedModalCompanies;
   }, [groupOnlyUserList, companies, me, groupScopedModalCompanies]);
-  const pickerCompanyId = pendingCompanyId ?? companyId;
-  const isCompanySwitchPending =
-    pendingCompanyId != null && Number(pendingCompanyId) !== Number(companyId);
+  const pickerCompanyId = companyId;
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
     return sortUsers(f, sortColumn, sortDirection);
@@ -288,8 +284,9 @@ export default function UserListPage() {
   const userMutationsBlocked = useMemo(() => isPartnershipAuditReadOnlyLocked(me), [me]);
   const modalAccessReady =
     scopeCompanyId != null &&
-    modalAccessReadyCompanyId != null &&
-    Number(modalAccessReadyCompanyId) === Number(scopeCompanyId);
+    (modalAccessReadyCompanyId != null || modalAccessCacheRef.current.has(
+      resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup),
+    ));
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
@@ -301,8 +298,6 @@ export default function UserListPage() {
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredSorted.slice(start, start + PAGE_SIZE);
   }, [filteredSorted, currentPage, showAll]);
-
-  const listBusy = tableLoading;
 
   const permDisabledMap = useMemo(() => {
     const allowed = new Set(getCurrentUserRolePermissions(currentUserRole));
@@ -441,15 +436,16 @@ export default function UserListPage() {
 
   const onSwitchCompany = async (c) => {
     const nextCompanyId = Number(c?.id);
-    if (!nextCompanyId) return;
-    if (Number(companyId) === nextCompanyId && pendingCompanyId == null) return;
+    if (!nextCompanyId || Number(companyId) === nextCompanyId) return;
 
+    const previousCompanyId = companyId;
     companySessionAbortRef.current?.abort();
     const ac = new AbortController();
     companySessionAbortRef.current = ac;
 
-    setPendingCompanyId(nextCompanyId);
-    const usersFetchPromise = fetchUsers(nextCompanyId);
+    skipCompanyFetchEffectRef.current = true;
+    setCompanyId(nextCompanyId);
+    void fetchUsers(nextCompanyId, { silent: true });
 
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), {
@@ -460,29 +456,23 @@ export default function UserListPage() {
       if (ac.signal.aborted) return;
       if (!json.success) {
         listFetchAbortRef.current?.abort();
+        skipCompanyFetchEffectRef.current = true;
+        setCompanyId(previousCompanyId);
+        void fetchUsers(previousCompanyId, { silent: true });
         notifyApi(json.error || json.message, "couldNotSwitchCompany", "danger");
-        setPendingCompanyId(null);
-        if (companyId != null) await fetchUsers(companyId);
-        else setTableLoading(false);
         return;
       }
-      skipCompanyFetchEffectRef.current = true;
-      setCompanyId(nextCompanyId);
       notifyCompanySessionUpdated();
-      await usersFetchPromise;
     } catch (e) {
       if (ac.signal.aborted) return;
       listFetchAbortRef.current?.abort();
+      skipCompanyFetchEffectRef.current = true;
+      setCompanyId(previousCompanyId);
+      void fetchUsers(previousCompanyId, { silent: true });
       notify(t("companySwitchFailed"), "danger");
-      setPendingCompanyId(null);
-      if (companyId != null) await fetchUsers(companyId);
-      else setTableLoading(false);
     } finally {
       if (companySessionAbortRef.current === ac) {
         companySessionAbortRef.current = null;
-      }
-      if (!ac.signal.aborted) {
-        setPendingCompanyId(null);
       }
     }
   };
@@ -514,7 +504,7 @@ export default function UserListPage() {
     [groupsAllMode, groupAllMode, companyId],
   );
 
-  const fetchUsers = useCallback(async (companyIdOverride = null) => {
+  const fetchUsers = useCallback(async (companyIdOverride = null, { silent = false } = {}) => {
     if (!me) return;
     const activeCompanyId = companyIdOverride ?? companyId;
     if (!aggregateUserList && groupOnlyUserList) {
@@ -525,7 +515,6 @@ export default function UserListPage() {
     listFetchAbortRef.current?.abort();
     const ac = new AbortController();
     listFetchAbortRef.current = ac;
-    setTableLoading(true);
     try {
       const body = { action: "get" };
       if (aggregateUserList) {
@@ -571,6 +560,11 @@ export default function UserListPage() {
         }
       }
       setUsersRaw(list);
+      if (silent) {
+        const nextIds = new Set(list.map((u) => Number(u.id)));
+        setEditReadyIds((prev) => new Set([...prev].filter((id) => nextIds.has(id))));
+        return;
+      }
       editUserDetailCacheRef.current.clear();
       setEditReadyIds(new Set());
       setCurrentPage(1);
@@ -579,8 +573,6 @@ export default function UserListPage() {
     } catch (e) {
       if (ac.signal.aborted) return;
       notifyApi(null, "failedToLoadUsers", "danger");
-    } finally {
-      if (!ac.signal.aborted) setTableLoading(false);
     }
   }, [
     companyId,
@@ -621,14 +613,9 @@ export default function UserListPage() {
 
   const onPickCompanyPill = useCallback(
     async (c) => {
-      const nextCompanyId = Number(c?.id);
-      if (!nextCompanyId) return;
-      if (Number(companyId) !== nextCompanyId) {
-        setPendingCompanyId(nextCompanyId);
-      }
       await handlePickCompany(c);
     },
-    [companyId, handlePickCompany]
+    [handlePickCompany]
   );
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
@@ -686,10 +673,6 @@ export default function UserListPage() {
 
   useEffect(() => {
     if (!bootLoading && scopeCompanyId && me) {
-      const cacheKey = resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup);
-      if (!modalAccessCacheRef.current.has(cacheKey)) {
-        setModalAccessReadyCompanyId(null);
-      }
       void fetchModalAccountsProcesses(scopeCompanyId);
     }
   }, [bootLoading, scopeCompanyId, me, fetchModalAccountsProcesses, groupOnlyUserList, selectedGroup]);
@@ -815,7 +798,10 @@ export default function UserListPage() {
       return;
     }
     if (!scopeCompanyId) return;
-    if (!modalAccessReady) return;
+    const modalCacheKey = resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup);
+    if (!modalAccessCacheRef.current.has(modalCacheKey)) {
+      await fetchModalAccountsProcesses(scopeCompanyId);
+    }
     const avail = getAvailableRolesForCreation(currentUserRole);
     if (avail.length === 0) { notify(t("noPermissionCreateAccounts"), "danger"); return; }
     const loadSeq = ++modalLoadSeqRef.current;
@@ -825,7 +811,7 @@ export default function UserListPage() {
     setFieldLocks({ name: false, email: false, role: false, password: false, sidebar: false, company: false });
     const allP = new Set(PERMISSION_KEYS.filter((k) => !permDisabledMap[k])); setPermSelected(allP);
     void loadCompaniesForModal();
-    const cachedAccess = modalAccessCacheRef.current.get(String(scopeCompanyId || ""));
+    const cachedAccess = modalAccessCacheRef.current.get(modalCacheKey);
     const currentAccess = Number(modalAccessCompanyIdRef.current) === Number(scopeCompanyId) ? { accounts: modalAccounts, processes: modalProcesses } : null;
     const initialAccess = cachedAccess || currentAccess || { accounts: [], processes: [] };
     if (!cachedAccess && !currentAccess) { setModalAccounts([]); setModalProcesses([]); }
@@ -877,11 +863,11 @@ export default function UserListPage() {
     }
     if (!scopeCompanyId) return;
     if (row.is_owner_shadow && currentUserRole !== "owner") { notify(t("onlyOwnerCanEditOwner"), "danger"); return; }
-    if (!modalAccessReady) return;
+    const modalCacheKey = resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup);
     const cachedDetail = editUserDetailCacheRef.current.get(String(row.id));
     if (!cachedDetail) return;
     const loadSeq = ++modalLoadSeqRef.current;
-    const cachedAccess = modalAccessCacheRef.current.get(String(scopeCompanyId || "")) || { accounts: modalAccounts, processes: modalProcesses };
+    const cachedAccess = modalAccessCacheRef.current.get(modalCacheKey) || { accounts: modalAccounts, processes: modalProcesses };
     setIsEditMode(true); setEditingRow(row);
     setForm({ id: String(row.id), login_id: row.login_id || "", name: row.name || "", email: row.email || "", role: normRole(row.role), password: "", secondary_password: "", status: normRole(row.status) || "active", read_only: true });
     setRoleSelectDisabled(!!row.is_owner_shadow); setLoginDisabled(true);
@@ -1057,7 +1043,7 @@ export default function UserListPage() {
             <div className="action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 {canCreateUser ? (
-                <button type="button" className="btn btn-add" onClick={openAdd} disabled={!modalAccessReady || userMutationsBlocked}>
+                <button type="button" className="btn btn-add" onClick={openAdd} disabled={bootLoading || userMutationsBlocked}>
                   <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>
@@ -1161,7 +1147,7 @@ export default function UserListPage() {
               pickerCompanyId={pickerCompanyId}
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={onPickCompanyPill}
-              switchingCompany={isCompanySwitchPending}
+              switchingCompany={false}
               showAllOption={false}
             />
           </div>
@@ -1313,7 +1299,7 @@ export default function UserListPage() {
                 </div>
               )}
             </div>
-            <div className={`user-cards${listBusy ? " is-loading" : ""}`} aria-busy={listBusy}>
+            <div className="user-cards">
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);

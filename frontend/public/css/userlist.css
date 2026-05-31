@@ -2974,12 +2974,6 @@ body.user-page .user-table-wrapper.user-table-wrapper--bulk-delete-col .user-car
     min-height: 0;
     overflow: hidden;
     justify-content: flex-start;
-    transition: opacity 0.15s ease;
-}
-
-body.user-page .user-cards.is-loading {
-    opacity: 0.72;
-    pointer-events: none;
 }
 
 /* 分页模式：表格体区域最小高度（与 Account List 共用 token） */
