@@ -77,11 +77,12 @@ export default function GcInlineFilterPanel({
               ) : null}
               {companiesForPicker.map((c) => {
                 const active = !groupAllMode && Number(pickerCompanyId) === Number(c.id);
+                const pending = switchingCompany && active;
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    className={`user-gc-segment${active ? " is-on" : ""}`}
+                    className={`user-gc-segment${active ? " is-on" : ""}${pending ? " is-pending" : ""}`}
                     onClick={() => {
                       if (switchingCompany) return;
                       void onPickCompany?.(c);

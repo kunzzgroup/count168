@@ -447,9 +447,19 @@ body.ec-auth-shell .user-gc-segment {
     cursor: pointer;
     white-space: nowrap;
     line-height: 1.25;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.12s ease, color 0.12s ease, transform 0.1s ease, opacity 0.12s ease;
     display: flex;
     justify-content: center;
+}
+
+body.user-page .user-gc-segment:not(:disabled):active,
+body.account-page .user-gc-segment:not(:disabled):active {
+    transform: scale(0.97);
+}
+
+body.user-page .user-gc-segment.is-on.is-pending,
+body.account-page .user-gc-segment.is-on.is-pending {
+    opacity: 0.88;
 }
 
 body.user-page .user-gc-segment:last-child,

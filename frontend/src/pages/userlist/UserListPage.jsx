@@ -469,13 +469,13 @@ export default function UserListPage() {
     isListScopeReady,
   } = useGcFilterWithAllModes({
     companies: allCompanyButtons,
-    companyId: pickerCompanyId,
+    companyId,
     selectedGroup,
     setSelectedGroup,
     onSelectCompany: onSwitchCompany,
     onClearCompany: handleClearCompany,
     switchingCompany,
-    preferredCompanyId: pickerCompanyId,
+    preferredCompanyId: companyId,
     me,
   });
 
@@ -581,6 +581,18 @@ export default function UserListPage() {
       await handlePickGroup(gid);
     },
     [selectedGroup, companyId, me, handlePickGroup, handleClearCompany]
+  );
+
+  const onPickCompanyPill = useCallback(
+    async (c) => {
+      const nextCompanyId = Number(c?.id);
+      if (!nextCompanyId || switchingCompany) return;
+      if (Number(companyId) !== nextCompanyId) {
+        setPendingCompanyId(nextCompanyId);
+      }
+      await handlePickCompany(c);
+    },
+    [companyId, switchingCompany, handlePickCompany]
   );
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
@@ -1109,7 +1121,7 @@ export default function UserListPage() {
               groupAllMode={groupAllMode}
               pickerCompanyId={pickerCompanyId}
               onPickAllInGroup={handlePickAllInGroup}
-              onPickCompany={handlePickCompany}
+              onPickCompany={onPickCompanyPill}
               switchingCompany={switchingCompany}
               showAllOption={false}
             />
