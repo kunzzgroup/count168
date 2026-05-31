@@ -4134,8 +4134,13 @@ function parseAndFillHTMLTableForFormat(htmlString) {
         const dataRows = [];
 
         allRows.forEach(tr => {
-            const hasTh = tr.querySelectorAll('th').length > 0;
-            if (hasTh) {
+            // 仅当 tr 在 <thead> 内，或整行全是 <th>（即没有任何 <td>）时，才视为表头行
+            // 否则行首是 <th scope="row"> 的数据行也会被错误地塞进表头（如 DEMOS 行）
+            const inThead = !!tr.closest('thead');
+            const thCount = tr.querySelectorAll('th').length;
+            const tdCount = tr.querySelectorAll('td').length;
+            const isHeaderRow = inThead || (thCount > 0 && tdCount === 0);
+            if (isHeaderRow) {
                 headerRows.push(tr);
             } else {
                 dataRows.push(tr);

@@ -5405,8 +5405,6 @@ function updateFormulaDisplay(formulaValue, processValue) {
     if (!formulaDisplayInput) {
         return;
     }
-    const previousDisplayValue = (formulaDisplayInput.value || '').trim();
-
     // 如果 formulaValue 为空，清空显示框
     if (!formulaValue || formulaValue.trim() === '') {
         formulaDisplayInput.value = '';
@@ -5604,7 +5602,7 @@ function updateFormulaDisplay(formulaValue, processValue) {
             // 获取行标签
             const rowLabel = getRowLabelFromProcessValue(processValue, editFormulaRowIndexOverride);
             if (!rowLabel) {
-                formulaDisplayInput.value = formulaValue;
+                applySourceToEditFormulaDisplay(formulaValue, processValue);
                 return;
             }
 
@@ -5678,12 +5676,59 @@ function updateFormulaDisplay(formulaValue, processValue) {
             }
         }
 
-        // 更新显示框
-        formulaDisplayInput.value = finalDisplayFormula;
+        // 更新显示框：基础公式 + 当前 Source（替换旧 Source，不叠乘）
+        applySourceToEditFormulaDisplay(finalDisplayFormula, processValue);
     } catch (error) {
         console.error('Error updating formula display:', error);
         formulaDisplayInput.value = '';
     }
+}
+
+// Edit Formula 灰色框：在已展开的基础公式后拼上当前 Source（先由 createFormulaDisplayFromExpression 剥旧 Source）
+function applySourceToEditFormulaDisplay(baseDisplay, processValue) {
+    const formulaDisplayInput = document.getElementById('formulaDisplay');
+    const sourcePercentInput = document.getElementById('sourcePercent');
+    const formulaInput = document.getElementById('formula');
+    if (!formulaDisplayInput) return;
+
+    const base = (baseDisplay || '').trim();
+    if (!base) {
+        formulaDisplayInput.value = '';
+        return;
+    }
+
+    const sourcePercentValue = sourcePercentInput ? sourcePercentInput.value : '';
+    const enableSourcePercent = sourcePercentValue && String(sourcePercentValue).trim() !== '';
+    const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+    const rowIdx = typeof getEditFormulaDataCaptureRowIndexOverride === 'function'
+        ? getEditFormulaDataCaptureRowIndexOverride()
+        : null;
+
+    const display = createFormulaDisplayFromExpression(
+        base,
+        sourcePercentValue,
+        enableSourcePercent,
+        processValue,
+        clickedCellRefs || undefined,
+        rowIdx
+    );
+    formulaDisplayInput.value = (display && display !== 'Formula') ? display : base;
+}
+
+// Source / Input Method 变更时：从 #formula 重算基础式并刷新灰色框（含最新 Source）
+function refreshEditFormulaDisplayWithSource() {
+    const formulaInput = document.getElementById('formula');
+    const processInput = document.getElementById('process');
+    if (!formulaInput) return;
+
+    const formulaValue = (formulaInput.value || '').trim();
+    const processValue = processInput ? processInput.value.trim() : '';
+    if (!formulaValue) {
+        const formulaDisplayInput = document.getElementById('formulaDisplay');
+        if (formulaDisplayInput) formulaDisplayInput.value = '';
+        return;
+    }
+    updateFormulaDisplay(formulaValue, processValue);
 }
 
 // Process $符号: 将 $数字 转换为列引用 (例如 $5 -> A5)
@@ -7087,6 +7132,8 @@ function recalculateProcessedAmountInForm() {
         const enableSourcePercent = sourcePercentValue && sourcePercentValue.trim() !== '';
 
         if (formulaValue) {
+            refreshEditFormulaDisplayWithSource();
+
             // Calculate processed amount directly from formula expression
             const processedAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethod, enableInputMethod, enableSourcePercent);
 
@@ -10119,19 +10166,21 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         }
         parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim(), sourceDecimalForStrip, { stripDuplicateOfSource: shouldStripDuplicateOfSource })
 
+        // 剥掉展示用尾部 Source（*(0.1) 等），避免换 Source 时在旧串后无限叠乘
+        const baseWithoutDisplaySource = removeTrailingSourcePercentExpression(parsedFormula.trim()) || parsedFormula.trim();
+
         // If source percent is disabled, return parsed formula as-is (without stripping)
         if (!enableSourcePercent) {
-            return formatNegativeNumbersInFormula(parsedFormula.trim());
+            return formatNegativeNumbersInFormula(baseWithoutDisplaySource);
         }
 
         // If enableSourcePercent is true but sourcePercentValue is empty, treat as 0
         if (!sourcePercentValue || sourcePercentValue.trim() === '') {
-            const trimmedFormula = parsedFormula.trim();
-            return formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`);
+            return formatNegativeNumbersInFormula(`${baseWithoutDisplaySource}*(0)`);
         }
 
         // 公式本体已剥掉误写进式子的占成，只在结尾统一乘上 Source 列（展示为括号）
-        const trimmedFormula = parsedFormula.trim();
+        const trimmedFormula = baseWithoutDisplaySource;
         const formulaPart = trimmedFormula;
 
         // If source is 1, don't add *(1) to the display
