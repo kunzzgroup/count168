@@ -3,6 +3,7 @@ session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../../includes/company_deletion_archive.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
 header('Content-Type: application/json');
@@ -16,7 +17,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
+if (in_array($action, ['create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings', 'list_deleted_companies', 'restore_deleted_company'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -2672,6 +2673,13 @@ try {
                     $delete_db_ids = normalizeIds(array_column($companies_to_delete, 'id'));
                     
                     if (!empty($delete_db_ids)) {
+                        company_deletion_archive_before_delete($pdo, $delete_db_ids, (int) $id, [
+                            'deleted_by_user_id' => isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null,
+                            'deleted_by_owner_id' => (strtolower((string) ($_SESSION['user_type'] ?? '')) === 'owner' && !empty($_SESSION['user_id']))
+                                ? (int) $_SESSION['user_id'] : null,
+                            'deleted_by_login' => (string) ($_SESSION['login_id'] ?? $_SESSION['username'] ?? ''),
+                        ]);
+
                         $companyPlaceholders = buildInPlaceholders(count($delete_db_ids));
                         
                         // 1. account 及其关联的 transactions
@@ -2897,6 +2905,13 @@ try {
                 $companyIds = normalizeIds($stmt->fetchAll(PDO::FETCH_COLUMN));
                 
                 if (!empty($companyIds)) {
+                    company_deletion_archive_before_delete($pdo, $companyIds, (int) $id, [
+                        'deleted_by_user_id' => isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null,
+                        'deleted_by_owner_id' => (strtolower((string) ($_SESSION['user_type'] ?? '')) === 'owner' && !empty($_SESSION['user_id']))
+                            ? (int) $_SESSION['user_id'] : null,
+                        'deleted_by_login' => (string) ($_SESSION['login_id'] ?? $_SESSION['username'] ?? ''),
+                    ]);
+
                     $companyPlaceholders = buildInPlaceholders(count($companyIds));
                     
                     // 1. account 及其关联的 transactions
@@ -3314,6 +3329,48 @@ try {
                 jsonResponse(true, 'Saved successfully', loadDomainFeeSettingsRow($pdo));
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
+            }
+            break;
+
+        case 'list_deleted_companies':
+            if (!$hasC168Context || !$canUseC168DomainActions || !$isOwnerOrAdmin) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            try {
+                $status = isset($data['status']) ? (string) $data['status'] : 'deleted';
+                $limit = isset($data['limit']) ? (int) $data['limit'] : 100;
+                $archives = company_deletion_archive_list($pdo, $status !== '' ? $status : null, $limit);
+                jsonResponse(true, 'OK', ['archives' => $archives]);
+            } catch (Exception $e) {
+                jsonResponse(false, 'Error: ' . $e->getMessage(), null);
+            }
+            break;
+
+        case 'restore_deleted_company':
+            if (!$hasC168Context || !$canUseC168DomainActions || !$isOwnerOrAdmin) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            $archiveId = (int) ($data['archive_id'] ?? 0);
+            if ($archiveId <= 0) {
+                jsonResponse(false, 'archive_id is required', null, 400);
+                exit;
+            }
+            try {
+                $pdo->beginTransaction();
+                $result = company_deletion_archive_restore(
+                    $pdo,
+                    $archiveId,
+                    (string) ($_SESSION['login_id'] ?? $_SESSION['username'] ?? '')
+                );
+                $pdo->commit();
+                jsonResponse(true, 'Company restored successfully', $result);
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                jsonResponse(false, $e->getMessage(), null);
             }
             break;
             

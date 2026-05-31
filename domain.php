@@ -126,6 +126,9 @@ try {
                     <input type="text" id="searchInput" placeholder="Search by Owner Name/Company" class="search-input">
                 </div>
                 <button type="button" class="btn btn-fee-settings" id="domainFeeSettingsBtn" onclick="openDomainFeeSettingsModal()">Price</button>
+                <?php if ($isOwnerOrAdmin): ?>
+                <button type="button" class="btn btn-fee-settings" id="deletedCompaniesBtn" onclick="openDeletedCompaniesModal()">Deleted Companies</button>
+                <?php endif; ?>
                 <span id="domainFeeInlineSummary" class="domain-fee-inline-summary" aria-live="polite"></span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -683,5 +686,38 @@ try {
             </div>
         </div>
     </div>
+
+    <?php if ($isOwnerOrAdmin): ?>
+    <div id="deletedCompaniesModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 960px; width: 95%;">
+            <div class="modal-header">
+                <h2>Deleted Companies (Restore)</h2>
+                <button type="button" class="close-btn" onclick="closeDeletedCompaniesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin: 0 0 12px; color: #555; font-size: 14px;">
+                    Companies removed from Domain are archived here before deletion. Restore recreates the company and related data with original IDs.
+                </p>
+                <div id="deletedCompaniesLoading" style="display: none; padding: 12px;">Loading...</div>
+                <div id="deletedCompaniesEmpty" style="display: none; padding: 12px; color: #666;">No archived deleted companies.</div>
+                <div class="table-container" id="deletedCompaniesTableWrap" style="display: none;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="background: #f5f5f5; text-align: left;">
+                                <th style="padding: 8px;">Company</th>
+                                <th style="padding: 8px;">Owner</th>
+                                <th style="padding: 8px;">Deleted At</th>
+                                <th style="padding: 8px;">Rows</th>
+                                <th style="padding: 8px;">By</th>
+                                <th style="padding: 8px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deletedCompaniesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </body>
 </html>

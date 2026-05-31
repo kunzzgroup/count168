@@ -3286,6 +3286,116 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+function openDeletedCompaniesModal() {
+    if (!isOwnerOrAdmin) {
+        return;
+    }
+    const modal = document.getElementById('deletedCompaniesModal');
+    if (!modal) {
+        return;
+    }
+    modal.style.display = 'block';
+    loadDeletedCompaniesList();
+}
+
+function closeDeletedCompaniesModal() {
+    const modal = document.getElementById('deletedCompaniesModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+async function loadDeletedCompaniesList() {
+    const loading = document.getElementById('deletedCompaniesLoading');
+    const empty = document.getElementById('deletedCompaniesEmpty');
+    const wrap = document.getElementById('deletedCompaniesTableWrap');
+    const tbody = document.getElementById('deletedCompaniesTableBody');
+    if (!loading || !empty || !wrap || !tbody) {
+        return;
+    }
+    loading.style.display = 'block';
+    empty.style.display = 'none';
+    wrap.style.display = 'none';
+    tbody.innerHTML = '';
+    try {
+        const res = await fetch('api/domain/domain_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'list_deleted_companies', status: 'deleted', limit: 200 })
+        });
+        const json = await res.json();
+        loading.style.display = 'none';
+        if (!json.success) {
+            showAlert(json.message || 'Failed to load deleted companies', 'danger');
+            return;
+        }
+        const archives = (json.data && json.data.archives) ? json.data.archives : [];
+        if (!archives.length) {
+            empty.style.display = 'block';
+            return;
+        }
+        wrap.style.display = 'block';
+        archives.forEach(function (row) {
+            const tr = document.createElement('tr');
+            tr.style.borderTop = '1px solid #eee';
+            const companyLabel = (row.company_code || '-') + ' (id ' + row.company_db_id + ')';
+            const ownerLabel = [row.owner_code, row.owner_name].filter(Boolean).join(' / ') || ('owner #' + (row.owner_id || '-'));
+            const deletedAt = row.deleted_at || '-';
+            const totalRows = row.total_rows != null ? row.total_rows : '-';
+            const by = row.deleted_by_login || '-';
+            tr.innerHTML =
+                '<td style="padding:8px;">' + escapeHtml(companyLabel) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(ownerLabel) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(deletedAt) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(String(totalRows)) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(by) + '</td>' +
+                '<td style="padding:8px;"><button type="button" class="btn btn-edit" data-archive-id="' + row.id + '">Restore</button></td>';
+            tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('button[data-archive-id]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                restoreDeletedCompany(parseInt(btn.getAttribute('data-archive-id'), 10));
+            });
+        });
+    } catch (err) {
+        loading.style.display = 'none';
+        showAlert('Failed to load deleted companies', 'danger');
+    }
+}
+
+async function restoreDeletedCompany(archiveId) {
+    if (!archiveId || !isOwnerOrAdmin) {
+        return;
+    }
+    if (!confirm('Restore this company and all archived related data?')) {
+        return;
+    }
+    try {
+        const res = await fetch('api/domain/domain_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'restore_deleted_company', archive_id: archiveId })
+        });
+        const json = await res.json();
+        if (!json.success) {
+            showAlert(json.message || 'Restore failed', 'danger');
+            return;
+        }
+        const code = json.data && json.data.company_code ? json.data.company_code : '';
+        showAlert('Company ' + code + ' restored successfully.');
+        closeDeletedCompaniesModal();
+        window.location.reload();
+    } catch (err) {
+        showAlert('Restore failed', 'danger');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+}
+
 // Close modal when clicking outside
 window.onclick = function (event) {
     const companyExpModal = document.getElementById('companyExpirationModal');
@@ -3301,6 +3411,11 @@ window.onclick = function (event) {
     const domainFeeSettingsModal = document.getElementById('domainFeeSettingsModal');
     if (event.target === domainFeeSettingsModal) {
         closeDomainFeeSettingsModal();
+    }
+
+    const deletedCompaniesModal = document.getElementById('deletedCompaniesModal');
+    if (event.target === deletedCompaniesModal) {
+        closeDeletedCompaniesModal();
     }
 
 }
