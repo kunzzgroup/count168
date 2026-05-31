@@ -449,8 +449,7 @@ export default function UserListPage() {
     companySessionAbortRef.current = ac;
 
     setPendingCompanyId(nextCompanyId);
-    setUsersRaw([]);
-    setTableLoading(true);
+    const usersFetchPromise = fetchUsers(nextCompanyId);
 
     try {
       const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), {
@@ -460,6 +459,7 @@ export default function UserListPage() {
       const json = await res.json();
       if (ac.signal.aborted) return;
       if (!json.success) {
+        listFetchAbortRef.current?.abort();
         notifyApi(json.error || json.message, "couldNotSwitchCompany", "danger");
         setPendingCompanyId(null);
         if (companyId != null) await fetchUsers(companyId);
@@ -469,9 +469,10 @@ export default function UserListPage() {
       skipCompanyFetchEffectRef.current = true;
       setCompanyId(nextCompanyId);
       notifyCompanySessionUpdated();
-      await fetchUsers(nextCompanyId);
+      await usersFetchPromise;
     } catch (e) {
       if (ac.signal.aborted) return;
+      listFetchAbortRef.current?.abort();
       notify(t("companySwitchFailed"), "danger");
       setPendingCompanyId(null);
       if (companyId != null) await fetchUsers(companyId);
@@ -547,7 +548,6 @@ export default function UserListPage() {
       if (ac.signal.aborted) return;
       if (!res.ok || !json.success) {
         notifyApi(json.message, "failedToLoadUsers", "danger");
-        setUsersRaw([]);
         return;
       }
       let list = Array.isArray(json.data) ? json.data.map((u) => ({ ...u, is_owner_shadow: false })) : [];
@@ -1313,7 +1313,7 @@ export default function UserListPage() {
                 </div>
               )}
             </div>
-            <div className="user-cards" aria-busy={listBusy}>
+            <div className={`user-cards${listBusy ? " is-loading" : ""}`} aria-busy={listBusy}>
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
