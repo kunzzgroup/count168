@@ -164,6 +164,7 @@ export default function UserListPage() {
   const modalLoadSeqRef = useRef(0);
   const editUserDetailCacheRef = useRef(new Map());
   const editUserDetailPendingRef = useRef(new Map());
+  const bootInitializedRef = useRef(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -369,6 +370,8 @@ export default function UserListPage() {
 
   useEffect(() => {
     if (!sessionReady || !me) return;
+    if (bootInitializedRef.current) return;
+    bootInitializedRef.current = true;
     let cancelled = false;
     (async () => {
       try {
@@ -456,7 +459,6 @@ export default function UserListPage() {
   const {
     groupIds,
     companiesForPicker,
-    handlePickGroup,
     handlePickCompany,
     groupsAllMode,
     groupAllMode,
@@ -695,7 +697,7 @@ export default function UserListPage() {
   }, [bootLoading, companiesForPicker, companyId, aggregateUserList, groupOnlyUserList, me, prefetchUsersForCompany]);
 
   const onPickGroupPill = useCallback(
-    async (gid) => {
+    (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       const current = String(selectedGroup || "").trim().toUpperCase();
       // Group login UX: clicking the active group pill returns to group-only scope.
@@ -705,9 +707,41 @@ export default function UserListPage() {
         handleClearCompany();
         return;
       }
-      await handlePickGroup(gid);
+      if (!g || (g === current && companyId != null)) return;
+
+      const pick = pickDefaultCompanyForGroup(allCompanyButtons, g, {
+        me,
+        preferredCompanyId: null,
+        nativeOnly: true,
+      });
+      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
+
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        setSelectedGroup(g);
+        if (nextCompanyId != null) {
+          setCompanyId(nextCompanyId);
+          applyUserListCache(nextCompanyId);
+        }
+      });
+
+      persistDashboardGroupFilter(g);
+      persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
+      notifyDashboardGroupFilterChanged(g, nextCompanyId);
+
+      if (pick) void onSwitchCompany(pick);
+      else void fetchUsers(null, { silent: true });
     },
-    [selectedGroup, companyId, me, handlePickGroup, handleClearCompany]
+    [
+      allCompanyButtons,
+      applyUserListCache,
+      companyId,
+      fetchUsers,
+      handleClearCompany,
+      me,
+      onSwitchCompany,
+      selectedGroup,
+    ],
   );
 
   const onPickCompanyPill = useCallback((c) => {
