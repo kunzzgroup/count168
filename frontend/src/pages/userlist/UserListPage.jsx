@@ -11,6 +11,8 @@ import {
   persistDashboardGroupOnlyMode,
   persistDashboardGroupFilter,
   persistDashboardFilterState,
+  persistDashboardSelectedCompany,
+  stripCompanyIdFromUrl,
   notifyDashboardGroupFilterChanged,
   pickDefaultCompanyForGroup,
   resolveBootCompanyId,
@@ -471,6 +473,7 @@ export default function UserListPage() {
     switchingCompany: false,
     preferredCompanyId: companyId,
     me,
+    autoPickCompanyWhenEmpty: false,
   });
 
   const aggregateUserList = useMemo(
@@ -749,7 +752,7 @@ export default function UserListPage() {
 
     const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
     const sel = String(selectedGroup || "").trim().toUpperCase();
-    const isActive = companyId != null && Number(companyId) === nextCompanyId && (!gid || gid === sel);
+    const isActive = companyId != null && Number(companyId) === nextCompanyId;
     if (isActive) {
       if (isCompanyLogin(me)) return;
       if (isGroupLogin(me)) {
@@ -766,7 +769,8 @@ export default function UserListPage() {
       });
 
       persistDashboardGroupFilter(g);
-      persistDashboardFilterState(g, null, { allowGroupOnly: false });
+      persistDashboardSelectedCompany(null);
+      stripCompanyIdFromUrl();
       notifyDashboardGroupFilterChanged(g, null);
 
       const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);

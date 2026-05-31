@@ -35,6 +35,8 @@ export function useDashboardStyleGcFilter({
   sessionCompanyId = null,
   /** Data Capture uses custom anchor sync (gambling redirect). */
   enableGroupAnchorSession = true,
+  /** When false, do not auto-select first company while group is set and company is cleared. */
+  autoPickCompanyWhenEmpty = true,
   /** Current user from AuthSessionContext — enforces group vs company login rules. */
   me = null,
 }) {
@@ -104,7 +106,7 @@ export function useDashboardStyleGcFilter({
   );
 
   useLayoutEffect(() => {
-    if (allowGroupOnly || !selectedGroup || companyId != null) return;
+    if (allowGroupOnly || !autoPickCompanyWhenEmpty || !selectedGroup || companyId != null) return;
     const pick = pickDefaultCompanyForGroup(companies, selectedGroup, { me, preferredCompanyId: companyId });
     if (!pick) return;
     persistDashboardFilterState(selectedGroup, pick.id, { allowGroupOnly: false });
@@ -113,6 +115,7 @@ export function useDashboardStyleGcFilter({
     if (onSelectCompany) void onSelectCompany(pick);
   }, [
     allowGroupOnly,
+    autoPickCompanyWhenEmpty,
     selectedGroup,
     companyId,
     companies,

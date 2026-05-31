@@ -27,6 +27,7 @@ export function useGcFilterWithAllModes({
   preferredCompanyId = null,
   me = null,
   enableGroupAnchorSession = true,
+  autoPickCompanyWhenEmpty = true,
 }) {
   const [groupsAllMode, setGroupsAllMode] = useState(false);
   const [groupAllMode, setGroupAllMode] = useState(false);
@@ -43,6 +44,7 @@ export function useGcFilterWithAllModes({
     me,
     enableGroupAnchorSession,
     selectFirstCompanyOnGroupChange: false,
+    autoPickCompanyWhenEmpty,
   });
 
   const groupIds = base.groupIds;
