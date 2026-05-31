@@ -17,6 +17,7 @@ export default function GcInlineFilterPanel({
   switchingCompany = false,
   showGroupRow = true,
   showCompanyRow = true,
+  showAllOption = true,
   allLabelKey = "groupFilterAll",
   /** When true, render rows only (parent already provides .user-gc-inline-panel grid). */
   embedded = false,
@@ -37,13 +38,15 @@ export default function GcInlineFilterPanel({
           <span className="user-gc-inline-label">{t("groupId")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-              <button
-                type="button"
-                className={`user-gc-segment${groupsAllMode ? " is-on" : ""}`}
-                onClick={() => void onPickAllGroups?.()}
-              >
-                {allLabel}
-              </button>
+              {showAllOption ? (
+                <button
+                  type="button"
+                  className={`user-gc-segment${groupsAllMode ? " is-on" : ""}`}
+                  onClick={() => void onPickAllGroups?.()}
+                >
+                  {allLabel}
+                </button>
+              ) : null}
               {groupIds.map((gid) => (
                 <button
                   key={gid}
@@ -63,13 +66,15 @@ export default function GcInlineFilterPanel({
           <span className="user-gc-inline-label">{t("company")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
-              <button
-                type="button"
-                className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
-                onClick={() => void onPickAllInGroup?.()}
-              >
-                {allLabel}
-              </button>
+              {showAllOption ? (
+                <button
+                  type="button"
+                  className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
+                  onClick={() => void onPickAllInGroup?.()}
+                >
+                  {allLabel}
+                </button>
+              ) : null}
               {companiesForPicker.map((c) => {
                 const active = !groupAllMode && Number(pickerCompanyId) === Number(c.id);
                 return (

@@ -1111,6 +1111,7 @@ export default function UserListPage() {
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={handlePickCompany}
               switchingCompany={switchingCompany}
+              showAllOption={false}
             />
           </div>
           <div className={`user-table-wrapper user-list-table${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
