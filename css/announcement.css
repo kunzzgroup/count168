@@ -430,6 +430,37 @@ h1 {
     word-break: break-word;
 }
 
+.maintenance-label-options {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 0.52vw, 10px);
+}
+
+.maintenance-label-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: clamp(12px, 0.73vw, 14px);
+    color: #374151;
+}
+
+.maintenance-label-option input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #002C49;
+    cursor: pointer;
+}
+
+.maintenance-item-label {
+    display: inline-block;
+    font-weight: 600;
+    color: #002C49;
+    margin-bottom: 6px;
+    font-size: clamp(12px, 0.73vw, 14px);
+}
+
 .maintenance-delete-btn {
     background: #ef4444;
     color: white;

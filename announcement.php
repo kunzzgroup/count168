@@ -110,6 +110,19 @@ if (!$user_id || !$hasC168Context || !userHasC168AnnouncementPageAccess($user_ro
                 </div>
                 <form id="maintenanceForm">
                     <div class="form-group">
+                        <label>Prefix *</label>
+                        <div class="maintenance-label-options" id="maintenanceLabelOptions">
+                            <label class="maintenance-label-option">
+                                <input type="radio" name="label_type" value="maintenance" checked>
+                                <span>系统维护中：</span>
+                            </label>
+                            <label class="maintenance-label-option">
+                                <input type="radio" name="label_type" value="reminder">
+                                <span>温馨提示：</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label for="maintenanceContent">Content *</label>
                         <textarea id="maintenanceContent" name="content" required placeholder="Enter maintenance content" disabled></textarea>
                     </div>
@@ -167,6 +180,19 @@ if (!$user_id || !$hasC168Context || !userHasC168AnnouncementPageAccess($user_ro
             </div>
             <form id="editMaintenanceForm">
                 <input type="hidden" id="editMaintenanceId" name="id">
+                <div class="form-group">
+                    <label>Prefix *</label>
+                    <div class="maintenance-label-options" id="editMaintenanceLabelOptions">
+                        <label class="maintenance-label-option">
+                            <input type="radio" name="edit_label_type" value="maintenance" checked>
+                            <span>系统维护中：</span>
+                        </label>
+                        <label class="maintenance-label-option">
+                            <input type="radio" name="edit_label_type" value="reminder">
+                            <span>温馨提示：</span>
+                        </label>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="editMaintenanceContent">Content *</label>
                     <textarea id="editMaintenanceContent" name="content" required placeholder="Enter maintenance content"></textarea>

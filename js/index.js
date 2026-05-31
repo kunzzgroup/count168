@@ -196,11 +196,12 @@
                 track.innerHTML = '';
 
                 result.data.forEach(maintenance => {
+                    const labelText = escapeHtml(maintenance.label_text || '系统维护中：');
                     const item1 = document.createElement('div');
                     item1.className = 'maintenance-marquee-item';
                     item1.innerHTML = `
                         <span class="maintenance-marquee-dot"></span>
-                        <span class="maintenance-marquee-label">系统维护中:</span>
+                        <span class="maintenance-marquee-label">${labelText}</span>
                         <span>${escapeHtml(maintenance.content)}</span>
                     `;
                     track.appendChild(item1);
@@ -209,7 +210,7 @@
                     item2.className = 'maintenance-marquee-item';
                     item2.innerHTML = `
                         <span class="maintenance-marquee-dot"></span>
-                        <span class="maintenance-marquee-label">系统维护中:</span>
+                        <span class="maintenance-marquee-label">${labelText}</span>
                         <span>${escapeHtml(maintenance.content)}</span>
                     `;
                     track.appendChild(item2);

@@ -9,6 +9,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../../includes/maintenance_marquee_lib.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -44,11 +45,11 @@ function countActiveMaintenance(PDO $pdo) {
 /**
  * 插入新维护内容
  */
-function insertMaintenance(PDO $pdo, string $content, $createdBy, string $userType) {
-    $sql = "INSERT INTO maintenance_marquee (content, company_code, created_by, user_type, status)
-            VALUES (?, 'C168', ?, ?, 'active')";
+function insertMaintenance(PDO $pdo, string $content, string $labelType, $createdBy, string $userType) {
+    $sql = "INSERT INTO maintenance_marquee (content, label_type, company_code, created_by, user_type, status)
+            VALUES (?, ?, 'C168', ?, ?, 'active')";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$content, $createdBy, $userType]);
+    $stmt->execute([$content, $labelType, $createdBy, $userType]);
     return (int) $pdo->lastInsertId();
 }
 
@@ -56,6 +57,7 @@ try {
     requireC168InformationManagementAccess($pdo);
 
     $content = trim($_POST['content'] ?? '');
+    $labelType = normalizeMaintenanceLabelType($_POST['label_type'] ?? 'maintenance');
     if ($content === '') {
         throw new Exception('Content cannot be empty');
     }
@@ -68,7 +70,7 @@ try {
     $user_type = $_SESSION['user_type'] ?? 'user';
     $created_by = ($user_type === 'owner') ? ($_SESSION['owner_id'] ?? $user_id) : $user_id;
 
-    $id = insertMaintenance($pdo, $content, $created_by, $user_type);
+    $id = insertMaintenance($pdo, $content, $labelType, $created_by, $user_type);
     jsonResponse(true, 'Maintenance content created successfully', ['id' => $id]);
 } catch (PDOException $e) {
     jsonResponse(false, 'Database error: ' . $e->getMessage(), null, 500);

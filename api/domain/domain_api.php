@@ -128,9 +128,241 @@ function deleteByIds(PDO $pdo, string $table, string $column, array $ids): void
     $stmt->execute($ids);
 }
 
+function domainApiTableExists(PDO $pdo, string $table): bool
+{
+    static $cache = [];
+    if (isset($cache[$table])) {
+        return $cache[$table];
+    }
+    try {
+        $stmt = $pdo->prepare('SHOW TABLES LIKE ?');
+        $stmt->execute([$table]);
+        $cache[$table] = $stmt->rowCount() > 0;
+    } catch (Exception $e) {
+        $cache[$table] = false;
+    }
+    return $cache[$table];
+}
+
+function domainApiTableHasColumn(PDO $pdo, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (isset($cache[$key])) {
+        return $cache[$key];
+    }
+    if (!domainApiTableExists($pdo, $table)) {
+        return $cache[$key] = false;
+    }
+    try {
+        $stmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+        $stmt->execute([$column]);
+        $cache[$key] = $stmt->rowCount() > 0;
+    } catch (Exception $e) {
+        $cache[$key] = false;
+    }
+    return $cache[$key];
+}
+
+function domainApiDeleteByCompanyIds(PDO $pdo, string $table, array $companyDbIds): void
+{
+    if (!domainApiTableHasColumn($pdo, $table, 'company_id')) {
+        return;
+    }
+    deleteByIds($pdo, $table, 'company_id', $companyDbIds);
+}
+
+function domainApiDeleteTransactionEntriesForCompanies(PDO $pdo, array $companyDbIds): void
+{
+    $companyDbIds = normalizeIds($companyDbIds);
+    if ($companyDbIds === [] || !domainApiTableHasColumn($pdo, 'transactions', 'company_id')) {
+        return;
+    }
+    if (!domainApiTableExists($pdo, 'transaction_entry')) {
+        return;
+    }
+    $ph = buildInPlaceholders(count($companyDbIds));
+    try {
+        $sql = "DELETE te FROM `transaction_entry` te
+                INNER JOIN `transactions` t ON t.id = te.header_id
+                WHERE t.company_id IN ($ph)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($companyDbIds);
+    } catch (Exception $e) {
+        $txnIds = fetchIds($pdo, "SELECT id FROM transactions WHERE company_id IN ($ph)", $companyDbIds);
+        if ($txnIds !== []) {
+            deleteByIds($pdo, 'transaction_entry', 'header_id', $txnIds);
+        }
+    }
+}
+
+function domainApiDeleteTransactionsForCompanies(PDO $pdo, array $companyDbIds): void
+{
+    $companyDbIds = normalizeIds($companyDbIds);
+    if ($companyDbIds === [] || !domainApiTableHasColumn($pdo, 'transactions', 'company_id')) {
+        return;
+    }
+
+    domainApiDeleteTransactionEntriesForCompanies($pdo, $companyDbIds);
+
+    $ph = buildInPlaceholders(count($companyDbIds));
+    $txnIds = fetchIds($pdo, "SELECT id FROM transactions WHERE company_id IN ($ph)", $companyDbIds);
+    if ($txnIds !== []) {
+        $txnPh = buildInPlaceholders(count($txnIds));
+        foreach (['transactions_rate_details', 'transactions_rate'] as $rateTable) {
+            if (domainApiTableHasColumn($pdo, $rateTable, 'transaction_id')) {
+                $stmt = $pdo->prepare("DELETE FROM `$rateTable` WHERE transaction_id IN ($txnPh)");
+                $stmt->execute($txnIds);
+            }
+        }
+    }
+
+    domainApiDeleteByCompanyIds($pdo, 'transactions', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'transactions_backup', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'transactions_deleted', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'transactions_rate', $companyDbIds);
+}
+
 /**
- * 检查公司是否为 C168（用于二级密码等权限判断）
+ * 按 company_id 级联删除公司及其数据（不跨公司删除共享 account / 多公司 user 的数据）。
+ *
+ * @param list<int> $companyDbIds company.id
  */
+function domainApiCascadeDeleteCompanies(PDO $pdo, array $companyDbIds): void
+{
+    $companyDbIds = normalizeIds($companyDbIds);
+    if ($companyDbIds === []) {
+        return;
+    }
+
+    $companyPlaceholders = buildInPlaceholders(count($companyDbIds));
+
+    $accountIds = [];
+    if (domainApiTableExists($pdo, 'account_company')) {
+        $accountStmt = $pdo->prepare("
+            SELECT DISTINCT ac.account_id
+            FROM account_company ac
+            WHERE ac.company_id IN ($companyPlaceholders)
+        ");
+        $accountStmt->execute($companyDbIds);
+        $accountIds = normalizeIds($accountStmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    domainApiDeleteTransactionsForCompanies($pdo, $companyDbIds);
+
+    $processStmt = $pdo->prepare("SELECT id FROM process WHERE company_id IN ($companyPlaceholders)");
+    $processStmt->execute($companyDbIds);
+    $processIds = normalizeIds($processStmt->fetchAll(PDO::FETCH_COLUMN));
+
+    if ($processIds !== []) {
+        deleteByIds($pdo, 'process_day', 'process_id', $processIds);
+        deleteByIds($pdo, 'submitted_processes', 'process_id', $processIds);
+
+        $processPlaceholders = buildInPlaceholders(count($processIds));
+        $captureStmt = $pdo->prepare("SELECT id FROM data_captures WHERE process_id IN ($processPlaceholders)");
+        $captureStmt->execute($processIds);
+        $captureIds = normalizeIds($captureStmt->fetchAll(PDO::FETCH_COLUMN));
+
+        if ($captureIds !== []) {
+            deleteByIds($pdo, 'data_capture_details', 'capture_id', $captureIds);
+            deleteByIds($pdo, 'data_captures', 'id', $captureIds);
+        }
+
+        deleteByIds($pdo, 'process', 'id', $processIds);
+    }
+
+    $directCaptureStmt = $pdo->prepare("SELECT id FROM data_captures WHERE company_id IN ($companyPlaceholders)");
+    $directCaptureStmt->execute($companyDbIds);
+    $directCaptureIds = normalizeIds($directCaptureStmt->fetchAll(PDO::FETCH_COLUMN));
+
+    if ($directCaptureIds !== []) {
+        deleteByIds($pdo, 'data_capture_details', 'capture_id', $directCaptureIds);
+        deleteByIds($pdo, 'data_captures', 'id', $directCaptureIds);
+    }
+
+    domainApiDeleteByCompanyIds($pdo, 'data_capture_details', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'data_captures', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'data_capture_templates', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'data_capture_summary_state', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'data_capture_submit_queue', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'data_captures_deleted', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'submitted_processes', $companyDbIds);
+
+    domainApiDeleteByCompanyIds($pdo, 'bank_process_maintenance_resend_pending', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'bank_process_accounting_resend_daily_guard', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'process_accounting_posted', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'process_accounting_due_dismissed', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'bank_process', $companyDbIds);
+
+    domainApiDeleteByCompanyIds($pdo, 'description', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'currency', $companyDbIds);
+
+    domainApiDeleteByCompanyIds($pdo, 'company_ownership', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'company_auto_renew_request', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'company_countries', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'company_selected_banks', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'company_selected_countries', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'country_bank', $companyDbIds);
+    domainApiDeleteByCompanyIds($pdo, 'user_company_permissions', $companyDbIds);
+
+    domainApiDeleteByCompanyIds($pdo, 'account_link', $companyDbIds);
+    deleteByIds($pdo, 'account_company', 'company_id', $companyDbIds);
+
+    if ($accountIds !== []) {
+        $accountPlaceholder = buildInPlaceholders(count($accountIds));
+        $orphanStmt = $pdo->prepare("
+            SELECT id
+            FROM account
+            WHERE id IN ($accountPlaceholder)
+              AND NOT EXISTS (
+                  SELECT 1 FROM account_company ac
+                  WHERE ac.account_id = account.id
+              )
+        ");
+        $orphanStmt->execute($accountIds);
+        $orphanAccountIds = normalizeIds($orphanStmt->fetchAll(PDO::FETCH_COLUMN));
+
+        if ($orphanAccountIds !== []) {
+            if (domainApiTableExists($pdo, 'account_currency_display_order')) {
+                deleteByIds($pdo, 'account_currency_display_order', 'account_id', $orphanAccountIds);
+            }
+            deleteByIds($pdo, 'account_currency', 'account_id', $orphanAccountIds);
+            deleteByIds($pdo, 'account', 'id', $orphanAccountIds);
+        }
+    }
+
+    deleteByIds($pdo, 'user_company_map', 'company_id', $companyDbIds);
+    deleteByIds($pdo, 'company', 'id', $companyDbIds);
+}
+
+/** 删除 owner 在其公司范围内创建的 capture（不波及其他公司）。 */
+function domainApiDeleteOwnerScopedCaptures(PDO $pdo, int $ownerId, array $companyDbIds): void
+{
+    if (!domainApiTableExists($pdo, 'data_captures')) {
+        return;
+    }
+
+    $companyDbIds = normalizeIds($companyDbIds);
+    if ($companyDbIds !== [] && domainApiTableHasColumn($pdo, 'data_captures', 'company_id')) {
+        $ph = buildInPlaceholders(count($companyDbIds));
+        $stmt = $pdo->prepare("
+            SELECT id FROM data_captures
+            WHERE user_type = 'owner' AND created_by = ? AND company_id IN ($ph)
+        ");
+        $stmt->execute(array_merge([$ownerId], $companyDbIds));
+    } else {
+        $stmt = $pdo->prepare("SELECT id FROM data_captures WHERE user_type = 'owner' AND created_by = ?");
+        $stmt->execute([$ownerId]);
+    }
+
+    $ownerCaptureIds = normalizeIds($stmt->fetchAll(PDO::FETCH_COLUMN));
+    if ($ownerCaptureIds === []) {
+        return;
+    }
+    deleteByIds($pdo, 'data_capture_details', 'capture_id', $ownerCaptureIds);
+    deleteByIds($pdo, 'data_captures', 'id', $ownerCaptureIds);
+}
+
 /**
  * Domain 列表页：全局 Price（单行 id=1）
  * 注意：MySQL/MariaDB 中任意 CREATE TABLE 都会隐式提交并结束当前事务。
@@ -2658,6 +2890,10 @@ try {
                     }
                 }
                 $new_company_keys = array_column($new_companies_data, 'key');
+
+                if (count($existing_companies) > 0 && empty($data['companies_loaded'])) {
+                    throw new Exception('Company list is still loading. Please wait and try again.');
+                }
                 
                 // Find companies to delete (existing but not in new list)
                 $companies_to_delete = [];
@@ -2680,126 +2916,7 @@ try {
                             'deleted_by_login' => (string) ($_SESSION['login_id'] ?? $_SESSION['username'] ?? ''),
                         ]);
 
-                        $companyPlaceholders = buildInPlaceholders(count($delete_db_ids));
-                        
-                        // 1. account 及其关联的 transactions
-                        // account 表已不再直接持有 company_id，通过 account_company 关系表获取账户
-                        $accountStmt = $pdo->prepare("
-                            SELECT DISTINCT ac.account_id 
-                            FROM account_company ac
-                            WHERE ac.company_id IN ($companyPlaceholders)
-                        ");
-                        $accountStmt->execute($delete_db_ids);
-                        $accountIds = normalizeIds($accountStmt->fetchAll(PDO::FETCH_COLUMN));
-                        
-                        if (!empty($accountIds)) {
-                            // 先删除与这些账户相关的交易
-                            deleteByIds($pdo, 'transactions', 'account_id', $accountIds);
-                            deleteByIds($pdo, 'transactions', 'from_account_id', $accountIds);
-                        }
-                        
-                        // 2. process 相关
-                        $processStmt = $pdo->prepare("SELECT id FROM process WHERE company_id IN ($companyPlaceholders)");
-                        $processStmt->execute($delete_db_ids);
-                        $processIds = normalizeIds($processStmt->fetchAll(PDO::FETCH_COLUMN));
-                        
-                        if (!empty($processIds)) {
-                            deleteByIds($pdo, 'process_day', 'process_id', $processIds);
-                            deleteByIds($pdo, 'submitted_processes', 'process_id', $processIds);
-                            
-                            // data_capture -> details
-                            $processPlaceholders = buildInPlaceholders(count($processIds));
-                            $captureStmt = $pdo->prepare("SELECT id FROM data_captures WHERE process_id IN ($processPlaceholders)");
-                            $captureStmt->execute($processIds);
-                            $captureIds = normalizeIds($captureStmt->fetchAll(PDO::FETCH_COLUMN));
-                            
-                            if (!empty($captureIds)) {
-                                deleteByIds($pdo, 'data_capture_details', 'capture_id', $captureIds);
-                                deleteByIds($pdo, 'data_captures', 'id', $captureIds);
-                            }
-                            
-                            deleteByIds($pdo, 'process', 'id', $processIds);
-                        }
-                        
-                        // 3. 其他含 company_id 的表
-                        // data_captures 和 data_capture_details（直接包含 company_id 的情况）
-                        $directCaptureStmt = $pdo->prepare("SELECT id FROM data_captures WHERE company_id IN ($companyPlaceholders)");
-                        $directCaptureStmt->execute($delete_db_ids);
-                        $directCaptureIds = normalizeIds($directCaptureStmt->fetchAll(PDO::FETCH_COLUMN));
-                        
-                        if (!empty($directCaptureIds)) {
-                            deleteByIds($pdo, 'data_capture_details', 'capture_id', $directCaptureIds);
-                            deleteByIds($pdo, 'data_captures', 'id', $directCaptureIds);
-                        }
-                        
-                        // data_capture_details（直接包含 company_id 的情况）
-                        deleteByIds($pdo, 'data_capture_details', 'company_id', $delete_db_ids);
-                        
-                        // data_capture_templates
-                        deleteByIds($pdo, 'data_capture_templates', 'company_id', $delete_db_ids);
-                        
-                        // submitted_processes（直接包含 company_id 的情况）
-                        deleteByIds($pdo, 'submitted_processes', 'company_id', $delete_db_ids);
-                        
-                        // 4. 其他含 company / user 关系的表
-                        // 由于 user 不再直接持有 company_id（改为 user_company_map 关系表），
-                        // 这里通过 user_company_map 找到与这些 company 关联的用户，仅清理其相关数据，用户本身暂不删除。
-                        $userStmt = $pdo->prepare("
-                            SELECT DISTINCT u.id
-                            FROM user u
-                            INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-                            WHERE ucm.company_id IN ($companyPlaceholders)
-                        ");
-                        $userStmt->execute($delete_db_ids);
-                        $userIds = normalizeIds($userStmt->fetchAll(PDO::FETCH_COLUMN));
-                        
-                        if (!empty($userIds)) {
-                            deleteByIds($pdo, 'submitted_processes', 'user_id', $userIds);
-                            deleteByIds($pdo, 'transactions', 'created_by', $userIds);
-                            
-                            $userPlaceholder = buildInPlaceholders(count($userIds));
-                            $captureByUserStmt = $pdo->prepare("SELECT id FROM data_captures WHERE created_by IN ($userPlaceholder)");
-                            $captureByUserStmt->execute($userIds);
-                            $userCaptureIds = normalizeIds($captureByUserStmt->fetchAll(PDO::FETCH_COLUMN));
-                            
-                            if (!empty($userCaptureIds)) {
-                                deleteByIds($pdo, 'data_capture_details', 'capture_id', $userCaptureIds);
-                                deleteByIds($pdo, 'data_captures', 'id', $userCaptureIds);
-                            }
-                        }
-                        
-                        // 5. 删除其他直接包含 company_id 的表
-                        deleteByIds($pdo, 'description', 'company_id', $delete_db_ids);
-                        deleteByIds($pdo, 'currency', 'company_id', $delete_db_ids);
-                        
-                        // 6. 删除 account_company 中与这些 company 关联的记录
-                        deleteByIds($pdo, 'account_company', 'company_id', $delete_db_ids);
-                        
-                        // 7. 删除不再关联任何公司的账户本身
-                        if (!empty($accountIds)) {
-                            $accountPlaceholder = buildInPlaceholders(count($accountIds));
-                            $orphanStmt = $pdo->prepare("
-                                SELECT id 
-                                FROM account 
-                                WHERE id IN ($accountPlaceholder)
-                                  AND NOT EXISTS (
-                                      SELECT 1 FROM account_company ac 
-                                      WHERE ac.account_id = account.id
-                                  )
-                            ");
-                            $orphanStmt->execute($accountIds);
-                            $orphanAccountIds = normalizeIds($orphanStmt->fetchAll(PDO::FETCH_COLUMN));
-                            
-                            if (!empty($orphanAccountIds)) {
-                                deleteByIds($pdo, 'account', 'id', $orphanAccountIds);
-                            }
-                        }
-                        
-                        // 8. 删除 user 与这些 company 的映射关系
-                        deleteByIds($pdo, 'user_company_map', 'company_id', $delete_db_ids);
-                        
-                        // 9. 最后删除公司本身
-                        deleteByIds($pdo, 'company', 'id', $delete_db_ids);
+                        domainApiCascadeDeleteCompanies($pdo, $delete_db_ids);
                     }
                 }
                 
@@ -2912,117 +3029,12 @@ try {
                         'deleted_by_login' => (string) ($_SESSION['login_id'] ?? $_SESSION['username'] ?? ''),
                     ]);
 
-                    $companyPlaceholders = buildInPlaceholders(count($companyIds));
-                    
-                    // 1. account 及其关联的 transactions
-                    // account 表已不再直接持有 company_id，通过 account_company 关系表获取账户
-                    $accountStmt = $pdo->prepare("
-                        SELECT DISTINCT ac.account_id 
-                        FROM account_company ac
-                        WHERE ac.company_id IN ($companyPlaceholders)
-                    ");
-                    $accountStmt->execute($companyIds);
-                    $accountIds = normalizeIds($accountStmt->fetchAll(PDO::FETCH_COLUMN));
-                    
-                    if (!empty($accountIds)) {
-                        // 先删除与这些账户相关的交易
-                        deleteByIds($pdo, 'transactions', 'account_id', $accountIds);
-                        deleteByIds($pdo, 'transactions', 'from_account_id', $accountIds);
-                    }
-                    
-                    // 2. process 相关
-                    $processStmt = $pdo->prepare("SELECT id FROM process WHERE company_id IN ($companyPlaceholders)");
-                    $processStmt->execute($companyIds);
-                    $processIds = normalizeIds($processStmt->fetchAll(PDO::FETCH_COLUMN));
-                    
-                    if (!empty($processIds)) {
-                        deleteByIds($pdo, 'process_day', 'process_id', $processIds);
-                        deleteByIds($pdo, 'submitted_processes', 'process_id', $processIds);
-                        
-                        // data_capture -> details
-                        $processPlaceholders = buildInPlaceholders(count($processIds));
-                        $captureStmt = $pdo->prepare("SELECT id FROM data_captures WHERE process_id IN ($processPlaceholders)");
-                        $captureStmt->execute($processIds);
-                        $captureIds = normalizeIds($captureStmt->fetchAll(PDO::FETCH_COLUMN));
-                        
-                        if (!empty($captureIds)) {
-                            deleteByIds($pdo, 'data_capture_details', 'capture_id', $captureIds);
-                            deleteByIds($pdo, 'data_captures', 'id', $captureIds);
-                        }
-                        
-                        deleteByIds($pdo, 'process', 'id', $processIds);
-                    }
-                    
-                    // 3. 其他含 company / user 关系的表
-                    // 由于 user 不再直接持有 company_id（改为 user_company_map 关系表），
-                    // 这里通过 user_company_map 找到与这些 company 关联的用户，仅清理其相关数据，用户本身暂不删除。
-                    $userStmt = $pdo->prepare("
-                        SELECT DISTINCT u.id
-                        FROM user u
-                        INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-                        WHERE ucm.company_id IN ($companyPlaceholders)
-                    ");
-                    $userStmt->execute($companyIds);
-                    $userIds = normalizeIds($userStmt->fetchAll(PDO::FETCH_COLUMN));
-                    
-                    if (!empty($userIds)) {
-                        deleteByIds($pdo, 'submitted_processes', 'user_id', $userIds);
-                        deleteByIds($pdo, 'transactions', 'created_by', $userIds);
-                        
-                        $userPlaceholder = buildInPlaceholders(count($userIds));
-                        $captureByUserStmt = $pdo->prepare("SELECT id FROM data_captures WHERE created_by IN ($userPlaceholder)");
-                        $captureByUserStmt->execute($userIds);
-                        $userCaptureIds = normalizeIds($captureByUserStmt->fetchAll(PDO::FETCH_COLUMN));
-                        
-                        if (!empty($userCaptureIds)) {
-                            deleteByIds($pdo, 'data_capture_details', 'capture_id', $userCaptureIds);
-                            deleteByIds($pdo, 'data_captures', 'id', $userCaptureIds);
-                        }
-                    }
-                    
-                    deleteByIds($pdo, 'description', 'company_id', $companyIds);
-                    deleteByIds($pdo, 'currency', 'company_id', $companyIds);
-                    
-                    // 删除 account_company 中与这些 company 关联的记录
-                    deleteByIds($pdo, 'account_company', 'company_id', $companyIds);
-                    
-                    // 删除不再关联任何公司的账户本身
-                    if (!empty($accountIds)) {
-                        $accountPlaceholder = buildInPlaceholders(count($accountIds));
-                        $orphanStmt = $pdo->prepare("
-                            SELECT id 
-                            FROM account 
-                            WHERE id IN ($accountPlaceholder)
-                              AND NOT EXISTS (
-                                  SELECT 1 FROM account_company ac 
-                                  WHERE ac.account_id = account.id
-                              )
-                        ");
-                        $orphanStmt->execute($accountIds);
-                        $orphanAccountIds = normalizeIds($orphanStmt->fetchAll(PDO::FETCH_COLUMN));
-                        
-                        if (!empty($orphanAccountIds)) {
-                            deleteByIds($pdo, 'account', 'id', $orphanAccountIds);
-                        }
-                    }
-                    
-                    // 删除 user 与这些 company 的映射关系
-                    deleteByIds($pdo, 'user_company_map', 'company_id', $companyIds);
+                    domainApiCascadeDeleteCompanies($pdo, $companyIds);
                 }
+
+                domainApiDeleteOwnerScopedCaptures($pdo, (int) $id, $companyIds);
                 
-                // 删除 owner 直接创建的数据 (data_captures / transactions)
-                $ownerCaptureStmt = $pdo->prepare("SELECT id FROM data_captures WHERE user_type = 'owner' AND created_by = ?");
-                $ownerCaptureStmt->execute([$id]);
-                $ownerCaptureIds = normalizeIds($ownerCaptureStmt->fetchAll(PDO::FETCH_COLUMN));
-                
-                if (!empty($ownerCaptureIds)) {
-                    deleteByIds($pdo, 'data_capture_details', 'capture_id', $ownerCaptureIds);
-                    deleteByIds($pdo, 'data_captures', 'id', $ownerCaptureIds);
-                }
-                
-                deleteByIds($pdo, 'transactions', 'created_by', [$id]);
-                
-                // 删除 company -> owner
+                // 删除 company -> owner（兜底）及 owner 记录
                 deleteByIds($pdo, 'company', 'owner_id', [$id]);
                 deleteByIds($pdo, 'owner', 'id', [$id]);
                 

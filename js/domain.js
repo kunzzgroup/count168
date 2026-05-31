@@ -235,6 +235,17 @@ function changePage(direction) {
 }
 
 let isEditMode = false;
+let domainCompaniesLoaded = false;
+
+function updateDomainFormSubmitState() {
+    const btn = document.querySelector('#domainForm button[type="submit"]');
+    if (!btn) {
+        return;
+    }
+    const blocked = isEditMode && !domainCompaniesLoaded;
+    btn.disabled = blocked;
+    btn.title = blocked ? 'Loading companies...' : '';
+}
 
 // 强制输入大写字母、数字和符号
 function forceUppercase(input) {
@@ -2619,6 +2630,8 @@ function showAlert(message, type = 'success') {
 
 function openAddModal() {
     isEditMode = false;
+    domainCompaniesLoaded = true;
+    updateDomainFormSubmitState();
     document.getElementById('modalTitle').textContent = 'ADD DOMAIN';
     document.getElementById('domainForm').reset();
     document.getElementById('domainId').value = '';
@@ -2657,6 +2670,12 @@ function openAddModal() {
 
 function editDomain(id) {
     isEditMode = true;
+    domainCompaniesLoaded = false;
+    selectedCompanies = [];
+    tempCompanies = [];
+    tempGroups = [];
+    updateDomainFormSubmitState();
+    document.getElementById('domainModal').style.display = 'block';
     document.getElementById('modalTitle').textContent = 'EDIT DOMAIN';
     document.getElementById('password').required = false;
     document.getElementById('passwordGroup').style.display = 'block';
@@ -2727,20 +2746,26 @@ function editDomain(id) {
             }
             // 初始化 tempCompanies 并渲染 inline 列表
             initTempCompanies(standaloneGroups);
+            domainCompaniesLoaded = true;
+            updateDomainFormSubmitState();
         })
         .catch(error => {
             console.error('Error loading companies:', error);
             selectedCompanies = [];
             initTempCompanies();
+            domainCompaniesLoaded = false;
+            updateDomainFormSubmitState();
+            showAlert('Failed to load company list. Please close and try again.', 'danger');
         });
 
-    document.getElementById('domainModal').style.display = 'block';
     setupInputFormatting();
 }
 
 
 function closeModal() {
     document.getElementById('domainModal').style.display = 'none';
+    domainCompaniesLoaded = false;
+    updateDomainFormSubmitState();
     selectedCompanies = [];
     tempCompanies = [];
     tempGroups = [];
@@ -3224,9 +3249,17 @@ document.addEventListener('DOMContentLoaded', function () {
             // 先同步 tempCompanies 到 selectedCompanies 和 hidden field
             syncCompaniesFromTemp();
 
+            if (isEditMode && !domainCompaniesLoaded) {
+                showAlert('Company list is still loading. Please wait.', 'danger');
+                return;
+            }
+
             const formData = new FormData(this);
             const data = Object.fromEntries(formData.entries());
             data.action = isEditMode ? 'update' : 'create';
+            if (isEditMode) {
+                data.companies_loaded = true;
+            }
 
             // Email validation: only allow @gmail.com
             if (data.email && !data.email.toLowerCase().endsWith('@gmail.com')) {

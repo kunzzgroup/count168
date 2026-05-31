@@ -279,6 +279,35 @@ function initModalClickOutside() {
 
 // ========== Maintenance Content Functions ==========
 
+const MAINTENANCE_LABEL_TEXT = {
+    maintenance: '系统维护中：',
+    reminder: '温馨提示：'
+};
+
+function getMaintenanceLabelText(labelType) {
+    return MAINTENANCE_LABEL_TEXT[labelType] || MAINTENANCE_LABEL_TEXT.maintenance;
+}
+
+function getSelectedMaintenanceLabelType(radioName) {
+    const selected = document.querySelector(`input[name="${radioName}"]:checked`);
+    const value = selected ? selected.value : 'maintenance';
+    return MAINTENANCE_LABEL_TEXT[value] ? value : 'maintenance';
+}
+
+function setMaintenanceLabelType(radioName, labelType) {
+    const value = MAINTENANCE_LABEL_TEXT[labelType] ? labelType : 'maintenance';
+    const radio = document.querySelector(`input[name="${radioName}"][value="${value}"]`);
+    if (radio) {
+        radio.checked = true;
+    }
+}
+
+function setMaintenanceLabelOptionsDisabled(disabled) {
+    document.querySelectorAll('#maintenanceLabelOptions input[type="radio"]').forEach(function (radio) {
+        radio.disabled = disabled;
+    });
+}
+
 // 加载维护内容列表
 async function loadMaintenanceContent() {
     try {
@@ -293,13 +322,15 @@ async function loadMaintenanceContent() {
         if (result.success && result.data.length > 0) {
             listContainer.innerHTML = result.data.map(maintenance => {
                 const contentEscaped = escapeHtml(maintenance.content);
+                const labelText = escapeHtml(maintenance.label_text || getMaintenanceLabelText(maintenance.label_type));
+                const labelType = maintenance.label_type || 'maintenance';
                 const contentForJs = contentEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
                 return `
                 <div class="maintenance-item">
                     <div class="maintenance-item-header">
                         <div style="flex: 1;"></div>
                         <div>
-                            <button class="maintenance-edit-btn" onclick="openEditMaintenanceModal(${maintenance.id}, '${contentForJs}')">
+                            <button class="maintenance-edit-btn" onclick="openEditMaintenanceModal(${maintenance.id}, '${contentForJs}', '${labelType}')">
                                 Edit
                             </button>
                             <button class="maintenance-delete-btn" onclick="deleteMaintenanceContent(${maintenance.id})">
@@ -307,6 +338,7 @@ async function loadMaintenanceContent() {
                             </button>
                         </div>
                     </div>
+                    <div class="maintenance-item-label">${labelText}</div>
                     <div class="maintenance-content">${contentEscaped}</div>
                     <div class="announcement-meta">
                         <span>Created by: ${escapeHtml(maintenance.created_by)}</span>
@@ -318,6 +350,7 @@ async function loadMaintenanceContent() {
 
             formWarning.style.display = 'block';
             contentTextarea.disabled = true;
+            setMaintenanceLabelOptionsDisabled(true);
             submitBtn.disabled = true;
             submitBtn.style.opacity = '0.5';
             submitBtn.style.cursor = 'not-allowed';
@@ -330,6 +363,7 @@ async function loadMaintenanceContent() {
 
             formWarning.style.display = 'none';
             contentTextarea.disabled = false;
+            setMaintenanceLabelOptionsDisabled(false);
             submitBtn.disabled = false;
             submitBtn.style.opacity = '1';
             submitBtn.style.cursor = 'pointer';
@@ -375,6 +409,7 @@ function initMaintenanceForm() {
         e.preventDefault();
 
         const content = document.getElementById('maintenanceContent').value.trim();
+        const labelType = getSelectedMaintenanceLabelType('label_type');
 
         if (!content) {
             showNotification('Please fill in the content', 'error');
@@ -384,6 +419,7 @@ function initMaintenanceForm() {
         try {
             const formData = new FormData();
             formData.append('content', content);
+            formData.append('label_type', labelType);
 
             const response = await fetch('/api/maintenance/create_api.php', {
                 method: 'POST',
@@ -409,10 +445,11 @@ function initMaintenanceForm() {
 // ========== Maintenance Edit Functions ==========
 
 // Open edit maintenance modal（供 HTML onclick 调用）
-function openEditMaintenanceModal(id, content) {
+function openEditMaintenanceModal(id, content, labelType) {
     document.getElementById('editMaintenanceId').value = id;
     const contentDecoded = content.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\\n/g, '\n');
     document.getElementById('editMaintenanceContent').value = contentDecoded;
+    setMaintenanceLabelType('edit_label_type', labelType || 'maintenance');
     document.getElementById('editMaintenanceModal').style.display = 'block';
 }
 
@@ -429,6 +466,7 @@ function initEditMaintenanceForm() {
 
         const id = document.getElementById('editMaintenanceId').value;
         const content = document.getElementById('editMaintenanceContent').value.trim();
+        const labelType = getSelectedMaintenanceLabelType('edit_label_type');
 
         if (!content) {
             showNotification('Please fill in the content', 'error');
@@ -439,6 +477,7 @@ function initEditMaintenanceForm() {
             const formData = new FormData();
             formData.append('id', id);
             formData.append('content', content);
+            formData.append('label_type', labelType);
 
             const response = await fetch('/api/maintenance/update_api.php', {
                 method: 'POST',

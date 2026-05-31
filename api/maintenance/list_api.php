@@ -9,6 +9,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../../includes/maintenance_marquee_lib.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -37,7 +38,7 @@ function requireC168InformationManagementAccess(PDO $pdo): void {
  * 获取 C168 下所有维护记录（含创建人信息）
  */
 function fetchMaintenanceList(PDO $pdo) {
-    $sql = "SELECT m.id, m.content, m.status,
+    $sql = "SELECT m.id, m.content, m.label_type, m.status,
                    DATE_FORMAT(m.created_at, '%d/%m/%Y %H:%i:%s') as created_at,
                    COALESCE(u.name, o.name) as created_by_name,
                    COALESCE(u.login_id, o.owner_code) as created_by_login
@@ -57,9 +58,12 @@ function fetchMaintenanceList(PDO $pdo) {
 function formatListRows(array $rows) {
     $list = [];
     foreach ($rows as $row) {
+        $labelType = normalizeMaintenanceLabelType($row['label_type'] ?? 'maintenance');
         $list[] = [
             'id' => (int)$row['id'],
             'content' => $row['content'] ?? '',
+            'label_type' => $labelType,
+            'label_text' => maintenanceMarqueeLabelText($labelType),
             'status' => $row['status'] ?? 'active',
             'created_at' => $row['created_at'] ?? '',
             'created_by' => $row['created_by_name'] ?? ($row['created_by_login'] ?? 'Unknown')

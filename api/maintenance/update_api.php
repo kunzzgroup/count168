@@ -9,6 +9,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../../includes/maintenance_marquee_lib.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -45,9 +46,9 @@ function findMaintenanceById(PDO $pdo, int $id) {
 /**
  * 更新维护内容
  */
-function updateMaintenanceContent(PDO $pdo, int $id, string $content) {
-    $stmt = $pdo->prepare("UPDATE maintenance_marquee SET content = ?, updated_at = NOW() WHERE id = ? AND company_code = 'C168'");
-    $stmt->execute([$content, $id]);
+function updateMaintenanceContent(PDO $pdo, int $id, string $content, string $labelType) {
+    $stmt = $pdo->prepare("UPDATE maintenance_marquee SET content = ?, label_type = ?, updated_at = NOW() WHERE id = ? AND company_code = 'C168'");
+    $stmt->execute([$content, $labelType, $id]);
 }
 
 try {
@@ -55,6 +56,7 @@ try {
 
     $maintenanceId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
     $content = trim($_POST['content'] ?? '');
+    $labelType = normalizeMaintenanceLabelType($_POST['label_type'] ?? 'maintenance');
 
     if ($maintenanceId <= 0) {
         throw new Exception('Maintenance ID cannot be empty');
@@ -67,7 +69,7 @@ try {
         throw new Exception('Maintenance content does not exist or you do not have permission to update it');
     }
 
-    updateMaintenanceContent($pdo, $maintenanceId, $content);
+    updateMaintenanceContent($pdo, $maintenanceId, $content, $labelType);
     jsonResponse(true, 'Maintenance content updated successfully');
 } catch (PDOException $e) {
     jsonResponse(false, 'Database error: ' . $e->getMessage(), null, 500);
