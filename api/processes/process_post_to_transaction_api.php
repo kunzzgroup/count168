@@ -3,7 +3,7 @@
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
  * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致）；frequency=1st_of_every_month 的 monthly 且 day_end_monthly_cap_enabled=ON 时，若 day_end 落在该账单自然月内则该期按「月初～day_end」比例（与 Inbox 一致）。day_end_tail = 尾段 prorateInclusiveDateRange（1st+cap 列 ON 时为 max(exclusiveEnd, day_end 月首)～day_end；否则 exclusiveEnd～day_end 且需 day_end≥exclusiveEnd；1st+cap OFF 不入账尾段），
- * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
+ * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：frequency=monthly 按对日对月整期累加，否则按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
  * 入账请求仅针对当前公司下选中的 Bank Process；Frequency=once 且 period_type=once_one_off 入账成功后，将该 process 的 status 置为 inactive（Accounting Due 的 Dismiss 不写 status）。
  */
 
@@ -1121,7 +1121,10 @@ try {
             if ($endYmdRc === null || $endYmdRc === '' || $dayStartYmd > $endYmdRc) {
                 continue;
             }
-            $totRc = prorateInclusiveDateRange($dayStartYmd, $endYmdRc, $cost, $price, $profit);
+            $rcFreq = strtolower(trim((string) ($p['day_start_frequency'] ?? '1st_of_every_month')));
+            $totRc = ($rcFreq === 'monthly')
+                ? sumMonthlyAnniversaryInclusiveRangeAmounts($dayStartYmd, $endYmdRc, $dayStartYmd, $cost, $price, $profit)
+                : prorateInclusiveDateRange($dayStartYmd, $endYmdRc, $cost, $price, $profit);
             $cost = $totRc['cost'];
             $price = $totRc['price'];
             $profit = $totRc['profit'];

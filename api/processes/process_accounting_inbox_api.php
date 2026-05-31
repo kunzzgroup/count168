@@ -15,7 +15,7 @@
  * - day_end_tail（1st_of_every_month + 有 day_end_monthly_cap_enabled 列且开关 ON）：尾段区间为 max(合同 exclusiveEnd, day_end 所在月 1 号)～day_end（含），与 prorateInclusiveDateRange 旧算法一致；$today 达 tail 起点即入列。开关 OFF 时不排尾段。
  * - 同上开关 ON 时，每一期 regular monthly（1st_of_every_month）若 day_end 落在该账单自然月内，该期金额按「该月 1 号～day_end」自然天比例折算（非仅合同尾段）；开关 OFF 则该期仍为整自然月价。
  * - 无 day_end_monthly_cap_enabled 列或非 1st 频率：仍为「day_end ≥ exclusiveEnd」时 exclusiveEnd～day_end 尾段（与旧版一致）；无列时仍排尾段。
- * - Resend 弹窗同时填 day_start 与 day_end（仅 relax 暂存）：Accounting Due 只列一行，金额按自然月切段 [day_start, day_end] 合并（与 process_post 的 resend_consolidated_range 一致）；不影响非 Resend 的 addprocess。
+ * - Resend 弹窗同时填 day_start 与 day_end（仅 relax 暂存）：Accounting Due 只列一行；frequency=monthly 时按对日对月整期 [day_start, day_start+1月-1日] 累加，frequency=1st 等仍按自然月切段 prorateInclusiveDateRange（与 process_post 的 resend_consolidated_range 一致）；不影响非 Resend 的 addprocess。
  */
 
 session_start();
@@ -958,7 +958,10 @@ try {
                 $baseCost = money_normalize($r['cost'] ?? '0');
                 $basePrice = money_normalize($r['price'] ?? '0');
                 $baseProfit = money_normalize($r['profit'] ?? '0');
-                $tot = prorateInclusiveDateRange($startDate, $endDate, $baseCost, $basePrice, $baseProfit);
+                $rcFreq = strtolower(trim((string) ($r['day_start_frequency'] ?? '1st_of_every_month')));
+                $tot = ($rcFreq === 'monthly')
+                    ? sumMonthlyAnniversaryInclusiveRangeAmounts($startDate, $endDate, $startDate, $baseCost, $basePrice, $baseProfit)
+                    : prorateInclusiveDateRange($startDate, $endDate, $baseCost, $basePrice, $baseProfit);
                 $needToday[] = [
                     'id' => (int) $r['id'],
                     'name' => $r['name'] ?? '',
@@ -991,7 +994,10 @@ try {
                 $baseCost = money_normalize($r['cost'] ?? '0');
                 $basePrice = money_normalize($r['price'] ?? '0');
                 $baseProfit = money_normalize($r['profit'] ?? '0');
-                $tot = prorateInclusiveDateRange($startDate, $endDate, $baseCost, $basePrice, $baseProfit);
+                $rcFreq = strtolower(trim((string) ($r['day_start_frequency'] ?? '1st_of_every_month')));
+                $tot = ($rcFreq === 'monthly')
+                    ? sumMonthlyAnniversaryInclusiveRangeAmounts($startDate, $endDate, $startDate, $baseCost, $basePrice, $baseProfit)
+                    : prorateInclusiveDateRange($startDate, $endDate, $baseCost, $basePrice, $baseProfit);
                 $needToday[] = [
                     'id' => (int) $r['id'],
                     'name' => $r['name'] ?? '',
