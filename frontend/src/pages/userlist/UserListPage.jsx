@@ -226,16 +226,12 @@ export default function UserListPage() {
       ),
     [companies]
   );
-  const groupOnlyUserList = useMemo(
-    () =>
-      Boolean(
-        selectedGroup &&
-          companyId == null &&
-          isDashboardGroupOnlyMode() &&
-          isGroupLogin(me),
-      ),
-    [selectedGroup, companyId, me],
-  );
+  const groupOnlyUserList = useMemo(() => {
+    if (!selectedGroup || companyId != null) return false;
+    if (isCompanyLogin(me)) return false;
+    if (isGroupLogin(me)) return isDashboardGroupOnlyMode();
+    return true;
+  }, [selectedGroup, companyId, me]);
   const groupEntityCompanies = useMemo(
     () => (selectedGroup ? companiesGroupEntityList(companies, selectedGroup) : []),
     [companies, selectedGroup],
@@ -482,13 +478,14 @@ export default function UserListPage() {
     [groupsAllMode, groupAllMode, companyId],
   );
 
-  const loadUsersListFromApi = useCallback(async (activeCompanyId, signal) => {
+  const loadUsersListFromApi = useCallback(async (activeCompanyId, signal, { groupOnly = null } = {}) => {
+    const useGroupOnly = groupOnly ?? groupOnlyUserList;
     const body = { action: "get" };
     if (aggregateUserList) {
       if (groupsAllMode) body.groups_all = 1;
       if (groupAllMode || groupsAllMode) body.group_all = 1;
       if (selectedGroup && !groupsAllMode) body.group_id = selectedGroup;
-    } else if (groupOnlyUserList && selectedGroup) {
+    } else if (useGroupOnly && selectedGroup) {
       body.group_id = selectedGroup;
     } else if (activeCompanyId != null) {
       body.company_id = Number(activeCompanyId);
@@ -526,10 +523,11 @@ export default function UserListPage() {
     return list;
   }, [aggregateUserList, groupOnlyUserList, groupsAllMode, groupAllMode, me, selectedGroup]);
 
-  const applyUserListCache = useCallback((activeCompanyId) => {
+  const applyUserListCache = useCallback((activeCompanyId, { groupOnly = null } = {}) => {
+    const useGroupOnly = groupOnly ?? groupOnlyUserList;
     const cacheKey = resolveUserListCacheKey(
       activeCompanyId,
-      groupOnlyUserList,
+      useGroupOnly,
       selectedGroup,
       aggregateUserList,
       groupsAllMode,
@@ -543,17 +541,18 @@ export default function UserListPage() {
     return true;
   }, [groupOnlyUserList, selectedGroup, aggregateUserList, groupsAllMode, groupAllMode]);
 
-  const fetchUsers = useCallback(async (companyIdOverride = null, { silent = false } = {}) => {
+  const fetchUsers = useCallback(async (companyIdOverride = null, { silent = false, groupOnly = null } = {}) => {
     if (!me) return;
+    const useGroupOnly = groupOnly ?? groupOnlyUserList;
     const activeCompanyId = companyIdOverride ?? companyId;
-    if (!aggregateUserList && groupOnlyUserList) {
+    if (!aggregateUserList && useGroupOnly) {
       if (!selectedGroup) return;
     } else if (!aggregateUserList && activeCompanyId == null) {
       return;
     }
     const cacheKey = resolveUserListCacheKey(
       activeCompanyId,
-      groupOnlyUserList,
+      useGroupOnly,
       selectedGroup,
       aggregateUserList,
       groupsAllMode,
@@ -563,7 +562,7 @@ export default function UserListPage() {
     const ac = new AbortController();
     listFetchAbortRef.current = ac;
     try {
-      const list = await loadUsersListFromApi(activeCompanyId, ac.signal);
+      const list = await loadUsersListFromApi(activeCompanyId, ac.signal, { groupOnly: useGroupOnly });
       if (ac.signal.aborted) return;
       userListCacheRef.current.set(cacheKey, list);
       setUsersRaw(list);
@@ -752,7 +751,28 @@ export default function UserListPage() {
     const sel = String(selectedGroup || "").trim().toUpperCase();
     const isActive = companyId != null && Number(companyId) === nextCompanyId && (!gid || gid === sel);
     if (isActive) {
-      void handlePickCompany(c);
+      if (isCompanyLogin(me)) return;
+      if (isGroupLogin(me)) {
+        void handlePickCompany(c);
+        return;
+      }
+      const g = sel || gid;
+      if (!g) return;
+
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        setCompanyId(null);
+        applyUserListCache(null, { groupOnly: true });
+      });
+
+      persistDashboardGroupFilter(g);
+      persistDashboardFilterState(g, null, { allowGroupOnly: false });
+      notifyDashboardGroupFilterChanged(g, null);
+
+      const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);
+      if (!userListCacheRef.current.has(groupCacheKey)) {
+        void fetchUsers(null, { silent: true, groupOnly: true });
+      }
       return;
     }
 
@@ -770,7 +790,7 @@ export default function UserListPage() {
     notifyDashboardGroupFilterChanged(nextGroup, nextCompanyId);
 
     void onSwitchCompany(c);
-  }, [applyUserListCache, companyId, handlePickCompany, onSwitchCompany, selectedGroup]);
+  }, [applyUserListCache, companyId, fetchUsers, handlePickCompany, me, onSwitchCompany, selectedGroup]);
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
     const normalizedGroupId = String(selectedGroup || "").trim().toUpperCase();
