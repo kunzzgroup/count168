@@ -12,6 +12,7 @@ import {
   persistDashboardGroupFilter,
   persistDashboardFilterState,
   persistDashboardSelectedCompany,
+  readDashboardSelectedCompanyId,
   stripCompanyIdFromUrl,
   notifyDashboardGroupFilterChanged,
   pickDefaultCompanyForGroup,
@@ -232,7 +233,7 @@ export default function UserListPage() {
     if (!selectedGroup || companyId != null) return false;
     if (isCompanyLogin(me)) return false;
     if (isGroupLogin(me)) return isDashboardGroupOnlyMode();
-    return true;
+    return isDashboardGroupOnlyMode();
   }, [selectedGroup, companyId, me]);
   const groupEntityCompanies = useMemo(
     () => (selectedGroup ? companiesGroupEntityList(companies, selectedGroup) : []),
@@ -298,11 +299,6 @@ export default function UserListPage() {
 
   const canCreateUser = useMemo(() => getAvailableRolesForCreation(currentUserRole).length > 0, [currentUserRole]);
   const userMutationsBlocked = useMemo(() => isPartnershipAuditReadOnlyLocked(me), [me]);
-  const modalAccessReady =
-    scopeCompanyId != null &&
-    (modalAccessReadyCompanyId != null || modalAccessCacheRef.current.has(
-      resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup),
-    ));
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
@@ -395,33 +391,39 @@ export default function UserListPage() {
         if (isCompanyLogin(me) && isDashboardGroupOnlyMode()) {
           persistDashboardGroupOnlyMode(false);
         }
-        let effectiveNum = resolveBootCompanyId({
-          urlCompanyId,
-          sessionCompanyId: me.company_id,
-          defaultRowId: rows[0]?.id,
-        });
-        if (urlCompanyId && effectiveNum && Number(effectiveNum) !== Number(me.company_id)) {
-          try {
-            const syncRes = await fetch(
-              buildApiUrl(`api/session/update_company_session_api.php?company_id=${effectiveNum}`),
-              { credentials: "include" },
-            );
-            const syncJson = await syncRes.json();
-            if (!syncJson.success) {
-              effectiveNum = me.company_id != null ? Number(me.company_id) : effectiveNum;
-            } else {
-              notifyCompanySessionUpdated();
-            }
-          } catch {
-            effectiveNum = me.company_id != null ? Number(me.company_id) : effectiveNum;
-          }
+
+        const savedCompanyId = readDashboardSelectedCompanyId();
+        let effectiveNum = savedCompanyId;
+        if (effectiveNum == null && !isDashboardGroupOnlyMode()) {
+          effectiveNum = resolveBootCompanyId({
+            urlCompanyId,
+            sessionCompanyId: me.company_id,
+            defaultRowId: rows[0]?.id,
+          });
         }
+        if (isDashboardGroupOnlyMode()) {
+          effectiveNum = null;
+          stripCompanyIdFromUrl();
+        }
+
         const bootGroup = resolveInitialSelectedGroupFromSession(
           rows,
           effectiveNum != null
             ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null
             : null,
+          me,
         );
+
+        if (bootGroup && effectiveNum != null) {
+          const inGroup = companiesInGroupList(rows, bootGroup).some(
+            (c) => Number(c.id) === Number(effectiveNum),
+          );
+          if (!inGroup) {
+            effectiveNum = savedCompanyId != null ? savedCompanyId : null;
+            if (effectiveNum == null) stripCompanyIdFromUrl();
+          }
+        }
+
         if (isCompanyLogin(me) && (effectiveNum == null || !Number.isFinite(Number(effectiveNum)))) {
           const pick = pickDefaultCompanyForGroup(rows, bootGroup, {
             me,
@@ -430,10 +432,28 @@ export default function UserListPage() {
           if (pick?.id != null) effectiveNum = Number(pick.id);
           else if (me.company_id != null) effectiveNum = Number(me.company_id);
         }
+
         setCompanyId(isGroupLogin(me) && isDashboardGroupOnlyMode() ? null : effectiveNum);
         setSelectedGroup(bootGroup);
         setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
+
+        const syncCompanyId =
+          effectiveNum != null && Number.isFinite(Number(effectiveNum)) ? Number(effectiveNum) : null;
+        if (syncCompanyId != null && syncCompanyId !== Number(me.company_id)) {
+          void (async () => {
+            try {
+              const syncRes = await fetch(
+                buildApiUrl(`api/session/update_company_session_api.php?company_id=${syncCompanyId}`),
+                { credentials: "include" },
+              );
+              const syncJson = await syncRes.json();
+              if (syncJson.success) notifyCompanySessionUpdated();
+            } catch {
+              /* boot session sync is best-effort */
+            }
+          })();
+        }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
       } finally {
@@ -595,34 +615,6 @@ export default function UserListPage() {
     groupAllMode,
   ]);
 
-  const prefetchUsersForCompany = useCallback(async (activeCompanyId) => {
-    if (!me || aggregateUserList || groupOnlyUserList || activeCompanyId == null) return;
-    const cacheKey = resolveUserListCacheKey(
-      activeCompanyId,
-      false,
-      selectedGroup,
-      false,
-      false,
-      false,
-    );
-    if (userListCacheRef.current.has(cacheKey)) return;
-    const pending = userListFetchPendingRef.current.get(cacheKey);
-    if (pending) return pending;
-    const request = (async () => {
-      try {
-        const ac = new AbortController();
-        const list = await loadUsersListFromApi(activeCompanyId, ac.signal);
-        userListCacheRef.current.set(cacheKey, list);
-      } catch {
-        /* prefetch is best-effort */
-      } finally {
-        userListFetchPendingRef.current.delete(cacheKey);
-      }
-    })();
-    userListFetchPendingRef.current.set(cacheKey, request);
-    return request;
-  }, [aggregateUserList, groupOnlyUserList, loadUsersListFromApi, me, selectedGroup]);
-
   const onSwitchCompany = useCallback(async (c) => {
     const nextCompanyId = Number(c?.id);
     if (!nextCompanyId) return;
@@ -688,15 +680,6 @@ export default function UserListPage() {
       void fetchUsers();
     }
   }, [bootLoading, companyId, groupOnlyUserList, aggregateUserList, isListScopeReady, me, fetchUsers]);
-
-  useEffect(() => {
-    if (bootLoading || !me || aggregateUserList || groupOnlyUserList) return;
-    companiesForPicker.forEach((c) => {
-      const cid = Number(c?.id);
-      if (!Number.isFinite(cid) || cid <= 0 || cid === Number(companyId)) return;
-      void prefetchUsersForCompany(cid);
-    });
-  }, [bootLoading, companiesForPicker, companyId, aggregateUserList, groupOnlyUserList, me, prefetchUsersForCompany]);
 
   const onPickGroupPill = useCallback(
     (gid) => {
@@ -769,6 +752,7 @@ export default function UserListPage() {
       });
 
       persistDashboardGroupFilter(g);
+      persistDashboardGroupOnlyMode(true);
       persistDashboardSelectedCompany(null);
       stripCompanyIdFromUrl();
       notifyDashboardGroupFilterChanged(g, null);
@@ -848,12 +832,6 @@ export default function UserListPage() {
     }
     finally { modalAccessPendingRef.current.delete(cacheKey); }
   }, [groupOnlyUserList, selectedGroup]);
-
-  useEffect(() => {
-    if (!bootLoading && scopeCompanyId && me) {
-      void fetchModalAccountsProcesses(scopeCompanyId);
-    }
-  }, [bootLoading, scopeCompanyId, me, fetchModalAccountsProcesses, groupOnlyUserList, selectedGroup]);
 
   useEffect(() => {
     modalCompaniesCacheRef.current = modalPickerCompanies;
@@ -962,14 +940,6 @@ export default function UserListPage() {
     if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
   }, [scopeCompanyId, currentUserRole, modalPickerCompanies, groupOnlyUserList]);
 
-  useEffect(() => {
-    if (!modalAccessReady) return;
-    pageRows.forEach((row) => {
-      const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
-      if (caps.canEditDelete && !editUserDetailCacheRef.current.has(String(row.id))) void fetchEditUserDetail(row.id);
-    });
-  }, [currentUserId, currentUserRole, fetchEditUserDetail, modalAccessReady, pageRows]);
-
   const openAdd = async () => {
     if (userMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
@@ -1043,7 +1013,6 @@ export default function UserListPage() {
     if (row.is_owner_shadow && currentUserRole !== "owner") { notify(t("onlyOwnerCanEditOwner"), "danger"); return; }
     const modalCacheKey = resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup);
     const cachedDetail = editUserDetailCacheRef.current.get(String(row.id));
-    if (!cachedDetail) return;
     const loadSeq = ++modalLoadSeqRef.current;
     const cachedAccess = modalAccessCacheRef.current.get(modalCacheKey) || { accounts: modalAccounts, processes: modalProcesses };
     setIsEditMode(true); setEditingRow(row);
@@ -1051,7 +1020,9 @@ export default function UserListPage() {
     setRoleSelectDisabled(!!row.is_owner_shadow); setLoginDisabled(true);
     setFieldLocks(getUserEditFieldLocks(row, currentUserId, currentUserRole));
     void loadCompaniesForModal();
-    applyEditDetail(row, cachedDetail, cachedAccess.accounts, cachedAccess.processes);
+    if (cachedDetail) {
+      applyEditDetail(row, cachedDetail, cachedAccess.accounts, cachedAccess.processes);
+    }
     setModalOpen(true);
     void Promise.all([fetchModalAccountsProcesses(scopeCompanyId, true), fetchEditUserDetail(row.id, true)]).then(([access, detail]) => {
       if (loadSeq !== modalLoadSeqRef.current || !detail) return;
@@ -1481,7 +1452,7 @@ export default function UserListPage() {
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
-                const editReady = caps.canEditDelete && modalAccessReady && editReadyIds.has(Number(r.id));
+                const editReady = caps.canEditDelete;
                 return (
                   <div key={`${r.id}-${r.is_owner_shadow ? "o" : "u"}`} className={`user-card user-list-row show-card ${idx % 2 === 0 ? "row-even" : "row-odd"}`}>
                     <div className="card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
