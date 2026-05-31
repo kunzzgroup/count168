@@ -109,6 +109,15 @@ body *::-webkit-scrollbar-corner {
     -ms-overflow-style: auto !important;
 }
 
+/* Transaction Payment (/transaction) — multi-currency table stack */
+body.transaction-page:not(.member-winloss-page) .transaction-tables-section {
+    scrollbar-gutter: stable;
+}
+
+body.transaction-page:not(.member-winloss-page) .transaction-tables-section::-webkit-scrollbar-track {
+    margin: var(--dash-scrollbar-track-margin);
+}
+
 /* Member Win/Loss (/member) — matrix rail, total column, tables, modals */
 body.member-winloss-page .member-dash-matrix-scroll,
 body.member-winloss-page .member-dash-total-matrix-body,
