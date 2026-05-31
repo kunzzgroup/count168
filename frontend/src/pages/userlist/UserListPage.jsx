@@ -1005,6 +1005,14 @@ export default function UserListPage() {
           <div className="action-buttons-container" style={{ marginBottom: 20 }}>
             <div className="action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                {canCreateUser ? (
+                <button type="button" className="btn btn-add" onClick={openAdd} disabled={!modalAccessReady || userMutationsBlocked}>
+                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                  {t("addUser")}
+                </button>
+                ) : null}
                 <div className="search-container userlist-search-bar">
                   <span className="userlist-search-bar__icon" aria-hidden="true">
                     <svg fill="currentColor" viewBox="0 0 24 24">
@@ -1066,14 +1074,6 @@ export default function UserListPage() {
                 </div>
               </div>
               <div className="user-toolbar-actions-right">
-                {canCreateUser ? (
-                <button type="button" className="btn btn-add" onClick={openAdd} disabled={!modalAccessReady || userMutationsBlocked}>
-                  <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  {t("addUser")}
-                </button>
-                ) : null}
                 <button
                   type="button"
                   className="btn btn-delete"
