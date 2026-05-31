@@ -14,6 +14,8 @@ export default function GcInlineFilterPanel({
   pickerCompanyId = null,
   onPickAllInGroup,
   onPickCompany,
+  onClearCompanyPill = null,
+  allowCompanyDeselect = false,
   switchingCompany = false,
   showGroupRow = true,
   showCompanyRow = true,
@@ -84,7 +86,11 @@ export default function GcInlineFilterPanel({
                     type="button"
                     className={`user-gc-segment${active ? " is-on" : ""}${pending ? " is-pending" : ""}`}
                     onClick={() => {
-                      void onPickCompany?.(c);
+                      if (active && allowCompanyDeselect && onClearCompanyPill) {
+                        onClearCompanyPill(c);
+                        return;
+                      }
+                      void onPickCompany?.(c, active);
                     }}
                   >
                     {String(c.company_id || "").toUpperCase()}

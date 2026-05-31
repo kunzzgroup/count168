@@ -131,8 +131,7 @@ export function useDashboardStyleGcFilter({
       const id = Number(c.id);
       const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       const sel = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-      const isActive =
-        companyId != null && Number(companyId) === id && (!gid || gid === sel);
+      const isActive = companyId != null && Number(companyId) === id;
 
       if (isActive) {
         if (!allowClearCompany) return;

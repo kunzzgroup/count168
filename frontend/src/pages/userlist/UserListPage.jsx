@@ -477,7 +477,6 @@ export default function UserListPage() {
   const {
     groupIds,
     companiesForPicker,
-    handlePickCompany,
     groupsAllMode,
     groupAllMode,
     handlePickAllGroups,
@@ -729,19 +728,11 @@ export default function UserListPage() {
     ],
   );
 
-  const onPickCompanyPill = useCallback((c) => {
-    const nextCompanyId = Number(c?.id);
-    if (!nextCompanyId) return;
-
-    const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-    const sel = String(selectedGroup || "").trim().toUpperCase();
-    const isActive = companyId != null && Number(companyId) === nextCompanyId;
-    if (isActive) {
+  const clearCompanyPillSelection = useCallback(
+    (c) => {
       if (isCompanyLogin(me)) return;
-      if (isGroupLogin(me)) {
-        void handlePickCompany(c);
-        return;
-      }
+      const gid = c?.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      const sel = String(selectedGroup || "").trim().toUpperCase();
       const g = sel || gid;
       if (!g) return;
 
@@ -761,24 +752,47 @@ export default function UserListPage() {
       if (!userListCacheRef.current.has(groupCacheKey)) {
         void fetchUsers(null, { silent: true, groupOnly: true });
       }
-      return;
-    }
+    },
+    [applyUserListCache, fetchUsers, me, selectedGroup],
+  );
 
-    const nextGroup = gid || null;
-    skipCompanyFetchEffectRef.current = true;
-    flushSync(() => {
-      if (nextGroup && nextGroup !== sel) setSelectedGroup(nextGroup);
-      setCompanyId(nextCompanyId);
-      applyUserListCache(nextCompanyId);
-    });
+  const onPickCompanyPill = useCallback(
+    (c, pillActive = false) => {
+      const nextCompanyId = Number(c?.id);
+      if (!nextCompanyId) return;
 
-    if (nextGroup) persistDashboardGroupFilter(nextGroup);
-    else persistDashboardGroupFilter(null);
-    persistDashboardFilterState(nextGroup, nextCompanyId, { allowGroupOnly: false });
-    notifyDashboardGroupFilterChanged(nextGroup, nextCompanyId);
+      const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      const sel = String(selectedGroup || "").trim().toUpperCase();
+      const isActive =
+        pillActive || (companyId != null && Number(companyId) === nextCompanyId);
+      if (isActive) {
+        clearCompanyPillSelection(c);
+        return;
+      }
 
-    void onSwitchCompany(c);
-  }, [applyUserListCache, companyId, fetchUsers, handlePickCompany, me, onSwitchCompany, selectedGroup]);
+      const nextGroup = gid || null;
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        if (nextGroup && nextGroup !== sel) setSelectedGroup(nextGroup);
+        setCompanyId(nextCompanyId);
+        applyUserListCache(nextCompanyId);
+      });
+
+      if (nextGroup) persistDashboardGroupFilter(nextGroup);
+      else persistDashboardGroupFilter(null);
+      persistDashboardFilterState(nextGroup, nextCompanyId, { allowGroupOnly: false });
+      notifyDashboardGroupFilterChanged(nextGroup, nextCompanyId);
+
+      void onSwitchCompany(c);
+    },
+    [
+      applyUserListCache,
+      clearCompanyPillSelection,
+      companyId,
+      onSwitchCompany,
+      selectedGroup,
+    ],
+  );
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
     const normalizedGroupId = String(selectedGroup || "").trim().toUpperCase();
@@ -1296,6 +1310,8 @@ export default function UserListPage() {
               pickerCompanyId={pickerCompanyId}
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={onPickCompanyPill}
+              onClearCompanyPill={clearCompanyPillSelection}
+              allowCompanyDeselect={!isCompanyLogin(me)}
               switchingCompany={false}
               showAllOption={false}
             />
