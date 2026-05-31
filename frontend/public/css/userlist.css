@@ -246,7 +246,7 @@ body.user-page .user-list-table .user-card.user-list-row {
 
 .user-list-table .user-list-table-header .header-item:nth-child(9),
 .user-list-table .user-list-row .card-item--action {
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 body.user-page.user-page--show-all {
