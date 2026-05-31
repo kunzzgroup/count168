@@ -84,7 +84,6 @@ export default function GcInlineFilterPanel({
                     type="button"
                     className={`user-gc-segment${active ? " is-on" : ""}${pending ? " is-pending" : ""}`}
                     onClick={() => {
-                      if (switchingCompany) return;
                       void onPickCompany?.(c);
                     }}
                   >

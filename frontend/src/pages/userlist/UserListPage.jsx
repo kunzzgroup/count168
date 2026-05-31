@@ -106,6 +106,12 @@ function resolveGroupIdFromEntityCompanyId(companies, entityCompanyId) {
   return gid || null;
 }
 
+function resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup) {
+  const normalizedGroupId = String(selectedGroup || "").trim().toUpperCase();
+  const useGroupScopedAccounts = groupOnlyUserList && normalizedGroupId !== "";
+  return useGroupScopedAccounts ? `group:${normalizedGroupId}` : `company:${String(scopeCompanyId || "")}`;
+}
+
 export default function UserListPage() {
   const navigate = useNavigate();
   const { me, sessionReady } = useAuthSession();
@@ -118,7 +124,6 @@ export default function UserListPage() {
   const [companyId, setCompanyId] = useState(null);
   const [usersRaw, setUsersRaw] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
-  const [switchingCompany, setSwitchingCompany] = useState(false);
   const [pendingCompanyId, setPendingCompanyId] = useState(null);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -135,6 +140,8 @@ export default function UserListPage() {
   const toastTimerRef = useRef(null);
   const pendingDeleteRef = useRef(null);
   const listFetchAbortRef = useRef(null);
+  const skipCompanyFetchEffectRef = useRef(false);
+  const companySessionAbortRef = useRef(null);
   const modalCompaniesCacheRef = useRef([]);
   const modalAccessCacheRef = useRef(new Map());
   const modalAccessPendingRef = useRef(new Map());
@@ -270,6 +277,8 @@ export default function UserListPage() {
     return groupScopedModalCompanies;
   }, [groupOnlyUserList, companies, me, groupScopedModalCompanies]);
   const pickerCompanyId = pendingCompanyId ?? companyId;
+  const isCompanySwitchPending =
+    pendingCompanyId != null && Number(pendingCompanyId) !== Number(companyId);
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
     return sortUsers(f, sortColumn, sortDirection);
@@ -293,7 +302,7 @@ export default function UserListPage() {
     return filteredSorted.slice(start, start + PAGE_SIZE);
   }, [filteredSorted, currentPage, showAll]);
 
-  const listBusy = tableLoading || switchingCompany;
+  const listBusy = tableLoading;
 
   const permDisabledMap = useMemo(() => {
     const allowed = new Set(getCurrentUserRolePermissions(currentUserRole));
@@ -432,28 +441,48 @@ export default function UserListPage() {
 
   const onSwitchCompany = async (c) => {
     const nextCompanyId = Number(c?.id);
-    if (!nextCompanyId || switchingCompany) {
-      return;
-    }
+    if (!nextCompanyId) return;
+    if (Number(companyId) === nextCompanyId && pendingCompanyId == null) return;
+
+    companySessionAbortRef.current?.abort();
+    const ac = new AbortController();
+    companySessionAbortRef.current = ac;
+
     setPendingCompanyId(nextCompanyId);
-    setSwitchingCompany(true);
+    setUsersRaw([]);
     setTableLoading(true);
+
     try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), { credentials: "include" });
+      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextCompanyId}`), {
+        credentials: "include",
+        signal: ac.signal,
+      });
       const json = await res.json();
+      if (ac.signal.aborted) return;
       if (!json.success) {
         notifyApi(json.error || json.message, "couldNotSwitchCompany", "danger");
-        setTableLoading(false);
+        setPendingCompanyId(null);
+        if (companyId != null) await fetchUsers(companyId);
+        else setTableLoading(false);
         return;
       }
+      skipCompanyFetchEffectRef.current = true;
       setCompanyId(nextCompanyId);
       notifyCompanySessionUpdated();
-    } catch {
+      await fetchUsers(nextCompanyId);
+    } catch (e) {
+      if (ac.signal.aborted) return;
       notify(t("companySwitchFailed"), "danger");
-      setTableLoading(false);
-    } finally {
       setPendingCompanyId(null);
-      setSwitchingCompany(false);
+      if (companyId != null) await fetchUsers(companyId);
+      else setTableLoading(false);
+    } finally {
+      if (companySessionAbortRef.current === ac) {
+        companySessionAbortRef.current = null;
+      }
+      if (!ac.signal.aborted) {
+        setPendingCompanyId(null);
+      }
     }
   };
 
@@ -474,7 +503,7 @@ export default function UserListPage() {
     setSelectedGroup,
     onSelectCompany: onSwitchCompany,
     onClearCompany: handleClearCompany,
-    switchingCompany,
+    switchingCompany: false,
     preferredCompanyId: companyId,
     me,
   });
@@ -484,11 +513,12 @@ export default function UserListPage() {
     [groupsAllMode, groupAllMode, companyId],
   );
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (companyIdOverride = null) => {
     if (!me) return;
+    const activeCompanyId = companyIdOverride ?? companyId;
     if (!aggregateUserList && groupOnlyUserList) {
       if (!selectedGroup) return;
-    } else if (!aggregateUserList && !companyId) {
+    } else if (!aggregateUserList && activeCompanyId == null) {
       return;
     }
     listFetchAbortRef.current?.abort();
@@ -503,8 +533,8 @@ export default function UserListPage() {
         if (selectedGroup && !groupsAllMode) body.group_id = selectedGroup;
       } else if (groupOnlyUserList && selectedGroup) {
         body.group_id = selectedGroup;
-      } else if (companyId != null) {
-        body.company_id = Number(companyId);
+      } else if (activeCompanyId != null) {
+        body.company_id = Number(activeCompanyId);
       }
       const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
         method: "POST",
@@ -564,7 +594,13 @@ export default function UserListPage() {
   ]);
 
   useEffect(() => {
-    if (!bootLoading && me && (isListScopeReady || groupOnlyUserList)) void fetchUsers();
+    if (!bootLoading && me && (isListScopeReady || groupOnlyUserList)) {
+      if (skipCompanyFetchEffectRef.current) {
+        skipCompanyFetchEffectRef.current = false;
+        return;
+      }
+      void fetchUsers();
+    }
   }, [bootLoading, companyId, groupOnlyUserList, aggregateUserList, isListScopeReady, me, fetchUsers]);
 
   const onPickGroupPill = useCallback(
@@ -586,13 +622,13 @@ export default function UserListPage() {
   const onPickCompanyPill = useCallback(
     async (c) => {
       const nextCompanyId = Number(c?.id);
-      if (!nextCompanyId || switchingCompany) return;
+      if (!nextCompanyId) return;
       if (Number(companyId) !== nextCompanyId) {
         setPendingCompanyId(nextCompanyId);
       }
       await handlePickCompany(c);
     },
-    [companyId, switchingCompany, handlePickCompany]
+    [companyId, handlePickCompany]
   );
 
   const fetchModalAccountsProcesses = useCallback(async (cid, force = false) => {
@@ -650,10 +686,13 @@ export default function UserListPage() {
 
   useEffect(() => {
     if (!bootLoading && scopeCompanyId && me) {
-      if (!modalAccessCacheRef.current.has(String(scopeCompanyId))) setModalAccessReadyCompanyId(null);
+      const cacheKey = resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup);
+      if (!modalAccessCacheRef.current.has(cacheKey)) {
+        setModalAccessReadyCompanyId(null);
+      }
       void fetchModalAccountsProcesses(scopeCompanyId);
     }
-  }, [bootLoading, scopeCompanyId, me, fetchModalAccountsProcesses]);
+  }, [bootLoading, scopeCompanyId, me, fetchModalAccountsProcesses, groupOnlyUserList, selectedGroup]);
 
   useEffect(() => {
     modalCompaniesCacheRef.current = modalPickerCompanies;
@@ -1122,7 +1161,7 @@ export default function UserListPage() {
               pickerCompanyId={pickerCompanyId}
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={onPickCompanyPill}
-              switchingCompany={switchingCompany}
+              switchingCompany={isCompanySwitchPending}
               showAllOption={false}
             />
           </div>
