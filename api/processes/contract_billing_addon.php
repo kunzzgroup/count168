@@ -245,3 +245,47 @@ function sumMonthlyAnniversaryInclusiveRangeAmounts(
         'profit' => money_normalize($tf, 2),
     ];
 }
+
+/** Monthly 对日对月：从锚点 day_start 起一期的 inclusive 结束日（anchor+1月-1日）。 */
+function billingMonthlyAnniversaryPeriodEndFromAnchor(string $anchorYmd): ?string
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+        return null;
+    }
+    try {
+        return (new DateTimeImmutable($anchorYmd))->modify('+1 month')->modify('-1 day')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** Resend Monthly + day_start/day_end：day_end 须为从 day_start 起第 1/2/3… 期的标准结束日。 */
+function billingMonthlyResendRangeComplete(string $dayStartYmd, string $dayEndYmd): bool
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStartYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayEndYmd)) {
+        return false;
+    }
+    if ($dayEndYmd < $dayStartYmd) {
+        return false;
+    }
+    try {
+        $anchor = new DateTimeImmutable($dayStartYmd);
+    } catch (Throwable $e) {
+        return false;
+    }
+    for ($i = 0; $i < 600; $i++) {
+        $periodEnd = billingMonthlyAnniversaryPeriodEndFromAnchor($anchor->format('Y-m-d'));
+        if ($periodEnd === null) {
+            return false;
+        }
+        if ($dayEndYmd === $periodEnd) {
+            return true;
+        }
+        if ($dayEndYmd < $periodEnd) {
+            return false;
+        }
+        $anchor = (new DateTimeImmutable($periodEnd))->modify('+1 day');
+    }
+
+    return false;
+}
