@@ -1,7 +1,9 @@
 <?php
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/permissions.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -25,8 +27,13 @@ function jsonResponse(bool $success, string $message = '', $data = null): void
 
 function bankProcessHasColumn(PDO $pdo, string $column): bool
 {
-    static $cache = [];
-    if (array_key_exists($column, $cache)) return $cache[$column];
+    $cache = &$GLOBALS['__bank_process_column_exists_cache'];
+    if (!is_array($cache)) {
+        $cache = [];
+    }
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
     try {
         $stmt = $pdo->prepare("SHOW COLUMNS FROM bank_process LIKE ?");
         $stmt->execute([$column]);
@@ -242,7 +249,7 @@ if ($req_company_id) {
     // Actions that are strictly for 'Bank' category
     $bankOnlyActions = [
         'get_banks_by_country', 'get_countries', 'add_country', 'remove_country',
-        'save_country_banks', 'get_selected_countries', 'save_selected_countries', 
+        'save_country_banks', 'remove_bank', 'get_selected_countries', 'save_selected_countries',
         'get_selected_banks', 'save_selected_banks', 'update_bank_process'
     ];
 
@@ -262,6 +269,10 @@ if ($req_company_id) {
     }
 }
 // --- END DATA-LEVEL CATEGORY PERMISSION VALIDATION ---
+
+if (isset($pdo) && $pdo instanceof PDO) {
+    ensureBankProcessDayEndMonthlyCapEnabledColumn($pdo);
+}
 
 switch ($action) {
     case 'get_process':
@@ -284,6 +295,9 @@ switch ($action) {
         break;
     case 'save_country_banks':
         saveCountryBanks();
+        break;
+    case 'remove_bank':
+        removeBank();
         break;
     case 'get_selected_countries':
         getSelectedCountries();
@@ -540,6 +554,11 @@ function updateProcess() {
     global $pdo;
     
     try {
+        if (is_partnership_audit_read_only_active($pdo)) {
+            jsonResponse(false, '只读账号无法执行此操作', null);
+            return;
+        }
+
         // Bank 类别：更新 bank_process 表
         if (isset($_POST['permission']) && $_POST['permission'] === 'Bank') {
             updateBankProcess();
@@ -813,22 +832,49 @@ function getBankProcesses() {
         $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
         $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
+        $hasDayEndMonthlyCapColumn = bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled');
+        $dayEndMonthlyCapSelect = $hasDayEndMonthlyCapColumn ? "bp.day_end_monthly_cap_enabled" : "0 AS day_end_monthly_cap_enabled";
         $hasTxnSubquery = $hasSourceBankProcessId
             ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
             : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
         $resendPendingSelect = $hasResendPendingTable
             ? "(EXISTS (SELECT 1 FROM bank_process_maintenance_resend_pending rp WHERE rp.company_id = bp.company_id AND rp.bank_process_id = bp.id)) AS maintenance_resend_pending"
             : "0 AS maintenance_resend_pending";
-        $resendTodayDayStartLockedSelect = $hasResendDailyGuardTable
-            ? "(EXISTS (SELECT 1 FROM bank_process_accounting_resend_daily_guard rg WHERE rg.company_id = bp.company_id AND rg.bank_process_id = bp.id AND rg.resend_day_start = CURDATE() AND rg.guard_date = CURDATE())) AS resend_today_day_start_locked"
-            : "0 AS resend_today_day_start_locked";
-        $resendGuardDayStartsTodaySelect = $hasResendDailyGuardTable
+        $resendTodayDayStartLockedSelect = $hasResendDailyGuardTable && $hasSourceBankProcessId
+            ? "(EXISTS (
+                SELECT 1 FROM bank_process_accounting_resend_daily_guard rg
+                INNER JOIN transactions t ON t.source_bank_process_id = bp.id
+                  AND DATE(t.transaction_date) = rg.resend_day_start
+                INNER JOIN account a ON t.account_id = a.id
+                INNER JOIN account_company ac ON a.id = ac.account_id AND ac.company_id = bp.company_id
+                WHERE rg.company_id = bp.company_id
+                  AND rg.bank_process_id = bp.id
+                  AND rg.guard_date = CURDATE()
+                LIMIT 1
+              )) AS resend_today_day_start_locked"
+            : ($hasResendDailyGuardTable
+                ? "(EXISTS (SELECT 1 FROM bank_process_accounting_resend_daily_guard rg WHERE rg.company_id = bp.company_id AND rg.bank_process_id = bp.id AND rg.guard_date = CURDATE())) AS resend_today_day_start_locked"
+                : "0 AS resend_today_day_start_locked");
+        $resendGuardDayStartsTodaySelect = $hasResendDailyGuardTable && $hasSourceBankProcessId
             ? "(SELECT GROUP_CONCAT(DISTINCT DATE_FORMAT(rg2.resend_day_start, '%Y-%m-%d') ORDER BY rg2.resend_day_start SEPARATOR ',')
                 FROM bank_process_accounting_resend_daily_guard rg2
                WHERE rg2.company_id = bp.company_id
                  AND rg2.bank_process_id = bp.id
-                 AND rg2.guard_date = CURDATE()) AS resend_guard_day_starts_today"
-            : "'' AS resend_guard_day_starts_today";
+                 AND rg2.guard_date = CURDATE()
+                 AND EXISTS (
+                   SELECT 1 FROM transactions t2
+                   INNER JOIN account a2 ON t2.account_id = a2.id
+                   INNER JOIN account_company ac2 ON a2.id = ac2.account_id AND ac2.company_id = bp.company_id
+                   WHERE t2.source_bank_process_id = bp.id
+                     AND DATE(t2.transaction_date) = rg2.resend_day_start
+                 )) AS resend_guard_day_starts_today"
+            : ($hasResendDailyGuardTable
+                ? "(SELECT GROUP_CONCAT(DISTINCT DATE_FORMAT(rg2.resend_day_start, '%Y-%m-%d') ORDER BY rg2.resend_day_start SEPARATOR ',')
+                    FROM bank_process_accounting_resend_daily_guard rg2
+                   WHERE rg2.company_id = bp.company_id
+                     AND rg2.bank_process_id = bp.id
+                     AND rg2.guard_date = CURDATE()) AS resend_guard_day_starts_today"
+                : "'' AS resend_guard_day_starts_today");
         $issueFlagSql = getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn);
         $issueFlagSelect = $hasAnyIssueFlagColumn ? $issueFlagSql . " AS issue_flag" : "NULL AS issue_flag";
         $normalizedIssueFlagSql = $hasAnyIssueFlagColumn
@@ -856,6 +902,7 @@ function getBankProcesses() {
                     bp.day_start,
                     bp.day_start_frequency,
                     bp.day_end,
+                    $dayEndMonthlyCapSelect,
                     bp.status,
                     $issueFlagSelect,
                     bp.dts_modified,
@@ -955,6 +1002,7 @@ function getBankProcesses() {
                 'day_start' => $r['day_start'] ?? null,
                 'day_start_frequency' => $r['day_start_frequency'] ?? '1st_of_every_month',
                 'day_end' => $r['day_end'] ?? null,
+                'day_end_monthly_cap_enabled' => ((int)($r['day_end_monthly_cap_enabled'] ?? 0)) === 1 ? '1' : '0',
                 'has_transactions' => ((int)($r['has_transactions'] ?? 0)) > 0,
                 'maintenance_resend_pending' => ((int) ($r['maintenance_resend_pending'] ?? 0)) === 1,
                 'resend_today_day_start_locked' => ((int) ($r['resend_today_day_start_locked'] ?? 0)) === 1,
@@ -985,15 +1033,17 @@ function getBankProcess() {
             return;
         }
         $hasSopColumn = bankProcessHasColumn($pdo, 'sop');
+        $hasDayEndTailSwitchCol = bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled');
         $hasIssueFlagColumn = bankProcessHasColumn($pdo, 'issue_flag');
         $hasFlagColumn = bankProcessHasColumn($pdo, 'flag');
         $hasAnyIssueFlagColumn = $hasIssueFlagColumn || $hasFlagColumn;
         $sopSelect = $hasSopColumn ? "bp.sop" : "NULL AS sop";
         $issueFlagSelect = $hasAnyIssueFlagColumn ? getBankProcessIssueFlagSql('bp', $hasIssueFlagColumn, $hasFlagColumn) . " AS issue_flag" : "NULL AS issue_flag";
+        $dayEndMonthlyCapSelect = $hasDayEndTailSwitchCol ? "bp.day_end_monthly_cap_enabled" : "0 AS day_end_monthly_cap_enabled";
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
                 bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance, bp.remark, $sopSelect,
-                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status, $issueFlagSelect,
+                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, $dayEndMonthlyCapSelect, bp.status, $issueFlagSelect,
                 bp.dts_modified, bp.dts_created,
                 a_cm.account_id as card_merchant_account_id, a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
                 a_pa.account_id as profit_account_account_id, a_pa.name as profit_account_name
@@ -1035,6 +1085,7 @@ function getBankProcess() {
             'day_start' => $process['day_start'],
             'day_start_frequency' => $process['day_start_frequency'] ?? '1st_of_every_month',
             'day_end' => $process['day_end'] ?? null,
+            'day_end_monthly_cap_enabled' => ((int)($process['day_end_monthly_cap_enabled'] ?? 0)) === 1 ? '1' : '0',
             'status' => $process['status'],
             'issue_flag' => normalizeBankIssueFlagValue($process['issue_flag'] ?? null),
             'dts_modified' => $process['dts_modified'],
@@ -1085,10 +1136,13 @@ function updateBankProcess() {
         $price = money_optional($_POST['price'] ?? null);
         $profit = money_optional($_POST['profit'] ?? null);
         $profit_sharing = $_POST['profit_sharing'] ?? null;
-        $day_start = isset($_POST['day_start']) ? trim((string)$_POST['day_start']) : '';
-        $day_end = isset($_POST['day_end']) ? trim((string)$_POST['day_end']) : '';
-        $day_start_frequency = isset($_POST['day_start_frequency']) ? trim((string)$_POST['day_start_frequency']) : '1st_of_every_month';
-        if ($day_start_frequency !== 'monthly') {
+        $day_start_raw = $_POST['day_start'] ?? '';
+        $day_start = trim((string)(is_array($day_start_raw) ? (string)end($day_start_raw) : $day_start_raw));
+        $day_end_raw = $_POST['day_end'] ?? '';
+        $day_end = trim((string)(is_array($day_end_raw) ? (string)end($day_end_raw) : $day_end_raw));
+        $day_start_frequency_raw = $_POST['day_start_frequency'] ?? '1st_of_every_month';
+        $day_start_frequency = trim((string)(is_array($day_start_frequency_raw) ? (string)end($day_start_frequency_raw) : $day_start_frequency_raw));
+        if (!in_array($day_start_frequency, ['monthly', 'once', '1st_of_every_month'], true)) {
             $day_start_frequency = '1st_of_every_month';
         }
         if ($day_start === '') {
@@ -1096,6 +1150,14 @@ function updateBankProcess() {
         }
         if ($day_end === '') {
             $day_end = null;
+        }
+        $day_end_cap_raw = $_POST['day_end_monthly_cap_enabled'] ?? null;
+        if (is_array($day_end_cap_raw)) {
+            $day_end_cap_raw = end($day_end_cap_raw);
+        }
+        $dayEndMonthlyCapEnabled = $day_end_cap_raw !== null && trim((string)$day_end_cap_raw) === '1';
+        if ($day_start_frequency !== '1st_of_every_month' || $day_end === null) {
+            $dayEndMonthlyCapEnabled = false;
         }
         $status = $_POST['status'] ?? 'active';
         if (!in_array($status, ['active', 'inactive', 'waiting'], true)) {
@@ -1106,6 +1168,7 @@ function updateBankProcess() {
         $modifiedByOwnerId = $isOwner ? ($_SESSION['owner_id'] ?? null) : null;
         $currentUserId = $isOwner ? null : getCurrentUserId($pdo);
         $hasSopColumn = bankProcessHasColumn($pdo, 'sop');
+        $hasDayEndTailSwitchCol = bankProcessHasColumn($pdo, 'day_end_monthly_cap_enabled');
         $sql = "UPDATE bank_process SET 
             country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?, profit_account_id=?,
             contract=?, insurance=?, ";
@@ -1117,12 +1180,23 @@ function updateBankProcess() {
             $sql .= "sop=?, ";
             $params[] = $sop;
         }
-        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, day_start_frequency=?, status=?,
+        $sql .= "remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, day_start_frequency=?";
+        if ($hasDayEndTailSwitchCol) {
+            $sql .= ", day_end_monthly_cap_enabled=?";
+        }
+        $sql .= ", status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?";
         array_push(
             $params,
-            $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $day_start_frequency, $status,
+            $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $day_start_frequency
+        );
+        if ($hasDayEndTailSwitchCol) {
+            $params[] = $dayEndMonthlyCapEnabled ? 1 : 0;
+        }
+        array_push(
+            $params,
+            $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         );
         $stmt = $pdo->prepare($sql);
@@ -1143,6 +1217,95 @@ function updateBankProcess() {
 /**
  * 按 Country 获取该 Country 下的 Bank 列表（用于 Bank 下拉联动）
  */
+/**
+ * Ensure account-list currency row exists for a bank-process country/currency code.
+ * Keeps Add Account → Other Currency in sync when countries are added on Bank Process.
+ */
+function ensureCompanyCurrencyCode(PDO $pdo, int $companyId, string $code): ?array
+{
+    $code = strtoupper(trim($code));
+    if ($code === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare("SELECT id, code FROM currency WHERE code = ? AND company_id = ?");
+    $stmt->execute([$code, $companyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        return ['id' => (int) $row['id'], 'code' => (string) $row['code']];
+    }
+    $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
+    $stmt->execute([$code, $companyId]);
+    return ['id' => (int) $pdo->lastInsertId(), 'code' => $code];
+}
+
+/**
+ * Sync all given country codes into the currency table for the company.
+ */
+function ensureCompanyCurrencyCodes(PDO $pdo, int $companyId, array $codes): void
+{
+    foreach ($codes as $code) {
+        ensureCompanyCurrencyCode($pdo, $companyId, (string) $code);
+    }
+}
+
+/**
+ * Remove matching currency row when a bank-process country is deleted.
+ * Skips delete when any account in the company still links to the currency.
+ *
+ * @return array{deleted: bool, id: int|null, blocked: bool}
+ */
+function deleteCompanyCurrencyCode(PDO $pdo, int $companyId, string $code): array
+{
+    $code = strtoupper(trim($code));
+    $result = ['deleted' => false, 'id' => null, 'blocked' => false];
+    if ($code === '') {
+        return $result;
+    }
+
+    $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
+    $stmt->execute([$code, $companyId]);
+    $id = $stmt->fetchColumn();
+    if (!$id) {
+        return $result;
+    }
+    $id = (int) $id;
+    $result['id'] = $id;
+
+    try {
+        $chk = $pdo->query("SHOW TABLES LIKE 'account_currency'");
+        if ($chk && $chk->rowCount() > 0) {
+            $chkAc = $pdo->query("SHOW TABLES LIKE 'account_company'");
+            if ($chkAc && $chkAc->rowCount() > 0) {
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(DISTINCT ac.account_id)
+                    FROM account_currency ac
+                    INNER JOIN account_company acc ON ac.account_id = acc.account_id
+                    WHERE ac.currency_id = ? AND acc.company_id = ?
+                ");
+                $stmt->execute([$id, $companyId]);
+                if ((int) $stmt->fetchColumn() > 0) {
+                    $result['blocked'] = true;
+                    return $result;
+                }
+            } else {
+                $stmt = $pdo->prepare("SELECT COUNT(DISTINCT account_id) FROM account_currency WHERE currency_id = ?");
+                $stmt->execute([$id]);
+                if ((int) $stmt->fetchColumn() > 0) {
+                    $result['blocked'] = true;
+                    return $result;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('deleteCompanyCurrencyCode usage check: ' . $e->getMessage());
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM currency WHERE id = ? AND company_id = ?");
+    $stmt->execute([$id, $companyId]);
+    $result['deleted'] = $stmt->rowCount() > 0;
+    return $result;
+}
+
 /**
  * Get all countries for the current company (from country_bank + company_countries).
  * Used to populate Country dropdown. Accepts company_id from GET to scope by selected company (like account-list currency).
@@ -1202,7 +1365,8 @@ function addCountry() {
         }
         $stmt = $pdo->prepare("INSERT IGNORE INTO company_countries (company_id, country) VALUES (?, ?)");
         $stmt->execute([$companyId, $country]);
-        jsonResponse(true, 'Saved', null);
+        $currency = ensureCompanyCurrencyCode($pdo, $companyId, $country);
+        jsonResponse(true, 'Saved', $currency);
     } catch (Exception $e) {
         error_log("addCountry: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
@@ -1237,9 +1401,61 @@ function removeCountry() {
         }
         $stmt = $pdo->prepare("DELETE FROM company_countries WHERE company_id = ? AND country = ?");
         $stmt->execute([$companyId, $country]);
-        jsonResponse(true, 'Removed', ['deleted' => (int) $stmt->rowCount()]);
+        $companyCountriesDeleted = (int) $stmt->rowCount();
+
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'company_selected_countries'");
+            if ($chk && $chk->rowCount() > 0) {
+                $delSel = $pdo->prepare("DELETE FROM company_selected_countries WHERE company_id = ? AND country = ?");
+                $delSel->execute([$companyId, $country]);
+            }
+        } catch (Throwable $e) {
+            error_log('removeCountry selected countries: ' . $e->getMessage());
+        }
+
+        $currencyResult = deleteCompanyCurrencyCode($pdo, $companyId, $country);
+        jsonResponse(true, 'Removed', [
+            'deleted' => $companyCountriesDeleted,
+            'currency_id' => $currencyResult['id'],
+            'currency_deleted' => $currencyResult['deleted'],
+            'currency_blocked' => $currencyResult['blocked'],
+        ]);
     } catch (Exception $e) {
         error_log("removeCountry: " . $e->getMessage());
+        jsonResponse(false, $e->getMessage(), null);
+    }
+}
+
+/**
+ * Remove a bank row from country_bank for the given company and country.
+ */
+function removeBank() {
+    global $pdo;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        jsonResponse(false, 'Method not allowed', null);
+        return;
+    }
+    try {
+        $companyId = isset($_POST['company_id']) && $_POST['company_id'] !== '' ? (int)$_POST['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$companyId) {
+            jsonResponse(false, 'Company not found', null);
+            return;
+        }
+        if (!checkCompanyAccess($pdo, $companyId)) {
+            jsonResponse(false, '无权限访问该公司', null);
+            return;
+        }
+        $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
+        $bank = isset($_POST['bank']) ? trim((string)$_POST['bank']) : '';
+        if ($country === '' || $bank === '') {
+            jsonResponse(false, 'Country and bank are required', null);
+            return;
+        }
+        $stmt = $pdo->prepare("DELETE FROM country_bank WHERE company_id = ? AND country = ? AND bank = ?");
+        $stmt->execute([$companyId, $country, $bank]);
+        jsonResponse(true, 'Removed', ['deleted' => (int) $stmt->rowCount()]);
+    } catch (Exception $e) {
+        error_log("removeBank: " . $e->getMessage());
         jsonResponse(false, $e->getMessage(), null);
     }
 }
@@ -1395,6 +1611,7 @@ function saveSelectedCountries() {
                 $ins->execute([$companyId, $country, $i]);
             }
             $pdo->commit();
+            ensureCompanyCurrencyCodes($pdo, $companyId, $countries);
             jsonResponse(true, 'Saved', null);
         } catch (Exception $e) {
             $pdo->rollBack();

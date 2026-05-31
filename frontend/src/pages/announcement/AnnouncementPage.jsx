@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
-import { getAnnouncementText } from "../../translateFile/announcementTranslate.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import { getAnnouncementText } from "../../translateFile/pages/announcementTranslate.js";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/announcement.css";
 
@@ -9,13 +9,15 @@ import "../../../public/css/announcement.css";
 import { AnnouncementToast, AnnouncementConfirmModal } from "./components/AnnouncementCommon.jsx";
 import { EditAnnouncementModal, EditMaintenanceModal } from "./components/AnnouncementModals.jsx";
 import { AnnouncementPanel, MaintenancePanel } from "./components/AnnouncementPanels.jsx";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { canAccessC168DomainPages } from "../../utils/company/loginScope.js";
 
 export default function AnnouncementPage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getAnnouncementText(lang, key, params), [lang]);
 
-  const [ready, setReady] = useState(false);
   const [activeTab, setActiveTab] = useState("announcement");
   const [notices, setNotices] = useState([]);
 
@@ -86,22 +88,24 @@ export default function AnnouncementPage() {
   }, [showNotice, t]);
 
   useEffect(() => {
+    if (!sessionReady || !me) return;
+
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const json = await res.json();
-        if (cancelled) return;
-        if (!res.ok || !json.success || !json.data) { navigate("/login", { replace: true }); return; }
-        if (!json.data.has_c168_domain_page_access) { navigate("/dashboard", { replace: true }); return; }
+        if (!canAccessC168DomainPages(me)) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
         await Promise.all([loadAnnouncements(), loadMaintenance()]);
-        if (!cancelled) setReady(true);
-      } catch { if (!cancelled) navigate("/login", { replace: true }); }
+      } catch {
+        if (!cancelled) navigate("/login", { replace: true });
+      }
     })();
-    return () => { cancelled = true; };
-  }, [navigate, loadAnnouncements, loadMaintenance]);
-
-  if (!ready) return null;
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate, loadAnnouncements, loadMaintenance]);
 
   // Handlers
   function handleAnnouncementEdit(item) {
@@ -174,13 +178,11 @@ export default function AnnouncementPage() {
     <>
       <div className="container announcement-page-container">
         <div className="page-header">
-          <h1>{t("pageTitle")}</h1>
           <div className="page-tabs">
             <button type="button" className={`page-tab${activeTab === "announcement" ? " active" : ""}`} onClick={() => setActiveTab("announcement")}>{t("announcementTab")}</button>
             <button type="button" className={`page-tab${activeTab === "maintenance" ? " active" : ""}`} onClick={() => setActiveTab("maintenance")}>{t("maintenanceTab")}</button>
           </div>
         </div>
-        <div className="separator-line" />
         {activeTab === "announcement" && <AnnouncementPanel t={t} announcements={announcements} onEdit={handleAnnouncementEdit} onDelete={handleAnnouncementDelete} />}
         {activeTab === "maintenance" && <MaintenancePanel t={t} maintenanceList={maintenanceList} onEdit={handleMaintenanceEdit} onDelete={handleMaintenanceDelete} />}
       </div>

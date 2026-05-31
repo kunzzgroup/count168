@@ -1,30 +1,63 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenanceStylesheets.js";
-import { injectStylesheet } from "../../../utils/injectStylesheet.js";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
+import { injectStylesheet } from "../../../utils/core/injectStylesheet.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import {
+  isDashboardGroupOnlyMode,
+  persistDashboardFilterState,
+  resolveBootCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../../utils/company/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/userlist.css";
+import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/date-range-picker.css";
+import "../../../../public/css/customer_report.css";
+import "../../../../public/css/report-outlined-fields.css";
 import "../../../../public/css/bankprocess_maintenance.css";
+import "../../../../public/css/maintenance_notifications.css";
 import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFilters.jsx";
 import BankprocessMaintenanceTable from "./components/BankprocessMaintenanceTable.jsx";
-import BankprocessDeleteModal from "./components/BankprocessDeleteModal.jsx";
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import {
   deleteBankprocessData,
   fetchCompanyCurrencies,
   fetchCompanyPermissions,
   formatDmy,
+  isBankprocessMaintenanceRowSelectable,
   searchBankprocessData,
+  toggleBankprocessMaintenanceBatchSelection,
   updateSessionCompany,
 } from "./bankprocessMaintenanceLogic.js";
+import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
+
+/** Dedupe empty-result toast (Strict Mode remount + back-to-back searches with same filters). */
+const bankprocessNoDataToastKeys = new Set();
+const MAX_NO_DATA_TOAST_KEYS = 64;
+
+function consumeNoDataToastDedupeKey(key) {
+  if (!key || bankprocessNoDataToastKeys.has(key)) return false;
+  bankprocessNoDataToastKeys.add(key);
+  while (bankprocessNoDataToastKeys.size > MAX_NO_DATA_TOAST_KEYS) {
+    const first = bankprocessNoDataToastKeys.values().next().value;
+    bankprocessNoDataToastKeys.delete(first);
+  }
+  return true;
+}
 
 export default function BankprocessMaintenancePage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
+  const lang = useLoginLang();
+  const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
+  const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [companyCode, setCompanyCode] = useState("");
@@ -32,11 +65,16 @@ export default function BankprocessMaintenancePage() {
   const [permissions, setPermissions] = useState([]);
   const [selectedPermission, setSelectedPermission] = useState("");
   const [currencies, setCurrencies] = useState([]);
-  const [selectedCurrency, setSelectedCurrency] = useState(null);
+  /** true = omit currency API param — all company currencies */
+  const [allCurrenciesSelected, setAllCurrenciesSelected] = useState(false);
+  const [selectedCurrencies, setSelectedCurrencies] = useState([]);
+  const [currenciesReady, setCurrenciesReady] = useState(false);
   const [query, setQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [rows, setRows] = useState([]);
+  const [bankprocessListEpoch, setBankprocessListEpoch] = useState(0);
+  const [bankprocessDataSourceCompanyId, setBankprocessDataSourceCompanyId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -46,15 +84,21 @@ export default function BankprocessMaintenancePage() {
   const [datePickerScriptReady, setDatePickerScriptReady] = useState(false);
   const today = useMemo(() => formatDmy(new Date()), []);
   const currentCompanyIdRef = useRef(null);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const initialBankprocessSearchDoneRef = useRef(false);
+  const searchSeqRef = useRef(0);
+  const searchAbortRef = useRef(null);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now() + Math.random();
     setToasts((prev) => {
+      if (prev.some(t => t.message === message)) return prev;
       const next = [...prev, { id, message, type }];
       return next.length > 2 ? next.slice(1) : next;
     });
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
+      setToasts((prev) => prev.filter((item) => item.id !== id));
     }, 2000);
   }, []);
 
@@ -94,13 +138,10 @@ export default function BankprocessMaintenancePage() {
     const setup = async () => {
       removeOtherMaintenanceStylesheets("bankprocess_maintenance.css");
       const links = [
-        "https://fonts.googleapis.com/css?family=Amaranth",
-        "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
+        "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
         "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
       ];
       await Promise.all(links.map((href) => injectStylesheet(href, { promoteToEnd: true }).catch(() => null)));
-      ensureMaintenanceDateRangePicker();
-      setDatePickerScriptReady(true);
     };
 
     setup().catch(() => null);
@@ -125,38 +166,27 @@ export default function BankprocessMaintenancePage() {
   }, [today]);
 
   useEffect(() => {
-    if (!datePickerScriptReady || bootLoading || !me) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    // Wait until current paint completes so picker nodes exist for binding.
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [datePickerScriptReady, bootLoading, me]);
+    if (bootLoading || !me) return;
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectDateRange"),
+      selectEndDateHint: t("selectEndDate"),
+      monthLabels: m.monthsShort,
+    });
+  }, [bootLoading, me, lang, t, m]);
 
   useEffect(() => {
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
+    setBootLoading(true);
     (async () => {
       try {
-        const [meRes, compRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const user = meJson.data;
+        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
+
+        const compJson = await compRes.json();
+        const compRows = Array.isArray(compJson?.data) ? compJson.data.filter((c) => c.company_id) : [];
+
+        const user = me;
         if (String(user.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
@@ -169,164 +199,313 @@ export default function BankprocessMaintenancePage() {
           return;
         }
 
-        const compJson = await compRes.json();
-        const compRows = Array.isArray(compJson?.data) ? compJson.data.filter((c) => c.company_id) : [];
-        setMe(user);
         setCompanies(compRows);
 
-        let initialCompanyId = user.company_id ? Number(user.company_id) : (compRows[0]?.id ? Number(compRows[0].id) : null);
-        if (initialCompanyId && !compRows.some((c) => Number(c.id) === Number(initialCompanyId))) {
-          initialCompanyId = compRows[0]?.id ? Number(compRows[0].id) : null;
+        let initialCompanyId = resolveBootCompanyId({
+          sessionCompanyId: user.company_id,
+          defaultRowId: compRows[0]?.id,
+        });
+        if (
+          initialCompanyId &&
+          !compRows.some((c) => Number(c.id) === Number(initialCompanyId))
+        ) {
+          initialCompanyId = resolveBootCompanyId({ defaultRowId: compRows[0]?.id });
+        }
+        const currentComp =
+          initialCompanyId != null
+            ? compRows.find((c) => Number(c.id) === Number(initialCompanyId))
+            : null;
+        const bootGroup = resolveInitialSelectedGroupFromSession(compRows, currentComp);
+        setSelectedGroup(bootGroup);
+        if (isDashboardGroupOnlyMode()) {
+          setCompanyId(null);
+          currentCompanyIdRef.current = null;
+          setCompanyCode("");
+          setCurrenciesReady(true);
+          return;
         }
         setCompanyId(initialCompanyId);
         currentCompanyIdRef.current = initialCompanyId;
-        const currentComp = compRows.find((c) => Number(c.id) === Number(initialCompanyId));
         setCompanyCode(currentComp?.company_id || "");
+        const code = currentComp?.company_id || "";
 
-        const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-        const groups = [...new Set(compRows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-        let selGroup = null;
-        if (savedGroup && groups.includes(savedGroup) && currentComp?.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
-          selGroup = savedGroup;
-        } else if (currentComp?.group_id) {
-          selGroup = String(currentComp.group_id).toUpperCase().trim();
+        // Fetch initial metadata here to ensure the first query starts with the correct selectedPermission
+        const [perms, currencyList] = await Promise.all([
+          fetchCompanyPermissions(code),
+          fetchCompanyCurrencies(initialCompanyId).catch(() => [])
+        ]);
+
+        setPermissions(perms);
+        const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+        if (savedPerm && perms.includes(savedPerm)) setSelectedPermission(savedPerm);
+        else setSelectedPermission(perms[0] || "");
+
+        setCurrencies(currencyList);
+        if (currencyList.length === 0) {
+          setAllCurrenciesSelected(true);
+          setSelectedCurrencies([]);
+        } else {
+          setAllCurrenciesSelected(false);
+          const myr = currencyList.find((x) => x.code === "MYR");
+          const pick = myr?.code || currencyList[0]?.code;
+          setSelectedCurrencies(pick ? [pick] : []);
         }
-        setSelectedGroup(selGroup);
-        if (selGroup) {
-          sessionStorage.setItem("dashboard_group_filter", selGroup);
+        setCurrenciesReady(true);
+
+        if (bootGroup) {
+          sessionStorage.setItem("dashboard_group_filter", bootGroup);
         } else {
           sessionStorage.removeItem("dashboard_group_filter");
         }
       } catch {
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, navigate, me]);
 
   useEffect(() => {
     if (bootLoading || !companyId || !companyCode) return;
+    let cancelled = false;
+    setCurrenciesReady(false);
     (async () => {
       const perms = await fetchCompanyPermissions(companyCode);
+      if (cancelled) return;
       setPermissions(perms);
       const saved = localStorage.getItem(`selectedPermission_${companyCode}`);
       if (saved && perms.includes(saved)) setSelectedPermission(saved);
       else setSelectedPermission(perms[0] || "");
 
       const currencyList = await fetchCompanyCurrencies(companyId).catch(() => []);
+      if (cancelled) return;
       setCurrencies(currencyList);
-      setSelectedCurrency((prev) => {
-        if (prev && currencyList.some((x) => x.code === prev)) return prev;
+      if (currencyList.length === 0) {
+        setAllCurrenciesSelected(true);
+        setSelectedCurrencies([]);
+      } else {
+        setAllCurrenciesSelected(false);
         const myr = currencyList.find((x) => x.code === "MYR");
-        return myr?.code || currencyList[0]?.code || null;
-      });
+        const pick = myr?.code || currencyList[0]?.code;
+        setSelectedCurrencies(pick ? [pick] : []);
+      }
+      setCurrenciesReady(true);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [bootLoading, companyId, companyCode]);
 
-  const searchData = useCallback(async (silent = false) => {
+  /** 与 Payment Maintenance 一致：筛选变更自动查询；seq + abort 避免重复 toast */
+  const performSearch = useCallback(async () => {
     if (!dateFrom || !dateTo) {
-      if (!silent) notify("Please select date range", "error");
+      notify(t("pleaseSelectDateRange"), "error");
       return;
     }
-    setLoading(true);
+    if (!companyId) return;
+    if (!currenciesReady) return;
+    if (!allCurrenciesSelected && selectedCurrencies.length === 0) return;
+
+    const searchCompanyId = Number(companyId);
+    const quietRefresh = initialBankprocessSearchDoneRef.current;
+
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    const seq = ++searchSeqRef.current;
+
+    if (!quietRefresh) setLoading(true);
+    setSelectedIds([]);
+
+    const currencyKey = allCurrenciesSelected ? "ALL" : selectedCurrencies.slice().sort().join(",");
+
     try {
-      const data = await searchBankprocessData({ dateFrom, dateTo, companyId, selectedCurrency, query });
+      const data = await searchBankprocessData({
+        dateFrom,
+        dateTo,
+        companyId,
+        currencyCodes: selectedCurrencies,
+        allCurrencies: allCurrenciesSelected,
+        query,
+        signal: controller.signal,
+      });
+      if (seq !== searchSeqRef.current) return;
+      if (searchCompanyId !== Number(currentCompanyIdRef.current)) return;
+
+      setBankprocessListEpoch((e) => e + 1);
       setRows(data);
+      setBankprocessDataSourceCompanyId(searchCompanyId);
       setHasSearched(true);
-      setSelectedIds([]);
-      if (!silent) {
-        if (data?.length) {
-          notify(`Found ${data.length} record(s)`, "success");
+      setConfirmDelete(false);
+      if (!quietRefresh) {
+        if (data.length > 0) {
+          notify(t("foundRecords", { n: data.length }), "success");
         } else {
-          notify("No bank process transactions found", "info");
+          const dedupeKey = `${searchCompanyId}|${dateFrom}|${dateTo}|${currencyKey}|${selectedPermission}|${query}|empty`;
+          if (consumeNoDataToastDedupeKey(dedupeKey)) {
+            notify(t("noDataAdjustSearch"), "info");
+          }
         }
       }
     } catch (err) {
+      if (err?.name === "AbortError" || seq !== searchSeqRef.current) return;
+      if (searchCompanyId !== Number(currentCompanyIdRef.current)) return;
+      setBankprocessListEpoch((e) => e + 1);
       setRows([]);
+      setBankprocessDataSourceCompanyId(null);
       setHasSearched(true);
-      if (!silent) notify(err.message || "Search failed", "error");
+      notify(err.message || t("searchFailed"), "error");
     } finally {
-      setLoading(false);
+      if (searchAbortRef.current === controller) {
+        searchAbortRef.current = null;
+      }
+      if (seq === searchSeqRef.current) {
+        initialBankprocessSearchDoneRef.current = true;
+        setLoading(false);
+      }
     }
-  }, [dateFrom, dateTo, companyId, selectedCurrency, query, notify]);
+  }, [
+    dateFrom,
+    dateTo,
+    companyId,
+    currenciesReady,
+    allCurrenciesSelected,
+    selectedCurrencies,
+    selectedPermission,
+    query,
+    notify,
+    t,
+  ]);
 
   useEffect(() => {
-    if (!bootLoading && companyId && selectedCurrency && dateFrom && dateTo) {
-      searchData(true);
-    }
-  }, [bootLoading, companyId, selectedCurrency, dateFrom, dateTo, selectedPermission, searchData]);
+    if (bootLoading || !companyId || !dateFrom || !dateTo || !currenciesReady) return;
+    if (!allCurrenciesSelected && selectedCurrencies.length === 0) return;
+    const h = setTimeout(() => {
+      void performSearch();
+    }, 0);
+    return () => clearTimeout(h);
+  }, [
+    bootLoading,
+    companyId,
+    currenciesReady,
+    allCurrenciesSelected,
+    selectedCurrencies,
+    dateFrom,
+    dateTo,
+    selectedPermission,
+    query,
+    performSearch,
+  ]);
+
+  useEffect(
+    () => () => {
+      searchAbortRef.current?.abort();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!selectedPermission || !companyCode) return;
     localStorage.setItem(`selectedPermission_${companyCode}`, selectedPermission);
   }, [selectedPermission, companyCode]);
 
+  const followGroupRef = useRef(() => {});
+
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setCompanyCode("");
+    setSelectedIds([]);
+    setRows([]);
+    setHasSearched(false);
+    currentCompanyIdRef.current = null;
+  }, []);
+
   const handleSwitchCompany = useCallback(async (targetCompany) => {
     if (!targetCompany?.id) return;
     const nextId = Number(targetCompany.id);
-    if (nextId === Number(currentCompanyIdRef.current)) return;
     try {
       await updateSessionCompany(nextId);
+      const newGroup = targetCompany.group_id
+        ? String(targetCompany.group_id).toUpperCase().trim()
+        : null;
       setCompanyId(nextId);
       setCompanyCode(targetCompany.company_id || "");
+      setSelectedGroup(newGroup);
+      persistDashboardFilterState(newGroup, nextId);
       currentCompanyIdRef.current = nextId;
+      followGroupRef.current();
       notifyCompanySessionUpdated();
-      notify(`Switched to ${targetCompany.company_id}`, "success");
+      notify(t("switchedTo", { company: targetCompany.company_id }), "success");
     } catch (err) {
-      notify(err.message || "Switch failed", "error");
+      notify(err.message || t("switchFailed"), "error");
     }
-  }, [notify]);
+  }, [notify, t]);
 
-  const onGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
+  const {
+    snapGroupIds: groupedIdsFromHook,
+    visibleCompanies,
+    handleGroupClick: onGroupClick,
+    handlePickCompany,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    groupsAllMode,
+    groupAllMode,
+    allowClearCompany,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: handleSwitchCompany,
+    onClearCompany: handleClearCompany,
+  });
+
+  followGroupRef.current = () => {};
+
+  const groupedIds = groupedIdsFromHook;
+
+  const toggleBankprocessCurrency = useCallback((code) => {
+    if (!code) return;
+    setAllCurrenciesSelected(false);
+    setSelectedCurrencies((prev) => {
+      const has = prev.includes(code);
+      if (has) {
+        const next = prev.filter((c) => c !== code);
+        return next.length > 0 ? next : prev;
+      }
+      return [...prev, code];
     });
-  };
+  }, []);
 
-  const visibleCompanies = useMemo(() => {
-    if (selectedGroup) {
-      return companies.filter((c) => String(c.group_id || "").toUpperCase().trim() === selectedGroup);
-    }
-    return companies.filter((c) => !String(c.group_id || "").trim());
-  }, [companies, selectedGroup]);
+  const selectAllBankprocessCurrencies = useCallback(() => {
+    setAllCurrenciesSelected(true);
+    setSelectedCurrencies([]);
+  }, []);
 
-  const groupedIds = useMemo(
-    () => [...new Set(companies.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort(),
-    [companies]
-  );
-
-  const selectableRows = useMemo(
-    () => rows.filter((r) => !(r.is_deleted === 1 || r.is_deleted === "1" || r.is_deleted === true)),
-    [rows]
-  );
+  const selectableRows = useMemo(() => rows.filter((r) => isBankprocessMaintenanceRowSelectable(r)), [rows]);
 
   const selectAll = selectableRows.length > 0 && selectedIds.length === selectableRows.length;
 
-  const onToggleSelectAll = (checked) => {
-    if (!checked) {
-      setSelectedIds([]);
-      return;
-    }
-    setSelectedIds(selectableRows.map((r) => r.transaction_id));
-  };
+  const onToggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const selectable = rowsRef.current.filter((r) => isBankprocessMaintenanceRowSelectable(r));
+      if (prev.length === selectable.length && selectable.length > 0) return [];
+      return selectable.map((r) => r.transaction_id);
+    });
+  }, []);
 
-  const onToggleRow = (transactionId) => {
-    setSelectedIds((prev) => (prev.includes(transactionId) ? prev.filter((id) => id !== transactionId) : [...prev, transactionId]));
-  };
+  const onToggleRow = useCallback((transactionId) => {
+    setSelectedIds((prev) =>
+      toggleBankprocessMaintenanceBatchSelection(prev, rowsRef.current, transactionId),
+    );
+  }, []);
 
   const onDelete = async () => {
-    if (!confirmDelete) {
-      notify("Please confirm deletion by checking the checkbox", "error");
-      return;
-    }
     if (selectedIds.length === 0) {
-      notify("Please select at least one record", "error");
+      notify(t("pleaseSelectOneRecord"), "error");
       return;
     }
     setIsDeleteModalOpen(true);
@@ -343,83 +522,85 @@ export default function BankprocessMaintenancePage() {
       } catch {
         // ignore
       }
-      notify(result.message || `Deleted ${selectedIds.length} record(s)`, "success");
+      notify(t("successfullyDeletedBankProcessN", { n: selectedIds.length }), "success");
       setSelectedIds([]);
       setConfirmDelete(false);
-      await searchData(true);
+      void performSearch();
     } catch (err) {
-      notify(err.message || "Delete failed", "error");
+      notify(err.message || t("deleteFailed"), "error");
     }
   };
 
-  if (bootLoading || !me) return null;
+  const tableLoading =
+    loading || bootLoading || !currenciesReady || (!hasSearched && Boolean(companyId));
 
   return (
-    <div className="container">
+    <div className="bankprocess-maintenance-page-root container">
       <BankprocessMaintenanceFilters
         permissions={permissions}
         selectedPermission={selectedPermission}
         setSelectedPermission={setSelectedPermission}
         dateFrom={dateFrom}
         dateTo={dateTo}
+        setDateFrom={setDateFrom}
+        setDateTo={setDateTo}
         today={today}
         query={query}
         setQuery={setQuery}
-        onSearch={searchData}
+        onSearch={performSearch}
         groupedIds={groupedIds}
         selectedGroup={selectedGroup}
         onGroupClick={onGroupClick}
+        onPickCompany={handlePickCompany}
+        onPickAllGroups={handlePickAllGroups}
+        onPickAllInGroup={handlePickAllInGroup}
+        groupsAllMode={groupsAllMode}
+        groupAllMode={groupAllMode}
         companies={companies}
         visibleCompanies={visibleCompanies}
         companyId={companyId}
-        handleSwitchCompany={handleSwitchCompany}
         currencies={currencies}
-        selectedCurrency={selectedCurrency}
-        setSelectedCurrency={setSelectedCurrency}
+        allCurrenciesSelected={allCurrenciesSelected}
+        selectedCurrencies={selectedCurrencies}
+        onCurrencyToggle={toggleBankprocessCurrency}
+        onCurrencySelectAll={selectAllBankprocessCurrencies}
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}
         selectedIds={selectedIds}
         onDelete={onDelete}
+        m={m}
       />
 
       <BankprocessMaintenanceTable
-        loading={loading}
+        key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
+        loading={tableLoading}
         rows={rows}
         hasSearched={hasSearched}
+        listEpoch={bankprocessListEpoch}
+        rowKeyCompanyId={bankprocessDataSourceCompanyId ?? companyId}
         selectedIds={selectedIds}
         onToggleRow={onToggleRow}
         selectAll={selectAll}
         onToggleSelectAll={onToggleSelectAll}
+        m={m}
       />
 
       <div id="notificationContainer" className="maintenance-notification-container">
-        {toasts.map((t) => (
-          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
-            {t.message}
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+            {toast.message}
           </div>
         ))}
       </div>
 
-      <BankprocessDeleteModal
+      <MaintenanceDeleteConfirmModal
         isOpen={isDeleteModalOpen}
-        selectedCount={selectedIds.length}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={onConfirmDelete}
+        count={selectedIds.length}
+        messageKey="deleteConfirmBankProcess"
+        t={t}
       />
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()}>
-            <select id="calendar-month-select" defaultValue="0"><option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option><option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option><option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option><option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option></select>
-            <select id="calendar-year-select" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-        </div>
-        <div className="calendar-weekdays">
-          <div className="calendar-weekday">Sun</div><div className="calendar-weekday">Mon</div><div className="calendar-weekday">Tue</div><div className="calendar-weekday">Wed</div><div className="calendar-weekday">Thu</div><div className="calendar-weekday">Fri</div><div className="calendar-weekday">Sat</div>
-        </div>
-        <div className="calendar-days" id="calendar-days" />
-      </div>
     </div>
   );
 }

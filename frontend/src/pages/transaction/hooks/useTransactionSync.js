@@ -1,8 +1,15 @@
 import { useEffect } from "react";
-import { TX_LIST_INVALIDATE_LS_KEY, TX_DATA_CHANGED_EVENT, buildTxListSessionKey } from "../transactionPaymentLogic.js";
+import { TX_LIST_INVALIDATE_LS_KEY, TX_DATA_CHANGED_EVENT, buildTxListSessionKey } from "../lib/transactionPaymentLogic.js";
+import { clearTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
+import {
+  transactionScopeApiParams,
+  transactionScopeCacheCompanyKey,
+  transactionScopeIsReady,
+} from "../lib/transactionScope.js";
 
 export function useTransactionSync({
   filterSnapshot,
+  transactionScope,
   effectiveDateFrom,
   effectiveDateTo,
   selectedCategories,
@@ -39,9 +46,10 @@ export function useTransactionSync({
         return;
       }
       setHistory((h) => (h.open ? { ...h, open: false } : h));
+      clearTxSearchCache();
       try {
         const key = buildTxListSessionKey({
-          companyId: filterSnapshot?.companyId,
+          companyId: transactionScopeCacheCompanyKey(transactionScope),
           dateFrom: effectiveDateFrom,
           dateTo: effectiveDateTo,
           selectedCategories,
@@ -81,7 +89,7 @@ export function useTransactionSync({
       if (retryTimer) clearTimeout(retryTimer);
     };
   }, [
-    filterSnapshot?.companyId,
+    transactionScopeCacheCompanyKey(transactionScope),
     effectiveDateFrom,
     effectiveDateTo,
     selectedCategories,
@@ -96,15 +104,16 @@ export function useTransactionSync({
   ]);
 
   useEffect(() => {
-    if (loading || forbidden || !canApproveContra || !filterSnapshot?.companyId) return;
+    const scopeApi = transactionScopeApiParams(transactionScope);
+    if (loading || forbidden || !canApproveContra || !transactionScopeIsReady(transactionScope)) return;
 
     const pollContra = async () => {
       if (document.visibilityState !== "visible") return;
-      await refreshContraInboxBadge?.(filterSnapshot.companyId);
+      await refreshContraInboxBadge?.(scopeApi);
     };
 
     const interval = setInterval(pollContra, 20000);
     pollContra(); // initial
     return () => clearInterval(interval);
-  }, [loading, forbidden, canApproveContra, filterSnapshot?.companyId, refreshContraInboxBadge]);
+  }, [loading, forbidden, canApproveContra, transactionScope, refreshContraInboxBadge]);
 }

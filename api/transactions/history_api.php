@@ -16,8 +16,10 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 header('X-Count168-History-Sort: calendar');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
@@ -1012,51 +1014,7 @@ try {
     $sessionUserType = isset($_SESSION['user_type']) ? strtolower((string) $_SESSION['user_type']) : '';
     $isMemberUser = ($sessionUserType === 'member');
 
-    // 确定要访问的 company_id：优先使用参数，否则使用 session
-    $company_id = null;
-    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requested_company_id = (int) $_GET['company_id'];
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
-
-        if ($userRole === 'owner') {
-            // owner 可以访问自己名下的其他公司
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested_company_id, $owner_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        } elseif ($userType === 'member') {
-            // member 用户可以访问通过 account_company 关联的公司
-            $memberAccountId = (int) $_SESSION['user_id'];
-            $stmt = $pdo->prepare("
-                SELECT 1 
-                FROM account_company ac
-                WHERE ac.account_id = ? AND ac.company_id = ?
-            ");
-            $stmt->execute([$memberAccountId, $requested_company_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        } else {
-            // 普通用户只能访问当前 session 公司
-            if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requested_company_id) {
-                $company_id = $requested_company_id;
-            } else {
-                throw new Exception('无权访问该公司');
-            }
-        }
-    } else {
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('缺少公司信息');
-        }
-        $company_id = (int) $_SESSION['company_id'];
-    }
+    $company_id = tx_resolve_request_company_id($pdo, $_GET);
 
     // 获取参数
     $account_id = (int) ($_GET['account_id'] ?? 0);
@@ -1240,6 +1198,13 @@ try {
     } catch (Throwable $e) {
         $has_resend_schedule_day_end = false;
     }
+    $has_day_end_monthly_cap_enabled = false;
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM bank_process LIKE 'day_end_monthly_cap_enabled'");
+        $has_day_end_monthly_cap_enabled = $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        $has_day_end_monthly_cap_enabled = false;
+    }
 
     $sql = "SELECT 
                 t.id,
@@ -1269,7 +1234,8 @@ try {
     if ($has_source_bank_process_id) {
         $bpFrequencySql = $has_day_start_frequency ? "bp_t.day_start_frequency" : "''";
         $bpResendDayEndSql = $has_resend_schedule_day_end ? "bp_t.accounting_resend_schedule_day_end" : "''";
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, {$bpFrequencySql} as bp_frequency, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.day_end AS bp_day_end, {$bpResendDayEndSql} AS bp_resend_day_end, bp_t.dts_created AS bp_dts_created";
+        $bpDayEndCapSql = $has_day_end_monthly_cap_enabled ? 'bp_t.day_end_monthly_cap_enabled' : '0';
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_name, {$bpFrequencySql} as bp_frequency, bp_t.profit as process_profit, bp_t.cost as process_cost, bp_t.price as process_price, bp_t.card_merchant_id, bp_t.customer_id, bp_t.profit_account_id, bp_t.profit_sharing as process_profit_sharing, bp_t.day_start AS bp_day_start, bp_t.day_end AS bp_day_end, {$bpResendDayEndSql} AS bp_resend_day_end, bp_t.dts_created AS bp_dts_created, {$bpDayEndCapSql} AS bp_day_end_monthly_cap_enabled";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -1531,9 +1497,12 @@ try {
 
         if ($capture['product_type'] === 'sub' && !empty($capture['id_product_sub'])) {
             $product = $capture['id_product_sub'];
-            // 获取对应的 description_sub
+            // 获取对应的描述：优先 description_sub；若为空则回退到 description_main，
+            // 兼容历史数据（旧版前端把 sub 行的描述误写进 description_main 字段的情况）。
             if (!empty($capture['description_sub'])) {
                 $productDescription = $capture['description_sub'];
+            } elseif (!empty($capture['description_main'])) {
+                $productDescription = $capture['description_main'];
             }
         } elseif (!empty($capture['id_product_main'])) {
             $product = $capture['id_product_main'];
@@ -1830,6 +1799,8 @@ try {
             } else {
                 if ($periodType === 'partial_first_month') {
                     $description = bankProcessProRatedFirstMonthDescription($t);
+                } elseif ($periodType === 'once_one_off') {
+                    $description = bankProcessOnceOneOffHistoryDescription($t);
                 } else {
                     if ($periodType === 'day_end_tail') {
                         // 统一 day_end 展示文案：Prorated(... | n days)@Monthly（不带 DayEnd 前缀）
@@ -1886,35 +1857,44 @@ try {
                     // 合同内整月账单（period_type=monthly）统一展示 Full Month 文案：
                     // - day_start_frequency = monthly
                     // - day_start_frequency = 1st_of_every_month（首月 partial 后的第2/3笔整月）
+                    // - 例外：1st + day_end 月内截断开关 ON 且 day_end 早于月末 → Prorated 文案（与入账比例一致）
                     if ($isBankProcessTransaction
                         && ($periodType === 'monthly' || $periodType === '')
                         && in_array($bpFreq, ['monthly', '1st_of_every_month', ''], true)
                         && $txnDay <= 1) {
-                        $monthLabel = '';
-                        $monthTs = strtotime((string) ($t['transaction_date'] ?? ''));
-                        if ($monthTs !== false) {
-                            $monthNo = (int) date('n', $monthTs);
-                            $yearNo = (int) date('Y', $monthTs);
-                            $monthMap = [
-                                1 => 'JAN',
-                                2 => 'FEB',
-                                3 => 'MAC',
-                                4 => 'APR',
-                                5 => 'MAY',
-                                6 => 'JUN',
-                                7 => 'JUL',
-                                8 => 'AUG',
-                                9 => 'SEP',
-                                10 => 'OCT',
-                                11 => 'NOV',
-                                12 => 'DEC',
-                            ];
-                            $monthShort = $monthMap[$monthNo] ?? strtoupper(date('M', $monthTs));
-                            $monthLabel = $monthShort . '/' . $yearNo;
+                        $capHistDesc = null;
+                        if (in_array($bpFreq, ['1st_of_every_month', ''], true)) {
+                            $capHistDesc = bankProcessMonthlyDayEndCapHistoryDescription($t);
                         }
-                        $description = $monthLabel !== ''
-                            ? ('Full Month (' . $monthLabel . ') @Monthly')
-                            : 'Full Month @Monthly';
+                        if ($capHistDesc !== null) {
+                            $description = $capHistDesc;
+                        } else {
+                            $monthLabel = '';
+                            $monthTs = strtotime((string) ($t['transaction_date'] ?? ''));
+                            if ($monthTs !== false) {
+                                $monthNo = (int) date('n', $monthTs);
+                                $yearNo = (int) date('Y', $monthTs);
+                                $monthMap = [
+                                    1 => 'JAN',
+                                    2 => 'FEB',
+                                    3 => 'MAC',
+                                    4 => 'APR',
+                                    5 => 'MAY',
+                                    6 => 'JUN',
+                                    7 => 'JUL',
+                                    8 => 'AUG',
+                                    9 => 'SEP',
+                                    10 => 'OCT',
+                                    11 => 'NOV',
+                                    12 => 'DEC',
+                                ];
+                                $monthShort = $monthMap[$monthNo] ?? strtoupper(date('M', $monthTs));
+                                $monthLabel = $monthShort . '/' . $yearNo;
+                            }
+                            $description = $monthLabel !== ''
+                                ? ('Full Month (' . $monthLabel . ') @Monthly')
+                                : 'Full Month @Monthly';
+                        }
                     }
                     $billAmount = money_out($amt, 2);
                     if (stripos((string) $description, 'Pro-rated(') === 0

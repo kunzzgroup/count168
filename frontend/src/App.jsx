@@ -1,30 +1,32 @@
+import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "./pages/login/LoginPage.jsx";
-import TransactionDashboardPage from "./pages/TransactionDashboardPage.jsx";
-import DomainPage from "./pages/domain/DomainPage.jsx";
-import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
+import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
+import MemberPage from "./pages/member/MemberPage.jsx";
+import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
+import UserListPage from "./pages/userlist/UserListPage.jsx";
 import AccountListPage from "./pages/account/AccountListPage.jsx";
 import ProcessListPage from "./pages/processlist/ProcessListPage.jsx";
-import BankProcessListPage from "./pages/bankprocesslist/BankProcessListPage.jsx";
-import UserListPage from "./pages/userlist/UserListPage.jsx";
-import OwnershipPage from "./pages/ownership/OwnershipPage.jsx";
-import DataCapturePage from "./pages/datacapture/DataCapturePage.jsx";
-import DataCaptureSummaryPage from "./pages/datacapturesummary/DataCaptureSummaryPage.jsx";
-import TransactionPaymentPage from "./pages/transaction/TransactionPaymentPage.jsx";
-import CustomerReportPage from "./pages/report/CustomerReportPage.jsx";
-import DomainReportPage from "./pages/report/DomainReportPage.jsx";
-import CaptureMaintenancePage from "./pages/maintenance/capture/CaptureMaintenancePage.jsx";
-import TransactionMaintenancePage from "./pages/maintenance/transaction/TransactionMaintenancePage.jsx";
-import FormulaMaintenancePage from "./pages/maintenance/formula/FormulaMaintenancePage.jsx";
-import BankprocessMaintenancePage from "./pages/maintenance/bankprocess/BankprocessMaintenancePage.jsx";
-import PaymentMaintenancePage from "./pages/maintenance/payment/PaymentMaintenancePage.jsx";
-import OwnerSecondaryPasswordPage from "./pages/login/OwnerSecondaryPasswordPage.jsx";
-import UserSecondaryPasswordPage from "./pages/login/UserSecondaryPasswordPage.jsx";
-import MemberPage from "./pages/login/MemberPage.jsx";
-import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
-import UserAccessPage from "./pages/useraccess/UserAccessPage.jsx";
-import DeletedLogPage from "./pages/deletedlog/DeletedLogPage.jsx";
+import AutoRenewPage from "./pages/autorenew/AutoRenewPage.jsx";
+import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
+
+const TransactionDashboardPage = lazy(() => import("./pages/dashboard/TransactionDashboardPage.jsx"));
+const DomainPage = lazy(() => import("./pages/domain/DomainPage.jsx"));
+const OwnershipPage = lazy(() => import("./pages/ownership/OwnershipPage.jsx"));
+const BankProcessListPage = lazy(() => import("./pages/bankprocesslist/BankProcessListPage.jsx"));
+const DataCapturePage = lazy(() => import("./pages/datacapture/DataCapturePage.jsx"));
+const DataCaptureSummaryPage = lazy(() => import("./pages/datacapturesummary/DataCaptureSummaryPage.jsx"));
+const TransactionPaymentPage = lazy(() => import("./pages/transaction/TransactionPaymentPage.jsx"));
+const CustomerReportPage = lazy(() => import("./pages/report/customer/CustomerReportPage.jsx"));
+const DomainReportPage = lazy(() => import("./pages/report/domain/DomainReportPage.jsx"));
+const CaptureMaintenancePage = lazy(() => import("./pages/maintenance/capture/CaptureMaintenancePage.jsx"));
+const TransactionMaintenancePage = lazy(() => import("./pages/maintenance/transaction/TransactionMaintenancePage.jsx"));
+const FormulaMaintenancePage = lazy(() => import("./pages/maintenance/formula/FormulaMaintenancePage.jsx"));
+const BankprocessMaintenancePage = lazy(() => import("./pages/maintenance/bankprocess/BankprocessMaintenancePage.jsx"));
+const PaymentMaintenancePage = lazy(() => import("./pages/maintenance/payment/PaymentMaintenancePage.jsx"));
+const UserAccessPage = lazy(() => import("./pages/useraccess/UserAccessPage.jsx"));
+const DeletedLogPage = lazy(() => import("./pages/deletedlog/DeletedLogPage.jsx"));
 
 export default function App() {
   return (
@@ -33,8 +35,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/member" element={<MemberPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/owner-secondary-password" element={<OwnerSecondaryPasswordPage />} />
-      <Route path="/user-secondary-password" element={<UserSecondaryPasswordPage />} />
+      <Route path="/owner-secondary-password" element={<SecondaryPasswordPage variant="owner" />} />
+      <Route path="/user-secondary-password" element={<SecondaryPasswordPage variant="user" />} />
       <Route element={<AuthenticatedLayout />}>
         <Route path="/dashboard" element={<TransactionDashboardPage />} />
         <Route path="/domain" element={<DomainPage />} />
@@ -58,6 +60,7 @@ export default function App() {
         <Route path="/payment-maintenance" element={<PaymentMaintenancePage />} />
         <Route path="/useraccess" element={<UserAccessPage />} />
         <Route path="/deleted-log" element={<DeletedLogPage />} />
+        <Route path="/auto-renew" element={<AutoRenewPage />} />
       </Route>
 
       {/* Clean URLs for non-migrated pages (still rendered by PHP) */}
@@ -97,6 +100,8 @@ export default function App() {
       <Route path="/owner_secondary_password.php" element={<Navigate to="/owner-secondary-password" replace />} />
       <Route path="/api/users/user_secondary_password.php" element={<Navigate to="/user-secondary-password" replace />} />
       <Route path="/useraccess.php" element={<Navigate to="/useraccess" replace />} />
+      <Route path="/auto_renew.php" element={<Navigate to="/auto-renew" replace />} />
+      <Route path="/auto_renew" element={<Navigate to="/auto-renew" replace />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />

@@ -8,7 +8,11 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/email_validation.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../get_companies_helper.php';
 
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
@@ -114,6 +118,519 @@ function sendResponse($success, $message = '', $data = null) {
     exit;
 }
 
+/**
+ * Map MySQL duplicate-key / PDO errors to short client messages (no SQLSTATE / "Database error").
+ */
+function userlistDuplicateEntryClientMessage(string $msg): string
+{
+    if (stripos($msg, 'Duplicate entry') === false) {
+        return '';
+    }
+    $key = '';
+    if (preg_match("/for key [`'\"]?([^`'\"\\s]+)/i", $msg, $m)) {
+        $key = strtolower($m[1]);
+    }
+    if ($key === 'email' || substr($key, -6) === '.email' || strpos($key, 'email') !== false) {
+        return 'Duplicate email';
+    }
+    if (strpos($key, 'login') !== false) {
+        return 'Duplicate login ID';
+    }
+    if (strpos($key, 'uniq_user_company') !== false || strpos($key, 'unique_user_company') !== false) {
+        return 'Duplicate company link for this user';
+    }
+    if ($key === 'primary') {
+        return 'Duplicate record';
+    }
+    return 'Duplicate value';
+}
+
+/** @return array<int, array<string, mixed>> */
+function userlist_fetch_accessible_companies(PDO $pdo): array
+{
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    if ($userId <= 0) {
+        return [];
+    }
+
+    gc_hydrate_company_login_group_id($pdo);
+
+    $userRole = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+    $userType = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
+    if ($userRole === 'owner' || $userType === 'owner') {
+        $ownerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
+        $rows = getCompaniesByOwner($pdo, $ownerId, true, true);
+    } else {
+        $rows = getCompaniesByUser($pdo, $userId, true, true);
+    }
+
+    $active = [];
+    foreach ($rows as $c) {
+        if (!empty($c['expiration_date']) && strtotime((string) $c['expiration_date']) < strtotime(date('Y-m-d'))) {
+            continue;
+        }
+        $active[] = $c;
+    }
+
+    gc_hydrate_accessible_group_ids($pdo, $active);
+
+    return gc_filter_companies_for_login_scope($active);
+}
+
+function userlist_normalize_group_id(?string $groupId): ?string
+{
+    $g = strtoupper(trim((string) $groupId));
+
+    return $g !== '' ? $g : null;
+}
+
+function userlist_resolve_owner_id_for_group_scope(PDO $pdo, string $groupScope): int
+{
+    $g = userlist_normalize_group_id($groupScope);
+    if ($g === null) {
+        return 0;
+    }
+
+    $accessible = userlist_fetch_accessible_companies($pdo);
+    foreach ($accessible as $c) {
+        $gid = strtoupper(trim((string) ($c['group_id'] ?? '')));
+        if ($gid !== $g) {
+            continue;
+        }
+        $oid = (int) ($c['owner_id'] ?? 0);
+        if ($oid > 0) {
+            return $oid;
+        }
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT owner_id
+        FROM company
+        WHERE UPPER(TRIM(COALESCE(group_id, ''))) = ?
+          AND owner_id IS NOT NULL
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$g]);
+    return (int) ($stmt->fetchColumn() ?: 0);
+}
+
+function userlist_ensure_group_entity_company_id(PDO $pdo, string $groupScope): int
+{
+    $g = userlist_normalize_group_id($groupScope);
+    if ($g === null) {
+        return 0;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$g]);
+    $existing = (int) ($stmt->fetchColumn() ?: 0);
+    if ($existing > 0) {
+        return $existing;
+    }
+
+    $ownerId = userlist_resolve_owner_id_for_group_scope($pdo, $g);
+    $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+    if ($ownerId <= 0 || $currentUserId <= 0) {
+        return 0;
+    }
+
+    try {
+        $insert = $pdo->prepare("
+            INSERT INTO company (company_id, owner_id, created_by, group_id)
+            VALUES (?, ?, ?, ?)
+        ");
+        $insert->execute([$g, $ownerId, (string) $currentUserId, $g]);
+    } catch (PDOException $e) {
+        if ((string) $e->getCode() !== '23000') {
+            throw $e;
+        }
+    }
+
+    $stmt->execute([$g]);
+    $createdId = (int) ($stmt->fetchColumn() ?: 0);
+    if ($createdId <= 0) {
+        return 0;
+    }
+
+    // Ensure current operator can see this group entity in getCompaniesByUser scope.
+    try {
+        $mapStmt = $pdo->prepare("
+            INSERT INTO user_company_map (user_id, company_id)
+            VALUES (?, ?)
+        ");
+        $mapStmt->execute([$currentUserId, $createdId]);
+    } catch (PDOException $e) {
+        if ((string) $e->getCode() !== '23000') {
+            throw $e;
+        }
+    }
+
+    return $createdId;
+}
+
+/**
+ * Group view company ids: group entity rows only (AP/IG).
+ * Prevents subsidiary users (e.g. 95) from bleeding into group view.
+ *
+ * @return list<int>
+ */
+function userlist_company_ids_for_group(array $accessibleCompanies, string $groupId): array
+{
+    $g = userlist_normalize_group_id($groupId);
+    if ($g === null) {
+        return [];
+    }
+    $out = [];
+    foreach ($accessibleCompanies as $c) {
+        $gid = strtoupper(trim((string) ($c['group_id'] ?? '')));
+        $linkSrc = strtoupper(trim((string) ($c['link_source_group'] ?? '')));
+        if ($linkSrc !== '') {
+            continue;
+        }
+        $code = strtoupper(trim((string) ($c['company_id'] ?? '')));
+        $isGroupEntity = $code === $g || ($code === '' && $gid === $g);
+        if (!$isGroupEntity) {
+            continue;
+        }
+        $id = (int) ($c['id'] ?? 0);
+        if ($id > 0) {
+            $out[] = $id;
+        }
+    }
+
+    return array_values(array_unique($out));
+}
+
+/** @param list<int|string> $companyIds */
+function userlist_validate_company_ids_allowed(PDO $pdo, array $companyIds): array
+{
+    $ids = array_values(array_unique(array_map('intval', $companyIds)));
+    $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+    if ($ids === []) {
+        return [];
+    }
+    $allowed = gc_resolve_allowed_company_numeric_ids($pdo, userlist_fetch_accessible_companies($pdo));
+    foreach ($ids as $cid) {
+        if (!in_array($cid, $allowed, true)) {
+            sendResponse(false, 'One or more selected companies are not allowed');
+        }
+    }
+
+    return $ids;
+}
+
+/** @param list<int> $companyIds */
+function userlist_assert_company_ids_match_group_entity(PDO $pdo, array $companyIds, string $groupId): void
+{
+    $g = userlist_normalize_group_id($groupId);
+    if ($g === null || $companyIds === []) {
+        return;
+    }
+    userlist_assert_group_id_allowed($g);
+    $entityIds = userlist_company_ids_for_group(userlist_fetch_accessible_companies($pdo), $g);
+    foreach ($companyIds as $cid) {
+        if (!in_array((int) $cid, $entityIds, true)) {
+            sendResponse(false, 'One or more selected companies are not allowed for this group');
+        }
+    }
+}
+
+function userlist_assert_group_id_allowed(string $groupId): void
+{
+    $g = userlist_normalize_group_id($groupId);
+    if ($g === null) {
+        sendResponse(false, 'Invalid group');
+    }
+    if (!gc_is_group_login()) {
+        sendResponse(false, 'Group filter is not allowed for company login');
+    }
+    $accessible = gc_session_accessible_group_ids();
+    if ($accessible === [] || !in_array($g, $accessible, true)) {
+        // Self-heal stale session cache before denying (AP -> IG switch case).
+        try {
+            userlist_fetch_accessible_companies($GLOBALS['pdo']);
+        } catch (Throwable $e) {
+            // Keep original fallback checks below.
+        }
+        $accessible = gc_session_accessible_group_ids();
+    }
+    if ($accessible !== [] && !in_array($g, $accessible, true)) {
+        sendResponse(false, 'Group not accessible');
+    }
+    $ident = gc_session_login_identifier();
+    if ($accessible === [] && $ident !== null && $ident !== $g) {
+        sendResponse(false, 'Group not accessible');
+    }
+}
+
+function userlistFriendlyDbError(Throwable $e): string
+{
+    $raw = $e->getMessage();
+    $dup = userlistDuplicateEntryClientMessage($raw);
+    if ($dup !== '') {
+        return $dup;
+    }
+    if ($e instanceof PDOException) {
+        error_log('userlist_api PDO: ' . $raw);
+        return 'Could not save changes. Please try again.';
+    }
+    $prefixes = ['Failed to create user: ', 'Failed to create company association: ', 'Failed to update user: '];
+    foreach ($prefixes as $p) {
+        if (strpos($raw, $p) === 0) {
+            $inner = substr($raw, strlen($p));
+            $dupInner = userlistDuplicateEntryClientMessage($inner);
+            if ($dupInner !== '') {
+                return $dupInner;
+            }
+        }
+    }
+    if (stripos($raw, 'SQLSTATE') !== false || stripos($raw, 'Integrity constraint') !== false) {
+        error_log('userlist_api DB: ' . $raw);
+        return 'Could not save changes. Please try again.';
+    }
+    return $raw;
+}
+
+function userlist_safe_rollback(PDO $pdo): void
+{
+    try {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+    } catch (Throwable $ignored) {
+        // Ignore rollback errors to avoid masking the original exception.
+    }
+}
+
+/**
+ * Resolve group entity company ids from company table directly (same strategy as account list API).
+ * Priority:
+ * 1) company.company_id == GROUP_ID (e.g. AP)
+ * 2) placeholder row: empty company_id + group_id == GROUP_ID
+ *
+ * @return list<int>
+ */
+function userlist_group_entity_company_ids(PDO $pdo, string $groupScope): array
+{
+    $g = userlist_normalize_group_id($groupScope);
+    if ($g === null) {
+        return [];
+    }
+
+    $ids = [];
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        ORDER BY id ASC
+    ");
+    $stmt->execute([$g]);
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        $nid = (int) $id;
+        if ($nid > 0) {
+            $ids[] = $nid;
+        }
+    }
+
+    if ($ids === []) {
+        $ensured = userlist_ensure_group_entity_company_id($pdo, $g);
+        if ($ensured > 0) {
+            $ids[] = $ensured;
+        }
+    }
+
+    if ($ids === []) {
+        $placeholderStmt = $pdo->prepare("
+            SELECT id
+            FROM company
+            WHERE TRIM(COALESCE(company_id, '')) = ''
+              AND UPPER(TRIM(group_id)) = ?
+            ORDER BY id ASC
+        ");
+        $placeholderStmt->execute([$g]);
+        foreach ($placeholderStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $nid = (int) $id;
+            if ($nid > 0) {
+                $ids[] = $nid;
+            }
+        }
+    }
+
+    // Safety: keep only ids the current login scope can access.
+    $allowed = [];
+    foreach (array_values(array_unique($ids)) as $cid) {
+        if (gc_session_can_access_company_id($pdo, (int) $cid, $g)) {
+            $allowed[] = (int) $cid;
+        }
+    }
+
+    return $allowed;
+}
+
+/**
+ * Resolve effective company scope for group/company modes.
+ * - Prefer explicit validated company ids from request (real write target).
+ * - group_id is only view/access context for validation.
+ *
+ * @param list<int> $validatedCompanyIds
+ */
+function userlist_resolve_scope_company_id(PDO $pdo, ?string $groupScope, array $validatedCompanyIds, int $currentCompanyId): int
+{
+    if ($validatedCompanyIds !== []) {
+        return (int) $validatedCompanyIds[0];
+    }
+    if ($groupScope === null) {
+        return $currentCompanyId;
+    }
+    userlist_assert_group_id_allowed($groupScope);
+    $entityIds = userlist_group_entity_company_ids($pdo, $groupScope);
+    if ($entityIds !== []) {
+        return (int) $entityIds[0];
+    }
+    $groupCompanyIds = userlist_company_ids_for_group(userlist_fetch_accessible_companies($pdo), $groupScope);
+    if ($groupCompanyIds !== []) {
+        return (int) $groupCompanyIds[0];
+    }
+    sendResponse(false, 'No company found for selected group');
+}
+
+/**
+ * Company IDs for list/delete visibility (same rules as action=get without id).
+ *
+ * @return list<int>
+ */
+/**
+ * All companies in a group scope (subsidiaries + linked), not group-entity rows only.
+ *
+ * @return list<int>
+ */
+function userlist_company_ids_in_group_scope(array $accessibleCompanies, string $groupId): array
+{
+    $g = userlist_normalize_group_id($groupId);
+    if ($g === null) {
+        return [];
+    }
+    $out = [];
+    foreach ($accessibleCompanies as $c) {
+        $code = strtoupper(trim((string) ($c['company_id'] ?? '')));
+        if ($code === '') {
+            continue;
+        }
+        $gid = strtoupper(trim((string) ($c['group_id'] ?? '')));
+        $linkSrc = strtoupper(trim((string) ($c['link_source_group'] ?? '')));
+        if ($gid !== $g && $linkSrc !== $g) {
+            continue;
+        }
+        $id = (int) ($c['id'] ?? 0);
+        if ($id > 0) {
+            $out[] = $id;
+        }
+    }
+
+    return array_values(array_unique($out));
+}
+
+function userlist_resolve_filter_company_ids(PDO $pdo, array $input): array
+{
+    global $current_company_id;
+    $groupsAll = !empty($input['groups_all']);
+    $groupAll = !empty($input['group_all']);
+    $groupId = userlist_normalize_group_id($input['group_id'] ?? null);
+    $requestedCompanyId = (int) ($input['company_id'] ?? 0);
+    $accessible = userlist_fetch_accessible_companies($pdo);
+
+    if ($groupsAll) {
+        if ($groupAll) {
+            $allowed = gc_resolve_allowed_company_numeric_ids($pdo, $accessible);
+            return array_values(array_filter($allowed, static fn (int $id): bool => $id > 0));
+        }
+        $out = [];
+        foreach (gc_session_accessible_group_ids() as $gid) {
+            $g = userlist_normalize_group_id($gid);
+            if ($g === null) {
+                continue;
+            }
+            $entityIds = userlist_group_entity_company_ids($pdo, $g);
+            if ($entityIds !== []) {
+                $out = array_merge($out, $entityIds);
+                continue;
+            }
+            $scoped = userlist_company_ids_in_group_scope($accessible, $g);
+            if ($scoped !== []) {
+                $out = array_merge($out, $scoped);
+            }
+        }
+        if ($out === []) {
+            $allowed = gc_resolve_allowed_company_numeric_ids($pdo, $accessible);
+            return array_values(array_filter($allowed, static fn (int $id): bool => $id > 0));
+        }
+        return array_values(array_unique(array_map('intval', $out)));
+    }
+
+    if ($groupId !== null) {
+        userlist_assert_group_id_allowed($groupId);
+        if ($groupAll) {
+            $scoped = userlist_company_ids_in_group_scope($accessible, $groupId);
+            if ($scoped !== []) {
+                return $scoped;
+            }
+        }
+        $groupCompanyIds = userlist_company_ids_for_group($accessible, $groupId);
+        if ($groupCompanyIds === []) {
+            $groupCompanyIds = userlist_group_entity_company_ids($pdo, $groupId);
+        }
+
+        return $groupCompanyIds === [] ? [] : array_values(array_map('intval', $groupCompanyIds));
+    }
+
+    if ($requestedCompanyId > 0) {
+        return userlist_validate_company_ids_allowed($pdo, [$requestedCompanyId]);
+    }
+
+    return [(int) $current_company_id];
+}
+
+/**
+ * For group mode, validate/normalize company_ids under selected group context.
+ *
+ * @param list<int|string> $rawCompanyIds
+ * @return list<int>
+ */
+function userlist_resolve_company_ids_for_group_scope(PDO $pdo, string $groupScope, array $rawCompanyIds): array
+{
+    userlist_assert_group_id_allowed($groupScope);
+    $groupCompanyIds = userlist_company_ids_for_group(userlist_fetch_accessible_companies($pdo), $groupScope);
+    $entityIds = userlist_group_entity_company_ids($pdo, $groupScope);
+    $allowedIds = $groupCompanyIds;
+    if ($entityIds !== []) {
+        $allowedIds = array_values(array_unique(array_merge($allowedIds, $entityIds)));
+    }
+    if ($allowedIds === []) {
+        sendResponse(false, 'No company found for selected group');
+    }
+    $candidateIds = array_values(array_unique(array_filter(array_map('intval', $rawCompanyIds), static fn (int $id): bool => $id > 0)));
+    if ($candidateIds === []) {
+        if ($entityIds !== []) {
+            return [(int) $entityIds[0]];
+        }
+        return [(int) $allowedIds[0]];
+    }
+    foreach ($candidateIds as $cid) {
+        if (!in_array($cid, $allowedIds, true)) {
+            sendResponse(false, 'One or more selected companies are not allowed for this group');
+        }
+    }
+    return $candidateIds;
+}
+
 // Validate required fields for create/update
 function validateUserData($data, $isUpdate = false) {
     $required = ['login_id', 'name', 'email', 'role', 'status'];
@@ -128,12 +645,14 @@ function validateUserData($data, $isUpdate = false) {
     }
     
     // Validate email format
-    if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+    $emailValidation = validate_email($data['email'] ?? '');
+    if (!$emailValidation['ok']) {
         return "Invalid email format";
     }
+    $data['email'] = $emailValidation['normalized'];
     
     // Validate role
-    $validRoles = ['partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
+    $validRoles = ['owner', 'partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
     if (!in_array($data['role'], $validRoles)) {
         return "Invalid role";
     }
@@ -194,6 +713,9 @@ try {
     
     switch ($action) {
         case 'create':
+            if (is_partnership_audit_read_only_active($pdo)) {
+                sendResponse(false, '只读账号无法执行此操作');
+            }
             if (!canCreateUserByRole($current_user_role)) {
                 sendResponse(false, 'You do not have permission to create new accounts');
             }
@@ -207,9 +729,11 @@ try {
             }
             
             // Validate email format
-            if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
+            $emailValidation = validate_email($input['email'] ?? '');
+            if (!$emailValidation['ok']) {
                 sendResponse(false, "Invalid email format");
             }
+            $input['email'] = $emailValidation['normalized'];
             
             // Validate role
             $validRoles = ['partnership', 'admin', 'manager', 'supervisor', 'accountant', 'audit', 'customer service', 'company'];
@@ -223,13 +747,21 @@ try {
                 sendResponse(false, "Invalid status");
             }
             
+            $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
             // 验证 company_ids
             global $current_company_id;
-            $company_ids = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
-            if (empty($company_ids)) {
-                // 如果没有提供 company_ids，使用当前 session 的 company_id
-                $company_ids = [$current_company_id];
+            $rawCompanyIds = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
+            if ($groupScope !== null) {
+                $company_ids = userlist_resolve_company_ids_for_group_scope($pdo, $groupScope, $rawCompanyIds);
+            } else {
+                $company_ids = $rawCompanyIds;
+                if (empty($company_ids)) {
+                    // Company mode fallback keeps original behavior.
+                    $company_ids = [$current_company_id];
+                }
+                $company_ids = userlist_validate_company_ids_allowed($pdo, $company_ids);
             }
+            $scope_company_id = userlist_resolve_scope_company_id($pdo, $groupScope, $company_ids, (int) $current_company_id);
             
             // 验证所有 company_ids 是否存在
             if (count($company_ids) > 0) {
@@ -273,6 +805,13 @@ try {
                 if ($stmt->fetchColumn() > 0) {
                     sendResponse(false, 'Email already exists in one of the selected companies');
                 }
+            }
+
+            // user.email 为全局 UNIQUE：与所选公司无关，需单独拦截以免落到 PDO 异常
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM user WHERE email = ?');
+            $stmt->execute([$input['email']]);
+            if ((int) $stmt->fetchColumn() > 0) {
+                sendResponse(false, 'Duplicate email');
             }
             
             // Hash password
@@ -372,53 +911,79 @@ try {
                     
                     // 只在当前公司下设置权限
                     $permStmt = $pdo->prepare("INSERT INTO user_company_permissions (user_id, company_id, account_permissions, process_permissions) VALUES (?, ?, ?, ?)");
-                    $permStmt->execute([$newUserId, $current_company_id, $accountPerms, $processPerms]);
+                    $permStmt->execute([$newUserId, $scope_company_id, $accountPerms, $processPerms]);
                 }
                 
                 // 提交事务
                 $pdo->commit();
                 
-                // 获取新创建的用户信息，包括当前公司的权限
-                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?");
-                $stmt->execute([$newUserId]);
-                $newUser = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                // 获取当前公司的权限（如果存在）
-                $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
-                $stmt->execute([$newUserId, $current_company_id]);
-                $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if ($companyPermissions) {
-                    $newUser['account_permissions'] = $companyPermissions['account_permissions'];
-                    $newUser['process_permissions'] = $companyPermissions['process_permissions'];
-                } else {
-                    $newUser['account_permissions'] = null;
-                    $newUser['process_permissions'] = null;
+                // Post-commit reads must never fail the create result.
+                $newUser = [
+                    'id' => (int)$newUserId,
+                    'login_id' => (string)$input['login_id'],
+                    'name' => (string)$input['name'],
+                    'email' => (string)$input['email'],
+                    'role' => (string)$input['role'],
+                    'status' => (string)$input['status'],
+                    'last_login' => null,
+                    'created_by' => getCurrentUser(),
+                    'account_permissions' => null,
+                    'process_permissions' => null,
+                ];
+                try {
+                    $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?");
+                    $stmt->execute([$newUserId]);
+                    $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($dbUser) {
+                        $newUser = array_merge($newUser, $dbUser);
+                    }
+
+                    $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+                    $stmt->execute([$newUserId, $scope_company_id]);
+                    $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($companyPermissions) {
+                        $newUser['account_permissions'] = $companyPermissions['account_permissions'];
+                        $newUser['process_permissions'] = $companyPermissions['process_permissions'];
+                    }
+                } catch (Throwable $postCommitReadError) {
+                    error_log("Create user post-commit read error: " . $postCommitReadError->getMessage());
                 }
                 
                 sendResponse(true, 'User created successfully', $newUser);
             } catch (PDOException $e) {
-                $pdo->rollBack();
+                userlist_safe_rollback($pdo);
                 error_log("Create user PDO error: " . $e->getMessage());
                 error_log("SQL State: " . $e->getCode());
                 error_log("Error Info: " . print_r($e->errorInfo, true));
-                sendResponse(false, 'Database error: ' . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             } catch (Exception $e) {
-                $pdo->rollBack();
+                userlist_safe_rollback($pdo);
                 error_log("Create user error: " . $e->getMessage());
-                sendResponse(false, 'Failed to create user: ' . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             }
             break;
             
         case 'update':
+            if (is_partnership_audit_read_only_active($pdo)) {
+                sendResponse(false, '只读账号无法执行此操作');
+            }
             if (!isset($input['id'])) {
                 sendResponse(false, 'User ID is required');
             }
             
             global $current_company_id, $current_user_role;
+            $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
+            $rawCompanyIds = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
+            $will_lose_access = false;
+            if ($groupScope !== null) {
+                $validatedScopeCompanyIds = userlist_resolve_company_ids_for_group_scope($pdo, $groupScope, $rawCompanyIds);
+            } else {
+                $validatedScopeCompanyIds = userlist_validate_company_ids_allowed($pdo, $rawCompanyIds);
+            }
+            $scope_company_id = userlist_resolve_scope_company_id($pdo, $groupScope, $validatedScopeCompanyIds, (int) $current_company_id);
             
             // 检查是否是owner影子
-            if (isOwnerShadow($pdo, $input['id'], $current_company_id)) {
+            if (isOwnerShadow($pdo, $input['id'], $scope_company_id)) {
                 // 只有owner本人可以更新owner记录
                 if ($current_user_role !== 'owner') {
                     sendResponse(false, '只有owner本人可以编辑owner记录');
@@ -434,12 +999,12 @@ try {
                 }
                 
                 if (isset($input['email'])) {
-                    // Validate email format
-                    if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
+                    $emailValidation = validate_email($input['email']);
+                    if (!$emailValidation['ok']) {
                         sendResponse(false, "Invalid email format");
                     }
                     $updateFields[] = "email = ?";
-                    $updateValues[] = $input['email'];
+                    $updateValues[] = $emailValidation['normalized'];
                 }
                 
                 if (isset($input['status'])) {
@@ -485,7 +1050,7 @@ try {
                         INNER JOIN company c ON c.owner_id = o.id
                         WHERE o.id = ? AND c.id = ?
                     ");
-                    $stmt->execute([$input['id'], $current_company_id]);
+                    $stmt->execute([$input['id'], $scope_company_id]);
                     $updatedOwner = $stmt->fetch(PDO::FETCH_ASSOC);
                     
                     sendResponse(true, 'Owner updated successfully', $updatedOwner);
@@ -516,7 +1081,7 @@ try {
                 FROM user_company_map 
                 WHERE user_id = ? AND company_id = ?
             ");
-            $stmt->execute([$input['id'], $current_company_id]);
+            $stmt->execute([$input['id'], $scope_company_id]);
             $belongsToCurrentCompany = $stmt->fetchColumn() > 0;
             
             // 如果没有提交 login_id，使用原有的
@@ -538,7 +1103,7 @@ try {
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
                 WHERE u.login_id = ? AND u.id != ? AND ucm.company_id = ?
             ");
-            $stmt->execute([$input['login_id'], $input['id'], $current_company_id]);
+            $stmt->execute([$input['login_id'], $input['id'], $scope_company_id]);
             if ($stmt->fetchColumn() > 0) {
                 sendResponse(false, 'Login ID already exists in current company');
             }
@@ -551,9 +1116,15 @@ try {
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
                 WHERE u.email = ? AND u.id != ? AND ucm.company_id = ?
             ");
-            $stmt->execute([$input['email'], $input['id'], $current_company_id]);
+            $stmt->execute([$input['email'], $input['id'], $scope_company_id]);
             if ($stmt->fetchColumn() > 0) {
                 sendResponse(false, 'Email already exists in current company');
+            }
+
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM user WHERE email = ? AND id != ?');
+            $stmt->execute([$input['email'], $input['id']]);
+            if ((int) $stmt->fetchColumn() > 0) {
+                sendResponse(false, 'Duplicate email');
             }
             
             // Prepare update query
@@ -623,11 +1194,16 @@ try {
                 // 同步 read_only 到 company_ownership
                 if ($current_user_role === 'owner' && isset($input['read_only']) && strtolower($input['role']) === 'partnership') {
                     $updCoStmt = $pdo->prepare("UPDATE company_ownership SET read_only = ? WHERE company_id = ? AND account_id = ? AND owner_type = 'user'");
-                    $updCoStmt->execute([(int)$input['read_only'], $current_company_id, $input['id']]);
+                    $updCoStmt->execute([(int)$input['read_only'], $scope_company_id, $input['id']]);
                 }
                 
                 // 如果提供了 company_ids，更新 company 关联
                 if (isset($input['company_ids']) && is_array($input['company_ids']) && count($input['company_ids']) > 0) {
+                    if ($groupScope !== null) {
+                        $input['company_ids'] = userlist_resolve_company_ids_for_group_scope($pdo, $groupScope, $input['company_ids']);
+                    } else {
+                        $input['company_ids'] = userlist_validate_company_ids_allowed($pdo, $input['company_ids']);
+                    }
                     // 验证所有 company_ids 是否存在
                     $placeholders = str_repeat('?,', count($input['company_ids']) - 1) . '?';
                     $stmt = $pdo->prepare("SELECT id FROM company WHERE id IN ($placeholders)");
@@ -640,8 +1216,7 @@ try {
                     
                     // 检查移除后用户是否还属于当前公司（用于提示）
                     // 允许移除当前公司的关联，但会在响应中标记
-                    $will_lose_access = false;
-                    if ($belongsToCurrentCompany && !in_array($current_company_id, $input['company_ids'])) {
+                    if ($belongsToCurrentCompany && !in_array($scope_company_id, $input['company_ids'])) {
                         $will_lose_access = true;
                     }
                     
@@ -695,7 +1270,7 @@ try {
                     ");
                     $stmt->execute([
                         $input['id'], 
-                        $current_company_id, 
+                        $scope_company_id, 
                         $accountPerms, 
                         $processPerms,
                         $accountPerms, // 用于条件判断
@@ -706,31 +1281,37 @@ try {
                 // 提交事务
                 $pdo->commit();
                 
-                // 获取更新后的用户信息，包括当前公司的权限
-                $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?");
-                $stmt->execute([$input['id']]);
-                $updatedUser = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                // 获取当前公司的权限（从 user_company_permissions 表）
-                $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
-                $stmt->execute([$input['id'], $current_company_id]);
-                $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if ($companyPermissions) {
-                    $updatedUser['account_permissions'] = $companyPermissions['account_permissions'];
-                    $updatedUser['process_permissions'] = $companyPermissions['process_permissions'];
-                } else {
-                    // 如果公司特定的权限不存在，使用 user 表中的全局权限作为后备
-                    $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user WHERE id = ?");
+                // 获取更新后的用户信息；提交后读取失败不应影响保存结果。
+                $updatedUser = [
+                    'id' => (int) $input['id'],
+                    'login_id' => (string) ($input['login_id'] ?? ''),
+                    'name' => (string) ($input['name'] ?? ''),
+                    'email' => (string) ($input['email'] ?? ''),
+                    'role' => (string) ($input['role'] ?? ''),
+                    'status' => (string) ($input['status'] ?? ''),
+                    'last_login' => null,
+                    'created_by' => null,
+                    'account_permissions' => null,
+                    'process_permissions' => null,
+                ];
+                try {
+                    $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, status, last_login, created_by FROM user WHERE id = ?");
                     $stmt->execute([$input['id']]);
-                    $userPerms = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($userPerms) {
-                        $updatedUser['account_permissions'] = $userPerms['account_permissions'];
-                        $updatedUser['process_permissions'] = $userPerms['process_permissions'];
-                    } else {
-                        $updatedUser['account_permissions'] = null;
-                        $updatedUser['process_permissions'] = null;
+                    $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($dbUser) {
+                        $updatedUser = array_merge($updatedUser, $dbUser);
                     }
+
+                    // 仅从 user_company_permissions 读取公司级权限。
+                    $stmt = $pdo->prepare("SELECT account_permissions, process_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
+                    $stmt->execute([$input['id'], $scope_company_id]);
+                    $companyPermissions = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($companyPermissions) {
+                        $updatedUser['account_permissions'] = $companyPermissions['account_permissions'];
+                        $updatedUser['process_permissions'] = $companyPermissions['process_permissions'];
+                    }
+                } catch (Throwable $postCommitReadError) {
+                    error_log("Update user post-commit read error: " . $postCommitReadError->getMessage());
                 }
                 
                 $message = 'User updated successfully';
@@ -752,15 +1333,18 @@ try {
                 error_log("Update user PDO error: " . $e->getMessage());
                 error_log("SQL State: " . $e->getCode());
                 error_log("Error Info: " . print_r($e->errorInfo, true));
-                sendResponse(false, 'Database error: ' . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             } catch (Exception $e) {
                 $pdo->rollBack();
                 error_log("Update user error: " . $e->getMessage());
-                sendResponse(false, 'Failed to update user: ' . $e->getMessage());
+                sendResponse(false, userlistFriendlyDbError($e));
             }
             break;
             
         case 'delete':
+            if (is_partnership_audit_read_only_active($pdo)) {
+                sendResponse(false, '只读账号无法执行此操作');
+            }
             if (!isset($input['id'])) {
                 sendResponse(false, 'User ID is required');
             }
@@ -772,6 +1356,22 @@ try {
             }
             
             global $current_company_id, $current_user_role;
+
+            $scopeCompanyIds = userlist_resolve_filter_company_ids($pdo, $input);
+            if ($scopeCompanyIds === []) {
+                sendResponse(false, 'User not found or access denied');
+            }
+            $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
+            $requestedCompanyId = (int) ($input['company_id'] ?? 0);
+            $validatedScopeCompanyIds = $requestedCompanyId > 0
+                ? userlist_validate_company_ids_allowed($pdo, [$requestedCompanyId])
+                : [];
+            $scopeCompanyId = userlist_resolve_scope_company_id(
+                $pdo,
+                $groupScope,
+                $validatedScopeCompanyIds,
+                (int) $current_company_id
+            );
             
             // 检查用户是否试图删除自己
             $currentUserId = $_SESSION['user_id'] ?? null;
@@ -780,7 +1380,7 @@ try {
             }
             
             // 检查是否是owner影子
-            if (isOwnerShadow($pdo, $userId, $current_company_id)) {
+            if (isOwnerShadow($pdo, $userId, $scopeCompanyId)) {
                 // 只有owner本人可以删除owner记录
                 if ($current_user_role !== 'owner') {
                     sendResponse(false, '只有owner本人可以删除owner记录');
@@ -790,14 +1390,16 @@ try {
                 sendResponse(false, 'Owner记录不能删除，因为它是公司的所有者');
             }
             
-            // Check if user exists and belongs to same company
+            // Check if user exists and belongs to current list scope (UI company / group)
+            $scopePlaceholders = implode(',', array_fill(0, count($scopeCompanyIds), '?'));
             $checkStmt = $pdo->prepare("
                 SELECT u.id, u.login_id, u.name, u.role
                 FROM user u
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-                WHERE u.id = ? AND ucm.company_id = ?
+                WHERE u.id = ? AND ucm.company_id IN ($scopePlaceholders)
+                LIMIT 1
             ");
-            $checkStmt->execute([$userId, $current_company_id]);
+            $checkStmt->execute(array_merge([$userId], $scopeCompanyIds));
             $user = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$user) {
@@ -845,7 +1447,7 @@ try {
                         WHERE u.id = ? AND ucm.company_id = ?
                         LIMIT 1
                     ");
-                    $stmt->execute([$currentUserId, $current_company_id]);
+                    $stmt->execute([$currentUserId, $scopeCompanyId]);
                     $replacementUserId = $stmt->fetchColumn();
                 }
                 
@@ -858,7 +1460,7 @@ try {
                         WHERE ucm.company_id = ? AND u.id != ? AND u.status = 'active'
                         LIMIT 1
                     ");
-                    $stmt->execute([$current_company_id, $userId]);
+                    $stmt->execute([$scopeCompanyId, $userId]);
                     $replacementUserId = $stmt->fetchColumn();
                 }
                 
@@ -871,7 +1473,7 @@ try {
                         WHERE ucm.company_id = ? AND u.id != ?
                         LIMIT 1
                     ");
-                    $stmt->execute([$current_company_id, $userId]);
+                    $stmt->execute([$scopeCompanyId, $userId]);
                     $replacementUserId = $stmt->fetchColumn();
                 }
             
@@ -1093,7 +1695,7 @@ try {
                     
                     sendResponse(false, $errorMsg);
                 } else {
-                    sendResponse(false, 'Database error: ' . $e->getMessage());
+                    sendResponse(false, userlistFriendlyDbError($e));
                 }
             }
             break;
@@ -1161,12 +1763,18 @@ try {
                     }
                 }
             } else {
-                // Get all users - 添加permissions字段 并通过 user_company_map 过滤company_id
+                // Get all users — single company or group-only aggregate (group login)
+                $filterCompanyIds = userlist_resolve_filter_company_ids($pdo, $input);
+                if ($filterCompanyIds === []) {
+                    sendResponse(true, 'Users retrieved successfully', []);
+                }
+
+                $placeholders = implode(',', array_fill(0, count($filterCompanyIds), '?'));
                 $stmt = $pdo->prepare("
                     SELECT DISTINCT u.id, u.login_id, u.name, u.email, u.role, u.permissions, u.status, u.created_by, u.created_at, u.last_login 
                     FROM user u
                     INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-                    WHERE ucm.company_id = ? 
+                    WHERE ucm.company_id IN ($placeholders)
                     ORDER BY 
                         CASE 
                             WHEN u.login_id REGEXP '^[0-9]' THEN 0 
@@ -1178,7 +1786,7 @@ try {
                         END,
                         u.login_id ASC
                 ");
-                $stmt->execute([$current_company_id]);
+                $stmt->execute($filterCompanyIds);
                 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 sendResponse(true, 'Users retrieved successfully', $users);
             }
@@ -1193,8 +1801,8 @@ try {
     error_log("Database error in userlist_api: " . $e->getMessage());
     error_log("SQL State: " . $e->getCode());
     error_log("Error Info: " . print_r($e->errorInfo, true));
-    sendResponse(false, 'Database error occurred: ' . $e->getMessage(), null);
+    sendResponse(false, userlistFriendlyDbError($e), null);
 } catch (Exception $e) {
     error_log("General error in userlist_api: " . $e->getMessage());
-    sendResponse(false, 'An error occurred: ' . $e->getMessage(), null);
+    sendResponse(false, userlistFriendlyDbError($e), null);
 }

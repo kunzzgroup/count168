@@ -1,9 +1,12 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 
-export default function ProcessDeleteConfirmModal({ open, count, onCancel, onConfirm, deleting, t }) {
+export default function ProcessDeleteConfirmModal({ open, count, onCancel, onConfirm, deleting, confirmDisabled, t }) {
   if (!open) return null;
+  const disableConfirm = Boolean(deleting || confirmDisabled);
   return (
-    <div className="process-modal" style={{ display: "block" }} role="dialog" aria-modal="true">
+    <ProcessModalPortal>
+    <div className="process-modal" style={processModalBackdropStyle} role="dialog" aria-modal="true">
       <div className="process-confirm-modal-content">
         <div className="process-confirm-icon-container">
           <svg className="process-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -23,11 +26,12 @@ export default function ProcessDeleteConfirmModal({ open, count, onCancel, onCon
           <button type="button" className="process-btn process-btn-cancel confirm-cancel" onClick={onCancel} disabled={deleting}>
             {t("cancel")}
           </button>
-          <button type="button" className="process-btn process-btn-delete confirm-delete" onClick={onConfirm} disabled={deleting}>
+          <button type="button" className="process-btn process-btn-delete confirm-delete" onClick={onConfirm} disabled={disableConfirm}>
             {deleting ? t("deleting") : t("delete")}
           </button>
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

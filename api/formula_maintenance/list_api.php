@@ -7,8 +7,9 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/formula_fields_helper.php';
+require_once __DIR__ . '/formula_maintenance_scope.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -57,7 +58,13 @@ function getCompanyIdForRequest(PDO $pdo) {
  * 直接 JOIN process 表，避免 GROUP BY 导致同一 process 代码下多条 process 行时只匹配 MIN(id)、
  * 其余模板在 Maintenance 不显示却在 Data Capture Summary 仍显示的问题。
  */
-function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter) {
+function fetchFormulaListRaw(
+    PDO $pdo,
+    int $companyId,
+    string $search,
+    ?int $processIdFilter,
+    string $scopeProcessSql = ''
+) {
     $sql = "SELECT 
                 dct.id,
                 dct.process_id,
@@ -75,28 +82,26 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
                 dct.formula_operators,
                 dct.source_percent,
                 dct.enable_source_percent,
+                dct.last_source_value,
                 dct.description,
                 p.process_id AS process_code,
                 p.description_id,
                 d.name AS description_name,
+                " . formulaMaintenanceSqlProcessOnGroupEntityFlag('p') . " AS process_on_group_entity,
                 a.account_id AS account_code,
                 a.name AS account_name,
                 c.code AS currency_code
             FROM data_capture_templates dct
-            INNER JOIN process p ON p.company_id = dct.company_id
-                AND (
-                    (dct.process_id REGEXP '^[0-9]+$' AND p.id = CAST(dct.process_id AS UNSIGNED))
-                    OR (dct.process_id = p.process_id)
-                )
+            " . formulaMaintenanceSqlTemplateProcessJoin($processIdFilter) . "
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN account a ON dct.account_id = a.id
             LEFT JOIN currency c ON dct.currency_id = c.id
             WHERE dct.company_id = ?";
     $params = [$companyId];
-    if ($processFilter !== '') {
-        $sql .= " AND p.process_id = ?";
-        $params[] = $processFilter;
+    if ($scopeProcessSql !== '') {
+        $sql .= $scopeProcessSql;
     }
+    // processIdFilter is enforced in formulaMaintenanceSqlTemplateProcessJoin().
     if ($search !== '') {
         $like = '%' . $search . '%';
         $sql .= " AND (
@@ -128,17 +133,19 @@ function mapRowsToDisplay(array $rows) {
     $displayRowsByKey = [];
     foreach ($rows as $row) {
         $sourceRef = $row['columns_display'] ?? $row['source_columns'] ?? '';
-        // Source 列与 Data Capture Summary 一致：展示 source_percent（列引用仍放在 source_ref 供保存）
-        $sourceDisplay = formatSourcePercentForMaintenanceList($row['source_percent'] ?? null);
-        // 列表展示：$5 * (0.18)；编辑框用 $5*0.18（与 update 解析一致）
-        $formulaDisplayParen = buildFormulaDisplayParenFromRow($row);
+        // Source / Formula：与 shared/formula resolveTemplateFormulaBaseAndPercent 一致
+        list($resolvedBase, $resolvedSource, $resolvedEnable) = resolveTemplateFormulaBaseAndPercent($row);
+        $sourceDisplay = formatSourcePercentForMaintenanceList($resolvedSource);
+        $formulaDisplayParen = buildFormulaDisplayParenFromParts($resolvedBase, $resolvedSource, $resolvedEnable);
         $formulaEdit = buildFormulaEditFromRow($row);
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
-        $processDisplay = $processCode;
-        if ($descriptionName !== '') {
-            $processDisplay = $processCode . ' (' . $descriptionName . ')';
-        }
+        $processOnGroupEntity = !empty($row['process_on_group_entity']);
+        $processDisplay = formulaMaintenanceFormatProcessDisplay(
+            $processCode,
+            $descriptionName,
+            $processOnGroupEntity
+        );
         $accountDisplay = $row['account_code'] ?? ($row['account_display'] ?? '');
         $currencyDisplay = $row['currency_code'] ?? ($row['currency_display'] ?? '');
         $product = $row['id_product'] ?? '';
@@ -163,50 +170,53 @@ function mapRowsToDisplay(array $rows) {
         $dedupKey = implode('|', $keyParts);
 
         $currentId = isset($row['id']) ? (int)$row['id'] : 0;
+        $currentScore = scoreTemplateRowForMaintenanceDedup($row);
+        $entry = [
+            'id' => $currentId,
+            'process' => $processDisplay,
+            'account' => $accountDisplay,
+            'account_id' => $row['account_id'],
+            'account_name' => $row['account_name'] ?? '',
+            'currency' => $currencyDisplay,
+            'source' => $sourceDisplay,
+            'source_ref' => is_string($sourceRef) ? trim($sourceRef) : trim((string) $sourceRef),
+            'product' => $product,
+            'input_method' => $inputMethod,
+            'formula' => $formulaDisplayParen,
+            'formula_edit' => $formulaEdit,
+            'description' => $description,
+            'product_type' => $productType,
+            '_score' => $currentScore,
+        ];
+
         if (!isset($displayRowsByKey[$dedupKey])) {
-            $displayRowsByKey[$dedupKey] = [
-                'id' => $currentId,
-                'process' => $processDisplay,
-                'account' => $accountDisplay,
-                'account_id' => $row['account_id'],
-                'account_name' => $row['account_name'] ?? '',
-                'currency' => $currencyDisplay,
-                'source' => $sourceDisplay,
-                'source_ref' => is_string($sourceRef) ? trim($sourceRef) : trim((string) $sourceRef),
-                'product' => $product,
-                'input_method' => $inputMethod,
-                'formula' => $formulaDisplayParen,
-                'formula_edit' => $formulaEdit,
-                'description' => $description,
-                'product_type' => $productType
-            ];
+            $displayRowsByKey[$dedupKey] = ['entry' => $entry, 'raw' => $row];
         } else {
-            // 同一个界面组合只保留最新一条，避免历史重复记录在列表中多占一行
-            $existingId = (int)$displayRowsByKey[$dedupKey]['id'];
-            if ($currentId > $existingId) {
-                $displayRowsByKey[$dedupKey]['id'] = $currentId;
-                $displayRowsByKey[$dedupKey]['formula'] = $formulaDisplayParen;
-                $displayRowsByKey[$dedupKey]['formula_edit'] = $formulaEdit;
-                $displayRowsByKey[$dedupKey]['source'] = $sourceDisplay;
-                $displayRowsByKey[$dedupKey]['source_ref'] = is_string($sourceRef) ? trim($sourceRef) : trim((string) $sourceRef);
-                $displayRowsByKey[$dedupKey]['input_method'] = $inputMethod;
-                $displayRowsByKey[$dedupKey]['description'] = $description;
-                $displayRowsByKey[$dedupKey]['account'] = $accountDisplay;
-                $displayRowsByKey[$dedupKey]['account_id'] = $row['account_id'];
-                $displayRowsByKey[$dedupKey]['account_name'] = $row['account_name'] ?? '';
-                $displayRowsByKey[$dedupKey]['currency'] = $currencyDisplay;
-                $displayRowsByKey[$dedupKey]['product'] = $product;
+            $existingScore = (int)($displayRowsByKey[$dedupKey]['entry']['_score'] ?? 0);
+            $existingId = (int)$displayRowsByKey[$dedupKey]['entry']['id'];
+            $shouldReplace = $currentScore > $existingScore
+                || ($currentScore === $existingScore && $currentId > $existingId);
+            if ($shouldReplace) {
+                $displayRowsByKey[$dedupKey] = ['entry' => $entry, 'raw' => $row];
             }
         }
     }
 
-    // 重新生成顺序号 no
+    $rawById = [];
     $data = [];
+    foreach ($displayRowsByKey as $item) {
+        $entry = $item['entry'];
+        unset($entry['_score']);
+        $rawById[(int)$entry['id']] = $item['raw'];
+        $data[] = $entry;
+    }
+
+    $data = applyPeerRowCoefficientInferencePhp($data, $rawById);
+
     $no = 1;
-    foreach ($displayRowsByKey as $row) {
-        $row['no'] = $no++;
-        $row['id'] = (int)$row['id'];
-        $data[] = $row;
+    foreach ($data as $idx => $row) {
+        $data[$idx]['no'] = $no++;
+        $data[$idx]['id'] = (int)$row['id'];
     }
     return $data;
 }
@@ -215,7 +225,12 @@ try {
     if (!isset($_SESSION['user_id'])) {
         throw new Exception('用户未登录');
     }
-    $companyId = getCompanyIdForRequest($pdo);
+    $scopeParams = array_merge($_GET, $_POST);
+    $scopeCtx = formulaMaintenanceResolveRequestScope($pdo, $scopeParams);
+    $companyId = (int) $scopeCtx['company_id'];
+    $formula_scope_group = (bool) $scopeCtx['is_group_scope'];
+    $scopeProcessSql = (string) $scopeCtx['scope_process_sql'];
+
     $category = trim($_GET['category'] ?? $_GET['permission'] ?? '');
     $catUpper = $category !== '' ? strtoupper($category) : '';
     if (in_array($catUpper, ['LOAN', 'RATE', 'MONEY'], true)) {
@@ -227,11 +242,25 @@ try {
     if ($search === '' && isset($_POST['search'])) {
         $search = trim((string)$_POST['search']);
     }
-    $processFilter = isset($_GET['process']) ? trim((string)$_GET['process']) : '';
-    if ($processFilter === '' && isset($_POST['process'])) {
-        $processFilter = trim((string)$_POST['process']);
+    $processParam = isset($_GET['process']) ? trim((string) $_GET['process']) : '';
+    if ($processParam === '' && isset($_POST['process'])) {
+        $processParam = trim((string) $_POST['process']);
     }
-    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processFilter);
+    $processResolved = formulaMaintenanceResolveProcessFilter(
+        $pdo,
+        $processParam,
+        $companyId,
+        $formula_scope_group
+    );
+    $processIdFilter = $processResolved['process_id'];
+    if ($processParam !== '' && $processIdFilter === null && $processResolved['legacy_code'] !== null) {
+        jsonResponse(true, 'success', ['list' => [], 'total' => 0]);
+        exit;
+    }
+    if ($processIdFilter !== null && $processIdFilter > 0) {
+        dcFixGroupPayrollProcessDescription($pdo, $processIdFilter);
+    }
+    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processIdFilter, $scopeProcessSql);
     $list = mapRowsToDisplay($rows);
     jsonResponse(true, 'success', ['list' => $list, 'total' => count($list)]);
 } catch (PDOException $e) {

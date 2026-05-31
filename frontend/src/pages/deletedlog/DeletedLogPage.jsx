@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../../utils/apiUrl.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/deleted-log.css";
 
@@ -185,8 +185,6 @@ export default function DeletedLogPage() {
     <>
       <div className="container">
         <div className="content">
-          <h1 className="account-page-title">Deleted Log</h1>
-          <div className="deleted-log-separator-line" />
           {scopeHintHtml !== "" ? (
             <p className="deleted-log-scope-hint" dangerouslySetInnerHTML={{ __html: scopeHintHtml }} />
           ) : null}
@@ -357,9 +355,7 @@ export default function DeletedLogPage() {
         <div className="deleted-log-json-modal" role="dialog" aria-modal="true" aria-labelledby="deletedLogJsonTitle">
           <header>
             <strong id="deletedLogJsonTitle">Deleted data (JSON)</strong>
-            <button type="button" className="deleted-log-btn js-deleted-modal-close" aria-label="Close" onClick={closeOverlay}>
-              Close
-            </button>
+            <button type="button" className="account-close" aria-label="Close" onClick={closeOverlay} />
           </header>
           <pre id="deletedLogJsonPre">{jsonOverlayText}</pre>
         </div>

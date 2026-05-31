@@ -6,25 +6,22 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <title>EazyCount</title>
     <!--
-      Static shell (no Vite): login / forgot-password / legacy login markup.
-      NOT the same file as /src/index.css (Tailwind). Public /css/index.css = marquee + misc.
-      SPA dashboard shell lives in src/styles/app-shell.css → bundled by main.jsx.
+      Auth shell CSS (public/css → dist/css). Vite injects the JS bundle stylesheet after these links;
+      input 2px border is re-applied at the end of that bundle via src/styles/login-auth-fields.css.
     -->
-    <link rel="stylesheet" href="/frontend/public/css/style.css" />
-    <link rel="stylesheet" href="/frontend/public/css/index.css" />
-    <link rel="stylesheet" href="/frontend/public/css/reset-password.css" />
-    <link rel="stylesheet" href="/frontend/public/css/login-shadcn.css?v=e0f450c8-ios26-restore" />
-    <link href="https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="%BASE_URL%css/style.css?v=20260528-auth-input-border-2px" />
+    <link rel="stylesheet" href="%BASE_URL%css/index.css" />
+    <link rel="stylesheet" href="%BASE_URL%css/reset-password.css" />
+    <link rel="stylesheet" href="%BASE_URL%css/login-shadcn.css?v=20260528-login-layout-tweak" />
+    <link rel="stylesheet" href="%BASE_URL%css/dashboard-scrollbar.css?v=20260528-app-wide" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
   </head>

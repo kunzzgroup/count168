@@ -1,10 +1,21 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  transactionScopeApiParams,
+  transactionScopeCacheKey,
+  transactionScopeIsReady,
+} from "../lib/transactionScope.js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { parseRateExpression, buildClientRequestId } from "../transactionFormat.js";
-import { formatRateAmount } from "../transactionFormat.js";
-import { buildRatePayload, toNumberLike } from "../transactionSubmitHelpers.js";
-import { submitTransaction } from "../transactionApi.js";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
+import {
+  parseRateExpression,
+  buildClientRequestId,
+  parseBalanceValue,
+  countRateDecimalPlaces,
+  formatRateAmount,
+} from "../lib/transactionFormat.js";
+import { buildRatePayload, toNumberLike } from "../lib/transactionSubmitHelpers.js";
+import { submitTransaction, transactionQueryKeys } from "../lib/transactionApi.js";
+import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
+import { resolveGridRowToAccountOption } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionForm({
   todayDmy,
@@ -12,8 +23,20 @@ export function useTransactionForm({
   onSearch,
   refreshContraInboxBadge,
   filterSnapshot,
+  transactionScope,
+  accountOptions,
+  m,
+  t,
 }) {
-  const [txType, setTxType] = useState("CONTRA");
+  const [txType, setTxTypeRaw] = useState("CONTRA");
+  const setTxType = useCallback((next) => {
+    const v = String(next || "").trim().toUpperCase();
+    if (v === "RECEIVE") return;
+    setTxTypeRaw(v || "CONTRA");
+  }, []);
+  useEffect(() => {
+    if (txType === "RECEIVE") setTxTypeRaw("CONTRA");
+  }, [txType]);
   const [txDate, setTxDate] = useState(null);
   const [txToAccount, setTxToAccount] = useState(null);
   const [txFromAccount, setTxFromAccount] = useState(null);
@@ -21,7 +44,6 @@ export function useTransactionForm({
   const [txAmount, setTxAmount] = useState("");
   const [txRemark, setTxRemark] = useState("");
   const [txConfirm, setTxConfirm] = useState(false);
-  const [winLoseSide, setWinLoseSide] = useState("WIN");
   const [submitting, setSubmitting] = useState(false);
 
   const [rateDate, setRateDate] = useState(null);
@@ -32,6 +54,10 @@ export function useTransactionForm({
   const [rateCurrencyFromAmount, setRateCurrencyFromAmount] = useState("");
   const [rateExchangeRateRaw, setRateExchangeRateRaw] = useState("");
   const [rateCurrencyToAmount, setRateCurrencyToAmount] = useState("");
+  /** Legacy `rate_currency_to_amount.dataset.grossAmount` — submit uses this, not the net preview in `rateCurrencyToAmount`. */
+  const [rateToAmountGrossStr, setRateToAmountGrossStr] = useState("");
+  /** Legacy `rate_currency_from_amount.dataset` gross slot (only populated after RATE row Reverse swap). */
+  const [rateFromAmountGrossStr, setRateFromAmountGrossStr] = useState("");
 
   const [rateTransferToAccount, setRateTransferToAccount] = useState(null);
   const [rateTransferFromAccount, setRateTransferFromAccount] = useState(null);
@@ -40,76 +66,204 @@ export function useTransactionForm({
   const [rateMiddlemanRate, setRateMiddlemanRate] = useState("");
   const [rateMiddlemanAmount, setRateMiddlemanAmount] = useState("");
   const queryClient = useQueryClient();
+  const scopeKeyRef = useRef(transactionScopeCacheKey(transactionScope));
+
+  useEffect(() => {
+    const key = transactionScopeCacheKey(transactionScope);
+    if (scopeKeyRef.current === key) return;
+    scopeKeyRef.current = key;
+    setTxToAccount(null);
+    setTxFromAccount(null);
+    setRateToAccount(null);
+    setRateFromAccount(null);
+    setRateTransferToAccount(null);
+    setRateTransferFromAccount(null);
+    setRateMiddlemanAccount(null);
+  }, [transactionScope]);
 
   const submitMutation = useMutation({
-    mutationFn: ({ companyId, payload, clientRequestId }) => submitTransaction({ companyId, payload, clientRequestId }),
+    mutationFn: ({ scopeApi, payload, clientRequestId }) =>
+      submitTransaction({ ...scopeApi, payload, clientRequestId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInboxRoot() });
     },
   });
 
-  const handleBalanceCellClick = useCallback((account, side) => {
-    if (!account) return;
-    if (side === "left") {
-      setTxToAccount(account);
-      setTxCurrency(account.currency || "");
-      setTxAmount(String(account.balance || ""));
-    } else {
-      setTxFromAccount(account);
-      setTxCurrency(account.currency || "");
-      setTxAmount(String(account.balance || ""));
-    }
-  }, []);
+    const handleBalanceCellClick = useCallback(
+    (row, side) => {
+      if (filterSnapshot?.mutationsBlocked) return;
+      if (!row) return;
+      const isLeftTable = side === "left";
+      const balanceAttr =
+        row.balance_full != null && String(row.balance_full).trim() !== "" ? row.balance_full : row.balance;
+      const rowCurrency =
+        row.currency && String(row.currency).trim() ? String(row.currency).trim().toUpperCase() : "";
+      const resolved = resolveGridRowToAccountOption(row, accountOptions);
+      if (!resolved) {
+        pushToast(m.couldNotResolveAccount, "error");
+        return;
+      }
+      const accountCurrency = resolved.currency ? String(resolved.currency).trim().toUpperCase() : "";
+      const syncCurrency = rowCurrency || accountCurrency || null;
 
-  const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
+      const parsedBalance = parseBalanceValue(balanceAttr);
+      const isRateView = txType === "RATE";
+      const isProfitType = !isRateView && txType === "PROFIT";
+      const treatAsPositiveRow = isRateView
+        ? isLeftTable
+        : isProfitType
+          ? (parsedBalance === null ? isLeftTable : parsedBalance >= 0)
+          : isLeftTable;
+
+      const parts = [];
+      let amountSet = false;
+      let amountDisplay = "";
+
+      if (parsedBalance !== null) {
+        if (isProfitType) {
+          try {
+            const balDec = MoneyDecimal.toDecimal(String(parsedBalance), 0);
+            amountDisplay = MoneyDecimal.formatFixedHalfUp(balDec.toString(), 2);
+          } catch {
+            const absStr = MoneyDecimal.abs(String(parsedBalance)).toString();
+            amountDisplay = MoneyDecimal.formatFixedHalfUp(absStr, 2);
+          }
+        } else {
+          const absStr = MoneyDecimal.abs(String(parsedBalance)).toString();
+          amountDisplay = MoneyDecimal.formatFixedHalfUp(absStr, 2);
+        }
+        amountSet = true;
+      }
+
+      if (isRateView) {
+        if (treatAsPositiveRow) {
+          setRateToAccount(resolved);
+          setRateTransferFromAccount(resolved);
+        } else {
+          setRateFromAccount(resolved);
+          setRateTransferToAccount(resolved);
+        }
+        if (amountSet) setRateCurrencyFromAmount(amountDisplay);
+        if (syncCurrency) setRateCurrencyFrom(syncCurrency);
+        parts.push(t("syncedFromAccount", { account: row.account_id || resolved.account_id }).replace("From", treatAsPositiveRow ? m.fromAccount : m.toAccount));
+        if (amountSet) parts.push(t("syncedAmountShort", { amount: amountDisplay }));
+        if (syncCurrency) parts.push(t("syncedCurrency", { currency: syncCurrency }));
+        if (parts.length) pushToast(t("synced", { text: parts.join(", ") }), "success");
+        else if (amountSet) pushToast(t("syncedAmount", { amount: amountDisplay }), "success");
+        return;
+      }
+
+      if (treatAsPositiveRow) {
+        setTxToAccount(resolved);
+      } else {
+        setTxFromAccount(resolved);
+      }
+      if (amountSet) setTxAmount(amountDisplay);
+      if (syncCurrency) setTxCurrency(syncCurrency);
+
+      parts.push(t("syncedFromAccount", { account: row.account_id || resolved.account_id }).replace("From", treatAsPositiveRow ? m.fromAccount : m.toAccount));
+      if (amountSet) parts.push(t("syncedAmountShort", { amount: amountDisplay }));
+      if (syncCurrency) parts.push(t("syncedCurrency", { currency: syncCurrency }));
+      if (parts.length) pushToast(t("synced", { text: parts.join(", ") }), "success");
+      else if (amountSet) pushToast(t("syncedAmount", { amount: amountDisplay }), "success");
+    },
+    [accountOptions, filterSnapshot?.mutationsBlocked, pushToast, txType, m, t],
+  );
+
+  const needsFromTo = ["CONTRA", "PAYMENT", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
   const showStandardFromAndReverse = txType !== "RATE" && needsFromTo;
   const isAdjustment = txType === "ADJUSTMENT";
 
   const onReverseAccounts = useCallback(() => {
+    if (filterSnapshot?.mutationsBlocked) return;
     const to = txToAccount;
     const from = txFromAccount;
     setTxToAccount(from);
     setTxFromAccount(to);
-  }, [txToAccount, txFromAccount]);
+  }, [filterSnapshot?.mutationsBlocked, txToAccount, txFromAccount]);
 
-  const prevTxTypeRef = useRef(txType);
-  const fpTxDateRef = useRef(null);
-  const fpRateDateRef = useRef(null);
-
-  // Rate calculation effects
+  // RATE: legacy `initMiddleManAmountCalculation` — MoneyDecimal chain, middle-man then gross/net preview.
   useEffect(() => {
     if (txType !== "RATE") return;
+
+    const clean = (v) => String(v ?? "").replace(/,/g, "").trim();
+
+    let middleStr = "";
+    try {
+      const fromDec = MoneyDecimal.toDecimal(clean(rateCurrencyFromAmount) || "0", 0);
+      const mmrDec = MoneyDecimal.toDecimal(clean(rateMiddlemanRate) || "0", 0);
+      if (fromDec.gt(0) && mmrDec.gt(0)) {
+        middleStr = formatRateAmount(fromDec.times(mmrDec).toString());
+      }
+    } catch {
+      middleStr = "";
+    }
+    setRateMiddlemanAmount(middleStr);
+
     const parsed = parseRateExpression(rateExchangeRateRaw);
-    const fromAmt = Number(String(rateCurrencyFromAmount || "").replace(/,/g, "").trim());
-    if (!parsed.valid || !Number.isFinite(fromAmt) || fromAmt <= 0) {
-      setRateCurrencyToAmount("");
-      return;
-    }
-    const toAmt = fromAmt * parsed.value;
-    setRateCurrencyToAmount(formatRateAmount(toAmt));
-  }, [txType, rateExchangeRateRaw, rateCurrencyFromAmount]);
+    try {
+      const fromDec = MoneyDecimal.toDecimal(clean(rateCurrencyFromAmount) || "0", 0);
+      if (!parsed.valid || !fromDec.gt(0)) {
+        setRateCurrencyToAmount("");
+        setRateToAmountGrossStr("");
+        return;
+      }
+      const rateDec = MoneyDecimal.toDecimal(parsed.value, 0);
+      if (!rateDec.gt(0)) {
+        setRateCurrencyToAmount("");
+        setRateToAmountGrossStr("");
+        return;
+      }
+      const gross = fromDec.times(rateDec);
+      const grossDisplayStr = formatRateAmount(gross.toString());
+      setRateToAmountGrossStr(grossDisplayStr);
 
-  useEffect(() => {
-    if (txType !== "RATE") return;
-    const base = Number(String(rateCurrencyFromAmount || "").replace(/,/g, "").trim());
-    const mult = Number(String(rateMiddlemanRate || "").replace(/,/g, "").trim());
-    if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(mult) || mult <= 0) {
-      setRateMiddlemanAmount("");
-      return;
+      let displayVal = gross;
+      if (middleStr) {
+        try {
+          const fee = MoneyDecimal.toDecimal(middleStr.replace(/,/g, ""), 0);
+          if (fee.gt(0)) displayVal = gross.minus(fee);
+        } catch {
+          /* ignore */
+        }
+      }
+      setRateCurrencyToAmount(formatRateAmount(displayVal.toString()));
+    } catch {
+      setRateCurrencyToAmount("");
+      setRateToAmountGrossStr("");
     }
-    setRateMiddlemanAmount(formatRateAmount(base * mult));
-  }, [txType, rateCurrencyFromAmount, rateMiddlemanRate]);
+  }, [txType, rateCurrencyFromAmount, rateExchangeRateRaw, rateMiddlemanRate]);
+
+  const onRateCurrencyRowReverse = useCallback(() => {
+    const tmpAmt = rateCurrencyFromAmount;
+    setRateCurrencyFromAmount(rateCurrencyToAmount);
+    setRateCurrencyToAmount(tmpAmt);
+    const tmpGrossTo = rateToAmountGrossStr;
+    setRateToAmountGrossStr(rateFromAmountGrossStr);
+    setRateFromAmountGrossStr(tmpGrossTo);
+  }, [rateCurrencyFromAmount, rateCurrencyToAmount, rateToAmountGrossStr, rateFromAmountGrossStr]);
 
   const onSubmitTx = async () => {
     if (!txConfirm) return;
     if (submitting) return;
+    if (filterSnapshot?.mutationsBlocked) {
+      pushToast(m.readOnlyModeCannotSubmit, "error");
+      return;
+    }
 
-    const companyId = filterSnapshot?.companyId;
-    if (!companyId) return;
+    const scopeApi = transactionScopeApiParams(transactionScope);
+    if (!transactionScopeIsReady(transactionScope)) {
+      pushToast(m.submitFailed, "error");
+      return;
+    }
 
     if (!txType) {
-      pushToast("Please select transaction type", "error");
+      pushToast(m.pleaseSelectTransactionType, "error");
+      return;
+    }
+    if (txType === "RECEIVE") {
+      pushToast(m.receiveTypeDisabled, "error");
       return;
     }
 
@@ -117,31 +271,31 @@ export function useTransactionForm({
     const fromId = txFromAccount?.id ? String(txFromAccount.id) : "";
 
     if (!toId) {
-      pushToast("Please select To Account", "error");
+      pushToast(m.pleaseSelectToAccount, "error");
       return;
     }
 
-    const needsFromTo = ["CONTRA", "PAYMENT", "RECEIVE", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
+    const needsFromTo = ["CONTRA", "PAYMENT", "CLAIM", "PROFIT", "CLEAR"].includes(txType);
     const isAdjustment = txType === "ADJUSTMENT";
 
     if (txType === "PROFIT") {
       if (!fromId) {
-        pushToast("PROFIT: Please select From Account", "error");
+        pushToast(m.profitPleaseSelectFromAccount, "error");
         return;
       }
       if (toId && fromId && toId === fromId) {
-        pushToast("PROFIT: Select To Account and Select From Account cannot be the same", "error");
+        pushToast(m.profitSameAccountError, "error");
         return;
       }
     }
 
     if (needsFromTo && (!fromId || fromId === toId)) {
-      pushToast("PAYMENT/RECEIVE/CONTRA/CLAIM/CLEAR transaction requires From Account", "error");
+      pushToast(m.paymentContraEtcNeedFromAccount, "error");
       return;
     }
 
     if (!txDate) {
-      pushToast("Please select transaction date", "error");
+      pushToast(m.pleaseSelectTransactionDate, "error");
       return;
     }
 
@@ -149,41 +303,50 @@ export function useTransactionForm({
       const toId = rateToAccount?.id ? String(rateToAccount.id) : "";
       const fromId = rateFromAccount?.id ? String(rateFromAccount.id) : "";
       if (!toId) {
-        pushToast("Please select To Account", "error");
+        pushToast(m.pleaseSelectToAccount, "error");
         return;
       }
       if (!fromId) {
-        pushToast("Rate transaction requires From Account", "error");
+        pushToast(m.rateTransactionNeedFromAccount, "error");
         return;
       }
       if (!rateCurrencyFrom || !rateCurrencyTo) {
-        pushToast("Please select both currencies", "error");
+        pushToast(m.pleaseSelectBothCurrencies, "error");
         return;
       }
       const fromAmt = toNumberLike(rateCurrencyFromAmount);
-      const toAmt = toNumberLike(rateCurrencyToAmount);
-      if (!Number.isFinite(fromAmt) || fromAmt <= 0 || !Number.isFinite(toAmt) || toAmt <= 0) {
-        pushToast("Please enter valid currency amounts", "error");
+      const toGrossRaw = String(rateToAmountGrossStr || "").trim().replace(/,/g, "");
+      const toGrossStr = toGrossRaw !== "" ? toGrossRaw : String(rateCurrencyToAmount || "").trim().replace(/,/g, "");
+      const grossNum = toNumberLike(toGrossStr);
+      if (!Number.isFinite(fromAmt) || fromAmt <= 0 || !Number.isFinite(grossNum) || grossNum <= 0) {
+        pushToast(m.pleaseEnterValidCurrencyAmounts, "error");
         return;
       }
       const parsedRate = parseRateExpression(rateExchangeRateRaw);
       if (!parsedRate.valid) {
-        pushToast("Please enter a valid rate value (supports * and /)", "error");
+        pushToast(m.pleaseEnterValidRateValue, "error");
         return;
       }
       if (!rateDate) {
-        pushToast("Please select transaction date", "error");
+        pushToast(m.pleaseSelectTransactionDate, "error");
         return;
       }
 
       const middleId = rateMiddlemanAccount?.id ? String(rateMiddlemanAccount.id) : "";
 
-      if ((middleId || rateMiddlemanRate) && !middleId) {
-        pushToast("Please select Middle-Man account", "error");
+      if ((middleId || String(rateMiddlemanRate || "").trim()) && !middleId) {
+        pushToast(m.pleaseSelectMiddleManAccount, "error");
         return;
       }
-      if ((middleId || rateMiddlemanRate) && (!rateMiddlemanRate || Number(rateMiddlemanRate) <= 0)) {
-        pushToast("Please enter Middle-Man rate multiplier", "error");
+      if ((middleId || String(rateMiddlemanRate || "").trim()) && (!rateMiddlemanRate || Number(rateMiddlemanRate) <= 0)) {
+        pushToast(m.pleaseEnterMiddleManRate, "error");
+        return;
+      }
+      const mmrNorm = String(rateMiddlemanRate ?? "")
+        .replace(/,/g, "")
+        .trim();
+      if (middleId && mmrNorm !== "" && countRateDecimalPlaces(mmrNorm) > 8) {
+        pushToast(m.middleManRateMaxDecimals, "error");
         return;
       }
 
@@ -193,13 +356,13 @@ export function useTransactionForm({
         const { payload } = buildRatePayload({
           toId,
           fromId,
-          fromAmt,
-          toAmt,
+          fromAmt: rateCurrencyFromAmount,
+          toGrossStr,
           rateDate,
           txRemark,
           rateCurrencyFrom,
           rateCurrencyTo,
-          parsedRateValue: parsedRate.value,
+          parsedRateNormalizedStr: parsedRate.value,
           rateMiddlemanRate,
           rateMiddlemanAmount,
           rateMiddlemanAccount,
@@ -210,19 +373,21 @@ export function useTransactionForm({
           rateTransferFromAccount,
         });
 
-        const res = await submitMutation.mutateAsync({ companyId, payload, clientRequestId });
+        const res = await submitMutation.mutateAsync({ scopeApi, payload, clientRequestId });
         if (res?.success) {
           const approvalStatus = res?.data?.approval_status ? String(res.data.approval_status).toUpperCase() : "";
           if (approvalStatus === "PENDING") {
-            pushToast("Submitted. Waiting for Manager+ approval to take effect.", "info");
+            pushToast(m.submittedWaitingApproval, "info");
           } else {
-            pushToast(res?.message || "RATE transaction submitted successfully", "success");
+            pushToast(res?.message || m.rateTransactionSubmitted, "success");
           }
-          await refreshContraInboxBadge();
+          await refreshContraInboxBadge(scopeApi);
           setTxConfirm(false);
           setRateCurrencyFromAmount("");
           setRateExchangeRateRaw("");
           setRateCurrencyToAmount("");
+          setRateToAmountGrossStr("");
+          setRateFromAmountGrossStr("");
           setRateMiddlemanRate("");
           setRateMiddlemanAmount("");
           setRateToAccount(null);
@@ -230,36 +395,53 @@ export function useTransactionForm({
           setRateTransferToAccount(null);
           setRateTransferFromAccount(null);
           setRateMiddlemanAccount(null);
-          await onSearch();
+          await onSearch({ forceRefresh: true });
           return;
         }
-        pushToast(res?.message || "Submit failed", "error");
+        pushToast(res?.message || m.submitFailed, "error");
       } catch (e) {
         console.error(e);
-        pushToast("Network error. Please try again.", "error");
+        pushToast(m.networkError, "error");
       } finally {
         setSubmitting(false);
       }
       return;
     }
 
-    const amountStr = String(txAmount ?? "").trim();
-    const n = Number(amountStr);
-    if (!Number.isFinite(n) || amountStr === "") {
-      pushToast(isAdjustment ? "Please enter a non-zero adjustment amount" : "Please enter a valid amount (>= 0)", "error");
+    const cleanedAmt = MoneyDecimal.cleanMoneyInput(txAmount);
+    if (cleanedAmt === "") {
+      pushToast(
+        isAdjustment ? m.pleaseEnterNonZeroAdjustment : m.pleaseEnterValidAmount,
+        "error",
+      );
       return;
     }
-    if (!isAdjustment && n < 0) {
-      pushToast("Please enter a valid amount (>= 0)", "error");
+
+    let amtDec;
+    try {
+      amtDec = MoneyDecimal.toDecimal(cleanedAmt);
+    } catch {
+      pushToast(m.pleaseEnterValidAmount, "error");
       return;
     }
-    if (isAdjustment && n === 0) {
-      pushToast("Please enter a non-zero adjustment amount", "error");
+
+    const isProfitTx = txType === "PROFIT";
+
+    if (isAdjustment && amtDec.isZero()) {
+      pushToast(m.pleaseEnterNonZeroAdjustment, "error");
+      return;
+    }
+    if (isProfitTx && amtDec.isZero()) {
+      pushToast(m.profitEnterNonZeroAmount, "error");
+      return;
+    }
+    if (!isAdjustment && !isProfitTx && amtDec.lt(0)) {
+      pushToast(m.pleaseEnterValidAmountGteZero, "error");
       return;
     }
 
     if (!txCurrency) {
-      pushToast("Please select Currency", "error");
+      pushToast(m.pleaseSelectCurrency, "error");
       return;
     }
 
@@ -267,34 +449,34 @@ export function useTransactionForm({
     try {
       const clientRequestId = buildClientRequestId();
       const payload = {
-        transaction_type: txType === "PROFIT" ? winLoseSide : txType,
+        transaction_type: isProfitTx ? (amtDec.lt(0) ? "LOSE" : "WIN") : txType,
         account_id: toId,
         from_account_id: isAdjustment ? "" : fromId || "",
-        amount: txAmount,
+        amount: isProfitTx ? MoneyDecimal.formatFixedHalfUp(amtDec.abs().toString(), 2) : txAmount,
         transaction_date: txDate,
         description: "",
         sms: txRemark,
         currency: txCurrency,
       };
 
-      const res = await submitMutation.mutateAsync({ companyId, payload, clientRequestId });
+      const res = await submitMutation.mutateAsync({ scopeApi, payload, clientRequestId });
       if (res?.success) {
         const approvalStatus = res?.data?.approval_status ? String(res.data.approval_status).toUpperCase() : "";
         if (approvalStatus === "PENDING") {
-          pushToast("Submitted. Waiting for Manager+ approval to take effect.", "info");
+          pushToast(m.submittedWaitingApproval, "info");
         } else {
-          pushToast(res?.message || "Transaction submitted successfully", "success");
+          pushToast(res?.message || m.transactionSubmitted, "success");
         }
-        await refreshContraInboxBadge();
+        await refreshContraInboxBadge(scopeApi);
         setTxAmount("");
         setTxConfirm(false);
-        await onSearch();
+        await onSearch({ forceRefresh: true });
         return;
       }
-      pushToast(res?.message || "Submit failed", "error");
+      pushToast(res?.message || m.submitFailed, "error");
     } catch (e) {
       console.error(e);
-      pushToast("Network error. Please try again.", "error");
+      pushToast(m.networkError, "error");
     } finally {
       setSubmitting(false);
     }
@@ -317,8 +499,6 @@ export function useTransactionForm({
     setTxRemark,
     txConfirm,
     setTxConfirm,
-    winLoseSide,
-    setWinLoseSide,
     submitting,
     setSubmitting,
     needsFromTo,
@@ -341,6 +521,7 @@ export function useTransactionForm({
     setRateExchangeRateRaw,
     rateCurrencyToAmount,
     setRateCurrencyToAmount,
+    onRateCurrencyRowReverse,
     rateTransferToAccount,
     setRateTransferToAccount,
     rateTransferFromAccount,
@@ -351,9 +532,6 @@ export function useTransactionForm({
     setRateMiddlemanRate,
     rateMiddlemanAmount,
     setRateMiddlemanAmount,
-    prevTxTypeRef,
-    fpTxDateRef,
-    fpRateDateRef,
     onSubmitTx,
     handleBalanceCellClick,
   };

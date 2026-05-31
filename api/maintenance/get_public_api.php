@@ -5,7 +5,7 @@
  */
 
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
 
 function jsonResponse($success, $message, $data = null, $httpCode = null) {
     if ($httpCode !== null) {
@@ -16,6 +16,11 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
         'message' => $message,
         'data' => $data
     ], JSON_UNESCAPED_UNICODE);
+}
+
+if (!isset($pdo) || !$pdo instanceof PDO) {
+    jsonResponse(false, 'Database unavailable', null, 503);
+    exit;
 }
 
 /**

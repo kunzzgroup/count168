@@ -9,9 +9,10 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -219,6 +220,7 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
 function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $profitCode = 'PROFIT') {
     $isDomainShareCommission = false;
     $isDomainListFee = false;
+    $isAutoRenewFee = false;
     $descriptionRaw = (string)($row['description'] ?? '');
     $remarkRaw = (string)($row['remark'] ?? '');
     $remarkTrim = trim($remarkRaw);
@@ -232,6 +234,9 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         || $remarkTrim === '[DOMAIN_LIST_FEE]'
         || stripos($remarkTrim, '[DOMAIN_LIST_FEE|') === 0) {
         $isDomainListFee = true;
+    }
+    if (stripos($remarkTrim, '[AUTO_RENEW|') === 0) {
+        $isAutoRenewFee = true;
     }
 
     $description = $row['description'] ?? '';
@@ -275,6 +280,13 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
     }
     if ($isDomainListFee) {
         $description = 'Pay Domain Fee';
+    }
+    if ($isAutoRenewFee) {
+        if (preg_match('/^\s*Renew\s+(.+)$/i', trim($descriptionRaw), $mRenew)) {
+            $description = 'Renew ' . trim((string) $mRenew[1]);
+        } else {
+            $description = trim($descriptionRaw) !== '' ? trim($descriptionRaw) : 'Renew';
+        }
     }
     // Domain List Fee：顾客 from 有账号，入账「池」在业务上视为从总额中扣 % 的前序步骤，Maintenance 上 Account(To) 不展示具体池账号（与 JK 上净利润行口径一致）
     $accRaw = (string) ($row['account_code'] ?? '');
@@ -339,7 +351,7 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         'currency' => $row['currency_code'] ?? '-',
         'amount' => money_out($row['amount'] ?? '0'),
         'description' => $description,
-        'remark' => ($isDomainShareCommission || $isDomainListFee) ? '' : ($row['remark'] ?? ''),
+        'remark' => ($isDomainShareCommission || $isDomainListFee || $isAutoRenewFee) ? '' : ($row['remark'] ?? ''),
         'dts_created' => $row['dts_created'] ?? '',
         'created_by' => $createdBy,
         'transaction_type' => $row['transaction_type'],
@@ -827,7 +839,24 @@ try {
         throw new Exception('请先登录');
     }
 
-    $company_id = resolveCompanyId($pdo);
+    $scopeParams = $_GET;
+    $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
+
+    if ($hasExplicitScope) {
+        $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
+        $company_id = (int) $scopeResolved['company_id'];
+        $viewGroupForAccess = dcNormalizeGroupId(
+            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+        );
+        dcAssertUserCanAccessCompany(
+            $pdo,
+            $company_id,
+            $viewGroupForAccess !== '' ? $viewGroupForAccess : null
+        );
+    } else {
+        $company_id = resolveCompanyId($pdo);
+    }
+
     $companyOwnerCode = resolveCompanyOwnerCode($pdo, (int)$company_id);
     $profitDisplayCode = resolveProfitDisplayCode($pdo, (int)$company_id);
 

@@ -1,4 +1,4 @@
-/** User list page — pure helpers (parity with js/userlist.js + userlist.php) */
+/** User list page — pure helpers (rules aligned with api/users/userlist_api.php + former legacy page) */
 
 export const PAGE_SIZE = 20;
 
@@ -14,7 +14,7 @@ export const ROLE_HIERARCHY = {
   company: 8,
 };
 
-/** Role options in `<select>` order (matches userlist.php) */
+/** Role options in `<select>` order (matches userlist_api valid roles) */
 export const ALL_ROLE_OPTIONS = [
   { value: "partnership", label: "Partnership" },
   { value: "admin", label: "Admin" },
@@ -42,6 +42,64 @@ export const PERMISSION_ICONS = {
 
 export function normRole(r) {
   return String(r || "").trim().toLowerCase();
+}
+
+/** Partnership / Audit：显示 Read Only 开关 */
+export function roleHasReadOnlyToggle(role) {
+  const r = normRole(role);
+  return r === "partnership" || r === "audit";
+}
+
+/**
+ * Audit：manager 及以上可操作；Partnership：仅 owner（与 API canSetUserReadOnly 一致）
+ */
+export function canInteractWithReadOnlyToggle(currentUserRole, targetUserRole) {
+  const r = normRole(targetUserRole);
+  const curLevel = ROLE_HIERARCHY[normRole(currentUserRole)] ?? 999;
+  const managerLevel = ROLE_HIERARCHY.manager ?? 999;
+  if (r === "audit") return curLevel <= managerLevel;
+  if (r === "partnership") return normRole(currentUserRole) === "owner";
+  return false;
+}
+
+/**
+ * Edit User：Partnership/Audit 用户在被设为 Read Only 时，仅「本人编辑自己」锁定整表。
+ * Owner / Manager 等上级编辑下级只读账号时仍可修改（含关闭 Read Only）。
+ */
+export function isUserModalPageReadOnlyLock(isEditMode, editingRow, role, readOnly, currentUserId) {
+  if (!isEditMode || editingRow?.is_owner_shadow) return false;
+  if (!roleHasReadOnlyToggle(role) || !readOnly) return false;
+  if (!currentUserId || editingRow?.id == null) return false;
+  return Number(editingRow.id) === Number(currentUserId);
+}
+
+/** Owner 登录后编辑列表中的 Owner 影子行（本人公司 Owner 资料） */
+export function isOwnerEditingOwnerShadow(row, currentUserRole) {
+  return !!row?.is_owner_shadow && normRole(currentUserRole) === "owner";
+}
+
+/**
+ * 编辑弹窗字段锁。Owner 影子行仅允许改姓名、邮箱、密码（权限/账户/流程由 UI 单独禁用）。
+ */
+export function getUserEditFieldLocks(row, currentUserId, currentUserRole) {
+  if (isOwnerEditingOwnerShadow(row, currentUserRole)) {
+    return { name: false, email: false, role: true, password: false, sidebar: true, company: true };
+  }
+  const caps = computeRowCapabilities(row, currentUserId, currentUserRole);
+  const curLevel = ROLE_HIERARCHY[normRole(currentUserRole)] ?? 999;
+  const editLevel = ROLE_HIERARCHY[normRole(row.role)] ?? 999;
+  const isSelf = caps.isSelf;
+  const isSame = !isSelf && curLevel === editLevel;
+  const isLower = !isSelf && curLevel > editLevel;
+  const canPickCompany = currentUserRole === "admin" || currentUserRole === "owner";
+  return {
+    name: isSame || isLower,
+    email: isSame || isLower,
+    role: isSame || isLower,
+    password: false,
+    sidebar: isSelf || isSame || isLower,
+    company: isSelf || isSame || isLower || !canPickCompany,
+  };
 }
 
 export function getCurrentUserRolePermissions(currentUserRole) {
@@ -73,7 +131,8 @@ export function getRoleTemplateSidebarList(role) {
 
 export function getAvailableRolesForCreation(currentUserRole) {
   const currentLevel = ROLE_HIERARCHY[normRole(currentUserRole)] ?? 999;
-  if (currentLevel >= 4) return [];
+  /** level < 5 可建账号：supervisor(4) 可建下级 */
+  if (currentLevel >= 5) return [];
   return ALL_ROLE_OPTIONS.filter((role) => {
     const roleLevel = ROLE_HIERARCHY[role.value] ?? 999;
     return roleLevel > currentLevel;
@@ -115,7 +174,7 @@ export function getFinalPermissionsForCreation(selectedRole, manuallySelected, c
 }
 
 /**
- * Row capabilities (matches userlist.php card rules).
+ * Row capabilities（列表行编辑/删除/状态规则）.
  * @param {object} row — user row with id, role, status, is_owner_shadow
  */
 export function computeRowCapabilities(row, currentUserId, currentUserRole) {
@@ -127,7 +186,8 @@ export function computeRowCapabilities(row, currentUserId, currentUserRole) {
   const isSelf = currentUserId && targetUserId === Number(currentUserId);
   const isSameLevel = currentLevel === targetLevel && !isSelf;
   const isHigherLevel = targetLevel < currentLevel;
-  const lowPrivilegeRoles = ["manager", "supervisor", "accountant", "audit", "customer service", "partnership"];
+  /** 不含 partnership：partnership 可按层级编辑 admin 等 */
+  const lowPrivilegeRoles = ["manager", "supervisor", "accountant", "audit", "customer service"];
   const isLowPrivilegeUser = lowPrivilegeRoles.includes(normRole(currentUserRole));
   const isAdminUser = targetRole === "admin";
   const isOwnerUser = targetRole === "owner";
@@ -191,42 +251,104 @@ export function applyUserFilters(users, { search, showInactive, showAll, viewerR
   return rows;
 }
 
+function shadowCmp(a, b) {
+  if (a.is_owner_shadow && !b.is_owner_shadow) return -1;
+  if (!a.is_owner_shadow && b.is_owner_shadow) return 1;
+  return 0;
+}
+
+function tiebreakLoginName(a, b) {
+  const al = String(a.login_id || "").toLowerCase();
+  const bl = String(b.login_id || "").toLowerCase();
+  if (al < bl) return -1;
+  if (al > bl) return 1;
+  const an = String(a.name || "").toLowerCase();
+  const bn = String(b.name || "").toLowerCase();
+  if (an < bn) return -1;
+  if (an > bn) return 1;
+  return 0;
+}
+
+function lastLoginSortMs(raw) {
+  if (raw == null || raw === "") return null;
+  const d = new Date(String(raw).trim().replace(" ", "T"));
+  const t = d.getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
 export function sortUsers(rows, sortColumn, sortDirection) {
   const dir = sortDirection === "desc" ? -1 : 1;
   const copy = [...rows];
-  if (sortColumn === "loginId") {
+  const sortWithShadow = (primary) => {
     copy.sort((a, b) => {
-      if (a.is_owner_shadow && !b.is_owner_shadow) return -1;
-      if (!a.is_owner_shadow && b.is_owner_shadow) return 1;
-      const aKey = String(a.login_id || "").toLowerCase();
-      const bKey = String(b.login_id || "").toLowerCase();
-      let result = 0;
-      if (aKey < bKey) result = -1;
-      else if (aKey > bKey) result = 1;
-      else {
-        const aName = String(a.name || "").toLowerCase();
-        const bName = String(b.name || "").toLowerCase();
-        if (aName < bName) result = -1;
-        else if (aName > bName) result = 1;
-      }
+      const s = shadowCmp(a, b);
+      if (s !== 0) return s * dir;
+      let result = primary(a, b);
+      if (result === 0) result = tiebreakLoginName(a, b);
       return result * dir;
     });
+  };
+
+  if (sortColumn === "no") {
+    sortWithShadow((a, b) => Number(a.id || 0) - Number(b.id || 0));
+  } else if (sortColumn === "loginId") {
+    sortWithShadow((a, b) => {
+      const aKey = String(a.login_id || "").toLowerCase();
+      const bKey = String(b.login_id || "").toLowerCase();
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      const aName = String(a.name || "").toLowerCase();
+      const bName = String(b.name || "").toLowerCase();
+      if (aName < bName) return -1;
+      if (aName > bName) return 1;
+      return 0;
+    });
+  } else if (sortColumn === "name") {
+    sortWithShadow((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
+  } else if (sortColumn === "email") {
+    sortWithShadow((a, b) => String(a.email || "").localeCompare(String(b.email || ""), undefined, { sensitivity: "base" }));
   } else if (sortColumn === "role") {
-    copy.sort((a, b) => {
-      if (a.is_owner_shadow && !b.is_owner_shadow) return -1;
-      if (!a.is_owner_shadow && b.is_owner_shadow) return 1;
+    sortWithShadow((a, b) => {
       const aKey = ROLE_HIERARCHY[normRole(a.role)] ?? 999;
       const bKey = ROLE_HIERARCHY[normRole(b.role)] ?? 999;
-      let result = 0;
-      if (aKey < bKey) result = -1;
-      else if (aKey > bKey) result = 1;
-      else {
-        const al = String(a.login_id || "").toLowerCase();
-        const bl = String(b.login_id || "").toLowerCase();
-        if (al < bl) result = -1;
-        else if (al > bl) result = 1;
-      }
-      return result * dir;
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      const aRoleN = String(a.role || "").toUpperCase().trim();
+      const bRoleN = String(b.role || "").toUpperCase().trim();
+      if (aRoleN < bRoleN) return -1;
+      if (aRoleN > bRoleN) return 1;
+      return 0;
+    });
+  } else if (sortColumn === "status") {
+    sortWithShadow((a, b) =>
+      normRole(a.status).localeCompare(normRole(b.status), undefined, { sensitivity: "base" }),
+    );
+  } else if (sortColumn === "lastLogin") {
+    sortWithShadow((a, b) => {
+      const va = lastLoginSortMs(a.last_login);
+      const vb = lastLoginSortMs(b.last_login);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (va < vb) return -1;
+      if (va > vb) return 1;
+      return 0;
+    });
+  } else if (sortColumn === "createdBy") {
+    sortWithShadow((a, b) =>
+      String(a.created_by || "").localeCompare(String(b.created_by || ""), undefined, { sensitivity: "base" }),
+    );
+  } else {
+    sortWithShadow((a, b) => {
+      const aKey = String(a.login_id || "").toLowerCase();
+      const bKey = String(b.login_id || "").toLowerCase();
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      const aName = String(a.name || "").toLowerCase();
+      const bName = String(b.name || "").toLowerCase();
+      if (aName < bName) return -1;
+      if (aName > bName) return 1;
+      return 0;
     });
   }
   return copy;

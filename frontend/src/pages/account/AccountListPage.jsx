@@ -1,12 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../utils/companySessionEvents.js";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import {
+  isDashboardGroupOnlyMode,
+  persistDashboardGroupFilter,
+  persistDashboardGroupOnlyMode,
+  resolveBootCompanyId,
+  resolveInitialSelectedGroupFromSession,
+  loadOwnerCompaniesCached,
+} from "../../utils/company/sharedCompanyFilter.js";
+import { getLoginIdentifier, isGroupLogin } from "../../utils/company/loginScope.js";
+import {
+  groupIdsForGroupsAllAggregate,
+  useGcFilterWithAllModes,
+} from "../../utils/company/useGcFilterWithAllModes.js";
+import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
+import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 
-// Logic & Constants
+// Logic & Constants..
 import {
   toUpper,
   normalizeAlertAmount,
@@ -14,34 +29,43 @@ import {
   PAGE_SIZE,
   DEFAULT_FORM,
   getOrderedRoles,
+  normalizeCompanyRow,
+  isVirtualGroupLinkCompanyRow,
+  buildAccountsFetchKey,
+  buildAccountsUrl,
+  fetchMergedAccounts,
+  pickDefaultAddCurrencyIds,
 } from "./accountLogic.js";
 
 // Components
 import AccountModal from "../../components/AccountModal.jsx";
-import AccountConfirmModal from "./components/AccountConfirmModal.jsx";
-import CurrencySettingModal from "./components/CurrencySettingModal.jsx";
-import LinkAccountModal from "./components/LinkAccountModal.jsx";
-import { getAccountText } from "../../translateFile/accountTranslate.js";
-
-function normalizeCompanyRow(row) {
-  if (!row || typeof row !== "object") return row;
-  return {
-    ...row,
-    group_id: row.group_id ?? row.groupId ?? row.group ?? null,
-    company_id: row.company_id ?? row.companyId ?? row.code ?? "",
-  };
-}
+import { processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
+import {
+  AccountConfirmModal,
+  CurrencySettingModal,
+  LinkAccountModal,
+} from "./components/accountModals.jsx";
+import {
+  getAccountText,
+  parseAccountsFromCurrencyDeleteMessage,
+  translateAccountApiMessage,
+} from "../../translateFile/pages/accountTranslate.js";
+import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 
 export default function AccountListPage() {
   const navigate = useNavigate();
+  const { me: sessionMe, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
+  const langRef = useRef(lang);
+  langRef.current = lang;
   const t = useCallback((key, params) => getAccountText(lang, key, params), [lang]);
 
   // -- Status --
   const [bootLoading, setBootLoading] = useState(true);
-  const [cssReady, setCssReady] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [switchingCompany, setSwitchingCompany] = useState(false);
+  const [pendingCompanyId, setPendingCompanyId] = useState(null);
 
   // -- Data --
   const [accounts, setAccounts] = useState([]);
@@ -49,9 +73,6 @@ export default function AccountListPage() {
   const [roles, setRoles] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
-  const [gcPopoverOpen, setGcPopoverOpen] = useState(false);
-  const [popoverActiveGroup, setPopoverActiveGroup] = useState("");
-  const [gcDraftCompanyId, setGcDraftCompanyId] = useState(null);
 
   // -- Filters --
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +81,7 @@ export default function AccountListPage() {
   const [sortColumn, setSortColumn] = useState("account");
   const [sortDirection, setSortDirection] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
 
   // -- Modals & Forms --
@@ -92,18 +114,26 @@ export default function AccountListPage() {
   const [settingRole, setSettingRole] = useState("");
 
   const toastTimerRef = useRef(null);
-  const gcPopoverRef = useRef(null);
+  const bootFetchedAccountsKeyRef = useRef(null);
 
-  const accountModalCurrencies = useMemo(
-    () => currencies.filter((c) => !hiddenCurrencyIds.includes(Number(c.id))),
-    [currencies, hiddenCurrencyIds]
-  );
+  const accountModalCurrencies = useMemo(() => {
+    const hidden = new Set(hiddenCurrencyIds.map(Number));
+    return currencies.filter((c) => !hidden.has(Number(c.id)));
+  }, [currencies, hiddenCurrencyIds]);
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 1800);
+    const durationMs = type === "danger" ? 4000 : 1800;
+    toastTimerRef.current = setTimeout(() => setToast(null), durationMs);
   }, []);
+
+  const notifyApi = useCallback(
+    (apiMessage, fallbackKey, type = "success", params = {}, apiData = null) => {
+      notify(translateAccountApiMessage(lang, apiMessage, fallbackKey, params, apiData), type);
+    },
+    [lang, notify],
+  );
 
   // -- CSS Loading (FOUC Fix) —
   useEffect(() => {
@@ -125,18 +155,24 @@ export default function AccountListPage() {
   useEffect(() => {
     document.body.classList.remove("bg");
     document.body.classList.add("account-page");
-    setCssReady(true);
 
     return () => {
-      document.body.classList.remove("account-page", "bg");
+      document.body.classList.remove("account-page", "account-page--show-all", "bg");
       document.body.classList.add("dashboard-page");
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
 
+  useEffect(() => {
+    if (showAll) document.body.classList.add("account-page--show-all");
+    else document.body.classList.remove("account-page--show-all");
+    return () => document.body.classList.remove("account-page--show-all");
+  }, [showAll]);
+
   const syncUrl = useCallback(() => {
     const url = new URL(window.location.href);
     if (companyId) url.searchParams.set("company_id", String(companyId));
+    else url.searchParams.delete("company_id");
     if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
     else url.searchParams.delete("search");
     if (showInactive) url.searchParams.set("showInactive", "1");
@@ -146,122 +182,273 @@ export default function AccountListPage() {
     window.history.replaceState({}, document.title, url.toString());
   }, [companyId, searchTerm, showInactive, showAll]);
 
-  const fetchAccounts = useCallback(async () => {
-    if (!companyId) return;
-    setTableLoading(true);
-    try {
-      const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
-      url.searchParams.set("company_id", String(companyId));
-      if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
-      if (showInactive) url.searchParams.set("showInactive", "1");
-      if (showAll) url.searchParams.set("showAll", "1");
-      const res = await fetch(url.toString(), { credentials: "include" });
-      const json = await res.json();
-      if (!json.success) return notify(json.message || t("failedToLoadAccounts"), "danger");
-      setAccounts(Array.isArray(json?.data?.accounts) ? json.data.accounts : []);
-      setSelectedDeleteIds(new Set());
-      setCurrentPage(1);
-      syncUrl();
-    } catch { notify(t("networkError"), "danger"); }
-    finally { setTableLoading(false); }
-  }, [companyId, searchTerm, showInactive, showAll, syncUrl, notify, t]);
+  const fetchAccounts = useCallback(
+    async (gcScope) => {
+      const scope = gcScope || {};
+      const {
+        companyId: cid,
+        selectedGroup: sg,
+        groupsAllMode: gAll,
+        groupAllMode: cAll,
+        mergeCompanyIds: mergeIds = [],
+        groupIds: gids = [],
+        isListScopeReady: ready,
+      } = scope;
+      if (!ready) return;
+      const groupOnlyModeActive = Boolean(sg && !cid && !cAll && !gAll && isDashboardGroupOnlyMode());
+      setTableLoading(true);
+      try {
+        let accounts = [];
+        if (cid) {
+          const res = await fetch(buildAccountsUrl(cid, searchTerm, showInactive, showAll).toString(), {
+            credentials: "include",
+          });
+          const json = await res.json();
+          if (!json.success) return notifyApi(json.message, "failedToLoadAccounts", "danger");
+          accounts = Array.isArray(json?.data?.accounts) ? json.data.accounts : [];
+        } else if (cAll) {
+          const merged = await fetchMergedAccounts({
+            companyIds: mergeIds,
+            searchTerm,
+            showInactive,
+            showAll,
+          });
+          if (!merged.success) return notifyApi(merged.message, "failedToLoadAccounts", "danger");
+          accounts = merged.accounts;
+        } else if (gAll) {
+          const merged = await fetchMergedAccounts({
+            groupIds: groupIdsForGroupsAllAggregate(companies, gids),
+            searchTerm,
+            showInactive,
+            showAll,
+          });
+          if (!merged.success) return notifyApi(merged.message, "failedToLoadAccounts", "danger");
+          accounts = merged.accounts;
+        } else if (groupOnlyModeActive && sg) {
+          const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+          url.searchParams.set("group_id", String(sg));
+          if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
+          if (showInactive) url.searchParams.set("showInactive", "1");
+          if (showAll) url.searchParams.set("showAll", "1");
+          const res = await fetch(url.toString(), { credentials: "include" });
+          const json = await res.json();
+          if (!json.success) return notifyApi(json.message, "failedToLoadAccounts", "danger");
+          accounts = Array.isArray(json?.data?.accounts) ? json.data.accounts : [];
+        } else {
+          return;
+        }
+        setAccounts(accounts);
+        setSelectedDeleteIds(new Set());
+        setCurrentPage(1);
+        syncUrl();
+      } catch {
+        notifyApi(null, "networkError", "danger");
+      } finally {
+        setTableLoading(false);
+      }
+    },
+    [companies, searchTerm, showInactive, showAll, syncUrl, notify],
+  );
 
   // -- Boot --
   useEffect(() => {
+    if (!sessionReady || !sessionMe) return;
+    let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meJson.success || !meJson.data) return navigate("/login", { replace: true });
-
-        const [compRes, editRes] = await Promise.all([
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-          fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }),
+        const [rows, editJson] = await Promise.all([
+          loadOwnerCompaniesCached(async () => {
+            const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+              credentials: "include",
+            });
+            const compJson = await compRes.json();
+            return Array.isArray(compJson?.data) ? compJson.data : [];
+          }).then((list) => list.map(normalizeCompanyRow)),
+          fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }).then((r) => r.json()),
         ]);
-        const compJson = await compRes.json();
-        const editJson = await editRes.json();
+        if (cancelled) return;
 
-        const rows = Array.isArray(compJson?.data) ? compJson.data.map(normalizeCompanyRow) : [];
         setCompanies(rows);
         setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
         const url = new URL(window.location.href);
-        const cid = url.searchParams.get("company_id") || meJson.data.company_id || rows[0]?.id;
-        setCompanyId(cid ? Number(cid) : null);
-        setSearchTerm(url.searchParams.get("search") || "");
-        setShowInactive(url.searchParams.get("showInactive") === "1");
-        setShowAll(url.searchParams.get("showAll") === "1");
-
-      } catch { navigate("/login"); }
-      finally { setBootLoading(false); }
+        const urlCompanyId = url.searchParams.get("company_id");
+        const initialCompanyId = resolveBootCompanyId({
+          urlCompanyId,
+          sessionCompanyId: sessionMe.company_id,
+          defaultRowId: rows[0]?.id,
+        });
+        const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
+        const initialShowInactive = url.searchParams.get("showInactive") === "1";
+        const initialShowAll = url.searchParams.get("showAll") === "1";
+        if (initialCompanyId) {
+          const accountRes = await fetch(
+            buildAccountsUrl(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll).toString(),
+            { credentials: "include" }
+          );
+          const accountJson = await accountRes.json();
+          if (cancelled) return;
+          if (accountJson.success) {
+            setAccounts(Array.isArray(accountJson?.data?.accounts) ? accountJson.data.accounts : []);
+            bootFetchedAccountsKeyRef.current = buildAccountsFetchKey(initialCompanyId, initialSearchTerm, initialShowInactive, initialShowAll);
+          }
+        }
+        const row =
+          initialCompanyId != null
+            ? rows.find((c) => Number(c.id) === Number(initialCompanyId)) || null
+            : null;
+        let bootGroup = resolveInitialSelectedGroupFromSession(rows, row, sessionMe);
+        if (!bootGroup && isGroupLogin(sessionMe)) {
+          bootGroup = getLoginIdentifier(sessionMe);
+        }
+        if (bootGroup) {
+          persistDashboardGroupFilter(bootGroup);
+          if (isGroupLogin(sessionMe) && isDashboardGroupOnlyMode()) {
+            persistDashboardGroupOnlyMode(true);
+          }
+        }
+        setCompanyId(isDashboardGroupOnlyMode() ? null : initialCompanyId);
+        setSelectedGroup(bootGroup);
+        setSearchTerm(initialSearchTerm);
+        setShowInactive(initialShowInactive);
+        setShowAll(initialShowAll);
+      } catch {
+        if (!cancelled) navigate("/login");
+      } finally {
+        if (!cancelled) setBootLoading(false);
+      }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, sessionMe, navigate]);
+
+  const allCompanyButtons = useMemo(
+    () => companies.filter(c => c.company_id && String(c.company_id).trim() !== "" && !isVirtualGroupLinkCompanyRow(c)),
+    [companies]
+  );
+  const pickerCompanyId = pendingCompanyId ?? companyId;
+
+  const handleClearCompany = useCallback(() => {
+    setCompanyId(null);
+    setAccounts([]);
+  }, []);
+
+  const onSwitchCompany = async (c) => {
+    const nextCompanyId = Number(c?.id);
+    if (!nextCompanyId || switchingCompany) return;
+    setPendingCompanyId(nextCompanyId);
+    setSwitchingCompany(true);
+    try {
+      const switchUrl = new URL(buildApiUrl("api/session/update_company_session_api.php"));
+      switchUrl.searchParams.set("company_id", String(nextCompanyId));
+      const res = await fetch(switchUrl.toString(), { credentials: "include" });
+      const json = await res.json();
+      if (!json.success) return notifyApi(json.message, "failedToSwitchCompany", "danger");
+      setCompanyId(nextCompanyId);
+      notifyCompanySessionUpdated();
+      notify(t("switchedTo", { company: c.company_id }));
+    } catch { notify(t("failedToSwitchCompany"), "danger"); }
+    finally { setPendingCompanyId(null); setSwitchingCompany(false); }
+  };
+
+  const {
+    groupIds,
+    companiesForPicker,
+    handlePickGroup,
+    handlePickCompany,
+    groupsAllMode,
+    groupAllMode,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    isListScopeReady,
+    mergeCompanyIds,
+    setGroupsAllMode,
+    setGroupAllMode,
+  } = useGcFilterWithAllModes({
+    companies: allCompanyButtons,
+    companyId: pickerCompanyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: onSwitchCompany,
+    onClearCompany: handleClearCompany,
+    switchingCompany,
+    preferredCompanyId: pickerCompanyId,
+    me: sessionMe,
+  });
 
   useEffect(() => {
-    if (!bootLoading && companyId) fetchAccounts();
-  }, [bootLoading, companyId, fetchAccounts]);
+    if (bootLoading || !selectedGroup) return;
+    setGroupsAllMode(false);
+    setGroupAllMode(false);
+  }, [bootLoading, selectedGroup, setGroupsAllMode, setGroupAllMode]);
+
+  useEffect(() => {
+    if (!bootLoading && isListScopeReady) {
+      const scopeKey = groupsAllMode
+        ? groupAllMode
+          ? "groups-all:companies-all"
+          : "groups-all"
+        : groupAllMode
+          ? `group-all:${selectedGroup || ""}`
+          : companyId
+            ? `company:${companyId}`
+            : `group:${selectedGroup || ""}`;
+      const key = buildAccountsFetchKey(scopeKey, searchTerm, showInactive, showAll);
+      if (bootFetchedAccountsKeyRef.current === key) {
+        bootFetchedAccountsKeyRef.current = null;
+        return;
+      }
+      fetchAccounts({
+        companyId,
+        selectedGroup,
+        groupsAllMode,
+        groupAllMode,
+        mergeCompanyIds,
+        groupIds,
+        isListScopeReady,
+      });
+    }
+  }, [
+    bootLoading,
+    companyId,
+    selectedGroup,
+    groupsAllMode,
+    groupAllMode,
+    mergeCompanyIds,
+    groupIds,
+    isListScopeReady,
+    searchTerm,
+    showInactive,
+    showAll,
+    fetchAccounts,
+  ]);
 
   // -- Computed --
-  const allCompanyButtons = useMemo(() => companies.filter(c => c.company_id && String(c.company_id).trim() !== ""), [companies]);
-  const groupIds = useMemo(
-    () =>
-      [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
-    [allCompanyButtons]
-  );
-  const selectedCompany = useMemo(
-    () => allCompanyButtons.find((c) => Number(c.id) === Number(companyId)) || null,
-    [allCompanyButtons, companyId]
-  );
-  const selectedGroupLabel = String(selectedCompany?.group_id || "-").toUpperCase();
-  const selectedCompanyLabel = String(selectedCompany?.company_id || "").toUpperCase();
-  const gcSummary = `${selectedGroupLabel} - ${selectedCompanyLabel}`;
-  const groupCompanyCountMap = useMemo(() => {
-    const m = new Map();
-    allCompanyButtons.forEach((c) => {
-      const gid = String(c.group_id || "").trim().toUpperCase();
-      if (!gid) return;
-      m.set(gid, (m.get(gid) || 0) + 1);
-    });
-    return m;
-  }, [allCompanyButtons]);
-  const companiesInGroup = useMemo(() => {
-    if (!popoverActiveGroup) {
-      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-    }
-    return allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === popoverActiveGroup);
-  }, [allCompanyButtons, popoverActiveGroup]);
-
-  useEffect(() => {
-    if (!gcPopoverOpen) return;
-    setGcDraftCompanyId((draft) => {
-      const keep = companiesInGroup.some((c) => Number(c.id) === Number(draft));
-      if (keep) return draft;
-      const first = companiesInGroup[0]?.id;
-      return first != null ? Number(first) : null;
-    });
-  }, [gcPopoverOpen, companiesInGroup]);
-
-  useEffect(() => {
-    if (!gcPopoverOpen) return;
-    const onDocPointerDown = (e) => {
-      if (!gcPopoverRef.current) return;
-      if (!gcPopoverRef.current.contains(e.target)) setGcPopoverOpen(false);
-    };
-    document.addEventListener("pointerdown", onDocPointerDown);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [gcPopoverOpen]);
-
   const sortedAccounts = useMemo(() => {
     const arr = [...accounts];
     arr.sort((a, b) => {
+      let base = 0;
       if (sortColumn === "role") {
         const ao = roleSortOrder(a.role, roles);
         const bo = roleSortOrder(b.role, roles);
-        if (ao !== bo) return sortDirection === "asc" ? ao - bo : bo - ao;
+        base = ao - bo;
+      } else if (sortColumn === "alert") {
+        base = Number(a.payment_alert || 0) - Number(b.payment_alert || 0);
+      } else {
+        const getValue = (account) => {
+          if (sortColumn === "name") return account.name;
+          if (sortColumn === "status") return account.status;
+          if (sortColumn === "lastLogin") return account.last_login;
+          if (sortColumn === "remark") return account.remark;
+          return account.account_id;
+        };
+        base = String(getValue(a) || "").localeCompare(String(getValue(b) || ""), undefined, { numeric: true, sensitivity: "base" });
       }
-      const ak = String(a.account_id || "").toLowerCase();
-      const bk = String(b.account_id || "").toLowerCase();
-      const base = ak.localeCompare(bk);
+
+      if (base === 0 && sortColumn !== "account") {
+        base = String(a.account_id || "").localeCompare(String(b.account_id || ""), undefined, { numeric: true, sensitivity: "base" });
+      }
       return sortDirection === "asc" ? base : -base;
     });
     return arr;
@@ -270,9 +457,10 @@ export default function AccountListPage() {
   const orderedRoles = useMemo(() => getOrderedRoles(roles), [roles]);
 
   const filteredForMode = useMemo(() => {
-    if (showAll) return sortedAccounts.filter(a => a.status === "active");
     return sortedAccounts;
-  }, [sortedAccounts, showAll]);
+  }, [sortedAccounts]);
+
+  const accountMutationsBlocked = usePartnershipAuditReadOnlyLocked(sessionMe);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
   const pageRows = useMemo(() => {
@@ -281,59 +469,96 @@ export default function AccountListPage() {
     return filteredForMode.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
   }, [filteredForMode, showAll, currentPage, totalPages]);
 
-  // -- Handlers --
-  const onSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId) || switchingCompany) return;
-    setSwitchingCompany(true);
-    try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
-      const json = await res.json();
-      if (!json.success) return notify(json.message || t("failedToSwitchCompany"), "danger");
-      setCompanyId(Number(c.id));
-      notifyCompanySessionUpdated();
-      notify(t("switchedTo", { company: c.company_id }));
-    } catch { notify(t("failedToSwitchCompany"), "danger"); }
-    finally { setSwitchingCompany(false); }
-  };
+  const groupOnlyAccountMode = useMemo(
+    () =>
+      Boolean(
+        selectedGroup &&
+          !companyId &&
+          !groupAllMode &&
+          !groupsAllMode &&
+          isDashboardGroupOnlyMode(),
+      ),
+    [selectedGroup, companyId, groupAllMode, groupsAllMode],
+  );
+  const groupPickerCompanies = useMemo(() => {
+    if (!groupOnlyAccountMode) return [];
+    return groupIds
+      .map((gid) => {
+        const groupCode = String(gid || "").trim().toUpperCase();
+        if (!groupCode) return null;
+        // Group picker options are group identities, not company rows.
+        return { id: groupCode, company_id: groupCode, group_id: groupCode };
+      })
+      .filter(Boolean);
+  }, [groupOnlyAccountMode, groupIds]);
+  const modalPickerCompanies = useMemo(
+    () => (groupOnlyAccountMode ? groupPickerCompanies : allCompanyButtons),
+    [groupOnlyAccountMode, groupPickerCompanies, allCompanyButtons]
+  );
+  const scopeCompanyId = useMemo(() => {
+    if (companyId) return Number(companyId);
+    if (!groupOnlyAccountMode || !selectedGroup) return null;
+    const groupCode = String(selectedGroup).trim().toUpperCase();
+    const entity = allCompanyButtons.find(
+      (c) => String(c.company_id || "").trim().toUpperCase() === groupCode
+    );
+    return entity?.id ? Number(entity.id) : null;
+  }, [companyId, groupOnlyAccountMode, selectedGroup, allCompanyButtons]);
 
-  const openGcPopover = () => {
-    const currentGroup = String(selectedCompany?.group_id || "").trim().toUpperCase();
-    setPopoverActiveGroup(currentGroup);
-    setGcDraftCompanyId(Number(companyId) || null);
-    setGcPopoverOpen((v) => !v);
-  };
-
-  const confirmGcPopover = async () => {
-    const picked = allCompanyButtons.find((c) => Number(c.id) === Number(gcDraftCompanyId));
-    if (picked) await onSwitchCompany(picked);
-    setGcPopoverOpen(false);
-  };
+  useEffect(() => {
+    if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
+  }, [showInactive, showAll]);
 
   const togglePaymentAlert = async (id) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const fd = new FormData(); fd.append("id", id);
+      if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
+      if (selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/toggle_payment_alert_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (json.success) setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: json.newPaymentAlert } : a));
+      if (json.success) {
+        const next = json.data?.newPaymentAlert ?? json.newPaymentAlert;
+        setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, payment_alert: next } : a));
+      }
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
   const toggleAccountStatus = async (id) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const fd = new FormData(); fd.append("id", id);
+      if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
+      if (selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/toggle_account_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (json.success) {
         const next = json.newStatus || json.data?.newStatus;
-        setAccounts(prev => prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a));
+        setAccounts(prev => {
+          const updated = prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a);
+          if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
+          if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
+          return updated;
+        });
+        void fetchAccounts();
       }
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
   const loadSelectionMeta = async (id, isEdit) => {
     try {
+      const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
+      if (id) currencyParams.set("account_id", String(id));
+      if (companyId) currencyParams.set("company_id", String(companyId));
+      if (selectedGroup) currencyParams.set("group_id", String(selectedGroup));
       const [curRes, compRes] = await Promise.all([
-        fetch(buildApiUrl(`api/accounts/account_currency_api.php?action=get_available_currencies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
+        fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/accounts/account_company_api.php?action=get_available_companies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
       ]);
       const curJ = await curRes.json(); const compJ = await compRes.json();
@@ -343,16 +568,30 @@ export default function AccountListPage() {
           const ids = curJ.data.filter(c => c.is_linked).map(c => Number(c.id));
           setSelectedCurrencyIds(ids);
           setInitialEditCurrencyIds(ids);
+        } else {
+          setSelectedCurrencyIds(pickDefaultAddCurrencyIds(curJ.data));
         }
       }
       if (compJ.success) {
         const linked = compJ.data.filter(c => c.is_linked).map(c => Number(c.id));
-        setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
+        if (groupOnlyAccountMode) {
+          const defaultGroupEntity =
+            groupPickerCompanies.find((c) => String(c.group_id || c.company_id || "") === String(selectedGroup || "")) ||
+            groupPickerCompanies[0] ||
+            null;
+          setSelectedCompanyIds(defaultGroupEntity?.id ? [String(defaultGroupEntity.id)] : []);
+        } else {
+          setSelectedCompanyIds(linked.length ? linked : companyId ? [Number(companyId)] : []);
+        }
       }
     } catch { /* silent */ }
   };
 
   const openAdd = () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     setIsEditMode(false); setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]); setCurrencyInput("");
     setInitialEditCurrencyIds([]);
@@ -360,11 +599,47 @@ export default function AccountListPage() {
     setAddModalOpen(true); loadSelectionMeta(null, false);
   };
 
+  const openCurrencySetting = () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
+    setCurrencySettingOpen(true);
+    void loadSelectionMeta(null, false);
+    if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
+  };
+
+  const clearCurrencySettingSelection = () => {
+    setSettingCurrencyId(null);
+    setSettingLinked(new Set());
+    setSettingInitial(new Set());
+  };
+
   const openEdit = async (id) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
-      const res = await fetch(buildApiUrl(`getaccountapi.php?id=${id}`), { credentials: "include" });
-      const json = await res.json();
-      if (!json.success) return notify(json.message || t("failedToLoadAccount"), "danger");
+      const detailUrl = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
+      detailUrl.searchParams.set("id", String(id));
+      if (companyId) detailUrl.searchParams.set("company_id", String(companyId));
+      else if (scopeCompanyId) detailUrl.searchParams.set("company_id", String(scopeCompanyId));
+      if (selectedGroup) detailUrl.searchParams.set("group_id", String(selectedGroup));
+      detailUrl.searchParams.set("_", String(Date.now()));
+      const res = await fetch(detailUrl.toString(), {
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      const text = await res.text();
+      let json;
+      try {
+        json = text.trim() ? JSON.parse(text) : { success: false };
+      } catch {
+        return notify(t("errorLoadingAccount"), "danger");
+      }
+      if (!json.success) return notifyApi(json.message || json.error, "failedToLoadAccount", "danger");
       const d = json.data;
       setIsEditMode(true);
       setHiddenCurrencyIds([]);
@@ -375,22 +650,31 @@ export default function AccountListPage() {
   };
 
   const confirmDelete = async () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
       const fd = new FormData();
       selectedDeleteIds.forEach(id => fd.append("ids[]", id));
-      if (companyId) fd.append("company_id", String(companyId));
+      if (scopeCompanyId) fd.append("company_id", String(scopeCompanyId));
+      if (selectedGroup) fd.append("group_id", String(selectedGroup));
       const res = await fetch(buildApiUrl("api/accounts/delete_accounts_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || t("deleteFailed"), "danger");
+      if (!json.success) return notifyApi(json.message, "deleteFailed", "danger");
       setConfirmDeleteOpen(false);
       setSelectedDeleteIds(new Set());
-      notify(json.message || t("accountsDeletedSuccessfully"));
+      notifyApi(json.message, "accountsDeletedSuccessfully");
       fetchAccounts();
     } catch { notify(t("deleteFailed"), "danger"); }
   };
 
   const saveForm = async (e) => {
     e.preventDefault();
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     if (form.payment_alert === "1" && (!form.alert_type || !form.alert_start_date)) {
       notify(t("paymentAlertRequiredFields"), "danger");
       return;
@@ -398,7 +682,16 @@ export default function AccountListPage() {
     const amount = normalizeAlertAmount(form.alert_amount);
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => fd.append(k, k === "alert_amount" ? amount : (v ?? "")));
-    if (selectedCompanyIds.length) fd.set("company_ids", JSON.stringify(selectedCompanyIds));
+    if (scopeCompanyId) fd.set("company_id", String(scopeCompanyId));
+    if (!groupOnlyAccountMode && selectedCompanyIds.length) {
+      fd.set("company_ids", JSON.stringify(selectedCompanyIds));
+    }
+    // Group login may still target a concrete company (not group-only).
+    // Always send selectedGroup as view context so backend scope checks
+    // can validate cross-linked groups consistently (AP <-> IG, etc.).
+    if (selectedGroup) {
+      fd.set("group_id", String(selectedGroup));
+    }
     if (!isEditMode) {
       if (companyId) fd.set("company_id", String(companyId));
       if (selectedCurrencyIds.length) fd.set("currency_ids", JSON.stringify(selectedCurrencyIds));
@@ -407,58 +700,274 @@ export default function AccountListPage() {
       const ep = isEditMode ? "api/accounts/update_api.php" : "api/accounts/addaccountapi.php";
       const res = await fetch(buildApiUrl(ep), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
-      if (!json.success) return notify(json.message || t("saveFailed"), "danger");
+      if (!json.success) return notifyApi(json.message, "saveFailed", "danger");
+      let postSaveCurrencyError = null;
+      if (!isEditMode && json?.data?.id && selectedCurrencyIds.length) {
+        for (const cid of selectedCurrencyIds) {
+          const currencyRes = await fetch(accountCurrencyApiUrl("add_currency"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ account_id: Number(json.data.id), currency_id: Number(cid) }),
+            credentials: "include",
+          });
+          const currencyJson = await currencyRes.json();
+          if (!currencyRes.ok || !currencyJson.success) {
+            postSaveCurrencyError = String(currencyJson?.message || "");
+            break;
+          }
+        }
+      }
       if (isEditMode && form.id) {
         const before = new Set(initialEditCurrencyIds.map(Number));
         const after = new Set(selectedCurrencyIds.map(Number));
         const toAdd = [...after].filter((id) => !before.has(id));
         const toRemove = [...before].filter((id) => !after.has(id));
         for (const cid of toAdd) {
-          await fetch(buildApiUrl("api/accounts/account_currency_api.php?action=add_currency"), {
+          const currencyRes = await fetch(accountCurrencyApiUrl("add_currency"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ account_id: Number(form.id), currency_id: Number(cid) }),
             credentials: "include",
           });
+          const currencyJson = await currencyRes.json();
+          if (!currencyRes.ok || !currencyJson.success) {
+            postSaveCurrencyError = String(currencyJson?.message || "");
+            break;
+          }
         }
-        for (const cid of toRemove) {
-          await fetch(buildApiUrl("api/accounts/account_currency_api.php?action=remove_currency"), {
+        for (const cid of postSaveCurrencyError ? [] : toRemove) {
+          const currencyRes = await fetch(accountCurrencyApiUrl("remove_currency"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ account_id: Number(form.id), currency_id: Number(cid) }),
             credentials: "include",
           });
+          const currencyJson = await currencyRes.json();
+          if (!currencyRes.ok || !currencyJson.success) {
+            postSaveCurrencyError = String(currencyJson?.message || "");
+            break;
+          }
         }
+        setInitialEditCurrencyIds([...after]);
+        if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
       }
       setAddModalOpen(false); setEditModalOpen(false);
       setHiddenCurrencyIds([]);
-      notify(t("accountSavedSuccessfully"));
-      fetchAccounts();
+      if (postSaveCurrencyError) {
+        notify(
+          t("accountSavedCurrencySyncFailed", {
+            detail: translateAccountApiMessage(lang, postSaveCurrencyError, "saveFailed"),
+          }),
+          "danger",
+        );
+      } else {
+        notify(t("accountSavedSuccessfully"));
+      }
+      void fetchAccounts();
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
   const createCurrency = async () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     const code = toUpper(currencyInput).trim(); if (!code) return;
+    const existing = currencies.find((c) => toUpper(c.code).trim() === code);
+    if (existing) {
+      const existingId = Number(existing.id);
+      setHiddenCurrencyIds((prev) => prev.filter((id) => Number(id) !== existingId));
+      setSelectedCurrencyIds((prev) => (prev.map(Number).includes(existingId) ? prev : [...prev, existingId]));
+      setCurrencyInput("");
+      return;
+    }
     try {
-      const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, company_id: companyId }), credentials: "include" });
+      const payload = { code };
+      if (companyId) payload.company_id = Number(companyId);
+      if (selectedGroup) payload.group_id = String(selectedGroup);
+      const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" });
       const json = await res.json();
       if (json.success) {
         const newId = Number(json.data.id);
         setCurrencies((prev) => [...prev, { id: newId, code: json.data.code, is_linked: false }]);
+        setSelectedCurrencyIds((prev) => (prev.map(Number).includes(newId) ? prev : [...prev, newId]));
         setCurrencyInput("");
+      } else {
+        notifyApi(json.message, "createFailed", "danger");
       }
     } catch { notify(t("createFailed"), "danger"); }
   };
 
-  const removeModalCurrency = (currencyId) => {
+  const accountCurrencyApiUrl = useCallback(
+    (action) => {
+      const params = new URLSearchParams({ action });
+      if (companyId) params.set("company_id", String(companyId));
+      if (selectedGroup) params.set("group_id", String(selectedGroup));
+      return buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`);
+    },
+    [companyId, groupOnlyAccountMode, selectedGroup]
+  );
+
+  const fetchAccountsUsingCurrency = async (currencyId) => {
+    try {
+      const params = new URLSearchParams({
+        action: "get_linked_accounts_by_currency",
+        currency_id: String(currencyId),
+      });
+      if (companyId) params.set("company_id", String(companyId));
+      if (selectedGroup) params.set("group_id", String(selectedGroup));
+      const res = await fetch(
+        buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`),
+        { method: "POST", credentials: "include" },
+      );
+      const json = await res.json();
+      if (!json.success) return [];
+      const fromApi = Array.isArray(json.data?.linked_accounts) ? json.data.linked_accounts : [];
+      if (fromApi.length > 0) {
+        return fromApi.map((a) => ({
+          id: Number(a.id),
+          name: String(a.name ?? ""),
+          account_id: String(a.account_id ?? ""),
+        }));
+      }
+      const linkedIds = new Set((json.data?.linked_account_ids || []).map(Number));
+      return accounts
+        .filter((a) => linkedIds.has(Number(a.id)))
+        .map((a) => ({
+          id: Number(a.id),
+          name: String(a.name ?? ""),
+          account_id: String(a.account_id ?? ""),
+        }));
+    } catch {
+      return [];
+    }
+  };
+
+  const handleCurrencyDeleteBlocked = async (currencyId, json, msg) => {
+    const editingAccountId = isEditMode ? Number(form.id) : 0;
+    let accountsInUse = Array.isArray(json?.data?.accounts_in_use) ? json.data.accounts_in_use : [];
+    if (accountsInUse.length === 0) {
+      accountsInUse = await fetchAccountsUsingCurrency(currencyId);
+    }
+    if (accountsInUse.length === 0) {
+      accountsInUse = parseAccountsFromCurrencyDeleteMessage(msg);
+    }
+    if (editingAccountId > 0) {
+      accountsInUse = accountsInUse.filter((a) => Number(a.id) !== editingAccountId);
+    }
+    const apiData =
+      accountsInUse.length > 0 ? { ...(json?.data || {}), accounts_in_use: accountsInUse } : json?.data ?? null;
+    notifyApi(msg, "failedDeleteCurrency", "danger", {}, apiData);
+  };
+
+  /** Permanently delete currency; only when deselected. Unlink from current account if still linked in DB. */
+  const removeModalCurrency = async (currencyId) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     const id = Number(currencyId);
-    setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
-    setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    const accountId = isEditMode ? Number(form.id) : 0;
+
+    if (selectedCurrencyIds.map(Number).includes(id)) {
+      notify(t("deselectCurrencyBeforeDelete"), "danger");
+      return;
+    }
+
+    const dropCurrencyFromUi = () => {
+      setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+      setHiddenCurrencyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      setCurrencies((prev) => prev.filter((c) => Number(c.id) !== id));
+    };
+
+    const unlinkCurrentAccountFromCurrency = async () => {
+      const wasSavedOnAccount = accountId > 0 && initialEditCurrencyIds.map(Number).includes(id);
+
+      if (!accountId) return true;
+
+      let needsUnlink = wasSavedOnAccount;
+      if (!needsUnlink) {
+        const using = await fetchAccountsUsingCurrency(id);
+        needsUnlink = using.some((a) => Number(a.id) === accountId);
+      }
+      if (!needsUnlink) {
+        if (wasSavedOnAccount) {
+          setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+        }
+        return true;
+      }
+
+      try {
+        const res = await fetch(accountCurrencyApiUrl("remove_currency"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ account_id: accountId, currency_id: id }),
+          credentials: "include",
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          notifyApi(json.message, "saveFailed", "danger");
+          return false;
+        }
+        setInitialEditCurrencyIds((prev) => prev.filter((x) => Number(x) !== id));
+        setCurrencies((prev) =>
+          prev.map((c) => (Number(c.id) === id ? { ...c, is_linked: false } : c)),
+        );
+        return true;
+      } catch {
+        notify(t("saveFailed"), "danger");
+        return false;
+      }
+    };
+
+    const unlinked = await unlinkCurrentAccountFromCurrency();
+    if (!unlinked) return;
+
+    let otherAccountsInUse = await fetchAccountsUsingCurrency(id);
+    if (accountId > 0) {
+      otherAccountsInUse = otherAccountsInUse.filter((a) => Number(a.id) !== accountId);
+    }
+
+    try {
+      const deleteUrl = new URL(buildApiUrl("api/accounts/delete_currency_api.php"));
+      if (selectedGroup) {
+        deleteUrl.searchParams.set("group_id", String(selectedGroup));
+      } else if (scopeCompanyId) {
+        deleteUrl.searchParams.set("company_id", String(scopeCompanyId));
+      }
+      const res = await fetch(deleteUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          company_id: scopeCompanyId || undefined,
+          group_id: selectedGroup ? String(selectedGroup) : undefined,
+        }),
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (json.success) {
+        dropCurrencyFromUi();
+        notifyApi(json.message, "currencyDeleted", "success");
+        return;
+      }
+      const msg = String(json.message || json.error || "");
+      const apiData =
+        otherAccountsInUse.length > 0
+          ? { ...(json?.data || {}), accounts_in_use: otherAccountsInUse }
+          : json?.data ?? null;
+      await handleCurrencyDeleteBlocked(id, { ...json, data: apiData }, msg);
+    } catch {
+      notify(t("failedDeleteCurrency"), "danger");
+    }
   };
 
   const loadCurrencyLinks = async (curId) => {
     try {
-      const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?action=get_linked_accounts_by_currency&currency_id=${curId}`), { method: "POST", credentials: "include" });
+      const params = new URLSearchParams({ action: "get_linked_accounts_by_currency", currency_id: String(curId) });
+      if (companyId) params.set("company_id", String(companyId));
+      if (selectedGroup) params.set("group_id", String(selectedGroup));
+      const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", credentials: "include" });
       const json = await res.json();
       const ids = new Set((json.data?.linked_account_ids || []).map(Number));
       setSettingLinked(ids); setSettingInitial(new Set(ids));
@@ -466,26 +975,54 @@ export default function AccountListPage() {
   };
 
   const saveCurrencySetting = async () => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     const linked = [], unlinked = [];
     accounts.forEach(a => {
       const id = Number(a.id); const was = settingInitial.has(id), now = settingLinked.has(id);
       if (now && !was) linked.push(id); if (!now && was) unlinked.push(id);
     });
     try {
-      const res = await fetch(buildApiUrl("api/accounts/bulk_account_currency_api.php?action=bulk_update"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
-      if (res.ok) { setCurrencySettingOpen(false); notify(t("currencySettingsSaved")); fetchAccounts(); }
+      const params = new URLSearchParams({ action: "bulk_update" });
+      if (companyId) params.set("company_id", String(companyId));
+      if (selectedGroup) params.set("group_id", String(selectedGroup));
+      const res = await fetch(buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency_id: settingCurrencyId, linked_account_ids: linked, unlinked_account_ids: unlinked }), credentials: "include" });
+      const json = await res.json();
+      if (!res.ok || !json.success) return notifyApi(json.message, "saveFailed", "danger");
+      setSettingInitial(new Set(settingLinked));
+      setCurrencySettingOpen(false);
+      notify(t("currencySettingsSaved"));
+      void fetchAccounts();
+      if (editModalOpen && form.id) void loadSelectionMeta(form.id, true);
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
   const openLink = async (id) => {
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
     try {
-      if (!companyId) return notify(t("pleaseSelectCompanyFirst"), "danger");
+      if (!scopeCompanyId && !(groupOnlyAccountMode && selectedGroup)) {
+        return notify(t("pleaseSelectCompanyFirst"), "danger");
+      }
       setLinkingAccountId(Number(id));
       setLinkType("bidirectional");
       setLinkSearchTerm("");
+      const allUrl = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
+      allUrl.searchParams.set("showAll", "1");
+      if (selectedGroup) allUrl.searchParams.set("group_id", String(selectedGroup));
+      else allUrl.searchParams.set("company_id", String(scopeCompanyId));
+      const linkedUrl = new URL(buildApiUrl("api/accounts/account_link_api.php"));
+      linkedUrl.searchParams.set("action", "get_linked_accounts");
+      linkedUrl.searchParams.set("account_id", String(id));
+      if (selectedGroup) linkedUrl.searchParams.set("group_id", String(selectedGroup));
+      else linkedUrl.searchParams.set("company_id", String(scopeCompanyId));
       const [allRes, linkedRes] = await Promise.all([
-        fetch(buildApiUrl(`api/accounts/accountlistapi.php?company_id=${companyId}&showAll=1`), { credentials: "include" }),
-        fetch(buildApiUrl(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${id}&company_id=${companyId}`), { credentials: "include" }),
+        fetch(allUrl.toString(), { credentials: "include" }),
+        fetch(linkedUrl.toString(), { credentials: "include" }),
       ]);
       const allJson = await allRes.json();
       const linkedJson = await linkedRes.json();
@@ -516,10 +1053,24 @@ export default function AccountListPage() {
   }, [linkType, linkTypeMap, linkModalOpen]);
 
   const saveLinks = async () => {
-    if (!linkingAccountId || !companyId) return;
+    if (accountMutationsBlocked) {
+      notify(t("readOnlyActionBlocked"), "danger");
+      return;
+    }
+    if (!linkingAccountId || (!scopeCompanyId && !(groupOnlyAccountMode && selectedGroup))) return;
     try {
-      const refRes = await fetch(buildApiUrl(`api/accounts/account_link_api.php?action=get_linked_accounts&account_id=${linkingAccountId}&company_id=${companyId}`), { credentials: "include" });
+      const refUrl = new URL(buildApiUrl("api/accounts/account_link_api.php"));
+      refUrl.searchParams.set("action", "get_linked_accounts");
+      refUrl.searchParams.set("account_id", String(linkingAccountId));
+      if (selectedGroup) refUrl.searchParams.set("group_id", String(selectedGroup));
+      else refUrl.searchParams.set("company_id", String(scopeCompanyId));
+      const refRes = await fetch(refUrl.toString(), { credentials: "include" });
       const refJson = await refRes.json();
+      const linkScopeCompanyId = Number(refJson?.data?.company_id) || Number(scopeCompanyId);
+      if (!Number.isFinite(linkScopeCompanyId) || linkScopeCompanyId <= 0) {
+        notify(t("pleaseSelectCompanyFirst"), "danger");
+        return;
+      }
       const typesMap = refJson?.data?.link_types_map || {};
       const currentTypeIds = new Set(
         (Array.isArray(refJson?.data?.accounts) ? refJson.data.accounts : [])
@@ -534,7 +1085,12 @@ export default function AccountListPage() {
         await fetch(buildApiUrl("api/accounts/account_link_api.php?action=unlink_accounts"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ account_id_1: Number(linkingAccountId), account_id_2: Number(linkedId), company_id: Number(companyId) }),
+          body: JSON.stringify({
+            account_id_1: Number(linkingAccountId),
+            account_id_2: Number(linkedId),
+            company_id: linkScopeCompanyId,
+            group_id: selectedGroup ? String(selectedGroup) : undefined,
+          }),
           credentials: "include",
         });
       }
@@ -545,7 +1101,8 @@ export default function AccountListPage() {
           body: JSON.stringify({
             account_id_1: Number(linkingAccountId),
             account_id_2: Number(linkedId),
-            company_id: Number(companyId),
+            company_id: linkScopeCompanyId,
+            group_id: selectedGroup ? String(selectedGroup) : undefined,
             link_type: linkType,
             source_account_id: linkType === "unidirectional" ? Number(linkingAccountId) : null,
           }),
@@ -560,7 +1117,8 @@ export default function AccountListPage() {
             body: JSON.stringify({
               account_id_1: Number(linkingAccountId),
               account_id_2: Number(linkedId),
-              company_id: Number(companyId),
+              company_id: linkScopeCompanyId,
+              group_id: selectedGroup ? String(selectedGroup) : undefined,
               link_type: linkType,
               source_account_id: linkType === "unidirectional" ? Number(linkingAccountId) : null,
             }),
@@ -575,134 +1133,181 @@ export default function AccountListPage() {
     }
   };
 
-  if (bootLoading || !cssReady) return null;
+  const handleSort = (column) => {
+    setSortDirection((direction) => (sortColumn === column && direction === "asc" ? "desc" : "asc"));
+    setSortColumn(column);
+  };
+
+  const renderSortIcon = (column) => (
+    <span className={`account-sort-icon${sortColumn === column ? ` is-active is-${sortDirection}` : ""}`} aria-hidden="true">
+      <span className="account-sort-icon__up" />
+      <span className="account-sort-icon__down" />
+    </span>
+  );
+
+  const renderSortableHeader = (label, column) => (
+    <div
+      className="account-header-item account-header-sortable"
+      role="button"
+      tabIndex={0}
+      onClick={() => handleSort(column)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleSort(column);
+        }
+      }}
+    >
+      <span>{label}</span>
+      {renderSortIcon(column)}
+    </div>
+  );
 
   return (
     <>
       <div className="container">
         <div className="content">
-          <h1 className="account-page-title">{t("accountList")}</h1>
-          <div className="account-separator-line" />
-          <div className="account-action-buttons-container" style={{ marginBottom: 20 }}>
-            <div className="account-action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                {allCompanyButtons.length > 0 && (
-                  <div className="user-group-company-row" ref={gcPopoverRef}>
-                    <button type="button" className="user-gc-trigger" onClick={openGcPopover} disabled={switchingCompany}>
-                      <span className="user-gc-trigger__label">{t("groupAndCompany")}</span>
-                      <span className="user-gc-trigger__chips" title={gcSummary}>{gcSummary}</span>
-                      <span className="user-gc-trigger__caret" aria-hidden>▼</span>
-                    </button>
-                    {gcPopoverOpen && (
-                      <div className="user-gc-popover" role="dialog">
-                        {groupIds.length > 0 && (
-                          <div className="user-gc-popover__groups">
-                            <div className="user-gc-popover__title">{t("gcSelectGroup")}</div>
-                            <ul className="user-gc-group-list">
-                              {groupIds.map((gid) => {
-                                const active = popoverActiveGroup === gid;
-                                const count = groupCompanyCountMap.get(gid) || 0;
-                                return (
-                                  <li key={gid}>
-                                    <button
-                                      type="button"
-                                      className={`user-gc-group-item${active ? " is-active" : ""}`}
-                                      onClick={() => setPopoverActiveGroup((prev) => (prev === gid ? "" : gid))}
-                                    >
-                                      <span className="user-gc-group-item__dot" aria-hidden />
-                                      <span className="user-gc-group-item__label">
-                                        {lang === "zh" ? `${gid} 集团` : `${gid} Group`}
-                                      </span>
-                                      <span className="user-gc-group-item__badge">{count}</span>
-                                    </button>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        )}
-                        <div className="user-gc-popover__companies">
-                          <div className="user-gc-popover__title">{t("gcSelectCompany")}</div>
-                          <div className="user-gc-company-pills">
-                            {companiesInGroup.map((c) => {
-                              const cid = Number(c.id);
-                              const active = Number(gcDraftCompanyId) === cid;
-                              return (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  className={`user-gc-company-pill${active ? " is-on" : ""}`}
-                                  onClick={() => setGcDraftCompanyId(cid)}
-                                >
-                                  {String(c.company_id || "").toUpperCase()}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="user-gc-popover__footer">
-                            <span className="user-gc-popover__count">{t("gcOneSelected")}</span>
-                            <button type="button" className="user-gc-confirm-btn" onClick={() => void confirmGcPopover()}>
-                              {t("gcConfirm")}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button className="account-btn account-btn-add" onClick={openAdd}>{t("addAccount")}</button>
-                <div className="account-search-container">
-                  <svg className="account-search-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
-                  <input className="account-search-input" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={t("searchByAccountOrName")} />
+          <div className="action-buttons-container">
+            <div className="action-buttons">
+              <div className="account-toolbar-top-row">
+                <div className="action-controls-row account-toolbar-primary">
+                <div className="search-container userlist-search-bar">
+                  <span className="userlist-search-bar__icon" aria-hidden="true">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                  </span>
+                  <input
+                    id="accountlist-search-input"
+                    type="text"
+                    className="search-input userlist-search-input"
+                    placeholder={t("searchByAccountOrName")}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(toUpper(e.target.value))}
+                  />
                 </div>
-                <div className="account-checkbox-section"><input type="checkbox" checked={showInactive} onChange={(e) => { setShowInactive(e.target.checked); if (e.target.checked) setShowAll(false); }} /><label>{t("inactive")}</label></div>
-                <div className="account-checkbox-section"><input type="checkbox" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); if (e.target.checked) setShowInactive(false); }} /><label>{t("showAll")}</label></div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <button className="account-btn account-btn-setting" onClick={() => setCurrencySettingOpen(true)}>{t("currencySetting")}</button>
-                <button className="account-btn account-btn-delete" disabled={!selectedDeleteIds.size} onClick={() => setConfirmDeleteOpen(true)}>{t("deleteWithCount", { count: selectedDeleteIds.size })}</button>
+                <div className="userlist-filter-chips" role="group">
+                  <button
+                    type="button"
+                    className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
+                    aria-pressed={showInactive && !showAll}
+                    onClick={() => {
+                      if (showInactive && !showAll) setShowInactive(false);
+                      else {
+                        setShowInactive(true);
+                        setShowAll(false);
+                      }
+                    }}
+                  >
+                    <span className="user-filter-chip__dot" aria-hidden>
+                      {showInactive && !showAll ? (
+                        <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 12l4 4 8-8" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="user-filter-chip__label">{t("showInactive")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`user-filter-chip${showAll ? " is-selected" : ""}`}
+                    aria-pressed={showAll}
+                    onClick={() => {
+                      if (showAll) setShowAll(false);
+                      else {
+                        setShowAll(true);
+                        setShowInactive(false);
+                      }
+                    }}
+                  >
+                    <span className="user-filter-chip__dot" aria-hidden>
+                      {showAll ? (
+                        <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 12l4 4 8-8" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="user-filter-chip__label">{t("showAll")}</span>
+                  </button>
+                </div>
+                </div>
+                <div className="user-toolbar-actions-right">
+                  <button type="button" className="btn btn-currency-setting" disabled={accountMutationsBlocked} onClick={openCurrencySetting}>
+                    {t("currencySetting")}
+                  </button>
+                  <button type="button" className="btn btn-add" disabled={accountMutationsBlocked} onClick={openAdd}>
+                    <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                    </svg>
+                    {t("addAccount")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-delete"
+                    disabled={!selectedDeleteIds.size || accountMutationsBlocked}
+                    onClick={() => setConfirmDeleteOpen(true)}
+                  >
+                    {t("deleteWithCount", { count: selectedDeleteIds.size })}
+                  </button>
+                </div>
               </div>
             </div>
+            <GcInlineFilterPanel
+              t={t}
+              groupIds={groupIds}
+              groupsAllMode={groupsAllMode}
+              selectedGroup={selectedGroup}
+              onPickAllGroups={handlePickAllGroups}
+              onPickGroup={handlePickGroup}
+              companiesForPicker={companiesForPicker}
+              groupAllMode={groupAllMode}
+              pickerCompanyId={pickerCompanyId}
+              onPickAllInGroup={handlePickAllInGroup}
+              onPickCompany={handlePickCompany}
+              switchingCompany={switchingCompany}
+            />
           </div>
 
-          <div className="account-table-wrapper">
-            <div className="account-table-header">
+          <div className="account-table-wrapper account-list-table">
+            <div className="account-list-table-inner">
+            <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
-              <div className="account-header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("account"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("account")} {sortColumn === "account" && (sortDirection === "asc" ? "▲" : "▼")}</div>
-              <div className="account-header-item">{t("name")}</div>
-              <div className="account-header-item" style={{ cursor: "pointer" }} onClick={() => { setSortColumn("role"); setSortDirection(p => p === "asc" ? "desc" : "asc"); }}>{t("role")} {sortColumn === "role" && (sortDirection === "asc" ? "▲" : "▼")}</div>
-              <div className="account-header-item">{t("alert")}</div>
-              <div className="account-header-item">{t("status")}</div>
-              <div className="account-header-item">{t("lastLogin")}</div>
-              <div className="account-header-item">{t("remark")}</div>
+              {renderSortableHeader(t("account"), "account")}
+              {renderSortableHeader(t("name"), "name")}
+              {renderSortableHeader(t("role"), "role")}
+              {renderSortableHeader(t("alert"), "alert")}
+              {renderSortableHeader(t("status"), "status")}
+              {renderSortableHeader(t("lastLogin"), "lastLogin")}
+              {renderSortableHeader(t("remark"), "remark")}
               <div className="account-header-item">{t("action")}</div>
             </div>
-            <div className="account-cards">
-              {(tableLoading || switchingCompany) ? <div className="account-card">{t("loading")}</div> : pageRows.map((a, idx) => {
+            <div className={`account-cards${showAll ? " account-cards--show-all" : ""}`}>
+              {pageRows.map((a, idx) => {
                 const alertOn = String(a.payment_alert) === "1";
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
                 return (
-                  <div className="account-card" key={a.id}>
+                  <div className="account-card account-list-row" key={a.id}>
                     <div className="account-card-item">{showAll ? idx + 1 : (currentPage - 1) * PAGE_SIZE + idx + 1}</div>
                     <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
                     <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{toUpper(a.role) === "UPLINE" ? t("supplier") : toUpper(a.role)}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"} status-clickable`} onClick={() => togglePaymentAlert(a.id)}>{alertOn ? "ON" : "OFF"}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"} status-clickable`} onClick={() => toggleAccountStatus(a.id)}>{toUpper(a.status)}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{alertOn ? "ON" : "OFF"}</span></div>
+                    <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{toUpper(a.status)}</span></div>
                     <div className="account-card-item">{toUpper(a.last_login)}</div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item">
-                      <button className="account-edit-btn" onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
-                      <button className="account-edit-btn" onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
+                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
+                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         </svg>
                       </button>
-                      {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
+                      {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} disabled={accountMutationsBlocked} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
                     </div>
                   </div>
                 );
               })}
+            </div>
             </div>
           </div>
           {!showAll && (
@@ -715,7 +1320,23 @@ export default function AccountListPage() {
         </div>
       </div>
 
-      {toast && <div id="accountNotificationContainer" className="account-notification-container"><div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div></div>}
+      {toast && typeof document !== "undefined" && document.body
+        ? createPortal(
+            <div
+              id="accountNotificationContainer"
+              className="account-notification-container"
+              style={{
+                zIndex:
+                  addModalOpen || editModalOpen || linkModalOpen || confirmDeleteOpen || currencySettingOpen
+                    ? processNotificationAboveAccountZIndex
+                    : processNotificationZIndex,
+              }}
+            >
+              <div className={`account-notification account-notification-${toast.type} show`}>{toast.message}</div>
+            </div>,
+            document.body
+          )
+        : null}
 
       <AccountModal
         open={addModalOpen || editModalOpen}
@@ -725,7 +1346,7 @@ export default function AccountListPage() {
         setForm={setForm}
         orderedRoles={orderedRoles}
         currencies={accountModalCurrencies}
-        companies={companies}
+        companies={modalPickerCompanies}
         selectedCurrencyIds={selectedCurrencyIds}
         setSelectedCurrencyIds={setSelectedCurrencyIds}
         selectedCompanyIds={selectedCompanyIds}
@@ -738,16 +1359,18 @@ export default function AccountListPage() {
           createCurrency();
         }}
         onRemoveCurrency={removeModalCurrency}
+        currencyDeleteOnlyWhenDeselected
         onSubmit={saveForm}
         onClose={() => {
           setAddModalOpen(false);
           setEditModalOpen(false);
           setHiddenCurrencyIds([]);
         }}
+        groupPickerMode={groupOnlyAccountMode}
         t={t}
       />
       <AccountConfirmModal open={confirmDeleteOpen} message={t("deleteConfirmMessage", { count: selectedDeleteIds.size })} onConfirm={confirmDelete} onClose={() => setConfirmDeleteOpen(false)} t={t} />
-      <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onSave={saveCurrencySetting} accounts={accounts} roles={roles} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} t={t} />
+      <CurrencySettingModal open={currencySettingOpen} onClose={() => setCurrencySettingOpen(false)} currencies={currencies} settingCurrencyId={settingCurrencyId} setSettingCurrencyId={setSettingCurrencyId} settingLinked={settingLinked} setSettingLinked={setSettingLinked} settingSearch={settingSearch} setSettingSearch={setSettingSearch} settingRole={settingRole} setSettingRole={setSettingRole} onLoadCurrencyLinks={loadCurrencyLinks} onClearCurrencySelection={clearCurrencySettingSelection} onSave={saveCurrencySetting} accounts={accounts} roles={roles} currencyInput={currencyInput} setCurrencyInput={setCurrencyInput} onCreateCurrency={createCurrency} t={t} />
       <LinkAccountModal open={linkModalOpen} accounts={linkAccountsPool} currentAccountId={linkingAccountId} selectedIds={selectedLinkedIds} setSelectedIds={setSelectedLinkedIds} linkType={linkType} setLinkType={setLinkType} searchTerm={linkSearchTerm} setSearchTerm={setLinkSearchTerm} onSave={saveLinks} onClose={() => setLinkModalOpen(false)} t={t} />
     </>
   );

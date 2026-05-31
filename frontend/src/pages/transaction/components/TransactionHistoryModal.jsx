@@ -1,21 +1,63 @@
-import { getHistoryRemark, toUpperDisplay } from "../transactionFormat.js";
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
+import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../lib/transactionFormat.js";
 
 export default function TransactionHistoryModal({
   history,
   setHistory,
   histMoney,
   showDescriptionColumn,
+  m,
+  t,
 }) {
-  return (
-    <div id="historyModal" className="transaction-modal" style={{ display: history.open ? "flex" : "none" }}>
-      <div className="transaction-modal-content">
+  // Align `js/transaction.js`: close Payment History on × and on ESC (document keydown when modal visible).
+  useEffect(() => {
+    if (!history.open) return;
+    function onKeyDown(e) {
+      if (e.key !== "Escape") return;
+      setHistory((h) => ({ ...h, open: false }));
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [history.open, setHistory]);
+
+  // Portal to body: `.transaction-container` has transform (premiumEntrance), which breaks
+  // `position: fixed` and centers the modal against the full page height instead of the viewport.
+  useEffect(() => {
+    if (!history.open) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [history.open]);
+
+  const closeModal = () => setHistory((h) => ({ ...h, open: false }));
+
+  if (!history.open) return null;
+
+  const modal = (
+    <div
+      id="historyModal"
+      className="transaction-modal"
+      style={{ display: "flex" }}
+      role="presentation"
+      onClick={closeModal}
+    >
+      <div
+        className="transaction-modal-content transaction-history-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal_title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="transaction-modal-header">
           <h3 id="modal_title">{history.title}</h3>
           <button
             type="button"
             id="modal_close"
             className="transaction-modal-close"
-            onClick={() => setHistory((h) => ({ ...h, open: false }))}
+            onClick={closeModal}
           >
             ×
           </button>
@@ -35,25 +77,27 @@ export default function TransactionHistoryModal({
               }}
               aria-live="polite"
             >
-              Loading history…
+              {m.loadingHistory}
             </div>
           ) : null}
           <div className="transaction-history-table-frame">
-            <table className="transaction-table">
+            <table
+              className={`transaction-table ${showDescriptionColumn ? "transaction-history-table--with-desc" : "transaction-history-table--no-desc"}`}
+            >
               <thead>
                 <tr className="transaction-table-header">
-                  <th className="transaction-history-col-date">Date</th>
-                  <th className="transaction-history-col-product">Id Product</th>
-                  <th className="transaction-history-col-currency">Currency</th>
-                  <th className="transaction-history-col-rate">Rate</th>
-                  <th className="transaction-history-col-winloss">Win/Loss</th>
-                  <th className="transaction-history-col-crdr">Cr/Dr</th>
-                  <th className="transaction-history-col-balance">Balance</th>
+                  <th className="transaction-history-col-date">{m.date}</th>
+                  <th className="transaction-history-col-product">{m.idProduct}</th>
+                  <th className="transaction-history-col-currency">{m.currency}</th>
+                  <th className="transaction-history-col-rate">{m.rate}</th>
+                  <th className="transaction-history-col-winloss">{m.winLossTable}</th>
+                  <th className="transaction-history-col-crdr">{m.crDrTable}</th>
+                  <th className="transaction-history-col-balance">{m.balanceTable}</th>
                   {showDescriptionColumn ? (
-                    <th className="transaction-history-col-description">Description</th>
+                    <th className="transaction-history-col-description">{m.description}</th>
                   ) : null}
-                  <th className="transaction-history-col-remark">Remark</th>
-                  <th className="transaction-history-col-created">Created by</th>
+                  <th className="transaction-history-col-remark">{m.remark}</th>
+                  <th className="transaction-history-col-created">{m.createdBy}</th>
                 </tr>
               </thead>
               <tbody id="modal_tbody">
@@ -71,20 +115,14 @@ export default function TransactionHistoryModal({
                   return (
                     <tr
                       key={r.id ?? `${idx}-${r.date || ""}-${r.balance || ""}`}
-                      className={isBf ? "transaction-bf-row" : "transaction-table-row"}
-                      style={
-                        isBf
-                          ? {
-                              fontWeight: "bold",
-                              backgroundColor: "#f0f0f0",
-                            }
-                          : undefined
-                      }
+                      className={isBf ? "transaction-bf-row transaction-history-bf-row" : "transaction-table-row"}
                     >
                       <td className="transaction-history-col-date">{r.date || "-"}</td>
                       <td className="transaction-history-col-product">{String(idProductDisplay)}</td>
                       <td className="transaction-history-col-currency">{r.currency || "-"}</td>
-                      <td className="transaction-history-col-rate">{r.rate || "-"}</td>
+                      <td className="transaction-history-col-rate">
+                        {r.rate && r.rate !== "-" ? formatRateForHistoryDisplay(r.rate) : "-"}
+                      </td>
                       <td className="transaction-history-col-winloss">{histMoney(r.win_loss)}</td>
                       <td className="transaction-history-col-crdr">{histMoney(r.cr_dr)}</td>
                       <td className="transaction-history-col-balance">{histMoney(r.balance)}</td>
@@ -103,4 +141,7 @@ export default function TransactionHistoryModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined" || !document.body) return null;
+  return createPortal(modal, document.body);
 }

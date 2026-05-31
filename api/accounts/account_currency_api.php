@@ -8,8 +8,10 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/deleted_log.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../transactions/transaction_scope.php';
+require_once __DIR__ . '/../deleted_log/deleted_log.php';
 
 /**
  * 标准 JSON 响应
@@ -51,11 +53,56 @@ function dbAccountBelongsToCompany($pdo, $account_id, $company_id) {
 }
 
 /**
- * 获取当前公司 ID（支持 GET company_id 覆盖，仅 owner）
+ * 获取当前公司 ID（与 Summary / Data Capture scope 一致，支持集团实体 company_id）
  */
 function resolveCompanyId($pdo) {
+    $viewGroup = isset($_GET['view_group']) ? strtoupper(trim((string) $_GET['view_group'])) : '';
+    $groupScopeId = isset($_GET['group_id']) ? strtoupper(trim((string) $_GET['group_id'])) : '';
+    if ($viewGroup === '' && $groupScopeId !== '') {
+        $viewGroup = $groupScopeId;
+    }
+    if ($groupScopeId === '' && $viewGroup !== '') {
+        $groupScopeId = $viewGroup;
+    }
+
+    $requestedRaw = $_GET['company_id'] ?? null;
+    if ($requestedRaw !== null && $requestedRaw !== '') {
+        try {
+            return tx_resolve_request_company_id($pdo, [
+                'company_id' => (string) (int) $requestedRaw,
+                'view_group' => $viewGroup !== '' ? $viewGroup : null,
+                'group_id' => $groupScopeId !== '' ? $groupScopeId : null,
+            ]);
+        } catch (Exception $e) {
+            // fall through to legacy resolution below
+        }
+    }
+
+    if ($groupScopeId !== '') {
+        $entityId = tx_resolve_group_entity_company_id($pdo, $groupScopeId);
+        if ($entityId > 0) {
+            try {
+                return tx_resolve_request_company_id($pdo, [
+                    'company_id' => (string) $entityId,
+                    'view_group' => $viewGroup !== '' ? $viewGroup : $groupScopeId,
+                    'group_id' => $groupScopeId,
+                ]);
+            } catch (Exception $e) {
+                if (gc_is_group_login()) {
+                    gc_assert_company_id_allowed_for_login_scope($pdo, $entityId, $groupScopeId);
+                    return $entityId;
+                }
+            }
+        }
+    }
+
     $company_id = $_SESSION['company_id'] ?? null;
-    $requested = isset($_GET['company_id']) ? (int)$_GET['company_id'] : null;
+    $requested = isset($_GET['company_id']) ? (int) $_GET['company_id'] : null;
+    if ($requested && gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $requested, $groupScopeId !== '' ? $groupScopeId : null);
+        return $requested;
+    }
+
     if (!$requested) {
         return $company_id;
     }
@@ -63,14 +110,15 @@ function resolveCompanyId($pdo) {
     $role = $_SESSION['role'] ?? '';
     if ($role === 'owner') {
         $owner_id = $_SESSION['owner_id'] ?? $user_id;
-        $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
+        $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
         $stmt->execute([$requested, $owner_id]);
         if ($stmt->fetchColumn()) {
             return $requested;
         }
-    } elseif ($requested === (int)$_SESSION['company_id']) {
+    } elseif ($requested === (int) $_SESSION['company_id']) {
         return $requested;
     }
+
     return $company_id;
 }
 
@@ -241,6 +289,70 @@ try {
                     'is_linked' => in_array($c['id'], $linked_ids)
                 ];
             }, $all);
+            jsonResponse(true, '', $result);
+            exit;
+        }
+
+        /**
+         * Member Win/Loss：批量返回多个账户在当前公司拥有的币别；member 仅能查关联闭包内账户。
+         * GET account_ids=1,2,3
+         */
+        if ($action === 'get_batch_account_currencies') {
+            if (!isset($_SESSION['user_id'])) {
+                jsonResponse(false, '请先登录', null, 401);
+                exit;
+            }
+            $raw = isset($_GET['account_ids']) ? trim((string) $_GET['account_ids']) : '';
+            $parts = $raw !== '' ? preg_split('/\s*,\s*/', $raw) : [];
+            $ids = [];
+            foreach ($parts as $p) {
+                $n = (int) $p;
+                if ($n > 0 && !in_array($n, $ids, true)) {
+                    $ids[] = $n;
+                }
+            }
+            if ($ids === []) {
+                jsonResponse(false, 'account_ids 参数无效', null, 400);
+                exit;
+            }
+            require_once __DIR__ . '/../includes/member_linked_closure.php';
+            $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
+            $allowedMap = null;
+            if ($userType === 'member') {
+                $loginId = member_session_canonical_account_id();
+                if ($loginId <= 0) {
+                    jsonResponse(false, '无法识别会话', null, 403);
+                    exit;
+                }
+                $allowed = member_linked_member_closure_ids($pdo, $loginId, (int) $company_id);
+                $allowedMap = [];
+                foreach ($allowed as $x) {
+                    $allowedMap[(int) $x] = true;
+                }
+            }
+            $result = [];
+            foreach ($ids as $aid) {
+                if ($allowedMap !== null && empty($allowedMap[$aid])) {
+                    continue;
+                }
+                if (!dbAccountBelongsToCompany($pdo, $aid, (int) $company_id)) {
+                    continue;
+                }
+                $rows = dbGetAccountOwnedCurrenciesResolved($pdo, $aid, (int) $company_id);
+                $clist = [];
+                foreach ($rows as $r) {
+                    $clist[] = [
+                        'currency_id' => isset($r['currency_id']) ? (int) $r['currency_id'] : (isset($r['id']) ? (int) $r['id'] : 0),
+                        'currency_code' => isset($r['currency_code'])
+                            ? strtoupper(trim((string) $r['currency_code']))
+                            : '',
+                    ];
+                }
+                $result[] = [
+                    'account_id' => $aid,
+                    'currencies' => $clist,
+                ];
+            }
             jsonResponse(true, '', $result);
             exit;
         }

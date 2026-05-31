@@ -4,7 +4,9 @@
  * 路径: api/accounts/create_currency_api.php
  */
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -15,7 +17,10 @@ function jsonOut(bool $success, string $message, $data = null) {
     echo json_encode(['success' => $success, 'message' => $message, 'data' => $data]);
 }
 
-function userCanAccessCompany(PDO $pdo, int $companyId): bool {
+function userCanAccessCompany(PDO $pdo, int $companyId, ?string $viewGroup = null): bool {
+    if (gc_is_group_login()) {
+        return gc_session_can_access_company_id($pdo, $companyId, $viewGroup);
+    }
     $userId = $_SESSION['user_id'] ?? 0;
     $role = $_SESSION['role'] ?? '';
     $ownerId = $_SESSION['owner_id'] ?? $userId;
@@ -29,6 +34,36 @@ function userCanAccessCompany(PDO $pdo, int $companyId): bool {
     return (bool) $stmt->fetchColumn();
 }
 
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) {
+        return $id;
+    }
+
+    $placeholderStmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $placeholderStmt->execute([$groupId]);
+    return (int)($placeholderStmt->fetchColumn() ?: 0);
+}
+
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         http_response_code(405);
@@ -38,6 +73,12 @@ try {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         jsonOut(false, '用户未登录', null);
+        exit;
+    }
+
+    if (is_partnership_audit_read_only_active($pdo)) {
+        http_response_code(403);
+        jsonOut(false, '只读账号无法创建币种', null);
         exit;
     }
 
@@ -57,9 +98,18 @@ try {
     }
     $code = strtoupper($code);
 
+    $groupScopeId = normalizeGroupId($input['group_id'] ?? null);
     $companyId = 0;
     if (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
         $companyId = (int) $input['company_id'];
+        if ($companyId > 0 && gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $groupScopeId);
+        }
+    } elseif ($groupScopeId !== null) {
+        $companyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
+        if ($companyId > 0 && gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $groupScopeId);
+        }
     }
     if ($companyId <= 0 && isset($_SESSION['company_id'])) {
         $companyId = (int) $_SESSION['company_id'];
@@ -70,7 +120,7 @@ try {
         exit;
     }
 
-    if (!userCanAccessCompany($pdo, $companyId)) {
+    if (!userCanAccessCompany($pdo, $companyId, $groupScopeId)) {
         http_response_code(403);
         jsonOut(false, '无权限访问该公司', null);
         exit;

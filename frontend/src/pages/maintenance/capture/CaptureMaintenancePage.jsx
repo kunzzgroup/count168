@@ -1,35 +1,60 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 /* 与 DataCapture 相同：打进 Vite 产物，避免 dynamic import 在生产包中被拆成空 chunk、样式从未加载 */
-import "../../../../public/css/capture_maintenance.css";
 import "../../../../public/css/accountCSS.css";
+import "../../../../public/css/userlist.css";
 import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
-import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenanceStylesheets.js";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/maintenanceDateRangePicker.js";
-import { formatYmd } from "../../../utils/dateUtils.js";
-import { notifyCompanySessionUpdated } from "../../../utils/companySessionEvents.js";
-import { applySharedGroupClickWithCompanySwitch } from "../../../utils/sharedCompanyFilter.js";
-import { 
-  fetchCompanyPermissions, 
-  fetchProcesses, 
-  searchCaptureData, 
+import "../../../../public/css/maintenance_unified_filters.css";
+import "../../../../public/css/capture_maintenance.css";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
+import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
+import { formatYmd } from "../../../utils/date/dateUtils.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import {
+  companiesInGroupList,
+  isDashboardGroupOnlyMode,
+  persistDashboardFilterState,
+  resolveBootCompanyId,
+  resolveInitialSelectedGroupFromSession,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
+import {
+  bootstrapCaptureMaintenanceMeta,
+  fetchCompanyPermissions,
+  fetchProcesses,
+  searchCaptureData,
   deleteCaptureItems,
-  updateSessionCompany 
+  updateSessionCompany,
 } from "./captureMaintenanceLogic.js";
+import {
+  captureMaintenanceScopeCacheCompanyKey,
+  captureMaintenanceScopeCacheKey,
+  captureMaintenanceScopeIsReady,
+  captureMaintenanceUsesGroupProcesses,
+  resolveCaptureMaintenanceScope,
+} from "./captureMaintenanceScope.js";
+import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
+import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
+import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
 import CaptureMaintenanceTable from "./components/CaptureMaintenanceTable.jsx";
-import ConfirmDeleteModal from "./components/ConfirmDeleteModal.jsx";
+import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 
 export default function CaptureMaintenancePage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
+  const lang = useLoginLang();
+  const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
+  const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
 
   // -- Boot State ---
   const [bootLoading, setBootLoading] = useState(true);
-  const [me, setMe] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -53,18 +78,80 @@ export default function CaptureMaintenancePage() {
   // -- Data State --
   const [processes, setProcesses] = useState([]);
   const [captureData, setCaptureData] = useState([]);
+  const [captureListEpoch, setCaptureListEpoch] = useState(0);
+  const [captureDataSourceCompanyId, setCaptureDataSourceCompanyId] = useState(null);
   const [loading, setLoading] = useState(false);
+  /** 与 Report 页一致：非首次拉数时用细条 + 保留旧表，避免切换公司整表 Loading 卡顿感 */
+  const [listSyncing, setListSyncing] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   
   // -- UI State --
   const [toasts, setToasts] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [cssReady, setCssReady] = useState(false);
+
+  const captureSeqRef = useRef(0);
+  const captureAbortRef = useRef(null);
+  const scopeKeyRef = useRef("");
+  const captureDataRef = useRef(captureData);
+  captureDataRef.current = captureData;
+  const initialCaptureSearchDoneRef = useRef(false);
+  /** 切换公司已手动触发拉数时跳过 useEffect 里下一次重复请求，少等一轮渲染 */
+  const suppressNextSearchEffectRef = useRef(false);
+  const switchCompanyRef = useRef(async () => {});
+  const onClearCompanyRef = useRef(() => {});
+
+  const {
+    snapGroupIds,
+    visibleCompanies,
+    handleGroupClick,
+    handlePickCompany,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    groupsAllMode,
+    groupAllMode,
+    allowClearCompany,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: (c) => switchCompanyRef.current(c),
+    onClearCompany: (...args) => onClearCompanyRef.current(...args),
+  });
+
+  const captureScope = useMemo(
+    () =>
+      resolveCaptureMaintenanceScope({
+        companies,
+        selectedGroup,
+        companyId,
+        groupsAllMode,
+        groupAllMode,
+      }),
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
+  );
+
+  const captureScopeKey = useMemo(
+    () => captureMaintenanceScopeCacheKey(captureScope),
+    [captureScope],
+  );
+
+  const listQueryEnabled =
+    captureMaintenanceScopeIsReady(captureScope) && Boolean(dateFrom) && Boolean(dateTo);
+
+  useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: me?.company_id,
+    enabled: true,
+  });
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
     setToasts(prev => {
+      if (prev.some(t => t.message === message)) return prev;
       const next = [...prev, { id, message, type }];
       if (next.length > 2) return next.slice(1);
       return next;
@@ -74,6 +161,8 @@ export default function CaptureMaintenancePage() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 2000);
   }, []);
+
+  const { guardWrite } = usePartnershipAuditWriteGuard(me, notify);
 
   // -- Initialization --
   useEffect(() => {
@@ -107,22 +196,13 @@ export default function CaptureMaintenancePage() {
 
     removeOtherMaintenanceStylesheets("capture_maintenance.css");
 
-    let cancelled = false;
-
     const links = [
-      "https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap",
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap",
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css",
     ];
-
-    Promise.all(links.map(waitForStylesheet)).then(() => {
-      if (!cancelled) setCssReady(true);
-    });
-
-    ensureMaintenanceDateRangePicker();
+    links.forEach((href) => waitForStylesheet(href));
 
     return () => {
-      cancelled = true;
-      setCssReady(false);
       originalStyles.forEach((item) => {
         const { el } = item;
         if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
@@ -143,68 +223,90 @@ export default function CaptureMaintenancePage() {
   }, []);
 
   useEffect(() => {
-    if (bootLoading || !me || !cssReady) return;
-    if (!document.getElementById("date-range-picker")) return;
-    if (!window?.MaintenanceDateRangePicker?.init) return;
-
-    const timer = setTimeout(() => {
-      window.MaintenanceDateRangePicker.init({
-        onChange: () => {
-          const nextFrom = window.MaintenanceDateRangePicker.getDateFrom?.() || "";
-          const nextTo = window.MaintenanceDateRangePicker.getDateTo?.() || "";
-          setDateFrom(nextFrom);
-          setDateTo(nextTo);
-        },
-      });
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [bootLoading, me, cssReady]);
+    if (bootLoading || !me) return;
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectDateRange"),
+      selectEndDateHint: t("selectEndDate"),
+      monthLabels: m.monthsShort,
+    });
+  }, [bootLoading, me, lang, t, m]);
 
   // -- Boot Logic --
   useEffect(() => {
+    if (!sessionReady || !me) return;
+    let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
-        
-        // Member check
-        if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
-          return;
-        }
+        const u = me;
 
         // Permissions check
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
         const hasFull = perms.length === 0;
         const canMaintenance = hasFull || perms.includes("maintenance");
-        
+
         // Sidebar visibility check
         if (!canMaintenance) {
           navigate("/dashboard", { replace: true });
           return;
         }
-        setMe(u);
 
         // Load Companies
         const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
         const compJson = await compRes.json();
+        if (cancelled) return;
         const rows = Array.isArray(compJson?.data) ? compJson.data : [];
         setCompanies(rows);
 
         // Set Initial Company
-        let initialCompanyId = u.company_id ? Number(u.company_id) : (rows[0]?.id ? Number(rows[0].id) : null);
+        const initialCompanyId = resolveBootCompanyId({
+          sessionCompanyId: u.company_id,
+          defaultRowId: rows[0]?.id,
+        });
+        const currentComp =
+          initialCompanyId != null
+            ? rows.find((c) => Number(c.id) === initialCompanyId)
+            : null;
+        const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
+        setSelectedGroup(bootGroup);
+        if (isDashboardGroupOnlyMode()) {
+          setCompanyId(null);
+          setCompanyCode("");
+          const bootScope = resolveCaptureMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: null,
+          });
+          const meta = await bootstrapCaptureMaintenanceMeta({
+            companies: rows,
+            groupId: bootGroup,
+          });
+          if (cancelled) return;
+          const procList = bootScope ? await fetchProcesses(null, bootScope) : [];
+          setProcesses(procList);
+          setPermissions(meta.permissions);
+          setActivePermission(meta.activePermission);
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
+          return;
+        }
         setCompanyId(initialCompanyId);
-        
-        const currentComp = rows.find(c => Number(c.id) === initialCompanyId);
+
         if (currentComp) {
-          setCompanyCode(currentComp.company_id || "");
-          const companyPerms = await fetchCompanyPermissions(currentComp.company_id || "");
+          const code = currentComp.company_id || "";
+          setCompanyCode(code);
+
+          const bootScope = resolveCaptureMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: initialCompanyId,
+          });
+
+          // Fetch initial metadata here to ensure the first query starts with the correct activePermission
+          const [procList, companyPerms] = await Promise.all([
+            fetchProcesses(initialCompanyId, bootScope),
+            fetchCompanyPermissions(code),
+          ]);
+          if (cancelled) return;
+
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
@@ -215,128 +317,243 @@ export default function CaptureMaintenancePage() {
             navigate("/dashboard", { replace: true });
             return;
           }
-          
-          const savedGroup = sessionStorage.getItem("dashboard_group_filter");
-          const groups = [...new Set(rows.filter((c) => c.group_id).map((c) => String(c.group_id).toUpperCase().trim()))].sort();
-          
-          let selGroup = null;
-          if (savedGroup && groups.includes(savedGroup) && currentComp.group_id && String(currentComp.group_id).toUpperCase().trim() === savedGroup) {
-            selGroup = savedGroup;
-          } else if (currentComp.group_id?.trim()) {
-            selGroup = String(currentComp.group_id).toUpperCase().trim();
-          }
-          
-          setSelectedGroup(selGroup);
-          if (selGroup) sessionStorage.setItem("dashboard_group_filter", selGroup);
+
+          setProcesses(procList);
+          setPermissions(companyPerms);
+
+          const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+          const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
+          setActivePermission(initialActive);
+
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         }
 
       } catch (err) {
         console.error("Boot error:", err);
-        navigate("/login", { replace: true });
+        if (!cancelled) navigate("/login", { replace: true });
       } finally {
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate]);
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
-    if (bootLoading || !companyId) return;
+    if (bootLoading || !captureMaintenanceScopeIsReady(captureScope)) return;
 
+    let cancelled = false;
     (async () => {
       try {
+        const anchor =
+          companyId == null && selectedGroup
+            ? companiesInGroupList(companies, selectedGroup)[0]
+            : null;
+        const permCode = companyCode || anchor?.company_id || "";
         const [procList, permList] = await Promise.all([
-          fetchProcesses(companyId),
-          fetchCompanyPermissions(companyCode)
+          fetchProcesses(companyId, captureScope),
+          permCode ? fetchCompanyPermissions(permCode) : Promise.resolve([]),
         ]);
+        if (cancelled) return;
         setProcesses(procList);
-        setPermissions(permList);
-        
-        // Initial permission from localStorage or first one
-        const saved = localStorage.getItem(`selectedPermission_${companyCode}`);
+        if (permList.length > 0) setPermissions(permList);
+
+        const saved = permCode ? localStorage.getItem(`selectedPermission_${permCode}`) : null;
         if (saved && permList.includes(saved)) {
           setActivePermission(saved);
         } else if (permList.length > 0) {
           setActivePermission(permList[0]);
         }
+
+        if (captureMaintenanceUsesGroupProcesses(captureScope)) {
+          setSelectedProcess((prev) =>
+            prev && procList.some((p) => String(p.id) === String(prev)) ? prev : "",
+          );
+        }
       } catch (err) {
         console.error("Meta data load error:", err);
-        notify("Failed to load processes", "error");
+        notify(t("failedLoadProcesses"), "error");
       }
     })();
-  }, [bootLoading, companyId, companyCode, notify]);
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, captureScope, companyId, companyCode, selectedGroup, companies, notify, t]);
 
   // -- Search Logic --
-  const performSearch = useCallback(async () => {
-    if (!companyId || !dateFrom || !dateTo) return;
-    setLoading(true);
-    setSelectedIds([]);
-    try {
-      const data = await searchCaptureData({
-        dateFrom,
-        dateTo,
-        process: selectedProcess,
-        companyId,
-        category: activePermission
-      });
-      setCaptureData(data);
-      if (data.length > 0) {
-        notify(`Found ${data.length} record(s)`, "success");
-      }
-    } catch (err) {
-      notify(err.message, "error");
-      setCaptureData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [companyId, dateFrom, dateTo, selectedProcess, activePermission, notify]);
+  const performSearch = useCallback(
+    async (overrides = {}) => {
+      const effectiveScope =
+        overrides.scope ??
+        resolveCaptureMaintenanceScope({
+          companies,
+          selectedGroup: overrides.selectedGroup ?? selectedGroup,
+          companyId: overrides.companyId ?? companyId,
+        });
+      if (!captureMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
 
-  // Auto-search when filters change
+      const searchScopeKey = captureMaintenanceScopeCacheKey(effectiveScope);
+      captureAbortRef.current?.abort();
+      const ac = new AbortController();
+      captureAbortRef.current = ac;
+      const seq = ++captureSeqRef.current;
+      const quietRefresh = initialCaptureSearchDoneRef.current;
+      if (!quietRefresh) setLoading(true);
+      else {
+        setLoading(false);
+        setListSyncing(true);
+      }
+      setSelectedIds([]);
+      try {
+        const data = await searchCaptureData(
+          {
+            dateFrom,
+            dateTo,
+            process: selectedProcess,
+            category: activePermission,
+            scope: effectiveScope,
+          },
+          { signal: ac.signal },
+        );
+        if (seq !== captureSeqRef.current) return;
+        if (searchScopeKey !== scopeKeyRef.current) return;
+        setCaptureListEpoch((e) => e + 1);
+        setCaptureData(data);
+        setCaptureDataSourceCompanyId(captureMaintenanceScopeCacheCompanyKey(effectiveScope));
+        if (!quietRefresh) {
+          if (data.length > 0) {
+            notify(t("foundRecords", { n: data.length }), "success");
+          } else {
+            notify(t("noDataAdjustSearch"), "info");
+          }
+        }
+      } catch (err) {
+        if (err?.name === "AbortError" || seq !== captureSeqRef.current) return;
+        if (searchScopeKey !== scopeKeyRef.current) return;
+        notify(err.message, "error");
+        setCaptureListEpoch((e) => e + 1);
+        setCaptureData([]);
+        setCaptureDataSourceCompanyId(null);
+      } finally {
+        initialCaptureSearchDoneRef.current = true;
+        if (seq === captureSeqRef.current) {
+          setLoading(false);
+          setListSyncing(false);
+        }
+      }
+    },
+    [companies, selectedGroup, companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t],
+  );
+
+  // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
   useEffect(() => {
-    if (!bootLoading && companyId && cssReady) {
-      performSearch();
+    if (!bootLoading && listQueryEnabled) {
+      if (suppressNextSearchEffectRef.current) {
+        suppressNextSearchEffectRef.current = false;
+        return;
+      }
+      const h = setTimeout(() => {
+        void performSearch();
+      }, 0);
+      return () => clearTimeout(h);
     }
-  }, [bootLoading, companyId, selectedProcess, dateFrom, dateTo, activePermission, performSearch, cssReady]);
+  }, [
+    bootLoading,
+    listQueryEnabled,
+    captureScopeKey,
+    selectedProcess,
+    dateFrom,
+    dateTo,
+    activePermission,
+    performSearch,
+  ]);
+
+  useEffect(
+    () => () => {
+      captureAbortRef.current?.abort();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    scopeKeyRef.current = captureScopeKey;
+  }, [captureScopeKey]);
 
   // -- Handlers --
+  const handleClearCompany = useCallback(
+    (groupForPersist) => {
+      const g = groupForPersist ?? selectedGroup;
+      setCompanyId(null);
+      setCompanyCode("");
+      setSelectedProcess("");
+      setSelectedIds([]);
+      persistDashboardFilterState(g, null);
+    },
+    [selectedGroup],
+  );
+
   const handleSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
+    if (!c?.id) return;
+    const nextId = Number(c.id);
+    const nextCode = c.company_id || "";
+    const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const isOwner = String(me?.role || "").toLowerCase() === "owner";
+
+    const nextScope = resolveCaptureMaintenanceScope({
+      companies,
+      selectedGroup: newGroup,
+      companyId: nextId,
+    });
+
+    if (isOwner) {
+      suppressNextSearchEffectRef.current = true;
+      setCompanyId(nextId);
+      setCompanyCode(nextCode);
+      setSelectedGroup(newGroup);
+      persistDashboardFilterState(newGroup, nextId);
+      void performSearch({ scope: nextScope });
+      notify(t("switchedTo", { company: nextCode }), "success");
+      try {
+        const sessionData = await updateSessionCompany(c.id);
+        if (sessionData && sessionData.has_gambling === false) {
+          navigate("/process-list", { replace: true });
+          return;
+        }
+        notifyCompanySessionUpdated();
+      } catch (err) {
+        notify(err.message || t("switchFailed"), "error");
+        navigate("/dashboard", { replace: true });
+      }
+      return;
+    }
+
     try {
       const sessionData = await updateSessionCompany(c.id);
-      
-      // Redirect to process list for bank-only companies (legacy parity).
+
       if (sessionData && sessionData.has_gambling === false) {
         navigate("/process-list", { replace: true });
         return;
       }
 
-      setCompanyId(Number(c.id));
-      setCompanyCode(c.company_id || "");
-      
-      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      suppressNextSearchEffectRef.current = true;
+      setCompanyId(nextId);
+      setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
-      if (newGroup) sessionStorage.setItem("dashboard_group_filter", newGroup);
-      else sessionStorage.removeItem("dashboard_group_filter");
-      
+      persistDashboardFilterState(newGroup, nextId);
+
       notifyCompanySessionUpdated();
-      notify(`Switched to ${c.company_id}`, "success");
+      notify(t("switchedTo", { company: nextCode }), "success");
+      void performSearch({ scope: nextScope });
     } catch (err) {
-      notify(err.message || "Switch failed", "error");
-      // Fallback redirect if something goes wrong during session update
+      notify(err.message || t("switchFailed"), "error");
       navigate("/dashboard", { replace: true });
     }
   };
 
-  const handleGroupClick = async (gid) => {
-    await applySharedGroupClickWithCompanySwitch({
-      clickedGroupId: gid,
-      currentSelectedGroup: selectedGroup,
-      companies,
-      currentCompanyId: companyId,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-    });
-  };
+  switchCompanyRef.current = handleSwitchCompany;
+  onClearCompanyRef.current = handleClearCompany;
 
   const handlePermissionSwitch = (p) => {
     if (p === activePermission) return;
@@ -350,26 +567,37 @@ export default function CaptureMaintenancePage() {
     );
   };
 
-  const toggleSelectAll = () => {
-    const selectable = captureData.filter(row => !(row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true));
-    if (selectedIds.length === selectable.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(selectable.map(row => row.capture_id));
-    }
-  };
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const selectable = captureDataRef.current.filter(
+        (row) => !(row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true),
+      );
+      if (prev.length === selectable.length && selectable.length > 0) return [];
+      return selectable.map((row) => row.capture_id);
+    });
+  }, []);
+
+  const selectableRowsCount = useMemo(
+    () =>
+      captureData.filter(
+        (row) => !(row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true),
+      ).length,
+    [captureData],
+  );
+  const selectAll = selectedIds.length > 0 && selectedIds.length === selectableRowsCount;
 
   const handleDeleteClick = () => {
+    if (guardWrite()) return;
     if (selectedIds.length === 0) {
-      notify("Please select at least one record", "error");
+      notify(t("pleaseSelectOneRecord"), "error");
       return;
     }
     setShowDeleteModal(true);
   };
 
   const confirmDeleteAction = async () => {
+    if (guardWrite()) return;
     setShowDeleteModal(false);
-    setLoading(true);
     try {
       const itemsToDelete = captureData
         .filter(row => selectedIds.includes(row.capture_id))
@@ -382,33 +610,27 @@ export default function CaptureMaintenancePage() {
       await deleteCaptureItems({
         items: itemsToDelete,
         dateFrom,
-        dateTo
+        dateTo,
+        scope: captureScope,
       });
 
-      notify("Delete successful", "success");
+      notify(t("deleteSuccessful"), "success");
       setConfirmDelete(false);
       setSelectedIds([]);
       await performSearch();
     } catch (err) {
       notify(err.message, "error");
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (bootLoading || !me || !cssReady) return null;
-
-  const selectableRows = captureData.filter(row => !(row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true));
-  const isAllSelected = selectableRows.length > 0 && selectedIds.length === selectableRows.length;
-  const isIndeterminate = selectedIds.length > 0 && selectedIds.length < selectableRows.length;
+  const tableLoading = loading || bootLoading;
 
   return (
     <div className="container">
+      {permissions.length > 1 ? (
       <div className="maintenance-header">
-        <h1 id="maintenance-page-title">Maintenance - Data Capture</h1>
-        {permissions.length > 1 && (
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
-            <span className="maintenance-company-label">Category:</span>
+            <span className="maintenance-company-label">{m.category}</span>
             <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
               {permissions.map(p => (
                 <button 
@@ -422,66 +644,75 @@ export default function CaptureMaintenancePage() {
               ))}
             </div>
           </div>
-        )}
       </div>
+      ) : null}
 
-      <CaptureMaintenanceFilters 
-        processes={processes}
-        selectedProcess={selectedProcess}
-        setSelectedProcess={setSelectedProcess}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        today={todayDmy}
-        companyId={companyId}
-        companies={companies}
-        selectedGroup={selectedGroup}
-        onGroupClick={handleGroupClick}
-        onSwitchCompany={handleSwitchCompany}
-        onDelete={handleDeleteClick}
-        canDelete={selectedIds.length > 0}
-        confirmDelete={confirmDelete}
-        setConfirmDelete={setConfirmDelete}
-      />
+      {/* Scope table CSS: other maintenance pages share .maintenance-* and win in bundle order */}
+      <div className="capture-maintenance-page-root">
+        <CaptureMaintenanceFilters
+          processes={processes}
+          selectedProcess={selectedProcess}
+          setSelectedProcess={setSelectedProcess}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          setDateFrom={setDateFrom}
+          setDateTo={setDateTo}
+          today={todayDmy}
+          companyId={companyId}
+          snapGroupIds={snapGroupIds}
+          visibleCompanies={visibleCompanies}
+          selectedGroup={selectedGroup}
+          onGroupClick={handleGroupClick}
+          onPickCompany={handlePickCompany}
+          onPickAllGroups={handlePickAllGroups}
+          onPickAllInGroup={handlePickAllInGroup}
+          groupsAllMode={groupsAllMode}
+          groupAllMode={groupAllMode}
+          onDelete={handleDeleteClick}
+          canDelete={selectedIds.length > 0}
+          confirmDelete={confirmDelete}
+          setConfirmDelete={setConfirmDelete}
+          m={m}
+        />
 
-      <CaptureMaintenanceTable 
-        data={captureData}
-        loading={loading}
-        selectedIds={selectedIds}
-        toggleSelect={toggleSelect}
-        toggleSelectAll={toggleSelectAll}
-        isAllSelected={isAllSelected}
-        isIndeterminate={isIndeterminate}
-      />
+        <div className="capture-maintenance-table-region">
+          {listSyncing && (
+            <div className="capture-maintenance-sync-track" aria-hidden>
+              <div className="capture-maintenance-sync-bar" />
+            </div>
+          )}
+          <CaptureMaintenanceTable
+            key={captureDataSourceCompanyId ?? captureScopeKey ?? "no-scope"}
+            data={captureData}
+            listEpoch={captureListEpoch}
+            rowKeyCompanyId={captureDataSourceCompanyId ?? captureScopeKey}
+            loading={tableLoading}
+            listSyncing={listSyncing}
+            selectedIds={selectedIds}
+            toggleSelect={toggleSelect}
+            toggleSelectAll={toggleSelectAll}
+            selectAll={selectAll}
+            m={m}
+          />
+        </div>
+      </div>
 
       {/* Notifications */}
       <div id="notificationContainer" className="maintenance-notification-container">
-        {toasts.map(t => (
-          <div key={t.id} className={`maintenance-notification maintenance-notification-${t.type} show`}>
-            {t.message}
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`maintenance-notification maintenance-notification-${toast.type} show`}>
+            {toast.message}
           </div>
         ))}
       </div>
       {/* Confirm Modal */}
-      <ConfirmDeleteModal 
+      <MaintenanceDeleteConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAction}
-        message={`Are you sure you want to delete the selected ${selectedIds.length} record(s)? This action cannot be undone.`}
+        count={selectedIds.length}
+        t={t}
       />
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()}>
-            <select id="calendar-month-select" defaultValue="0"><option value="0">Jan</option><option value="1">Feb</option><option value="2">Mar</option><option value="3">Apr</option><option value="4">May</option><option value="5">Jun</option><option value="6">Jul</option><option value="7">Aug</option><option value="8">Sep</option><option value="9">Oct</option><option value="10">Nov</option><option value="11">Dec</option></select>
-            <select id="calendar-year-select" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-        </div>
-        <div className="calendar-weekdays">
-          <div className="calendar-weekday">Sun</div><div className="calendar-weekday">Mon</div><div className="calendar-weekday">Tue</div><div className="calendar-weekday">Wed</div><div className="calendar-weekday">Thu</div><div className="calendar-weekday">Fri</div><div className="calendar-weekday">Sat</div>
-        </div>
-        <div className="calendar-days" id="calendar-days" />
-      </div>
     </div>
   );
 }

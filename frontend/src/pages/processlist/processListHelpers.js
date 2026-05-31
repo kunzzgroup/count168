@@ -1,7 +1,4 @@
-export const PAGE_SIZE = 20;
-
-/** Matches js/processlist.js Games table grid */
-export const GAMES_PROCESS_GRID_COLUMNS = "0.3fr 0.8fr 0.95fr 0.35fr 0.3fr 1.1fr 0.2fr";
+export const PAGE_SIZE = 25;
 
 export const EMPTY_FORM = {
   id: "",
@@ -32,21 +29,105 @@ export function normalizeRows(data) {
   return Array.isArray(data) ? data : [];
 }
 
+/** One pill per display `company_id`; API duplicates collapse. Prefer the row whose `id` matches `preferredPk`. */
+export function dedupeCompanyRowsForSwitcher(companies, preferredPk) {
+  const filtered = normalizeRows(companies).filter((c) => c.company_id && String(c.company_id).trim() !== "");
+  const byLabel = new Map();
+  for (const c of filtered) {
+    const label = String(c.company_id || "").trim().toUpperCase();
+    if (!label) continue;
+    let arr = byLabel.get(label);
+    if (!arr) {
+      arr = [];
+      byLabel.set(label, arr);
+    }
+    const idNum = Number(c.id);
+    if (Number.isFinite(idNum) && arr.some((e) => Number(e.id) === idNum)) continue;
+    arr.push(c);
+  }
+  const pref = Number(preferredPk);
+  const out = [];
+  for (const arr of byLabel.values()) {
+    if (arr.length === 1) {
+      out.push(arr[0]);
+      continue;
+    }
+    const sorted = [...arr].sort((a, b) => Number(a.id) - Number(b.id));
+    if (Number.isFinite(pref)) {
+      const hit = sorted.find((e) => Number(e.id) === pref);
+      out.push(hit ?? sorted[0]);
+    } else {
+      out.push(sorted[0]);
+    }
+  }
+  return out;
+}
+
+function tiebreakProcessDefault(a, b) {
+  const aPn = String(a.process_name || "").toLowerCase();
+  const bPn = String(b.process_name || "").toLowerCase();
+  if (aPn < bPn) return -1;
+  if (aPn > bPn) return 1;
+  const aD = String(a.description || a.description_name || "").toLowerCase();
+  const bD = String(b.description || b.description_name || "").toLowerCase();
+  if (aD < bD) return -1;
+  if (aD > bD) return 1;
+  return Number(a.id || 0) - Number(b.id || 0);
+}
+
+/**
+ * Games process table client sort (column keys match ProcessTable headers).
+ * @param {"processId"|"description"|"status"|"currency"|"dayUse"} sortColumn
+ */
+export function sortProcessTableRows(rows, sortColumn, sortDirection) {
+  const dir = sortDirection === "desc" ? -1 : 1;
+  const copy = [...normalizeRows(rows)];
+  const sortPrimary = (primary) => {
+    copy.sort((a, b) => {
+      let c = primary(a, b);
+      if (c === 0) c = tiebreakProcessDefault(a, b);
+      return c * dir;
+    });
+  };
+
+  if (sortColumn === "processId") {
+    sortPrimary((a, b) => {
+      const aKey = String(a.process_name || "").toLowerCase();
+      const bKey = String(b.process_name || "").toLowerCase();
+      if (aKey < bKey) return -1;
+      if (aKey > bKey) return 1;
+      return 0;
+    });
+  } else if (sortColumn === "description") {
+    sortPrimary((a, b) =>
+      String(a.description || a.description_name || "").localeCompare(String(b.description || b.description_name || ""), undefined, {
+        sensitivity: "base",
+        numeric: true,
+      }),
+    );
+  } else if (sortColumn === "status") {
+    sortPrimary((a, b) =>
+      String(a.status || "")
+        .toLowerCase()
+        .localeCompare(String(b.status || "").toLowerCase(), undefined, { sensitivity: "base" }),
+    );
+  } else if (sortColumn === "currency") {
+    sortPrimary((a, b) =>
+      String(a.currency || "").localeCompare(String(b.currency || ""), undefined, { sensitivity: "base" }),
+    );
+  } else if (sortColumn === "dayUse") {
+    sortPrimary((a, b) =>
+      String(a.day_use || "").localeCompare(String(b.day_use || ""), undefined, { sensitivity: "base", numeric: true }),
+    );
+  } else {
+    sortPrimary(() => 0);
+  }
+  return copy;
+}
+
 /** Same ordering as js/processlist.js after fetch (Games). */
 export function sortProcessRows(rows) {
-  const copy = [...rows];
-  copy.sort((a, b) => {
-    const aKey = String(a.process_name || "").toLowerCase();
-    const bKey = String(b.process_name || "").toLowerCase();
-    if (aKey < bKey) return -1;
-    if (aKey > bKey) return 1;
-    const aDesc = String(a.description || a.description_name || "").toLowerCase();
-    const bDesc = String(b.description || b.description_name || "").toLowerCase();
-    if (aDesc < bDesc) return -1;
-    if (aDesc > bDesc) return 1;
-    return 0;
-  });
-  return copy;
+  return sortProcessTableRows(rows, "processId", "asc");
 }
 
 /** Legacy editProcess remarks handling (JSON meta.user_remarks). */

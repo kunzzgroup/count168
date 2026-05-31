@@ -1,0 +1,41 @@
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
+
+/**
+ * Maintenance Group / Company filters — All pills (never sent as group_id / company code).
+ */
+export function useMaintenanceGroupCompanyFilter({
+  companies,
+  companyId,
+  selectedGroup,
+  setSelectedGroup,
+  switchCompany,
+  onClearCompany,
+  switchingCompany = false,
+}) {
+  const { me } = useAuthSession();
+  const gc = useGcFilterWithAllModes({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: switchCompany,
+    onClearCompany,
+    switchingCompany,
+    preferredCompanyId: companyId,
+    me,
+  });
+
+  return {
+    snapGroupIds: gc.groupIds,
+    visibleCompanies: gc.companiesForPicker,
+    handleGroupClick: gc.handlePickGroup,
+    handlePickCompany: gc.handlePickCompany,
+    handlePickAllGroups: gc.handlePickAllGroups,
+    handlePickAllInGroup: gc.handlePickAllInGroup,
+    groupsAllMode: gc.groupsAllMode,
+    groupAllMode: gc.groupAllMode,
+    allowClearCompany: gc.allowClearCompany,
+    isListScopeReady: gc.isListScopeReady,
+  };
+}

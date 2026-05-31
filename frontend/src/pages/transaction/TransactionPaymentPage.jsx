@@ -1,11 +1,11 @@
 import { useLayoutEffect, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import TransactionAddSection from "./components/TransactionAddSection.jsx";
 import TransactionHeader from "./components/TransactionHeader.jsx";
 import TransactionHistoryModal from "./components/TransactionHistoryModal.jsx";
 import TransactionSearchSection from "./components/TransactionSearchSection.jsx";
 import TransactionTablesSection from "./components/TransactionTablesSection.jsx";
-import { formatDmy, formatHistoryMoney } from "./transactionFormat.js";
+import { formatDmy, formatHistoryMoney } from "./lib/transactionFormat.js";
 import { useTransactionData } from "./hooks/useTransactionData.js";
 import { useTransactionUI } from "./hooks/useTransactionUI.js";
 import { useTransactionSearch } from "./hooks/useTransactionSearch.js";
@@ -13,11 +13,15 @@ import { useTransactionForm } from "./hooks/useTransactionForm.js";
 import { useTransactionSync } from "./hooks/useTransactionSync.js";
 import { useTransactionDateRange } from "./hooks/useTransactionDateRange.js";
 import { useTransactionInitialization } from "./hooks/useTransactionInitialization.js";
-import { installTransactionExcelCopy } from "./transactionExcelCopy.js";
-import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./transactionPaymentPageUtils.js";
-import { getRoleClass } from "./transactionPaymentLogic.js";
-import "flatpickr/dist/flatpickr.min.css";
+import { installTransactionExcelCopy } from "./lib/transactionExcelCopy.js";
+import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./lib/transactionPaymentPageUtils.js";
+import { getRoleClass } from "./lib/transactionPaymentLogic.js";
+import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
+import "../../../public/css/userlist.css";
+import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
+import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
+import { transactionScopeApiParams } from "./lib/transactionScope.js";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
 const ROUTE_BODY_CLASSES_TO_CLEAR = [
@@ -37,8 +41,13 @@ const ROUTE_BODY_CLASSES_TO_CLEAR = [
 ];
 
 export default function TransactionPaymentPage() {
-  const navigate = useNavigate();
+  const location = useLocation();
   const todayDmy = useMemo(() => formatDmy(new Date()), []);
+  
+  // Translation
+  const lang = useLoginLang();
+  const m = useMemo(() => TRANSACTION_I18N[lang] || TRANSACTION_I18N.en, [lang]);
+  const t = useCallback((key, params) => getTransactionText(lang, key, params), [lang]);
 
   // 1. UI State
   const ui = useTransactionUI();
@@ -46,7 +55,8 @@ export default function TransactionPaymentPage() {
 
   // 2. Data & Auth
   const data = useTransactionData({ todayDmy });
-  const { filterSnapshot, currencyRowsOrdered, loading, forbidden } = data;
+  const { filterSnapshot, transactionScope, currencyRowsOrdered, loading, forbidden } = data;
+  const scopeApi = useMemo(() => transactionScopeApiParams(transactionScope), [transactionScope]);
 
   // 3. Form Logic
   const formSearchRef = useRef(null);
@@ -60,16 +70,23 @@ export default function TransactionPaymentPage() {
     onSearch: onFormSearch,
     refreshContraInboxBadge: ui.refreshContraInboxBadge,
     filterSnapshot,
+    transactionScope,
+    accountOptions: data.accountOptions,
+    m,
+    t,
   });
 
   // 4. Search Logic
   const search = useTransactionSearch({
     filterSnapshot,
+    transactionScope,
     todayDmy,
     pushToast,
     txType: form.txType,
     currencyRowsOrdered,
     setCurrencyRowsOrdered: data.setCurrencyRowsOrdered,
+    m,
+    t,
   });
   formSearchRef.current = search.runSearch;
 
@@ -78,6 +95,7 @@ export default function TransactionPaymentPage() {
     loading,
     forbidden,
     filterSnapshot,
+    transactionScope,
     currencyRowsOrdered,
     todayDmy,
     search,
@@ -94,13 +112,10 @@ export default function TransactionPaymentPage() {
     setDateFrom: search.setDateFrom,
     setDateTo: search.setDateTo,
     todayDmy,
-    runSearch: search.runSearch,
     txDate: form.txDate,
     setTxDate: form.setTxDate,
     rateDate: form.rateDate,
     setRateDate: form.setRateDate,
-    fpTxDateRef: form.fpTxDateRef,
-    fpRateDateRef: form.fpRateDateRef,
   });
 
   // 7. Sync & Lifecycle
@@ -111,6 +126,7 @@ export default function TransactionPaymentPage() {
 
   useTransactionSync({
     filterSnapshot,
+    transactionScope,
     effectiveDateFrom: search.effectiveDateFrom,
     effectiveDateTo: search.effectiveDateTo,
     selectedCategories: search.selectedCategories,
@@ -126,53 +142,131 @@ export default function TransactionPaymentPage() {
     refreshContraInboxBadge: ui.refreshContraInboxBadge,
   });
 
-  useLayoutEffect(() => {
-    document.body.classList.remove(...ROUTE_BODY_CLASSES_TO_CLEAR);
+  const applyTransactionBodyClasses = useCallback(() => {
+    document.body.classList.remove(...ROUTE_BODY_CLASSES_TO_CLEAR, "bg");
     document.body.classList.add("dashboard-page", "transaction-page");
+  }, []);
+
+  useLayoutEffect(() => {
+    applyTransactionBodyClasses();
     return () => {
       document.body.classList.remove("transaction-page", "page-ready");
     };
-  }, []);
+  }, [applyTransactionBodyClasses]);
 
-  /** Runs after previous route's `useEffect` cleanup (User/Account used to re-add `bg`). `body.bg::before` blocks clicks site-wide. */
+  /** Re-apply after company switch or stale passive cleanups (e.g. Home dashboard unmount re-adds `bg`). */
   useEffect(() => {
-    document.body.classList.remove("bg");
-  }, []);
+    applyTransactionBodyClasses();
+  }, [applyTransactionBodyClasses, transactionScope?.scopeCompanyId, transactionScope?.viewGroup]);
 
   useEffect(() => {
     return installTransactionExcelCopy();
   }, []);
 
+  useEffect(() => {
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      monthLabels: m.monthsShort,
+    });
+  }, [lang, m]);
+
+  /** Hooks must run every render — never after `return null` / `Navigate` (React #310). */
+  const singleCategoryFallbackRoleClass = useMemo(() => {
+    const raw = search.selectedCategories || [];
+    const sel = raw.filter((x) => x != null && String(x).trim() !== "" && String(x).trim().toUpperCase() !== "");
+    if (sel.length !== 1) return "";
+    return getRoleClass(String(sel[0]));
+  }, [search.selectedCategories]);
+
+  const txWlTolBannerActive = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search || "").get("tx_wl_tol") === "1";
+    } catch {
+      return false;
+    }
+  }, [location.search]);
+  
+  const periodPresets = useMemo(
+    () => [
+      ["today", m.today],
+      ["yesterday", m.yesterday],
+      ["thisWeek", m.thisWeek],
+      ["lastWeek", m.lastWeek],
+      ["thisMonth", m.thisMonth],
+      ["lastMonth", m.lastMonth],
+      ["thisYear", m.thisYear],
+      ["lastYear", m.lastYear],
+    ],
+    [m],
+  );
+
+  const onSearch = useCallback(() => {
+    search.runSearch({ silent: false });
+  }, [search.runSearch]);
+
+  const toggleContraInbox = useCallback(() => {
+    ui.setContraInbox((s) => ({ ...s, open: !s.open }));
+  }, [ui.setContraInbox]);
+
+  const closeContraInbox = useCallback(() => {
+    ui.setContraInbox((s) => ({ ...s, open: false }));
+  }, [ui.setContraInbox]);
+
+  const refreshContraInbox = useCallback(() => {
+    void ui.refreshContraInboxBadge(scopeApi);
+  }, [ui.refreshContraInboxBadge, scopeApi]);
+
+  const onApproveContra = useCallback(
+    (opts) => ui.onApproveContra(opts.transactionId, scopeApi, search.runSearch),
+    [ui.onApproveContra, scopeApi, search.runSearch],
+  );
+
+  const onRejectContra = useCallback(
+    (opts) => ui.onRejectContra(opts.transactionId, scopeApi),
+    [ui.onRejectContra, scopeApi],
+  );
+
   if (forbidden) {
     return <Navigate to="/dashboard" replace />;
   }
-  if (loading || !filterSnapshot) {
-    return null;
-  }
 
-  const onSearch = () => search.runSearch({ silent: false });
+  const booting = loading || !filterSnapshot;
 
   return (
     <div className="container-fluid transaction-container">
       <TransactionHeader
         canApproveContra={canApproveContra}
         contraInbox={ui.contraInbox}
-        toggleContraInbox={() => ui.setContraInbox((s) => ({ ...s, open: !s.open }))}
-        refreshContraInbox={() => ui.refreshContraInboxBadge(filterSnapshot?.companyId)}
-        approveContra={(opts) => ui.onApproveContra(opts.transactionId, opts.companyId, search.runSearch)}
-        rejectContra={(opts) => ui.onRejectContra(opts.transactionId, opts.companyId)}
-        fsCompanyId={filterSnapshot?.companyId}
+        toggleContraInbox={toggleContraInbox}
+        closeContraInbox={closeContraInbox}
+        refreshContraInbox={refreshContraInbox}
+        approveContra={onApproveContra}
+        rejectContra={onRejectContra}
+        scopeApi={scopeApi}
+        mutationsBlocked={Boolean(filterSnapshot?.mutationsBlocked)}
+        m={m}
+        t={t}
       />
 
       <main className="transaction-main">
+        {!booting ? (
+          <>
+        {txWlTolBannerActive ? (
+          <div
+            className="transaction-tx-wl-tol-banner"
+            style={{
+              margin: "0 0 12px 0",
+              padding: "10px 12px",
+              background: "#fffbeb",
+              border: "1px solid #f59e0b",
+              borderRadius: 8,
+              color: "#78350f",
+              fontSize: 13,
+            }}
+            dangerouslySetInnerHTML={{ __html: m.toleranceBanner }}
+          />
+        ) : null}
         <div className="transaction-main-content">
           <TransactionSearchSection
-            dateFrom={search.dateFrom}
-            dateTo={search.dateTo}
-            effectiveDateRangeText={search.effectiveDateRangeText}
-            quickOpen={search.quickOpen}
-            toggleQuick={search.toggleQuick}
-            selectQuickRange={search.selectQuickRange}
             categoryOpen={search.categoryOpen}
             toggleCategory={search.toggleCategory}
             categories={data.categories}
@@ -183,8 +277,6 @@ export default function TransactionPaymentPage() {
             removeCategoryTag={search.removeCategoryTag}
             searchState={search.searchState}
             setSearchState={search.setSearchState}
-            showAllCurrencies={search.showAllCurrencies}
-            setShowAllCurrencies={search.setShowAllCurrencies}
             selectedCurrencies={search.selectedCurrencies}
             setSelectedCurrencies={search.setSelectedCurrencies}
             currencyOptions={data.currencyOptions}
@@ -193,19 +285,22 @@ export default function TransactionPaymentPage() {
             fs={filterSnapshot}
             onGroupButtonClick={data.onGroupButtonClick}
             onCompanyButtonClick={data.onCompanyButtonClick}
+            onPickAllGroups={data.onPickAllGroups}
+            onPickAllInGroup={data.onPickAllInGroup}
             currencyRowsOrdered={currencyRowsOrdered}
-            toggleAllCurrenciesBtn={search.toggleAllCurrenciesBtn}
             onCurrencyDragStart={search.onCurrencyDragStart}
             onCurrencyDropOn={search.onCurrencyDropOn}
             toggleCurrencyBtn={search.toggleCurrencyBtn}
+            m={m}
+            t={t}
           />
 
           <TransactionAddSection
             txType={form.txType}
             setTxType={form.setTxType}
-            txDate={form.txDate}
             todayDmy={todayDmy}
-            setTxDate={form.setTxDate}
+            txDate={form.txDate}
+            rateDate={form.rateDate}
             txToAccount={form.txToAccount}
             setTxToAccount={form.setTxToAccount}
             txFromAccount={form.txFromAccount}
@@ -219,8 +314,6 @@ export default function TransactionPaymentPage() {
             setTxRemark={form.setTxRemark}
             txConfirm={form.txConfirm}
             setTxConfirm={form.setTxConfirm}
-            winLoseSide={form.winLoseSide}
-            setWinLoseSide={form.setWinLoseSide}
             submitting={form.submitting}
             onSubmitTx={form.onSubmitTx}
             onSearch={onSearch}
@@ -229,9 +322,7 @@ export default function TransactionPaymentPage() {
             currencyOptions={data.currencyOptions}
             showStandardFromAndReverse={form.showStandardFromAndReverse}
             onReverseAccounts={form.onReverseAccounts}
-            isAdjustment={form.isAdjustment}
-            rateDate={form.rateDate}
-            setRateDate={form.setRateDate}
+            mutationsBlocked={Boolean(filterSnapshot?.mutationsBlocked)}
             rateToAccount={form.rateToAccount}
             setRateToAccount={form.setRateToAccount}
             rateFromAccount={form.rateFromAccount}
@@ -245,6 +336,7 @@ export default function TransactionPaymentPage() {
             rateExchangeRateRaw={form.rateExchangeRateRaw}
             setRateExchangeRateRaw={form.setRateExchangeRateRaw}
             rateCurrencyToAmount={form.rateCurrencyToAmount}
+            onRateCurrencyRowReverse={form.onRateCurrencyRowReverse}
             rateTransferToAccount={form.rateTransferToAccount}
             setRateTransferToAccount={form.setRateTransferToAccount}
             rateTransferFromAccount={form.rateTransferFromAccount}
@@ -254,6 +346,8 @@ export default function TransactionPaymentPage() {
             rateMiddlemanRate={form.rateMiddlemanRate}
             setRateMiddlemanRate={form.setRateMiddlemanRate}
             rateMiddlemanAmount={form.rateMiddlemanAmount}
+            m={m}
+            t={t}
           />
         </div>
 
@@ -263,38 +357,64 @@ export default function TransactionPaymentPage() {
           tp={search.tablePresentation}
           searchState={search.searchState}
           getRoleClass={getRoleClass}
-          fallbackRoleClass=""
+          fallbackRoleClass={singleCategoryFallbackRoleClass}
           openHistory={(row) =>
-            ui.onViewHistory(row, search.effectiveDateFrom, search.effectiveDateTo, filterSnapshot?.companyId)
+            ui.onViewHistory(row, search.effectiveDateFrom, search.effectiveDateTo, scopeApi, {
+              selectedCurrencies: search.selectedCurrencies,
+              showAllCurrencies: search.showAllCurrencies,
+            })
           }
           handleBalanceCellClick={form.handleBalanceCellClick}
+          m={m}
+          t={t}
         />
+          </>
+        ) : null}
       </main>
 
-      {/* Same popup markup as legacy page, now driven by React-side picker module. */}
-      <div className="calendar-popup" id="calendar-popup" style={{ display: "none" }}>
-        <div className="calendar-header">
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
-            <i className="fas fa-chevron-left" />
-          </button>
-          <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
-            <select id="calendar-month-select" aria-label="Month">
-              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
-                <option key={m} value={i}>{m}</option>
-              ))}
-            </select>
-            <select id="calendar-year-select" aria-label="Year" />
-          </div>
-          <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
-            <i className="fas fa-chevron-right" />
-          </button>
-        </div>
-        <div className="calendar-weekdays">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="calendar-weekday">{d}</div>
+      {/* Same date logic as legacy page, with Transaction-specific range picker layout. */}
+      <div className="calendar-popup calendar-popup--transaction-range" id="calendar-popup" style={{ display: "none" }}>
+        <div className="transaction-calendar-presets" aria-label="Period shortcuts">
+          {periodPresets.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className="transaction-calendar-preset"
+              data-period-key={key}
+              aria-pressed="false"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.selectQuickRange?.(key);
+              }}
+            >
+              {label}
+            </button>
           ))}
         </div>
-        <div className="calendar-days" id="calendar-days" />
+        <div className="transaction-calendar-panel">
+          <div className="calendar-header">
+            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}>
+              <i className="fas fa-chevron-left" />
+            </button>
+            <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
+              <button type="button" id="calendar-month-select" className="calendar-month-trigger" value="4" aria-label="Month">
+                May
+              </button>
+              <button type="button" id="calendar-year-select" className="calendar-year-trigger" value="2026" aria-label="Year">
+                2026
+              </button>
+            </div>
+            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}>
+              <i className="fas fa-chevron-right" />
+            </button>
+          </div>
+          <div className="calendar-weekdays">
+            {m.weekdaysShort.map((d) => (
+              <div key={d} className="calendar-weekday">{d}</div>
+            ))}
+          </div>
+          <div className="calendar-days" id="calendar-days" />
+        </div>
       </div>
 
       <TransactionHistoryModal
@@ -302,6 +422,8 @@ export default function TransactionPaymentPage() {
         setHistory={ui.setHistory}
         histMoney={formatHistoryMoney}
         showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
+        m={m}
+        t={t}
       />
 
       <div id="notificationContainer" className="transaction-notification-container" aria-live="polite">

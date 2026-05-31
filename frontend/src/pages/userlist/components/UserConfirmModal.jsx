@@ -1,9 +1,13 @@
 import React from "react";
+import { accountModalOverlayZIndex, portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
 
-export default function UserConfirmModal({ open, message, onConfirm, onClose, t }) {
+const confirmModalZIndex = accountModalOverlayZIndex + 50;
+
+export default function UserConfirmModal({ open, message, onConfirm, onClose, confirmDisabled, t }) {
   if (!open) return null;
-  return (
-    <div id="confirmModal" className="modal" style={{ display: "flex" }}>
+  const disableDelete = Boolean(confirmDisabled);
+  return portalToDocumentBody(
+    <div id="confirmModal" className="modal" style={{ display: "flex", zIndex: confirmModalZIndex }}>
       <div className="confirm-modal-content">
         <div className="confirm-icon-container">
           <svg className="confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -18,7 +22,7 @@ export default function UserConfirmModal({ open, message, onConfirm, onClose, t 
           <button type="button" className="btn btn-cancel confirm-cancel" onClick={onClose}>
             {t("cancel")}
           </button>
-          <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
+          <button type="button" className="btn btn-delete confirm-delete" disabled={disableDelete} onClick={onConfirm}>
             {t("delete")}
           </button>
         </div>

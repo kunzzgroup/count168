@@ -1,38 +1,66 @@
-import React, { useLayoutEffect, useRef } from "react";
-import { assetUrl, buildApiUrl } from "../../../utils/apiUrl.js";
-import { BANK_GRID_TEMPLATE_COLUMNS, canShowBankResend, normalizeBankProcessStatus, notifyTransactionDataChanged } from "../bankProcessHelpers.js";
+import React from "react";
+import { assetUrl, buildApiUrl } from "../../../utils/core/apiUrl.js";
+import {
+  canShowBankResend,
+  normalizeBankProcessStatus,
+  formatBankProcessContractLabel,
+  bankProcessContractBadgeKey,
+  formatBankMoneyFixed2,
+  formatBankWithTypeDisplay,
+  isValidBankMoneyInput,
+} from "../lib/bankProcessHelpers.js";
 import BankProcessStatusControl from "./BankProcessStatusControl.jsx";
+
+function formatBankMoneyCell(value) {
+  const raw = value != null ? String(value).trim() : "";
+  if (!raw) return "-";
+  if (!isValidBankMoneyInput(raw)) return raw;
+  return formatBankMoneyFixed2(raw);
+}
+
+function BankSortIcon({ column, sortColumn, sortDirection }) {
+  return (
+    <span
+      className={`account-sort-icon${sortColumn === column ? ` is-active is-${sortDirection}` : ""}`}
+      aria-hidden="true"
+    >
+      <span className="account-sort-icon__up" />
+      <span className="account-sort-icon__down" />
+    </span>
+  );
+}
 
 function getContractStateClass(dayStart, dayEnd) {
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const hasDayStart = dayStart != null && String(dayStart).trim() !== '';
-  if (!hasDayStart) return 'contract-pending';
+  const hasDayStart = dayStart != null && String(dayStart).trim() !== "";
+  if (!hasDayStart) return "contract-pending";
   const start = String(dayStart).substring(0, 10);
   const end = dayEnd ? String(dayEnd).substring(0, 10) : null;
-  if (todayStr < start) return 'contract-pending';
-  if (end && todayStr > end) return 'contract-expired';
-  if (start && end && todayStr >= start && todayStr <= end) return 'contract-active';
-  if (start && todayStr >= start) return 'contract-active';
-  return 'contract-expired';
+  if (todayStr < start) return "contract-pending";
+  if (end && todayStr > end) return "contract-expired";
+  if (start && end && todayStr >= start && todayStr <= end) return "contract-active";
+  if (start && todayStr >= start) return "contract-active";
+  return "contract-expired";
 }
 
-function renderBankContract(value, dayStart, dayEnd) {
+function renderBankContract(value, dayStart, dayEnd, lang) {
   const text = String(value || "").trim();
   if (!text) return "-";
-  
-  const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' };
-  const contractRaw = contractMap[text] || text;
-  
+
+  const contractBadgeKey = bankProcessContractBadgeKey(text);
+  const displayLabel = formatBankProcessContractLabel(lang, text);
+
   const baseContractClass = getContractStateClass(dayStart || null, dayEnd || null);
-  const grayContracts = ['1 MONTH', '1+1 MONTH', '1+2 MONTHS', '1+3 MONTHS'];
-  const contractClass = (grayContracts.indexOf(contractRaw) !== -1 && baseContractClass === 'contract-active')
-      ? 'contract-1month-active'
+  const grayContracts = ["1 MONTH", "1+1 MONTH", "1+2 MONTHS", "1+3 MONTHS"];
+  const contractClass =
+    grayContracts.indexOf(contractBadgeKey) !== -1 && baseContractClass === "contract-active"
+      ? "contract-1month-active"
       : baseContractClass;
 
   return (
     <span className={`contract-badge ${contractClass} bank-contract-pill`}>
-      {contractRaw}
+      {displayLabel}
     </span>
   );
 }
@@ -40,19 +68,23 @@ function renderBankContract(value, dayStart, dayEnd) {
 export default function BankProcessTable({
   tableLoading,
   showAll,
+  showSelectColumn,
   pageRows,
   currentPage,
   PAGE_SIZE,
   selectedIds,
   setSelectedIds,
   notify,
-  fetchRows,
+  onBankStatusUpdated,
   openEdit,
   openRemarkModal,
   openResendModal,
-  supplierSortDir,
-  setSupplierSortDir,
+  isBankResendScheduleLockedToday,
+  sortColumn,
+  sortDirection,
+  onSort,
   showHeaderSelectAll,
+  lang,
   t,
 }) {
   const deletableRows = pageRows.filter(
@@ -68,154 +100,361 @@ export default function BankProcessTable({
       return next;
     });
   };
-  const headerRef = useRef(null);
-  const cardsRef = useRef(null);
 
-  useLayoutEffect(() => {
-    const syncHeaderWidth = () => {
-      const headerEl = headerRef.current;
-      const cardsEl = cardsRef.current;
-      if (!headerEl || !cardsEl) return;
-      const rect = headerEl.getBoundingClientRect();
-      cardsEl.style.setProperty("--table-header-width", `${rect.width}px`);
-    };
+  const bankColClass = (key) => `bank-col bank-col-${key}`;
 
-    // Keep Bank list row width exactly aligned with the rendered header width.
-    const raf1 = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(syncHeaderWidth);
-    });
+  /** <1700px：Bank / Card Owner 最多两行（Bank 有 type 时用 bank-cell-display 两行，无 type 时靠 --wrap） */
+  const bankNameWrapKeys = new Set(["bank", "owner"]);
+  /** <1600px：金额/日期/短码强制单行 */
+  const bankSingleLineKeys = new Set([
+    "no",
+    "ccy",
+    "contract",
+    "insurance",
+    "customer",
+    "cost",
+    "price",
+    "profit",
+    "date",
+  ]);
 
-    const onResize = () => syncHeaderWidth();
-    window.addEventListener("resize", onResize);
+  const cellClass = (key, extra = "") =>
+    `card-item bank-virtual-cell ${bankColClass(key)}${
+      bankNameWrapKeys.has(key) ? " bank-virtual-cell--wrap" : ""
+    }${bankSingleLineKeys.has(key) ? " bank-virtual-cell--single-line" : ""}${extra ? ` ${extra}` : ""}`;
 
-    let ro = null;
-    if (typeof window.ResizeObserver === "function" && headerRef.current) {
-      ro = new window.ResizeObserver(() => syncHeaderWidth());
-      ro.observe(headerRef.current);
-    }
+  const renderBankCell = (bank, type) => {
+    const b = String(bank ?? "").trim();
+    const t = String(type ?? "").trim();
+    const display = formatBankWithTypeDisplay(bank, type);
+    if (display === "-") return "-";
+    if (!t) return display;
+    return (
+      <span className="bank-cell-display bank-cell-display--typed" title={display}>
+        <span className="bank-cell-display__name">{b}</span>
+        <span className="bank-cell-display__type">({t})</span>
+      </span>
+    );
+  };
 
-    return () => {
-      window.cancelAnimationFrame(raf1);
-      window.removeEventListener("resize", onResize);
-      if (ro) ro.disconnect();
-    };
-  }, [pageRows.length, showAll, supplierSortDir]);
-
-  const bankHeaders = [
-    { key: "no", label: t("no") },
-    {
-      key: "supplier",
-      label: (
-        <span className="bank-header-sortable" onClick={() => setSupplierSortDir((d) => (d === "asc" ? "desc" : "asc"))} role="presentation">
-          {t("supplier")} <span className="bank-sort-indicator">{supplierSortDir === "asc" ? "▲" : "▼"}</span>
-        </span>
-      ),
-    },
-    { key: "ccy", label: t("country") },
-    { key: "bank", label: t("bank") },
-    { key: "types", label: t("types") },
-    { key: "owner", label: t("cardOwner") },
-    { key: "contract", label: t("contract") },
-    { key: "insurance", label: t("insurance") },
-    { key: "customer", label: t("customer") },
-    { key: "cost", label: t("cost") },
-    { key: "price", label: t("price") },
-    { key: "profit", label: t("profit") },
-    { key: "status", label: t("status") },
-    { key: "date", label: t("date") },
-    {
-      key: "action",
-      label: (
-        <>
-          {t("action")}
-          {showHeaderSelectAll && deletableRows.length > 0 ? (
-            <input
-              type="checkbox"
-              className="header-action-checkbox"
-              title={t("selectAll")}
-              aria-label={t("selectAllDeletableOnPage")}
-              checked={allDeletableSelected}
-              onChange={(e) => toggleHeaderSelectAll(e.target.checked)}
-              style={{ marginLeft: 10, cursor: "pointer" }}
-            />
-          ) : null}
-        </>
-      ),
-    },
+  const bankHeaderDefs = [
+    { key: "no", labelText: t("no"), sortable: true },
+    { key: "supplier", labelText: t("supplier"), sortable: true },
+    { key: "ccy", labelText: t("country"), sortable: true },
+    { key: "bank", labelText: t("bank"), sortable: true },
+    { key: "owner", labelText: t("cardOwner"), sortable: true },
+    { key: "contract", labelText: t("contract"), sortable: true },
+    { key: "insurance", labelText: t("insurance"), sortable: true },
+    { key: "customer", labelText: t("customer"), sortable: true },
+    { key: "cost", labelText: t("cost"), sortable: true },
+    { key: "price", labelText: t("price"), sortable: true },
+    { key: "profit", labelText: t("profit"), sortable: true },
+    { key: "status", labelText: t("status"), sortable: true },
+    { key: "date", labelText: t("date"), sortable: true },
+    { key: "action", labelText: t("action"), sortable: false },
   ];
 
-  return (
-    <div className="process-table-wrapper">
-      <div ref={headerRef} className="table-header" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
-        {bankHeaders.map((h) => (
-          <div key={h.key} className={`header-item bank-header${h.key === "action" ? " bank-action-header" : ""}`}>
-            {h.label}
-          </div>
-        ))}
+  const bankHeaders = [...bankHeaderDefs];
+  if (showSelectColumn) {
+    bankHeaders.push({
+      key: "bulk",
+      isSelect: true,
+      label:
+        showHeaderSelectAll && deletableRows.length > 0 ? (
+          <input
+            type="checkbox"
+            className="header-action-checkbox"
+            title={t("selectAll")}
+            aria-label={t("selectAllDeletableOnPage")}
+            checked={allDeletableSelected}
+            onChange={(e) => toggleHeaderSelectAll(e.target.checked)}
+          />
+        ) : null,
+    });
+  }
+
+  const renderSortableHeader = (h) => {
+    const isActive = sortColumn === h.key;
+    const ariaSort = !isActive ? "none" : sortDirection === "asc" ? "ascending" : "descending";
+    const sortHint = isActive
+      ? sortDirection === "asc"
+        ? " (↑)"
+        : " (↓)"
+      : " (↕)";
+
+    return (
+      <div
+        key={h.key}
+        className={`header-item bank-header bank-virtual-th header-item--with-sort-icon header-sortable ${bankColClass(h.key)}`}
+        role="columnheader"
+        aria-sort={ariaSort}
+        title={`${h.labelText}${sortHint}`}
+        onClick={() => onSort(h.key)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSort(h.key);
+          }
+        }}
+      >
+        <span className="header-item__label bank-virtual-th__label">{h.labelText}</span>
+        <BankSortIcon column={h.key} sortColumn={sortColumn} sortDirection={sortDirection} />
       </div>
-      <div ref={cardsRef} className="process-cards bank-mode">
-        {tableLoading && (
-          <div className="process-card">
-            <div className="card-item" style={{ gridColumn: "1 / -1" }}>{t("loadData")}</div>
-          </div>
-        )}
-        {!tableLoading && pageRows.length === 0 && (
-          <div className="process-card">
-            <div className="card-item" style={{ textAlign: "left", padding: 20, gridColumn: "1 / -1" }}>
-              {t("noProcessDataFound")}
+    );
+  };
+
+  const tableShellClass = `bank-virtual-table${showSelectColumn ? " bank-virtual-table--select-col" : ""}`;
+  /** Last N visible rows: status menu opens upward to avoid pagination/footer overlap. */
+  const STATUS_MENU_UP_LAST_ROWS = 3;
+
+  return (
+    <div
+      className={`process-table-wrapper bank-process-table-region${
+        showSelectColumn ? " process-table-wrapper--select-col" : ""
+      }`}
+    >
+      <div className={tableShellClass}>
+        <div className="bank-virtual-table-inner">
+          <div className="bank-virtual-thead">
+            <div className="table-header bank-virtual-head-row" role="row">
+              {bankHeaders.map((h) => {
+                if (h.isSelect) {
+                  return (
+                    <div
+                      key={h.key}
+                      role="columnheader"
+                      className={`header-item bank-header bank-virtual-th bank-virtual-th-checkbox header-item--select ${bankColClass("bulk")}`}
+                    >
+                      {h.label}
+                    </div>
+                  );
+                }
+                if (h.sortable) {
+                  return renderSortableHeader(h);
+                }
+                return (
+                  <div
+                    key={h.key}
+                    role="columnheader"
+                    className={`header-item bank-header bank-virtual-th ${bankColClass(h.key)}${
+                      h.key === "action" ? " bank-action-header" : ""
+                    }`}
+                  >
+                    <span className="header-item__label bank-virtual-th__label">{h.labelText}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        )}
-        {!tableLoading && pageRows.map((r, i) => (
-          <div key={r.id} className="process-card" style={{ gridTemplateColumns: BANK_GRID_TEMPLATE_COLUMNS }}>
-            <div className="card-item">{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
-            <div className="card-item">{r.card_lower || "-"}</div>
-            <div className="card-item">{r.country || "-"}</div>
-            <div className="card-item">{r.bank || "-"}</div>
-            <div className="card-item">{r.type || "-"}</div>
-            <div className="card-item">{r.supplier || "-"}</div>
-            <div className="card-item bank-contract-cell">{renderBankContract(r.contract, r.day_start || r.date, r.day_end)}</div>
-            <div className="card-item">{r.insurance || "-"}</div>
-            <div className="card-item">{r.customer || "-"}</div>
-            <div className="card-item">{r.cost || "-"}</div>
-            <div className="card-item">{r.price || "-"}</div>
-            <div className="card-item">{r.profit || "-"}</div>
-            <div className="card-item bank-status-cell">
-              <BankProcessStatusControl
-                row={r}
-                notify={notify}
-                buildApiUrl={buildApiUrl}
-                t={t}
-                onUpdated={() => {
-                  notifyTransactionDataChanged("bank-process-list-react");
-                  void fetchRows();
-                }}
-              />
+          <div className="bank-virtual-scroll-clip">
+            <div className="bank-virtual-scroll-shell">
+            <div className="process-cards bank-mode bank-virtual-scroll">
+            {tableLoading && pageRows.length === 0 && (
+              <div className="process-card bank-virtual-data-row bank-virtual-data-row--message">
+                <div className="card-item bank-virtual-cell bank-virtual-cell--message">{t("loadData")}</div>
+              </div>
+            )}
+            {!tableLoading && pageRows.length === 0 && (
+              <div className="process-card bank-virtual-data-row bank-virtual-data-row--message">
+                <div className="card-item bank-virtual-cell bank-virtual-cell--message">{t("noProcessDataFound")}</div>
+              </div>
+            )}
+            {pageRows.length > 0 &&
+              pageRows.map((r, i) => (
+                <div key={r.id} className="process-card bank-virtual-data-row">
+                  <div className={cellClass("no")}>{(showAll ? i : (currentPage - 1) * PAGE_SIZE + i) + 1}</div>
+                  <div className={cellClass("supplier")}>{r.card_lower || "-"}</div>
+                  <div className={cellClass("ccy")}>{r.country || "-"}</div>
+                  <div className={cellClass("bank")}>{renderBankCell(r.bank, r.type)}</div>
+                  <div className={cellClass("owner")}>{r.supplier || "-"}</div>
+                  <div className={cellClass("contract", "bank-contract-cell")}>
+                    {renderBankContract(r.contract, r.day_start || r.date, r.day_end, lang)}
+                  </div>
+                  <div className={cellClass("insurance")}>{r.insurance || "-"}</div>
+                  <div className={cellClass("customer")}>{r.customer || "-"}</div>
+                  <div className={cellClass("cost")}>{formatBankMoneyCell(r.cost)}</div>
+                  <div className={cellClass("price")}>{formatBankMoneyCell(r.price)}</div>
+                  <div className={cellClass("profit")}>{formatBankMoneyCell(r.profit)}</div>
+                  <div className={cellClass("status", "bank-status-cell")}>
+                    <BankProcessStatusControl
+                      row={r}
+                      openMenuUp={pageRows.length > 0 && i >= pageRows.length - STATUS_MENU_UP_LAST_ROWS}
+                      lang={lang}
+                      notify={notify}
+                      buildApiUrl={buildApiUrl}
+                      t={t}
+                      onUpdated={(target, opts) => onBankStatusUpdated?.(r, target, opts)}
+                    />
+                  </div>
+                  <div className={cellClass("date")}>{r.date || "-"}</div>
+                  {showSelectColumn ? (
+                    <>
+                      <div className={cellClass("action", "bank-action-cell card-item--action")}>
+                        <span className="bank-action-tools">
+                          <button type="button" className="edit-btn" aria-label={t("edit")} title={t("edit")} onClick={() => openEdit(r.id)}>
+                            <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
+                          </button>
+                          <button
+                            type="button"
+                            className="edit-btn remark-action-btn"
+                            aria-label={t("remark")}
+                            title={t("remark")}
+                            onClick={() => openRemarkModal(r)}
+                            style={{ marginLeft: 6 }}
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 14, height: 14 }}>
+                              <path
+                                d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                          {canShowBankResend(r) ? (
+                            <button
+                              type="button"
+                              className="bank-resend-btn"
+                              aria-label={t("resendToAccountingDue")}
+                              title={
+                                typeof isBankResendScheduleLockedToday === "function" &&
+                                isBankResendScheduleLockedToday(r, r.day_start || r.date)
+                                  ? t("resendLockedPostedToday")
+                                  : t("resend")
+                              }
+                              disabled={
+                                typeof isBankResendScheduleLockedToday === "function" &&
+                                isBankResendScheduleLockedToday(r, r.day_start || r.date)
+                              }
+                              onClick={() => openResendModal(r)}
+                              style={{ marginLeft: 6 }}
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 16, height: 16 }}>
+                                <path
+                                  d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.75"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M3 3v5h5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.75"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </button>
+                          ) : null}
+                        </span>
+                      </div>
+                      <div className="card-item bank-virtual-cell card-item--select bank-row-select-cell">
+                        {normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions ? (
+                          <input
+                            type="checkbox"
+                            className="row-checkbox bank-checkbox"
+                            checked={selectedIds.has(r.id)}
+                            title={t("selectForDeletion")}
+                            aria-label={t("selectForDeletion")}
+                            onChange={() =>
+                              setSelectedIds((prev) => {
+                                const n = new Set(prev);
+                                if (n.has(r.id)) n.delete(r.id);
+                                else n.add(r.id);
+                                return n;
+                              })
+                            }
+                          />
+                        ) : (
+                          <span className="user-row-select-placeholder" aria-hidden="true" />
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className={cellClass("action")}>
+                      <span className="bank-action-tools">
+                        <button type="button" className="edit-btn" aria-label={t("edit")} title={t("edit")} onClick={() => openEdit(r.id)}>
+                          <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
+                        </button>
+                        <button
+                          type="button"
+                          className="edit-btn remark-action-btn"
+                          aria-label={t("remark")}
+                          title={t("remark")}
+                          onClick={() => openRemarkModal(r)}
+                          style={{ marginLeft: 6 }}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 14, height: 14 }}>
+                            <path
+                              d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                        {canShowBankResend(r) ? (
+                          <button
+                            type="button"
+                            className="bank-resend-btn"
+                            aria-label={t("resendToAccountingDue")}
+                            title={t("resend")}
+                            onClick={() => openResendModal(r)}
+                            style={{ marginLeft: 6 }}
+                          >
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 16, height: 16 }}>
+                              <path
+                                d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.75"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M3 3v5h5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.75"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                        ) : null}
+                      </span>
+                      {normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions ? (
+                        <input
+                          type="checkbox"
+                          className="row-checkbox bank-checkbox"
+                          style={{ marginLeft: 10 }}
+                          checked={selectedIds.has(r.id)}
+                          title={t("selectForDeletion")}
+                          onChange={() =>
+                            setSelectedIds((prev) => {
+                              const n = new Set(prev);
+                              if (n.has(r.id)) n.delete(r.id);
+                              else n.add(r.id);
+                              return n;
+                            })
+                          }
+                        />
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-            <div className="card-item">{r.date || "-"}</div>
-            <div className="card-item">
-              <span className="bank-action-tools">
-                <button type="button" className="edit-btn" aria-label={t("edit")} title={t("edit")} onClick={() => openEdit(r.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
-                <button type="button" className="edit-btn remark-action-btn" aria-label={t("remark")} title={t("remark")} onClick={() => openRemarkModal(r)} style={{ marginLeft: 6 }}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 14, height: 14 }}>
-                    <path d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                {canShowBankResend(r) ? (
-                  <button type="button" className="bank-resend-btn" aria-label={t("resendToAccountingDue")} title={t("resend")} onClick={() => openResendModal(r)} style={{ marginLeft: 6 }}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ width: 16, height: 16 }}>
-                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M3 3v5h5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                ) : null}
-              </span>
-              {normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions ? (
-                <input type="checkbox" className="row-checkbox bank-checkbox" style={{ marginLeft: 10 }} checked={selectedIds.has(r.id)} title={t("selectForDeletion")} onChange={() => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} />
-              ) : null}
             </div>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );

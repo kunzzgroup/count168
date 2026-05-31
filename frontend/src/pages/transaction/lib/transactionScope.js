@@ -1,0 +1,206 @@
+import {
+  companiesInGroupList,
+  companyRowIsGroupEntity,
+  filterCompaniesWithDisplayId,
+  resolveViewGroupForCompany,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import { groupIdsForGroupsAllAggregate } from "../../../utils/company/useGcFilterWithAllModes.js";
+
+/**
+ * Resolve API scope for Transaction page (group entity vs subsidiary drill-down).
+ *
+ * @returns {{
+ *   mode: "group"|"company"|"aggregate",
+ *   scopeCompanyId: number,
+ *   viewGroup: string|null,
+ *   selectedGroup: string|null,
+ *   uiCompanyId: number|null,
+ *   resolveCompanyViaGroupId?: boolean,
+ *   groupsAllMode?: boolean,
+ *   groupAllMode?: boolean,
+ *   mergeCompanyIds?: number[],
+ * }|null}
+ */
+export function resolveTransactionScope(filterSnapshot) {
+  if (!filterSnapshot) return null;
+
+  const snapCompanies =
+    filterSnapshot.snapCompaniesAll || filterSnapshot.snapCompanies || [];
+  const groupsAllMode = Boolean(filterSnapshot.groupsAllMode);
+  const groupAllMode = Boolean(filterSnapshot.groupAllMode);
+  const selectedGroup = filterSnapshot.selectedGroup
+    ? String(filterSnapshot.selectedGroup).trim().toUpperCase()
+    : null;
+  const uiCompanyIdRaw = filterSnapshot.companyId;
+  const uiCompanyId =
+    uiCompanyIdRaw != null && Number(uiCompanyIdRaw) > 0 ? Number(uiCompanyIdRaw) : null;
+
+  const mergeCompanyIds = (() => {
+    if (uiCompanyId) return [uiCompanyId];
+    if (groupAllMode || (groupsAllMode && groupAllMode)) {
+      const list = groupsAllMode
+        ? filterCompaniesWithDisplayId(snapCompanies)
+        : companiesInGroupList(snapCompanies, selectedGroup);
+      return list.map((c) => Number(c.id)).filter((id) => Number.isFinite(id) && id > 0);
+    }
+    if (groupsAllMode && !groupAllMode) {
+      return [];
+    }
+    return [];
+  })();
+
+  if ((groupAllMode || groupsAllMode) && !uiCompanyId && mergeCompanyIds.length > 0) {
+    return {
+      mode: "aggregate",
+      scopeCompanyId: 0,
+      viewGroup: groupsAllMode ? null : selectedGroup,
+      selectedGroup: groupsAllMode ? null : selectedGroup,
+      uiCompanyId: null,
+      groupsAllMode,
+      groupAllMode,
+      mergeCompanyIds,
+    };
+  }
+
+  const entityRow = selectedGroup ? resolveGroupEntityRowFromSnap(snapCompanies, selectedGroup) : null;
+  const entityId = entityRow?.id != null ? Number(entityRow.id) : null;
+
+  if (selectedGroup && !uiCompanyId && !groupsAllMode && !groupAllMode) {
+    if (entityId > 0) {
+      return {
+        mode: "group",
+        scopeCompanyId: entityId,
+        viewGroup: selectedGroup,
+        selectedGroup,
+        uiCompanyId: null,
+      };
+    }
+    return {
+      mode: "group",
+      scopeCompanyId: 0,
+      viewGroup: selectedGroup,
+      selectedGroup,
+      uiCompanyId: null,
+      resolveCompanyViaGroupId: true,
+    };
+  }
+
+  let mode = "company";
+  let scopeCompanyId = uiCompanyId;
+
+  if (selectedGroup && entityId > 0 && uiCompanyId) {
+    const uiRow = snapCompanies.find((c) => Number(c.id) === uiCompanyId) || null;
+    if (uiCompanyId === entityId || companyRowIsGroupEntity(uiRow, selectedGroup)) {
+      mode = "group";
+      scopeCompanyId = entityId;
+    } else {
+      mode = "company";
+      scopeCompanyId = uiCompanyId;
+    }
+  } else if (!scopeCompanyId && uiCompanyId) {
+    scopeCompanyId = uiCompanyId;
+  }
+
+  if (!scopeCompanyId || scopeCompanyId <= 0) {
+    if (groupsAllMode && !groupAllMode) {
+      const gids = groupIdsForGroupsAllAggregate(snapCompanies, filterSnapshot.snapGroupIds);
+      return {
+        mode: "aggregate",
+        scopeCompanyId: 0,
+        viewGroup: null,
+        selectedGroup: null,
+        uiCompanyId: null,
+        groupsAllMode: true,
+        groupAllMode: false,
+        mergeCompanyIds: [],
+        resolveCompanyViaGroupId: true,
+        aggregateGroupIds: gids,
+      };
+    }
+    return null;
+  }
+
+  const scopeRow = snapCompanies.find((c) => Number(c.id) === scopeCompanyId) || null;
+  const viewGroup = resolveViewGroupForCompany(scopeRow, selectedGroup);
+
+  return {
+    mode,
+    scopeCompanyId,
+    viewGroup: viewGroup || null,
+    selectedGroup,
+    uiCompanyId,
+  };
+}
+
+/**
+ * Group entity row from owner companies list (matches accountlist resolveGroupEntityCompanyId).
+ */
+export function resolveGroupEntityRowFromSnap(snapCompanies, groupId) {
+  const g = String(groupId || "").trim().toUpperCase();
+  if (!g) return null;
+  return (snapCompanies || []).find((c) => {
+    if (!c) return false;
+    const code = String(c.company_id ?? c.companyId ?? "").trim().toUpperCase();
+    const gid = String(c.group_id ?? "").trim().toUpperCase();
+    return code === g || (code === "" && gid === g);
+  });
+}
+
+export function transactionScopeIsReady(scope) {
+  if (!scope) return false;
+  if (scope.mode === "aggregate") {
+    if (scope.mergeCompanyIds?.length) return true;
+    if (scope.aggregateGroupIds?.length) return true;
+    return Boolean(scope.resolveCompanyViaGroupId && scope.groupsAllMode);
+  }
+  if (scope.scopeCompanyId > 0) return true;
+  return Boolean(scope.resolveCompanyViaGroupId && scope.selectedGroup);
+}
+
+/** Params for transaction APIs (company_id and/or group_id). */
+export function transactionScopeApiParams(scope) {
+  if (!scope) return {};
+  if (scope.mode === "aggregate") {
+    return {
+      companyId: undefined,
+      viewGroup: scope.viewGroup || undefined,
+      groupId: scope.selectedGroup || undefined,
+      groupsAll: scope.groupsAllMode || undefined,
+      groupAll: scope.groupAllMode || undefined,
+    };
+  }
+  const viewGroup = scope.viewGroup || scope.selectedGroup || undefined;
+  const groupId = scope.mode === "group" ? scope.selectedGroup : undefined;
+  if (scope.resolveCompanyViaGroupId || (scope.mode === "group" && scope.scopeCompanyId <= 0)) {
+    return { companyId: undefined, viewGroup, groupId };
+  }
+  return {
+    companyId: scope.scopeCompanyId,
+    viewGroup,
+    groupId,
+  };
+}
+
+/** Cache/storage key for company-scoped UI state (supports group-only scope). */
+export function transactionScopeCacheCompanyKey(scope) {
+  if (!scope) return null;
+  if (scope.mode === "aggregate") {
+    if (scope.mergeCompanyIds?.length) {
+      return `aggregate:${scope.mergeCompanyIds.join(",")}`;
+    }
+    if (scope.aggregateGroupIds?.length) {
+      return `groups:${scope.aggregateGroupIds.join(",")}`;
+    }
+    return "aggregate:groups";
+  }
+  if (scope.scopeCompanyId > 0) return scope.scopeCompanyId;
+  if (scope.selectedGroup) return `group:${scope.selectedGroup}`;
+  return null;
+}
+
+/** Stable key for scope transitions (company drill-down vs group-only). */
+export function transactionScopeCacheKey(scope) {
+  if (!scope) return "";
+  const companyKey = transactionScopeCacheCompanyKey(scope) ?? "";
+  return `${companyKey}:${scope.viewGroup || ""}:${scope.mode}:${scope.uiCompanyId ?? ""}`;
+}

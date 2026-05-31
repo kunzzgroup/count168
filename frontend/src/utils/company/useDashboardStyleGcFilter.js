@@ -1,0 +1,185 @@
+import { useCallback, useLayoutEffect, useMemo } from "react";
+
+import {
+  companiesInGroupList,
+  dedupeOwnerCompaniesByCode,
+  isDashboardGroupOnlyMode,
+  notifyDashboardGroupFilterChanged,
+  persistDashboardFilterState,
+  persistDashboardGroupFilter,
+  pickDefaultCompanyForGroup,
+  sortedUniqueGroupIds,
+} from "./sharedCompanyFilter.js";
+import {
+  canClearCompanySelection,
+  canUseGroupOnlyMode,
+  resolveVisibleGroupIds,
+} from "./loginScope.js";
+import { useGroupAnchorSessionSync } from "./useGroupAnchorSessionSync.js";
+
+/**
+ * Dashboard-aligned Group / Company filter: single group selection, company can be cleared,
+ * sidebar Process hidden when group-only (via notifyDashboardGroupFilterChanged).
+ */
+export function useDashboardStyleGcFilter({
+  companies,
+  companyId,
+  selectedGroup,
+  setSelectedGroup,
+  onSelectCompany,
+  onClearCompany,
+  switchingCompany = false,
+  preferredCompanyId = null,
+  /** When false, picking a group clears company (default — shared across all pages). */
+  selectFirstCompanyOnGroupChange = false,
+  sessionCompanyId = null,
+  /** Data Capture uses custom anchor sync (gambling redirect). */
+  enableGroupAnchorSession = true,
+  /** Current user from AuthSessionContext — enforces group vs company login rules. */
+  me = null,
+}) {
+  const allowGroupOnly = canUseGroupOnlyMode(me);
+  const allowClearCompany = canClearCompanySelection(me);
+
+  const { resetAnchorSessionRef, markAnchorSynced } = useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId,
+    enabled: enableGroupAnchorSession,
+  });
+
+  const groupIds = useMemo(
+    () => resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies),
+    [companies, me]
+  );
+
+  const companiesForPicker = useMemo(() => {
+    const list = companiesInGroupList(companies, selectedGroup);
+    return dedupeOwnerCompaniesByCode(list, preferredCompanyId ?? companyId);
+  }, [companies, selectedGroup, preferredCompanyId, companyId]);
+
+  const handlePickGroup = useCallback(
+    async (gid) => {
+      if (switchingCompany) return;
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g) return;
+      if (g === selectedGroup && companyId != null) return;
+
+      persistDashboardGroupFilter(g);
+      setSelectedGroup(g);
+
+      if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        resetAnchorSessionRef();
+        onClearCompany?.(g);
+        notifyDashboardGroupFilterChanged(g, null);
+        return;
+      }
+
+      const pick = pickDefaultCompanyForGroup(companies, g, {
+        me,
+        preferredCompanyId: companyId,
+      });
+      if (pick) {
+        persistDashboardFilterState(g, pick.id, { allowGroupOnly: false });
+        markAnchorSynced(g, pick.id);
+        notifyDashboardGroupFilterChanged(g, pick.id);
+        if (onSelectCompany) await onSelectCompany(pick);
+      }
+    },
+    [
+      switchingCompany,
+      selectedGroup,
+      companies,
+      setSelectedGroup,
+      onSelectCompany,
+      onClearCompany,
+      selectFirstCompanyOnGroupChange,
+      resetAnchorSessionRef,
+      allowGroupOnly,
+      companyId,
+      markAnchorSynced,
+    ]
+  );
+
+  useLayoutEffect(() => {
+    if (allowGroupOnly || !selectedGroup || companyId != null) return;
+    const pick = pickDefaultCompanyForGroup(companies, selectedGroup, { me, preferredCompanyId: companyId });
+    if (!pick) return;
+    persistDashboardFilterState(selectedGroup, pick.id, { allowGroupOnly: false });
+    markAnchorSynced(selectedGroup, pick.id);
+    notifyDashboardGroupFilterChanged(selectedGroup, pick.id);
+    if (onSelectCompany) void onSelectCompany(pick);
+  }, [
+    allowGroupOnly,
+    selectedGroup,
+    companyId,
+    companies,
+    me,
+    onSelectCompany,
+    markAnchorSynced,
+  ]);
+
+  const handlePickCompany = useCallback(
+    async (c) => {
+      if (switchingCompany || !c?.id) return;
+
+      const id = Number(c.id);
+      const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      const sel = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+      const isActive =
+        companyId != null && Number(companyId) === id && (!gid || gid === sel);
+
+      if (isActive) {
+        if (!allowClearCompany) return;
+        const g = sel || gid;
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        resetAnchorSessionRef();
+        onClearCompany?.(g);
+        notifyDashboardGroupFilterChanged(g, null);
+        return;
+      }
+
+      const nextGroup = gid || null;
+      if (nextGroup) {
+        persistDashboardGroupFilter(nextGroup);
+        setSelectedGroup(nextGroup);
+      } else {
+        persistDashboardGroupFilter(null);
+        setSelectedGroup(null);
+      }
+
+      persistDashboardFilterState(nextGroup, id, { allowGroupOnly });
+      markAnchorSynced(nextGroup, id);
+      notifyDashboardGroupFilterChanged(nextGroup, id);
+      if (onSelectCompany) await onSelectCompany(c);
+    },
+    [
+      switchingCompany,
+      companyId,
+      selectedGroup,
+      setSelectedGroup,
+      onSelectCompany,
+      onClearCompany,
+      resetAnchorSessionRef,
+      markAnchorSynced,
+      allowClearCompany,
+      allowGroupOnly,
+    ]
+  );
+
+  useLayoutEffect(() => {
+    const cid = isDashboardGroupOnlyMode() ? null : companyId;
+    notifyDashboardGroupFilterChanged(selectedGroup, cid);
+  }, [selectedGroup, companyId]);
+
+  return {
+    groupIds,
+    companiesForPicker,
+    handlePickGroup,
+    handlePickCompany,
+    allowGroupOnly,
+    allowClearCompany,
+  };
+}

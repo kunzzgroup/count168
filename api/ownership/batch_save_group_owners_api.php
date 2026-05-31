@@ -3,9 +3,10 @@
  * Group Earnings API — Batch save group ownership
  * POST body: { "group_id": "AP", "owners": [{ "account_id": "O_1", "percentage": 30, "read_only": 1 }] }
  */
-require_once '../../session_check.php';
-require_once '../../config.php';
+require_once '../../includes/session_check.php';
+require_once '../../includes/config.php';
 require_once '../includes/money_decimal.php';
+require_once '../includes/ownership_history.php';
 
 header('Content-Type: application/json');
 
@@ -121,6 +122,8 @@ try {
     $stmt = $pdo->prepare("DELETE FROM group_ownership WHERE group_id = ?");
     $stmt->execute([$group_id]);
 
+    $historyRows = [];
+
     // Insert new rows
     if (count($owners) > 0) {
         $insertStmt = $pdo->prepare("
@@ -164,7 +167,16 @@ try {
                 $real_id = (int) $raw_id;
             }
 
-            $insertStmt->execute([$group_id, $owner_id, $real_id, $owner_type, ownershipPctOut($owner['percentage']), $pgid, $roVal]);
+            $pctOut = ownershipPctOut($owner['percentage']);
+            $insertStmt->execute([$group_id, $owner_id, $real_id, $owner_type, $pctOut, $pgid, $roVal]);
+
+            $historyRows[] = [
+                'account_id' => $real_id,
+                'owner_type' => $owner_type,
+                'percentage' => $pctOut,
+                'partner_group_id' => $pgid,
+                'read_only' => $roVal,
+            ];
 
             // Sync read_only to user table
             if ($owner_type === 'user') {
@@ -173,6 +185,9 @@ try {
             }
         }
     }
+
+    $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+    ownership_history_save_group($pdo, $group_id, $owner_id, $historyRows, $savedBy);
 
     $pdo->commit();
 

@@ -1,6 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
+import FormDateField from "../../../components/FormDateField.jsx";
+import MaintenanceCalendarPopup from "../../../components/MaintenanceCalendarPopup.jsx";
+import {
+  bindMaintenanceCalendarDismissListeners,
+  closeMaintenanceCalendarPopup,
+  ensureMaintenanceDateRangePicker,
+} from "../../../utils/date/dateRangePicker.js";
+import { parseDdMmYyyyToYmd } from "../../../utils/date/dateUtils.js";
 import {
   SINGLE_CATEGORY_MODE,
   calculateExpirationDate,
@@ -13,9 +22,10 @@ import {
   sumFeeShareRolePercentages,
   computeShareTotals,
   formatShareRowAmount2,
+  resolveDomainFeePriceForPeriod,
 } from "../domainHelpers.js";
 import AddAccountModal from "./AddAccountModal.jsx";
-import { getDomainText } from "../../../translateFile/domainTranslate.js";
+import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 
 const PERMISSION_LIST = [
@@ -27,13 +37,20 @@ const PERMISSION_LIST = [
 ];
 
 const SHARE_ROLES = ["profit", "sales", "cs", "it"];
+const START_DATE_FIELD_KEY = "company_exp_start_date";
+const START_DATE_FROM_ID = `${START_DATE_FIELD_KEY}_drp_from`;
+
+const MONTH_LABELS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_LABELS_ZH = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS_ZH = ["日", "一", "二", "三", "四", "五", "六"];
 
 /**
  * Company Settings Modal — expiration date + permissions + share %
  *
  * Props:
  *   company          — the tempCompanies entry being edited (snapshot for cancel)
- *   domainFeePrice   — number, for share amount calculation
+ *   domainPeriodPrices — { 7days, 1month, … } for share amount by selected period
  *   sessionCompanyId — fallback if company.company_id is missing
  *   sessionCompanyCode — used for adding accounts
  *   onSave(updatedCompany) — callback with updated company data
@@ -42,7 +59,7 @@ const SHARE_ROLES = ["profit", "sales", "cs", "it"];
 export default function CompanySettingsModal({
   lang = "en",
   company: initCompany,
-  domainFeePrice,
+  domainPeriodPrices,
   sessionCompanyId,
   sessionCompanyCode,
   onSave,
@@ -52,11 +69,53 @@ export default function CompanySettingsModal({
   const t = (key, params) => getDomainText(lang, key, params);
   // Local copy of company being edited
   const [company, setCompany] = useState(() => JSON.parse(JSON.stringify(initCompany)));
-  const [period, setPeriod] = useState("");
-  const [startDate, setStartDate] = useState(initCompany.startDate || new Date().toISOString().split("T")[0]);
+  const [period, setPeriod] = useState(initCompany.selectedPeriod || "");
+  const [startDate, setStartDate] = useState(() => {
+    const raw = initCompany.startDate || "";
+    const ymd = raw.includes("-") ? raw.split("T")[0] : parseDdMmYyyyToYmd(raw);
+    return ymd || new Date().toISOString().split("T")[0];
+  });
   const [expDisplay, setExpDisplay] = useState(initCompany.expiration_date ? formatDate(initCompany.expiration_date) : t("notSet"));
   const [permissions, setPermissions] = useState(Array.isArray(initCompany.permissions) ? initCompany.permissions : []);
   const [chargeOnSave, setChargeOnSave] = useState(!!initCompany.apply_commission_payments_on_domain_save);
+  const startDateHandlerRef = useRef(null);
+
+  const monthLabels = isZh ? MONTH_LABELS_ZH : MONTH_LABELS_EN;
+  const weekdaysShort = isZh ? WEEKDAYS_ZH : WEEKDAYS_EN;
+
+  useEffect(() => {
+    startDateHandlerRef.current = (iso) => {
+      if (iso) setStartDate(iso);
+    };
+  });
+
+  useEffect(() => {
+    bindMaintenanceCalendarDismissListeners();
+    ensureMaintenanceDateRangePicker();
+    window.MaintenanceDateRangePicker?.init?.({
+      allowEmpty: false,
+      placeholder: t("selectStartDateHint"),
+      clearDateLabel: t("clearDate"),
+      monthLabels,
+      onChange: () => {
+        const binding = window.MaintenanceDateRangePicker?.getActiveRangeBinding?.() || {};
+        if (binding.dateFromId !== START_DATE_FROM_ID) return;
+        const fromDmy = document.getElementById(START_DATE_FROM_ID)?.value?.trim() || "";
+        const iso = parseDdMmYyyyToYmd(fromDmy);
+        startDateHandlerRef.current?.(iso);
+      },
+    });
+    window.MaintenanceDateRangePicker?.bindPickers?.();
+    window.MaintenanceDateRangePicker?.setLocaleStrings?.({
+      placeholder: t("selectStartDateHint"),
+      clearDateLabel: t("clearDate"),
+      monthLabels,
+    });
+
+    return () => {
+      closeMaintenanceCalendarPopup();
+    };
+  }, [monthLabels, t]);
 
   // Share %
   const [shareAccounts, setShareAccounts] = useState([]);       // for sales/cs/it
@@ -117,13 +176,14 @@ export default function CompanySettingsModal({
       setExpDisplay(company.expiration_date ? formatDate(company.expiration_date) : t("notSet"));
       return;
     }
-    const base = company.isExtending
-      ? company.originalExpirationDate || null
-      : startDate || new Date().toISOString().split("T")[0];
+    const base = startDate || new Date().toISOString().split("T")[0];
     const exp = calculateExpirationDate(period, base);
     setExpDisplay(formatDate(exp));
-    setCompany((prev) => ({ ...prev, expiration_date: exp, selectedPeriod: period }));
-  }, [period, startDate, company.expiration_date, company.isExtending, company.originalExpirationDate, t]);
+    setCompany((prev) => {
+      if (prev.expiration_date === exp && prev.selectedPeriod === period) return prev;
+      return { ...prev, expiration_date: exp, selectedPeriod: period };
+    });
+  }, [period, startDate, t]);
 
   function togglePermission(val) {
     if (SINGLE_CATEGORY_MODE) {
@@ -132,6 +192,28 @@ export default function CompanySettingsModal({
       setPermissions((prev) =>
         prev.includes(val) ? prev.filter((p) => p !== val) : [...prev, val]
       );
+    }
+  }
+
+  function handleReset() {
+    const today = new Date().toISOString().split("T")[0];
+    setStartDate(today);
+    setPeriod("");
+    setExpDisplay(t("notSet"));
+    setCompany((prev) => ({
+      ...prev,
+      expiration_date: null,
+      selectedPeriod: "",
+      isExtending: false,
+      originalExpirationDate: null,
+    }));
+    setFsa(defaultFeeShareAllocations());
+    setChargeOnSave(false);
+    setExpandedCards({});
+    if (SINGLE_CATEGORY_MODE) {
+      setPermissions(["Games"]);
+    } else {
+      setPermissions(["Games", "Bank", "Loan", "Rate", "Money"]);
     }
   }
 
@@ -144,9 +226,7 @@ export default function CompanySettingsModal({
 
     let expDate = company.expiration_date || null;
     if (period) {
-      const base = company.isExtending
-        ? company.originalExpirationDate || null
-        : startDate || new Date().toISOString().split("T")[0];
+      const base = startDate || new Date().toISOString().split("T")[0];
       expDate = calculateExpirationDate(period, base);
     }
 
@@ -198,6 +278,9 @@ export default function CompanySettingsModal({
           ...company,
           expiration_date: expDate,
           selectedPeriod: period || company.selectedPeriod,
+          startDate,
+          isExtending: company.isExtending,
+          originalExpirationDate: company.originalExpirationDate,
           permissions: [...permissions],
           fee_share_allocations: cleanFsa,
           apply_commission_payments_on_domain_save: chargeOnSave,
@@ -209,8 +292,9 @@ export default function CompanySettingsModal({
       });
   }
 
-  // ─── Share % helpers ───────────────────────────────────────────────────────
-  const totals = computeShareTotals(fsa, domainFeePrice);
+  // ─── Share % helpers（周期变更时按 Price 中对应金额重算，含 C168 行） ─────
+  const effectiveFeePrice = resolveDomainFeePriceForPeriod(domainPeriodPrices, period);
+  const totals = computeShareTotals(fsa, effectiveFeePrice);
 
   function updateShareRow(role, idx, field, value) {
     setFsa((prev) => {
@@ -266,6 +350,7 @@ export default function CompanySettingsModal({
   const companySettingsOverlayZ = 2147483001;
 
   return (
+    <>
     <DomainModalPortal>
       <div
         style={{
@@ -281,20 +366,15 @@ export default function CompanySettingsModal({
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div className="company-settings-react-modal modal-content company-settings-modal-content--split relative mx-auto mt-[2%] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
-        <span
-          className="close"
-          role="button"
-          tabIndex={0}
-          aria-label={isZh ? "关闭" : "Close"}
-          onClick={onClose}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault()
-              onClose()
-            }
-          }}
-        >&times;</span>
-        <h2 className="m-0 w-full border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)] text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">{t("companySettings")}</h2>
+        <div className="modal-header company-settings-modal-header border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)]">
+          <h2 className="m-0 text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">{t("companySettings")}</h2>
+          <button
+            type="button"
+            className="account-close"
+            aria-label={isZh ? "关闭" : "Close"}
+            onClick={onClose}
+          />
+        </div>
         <div className="company-settings-modal-body">
           <div className="company-settings-split">
             {/* ── Left: General ── */}
@@ -307,33 +387,44 @@ export default function CompanySettingsModal({
               </div>
               {/* Start Date + Period */}
               <div className="company-settings-date-row">
-                <div className="form-group company-settings-field-half">
-                  <label className="cs-company-field-label" htmlFor="expDateStartDate">{t("startDate")}</label>
-                  <input
-                    type="date"
-                    id="expDateStartDate"
+                <div className="company-settings-field-half company-settings-start-date-field">
+                  <FormDateField
+                    fieldKey={START_DATE_FIELD_KEY}
+                    htmlFor="expDateStartDate"
+                    label={t("startDate")}
+                    labelClassName="cs-company-field-label"
                     value={startDate}
-                    disabled={company.isExtending}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    placeholder={t("pickDate")}
+                    allowClear={false}
+                    onValueChange={setStartDate}
+                    className="company-settings-form-date-field"
+                    wrapClassName="company-settings-form-datepicker-wrap"
+                    inputClassName="company-settings-date-row-control company-settings-form-datepicker-input"
                   />
-                  <small id="expDateStartDateHelp" className={`company-settings-start-hint${company.isExtending ? " company-settings-start-hint--warn" : ""}`}>
-                    {company.isExtending ? t("cannotModifyStartDateWhenExtending") : t("selectStartDateHint")}
+                  <small id="expDateStartDateHelp" className="company-settings-start-hint">
+                    {t("selectStartDateHint")}
                   </small>
                 </div>
-                <div className="form-group company-settings-field-half">
+                <div className="company-settings-field-half company-settings-field-half--period">
                   <label className="cs-company-field-label" htmlFor="expDatePeriod">{t("period")}</label>
-                  <select
-                    id="expDatePeriod"
-                    value={period}
-                    onChange={(e) => setPeriod(e.target.value)}
-                  >
+                  <div className="company-settings-period-wrap">
+                    <select
+                      id="expDatePeriod"
+                      className="company-settings-date-row-control company-settings-period-select"
+                      value={period}
+                      onChange={(e) => setPeriod(e.target.value)}
+                    >
                     <option value="">{t("selectPeriod")}</option>
                     <option value="7days">{t("sevenDays")}</option>
                     <option value="1month">{t("oneMonth")}</option>
                     <option value="3months">{t("threeMonths")}</option>
                     <option value="6months">{t("sixMonths")}</option>
                     <option value="1year">{t("oneYear")}</option>
-                  </select>
+                    </select>
+                  </div>
+                  <small className="company-settings-start-hint company-settings-start-hint--align-spacer" aria-hidden="true">
+                    &#8203;
+                  </small>
                 </div>
               </div>
               {/* Expiration Date display */}
@@ -549,20 +640,7 @@ export default function CompanySettingsModal({
           {/* Footer actions — 与量测图：Save 蓝 / Reset 红 / Cancel 灰 */}
           <div className="form-actions company-settings-form-actions">
             <button type="button" className="btn btn-save" onClick={handleSave}>{t("save")}</button>
-            <button type="button" className="btn btn-reset-company" onClick={() => {
-              const today = new Date().toISOString().split("T")[0];
-              setStartDate(today);
-              setPeriod("");
-              setExpDisplay(t("notSet"));
-              setFsa(defaultFeeShareAllocations());
-              setChargeOnSave(false);
-              setExpandedCards({});
-              if (SINGLE_CATEGORY_MODE) {
-                setPermissions(["Games"]);
-              } else {
-                setPermissions(["Games", "Bank", "Loan", "Rate", "Money"]);
-              }
-            }}>{t("reset")}</button>
+            <button type="button" className="btn btn-reset-company" onClick={handleReset}>{t("reset")}</button>
             <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
           </div>
         </div>
@@ -582,5 +660,17 @@ export default function CompanySettingsModal({
         )}
       </div>
     </DomainModalPortal>
+    {typeof document !== "undefined"
+      ? createPortal(
+          <MaintenanceCalendarPopup
+            className="calendar-popup--domain-company-settings"
+            monthLabels={monthLabels}
+            weekdaysShort={weekdaysShort}
+            clearLabel={t("clearDate")}
+          />,
+          document.body
+        )
+      : null}
+    </>
   );
 }

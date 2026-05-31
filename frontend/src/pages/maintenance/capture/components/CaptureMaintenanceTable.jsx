@@ -1,28 +1,63 @@
-export default function CaptureMaintenanceTable({ 
-  data, 
-  loading, 
-  selectedIds, 
-  toggleSelect, 
-  toggleSelectAll, 
-  isAllSelected,
-  isIndeterminate 
+import { useEffect, useMemo, useRef } from "react";
+import CaptureVirtualRows from "./CaptureVirtualRows.jsx";
+
+const ROW_HEIGHT = 52;
+
+function isRowDeleted(row) {
+  return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
+}
+
+
+
+export default function CaptureMaintenanceTable({
+  data,
+  listEpoch = 0,
+  rowKeyCompanyId = null,
+  loading,
+  listSyncing = false,
+  selectedIds,
+  toggleSelect,
+  toggleSelectAll,
+  selectAll,
+  m,
 }) {
-  if (loading) {
+  const selectAllRef = useRef(null);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const rowKeyPrefix = `${String(rowKeyCompanyId ?? "na")}-${listEpoch}`;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      const selectable = data.filter((r) => !isRowDeleted(r));
+      const checked = selectable.filter((r) => selectedSet.has(r.capture_id));
+      selectAllRef.current.indeterminate = checked.length > 0 && checked.length < selectable.length;
+    }
+  }, [selectedSet, data]);
+
+  if (loading && (!data || data.length === 0)) {
     return (
       <div className="maintenance-list-container" style={{ display: "block" }}>
         <table className="maintenance-table">
           <thead>
             <tr>
-              <th>No.</th><th>Dts Created</th><th>Product</th><th>Process</th><th>Currency</th><th>W/L Group</th><th>Submitted By</th><th>Deleted By</th>
+              <th>{m.tblNo}</th>
+              <th>{m.tblDtsCreated}</th>
+              <th>{m.tblProduct}</th>
+              <th>{m.tblProcess}</th>
+              <th>{m.tblCurrency}</th>
+              <th>{m.tblWlGroup}</th>
+              <th>{m.tblSubmittedBy}</th>
+              <th>{m.tblDeletedBy}</th>
               <th className="maintenance-select-all-header">
-                <input type="checkbox" className="maintenance-row-checkbox" disabled />
+                <span className="maintenance-checkbox-cell-inner">
+                  <input type="checkbox" className="maintenance-row-checkbox" disabled />
+                </span>
               </th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td className="maintenance-table-cell" colSpan="9" style={{ textAlign: "center", padding: "20px" }}>
-                Loading...
+                {m.loading}
               </td>
             </tr>
           </tbody>
@@ -35,70 +70,34 @@ export default function CaptureMaintenanceTable({
     return (
       <div className="empty-state-container" style={{ display: "block" }}>
         <div className="empty-state">
-          <p>No data found. Please adjust your search criteria and try again.</p>
+          <p>{listSyncing ? m.loading : m.noDataAdjustSearch}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="maintenance-list-container" style={{ display: "block" }}>
-      <table className="maintenance-table">
-        <thead>
-          <tr>
-            <th>No.</th><th>Dts Created</th><th>Product</th><th>Process</th><th>Currency</th><th>W/L Group</th><th>Submitted By</th><th>Deleted By</th>
-            <th className="maintenance-select-all-header">
-              <input 
-                type="checkbox" 
-                id="select_all_capture"
-                className="maintenance-row-checkbox" 
-                title="Select All" 
-                checked={isAllSelected}
-                ref={el => {
-                  if (el) el.indeterminate = isIndeterminate;
-                }}
-                onChange={toggleSelectAll}
-              />
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, index) => {
-            const isDeleted = row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true;
-            const deletedBy = row.deleted_by ? row.deleted_by : '';
-            const dtsDeleted = row.dts_deleted ? row.dts_deleted : '';
-            const deletedDisplay = isDeleted && deletedBy
-              ? `${deletedBy} (${dtsDeleted || '-'})`
-              : (isDeleted ? (dtsDeleted || '-') : '-');
-
-            return (
-              <tr 
-                key={row.capture_id || index} 
-                className={`maintenance-row ${isDeleted ? "maintenance-row-deleted" : ""}`}
-              >
-                <td className="maintenance-table-cell">{row.no || index + 1}</td>
-                <td className="maintenance-table-cell">{row.dts_created || '-'}</td>
-                <td className="maintenance-table-cell">{row.product || '-'}</td>
-                <td className="maintenance-table-cell">{row.process || '-'}</td>
-                <td className="maintenance-table-cell maintenance-cell-currency">{row.currency || '-'}</td>
-                <td className="maintenance-table-cell">{row.wl_group || '-'}</td>
-                <td className="maintenance-table-cell">{row.submitted_by || '-'}</td>
-                <td className="maintenance-table-cell">{deletedDisplay}</td>
-                <td className="maintenance-table-cell maintenance-cell-checkbox">
-                  <input 
-                    type="checkbox" 
-                    className="maintenance-row-checkbox" 
-                    checked={selectedIds.includes(row.capture_id)}
-                    onChange={() => toggleSelect(row.capture_id)}
-                    disabled={isDeleted}
-                    title={isDeleted ? "Already deleted" : ""}
-                  />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div
+      className={`maintenance-list-container maintenance-virtual-table capture-virtual-table${
+        listSyncing ? " maintenance-list-container--syncing" : ""
+      }`}
+      style={{ display: "block" }}
+    >
+      <div className="maintenance-virtual-table-inner capture-virtual-table-inner" role="table">
+        <CaptureVirtualRows
+          rows={data}
+          rowHeight={ROW_HEIGHT}
+          rowKeyPrefix={rowKeyPrefix}
+          selectedSet={selectedSet}
+          onToggleRow={toggleSelect}
+          alreadyDeletedTitle={m.alreadyDeleted}
+          selectAllRef={selectAllRef}
+          selectAll={selectAll}
+          toggleSelectAll={toggleSelectAll}
+          m={m}
+          disableSelectAll={false}
+        />
+      </div>
     </div>
   );
 }

@@ -26,10 +26,18 @@ header('Content-Type: application/json');
 // 开启输出缓冲，防止意外输出（必须在 header 之后）
 ob_start();
 
-require_once __DIR__ . '/../../config.php';
+try {
+    require_once __DIR__ . '/../../includes/config.php';
+    require_once __DIR__ . '/../../includes/login_scope.php';
+} catch (Throwable $e) {
+    ob_clean();
+    echo json_encode(['status' => 'error', 'message' => 'Database connection failed']);
+    exit;
+}
 
 // 检查 $pdo 是否已定义
 if (!isset($pdo) || !$pdo) {
+    ob_clean();
     echo json_encode(['status' => 'error', 'message' => 'Database connection failed']);
     exit;
 }
@@ -90,16 +98,29 @@ try {
         $account = null;
         $has_expired = false;
         $password_match = false;
-        
+        $account_record_to_update = null;
+
         foreach ($matched_accounts as $row) {
-            if (!empty($row['password']) && $password === $row['password']) {
-                $password_match = true;
-                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
-                    $has_expired = true;
-                } else {
-                    $account = $row;
-                    break;
-                }
+            if (empty($row['password'])) {
+                continue;
+            }
+            $is_pwd_valid = false;
+            $stored = (string) $row['password'];
+            if (password_verify($password, $stored)) {
+                $is_pwd_valid = true;
+            } elseif ($password === $stored) {
+                $is_pwd_valid = true;
+                $account_record_to_update = $row;
+            }
+            if (!$is_pwd_valid) {
+                continue;
+            }
+            $password_match = true;
+            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
+                $has_expired = true;
+            } else {
+                $account = $row;
+                break;
             }
         }
         
@@ -107,6 +128,7 @@ try {
         if ($account) {
             // Member 登录成功（保留 member_login_account_id 供 Win/Loss 刷新后恢复所选被连接方）
             $_SESSION['member_login_account_id'] = $account['id'];
+            $_SESSION['member_winloss_view_account_id'] = $account['id'];
             $_SESSION['user_id'] = $account['id'];
             $_SESSION['login_id'] = $account['account_id'];
             $_SESSION['name'] = $account['name'];
@@ -117,11 +139,27 @@ try {
             $_SESSION['company_id'] = $account['company_numeric_id'];
             $_SESSION['last_activity'] = time();
 
+            // 明文密码登录成功时升级为哈希（与 owner 一致）
+            if ($account_record_to_update && (int) $account['id'] === (int) $account_record_to_update['id']) {
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $update_stmt = $pdo->prepare('UPDATE account SET password = ? WHERE id = ?');
+                $update_stmt->execute([$hashed_password, $account['id']]);
+            }
+
             // 更新最后登录时间
             $stmt = $pdo->prepare("UPDATE account SET last_login = NOW() WHERE id = ?");
             $stmt->execute([$account['id']]);
 
-            echo json_encode(['status' => 'success', 'redirect' => '/dashboard']);
+            persist_login_filter_scope($pdo, $company_id);
+            $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => '/member',
+                'user_type' => 'member',
+                'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
+                'login_scope' => $loginFilter['scope'],
+                'login_identifier' => $loginFilter['identifier'],
+            ]);
             exit;
         } else {
             if ($password_match && $has_expired) {
@@ -213,13 +251,28 @@ try {
             }
         }
 
+        persist_login_filter_scope($pdo, $company_id);
+        $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
+
         if ($needs_secondary_password) {
             // 需要二级密码验证，跳转到二级密码验证页面
-            echo json_encode(['status' => 'success', 'redirect' => '/user-secondary-password']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => '/user-secondary-password',
+                'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
+                'login_scope' => $loginFilter['scope'],
+                'login_identifier' => $loginFilter['identifier'],
+            ]);
         } else {
             // 不需要二级密码验证，直接跳转到dashboard
             $_SESSION['secondary_password_verified'] = true; // 标记为已验证（对于不需要二级密码的用户）
-            echo json_encode(['status' => 'success', 'redirect' => '/dashboard']);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => '/dashboard',
+                'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
+                'login_scope' => $loginFilter['scope'],
+                'login_identifier' => $loginFilter['identifier'],
+            ]);
         }
         exit;
         
@@ -286,14 +339,24 @@ try {
             $_SESSION['company_id'] = $owner['company_numeric_id']; // 使用数字 ID
             $_SESSION['company_code'] = $owner['company_code']; // 保存字符串编码供显示用
             $_SESSION['last_activity'] = time();
+            unset($_SESSION['secondary_password_verified']);
 
             // 处理Remember Me (Owner也支持记住我功能)
             $remember_me = isset($_POST['remember_me']) ? $_POST['remember_me'] : false;
             if ($remember_me) {
                 // Owner 的 remember me 可以存在 session 或另外处理
             }
-            
-            echo json_encode(['status' => 'success', 'redirect' => '/dashboard']);
+
+            persist_login_filter_scope($pdo, $company_id);
+            $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
+            echo json_encode([
+                'status' => 'success',
+                'redirect' => '/owner-secondary-password',
+                'user_type' => 'owner',
+                'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
+                'login_scope' => $loginFilter['scope'],
+                'login_identifier' => $loginFilter['identifier'],
+            ]);
         } else {
             if ($owner_password_match && $owner_has_expired) {
                 echo json_encode(['status' => 'error', 'message' => 'Company or Group has expired.']);

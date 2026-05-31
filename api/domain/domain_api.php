@@ -1,8 +1,9 @@
 <?php
 session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/email_validation.php';
+require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
 header('Content-Type: application/json');
@@ -16,7 +17,7 @@ $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
 // 检查用户是否已登录（对于需要权限的操作）
-if (in_array($action, ['list', 'create', 'update', 'delete', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
+if (in_array($action, ['list', 'create', 'update', 'delete', 'validate_domain_code', 'get_domain_fee_settings', 'save_domain_fee_settings', 'get_company_share_settings', 'save_company_share_settings'], true)) {
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'User not logged in', 'data' => null]);
@@ -151,6 +152,7 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
                 // Best effort for old schemas.
             }
             $ensured = true;
+            ensureDomainListFeePriceColumns($pdo);
             return;
         }
     } catch (Exception $e) {
@@ -170,6 +172,121 @@ function ensureDomainListFeeSettingsTable(PDO $pdo): void {
     }
     $pdo->exec("INSERT IGNORE INTO `domain_list_fee_settings` (`id`, `price`) VALUES (1, NULL)");
     $ensured = true;
+    ensureDomainListFeePriceColumns($pdo);
+}
+
+/**
+ * domain_list_fee_settings：分组价 / 公司价（与旧 price 列并存，price 同步为公司价）
+ */
+function ensureDomainListFeePriceColumns(PDO $pdo): void {
+    static $columnsEnsured = false;
+    if ($columnsEnsured) {
+        return;
+    }
+    ensureDomainListFeeSettingsTable($pdo);
+    foreach (['group_price', 'company_price', 'period_prices'] as $col) {
+        try {
+            if ($col === 'period_prices') {
+                $pdo->exec("ALTER TABLE `domain_list_fee_settings` ADD COLUMN `period_prices` JSON NULL DEFAULT NULL");
+            } else {
+                $pdo->exec("ALTER TABLE `domain_list_fee_settings` ADD COLUMN `{$col}` DECIMAL(25,8) NULL DEFAULT NULL");
+            }
+        } catch (Exception $e) {
+            // Column may already exist.
+        }
+    }
+    $columnsEnsured = true;
+}
+
+/** @return list<string> */
+function domainListFeePeriodKeys(): array
+{
+    return ['7days', '1month', '3months', '6months', '1year'];
+}
+
+/**
+ * @param array<string, mixed>|null $raw
+ * @return array<string, ?string>
+ */
+function normalizeDomainListFeePeriodPrices(?array $raw): array
+{
+    $out = [];
+    foreach (domainListFeePeriodKeys() as $key) {
+        $out[$key] = null;
+    }
+    if (!is_array($raw)) {
+        return $out;
+    }
+    foreach (domainListFeePeriodKeys() as $key) {
+        if (!array_key_exists($key, $raw)) {
+            continue;
+        }
+        $val = normalizeOptionalDecimal($raw[$key]);
+        if ($val === false) {
+            return [];
+        }
+        $out[$key] = $val !== null ? money_out($val) : null;
+    }
+    return $out;
+}
+
+/**
+ * @param array<string, mixed> $row
+ * @return array<string, ?string>
+ */
+function decodeDomainListFeePeriodPricesFromRow(array $row): array
+{
+    $periodPrices = normalizeDomainListFeePeriodPrices(null);
+    if (!empty($row['period_prices'])) {
+        $decoded = is_string($row['period_prices'])
+            ? json_decode($row['period_prices'], true)
+            : $row['period_prices'];
+        $parsed = normalizeDomainListFeePeriodPrices(is_array($decoded) ? $decoded : null);
+        if ($parsed !== []) {
+            $periodPrices = $parsed;
+        }
+    }
+    $hasAny = false;
+    foreach ($periodPrices as $v) {
+        if ($v !== null && $v !== '' && money_cmp($v, '0') > 0) {
+            $hasAny = true;
+            break;
+        }
+    }
+    if (!$hasAny) {
+        $legacy = $row['company_price'] ?? $row['price'] ?? null;
+        if ($legacy !== null && $legacy !== '' && money_cmp($legacy, '0') > 0) {
+            $periodPrices['6months'] = money_out($legacy);
+        }
+    }
+    return $periodPrices;
+}
+
+/**
+ * @return array{price: ?string, group_price: ?string, company_price: ?string, period_prices: array<string, ?string>}
+ */
+function fetchDomainListFeeSettingsRow(PDO $pdo): array
+{
+    ensureDomainListFeePriceColumns($pdo);
+    $stmt = $pdo->query("SELECT `price`, `group_price`, `company_price`, `period_prices` FROM `domain_list_fee_settings` WHERE `id` = 1");
+    $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+    if (!$row) {
+        return ['price' => null, 'group_price' => null, 'company_price' => null, 'period_prices' => normalizeDomainListFeePeriodPrices(null)];
+    }
+    foreach (['price', 'group_price', 'company_price'] as $key) {
+        if ($row[$key] !== null && $row[$key] !== '') {
+            $row[$key] = money_out($row[$key]);
+        } else {
+            $row[$key] = null;
+        }
+    }
+    $row['period_prices'] = decodeDomainListFeePeriodPricesFromRow($row);
+    $syncCompany = $row['period_prices']['6months'] ?? null;
+    if ($syncCompany !== null && $syncCompany !== '') {
+        $row['company_price'] = $syncCompany;
+        $row['price'] = $syncCompany;
+    }
+    return $row;
 }
 
 /**
@@ -524,13 +641,16 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool
 
 function getDomainFeePrice(PDO $pdo): ?string
 {
-    ensureDomainListFeeSettingsTable($pdo);
-    $stmt = $pdo->query("SELECT `price` FROM `domain_list_fee_settings` WHERE `id` = 1");
-    $price = $stmt ? $stmt->fetchColumn() : null;
-    if ($price === false || $price === null || $price === '') {
+    $row = fetchDomainListFeeSettingsRow($pdo);
+    $company = $row['company_price'] ?? null;
+    if ($company !== null && $company !== '') {
+        return money_normalize($company);
+    }
+    $legacy = $row['price'] ?? null;
+    if ($legacy === null || $legacy === '') {
         return null;
     }
-    return money_normalize($price);
+    return money_normalize($legacy);
 }
 
 function domainApiClearTransactionSearchCache(): void
@@ -1727,6 +1847,189 @@ function domainApiNormalizeCompaniesPayload($companies): array {
     return $out;
 }
 
+/**
+ * Group ID 与 Company ID 不得使用相同代码（同一 owner 提交的 companies payload）
+ */
+function domainApiValidateGroupCompanyIdMutualExclusivity(array $rows): ?string
+{
+    $companyKeys = [];
+    $groupKeys = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $gidRaw = $row['group_id'] ?? null;
+        $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+        if ($cid !== '') {
+            $companyKeys[$cid] = true;
+        }
+        if ($gid !== '') {
+            $groupKeys[$gid] = true;
+        }
+    }
+    foreach (array_keys($companyKeys) as $code) {
+        if (isset($groupKeys[$code])) {
+            return 'Group ID and Company ID cannot use the same code: ' . $code;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * 同一笔保存里：company_id 不得重复；无 company_id 的「仅组」占位行其 group_id 不得重复。
+ * 多家公司可共用同一 group_id（正常分组），不计为重复。
+ */
+function domainApiValidateCompanyGroupCodesUniqueWithinPayload(array $rows): ?string
+{
+    $seenCompany = [];
+    $seenGroupOnly = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $gidRaw = $row['group_id'] ?? null;
+        $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+        if ($cid !== '') {
+            if (isset($seenCompany[$cid])) {
+                return 'Duplicate Company ID in this form: "' . $cid . '". Each Company ID must be unique.';
+            }
+            $seenCompany[$cid] = true;
+            continue;
+        }
+        if ($gid !== '') {
+            if (isset($seenGroupOnly[$gid])) {
+                return 'Duplicate group-only entry in this form: "' . $gid . '".';
+            }
+            $seenGroupOnly[$gid] = true;
+        }
+    }
+    return null;
+}
+
+/**
+ * 从 company 行中提取所有非空 company_id / group_id（同一命名空间，大写去重）。
+ *
+ * @return string[]
+ */
+function domainApiCollectCompanyGroupCodesFromRows(array $rows): array
+{
+    $codesSet = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $gidRaw = $row['group_id'] ?? null;
+        $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+        if ($cid !== '') {
+            $codesSet[$cid] = true;
+        }
+        if ($gid !== '') {
+            $codesSet[$gid] = true;
+        }
+    }
+    return array_keys($codesSet);
+}
+
+/**
+ * 读取某 owner 当前已占用的 company_id / group_id 代码集合。
+ *
+ * @return string[]
+ */
+function domainApiLoadOwnerCompanyGroupCodes(PDO $pdo, int $ownerId): array
+{
+    if ($ownerId <= 0) {
+        return [];
+    }
+    $stmt = $pdo->prepare('SELECT company_id, group_id FROM company WHERE owner_id = ?');
+    $stmt->execute([$ownerId]);
+    return domainApiCollectCompanyGroupCodesFromRows($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+/**
+ * update 保存前：仅保留 payload 中相对该 owner 数据库快照「新出现」的代码行（供跨 owner 唯一性校验）。
+ */
+function domainApiFilterRowsToNewCompanyGroupCodes(PDO $pdo, int $ownerId, array $rows): array
+{
+    $existingSet = array_flip(domainApiLoadOwnerCompanyGroupCodes($pdo, $ownerId));
+    $filtered = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $gidRaw = $row['group_id'] ?? null;
+        $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+        $hasNewCode = ($cid !== '' && !isset($existingSet[$cid])) || ($gid !== '' && !isset($existingSet[$gid]));
+        if ($hasNewCode) {
+            $filtered[] = $row;
+        }
+    }
+    return $filtered;
+}
+
+/**
+ * 全局唯一：payload 中出现的每个非空代码（任一行的 company_id 或 group_id）在数据库中不可再出现在
+ * 任意 owner 的 company 行上（company_id 与 group_id 同一命名空间）。
+ * create：与全库比对；update：仅校验相对该 owner 新增加的代码（见 domainApiFilterRowsToNewCompanyGroupCodes）。
+ * validate_domain_code：单码添加前校验，可传 $excludeOwnerId 排除当前 owner 已有行。
+ *
+ * （须与 domainApiValidateGroupCompanyIdMutualExclusivity、domainApiValidateCompanyGroupCodesUniqueWithinPayload 配合。）
+ */
+function domainApiValidateCrossOwnerCompanyGroupExclusivity(PDO $pdo, array $rows, ?int $excludeOwnerId): ?string
+{
+    $codes = domainApiCollectCompanyGroupCodesFromRows($rows);
+    if ($codes === []) {
+        return null;
+    }
+    $in = implode(',', array_fill(0, count($codes), '?'));
+
+    /*
+     * 与 owner_id <> ? 等价，但语义为「不排除其它 owner」，只排除本条 domain 正要覆盖的旧行，
+     * 避免误解为可按 owner 分立命名空间。
+     */
+    $excludeBranchClause = '';
+    $excludeRepeatParams = [];
+    if ($excludeOwnerId !== null && (int) $excludeOwnerId > 0) {
+        $excludeBranchClause = ' id NOT IN (SELECT id FROM company WHERE owner_id = ?) AND ';
+        $excludeRepeatParams[] = (int) $excludeOwnerId;
+    }
+
+    $sql = 'SELECT z.v FROM ('
+        . ' SELECT UPPER(TRIM(CAST(company_id AS CHAR))) AS v FROM company WHERE ' . $excludeBranchClause
+        . " company_id IS NOT NULL AND TRIM(CAST(company_id AS CHAR)) <> ''"
+        . " AND UPPER(TRIM(CAST(company_id AS CHAR))) IN ($in)"
+        . ' UNION'
+        . ' SELECT UPPER(TRIM(CAST(group_id AS CHAR))) AS v FROM company WHERE ' . $excludeBranchClause
+        . " group_id IS NOT NULL AND TRIM(CAST(group_id AS CHAR)) <> ''"
+        . " AND UPPER(TRIM(CAST(group_id AS CHAR))) IN ($in)"
+        . ' ) AS z WHERE z.v <> \'\' LIMIT 1';
+
+    try {
+        $stmt = $pdo->prepare($sql);
+        if ($excludeOwnerId !== null && (int) $excludeOwnerId > 0) {
+            $execParams = array_merge($excludeRepeatParams, $codes, $excludeRepeatParams, $codes);
+            $stmt->execute($execParams);
+        } else {
+            $stmt->execute(array_merge($codes, $codes));
+        }
+    } catch (PDOException $e) {
+        error_log('[domain_api] domainApiValidateCrossOwnerCompanyGroupExclusivity: ' . $e->getMessage());
+        return 'Could not verify company/group code availability. Please try again.';
+    }
+
+    $hit = $stmt->fetchColumn();
+    if ($hit === false || $hit === null || trim((string) $hit) === '') {
+        return null;
+    }
+    $code = strtoupper(trim((string) $hit));
+
+    return 'This ID "' . $code . '" is already in use by another domain (not allowed). Choose a different Company ID or Group ID.';
+}
+
 function domainApiExtractProvisionCompanyIds($companies): array {
     $ids = [];
     foreach (domainApiNormalizeCompaniesPayload($companies) as $row) {
@@ -2202,7 +2505,12 @@ try {
             // Create new owner
             $owner_code = strtoupper(trim($data['owner_code'] ?? ''));
             $name = trim($data['name'] ?? '');
-            $email = strtolower(trim($data['email'] ?? ''));
+            $emailValidation = validate_email($data['email'] ?? '');
+            if (!$emailValidation['ok']) {
+                echo json_encode(['success' => false, 'message' => 'Invalid email format', 'data' => null]);
+                exit;
+            }
+            $email = $emailValidation['normalized'];
             $password = $data['password'] ?? '';
             $secondary_password = $data['secondary_password'] ?? '';
             $companies = $data['companies'] ?? '';
@@ -2216,6 +2524,25 @@ try {
             // 验证二级密码：必须是6位数字
             if (!preg_match('/^\d{6}$/', $secondary_password)) {
                 echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits', 'data' => null]);
+                exit;
+            }
+
+            $companies_data = domainApiNormalizeCompaniesPayload($companies);
+            $overlapErr = domainApiValidateGroupCompanyIdMutualExclusivity($companies_data);
+            if ($overlapErr !== null) {
+                echo json_encode(['success' => false, 'message' => $overlapErr, 'data' => null]);
+                exit;
+            }
+
+            $dupInPayloadErr = domainApiValidateCompanyGroupCodesUniqueWithinPayload($companies_data);
+            if ($dupInPayloadErr !== null) {
+                echo json_encode(['success' => false, 'message' => $dupInPayloadErr, 'data' => null]);
+                exit;
+            }
+
+            $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $companies_data, null);
+            if ($crossOwnerErr !== null) {
+                echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
                 exit;
             }
             
@@ -2239,7 +2566,6 @@ try {
                 $owner_id = $pdo->lastInsertId();
                 
                 // Insert companies if any（companies 可为 JSON 字符串或已解析数组）
-                $companies_data = domainApiNormalizeCompaniesPayload($companies);
                 if (!empty($companies_data)) {
                     $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     foreach ($companies_data as $company) {
@@ -2291,7 +2617,12 @@ try {
             // Update existing owner
             $id = $data['id'] ?? 0;
             $name = trim($data['name'] ?? '');
-            $email = strtolower(trim($data['email'] ?? ''));
+            $emailValidation = validate_email($data['email'] ?? '');
+            if (!$emailValidation['ok']) {
+                echo json_encode(['success' => false, 'message' => 'Invalid email format', 'data' => null]);
+                exit;
+            }
+            $email = $emailValidation['normalized'];
             $password = $data['password'] ?? '';
             $secondary_password = $data['secondary_password'] ?? '';
             $companies = $data['companies'] ?? '';
@@ -2311,6 +2642,29 @@ try {
                 // 验证二级密码：必须是6位数字
                 if (!preg_match('/^\d{6}$/', $secondary_password)) {
                     echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits', 'data' => null]);
+                    exit;
+                }
+            }
+
+            $companies_data = domainApiNormalizeCompaniesPayload($companies);
+            $overlapErr = domainApiValidateGroupCompanyIdMutualExclusivity($companies_data);
+            if ($overlapErr !== null) {
+                echo json_encode(['success' => false, 'message' => $overlapErr, 'data' => null]);
+                exit;
+            }
+
+            $dupInPayloadErr = domainApiValidateCompanyGroupCodesUniqueWithinPayload($companies_data);
+            if ($dupInPayloadErr !== null) {
+                echo json_encode(['success' => false, 'message' => $dupInPayloadErr, 'data' => null]);
+                exit;
+            }
+
+            // 编辑保存：仅对新添加的 Company/Group ID 做跨 domain 唯一性校验（与前端 Add 按钮行为一致）
+            $newCodeRows = domainApiFilterRowsToNewCompanyGroupCodes($pdo, (int) $id, $companies_data);
+            if ($newCodeRows !== []) {
+                $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $newCodeRows, null);
+                if ($crossOwnerErr !== null) {
+                    echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
                     exit;
                 }
             }
@@ -2362,7 +2716,7 @@ try {
                 
                 // Get new company IDs from input（companies 可为 JSON 字符串或已解析数组）
                 $new_companies_data = [];
-                foreach (domainApiNormalizeCompaniesPayload($companies) as $company) {
+                foreach ($companies_data as $company) {
                     $company_id = strtoupper(trim((string) ($company['company_id'] ?? '')));
                     $group_id = !empty($company['group_id']) ? strtoupper(trim((string) $company['group_id'])) : null;
                     if (!empty($company_id) || !empty($group_id)) {
@@ -2744,6 +3098,36 @@ try {
                 throw $e;
             }
             break;
+
+        /*
+         * 添加 Group / Company 前校验：编码在整张 company 表上唯一（任一行的 company_id 或 group_id 视为同一命名空间）。
+         * exclude_owner_id：编辑某 domain 时传入当前 owner.id，跳过其已有 company 行，避免与「尚未保存的旧行」误判冲突。
+         * 新建 domain：不传或为 0，与全库比对。
+         */
+        case 'validate_domain_code':
+            if (!$hasC168Context || !$canUseC168DomainActions) {
+                jsonResponse(false, 'Forbidden', null, 403);
+                exit;
+            }
+            $rawCode = (string) ($data['code'] ?? '');
+            $code = strtoupper(trim($rawCode));
+            $excludeRaw = $data['exclude_owner_id'] ?? null;
+            $excludeOwnerId = ($excludeRaw !== null && $excludeRaw !== '' && (int) $excludeRaw > 0)
+                ? (int) $excludeRaw
+                : null;
+            if ($code === '') {
+                jsonResponse(false, 'Code is required', ['available' => false], 400);
+                exit;
+            }
+            // 单列即可：校验逻辑会把 code 拿去匹配库中 company_id 与 group_id 两列
+            $pseudoRows = [['company_id' => $code, 'group_id' => null]];
+            $err = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $pseudoRows, $excludeOwnerId);
+            if ($err !== null) {
+                jsonResponse(false, $err, ['available' => false, 'code' => $code], 200);
+                exit;
+            }
+            jsonResponse(true, 'OK', ['available' => true, 'code' => $code]);
+            break;
             
         case 'get_companies':
             // Get companies for a specific owner with expiration dates
@@ -2983,14 +3367,7 @@ try {
                 exit;
             }
             try {
-                ensureDomainListFeeSettingsTable($pdo);
-                $stmt = $pdo->query("SELECT `price` FROM `domain_list_fee_settings` WHERE `id` = 1");
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                if (!$row) {
-                    $row = ['price' => null];
-                } elseif ($row['price'] !== null && $row['price'] !== '') {
-                    $row['price'] = money_out($row['price']);
-                }
+                $row = fetchDomainListFeeSettingsRow($pdo);
                 jsonResponse(true, 'OK', $row);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);
@@ -3002,17 +3379,40 @@ try {
                 jsonResponse(false, 'Forbidden', null, 403);
                 exit;
             }
-            $price = normalizeOptionalDecimal($data['price'] ?? null);
-            if ($price === false) {
+            $periodInput = isset($data['period_prices']) && is_array($data['period_prices'])
+                ? $data['period_prices']
+                : null;
+            $periodPrices = normalizeDomainListFeePeriodPrices($periodInput);
+            if ($periodPrices === []) {
                 jsonResponse(false, 'Price must be a number or empty', null);
                 exit;
             }
+            $groupPrice = normalizeOptionalDecimal($data['group_price'] ?? null);
+            $companyPrice = normalizeOptionalDecimal(
+                $data['company_price']
+                ?? ($periodPrices['6months'] ?? ($data['price'] ?? null))
+            );
+            if ($groupPrice === false || $companyPrice === false) {
+                jsonResponse(false, 'Price must be a number or empty', null);
+                exit;
+            }
+            if ($companyPrice === null && ($periodPrices['6months'] ?? null) !== null) {
+                $companyPrice = $periodPrices['6months'];
+            }
             try {
-                ensureDomainListFeeSettingsTable($pdo);
-                $stmt = $pdo->prepare("UPDATE `domain_list_fee_settings` SET `price` = ? WHERE `id` = 1");
-                $stmt->execute([$price]);
+                ensureDomainListFeePriceColumns($pdo);
+                $periodJson = json_encode($periodPrices, JSON_UNESCAPED_UNICODE);
+                $stmt = $pdo->prepare("
+                    UPDATE `domain_list_fee_settings`
+                    SET `group_price` = ?, `company_price` = ?, `price` = ?, `period_prices` = ?
+                    WHERE `id` = 1
+                ");
+                $stmt->execute([$groupPrice, $companyPrice, $companyPrice, $periodJson]);
                 jsonResponse(true, 'Saved successfully', [
-                    'price' => $price !== null ? money_out($price) : null
+                    'price' => $companyPrice !== null ? money_out($companyPrice) : null,
+                    'group_price' => $groupPrice !== null ? money_out($groupPrice) : null,
+                    'company_price' => $companyPrice !== null ? money_out($companyPrice) : null,
+                    'period_prices' => $periodPrices,
                 ]);
             } catch (Exception $e) {
                 jsonResponse(false, 'Error: ' . $e->getMessage(), null);

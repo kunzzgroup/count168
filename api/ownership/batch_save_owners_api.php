@@ -1,7 +1,8 @@
 <?php
-require_once '../../session_check.php';
-require_once '../../config.php';
+require_once '../../includes/session_check.php';
+require_once '../../includes/config.php';
 require_once '../includes/money_decimal.php';
+require_once '../includes/ownership_history.php';
 
 header('Content-Type: application/json');
 
@@ -93,6 +94,8 @@ try {
     $stmt = $pdo->prepare("DELETE FROM company_ownership WHERE company_id = ?");
     $stmt->execute([$company_id]);
 
+    $historyRows = [];
+
     // Insert new owners
     if (count($owners) > 0) {
         if ($hasOwnerType) {
@@ -143,7 +146,16 @@ try {
                         $roVal = $existingReadOnly[(int) $real_id] ?? 1;
                     }
                 }
-                $insertStmt->execute([$company_id, (int) $real_id, $owner_type, ownershipPctOut($owner['percentage']), $pgid, $roVal]);
+                $pctOut = ownershipPctOut($owner['percentage']);
+                $insertStmt->execute([$company_id, (int) $real_id, $owner_type, $pctOut, $pgid, $roVal]);
+
+                $historyRows[] = [
+                    'account_id' => (int) $real_id,
+                    'owner_type' => $owner_type,
+                    'percentage' => $pctOut,
+                    'partner_group_id' => $pgid,
+                    'read_only' => $roVal,
+                ];
 
                 // 同步 read_only 到 user 表的全局设置作为默认回退
                 if ($owner_type === 'user') {
@@ -153,10 +165,21 @@ try {
             } else {
                 // If migration hasn't run, we must drop Users so it doesn't crash, or attempt.
                 // In a perfect world, migration is run first. If not, only save numbers.
-                $insertStmt->execute([$company_id, (int) $real_id, ownershipPctOut($owner['percentage'])]);
+                $pctOut = ownershipPctOut($owner['percentage']);
+                $insertStmt->execute([$company_id, (int) $real_id, $pctOut]);
+                $historyRows[] = [
+                    'account_id' => (int) $real_id,
+                    'owner_type' => 'account',
+                    'percentage' => $pctOut,
+                    'partner_group_id' => null,
+                    'read_only' => 1,
+                ];
             }
         }
     }
+
+    $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+    ownership_history_save_company($pdo, (int) $company_id, $historyRows, $savedBy);
 
     $pdo->commit();
 

@@ -20,7 +20,7 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 12000,
+        zIndex: "var(--z-modal, 12000)",
         background: "rgba(0,0,0,0.45)",
         display: "flex",
         alignItems: "center",
@@ -34,28 +34,53 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
         aria-label={i18n.confirmLogoutTitle || "Confirm logout"}
         style={{
           width: "100%",
-          maxWidth: 420,
-          background: "#fff",
-          borderRadius: 12,
-          boxShadow: "0 12px 36px rgba(0,0,0,0.25)",
-          padding: 20,
+          maxWidth: 450,
+          boxSizing: "border-box",
+          background: "var(--color-surface, #fff)",
+          borderRadius: "var(--login-radius-xl, 28px)",
+          boxShadow: "var(--shadow-card, 0 4px 20px rgba(0,0,0,0.12))",
+          padding: "28px 24px",
         }}
       >
-        <h3 style={{ margin: 0, fontSize: 20, color: "#1a1a1a" }}>{i18n.confirmLogoutTitle || "Confirm Logout"}</h3>
-        <p style={{ marginTop: 12, marginBottom: 20, color: "#4b5563" }}>
+        <h3
+          style={{
+            margin: "0 0 8px",
+            fontSize: "var(--text-h1)",
+            fontWeight: 700,
+            fontFamily: "var(--font-ui, system-ui, sans-serif)",
+            color: "var(--color-body-strong, #1f2937)",
+            textAlign: "center",
+            lineHeight: 1.25,
+          }}
+        >
+          {i18n.confirmLogoutTitle || "Confirm Logout"}
+        </h3>
+        <p
+          style={{
+            margin: "6px 0 24px",
+            fontSize: "var(--text-medium)",
+            fontWeight: 400,
+            fontFamily: "var(--font-ui, system-ui, sans-serif)",
+            color: "var(--color-muted-fg, #6b7280)",
+            textAlign: "center",
+            lineHeight: 1.35,
+          }}
+        >
           {i18n.confirmLogoutMessage || "Are you sure you want to logout?"}
         </p>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
             style={{
-              border: "1px solid #d1d5db",
-              background: "#fff",
-              color: "#111827",
-              borderRadius: 8,
-              padding: "8px 14px",
+              border: "1px solid var(--color-border-muted, #d1d5db)",
+              background: "var(--color-surface, #fff)",
+              color: "var(--color-body-strong, #111827)",
+              borderRadius: "var(--radius-panel, 1rem)",
+              padding: "8px 16px",
+              fontSize: "var(--text-base)",
+              fontFamily: "var(--font-ui, system-ui, sans-serif)",
               cursor: loading ? "not-allowed" : "pointer",
             }}
           >
@@ -67,10 +92,13 @@ export default function ConfirmLogoutModal({ open, onCancel, onConfirm, loading 
             disabled={loading}
             style={{
               border: "none",
-              background: "linear-gradient(135deg, #56ccf2, #004ff9)",
+              background: "linear-gradient(135deg, var(--login-bg-start), var(--login-bg-end))",
               color: "#fff",
-              borderRadius: 8,
-              padding: "8px 14px",
+              borderRadius: "var(--radius-panel, 1rem)",
+              padding: "8px 16px",
+              fontSize: "var(--text-base)",
+              fontWeight: 600,
+              fontFamily: "var(--font-ui, system-ui, sans-serif)",
               cursor: loading ? "not-allowed" : "pointer",
             }}
           >

@@ -1,4 +1,22 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
+
+const DAY_NAME_MAP = {
+  "MON": "dayMonday",
+  "TUE": "dayTuesday",
+  "WED": "dayWednesday",
+  "THU": "dayThursday",
+  "FRI": "dayFriday",
+  "SAT": "daySaturday",
+  "SUN": "daySunday",
+  "Monday": "dayMonday",
+  "Tuesday": "dayTuesday",
+  "Wednesday": "dayWednesday",
+  "Thursday": "dayThursday",
+  "Friday": "dayFriday",
+  "Saturday": "daySaturday",
+  "Sunday": "daySunday",
+};
 
 function sortedCopyFromOptions(existingProcesses) {
   if (!existingProcesses?.length) return [];
@@ -31,14 +49,18 @@ export default function ProcessFormModal({
   setForm,
   currencies,
   days,
+  readOnly = false,
   onClose,
   onSubmit,
   onOpenDescriptionPicker,
   t,
 }) {
+  const ro = Boolean(readOnly);
   const [copyOpen, setCopyOpen] = useState(false);
   const [copySearch, setCopySearch] = useState("");
+  const [currencyOpen, setCurrencyOpen] = useState(false);
   const copyWrapRef = useRef(null);
+  const currencyWrapRef = useRef(null);
 
   const copyOptions = useMemo(() => sortedCopyFromOptions(form.existingProcesses), [form.existingProcesses]);
   const filteredCopy = useMemo(() => {
@@ -55,6 +77,7 @@ export default function ProcessFormModal({
   useEffect(() => {
     const onDoc = (e) => {
       if (!copyWrapRef.current?.contains(e.target)) setCopyOpen(false);
+      if (!currencyWrapRef.current?.contains(e.target)) setCurrencyOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -67,9 +90,11 @@ export default function ProcessFormModal({
 
   const placeholderBtn = t("selectProcessToCopyFrom");
   const selectedCopyRow = copyOptions.find((p) => String(p.process_id) === String(form.copy_from));
+  const selectedCurrency = currencies.find((c) => String(c.id) === String(form.currency_id));
 
   return (
-    <div id={editMode ? "editModal" : "addModal"} className="modal" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id={editMode ? "editModal" : "addModal"} className="modal" style={processModalBackdropStyle}>
       <div className="modal-content">
         <div className="modal-header">
           <h2>{editMode ? t("editProcess") : t("addProcess")}</h2>
@@ -80,6 +105,8 @@ export default function ProcessFormModal({
         <div className="modal-body">
           <form className="process-form add-grid" onSubmit={onSubmit}>
             <div className="add-col">
+              <div className="process-form-section">
+                <h3 className="process-form-section-title">{t("processFormSectionBasic")}</h3>
               {!editMode && (
                 <div className="form-row">
                   <div className="form-group">
@@ -88,7 +115,8 @@ export default function ProcessFormModal({
                       <button
                         type="button"
                         className="custom-select-button"
-                        onClick={() => setCopyOpen((o) => !o)}
+                        disabled={ro}
+                        onClick={() => !ro && setCopyOpen((o) => !o)}
                       >
                         {selectedCopyRow
                           ? `${selectedCopyRow.process_name || t("unknown")} - ${selectedCopyRow.description_name || t("noDescription")}`
@@ -102,6 +130,7 @@ export default function ProcessFormModal({
                               placeholder={t("searchProcess")}
                               autoComplete="off"
                               value={copySearch}
+                              disabled={ro}
                               onChange={(e) => setCopySearch(e.target.value)}
                             />
                           </div>
@@ -160,6 +189,7 @@ export default function ProcessFormModal({
                       onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
                       required={!form.is_multi_process}
                       readOnly={editMode || form.is_multi_process}
+                      disabled={ro}
                       style={editMode || form.is_multi_process ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
                       placeholder={t("enterProcessId")}
                     />
@@ -169,6 +199,7 @@ export default function ProcessFormModal({
                           type="checkbox"
                           id="add_multi_use"
                           checked={form.is_multi_process || false}
+                          disabled={ro}
                           onChange={(e) => {
                             const checked = e.target.checked;
                             setForm((prev) => ({
@@ -198,6 +229,7 @@ export default function ProcessFormModal({
                             type="checkbox"
                             id={`mp_${p.process_name.replace(/[^a-zA-Z0-9_]/g, "_")}`}
                             checked={(form.selected_processes || []).includes(p.process_name)}
+                            disabled={ro}
                             onChange={(e) => {
                               const checked = e.target.checked;
                               setForm((prev) => {
@@ -216,6 +248,7 @@ export default function ProcessFormModal({
                       <button
                         type="button"
                         className="btn btn-save btn-small"
+                        disabled={ro}
                         onClick={() => setForm((prev) => ({ ...prev, show_multi_process_selection: false }))}
                       >
                         {t("confirm")}
@@ -236,6 +269,7 @@ export default function ProcessFormModal({
                           <button
                             type="button"
                             className="remove-process"
+                            disabled={ro}
                             onClick={() =>
                               setForm((prev) => {
                                 const nextList = prev.selected_processes.filter((n) => n !== name);
@@ -261,7 +295,10 @@ export default function ProcessFormModal({
                   <label htmlFor={editMode ? "edit_description" : "add_description"}>
                     {editMode ? t("description") : t("descriptionRequired")}
                   </label>
-                  <div className="input-with-icon">
+                  <div
+                    className={`input-with-icon${ro ? "" : " input-with-icon--opens-picker"}`}
+                    onClick={() => !ro && onOpenDescriptionPicker()}
+                  >
                     <input
                       id={editMode ? "edit_description" : "add_description"}
                       readOnly
@@ -270,7 +307,16 @@ export default function ProcessFormModal({
                       placeholder={t("clickToSelectDescriptions")}
                       style={{ backgroundColor: "#f5f5f5" }}
                     />
-                    <button type="button" className="add-icon" aria-label={t("chooseDescription")} onClick={onOpenDescriptionPicker}>
+                    <button
+                      type="button"
+                      className="add-icon"
+                      aria-label={t("chooseDescription")}
+                      disabled={ro}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!ro) onOpenDescriptionPicker();
+                      }}
+                    >
                       +
                     </button>
                   </div>
@@ -292,24 +338,70 @@ export default function ProcessFormModal({
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>{t("currency")}</label>
-                  <select
-                    value={form.currency_id}
-                    onChange={(e) => setForm((prev) => ({ ...prev, currency_id: e.target.value }))}
-                    required
-                  >
-                    <option value="">{t("selectCurrency")}</option>
-                    {currencies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.code}
-                      </option>
-                    ))}
-                  </select>
+                  <label>{t("currencyColumn")}</label>
+                  <div className="custom-select-wrapper" ref={currencyWrapRef}>
+                    <button
+                      type="button"
+                      className={`custom-select-button${currencyOpen ? " open" : ""}`}
+                      disabled={ro}
+                      onClick={() => !ro && setCurrencyOpen((o) => !o)}
+                    >
+                      {selectedCurrency ? selectedCurrency.code : t("selectCurrency")}
+                    </button>
+                    {currencyOpen && (
+                      <div className="custom-select-dropdown" style={{ display: "block" }}>
+                        <div className="custom-select-options">
+                          <div
+                            className={`custom-select-option${!form.currency_id ? " selected" : ""}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              setForm((prev) => ({ ...prev, currency_id: "" }));
+                              setCurrencyOpen(false);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                setForm((prev) => ({ ...prev, currency_id: "" }));
+                                setCurrencyOpen(false);
+                              }
+                            }}
+                          >
+                            {t("selectCurrency")}
+                          </div>
+                          {currencies.map((c) => (
+                            <div
+                              key={c.id}
+                              className={`custom-select-option${
+                                String(c.id) === String(form.currency_id) ? " selected" : ""
+                              }`}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => {
+                                setForm((prev) => ({ ...prev, currency_id: String(c.id) }));
+                                setCurrencyOpen(false);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  setForm((prev) => ({ ...prev, currency_id: String(c.id) }));
+                                  setCurrencyOpen(false);
+                                }
+                              }}
+                            >
+                              {c.code}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
+              </div>
+
               {editMode && (
-                <>
+                <div className="process-form-section process-form-section--record">
+                  <h3 className="process-form-section-title">{t("processFormSectionRecord")}</h3>
                   <div className="form-row">
                     <div className="form-group">
                       <label style={{ fontWeight: 600, color: "#666" }}>{t("dtsModified")}</label>
@@ -363,63 +455,23 @@ export default function ProcessFormModal({
                       </div>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </div>
 
             <div className="add-col">
+              <div className="process-form-section">
+                <h3 className="process-form-section-title">{t("processFormSectionTextReplace")}</h3>
               <div className="form-row">
                 <div className="form-group">
                   <label>{t("removeWords")}</label>
                   <input
                     value={form.remove_word}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, remove_word: e.target.value }))}
                     placeholder={t("enterWordsToRemove")}
                   />
                   <small className="field-help">{t("removeWordsHelp")}</small>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <div className="day-use-header">
-                    <label>{t("dayUse")}</label>
-                    <div className="all-day-checkbox">
-                      <input
-                        id={editMode ? "edit_all_day" : "add_all_day"}
-                        type="checkbox"
-                        checked={days.length > 0 && form.day_use.length === days.length}
-                        onChange={(e) => {
-                          if (e.target.checked) setForm((prev) => ({ ...prev, day_use: days.map((d) => String(d.id)) }));
-                          else setForm((prev) => ({ ...prev, day_use: [] }));
-                        }}
-                      />
-                      <label htmlFor={editMode ? "edit_all_day" : "add_all_day"}>{t("allDay")}</label>
-                    </div>
-                  </div>
-                  <div className="day-checkboxes" id={editMode ? "edit_day_checkboxes" : "day_checkboxes"}>
-                    {days.map((d) => {
-                      const id = String(d.id);
-                      const checked = form.day_use.includes(id);
-                      const cbId = `${editMode ? "edit_day_" : "add_day_"}${id}`;
-                      return (
-                        <div key={id} className="checkbox-item">
-                          <input
-                            type="checkbox"
-                            id={cbId}
-                            checked={checked}
-                            onChange={() => {
-                              setForm((prev) => ({
-                                ...prev,
-                                day_use: checked ? prev.day_use.filter((x) => x !== id) : [...prev.day_use, id],
-                              }));
-                            }}
-                          />
-                          <label htmlFor={cbId}>{String(d.day_name || "")}</label>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               </div>
 
@@ -428,6 +480,7 @@ export default function ProcessFormModal({
                   <label>{t("replaceFrom")}</label>
                   <input
                     value={form.replace_word_from}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))}
                     placeholder={t("oldWord")}
                   />
@@ -437,10 +490,74 @@ export default function ProcessFormModal({
                   <label>{t("replaceTo")}</label>
                   <input
                     value={form.replace_word_to}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))}
                     placeholder={t("newWord")}
                   />
                   <small className="field-help">{t("replacementWord")}</small>
+                </div>
+              </div>
+
+              </div>
+
+              <div className="process-form-section">
+                <h3 className="process-form-section-title">{t("processFormSectionScheduleNotes")}</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <div className="day-use-pill-row">
+                    <span className="user-gc-inline-label day-use-pill-heading">{t("dayUse")}</span>
+                    <div
+                      id={editMode ? "edit_day_checkboxes" : "day_checkboxes"}
+                      className="user-gc-inline-pills day-use-pill-wrap"
+                    >
+                      <div className="user-gc-segment-group" role="group" aria-label={t("dayUse")}>
+                        <button
+                          type="button"
+                          aria-pressed={days.length > 0 && form.day_use.length === days.length}
+                          className={`user-gc-segment${
+                            days.length > 0 && form.day_use.length === days.length ? " is-on" : ""
+                          }`}
+                          disabled={ro}
+                          onClick={() => {
+                            setForm((prev) => {
+                              const allOn = days.length > 0 && prev.day_use.length === days.length;
+                              return {
+                                ...prev,
+                                day_use: allOn ? [] : days.map((d) => String(d.id)),
+                              };
+                            });
+                          }}
+                        >
+                          {t("allDay")}
+                        </button>
+                        {days.map((d) => {
+                          const id = String(d.id);
+                          const checked = form.day_use.includes(id);
+                          const dayKey = d.day_name ? DAY_NAME_MAP[String(d.day_name).toUpperCase()] : null;
+                          const displayText = dayKey ? t(dayKey) : String(d.day_name || "").toUpperCase();
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              className={`user-gc-segment${checked ? " is-on" : ""}`}
+                              aria-pressed={checked}
+                              disabled={ro}
+                              onClick={() => {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  day_use: checked
+                                    ? prev.day_use.filter((x) => x !== id)
+                                    : [...prev.day_use, id],
+                                }));
+                              }}
+                            >
+                              {displayText}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -450,15 +567,17 @@ export default function ProcessFormModal({
                   <textarea
                     rows={5}
                     value={form.remark}
+                    disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))}
                     placeholder={t("enterRemarks")}
                   />
                 </div>
               </div>
+              </div>
             </div>
 
             <div className="form-actions add-actions">
-              <button type="submit" className="btn btn-save">
+              <button type="submit" className="btn btn-save" disabled={ro}>
                 {editMode ? t("updateProcess") : t("addProcess")}
               </button>
               <button type="button" className="btn btn-cancel" onClick={onClose}>
@@ -469,5 +588,6 @@ export default function ProcessFormModal({
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

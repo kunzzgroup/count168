@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import CompanySettingsModal from "./CompanySettingsModal.jsx";
 import {
@@ -10,11 +10,25 @@ import {
   ensureCompanyFeeShare,
   companyToDomainPayloadEntry,
   forceUppercaseValue,
-  forceLowercaseValue,
   forceNumericValue,
 } from "../domainHelpers.js";
-import { getDomainText } from "../../../translateFile/domainTranslate.js";
+import { sanitizeEmailInput, validateEmail } from "../../../utils/input/emailValidation.js";
+import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
+
+function normalizeDomainCode(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+/** @returns {string|null} conflicting code if any group id equals a company id */
+function findGroupCompanyCodeOverlap(tempGroups, tempCompanies) {
+  const groupSet = new Set(tempGroups.map((g) => normalizeDomainCode(g)).filter(Boolean));
+  for (const c of tempCompanies) {
+    const cid = normalizeDomainCode(c.company_id);
+    if (cid && groupSet.has(cid)) return cid;
+  }
+  return null;
+}
 
 /**
  * Domain Add/Edit Modal
@@ -25,14 +39,14 @@ import DomainModalPortal from "./DomainModalPortal.jsx";
  *   isOwnerOrAdmin  — boolean
  *   sessionCompanyId   — number
  *   sessionCompanyCode — string
- *   domainFeePrice  — number (for share calc)
+ *   domainPeriodPrices — per-period default amounts (for share calc in company settings)
  *   onClose()
  *   onSaved(domainData) — called after successful save
  */
 export default function DomainFormModal({
   lang = "en",
   isEditMode, editingDomain, hasC168Context, isOwnerOrAdmin,
-  sessionCompanyId, sessionCompanyCode, domainFeePrice,
+  sessionCompanyId, sessionCompanyCode, domainPeriodPrices,
   onClose, onSaved,
 }) {
   const isZh = lang === "zh";
@@ -54,6 +68,40 @@ export default function DomainFormModal({
 
   // Company Settings sub-modal
   const [csModalCompanyId, setCsModalCompanyId] = useState(null);
+
+  function toastDanger(message) {
+    showDomainAlert(message, "danger");
+  }
+
+  /** 与库中任一 owner 的 company_id / group_id 冲突则失败；编辑时可排除当前 owner 已有行（见 domain_api validate_domain_code） */
+  async function validateCodeGlobally(code) {
+    const trimmed = String(code ?? "").trim();
+    if (!trimmed) return false;
+    try {
+      const payload = {
+        action: "validate_domain_code",
+        code: trimmed,
+      };
+      if (isEditMode && editingDomain?.id !== undefined && editingDomain?.id !== null && editingDomain?.id !== "") {
+        payload.exclude_owner_id = Number(editingDomain.id);
+      }
+      const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        toastDanger(json.message || t("operationFailed"));
+        return false;
+      }
+      return true;
+    } catch {
+      toastDanger(t("validateDomainCodeUnavailable"));
+      return false;
+    }
+  }
 
   const showSecondaryPwd =
     !isEditMode || (hasC168Context && isOwnerOrAdmin);
@@ -77,25 +125,25 @@ export default function DomainFormModal({
             const allGroups = new Set();
             const validCompanies = [];
             data.data.companies.forEach((c) => {
-              if (c.group_id) allGroups.add(c.group_id);
+              if (c.group_id) allGroups.add(normalizeDomainCode(c.group_id));
               if (c.company_id) {
                 const co = {
                   company_id: c.company_id,
                   expiration_date: c.expiration_date || null,
                   permissions: Array.isArray(c.permissions) ? c.permissions : [],
-                  group_id: c.group_id || null,
+                  group_id: c.group_id ? normalizeDomainCode(c.group_id) : null,
                   fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations),
                 };
                 ensureCompanyFeeShare(co);
                 co.originalExpirationDate = co.expiration_date || null;
                 co.selectedPeriod = null;
                 co.startDate = new Date().toISOString().split("T")[0];
-                co.isExtending = !!co.expiration_date;
+                co.isExtending = false;
                 validCompanies.push(co);
               }
             });
             setTempCompanies(validCompanies);
-            setTempGroups(Array.from(allGroups));
+            setTempGroups([...allGroups].map(normalizeDomainCode).filter(Boolean).sort());
           }
         })
         .catch(() => {});
@@ -104,12 +152,18 @@ export default function DomainFormModal({
 
   // ── Company helpers ────────────────────────────────────────────────────────
 
-  function addCompany() {
+  async function addCompany() {
     const cid = companyInput.trim().toUpperCase();
-    if (!cid) { showDomainAlert(t("pleaseEnterCompanyId"), "danger"); return; }
-    if (tempCompanies.some((c) => c.company_id === cid)) {
-      showDomainAlert(t("companyIdAlreadyAdded"), "danger"); return;
+    if (!cid) { toastDanger(t("pleaseEnterCompanyId")); return; }
+    if (tempGroups.some((g) => normalizeDomainCode(g) === cid)) {
+      toastDanger(t("cannotAddCompanyUsesGroupId", { id: cid }));
+      return;
     }
+    if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === cid)) {
+      toastDanger(t("companyIdAlreadyAdded"));
+      return;
+    }
+    if (!(await validateCodeGlobally(cid))) return;
     const isC168 = cid === "C168";
     const today = new Date().toISOString().split("T")[0];
     const newExpDate = isC168 ? null : calculateExpirationDate("1month", today);
@@ -131,10 +185,18 @@ export default function DomainFormModal({
     setTempCompanies((prev) => prev.filter((c) => c.company_id !== cid));
   }
 
-  function addGroup() {
+  async function addGroup() {
     const gid = groupInput.trim().toUpperCase();
-    if (!gid) { showDomainAlert(t("pleaseEnterGroupId"), "danger"); return; }
-    if (tempGroups.includes(gid)) { showDomainAlert(t("groupIdAlreadyExists"), "danger"); return; }
+    if (!gid) { toastDanger(t("pleaseEnterGroupId")); return; }
+    if (tempCompanies.some((c) => normalizeDomainCode(c.company_id) === gid)) {
+      toastDanger(t("cannotAddGroupUsesCompanyId", { id: gid }));
+      return;
+    }
+    if (tempGroups.some((g) => normalizeDomainCode(g) === gid)) {
+      toastDanger(t("groupIdAlreadyExists"));
+      return;
+    }
+    if (!(await validateCodeGlobally(gid))) return;
     setTempGroups((prev) => [...prev, gid]);
     setGroupInput("");
     showDomainAlert(t("groupAdded", { gid }));
@@ -158,7 +220,7 @@ export default function DomainFormModal({
   }
 
   function toggleMultipleChoice() {
-    if (!selectedGroupId) { showDomainAlert(t("pleaseSelectGroupFirst"), "danger"); return; }
+    if (!selectedGroupId) { toastDanger(t("pleaseSelectGroupFirst")); return; }
     setIsMultipleChoiceMode((prev) => !prev);
   }
 
@@ -169,6 +231,22 @@ export default function DomainFormModal({
         ? { ...c, group_id: c.group_id === selectedGroupId ? null : selectedGroupId }
         : c
     ));
+  }
+
+  /** 多选：对当前列表内公司全部归入 / 撤出当前分组 */
+  function toggleAssignSelectAll(candidateRows) {
+    if (!selectedGroupId || candidateRows.length === 0) return;
+    const allIn = candidateRows.every((c) => c.group_id === selectedGroupId);
+    const idsInFilter = new Set(candidateRows.map((c) => c.company_id));
+    setTempCompanies((prev) =>
+      prev.map((c) => {
+        if (!idsInFilter.has(c.company_id)) return c;
+        if (allIn) {
+          return c.group_id === selectedGroupId ? { ...c, group_id: null } : c;
+        }
+        return { ...c, group_id: selectedGroupId };
+      })
+    );
   }
 
   // ── Company Settings sub-modal callbacks ──────────────────────────────────
@@ -206,14 +284,21 @@ export default function DomainFormModal({
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!email.toLowerCase().endsWith("@gmail.com")) {
-      showDomainAlert(t("onlyGmailAllowed"), "danger"); return;
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.ok) {
+      toastDanger(t("invalidEmailFormat"));
+      return;
+    }
+    const overlap = findGroupCompanyCodeOverlap(tempGroups, tempCompanies);
+    if (overlap) {
+      toastDanger(t("groupCompanyIdOverlapSave", { id: overlap }));
+      return;
     }
     const data = {
       action: isEditMode ? "update" : "create",
       owner_code: ownerCode,
       name,
-      email,
+      email: emailCheck.normalized,
       companies: JSON.stringify(buildCompaniesPayload()),
     };
     if (!isEditMode || password) data.password = password;
@@ -240,10 +325,10 @@ export default function DomainFormModal({
         onSaved(json.data);
         onClose();
       } else {
-        showDomainAlert(json.message || t("operationFailed"), "danger");
+        toastDanger(json.message || t("operationFailed"));
       }
     } catch {
-      showDomainAlert(t("saveOwnerError"), "danger");
+      toastDanger(t("saveOwnerError"));
     }
   }
 
@@ -260,26 +345,59 @@ export default function DomainFormModal({
     }
 
     if (isMultipleChoiceMode && selectedGroupId) {
-      const candidates = tempCompanies
+      const pool = tempCompanies
         .filter((c) => !c.group_id || c.group_id === selectedGroupId)
         .sort((a, b) => a.company_id.localeCompare(b.company_id));
 
-      if (candidates.length === 0) {
-        return <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("noUngroupedCompaniesAvailable")}</span>;
+      if (pool.length === 0) {
+        return <span className="dfm-empty-hint">{t("noUngroupedCompaniesAvailable")}</span>;
       }
+
+      const allAssigned =
+        pool.length > 0 && pool.every((c) => c.group_id === selectedGroupId);
+
       return (
-        <div className="grid grid-cols-2 gap-1">
-          {candidates.map((c) => (
-            <div key={c.company_id} className="flex cursor-pointer items-center gap-2 rounded border border-gray-200 bg-white px-2.5 py-1.5 transition-colors hover:bg-sky-50" onClick={() => toggleCompanyGroup(c.company_id)}>
-              <input
-                type="checkbox"
-                checked={c.group_id === selectedGroupId}
-                onChange={() => toggleCompanyGroup(c.company_id)}
-                onClick={(e) => e.stopPropagation()}
-              />
-              <label>{c.company_id}</label>
-            </div>
-          ))}
+        <div className="dfm-assign-mc-stack">
+          <label className="dfm-assign-mc-select-all">
+            <input
+              type="checkbox"
+              className="dfm-assign-ref-checkbox dfm-assign-select-all-checkbox"
+              checked={allAssigned}
+              onChange={() => toggleAssignSelectAll(pool)}
+            />
+            <span>{t("selectAll")}</span>
+          </label>
+          <div className="dfm-assign-mc-list">
+            {pool.map((c) => (
+              <div key={c.company_id} className="company-item dfm-assign-mc-row">
+                <div className="company-item-left">
+                  <input
+                    type="checkbox"
+                    id={`dfm-mc-${c.company_id}`}
+                    className="dfm-assign-ref-checkbox dfm-assign-row-checkbox"
+                    checked={c.group_id === selectedGroupId}
+                    onChange={() => toggleCompanyGroup(c.company_id)}
+                  />
+                  <label className="dfm-assign-mc-name" htmlFor={`dfm-mc-${c.company_id}`}>
+                    {c.company_id}
+                  </label>
+                </div>
+                <div className="company-item-right">
+                  <span className="exp-date-display">
+                    {c.expiration_date ? formatDate(c.expiration_date) : t("notSet")}
+                  </span>
+                  <button
+                    type="button"
+                    className="company-reset-btn"
+                    onClick={() => openCompanySettings(c.company_id)}
+                    title={t("setExpirationDate")}
+                  >
+                    {t("set")}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
@@ -289,7 +407,7 @@ export default function DomainFormModal({
       const msg = selectedGroupId
         ? t("noCompaniesInGroup", { gid: selectedGroupId })
         : t("noUngroupedCompanies");
-      return <span style={{ color: "#94a3b8", fontSize: 12 }}>{msg}</span>;
+      return <span className="dfm-empty-hint">{msg}</span>;
     }
 
     return sorted.map((c) => (
@@ -321,6 +439,30 @@ export default function DomainFormModal({
     ? tempCompanies.find((c) => c.company_id === csModalCompanyId)
     : null;
 
+  const showMcAssignPanel = isMultipleChoiceMode && selectedGroupId;
+  const multiChoiceToggle =
+    selectedGroupId ? (
+      <button
+        type="button"
+        className={`dfm-multi-choice-btn ${
+          isMultipleChoiceMode ? "dfm-multi-choice-btn--on" : "dfm-multi-choice-btn--off"
+        }`}
+        aria-pressed={isMultipleChoiceMode}
+        onClick={toggleMultipleChoice}
+      >
+        {isMultipleChoiceMode ? (
+          <span className="dfm-mc-done-content">
+            <span>{t("doneCompact")}</span>
+            <span className="dfm-mc-done-icon" aria-hidden="true">
+              <span className="dfm-mc-done-icon-check" />
+            </span>
+          </span>
+        ) : (
+          t("multipleChoice")
+        )}
+      </button>
+    ) : null;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <DomainModalPortal>
@@ -341,7 +483,7 @@ export default function DomainFormModal({
         <div className="domain-form-modal-panel relative mx-auto my-[1.5%] flex w-[96%] max-w-[1100px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="dfm-header flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
             <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
-            <button className="flex h-9 w-9 items-center justify-center rounded-full border-0 bg-transparent text-[26px] text-black transition-colors hover:bg-gray-200" onClick={onClose}>&times;</button>
+            <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
           </div>
           <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={handleSubmit}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
@@ -374,10 +516,15 @@ export default function DomainFormModal({
                   <div className="dfm-field">
                     <label htmlFor="df_email">{t("email")} *</label>
                     <input
-                      type="email" id="df_email" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                      pattern=".*@gmail\.com$"
+                      type="text"
+                      id="df_email"
+                      inputMode="email"
+                      autoComplete="email"
+                      spellCheck={false}
+                      required
+                      className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                       value={email}
-                      onChange={(e) => setEmail(forceLowercaseValue(e.target.value))}
+                      onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
                     />
                   </div>
                   <div className="dfm-field">
@@ -411,37 +558,38 @@ export default function DomainFormModal({
                 {/* Right: Company info */}
                 <div className="dfm-col-right flex min-w-0 flex-col">
                   <div className="dfm-company-inputs-row mb-1 flex flex-wrap">
-                    {/* Group input */}
                     <div className="dfm-field min-w-0 flex-1">
-                      <label htmlFor="df_group_input">Group ID</label>
+                      <label htmlFor="df_group_input">{t("groupIdLabel")}</label>
                       <div className="dfm-input-with-btn flex min-w-0">
                         <input
-                          type="text" id="df_group_input"
-                          placeholder={t("groupIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          type="text"
+                          id="df_group_input"
+                          placeholder={t("groupIdPlaceholder")}
+                          className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={groupInput}
                           onChange={(e) => setGroupInput(forceUppercaseValue(e.target.value))}
-                          onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addGroup(); } }}
                         />
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addGroup}>{t("add")}</button>
                       </div>
                     </div>
-                    {/* Company input */}
                     <div className="dfm-field min-w-0 flex-1">
-                      <label htmlFor="df_company_input">Company ID</label>
+                      <label htmlFor="df_company_input">{t("companyIdLabel")}</label>
                       <div className="dfm-input-with-btn flex min-w-0">
                         <input
-                          type="text" id="df_company_input"
-                          placeholder={t("companyIdPlaceholder")} className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          type="text"
+                          id="df_company_input"
+                          placeholder={t("companyIdPlaceholder")}
+                          className="min-h-[42px] flex-1 rounded-l-lg rounded-r-none border border-r-0 border-gray-300 px-3.5 py-2.5 text-[15px] uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                           value={companyInput}
                           onChange={(e) => setCompanyInput(forceUppercaseValue(e.target.value))}
-                          onKeyPress={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
                         />
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addCompany}>{t("add")}</button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Group pills */}
                   <div className="dfm-field" id="groupPillsSection">
                     <label>{t("groupLabel")}</label>
                     <div className="group-pills">
@@ -480,27 +628,27 @@ export default function DomainFormModal({
                     </div>
                   </div>
 
-                  {/* Selected Companies */}
                   <div className="dfm-field dfm-field--stretch flex flex-1 flex-col">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <label>{t("selectedCompanies")}</label>
-                      {selectedGroupId && (
-                        <button
-                          type="button"
-                          className={`dfm-multi-choice-btn cursor-pointer rounded-[10px] border px-3 py-1.5 text-[11px] font-semibold transition-all ${
-                            isMultipleChoiceMode ? "dfm-multi-choice-btn--on" : "dfm-multi-choice-btn--off"
-                          }`}
-                          onClick={toggleMultipleChoice}
-                        >
-                          {isMultipleChoiceMode ? t("done") : t("multipleChoice")}
-                        </button>
+                    {!showMcAssignPanel && (
+                      <div className="dfm-selected-companies-row mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
+                        {multiChoiceToggle}
+                      </div>
+                    )}
+                    <div
+                      className={`dfm-selected-list${showMcAssignPanel ? " dfm-selected-list--mc-mode" : ""}`}
+                    >
+                      {showMcAssignPanel && (
+                        <div className="dfm-mc-panel-head">
+                          <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
+                          {multiChoiceToggle}
+                        </div>
                       )}
-                    </div>
-                    <div className="dfm-selected-list">
-                      {tempCompanies.length === 0
-                        ? <span className="dfm-empty-hint">{t("noCompaniesAddedYet")}</span>
-                        : renderCompanyList()
-                      }
+                      {tempCompanies.length === 0 ? (
+                        <span className="dfm-empty-hint">{t("noCompaniesAddedYet")}</span>
+                      ) : (
+                        renderCompanyList()
+                      )}
                     </div>
                   </div>
                 </div>
@@ -519,7 +667,7 @@ export default function DomainFormModal({
         <CompanySettingsModal
           lang={lang}
           company={csCompany}
-          domainFeePrice={domainFeePrice}
+          domainPeriodPrices={domainPeriodPrices}
           sessionCompanyId={sessionCompanyId}
           sessionCompanyCode={sessionCompanyCode}
           onSave={handleCompanySettingsSaved}

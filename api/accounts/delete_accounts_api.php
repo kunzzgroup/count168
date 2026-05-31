@@ -4,12 +4,13 @@
  * 路径: api/accounts/delete_accounts_api.php
  */
 header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../includes/deleted_log.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
+require_once __DIR__ . '/../deleted_log/deleted_log.php';
 require_once __DIR__ . '/../api_response.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -17,9 +18,73 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) return $id;
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    return (int)($stmt->fetchColumn() ?: 0);
+}
+
+function resolveScopeCompanyId(PDO $pdo, array $input): int {
+    $groupScopeId = normalizeGroupId($input['group_id'] ?? ($_POST['group_id'] ?? null));
+    $requestedCompany = (int)($input['company_id'] ?? ($_POST['company_id'] ?? 0));
+    if ($requestedCompany > 0) {
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $requestedCompany, $groupScopeId);
+        } elseif (!deleted_log_user_can_use_company($pdo, $requestedCompany)) {
+            throw new Exception('No permission for requested company');
+        }
+        return $requestedCompany;
+    }
+
+    if ($groupScopeId !== null) {
+        $groupEntityCompanyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
+        if ($groupEntityCompanyId <= 0) {
+            throw new Exception('Company not selected');
+        }
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $groupEntityCompanyId, $groupScopeId);
+        }
+        return $groupEntityCompanyId;
+    }
+
+    $sessionCompany = (int)($_SESSION['company_id'] ?? 0);
+    if ($sessionCompany > 0) {
+        return $sessionCompany;
+    }
+
+    throw new Exception('Company not selected');
+}
+
 try {
     if (!isset($_SESSION['user_id'])) {
         api_error('User not logged in', 401);
+        exit;
+    }
+
+    if (is_partnership_audit_read_only_active($pdo)) {
+        api_error('只读账号无法删除账户', 403);
         exit;
     }
 
@@ -32,15 +97,7 @@ try {
         exit;
     }
 
-    $company_id = (int) ($_SESSION['company_id'] ?? 0);
-    $requestedCompany = isset($input['company_id']) ? (int) $input['company_id'] : 0;
-    if ($requestedCompany > 0 && deleted_log_user_can_use_company($pdo, $requestedCompany)) {
-        $company_id = $requestedCompany;
-    }
-    if ($company_id <= 0) {
-        api_error('Company not selected', 400);
-        exit;
-    }
+    $company_id = resolveScopeCompanyId($pdo, $input);
 
     $has_account_company_table = false;
     try {
@@ -61,6 +118,10 @@ try {
     ");
     $checkStmt->execute($checkParams);
     $accountsToDelete = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($accountsToDelete)) {
+        api_error('No deletable accounts found in current scope', 400);
+        exit;
+    }
 
     $activeAccounts = array_filter($accountsToDelete, function ($account) {
         return $account['status'] === 'active';

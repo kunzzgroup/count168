@@ -4,41 +4,15 @@
  * 路径: api/reports/customer_report_api.php
  */
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/report_scope_common.php';
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 function reportMoneyOut($value): string {
     return money_out($value ?? '0');
-}
-
-function resolveCompanyId(PDO $pdo): int {
-    if (!isset($_SESSION['user_id'])) {
-        throw new Exception('用户未登录');
-    }
-    if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
-        $requested = (int) $_GET['company_id'];
-        $role = strtolower($_SESSION['role'] ?? '');
-        if ($role === 'owner') {
-            $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested, $ownerId]);
-            if ($stmt->fetchColumn()) {
-                return $requested;
-            }
-            throw new Exception('无权访问该公司');
-        }
-        if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requested) {
-            return $requested;
-        }
-        throw new Exception('无权访问该公司');
-    }
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('缺少公司信息');
-    }
-    return (int) $_SESSION['company_id'];
 }
 
 function tableExists(PDO $pdo, string $tableName): bool {
@@ -49,6 +23,26 @@ function tableExists(PDO $pdo, string $tableName): bool {
 function columnExists(PDO $pdo, string $table, string $column): bool {
     $stmt = $pdo->query("SHOW COLUMNS FROM `$table` LIKE " . $pdo->quote($column));
     return $stmt && $stmt->rowCount() > 0;
+}
+
+/**
+ * 与 Transaction 列表一致：公司代码 + 集团 ID（大写），供报表行展示。
+ */
+function fetchCompanyReportMeta(PDO $pdo, int $companyId): array {
+    $stmt = $pdo->prepare("SELECT company_id, group_id FROM company WHERE id = ? LIMIT 1");
+    $stmt->execute([$companyId]);
+    $r = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$r) {
+        return ['company_id' => null, 'group_id' => null];
+    }
+    $cid = isset($r['company_id']) ? strtoupper(trim((string) $r['company_id'])) : '';
+    $gidRaw = $r['group_id'] ?? null;
+    $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '')
+        ? strtoupper(trim((string) $gidRaw)) : null;
+    return [
+        'company_id' => $cid !== '' ? $cid : null,
+        'group_id' => $gid,
+    ];
 }
 
 function getAccountsForReport(PDO $pdo, int $companyId, string $accountIdFilter): array {
@@ -73,24 +67,143 @@ function getAccountsForReport(PDO $pdo, int $companyId, string $accountIdFilter)
 }
 
 function getAccountCurrencies(PDO $pdo, int $accountId): array {
+    $map = getAccountCurrenciesBulk($pdo, [$accountId]);
+    return $map[$accountId] ?? [];
+}
+
+/**
+ * 一次查询取多个账户的币种绑定（替代逐账户 N 次查询）。
+ * @return array<int, list<array{currency_id:int,currency_code:string}>>
+ */
+function getAccountCurrenciesBulk(PDO $pdo, array $accountIds): array {
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds))));
+    $out = [];
+    foreach ($accountIds as $aid) {
+        $out[$aid] = [];
+    }
+    if (empty($accountIds)) {
+        return $out;
+    }
     if (tableExists($pdo, 'account_currency')) {
-        $stmt = $pdo->prepare("SELECT c.id AS currency_id, c.code AS currency_code
-                              FROM account_currency ac
-                              INNER JOIN currency c ON ac.currency_id = c.id
-                              WHERE ac.account_id = ? ORDER BY ac.created_at ASC");
-        $stmt->execute([$accountId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $chunkSize = 400;
+        for ($i = 0; $i < count($accountIds); $i += $chunkSize) {
+            $chunk = array_slice($accountIds, $i, $chunkSize);
+            $in = implode(',', array_fill(0, count($chunk), '?'));
+            $sql = "SELECT ac.account_id, c.id AS currency_id, c.code AS currency_code
+                    FROM account_currency ac
+                    INNER JOIN currency c ON ac.currency_id = c.id
+                    WHERE ac.account_id IN ($in)
+                    ORDER BY ac.account_id, ac.created_at ASC";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($chunk);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $aid = (int) $row['account_id'];
+                if (!isset($out[$aid])) {
+                    $out[$aid] = [];
+                }
+                $out[$aid][] = [
+                    'currency_id' => (int) $row['currency_id'],
+                    'currency_code' => $row['currency_code'],
+                ];
+            }
+        }
+        return $out;
     }
     if (columnExists($pdo, 'account', 'currency_id')) {
-        $stmt = $pdo->prepare("SELECT c.id AS currency_id, c.code AS currency_code
-                              FROM account a
-                              INNER JOIN currency c ON a.currency_id = c.id
-                              WHERE a.id = ?");
-        $stmt->execute([$accountId]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ? [$row] : [];
+        $chunkSize = 400;
+        for ($i = 0; $i < count($accountIds); $i += $chunkSize) {
+            $chunk = array_slice($accountIds, $i, $chunkSize);
+            $in = implode(',', array_fill(0, count($chunk), '?'));
+            $sql = "SELECT a.id AS account_id, c.id AS currency_id, c.code AS currency_code
+                    FROM account a
+                    INNER JOIN currency c ON a.currency_id = c.id
+                    WHERE a.id IN ($in)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($chunk);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $aid = (int) $row['account_id'];
+                $out[$aid][] = [
+                    'currency_id' => (int) $row['currency_id'],
+                    'currency_code' => $row['currency_code'],
+                ];
+            }
+        }
     }
-    return [];
+    return $out;
+}
+
+/**
+ * 批量：各账户 × 币种 在日期内的 Win/Lose（与逐条 getWinLoseByCurrency 语义一致）。
+ * @return array<string, array{win:string,lose:string}> key = "accountId:currencyId"
+ */
+function fetchWinLoseByAccountCurrencyBulk(PDO $pdo, array $accountIds, string $dateFrom, string $dateTo): array {
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds))));
+    if (empty($accountIds)) {
+        return [];
+    }
+    $chunkSize = 250;
+    $agg = [];
+    for ($i = 0; $i < count($accountIds); $i += $chunkSize) {
+        $chunk = array_slice($accountIds, $i, $chunkSize);
+        $in = implode(',', array_fill(0, count($chunk), '?'));
+        $sql = "SELECT dcd.account_id, dcd.currency_id,
+                COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
+                COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN dcd.processed_amount ELSE 0 END), 0) AS lose_total
+            FROM data_capture_details dcd
+            INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE dcd.account_id IN ($in)
+              AND dc.capture_date BETWEEN ? AND ?
+            GROUP BY dcd.account_id, dcd.currency_id";
+        $params = array_merge($chunk, [$dateFrom, $dateTo]);
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $aid = (int) $row['account_id'];
+            $cid = (int) $row['currency_id'];
+            $key = $aid . ':' . $cid;
+            $agg[$key] = [
+                'win' => reportMoneyOut($row['win_total'] ?? '0'),
+                'lose' => reportMoneyOut($row['lose_total'] ?? '0'),
+            ];
+        }
+    }
+    return $agg;
+}
+
+/**
+ * 批量：无币种绑定账户在日期内的 Win/Lose（与 getWinLoseNoCurrency 一致：不按 currency_id 过滤）。
+ * @return array<int, array{win:string,lose:string}>
+ */
+function fetchWinLoseNoCurrencyBulk(PDO $pdo, array $accountIds, string $dateFrom, string $dateTo): array {
+    $accountIds = array_values(array_unique(array_filter(array_map('intval', $accountIds))));
+    if (empty($accountIds)) {
+        return [];
+    }
+    $chunkSize = 250;
+    $out = [];
+    for ($i = 0; $i < count($accountIds); $i += $chunkSize) {
+        $chunk = array_slice($accountIds, $i, $chunkSize);
+        $in = implode(',', array_fill(0, count($chunk), '?'));
+        $sql = "SELECT dcd.account_id,
+                COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
+                COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN dcd.processed_amount ELSE 0 END), 0) AS lose_total
+            FROM data_capture_details dcd
+            INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE dcd.account_id IN ($in)
+              AND dc.capture_date BETWEEN ? AND ?
+            GROUP BY dcd.account_id";
+        $params = array_merge($chunk, [$dateFrom, $dateTo]);
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $aid = (int) $row['account_id'];
+            $out[$aid] = [
+                'win' => reportMoneyOut($row['win_total'] ?? '0'),
+                'lose' => reportMoneyOut($row['lose_total'] ?? '0'),
+            ];
+        }
+    }
+    return $out;
 }
 
 function applyCurrencyFilter(array $currencyList, string $filterCodes): array {
@@ -103,55 +216,53 @@ function applyCurrencyFilter(array $currencyList, string $filterCodes): array {
     });
 }
 
-function getWinLoseByCurrency(PDO $pdo, int $accountId, int $currencyId, string $dateFrom, string $dateTo): array {
-    $sql = "SELECT
-                COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
-                COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN dcd.processed_amount ELSE 0 END), 0) AS lose_total
-            FROM data_capture_details dcd
-            JOIN data_captures dc ON dcd.capture_id = dc.id
-            WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dcd.currency_id = ?
-              AND dc.capture_date BETWEEN ? AND ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$accountId, $currencyId, $dateFrom, $dateTo]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return [
-        'win' => reportMoneyOut($row['win_total'] ?? '0'),
-        'lose' => reportMoneyOut($row['lose_total'] ?? '0')
-    ];
-}
-
-function getWinLoseNoCurrency(PDO $pdo, int $accountId, string $dateFrom, string $dateTo): array {
-    $sql = "SELECT
-                COALESCE(SUM(CASE WHEN dcd.processed_amount > 0 THEN dcd.processed_amount ELSE 0 END), 0) AS win_total,
-                COALESCE(SUM(CASE WHEN dcd.processed_amount < 0 THEN dcd.processed_amount ELSE 0 END), 0) AS lose_total
-            FROM data_capture_details dcd
-            JOIN data_captures dc ON dcd.capture_id = dc.id
-            WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dc.capture_date BETWEEN ? AND ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$accountId, $dateFrom, $dateTo]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    return [
-        'win' => reportMoneyOut($row['win_total'] ?? '0'),
-        'lose' => reportMoneyOut($row['lose_total'] ?? '0')
-    ];
-}
-
 function buildReportData(PDO $pdo, int $companyId, string $accountId, string $dateFrom, string $dateTo, bool $showAll, string $currencyFilter): array {
     $accounts = getAccountsForReport($pdo, $companyId, $accountId);
+    $coMeta = fetchCompanyReportMeta($pdo, $companyId);
     $reportData = [];
     $totalWin = '0.00000000';
     $totalLose = '0.00000000';
 
+    if (empty($accounts)) {
+        return [$reportData, reportMoneyOut($totalWin), reportMoneyOut($totalLose)];
+    }
+
+    $accountIds = array_map(static function ($a) {
+        return (int) $a['id'];
+    }, $accounts);
+    $curByAccount = getAccountCurrenciesBulk($pdo, $accountIds);
+
+    $idsWithAssignedCurrency = [];
+    $idsNoCurrency = [];
+    foreach ($accountIds as $aid) {
+        $allCurrencies = $curByAccount[$aid] ?? [];
+        if (!empty($allCurrencies)) {
+            $idsWithAssignedCurrency[] = $aid;
+        } else {
+            $idsNoCurrency[] = $aid;
+        }
+    }
+
+    $wlByPair = !empty($idsWithAssignedCurrency)
+        ? fetchWinLoseByAccountCurrencyBulk($pdo, $idsWithAssignedCurrency, $dateFrom, $dateTo)
+        : [];
+    $wlNoCur = !empty($idsNoCurrency)
+        ? fetchWinLoseNoCurrencyBulk($pdo, $idsNoCurrency, $dateFrom, $dateTo)
+        : [];
+
+    $zeroWin = reportMoneyOut('0');
+    $zeroLose = reportMoneyOut('0');
+
     foreach ($accounts as $account) {
         $accId = (int) $account['id'];
-        $allCurrencies = getAccountCurrencies($pdo, $accId);
+        $allCurrencies = $curByAccount[$accId] ?? [];
         $currencyList = applyCurrencyFilter($allCurrencies, $currencyFilter);
 
         if (!empty($currencyList)) {
             foreach ($currencyList as $cur) {
-                $wl = getWinLoseByCurrency($pdo, $accId, (int) $cur['currency_id'], $dateFrom, $dateTo);
+                $cid = (int) $cur['currency_id'];
+                $key = $accId . ':' . $cid;
+                $wl = $wlByPair[$key] ?? ['win' => $zeroWin, 'lose' => $zeroLose];
                 if (!$showAll && money_cmp($wl['win'], '0') === 0 && money_cmp($wl['lose'], '0') === 0) {
                     continue;
                 }
@@ -161,9 +272,11 @@ function buildReportData(PDO $pdo, int $companyId, string $accountId, string $da
                     'id' => $account['id'],
                     'account_id' => $account['account_id'],
                     'name' => $account['name'],
-                    'currency' => $cur['currency_code'],
+                    'group_id' => $coMeta['group_id'],
+                    'company_id' => $coMeta['company_id'],
+                    'currency' => strtoupper(trim((string) $cur['currency_code'])),
                     'win' => $wl['win'],
-                    'lose' => $wl['lose']
+                    'lose' => $wl['lose'],
                 ];
             }
         } elseif (!empty($allCurrencies)) {
@@ -172,7 +285,7 @@ function buildReportData(PDO $pdo, int $companyId, string $accountId, string $da
             if ($currencyFilter !== '') {
                 continue;
             }
-            $wl = getWinLoseNoCurrency($pdo, $accId, $dateFrom, $dateTo);
+            $wl = $wlNoCur[$accId] ?? ['win' => $zeroWin, 'lose' => $zeroLose];
             if (!$showAll && money_cmp($wl['win'], '0') === 0 && money_cmp($wl['lose'], '0') === 0) {
                 continue;
             }
@@ -182,9 +295,11 @@ function buildReportData(PDO $pdo, int $companyId, string $accountId, string $da
                 'id' => $account['id'],
                 'account_id' => $account['account_id'],
                 'name' => $account['name'],
+                'group_id' => $coMeta['group_id'],
+                'company_id' => $coMeta['company_id'],
                 'currency' => null,
                 'win' => $wl['win'],
-                'lose' => $wl['lose']
+                'lose' => $wl['lose'],
             ];
         }
     }
@@ -205,10 +320,8 @@ function jsonResponse(bool $success, string $message, $data = null, array $extra
 }
 
 try {
-    $companyId = resolveCompanyId($pdo);
-
-    if (!checkCompanyCategoryPermission($pdo, $companyId, 'Games')) {
-        throw new Exception('Unauthorized permission category');
+    if (!isset($_SESSION['user_id'])) {
+        throw new Exception('用户未登录');
     }
 
     $dateFrom = trim($_GET['date_from'] ?? '');
@@ -236,13 +349,38 @@ try {
     $showAll = filter_var($_GET['show_all'] ?? false, FILTER_VALIDATE_BOOLEAN);
     $currencyFilter = trim($_GET['currency'] ?? '');
 
-    list($reportData, $totalWin, $totalLose) = buildReportData($pdo, $companyId, $accountId, $dateFrom, $dateTo, $showAll, $currencyFilter);
+    $resolved = resolveReportRequestCompanyScope($pdo, $_GET);
+    $companyId = $resolved['company_id'];
+    $groupId = $resolved['group_id'];
+    $reportScopeHint = $resolved['report_scope_hint'];
+
+    $scope = $reportScopeHint === 'group' ? 'group' : 'company';
+    $coMeta = fetchCompanyReportMeta($pdo, $companyId);
+    if (
+        $scope !== 'group'
+        && $groupId !== ''
+        && !empty($coMeta['company_id'])
+        && reportNormalizeGroupId($coMeta['company_id']) === $groupId
+    ) {
+        $scope = 'group';
+    }
+
+    list($reportData, $totalWin, $totalLose) = buildReportData(
+        $pdo,
+        $companyId,
+        $accountId,
+        $dateFrom,
+        $dateTo,
+        $showAll,
+        $currencyFilter
+    );
 
     jsonResponse(true, '', $reportData, [
+        'scope' => $scope,
         'total_win' => $totalWin,
         'total_lose' => $totalLose,
         'date_from' => $dateFrom,
-        'date_to' => $dateTo
+        'date_to' => $dateTo,
     ]);
 
 } catch (Exception $e) {

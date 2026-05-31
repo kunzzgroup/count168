@@ -1,30 +1,44 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { formatDmy } from "../transactionFormat.js";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
+import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
   TX_LIST_INVALIDATE_LS_KEY,
   applyPaymentWinLossFilters,
   applyZeroBalanceFilter,
+  applySummaryWinLossDisplayTolerance,
   buildTxListSessionKey,
   calculateTotals,
   countDisplayedRows,
-  mergeTotals,
   normalizeRateRowsByCrDr,
   readTransactionCurrencyFilterState,
+  readTxListFromSessionStorage,
   sortByRole,
   sanitizeSearchApiData,
-} from "../transactionPaymentLogic.js";
-import { searchTransactions as searchTransactionsApi, saveUserCurrencyOrder } from "../transactionApi.js";
+  mergeSearchApiDataList,
+} from "../lib/transactionPaymentLogic.js";
+import {
+  searchTransactions as searchTransactionsApi,
+  saveUserCurrencyOrder,
+  transactionQueryKeys,
+} from "../lib/transactionApi.js";
+import { clearTxSearchCache, getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
+import {
+  transactionScopeApiParams,
+  transactionScopeCacheCompanyKey,
+  transactionScopeCacheKey,
+  transactionScopeIsReady,
+} from "../lib/transactionScope.js";
 
 export function useTransactionSearch({
   filterSnapshot,
+  transactionScope,
   todayDmy,
   pushToast,
   txType,
   currencyRowsOrdered,
   setCurrencyRowsOrdered,
+  m,
+  t,
 }) {
   const [dateFrom, setDateFrom] = useState(null);
   const [dateTo, setDateTo] = useState(null);
@@ -50,17 +64,25 @@ export function useTransactionSearch({
   const lastSearchCommitMsRef = useRef(0);
   const runSearchRef = useRef(null);
   const autoSearchTimerRef = useRef(null);
-  const prevServerFilterRef = useRef({
-    showPaymentOnly: false,
-    showCaptureOnly: false,
-  });
+  /** Tracks last server-side filter chips; null until after first search commit (avoids duplicate fetch on mount). */
+  const prevServerSideFiltersRef = useRef(null);
+  /** After a real company switch, skip one blocking "Loading data" overlay (still fetch in background). */
+  const suppressBlockingOverlayOnceRef = useRef(false);
+  const prevScopeKeyForSearchRef = useRef(null);
+  /** Capture Date 变更后触发搜索；与「仅首次拉数」的 initial effect 分离，避免 initialSearchDoneRef 为 true 时改日期不请求 */
+  const prevCaptureDateRangeKeyRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [quickOpen, setQuickOpen] = useState(false);
 
   const categoryAllCheckboxRef = useRef(null);
   const effectiveDateFrom = dateFrom || todayDmy;
   const effectiveDateTo = dateTo || todayDmy;
   const effectiveDateRangeText = `${effectiveDateFrom} - ${effectiveDateTo}`;
+  const selectedCurrenciesKey = selectedCurrencies.map((c) => String(c || "").toUpperCase()).join(",");
+  const scopeCompanyId = transactionScope?.scopeCompanyId ?? null;
+  const scopeViewGroup = transactionScope?.viewGroup ?? null;
+  const scopeReady = transactionScopeIsReady(transactionScope);
+  const scopeApi = useMemo(() => transactionScopeApiParams(transactionScope), [transactionScope]);
+  const scopeCacheCompanyKey = transactionScopeCacheCompanyKey(transactionScope);
 
   const persistCurrencyFilter = useCallback((companyId, showAll, sel) => {
     if (!companyId) return;
@@ -75,7 +97,6 @@ export function useTransactionSearch({
   }, []);
 
   const toggleCategory = useCallback(() => setCategoryOpen((v) => !v), []);
-  const toggleQuick = useCallback(() => setQuickOpen((v) => !v), []);
 
   const onCategoryAllChange = useCallback((checked) => {
     if (!checked) return;
@@ -101,90 +122,28 @@ export function useTransactionSearch({
     categoryChangedByUserRef.current = true;
   }, []);
 
-  const scheduleAutoSearch = useCallback(
-    ({ silent = false, isInitialLoad = false, delayMs = 260 } = {}) => {
-      if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
-      autoSearchTimerRef.current = setTimeout(() => {
-        autoSearchTimerRef.current = null;
-        void runSearchRef.current?.({ silent, isInitialLoad });
-      }, delayMs);
-    },
-    [],
-  );
-
-  const selectQuickRange = useCallback((key) => {
-    setQuickOpen(false);
-    if (typeof window.selectQuickRange === "function") {
-      window.selectQuickRange(key);
-      return;
-    }
-
-    const now = new Date();
-    const start = new Date(now);
-    const end = new Date(now);
-
-    const setWeekStart = (d) => {
-      const day = d.getDay();
-      const diff = day;
-      d.setDate(d.getDate() - diff);
-    };
-
-    const setWeekEnd = (d) => {
-      const day = d.getDay();
-      const diff = 6 - day;
-      d.setDate(d.getDate() + diff);
-    };
-
-    switch (key) {
-      case "today":
-        break;
-      case "yesterday":
-        start.setDate(start.getDate() - 1);
-        end.setDate(end.getDate() - 1);
-        break;
-      case "thisWeek":
-        setWeekStart(start);
-        setWeekEnd(end);
-        break;
-      case "lastWeek": {
-        setWeekStart(start);
-        setWeekEnd(end);
-        start.setDate(start.getDate() - 7);
-        end.setDate(end.getDate() - 7);
-        break;
-      }
-      case "thisMonth":
-        start.setDate(1);
-        end.setMonth(end.getMonth() + 1, 0);
-        break;
-      case "lastMonth":
-        start.setMonth(start.getMonth() - 1, 1);
-        end.setMonth(end.getMonth(), 0);
-        break;
-      case "thisYear":
-        start.setMonth(0, 1);
-        end.setMonth(11, 31);
-        break;
-      case "lastYear":
-        start.setFullYear(start.getFullYear() - 1, 0, 1);
-        end.setFullYear(end.getFullYear() - 1, 11, 31);
-        break;
-      default:
-        break;
-    }
-
-    setDateFrom(formatDmy(start));
-    setDateTo(formatDmy(end));
-    scheduleAutoSearch({ silent: false, delayMs: 120 });
-  }, [setDateFrom, setDateTo, scheduleAutoSearch]);
+  const scheduleAutoSearch = useCallback(({ isInitialLoad = false, delayMs = 260 } = {}) => {
+    if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
+    autoSearchTimerRef.current = setTimeout(() => {
+      autoSearchTimerRef.current = null;
+      void runSearchRef.current?.({
+        silent: true,
+        notifyErrors: true,
+        showBlockingOverlay: false,
+        isInitialLoad,
+      });
+    }, delayMs);
+  }, []);
 
   const toggleAllCurrenciesBtn = useCallback(() => {
     const next = !showAllCurrencies;
     setShowAllCurrencies(next);
     const nextSel = [];
     setSelectedCurrencies(nextSel);
-    persistCurrencyFilter(filterSnapshot?.companyId, next, nextSel);
-  }, [showAllCurrencies, filterSnapshot?.companyId, persistCurrencyFilter]);
+    persistCurrencyFilter(scopeCacheCompanyKey, next, nextSel);
+    // Currency is not wired through categoryChangedByUserRef; schedule search after state flush.
+    scheduleAutoSearch();
+  }, [showAllCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch]);
 
   const toggleCurrencyBtn = useCallback(
     (code) => {
@@ -203,9 +162,10 @@ export function useTransactionSearch({
 
       setShowAllCurrencies(nextShowAll);
       setSelectedCurrencies(nextSel);
-      persistCurrencyFilter(filterSnapshot?.companyId, nextShowAll, nextSel);
+      persistCurrencyFilter(scopeCompanyId, nextShowAll, nextSel);
+      scheduleAutoSearch();
     },
-    [selectedCurrencies, filterSnapshot?.companyId, persistCurrencyFilter],
+    [selectedCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch],
   );
 
   const onCurrencyDragStart = useCallback((code) => {
@@ -233,16 +193,6 @@ export function useTransactionSearch({
   );
 
   useEffect(() => {
-    if (!quickOpen) return;
-    const close = (e) => {
-      if (e.target.closest?.(".quick-select-dropdown-toggle")) return;
-      setQuickOpen(false);
-    };
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [quickOpen]);
-
-  useEffect(() => {
     if (!categoryOpen) return;
     const close = (e) => {
       if (e.target.closest?.(".category-dropdown")) return;
@@ -252,16 +202,17 @@ export function useTransactionSearch({
     return () => document.removeEventListener("click", close);
   }, [categoryOpen]);
 
+  // Category-only auto search (currency toggles call scheduleAutoSearch directly; they are not gated by this ref).
   useEffect(() => {
     if (!categoryChangedByUserRef.current) return;
     categoryChangedByUserRef.current = false;
-    if (!filterSnapshot?.companyId) return;
+    if (!scopeReady) return;
     if (!effectiveDateFrom || !effectiveDateTo) return;
     if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-    scheduleAutoSearch({ silent: false });
+    scheduleAutoSearch();
   }, [
     selectedCategories,
-    filterSnapshot?.companyId,
+    scopeReady,
     effectiveDateFrom,
     effectiveDateTo,
     effectiveDateRangeText,
@@ -270,28 +221,43 @@ export function useTransactionSearch({
     scheduleAutoSearch,
   ]);
 
-  // NOTE:
-  // Most checkbox changes are list-local for speed.
-  // But when server-side-narrowed filters are turned OFF, refresh once to restore full dataset.
+  // Show 0 balance 需重搜（后端 account×currency 范围变化）；Payment/Win-Loss 勾选时前端即时过滤，取消勾选时再拉全量。
   useEffect(() => {
-    const prev = prevServerFilterRef.current;
-    const paymentTurnedOff = prev.showPaymentOnly && !searchState.showPaymentOnly;
-    const captureTurnedOff = prev.showCaptureOnly && !searchState.showCaptureOnly;
-    prevServerFilterRef.current = {
+    if (!initialSearchDoneRef.current) return;
+    if (!scopeReady) return;
+    if (!effectiveDateFrom || !effectiveDateTo) return;
+    if (!showAllCurrencies && selectedCurrencies.length === 0) return;
+
+    const current = {
       showPaymentOnly: searchState.showPaymentOnly,
       showCaptureOnly: searchState.showCaptureOnly,
+      showZeroBalance: searchState.showZeroBalance,
     };
 
-    if (!paymentTurnedOff && !captureTurnedOff) return;
-    if (!filterSnapshot?.companyId) return;
-    if (!effectiveDateFrom || !effectiveDateTo) return;
-    scheduleAutoSearch({ silent: false, delayMs: 80 });
+    if (prevServerSideFiltersRef.current === null) {
+      prevServerSideFiltersRef.current = current;
+      return;
+    }
+
+    const prev = prevServerSideFiltersRef.current;
+    const zeroBalanceChanged = prev.showZeroBalance !== current.showZeroBalance;
+    const paymentTurnedOff = prev.showPaymentOnly && !current.showPaymentOnly;
+    const captureTurnedOff = prev.showCaptureOnly && !current.showCaptureOnly;
+
+    prevServerSideFiltersRef.current = current;
+
+    if (!zeroBalanceChanged && !paymentTurnedOff && !captureTurnedOff) return;
+
+    scheduleAutoSearch({ delayMs: 80 });
   }, [
     searchState.showPaymentOnly,
     searchState.showCaptureOnly,
-    filterSnapshot?.companyId,
+    searchState.showZeroBalance,
+    scopeReady,
     effectiveDateFrom,
     effectiveDateTo,
+    showAllCurrencies,
+    selectedCurrenciesKey,
     scheduleAutoSearch,
   ]);
 
@@ -299,7 +265,7 @@ export function useTransactionSearch({
     (data) => {
       try {
         const key = buildTxListSessionKey({
-          companyId: filterSnapshot?.companyId,
+          companyId: scopeCacheCompanyKey,
           dateFrom: effectiveDateFrom,
           dateTo: effectiveDateTo,
           selectedCategories,
@@ -320,7 +286,7 @@ export function useTransactionSearch({
       }
     },
     [
-      filterSnapshot?.companyId,
+      scopeCacheCompanyKey,
       effectiveDateFrom,
       effectiveDateTo,
       selectedCategories,
@@ -332,173 +298,242 @@ export function useTransactionSearch({
     ],
   );
 
-  const runSearch = useCallback(async ({ silent = false, isInitialLoad = false } = {}) => {
-    const cid = filterSnapshot?.companyId;
-    if (!cid) return;
-    if (!effectiveDateFrom || !effectiveDateTo) {
-      pushToast("Please select date range", "error");
-      return;
-    }
-    if (!showAllCurrencies && selectedCurrencies.length === 0) {
-      setTablesVisible(false);
-      pushToast("Please select at least one Currency or select All", "info");
-      return;
-    }
-
-    const categoryParam =
-      selectedCategories.length > 0 && !selectedCategories.includes("")
-        ? [...selectedCategories].sort().join(",")
-        : "";
-    const singleSelectedCurrency =
-      !showAllCurrencies && selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase() : "";
-
-    const showInactiveForQuery =
-      searchState.showZeroBalance && searchState.showPaymentOnly ? false : searchState.showPaymentOnly;
-    const showCaptureOnlyForQuery =
-      searchState.showZeroBalance && searchState.showCaptureOnly ? false : searchState.showCaptureOnly;
-
-    const requestKey = JSON.stringify({
-      dateFrom: effectiveDateFrom,
-      dateTo: effectiveDateTo,
-      categoryParam,
-      showInactive: showInactiveForQuery ? "1" : "0",
-      showCaptureOnly: showCaptureOnlyForQuery ? "1" : "0",
-      hideZero: searchState.showZeroBalance ? "0" : "1",
-      companyId: cid || "",
-      showAllCurrencies: !!showAllCurrencies,
-      currencies: [...selectedCurrencies].sort().join(","),
-    });
-
-    if (!silent && !isInitialLoad && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
-      return;
-    }
-
-    const runToken = ++latestRunTokenRef.current;
-    await queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
-
-    if (!silent) setSearchLoading(true);
-    setTablesVisible(true);
-
-    const paramsBase = {
-      companyId: cid,
-      dateFrom: effectiveDateFrom,
-      dateTo: effectiveDateTo,
-      showInactive: showInactiveForQuery,
-      showCaptureOnly: showCaptureOnlyForQuery,
-      hideZeroBalance: !searchState.showZeroBalance,
-      categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-      currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
-    };
-
-    const fetchSearch = (params) =>
-      queryClient.fetchQuery({
-        queryKey: transactionQueryKeys.search(params),
-        queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
-        staleTime: 15_000,
-        gcTime: 2 * 60_000,
-      });
-
-    const commitQuiet = (data) => {
-      const cleaned = sanitizeSearchApiData(data);
-      setRawSearchData(cleaned);
-      saveTxListToSession(cleaned);
-      lastCompletedSearchKeyRef.current = requestKey;
-      lastCompletedSearchTsRef.current = Date.now();
-      const totalAccounts = (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
-      const displayed = countDisplayedRows(cleaned, searchState, txType);
-      if (!silent) {
-        if (totalAccounts === 0) {
-          pushToast(
-            "Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted",
-            "info",
-          );
-        } else if (displayed === 0 && totalAccounts > 0) {
-          pushToast(
-            `Search returned ${totalAccounts} row(s), but none match current display filters (e.g. zero balance hidden when "Show 0 balance" is off, or "Show Payment Only" / "Show Win/Loss Only"). Enable "Show 0 balance" or adjust filters.`,
-            "info",
-          );
-        } else {
-          pushToast(`Search completed, found ${displayed} record(s)`, "success");
-        }
+  const runSearch = useCallback(
+    async ({
+      silent = false,
+      isInitialLoad = false,
+      forceRefresh = false,
+      notifyErrors: notifyErrorsOpt,
+      showBlockingOverlay: showBlockingOverlayOpt,
+    } = {}) => {
+      const cid = scopeCacheCompanyKey;
+      const notifyErr = notifyErrorsOpt !== undefined ? notifyErrorsOpt : !silent;
+      if (!scopeReady || !cid) return;
+      if (!effectiveDateFrom || !effectiveDateTo) {
+        pushToast(m.pleaseSelectDateRange, "error");
+        return;
       }
-    };
-
-    try {
-      const result = await fetchSearch(paramsBase);
-      if (latestRunTokenRef.current !== runToken) return;
-      if (!result?.success || !result?.data) {
-        if (!silent) {
-          setRawSearchData(null);
-          pushToast(result?.message || result?.error || "Search failed", "error");
-        }
+      if (!showAllCurrencies && selectedCurrencies.length === 0) {
+        setTablesVisible(false);
+        pushToast(m.pleaseSelectAtLeastOneCurrency, "info");
         return;
       }
 
-      let currentData = result.data;
-      const leftRows = Array.isArray(currentData.left_table) ? currentData.left_table : [];
-      const rightRows = Array.isArray(currentData.right_table) ? currentData.right_table : [];
-      const totalAccounts = leftRows.length + rightRows.length;
+      const categoryParam =
+        selectedCategories.length > 0 && !selectedCategories.includes("")
+          ? [...selectedCategories].sort().join(",")
+          : "";
+      const singleSelectedCurrency =
+        !showAllCurrencies && selectedCurrencies.length === 1 ? String(selectedCurrencies[0] || "").toUpperCase() : "";
 
-      if (singleSelectedCurrency && totalAccounts === 0) {
-        const fallback = await fetchSearch({
-          ...paramsBase,
-          currencyCodes: undefined,
-        });
-        if (latestRunTokenRef.current !== runToken) return;
-        if (fallback?.success && fallback?.data) {
-          const fbLeft = (fallback.data.left_table || []).filter(
-            (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
-          );
-          const fbRight = (fallback.data.right_table || []).filter(
-            (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
-          );
-          currentData = {
-            ...fallback.data,
-            left_table: fbLeft,
-            right_table: fbRight,
-            totals: {
-              left: calculateTotals(fbLeft),
-              right: calculateTotals(fbRight),
-              summary: mergeTotals(calculateTotals(fbLeft), calculateTotals(fbRight)),
-            },
-          };
-        }
-      } else if (searchState.showCaptureOnly && totalAccounts === 0) {
-        const fallback = await fetchSearch({
-          ...paramsBase,
-          showCaptureOnly: false,
-        });
-        if (latestRunTokenRef.current !== runToken) return;
-        if (fallback?.success && fallback?.data?.totals) {
-          currentData = {
-            ...currentData,
-            totals: fallback.data.totals,
-          };
-        }
+      const showInactiveForQuery =
+        searchState.showZeroBalance && searchState.showPaymentOnly ? false : searchState.showPaymentOnly;
+      const showCaptureOnlyForQuery =
+        searchState.showZeroBalance && searchState.showCaptureOnly ? false : searchState.showCaptureOnly;
+
+      const requestKey = JSON.stringify({
+        dateFrom: effectiveDateFrom,
+        dateTo: effectiveDateTo,
+        categoryParam,
+        showInactive: showInactiveForQuery ? "1" : "0",
+        showCaptureOnly: showCaptureOnlyForQuery ? "1" : "0",
+        hideZero: searchState.showZeroBalance ? "0" : "1",
+        companyId: cid || "",
+        showAllCurrencies: !!showAllCurrencies,
+        currencies: [...selectedCurrencies].sort().join(","),
+      });
+
+      if (!isInitialLoad && !forceRefresh && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
+        return;
       }
 
-      if (latestRunTokenRef.current !== runToken) return;
-      commitQuiet(currentData);
-    } catch (e) {
-      if (e?.name === "AbortError" || e?.name === "CanceledError") return;
-      console.error(e);
-      if (!silent) pushToast(`Search failed: ${e.message}`, "error");
-    } finally {
-      if (!silent) setSearchLoading(false);
-    }
-  }, [
-    filterSnapshot?.companyId,
-    effectiveDateFrom,
-    effectiveDateTo,
-    showAllCurrencies,
-    selectedCurrencies,
-    selectedCategories,
-    searchState,
-    pushToast,
-    saveTxListToSession,
-    queryClient,
-    txType,
-  ]);
+      const sessionKey = buildTxListSessionKey({
+        companyId: cid,
+        dateFrom: effectiveDateFrom,
+        dateTo: effectiveDateTo,
+        selectedCategories,
+        showInactive: showInactiveForQuery,
+        showCaptureOnly: showCaptureOnlyForQuery,
+        hideZeroBalance: !searchState.showZeroBalance,
+        showAllCurrencies,
+        selectedCurrencies,
+      });
+
+      let instantData = null;
+      if (!forceRefresh) {
+        instantData =
+          getTxSearchCache(requestKey) ?? (sessionKey ? readTxListFromSessionStorage(sessionKey) : null);
+      }
+
+      const baseBlockOverlay = showBlockingOverlayOpt !== undefined ? showBlockingOverlayOpt : !silent;
+      let blockOverlay = baseBlockOverlay;
+      if (suppressBlockingOverlayOnceRef.current) {
+        if (baseBlockOverlay) blockOverlay = false;
+        suppressBlockingOverlayOnceRef.current = false;
+      }
+
+      const runToken = ++latestRunTokenRef.current;
+      await queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
+
+      if (instantData) {
+        setRawSearchData(instantData);
+        setTablesVisible(true);
+      } else if (!isInitialLoad && !silent) {
+        setRawSearchData(null);
+      }
+
+      let didSetBlockingLoading = false;
+      const showLoadingIndicator = blockOverlay || !instantData;
+      if (showLoadingIndicator) {
+        setSearchLoading(true);
+        didSetBlockingLoading = true;
+      }
+      setTablesVisible(true);
+
+      const paramsBase = {
+        ...scopeApi,
+        dateFrom: effectiveDateFrom,
+        dateTo: effectiveDateTo,
+        showInactive: showInactiveForQuery,
+        showCaptureOnly: showCaptureOnlyForQuery,
+        hideZeroBalance: !searchState.showZeroBalance,
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+        currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
+      };
+
+      const fetchSearch = (params) =>
+        queryClient.fetchQuery({
+          queryKey: transactionQueryKeys.search(params),
+          queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
+          staleTime: 5 * 60_000,
+          gcTime: 15 * 60_000,
+        });
+
+      const commitQuiet = (data) => {
+        const cleaned = sanitizeSearchApiData(data);
+        setRawSearchData(cleaned);
+        setTxSearchCache(requestKey, cleaned);
+        saveTxListToSession(cleaned);
+        lastCompletedSearchKeyRef.current = requestKey;
+        lastCompletedSearchTsRef.current = Date.now();
+        const totalAccounts = (cleaned.left_table?.length || 0) + (cleaned.right_table?.length || 0);
+        const displayed = countDisplayedRows(cleaned, searchState, txType);
+        if (!silent) {
+          if (totalAccounts === 0) {
+            pushToast(m.searchCompletedNoData, "info");
+          } else if (displayed === 0 && totalAccounts > 0) {
+            pushToast(t("searchReturnedRowsNoneMatch", { totalAccounts }), "info");
+          } else {
+            pushToast(t("searchCompletedFoundRecords", { displayed }), "success");
+          }
+        }
+      };
+
+      try {
+        let currentData = null;
+        if (transactionScope?.mode === "aggregate" && transactionScope.mergeCompanyIds?.length) {
+          const results = await Promise.all(
+            transactionScope.mergeCompanyIds.map((cid) =>
+              fetchSearch({
+                ...paramsBase,
+                companyId: cid,
+                viewGroup: scopeViewGroup || undefined,
+                groupId: undefined,
+              }),
+            ),
+          );
+          if (latestRunTokenRef.current !== runToken) return;
+          const payloads = results.filter((r) => r?.success && r?.data).map((r) => r.data);
+          if (!payloads.length) {
+            if (notifyErr) pushToast(m.searchFailed, "error");
+            if (!silent) setRawSearchData(null);
+            return;
+          }
+          currentData = mergeSearchApiDataList(payloads);
+        } else {
+          const result = await fetchSearch(paramsBase);
+          if (latestRunTokenRef.current !== runToken) return;
+          if (!result?.success || !result?.data) {
+            if (notifyErr) {
+              pushToast(result?.message || result?.error || m.searchFailed, "error");
+            }
+            if (!silent) {
+              setRawSearchData(null);
+            }
+            return;
+          }
+          currentData = result.data;
+        }
+        const leftRows = Array.isArray(currentData.left_table) ? currentData.left_table : [];
+        const rightRows = Array.isArray(currentData.right_table) ? currentData.right_table : [];
+        const totalAccounts = leftRows.length + rightRows.length;
+
+        if (singleSelectedCurrency && totalAccounts === 0) {
+          const fallback = await fetchSearch({
+            ...paramsBase,
+            currencyCodes: undefined,
+          });
+          if (latestRunTokenRef.current !== runToken) return;
+          if (fallback?.success && fallback?.data) {
+            const fbLeft = (fallback.data.left_table || []).filter(
+              (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
+            );
+            const fbRight = (fallback.data.right_table || []).filter(
+              (row) => String(row?.currency || "").toUpperCase() === singleSelectedCurrency,
+            );
+            currentData = {
+              ...fallback.data,
+              left_table: fbLeft,
+              right_table: fbRight,
+              totals: {
+                left: calculateTotals(fbLeft),
+                right: calculateTotals(fbRight),
+                summary: applySummaryWinLossDisplayTolerance(calculateTotals([...fbLeft, ...fbRight])),
+              },
+            };
+          }
+        } else if (searchState.showCaptureOnly && totalAccounts === 0) {
+          const fallback = await fetchSearch({
+            ...paramsBase,
+            showCaptureOnly: false,
+          });
+          if (latestRunTokenRef.current !== runToken) return;
+          if (fallback?.success && fallback?.data?.totals) {
+            currentData = {
+              ...currentData,
+              totals: fallback.data.totals,
+            };
+          }
+        }
+
+        if (latestRunTokenRef.current !== runToken) return;
+        commitQuiet(currentData);
+      } catch (e) {
+        if (e?.name === "AbortError" || isCancelledError(e)) return;
+        console.error(e);
+        if (notifyErr) pushToast(t("searchFailedWithMessage", { message: e.message }), "error");
+      } finally {
+        if (didSetBlockingLoading) setSearchLoading(false);
+      }
+    },
+    [
+      scopeReady,
+      scopeApi,
+      scopeCacheCompanyKey,
+      effectiveDateFrom,
+      effectiveDateTo,
+      showAllCurrencies,
+      selectedCurrencies,
+      selectedCategories,
+      searchState,
+      pushToast,
+      saveTxListToSession,
+      queryClient,
+      txType,
+      m,
+      t,
+    ],
+  );
   runSearchRef.current = runSearch;
 
   useEffect(() => {
@@ -538,7 +573,7 @@ export function useTransactionSearch({
         defaultRight: [],
         totalsLeft: calculateTotals([]),
         totalsRight: calculateTotals([]),
-        totalsSummary: mergeTotals(calculateTotals([]), calculateTotals([])),
+        totalsSummary: applySummaryWinLossDisplayTolerance(calculateTotals([])),
         grouped: [],
         singleCurrencyTitle: null,
       };
@@ -546,13 +581,14 @@ export function useTransactionSearch({
     const pf = applyPaymentWinLossFilters(baseRowsPresentation.baseLeft, baseRowsPresentation.baseRight, {
       showPaymentOnly: searchState.showPaymentOnly,
       showCaptureOnly: searchState.showCaptureOnly,
+      showZeroBalance: searchState.showZeroBalance,
     });
     const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
     const sortedLeft = z.left;
     const sortedRight = z.right;
     const totalsLeft = calculateTotals(sortedLeft);
     const totalsRight = calculateTotals(sortedRight);
-    const totalsSummary = mergeTotals(totalsLeft, totalsRight);
+    const totalsSummary = applySummaryWinLossDisplayTolerance(calculateTotals([...sortedLeft, ...sortedRight]));
 
     const multi = showAllCurrencies || selectedCurrencies.length > 1;
     const codesOrdered = currencyRowsOrdered.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
@@ -601,7 +637,7 @@ export function useTransactionSearch({
       const r = sortByRole(gr);
       const tL = calculateTotals(l);
       const tR = calculateTotals(r);
-      const tS = mergeTotals(tL, tR);
+      const tS = applySummaryWinLossDisplayTolerance(calculateTotals([...l, ...r]));
       return { currency, left: l, right: r, totalsLeft: tL, totalsRight: tR, totalsSummary: tS };
     });
 
@@ -632,30 +668,73 @@ export function useTransactionSearch({
     };
   }, [rawSearchData, baseRowsPresentation, searchState, showAllCurrencies, selectedCurrencies, currencyRowsOrdered]);
 
-  /** 切换公司：立刻清空结果并中止旧请求，避免短暂叠显上一间公司的数据（如多条 CAPITAL / XE）。 */
+  /** 切换 scope（含 group/company 模式）：中止旧请求、清空列表，后台重搜。 */
+  const scopeKey = transactionScopeCacheKey(transactionScope) || null;
+
   useEffect(() => {
-    const cid = filterSnapshot?.companyId;
-    if (cid == null) return;
-    // Keep table area mounted during company switch; only refresh list content.
-    setTablesVisible(true);
-    lastCompletedSearchKeyRef.current = "";
-    try {
-      latestRunTokenRef.current += 1;
-      queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
-    } catch {
-      /* ignore */
+    const prev = prevScopeKeyForSearchRef.current;
+    const scopeChanged = prev != null && prev !== scopeKey;
+
+    if (scopeKey == null) {
+      if (prev != null) {
+        suppressBlockingOverlayOnceRef.current = true;
+        setRawSearchData(null);
+        prevCaptureDateRangeKeyRef.current = null;
+        prevServerSideFiltersRef.current = null;
+        clearTxSearchCache();
+        lastCompletedSearchKeyRef.current = "";
+        try {
+          latestRunTokenRef.current += 1;
+          queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
+        } catch {
+          /* ignore */
+        }
+      }
+      prevScopeKeyForSearchRef.current = null;
+      return;
     }
-  }, [filterSnapshot?.companyId, queryClient]);
+
+    if (scopeChanged) {
+      suppressBlockingOverlayOnceRef.current = true;
+      setRawSearchData(null);
+      prevCaptureDateRangeKeyRef.current = null;
+      prevServerSideFiltersRef.current = null;
+      clearTxSearchCache();
+      lastCompletedSearchKeyRef.current = "";
+      try {
+        latestRunTokenRef.current += 1;
+        queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
+      } catch {
+        /* ignore */
+      }
+    }
+
+    prevScopeKeyForSearchRef.current = scopeKey;
+    setTablesVisible((prev) => (prev ? prev : true));
+    if (scopeChanged) {
+      lastCompletedSearchKeyRef.current = "";
+    }
+  }, [scopeKey, queryClient]);
+
+  const selectedCategoriesKey = useMemo(
+    () =>
+      [...selectedCategories]
+        .map((x) => String(x || "").toUpperCase().trim())
+        .filter(Boolean)
+        .sort()
+        .join(","),
+    [selectedCategories],
+  );
 
   // Initial search / replay logic
   useEffect(() => {
-    if (filterSnapshot?.companyId) {
+    if (scopeKey) {
       initialSearchDoneRef.current = false;
     }
-  }, [filterSnapshot?.companyId]);
+  }, [scopeKey]);
 
   useEffect(() => {
-    if (!filterSnapshot?.companyId) return;
+    if (!scopeReady) return;
     if (currencyRowsOrdered.length === 0) return;
     if (!showAllCurrencies && selectedCurrencies.length === 0) return;
     if (initialSearchDoneRef.current) return;
@@ -663,7 +742,7 @@ export function useTransactionSearch({
     let hadReplay = false;
     try {
       const key = buildTxListSessionKey({
-        companyId: filterSnapshot?.companyId,
+        companyId: scopeCacheCompanyKey,
         dateFrom: effectiveDateFrom,
         dateTo: effectiveDateTo,
         selectedCategories,
@@ -673,46 +752,58 @@ export function useTransactionSearch({
         showAllCurrencies,
         selectedCurrencies,
       });
-      if (key) {
-        const raw = sessionStorage.getItem(key);
-        if (raw) {
-          const o = JSON.parse(raw);
-          if (o?.data && (o.v === 1 || o.v === 2)) {
-            const invalidateTs = parseInt(localStorage.getItem(TX_LIST_INVALIDATE_LS_KEY) || "0", 10) || 0;
-            const savedAt = o.v === 2 && typeof o.savedAt === "number" ? o.savedAt : 0;
-            if (invalidateTs <= savedAt) {
-              setRawSearchData(sanitizeSearchApiData(o.data));
-              setTablesVisible(true);
-              lastSearchCommitMsRef.current = savedAt || Date.now();
-              hadReplay = true;
-            } else {
-              try {
-                sessionStorage.removeItem(key);
-              } catch {
-                /* ignore */
-              }
-            }
-          }
-        }
+      const replay = key ? readTxListFromSessionStorage(key) : null;
+      if (replay) {
+        setRawSearchData(replay);
+        setTablesVisible(true);
+        lastSearchCommitMsRef.current = Date.now();
+        hadReplay = true;
       }
     } catch {
       /* ignore */
     }
 
     initialSearchDoneRef.current = true;
-    void runSearch({ isInitialLoad: true, silent: hadReplay });
+    void runSearchRef.current?.({
+      isInitialLoad: true,
+      silent: hadReplay,
+      notifyErrors: true,
+      showBlockingOverlay: !hadReplay,
+    });
   }, [
-    filterSnapshot?.companyId,
+    scopeKey,
+    scopeReady,
+    scopeCacheCompanyKey,
     currencyRowsOrdered.length,
     showAllCurrencies,
-    selectedCurrencies,
+    selectedCurrenciesKey,
     effectiveDateFrom,
     effectiveDateTo,
-    effectiveDateRangeText,
-    selectedCategories,
-    searchState,
-    runSearch,
+    selectedCategoriesKey,
+    searchState.showPaymentOnly,
+    searchState.showCaptureOnly,
+    searchState.showZeroBalance,
   ]);
+
+  useEffect(() => {
+    if (!scopeReady) return;
+    if (!initialSearchDoneRef.current) return;
+    if (!effectiveDateFrom || !effectiveDateTo) return;
+    if (!showAllCurrencies && selectedCurrencies.length === 0) return;
+
+    const key = `${effectiveDateFrom}|${effectiveDateTo}`;
+    if (prevCaptureDateRangeKeyRef.current === null) {
+      prevCaptureDateRangeKeyRef.current = key;
+      return;
+    }
+    if (prevCaptureDateRangeKeyRef.current === key) return;
+    prevCaptureDateRangeKeyRef.current = key;
+    void runSearchRef.current?.({
+      silent: true,
+      notifyErrors: true,
+      showBlockingOverlay: true,
+    });
+  }, [effectiveDateFrom, effectiveDateTo, scopeReady, showAllCurrencies, selectedCurrenciesKey]);
 
   return {
     dateFrom,
@@ -744,15 +835,11 @@ export function useTransactionSearch({
     tablePresentation,
     categoryOpen,
     setCategoryOpen,
-    quickOpen,
-    setQuickOpen,
     categoryAllCheckboxRef,
     toggleCategory,
-    toggleQuick,
     onCategoryAllChange,
     toggleCategoryValue,
     removeCategoryTag,
-    selectQuickRange,
     toggleAllCurrenciesBtn,
     onCurrencyDragStart,
     onCurrencyDropOn,

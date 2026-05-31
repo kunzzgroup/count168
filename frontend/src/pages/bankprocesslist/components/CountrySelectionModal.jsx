@@ -1,4 +1,15 @@
 import React from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
+import { sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
+
+function TrashRemoveIcon() {
+  return (
+    <svg className="country-list-delete-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 3h6l1 2h5v2H3V5h5l1-2z" fill="currentColor" opacity="0.9" />
+      <path d="M5 9h14l-1 12H6L5 9z" fill="currentColor" />
+    </svg>
+  );
+}
 
 export default function CountrySelectionModal({
   countriesList,
@@ -15,57 +26,83 @@ export default function CountrySelectionModal({
   notify,
   t,
 }) {
+  const pickCountry = (c) => {
+    setSelectedCountryChips((prev) => (prev.includes(c) ? prev : [...prev, c]));
+  };
+
+  const availableCountries = (countriesList || []).filter((c) => !selectedCountryChips.includes(c));
+
   return (
-    <div id="countrySelectionModal" className="modal" style={{ display: "block" }}>
+    <ProcessModalPortal>
+    <div id="countrySelectionModal" className="modal country-selection-modal-wrap" style={processModalBackdropStyle}>
       <div className="modal-content country-selection-modal">
-        <div className="modal-header">
+        <div className="modal-header country-selection-modal-header">
           <h2>{t("selectOrAddCountry")}</h2>
           <span className="close" onClick={onClose} role="presentation">&times;</span>
         </div>
-        <div className="modal-body">
+        <div className="modal-body country-selection-modal-body">
           <div className="country-selection-container">
             <div className="available-countries-section">
               <div className="add-country-bar">
                 <h3>{t("addNewCountry")}</h3>
                 <form className="add-country-form" onSubmit={onSubmitNewCountry}>
                   <div className="add-country-input-group">
-                    <input type="text" id="new_country_name" placeholder={t("addNewCountry")} value={newCountryName} onChange={(e) => setNewCountryName(e.target.value.toUpperCase())} />
-                    <button type="submit" className="btn btn-save">{t("add")}</button>
+                    <input
+                      type="text"
+                      id="new_country_name"
+                      placeholder={t("newCountryNamePlaceholder")}
+                      value={newCountryName}
+                      onChange={(e) => setNewCountryName(sanitizeCapitalLettersOnly(e.target.value))}
+                    />
+                    <button type="submit" className="btn btn-save country-selection-add-btn">{t("add")}</button>
                   </div>
                 </form>
               </div>
               <h3>{t("availableCountries")}</h3>
               <div className="country-search">
-                <input type="text" id="countrySearch" placeholder={t("searchCountries")} value={countrySearch} onChange={(e) => setCountrySearch(e.target.value.toUpperCase())} />
+                <input
+                  type="text"
+                  id="countrySearch"
+                  placeholder={t("searchCountriesShort")}
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value.toUpperCase())}
+                />
               </div>
               <div className="country-list" id="existingCountries">
-                {[...new Set([...(countriesList || []), ...selectedCountryChips])]
+                {availableCountries
                   .filter((c) => !countrySearch.trim() || c.toUpperCase().includes(countrySearch.trim()))
                   .map((c) => (
-                  <div
-                    key={c}
-                    className="country-item"
-                    role="presentation"
-                    onClick={() => setSelectedCountryChips((prev) => (prev.includes(c) ? prev : [...prev, c]))}
-                  >
-                    <div className="country-item-left">
-                      <span>{c}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="remove-country-modal"
-                      aria-label={`Remove ${c}`}
-                      title={`Remove ${c}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        void onRemoveAvailableCountry(c);
+                    <div
+                      key={c}
+                      className="country-item"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => pickCountry(c)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          pickCountry(c);
+                        }
                       }}
                     >
-                      ×
-                    </button>
-                  </div>
-                ))}
+                      <div className="country-item-left">
+                        <span className="country-item-code">{c}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="country-list-delete"
+                        aria-label={t("removeCountryFromCompanyListAria", { country: c })}
+                        title={t("removeCountryFromCompanyListAria", { country: c })}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void onRemoveAvailableCountry(c);
+                        }}
+                      >
+                        <TrashRemoveIcon />
+                      </button>
+                    </div>
+                  ))}
               </div>
             </div>
             <div className="selected-countries-section">
@@ -77,7 +114,12 @@ export default function CountrySelectionModal({
                   selectedCountryChips.map((c) => (
                     <div key={`sel-${c}`} className="selected-country-modal-item">
                       <span>{c}</span>
-                      <button type="button" className="remove-country-modal" aria-label={`Remove ${c}`} onClick={() => setSelectedCountryChips((prev) => prev.filter((x) => x !== c))}>
+                      <button
+                        type="button"
+                        className="remove-country-modal"
+                        aria-label={t("removeSelectedCountryAria", { country: c })}
+                        onClick={() => setSelectedCountryChips((prev) => prev.filter((x) => x !== c))}
+                      >
                         ×
                       </button>
                     </div>
@@ -86,25 +128,26 @@ export default function CountrySelectionModal({
               </div>
             </div>
           </div>
-          <div className="modal-footer">
-            <button
-              type="button"
-              className="btn btn-save"
-              id="confirmCountriesBtn"
-              onClick={() => {
-                if (selectedCountryChips.length !== 1) {
-                  notify(t("selectExactlyOneCountry"), "warning");
-                  return;
-                }
-                onConfirm(selectedCountryChips[0]);
-              }}
-            >
-              {t("confirm")}
-            </button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
-          </div>
+        </div>
+        <div className="modal-footer country-selection-modal-footer">
+          <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
+          <button
+            type="button"
+            className="btn btn-save"
+            id="confirmCountriesBtn"
+            onClick={() => {
+              if (selectedCountryChips.length === 0) {
+                notify(t("selectAtLeastOneCountry"), "warning");
+                return;
+              }
+              onConfirm(selectedCountryChips);
+            }}
+          >
+            {t("confirm")}
+          </button>
         </div>
       </div>
     </div>
+    </ProcessModalPortal>
   );
 }

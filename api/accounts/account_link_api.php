@@ -2,8 +2,10 @@
 /**
  * 账户关联 API：获取/建立/解除账户关联及连接类型
  */
-require_once __DIR__ . '/../../session_check.php';
-require_once __DIR__ . '/../../includes/deleted_log.php';
+require_once __DIR__ . '/../../includes/session_check.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../deleted_log/deleted_log.php';
+require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['user_id'])) {
@@ -15,12 +17,67 @@ if (!isset($_SESSION['user_id'])) {
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $isDirectRequest = (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'account_link_api.php');
 
+function normalizeGroupId(?string $groupId): ?string {
+    $g = strtoupper(trim((string)($groupId ?? '')));
+    return $g !== '' ? $g : null;
+}
+
+function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    $id = (int)($stmt->fetchColumn() ?: 0);
+    if ($id > 0) return $id;
+
+    $stmt = $pdo->prepare("
+        SELECT id
+        FROM company
+        WHERE TRIM(COALESCE(company_id, '')) = ''
+          AND UPPER(TRIM(group_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$groupId]);
+    return (int)($stmt->fetchColumn() ?: 0);
+}
+
+function resolveScopeCompanyIdFromRequest(PDO $pdo, ?int $companyId, ?string $groupId): int {
+    $gid = normalizeGroupId($groupId);
+    if ($gid !== null) {
+        $resolved = resolveGroupEntityCompanyId($pdo, $gid);
+        if ($resolved <= 0) {
+            throw new Exception('缺少必要参数');
+        }
+        if (gc_is_group_login()) {
+            gc_assert_company_id_allowed_for_login_scope($pdo, $resolved, $gid);
+        }
+        return $resolved;
+    }
+
+    $cid = (int)($companyId ?? 0);
+    if ($cid <= 0) {
+        throw new Exception('缺少必要参数');
+    }
+    if (gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $cid, $gid);
+    }
+    return $cid;
+}
+
 if ($isDirectRequest) {
     try {
         switch ($action) {
             case 'get_linked_accounts':
                 $account_id = isset($_GET['account_id']) ? (int)$_GET['account_id'] : 0;
-                $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($_GET['company_id']) ? (int)$_GET['company_id'] : null,
+                    $_GET['group_id'] ?? null
+                );
                 if (!$account_id || !$company_id) {
                     throw new Exception('缺少必要参数');
                 }
@@ -36,15 +93,23 @@ if ($isDirectRequest) {
                         'accounts' => $linked_accounts_data['accounts'],
                         'link_type_info' => $link_type_info,
                         'link_types_map' => $linked_accounts_data['link_types_map'],
+                        'company_id' => $company_id,
                     ],
                 ]);
                 break;
 
             case 'link_accounts':
+                if (is_partnership_audit_read_only_active($pdo)) {
+                    throw new Exception('只读账号无法修改账户关联');
+                }
                 $input = json_decode(file_get_contents('php://input'), true) ?: [];
                 $account_id_1 = isset($input['account_id_1']) ? (int)$input['account_id_1'] : 0;
                 $account_id_2 = isset($input['account_id_2']) ? (int)$input['account_id_2'] : 0;
-                $company_id = isset($input['company_id']) ? (int)$input['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($input['company_id']) ? (int)$input['company_id'] : null,
+                    $input['group_id'] ?? ($_GET['group_id'] ?? null)
+                );
                 $link_type = isset($input['link_type']) ? $input['link_type'] : 'bidirectional';
                 $source_account_id = isset($input['source_account_id']) ? (int)$input['source_account_id'] : null;
                 if (!$account_id_1 || !$account_id_2 || !$company_id) {
@@ -73,10 +138,17 @@ if ($isDirectRequest) {
                 break;
 
             case 'unlink_accounts':
+                if (is_partnership_audit_read_only_active($pdo)) {
+                    throw new Exception('只读账号无法修改账户关联');
+                }
                 $input = json_decode(file_get_contents('php://input'), true) ?: [];
                 $account_id_1 = isset($input['account_id_1']) ? (int)$input['account_id_1'] : 0;
                 $account_id_2 = isset($input['account_id_2']) ? (int)$input['account_id_2'] : 0;
-                $company_id = isset($input['company_id']) ? (int)$input['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($input['company_id']) ? (int)$input['company_id'] : null,
+                    $input['group_id'] ?? ($_GET['group_id'] ?? null)
+                );
                 if (!$account_id_1 || !$account_id_2 || !$company_id) {
                     throw new Exception('缺少必要参数');
                 }
@@ -89,7 +161,11 @@ if ($isDirectRequest) {
 
             case 'get_all_linked_accounts':
                 $account_id = isset($_GET['account_id']) ? (int)$_GET['account_id'] : 0;
-                $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($_GET['company_id']) ? (int)$_GET['company_id'] : null,
+                    $_GET['group_id'] ?? null
+                );
                 if (!$account_id || !$company_id) {
                     throw new Exception('缺少必要参数');
                 }
@@ -113,10 +189,17 @@ if ($isDirectRequest) {
                 break;
 
             case 'update_link_type':
+                if (is_partnership_audit_read_only_active($pdo)) {
+                    throw new Exception('只读账号无法修改账户关联');
+                }
                 $input = json_decode(file_get_contents('php://input'), true) ?: [];
                 $account_id_1 = isset($input['account_id_1']) ? (int)$input['account_id_1'] : 0;
                 $account_id_2 = isset($input['account_id_2']) ? (int)$input['account_id_2'] : 0;
-                $company_id = isset($input['company_id']) ? (int)$input['company_id'] : 0;
+                $company_id = resolveScopeCompanyIdFromRequest(
+                    $pdo,
+                    isset($input['company_id']) ? (int)$input['company_id'] : null,
+                    $input['group_id'] ?? ($_GET['group_id'] ?? null)
+                );
                 $link_type = isset($input['link_type']) ? $input['link_type'] : 'bidirectional';
                 $source_account_id = isset($input['source_account_id']) ? (int)$input['source_account_id'] : null;
                 if (!$account_id_1 || !$account_id_2 || !$company_id) {

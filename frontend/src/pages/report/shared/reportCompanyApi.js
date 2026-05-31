@@ -1,0 +1,106 @@
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { resolveCustomerReportScope } from "./reportScope.js";
+
+function normalizeReportScopeInput(scopeOrLegacy) {
+  if (!scopeOrLegacy || typeof scopeOrLegacy !== "object") return null;
+  if (scopeOrLegacy.mode != null || scopeOrLegacy.resolveCompanyViaGroupId != null) {
+    return scopeOrLegacy;
+  }
+  const { companies, selectedGroup, companyId, scopeCompanyId, viewGroup } = scopeOrLegacy;
+  const resolved = resolveCustomerReportScope({
+    companies: companies ?? [],
+    selectedGroup: selectedGroup || viewGroup || null,
+    companyId: companyId ?? scopeCompanyId ?? null,
+  });
+  if (resolved) return resolved;
+  const cid = Number(scopeCompanyId ?? companyId);
+  if (Number.isFinite(cid) && cid > 0) {
+    const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+    return {
+      mode: "company",
+      scopeCompanyId: cid,
+      groupId: g || null,
+      viewGroup: viewGroup || g || null,
+      uiCompanyId: Number(companyId) > 0 ? Number(companyId) : null,
+    };
+  }
+  return null;
+}
+
+export async function fetchCompanyPermissions(companyCode) {
+  if (!companyCode) return [];
+  try {
+    const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode }),
+    });
+    const result = await response.json();
+    if (result.success && result.data && Array.isArray(result.data.permissions)) {
+      return result.data.permissions;
+    }
+  } catch (err) {
+    console.error("Error fetching company permissions:", err);
+  }
+  return [];
+}
+
+export function isBankOnlyCategoryCompany(permissions) {
+  if (!Array.isArray(permissions) || permissions.length === 0) return false;
+  const hasBank = permissions.includes("Bank");
+  const hasGames = permissions.includes("Games") || permissions.includes("Gambling");
+  return hasBank && !hasGames;
+}
+
+export async function fetchCurrencies(companyId, options = {}) {
+  const { signal, viewGroup } = options;
+  const q = new URLSearchParams();
+  if (companyId) q.set("company_id", String(companyId));
+  const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+  if (vg) q.set("view_group", vg);
+  const qs = q.toString();
+  const url = buildApiUrl(
+    `api/transactions/get_company_currencies_api.php${qs ? `?${qs}` : ""}`,
+  );
+  const res = await fetch(url, { credentials: "include", signal });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || json.error || "Failed to load currencies");
+  }
+  return json.data || [];
+}
+
+/** Currencies for the active report scope company (group entity or subsidiary). */
+export async function fetchReportScopeCurrencies(scopeOrLegacy, options = {}) {
+  const reportScope = normalizeReportScopeInput(scopeOrLegacy);
+  if (!reportScope) return [];
+  const { signal } = options;
+  const q = new URLSearchParams();
+  const cid = Number(reportScope.scopeCompanyId);
+  const vg = reportScope.viewGroup || reportScope.groupId || "";
+  if (
+    reportScope.resolveCompanyViaGroupId ||
+    (reportScope.mode === "group" && (!Number.isFinite(cid) || cid <= 0))
+  ) {
+    const gid = reportScope.groupId ? String(reportScope.groupId).trim().toUpperCase() : "";
+    if (!gid) return [];
+    q.set("group_id", gid);
+    if (vg) q.set("view_group", String(vg).trim().toUpperCase());
+  } else {
+    if (!Number.isFinite(cid) || cid <= 0) return [];
+    q.set("company_id", String(cid));
+    if (vg) q.set("view_group", String(vg).trim().toUpperCase());
+    const gid = reportScope.groupId ? String(reportScope.groupId).trim().toUpperCase() : "";
+    if (gid) q.set("group_id", gid);
+  }
+  const qs = q.toString();
+  const url = buildApiUrl(
+    `api/transactions/get_company_currencies_api.php${qs ? `?${qs}` : ""}`,
+  );
+  const res = await fetch(url, { credentials: "include", signal });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || json.error || "Failed to load currencies");
+  }
+  return json.data || [];
+}

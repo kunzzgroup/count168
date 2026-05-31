@@ -125,7 +125,7 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
             $row['accounting_resend_consolidated_range'] = 1;
         }
         $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
-        if ($fq === 'monthly' || $fq === '1st_of_every_month') {
+        if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'once') {
             $row['day_start_frequency'] = $fq;
         }
         if (!$hadScheduleStart && !empty($row['accounting_resend_relax_created_floor'])
@@ -147,10 +147,74 @@ if (!function_exists('bmp_normalizePeriodType')) {
     function bmp_normalizePeriodType(?string $raw): string
     {
         $t = strtolower(trim((string) $raw));
-        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range') {
+        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range' || $t === 'once_one_off') {
             return $t;
         }
         return 'monthly';
+    }
+}
+
+/**
+ * 与 process_accounting_inbox_api / process_post 一致：优先 d/m/Y，避免原始 day_start 被 strtotime 误解析，
+ * 导致 dismiss 写入的 posted_date 与 Inbox 判定锚点不一致（Resend 合并行删后仍显示）。
+ */
+if (!function_exists('bmp_bankProcessDateFieldToYmd')) {
+    function bmp_bankProcessDateFieldToYmd($raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+        $s = trim((string) $raw);
+        if ($s === '') {
+            return null;
+        }
+        if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})/', $s, $m)) {
+            $y = (int) $m[1];
+            $mo = (int) $m[2];
+            $d = (int) $m[3];
+            if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+                return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+            }
+        }
+        if (preg_match('#^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$#', $s, $m)) {
+            $d = (int) $m[1];
+            $mo = (int) $m[2];
+            $y = (int) $m[3];
+            if ($mo >= 1 && $mo <= 12 && $d >= 1 && $d <= 31 && checkdate($mo, $d, $y)) {
+                return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+            }
+        }
+        $dateStr = str_replace('/', '-', $s);
+        if (preg_match('/^\d{1,2}-\d{1,2}$/', $dateStr)) {
+            $dateStr .= '-' . date('Y');
+        }
+        $ts = strtotime($dateStr);
+
+        return $ts !== false ? date('Y-m-d', $ts) : null;
+    }
+}
+
+/**
+ * Resend（accounting_resend_relax_created_floor）且合并后的 day_start / day_end 跨自然月时：
+ * 勿再对其中某一整月单独套用「月初～day_end」按月截断，否则会多出下一月的 Accounting Due / Transaction，
+ * 与「单笔合并区间」或用户预期的单日总价冲突。
+ */
+if (!function_exists('bmp_shouldSkipDayEndMonthlyCapForResendCrossMonthRange')) {
+    function bmp_shouldSkipDayEndMonthlyCapForResendCrossMonthRange(array $row): bool
+    {
+        if (empty($row['accounting_resend_relax_created_floor'])) {
+            return false;
+        }
+        $ds = bmp_bankProcessDateFieldToYmd($row['day_start'] ?? null);
+        $de = bmp_bankProcessDateFieldToYmd($row['day_end'] ?? null);
+        if ($ds === null || $de === null || $ds > $de) {
+            return false;
+        }
+        try {
+            return (new DateTimeImmutable($ds))->format('Y-m') !== (new DateTimeImmutable($de))->format('Y-m');
+        } catch (Throwable $e) {
+            return false;
+        }
     }
 }
 
@@ -423,8 +487,8 @@ if (!function_exists('bmp_normalizeSqlDateYmd')) {
 
 if (!function_exists('bmp_accountingResendDailyGuardHasLiveEvidence')) {
     /**
-     * 仍视为「该次 Resend 锚日下的补单结果尚在」：仅看与 resend_day_start 同一天的入账行
-     * （与 Maintenance 按 transaction_date 筛选一致）。不再用「当日任意该 process 交易」以免删单后仍误拦。
+     * 该 process 在 Maintenance 是否仍有对应锚日（transaction_date）的入账交易。
+     * Accounting Due Delete（*_skipped）不算；仅成功 Post to Transaction 后会有行。
      */
     function bmp_accountingResendDailyGuardHasLiveEvidence(
         PDO $pdo,
@@ -447,6 +511,91 @@ if (!function_exists('bmp_accountingResendDailyGuardHasLiveEvidence')) {
         );
         $stmt->execute([$companyId, $bankProcessId, $resendDayStartYmd]);
         return (bool) $stmt->fetchColumn();
+    }
+}
+
+if (!function_exists('bmp_accountingResendIsLockedToday')) {
+    /**
+     * 当日是否禁止再次 Resend：须同时满足 guard_date=今天 且 Maintenance 仍有对应锚日交易。
+     * Resend 本身不写 guard；Accounting Due Delete 会清除当日 guard → 可再 Resend。
+     * 次日 guard_date 不匹配 → 可再 Resend（即使昨日交易仍在库中）。
+     */
+    function bmp_accountingResendIsLockedToday(
+        PDO $pdo,
+        int $companyId,
+        int $bankProcessId,
+        string $resendDayStartYmd
+    ): bool {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendDayStartYmd)) {
+            return false;
+        }
+        bmp_ensureAccountingResendDailyGuardTable($pdo);
+        bmp_pruneStaleAccountingResendDailyGuardsForProcess($pdo, $companyId, $bankProcessId);
+        $stmt = $pdo->prepare(
+            "SELECT 1
+             FROM bank_process_accounting_resend_daily_guard
+             WHERE company_id = ?
+               AND bank_process_id = ?
+               AND resend_day_start = ?
+               AND guard_date = CURDATE()
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $bankProcessId, $resendDayStartYmd]);
+        if (!(bool) $stmt->fetchColumn()) {
+            return false;
+        }
+
+        return bmp_accountingResendDailyGuardHasLiveEvidence($pdo, $companyId, $bankProcessId, $resendDayStartYmd);
+    }
+}
+
+if (!function_exists('bmp_recordAccountingResendDailyGuardOnTransactionPost')) {
+    /** Bank Process 成功 Post to Transaction 后写入当日 guard（锚日 = transaction_date）。 */
+    function bmp_recordAccountingResendDailyGuardOnTransactionPost(
+        PDO $pdo,
+        int $companyId,
+        int $bankProcessId,
+        string $resendDayStartYmd
+    ): void {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendDayStartYmd)) {
+            return;
+        }
+        bmp_ensureAccountingResendDailyGuardTable($pdo);
+        $ins = $pdo->prepare(
+            "INSERT IGNORE INTO bank_process_accounting_resend_daily_guard
+             (company_id, bank_process_id, resend_day_start, guard_date)
+             VALUES (?, ?, ?, CURDATE())"
+        );
+        try {
+            $ins->execute([$companyId, $bankProcessId, $resendDayStartYmd]);
+        } catch (PDOException $e) {
+            // ignore duplicate same day
+        }
+    }
+}
+
+if (!function_exists('bmp_clearAccountingResendDailyGuardForDayStart')) {
+    /**
+     * 从 Accounting Due 移除（Delete）后清除当日 guard，使同日可再次 Resend。
+     * 不删除 Maintenance 交易；仅去掉「今日已 Post」的 Resend 锁。
+     */
+    function bmp_clearAccountingResendDailyGuardForDayStart(
+        PDO $pdo,
+        int $companyId,
+        int $bankProcessId,
+        string $resendDayStartYmd
+    ): void {
+        $ymd = bmp_normalizeSqlDateYmd($resendDayStartYmd);
+        if ($ymd === null) {
+            return;
+        }
+        bmp_ensureAccountingResendDailyGuardTable($pdo);
+        $del = $pdo->prepare(
+            "DELETE FROM bank_process_accounting_resend_daily_guard
+             WHERE company_id = ? AND bank_process_id = ?
+               AND resend_day_start = ? AND guard_date = CURDATE()"
+        );
+        $del->execute([$companyId, $bankProcessId, $ymd]);
     }
 }
 

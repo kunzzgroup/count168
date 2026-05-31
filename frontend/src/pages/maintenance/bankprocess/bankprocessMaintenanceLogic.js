@@ -1,10 +1,12 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import {
+  DEFAULT_PERMISSIONS_BANKPROCESS,
+  fetchDomainCompanyPermissions,
+} from "../shared/maintenanceCompanyApi.js";
+import { formatDmyFromDate } from "../shared/maintenanceDateHelpers.js";
 
 export function formatDmy(d) {
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  return formatDmyFromDate(d);
 }
 
 export function formatAmount(value) {
@@ -22,24 +24,67 @@ export function toUpperDisplay(value) {
   return str ? str.toUpperCase() : "-";
 }
 
-export async function fetchCompanyPermissions(companyCode) {
-  if (!companyCode) return [];
-  try {
-    const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "get_company_permissions",
-        company_id: companyCode,
-      }),
-    });
-    const result = await response.json();
-    return Array.isArray(result?.data?.permissions)
-      ? result.data.permissions.filter((p) => p !== "Games")
-      : ["Bank", "Loan", "Rate", "Money"];
-  } catch {
-    return ["Bank", "Loan", "Rate", "Money"];
+/** Rows already soft-deleted in Maintenance cannot be selected for delete. */
+export function isBankprocessMaintenanceRowSelectable(row) {
+  if (!row) return false;
+  return !(row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true);
+}
+
+/**
+ * Legacy Maintenance – Bank: one Post/Resend batch shares the same DTS Created timestamp.
+ * Clicking any checkbox selects every selectable row in that batch.
+ */
+export function bankprocessMaintenanceBatchKey(row) {
+  const ts = String(row?.dts_created ?? "").trim();
+  if (ts) return ts;
+  const tid = row?.transaction_id;
+  return tid != null && tid !== "" ? `__tid_${tid}` : "";
+}
+
+/** @param {Array<{ transaction_id?: number, dts_created?: string, is_deleted?: unknown }>} rows */
+export function bankprocessMaintenanceIdsInBatch(rows, batchKey) {
+  if (!batchKey || !Array.isArray(rows)) return [];
+  const ids = [];
+  for (const row of rows) {
+    if (!isBankprocessMaintenanceRowSelectable(row)) continue;
+    if (bankprocessMaintenanceBatchKey(row) !== batchKey) continue;
+    const tid = Number(row.transaction_id);
+    if (Number.isFinite(tid) && tid > 0) ids.push(tid);
   }
+  return ids;
+}
+
+/**
+ * @param {number[]} selectedIds
+ * @param {Array<{ transaction_id?: number, dts_created?: string, is_deleted?: unknown }>} rows
+ * @param {number} clickedTransactionId
+ */
+export function toggleBankprocessMaintenanceBatchSelection(selectedIds, rows, clickedTransactionId) {
+  const clickedId = Number(clickedTransactionId);
+  if (!Number.isFinite(clickedId) || clickedId <= 0) return selectedIds;
+
+  const clickedRow = rows.find((r) => Number(r.transaction_id) === clickedId);
+  if (!clickedRow || !isBankprocessMaintenanceRowSelectable(clickedRow)) return selectedIds;
+
+  const batchKey = bankprocessMaintenanceBatchKey(clickedRow);
+  const batchIds = bankprocessMaintenanceIdsInBatch(rows, batchKey);
+  if (batchIds.length === 0) return selectedIds;
+
+  const prev = Array.isArray(selectedIds) ? selectedIds : [];
+  const selecting = !prev.includes(clickedId);
+  if (selecting) {
+    const next = new Set(prev);
+    batchIds.forEach((id) => next.add(id));
+    return [...next];
+  }
+  return prev.filter((id) => !batchIds.includes(id));
+}
+
+export async function fetchCompanyPermissions(companyCode) {
+  return fetchDomainCompanyPermissions(companyCode, {
+    excludeGames: true,
+    defaultPermissions: DEFAULT_PERMISSIONS_BANKPROCESS,
+  });
 }
 
 export async function fetchCompanyCurrencies(companyId) {
@@ -52,16 +97,30 @@ export async function fetchCompanyCurrencies(companyId) {
   return data.success ? (data.data || []) : [];
 }
 
-export async function searchBankprocessData({ dateFrom, dateTo, companyId, selectedCurrency, query }) {
+export async function searchBankprocessData({
+  dateFrom,
+  dateTo,
+  companyId,
+  currencyCodes,
+  allCurrencies,
+  query,
+  signal,
+}) {
   const params = new URLSearchParams({
     date_from: dateFrom,
     date_to: dateTo,
   });
   if (companyId) params.set("company_id", String(companyId));
-  if (selectedCurrency) params.set("currency", selectedCurrency);
-  if (query?.trim()) params.set("q", query.trim());
+  const codes = Array.isArray(currencyCodes) ? currencyCodes.filter(Boolean) : [];
+  if (!allCurrencies && codes.length) {
+    params.set("currency", codes.join(","));
+  }
+  if (query?.trim()) params.set("q", query.trim().toUpperCase());
 
-  const response = await fetch(buildApiUrl(`api/bankprocess_maintenance/search_api.php?${params.toString()}`));
+  const response = await fetch(buildApiUrl(`api/bankprocess_maintenance/search_api.php?${params.toString()}`), {
+    credentials: "include",
+    signal,
+  });
   const result = await response.json();
   if (!result.success) {
     throw new Error(result.message || "Search failed");

@@ -1,12 +1,19 @@
 import { useState, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { transactionQueryKeys } from "../transactionQueryKeys.js";
 import {
   getHistory,
   loadContraInbox,
   approveContra as approveContraApi,
   rejectContra as rejectContraApi,
-} from "../transactionApi.js";
+  transactionQueryKeys,
+} from "../lib/transactionApi.js";
+
+function scopeApiReady(scopeApi) {
+  if (!scopeApi) return false;
+  const cid = scopeApi.companyId != null ? Number(scopeApi.companyId) : 0;
+  if (Number.isFinite(cid) && cid > 0) return true;
+  return Boolean(scopeApi.groupId);
+}
 
 export function useTransactionUI() {
   const queryClient = useQueryClient();
@@ -26,24 +33,44 @@ export function useTransactionUI() {
     }, 2500);
   }, []);
 
-  const paymentHistoryTitle = useCallback((row, accountMeta) => {
-    const code = String(accountMeta?.account_id ?? row?.account_id ?? "").trim();
-    const name = String(accountMeta?.name ?? row?.account_name ?? code ?? "").trim() || code;
-    return `Payment History - ${code} (${name})`;
+  const resolveHistoryAccountName = useCallback((row, accountMeta) => {
+    const rowName = String(row?.account_name ?? "").trim();
+    const apiName = String(accountMeta?.name ?? "").trim();
+    const bad = (n) => !n || n.toUpperCase() === "CURRENCY";
+    if (!bad(rowName)) return rowName;
+    if (!bad(apiName)) return apiName;
+    return String(accountMeta?.account_id ?? row?.account_id ?? "").trim();
   }, []);
 
+  const paymentHistoryTitle = useCallback(
+    (row, accountMeta) => {
+      const code = String(accountMeta?.account_id ?? row?.account_id ?? "").trim();
+      const name = resolveHistoryAccountName(row, accountMeta) || code;
+      return `Payment History - ${code} (${name})`;
+    },
+    [resolveHistoryAccountName],
+  );
+
   const onViewHistory = useCallback(
-    async (row, dateFrom, dateTo, companyId) => {
-      if (!row || !companyId) return;
+    async (row, dateFrom, dateTo, scopeApi, opts = {}) => {
+      if (!row || !scopeApiReady(scopeApi)) return;
       const title = paymentHistoryTitle(row, null);
       setHistory({ open: true, title, rows: [], loading: true });
       try {
         const accountDbId = row.account_db_id ? String(row.account_db_id) : "";
         const virtualCompanyCode = !accountDbId ? String(row.account_id || "").trim().toUpperCase() : "";
-        const currency = String(row.currency || "").toUpperCase().trim();
+        const { selectedCurrencies = [], showAllCurrencies = true } = opts;
+        let currency = String(row.currency || "").toUpperCase().trim();
+        if (!currency && !showAllCurrencies && Array.isArray(selectedCurrencies) && selectedCurrencies.length > 0) {
+          currency = [...selectedCurrencies]
+            .map((c) => String(c || "").toUpperCase().trim())
+            .filter(Boolean)
+            .join(",");
+        }
         const res = await queryClient.fetchQuery({
           queryKey: transactionQueryKeys.history({
-            companyId,
+            companyId: scopeApi.companyId,
+            viewGroup: scopeApi.viewGroup,
             accountDbId,
             dateFrom,
             dateTo,
@@ -52,7 +79,7 @@ export function useTransactionUI() {
           }),
           queryFn: ({ signal }) =>
             getHistory({
-              companyId,
+              ...scopeApi,
               accountId: accountDbId,
               dateFrom,
               dateTo,
@@ -65,7 +92,8 @@ export function useTransactionUI() {
         });
         if (res?.success) {
           const rows = Array.isArray(res.data) ? res.data : [];
-          const nextTitle = res.account ? paymentHistoryTitle(row, res.account) : title;
+          const meta = res.account ? { ...res.account, name: resolveHistoryAccountName(row, res.account) } : null;
+          const nextTitle = meta ? paymentHistoryTitle(row, meta) : title;
           setHistory((s) => ({ ...s, rows, loading: false, title: nextTitle }));
         } else {
           pushToast(res?.message || "Failed to load history", "error");
@@ -76,24 +104,24 @@ export function useTransactionUI() {
         setHistory((s) => ({ ...s, loading: false }));
       }
     },
-    [pushToast, paymentHistoryTitle, queryClient],
+    [pushToast, paymentHistoryTitle, resolveHistoryAccountName, queryClient],
   );
 
   const refreshContraInboxBadge = useCallback(
-    async (companyId) => {
-      if (!companyId) return null;
+    async (scopeApi) => {
+      if (!scopeApiReady(scopeApi)) return null;
       setContraInbox((s) => ({ ...s, loading: true }));
       try {
         const res = await queryClient.fetchQuery({
-          queryKey: transactionQueryKeys.contraInbox(companyId),
-          queryFn: ({ signal }) => loadContraInbox({ companyId, signal }),
+          queryKey: transactionQueryKeys.contraInbox(scopeApi),
+          queryFn: ({ signal }) => loadContraInbox({ ...scopeApi, signal }),
           staleTime: 10_000,
           gcTime: 5 * 60_000,
         });
         if (res?.success) {
           setContraInbox((s) => ({ ...s, loading: false, items: Array.isArray(res.data) ? res.data : [] }));
         } else {
-          setContraInbox((s) => ({ ...s, loading: false }));
+          setContraInbox((s) => ({ ...s, loading: false, items: [] }));
         }
         return res;
       } catch {
@@ -105,29 +133,29 @@ export function useTransactionUI() {
   );
 
   const approveContraMutation = useMutation({
-    mutationFn: ({ id, companyId }) => approveContraApi({ transactionId: id, companyId }),
-    onSuccess: (_res, vars) => {
+    mutationFn: ({ id, scopeApi }) => approveContraApi({ transactionId: id, ...scopeApi }),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
-      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInbox(vars.companyId) });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInboxRoot() });
     },
   });
 
   const rejectContraMutation = useMutation({
-    mutationFn: ({ id, companyId }) => rejectContraApi({ transactionId: id, companyId }),
-    onSuccess: (_res, vars) => {
+    mutationFn: ({ id, scopeApi }) => rejectContraApi({ transactionId: id, ...scopeApi }),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
-      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInbox(vars.companyId) });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInboxRoot() });
     },
   });
 
   const onApproveContra = useCallback(
-    async (id, companyId, onSearch) => {
-      if (!id || !companyId) return null;
+    async (id, scopeApi, onSearch) => {
+      if (!id || !scopeApiReady(scopeApi)) return null;
       try {
-        const res = await approveContraMutation.mutateAsync({ id, companyId });
+        const res = await approveContraMutation.mutateAsync({ id, scopeApi });
         if (res?.success) {
           pushToast("Contra approved", "success");
-          await refreshContraInboxBadge(companyId);
+          await refreshContraInboxBadge(scopeApi);
           if (onSearch) await onSearch({ silent: false });
         } else {
           pushToast(res?.message || "Failed to approve contra", "error");
@@ -142,13 +170,13 @@ export function useTransactionUI() {
   );
 
   const onRejectContra = useCallback(
-    async (id, companyId) => {
-      if (!id || !companyId) return null;
+    async (id, scopeApi) => {
+      if (!id || !scopeApiReady(scopeApi)) return null;
       try {
-        const res = await rejectContraMutation.mutateAsync({ id, companyId });
+        const res = await rejectContraMutation.mutateAsync({ id, scopeApi });
         if (res?.success) {
           pushToast("Contra rejected", "success");
-          await refreshContraInboxBadge(companyId);
+          await refreshContraInboxBadge(scopeApi);
         } else {
           pushToast(res?.message || "Failed to reject contra", "error");
         }
@@ -163,12 +191,11 @@ export function useTransactionUI() {
 
   return {
     toast,
-    setToast,
-    pushToast,
     history,
     setHistory,
     contraInbox,
     setContraInbox,
+    pushToast,
     onViewHistory,
     refreshContraInboxBadge,
     onApproveContra,

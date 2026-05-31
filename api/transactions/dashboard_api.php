@@ -7,9 +7,23 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../permissions.php';
+require_once __DIR__ . '/../../includes/config.php';
+
+if (!$pdo instanceof PDO) {
+    http_response_code(503);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Database connection failed',
+        'data' => null,
+        'error' => 'Database connection failed',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/transaction_scope.php';
+require_once __DIR__ . '/../reports/report_scope_common.php';
 
 /**
  * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -184,8 +198,18 @@ function dashboardShouldExcludeClearForRole(?string $role): bool
         return false;
     }
     $role = strtoupper(trim((string) $role));
-    // 与 Transaction List/search_api 口径对齐：不排除 CLEAR（EXPENSES 也要算入）
-    return false;
+    // Dashboard Profit 卡片：PROFIT 角色账户的 CLEAR 不计入（Transaction 页仍正常展示/提交）
+    return $role === 'PROFIT';
+}
+
+/**
+ * 手动 PROFIT（Transaction Payment → WIN/LOSE，非 Bank Process / 赔款）描述条件。
+ * 与 search_api.php txn_win_lose bulk 一致。
+ */
+function dashboardManualProfitDescSql(string $alias = 't'): string
+{
+    $d = $alias !== '' ? $alias . '.' : '';
+    return "(({$d}description NOT LIKE 'Process: %' AND {$d}description NOT LIKE 'Inactive Compensation %' AND {$d}description NOT LIKE 'Compensation %') OR {$d}description IS NULL)";
 }
 
 function dashboardMoneyZero(): string
@@ -233,6 +257,217 @@ function dashboardOutMap(array $daily): array
     return $daily;
 }
 
+function dashboardResolveGroupScopeIdByCode(PDO $pdo, string $groupCode): int
+{
+    $g = strtoupper(trim($groupCode));
+    if ($g === '') {
+        return 0;
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT id FROM `groups` WHERE UPPER(TRIM(group_code)) = UPPER(TRIM(?)) LIMIT 1");
+        $stmt->execute([$g]);
+        return (int) ($stmt->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function dashboardResolveGroupScopeId(PDO $pdo, ?string $viewGroup = null): int
+{
+    $fromParam = $viewGroup !== null ? strtoupper(trim($viewGroup)) : '';
+    if ($fromParam !== '') {
+        return dashboardResolveGroupScopeIdByCode($pdo, $fromParam);
+    }
+    if (!gc_is_group_login()) {
+        return 0;
+    }
+    $identifier = gc_session_login_identifier();
+    if ($identifier === null || $identifier === '') {
+        return 0;
+    }
+    return dashboardResolveGroupScopeIdByCode($pdo, $identifier);
+}
+
+function dashboardResolveGroupCodeFromScopeId(PDO $pdo, int $groupScopeId): string
+{
+    if ($groupScopeId <= 0) {
+        return '';
+    }
+    try {
+        $stmt = $pdo->prepare('SELECT UPPER(TRIM(group_code)) FROM `groups` WHERE id = ? LIMIT 1');
+        $stmt->execute([$groupScopeId]);
+        return strtoupper(trim((string) ($stmt->fetchColumn() ?: '')));
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+function dashboardAssertGroupLedgerAccess(PDO $pdo, string $groupCode, int $groupScopeId): void
+{
+    $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+    if ($entityId <= 0) {
+        throw new Exception('无效的集团');
+    }
+    assertGroupEntityAccess($pdo, $groupCode, $entityId);
+}
+
+function dashboardBuildGroupScopedSummary(
+    PDO $pdo,
+    string $dateFrom,
+    string $dateTo,
+    int $groupScopeId,
+    ?string $filterCurrencyCode = null
+): array {
+    $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
+    $result = [];
+    $hasTransactionCurrency = dashboardHasTransactionCurrency($pdo);
+    $groupCode = dashboardResolveGroupCodeFromScopeId($pdo, $groupScopeId);
+    $entityCompanyId = $groupCode !== '' ? tx_resolve_group_entity_company_id($pdo, $groupCode) : 0;
+    $currencyMap = [];
+    if ($entityCompanyId > 0) {
+        $currencyStmt = $pdo->prepare('SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?');
+        $currencyStmt->execute([$entityCompanyId]);
+        foreach ($currencyStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $currencyMap[$row['id']] = strtoupper($row['code']);
+        }
+    }
+    $currencyFilterSql = '';
+    $currencyFilterParams = [];
+    if ($filterCurrencyCode !== null && $hasTransactionCurrency) {
+        $currId = array_search($filterCurrencyCode, $currencyMap, true);
+        if ($currId === false) {
+            foreach ($roles as $role) {
+                $result[strtolower($role)] = [
+                    'role' => $role,
+                    'total_balance' => dashboardMoneyZero(),
+                    'initial_balance' => dashboardMoneyZero(),
+                    'period_total' => dashboardMoneyZero(),
+                    'daily_data' => [],
+                ];
+            }
+            return $result;
+        }
+        $currencyFilterSql = ' AND t.currency_id = ?';
+        $currencyFilterParams = [(int) $currId];
+    }
+    $contraApproval = dashboardContraApprovedWhere($pdo, 't');
+
+    foreach ($roles as $role) {
+        $excludeClear = dashboardShouldExcludeClearForRole($role);
+        $clearFilter = $excludeClear ? " AND t.transaction_type <> 'CLEAR'" : '';
+        $accStmt = $pdo->prepare("
+            SELECT DISTINCT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.scope_type = 'group'
+              AND ac.scope_id = ?
+              AND UPPER(TRIM(COALESCE(a.role, ''))) = ?
+        ");
+        $accStmt->execute([$groupScopeId, $role]);
+        $accountIds = array_map('intval', $accStmt->fetchAll(PDO::FETCH_COLUMN));
+
+        if (empty($accountIds)) {
+            $result[strtolower($role)] = [
+                'role' => $role,
+                'total_balance' => dashboardMoneyZero(),
+                'initial_balance' => dashboardMoneyZero(),
+                'period_total' => dashboardMoneyZero(),
+                'daily_data' => []
+            ];
+            continue;
+        }
+
+        $in = implode(',', array_fill(0, count($accountIds), '?'));
+
+        $bfToSql = "
+            SELECT COALESCE(SUM(CASE
+                WHEN t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                WHEN t.transaction_type IN ('CONTRA', 'CLEAR') THEN -t.amount
+                WHEN t.transaction_type = 'PAYMENT' THEN -t.amount
+                WHEN t.transaction_type = 'WIN' THEN -t.amount
+                WHEN t.transaction_type = 'LOSE' THEN t.amount
+                WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
+                ELSE 0
+            END), 0)
+            FROM transactions t
+            WHERE t.scope_type = 'group'
+              AND t.scope_id = ?
+              AND t.account_id IN ($in)
+              AND t.transaction_date < ?" . $currencyFilterSql . $clearFilter . $contraApproval;
+        $bfToStmt = $pdo->prepare($bfToSql);
+        $bfToStmt->execute(array_merge([$groupScopeId], $accountIds, [$dateFrom], $currencyFilterParams));
+        $bfTo = (string) ($bfToStmt->fetchColumn() ?? '0');
+
+        $bfFromSql = "
+            SELECT COALESCE(SUM(CASE
+                WHEN t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'CONTRA', 'CLEAR') THEN t.amount
+                WHEN t.transaction_type = 'WIN' THEN t.amount
+                WHEN t.transaction_type = 'LOSE' THEN -t.amount
+                ELSE 0
+            END), 0)
+            FROM transactions t
+            WHERE t.scope_type = 'group'
+              AND t.scope_id = ?
+              AND t.from_account_id IN ($in)
+              AND t.transaction_date < ?" . $currencyFilterSql . $clearFilter . $contraApproval;
+        $bfFromStmt = $pdo->prepare($bfFromSql);
+        $bfFromStmt->execute(array_merge([$groupScopeId], $accountIds, [$dateFrom], $currencyFilterParams));
+        $bfFrom = (string) ($bfFromStmt->fetchColumn() ?? '0');
+
+        $initial = dashboardMoneyAdd($bfTo, $bfFrom);
+
+        $dailySql = "
+            SELECT DATE(t.transaction_date) AS d, COALESCE(SUM(CASE
+                WHEN t.account_id IN ($in) THEN
+                    CASE
+                        WHEN t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                        WHEN t.transaction_type IN ('CONTRA', 'CLEAR') THEN -t.amount
+                        WHEN t.transaction_type = 'PAYMENT' THEN -t.amount
+                        WHEN t.transaction_type = 'WIN' THEN -t.amount
+                        WHEN t.transaction_type = 'LOSE' THEN t.amount
+                        WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
+                        ELSE 0
+                    END
+                WHEN t.from_account_id IN ($in) THEN
+                    CASE
+                        WHEN t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'CONTRA', 'CLEAR') THEN t.amount
+                        WHEN t.transaction_type = 'WIN' THEN t.amount
+                        WHEN t.transaction_type = 'LOSE' THEN -t.amount
+                        ELSE 0
+                    END
+                ELSE 0
+            END), 0) AS delta
+            FROM transactions t
+            WHERE t.scope_type = 'group'
+              AND t.scope_id = ?
+              AND t.transaction_date BETWEEN ? AND ?
+              AND (t.account_id IN ($in) OR t.from_account_id IN ($in))" . $currencyFilterSql . $clearFilter . $contraApproval . "
+            GROUP BY DATE(t.transaction_date)
+            ORDER BY DATE(t.transaction_date)
+        ";
+        $dailyStmt = $pdo->prepare($dailySql);
+        $dailyParams = array_merge($accountIds, $accountIds, [$groupScopeId, $dateFrom, $dateTo], $currencyFilterParams);
+        $dailyStmt->execute($dailyParams);
+        $dailyData = [];
+        while ($r = $dailyStmt->fetch(PDO::FETCH_ASSOC)) {
+            $dailyData[(string) $r['d']] = (string) ($r['delta'] ?? '0');
+        }
+
+        $period = dashboardSumDailyAmounts($dailyData);
+        $total = dashboardMoneyAdd($initial, $period);
+
+        $result[strtolower($role)] = [
+            'role' => $role,
+            'total_balance' => dashboardOut($total),
+            'initial_balance' => dashboardOut($initial),
+            'period_total' => dashboardOut($period),
+            'daily_data' => dashboardOutMap($dailyData)
+        ];
+    }
+
+    return $result;
+}
+
 /**
  * Dashboard 交易币别过滤（与 search_api 对齐）：
  * - 优先使用 transactions.currency_id
@@ -274,37 +509,54 @@ try {
 
     // 获取 company_id：优先使用参数，否则使用 session
     $company_id = null;
-    if (isset($_GET['company_id']) && !empty($_GET['company_id'])) {
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        if ($userRole === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$_GET['company_id'], $owner_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = (int) $_GET['company_id'];
-            } else {
+    $requestedCompanyId = isset($_GET['company_id']) && $_GET['company_id'] !== ''
+        ? (int) $_GET['company_id']
+        : 0;
+
+    $viewGroupForAccess = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : null;
+
+    if ($requestedCompanyId > 0) {
+        if (gc_is_group_login()) {
+            if (!gc_session_can_access_company_id($pdo, $requestedCompanyId, $viewGroupForAccess)) {
                 throw new Exception('无权访问该公司');
             }
+            $company_id = $requestedCompanyId;
         } else {
-            // 非 owner 用户：优先匹配 session, 否则通过 user_company_map 验证是否有权
-            if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === (int) $_GET['company_id']) {
-                $company_id = (int) $_SESSION['company_id'];
-            } else {
-                // 检查 user_company_map 是否包含该公司
-                $ucm_stmt = $pdo->prepare("SELECT 1 FROM user_company_map WHERE user_id = ? AND company_id = ? LIMIT 1");
-                $ucm_stmt->execute([$_SESSION['user_id'], (int) $_GET['company_id']]);
-                if ($ucm_stmt->fetchColumn()) {
-                    $company_id = (int) $_GET['company_id'];
+            $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
+            if ($userRole === 'owner') {
+                $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
+                $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
+                $stmt->execute([$requestedCompanyId, $owner_id]);
+                if ($stmt->fetchColumn()) {
+                    $company_id = $requestedCompanyId;
                 } else {
                     throw new Exception('无权访问该公司');
+                }
+            } else {
+                if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requestedCompanyId) {
+                    $company_id = $requestedCompanyId;
+                } else {
+                    $ucm_stmt = $pdo->prepare("SELECT 1 FROM user_company_map WHERE user_id = ? AND company_id = ? LIMIT 1");
+                    $ucm_stmt->execute([$_SESSION['user_id'], $requestedCompanyId]);
+                    if ($ucm_stmt->fetchColumn()) {
+                        $company_id = $requestedCompanyId;
+                    } else {
+                        throw new Exception('无权访问该公司');
+                    }
                 }
             }
         }
     } else {
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('用户未登录或缺少公司信息');
+        // Group-only request (no company_id): handled below. Do not fall back to session company.
+        $groupOnlyParam = reportNormalizeGroupId($_GET['group_id'] ?? '');
+        $viewGroupOnlyParam = reportNormalizeGroupId($_GET['view_group'] ?? '');
+        $hasGroupOnlyRequest = $groupOnlyParam !== '' || $viewGroupOnlyParam !== '';
+        if (!gc_is_group_login() && !$hasGroupOnlyRequest) {
+            if (!isset($_SESSION['company_id'])) {
+                throw new Exception('用户未登录或缺少公司信息');
+            }
+            $company_id = (int) $_SESSION['company_id'];
         }
-        $company_id = (int) $_SESSION['company_id'];
     }
 
     // 如果没有提供日期范围，默认使用当月
@@ -324,6 +576,76 @@ try {
         $filter_currency_code = strtoupper(trim((string) $_GET['currency']));
     }
 
+    // No company_id: group ledger only (scope_type=group). Distinct from company_id-scoped rows.
+    $groupLedgerCode = reportNormalizeGroupId($_GET['view_group'] ?? '');
+    if ($groupLedgerCode === '') {
+        $groupLedgerCode = reportNormalizeGroupId($_GET['group_id'] ?? '');
+    }
+    if ($groupLedgerCode === '' && gc_is_group_login()) {
+        $groupLedgerCode = (string) (gc_session_login_identifier() ?? '');
+    }
+    $useGroupLedger = $requestedCompanyId <= 0 && $groupLedgerCode !== '';
+    $groupEntityCompanyId = 0;
+
+    if ($useGroupLedger) {
+        $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupLedgerCode);
+        if ($groupScopeId <= 0) {
+            throw new Exception('Group scope is invalid or not initialized');
+        }
+        dashboardAssertGroupLedgerAccess($pdo, $groupLedgerCode, $groupScopeId);
+        $groupEntityCompanyId = tx_resolve_group_entity_company_id($pdo, $groupLedgerCode);
+    }
+
+    // Group dashboard (no subsidiary company_id): group-entity row only — not subsidiaries under the group.
+    if ($useGroupLedger && $groupEntityCompanyId > 0) {
+        $company_id = $groupEntityCompanyId;
+        $useGroupLedger = false;
+    } elseif ($useGroupLedger) {
+        $groupResult = dashboardBuildGroupScopedSummary(
+            $pdo,
+            $date_from_db,
+            $date_to_db,
+            $groupScopeId,
+            $filter_currency_code
+        );
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'capital' => $groupResult['capital']['total_balance'],
+                'expenses' => $groupResult['expenses']['total_balance'],
+                'profit' => $groupResult['profit']['total_balance'],
+                'ownership_percentage' => 0,
+                'has_ownership_setup' => false,
+                'group_equity_percentage' => 0,
+                'group_account_percentage' => 0,
+                'has_group_ownership' => false,
+                'period_total' => [
+                    'capital' => $groupResult['capital']['period_total'],
+                    'expenses' => $groupResult['expenses']['period_total'],
+                    'profit' => $groupResult['profit']['period_total']
+                ],
+                'initial_balance' => [
+                    'capital' => $groupResult['capital']['initial_balance'],
+                    'expenses' => $groupResult['expenses']['initial_balance'],
+                    'profit' => $groupResult['profit']['initial_balance']
+                ],
+                'daily_data' => [
+                    'capital' => $groupResult['capital']['daily_data'],
+                    'expenses' => $groupResult['expenses']['daily_data'],
+                    'profit' => $groupResult['profit']['daily_data'],
+                    'profit_payment_flow_daily' => []
+                ],
+                'date_range' => [
+                    'from' => $date_from,
+                    'to' => $date_to
+                ]
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // Explicit company_id: standard company dashboard (company_id rows).
+
     // 使用 static 缓存函数，整个请求中只查一次 schema
     $hasTransactionCurrency = dashboardHasTransactionCurrency($pdo);
 
@@ -342,12 +664,12 @@ try {
     foreach ($roles as $role) {
         $excludeClear = dashboardShouldExcludeClearForRole($role);
         // 获取该角色的所有账户
+        // 与 Transaction List 一致：含 inactive 账户（期内仍可能有 WIN/LOSE / PAYMENT）
         $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
                 FROM account a
                 INNER JOIN account_company ac ON a.id = ac.account_id
                 WHERE ac.company_id = ?
-                  AND UPPER(a.role) = ?
-                  AND a.status = 'active'";
+                  AND UPPER(TRIM(COALESCE(a.role, ''))) = ?";
 
         // 应用权限过滤
         list($sql, $params) = filterAccountsByPermissions($pdo, $sql, [], $company_id);
@@ -436,8 +758,8 @@ try {
                         WHEN transaction_type = 'PAYMENT' THEN -amount
                         WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
                         WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
-                        WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
-                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
+                        WHEN transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN -amount
+                        WHEN transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN amount
                         WHEN transaction_type = 'ADJUSTMENT' THEN amount
                         ELSE 0
                     END), 0)
@@ -449,13 +771,15 @@ try {
             $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_to));
             $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
 
-            // From Account
+            // From Account（含手动 PROFIT WIN/LOSE，与 search_api from 侧一致）
             $sql = "SELECT COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR') THEN amount
                         WHEN transaction_type = 'CONTRA' THEN amount
                         WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
                         WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
                         WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -amount
+                        WHEN transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN amount
+                        WHEN transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN -amount
                         ELSE 0
                     END), 0)
                     FROM transactions t
@@ -523,8 +847,8 @@ try {
                                WHEN transaction_type = 'PAYMENT' THEN -t.amount
                                WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
                                WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
-                               WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
-                               WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                               WHEN t.transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN -t.amount
+                               WHEN t.transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN t.amount
                                WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
                                ELSE 0
                            END), 0) as cr_dr
@@ -542,7 +866,7 @@ try {
                 dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['cr_dr'] ?? '0');
             }
 
-            // From Account
+            // From Account（含手动 PROFIT WIN/LOSE）
             $sql = "SELECT DATE(t.transaction_date) as date,
                            COALESCE(SUM(CASE 
                                WHEN transaction_type = 'CONTRA' THEN t.amount
@@ -551,13 +875,15 @@ try {
                                WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
                                WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
                                WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
+                               WHEN t.transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN t.amount
+                               WHEN t.transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN -t.amount
                                ELSE 0
                            END), 0) as cr_dr
                     FROM transactions t
                     WHERE t.company_id = ?
                       AND t.from_account_id IN ($ids_placeholder)
                       AND t.transaction_date BETWEEN ? AND ?
-                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')"
+                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')"
                 . $currency_filter_t_from . $clearFilter . $contraApproval . "
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
@@ -674,27 +1000,32 @@ try {
                   AND h.transaction_date BETWEEN ? AND ?
             ";
             $rateMMParams = [$company_id, $company_id, $date_from_db, $date_to_db];
+            $skipRateMM = false;
 
             // 按币种过滤（与前端选择的 currency 一致）
             if ($filter_currency_code !== null) {
                 $rateCurrId = array_search($filter_currency_code, $currency_map);
-                if ($rateCurrId !== false) {
+                if ($rateCurrId === false) {
+                    // 该公司无此币种：勿把其它币种的 RATE_MIDDLEMAN 并入 profit
+                    $skipRateMM = true;
+                } else {
                     $rateMMSql .= " AND e.currency_id = ?";
                     $rateMMParams[] = $rateCurrId;
                 }
             }
 
-            $rateMMSql .= " GROUP BY DATE(h.transaction_date)";
-            $rateMMStmt = $pdo->prepare($rateMMSql);
-            $rateMMStmt->execute($rateMMParams);
-
             $rateMMDaily = [];
             $rateMMPeriodTotal = dashboardMoneyZero();
-            while ($rateRow = $rateMMStmt->fetch(PDO::FETCH_ASSOC)) {
-                $d = $rateRow['date'];
-                $v = $rateRow['total'] ?? '0';
-                dashboardAddDailyAmount($rateMMDaily, (string) $d, $v);
-                $rateMMPeriodTotal = dashboardMoneyAdd($rateMMPeriodTotal, $v);
+            if (!$skipRateMM) {
+                $rateMMSql .= " GROUP BY DATE(h.transaction_date)";
+                $rateMMStmt = $pdo->prepare($rateMMSql);
+                $rateMMStmt->execute($rateMMParams);
+                while ($rateRow = $rateMMStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $d = $rateRow['date'];
+                    $v = $rateRow['total'] ?? '0';
+                    dashboardAddDailyAmount($rateMMDaily, (string) $d, $v);
+                    $rateMMPeriodTotal = dashboardMoneyAdd($rateMMPeriodTotal, $v);
+                }
             }
 
             // 合并到 profit：period_total、daily_data、total_balance
@@ -899,13 +1230,14 @@ try {
         ]
     ]);
 
-} catch (Exception $e) {
-    http_response_code(400);
+} catch (Throwable $e) {
+    error_log('dashboard_api: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
         'data' => null,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
     ], JSON_UNESCAPED_UNICODE);
 }
 
@@ -1150,6 +1482,33 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
                   AND (description LIKE 'Process: %')";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
+        $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());
+
+        // 3. 手动 PROFIT（WIN/LOSE，与 Transaction List calculateWinLossByCurrency 一致）
+        $manualDesc = dashboardManualProfitDescSql('t');
+        $sql = "SELECT COALESCE(SUM(CASE
+                    WHEN t.transaction_type = 'WIN' AND {$manualDesc} THEN -t.amount
+                    WHEN t.transaction_type = 'LOSE' AND {$manualDesc} THEN t.amount
+                    ELSE 0 END), 0) as total
+                FROM transactions t
+                WHERE t.company_id = ? AND t.account_id = ? AND t.transaction_date BETWEEN ? AND ?
+                  AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')"
+            . dashboardContraApprovedWhere($pdo, 't');
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
+        $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());
+
+        $sql = "SELECT COALESCE(SUM(CASE
+                    WHEN t.transaction_type = 'WIN' AND {$manualDesc} THEN t.amount
+                    WHEN t.transaction_type = 'LOSE' AND {$manualDesc} THEN -t.amount
+                    ELSE 0 END), 0) as total
+                FROM transactions t
+                WHERE t.company_id = ? AND t.from_account_id = ? AND t.transaction_date BETWEEN ? AND ?
+                  AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND t.from_account_id IS NOT NULL"
+            . dashboardContraApprovedWhere($pdo, 't');
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());

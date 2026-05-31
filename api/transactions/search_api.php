@@ -12,10 +12,12 @@
 session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../permissions.php';
-require_once __DIR__ . '/../../includes/c168_domain_access.php';
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/permissions.php';
+require_once __DIR__ . '/transaction_scope.php';
+require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
 /**
@@ -844,9 +846,9 @@ try {
         }
     }
     if (empty($target_account_ids) && $isMemberUser) {
-        $memberAccountId = (int) ($_SESSION['user_id'] ?? 0);
-        if ($memberAccountId > 0) {
-            $target_account_ids = [$memberAccountId];
+        $memberPivotViewId = member_session_winloss_view_account_id();
+        if ($memberPivotViewId > 0) {
+            $target_account_ids = [$memberPivotViewId];
         }
     }
     $currency_filters = [];
@@ -861,50 +863,24 @@ try {
         $currency_filters = array_keys($currency_filters);
     }
 
-    // 获取 company_id：优先使用参数，否则使用 session
-    $company_id = null;
-    if (isset($_GET['company_id']) && !empty($_GET['company_id'])) {
-        // 验证用户是否有权限访问该 company
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
-        if ($userRole === 'owner') {
-            // Owner 可以访问自己拥有的 company
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$_GET['company_id'], $owner_id]);
-            if ($stmt->fetchColumn()) {
-                $company_id = (int) $_GET['company_id'];
-            } else {
-                throw new Exception('无权访问该 company');
+    $company_id = tx_resolve_request_company_id($pdo, $_GET);
+
+    // Member：target_account_id 仅可为当前会话账号在同公司的关联闭包内 id，防止越权查询他人余额
+    if ($isMemberUser && !empty($target_account_ids)) {
+        $pivotId = member_session_canonical_account_id();
+        if ($pivotId > 0) {
+            $allowed = member_linked_member_closure_ids($pdo, $pivotId, (int) $company_id);
+            $allowedMap = [];
+            foreach ($allowed as $cid) {
+                $allowedMap[(int) $cid] = true;
             }
-        } elseif ($userType === 'member') {
-            // member 用户可以访问通过 account_company 关联的公司
-            $memberAccountId = (int) $_SESSION['user_id'];
-            $stmt = $pdo->prepare("
-                SELECT 1 
-                FROM account_company ac
-                WHERE ac.account_id = ? AND ac.company_id = ?
-            ");
-            $stmt->execute([$memberAccountId, (int) $_GET['company_id']]);
-            if ($stmt->fetchColumn()) {
-                $company_id = (int) $_GET['company_id'];
-            } else {
-                throw new Exception('无权访问该 company');
-            }
-        } else {
-            // 非 owner 用户只能访问自己的 company
-            if (isset($_SESSION['company_id']) && (int) $_GET['company_id'] === (int) $_SESSION['company_id']) {
-                $company_id = (int) $_GET['company_id'];
-            } else {
-                throw new Exception('无权访问该 company');
+            $target_account_ids = array_values(array_filter($target_account_ids, function ($tid) use ($allowedMap) {
+                return !empty($allowedMap[(int) $tid]);
+            }));
+            if (empty($target_account_ids)) {
+                $target_account_ids = [$pivotId];
             }
         }
-    } else {
-        // 使用 session 中的 company_id
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('缺少公司信息');
-        }
-        $company_id = $_SESSION['company_id'];
     }
 
     // 验证必填参数

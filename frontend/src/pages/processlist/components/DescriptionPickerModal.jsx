@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 
 export default function DescriptionPickerModal({
   descriptions,
@@ -7,8 +8,10 @@ export default function DescriptionPickerModal({
   onClose,
   onAddDescription,
   onDeleteDescription,
+  readOnly = false,
   t,
 }) {
+  const ro = Boolean(readOnly);
   const [search, setSearch] = useState("");
   const [newDescName, setNewDescName] = useState("");
   const [localSelected, setLocalSelected] = useState(() => [...(form.selected_descriptions || [])]);
@@ -30,6 +33,7 @@ export default function DescriptionPickerModal({
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (ro) return;
     if (!newDescName.trim()) return;
     const added = await onAddDescription(newDescName.trim());
     setNewDescName("");
@@ -42,13 +46,15 @@ export default function DescriptionPickerModal({
   };
 
   const runDelete = async () => {
+    if (ro) return;
     if (deleteConfirmId == null) return;
     await onDeleteDescription(deleteConfirmId);
     setDeleteConfirmId(null);
   };
 
   return (
-    <div className="modal" style={{ display: "block", zIndex: 10050 }} role="dialog" aria-modal="true">
+    <ProcessModalPortal>
+    <div className="modal" style={{ ...processModalBackdropStyle, zIndex: 10100 }} role="dialog" aria-modal="true">
       <div className="modal-content description-selection-modal">
         <div className="modal-header">
           <h2>{t("selectOrAddDescription")}</h2>
@@ -69,7 +75,7 @@ export default function DescriptionPickerModal({
                   localSelected.map((item) => (
                     <div key={item.id} className="selected-description-modal-item">
                       <span>{String(item.name || "").toUpperCase()}</span>
-                      <button type="button" className="remove-description-modal" onClick={() => toggleSelect(item)}>
+                      <button type="button" className="remove-description-modal" disabled={ro} onClick={() => !ro && toggleSelect(item)}>
                         &times;
                       </button>
                     </div>
@@ -87,10 +93,11 @@ export default function DescriptionPickerModal({
                       type="text"
                       placeholder={t("enterNewDescriptionName")}
                       value={newDescName}
+                      disabled={ro}
                       onChange={(e) => setNewDescName(e.target.value)}
                       required
                     />
-                    <button type="submit" className="btn btn-save">
+                    <button type="submit" className="btn btn-save" disabled={ro}>
                       {t("add")}
                     </button>
                   </div>
@@ -122,7 +129,9 @@ export default function DescriptionPickerModal({
                       <button
                         type="button"
                         className="remove-description"
+                        disabled={ro}
                         onClick={(e) => {
+                          if (ro) return;
                           e.stopPropagation();
                           setDeleteConfirmId(d.id);
                         }}
@@ -156,7 +165,7 @@ export default function DescriptionPickerModal({
               <button type="button" className="process-btn process-btn-cancel" onClick={() => setDeleteConfirmId(null)}>
                 {t("cancel")}
               </button>
-              <button type="button" className="process-btn process-btn-delete" onClick={() => void runDelete()}>
+              <button type="button" className="process-btn process-btn-delete" disabled={ro} onClick={() => !ro && void runDelete()}>
                 {t("delete")}
               </button>
             </div>
@@ -164,5 +173,6 @@ export default function DescriptionPickerModal({
         </div>
       )}
     </div>
+    </ProcessModalPortal>
   );
 }

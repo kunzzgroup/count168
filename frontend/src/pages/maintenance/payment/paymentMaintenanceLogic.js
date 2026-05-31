@@ -1,34 +1,33 @@
-import { buildApiUrl } from "../../../utils/apiUrl.js";
+import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { fetchDomainCompanyPermissions } from "../shared/maintenanceCompanyApi.js";
+import { paymentMaintenanceScopeApiParams } from "./paymentMaintenanceScope.js";
 
-/**
- * Fetch permissions for a specific company
- */
+function appendPaymentScopeToParams(params, scope) {
+  const { companyId, viewGroup, groupId, reportScope } = paymentMaintenanceScopeApiParams(scope);
+  if (companyId) params.append("company_id", String(companyId));
+  const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+  if (vg) params.append("view_group", vg);
+  const gid = groupId ? String(groupId).trim().toUpperCase() : "";
+  if (gid) params.append("group_id", gid);
+  if (reportScope) params.append("report_scope", reportScope);
+}
+
 export async function fetchCompanyPermissions(companyCode) {
-  if (!companyCode) return [];
-  if (String(companyCode).trim().toUpperCase() === 'C168') return [];
-  try {
-    const response = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get_company_permissions", company_id: companyCode })
-    });
-    const result = await response.json();
-    if (result.success && result.data && Array.isArray(result.data.permissions)) {
-      return result.data.permissions;
-    }
-    return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
-  } catch (err) {
-    console.error("Error fetching company permissions:", err);
-    return ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
-  }
+  return fetchDomainCompanyPermissions(companyCode, { emptyForC168: true });
 }
 
 /**
  * Fetch currencies for a specific company
  */
-export async function fetchCompanyCurrencies(companyId) {
-  const url = buildApiUrl(`api/transactions/get_company_currencies_api.php${companyId ? `?company_id=${companyId}` : ''}`);
-  const response = await fetch(url);
+export async function fetchCompanyCurrencies(companyId, scope = null) {
+  const params = new URLSearchParams();
+  if (companyId) params.append("company_id", String(companyId));
+  appendPaymentScopeToParams(params, scope);
+  const qs = params.toString();
+  const url = buildApiUrl(
+    `api/transactions/get_company_currencies_api.php${qs ? `?${qs}` : ""}`,
+  );
+  const response = await fetch(url, { credentials: "include" });
   const data = await response.json();
   if (data.success) {
     return data.data || [];
@@ -38,17 +37,28 @@ export async function fetchCompanyCurrencies(companyId) {
 
 /**
  * Search payment data
+ * @param {object} opts
+ * @param {AbortSignal} [opts.signal] — cancel in-flight request when company / filters change
  */
-export async function searchPaymentData({ dateFrom, dateTo, transactionType, companyId, currency }) {
+export async function searchPaymentData({
+  dateFrom,
+  dateTo,
+  transactionType,
+  companyId,
+  currency,
+  scope,
+  signal,
+}) {
   const params = new URLSearchParams();
   params.append("date_from", dateFrom);
   params.append("date_to", dateTo);
   if (transactionType) params.append("transaction_type", transactionType);
-  if (companyId) params.append("company_id", companyId);
+  if (companyId) params.append("company_id", String(companyId));
+  appendPaymentScopeToParams(params, scope);
   if (currency) params.append("currency", currency);
   
   const url = buildApiUrl(`api/payment_maintenance/search_api.php?${params.toString()}`);
-  const response = await fetch(url);
+  const response = await fetch(url, { credentials: "include", signal });
   const data = await response.json();
   
   if (!data.success) {
@@ -62,11 +72,19 @@ export async function searchPaymentData({ dateFrom, dateTo, transactionType, com
 /**
  * Delete payment records
  */
-export async function deletePaymentRecords(transactionIds) {
-  const response = await fetch(buildApiUrl('api/payment_maintenance/delete_api.php'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ transaction_ids: transactionIds })
+export async function deletePaymentRecords(transactionIds, scope = null) {
+  const payload = { transaction_ids: transactionIds };
+  const { companyId, viewGroup, groupId, reportScope } = paymentMaintenanceScopeApiParams(scope);
+  if (companyId) payload.company_id = companyId;
+  if (viewGroup) payload.view_group = viewGroup;
+  if (groupId) payload.group_id = groupId;
+  if (reportScope) payload.report_scope = reportScope;
+
+  const response = await fetch(buildApiUrl("api/payment_maintenance/delete_api.php"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
   });
   const data = await response.json();
   if (!data.success) {
@@ -79,7 +97,9 @@ export async function deletePaymentRecords(transactionIds) {
  * Update session company
  */
 export async function updateSessionCompany(companyId) {
-  const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
+  const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`), {
+    credentials: "include",
+  });
   const result = await response.json();
   if (!result.success) {
     throw new Error(result.error || 'Failed to update session company');
@@ -141,6 +161,22 @@ function parseMaintenanceSortTime(row) {
   const iso = `${createdMatch[3]}-${createdMatch[2]}-${createdMatch[1]}T${createdMatch[4]}`;
   const ts = Date.parse(iso);
   return Number.isFinite(ts) ? ts : 0;
+}
+
+/** Virtual rollup rows from the API use transaction_id 0; they are not real DB rows. */
+export function isPaymentMaintenanceRowSelectable(row) {
+  const id = row?.transaction_id;
+  if (id === null || id === undefined || id === "") return false;
+  const n = Number(id);
+  return Number.isFinite(n) && n !== 0;
+}
+
+/** Stable unique key per rendered row (avoids duplicate React keys when transaction_id is 0). */
+export function getPaymentMaintenanceRowRenderKey(row, index) {
+  if (isPaymentMaintenanceRowSelectable(row)) {
+    return `t-${row.transaction_id}`;
+  }
+  return `v-${index}-${String(row.dts_created ?? "")}-${String(row.amount ?? "")}-${String(row.description ?? "").slice(0, 48)}`;
 }
 
 function sortAndNormalizePaymentRows(data) {

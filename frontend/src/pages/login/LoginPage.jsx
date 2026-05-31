@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { LOGIN_I18N } from "../../translateFile/loginTranslate.js";
+import { LOGIN_I18N } from "../../translateFile/auth/authTranslate.js";
+import {
+  clearDashboardFilterSession,
+  seedDashboardFilterFromLogin,
+} from "../../utils/company/sharedCompanyFilter.js";
+import { useAuthBackground } from "./useAuthBackground.js";
 
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -57,6 +62,21 @@ export default function LoginPage() {
   const roleFromUrl = searchParams.get("role") === "member" ? "member" : "admin";
 
   const [role, setRole] = useState(roleFromUrl);
+
+  const setLoginRole = useCallback(
+    (nextRole) => {
+      setRole(nextRole);
+      const next = new URLSearchParams(searchParams);
+      if (nextRole === "member") {
+        next.set("role", "member");
+      } else {
+        next.delete("role");
+      }
+      const qs = next.toString();
+      navigate(qs ? `/login?${qs}` : "/login", { replace: true });
+    },
+    [navigate, searchParams],
+  );
   const [companyId, setCompanyId] = useState("");
   const [userField, setUserField] = useState("");
   const [password, setPassword] = useState("");
@@ -117,11 +137,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         const res = await fetch("/api/session/current_user_api.php", {
           credentials: "include",
           cache: "no-store",
+          signal: controller.signal,
         });
         const json = await res.json();
         if (cancelled || !res.ok || !json?.success || !json?.data) return;
@@ -141,12 +163,14 @@ export default function LoginPage() {
           return;
         }
         navigate("/dashboard", { replace: true });
-      } catch {
+      } catch (err) {
+        if (err?.name === "AbortError") return;
         // stay on login page when not authenticated
       }
     })();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [navigate]);
 
@@ -158,7 +182,6 @@ export default function LoginPage() {
   );
 
   useEffect(() => {
-    // Ensure login page always restores the base background layout.
     document.body.classList.remove(
       "transaction-page",
       "member-winloss-page",
@@ -175,11 +198,9 @@ export default function LoginPage() {
       "user-page--show-all",
       "page-ready",
     );
-    document.body.classList.add("bg");
-    return () => {
-      document.body.classList.remove("bg");
-    };
   }, []);
+
+  useAuthBackground();
 
   useEffect(() => {
     const ac = new AbortController();
@@ -245,31 +266,55 @@ export default function LoginPage() {
       }
 
       const res = await fetch("/api/session/login_api.php", { method: "POST", body: fd, credentials: "include" });
-      const data = await res.json();
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        const msg = res.ok
+          ? i18n.loginInvalidResponse
+          : i18n.loginServerError.replace("{status}", String(res.status));
+        showNotice(msg);
+        return;
+      }
       if (data.status === "success" && data.redirect) {
+        clearDashboardFilterSession();
+        const loginScope = String(data.login_scope || "").trim().toLowerCase();
+        const loginIdentifier = String(data.login_identifier || companyId).trim().toUpperCase();
+        if (loginScope === "group" || loginScope === "company") {
+          seedDashboardFilterFromLogin({
+            loginScope,
+            loginIdentifier,
+            sessionCompanyId: data.company_id != null ? Number(data.company_id) : null,
+            sessionCompanyCode: loginScope === "company" ? loginIdentifier : null,
+          });
+        }
+
         const userType = String(data.user_type || "").toLowerCase();
         const redirect = String(data.redirect || "");
         const loginRole = role;
 
         // Smooth routing: do not follow legacy "dashboard.php -> member" chain.
         if (loginRole === "member" || userType === "member") {
-          window.location.assign(new URL("/member", `${window.location.origin}/`).toString());
+          navigate("/member", { replace: true });
           return;
         }
 
-        // Keep secondary-password flow if backend explicitly asks for it.
-        if (/owner_secondary_password\.php/i.test(redirect)) {
-          window.location.assign(new URL("/owner-secondary-password", window.location.origin).toString());
-          return;
-        }
-        if (/user_secondary_password\.php/i.test(redirect)) {
-          window.location.assign(new URL("/user-secondary-password", window.location.origin).toString());
-          return;
-        }
+        const internalPath = (() => {
+          const r = redirect.trim();
+          if (/owner[-_]secondary[-_]password/i.test(r) || r === "/owner-secondary-password") {
+            return "/owner-secondary-password";
+          }
+          if (/user[-_]secondary[-_]password/i.test(r) || r === "/user-secondary-password") {
+            return "/user-secondary-password";
+          }
+          if (r === "/dashboard" || /dashboard/i.test(r)) return "/dashboard";
+          if (r.startsWith("/") && !r.startsWith("//")) return r;
+          return null;
+        })();
 
-        // Non-member users always enter dashboard directly.
-        if (loginRole !== "member") {
-          window.location.assign(new URL("/dashboard", window.location.origin).toString());
+        if (internalPath) {
+          navigate(internalPath, { replace: true });
           return;
         }
 
@@ -312,16 +357,18 @@ export default function LoginPage() {
         <div className="sc-login-card">
           <div className="sc-login-role-tabs">
             <button
+              id="admin-tab"
               type="button"
               className={`sc-login-role-tab${role === "admin" ? " active" : ""}`}
-              onClick={() => setRole("admin")}
+              onClick={() => setLoginRole("admin")}
             >
               {i18n.admin}
             </button>
             <button
+              id="member-tab"
               type="button"
               className={`sc-login-role-tab${role === "member" ? " active" : ""}`}
-              onClick={() => setRole("member")}
+              onClick={() => setLoginRole("member")}
             >
               {i18n.member}
             </button>
@@ -332,6 +379,7 @@ export default function LoginPage() {
               <div className="sc-login-input-row">
                 <i className="fas fa-building sc-login-input-icon" />
                 <input
+                  id="company-id"
                   type="text"
                   className="sc-login-input"
                   placeholder={i18n.companyPlaceholder}
@@ -344,6 +392,7 @@ export default function LoginPage() {
               <div className="sc-login-input-row">
                 <i className="fas fa-user sc-login-input-icon" />
                 <input
+                  id="user-id"
                   type="text"
                   className="sc-login-input"
                   placeholder={userPlaceholder}
@@ -356,6 +405,7 @@ export default function LoginPage() {
               <div className="sc-login-input-row">
                 <i className="fas fa-lock sc-login-input-icon" />
                 <input
+                  id="password"
                   type="password"
                   className="sc-login-input"
                   placeholder={i18n.passwordPlaceholder}
@@ -369,10 +419,12 @@ export default function LoginPage() {
                 <label className="sc-login-remember">
                   <input
                     type="checkbox"
+                    className="sc-login-remember-check"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <span>{i18n.rememberMe}</span>
+                  <span className="sc-login-remember-slider" aria-hidden="true" />
+                  <span className="sc-login-remember-text">{i18n.rememberMe}</span>
                 </label>
                 {role === "admin" && (
                   <a href="/reset-password" className="sc-login-forgot-link">

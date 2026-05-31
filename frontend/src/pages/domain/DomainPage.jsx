@@ -1,15 +1,17 @@
-import { useEffect, useLayoutEffect, useState, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { assetUrl, buildApiUrl } from "../../utils/apiUrl.js";
+import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/domain.css";
+import "../../../public/css/date-range-picker.css";
 import "../../../public/css/accountCSS.css";
+import "../../../public/css/userlist.css";
 import {
   ROWS_PER_PAGE,
   MAX_VISIBLE_CHIPS,
   hasProtectedCompany,
   forceSearchValue,
-  formatDomainFeeDisplay2,
-  formatDomainFeeEdit2,
+  formatDomainPeriodPricesInlineSummary,
+  normalizeDomainPeriodPricesFromApi,
 } from "./domainHelpers.js";
 
 // Sub-components
@@ -18,17 +20,17 @@ import DomainConfirmModal from "./components/DomainConfirmModal.jsx";
 import DomainFeeModal from "./components/DomainFeeModal.jsx";
 import CompanyExpirationModal from "./components/CompanyExpirationModal.jsx";
 import DomainFormModal from "./components/DomainFormModal.jsx";
-import { getDomainText } from "../../translateFile/domainTranslate.js";
+import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
+import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { canAccessC168DomainPages } from "../../utils/company/loginScope.js";
 
 export default function DomainPage() {
   const navigate = useNavigate();
+  const { me, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
-  const isZh = lang === "zh";
   const t = (key, params) => getDomainText(lang, key, params);
 
-  // ── Session / auth ─────────────────────────────────────────────────────────
-  const [me, setMe] = useState(null);
-  const [ready, setReady] = useState(false);
+  // ── Boot / domain data ───────────────────────────────────────────────────────
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
@@ -76,41 +78,42 @@ export default function DomainPage() {
   const [expModal, setExpModal] = useState(null);       // companies array
 
   // ── Domain fee price (for share calc) ─────────────────────────────────────
-  const [domainFeePrice, setDomainFeePrice] = useState(0);
+  const [domainPeriodPrices, setDomainPeriodPrices] = useState(null);
   const [feeInlineSummary, setFeeInlineSummary] = useState("");
 
-  // ── Auth + initial data load ───────────────────────────────────────────────
+  // ── Initial data load (session from AuthenticatedLayout) ─────────────────────
   useEffect(() => {
+    if (!sessionReady || !me) return;
+
+    let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const json = await res.json();
-        if (!res.ok || !json.success || !json.data) return navigate("/login", { replace: true });
-        const u = json.data;
-        if (!u.has_c168_domain_page_access) { navigate("/dashboard", { replace: true }); return; }
-        setMe(u);
-        setReady(true);
+        if (!canAccessC168DomainPages(me)) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
 
-        // Load domain list
         const r2 = await fetch(buildApiUrl("api/domain/domain_api.php"), {
-          method: "POST", credentials: "include",
+          method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "list" }),
         });
         const j2 = await r2.json();
         if (!r2.ok || !j2?.success) {
-          setLoadError(j2?.message || t("failedToLoadDomainData")); return;
+          if (!cancelled) setLoadError(j2?.message || t("failedToLoadDomainData"));
+          return;
         }
-        setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
-
-        // Load fee summary
+        if (!cancelled) setDomains(Array.isArray(j2?.data?.domains) ? j2.data.domains : []);
         refreshFeeSummary();
       } catch {
-        setReady(true);
-        setLoadError(t("failedToLoadDomainData"));
+        if (!cancelled) setLoadError(t("failedToLoadDomainData"));
       }
     })();
-  }, [navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionReady, me, navigate]);
 
   // ── Fee summary ────────────────────────────────────────────────────────────
   function refreshFeeSummary() {
@@ -122,9 +125,9 @@ export default function DomainPage() {
       .then((r) => r.json())
       .then((res) => {
         if (res.success && res.data) {
-          const p2 = formatDomainFeeDisplay2(res.data.price);
-          setFeeInlineSummary(p2 !== "—" ? t("feeSummary", { price: p2 }) : "");
-          setDomainFeePrice(Number(res.data.price) || 0);
+          const prices = normalizeDomainPeriodPricesFromApi(res.data);
+          setDomainPeriodPrices(prices);
+          setFeeInlineSummary(formatDomainPeriodPricesInlineSummary(prices, t));
         }
       })
       .catch(() => {});
@@ -246,14 +249,11 @@ export default function DomainPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (!ready) return null;
-
   const isOwnerOrAdmin = ["owner", "admin"].includes(String(me?.role || "").toLowerCase());
 
   return (
     <>
       <div className="container domain-react-page">
-        <h1>{t("domainList")}</h1>
         {loadError && (
           <div style={{ marginBottom: 10, color: "#b91c1c", fontWeight: 600 }}>{loadError}</div>
         )}
@@ -271,15 +271,17 @@ export default function DomainPage() {
             >
               {t("addDomainBtn")}
             </button>
-            <div className="search-container">
-              <svg className="search-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-              </svg>
+            <div className="search-container userlist-search-bar">
+              <span className="userlist-search-bar__icon" aria-hidden="true">
+                <svg fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+              </span>
               <input
                 type="text"
                 id="searchInput"
                 placeholder={t("searchPlaceholder")}
-                className="search-input"
+                className="search-input userlist-search-input"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(forceSearchValue(e.target.value))}
               />
@@ -314,8 +316,6 @@ export default function DomainPage() {
             </button>
           </div>
         </div>
-
-        <div className="separator-line" aria-hidden="true" />
 
         <div className="table-container">
           <div className="table-header">
@@ -369,27 +369,21 @@ export default function DomainPage() {
                           );
                         })}
                         {hidden.length > 0 && (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className="domain-company-more"
-                            title={hidden.join(", ")}
+                          <button
+                            type="button"
+                            className="domain-company-more chip-more"
+                            title={t("viewMoreCompaniesHint")}
+                            aria-label={t("viewMoreCompaniesHint")}
                             onClick={(e) => handleCompanyBadgeClick(e, companiesFull)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                handleCompanyBadgeClick(e, companiesFull);
-                              }
-                            }}
                           >
                             +{hidden.length}
-                          </span>
+                          </button>
                         )}
                       </div>
                     )}
                   </div>
                   <div className="card-item uppercase-text">{String(domain.created_by || "-").toUpperCase()}</div>
-                  <div className="card-item" style={{ display: "flex", alignItems: "center" }}>
+                  <div className="card-item domain-action-cell">
                     <button
                       type="button"
                       className="btn-edit"
@@ -398,15 +392,16 @@ export default function DomainPage() {
                     >
                       <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
                     </button>
-                    {!isProtected && (
+                    {!isProtected ? (
                       <input
                         type="checkbox"
                         className="domain-checkbox"
                         value={domain.id}
                         checked={checkedIds.has(domain.id)}
+                        aria-label={t("selectOwnerForDelete")}
                         onChange={(e) => handleCheckbox(domain.id, e.target.checked)}
                       />
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );
@@ -449,11 +444,11 @@ export default function DomainPage() {
           lang={lang}
           isEditMode={isEditMode}
           editingDomain={editingDomain}
-          hasC168Context={!!me?.has_c168_domain_page_access}
+          hasC168Context={canAccessC168DomainPages(me)}
           isOwnerOrAdmin={isOwnerOrAdmin}
           sessionCompanyId={me?.company_id ?? null}
           sessionCompanyCode={String(me?.company_code || "")}
-          domainFeePrice={domainFeePrice}
+          domainPeriodPrices={domainPeriodPrices}
           onClose={() => setShowDomainForm(false)}
           onSaved={handleDomainSaved}
         />
@@ -473,9 +468,9 @@ export default function DomainPage() {
           lang={lang}
           onClose={() => setFeeModal(false)}
           onFeeSaved={(data) => {
-            const p2 = formatDomainFeeDisplay2(data.price);
-            setFeeInlineSummary(p2 !== "—" ? t("feeSummary", { price: p2 }) : "");
-            setDomainFeePrice(Number(data.price) || 0);
+            const prices = normalizeDomainPeriodPricesFromApi(data);
+            setDomainPeriodPrices(prices);
+            setFeeInlineSummary(formatDomainPeriodPricesInlineSummary(prices, t));
           }}
         />
       )}
