@@ -28,6 +28,7 @@ export function useGcFilterWithAllModes({
   me = null,
   enableGroupAnchorSession = true,
   autoPickCompanyWhenEmpty = true,
+  broadcastFilterToLayout = true,
 }) {
   const [groupsAllMode, setGroupsAllMode] = useState(false);
   const [groupAllMode, setGroupAllMode] = useState(false);
@@ -45,6 +46,7 @@ export function useGcFilterWithAllModes({
     enableGroupAnchorSession,
     selectFirstCompanyOnGroupChange: false,
     autoPickCompanyWhenEmpty,
+    broadcastFilterToLayout,
   });
 
   const groupIds = base.groupIds;

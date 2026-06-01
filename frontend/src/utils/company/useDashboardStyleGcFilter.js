@@ -37,6 +37,8 @@ export function useDashboardStyleGcFilter({
   enableGroupAnchorSession = true,
   /** When false, do not auto-select first company while group is set and company is cleared. */
   autoPickCompanyWhenEmpty = true,
+  /** When false, skip layout broadcast on selectedGroup/companyId changes (page handles manually). */
+  broadcastFilterToLayout = true,
   /** Current user from AuthSessionContext — enforces group vs company login rules. */
   me = null,
 }) {
@@ -172,9 +174,10 @@ export function useDashboardStyleGcFilter({
   );
 
   useLayoutEffect(() => {
+    if (!broadcastFilterToLayout) return;
     const cid = isDashboardGroupOnlyMode() ? null : companyId;
     notifyDashboardGroupFilterChanged(selectedGroup, cid);
-  }, [selectedGroup, companyId]);
+  }, [selectedGroup, companyId, broadcastFilterToLayout]);
 
   return {
     groupIds,

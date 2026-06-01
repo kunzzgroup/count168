@@ -557,7 +557,7 @@ export default function AccountListPage() {
     setGroupsAllMode,
     setGroupAllMode,
   } = useGcFilterWithAllModes({
-    companies: allCompanyButtons,
+    companies,
     companyId,
     selectedGroup,
     setSelectedGroup,
@@ -567,6 +567,7 @@ export default function AccountListPage() {
     preferredCompanyId: companyId,
     me: sessionMe,
     autoPickCompanyWhenEmpty: false,
+    broadcastFilterToLayout: false,
   });
 
   gcScopeRef.current = {
@@ -648,6 +649,8 @@ export default function AccountListPage() {
 
       skipCompanyFetchEffectRef.current = true;
       flushSync(() => {
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
         setSelectedGroup(g);
         if (nextCompanyId != null) {
           setCompanyId(nextCompanyId);
@@ -656,13 +659,18 @@ export default function AccountListPage() {
             selectedGroup: g,
             isListScopeReady: true,
           });
+        } else {
+          setCompanyId(null);
+          applyAccountListCache(
+            { companyId: null, selectedGroup: g, isListScopeReady: true },
+            { groupOnly: true },
+          );
         }
       });
 
       persistDashboardGroupFilter(g);
-      persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-      notifyDashboardGroupFilterChanged(g, nextCompanyId);
-      if (pick?.company_id) notify(t("switchedTo", { company: pick.company_id }));
+      persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: !nextCompanyId });
+      if (nextCompanyId == null) notifyDashboardGroupFilterChanged(g, null);
 
       if (pick) void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
       else {
@@ -678,10 +686,10 @@ export default function AccountListPage() {
       companyId,
       fetchAccounts,
       handleClearCompany,
-      notify,
       sessionMe,
       selectedGroup,
-      t,
+      setGroupAllMode,
+      setGroupsAllMode,
     ],
   );
 
