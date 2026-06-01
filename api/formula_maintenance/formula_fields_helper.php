@@ -8,8 +8,40 @@
  */
 
 /**
+ * 与 datacapturesummary.js isAppendedSourcePercentSuffix 一致
+ */
+function isAppendedSourcePercentSuffix($afterStar) {
+    if (!preg_match('/^\*\s*\((.+)\)\s*$/us', (string) $afterStar, $m)) {
+        return false;
+    }
+    $inner = trim($m[1]);
+    if ($inner === '' || preg_match('/[$\[\]]/u', $inner)) {
+        return false;
+    }
+    if (!preg_match('/^[0-9.\s+\-*\/()]+$/u', $inner)) {
+        return false;
+    }
+    if (preg_match('/\/[0-9.]+\s*[-+]/u', $inner)) {
+        return false;
+    }
+    $divParts = explode('/', $inner, 2);
+    if (count($divParts) === 2) {
+        $left = trim($divParts[0]);
+        $rightPart = trim($divParts[1]);
+        if (preg_match('/^([0-9.]+)/u', $rightPart, $rm)) {
+            $a = (float) $left;
+            $b = (float) $rm[1];
+            if ((abs($a) > 10 || abs($b) > 10)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/**
  * 与 datacapturesummary.js removeTrailingSourcePercentExpression 一致：
- * 只移除末尾展示用 Source 后缀 *(...)；*0.9 等公式内乘数一律保留。
+ * 只移除末尾展示用 Source 后缀 *(...)；*0.9、*($3/$2) 等公式内乘数一律保留。
  */
 function removeTrailingSourcePercentSuffix($formulaText) {
     $result = trim((string) $formulaText);
@@ -28,7 +60,7 @@ function removeTrailingSourcePercentSuffix($formulaText) {
         $openParens = substr_count($beforeStar, '(');
         $closeParens = substr_count($beforeStar, ')');
         $isStarInsideParens = $openParens > $closeParens;
-        if (!$isStarInsideParens && preg_match('/^\*\s*\(([0-9.+\-*\/()\s]+)\)\s*$/u', $afterStar)) {
+        if (!$isStarInsideParens && isAppendedSourcePercentSuffix($afterStar)) {
             $result = trim($beforeStar);
             continue;
         }

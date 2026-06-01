@@ -5538,28 +5538,26 @@ function updateFormulaDisplay(formulaValue, processValue) {
                         console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
                     }
                 } else {
-                    // 当前row格式 $数字：从引用中按顺序获取（parseIdProductColumnRef 保留完整 id_product）
-                    if (refIndex < refs.length) {
-                        const ref = refs[refIndex];
-                        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
-                        if (parsed) {
-                            const refIdProduct = parsed.idProduct;
-                            const refDataColumnIndex = parsed.dataColumnIndex;
-                            const refRowLabel = parsed.rowLabel;
-                            const refCapIdx = parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null;
-                            const isCurrentRowRef = currentIdProduct && (
-                                (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
-                                    ? (refIdProduct.trim() === (currentIdProduct || '').trim())
-                                    : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
-                            );
-                            if (isCurrentRowRef) {
-                                const displayColumnIndex = refDataColumnIndex + 1;
-                                if (displayColumnIndex === match.columnNumber) {
-                                    columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel, refCapIdx);
-                                    refIndex++;
-                                }
-                            }
-                        }
+                    // 当前row格式 $数字：按列号在 refs 中查找（支持 $2*($3/$2) 等同列多次出现）
+                    const dataColumnIndex = match.columnNumber - 1;
+                    for (let j = refIndex; j < refs.length; j++) {
+                        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(refs[j]) : null;
+                        if (!parsed || parsed.dataColumnIndex !== dataColumnIndex) continue;
+                        const refIdProduct = parsed.idProduct;
+                        const isCurrentRowRef = currentIdProduct && (
+                            (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
+                                ? (refIdProduct.trim() === (currentIdProduct || '').trim())
+                                : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
+                        );
+                        if (!isCurrentRowRef) continue;
+                        columnValue = getCellValueByIdProductAndColumn(
+                            refIdProduct,
+                            parsed.dataColumnIndex,
+                            parsed.rowLabel,
+                            parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null
+                        );
+                        refIndex = j + 1;
+                        break;
                     }
 
                     // 如果从引用中找不到值，使用当前编辑的id_product
@@ -9373,8 +9371,8 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
             // Reset regex lastIndex
             dollarPattern.lastIndex = 0;
 
-            // Collect all matches
-            while ((match = dollarPattern.exec(formula)) !== null) {
+            // Collect all matches（在 parsedFormula 上扫描，避免 [id,n] 替换后下标错位）
+            while ((match = dollarPattern.exec(parsedFormula)) !== null) {
                 const fullMatch = match[0]; // e.g., "$2"
                 const columnNumber = parseInt(match[1]); // e.g., 2
                 const matchIndex = match.index;
@@ -10247,6 +10245,29 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
     }
 }
 
+/** 末尾是否为展示用 Source 后缀 *(1)、*(0.5/2)；非公式乘子如 *($3/$2-0.0025)、*(2255/521-0.0025) */
+function isAppendedSourcePercentSuffix(afterStar) {
+    const m = String(afterStar || '').match(/^\*\s*\(([\s\S]+)\)\s*$/);
+    if (!m) return false;
+    const inner = m[1].trim();
+    if (!inner) return false;
+    if (/[$\[\]]/.test(inner)) return false;
+    if (!/^[0-9.\s+\-*/()]+$/u.test(inner)) return false;
+    // 公式内乘子：除法后再加减（如 2255/521-0.0025）
+    if (/\/[0-9.]+\s*[-+]/.test(inner)) return false;
+    const divParts = inner.split('/');
+    if (divParts.length === 2) {
+        const left = divParts[0].trim();
+        const right = divParts[1].trim().split(/[-+]/)[0].trim();
+        const a = parseFloat(left);
+        const b = parseFloat(right);
+        if (!isNaN(a) && !isNaN(b) && (Math.abs(a) > 10 || Math.abs(b) > 10)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Remove the trailing "*(...)" source percent that is appended for display
 // while keeping the user's original formula body intact
 function removeTrailingSourcePercentExpression(formulaText) {
@@ -10268,8 +10289,7 @@ function removeTrailingSourcePercentExpression(formulaText) {
         // Only strip when the last * is not inside parentheses and looks like the appended source percent
         // Appended source percent 一定是 "*(" 开头、")" 结尾，例如 "*(1)"、"*(0.5/2)"
         // 像 "*0.9" 这种是正常公式的一部分（例如 4+3*0.9），不能被当成 Source % 删掉
-        const trailingPattern = /^\*\s*\(([0-9.\+\-*/\s]+)\)\s*$/;
-        if (!isStarInsideParens && trailingPattern.test(afterStar)) {
+        if (!isStarInsideParens && isAppendedSourcePercentSuffix(afterStar)) {
             result = beforeStar.trim();
             continue;
         }
