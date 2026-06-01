@@ -529,7 +529,8 @@ function inboxShouldDeferResendConsolidatedToDayEndCapTail(array $r, bool $hasDa
     if ($frequency !== '1st_of_every_month' || !inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r)) {
         return false;
     }
-    $startDate = inboxBankProcessDateFieldToYmd($r['day_start'] ?? null);
+    $storedStart = inboxBankProcessDateFieldToYmd($r['bank_process_stored_day_start'] ?? null);
+    $startDate = $storedStart ?? inboxBankProcessDateFieldToYmd($r['day_start'] ?? null);
     $dayEndInc = inboxBankProcessDateFieldToYmd($r['day_end'] ?? null);
     if ($startDate === null || $dayEndInc === null) {
         return false;
@@ -1085,8 +1086,9 @@ try {
                         'is_resend_consolidated_range' => true,
                     ];
                 }
-                continue;
             }
+            // Resend 跨月合并 或 cap 尾段：本段只处理一次；cap ON 时仅 2b day_end_tail（6/1～day_end），勿再排 4/5 月 regular。
+            continue;
         }
         // Resend 单期开账（弹窗同时填 day_start + day_end）：统一走 consolidated 一条，避免与 monthly/day_end_tail 重复入列。
         if (!empty($r['accounting_resend_relax_created_floor'])
@@ -1497,7 +1499,9 @@ try {
             }
             // Resend with an explicit single reopened period: do not also queue day_end_tail in the same pass
             // (would look like a duplicate bill alongside the monthly line).
-            if (!empty($r['accounting_resend_single_period_from_schedule'])) {
+            // cap 尾段 defer 时例外：只入账 6/1～day_end，不与跨月 consolidated 重复。
+            if (!empty($r['accounting_resend_single_period_from_schedule'])
+                && !inboxShouldDeferResendConsolidatedToDayEndCapTail($r, $hasDayEndMonthlyCapCol, $hasFrequency)) {
                 continue;
             }
             $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
@@ -1514,12 +1518,14 @@ try {
             if ($startDate === null) {
                 continue;
             }
+            $storedStart = inboxBankProcessDateFieldToYmd($r['bank_process_stored_day_start'] ?? null);
+            $contractAnchorStart = $storedStart ?? $startDate;
             $contract = $r['contract'] ?? null;
             $term = getBillingTermMonthsFromContract($contract);
             if ($term === null || $term < 1) {
                 continue;
             }
-            $exclusiveEnd = contractExclusiveEndYmdForFrequency($startDate, $contract, $frequency);
+            $exclusiveEnd = contractExclusiveEndYmdForFrequency($contractAnchorStart, $contract, $frequency);
             if ($exclusiveEnd === null) {
                 continue;
             }
