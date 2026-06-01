@@ -1077,7 +1077,8 @@ try {
     // 2) Regular: 每月1号 或 Monthly(day_start-1)；应付日过后整月内仍显示直到该月入账
     foreach ($rows as $r) {
         if (!empty($r['accounting_resend_relax_created_floor']) && !empty($r['accounting_resend_consolidated_range'])) {
-            if (!inboxShouldDeferResendConsolidatedToDayEndCapTail($r, $hasDayEndMonthlyCapCol, $hasFrequency)) {
+            $deferCapTail = inboxShouldDeferResendConsolidatedToDayEndCapTail($r, $hasDayEndMonthlyCapCol, $hasFrequency);
+            if (!$deferCapTail) {
                 $dayStartRaw = $r['day_start'] ?? null;
                 $dayEndRaw = $r['day_end'] ?? null;
                 $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
@@ -1107,9 +1108,9 @@ try {
                         'is_resend_consolidated_range' => true,
                     ];
                 }
+                continue;
             }
-            // Resend 跨月合并 或 cap 尾段：本段只处理一次；cap ON 时仅 2b day_end_tail（6/1～day_end），勿再排 4/5 月 regular。
-            continue;
+            // cap ON + day_end 最后一月尾段：勿排 consolidated 整段，继续 regular monthly（例 6/1）；7 月由 2b day_end_tail
         }
         // Resend 单期开账（弹窗同时填 day_start + day_end）：统一走 consolidated 一条，避免与 monthly/day_end_tail 重复入列。
         if (!empty($r['accounting_resend_relax_created_floor'])
