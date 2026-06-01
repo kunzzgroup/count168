@@ -1748,6 +1748,32 @@ try {
         }
 
         $needToday = array_values($byFingerprint);
+
+        // 正常出账视角：同名同银行同合同的 regular monthly 仅保留一条（优先较新的 day_start）。
+        // 仅作用于普通 monthly，避免影响 partial/day_end_tail/resend/once 等特殊账期。
+        $monthlyByDisplayKey = [];
+        $keptRows = [];
+        foreach ($needToday as $row) {
+            if ($rankOf($row) !== 1) {
+                $keptRows[] = $row;
+                continue;
+            }
+            $nameKey = strtolower(trim((string) ($row['name'] ?? '')));
+            $bankKey = strtolower(trim((string) ($row['bank'] ?? '')));
+            $contractKey = strtolower(trim((string) ($row['contract'] ?? '')));
+            $key = $nameKey . '|' . $bankKey . '|' . $contractKey;
+            $rowStart = inboxBankProcessDateFieldToYmd($row['day_start'] ?? null) ?? '';
+            if (!isset($monthlyByDisplayKey[$key])) {
+                $monthlyByDisplayKey[$key] = $row;
+                continue;
+            }
+            $exist = $monthlyByDisplayKey[$key];
+            $existStart = inboxBankProcessDateFieldToYmd($exist['day_start'] ?? null) ?? '';
+            if ($rowStart >= $existStart) {
+                $monthlyByDisplayKey[$key] = $row;
+            }
+        }
+        $needToday = array_merge($keptRows, array_values($monthlyByDisplayKey));
     }
 
     if (!empty($needToday)) {
