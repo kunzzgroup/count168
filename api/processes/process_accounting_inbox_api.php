@@ -1789,6 +1789,35 @@ try {
             $row['profit'] = money_out($row['profit'] ?? '0');
         }
         unset($row);
+        // 最终显示去重：按 Due Date + Card Owner + Bank + Contract 仅保留一条。
+        // 若同显示键出现多条，优先保留普通 monthly（符合“先正常出账”的需求）。
+        $displayUnique = [];
+        foreach ($needToday as $row) {
+            $ds = trim((string) ($row['day_start'] ?? ''));
+            $name = strtolower(trim((string) ($row['name'] ?? '')));
+            $bank = strtolower(trim((string) ($row['bank'] ?? '')));
+            $contract = strtolower(trim((string) ($row['contract'] ?? '')));
+            $dk = $ds . '|' . $name . '|' . $bank . '|' . $contract;
+            if (!isset($displayUnique[$dk])) {
+                $displayUnique[$dk] = $row;
+                continue;
+            }
+            $existing = $displayUnique[$dk];
+            $rowIsRegular = empty($row['is_partial_first_month'])
+                && empty($row['is_day_end_tail'])
+                && empty($row['is_resend_consolidated_range'])
+                && empty($row['is_once_one_off'])
+                && empty($row['is_manual_inactive']);
+            $existingIsRegular = empty($existing['is_partial_first_month'])
+                && empty($existing['is_day_end_tail'])
+                && empty($existing['is_resend_consolidated_range'])
+                && empty($existing['is_once_one_off'])
+                && empty($existing['is_manual_inactive']);
+            if ($rowIsRegular && !$existingIsRegular) {
+                $displayUnique[$dk] = $row;
+            }
+        }
+        $needToday = array_values($displayUnique);
         // 已入账或已从 Due 移除（*_skipped）的行不再返回给弹窗，避免 Resend 后 Delete 仍显示「残留」一行
         $needToday = array_values(array_filter($needToday, static function (array $row): bool {
             return empty($row['already_posted_today']);
