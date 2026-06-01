@@ -181,21 +181,11 @@ function txnDescriptionAmount($value): string
     return money_out($value, 2);
 }
 
-/** Process bank 描述尾缀：| {Card Owner} ({Bank}) */
+/** Process bank 描述尾缀：| {Bank} */
 function txnProcessBankDescriptionTail(array $processRow): string
 {
-    $cardOwner = trim((string) ($processRow['name'] ?? ''));
     $bank = trim((string) ($processRow['bank'] ?? ''));
-    if ($cardOwner === '' && $bank === '') {
-        return '';
-    }
-    if ($cardOwner === '') {
-        return ' | (' . $bank . ')';
-    }
-    if ($bank === '') {
-        return ' | ' . $cardOwner;
-    }
-    return ' | ' . $cardOwner . ' (' . $bank . ')';
+    return $bank === '' ? '' : (' | ' . $bank);
 }
 
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */

@@ -264,24 +264,11 @@ function stripTrailingRateSuffix(string $description): string
     return preg_replace('/\s*\((?:Rate|RATE):\s*[^)]*\)\s*$/i', '', $description) ?? $description;
 }
 
-/** Process bank 描述尾缀：| {Card Owner} ({Bank}) */
+/** Process bank 描述尾缀：| {Bank} */
 function historyBankProcessDescriptionTail(array $tx): string
 {
-    $cardOwner = trim((string) ($tx['bank_process_name'] ?? ''));
-    if ($cardOwner === '') {
-        $cardOwner = trim((string) ($tx['card_owner_name'] ?? ''));
-    }
     $bank = trim((string) ($tx['bank_name'] ?? ''));
-    if ($cardOwner === '' && $bank === '') {
-        return '';
-    }
-    if ($cardOwner === '') {
-        return ' | (' . $bank . ')';
-    }
-    if ($bank === '') {
-        return ' | ' . $cardOwner;
-    }
-    return ' | ' . $cardOwner . ' (' . $bank . ')';
+    return $bank === '' ? '' : (' | ' . $bank);
 }
 
 function historyAppendBankProcessTail(string $description, array $tx): string
