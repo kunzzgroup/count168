@@ -3675,7 +3675,7 @@ if (addProcessForm) {
             } else {
                 let errorMessage = result.error || result.message || 'Unknown error occurred';
                 if (result.data && result.data.duplicate) {
-                    errorMessage = result.error || result.message || 'Process ID already exists';
+                    errorMessage = result.error || result.message || 'Process ID and Description combination already exists';
                 }
                 showNotification(errorMessage, 'danger');
             }

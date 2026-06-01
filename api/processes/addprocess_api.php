@@ -204,35 +204,19 @@ function getSourceTemplatesForCopy(PDO $pdo, $processIdOrDbId, int $companyId): 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function processExists(PDO $pdo, string $processId, $descriptionId, int $companyId): bool {
+/** 同一公司下 process_id + description_id 组合是否已存在 */
+function processPairExists(PDO $pdo, string $processId, int $descriptionId, int $companyId): bool {
+    $processId = trim($processId);
+    if ($processId === '' || $descriptionId <= 0) {
+        return false;
+    }
     $stmt = $pdo->prepare("
-        SELECT id
-        FROM process
-        WHERE process_id = ?
-          AND description_id = ?
-          AND company_id = ?
+        SELECT id FROM process
+        WHERE process_id = ? AND description_id = ? AND company_id = ?
           AND status IN ('active', 'inactive')
         LIMIT 1
     ");
     $stmt->execute([$processId, $descriptionId, $companyId]);
-    return $stmt->fetch() !== false;
-}
-
-/** 同一公司下 process_id 是否已存在（不区分 description） */
-function processIdExistsForCompany(PDO $pdo, string $processId, int $companyId): bool {
-    $processId = trim($processId);
-    if ($processId === '') {
-        return false;
-    }
-    $stmt = $pdo->prepare("
-        SELECT id
-        FROM process
-        WHERE process_id = ?
-          AND company_id = ?
-          AND status IN ('active', 'inactive')
-        LIMIT 1
-    ");
-    $stmt->execute([$processId, $companyId]);
     return $stmt->fetch() !== false;
 }
 
@@ -649,11 +633,31 @@ try {
             $currentUserId = getCurrentUserId($pdo);
         }
 
+        $requestPairKeys = [];
         foreach ($processIds as $processId) {
-            if (processIdExistsForCompany($pdo, $processId, $companyId)) {
-                jsonResponse(false, 'Process ID "' . $processId . '" already exists for this company', [
+            foreach ($descriptionIds as $descriptionId) {
+                $descriptionId = (int) $descriptionId;
+                $pairKey = strtolower(trim((string) $processId)) . "\0" . $descriptionId;
+                if (isset($requestPairKeys[$pairKey])) {
+                    jsonResponse(false, 'Duplicate Process ID and Description in this request', [
+                        'duplicate' => true,
+                        'duplicate_type' => 'process_pair',
+                        'process_id' => $processId,
+                        'description_id' => $descriptionId,
+                    ]);
+                    exit;
+                }
+                $requestPairKeys[$pairKey] = true;
+                if (!processPairExists($pdo, $processId, $descriptionId, $companyId)) {
+                    continue;
+                }
+                $descRow = getDescriptionById($pdo, $descriptionId);
+                $descName = $descRow['name'] ?? (string) $descriptionId;
+                jsonResponse(false, 'Process ID "' . $processId . '" with Description "' . $descName . '" already exists', [
                     'duplicate' => true,
-                    'process_id' => $processId
+                    'duplicate_type' => 'process_pair',
+                    'process_id' => $processId,
+                    'description_id' => $descriptionId,
                 ]);
                 exit;
             }
@@ -666,12 +670,11 @@ try {
         try {
             foreach ($processIds as $processId) {
                 foreach ($descriptionIds as $descriptionId) {
-                    if (processIdExistsForCompany($pdo, $processId, $companyId)) {
-                        $errors[] = "Process ID \"$processId\" already exists for this company";
-                        continue;
-                    }
-                    if (processExists($pdo, $processId, $descriptionId, $companyId)) {
-                        $errors[] = "Process already exists for process_id $processId and description $descriptionId";
+                    $descriptionId = (int) $descriptionId;
+                    if (processPairExists($pdo, $processId, $descriptionId, $companyId)) {
+                        $descRow = getDescriptionById($pdo, $descriptionId);
+                        $descName = $descRow['name'] ?? (string) $descriptionId;
+                        $errors[] = 'Process ID "' . $processId . '" with Description "' . $descName . '" already exists';
                         continue;
                     }
                     $row = [
