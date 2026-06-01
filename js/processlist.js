@@ -2047,11 +2047,14 @@ function syncBankResendModalOnceDayEndUi() {
     const freq = document.getElementById('bank_resend_frequency');
     if (!dayEnd || !freq) return;
     const isOnce = freq.value === 'once';
-    if (isOnce) {
+    const isMonthly = freq.value === 'monthly';
+    if (isOnce || isMonthly) {
         dayEnd.value = '';
         dayEnd.disabled = true;
         dayEnd.style.opacity = '0.55';
-        dayEnd.title = 'Not used when Frequency is Once';
+        dayEnd.title = isMonthly
+            ? 'Not used when Frequency is Monthly'
+            : 'Not used when Frequency is Once';
     } else {
         dayEnd.disabled = false;
         dayEnd.style.opacity = '';
@@ -2408,7 +2411,7 @@ async function confirmBankResendFromModal() {
     const fqEl = document.getElementById('bank_resend_frequency');
     const scheduleOpts = (dsEl && deEl && fqEl) ? {
         day_start: (dsEl.value || '').trim(),
-        day_end: fqEl.value === 'once' ? '' : (deEl.value || '').trim(),
+        day_end: (fqEl.value === 'once' || fqEl.value === 'monthly') ? '' : (deEl.value || '').trim(),
         day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : (fqEl.value === 'once' ? 'once' : '1st_of_every_month')
     } : null;
     const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;

@@ -120,11 +120,12 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
         if ($hadScheduleEnd) {
             $row['day_end'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $de, $m) ? $m[1] : $de;
         }
-        // Resend 弹窗同时填 day_start + day_end：按自然月切段合并为一笔（仅 relax 期间；不入库为独立列）
-        if ($hadScheduleStart && $hadScheduleEnd) {
+        $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
+        // Resend 弹窗同时填 day_start + day_end：按自然月切段合并为一笔（仅 relax 期间；不入库为独立列）。
+        // 但 Frequency=monthly 时只允许按 day_start 单期 reopen，不走 consolidated。
+        if ($hadScheduleStart && $hadScheduleEnd && $fq !== 'monthly') {
             $row['accounting_resend_consolidated_range'] = 1;
         }
-        $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
         if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'once') {
             $row['day_start_frequency'] = $fq;
         }
