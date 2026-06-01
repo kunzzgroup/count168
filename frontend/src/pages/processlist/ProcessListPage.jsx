@@ -95,6 +95,7 @@ export default function ProcessListPage() {
   /** Partnership/Audit read_only 时禁用流程写操作 — synced from layout session */
   const sessionMe = sessionMeFromLayout;
   const fetchAbortRef = useRef(null);
+  const currencyMetaSeqRef = useRef(0);
   const searchDebounceRef = useRef(null);
   const skipNextFetchRef = useRef(false);
   /** Prevent session refresh from re-running boot and resetting GroupID ALL / follow UI. */
@@ -200,12 +201,15 @@ export default function ProcessListPage() {
 
   const loadCurrencyMeta = useCallback(async () => {
     if (!companyId) return;
+    const seq = ++currencyMetaSeqRef.current;
     try {
       const [curRes, ordRes] = await Promise.all([
         fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${companyId}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), { credentials: "include" }).catch(() => null),
       ]);
+      if (seq !== currencyMetaSeqRef.current) return;
       const curJson = await curRes.json();
+      if (seq !== currencyMetaSeqRef.current) return;
       if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
         setCurrencyListOrdered([]);
         return;
@@ -221,8 +225,10 @@ export default function ProcessListPage() {
           codes = [...ordered, ...rest];
         }
       }
+      if (seq !== currencyMetaSeqRef.current) return;
       setCurrencyListOrdered(codes);
     } catch {
+      if (seq !== currencyMetaSeqRef.current) return;
       setCurrencyListOrdered([]);
     }
   }, [companyId]);
@@ -632,11 +638,15 @@ export default function ProcessListPage() {
   );
 
   useEffect(() => {
-    if (!currencyPillCodes.length) return;
+    if (!companyId) return;
+    if (!currencyPillCodes.length) {
+      if (currencyFilterCode) setCurrencyFilterCode("");
+      return;
+    }
     if (!currencyFilterCode || !currencyPillCodes.includes(currencyFilterCode)) {
       setCurrencyFilterCode(currencyPillCodes[0]);
     }
-  }, [currencyFilterCode, currencyPillCodes]);
+  }, [companyId, currencyFilterCode, currencyPillCodes]);
 
   const currencyFilteredRows = useMemo(() => {
     if (!currencyFilterCode) return rows;
@@ -689,10 +699,15 @@ export default function ProcessListPage() {
         setGroupFilterKind("follow");
         if (gid) setSelectedGroup(gid);
         setCompanyId(nextId);
+        setRows([]);
         setCurrencyFilterCode("");
+        setCurrencyListOrdered([]);
+        setCurrencyPillDisplayOrder(null);
+        setTableLoading(true);
         setSelectedIds(new Set());
         setCurrentPage(1);
       });
+      currencyMetaSeqRef.current += 1;
       persistDashboardGroupFilter(gid);
       persistDashboardFilterState(gid, nextId);
       notifyDashboardGroupFilterChanged(gid, nextId);
