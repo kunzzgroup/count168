@@ -264,6 +264,38 @@ function stripTrailingRateSuffix(string $description): string
     return preg_replace('/\s*\((?:Rate|RATE):\s*[^)]*\)\s*$/i', '', $description) ?? $description;
 }
 
+/** Process bank 描述尾缀：| {Card Owner} ({Bank}) */
+function historyBankProcessDescriptionTail(array $tx): string
+{
+    $cardOwner = trim((string) ($tx['bank_process_name'] ?? ''));
+    if ($cardOwner === '') {
+        $cardOwner = trim((string) ($tx['card_owner_name'] ?? ''));
+    }
+    $bank = trim((string) ($tx['bank_name'] ?? ''));
+    if ($cardOwner === '' && $bank === '') {
+        return '';
+    }
+    if ($cardOwner === '') {
+        return ' | (' . $bank . ')';
+    }
+    if ($bank === '') {
+        return ' | ' . $cardOwner;
+    }
+    return ' | ' . $cardOwner . ' (' . $bank . ')';
+}
+
+function historyAppendBankProcessTail(string $description, array $tx): string
+{
+    $tail = historyBankProcessDescriptionTail($tx);
+    if ($tail === '') {
+        return $description;
+    }
+    if (substr($description, -strlen($tail)) === $tail) {
+        return $description;
+    }
+    return $description . $tail;
+}
+
 /**
  * 将旧版 RATE 描述改为：
  * EXCH RATE {rate} {from} > {to} | TO/FROM {account}
@@ -2015,6 +2047,9 @@ try {
         // 追加审批标记（只对未批准 CONTRA；CLEAR 没有审批流程，只沿用金额逻辑）
         if ($t['transaction_type'] === 'CONTRA' && $approvalStatus && strtoupper((string) $approvalStatus) === 'PENDING') {
             $description = '[PENDING APPROVAL] ' . $description;
+        }
+        if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
+            $description = historyAppendBankProcessTail((string) $description, $t);
         }
 
         $displayDateYmd = $t['transaction_date'];

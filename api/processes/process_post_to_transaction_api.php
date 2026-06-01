@@ -181,6 +181,23 @@ function txnDescriptionAmount($value): string
     return money_out($value, 2);
 }
 
+/** Process bank 描述尾缀：| {Card Owner} ({Bank}) */
+function txnProcessBankDescriptionTail(array $processRow): string
+{
+    $cardOwner = trim((string) ($processRow['name'] ?? ''));
+    $bank = trim((string) ($processRow['bank'] ?? ''));
+    if ($cardOwner === '' && $bank === '') {
+        return '';
+    }
+    if ($cardOwner === '') {
+        return ' | (' . $bank . ')';
+    }
+    if ($bank === '') {
+        return ' | ' . $cardOwner;
+    }
+    return ' | ' . $cardOwner . ' (' . $bank . ')';
+}
+
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */
 function partialFirstMonthAmounts(string $dayStart, string $cost, string $price, string $profit): array
 {
@@ -1427,6 +1444,7 @@ try {
         }
 
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ($periodType === 'once_one_off' ? ' (once)' : '')));
+        $processTail = txnProcessBankDescriptionTail($p);
         $resendEndMarker = '';
         if ($periodType === 'resend_consolidated_range') {
             $endRawForMarker = $p['day_end'] ?? null;
@@ -1445,8 +1463,8 @@ try {
             $txn['account_id'] = (int) $p['card_merchant_id'];
             $txn['amount'] = txnTrunc2($cost);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($cost))
-                : ("Process: Buy Price for $processLabel" . $suffix . $resendEndMarker);
+                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($cost) . $processTail)
+                : ("Process: Buy Price for $processLabel" . $suffix . $resendEndMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1457,8 +1475,8 @@ try {
             $txn['account_id'] = (int) $p['customer_id'];
             $txn['amount'] = txnTrunc2($price);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($price))
-                : ("Process: Sell Price for $processLabel" . $suffix . $resendEndMarker);
+                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($price) . $processTail)
+                : ("Process: Sell Price for $processLabel" . $suffix . $resendEndMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1507,8 +1525,8 @@ try {
             $txn['account_id'] = (int) $p['profit_account_id'];
             $txn['amount'] = txnTrunc2($companyProfit);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($profit))
-                : ("Process: Profit for $processLabel" . $suffix . $resendEndMarker);
+                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($profit) . $processTail)
+                : ("Process: Profit for $processLabel" . $suffix . $resendEndMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1517,8 +1535,8 @@ try {
             $txn['account_id'] = (int) $ps['account_id'];
             $txn['amount'] = txnTrunc2($ps['amount']);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($ps['amount']))
-                : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . money_out($ps['amount'], 2) . ')' . $suffix . $resendEndMarker);
+                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($ps['amount']) . $processTail)
+                : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . money_out($ps['amount'], 2) . ')' . $suffix . $resendEndMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
