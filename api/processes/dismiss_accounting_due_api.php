@@ -314,6 +314,8 @@ try {
         }
         if ($periodType === 'resend_consolidated_range') {
             upsertAccountingDueDismissed($pdo, $companyId, $processId, 'resend_consolidated_range', $postDate);
+        } elseif ($periodType === 'monthly' || $periodType === 'day_end_tail') {
+            upsertAccountingDueDismissed($pdo, $companyId, $processId, $periodType, $postDate);
         }
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);

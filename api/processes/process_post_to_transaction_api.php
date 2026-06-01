@@ -487,16 +487,10 @@ function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYm
     return $dueYmd;
 }
 
-/** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / monthly_skipped */
+/** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / 合法 monthly_skipped */
 function hasMonthlyPostedOrSkippedInCalendarMonthForTxn(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
 {
-    try {
-        $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1");
-        $stmt->execute([$companyId, $processId, $year, $month]);
-        return (bool) $stmt->fetch();
-    } catch (Throwable $e) {
-        return false;
-    }
+    return bmp_monthlyBillingCalendarMonthIsHandled($pdo, $companyId, $processId, $year, $month);
 }
 
 /** 与 process_accounting_inbox_api 的 isWithinRecurringBillingWindow 一致 */
@@ -1618,6 +1612,7 @@ try {
             }
             $clr->execute([(int) $p['id'], $companyId]);
             $p['accounting_resend_relax_created_floor'] = 0;
+            bmp_purgeStaleMonthlySkippedRows($pdo, $companyId, (int) $p['id']);
         }
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）

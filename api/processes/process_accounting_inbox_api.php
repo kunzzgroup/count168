@@ -691,12 +691,10 @@ function inboxAppendMonthlyNeedToday(
     ];
 }
 
-/** 该自然月是否已有 monthly / monthly_skipped（用于判断本期是否已处理） */
+/** 该自然月是否已有 monthly / 合法 monthly_skipped（用于判断本期是否已处理） */
 function hasMonthlyPostedOrSkippedInCalendarMonth(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
 {
-    $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1");
-    $stmt->execute([$companyId, $processId, $year, $month]);
-    return (bool) $stmt->fetch();
+    return bmp_monthlyBillingCalendarMonthIsHandled($pdo, $companyId, $processId, $year, $month);
 }
 
 /** Frequency=once：一次性入账已执行或已从 Due 移除（跳过）后不再出现在 Accounting Due */
