@@ -1106,6 +1106,10 @@ export default function ProcessListPage() {
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <button type="button" className="btn btn-add" disabled={processMutationsBlocked} onClick={openAdd}>
+                <AddProcessIcon />
+                {t("addProcess")}
+              </button>
               <div className="search-container userlist-search-bar">
                 <span className="userlist-search-bar__icon" aria-hidden="true">
                   <svg fill="currentColor" viewBox="0 0 24 24">
@@ -1174,10 +1178,6 @@ export default function ProcessListPage() {
                 onClick={deleteSelected}
               >
                 {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
-              </button>
-              <button type="button" className="btn btn-add" disabled={processMutationsBlocked} onClick={openAdd}>
-                <AddProcessIcon />
-                {t("addProcess")}
               </button>
             </div>
           </div>
