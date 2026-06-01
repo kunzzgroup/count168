@@ -72,6 +72,11 @@ function resolveAccountScopeKey({ companyId: cid, selectedGroup: sg, groupOnly =
   return "none";
 }
 
+function accountRowsFingerprint(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return "0";
+  return rows.map((a) => Number(a.id)).join(",");
+}
+
 export default function AccountListPage() {
   const navigate = useNavigate();
   const { me: sessionMe, sessionReady } = useAuthSession();
@@ -292,7 +297,12 @@ export default function AccountListPage() {
         }
 
         accountListCacheRef.current.set(cacheKey, nextAccounts);
-        setAccounts(nextAccounts);
+        setAccounts((prev) => {
+          if (silent && accountRowsFingerprint(prev) === accountRowsFingerprint(nextAccounts)) {
+            return prev;
+          }
+          return nextAccounts;
+        });
         if (!silent) {
           setSelectedDeleteIds(new Set());
           setCurrentPage(1);
@@ -325,7 +335,9 @@ export default function AccountListPage() {
       const cacheKey = resolveAccountListCacheKey(scopeKey, searchTerm, showInactive, showAll);
       const cached = accountListCacheRef.current.get(cacheKey);
       if (!cached) return false;
-      setAccounts(cached);
+      setAccounts((prev) =>
+        accountRowsFingerprint(prev) === accountRowsFingerprint(cached) ? prev : cached,
+      );
       return true;
     },
     [searchTerm, showInactive, showAll],
@@ -472,7 +484,7 @@ export default function AccountListPage() {
     setCompanyId(null);
   }, []);
 
-  const onSwitchCompany = useCallback(async (c) => {
+  const onSwitchCompany = useCallback(async (c, { layoutSilent = false } = {}) => {
     const nextCompanyId = Number(c?.id);
     if (!nextCompanyId) return;
 
@@ -508,7 +520,7 @@ export default function AccountListPage() {
         notifyApi(json.message, "failedToSwitchCompany", "danger");
         return;
       }
-      notifyCompanySessionUpdated();
+      if (!layoutSilent) notifyCompanySessionUpdated();
     } catch {
       if (ac.signal.aborted) return;
       listFetchAbortRef.current?.abort();
@@ -549,7 +561,7 @@ export default function AccountListPage() {
     companyId,
     selectedGroup,
     setSelectedGroup,
-    onSelectCompany: (c) => onSwitchCompanyRef.current?.(c),
+    onSelectCompany: (c) => onSwitchCompanyRef.current?.(c, { layoutSilent: true }),
     onClearCompany: handleClearCompany,
     switchingCompany: false,
     preferredCompanyId: companyId,
@@ -652,7 +664,7 @@ export default function AccountListPage() {
       notifyDashboardGroupFilterChanged(g, nextCompanyId);
       if (pick?.company_id) notify(t("switchedTo", { company: pick.company_id }));
 
-      if (pick) void onSwitchCompanyRef.current?.(pick);
+      if (pick) void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
       else {
         void fetchAccounts(
           { companyId: null, selectedGroup: g, isListScopeReady: true },
@@ -688,22 +700,27 @@ export default function AccountListPage() {
       }
 
       const nextGroup = gid || null;
+      const effectiveGroup = nextGroup || sel;
+      const groupChanged = Boolean(nextGroup && nextGroup !== sel);
       skipCompanyFetchEffectRef.current = true;
       flushSync(() => {
-        if (nextGroup && nextGroup !== sel) setSelectedGroup(nextGroup);
+        if (groupChanged) setSelectedGroup(nextGroup);
         setCompanyId(nextCompanyId);
-        applyAccountListCache({ companyId: nextCompanyId, selectedGroup: nextGroup || sel, isListScopeReady: true });
+        applyAccountListCache({
+          companyId: nextCompanyId,
+          selectedGroup: effectiveGroup,
+          isListScopeReady: true,
+        });
       });
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
-      else persistDashboardGroupFilter(null);
-      persistDashboardFilterState(nextGroup || sel, nextCompanyId, { allowGroupOnly: false });
-      notifyDashboardGroupFilterChanged(nextGroup || sel, nextCompanyId);
-      notify(t("switchedTo", { company: c.company_id }));
+      else if (effectiveGroup) persistDashboardGroupFilter(effectiveGroup);
+      persistDashboardFilterState(effectiveGroup, nextCompanyId, { allowGroupOnly: false });
+      if (groupChanged) notifyDashboardGroupFilterChanged(nextGroup, nextCompanyId);
 
-      void onSwitchCompanyRef.current?.(c);
+      void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
     },
-    [applyAccountListCache, clearCompanyPillSelection, companyId, notify, selectedGroup],
+    [applyAccountListCache, clearCompanyPillSelection, companyId, selectedGroup],
   );
 
   useEffect(() => {
