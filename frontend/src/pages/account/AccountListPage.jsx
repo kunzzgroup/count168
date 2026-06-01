@@ -1265,6 +1265,7 @@ export default function AccountListPage() {
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={handlePickCompany}
               switchingCompany={switchingCompany}
+              showAllOption={false}
             />
           </div>
 
