@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
   companiesInGroupList,
   isDashboardGroupOnlyMode,
+  DASHBOARD_GROUP_FILTER_EVENT,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
+  readPersistedDashboardGcFilter,
   persistDashboardGroupFilter,
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
@@ -79,6 +81,7 @@ function accountRowsFingerprint(rows) {
 
 export default function AccountListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { me: sessionMe, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const langRef = useRef(lang);
@@ -370,16 +373,17 @@ export default function AccountListPage() {
         const urlCompanyId = url.searchParams.get("company_id");
         const savedCompanyId = readDashboardSelectedCompanyId();
         let initialCompanyId = savedCompanyId;
-        if (initialCompanyId == null && !isDashboardGroupOnlyMode()) {
+        if (savedCompanyId != null) {
+          persistDashboardGroupOnlyMode(false);
+        } else if (isDashboardGroupOnlyMode()) {
+          initialCompanyId = null;
+          stripCompanyIdFromUrl();
+        } else if (initialCompanyId == null) {
           initialCompanyId = resolveBootCompanyId({
             urlCompanyId,
             sessionCompanyId: sessionMe.company_id,
             defaultRowId: rows[0]?.id,
           });
-        }
-        if (isDashboardGroupOnlyMode()) {
-          initialCompanyId = null;
-          stripCompanyIdFromUrl();
         }
 
         const initialSearchTerm = toUpper(url.searchParams.get("search") || "");
@@ -470,6 +474,7 @@ export default function AccountListPage() {
     })();
     return () => {
       cancelled = true;
+      bootInitializedRef.current = false;
     };
   }, [sessionReady, sessionMe, navigate]);
 
@@ -670,7 +675,7 @@ export default function AccountListPage() {
 
       persistDashboardGroupFilter(g);
       persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: !nextCompanyId });
-      if (nextCompanyId == null) notifyDashboardGroupFilterChanged(g, null);
+      notifyDashboardGroupFilterChanged(g, nextCompanyId == null ? null : nextCompanyId);
 
       if (pick) void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
       else {
@@ -724,12 +729,87 @@ export default function AccountListPage() {
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
       else if (effectiveGroup) persistDashboardGroupFilter(effectiveGroup);
       persistDashboardFilterState(effectiveGroup, nextCompanyId, { allowGroupOnly: false });
-      if (groupChanged) notifyDashboardGroupFilterChanged(nextGroup, nextCompanyId);
+      notifyDashboardGroupFilterChanged(effectiveGroup, nextCompanyId);
 
       void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
     },
     [applyAccountListCache, clearCompanyPillSelection, companyId, selectedGroup],
   );
+
+  const syncGcFilterFromSession = useCallback(() => {
+    if (bootLoading || !companies.length) return;
+
+    const { selectedGroup: nextGroup, companyId: nextCompanyId } = readPersistedDashboardGcFilter();
+    if (!nextGroup) return;
+
+    const currentGroup = String(selectedGroup || "").trim().toUpperCase();
+    const targetGroup = String(nextGroup).trim().toUpperCase();
+    const groupSame = currentGroup === targetGroup;
+    const companySame =
+      (nextCompanyId == null && companyId == null) ||
+      (nextCompanyId != null && companyId != null && Number(companyId) === Number(nextCompanyId));
+    if (groupSame && companySame) return;
+
+    skipCompanyFetchEffectRef.current = true;
+    flushSync(() => {
+      setGroupsAllMode(false);
+      setGroupAllMode(false);
+      setSelectedGroup(targetGroup);
+      setCompanyId(nextCompanyId);
+      if (nextCompanyId != null) {
+        applyAccountListCache({
+          companyId: nextCompanyId,
+          selectedGroup: targetGroup,
+          isListScopeReady: true,
+        });
+      } else {
+        applyAccountListCache(
+          { companyId: null, selectedGroup: targetGroup, isListScopeReady: true },
+          { groupOnly: true },
+        );
+      }
+    });
+
+    if (nextCompanyId != null) {
+      const pick = companies.find((c) => Number(c.id) === Number(nextCompanyId));
+      if (pick) void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
+      else {
+        void fetchAccounts(
+          { companyId: nextCompanyId, selectedGroup: targetGroup, isListScopeReady: true },
+          { silent: true },
+        );
+      }
+    } else {
+      void fetchAccounts(
+        { companyId: null, selectedGroup: targetGroup, isListScopeReady: true },
+        { silent: true, groupOnly: true },
+      );
+    }
+  }, [
+    applyAccountListCache,
+    bootLoading,
+    companies,
+    companyId,
+    fetchAccounts,
+    selectedGroup,
+    setGroupAllMode,
+    setGroupsAllMode,
+  ]);
+
+  useEffect(() => {
+    if (bootLoading) return;
+    const onFilterChanged = () => {
+      syncGcFilterFromSession();
+    };
+    window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChanged);
+    return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChanged);
+  }, [bootLoading, syncGcFilterFromSession]);
+
+  useEffect(() => {
+    if (bootLoading) return;
+    if (location.pathname !== "/account-list" && location.pathname !== "/add-account") return;
+    syncGcFilterFromSession();
+  }, [bootLoading, location.pathname, syncGcFilterFromSession]);
 
   useEffect(() => {
     if (bootLoading || !selectedGroup) return;
