@@ -1178,7 +1178,17 @@ try {
                 } catch (Throwable $e) {
                     continue;
                 }
-                $tailFrom = max($exclusiveEnd, $monthFirst);
+                $contractLast = null;
+                try {
+                    $contractLast = (new DateTimeImmutable($exclusiveEnd))->modify('-1 day')->format('Y-m-d');
+                } catch (Throwable $e) {
+                    $contractLast = null;
+                }
+                if ($contractLast !== null && $dayEndInc > $contractLast) {
+                    $tailFrom = $monthFirst;
+                } else {
+                    $tailFrom = max($exclusiveEnd, $monthFirst);
+                }
                 if ($tailFrom > $dayEndInc) {
                     continue;
                 }
