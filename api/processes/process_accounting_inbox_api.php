@@ -1790,7 +1790,7 @@ try {
         }
         unset($row);
         // 最终显示去重：按 Due Date + Card Owner + Bank + Contract 仅保留一条。
-        // 若同显示键出现多条，优先保留普通 monthly（符合“先正常出账”的需求）。
+        // 若同显示键出现多条，优先保留特殊账期（如 day_end_tail），避免覆盖当前可入账账期。
         $displayUnique = [];
         foreach ($needToday as $row) {
             $ds = trim((string) ($row['day_start'] ?? ''));
@@ -1813,7 +1813,7 @@ try {
                 && empty($existing['is_resend_consolidated_range'])
                 && empty($existing['is_once_one_off'])
                 && empty($existing['is_manual_inactive']);
-            if ($rowIsRegular && !$existingIsRegular) {
+            if (!$rowIsRegular && $existingIsRegular) {
                 $displayUnique[$dk] = $row;
             }
         }
