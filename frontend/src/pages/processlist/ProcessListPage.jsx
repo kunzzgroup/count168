@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
+  pickDefaultCompanyForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
@@ -67,9 +69,7 @@ export default function ProcessListPage() {
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [pendingCompanyId, setPendingCompanyId] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
-  const [switchingCompany, setSwitchingCompany] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -100,7 +100,7 @@ export default function ProcessListPage() {
   /** Prevent session refresh from re-running boot and resetting GroupID ALL / follow UI. */
   const processListInitDoneRef = useRef(false);
   const rowsRef = useRef([]);
-  const skipNextCurrencyPillClickRef = useRef(false);
+  const companySessionAbortRef = useRef(null);
 
   const [currencyListOrdered, setCurrencyListOrdered] = useState([]);
   const [currencyFilterCode, setCurrencyFilterCode] = useState("");
@@ -540,7 +540,7 @@ export default function ProcessListPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [modalOpen, descriptionPickerOpen]);
 
-  const pickerCompanyId = pendingCompanyId ?? companyId;
+  const pickerCompanyId = companyId;
 
   const allCompanyButtons = useMemo(
     () => dedupeCompanyRowsForSwitcher(companies, pickerCompanyId),
@@ -631,26 +631,6 @@ export default function ProcessListPage() {
     [currencyListOrdered, processMutationsBlocked]
   );
 
-  const onCurrencyPillDrop = useCallback(
-    async (e, targetCode) => {
-      if (processMutationsBlocked) return;
-      e.preventDefault();
-      const dragged = e.dataTransfer.getData("text/plain");
-      if (!dragged || !targetCode || dragged === targetCode) return;
-      const list = [...currencyPillCodes];
-      const fromI = list.indexOf(dragged);
-      const toI = list.indexOf(targetCode);
-      if (fromI < 0 || toI < 0 || fromI === toI) return;
-      skipNextCurrencyPillClickRef.current = true;
-      const next = [...list];
-      const [moved] = next.splice(fromI, 1);
-      next.splice(toI, 0, moved);
-      setCurrencyPillDisplayOrder(next);
-      await persistOrderedCompanyCurrencies(next);
-    },
-    [currencyPillCodes, persistOrderedCompanyCurrencies, processMutationsBlocked]
-  );
-
   useEffect(() => {
     if (!currencyPillCodes.length) return;
     if (!currencyFilterCode || !currencyPillCodes.includes(currencyFilterCode)) {
@@ -697,92 +677,119 @@ export default function ProcessListPage() {
     [pageRows]
   );
 
-  const onSwitchCompany = async (company) => {
-    const nextId = Number(company?.id);
-    if (!nextId || nextId === Number(pickerCompanyId) || switchingCompany) return;
-    setPendingCompanyId(nextId);
-    setSelectedIds(new Set());
-    setCurrentPage(1);
-    setSwitchingCompany(true);
-    try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextId}`), {
-        credentials: "include",
+  const onSwitchCompany = useCallback(
+    async (company) => {
+      const nextId = Number(company?.id);
+      if (!nextId || nextId === Number(companyId)) return;
+
+      const gid = company.group_id ? String(company.group_id).toUpperCase().trim() : selectedGroup;
+      const previousCompanyId = companyId;
+
+      flushSync(() => {
+        setGroupFilterKind("follow");
+        if (gid) setSelectedGroup(gid);
+        setCompanyId(nextId);
+        setCurrencyFilterCode("");
+        setSelectedIds(new Set());
+        setCurrentPage(1);
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        const reason = json?.data?.reason;
-        if (reason === "expired" || reason === "no_set") {
-          setExpirationCompanies([
-            { company_id: company.company_id, expiration_date: company.expiration_date ?? null },
-          ]);
+      persistDashboardGroupFilter(gid);
+      persistDashboardFilterState(gid, nextId);
+      notifyDashboardGroupFilterChanged(gid, nextId);
+
+      let sessionAc = null;
+      try {
+        const bankCategory = await isBankCategoryCompany(company.company_id, buildApiUrl);
+        if (bankCategory) {
+          const warm = await prefetchBankProcessListPayload(nextId);
+          navigate(`/bank-process-list?company_id=${nextId}`, {
+            replace: true,
+            state: {
+              bankProcessListPrefetch: {
+                companyId: nextId,
+                companies,
+                groupFilterKind: "follow",
+                rows: warm.rows,
+                currencyCodes: warm.currencyCodes,
+              },
+            },
+          });
           return;
         }
-        notify(json.message || json.error || t("switchCompanyFailed"), "danger");
-        return;
+
+        const sessionCompanyId =
+          sessionMeFromLayout?.company_id != null ? Number(sessionMeFromLayout.company_id) : null;
+        if (sessionCompanyId === nextId) return;
+
+        companySessionAbortRef.current?.abort();
+        sessionAc = new AbortController();
+        companySessionAbortRef.current = sessionAc;
+
+        const res = await fetch(
+          buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextId}`),
+          { credentials: "include", signal: sessionAc.signal },
+        );
+        const json = await res.json();
+        if (sessionAc.signal.aborted) return;
+        if (!res.ok || !json.success) {
+          const reason = json?.data?.reason;
+          if (reason === "expired" || reason === "no_set") {
+            flushSync(() => {
+              if (previousCompanyId != null) setCompanyId(previousCompanyId);
+            });
+            setExpirationCompanies([
+              { company_id: company.company_id, expiration_date: company.expiration_date ?? null },
+            ]);
+            return;
+          }
+          if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
+            flushSync(() => setCompanyId(previousCompanyId));
+          }
+          notify(json.message || json.error || t("switchCompanyFailed"), "danger");
+          return;
+        }
+        notifyCompanySessionUpdated();
+      } catch {
+        if (sessionAc?.signal.aborted) return;
+        if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
+          flushSync(() => setCompanyId(previousCompanyId));
+        }
+        notify(t("switchCompanyFailed"), "danger");
+      } finally {
+        if (sessionAc && companySessionAbortRef.current === sessionAc) {
+          companySessionAbortRef.current = null;
+        }
       }
-      notifyCompanySessionUpdated();
-      const gid = company.group_id ? String(company.group_id).toUpperCase().trim() : selectedGroup;
-      if (gid) {
-        persistDashboardGroupFilter(gid);
-        setSelectedGroup(gid);
-      }
-      persistDashboardFilterState(gid, nextId);
-      const bankCategory = await isBankCategoryCompany(company.company_id, buildApiUrl);
-      if (bankCategory) {
-        const warm = await prefetchBankProcessListPayload(nextId);
-        navigate(`/bank-process-list?company_id=${nextId}`, {
-          replace: true,
-          state: {
-            bankProcessListPrefetch: {
-              companyId: nextId,
-              companies,
-              groupFilterKind,
-              rows: warm.rows,
-              currencyCodes: warm.currencyCodes,
-            },
-          },
-        });
-        return;
-      }
-      setCompanyId(nextId);
-      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
-    } catch {
-      notify(t("switchCompanyFailed"), "danger");
-    } finally {
-      setPendingCompanyId(null);
-      setSwitchingCompany(false);
-    }
-  };
+    },
+    [companies, companyId, groupFilterKind, navigate, notify, selectedGroup, sessionMeFromLayout, t],
+  );
 
   const handlePickGroup = useCallback(
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (groupFilterKind === "follow" && g === selectedGroupKey) {
-        setGroupFilterKind("ungrouped");
-        setSelectedGroup(null);
-        persistDashboardGroupFilter(null);
+      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) return;
+
+      const pick = pickDefaultCompanyForGroup(companies, g, { nativeOnly: true });
+      setGroupFilterKind("follow");
+      setSelectedGroup(g);
+      persistDashboardGroupFilter(g);
+
+      if (pick?.id) {
+        void onSwitchCompany(pick);
         return;
       }
-      setGroupFilterKind("follow");
-      if (g === selectedGroupKey) return;
 
-      persistDashboardGroupFilter(g);
-      setSelectedGroup(g);
+      flushSync(() => {
+        setCompanyId(null);
+        setRows([]);
+        setCurrencyFilterCode("");
+      });
       persistDashboardFilterState(g, null);
       resetAnchorSessionRef();
-
-      const url = new URL(window.location.href);
-      url.searchParams.delete("company_id");
-      const qs = url.searchParams.toString();
-      window.history.replaceState(null, "", qs ? `${url.pathname}?${qs}` : url.pathname);
-
-      setCompanyId(null);
-      setRows([]);
-      setTableLoading(false);
       notifyDashboardGroupFilterChanged(g, null);
     },
-    [groupFilterKind, selectedGroupKey, resetAnchorSessionRef]
+    [companies, companyId, groupFilterKind, onSwitchCompany, resetAnchorSessionRef, selectedGroupKey],
   );
 
   const openAdd = () => {
@@ -1185,6 +1192,7 @@ export default function ProcessListPage() {
                         key={g}
                         type="button"
                         className={`user-gc-segment${groupFilterKind === "follow" && g === selectedGroupKey ? " is-on" : ""}`}
+                        disabled={processMutationsBlocked}
                         onClick={() => handlePickGroup(g)}
                       >
                         {g}
@@ -1205,9 +1213,8 @@ export default function ProcessListPage() {
                         key={c.id}
                         type="button"
                         className={`user-gc-segment${active ? " is-on" : ""}`}
-                        onClick={() => {
-                          if (!active) void onSwitchCompany(c);
-                        }}
+                        disabled={processMutationsBlocked}
+                        onClick={() => void onSwitchCompany(c)}
                       >
                         {String(c.company_id || "").toUpperCase()}
                       </button>
@@ -1225,26 +1232,10 @@ export default function ProcessListPage() {
                       <button
                         key={code}
                         type="button"
-                        draggable={!processMutationsBlocked}
-                        title={t("currencyDragHint")}
-                        className={`user-gc-segment user-gc-segment--draggable-pill${currencyFilterCode === code ? " is-on" : ""}`}
-                        onDragStart={(e) => {
-                          if (processMutationsBlocked) return;
-                          e.dataTransfer.setData("text/plain", code);
-                          e.dataTransfer.effectAllowed = "move";
-                        }}
-                        onDragOver={(e) => {
-                          if (!processMutationsBlocked) e.preventDefault();
-                        }}
-                        onDrop={(e) => {
-                          if (processMutationsBlocked) return;
-                          void onCurrencyPillDrop(e, code);
-                        }}
+                        className={`user-gc-segment${currencyFilterCode === code ? " is-on" : ""}`}
+                        disabled={processMutationsBlocked}
                         onClick={() => {
-                          if (skipNextCurrencyPillClickRef.current) {
-                            skipNextCurrencyPillClickRef.current = false;
-                            return;
-                          }
+                          if (currencyFilterCode === code) return;
                           setCurrencyFilterCode(code);
                           setCurrentPage(1);
                         }}

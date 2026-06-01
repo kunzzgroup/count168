@@ -3317,8 +3317,23 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     transform: rotate(90deg);
 }
 
-/* Process List 筛选药丸：更快的高亮切换反馈 */
+/* Process List 筛选药丸：更大点击区、即时反馈、避免拖拽抢点击 */
 body.process-page .user-gc-inline-panel .user-gc-segment {
-    transition: background 0.06s ease, color 0.06s ease, border-color 0.06s ease;
+    min-height: 32px;
+    min-width: 2.75rem;
+    padding: 6px clamp(12px, 1.2vw, 18px);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: background 0.08s ease, color 0.08s ease, border-color 0.08s ease;
+}
+
+body.process-page .user-gc-inline-panel .user-gc-segment:not(:disabled):active {
+    transform: none;
+}
+
+body.process-page .user-gc-inline-pills--segment-scroll {
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
 }
 
