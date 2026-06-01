@@ -786,6 +786,20 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $byId = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+        // 与 process_accounting_inbox_api 一致：Accounting Due 入账用库内真实 day_start/day_end/frequency，勿用 Resend 暂存覆盖。
+        $merged['day_start'] = $row['day_start'] ?? null;
+        $merged['day_end'] = $row['day_end'] ?? null;
+        if ($hasFrequency) {
+            $merged['day_start_frequency'] = $row['day_start_frequency'] ?? '1st_of_every_month';
+        }
+        $merged['accounting_resend_relax_created_floor'] = 0;
+        unset(
+            $merged['accounting_resend_consolidated_range'],
+            $merged['accounting_resend_single_period_from_schedule'],
+            $merged['accounting_resend_schedule_day_start'],
+            $merged['accounting_resend_schedule_day_end'],
+            $merged['accounting_resend_schedule_frequency']
+        );
         $byId[(int) $merged['id']] = $merged;
     }
     return $byId;
@@ -1151,13 +1165,7 @@ try {
             $price = $partial['price'];
             $profit = $partial['profit'];
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
-            if ($has_day_end_tail_switch_col && $frequency === '1st_of_every_month') {
-                $raw = $p['day_end_monthly_cap_enabled'] ?? null;
-                $tailOn = in_array((string) $raw, ['1', 'true', 'TRUE'], true) || $raw === 1 || $raw === true;
-                if (!$tailOn) {
-                    continue;
-                }
-            }
+            // Accounting Due 已筛过可入账尾段；此处不再因 cap OFF 静默跳过（否则会出现「成功但 0 条」且 Due 仍在）。
             $dayEndRaw = $p['day_end'] ?? null;
             $dayEndInc = function_exists('bmp_bankProcessDateFieldToYmd')
                 ? bmp_bankProcessDateFieldToYmd($dayEndRaw)
@@ -1646,6 +1654,13 @@ try {
         jsonResponse(true, "未到应付日，暂不生成交易记录（Resend 除外）。", [
             'created_count' => 0,
             'skipped_future_monthly_due_count' => $skippedFutureMonthlyDueCount
+        ]);
+        exit;
+    }
+
+    if ($createdCount === 0) {
+        jsonResponse(false, '未生成任何交易记录：请确认该 Process 的 Supplier/Customer/Company、Frequency 与 Day end 设置，并刷新 Accounting Due 后重试。', [
+            'created_count' => 0,
         ]);
         exit;
     }
