@@ -271,10 +271,7 @@ function isWithinRecurringBillingWindow(string $todayYmd, ?string $dayStartYmd, 
         }
     }
 
-    $dayEndInc = null;
-    if ($dayEndYmd !== null && $dayEndYmd !== '' && strtotime($dayEndYmd) !== false) {
-        $dayEndInc = date('Y-m-d', strtotime($dayEndYmd));
-    }
+    $dayEndInc = inboxBankProcessDateFieldToYmd($dayEndYmd);
 
     if ($contractLastInclusive === null && $dayEndInc === null) {
         return true;
@@ -349,9 +346,10 @@ function isResendConsolidatedAlreadyPosted(PDO $pdo, int $companyId, int $proces
             if ((bool) $stmt->fetch()) {
                 return true;
             }
+            // 锚点明确时勿再用「任意 consolidated 已入账」兜底，否则 Maintenance Resend 后旧记录会永久挡掉新 Due。
+            return false;
         }
-        // 兜底：历史数据/旧逻辑可能让 consolidated 的 posted_date 与当前锚点不一致，
-        // 但同 process 只要已有 consolidated(_skipped) 即视为该期已处理，避免 Delete 后残留。
+        // 兜底：无有效锚点时，同 process 只要已有 consolidated(_skipped) 即视为已处理。
         $stmtAny = $pdo->prepare(
             "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
              AND period_type IN ('resend_consolidated_range','resend_consolidated_range_skipped') LIMIT 1"
@@ -519,6 +517,29 @@ function inboxUniqueSortedBillingMonths(array $months): array
         return $ta <=> $tb;
     });
     return $months;
+}
+
+/** Cap ON 时：最后一月 / day_end 延长尾段由 day_end_tail 入账，勿再排 resend consolidated 整段。 */
+function inboxShouldDeferResendConsolidatedToDayEndCapTail(array $r, bool $hasDayEndMonthlyCapCol, bool $hasFrequency): bool
+{
+    if (empty($r['accounting_resend_consolidated_range'])) {
+        return false;
+    }
+    $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
+    if ($frequency !== '1st_of_every_month' || !inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r)) {
+        return false;
+    }
+    $startDate = inboxBankProcessDateFieldToYmd($r['day_start'] ?? null);
+    $dayEndInc = inboxBankProcessDateFieldToYmd($r['day_end'] ?? null);
+    if ($startDate === null || $dayEndInc === null) {
+        return false;
+    }
+    $exclusiveEnd = contractExclusiveEndYmdForFrequency($startDate, $r['contract'] ?? null, $frequency);
+    if ($exclusiveEnd === null) {
+        return false;
+    }
+    return inboxDayEndCapFinalMonthTail($dayEndInc, $exclusiveEnd)
+        || inboxDayEndExtendsContract($dayEndInc, $exclusiveEnd);
 }
 
 /** Day end 旁开关：有库列且 frequency=1st_of_every_month 时 OFF 不排尾段；无列或非 1st 不按此开关过滤。无列时 1st 仍走旧尾段条件。 */
@@ -982,7 +1003,8 @@ try {
                 continue;
             }
             $resendSinglePeriod = !empty($r['accounting_resend_single_period_from_schedule']);
-            if (!empty($r['accounting_resend_consolidated_range'])) {
+            if (!empty($r['accounting_resend_consolidated_range'])
+                && !inboxShouldDeferResendConsolidatedToDayEndCapTail($r, $hasDayEndMonthlyCapCol, $hasFrequency)) {
                 continue;
             }
             if (!isWithinRecurringBillingWindow($today, $dayStart, $r['contract'] ?? null, $r['day_end'] ?? null, '1st_of_every_month', !empty($r['accounting_resend_relax_created_floor']), $resendSinglePeriod)) {
@@ -1033,36 +1055,38 @@ try {
     // 2) Regular: 每月1号 或 Monthly(day_start-1)；应付日过后整月内仍显示直到该月入账
     foreach ($rows as $r) {
         if (!empty($r['accounting_resend_relax_created_floor']) && !empty($r['accounting_resend_consolidated_range'])) {
-            $dayStartRaw = $r['day_start'] ?? null;
-            $dayEndRaw = $r['day_end'] ?? null;
-            $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
-            $endDate = inboxBankProcessDateFieldToYmd($dayEndRaw);
-            if ($startDate !== null && $endDate !== null && $startDate <= $endDate) {
-                $baseCost = money_normalize($r['cost'] ?? '0');
-                $basePrice = money_normalize($r['price'] ?? '0');
-                $baseProfit = money_normalize($r['profit'] ?? '0');
-                $rcFreq = strtolower(trim((string) ($r['day_start_frequency'] ?? '1st_of_every_month')));
-                $tot = ($rcFreq === 'monthly')
-                    ? sumMonthlyAnniversaryInclusiveRangeAmounts($startDate, $endDate, $startDate, $baseCost, $basePrice, $baseProfit)
-                    : prorateInclusiveDateRange($startDate, $endDate, $baseCost, $basePrice, $baseProfit);
-                $needToday[] = [
-                    'id' => (int) $r['id'],
-                    'name' => $r['name'] ?? '',
-                    'bank' => $r['bank'] ?? '',
-                    'country' => $r['country'] ?? '',
-                    'day_start' => $dayStartRaw,
-                    'contract' => $r['contract'] ?? '',
-                    'cost' => $tot['cost'],
-                    'price' => $tot['price'],
-                    'profit' => $tot['profit'],
-                    'already_posted_today' => false,
-                    'is_partial_first_month' => false,
-                    'is_manual_inactive' => false,
-                    'is_day_end_tail' => false,
-                    'is_resend_consolidated_range' => true,
-                ];
+            if (!inboxShouldDeferResendConsolidatedToDayEndCapTail($r, $hasDayEndMonthlyCapCol, $hasFrequency)) {
+                $dayStartRaw = $r['day_start'] ?? null;
+                $dayEndRaw = $r['day_end'] ?? null;
+                $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
+                $endDate = inboxBankProcessDateFieldToYmd($dayEndRaw);
+                if ($startDate !== null && $endDate !== null && $startDate <= $endDate) {
+                    $baseCost = money_normalize($r['cost'] ?? '0');
+                    $basePrice = money_normalize($r['price'] ?? '0');
+                    $baseProfit = money_normalize($r['profit'] ?? '0');
+                    $rcFreq = strtolower(trim((string) ($r['day_start_frequency'] ?? '1st_of_every_month')));
+                    $tot = ($rcFreq === 'monthly')
+                        ? sumMonthlyAnniversaryInclusiveRangeAmounts($startDate, $endDate, $startDate, $baseCost, $basePrice, $baseProfit)
+                        : prorateInclusiveDateRange($startDate, $endDate, $baseCost, $basePrice, $baseProfit);
+                    $needToday[] = [
+                        'id' => (int) $r['id'],
+                        'name' => $r['name'] ?? '',
+                        'bank' => $r['bank'] ?? '',
+                        'country' => $r['country'] ?? '',
+                        'day_start' => $dayStartRaw,
+                        'contract' => $r['contract'] ?? '',
+                        'cost' => $tot['cost'],
+                        'price' => $tot['price'],
+                        'profit' => $tot['profit'],
+                        'already_posted_today' => false,
+                        'is_partial_first_month' => false,
+                        'is_manual_inactive' => false,
+                        'is_day_end_tail' => false,
+                        'is_resend_consolidated_range' => true,
+                    ];
+                }
+                continue;
             }
-            continue;
         }
         // Resend 单期开账（弹窗同时填 day_start + day_end）：统一走 consolidated 一条，避免与 monthly/day_end_tail 重复入列。
         if (!empty($r['accounting_resend_relax_created_floor'])
@@ -1460,7 +1484,8 @@ try {
     // 2b) day_end 尾段：1st + cap 列且开关 ON 时为 max(exclusiveEnd, day_end 月首)～day_end；否则仍为 exclusiveEnd～day_end 且需 day_end≥exclusiveEnd。1st + cap 列且 OFF 不排尾段。
     if ($hasPeriodType) {
         foreach ($rows as $r) {
-            if (!empty($r['accounting_resend_consolidated_range'])) {
+            if (!empty($r['accounting_resend_consolidated_range'])
+                && !inboxShouldDeferResendConsolidatedToDayEndCapTail($r, $hasDayEndMonthlyCapCol, $hasFrequency)) {
                 continue;
             }
             // Resend 弹窗显式填写了 day_start + day_end 的单期补账：由主账单行承接，不再额外排 day_end_tail，
@@ -1476,11 +1501,9 @@ try {
                 continue;
             }
             $frequency = $hasFrequency ? ($r['day_start_frequency'] ?? '1st_of_every_month') : '1st_of_every_month';
-            if ($frequency === '1st_of_every_month' && $hasDayEndMonthlyCapCol && !inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r)) {
-                continue;
-            }
             $dayEndRaw = $r['day_end'] ?? null;
-            if ($dayEndRaw === null || trim((string) $dayEndRaw) === '' || strtotime((string) $dayEndRaw) === false) {
+            $dayEndInc = inboxBankProcessDateFieldToYmd($dayEndRaw);
+            if ($dayEndInc === null) {
                 continue;
             }
             $dayStart = $r['day_start'] ?? null;
@@ -1491,7 +1514,6 @@ try {
             if ($startDate === null) {
                 continue;
             }
-            $dayEndInc = date('Y-m-d', strtotime($dayEndRaw));
             $contract = $r['contract'] ?? null;
             $term = getBillingTermMonthsFromContract($contract);
             if ($term === null || $term < 1) {
@@ -1501,7 +1523,17 @@ try {
             if ($exclusiveEnd === null) {
                 continue;
             }
-            $useSwitchGatedTail = ($frequency === '1st_of_every_month' && $hasDayEndMonthlyCapCol && inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r));
+            $capSwitchOn = inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r);
+            // Cap 列存在且 OFF：仅允许 day_end >= exclusiveEnd 的旧尾段；cap 最后一月尾段须开关 ON。
+            if ($frequency === '1st_of_every_month' && $hasDayEndMonthlyCapCol && !$capSwitchOn) {
+                if ($dayEndInc < $exclusiveEnd) {
+                    continue;
+                }
+            }
+            $useSwitchGatedTail = ($frequency === '1st_of_every_month' && (
+                ($hasDayEndMonthlyCapCol && $capSwitchOn)
+                || (!$hasDayEndMonthlyCapCol)
+            ));
             if ($useSwitchGatedTail) {
                 $capWindow = inboxResolveDayEndCapTailWindow($dayEndInc, $exclusiveEnd, $today);
                 if ($capWindow === null) {

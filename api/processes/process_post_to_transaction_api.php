@@ -525,10 +525,9 @@ function isWithinRecurringBillingWindowForTxn(string $todayYmd, ?string $dayStar
         }
     }
 
-    $dayEndInc = null;
-    if ($dayEndYmd !== null && $dayEndYmd !== '' && strtotime($dayEndYmd) !== false) {
-        $dayEndInc = date('Y-m-d', strtotime($dayEndYmd));
-    }
+    $dayEndInc = function_exists('bmp_bankProcessDateFieldToYmd')
+        ? bmp_bankProcessDateFieldToYmd($dayEndYmd)
+        : null;
 
     if ($contractLastInclusive === null && $dayEndInc === null) {
         return true;
@@ -1159,7 +1158,10 @@ try {
                 }
             }
             $dayEndRaw = $p['day_end'] ?? null;
-            if ($dayEndRaw === null || trim((string) $dayEndRaw) === '' || strtotime((string) $dayEndRaw) === false) {
+            $dayEndInc = function_exists('bmp_bankProcessDateFieldToYmd')
+                ? bmp_bankProcessDateFieldToYmd($dayEndRaw)
+                : null;
+            if ($dayEndInc === null) {
                 continue;
             }
             $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
@@ -1167,7 +1169,6 @@ try {
                 continue;
             }
             $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
-            $dayEndInc = date('Y-m-d', strtotime((string) $dayEndRaw));
             if ($exclusiveEnd === null) {
                 continue;
             }
