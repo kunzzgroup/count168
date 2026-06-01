@@ -10280,6 +10280,13 @@ function removeTrailingSourcePercentExpression(formulaText) {
     return result;
 }
 
+/** formula_operators 使用 $n 或 [id,n] 引用时，禁止从数值公式自动拼尾段（避免 *425.92*2153 等） */
+function formulaOperatorsUsesCellReferences(body) {
+    const s = String(body || '').trim();
+    if (!s) return false;
+    return /\$\d+/.test(s) || /\[[^\]]+[,:\s]\d+\]/.test(s);
+}
+
 /**
  * 用已解析的公式（last_source_value / formula_display）补全 formula_operators 缺失的末尾 row 系数（如 *0.90）。
  * 与 Maintenance formula_fields_helper.mergeFormulaBaseWithDisplayTail 对齐。
@@ -10291,6 +10298,9 @@ function mergeFormulaOperatorsWithResolvedTail(operatorsBase, formulaResolved) {
         return fd;
     }
     if (!fd) {
+        return ops;
+    }
+    if (formulaOperatorsUsesCellReferences(ops)) {
         return ops;
     }
     const m = fd.match(/^(.*)(\*(?:\([^)]+\)|[0-9.]+))\s*$/);

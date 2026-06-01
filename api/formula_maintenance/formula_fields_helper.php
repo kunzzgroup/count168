@@ -237,6 +237,15 @@ function scoreTemplateRowForMaintenanceDedup(array $row) {
     return $score;
 }
 
+/** formula_operators 含 $n 或 [id,n] 时，不从数值公式自动拼尾段 */
+function formulaOperatorsUsesCellReferences($body) {
+    $s = trim((string) $body);
+    if ($s === '') {
+        return false;
+    }
+    return preg_match('/\$\d+/u', $s) || preg_match('/\[[^\]]+[,:\s]\d+\]/u', $s);
+}
+
 /**
  * 用 formula_display 补全 formula_operators 中缺失的末尾占成系数（如 *0.90），
  * 仅当 display 比 operators 多出尾段乘数时追加，不硬编码具体数值。
@@ -246,6 +255,9 @@ function mergeFormulaBaseWithDisplayTail($operatorsBase, $formulaDisplay) {
     $fd = removeTrailingSourcePercentSuffix(trim((string) $formulaDisplay));
     if ($ops === '' || $fd === '') {
         return $ops !== '' ? $ops : $fd;
+    }
+    if (formulaOperatorsUsesCellReferences($ops)) {
+        return $ops;
     }
     if (!preg_match('/^(.*)(\*(?:\([^)]+\)|[0-9.]+))\s*$/u', $fd, $m)) {
         return $ops;
