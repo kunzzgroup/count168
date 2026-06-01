@@ -1743,7 +1743,14 @@ function renderAccountingInbox(items) {
         const cbClass = 'process-accounting-inbox-row-cb';
         const periodType = row.is_once_one_off ? 'once_one_off' : (row.is_manual_inactive ? 'manual_inactive' : (row.is_resend_consolidated_range ? 'resend_consolidated_range' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly'))));
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-        const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
+        const startDate = (function () {
+            if (row.is_day_end_tail && row.day_end) {
+                const de = String(row.day_end).trim();
+                if (/^\d{4}-\d{2}-\d{2}/.test(de)) return de.substring(0, 10);
+                return de;
+            }
+            return (row.day_start || row.start_date || '').toString().trim() || '-';
+        })();
         const contractRaw = (row.contract || '').toString().trim() || '-';
         const contractDisplay = row.is_once_one_off ? 'ONCE' : (({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw);
         const bm = (row.monthly_billing_month != null && row.monthly_billing_month !== '') ? String(row.monthly_billing_month).trim() : '';

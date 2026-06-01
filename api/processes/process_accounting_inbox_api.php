@@ -12,7 +12,7 @@
  * - Bank 表单 Day end 仅由前端 contractBillingEndYmdForBankForm 自动填（1 号起租=起租+N 月；非 1 号=起租+N 月再减一天）；入账与 isWithinRecurringBillingWindow 仍以本文件 PHP 为准。
  * - Monthly = 每月 day_start 日为应付日；一期金额为「上一应付日到本期应付前一日」按日历天比例（例如 3/13 应付则服务 2/13–3/12），不按自然月末截断。
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
- * - day_end_tail（1st_of_every_month + 有 day_end_monthly_cap_enabled 列且开关 ON）：尾段区间为 max(合同 exclusiveEnd, day_end 所在月 1 号)～day_end（含）；day_end 延长超过合同 natural 结束时尾段从 day_end 月 1 号起。$today 达 tail 起点即入列。开关 OFF 时不排尾段。
+ * - day_end_tail（1st + cap ON）：day_end 落在 exclusive 前最后一月时，以 day_end 月 1 号～day_end 入 Due（例 day_end=16/6 → 1/6 出现）；day_end 延长超过合同时也从 day_end 月首起。
  * - day_end 延长且 today 已过合同 regular 结束：补列尚未入账的 regular monthly（不再只限「当月」），避免隔年 tail 窗口与前置 monthly 死锁。
  * - 同上开关 ON 时，每一期 regular monthly（1st_of_every_month）若 day_end 落在该账单自然月内，该期金额按「该月 1 号～day_end」自然天比例折算（非仅合同尾段）；开关 OFF 则该期仍为整自然月价。
  * - 无 day_end_monthly_cap_enabled 列或非 1st 频率：仍为「day_end ≥ exclusiveEnd」时 exclusiveEnd～day_end 尾段（与旧版一致）；无列时仍排尾段。
@@ -393,6 +393,53 @@ function inboxDayEndExtendsContract(?string $dayEndInc, ?string $exclusiveEndYmd
     return $dayEndInc > $last;
 }
 
+/** day_end 落在 exclusive 前最后一月（cap 尾段 = 该月 1 号～day_end，与 day_start 锚点无关） */
+function inboxDayEndCapFinalMonthTail(?string $dayEndInc, ?string $exclusiveEndYmd): bool
+{
+    if ($dayEndInc === null || $dayEndInc === '' || $exclusiveEndYmd === null || $exclusiveEndYmd === '') {
+        return false;
+    }
+    try {
+        $monthFirst = (new DateTimeImmutable($dayEndInc))->modify('first day of this month')->format('Y-m-d');
+        return $dayEndInc >= $monthFirst && $dayEndInc < $exclusiveEndYmd;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Cap ON 时解析 day_end_tail 区间与 todayGate。
+ * @return array{tailFrom: string, todayGate: string}|null
+ */
+function inboxResolveDayEndCapTailWindow(string $dayEndInc, string $exclusiveEnd, string $today): ?array
+{
+    try {
+        $monthFirst = (new DateTimeImmutable($dayEndInc))->modify('first day of this month')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+    // day_end 在合同 exclusive 前最后一月：以 day_end 所在月驱动（例：day_end=16/6，1/6 即入 Due）
+    if (inboxDayEndCapFinalMonthTail($dayEndInc, $exclusiveEnd)) {
+        if ($today < $monthFirst || $today > $dayEndInc) {
+            return null;
+        }
+        return ['tailFrom' => $monthFirst, 'todayGate' => $monthFirst];
+    }
+    $contractLast = inboxContractLastInclusiveYmd($exclusiveEnd);
+    if ($contractLast !== null && $dayEndInc > $contractLast) {
+        $tailFrom = $monthFirst;
+        if ($tailFrom > $dayEndInc || $today < $tailFrom) {
+            return null;
+        }
+        return ['tailFrom' => $tailFrom, 'todayGate' => $tailFrom];
+    }
+    $tailFrom = max($exclusiveEnd, $monthFirst);
+    if ($tailFrom > $dayEndInc) {
+        return null;
+    }
+    return ['tailFrom' => $tailFrom, 'todayGate' => $tailFrom];
+}
+
 function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $processId, string $exclusiveEndYmd, string $startDate, int $startDayOfMonth, bool $hasPeriodType, ?string $createdYmd = null, ?string $frequency = null, ?string $dayEndInc = null): bool
 {
     if (!$hasPeriodType) {
@@ -400,6 +447,10 @@ function isBillingCompleteBeforeDayEndTail(PDO $pdo, int $companyId, int $proces
     }
     try {
         $lastInclusive = (new DateTimeImmutable($exclusiveEndYmd))->modify('-1 day');
+        // cap 最后一月尾段即该月账单，勿再要求同月 regular monthly 先入账
+        if ($dayEndInc !== null && $dayEndInc !== '' && inboxDayEndCapFinalMonthTail($dayEndInc, $exclusiveEndYmd)) {
+            return true;
+        }
         // day_end 延长超过合同 natural 结束：尾段与中间未入账 regular 月解耦，勿再卡「最后一期 regular 必须已入账」
         // （否则「仅当月进 Due」+ 隔年 tail 窗口会导致 day_end_tail 永不出现）。
         if ($dayEndInc !== null && $dayEndInc !== '' && inboxDayEndExtendsContract($dayEndInc, $exclusiveEndYmd)) {
@@ -1225,6 +1276,24 @@ try {
                             $iter = $iter->modify('+1 month');
                             continue;
                         }
+                        // Cap ON 且 day_end 落在 exclusive 前最后一月：该月由 day_end_tail 入账，勿再排 regular monthly
+                        if (
+                            $dayEndNorm !== null
+                            && $exclusiveEnd !== null
+                            && $hasDayEndMonthlyCapCol
+                            && inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r)
+                            && inboxDayEndCapFinalMonthTail($dayEndNorm, $exclusiveEnd)
+                        ) {
+                            try {
+                                if ($billYm === (new DateTimeImmutable($dayEndNorm))->format('Y-n')) {
+                                    $anchorSlotIndex++;
+                                    $iter = $iter->modify('+1 month');
+                                    continue;
+                                }
+                            } catch (Throwable $e) {
+                                // fall through
+                            }
+                        }
                         $todayYm = (new DateTimeImmutable($today))->format('Y-n');
                         // 非 resend：默认仅当月；合同 regular 已结束 / day_end 延长时补未入账 regular 月。
                         if (!$resendRelax && !$allowBacklogRegular && $billYm !== $todayYm) {
@@ -1434,22 +1503,12 @@ try {
             }
             $useSwitchGatedTail = ($frequency === '1st_of_every_month' && $hasDayEndMonthlyCapCol && inboxDayEndTailSwitchOn($hasDayEndMonthlyCapCol, $r));
             if ($useSwitchGatedTail) {
-                try {
-                    $monthFirst = (new DateTimeImmutable($dayEndInc))->modify('first day of this month')->format('Y-m-d');
-                } catch (Throwable $e) {
+                $capWindow = inboxResolveDayEndCapTailWindow($dayEndInc, $exclusiveEnd, $today);
+                if ($capWindow === null) {
                     continue;
                 }
-                $contractLast = inboxContractLastInclusiveYmd($exclusiveEnd);
-                // day_end 延长超过合同时尾段从 day_end 月 1 号起；否则 max(exclusiveEnd, 月首)（合同内末月仍走 regular+cap）
-                if ($contractLast !== null && $dayEndInc > $contractLast) {
-                    $tailFrom = $monthFirst;
-                } else {
-                    $tailFrom = max($exclusiveEnd, $monthFirst);
-                }
-                if ($tailFrom > $dayEndInc) {
-                    continue;
-                }
-                $todayGate = $tailFrom;
+                $tailFrom = $capWindow['tailFrom'];
+                $todayGate = $capWindow['todayGate'];
             } else {
                 if ($dayEndInc < $exclusiveEnd) {
                     continue;
@@ -1494,6 +1553,7 @@ try {
                 'bank' => $r['bank'] ?? '',
                 'country' => $r['country'] ?? '',
                 'day_start' => $dayStart,
+                'day_end' => $dayEndInc,
                 'contract' => $contract ?? '',
                 'cost' => $tail['cost'],
                 'price' => $tail['price'],
