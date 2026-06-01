@@ -738,7 +738,20 @@ function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFre
     $stmt->execute([$companyId]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $i => $row) {
-        $rows[$i] = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+        $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+        // 强制走正常出账：忽略 Resend 覆盖，仅使用流程原始 day_start/day_end/frequency。
+        if (!empty($merged['bank_process_stored_day_start'])) {
+            $merged['day_start'] = $merged['bank_process_stored_day_start'];
+        }
+        $merged['accounting_resend_relax_created_floor'] = 0;
+        unset(
+            $merged['accounting_resend_consolidated_range'],
+            $merged['accounting_resend_single_period_from_schedule'],
+            $merged['accounting_resend_schedule_day_start'],
+            $merged['accounting_resend_schedule_day_end'],
+            $merged['accounting_resend_schedule_frequency']
+        );
+        $rows[$i] = $merged;
     }
     return $rows;
 }
