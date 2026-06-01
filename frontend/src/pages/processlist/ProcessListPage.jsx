@@ -259,7 +259,7 @@ export default function ProcessListPage() {
           setCompanyId(prefetchCompanyId);
           {
             const pfGfk = routePrefetch.groupFilterKind;
-            setGroupFilterKind(pfGfk === "all" || pfGfk === "ungrouped" ? pfGfk : "follow");
+            setGroupFilterKind(pfGfk === "ungrouped" ? "ungrouped" : "follow");
           }
 
           const normalizedSearch = filterSearchInput(currentUrl.searchParams.get("search") || "");
@@ -576,17 +576,6 @@ export default function ProcessListPage() {
     );
   }, [loading, groupFilterKind, selectedGroup, companyId]);
   const companyButtons = useMemo(() => {
-    if (groupFilterKind === "all") {
-      const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
-      return [...allCompanyButtons].sort((a, b) => {
-        const ga = String(a.group_id || "").trim().toUpperCase();
-        const gb = String(b.group_id || "").trim().toUpperCase();
-        const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
-        const rb = groupOrder.has(gb) ? groupOrder.get(gb) : Number.MAX_SAFE_INTEGER;
-        if (ra !== rb) return ra - rb;
-        return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
-      });
-    }
     if (groupFilterKind === "ungrouped") {
       return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
     }
@@ -663,9 +652,9 @@ export default function ProcessListPage() {
   );
 
   useEffect(() => {
-    if (!currencyFilterCode) return;
-    if (currencyPillCodes.length && !currencyPillCodes.includes(currencyFilterCode)) {
-      setCurrencyFilterCode("");
+    if (!currencyPillCodes.length) return;
+    if (!currencyFilterCode || !currencyPillCodes.includes(currencyFilterCode)) {
+      setCurrencyFilterCode(currencyPillCodes[0]);
     }
   }, [currencyFilterCode, currencyPillCodes]);
 
@@ -795,11 +784,6 @@ export default function ProcessListPage() {
     },
     [groupFilterKind, selectedGroupKey, resetAnchorSessionRef]
   );
-
-  const handlePickAllGroups = useCallback(() => {
-    if (groupFilterKind === "all") return;
-    setGroupFilterKind("all");
-  }, [groupFilterKind]);
 
   const openAdd = () => {
     if (processMutationsBlocked) {
@@ -1196,13 +1180,6 @@ export default function ProcessListPage() {
                 <span className="user-gc-inline-label">{t("groupId")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-                    <button
-                      type="button"
-                      className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
-                      onClick={handlePickAllGroups}
-                    >
-                      {t("groupFilterAll")}
-                    </button>
                     {groupIds.map((g) => (
                       <button
                         key={g}
@@ -1244,16 +1221,6 @@ export default function ProcessListPage() {
                 <span className="user-gc-inline-label">{t("currency")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
-                    <button
-                      type="button"
-                      className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
-                      onClick={() => {
-                        setCurrencyFilterCode("");
-                        setCurrentPage(1);
-                      }}
-                    >
-                      {t("groupFilterAll")}
-                    </button>
                     {currencyPillCodes.map((code) => (
                       <button
                         key={code}
