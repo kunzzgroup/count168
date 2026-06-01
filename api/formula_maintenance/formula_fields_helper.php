@@ -279,31 +279,14 @@ function formulaOperatorsUsesCellReferences($body) {
 }
 
 /**
- * 用 formula_display 补全 formula_operators 中缺失的末尾占成系数（如 *0.90），
- * 仅当 display 比 operators 多出尾段乘数时追加，不硬编码具体数值。
+ * 顾客公式为准：不自动从 formula_display 拼尾段；formula_display 参数仅作 ops 为空时的回退。
  */
 function mergeFormulaBaseWithDisplayTail($operatorsBase, $formulaDisplay) {
-    $ops = trim((string) $operatorsBase);
-    $fd = removeTrailingSourcePercentSuffix(trim((string) $formulaDisplay));
-    if ($ops === '' || $fd === '') {
-        return $ops !== '' ? $ops : $fd;
-    }
-    if (formulaOperatorsUsesCellReferences($ops)) {
+    $ops = removeTrailingSourcePercentSuffix(trim((string) $operatorsBase));
+    if ($ops !== '') {
         return $ops;
     }
-    if (!preg_match('/^(.*)(\*(?:\([^)]+\)|[0-9.]+))\s*$/u', $fd, $m)) {
-        return $ops;
-    }
-    $fdTail = trim($m[2]);
-    if ($fdTail === '') {
-        return $ops;
-    }
-    $opsNorm = preg_replace('/\s+/', '', $ops);
-    $tailNorm = preg_replace('/\s+/', '', $fdTail);
-    if ($tailNorm === '' || substr($opsNorm, -strlen($tailNorm)) === $tailNorm) {
-        return $ops;
-    }
-    return $ops . $fdTail;
+    return removeTrailingSourcePercentSuffix(trim((string) $formulaDisplay));
 }
 
 /** 公式去掉 Source 后缀与末尾 row 占成（*0.90 等）后的核心段，用于同 Process 同行互相推断 */
@@ -424,16 +407,13 @@ function maintenanceRowEligibleForPeerRowCoefficient(array $row) {
     return !isLikelyMisplacedCommissionValue($formatted);
 }
 
-/** 尽可能从 last_source_value / formula_display / 误存 Source 等补全 row 占成尾段 */
+/** 只返回 formula_operators 本体，不从 display/lsv 自动拼乘数 */
 function mergeFormulaBaseFromAllCandidates($base, array $row) {
-    $result = removeTrailingSourcePercentSuffix(trim((string) $base));
-    if (!maintenanceRowShouldMergeRowCoefficientCandidates($row)) {
-        return $result;
+    $ops = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    if ($ops !== '') {
+        return removeTrailingSourcePercentSuffix($ops);
     }
-    foreach (collectFormulaMergeCandidates($row) as $candidate) {
-        $result = mergeFormulaBaseWithDisplayTail($result, $candidate);
-    }
-    return $result;
+    return removeTrailingSourcePercentSuffix(trim((string) $base));
 }
 
 /**
