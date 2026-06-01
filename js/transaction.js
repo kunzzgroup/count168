@@ -3004,39 +3004,15 @@
         console.log('✅ Show Name 已切换:', showName);
     }
 
-    // 未勾选 Show 0 balance：Balance≈0 且四列≈0 时保留条件：本期 Cr/Dr、本期非零金额 W/L，或本期 Data Capture 带 id_product 的明细（金额可为 0，与 Payment History 一致）。
+    // 未勾选 Show 0 balance：Balance≈0 的行一律隐藏；勾选后全部展示（与 B/F、Cr/Dr 是否非零无关）。
     function rowPassesHideZeroBalanceFilter(showZero, row) {
         if (showZero) return true;
-        const num = parseBalanceValue(row.balance);
+        const balanceProbe = (row.balance_full !== undefined && row.balance_full !== null && String(row.balance_full).trim() !== '')
+            ? String(row.balance_full).replace(/,/g, '').trim()
+            : row.balance;
+        const num = parseBalanceValue(balanceProbe);
         if (num === null) return true;
-        if (MoneyDecimal.toDecimal(num).abs().gt('0.00001')) return true;
-        const flagToBool = (v) => {
-            if (typeof v === 'boolean') return v;
-            if (typeof v === 'number') return v !== 0;
-            return parseInt(v || '0', 10) !== 0;
-        };
-        const absVal = (v) => {
-            try {
-                return MoneyDecimal.toDecimal(v || '0').abs();
-            } catch (_) {
-                return MoneyDecimal.toDecimal('0');
-            }
-        };
-        const eps = '0.00001';
-        // 展示列 win_loss 可能已为 0.00，但 win_loss_full 仍有轧差；隐藏该行会把合计变成「少半边账」
-        const wlProbe = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
-            ? String(row.win_loss_full).replace(/,/g, '').trim()
-            : (row.win_loss || '0');
-        const hasAnyMoneyColumn =
-            absVal(row.bf).gt(eps) ||
-            absVal(wlProbe).gt(eps) ||
-            absVal(row.cr_dr).gt(eps);
-        if (hasAnyMoneyColumn) return true;
-        const hasTxnFlag =
-            flagToBool(row.has_win_loss_transactions) ||
-            flagToBool(row.has_crdr_transactions) ||
-            flagToBool(row.has_period_id_product_rows);
-        return hasTxnFlag;
+        return MoneyDecimal.toDecimal(num).abs().gt('0.00001');
     }
 
     // ==================== 根据 Show 0 balance 过滤前端行并渲染 ====================
@@ -3082,10 +3058,9 @@
             };
             let shouldShow = () => true;
             // 需求（统一规则）：
-            // - Show 0 balance 勾选时：任何 Balance=0 的行都必须展示
-            // - Show Payment Only：仍展示有 Cr/Dr 的行
-            // - Show Win/Loss Only：仍展示有 Win/Loss 的行
-            // 三者可组合：最终为「勾选项对应条件的 OR」，且若未勾 Show 0 balance 则不额外放行 0 balance。
+            // - Show Payment Only / Show Win/Loss Only：先按 Cr/Dr 或 Win/Loss 收窄候选行
+            // - 最终一律再经 rowPassesHideZeroBalanceFilter：未勾 Show 0 balance 时 Balance≈0 全部隐藏
+            // - 勾选 Show 0 balance 时：候选行全部保留（含 Balance=0）
             if (showPaymentOnly && showWinLossOnly) {
                 shouldShow = showZero
                     ? (row) => isZeroBalance(row) || hasCrdr(row) || hasWinLoss(row)
