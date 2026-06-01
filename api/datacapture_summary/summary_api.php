@@ -1219,6 +1219,69 @@ function baseIdProductForKeyNormalized($text) {
 }
 
 /**
+ * 判断 template/candidate id 是否属于本次 Capture 的 id_product。
+ * - 完整一致：是
+ * - 紧贴括号变体：ALLBET95MS ↔ ALLBET95MS(SV)MYR（括号前无空格）
+ * - 空格+括号变体：否 — [G1930]AURITH68 与 [G1930]AURITH68 (SETUP) 为不同产品
+ */
+function summaryIdProductMatchesCapture(string $capturedId, string $candidateId): bool
+{
+    $cap = strtolower(trim($capturedId));
+    $cand = strtolower(trim($candidateId));
+    if ($cap === '' || $cand === '') {
+        return false;
+    }
+    if ($cap === $cand) {
+        return true;
+    }
+    $capLen = strlen($cap);
+    $candLen = strlen($cand);
+    if ($candLen > $capLen && strncmp($cand, $cap, $capLen) === 0 && $cand[$capLen] === '(') {
+        return true;
+    }
+    if ($capLen > $candLen && strncmp($cap, $cand, $candLen) === 0 && $cap[$candLen] === '(') {
+        return true;
+    }
+    return false;
+}
+
+function summaryIdMatchesAnyCapture(string $candidateId, array $capturedIds): bool
+{
+    foreach ($capturedIds as $capturedId) {
+        if (summaryIdProductMatchesCapture((string) $capturedId, $candidateId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * sub 模板：parent 必须在 Capture 中精确出现；sub 的 id_product 须在 Capture 中或与 parent 相同。
+ */
+function summarySubTemplateAllowedForCapture(array $subRow, array $capturedIds): bool
+{
+    $parent = trim((string) ($subRow['parent_id_product'] ?? ''));
+    $subId = trim((string) ($subRow['id_product'] ?? ''));
+    if ($parent === '') {
+        return false;
+    }
+    $parentInCapture = false;
+    foreach ($capturedIds as $cid) {
+        if (strcasecmp(trim((string) $cid), $parent) === 0) {
+            $parentInCapture = true;
+            break;
+        }
+    }
+    if (!$parentInCapture) {
+        return false;
+    }
+    if ($subId === '' || strcasecmp($subId, $parent) === 0) {
+        return true;
+    }
+    return summaryIdMatchesAnyCapture($subId, $capturedIds);
+}
+
+/**
  * Merge (id_product, account_id) pairs from data_capture_details into templates
  * so that accounts that exist in details but have no template still get a row (synthetic template).
  * 修复：data_capture_details 有该账目但 data_capture_templates 没有时，仍能在 Summary 中显示。
@@ -1851,6 +1914,20 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null, ?array &$r
     $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds);
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // SQL 含「第一个 ( 前」的宽松匹配，会误把 [G1930]AURITH68 (SETUP) 与 [G1930]AURITH68 混为一族；按 Capture 精确规则过滤。
+    $filteredResults = [];
+    foreach ($results as $row) {
+        $productType = $row['product_type'] ?? 'main';
+        if ($productType === 'sub') {
+            if (summarySubTemplateAllowedForCapture($row, $ids)) {
+                $filteredResults[] = $row;
+            }
+        } elseif (summaryIdMatchesAnyCapture((string) ($row['id_product'] ?? ''), $ids)) {
+            $filteredResults[] = $row;
+        }
+    }
+    $results = $filteredResults;
 
     if ($rawSubRowsOut !== null) {
         $rawSubRowsOut = [];
