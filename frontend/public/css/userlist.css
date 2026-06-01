@@ -453,7 +453,8 @@ body.ec-auth-shell .user-gc-segment {
 }
 
 body.user-page .user-gc-segment:not(:disabled):active,
-body.account-page .user-gc-segment:not(:disabled):active {
+body.account-page .user-gc-segment:not(:disabled):active,
+body.process-page .user-gc-segment:not(:disabled):active {
     transform: scale(0.97);
 }
 
