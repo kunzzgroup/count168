@@ -178,19 +178,25 @@ export default function BankProcessFormModal({
                     <div className="form-group">
                       <label htmlFor="bank_type">{t("type")}</label>
                       {editMode ? (
-                        <input id="bank_type" readOnly className="bank-input" value={form.type} />
+                        <div className="bank-field-control-slot">
+                          <input id="bank_type" readOnly className="bank-input" value={form.type} />
+                          <span className="bank-field-addon-spacer" aria-hidden="true" />
+                        </div>
                       ) : (
-                        <BankSimpleSelect
-                          id="bank_type"
-                          value={form.type}
-                          placeholder={t("selectType")}
-                          options={[
-                            { value: "PERSONAL", label: t("personal") },
-                            { value: "ENTERPRISE", label: t("enterprise") },
-                            { value: "BUSINESS", label: t("business") },
-                          ]}
-                          onChange={(v) => setForm((prev) => ({ ...prev, type: v }))}
-                        />
+                        <div className="bank-field-control-slot">
+                          <BankSimpleSelect
+                            id="bank_type"
+                            value={form.type}
+                            placeholder={t("selectType")}
+                            options={[
+                              { value: "PERSONAL", label: t("personal") },
+                              { value: "ENTERPRISE", label: t("enterprise") },
+                              { value: "BUSINESS", label: t("business") },
+                            ]}
+                            onChange={(v) => setForm((prev) => ({ ...prev, type: v }))}
+                          />
+                          <span className="bank-field-addon-spacer" aria-hidden="true" />
+                        </div>
                       )}
                     </div>
                     <div className="form-group">
@@ -420,17 +426,20 @@ export default function BankProcessFormModal({
                   <div className="form-row bank-row-two-cols">
                     <div className="form-group">
                       <label htmlFor="bank_contract">{t("contract")}</label>
-                      <BankSimpleSelect
-                        id="bank_contract"
-                        value={form.contract}
-                        placeholder={t("contract")}
-                        disabled={isOnce}
-                        options={BANK_PROCESS_CONTRACT_OPTIONS.map((opt) => ({
-                          value: opt.value,
-                          label: formatBankProcessContractLabel(lang, opt.value),
-                        }))}
-                        onChange={(v) => setForm((prev) => ({ ...prev, contract: v }))}
-                      />
+                      <div className="bank-field-control-slot">
+                        <BankSimpleSelect
+                          id="bank_contract"
+                          value={form.contract}
+                          placeholder={t("contract")}
+                          disabled={isOnce}
+                          options={BANK_PROCESS_CONTRACT_OPTIONS.map((opt) => ({
+                            value: opt.value,
+                            label: formatBankProcessContractLabel(lang, opt.value),
+                          }))}
+                          onChange={(v) => setForm((prev) => ({ ...prev, contract: v }))}
+                        />
+                        <span className="bank-field-addon-spacer" aria-hidden="true" />
+                      </div>
                     </div>
                     <div className="form-group">
                       <label htmlFor="bank_insurance">{t("insurance")}</label>

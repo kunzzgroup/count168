@@ -1739,7 +1739,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
 
 .bank-form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 30px;
     align-items: stretch;
     min-height: 0;
@@ -1838,6 +1838,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 .bank-form-cell-left,
 .bank-form-cell-right {
     align-items: stretch;
+    min-width: 0;
 }
 
 .bank-form-cell .selected-countries-section {
@@ -1896,7 +1897,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 
 .bank-row-two-cols {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 15px;
 }
 
@@ -2507,15 +2508,37 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
     margin-bottom: 0;
 }
 
-.select-with-add {
+.select-with-add,
+.account-select-with-buttons,
+#addBankModal .bank-field-control-slot {
     display: flex;
     gap: 8px;
     align-items: center;
+    width: 100%;
+    min-width: 0;
 }
 
 .select-with-add .bank-select,
-.select-with-add .custom-select-wrapper {
-    flex: 1;
+.select-with-add .custom-select-wrapper,
+.account-select-with-buttons .custom-select-wrapper,
+#addBankModal .bank-field-control-slot > .bank-select,
+#addBankModal .bank-field-control-slot > .bank-input,
+#addBankModal .bank-field-control-slot > .custom-select-wrapper {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    max-width: 100%;
+}
+
+#addBankModal .bank-field-addon-spacer {
+    flex: 0 0 clamp(22px, 1.45vw, 26px);
+    width: clamp(22px, 1.45vw, 26px);
+    height: clamp(22px, 1.45vw, 26px);
+    visibility: hidden;
+    pointer-events: none;
+}
+
+#addBankModal .bank-row-two-cols > .form-group {
     min-width: 0;
 }
 
@@ -2622,8 +2645,10 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     font-family: var(--font-ui) !important;
 }
 
-/* Card Merchant / Customer select bar: match Add Process / Account modal */
-.bank-form .account-select-with-buttons .custom-select-button {
+/* Card Merchant / Customer / Country / Type select: same width as fields with + button */
+.bank-form .account-select-with-buttons .custom-select-button,
+.bank-form .select-with-add .custom-select-button,
+#addBankModal .bank-field-control-slot .custom-select-button {
     width: 100%;
     padding: 0.625rem 2.75rem 0.625rem 0.875rem;
     border: 1px solid #dbe3ee;
@@ -2643,7 +2668,9 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     position: relative;
 }
 
-.bank-form .account-select-with-buttons .custom-select-button:focus {
+.bank-form .account-select-with-buttons .custom-select-button:focus,
+.bank-form .select-with-add .custom-select-button:focus,
+#addBankModal .bank-field-control-slot .custom-select-button:focus {
     outline: none;
     border-color: #0D60FF;
     box-shadow: 0 0 0 4px rgba(13, 96, 255, 0.08);
