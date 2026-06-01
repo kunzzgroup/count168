@@ -59,6 +59,16 @@ function inboxBankProcessDateFieldToYmd($raw): ?string
     return bmp_bankProcessDateFieldToYmd($raw);
 }
 
+/** Process 表单持久化的 day_start（Resend schedule 覆盖前的值），Accounting Due「Due Date」展示用。 */
+function inboxRowDisplayDayStart(array $r): ?string
+{
+    $stored = inboxBankProcessDateFieldToYmd($r['bank_process_stored_day_start'] ?? null);
+    if ($stored !== null) {
+        return $stored;
+    }
+    return inboxBankProcessDateFieldToYmd($r['day_start'] ?? null);
+}
+
 /** Pro-rated cost/price/profit for partial first month: day_start to end of that month */
 function partialFirstMonthAmounts(string $dayStart, string $cost, string $price, string $profit): array
 {
@@ -975,6 +985,17 @@ try {
     $hasDayEndMonthlyCapCol = tableHasColumn($pdo, 'bank_process', 'day_end_monthly_cap_enabled');
 
     $rows = fetchActiveBankProcessesForInbox($pdo, $company_id, $hasFrequency, $hasResendRelaxCol, $hasDayEndMonthlyCapCol);
+    $displayDayStartByProcessId = [];
+    foreach ($rows as $r) {
+        $pid = (int) ($r['id'] ?? 0);
+        if ($pid <= 0) {
+            continue;
+        }
+        $displayDs = inboxRowDisplayDayStart($r);
+        if ($displayDs !== null) {
+            $displayDayStartByProcessId[$pid] = $displayDs;
+        }
+    }
     $needToday = [];
 
     // 1) Partial first month
@@ -1720,6 +1741,11 @@ try {
     if (!empty($needToday)) {
         markAlreadyPostedOnNeedToday($pdo, $needToday, $company_id, $today, $hasPeriodType);
         foreach ($needToday as &$row) {
+            $pid = (int) ($row['id'] ?? 0);
+            if ($pid > 0 && isset($displayDayStartByProcessId[$pid])
+                && (!empty($row['is_day_end_tail']) || !empty($row['is_resend_consolidated_range']) || !empty($row['is_partial_first_month']))) {
+                $row['day_start'] = $displayDayStartByProcessId[$pid];
+            }
             $row['cost'] = money_out($row['cost'] ?? '0');
             $row['price'] = money_out($row['price'] ?? '0');
             $row['profit'] = money_out($row['profit'] ?? '0');
