@@ -331,11 +331,10 @@ export default function AccountModal({
 
                 <div className="account-form-group">
                   <label>{text("remark")}</label>
-                  <textarea
-                    rows="1"
+                  <input
+                    type="text"
                     value={form.remark}
                     onChange={(e) => setForm((f) => ({ ...f, remark: upper(e.target.value) }))}
-                    style={{ resize: "none", overflowY: "hidden", lineHeight: "1.5" }}
                   />
                 </div>
               </div>
