@@ -175,6 +175,29 @@ export function isBankInactiveLike(status, issueFlag) {
  *
  * "Plain inactive" means status==='inactive' AND issue_flag NOT IN (official, e_invoice, block).
  */
+/** Client-side search (mirrors getBankProcesses search fields). */
+export function filterBankProcessRowsBySearch(rows, searchTerm) {
+  const q = String(searchTerm || "").trim().toUpperCase();
+  if (!q || !Array.isArray(rows)) return rows || [];
+  return rows.filter((r) => {
+    const hay = [
+      r?.country,
+      r?.bank,
+      r?.type,
+      r?.types,
+      r?.supplier,
+      r?.card_lower,
+      r?.customer,
+      r?.name,
+      r?.card_merchant_name,
+      r?.card_merchant_account_id,
+    ]
+      .map((x) => String(x || "").toUpperCase())
+      .join(" ");
+    return hay.includes(q);
+  });
+}
+
 export function matchesCurrentBankFilters(row, filters) {
   if (!row) return false;
   const { showAll, showInactive, showOfficial, showEInvoice, showBlock } = filters || {};

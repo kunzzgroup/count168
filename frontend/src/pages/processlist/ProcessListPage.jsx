@@ -826,7 +826,7 @@ export default function ProcessListPage() {
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedDisplayRows.length / PAGE_SIZE)), [sortedDisplayRows]);
   const pageRows = useMemo(() => {
-    if (showAll) return sortedDisplayRows.filter((r) => String(r.status || "").toLowerCase() === "active");
+    if (showAll) return sortedDisplayRows;
     const page = Math.min(currentPage, totalPages);
     const start = (page - 1) * PAGE_SIZE;
     return sortedDisplayRows.slice(start, start + PAGE_SIZE);

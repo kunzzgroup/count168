@@ -42,6 +42,7 @@ import {
   bankProcessFrequencyNormalized,
   BANK_PICK_ACCOUNT_ROLES,
   filterBankPickAccounts,
+  filterBankProcessRowsBySearch,
   sortBankProcessTableRows,
   accountingDuePeriodType,
   checkBankResendLockFromBackend,
@@ -1047,7 +1048,7 @@ export function useBankProcessListPage() {
       bankProcessListWarmInflightRef.current.set(cacheKey, ac);
       void (async () => {
         try {
-          const slice = await prefetchBankProcessListPayload(id);
+          const slice = await prefetchBankProcessListPayload(id, { search });
           if (ac.signal.aborted || !slice.rows) return;
           bankProcessListCacheRef.current.set(cacheKey, {
             rows: slice.rows,
@@ -1079,7 +1080,7 @@ export function useBankProcessListPage() {
       listAbortRef.current = ac;
       if (!silent && rowsRef.current.length === 0) setTableLoading(true);
       try {
-        const slice = await prefetchBankProcessListPayload(cid);
+        const slice = await prefetchBankProcessListPayload(cid, { search });
         if (ac.signal.aborted) return;
         if (!slice.rows) {
           if (!silent) notify(t("failedLoadBankProcesses"), "danger");
@@ -2061,7 +2062,9 @@ export function useBankProcessListPage() {
 
   const visibleRows = useMemo(() => {
     const filterState = { showAll, showInactive, showOfficial, showEInvoice, showBlock };
-    let filtered = sortedRows.filter((r) => matchesCurrentBankFilters(r, filterState));
+    let filtered = filterBankProcessRowsBySearch(sortedRows, search).filter((r) =>
+      matchesCurrentBankFilters(r, filterState),
+    );
     if (dateFrom || dateTo) {
       const fromMs = dateFrom ? parseRowDateMs(dateFrom) : null;
       const toMs = dateTo ? parseRowDateMs(dateTo) : null;
@@ -2080,6 +2083,7 @@ export function useBankProcessListPage() {
     return filtered;
   }, [
     sortedRows,
+    search,
     dateFrom,
     dateTo,
     showAll,

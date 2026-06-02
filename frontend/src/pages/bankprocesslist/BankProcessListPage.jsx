@@ -531,13 +531,13 @@ export default function BankProcessListPage() {
           <BankProcessTable
             tableLoading={tableLoading}
             showAll={showAll}
-            showSelectColumn={hasDeletableRows}
+            showSelectColumn={showAll || showInactive || showOfficial || showEInvoice || showBlock || hasDeletableRows}
             pageRows={pageRows}
             currentPage={currentPage}
             PAGE_SIZE={PAGE_SIZE}
             selectedIds={selectedIds}
             setSelectedIds={setSelectedIds}
-            showHeaderSelectAll={showInactive || showOfficial || showEInvoice || showBlock}
+            showHeaderSelectAll={showAll || showInactive || showOfficial || showEInvoice || showBlock}
             notify={notify}
             fetchRows={fetchRows}
             onBankStatusUpdated={handleBankStatusUpdated}

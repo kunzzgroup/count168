@@ -63,7 +63,7 @@ export async function fetchGamesProcessListSlice(
 }
 
 /** Warm Bank Process List data before route swap (Games → Bank). */
-export async function prefetchBankProcessListPayload(companyId) {
+export async function prefetchBankProcessListPayload(companyId, { search = "" } = {}) {
   const cid = Number(companyId);
   if (!cid) return { rows: null, currencyCodes: null };
 
@@ -71,6 +71,8 @@ export async function prefetchBankProcessListPayload(companyId) {
   listUrl.searchParams.set("permission", "Bank");
   listUrl.searchParams.set("company_id", String(cid));
   listUrl.searchParams.set("showAll", "1");
+  const q = String(search || "").trim();
+  if (q) listUrl.searchParams.set("search", q);
 
   const curUrl = buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`);
 

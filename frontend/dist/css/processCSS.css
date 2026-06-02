@@ -6648,6 +6648,42 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     padding-bottom: 0;
 }
 
+/* Bank Show All：整页纵向滚动，列表随内容增高（对齐 Games process-page--show-all） */
+body.process-page.process-page--bank.process-page--bank-show-all {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+}
+
+html:has(body.process-page.process-page--bank.process-page--bank-show-all) {
+    height: auto;
+    overflow: visible;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .container {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .content,
+body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-body,
+body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-scroll-region {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .bank-table-wrapper,
+body.process-page.process-page--bank.process-page--bank-show-all .process-table-wrapper.bank-process-table-region {
+    flex: 0 1 auto !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
 /* Status 下拉走 portal/fixed，单元格可 hidden 防止胶囊溢出遮挡 Date */
 .process-page.process-page--bank .bank-status-cell,
 .process-page.process-page--bank .process-cards.bank-mode .card-item.bank-status-cell.bank-col-status {
