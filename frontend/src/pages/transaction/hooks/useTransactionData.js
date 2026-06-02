@@ -74,13 +74,10 @@ export function useTransactionData({
   useLayoutEffect(() => {
     if (prevScopeCacheKeyRef.current === scopeCacheKey) return;
     prevScopeCacheKeyRef.current = scopeCacheKey;
-    setAccountOptions([]);
-    setCurrencyOptions([]);
-    setCurrencyRowsOrdered([]);
     currencyInitCompanyRef.current = null;
-    queryClient.removeQueries({ queryKey: ["tx-accounts"] });
-    queryClient.removeQueries({ queryKey: ["tx-company-currencies"] });
-  }, [scopeCacheKey, queryClient]);
+    // Keep previous account/currency options visible until next scope data arrives.
+    // This avoids visual flicker when switching group/company in Transaction page.
+  }, [scopeCacheKey]);
 
   useEffect(() => {
     if (!sessionReady) return;
