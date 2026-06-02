@@ -15,6 +15,55 @@ require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 @set_time_limit(600);
 
 /**
+ * 子公司查询：与旧版 maintenance_search_api 一致的 company_id 解析（owner / session / 跨公司权限）。
+ */
+function maintenanceResolveRequestedCompanyId(PDO $pdo, int $requestedCompanyId, array $scopeParams = []): int
+{
+    if ($requestedCompanyId <= 0) {
+        throw new Exception('无效的 company_id');
+    }
+
+    $userRole = strtolower((string) ($_SESSION['role'] ?? ''));
+
+    if ($userRole === 'owner') {
+        $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? null;
+        if (!$ownerId) {
+            throw new Exception('缺少 Owner 信息');
+        }
+        $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ? LIMIT 1');
+        $stmt->execute([$requestedCompanyId, $ownerId]);
+        if (!$stmt->fetchColumn()) {
+            throw new Exception('无权访问该公司');
+        }
+        return $requestedCompanyId;
+    }
+
+    if (isset($_SESSION['company_id']) && (int) $_SESSION['company_id'] === $requestedCompanyId) {
+        return $requestedCompanyId;
+    }
+
+    $viewGroup = dcNormalizeGroupId($scopeParams['view_group'] ?? $scopeParams['group_id'] ?? '');
+    dcAssertUserCanAccessCompany(
+        $pdo,
+        $requestedCompanyId,
+        $viewGroup !== '' ? $viewGroup : null
+    );
+
+    return $requestedCompanyId;
+}
+
+/** 是否走旧版 PHP 子公司查询（不按 group scope 过滤 SALARY/BONUS）。 */
+function maintenanceUseLegacyCompanyQuery(array $params): bool
+{
+    $companyRaw = $params['company_id'] ?? '';
+    if ($companyRaw === '' || $companyRaw === null) {
+        return false;
+    }
+    $scopeHint = strtolower(trim((string) ($params['report_scope'] ?? $params['capture_scope'] ?? '')));
+    return $scopeHint === '' || $scopeHint === 'company';
+}
+
+/**
  * 统一 Rate 显示：最多 8 位小数，不补尾零（与 Data Summary / Payment History 一致）
  */
 function formatRateForDisplay($rate): ?string
@@ -327,7 +376,7 @@ function maintenanceBuildCaptureUnionBranch(
         INNER JOIN data_captures dc ON dcd.capture_id = dc.id
         INNER JOIN process p ON dc.process_id = p.id
         " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
-        INNER JOIN currency c ON dcd.currency_id = c.id
+        LEFT JOIN currency c ON dcd.currency_id = c.id
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
         LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
@@ -467,7 +516,7 @@ function maintenanceBuildCaptureFastBranch(
         INNER JOIN data_captures dc ON dcd.capture_id = dc.id
         INNER JOIN process p ON dc.process_id = p.id
         " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
-        INNER JOIN currency c ON dcd.currency_id = c.id
+        LEFT JOIN currency c ON dcd.currency_id = c.id
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
         LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
@@ -850,6 +899,9 @@ function maintenanceSearchPaginatedFast(
             $maintenance_scope_group,
             $scopeProcessFilter
         );
+        $payload['debug']['category'] = $category;
+        $payload['debug']['is_bank_category'] = $is_bank_category;
+        $payload['debug']['scope_process_filter'] = trim($scopeProcessFilter);
     }
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
 }
@@ -861,9 +913,17 @@ try {
 
     $scopeParams = $_GET;
     $maintenance_scope_group = false;
-    $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
+    $useLegacyCompanyQuery = maintenanceUseLegacyCompanyQuery($scopeParams);
+    $hasExplicitScope = !$useLegacyCompanyQuery && dcRequestHasExplicitScope($scopeParams);
 
-    if ($hasExplicitScope) {
+    if ($useLegacyCompanyQuery) {
+        $company_id = maintenanceResolveRequestedCompanyId(
+            $pdo,
+            (int) $scopeParams['company_id'],
+            $scopeParams
+        );
+        $maintenance_scope_group = false;
+    } elseif ($hasExplicitScope) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
         $company_id = (int) $scopeResolved['company_id'];
         $maintenance_scope_group = (bool) $scopeResolved['is_group_scope'];
@@ -1054,8 +1114,8 @@ try {
     // 仅当显式传入 include_deleted=1 时，才附加 transactions_deleted / data_captures_deleted 的历史记录
     $includeDeleted = isset($_GET['include_deleted']) && $_GET['include_deleted'] === '1';
 
-    // 常用路径：无已删除记录 + 分页 → SQL UNION（失败则回退 legacy 双查询）
-    if (!$includeDeleted && $page_size > 0) {
+    // 子公司：与旧 PHP 一致走 legacy 全量查询 + PHP 分页；仅 group scope 用 SQL UNION 游标分页
+    if (!$includeDeleted && $page_size > 0 && $maintenance_scope_group) {
         $page = $page > 0 ? $page : 1;
         try {
             maintenanceSearchPaginatedFast(
@@ -1212,7 +1272,7 @@ try {
                 dcd.id AS capture_detail_id,
                 dc.id AS capture_id,
                 p.process_id,
-                COALESCE(a.account_id, CAST(dcd.account_id AS CHAR), '-') AS account_id,
+                a.account_id,
                 NULL AS from_account,
                 COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
                 COALESCE(dc.remark, '') AS remark,
@@ -1237,7 +1297,7 @@ try {
             FROM data_capture_details dcd
             INNER JOIN data_captures dc ON dcd.capture_id = dc.id
             INNER JOIN process p ON dc.process_id = p.id
-            " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
+            INNER JOIN account a ON dcd.account_id = a.id
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
@@ -1437,7 +1497,7 @@ try {
                 FROM data_captures_deleted dcd
                 INNER JOIN process p ON dcd.process_id = p.id
                 " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
-                INNER JOIN currency c ON dcd.currency_id = c.id
+                LEFT JOIN currency c ON dcd.currency_id = c.id
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN user u ON dcd.user_type = 'user' AND dcd.created_by = u.id
                 LEFT JOIN owner o ON dcd.user_type = 'owner' AND dcd.created_by = o.id

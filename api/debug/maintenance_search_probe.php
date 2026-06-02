@@ -77,9 +77,34 @@ if ($companyRow) {
           AND UPPER(TRIM(p.process_id)) NOT IN ('SALARY','BONUS')
     ");
     $cap->execute([$cid, $cid, $dateFromDb, $dateToDb]);
+    $capWithCurrency = $pdo->prepare("
+        SELECT COUNT(*) FROM data_capture_details dcd
+        INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+        INNER JOIN process p ON dc.process_id = p.id
+        INNER JOIN currency c ON dcd.currency_id = c.id
+        WHERE dc.company_id = ? AND dcd.company_id = ?
+          AND dc.capture_date BETWEEN ? AND ?
+    ");
+    $capWithCurrency->execute([$cid, $cid, $dateFromDb, $dateToDb]);
+    $capLeftCurrency = $pdo->prepare("
+        SELECT COUNT(*) FROM data_capture_details dcd
+        INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+        INNER JOIN process p ON dc.process_id = p.id
+        LEFT JOIN currency c ON dcd.currency_id = c.id
+        WHERE dc.company_id = ? AND dcd.company_id = ?
+          AND dc.capture_date BETWEEN ? AND ?
+    ");
+    $capLeftCurrency->execute([$cid, $cid, $dateFromDb, $dateToDb]);
     $out['counts_company'] = [
         'transactions' => (int) $tx->fetchColumn(),
-        'data_capture_details' => (int) $cap->fetchColumn(),
+        'data_capture_details_excl_salary_bonus' => (int) $cap->fetchColumn(),
+        'data_capture_with_inner_currency_join' => (int) $capWithCurrency->fetchColumn(),
+        'data_capture_with_left_currency_join' => (int) $capLeftCurrency->fetchColumn(),
+    ];
+    $out['hint'] = [
+        'numeric_company_id' => $cid,
+        'api_must_use_company_id' => $cid,
+        'category_bank_skips_data_capture' => true,
     ];
     $sample = $pdo->prepare("
         SELECT dc.id, dc.capture_date, p.process_id

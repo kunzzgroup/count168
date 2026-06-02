@@ -1,1 +1,0 @@
-import{bv as i,r as o,cO as c}from"./index-nlw-dLef.js";function s(t,r,a){const u=i(t),e="Read-only account: this action is not allowed.",n=o.useCallback(()=>c(t,()=>{typeof r=="function"&&r(a||e,"danger")}),[t,r,a]);return{mutationsBlocked:u,guardWrite:n,isLocked:u}}export{s as u};

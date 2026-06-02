@@ -151,6 +151,8 @@ export async function bootstrapTransactionMaintenanceMeta({
 /** Transaction Maintenance 仅 Games/Gambling/Bank 有数据；Loan/Rate/Money 与其它维护页共用 localStorage 时会误传。 */
 const TXN_MAINTENANCE_SEARCH_CATEGORIES = new Set(["games", "gambling", "bank"]);
 const TXN_MAINTENANCE_EMPTY_CATEGORIES = new Set(["loan", "rate", "money"]);
+/** 与 Payment 等页共用 localStorage；Bank 在本页会跳过 Data Capture，默认不恢复 saved Bank。 */
+const TXN_MAINTENANCE_IGNORE_SAVED_CATEGORIES = new Set(["loan", "rate", "money", "bank"]);
 
 /** 本页可选的 Category 按钮（过滤 Loan/Rate/Money）。 */
 export function filterTransactionMaintenancePermissions(permissions) {
@@ -161,14 +163,14 @@ export function filterTransactionMaintenancePermissions(permissions) {
   return filtered.length > 0 ? filtered : perms;
 }
 
-/** 选择默认 Category：优先 Games/Gambling，忽略 Loan/Rate/Money 的 localStorage。 */
+/** 选择默认 Category：优先 Games/Gambling，忽略 Loan/Rate/Money/Bank 的 localStorage。 */
 export function pickTransactionMaintenancePermission(permissions, saved) {
   const perms = filterTransactionMaintenancePermissions(permissions);
   const savedLower = String(saved ?? "").toLowerCase();
   if (
     saved &&
     perms.includes(saved) &&
-    !TXN_MAINTENANCE_EMPTY_CATEGORIES.has(savedLower)
+    !TXN_MAINTENANCE_IGNORE_SAVED_CATEGORIES.has(savedLower)
   ) {
     return saved;
   }
@@ -417,14 +419,14 @@ function maintenancePageSizeForRequest(isFirstPage, pageSizeIndex) {
 }
 
 async function fetchAllPagesForRange(params, pageSizeIndex, onProgress) {
-  const fetchBatch = async ({ cursor, isFirstPage }) => {
-    const pageSize = maintenancePageSizeForRequest(isFirstPage, pageSizeIndex);
+  const fetchBatch = async ({ cursor, page }) => {
+    const pageSize = maintenancePageSizeForRequest(page === 1 && !cursor, pageSizeIndex);
     try {
       return await fetchMaintenancePageWithRetries({
         ...params,
         cursor,
         pageSize,
-        page: isFirstPage ? 1 : undefined,
+        page: cursor ? 1 : page,
       });
     } catch (err) {
       rethrowIfAborted(err, params.signal);
@@ -437,25 +439,27 @@ async function fetchAllPagesForRange(params, pageSizeIndex, onProgress) {
 
   let all = [];
   let cursor = null;
-  let isFirstPage = true;
+  let currentPage = 1;
   let loops = 0;
 
   while (loops < MAINTENANCE_MAX_PAGES) {
     if (params.signal?.aborted) {
       throw new DOMException("The operation was aborted.", "AbortError");
     }
-    const result = await fetchBatch({ cursor, isFirstPage });
+    const result = await fetchBatch({ cursor, page: currentPage });
     if (result.data?.length) {
       all = appendMaintenancePageRows(all, result.data);
       if (typeof onProgress === "function") onProgress(all);
     }
     if (!result.pagination?.has_more) break;
     const nextCursor = result.pagination?.next_cursor;
-    if (!nextCursor) {
-      break;
+    if (nextCursor) {
+      cursor = nextCursor;
+      currentPage = 1;
+    } else {
+      cursor = null;
+      currentPage += 1;
     }
-    cursor = nextCursor;
-    isFirstPage = false;
     loops += 1;
   }
 
