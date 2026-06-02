@@ -332,69 +332,11 @@ try {
         error_log('查询已删除记录失败: ' . $e->getMessage());
     }
 
-    // Fallback: AP/IG group payroll rows are stored on group-entity company.
-    // If company-scope query returns empty while a view_group is active,
-    // retry on group scope (SALARY/BONUS only) so Capture Maintenance
-    // can still display Data Capture submissions visible on the form side.
-    $hasAnyRows = !empty($results) || !empty($deletedResults);
-    $requestedProcessCode = strtoupper(trim((string) ($process_name ?? '')));
-    $isPayrollProcessRequested = in_array($requestedProcessCode, ['SALARY', 'BONUS'], true);
-    $canRetryGroupPayroll =
-        !$capture_scope_group &&
-        !$hasAnyRows &&
-        $requestedViewGroup !== '' &&
-        ($process_id === null || $isPayrollProcessRequested);
-
-    if ($canRetryGroupPayroll) {
-        $entityCompanyId = (int) tx_resolve_group_entity_company_id($pdo, $requestedViewGroup);
-        if ($entityCompanyId > 0) {
-            $fallbackProcessId = $process_id;
-            $fallbackProcessName = $process_name;
-            if ($isPayrollProcessRequested && $requestedProcessCode !== '') {
-                // Company scope may pass subsidiary process.id (e.g. C168 SALARY),
-                // but group-entity SALARY/BONUS uses a different process.id.
-                // Re-resolve by process code on group-entity company before fallback query.
-                $resolvedEntityPid = dcResolveProcessIdByCode(
-                    $pdo,
-                    $entityCompanyId,
-                    $requestedProcessCode,
-                    true
-                );
-                if ($resolvedEntityPid === null) {
-                    $fallbackProcessId = null;
-                } else {
-                    $fallbackProcessId = (int) $resolvedEntityPid;
-                    $fallbackProcessName = $requestedProcessCode;
-                }
-            }
-            $results = fetchCaptureRecords(
-                $pdo,
-                $entityCompanyId,
-                $date_from_db,
-                $date_to_db,
-                $fallbackProcessId,
-                $fallbackProcessName,
-                dcSqlGroupProcessFilter('p'),
-                dcSqlCaptureOnGroupEntityCompany('dc')
-            );
-            try {
-                $deletedResults = fetchDeletedRecords(
-                    $pdo,
-                    $entityCompanyId,
-                    $date_from_db,
-                    $date_to_db,
-                    $fallbackProcessId,
-                    $fallbackProcessName,
-                    dcSqlGroupProcessFilter('p'),
-                    dcSqlCaptureOnGroupEntityCompany('dcd')
-                );
-            } catch (Exception $e) {
-                error_log('查询已删除记录（group payroll fallback）失败: ' . $e->getMessage());
-            }
-        }
-    }
-
     $formattedResults = formatAndMergeResults($results, $deletedResults, $process_name);
+    if (empty($formattedResults)) {
+        jsonResponse(true, 'No data found', []);
+        return;
+    }
     jsonResponse(true, 'OK', $formattedResults);
 } catch (PDOException $e) {
     jsonResponse(false, '数据库错误: ' . $e->getMessage(), null, 500);
