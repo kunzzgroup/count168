@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { syncCompanySessionApi } from "./companySessionSync.js";
-import { isDashboardGroupOnlyMode, pickGroupAnchorCompany } from "./sharedCompanyFilter.js";
+import { isDashboardGroupOnlyMode, pickDefaultSubsidiaryForGroup, pickGroupAnchorCompany } from "./sharedCompanyFilter.js";
 
 /**
  * Group-only UI keeps company unselected; sync anchor company to PHP session so sidebar
@@ -20,7 +20,10 @@ export function useGroupAnchorSessionSync({
   const anchorId = useMemo(() => {
     if (!enabled || !isDashboardGroupOnlyMode() || !selectedGroup) return null;
     if (companyId != null && Number(companyId) > 0) return null;
-    const anchor = pickGroupAnchorCompany(companies, selectedGroup);
+    const anchor =
+      pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
+        preferredCompanyId: sessionCompanyId,
+      }) ?? pickGroupAnchorCompany(companies, selectedGroup);
     const id = anchor?.id != null ? Number(anchor.id) : Number.NaN;
     return Number.isFinite(id) && id > 0 ? id : null;
   }, [enabled, companies, selectedGroup, companyId]);

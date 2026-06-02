@@ -317,11 +317,12 @@ export default function AuthenticatedLayout() {
   useEffect(() => {
     const onFilterChange = () => {
       setSidebarGcTick((n) => n + 1);
-      void refreshSession();
+      // Group-only: wait for useGroupAnchorSessionSync → company-session-updated before refreshSession,
+      // otherwise sidebar flags (Data Capture, etc.) reflect the previous group's PHP session company.
     };
     window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
     return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-  }, [refreshSession]);
+  }, []);
 
   useEffect(() => {
     setHoverSection(null);

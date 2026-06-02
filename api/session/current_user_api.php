@@ -157,6 +157,38 @@ if ($companyId && $pdo instanceof PDO) {
             $companyHasBank = in_array('Bank', $companyPerms, true);
         }
 
+        if (gc_is_group_login() && (!$companyHasGambling || !$companyHasBank)) {
+            $stmtGrp = $pdo->prepare(
+                'SELECT UPPER(TRIM(COALESCE(group_id, \'\'))) FROM company WHERE id = ? LIMIT 1'
+            );
+            $stmtGrp->execute([$companyId]);
+            $groupCode = strtoupper(trim((string) ($stmtGrp->fetchColumn() ?: '')));
+            if ($groupCode !== '') {
+                $stmtSubs = $pdo->prepare("
+                    SELECT permissions
+                    FROM company
+                    WHERE UPPER(TRIM(COALESCE(group_id, ''))) = ?
+                      AND TRIM(COALESCE(company_id, '')) <> ''
+                ");
+                $stmtSubs->execute([$groupCode]);
+                foreach ($stmtSubs->fetchAll(PDO::FETCH_COLUMN) as $raw) {
+                    $subsPerms = json_decode((string) $raw, true) ?: [];
+                    if (
+                        !$companyHasGambling
+                        && (in_array('Games', $subsPerms, true) || in_array('Gambling', $subsPerms, true))
+                    ) {
+                        $companyHasGambling = true;
+                    }
+                    if (!$companyHasBank && in_array('Bank', $subsPerms, true)) {
+                        $companyHasBank = true;
+                    }
+                    if ($companyHasGambling && $companyHasBank) {
+                        break;
+                    }
+                }
+            }
+        }
+
         $stmt = $pdo->prepare('SELECT expiration_date FROM company WHERE id = ?');
         $stmt->execute([$companyId]);
         $companyExpirationDate = $stmt->fetchColumn();
