@@ -331,14 +331,29 @@ export default function AuthenticatedLayout() {
 
   useEffect(() => {
     if (loading || !me) return;
-    void loadOwnerCompaniesCached(async () => {
-      const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-        credentials: "include",
+
+    prefetchRouteModule(path);
+    if (path !== "/dashboard" && canAccessPermission(me, "home")) {
+      prefetchRouteModule("/dashboard");
+    }
+
+    const runCompanies = () => {
+      void loadOwnerCompaniesCached(async () => {
+        const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+          credentials: "include",
+        });
+        const json = await res.json();
+        return Array.isArray(json?.data) ? json.data : [];
       });
-      const json = await res.json();
-      return Array.isArray(json?.data) ? json.data : [];
-    });
-  }, [loading, me]);
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(runCompanies, { timeout: 2500 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timerId = window.setTimeout(runCompanies, 300);
+    return () => window.clearTimeout(timerId);
+  }, [loading, me, path]);
 
   useEffect(() => {
     const root = menuContentRef.current;

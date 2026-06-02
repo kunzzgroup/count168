@@ -1,15 +1,12 @@
 const prefetchedModules = new Set();
 const prefetchedData = new Set();
 
-/** Sync-imported in App.jsx — skip dynamic prefetch to avoid duplicate chunks. */
+/** Routes still synchronously imported in App.jsx (skip duplicate prefetch). */
 const EAGER_ROUTE_PATHS = new Set([
-  "/userlist",
-  "/account-list",
-  "/add-account",
-  "/process-list",
-  "/games-process-list",
-  "/auto-renew",
-  "/announcement",
+  "/login",
+  "/reset-password",
+  "/owner-secondary-password",
+  "/user-secondary-password",
 ]);
 
 function prefetchModule(key, loader) {

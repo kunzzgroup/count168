@@ -856,9 +856,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     try {
       let current;
-      let previous = null;
       let currentKpi = null;
-      let previousKpi = null;
 
       if (allCurrenciesActive) {
         const currentBundle = await loadAllCurrenciesDashboard(dateFrom, dateTo);
@@ -866,45 +864,58 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         current = currentBundle.data;
         currentKpi = currentBundle.metrics;
         setMultiCurrencyKpi(currentKpi);
+        setDashboardData(current);
+        setDisplayScopeKey(cacheKey);
+        setLoading(false);
+        patchDashboardCache(cacheKey, {
+          current,
+          multiCurrencyKpi: currentKpi,
+          multiCurrencyKpiPrev: cached?.multiCurrencyKpiPrev ?? null,
+        });
 
         const prevRange = previousPeriodRange(dateFrom, dateTo);
-        const prevBundle = await loadAllCurrenciesDashboard(prevRange.from, prevRange.to).catch(
-          () => ({ data: null, metrics: null })
-        );
-        if (gen !== dashboardFetchGenRef.current) return;
-        previous = prevBundle.data;
-        previousKpi = prevBundle.metrics;
-        setMultiCurrencyKpiPrev(previousKpi);
+        void loadAllCurrenciesDashboard(prevRange.from, prevRange.to)
+          .then((prevBundle) => {
+            if (gen !== dashboardFetchGenRef.current) return;
+            setDashboardDataPrev(prevBundle.data);
+            setMultiCurrencyKpiPrev(prevBundle.metrics);
+            patchDashboardCache(cacheKey, {
+              current,
+              previous: prevBundle.data,
+              multiCurrencyKpi: currentKpi,
+              multiCurrencyKpiPrev: prevBundle.metrics,
+            });
+          })
+          .catch(() => {
+            if (gen !== dashboardFetchGenRef.current) return;
+            setDashboardDataPrev(null);
+            setMultiCurrencyKpiPrev(null);
+          });
+        return;
       } else {
         setMultiCurrencyKpi(null);
         setMultiCurrencyKpiPrev(null);
         current = await loadMergedDashboard(dateFrom, dateTo, currencyCode);
         if (gen !== dashboardFetchGenRef.current) return;
 
+        setDashboardData(current);
+        setDisplayScopeKey(cacheKey);
+        setLoading(false);
+        patchDashboardCache(cacheKey, { current, previous: cached?.previous ?? null });
+
         const prevRange = previousPeriodRange(dateFrom, dateTo);
-        previous = await loadMergedDashboard(prevRange.from, prevRange.to, currencyCode).catch(
-          () => null
-        );
-        if (gen !== dashboardFetchGenRef.current) return;
+        void loadMergedDashboard(prevRange.from, prevRange.to, currencyCode)
+          .then((previous) => {
+            if (gen !== dashboardFetchGenRef.current) return;
+            setDashboardDataPrev(previous);
+            patchDashboardCache(cacheKey, { current, previous });
+          })
+          .catch(() => {
+            if (gen !== dashboardFetchGenRef.current) return;
+            setDashboardDataPrev(null);
+          });
+        return;
       }
-
-      setDashboardData(current);
-      setDisplayScopeKey(cacheKey);
-      setLoading(false);
-      patchDashboardCache(cacheKey, {
-        current,
-        previous: cached?.previous ?? previous,
-        multiCurrencyKpi: currentKpi,
-        multiCurrencyKpiPrev: previousKpi,
-      });
-
-      setDashboardDataPrev(previous);
-      patchDashboardCache(cacheKey, {
-        current,
-        previous,
-        multiCurrencyKpi: currentKpi,
-        multiCurrencyKpiPrev: previousKpi,
-      });
     } catch (e) {
       if (gen !== dashboardFetchGenRef.current) return;
       setLoadError(e.message || i18n.failedToLoadDashboard);
