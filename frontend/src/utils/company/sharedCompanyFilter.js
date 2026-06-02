@@ -622,6 +622,79 @@ export function companiesForCompanyPicker(companies, selectedGroup, groupIds = n
   return excludeGroupLabelsFromCompanyPicker(list, groupIds);
 }
 
+/** Subsidiary company row (Process / Account pills) — not group entity or group-id label. */
+export function isSubsidiaryCompanyRow(companyRow, groupIds = null) {
+  if (!companyRow) return false;
+  const id = Number(companyRow.id);
+  if (!Number.isFinite(id) || id <= 0) return false;
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds([companyRow]);
+  if (companyDisplayCodeIsGroupLabel(companyRow, gids)) return false;
+  if (companyRowIsGroupEntityAnyShape(companyRow)) return false;
+  return true;
+}
+
+/** First selectable subsidiary under a group (never AP/IG group-entity row). */
+export function pickDefaultSubsidiaryForGroup(companies, groupId, options = {}) {
+  const g = String(groupId || "").trim().toUpperCase();
+  if (!g) return null;
+  const gids = sortedUniqueGroupIds(companies);
+  const pick = pickDefaultCompanyForGroup(companies, g, { ...options, nativeOnly: true });
+  if (pick && isSubsidiaryCompanyRow(pick, gids)) return pick;
+  const list = excludeGroupLabelsFromCompanyPicker(companiesInGroupList(companies, g), gids);
+  return list[0] ?? null;
+}
+
+/**
+ * Boot company for Process / Bank Process: never group-entity id (e.g. -301 / AP row).
+ * Prefers saved subsidiary, then first subsidiary in the active group.
+ */
+export function resolveSubsidiaryBootCompanyId(
+  companies,
+  { urlCompanyId, sessionCompanyId, selectedGroup = null, loginMe = null } = {},
+) {
+  const list = companies || [];
+  const groupIds = sortedUniqueGroupIds(list);
+  const groupKey =
+    (selectedGroup ? String(selectedGroup).trim().toUpperCase() : "") ||
+    (loginMe?.login_scope === "group" && loginMe?.login_identifier
+      ? String(loginMe.login_identifier).trim().toUpperCase()
+      : "");
+
+  const acceptId = (rawId) => {
+    const id = Number(rawId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    const row = list.find((c) => Number(c.id) === id);
+    return isSubsidiaryCompanyRow(row, groupIds) ? id : null;
+  };
+
+  let id = acceptId(
+    resolveBootCompanyId({
+      urlCompanyId,
+      sessionCompanyId: null,
+      defaultRowId: null,
+    }),
+  );
+  if (id == null) id = acceptId(sessionCompanyId);
+  if (id == null && !isDashboardGroupOnlyMode()) {
+    id = acceptId(readDashboardSelectedCompanyId());
+  }
+
+  if (id == null && groupKey) {
+    const pick = pickDefaultSubsidiaryForGroup(list, groupKey, {
+      me: loginMe,
+      preferredCompanyId: readDashboardSelectedCompanyId(),
+    });
+    if (pick?.id != null) id = Number(pick.id);
+  }
+
+  if (id == null) {
+    const any = excludeGroupLabelsFromCompanyPicker(filterCompaniesWithDisplayId(list), groupIds);
+    if (any[0]?.id != null) id = Number(any[0].id);
+  }
+
+  return id != null && Number.isFinite(id) && id > 0 ? id : null;
+}
+
 /**
  * Legacy group-button click: toggle off → independent companies + first independent active;
  * select group → first company in that group active.

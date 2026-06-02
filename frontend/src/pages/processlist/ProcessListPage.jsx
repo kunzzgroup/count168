@@ -7,9 +7,9 @@ import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
-  pickDefaultCompanyForGroup,
-  resolveBootCompanyId,
+  pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
+  resolveSubsidiaryBootCompanyId,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
@@ -20,7 +20,6 @@ import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
-import CompanyExpirationModal from "../domain/components/CompanyExpirationModal.jsx";
 import {
   PAGE_SIZE,
   EMPTY_FORM,
@@ -102,7 +101,6 @@ export default function ProcessListPage() {
   const [descriptionPickerOpen, setDescriptionPickerOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-  const [expirationCompanies, setExpirationCompanies] = useState(null);
   /** Partnership/Audit read_only 时禁用流程写操作 — synced from layout session */
   const sessionMe = sessionMeFromLayout;
   const fetchAbortRef = useRef(null);
@@ -287,7 +285,19 @@ export default function ProcessListPage() {
           const prefetchedCompanies = Array.isArray(routePrefetch.companies) ? routePrefetch.companies : [];
           const prefetchedMeta = routePrefetch.meta || {};
           setCompanies(prefetchedCompanies);
-          setCompanyId(prefetchCompanyId);
+          const prefetchedRow = prefetchedCompanies.find((c) => Number(c.id) === prefetchCompanyId);
+          const prefBootGroup = resolveInitialSelectedGroupFromSession(
+            prefetchedCompanies,
+            prefetchedRow,
+            layoutMe,
+          );
+          const resolvedPrefetchId = resolveSubsidiaryBootCompanyId(prefetchedCompanies, {
+            urlCompanyId: prefetchQueryCompany ?? String(prefetchCompanyId),
+            sessionCompanyId: layoutMe.company_id,
+            selectedGroup: prefBootGroup,
+            loginMe: layoutMe,
+          });
+          setCompanyId(resolvedPrefetchId);
           {
             const pfGfk = routePrefetch.groupFilterKind;
             setGroupFilterKind(pfGfk === "ungrouped" ? "ungrouped" : "follow");
@@ -316,13 +326,15 @@ export default function ProcessListPage() {
           } else {
             setTableLoading(true);
           }
-          const prefetchedRow = prefetchedCompanies.find((c) => Number(c.id) === prefetchCompanyId);
-          const prefBootGroup = resolveInitialSelectedGroupFromSession(prefetchedCompanies, prefetchedRow);
           setSelectedGroup(prefBootGroup);
-          await ensureCrossPageCompanySelection(prefetchCompanyId, {
+          const resolvedRow = prefetchedCompanies.find((c) => Number(c.id) === Number(resolvedPrefetchId));
+          if (resolvedPrefetchId != null) {
+            persistDashboardFilterState(prefBootGroup, resolvedPrefetchId, { allowGroupOnly: false });
+          }
+          await ensureCrossPageCompanySelection(resolvedPrefetchId, {
             companies: prefetchedCompanies,
             selectedGroup: prefBootGroup,
-            companyRow: prefetchedRow,
+            companyRow: resolvedRow,
             sessionCompanyId: layoutMe.company_id,
           });
           setLoading(false);
@@ -337,13 +349,19 @@ export default function ProcessListPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        let effectiveCompany = resolveBootCompanyId({
+        const rowForBoot =
+          queryCompany != null && queryCompany !== ""
+            ? cs.find((c) => Number(c.id) === Number(queryCompany))
+            : cs.find((c) => Number(c.id) === Number(layoutMe.company_id)) || null;
+        const bootGroup = resolveInitialSelectedGroupFromSession(cs, rowForBoot, layoutMe);
+        let effectiveCompany = resolveSubsidiaryBootCompanyId(cs, {
           urlCompanyId: queryCompany,
           sessionCompanyId: layoutMe.company_id,
-          defaultRowId: cs[0]?.id,
+          selectedGroup: bootGroup,
+          loginMe: layoutMe,
         });
 
-        if (queryCompany && effectiveCompany && Number(effectiveCompany) !== Number(layoutMe.company_id)) {
+        if (effectiveCompany != null && Number(effectiveCompany) !== Number(layoutMe.company_id)) {
           try {
             const syncRes = await fetch(
               buildApiUrl(`api/session/update_company_session_api.php?company_id=${effectiveCompany}`),
@@ -380,14 +398,11 @@ export default function ProcessListPage() {
           }
         }
 
-        const rowForPick =
-          effectiveCompany != null ? cs.find((c) => Number(c.id) === Number(effectiveCompany)) : null;
-        const bootGroup = resolveInitialSelectedGroupFromSession(cs, rowForPick);
         setSelectedGroup(bootGroup);
         setCompanyId(effectiveCompany);
         setGroupFilterKind("follow");
         if (effectiveCompany != null) {
-          persistDashboardFilterState(bootGroup, effectiveCompany);
+          persistDashboardFilterState(bootGroup, effectiveCompany, { allowGroupOnly: false });
         }
 
         const rawSearch = url.searchParams.get("search") || "";
@@ -810,9 +825,7 @@ export default function ProcessListPage() {
               });
               void fetchRows({ companyId: previousCompanyId, silent: true });
             }
-            setExpirationCompanies([
-              { company_id: company.company_id, expiration_date: company.expiration_date ?? null },
-            ]);
+            notify(json.message || json.error || t("switchCompanyFailed"), "danger");
             return;
           }
           if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
@@ -895,7 +908,7 @@ export default function ProcessListPage() {
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) return;
 
-      const pick = pickDefaultCompanyForGroup(companies, g, { nativeOnly: true });
+      const pick = pickDefaultSubsidiaryForGroup(companies, g);
       const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
 
       setGroupFilterKind("follow");
@@ -908,20 +921,10 @@ export default function ProcessListPage() {
           setCompanyId(nextCompanyId);
           applyProcessListCache(nextCompanyId);
         });
-        persistDashboardFilterState(g, nextCompanyId);
+        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
         notifyDashboardGroupFilterChanged(g, nextCompanyId);
         void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
-        return;
       }
-
-      flushSync(() => {
-        setCompanyId(null);
-        setRows([]);
-        setCurrencyFilterCode("");
-      });
-      persistDashboardFilterState(g, null);
-      resetAnchorSessionRef();
-      notifyDashboardGroupFilterChanged(g, null);
     },
     [
       applyProcessListCache,
@@ -1471,9 +1474,6 @@ export default function ProcessListPage() {
         t={t}
       />
 
-      {expirationCompanies && (
-        <CompanyExpirationModal companies={expirationCompanies} onClose={() => setExpirationCompanies(null)} lang={lang} />
-      )}
 
       <ProcessToastStack items={toasts} />
     </div>

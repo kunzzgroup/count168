@@ -7,9 +7,9 @@ import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
-  pickDefaultCompanyForGroup,
-  resolveBootCompanyId,
+  pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
+  resolveSubsidiaryBootCompanyId,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
@@ -696,10 +696,16 @@ export function useBankProcessListPage() {
         }
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        const effectiveNum = resolveBootCompanyId({
+        const rowForBoot =
+          queryCompany != null && queryCompany !== ""
+            ? cs.find((c) => Number(c.id) === Number(queryCompany))
+            : cs.find((c) => Number(c.id) === Number(sessionUser.company_id)) || null;
+        const bootGroup = resolveInitialSelectedGroupFromSession(cs, rowForBoot, sessionUser);
+        const effectiveNum = resolveSubsidiaryBootCompanyId(cs, {
           urlCompanyId: queryCompany,
           sessionCompanyId: sessionUser.company_id,
-          defaultRowId: cs[0]?.id,
+          selectedGroup: bootGroup,
+          loginMe: sessionUser,
         });
         const currentCompanyRow =
           effectiveNum != null ? cs.find((c) => Number(c.id) === Number(effectiveNum)) : null;
@@ -723,12 +729,11 @@ export function useBankProcessListPage() {
             return;
           }
         }
-        const bootGroup = resolveInitialSelectedGroupFromSession(cs, currentCompanyRow);
         setSelectedGroup(bootGroup);
         setCompanyId(effectiveNum);
         setGroupFilterKind("follow");
         if (effectiveNum != null) {
-          persistDashboardFilterState(bootGroup, effectiveNum);
+          persistDashboardFilterState(bootGroup, effectiveNum, { allowGroupOnly: false });
         }
         setSearch(url.searchParams.get("search") || "");
         setCurrencyFilterCode(String(url.searchParams.get("currency") || "").trim().toUpperCase());
@@ -1855,7 +1860,7 @@ export function useBankProcessListPage() {
       }
       if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) return;
 
-      const pick = pickDefaultCompanyForGroup(companies, g, { nativeOnly: true });
+      const pick = pickDefaultSubsidiaryForGroup(companies, g);
       const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
 
       setGroupFilterKind("follow");
@@ -1868,26 +1873,10 @@ export function useBankProcessListPage() {
           setCompanyId(nextCompanyId);
           applyBankProcessListCache(nextCompanyId);
         });
-        persistDashboardFilterState(g, nextCompanyId);
+        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
         notifyDashboardGroupFilterChanged(g, nextCompanyId);
         void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
-        return;
       }
-
-      persistDashboardFilterState(g, null);
-      resetAnchorSessionRef();
-
-      const url = new URL(window.location.href);
-      url.searchParams.delete("company_id");
-      const qs = url.searchParams.toString();
-      window.history.replaceState(null, "", qs ? `${url.pathname}?${qs}` : url.pathname);
-
-      flushSync(() => {
-        setCompanyId(null);
-        setRows([]);
-      });
-      setTableLoading(false);
-      notifyDashboardGroupFilterChanged(g, null);
     },
     [
       applyBankProcessListCache,
