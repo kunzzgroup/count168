@@ -1,6 +1,60 @@
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { normalizeRows } from "./processListHelpers.js";
 
+const processListRouteWarmCache = new Map();
+const processListRouteWarmInflight = new Map();
+
+function processListRouteCacheKey(companyId, { search = "", showInactive = false, showAll = false } = {}) {
+  return `${Number(companyId)}|${String(search || "").trim()}|${showInactive ? 1 : 0}|${showAll ? 1 : 0}`;
+}
+
+/** Sidebar hover / idle warm — consumed on ProcessListPage boot. */
+export function warmProcessListRouteCache(companyId, opts = {}) {
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return;
+  const key = processListRouteCacheKey(cid, opts);
+  if (processListRouteWarmCache.has(key) || processListRouteWarmInflight.has(key)) return;
+  const promise = fetchGamesProcessListSlice(cid, opts)
+    .then((slice) => {
+      if (slice?.rows) processListRouteWarmCache.set(key, slice);
+      return slice;
+    })
+    .finally(() => {
+      if (processListRouteWarmInflight.get(key) === promise) {
+        processListRouteWarmInflight.delete(key);
+      }
+    });
+  processListRouteWarmInflight.set(key, promise);
+}
+
+export function consumeProcessListRouteCache(companyId, opts = {}) {
+  const key = processListRouteCacheKey(Number(companyId), opts);
+  const cached = processListRouteWarmCache.get(key) || null;
+  if (cached) processListRouteWarmCache.delete(key);
+  return cached;
+}
+
+/** Use sidebar warm cache, in-flight warm, or fetch once. */
+export async function resolveProcessListRouteCache(companyId, opts = {}) {
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) {
+    return { rows: null, currencyCodes: null };
+  }
+  const cached = consumeProcessListRouteCache(cid, opts);
+  if (cached?.rows) return cached;
+  const key = processListRouteCacheKey(cid, opts);
+  const inflight = processListRouteWarmInflight.get(key);
+  if (inflight) {
+    try {
+      const slice = await inflight;
+      if (slice?.rows) return slice;
+    } catch {
+      /* fall through to fetch */
+    }
+  }
+  return fetchGamesProcessListSlice(cid, opts);
+}
+
 /** Games process list row + currency pill payload (company switch cache / hover warm). */
 export async function fetchGamesProcessListSlice(
   companyId,

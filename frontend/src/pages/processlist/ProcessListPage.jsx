@@ -10,6 +10,7 @@ import {
   pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
+  loadOwnerCompaniesCached,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
@@ -34,6 +35,7 @@ import {
 import {
   fetchGamesProcessListSlice,
   prefetchBankProcessListPayload,
+  resolveProcessListRouteCache,
 } from "./processRoutePrefetch.js";
 import ProcessTable from "./components/ProcessTable.jsx";
 import ProcessFormModal from "./components/ProcessFormModal.jsx";
@@ -107,7 +109,6 @@ export default function ProcessListPage() {
   /** Partnership/Audit read_only 时禁用流程写操作 — synced from layout session */
   const sessionMe = sessionMeFromLayout;
   const fetchAbortRef = useRef(null);
-  const currencyMetaSeqRef = useRef(0);
   const searchDebounceRef = useRef(null);
   const skipNextFetchRef = useRef(false);
   const skipCompanyFetchEffectRef = useRef(false);
@@ -181,23 +182,6 @@ export default function ProcessListPage() {
     rowsRef.current = rows;
   }, [rows]);
 
-  useEffect(() => {
-    if (!companies.length) return;
-    let cancelled = false;
-    const codes = [
-      ...new Set(companies.map((c) => String(c.company_id || "").trim()).filter(Boolean)),
-    ];
-    void (async () => {
-      for (const code of codes) {
-        if (cancelled) break;
-        await isBankCategoryCompany(code, buildApiUrl);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [companies]);
-
   const loadFormMeta = useCallback(async (cid) => {
     if (!cid) return;
     try {
@@ -215,45 +199,6 @@ export default function ProcessListPage() {
       /* ignore */
     }
   }, []);
-
-  const loadCurrencyMeta = useCallback(async () => {
-    if (!companyId) return;
-    const seq = ++currencyMetaSeqRef.current;
-    try {
-      const [curRes, ordRes] = await Promise.all([
-        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${companyId}`), { credentials: "include" }),
-        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), { credentials: "include" }).catch(() => null),
-      ]);
-      if (seq !== currencyMetaSeqRef.current) return;
-      const curJson = await curRes.json();
-      if (seq !== currencyMetaSeqRef.current) return;
-      if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
-        setCurrencyListOrdered([]);
-        return;
-      }
-      let codes = curJson.data.map((r) => String(r.code).toUpperCase());
-      if (ordRes) {
-        const ordJson = await ordRes.json();
-        const order = ordJson?.data?.order;
-        if (Array.isArray(order) && order.length) {
-          const set = new Set(codes);
-          const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
-          const rest = codes.filter((c) => !ordered.includes(c));
-          codes = [...ordered, ...rest];
-        }
-      }
-      if (seq !== currencyMetaSeqRef.current) return;
-      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : codes));
-    } catch {
-      if (seq !== currencyMetaSeqRef.current) return;
-      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : []));
-    }
-  }, [companyId]);
-
-  useEffect(() => {
-    if (loading || !companyId) return;
-    void loadCurrencyMeta();
-  }, [loading, companyId, loadCurrencyMeta]);
 
   useEffect(() => {
     setCurrencyPillDisplayOrder(null);
@@ -367,9 +312,13 @@ export default function ProcessListPage() {
           return;
         }
 
-        const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-        const companiesJson = await companiesRes.json();
-        const cs = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
+        const cs = await loadOwnerCompaniesCached(async () => {
+          const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+            credentials: "include",
+          });
+          const companiesJson = await companiesRes.json();
+          return Array.isArray(companiesJson?.data) ? companiesJson.data : [];
+        });
         setCompanies(cs);
 
         const url = new URL(window.location.href);
@@ -440,9 +389,43 @@ export default function ProcessListPage() {
         setShowAll(showAllChecked);
         setShowInactive(showInactiveChecked);
 
-        setCurrencyFilterCode(String(url.searchParams.get("currency") || "").trim().toUpperCase());
+        const urlCurrency = String(url.searchParams.get("currency") || "").trim().toUpperCase();
 
-        await loadFormMeta(effectiveCompany);
+        void loadFormMeta(effectiveCompany);
+
+        const slice = await resolveProcessListRouteCache(effectiveCompany, {
+          search: normalizedSearch,
+          showInactive: showInactiveChecked,
+          showAll: showAllChecked,
+        });
+        if (slice.rows) {
+          const cacheKey = resolveProcessListCacheKey(
+            effectiveCompany,
+            normalizedSearch,
+            showInactiveChecked,
+            showAllChecked,
+          );
+          processListCacheRef.current.set(cacheKey, {
+            rows: slice.rows,
+            currencyCodes: slice.currencyCodes,
+          });
+          setRows(slice.rows);
+          if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
+            setCurrencyListOrdered(slice.currencyCodes);
+            setCurrencyPillDisplayOrder(null);
+            setCurrencyFilterCode(
+              urlCurrency && slice.currencyCodes.includes(urlCurrency)
+                ? urlCurrency
+                : slice.currencyCodes[0] || "",
+            );
+          } else {
+            setCurrencyFilterCode(urlCurrency);
+          }
+          skipNextFetchRef.current = true;
+        } else {
+          setCurrencyFilterCode(urlCurrency);
+        }
+
         processListInitDoneRef.current = true;
       } catch {
         window.location.assign(new URL("/login", window.location.origin).toString());
@@ -616,11 +599,6 @@ export default function ProcessListPage() {
     }
     void fetchRows();
   }, [loading, companyId, debouncedSearch, showInactive, showAll, fetchRows]);
-
-  useEffect(() => {
-    if (loading || !companyId) return;
-    void loadFormMeta(companyId);
-  }, [loading, companyId, loadFormMeta]);
 
   const reloadDescriptions = async () => {
     if (!companyId) return;
@@ -980,7 +958,6 @@ export default function ProcessListPage() {
 
       skipCompanyFetchEffectRef.current = true;
       suppressCrossPageSyncRef.current = true;
-      currencyMetaSeqRef.current += 1;
       const preservedUrlCurrency =
         hadCache && Array.isArray(cached?.currencyCodes) && cached.currencyCodes.length
           ? currencyFilterCode && cached.currencyCodes.includes(currencyFilterCode)

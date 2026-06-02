@@ -364,6 +364,14 @@ export default function AuthenticatedLayout() {
       if (routePath) {
         prefetchRouteModule(routePath);
         if (routePath === "/auto-renew") prefetchAutoRenewList();
+        if (
+          (routePath === "/process-list" || routePath === "/games-process-list") &&
+          me?.company_id
+        ) {
+          void import("../pages/processlist/processRoutePrefetch.js").then(({ warmProcessListRouteCache }) => {
+            warmProcessListRouteCache(me.company_id);
+          });
+        }
       }
     };
     root.addEventListener("pointerdown", warmRoute, { capture: true });

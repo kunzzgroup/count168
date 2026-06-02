@@ -23,6 +23,7 @@ export function prefetchAuthenticatedRoutes() {
     "/dashboard",
     "/domain",
     "/ownership",
+    "/process-list",
     "/bank-process-list",
     "/datacapture",
     "/datacapturesummary",
@@ -56,6 +57,10 @@ export function prefetchRouteModule(pathname) {
       break;
     case "/bank-process-list":
       prefetchModule(path, () => import("../../pages/bankprocesslist/BankProcessListPage.jsx"));
+      break;
+    case "/process-list":
+    case "/games-process-list":
+      prefetchModule(path, () => import("../../pages/processlist/ProcessListPage.jsx"));
       break;
     case "/datacapture":
       prefetchModule(path, () => import("../../pages/datacapture/DataCapturePage.jsx"));
