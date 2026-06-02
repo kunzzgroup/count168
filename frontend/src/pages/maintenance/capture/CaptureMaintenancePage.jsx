@@ -25,7 +25,6 @@ import {
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { isGroupLogin } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import {
@@ -278,8 +277,7 @@ export default function CaptureMaintenancePage() {
         const persistedGc = readPersistedDashboardGcFilter();
         const groupOnlyBoot =
           isDashboardGroupOnlyMode() ||
-          persistedGc.groupOnly ||
-          isGroupLogin(u);
+          persistedGc.groupOnly;
         if (groupOnlyBoot) {
           persistDashboardGroupOnlyMode(true);
           persistDashboardSelectedCompany(null);
