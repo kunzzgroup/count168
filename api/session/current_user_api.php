@@ -13,6 +13,7 @@ try {
     require_once __DIR__ . '/../includes/member_linked_closure.php';
     require_once __DIR__ . '/../../includes/expiration_status.php';
     require_once __DIR__ . '/../../includes/group_company_access.php';
+    require_once __DIR__ . '/../../includes/session_user_payload_cache.php';
 } catch (Throwable $e) {
     // Do not fail bootstrap because of DB wiring errors; session data is still enough for routing.
     error_log('current_user_api config load failed: ' . $e->getMessage());
@@ -51,6 +52,7 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token']) && $pdo in
             $updateStmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
             $updateStmt->execute([(int) $user['id']]);
             $_SESSION['read_only'] = isset($user['read_only']) ? (int) $user['read_only'] : 1;
+            session_user_payload_cache_clear();
         } else {
             setcookie('remember_token', '', time() - 3600, "/", "", false, true);
         }
@@ -63,6 +65,19 @@ if (!isset($_SESSION['user_id'])) {
     session_write_close();
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Not logged in', 'data' => null], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$cachedPayload = function_exists('session_user_payload_cache_get')
+    ? session_user_payload_cache_get(45)
+    : null;
+if ($cachedPayload !== null) {
+    session_write_close();
+    echo json_encode([
+        'success' => true,
+        'message' => '',
+        'data' => $cachedPayload,
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -272,46 +287,52 @@ if ($userType === 'member' && $memberLoginId > 0) {
 $sessionName = (string) ($_SESSION['name'] ?? '');
 $sessionLoginId = (string) ($_SESSION['login_id'] ?? '');
 
+$payload = [
+    'user_id' => $responseUserId,
+    'member_login_account_id' => $memberLoginId,
+    'member_winloss_view_account_id' => $memberViewId,
+    'winloss_view_account_id' => $memberViewId,
+    'account_code' => $memberViewCode,
+    'account_name' => $memberViewName,
+    'name' => $sessionName,
+    'login_id' => $sessionLoginId,
+    'role' => (string) ($_SESSION['role'] ?? ''),
+    'user_type' => $userType,
+    'permissions' => is_array($permissions) ? array_values($permissions) : [],
+    'is_current_company_c168' => $isCurrentCompanyC168,
+    'has_c168_domain_page_access' => $hasC168DomainPageAccess,
+    'has_c168_auto_renew_access' => $hasC168AutoRenewAccess,
+    'pending_auto_renew_count' => $pendingAutoRenewCount,
+    'company_has_gambling' => $companyHasGambling,
+    'company_has_bank' => $companyHasBank,
+    'company_permissions' => is_array($companyPermissionsList) ? $companyPermissionsList : [],
+    'company_id' => $companyId ?: null,
+    'company_code' => $companyCodeForResponse !== '' ? $companyCodeForResponse : null,
+    'login_scope' => isset($_SESSION['login_scope']) ? (string) $_SESSION['login_scope'] : null,
+    'login_identifier' => isset($_SESSION['login_identifier'])
+        ? (string) $_SESSION['login_identifier']
+        : null,
+    'login_group_id' => isset($_SESSION['login_group_id']) && trim((string) $_SESSION['login_group_id']) !== ''
+        ? strtoupper(trim((string) $_SESSION['login_group_id']))
+        : null,
+    'accessible_group_ids' => gc_session_accessible_group_ids(),
+    'needs_owner_secondary' => $needsOwnerSecondary,
+    'needs_user_secondary' => $needsUserSecondary,
+    'expiration_date' => $companyExpirationDateRaw,
+    'days_until_expiration' => $daysUntilExpiration,
+    'expiration_hint' => $expirationHint,
+    'expiration_status' => $expirationStatus,
+    'read_only' => $readOnlyForClient,
+];
+
+if (function_exists('session_user_payload_cache_set')) {
+    session_user_payload_cache_set($payload);
+}
+
 session_write_close();
 
 echo json_encode([
     'success' => true,
     'message' => '',
-    'data' => [
-        'user_id' => $responseUserId,
-        'member_login_account_id' => $memberLoginId,
-        'member_winloss_view_account_id' => $memberViewId,
-        'winloss_view_account_id' => $memberViewId,
-        'account_code' => $memberViewCode,
-        'account_name' => $memberViewName,
-        'name' => $sessionName,
-        'login_id' => $sessionLoginId,
-        'role' => (string) ($_SESSION['role'] ?? ''),
-        'user_type' => $userType,
-        'permissions' => is_array($permissions) ? array_values($permissions) : [],
-        'is_current_company_c168' => $isCurrentCompanyC168,
-        'has_c168_domain_page_access' => $hasC168DomainPageAccess,
-        'has_c168_auto_renew_access' => $hasC168AutoRenewAccess,
-        'pending_auto_renew_count' => $pendingAutoRenewCount,
-        'company_has_gambling' => $companyHasGambling,
-        'company_has_bank' => $companyHasBank,
-        'company_permissions' => is_array($companyPermissionsList) ? $companyPermissionsList : [],
-        'company_id' => $companyId ?: null,
-        'company_code' => $companyCodeForResponse !== '' ? $companyCodeForResponse : null,
-        'login_scope' => isset($_SESSION['login_scope']) ? (string) $_SESSION['login_scope'] : null,
-        'login_identifier' => isset($_SESSION['login_identifier'])
-            ? (string) $_SESSION['login_identifier']
-            : null,
-        'login_group_id' => isset($_SESSION['login_group_id']) && trim((string) $_SESSION['login_group_id']) !== ''
-            ? strtoupper(trim((string) $_SESSION['login_group_id']))
-            : null,
-        'accessible_group_ids' => gc_session_accessible_group_ids(),
-        'needs_owner_secondary' => $needsOwnerSecondary,
-        'needs_user_secondary' => $needsUserSecondary,
-        'expiration_date' => $companyExpirationDateRaw,
-        'days_until_expiration' => $daysUntilExpiration,
-        'expiration_hint' => $expirationHint,
-        'expiration_status' => $expirationStatus,
-        'read_only' => $readOnlyForClient,
-    ],
+    'data' => $payload,
 ], JSON_UNESCAPED_UNICODE);

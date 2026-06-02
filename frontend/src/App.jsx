@@ -3,13 +3,14 @@ import { lazyWithRetry } from "./utils/routing/lazyWithRetry.js";
 import LoginPage from "./pages/login/LoginPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
 import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
-import MemberPage from "./pages/member/MemberPage.jsx";
 import ResetPasswordPage from "./pages/login/ResetPasswordPage.jsx";
-import UserListPage from "./pages/userlist/UserListPage.jsx";
-import AccountListPage from "./pages/account/AccountListPage.jsx";
-import ProcessListPage from "./pages/processlist/ProcessListPage.jsx";
-import AutoRenewPage from "./pages/autorenew/AutoRenewPage.jsx";
-import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
+
+const MemberPage = lazyWithRetry(() => import("./pages/member/MemberPage.jsx"));
+const UserListPage = lazyWithRetry(() => import("./pages/userlist/UserListPage.jsx"));
+const AccountListPage = lazyWithRetry(() => import("./pages/account/AccountListPage.jsx"));
+const ProcessListPage = lazyWithRetry(() => import("./pages/processlist/ProcessListPage.jsx"));
+const AutoRenewPage = lazyWithRetry(() => import("./pages/autorenew/AutoRenewPage.jsx"));
+const AnnouncementPage = lazyWithRetry(() => import("./pages/announcement/AnnouncementPage.jsx"));
 
 const TransactionDashboardPage = lazyWithRetry(() => import("./pages/dashboard/TransactionDashboardPage.jsx"));
 const DomainPage = lazyWithRetry(() => import("./pages/domain/DomainPage.jsx"));

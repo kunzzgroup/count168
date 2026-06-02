@@ -28,6 +28,7 @@ ob_start();
 
 try {
     require_once __DIR__ . '/../../includes/config.php';
+    require_once __DIR__ . '/../../includes/session_user_payload_cache.php';
     require_once __DIR__ . '/../../includes/login_scope.php';
     require_once __DIR__ . '/../../includes/company_expiration.php';
 } catch (Throwable $e) {
@@ -116,6 +117,7 @@ try {
             $_SESSION['member_login_account_id'] = $account['id'];
             $_SESSION['member_winloss_view_account_id'] = $account['id'];
             $_SESSION['user_id'] = $account['id'];
+            session_user_payload_cache_clear();
             $_SESSION['login_id'] = $account['account_id'];
             $_SESSION['name'] = $account['name'];
             $_SESSION['role'] = $account['role'];
@@ -200,6 +202,7 @@ try {
     if ($user) {
         // User 登录成功
         $_SESSION['user_id'] = $user['id'];
+        session_user_payload_cache_clear();
         $_SESSION['login_id'] = $user['login_id'];
         $_SESSION['name'] = $user['name'];
         $_SESSION['role'] = $user['role'];
@@ -316,6 +319,7 @@ try {
             }
 
             $_SESSION['user_id'] = $owner['id'];
+            session_user_payload_cache_clear();
             $_SESSION['login_id'] = $owner['owner_code'];
             $_SESSION['name'] = $owner['name'];
             $_SESSION['role'] = 'owner';

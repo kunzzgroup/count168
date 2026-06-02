@@ -55,6 +55,7 @@ import {
   persistAccessibleGroupIdsFromApi,
   sortedUniqueGroupIds,
   isVirtualGroupLinkCompanyRow,
+  loadOwnerCompaniesCached,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 
@@ -194,20 +195,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     try {
       const u = me;
 
-      const cr = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-        credentials: "include",
-        signal,
+      const cjRows = await loadOwnerCompaniesCached(async () => {
+        const cr = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+          credentials: "include",
+          signal,
+        });
+        const cj = await cr.json();
+        persistAccessibleGroupIdsFromApi(cj);
+        if (!cr.ok || !cj.success || !Array.isArray(cj.data)) {
+          throw new Error(cj?.message || cj?.error || i18n.failedToLoadDashboard);
+        }
+        return cj.data;
       });
-      const cj = await cr.json();
-      persistAccessibleGroupIdsFromApi(cj);
-      if (!cr.ok || !cj.success || !Array.isArray(cj.data)) {
-        setCompanies([]);
-        setCompanyId(u.company_id);
-        setLoadError(cj?.message || cj?.error || i18n.failedToLoadDashboard);
-        setLoading(false);
-        return;
-      }
-      const scopedCompanies = filterCompaniesForLoginScope(cj.data, u);
+      const scopedCompanies = filterCompaniesForLoginScope(cjRows, u);
       setCompanies(scopedCompanies);
       applyLoginScopeToSessionStorageIfNeeded(u, scopedCompanies);
 

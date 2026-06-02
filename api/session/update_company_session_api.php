@@ -10,6 +10,7 @@ define('SESSION_KEEP_OPEN', true);
 require_once __DIR__ . '/../../includes/session_check.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../../includes/company_expiration.php';
+require_once __DIR__ . '/../../includes/session_user_payload_cache.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 
 header('Content-Type: application/json');
@@ -215,6 +216,8 @@ try {
     if ($company_code !== null) {
         $_SESSION['company_code'] = $company_code;
     }
+
+    session_user_payload_cache_clear();
 
     // 写入完成，立即释放 session 锁
     session_write_close();

@@ -7,6 +7,11 @@ $dbname = 'u857194726_c168site';
 $dbuser = 'admin';
 $dbpass = 'C168_site';
 
+$localConfig = __DIR__ . '/config.local.php';
+if (is_readable($localConfig)) {
+    require $localConfig;
+}
+
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
@@ -22,7 +27,12 @@ $pdo = null;
 
 try {
 
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $dbuser, $dbpass);
+    $pdo = new PDO(
+        "mysql:host=$host;dbname=$dbname;charset=utf8mb4;connect_timeout=5",
+        $dbuser,
+        $dbpass,
+        [PDO::ATTR_TIMEOUT => 5]
+    );
 
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
