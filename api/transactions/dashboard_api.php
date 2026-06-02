@@ -257,17 +257,78 @@ function dashboardOutMap(array $daily): array
     return $daily;
 }
 
+function dashboardEnsureGroupRowForCode(PDO $pdo, string $groupCode): void
+{
+    $g = strtoupper(trim($groupCode));
+    if ($g === '') {
+        return;
+    }
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO `groups` (`group_code`, `group_name`, `owner_id`)
+            SELECT DISTINCT
+                UPPER(TRIM(c.group_id)),
+                UPPER(TRIM(c.group_id)),
+                c.owner_id
+            FROM company c
+            WHERE UPPER(TRIM(c.group_id)) = ?
+              AND TRIM(COALESCE(c.group_id, '')) <> ''
+            LIMIT 1
+            ON DUPLICATE KEY UPDATE
+                `owner_id` = COALESCE(`groups`.`owner_id`, VALUES(`owner_id`))
+        ");
+        $stmt->execute([$g]);
+    } catch (Throwable $e) {
+        error_log('dashboardEnsureGroupRowForCode(' . $g . '): ' . $e->getMessage());
+    }
+}
+
 function dashboardResolveGroupScopeIdByCode(PDO $pdo, string $groupCode): int
 {
     $g = strtoupper(trim($groupCode));
     if ($g === '') {
         return 0;
     }
-    try {
-        $stmt = $pdo->prepare("SELECT id FROM `groups` WHERE UPPER(TRIM(group_code)) = UPPER(TRIM(?)) LIMIT 1");
-        $stmt->execute([$g]);
+    $lookup = static function (PDO $pdo, string $code): int {
+        $stmt = $pdo->prepare('SELECT id FROM `groups` WHERE group_code = ? LIMIT 1');
+        $stmt->execute([$code]);
+        $id = (int) ($stmt->fetchColumn() ?: 0);
+        if ($id > 0) {
+            return $id;
+        }
+
+        $stmt = $pdo->prepare(
+            'SELECT id FROM `groups` WHERE UPPER(TRIM(group_code)) = UPPER(TRIM(?)) LIMIT 1'
+        );
+        $stmt->execute([$code]);
+
         return (int) ($stmt->fetchColumn() ?: 0);
+    };
+    try {
+        $id = $lookup($pdo, $g);
+        if ($id > 0) {
+            return $id;
+        }
+        dashboardEnsureGroupRowForCode($pdo, $g);
+        $id = $lookup($pdo, $g);
+        if ($id > 0) {
+            return $id;
+        }
+
+        $mapStmt = $pdo->prepare('
+            SELECT g.id
+            FROM `groups` g
+            INNER JOIN group_company_map m ON m.group_id = g.id
+            INNER JOIN company c ON c.id = m.company_id
+            WHERE UPPER(TRIM(c.group_id)) = ?
+            LIMIT 1
+        ');
+        $mapStmt->execute([$g]);
+
+        return (int) ($mapStmt->fetchColumn() ?: 0);
     } catch (Throwable $e) {
+        error_log('dashboardResolveGroupScopeIdByCode(' . $g . '): ' . $e->getMessage());
+
         return 0;
     }
 }
@@ -585,22 +646,37 @@ try {
         $groupLedgerCode = (string) (gc_session_login_identifier() ?? '');
     }
     $useGroupLedger = $requestedCompanyId <= 0 && $groupLedgerCode !== '';
-    $groupEntityCompanyId = 0;
+    $groupScopeId = 0;
 
     if ($useGroupLedger) {
-        $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupLedgerCode);
-        if ($groupScopeId <= 0) {
-            throw new Exception('Group scope is invalid or not initialized');
-        }
-        dashboardAssertGroupLedgerAccess($pdo, $groupLedgerCode, $groupScopeId);
+        // Prefer group-entity company row (company_id = AP) — works even when groups.id lookup fails.
         $groupEntityCompanyId = tx_resolve_group_entity_company_id($pdo, $groupLedgerCode);
+        if ($groupEntityCompanyId > 0) {
+            assertGroupEntityAccess($pdo, $groupLedgerCode, $groupEntityCompanyId);
+            $company_id = $groupEntityCompanyId;
+            $useGroupLedger = false;
+        } else {
+            $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupLedgerCode);
+            if ($groupScopeId <= 0) {
+                $dbName = '';
+                try {
+                    $dbName = (string) ($pdo->query('SELECT DATABASE()')->fetchColumn() ?: '');
+                } catch (Throwable $ignored) {
+                    $dbName = '';
+                }
+                throw new Exception(
+                    'Group scope is invalid or not initialized (group_code='
+                    . $groupLedgerCode
+                    . ($dbName !== '' ? ', database=' . $dbName : '')
+                    . '). Confirm migration 20260528_dual_tenant_company_group.sql on this database.'
+                );
+            }
+            dashboardAssertGroupLedgerAccess($pdo, $groupLedgerCode, $groupScopeId);
+        }
     }
 
-    // Group dashboard (no subsidiary company_id): group-entity row only — not subsidiaries under the group.
-    if ($useGroupLedger && $groupEntityCompanyId > 0) {
-        $company_id = $groupEntityCompanyId;
-        $useGroupLedger = false;
-    } elseif ($useGroupLedger) {
+    // Pure group ledger (no group-entity company row such as company_id=AP).
+    if ($useGroupLedger) {
         $groupResult = dashboardBuildGroupScopedSummary(
             $pdo,
             $date_from_db,
