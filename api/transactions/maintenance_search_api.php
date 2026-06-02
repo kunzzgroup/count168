@@ -1124,6 +1124,54 @@ try {
         }
     }
 
+    // Strict split (no data bleed):
+    // - Payroll process (SALARY/BONUS) under a selected Group always queries the group-entity company.
+    // - Non-payroll processes remain company-scoped.
+    $requestedViewGroup = dcNormalizeGroupId(
+        $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+    );
+    $payrollCode = strtoupper(trim((string) ($process ?? '')));
+    $isPayrollProcess = in_array($payrollCode, ['SALARY', 'BONUS'], true);
+    $capture_company_id = $company_id;
+    $capture_scope_group = $maintenance_scope_group;
+    if (!$capture_scope_group && $isPayrollProcess && $requestedViewGroup !== '') {
+        $entityCompanyId = (int) tx_resolve_group_entity_company_id($pdo, $requestedViewGroup);
+        if ($entityCompanyId > 0) {
+            // Re-check access against the resolved entity company in the same group scope.
+            dcAssertUserCanAccessCompany($pdo, $entityCompanyId, $requestedViewGroup);
+            $capture_company_id = $entityCompanyId;
+            $capture_scope_group = true;
+        }
+    }
+    $captureScopeProcessFilter = $capture_scope_group
+        ? dcSqlGroupProcessFilter('p')
+        : '';
+
+    // Rule #1 (Transaction Maintenance):
+    // SALARY/BONUS should always follow group-entity scope when a group context is present,
+    // even if UI currently shows a subsidiary company (e.g. AP + C168).
+    if ($process !== null && $process !== '') {
+        $normalizedProcessCode = strtoupper(trim((string) $process));
+        $requestedViewGroup = dcNormalizeGroupId(
+            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+        );
+        if (
+            in_array($normalizedProcessCode, ['SALARY', 'BONUS'], true) &&
+            $requestedViewGroup !== ''
+        ) {
+            $entityCompanyId = (int) tx_resolve_group_entity_company_id($pdo, $requestedViewGroup);
+            if ($entityCompanyId > 0) {
+                $company_id = $entityCompanyId;
+                $maintenance_scope_group = true;
+            }
+        }
+    }
+
+    // Recompute scope filter after potential process/scope override above.
+    $scopeProcessFilter = $maintenance_scope_group
+        ? dcSqlGroupProcessFilter('p')
+        : '';
+
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
     }
@@ -1161,12 +1209,12 @@ try {
     $includeDeleted = isset($_GET['include_deleted']) && $_GET['include_deleted'] === '1';
 
     // 子公司：与旧 PHP 一致走 legacy 全量查询 + PHP 分页；仅 group scope 用 SQL UNION 游标分页
-    if (!$includeDeleted && $page_size > 0 && $maintenance_scope_group) {
+    if (!$includeDeleted && $page_size > 0 && $capture_scope_group) {
         $page = $page > 0 ? $page : 1;
         try {
             maintenanceSearchPaginatedFast(
                 $pdo,
-                $company_id,
+                $capture_company_id,
                 $date_from_db,
                 $date_to_db,
                 $process,
@@ -1175,8 +1223,8 @@ try {
                 $page,
                 $page_size,
                 $cursor_raw !== '' ? $cursor_raw : null,
-                (bool) $maintenance_scope_group,
-                $scopeProcessFilter
+                (bool) $capture_scope_group,
+                $captureScopeProcessFilter
             );
             return;
         } catch (Throwable $fastErr) {
@@ -1192,7 +1240,7 @@ try {
     // ========== 1. 查询 Transaction 数据 ==========
     // Group scope：仅 SALARY/BONUS（Data Capture）；不查无 process 的 Transaction 分支
     // 当指定了 Process 时，不查 Transaction，只由下方 Data Capture 按 process 过滤
-    if (empty($process) && !$maintenance_scope_group) {
+    if (empty($process) && !$capture_scope_group) {
     $where = [];
     $params = [];
 
@@ -1296,10 +1344,10 @@ try {
         $captureParams = [];
 
         $captureWhere[] = "dc.company_id = ?";
-        $captureParams[] = $company_id;
+        $captureParams[] = $capture_company_id;
 
         $captureWhere[] = "dcd.company_id = ?";
-        $captureParams[] = $company_id;
+        $captureParams[] = $capture_company_id;
 
         $captureWhere[] = "dc.capture_date BETWEEN ? AND ?";
         $captureParams[] = $date_from_db;
@@ -1311,7 +1359,7 @@ try {
             $captureParams[] = $process;
         }
 
-        $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere) . $scopeProcessFilter;
+        $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere) . $captureScopeProcessFilter;
 
         $captureSql = "
             SELECT
@@ -1501,7 +1549,7 @@ try {
             $deletedCaptureParams = [];
             
             $deletedCaptureWhere[] = "dcd.company_id = ?";
-            $deletedCaptureParams[] = $company_id;
+            $deletedCaptureParams[] = $capture_company_id;
             
             $deletedCaptureWhere[] = "dcd.capture_date BETWEEN ? AND ?";
             $deletedCaptureParams[] = $date_from_db;
@@ -1513,7 +1561,7 @@ try {
                 $deletedCaptureParams[] = $process;
             }
             
-            $deletedCaptureWhereSql = 'WHERE ' . implode(' AND ', $deletedCaptureWhere) . $scopeProcessFilter;
+            $deletedCaptureWhereSql = 'WHERE ' . implode(' AND ', $deletedCaptureWhere) . $captureScopeProcessFilter;
             
             $deletedCaptureSql = "
                 SELECT

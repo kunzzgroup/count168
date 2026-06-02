@@ -315,6 +315,7 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     recoverableRetryRef.current = 0;
     setRecoverableExhausted(false);
+    lastToastKeyRef.current = null;
   }, [searchQueryKey]);
 
   useEffect(() => {
@@ -872,6 +873,9 @@ export default function TransactionMaintenancePage() {
   const listSyncing =
     transactionQuery.isFetching &&
     (transactionQuery.isPlaceholderData || listRowCount > 0 || !maintenanceDataComplete);
+  const showTopLoadingBar =
+    transactionQuery.isFetching &&
+    (showListSkeleton || transactionQuery.isPlaceholderData || listSyncing);
 
   return (
     <div className="container">
@@ -927,6 +931,8 @@ export default function TransactionMaintenancePage() {
           showSkeleton={showListSkeleton && !listSyncing}
           showEmptyState={showNoDataEmpty}
           statusMessage={listStatusMessage}
+          showTopLoading={showTopLoadingBar}
+          topLoadingLabel={listStatusMessage || t("loading")}
           isPlaceholderData={transactionQuery.isPlaceholderData || listSyncing}
           m={m}
         />
