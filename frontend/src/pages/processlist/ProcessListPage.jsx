@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { ensureCrossPageCompanySelection } from "../../utils/company/companySessionSync.js";
 import {
@@ -12,6 +12,7 @@ import {
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
+import { isGroupLogin } from "../../utils/company/loginScope.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { saveUserCurrencyOrder } from "../transaction/lib/transactionApi.js";
@@ -26,6 +27,7 @@ import {
   EMPTY_FORM,
   normalizeRows,
   dedupeCompanyRowsForSwitcher,
+  filterProcessPageCompanyButtons,
   sortProcessTableRows,
   notifyTransactionDataChanged,
   parseRemarkForForm,
@@ -648,18 +650,15 @@ export default function ProcessListPage() {
       groupFilterKind === "follow" ? companyId : null
     );
   }, [loading, groupFilterKind, selectedGroup, companyId]);
-  const companyButtons = useMemo(() => {
-    if (groupFilterKind === "ungrouped") {
-      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-    }
-    if (groupIds.length === 0) return allCompanyButtons;
-    if (!selectedGroupKey) {
-      const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-      return ung.length ? ung : allCompanyButtons;
-    }
-    const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
-    return inG.length ? inG : allCompanyButtons;
-  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
+  const companyButtons = useMemo(
+    () =>
+      filterProcessPageCompanyButtons(allCompanyButtons, {
+        groupFilterKind,
+        groupIds,
+        selectedGroupKey,
+      }),
+    [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]
+  );
 
   const rowCurrencyCodes = useMemo(() => {
     const s = new Set();
@@ -1242,6 +1241,10 @@ export default function ProcessListPage() {
   const onSearchChange = (e) => {
     setSearch(filterSearchInput(e.target.value));
   };
+
+  if (sessionReady && isGroupLogin(sessionMeFromLayout)) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="container">

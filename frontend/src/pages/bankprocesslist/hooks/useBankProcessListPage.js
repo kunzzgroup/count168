@@ -48,7 +48,10 @@ import {
   isBankResendScheduleLockedToday,
   normalizeBankResendDayStartYmd,
 } from "../lib/bankProcessHelpers.js";
-import { dedupeCompanyRowsForSwitcher } from "../../processlist/processListHelpers.js";
+import {
+  dedupeCompanyRowsForSwitcher,
+  filterProcessPageCompanyButtons,
+} from "../../processlist/processListHelpers.js";
 
 function resolveBankProcessListCacheKey(companyId, search) {
   return `company:${Number(companyId)}|${String(search || "").trim()}`;
@@ -1819,7 +1822,7 @@ export function useBankProcessListPage() {
   const companyButtons = useMemo(() => {
     if (groupFilterKind === "all") {
       const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
-      return [...allCompanyButtons].sort((a, b) => {
+      const sorted = [...allCompanyButtons].sort((a, b) => {
         const ga = String(a.group_id || "").trim().toUpperCase();
         const gb = String(b.group_id || "").trim().toUpperCase();
         const ra = groupOrder.has(ga) ? groupOrder.get(ga) : Number.MAX_SAFE_INTEGER;
@@ -1827,17 +1830,17 @@ export function useBankProcessListPage() {
         if (ra !== rb) return ra - rb;
         return String(a.company_id || "").localeCompare(String(b.company_id || ""), undefined, { numeric: true });
       });
+      return filterProcessPageCompanyButtons(sorted, {
+        groupFilterKind: "follow",
+        groupIds,
+        selectedGroupKey: null,
+      });
     }
-    if (groupFilterKind === "ungrouped") {
-      return allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-    }
-    if (groupIds.length === 0) return allCompanyButtons;
-    if (!selectedGroupKey) {
-      const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
-      return ung.length ? ung : allCompanyButtons;
-    }
-    const inG = allCompanyButtons.filter((c) => String(c.group_id || "").trim().toUpperCase() === selectedGroupKey);
-    return inG.length ? inG : allCompanyButtons;
+    return filterProcessPageCompanyButtons(allCompanyButtons, {
+      groupFilterKind,
+      groupIds,
+      selectedGroupKey,
+    });
   }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
 
   const handlePickGroup = useCallback(

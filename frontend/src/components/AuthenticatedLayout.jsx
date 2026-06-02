@@ -228,8 +228,8 @@ export default function AuthenticatedLayout() {
 
   const path = location.pathname;
   const hideProcessWhenGroupOnly = useMemo(
-    () => shouldHideSidebarProcess(path),
-    [path, sidebarGcTick],
+    () => shouldHideSidebarProcess(path, me),
+    [path, me, sidebarGcTick],
   );
   const prevPathRef = useRef(path);
 

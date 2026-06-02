@@ -261,9 +261,18 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId) {
   );
 }
 
-/** Sidebar Process: hidden when a group is selected and company is cleared (group-only), except on process list routes. */
-export function shouldHideSidebarProcess(pathname) {
-  if (pathname === "/process-list" || pathname === "/bank-process-list") return false;
+/**
+ * Sidebar Process: hidden for group login; also when dashboard group-only (no company), except on process routes.
+ */
+export function shouldHideSidebarProcess(pathname, me = null) {
+  if (me && isGroupLogin(me)) return true;
+  if (
+    pathname === "/process-list" ||
+    pathname === "/bank-process-list" ||
+    pathname === "/games-process-list"
+  ) {
+    return false;
+  }
   const g = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
   return Boolean(String(g || "").trim()) && isDashboardGroupOnlyMode();
 }
