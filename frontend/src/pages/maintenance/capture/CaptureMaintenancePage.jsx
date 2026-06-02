@@ -553,8 +553,12 @@ export default function CaptureMaintenancePage() {
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: nextCode }), "success");
     } catch (err) {
+      const msg = String(err?.message || "");
+      if (msg.toLowerCase().includes("unauthorized permission category")) {
+        navigate("/process-list", { replace: true });
+        return;
+      }
       notify(err.message || t("switchFailed"), "error");
-      navigate("/dashboard", { replace: true });
     }
   };
 
