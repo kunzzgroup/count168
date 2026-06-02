@@ -348,13 +348,32 @@ try {
     if ($canRetryGroupPayroll) {
         $entityCompanyId = (int) tx_resolve_group_entity_company_id($pdo, $requestedViewGroup);
         if ($entityCompanyId > 0) {
+            $fallbackProcessId = $process_id;
+            $fallbackProcessName = $process_name;
+            if ($isPayrollProcessRequested && $requestedProcessCode !== '') {
+                // Company scope may pass subsidiary process.id (e.g. C168 SALARY),
+                // but group-entity SALARY/BONUS uses a different process.id.
+                // Re-resolve by process code on group-entity company before fallback query.
+                $resolvedEntityPid = dcResolveProcessIdByCode(
+                    $pdo,
+                    $entityCompanyId,
+                    $requestedProcessCode,
+                    true
+                );
+                if ($resolvedEntityPid === null) {
+                    $fallbackProcessId = null;
+                } else {
+                    $fallbackProcessId = (int) $resolvedEntityPid;
+                    $fallbackProcessName = $requestedProcessCode;
+                }
+            }
             $results = fetchCaptureRecords(
                 $pdo,
                 $entityCompanyId,
                 $date_from_db,
                 $date_to_db,
-                $process_id,
-                $process_name,
+                $fallbackProcessId,
+                $fallbackProcessName,
                 dcSqlGroupProcessFilter('p'),
                 dcSqlCaptureOnGroupEntityCompany('dc')
             );
@@ -364,8 +383,8 @@ try {
                     $entityCompanyId,
                     $date_from_db,
                     $date_to_db,
-                    $process_id,
-                    $process_name,
+                    $fallbackProcessId,
+                    $fallbackProcessName,
                     dcSqlGroupProcessFilter('p'),
                     dcSqlCaptureOnGroupEntityCompany('dcd')
                 );
