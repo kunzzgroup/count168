@@ -31,6 +31,7 @@ import {
   notifyTransactionDataChanged,
   parseRemarkForForm,
   buildEditDescriptionSelection,
+  resolveProcessCurrencyFilter,
 } from "./processListHelpers.js";
 import {
   fetchGamesProcessListSlice,
@@ -414,9 +415,7 @@ export default function ProcessListPage() {
             setCurrencyListOrdered(slice.currencyCodes);
             setCurrencyPillDisplayOrder(null);
             setCurrencyFilterCode(
-              urlCurrency && slice.currencyCodes.includes(urlCurrency)
-                ? urlCurrency
-                : slice.currencyCodes[0] || "",
+              resolveProcessCurrencyFilter(urlCurrency, slice.rows, slice.currencyCodes),
             );
           } else {
             setCurrencyFilterCode(urlCurrency);
@@ -532,7 +531,8 @@ export default function ProcessListPage() {
       if (fetchAbortRef.current) fetchAbortRef.current.abort();
       const ac = new AbortController();
       fetchAbortRef.current = ac;
-      if (!silent && rowsRef.current.length === 0) setTableLoading(true);
+      const showTableLoading = rowsRef.current.length === 0;
+      if (showTableLoading) setTableLoading(true);
       try {
         const slice = await fetchGamesProcessListSlice(cid, {
           search: debouncedSearch,
@@ -572,7 +572,7 @@ export default function ProcessListPage() {
         if (ac.signal.aborted || err?.name === "AbortError") return;
         if (!silent) notify(t("failedLoadProcessList"), "danger");
       } finally {
-        if (!ac.signal.aborted && !silent) setTableLoading(false);
+        if (!ac.signal.aborted) setTableLoading(false);
       }
     },
     [
@@ -783,6 +783,16 @@ export default function ProcessListPage() {
 
   useEffect(() => {
     if (!companyId) return;
+
+    if (rows.length > 0) {
+      const next = resolveProcessCurrencyFilter(currencyFilterCode, rows, currencyPillCodes);
+      if (next && next !== currencyFilterCode) {
+        setCurrencyFilterCode(next);
+        syncUrl({ currency: next });
+      }
+      return;
+    }
+
     if (!currencyPillCodes.length) {
       if (currencyFilterCode) setCurrencyFilterCode("");
       return;
@@ -790,7 +800,7 @@ export default function ProcessListPage() {
     if (!currencyFilterCode || !currencyPillCodes.includes(currencyFilterCode)) {
       setCurrencyFilterCode(currencyPillCodes[0]);
     }
-  }, [companyId, currencyFilterCode, currencyPillCodes]);
+  }, [companyId, rows, currencyFilterCode, currencyPillCodes, syncUrl]);
 
   const currencyFilteredRows = useMemo(() => {
     if (!currencyFilterCode) return rows;
@@ -958,12 +968,9 @@ export default function ProcessListPage() {
 
       skipCompanyFetchEffectRef.current = true;
       suppressCrossPageSyncRef.current = true;
-      const preservedUrlCurrency =
-        hadCache && Array.isArray(cached?.currencyCodes) && cached.currencyCodes.length
-          ? currencyFilterCode && cached.currencyCodes.includes(currencyFilterCode)
-            ? currencyFilterCode
-            : cached.currencyCodes[0]
-          : "";
+      const preservedUrlCurrency = hadCache
+        ? resolveProcessCurrencyFilter(currencyFilterCode, cached.rows, cached.currencyCodes)
+        : "";
 
       flushSync(() => {
         setGroupFilterKind("follow");

@@ -31,6 +31,28 @@ export function normalizeRows(data) {
   return Array.isArray(data) ? data : [];
 }
 
+export function rowCurrencyCodesFromRows(rows) {
+  const set = new Set();
+  for (const row of rows || []) {
+    const code = String(row?.currency || "").trim().toUpperCase();
+    if (code) set.add(code);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+/** Prefer a currency that actually has process rows; fall back to company pill list. */
+export function resolveProcessCurrencyFilter(preferredCode, rows, companyCurrencyCodes = []) {
+  const preferred = String(preferredCode || "").trim().toUpperCase();
+  const fromRows = rowCurrencyCodesFromRows(rows);
+  if (preferred && fromRows.includes(preferred)) return preferred;
+  if (fromRows.length) return fromRows[0];
+  const companyCodes = (companyCurrencyCodes || [])
+    .map((c) => String(c).trim().toUpperCase())
+    .filter(Boolean);
+  if (preferred && companyCodes.includes(preferred)) return preferred;
+  return companyCodes[0] || "";
+}
+
 /** Process / Bank Process company pills: in-group list without group labels (AP, IG, …). */
 export function filterProcessPageCompanyButtons(
   allCompanyButtons,
