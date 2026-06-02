@@ -444,13 +444,6 @@ export default function BankProcessListPage() {
                 <span className="user-gc-inline-label">{t("groupId")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-                    <button
-                      type="button"
-                      className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
-                      onClick={handlePickAllGroups}
-                    >
-                      {t("groupFilterAll")}
-                    </button>
                     {groupIds.map((g) => (
                       <button
                         key={g}
