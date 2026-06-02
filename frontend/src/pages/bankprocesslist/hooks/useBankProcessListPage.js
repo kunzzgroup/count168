@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { ensureCrossPageCompanySelection } from "../../../utils/company/companySessionSync.js";
 import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
+  readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -601,6 +603,17 @@ export function useBankProcessListPage() {
   }, [dateFrom, dateTo]);
 
   useEffect(() => {
+    if (loading || !companyId || groupFilterKind !== "follow") return;
+    const row = companies.find((c) => Number(c.id) === Number(companyId));
+    void ensureCrossPageCompanySelection(companyId, {
+      companies,
+      selectedGroup,
+      companyRow: row,
+      sessionCompanyId: authMe?.company_id,
+    });
+  }, [loading, companyId, companies, selectedGroup, groupFilterKind, authMe?.company_id]);
+
+  useEffect(() => {
     (async () => {
       let skipLoadingDone = false;
       try {
@@ -636,6 +649,15 @@ export function useBankProcessListPage() {
           } else {
             setTableLoading(true);
           }
+          const prefetchedRow = prefetchedCompanies.find((c) => Number(c.id) === prefetchCompanyId);
+          const prefBootGroup = resolveInitialSelectedGroupFromSession(prefetchedCompanies, prefetchedRow);
+          setSelectedGroup(prefBootGroup);
+          await ensureCrossPageCompanySelection(prefetchCompanyId, {
+            companies: prefetchedCompanies,
+            selectedGroup: prefBootGroup,
+            companyRow: prefetchedRow,
+            sessionCompanyId: authMe?.company_id,
+          });
           setLoading(false);
           return;
         }
@@ -1100,8 +1122,11 @@ export function useBankProcessListPage() {
   const resetForm = () => setForm({ ...EMPTY_BANK_FORM });
 
   const onSwitchCompany = async (c) => {
-    if (!c?.id || Number(c.id) === Number(companyId)) return;
-    if (switchingCompany) return;
+    if (!c?.id || switchingCompany) return;
+    const nextId = Number(c.id);
+    const savedId = readDashboardSelectedCompanyId();
+    const sessionId = Number(authMe?.company_id);
+    if (nextId === Number(companyId) && savedId === nextId && sessionId === nextId) return;
     setSwitchingCompany(true);
     listAbortRef.current?.abort();
     setSelectedIds(new Set());
@@ -1115,9 +1140,15 @@ export function useBankProcessListPage() {
       notifyCompanySessionUpdated();
       const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
       if (!bankCategory) {
+        const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup;
+        if (gid) {
+          persistDashboardGroupFilter(gid);
+          setSelectedGroup(gid);
+        }
+        persistDashboardFilterState(gid, nextId);
         const warm = await prefetchGamesProcessListPayload(c.id);
         const processListPrefetch = {
-          companyId: Number(c.id),
+          companyId: nextId,
           companies,
           groupFilterKind,
           rows: warm.rows,
