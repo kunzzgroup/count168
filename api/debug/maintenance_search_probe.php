@@ -115,6 +115,46 @@ if ($companyRow) {
     ");
     $sample->execute([$cid, $dateFromDb, $dateToDb]);
     $out['sample_captures'] = $sample->fetchAll(PDO::FETCH_ASSOC);
+
+    $roleStmt = $pdo->prepare("
+        SELECT UPPER(TRIM(COALESCE(a.role, ''))) AS role, COUNT(DISTINCT a.id) AS cnt
+        FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ?
+        GROUP BY UPPER(TRIM(COALESCE(a.role, '')))
+    ");
+    $roleStmt->execute([$cid]);
+    $out['account_roles'] = $roleStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $expAccStmt = $pdo->prepare("
+        SELECT a.id, a.account_id, a.name
+        FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ? AND UPPER(TRIM(COALESCE(a.role, ''))) = 'EXPENSES'
+        ORDER BY a.account_id ASC
+        LIMIT 20
+    ");
+    $expAccStmt->execute([$cid]);
+    $expAccounts = $expAccStmt->fetchAll(PDO::FETCH_ASSOC);
+    $out['expenses_accounts'] = $expAccounts;
+
+    if ($expAccounts) {
+        $expIds = array_column($expAccounts, 'id');
+        $ph = implode(',', array_fill(0, count($expIds), '?'));
+        $capExp = $pdo->prepare("
+            SELECT COALESCE(SUM(dcd.processed_amount), 0)
+            FROM data_capture_details dcd
+            JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE dc.company_id = ? AND dcd.company_id = ?
+              AND dcd.account_id IN ($ph)
+              AND dc.capture_date BETWEEN ? AND ?
+        ");
+        $capExp->execute(array_merge([$cid, $cid], $expIds, [$dateFromDb, $dateToDb]));
+        $out['expenses_capture_sum'] = (string) $capExp->fetchColumn();
+    } else {
+        $out['expenses_capture_sum'] = '0';
+        $out['expenses_hint'] = 'No EXPENSES role accounts linked to this company — dashboard Expenses card will always be 0.';
+    }
 }
 
 if ($entity) {

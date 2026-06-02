@@ -555,6 +555,52 @@ function dashboardTxnCurrencyFilter(string $accountColumn): string
     )";
 }
 
+/** @return array<int, string> */
+function dashboardLoadCurrencyMap(PDO $pdo, int $companyId): array
+{
+    $currency_map = [];
+    $currency_stmt = $pdo->prepare('SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?');
+    $currency_stmt->execute([$companyId]);
+    foreach ($currency_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $currency_map[$row['id']] = strtoupper($row['code']);
+    }
+    return $currency_map;
+}
+
+/**
+ * Under a group tab, EXPENSES accounts often sit on the group-entity company (e.g. IG)
+ * while PROFIT / data capture stays on the subsidiary (e.g. 95).
+ *
+ * @return int[]
+ */
+function dashboardResolveRoleScopeCompanyIds(PDO $pdo, int $companyId, string $role, ?string $viewGroup): array
+{
+    $scopes = [$companyId];
+    if ($role !== 'EXPENSES') {
+        return $scopes;
+    }
+    $groupCode = reportNormalizeGroupId($viewGroup ?? '');
+    if ($groupCode === '') {
+        return $scopes;
+    }
+    $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+    if ($entityId > 0 && $entityId !== $companyId) {
+        $scopes[] = $entityId;
+    }
+    return array_values(array_unique($scopes));
+}
+
+function dashboardEmptyRoleBucket(string $role): array
+{
+    return [
+        'role' => $role,
+        'total_balance' => dashboardMoneyZero(),
+        'initial_balance' => dashboardMoneyZero(),
+        'period_total' => dashboardMoneyZero(),
+        'daily_data' => [],
+    ];
+}
+
 // 引入 search_api.php 中的函数（通过定义函数的方式）
 // 注意：这些函数已经在 search_api.php 中定义，但为了独立使用，我们需要重新定义
 
@@ -744,86 +790,88 @@ try {
     $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
     $result = [];
 
+    $viewGroupCodeForScope = reportNormalizeGroupId($_GET['view_group'] ?? '');
+
     foreach ($roles as $role) {
         $excludeClear = dashboardShouldExcludeClearForRole($role);
-        // 获取该角色的所有账户
-        // 与 Transaction List 一致：含 inactive 账户（期内仍可能有 WIN/LOSE / PAYMENT）
-        $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
-                FROM account a
-                INNER JOIN account_company ac ON a.id = ac.account_id
-                WHERE ac.company_id = ?
-                  AND UPPER(TRIM(COALESCE(a.role, ''))) = ?";
-
-        // 应用权限过滤
-        list($sql, $params) = filterAccountsByPermissions($pdo, $sql, [], $company_id);
-        $sql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $sql);
-        $sql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $sql);
-
-        $params = array_merge([$company_id, $role], $params);
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $scopeCompanyIds = dashboardResolveRoleScopeCompanyIds($pdo, $company_id, $role, $viewGroupCodeForScope);
 
         $total_balance = dashboardMoneyZero();
         $total_bf = dashboardMoneyZero();
         $daily_data = [];
+        $primaryAccountIds = [];
+        $hadAccounts = false;
 
-        $account_ids = array_column($accounts, 'id');
-        if (empty($account_ids)) {
-            $result[strtolower($role)] = [
-                'role' => $role,
-                'total_balance' => dashboardMoneyZero(),
-                'initial_balance' => dashboardMoneyZero(),
-                'daily_data' => []
-            ];
-            continue;
-        }
+        foreach ($scopeCompanyIds as $scopeCompanyId) {
+            $scopeCurrencyMap = $scopeCompanyId === $company_id
+                ? $currency_map
+                : dashboardLoadCurrencyMap($pdo, $scopeCompanyId);
 
-        $ids_placeholder = implode(',', array_fill(0, count($account_ids), '?'));
-        // Prepare currency filters with explicit aliases to avoid ambiguity in joins
-        $currency_filter_dcd = "";
-        $currency_filter_t_to = "";
-        $currency_filter_t_from = "";
-        $currency_filter_e = "";
-        $currency_params_dcd = [];
-        $currency_params_t_to = [];
-        $currency_params_t_from = [];
-        $currency_params_e = [];
-        if ($filter_currency_code !== null) {
-            $curr_id = array_search($filter_currency_code, $currency_map);
-            if ($curr_id !== false) {
-                $currency_filter_dcd = " AND dcd.currency_id = ?";
-                $currency_filter_t_to = dashboardTxnCurrencyFilter('account_id');
-                $currency_filter_t_from = dashboardTxnCurrencyFilter('from_account_id');
-                $currency_filter_e = " AND e.currency_id = ?";
-                $currency_params_dcd = [$curr_id];
-                $currency_params_t_to = [$curr_id, $company_id, $company_id, $curr_id];
-                $currency_params_t_from = [$curr_id, $company_id, $company_id, $curr_id];
-                $currency_params_e = [$curr_id];
-            } else {
-                // If the specified currency doesn't exist for this company, return empty for this role
-                $result[strtolower($role)] = [
-                    'role' => $role,
-                    'total_balance' => dashboardMoneyZero(),
-                    'initial_balance' => dashboardMoneyZero(),
-                    'daily_data' => []
-                ];
+            // 获取该角色的所有账户
+            // 与 Transaction List 一致：含 inactive 账户（期内仍可能有 WIN/LOSE / PAYMENT）
+            $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
+                    FROM account a
+                    INNER JOIN account_company ac ON a.id = ac.account_id
+                    WHERE ac.company_id = ?
+                      AND UPPER(TRIM(COALESCE(a.role, ''))) = ?";
+
+            // 应用权限过滤
+            list($sql, $params) = filterAccountsByPermissions($pdo, $sql, [], $scopeCompanyId);
+            $sql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $sql);
+            $sql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $sql);
+
+            $params = array_merge([$scopeCompanyId, $role], $params);
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $account_ids = array_column($accounts, 'id');
+            if (empty($account_ids)) {
                 continue;
             }
-        }
+            $hadAccounts = true;
+            if ($scopeCompanyId === $company_id) {
+                $primaryAccountIds = $account_ids;
+            }
 
-        // --- 1. 计算 B/F (Balance Forward) ---
-        // A. Data Capture B/F
-        $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0)
-                FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dc.company_id = ?
-                  AND dcd.company_id = ?
-                  AND dcd.account_id IN ($ids_placeholder)
-                  AND dc.capture_date < ?" . $currency_filter_dcd;
-        $bf_stmt = $pdo->prepare($sql);
-        $bf_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db], $currency_params_dcd));
-        $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
+            $ids_placeholder = implode(',', array_fill(0, count($account_ids), '?'));
+            // Prepare currency filters with explicit aliases to avoid ambiguity in joins
+            $currency_filter_dcd = "";
+            $currency_filter_t_to = "";
+            $currency_filter_t_from = "";
+            $currency_filter_e = "";
+            $currency_params_dcd = [];
+            $currency_params_t_to = [];
+            $currency_params_t_from = [];
+            $currency_params_e = [];
+            if ($filter_currency_code !== null) {
+                $curr_id = array_search($filter_currency_code, $scopeCurrencyMap);
+                if ($curr_id !== false) {
+                    $currency_filter_dcd = " AND dcd.currency_id = ?";
+                    $currency_filter_t_to = dashboardTxnCurrencyFilter('account_id');
+                    $currency_filter_t_from = dashboardTxnCurrencyFilter('from_account_id');
+                    $currency_filter_e = " AND e.currency_id = ?";
+                    $currency_params_dcd = [$curr_id];
+                    $currency_params_t_to = [$curr_id, $scopeCompanyId, $scopeCompanyId, $curr_id];
+                    $currency_params_t_from = [$curr_id, $scopeCompanyId, $scopeCompanyId, $curr_id];
+                    $currency_params_e = [$curr_id];
+                } else {
+                    continue;
+                }
+            }
+
+            // --- 1. 计算 B/F (Balance Forward) ---
+            // A. Data Capture B/F
+            $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0)
+                    FROM data_capture_details dcd
+                    JOIN data_captures dc ON dcd.capture_id = dc.id
+                    WHERE dc.company_id = ?
+                      AND dcd.company_id = ?
+                      AND dcd.account_id IN ($ids_placeholder)
+                      AND dc.capture_date < ?" . $currency_filter_dcd;
+            $bf_stmt = $pdo->prepare($sql);
+            $bf_stmt->execute(array_merge([$scopeCompanyId, $scopeCompanyId], $account_ids, [$date_from_db], $currency_params_dcd));
+            $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
 
         // B. Transactions B/F (To/From)
         if ($hasTransactionCurrency) {
@@ -851,7 +899,7 @@ try {
                       AND t.account_id IN ($ids_placeholder)
                       AND t.transaction_date < ?" . $currency_filter_t_to . $clearFilter . $contraApproval;
             $bf_stmt = $pdo->prepare($sql);
-            $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_to));
+            $bf_stmt->execute(array_merge([$scopeCompanyId], $account_ids, [$date_from_db], $currency_params_t_to));
             $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
 
             // From Account（含手动 PROFIT WIN/LOSE，与 search_api from 侧一致）
@@ -870,7 +918,7 @@ try {
                       AND t.from_account_id IN ($ids_placeholder)
                       AND t.transaction_date < ?" . $currency_filter_t_from . $clearFilter . $contraApproval;
             $bf_stmt = $pdo->prepare($sql);
-            $bf_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $currency_params_t_from));
+            $bf_stmt->execute(array_merge([$scopeCompanyId], $account_ids, [$date_from_db], $currency_params_t_from));
             $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
 
             // RATE B/F from transaction_entry
@@ -889,7 +937,7 @@ try {
                               AND e.account_id IN ($ids_placeholder)
                               AND h.transaction_date < ?" . $currency_filter_e;
                     $bf_stmt = $pdo->prepare($sql);
-                    $bf_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db], $currency_params_e));
+                    $bf_stmt->execute(array_merge([$scopeCompanyId, $scopeCompanyId], $account_ids, [$date_from_db], $currency_params_e));
                     $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
                 }
             } catch (Throwable $e) {
@@ -908,7 +956,7 @@ try {
                 GROUP BY DATE(dc.capture_date)
                 ORDER BY DATE(dc.capture_date)";
         $daily_stmt = $pdo->prepare($sql);
-        $daily_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_dcd));
+        $daily_stmt->execute(array_merge([$scopeCompanyId, $scopeCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_dcd));
         foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['win_loss'] ?? '0');
         }
@@ -944,7 +992,7 @@ try {
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
             $daily_stmt = $pdo->prepare($sql);
-            $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_to));
+            $daily_stmt->execute(array_merge([$scopeCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_to));
             foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['cr_dr'] ?? '0');
             }
@@ -971,7 +1019,7 @@ try {
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
             $daily_stmt = $pdo->prepare($sql);
-            $daily_stmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_from));
+            $daily_stmt->execute(array_merge([$scopeCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_from));
             foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['cr_dr'] ?? '0');
             }
@@ -994,7 +1042,7 @@ try {
                               AND h.transaction_date BETWEEN ? AND ?" . $currency_filter_e . "
                             GROUP BY DATE(h.transaction_date)";
                     $daily_stmt = $pdo->prepare($sql);
-                    $daily_stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db], $currency_params_e));
+                    $daily_stmt->execute(array_merge([$scopeCompanyId, $scopeCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_e));
                     foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                         dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['rate_delta'] ?? '0');
                     }
@@ -1002,9 +1050,16 @@ try {
             } catch (Throwable $e) {
             }
         }
+        }
+
+        if (!$hadAccounts) {
+            $result[strtolower($role)] = dashboardEmptyRoleBucket($role);
+            continue;
+        }
 
         // --- 2b. PROFIT 口径对齐 Transaction List：从池账号扣回 Domain Share Commission（毛额 -> 净额） ---
-        if ($role === 'PROFIT' && !empty($account_ids)) {
+        if ($role === 'PROFIT' && !empty($primaryAccountIds)) {
+            $profitIdsPlaceholder = implode(',', array_fill(0, count($primaryAccountIds), '?'));
             $profitAdjCurrencyFilter = "";
             $profitAdjCurrencyParams = [];
             if ($filter_currency_code !== null) {
@@ -1020,11 +1075,11 @@ try {
                          FROM transactions t
                          WHERE t.company_id = ?
                            AND t.transaction_type = 'PAYMENT'
-                           AND t.from_account_id IN ($ids_placeholder)
+                           AND t.from_account_id IN ($profitIdsPlaceholder)
                            AND t.transaction_date < ?
                            AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter;
             $adjBfStmt = $pdo->prepare($adjBfSql);
-            $adjBfStmt->execute(array_merge([$company_id], $account_ids, [$date_from_db], $profitAdjCurrencyParams));
+            $adjBfStmt->execute(array_merge([$company_id], $primaryAccountIds, [$date_from_db], $profitAdjCurrencyParams));
             $adjBf = $adjBfStmt->fetchColumn();
             if (money_cmp(money_abs($adjBf), '0.00001') > 0) {
                 $total_bf = dashboardMoneySub($total_bf, $adjBf);
@@ -1035,13 +1090,13 @@ try {
                             FROM transactions t
                             WHERE t.company_id = ?
                               AND t.transaction_type = 'PAYMENT'
-                              AND t.from_account_id IN ($ids_placeholder)
+                              AND t.from_account_id IN ($profitIdsPlaceholder)
                               AND t.transaction_date BETWEEN ? AND ?
                               AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . "
                             GROUP BY DATE(t.transaction_date)
                             ORDER BY DATE(t.transaction_date)";
             $adjDailyStmt = $pdo->prepare($adjDailySql);
-            $adjDailyStmt->execute(array_merge([$company_id], $account_ids, [$date_from_db, $date_to_db], $profitAdjCurrencyParams));
+            $adjDailyStmt->execute(array_merge([$company_id], $primaryAccountIds, [$date_from_db, $date_to_db], $profitAdjCurrencyParams));
             foreach ($adjDailyStmt->fetchAll(PDO::FETCH_ASSOC) as $adjRow) {
                 $d = (string) ($adjRow['date'] ?? '');
                 if ($d === '') {
