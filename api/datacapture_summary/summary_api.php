@@ -2820,9 +2820,9 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $stmt = $pdo->prepare("
                 INSERT INTO data_capture_details 
-                (company_id, capture_id, id_product_main, description_main, id_product_sub, description_sub, product_type, formula_variant, account_id, currency_id, columns_value, source_value, source_percent, enable_source_percent, formula, processed_amount, rate, display_order) 
+                (company_id, capture_id, id_product_main, description_main, id_product_sub, description_sub, product_type, formula_variant, id_product, account_id, currency_id, columns_value, source_value, source_percent, enable_source_percent, formula, processed_amount, rate, display_order) 
                 VALUES 
-                (:company_id, :capture_id, :id_product_main, :description_main, :id_product_sub, :description_sub, :product_type, :formula_variant, :account_id, :currency_id, :columns_value, :source_value, :source_percent, :enable_source_percent, :formula, :processed_amount, :rate, :display_order)
+                (:company_id, :capture_id, :id_product_main, :description_main, :id_product_sub, :description_sub, :product_type, :formula_variant, :id_product, :account_id, :currency_id, :columns_value, :source_value, :source_percent, :enable_source_percent, :formula, :processed_amount, :rate, :display_order)
             ");
             
             // 同一 capture 下相同 id_product_main 按顺序：第一条为 main，后续均为 sub
@@ -2926,6 +2926,15 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     $productType = $row['productType'] ?? 'main';
+                }
+
+                $normalizedIdProductMain = trim((string)($row['idProductMain'] ?? ''));
+                $normalizedIdProductSub = trim((string)($row['idProductSub'] ?? ''));
+                $normalizedIdProduct = $productType === 'sub'
+                    ? ($normalizedIdProductSub !== '' ? $normalizedIdProductSub : $normalizedIdProductMain)
+                    : ($normalizedIdProductMain !== '' ? $normalizedIdProductMain : $normalizedIdProductSub);
+                if ($normalizedIdProduct === '') {
+                    throw new Exception('Missing required row data: id_product');
                 }
                 
                 // Check for duplicate before inserting
@@ -3055,6 +3064,7 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         UPDATE data_capture_details SET
                             description_main = :description_main,
                             description_sub = :description_sub,
+                            id_product = :id_product,
                             columns_value = :columns_value,
                             source_value = :source_value,
                             source_percent = :source_percent,
@@ -3070,6 +3080,7 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':id' => $existingId,
                         ':description_main' => $row['descriptionMain'] ?? null,
                         ':description_sub' => $row['descriptionSub'] ?? null,
+                        ':id_product' => $normalizedIdProduct,
                         ':columns_value' => $row['columns'] ?? '',
                         ':source_value' => $row['source'] ?? '',
                         // source_percent: default to '1' (multiplier, 1 = multiply by 1), auto-enable if has value
@@ -3106,12 +3117,13 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([
                     ':company_id' => $companyId,
                     ':capture_id' => $captureId,
-                    ':id_product_main' => $row['idProductMain'] ?? null,
+                    ':id_product_main' => $normalizedIdProductMain !== '' ? $normalizedIdProductMain : null,
                     ':description_main' => $row['descriptionMain'] ?? null,
-                    ':id_product_sub' => $row['idProductSub'] ?? null,
+                    ':id_product_sub' => $normalizedIdProductSub !== '' ? $normalizedIdProductSub : null,
                     ':description_sub' => $row['descriptionSub'] ?? null,
                     ':product_type' => $productType,
                     ':formula_variant' => $formulaVariant,
+                    ':id_product' => $normalizedIdProduct,
                     ':account_id' => $row['accountId'],
                     ':currency_id' => $rowCurrencyId,
                     ':columns_value' => $row['columns'] ?? '',
