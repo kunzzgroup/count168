@@ -8,7 +8,6 @@ import {
   persistDashboardFilterState,
   persistDashboardGroupFilter,
   pickDefaultCompanyForGroup,
-  readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
@@ -45,6 +44,15 @@ function filterSearchInput(raw) {
   return String(raw || "")
     .replace(/[^A-Z0-9 ]/gi, "")
     .toUpperCase();
+}
+
+function resolveProcessListCacheKey(companyId, debouncedSearch, showInactive, showAll) {
+  return `company:${Number(companyId)}|${String(debouncedSearch || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
+}
+
+function processRowsFingerprint(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return "0";
+  return rows.map((r) => Number(r.id)).join(",");
 }
 
 function ProcessToastStack({ items }) {
@@ -100,6 +108,9 @@ export default function ProcessListPage() {
   const currencyMetaSeqRef = useRef(0);
   const searchDebounceRef = useRef(null);
   const skipNextFetchRef = useRef(false);
+  const skipCompanyFetchEffectRef = useRef(false);
+  const processListCacheRef = useRef(new Map());
+  const onSwitchCompanyRef = useRef(null);
   /** Prevent session refresh from re-running boot and resetting GroupID ALL / follow UI. */
   const processListInitDoneRef = useRef(false);
   const rowsRef = useRef([]);
@@ -420,42 +431,76 @@ export default function ProcessListPage() {
     syncUrl();
   }, [loading, companyId, currencyFilterCode, syncUrl]);
 
-  const fetchRows = useCallback(async () => {
-    if (!companyId) return;
-    if (fetchAbortRef.current) fetchAbortRef.current.abort();
-    const ac = new AbortController();
-    fetchAbortRef.current = ac;
-    if (rowsRef.current.length === 0) setTableLoading(true);
-    try {
-      const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
-      url.searchParams.set("permission", "Games");
-      url.searchParams.set("company_id", String(companyId));
-      if (debouncedSearch.trim()) url.searchParams.set("search", debouncedSearch.trim());
-      if (showInactive) url.searchParams.set("showInactive", "1");
-      if (showAll) url.searchParams.set("showAll", "1");
-      const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
-      const json = await res.json();
-      if (ac.signal.aborted) return;
-      if (!res.ok || !json.success) {
-        notify(json.message || json.error || t("failedLoadProcessList"), "danger");
-        return;
+  const applyProcessListCache = useCallback(
+    (cid) => {
+      const id = Number(cid);
+      if (!Number.isFinite(id) || id <= 0) return false;
+      const cacheKey = resolveProcessListCacheKey(id, debouncedSearch, showInactive, showAll);
+      const cached = processListCacheRef.current.get(cacheKey);
+      if (!cached) return false;
+      setRows((prev) =>
+        processRowsFingerprint(prev) === processRowsFingerprint(cached) ? prev : cached,
+      );
+      return true;
+    },
+    [debouncedSearch, showInactive, showAll],
+  );
+
+  const fetchRows = useCallback(
+    async (opts = {}) => {
+      const silent = !!opts.silent;
+      const cid = opts.companyId != null ? Number(opts.companyId) : Number(companyId);
+      if (!Number.isFinite(cid) || cid <= 0) return;
+      if (fetchAbortRef.current) fetchAbortRef.current.abort();
+      const ac = new AbortController();
+      fetchAbortRef.current = ac;
+      if (!silent && rowsRef.current.length === 0) setTableLoading(true);
+      try {
+        const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
+        url.searchParams.set("permission", "Games");
+        url.searchParams.set("company_id", String(cid));
+        if (debouncedSearch.trim()) url.searchParams.set("search", debouncedSearch.trim());
+        if (showInactive) url.searchParams.set("showInactive", "1");
+        if (showAll) url.searchParams.set("showAll", "1");
+        const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
+        const json = await res.json();
+        if (ac.signal.aborted) return;
+        if (!res.ok || !json.success) {
+          if (!silent) notify(json.message || json.error || t("failedLoadProcessList"), "danger");
+          return;
+        }
+        const nextRows = normalizeRows(json.data);
+        const cacheKey = resolveProcessListCacheKey(cid, debouncedSearch, showInactive, showAll);
+        processListCacheRef.current.set(cacheKey, nextRows);
+        setRows((prev) => {
+          if (silent && processRowsFingerprint(prev) === processRowsFingerprint(nextRows)) {
+            return prev;
+          }
+          return nextRows;
+        });
+        if (!silent) {
+          setSelectedIds(new Set());
+          setCurrentPage(1);
+        }
+        syncUrl();
+      } catch {
+        if (ac.signal.aborted) return;
+        if (!silent) notify(t("failedLoadProcessList"), "danger");
+      } finally {
+        if (!ac.signal.aborted && !silent) setTableLoading(false);
       }
-      setRows(normalizeRows(json.data));
-      setSelectedIds(new Set());
-      setCurrentPage(1);
-      syncUrl();
-    } catch {
-      if (ac.signal.aborted) return;
-      notify(t("failedLoadProcessList"), "danger");
-    } finally {
-      if (!ac.signal.aborted) setTableLoading(false);
-    }
-  }, [companyId, debouncedSearch, showInactive, showAll, notify, syncUrl]);
+    },
+    [companyId, debouncedSearch, showInactive, showAll, notify, syncUrl, t],
+  );
 
   useEffect(() => {
     if (loading || !companyId) return;
     if (skipNextFetchRef.current) {
       skipNextFetchRef.current = false;
+      return;
+    }
+    if (skipCompanyFetchEffectRef.current) {
+      skipCompanyFetchEffectRef.current = false;
       return;
     }
     void fetchRows();
@@ -710,40 +755,20 @@ export default function ProcessListPage() {
   );
 
   const onSwitchCompany = useCallback(
-    async (company) => {
+    async (company, { layoutSilent = false } = {}) => {
       const nextId = Number(company?.id);
       if (!nextId) return;
 
-      const savedId = readDashboardSelectedCompanyId();
-      const sessionId = Number(sessionMeFromLayout?.company_id);
-      const alreadyActiveLocally = nextId === Number(companyId);
-      if (alreadyActiveLocally && savedId === nextId && sessionId === nextId) return;
+      const sessionCompanyId =
+        sessionMeFromLayout?.company_id != null ? Number(sessionMeFromLayout.company_id) : null;
+      void fetchRows({ companyId: nextId, silent: true });
+      void loadFormMeta(nextId);
 
-      const gid = company.group_id ? String(company.group_id).toUpperCase().trim() : selectedGroup;
-      const previousCompanyId = companyId;
-
-      flushSync(() => {
-        setGroupFilterKind("follow");
-        if (gid) setSelectedGroup(gid);
-        setCompanyId(nextId);
-        setRows([]);
-        setCurrencyFilterCode("");
-        setCurrencyListOrdered([]);
-        setCurrencyPillDisplayOrder(null);
-        setTableLoading(true);
-        setSelectedIds(new Set());
-        setCurrentPage(1);
-      });
-      currencyMetaSeqRef.current += 1;
-      persistDashboardGroupFilter(gid);
-      persistDashboardFilterState(gid, nextId);
-      notifyDashboardGroupFilterChanged(gid, nextId);
-
-      let sessionAc = null;
       try {
         const bankCategory = await isBankCategoryCompany(company.company_id, buildApiUrl);
         if (bankCategory) {
           const warm = await prefetchBankProcessListPayload(nextId);
+          const gid = company.group_id ? String(company.group_id).toUpperCase().trim() : selectedGroup;
           navigate(`/bank-process-list?company_id=${nextId}`, {
             replace: true,
             state: {
@@ -758,15 +783,18 @@ export default function ProcessListPage() {
           });
           return;
         }
+      } catch {
+        /* fall through to session sync */
+      }
 
-        const sessionCompanyId =
-          sessionMeFromLayout?.company_id != null ? Number(sessionMeFromLayout.company_id) : null;
-        if (sessionCompanyId === nextId) return;
+      if (sessionCompanyId === nextId) return;
 
-        companySessionAbortRef.current?.abort();
-        sessionAc = new AbortController();
-        companySessionAbortRef.current = sessionAc;
+      const previousCompanyId = Number(companyId) === nextId ? sessionCompanyId : companyId;
+      companySessionAbortRef.current?.abort();
+      const sessionAc = new AbortController();
+      companySessionAbortRef.current = sessionAc;
 
+      try {
         const res = await fetch(
           buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextId}`),
           { credentials: "include", signal: sessionAc.signal },
@@ -776,34 +804,91 @@ export default function ProcessListPage() {
         if (!res.ok || !json.success) {
           const reason = json?.data?.reason;
           if (reason === "expired" || reason === "no_set") {
-            flushSync(() => {
-              if (previousCompanyId != null) setCompanyId(previousCompanyId);
-            });
+            if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
+              skipCompanyFetchEffectRef.current = true;
+              flushSync(() => {
+                setCompanyId(previousCompanyId);
+                applyProcessListCache(previousCompanyId);
+              });
+              void fetchRows({ companyId: previousCompanyId, silent: true });
+            }
             setExpirationCompanies([
               { company_id: company.company_id, expiration_date: company.expiration_date ?? null },
             ]);
             return;
           }
           if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
-            flushSync(() => setCompanyId(previousCompanyId));
+            skipCompanyFetchEffectRef.current = true;
+            flushSync(() => {
+              setCompanyId(previousCompanyId);
+              applyProcessListCache(previousCompanyId);
+            });
+            void fetchRows({ companyId: previousCompanyId, silent: true });
           }
           notify(json.message || json.error || t("switchCompanyFailed"), "danger");
           return;
         }
-        notifyCompanySessionUpdated();
+        if (!layoutSilent) notifyCompanySessionUpdated();
       } catch {
-        if (sessionAc?.signal.aborted) return;
+        if (sessionAc.signal.aborted) return;
         if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
-          flushSync(() => setCompanyId(previousCompanyId));
+          skipCompanyFetchEffectRef.current = true;
+          flushSync(() => {
+            setCompanyId(previousCompanyId);
+            applyProcessListCache(previousCompanyId);
+          });
+          void fetchRows({ companyId: previousCompanyId, silent: true });
         }
         notify(t("switchCompanyFailed"), "danger");
       } finally {
-        if (sessionAc && companySessionAbortRef.current === sessionAc) {
+        if (companySessionAbortRef.current === sessionAc) {
           companySessionAbortRef.current = null;
         }
       }
     },
-    [companies, companyId, navigate, notify, selectedGroup, sessionMeFromLayout, t],
+    [
+      applyProcessListCache,
+      companies,
+      companyId,
+      fetchRows,
+      loadFormMeta,
+      navigate,
+      notify,
+      selectedGroup,
+      sessionMeFromLayout,
+      t,
+    ],
+  );
+
+  onSwitchCompanyRef.current = onSwitchCompany;
+
+  const onPickCompanyPill = useCallback(
+    (c) => {
+      const nextId = Number(c?.id);
+      if (!nextId || Number(companyId) === nextId) return;
+
+      const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      const nextGroup = gid || null;
+
+      skipCompanyFetchEffectRef.current = true;
+      currencyMetaSeqRef.current += 1;
+      flushSync(() => {
+        setGroupFilterKind("follow");
+        if (nextGroup) setSelectedGroup(nextGroup);
+        setCompanyId(nextId);
+        setCurrencyFilterCode("");
+        setCurrencyListOrdered([]);
+        setCurrencyPillDisplayOrder(null);
+        applyProcessListCache(nextId);
+      });
+
+      if (nextGroup) persistDashboardGroupFilter(nextGroup);
+      persistDashboardFilterState(nextGroup, nextId);
+      notifyDashboardGroupFilterChanged(nextGroup, nextId);
+
+      void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
+    },
+    [applyProcessListCache, companyId],
   );
 
   const handlePickGroup = useCallback(
@@ -813,12 +898,21 @@ export default function ProcessListPage() {
       if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) return;
 
       const pick = pickDefaultCompanyForGroup(companies, g, { nativeOnly: true });
+      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
+
       setGroupFilterKind("follow");
       setSelectedGroup(g);
       persistDashboardGroupFilter(g);
 
-      if (pick?.id) {
-        void onSwitchCompany(pick);
+      if (nextCompanyId != null) {
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setCompanyId(nextCompanyId);
+          applyProcessListCache(nextCompanyId);
+        });
+        persistDashboardFilterState(g, nextCompanyId);
+        notifyDashboardGroupFilterChanged(g, nextCompanyId);
+        void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
         return;
       }
 
@@ -831,7 +925,14 @@ export default function ProcessListPage() {
       resetAnchorSessionRef();
       notifyDashboardGroupFilterChanged(g, null);
     },
-    [companies, companyId, groupFilterKind, onSwitchCompany, resetAnchorSessionRef, selectedGroupKey],
+    [
+      applyProcessListCache,
+      companies,
+      companyId,
+      groupFilterKind,
+      resetAnchorSessionRef,
+      selectedGroupKey,
+    ],
   );
 
   const openAdd = () => {
@@ -1256,7 +1357,7 @@ export default function ProcessListPage() {
                         type="button"
                         className={`user-gc-segment${active ? " is-on" : ""}`}
                         disabled={processMutationsBlocked}
-                        onClick={() => void onSwitchCompany(c)}
+                        onClick={() => onPickCompanyPill(c)}
                       >
                         {String(c.company_id || "").toUpperCase()}
                       </button>

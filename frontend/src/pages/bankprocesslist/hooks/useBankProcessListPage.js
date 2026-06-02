@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { ensureCrossPageCompanySelection } from "../../../utils/company/companySessionSync.js";
@@ -6,7 +7,7 @@ import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
-  readDashboardSelectedCompanyId,
+  pickDefaultCompanyForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -48,6 +49,15 @@ import {
   normalizeBankResendDayStartYmd,
 } from "../lib/bankProcessHelpers.js";
 import { dedupeCompanyRowsForSwitcher } from "../../processlist/processListHelpers.js";
+
+function resolveBankProcessListCacheKey(companyId, search) {
+  return `company:${Number(companyId)}|${String(search || "").trim()}`;
+}
+
+function bankProcessRowsFingerprint(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return "0";
+  return rows.map((r) => Number(r.id)).join(",");
+}
 import { prefetchGamesProcessListPayload } from "../../processlist/processRoutePrefetch.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
@@ -126,7 +136,6 @@ export function useBankProcessListPage() {
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
-  const [switchingCompany, setSwitchingCompany] = useState(false);
   const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -214,6 +223,11 @@ export function useBankProcessListPage() {
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
   const skipNextBankFetchRef = useRef(false);
+  const skipCompanyFetchEffectRef = useRef(false);
+  const bankProcessListCacheRef = useRef(new Map());
+  const onSwitchCompanyRef = useRef(null);
+  const companySessionAbortRef = useRef(null);
+  const rowsRef = useRef([]);
   const bankDatePickerInitRef = useRef(false);
   const contractSyncKeysRef = useRef({ day_start: "", contract: "", frequency: "" });
 
@@ -230,6 +244,10 @@ export function useBankProcessListPage() {
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(null), 1800);
   }, []);
+
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
 
   const { mutationsBlocked, guardWrite } = usePartnershipAuditWriteGuard(
     authMe,
@@ -969,43 +987,77 @@ export function useBankProcessListPage() {
     window.history.replaceState({}, document.title, url.toString());
   }, [companyId, search, dateFrom, dateTo, showAll, showInactive, showOfficial, showEInvoice, showBlock, currencyFilterCode]);
 
+  const applyBankProcessListCache = useCallback(
+    (cid) => {
+      const id = Number(cid);
+      if (!Number.isFinite(id) || id <= 0) return false;
+      const cacheKey = resolveBankProcessListCacheKey(id, search);
+      const cached = bankProcessListCacheRef.current.get(cacheKey);
+      if (!cached) return false;
+      setRows((prev) =>
+        bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(cached) ? prev : cached,
+      );
+      return true;
+    },
+    [search],
+  );
+
   // Bank list always fetches the full dataset, then filters client-side
   // (matches legacy bank_process_list.js: prevents stale issue_flag/inactive splits).
-  const fetchRows = useCallback(async (opts = {}) => {
-    if (!companyId) return;
-    const silent = !!opts.silent;
-    const preservePage = !!opts.preservePage;
-    const preserveSelection = !!opts.preserveSelection;
-    listAbortRef.current?.abort();
-    const ac = new AbortController();
-    listAbortRef.current = ac;
-    if (!silent) setTableLoading(true);
-    try {
-      const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
-      url.searchParams.set("permission", "Bank");
-      url.searchParams.set("company_id", String(companyId));
-      if (search.trim()) url.searchParams.set("search", search.trim());
-      url.searchParams.set("showAll", "1");
-      const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
-      const json = await res.json();
-      if (ac.signal.aborted) return;
-      if (!res.ok || !json.success) return notify(apiMsg(json, "failedLoadBankProcesses"), "danger");
-      setRows(normalizeRows(json.data));
-      if (!preserveSelection) setSelectedIds(new Set());
-      if (!preservePage) setCurrentPage(1);
-      syncUrl();
-    } catch {
-      if (ac.signal.aborted) return;
-      notify(t("failedLoadBankProcesses"), "danger");
-    } finally {
-      if (!ac.signal.aborted && !silent) setTableLoading(false);
-    }
-  }, [companyId, search, notify, syncUrl]);
+  const fetchRows = useCallback(
+    async (opts = {}) => {
+      const silent = !!opts.silent;
+      const preservePage = !!opts.preservePage;
+      const preserveSelection = !!opts.preserveSelection;
+      const cid = opts.companyId != null ? Number(opts.companyId) : Number(companyId);
+      if (!Number.isFinite(cid) || cid <= 0) return;
+      listAbortRef.current?.abort();
+      const ac = new AbortController();
+      listAbortRef.current = ac;
+      if (!silent && rowsRef.current.length === 0) setTableLoading(true);
+      try {
+        const url = new URL(buildApiUrl("api/processes/processlist_api.php"));
+        url.searchParams.set("permission", "Bank");
+        url.searchParams.set("company_id", String(cid));
+        if (search.trim()) url.searchParams.set("search", search.trim());
+        url.searchParams.set("showAll", "1");
+        const res = await fetch(url.toString(), { credentials: "include", signal: ac.signal });
+        const json = await res.json();
+        if (ac.signal.aborted) return;
+        if (!res.ok || !json.success) {
+          if (!silent) notify(apiMsg(json, "failedLoadBankProcesses"), "danger");
+          return;
+        }
+        const nextRows = normalizeRows(json.data);
+        const cacheKey = resolveBankProcessListCacheKey(cid, search);
+        bankProcessListCacheRef.current.set(cacheKey, nextRows);
+        setRows((prev) => {
+          if (silent && bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(nextRows)) {
+            return prev;
+          }
+          return nextRows;
+        });
+        if (!preserveSelection) setSelectedIds(new Set());
+        if (!preservePage) setCurrentPage(1);
+        syncUrl();
+      } catch {
+        if (ac.signal.aborted) return;
+        if (!silent) notify(t("failedLoadBankProcesses"), "danger");
+      } finally {
+        if (!ac.signal.aborted && !silent) setTableLoading(false);
+      }
+    },
+    [companyId, search, notify, syncUrl, t],
+  );
 
   useEffect(() => {
     if (!companyId || loading) return;
     if (skipNextBankFetchRef.current) {
       skipNextBankFetchRef.current = false;
+      return;
+    }
+    if (skipCompanyFetchEffectRef.current) {
+      skipCompanyFetchEffectRef.current = false;
       return;
     }
     const t = window.setTimeout(() => { void fetchRows(); }, 80);
@@ -1121,61 +1173,137 @@ export function useBankProcessListPage() {
 
   const resetForm = () => setForm({ ...EMPTY_BANK_FORM });
 
-  const onSwitchCompany = async (c) => {
-    if (!c?.id || switchingCompany) return;
-    const nextId = Number(c.id);
-    const savedId = readDashboardSelectedCompanyId();
-    const sessionId = Number(authMe?.company_id);
-    if (nextId === Number(companyId) && savedId === nextId && sessionId === nextId) return;
-    setSwitchingCompany(true);
-    listAbortRef.current?.abort();
-    setSelectedIds(new Set());
-    setCurrentPage(1);
-    try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        return notify(apiMsg(json, "switchCompanyFailed"), "danger");
-      }
-      notifyCompanySessionUpdated();
-      const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
-      if (!bankCategory) {
-        const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup;
-        if (gid) {
-          persistDashboardGroupFilter(gid);
-          setSelectedGroup(gid);
-        }
-        persistDashboardFilterState(gid, nextId);
-        const warm = await prefetchGamesProcessListPayload(c.id);
-        const processListPrefetch = {
-          companyId: nextId,
-          companies,
-          groupFilterKind,
-          rows: warm.rows,
-          meta: warm.meta,
-        };
-        navigate(`/process-list?company_id=${c.id}`, { replace: true, state: { processListPrefetch } });
-        return;
-      }
-      const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup;
-      if (gid) {
-        persistDashboardGroupFilter(gid);
-        setSelectedGroup(gid);
-      }
-      persistDashboardFilterState(gid, Number(c.id));
+  const onSwitchCompany = useCallback(
+    async (c, { layoutSilent = false } = {}) => {
+      const nextId = Number(c?.id);
+      if (!nextId) return;
 
-      setRows([]);
-      setTableLoading(true);
-      setCompanyId(Number(c.id));
-      setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
+      const sessionCompanyId = authMe?.company_id != null ? Number(authMe.company_id) : null;
+      void fetchRows({ companyId: nextId, silent: true, preservePage: true, preserveSelection: true });
       if (accountingOpen) void loadAccountingInbox();
-    } catch {
-      setTableLoading(false);
-      notify(t("switchCompanyFailed"), "danger");
-    } finally {
-      setSwitchingCompany(false);
-    }
-  };
+
+      try {
+        const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
+        if (!bankCategory) {
+          const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup;
+          const warm = await prefetchGamesProcessListPayload(nextId);
+          navigate(`/process-list?company_id=${nextId}`, {
+            replace: true,
+            state: {
+              processListPrefetch: {
+                companyId: nextId,
+                companies,
+                groupFilterKind: "follow",
+                rows: warm.rows,
+                meta: warm.meta,
+              },
+            },
+          });
+          return;
+        }
+      } catch {
+        /* fall through to session sync */
+      }
+
+      if (sessionCompanyId === nextId) return;
+
+      const previousCompanyId = Number(companyId) === nextId ? sessionCompanyId : companyId;
+      companySessionAbortRef.current?.abort();
+      const sessionAc = new AbortController();
+      companySessionAbortRef.current = sessionAc;
+
+      try {
+        const res = await fetch(
+          buildApiUrl(`api/session/update_company_session_api.php?company_id=${nextId}`),
+          { credentials: "include", signal: sessionAc.signal },
+        );
+        const json = await res.json();
+        if (sessionAc.signal.aborted) return;
+        if (!res.ok || !json.success) {
+          if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
+            skipCompanyFetchEffectRef.current = true;
+            flushSync(() => {
+              setCompanyId(previousCompanyId);
+              applyBankProcessListCache(previousCompanyId);
+            });
+            void fetchRows({
+              companyId: previousCompanyId,
+              silent: true,
+              preservePage: true,
+              preserveSelection: true,
+            });
+          }
+          notify(apiMsg(json, "switchCompanyFailed"), "danger");
+          return;
+        }
+        if (!layoutSilent) notifyCompanySessionUpdated();
+      } catch {
+        if (sessionAc.signal.aborted) return;
+        if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
+          skipCompanyFetchEffectRef.current = true;
+          flushSync(() => {
+            setCompanyId(previousCompanyId);
+            applyBankProcessListCache(previousCompanyId);
+          });
+          void fetchRows({
+            companyId: previousCompanyId,
+            silent: true,
+            preservePage: true,
+            preserveSelection: true,
+          });
+        }
+        notify(t("switchCompanyFailed"), "danger");
+      } finally {
+        if (companySessionAbortRef.current === sessionAc) {
+          companySessionAbortRef.current = null;
+        }
+      }
+    },
+    [
+      accountingOpen,
+      applyBankProcessListCache,
+      authMe?.company_id,
+      companies,
+      companyId,
+      fetchRows,
+      groupFilterKind,
+      loadAccountingInbox,
+      navigate,
+      notify,
+      selectedGroup,
+      t,
+    ],
+  );
+
+  onSwitchCompanyRef.current = onSwitchCompany;
+
+  const onPickCompanyPill = useCallback(
+    (c) => {
+      const nextId = Number(c?.id);
+      if (!nextId || Number(companyId) === nextId) return;
+
+      const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      const nextGroup = gid || null;
+
+      skipCompanyFetchEffectRef.current = true;
+      listAbortRef.current?.abort();
+      flushSync(() => {
+        setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
+        if (nextGroup) setSelectedGroup(nextGroup);
+        setCompanyId(nextId);
+        setCurrencyFilterCode("");
+        setCurrencyPillDisplayOrder(null);
+        applyBankProcessListCache(nextId);
+      });
+
+      if (nextGroup) persistDashboardGroupFilter(nextGroup);
+      persistDashboardFilterState(nextGroup, nextId);
+      notifyDashboardGroupFilterChanged(nextGroup, nextId);
+
+      void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
+    },
+    [applyBankProcessListCache, companyId],
+  );
 
   const openAdd = () => {
     setEditMode(false);
@@ -1714,7 +1842,6 @@ export function useBankProcessListPage() {
 
   const handlePickGroup = useCallback(
     (gid) => {
-      if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
@@ -1723,11 +1850,27 @@ export function useBankProcessListPage() {
         persistDashboardGroupFilter(null);
         return;
       }
-      setGroupFilterKind("follow");
-      if (g === selectedGroupKey) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) return;
 
-      persistDashboardGroupFilter(g);
+      const pick = pickDefaultCompanyForGroup(companies, g, { nativeOnly: true });
+      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
+
+      setGroupFilterKind("follow");
       setSelectedGroup(g);
+      persistDashboardGroupFilter(g);
+
+      if (nextCompanyId != null) {
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setCompanyId(nextCompanyId);
+          applyBankProcessListCache(nextCompanyId);
+        });
+        persistDashboardFilterState(g, nextCompanyId);
+        notifyDashboardGroupFilterChanged(g, nextCompanyId);
+        void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
+        return;
+      }
+
       persistDashboardFilterState(g, null);
       resetAnchorSessionRef();
 
@@ -1736,18 +1879,26 @@ export function useBankProcessListPage() {
       const qs = url.searchParams.toString();
       window.history.replaceState(null, "", qs ? `${url.pathname}?${qs}` : url.pathname);
 
-      setCompanyId(null);
-      setRows([]);
+      flushSync(() => {
+        setCompanyId(null);
+        setRows([]);
+      });
       setTableLoading(false);
       notifyDashboardGroupFilterChanged(g, null);
     },
-    [groupFilterKind, selectedGroupKey, switchingCompany, resetAnchorSessionRef]
+    [
+      applyBankProcessListCache,
+      companies,
+      companyId,
+      groupFilterKind,
+      resetAnchorSessionRef,
+      selectedGroupKey,
+    ],
   );
 
   const handlePickAllGroups = useCallback(() => {
-    if (switchingCompany) return;
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
-  }, [switchingCompany]);
+  }, []);
 
   const sortedRows = useMemo(
     () => sortBankProcessTableRows(rows, sortColumn, sortDirection),
@@ -1890,8 +2041,6 @@ export function useBankProcessListPage() {
     setCompanyId,
     groupFilterKind,
     setGroupFilterKind,
-    switchingCompany,
-    setSwitchingCompany,
     rows,
     setRows,
     currentPage,
@@ -2040,6 +2189,7 @@ export function useBankProcessListPage() {
     loadAccountingInbox,
     resetForm,
     onSwitchCompany,
+    onPickCompanyPill,
     openAdd,
     persistSelectedCountries,
     persistSelectedBanksByCountry,

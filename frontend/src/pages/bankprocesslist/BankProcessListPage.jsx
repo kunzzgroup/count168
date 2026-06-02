@@ -44,8 +44,6 @@ export default function BankProcessListPage() {
     setCompanyId,
     groupFilterKind,
     setGroupFilterKind,
-    switchingCompany,
-    setSwitchingCompany,
     rows,
     setRows,
     currentPage,
@@ -193,7 +191,7 @@ export default function BankProcessListPage() {
     handleBankStatusUpdated,
     loadAccountingInbox,
     resetForm,
-    onSwitchCompany,
+    onPickCompanyPill,
     openAdd,
     persistSelectedCountries,
     persistSelectedBanksByCountry,
@@ -479,8 +477,7 @@ export default function BankProcessListPage() {
                         type="button"
                         className={`user-gc-segment${active ? " is-on" : ""}`}
                         onClick={() => {
-                          if (switchingCompany) return;
-                          if (!active) void onSwitchCompany(c);
+                          if (!active) onPickCompanyPill(c);
                         }}
                       >
                         {String(c.company_id || "").toUpperCase()}
