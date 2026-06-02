@@ -560,6 +560,11 @@ function dashboardTxnCurrencyFilter(string $accountColumn): string
 
 function dashboard_api_main(): void
 {
+    global $pdo;
+    if (!$pdo instanceof PDO) {
+        throw new Exception('Database connection failed');
+    }
+
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
