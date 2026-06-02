@@ -673,10 +673,35 @@ export default function AccountListPage() {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       const current = String(selectedGroup || "").trim().toUpperCase();
-      if (isGroupLogin(sessionMe) && g && g === current && companyId != null) {
-        persistDashboardGroupOnlyMode(true);
-        setSelectedGroup(g);
-        handleClearCompany();
+      const groupLogin = isGroupLogin(sessionMe);
+      if (groupLogin && g) {
+        const gcScope = {
+          companyId: null,
+          selectedGroup: g,
+          groupsAllMode: false,
+          groupAllMode: false,
+          mergeCompanyIds,
+          groupIds,
+          isListScopeReady: true,
+        };
+
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+          setSelectedGroup(g);
+          setCompanyId(null);
+          applyCacheOrClearAccounts(gcScope, { groupOnly: true });
+        });
+
+        persistDashboardGroupFilter(g);
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        notifyDashboardGroupFilterChanged(g, null);
+
+        const cacheKey = resolveAccountListCacheKey(`group:${g}`, searchTerm, showInactive, showAll);
+        if (!accountListCacheRef.current.has(cacheKey)) {
+          void fetchAccounts(gcScope, { silent: true, groupOnly: true });
+        }
         return;
       }
       if (!g || (g === current && companyId != null)) return;
@@ -726,9 +751,13 @@ export default function AccountListPage() {
       applyCacheOrClearAccounts,
       companyId,
       fetchAccounts,
-      handleClearCompany,
+      groupIds,
+      mergeCompanyIds,
+      searchTerm,
       sessionMe,
       selectedGroup,
+      showAll,
+      showInactive,
       setGroupAllMode,
       setGroupsAllMode,
     ],
