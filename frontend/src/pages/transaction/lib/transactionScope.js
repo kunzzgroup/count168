@@ -1,7 +1,8 @@
 import {
-  companiesInGroupList,
+  companiesNativeInGroupList,
   companyRowIsGroupEntity,
   filterCompaniesWithDisplayId,
+  isVirtualGroupLinkCompanyRow,
   resolveViewGroupForCompany,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { groupIdsForGroupsAllAggregate } from "../../../utils/company/useGcFilterWithAllModes.js";
@@ -39,8 +40,8 @@ export function resolveTransactionScope(filterSnapshot) {
     if (uiCompanyId) return [uiCompanyId];
     if (groupAllMode || (groupsAllMode && groupAllMode)) {
       const list = groupsAllMode
-        ? filterCompaniesWithDisplayId(snapCompanies)
-        : companiesInGroupList(snapCompanies, selectedGroup);
+        ? filterCompaniesWithDisplayId(snapCompanies).filter((c) => !isVirtualGroupLinkCompanyRow(c))
+        : companiesNativeInGroupList(snapCompanies, selectedGroup);
       return list.map((c) => Number(c.id)).filter((id) => Number.isFinite(id) && id > 0);
     }
     if (groupsAllMode && !groupAllMode) {

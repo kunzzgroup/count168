@@ -293,6 +293,7 @@ try {
 
     $scopeCtx = formulaMaintenanceResolveRequestScope($pdo, $input);
     $companyId = (int) $scopeCtx['company_id'];
+    $formula_scope_group = (bool) $scopeCtx['is_group_scope'];
     $templateId = isset($input['template_id']) ? (int)$input['template_id'] : 0;
     $accountId = isset($input['account_id']) ? (int)$input['account_id'] : 0;
     $sourceColumns = isset($input['source_columns']) ? trim($input['source_columns']) : '';
@@ -307,6 +308,14 @@ try {
     }
     if ($accountId <= 0) {
         throw new Exception('Account 是必填项');
+    }
+
+    if ($formula_scope_group) {
+        if ($companyId <= 0 || !formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
+            throw new Exception('集团范围无效或未配置集团实体公司');
+        }
+    } elseif ($companyId > 0 && formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
+        throw new Exception('公司范围不能操作集团实体公式');
     }
 
     validateTemplateBelongsToCompany($pdo, $templateId, $companyId);

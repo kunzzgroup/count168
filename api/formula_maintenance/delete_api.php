@@ -75,6 +75,15 @@ try {
     }
     $scopeCtx = formulaMaintenanceResolveRequestScope($pdo, $input);
     $company_id = (int) $scopeCtx['company_id'];
+    $formula_scope_group = (bool) $scopeCtx['is_group_scope'];
+
+    if ($formula_scope_group) {
+        if ($company_id <= 0 || !formulaMaintenanceCompanyIsGroupEntity($pdo, $company_id)) {
+            throw new Exception('集团范围无效或未配置集团实体公司');
+        }
+    } elseif ($company_id > 0 && formulaMaintenanceCompanyIsGroupEntity($pdo, $company_id)) {
+        throw new Exception('公司范围不能操作集团实体公式');
+    }
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('只支持 POST 请求');

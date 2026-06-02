@@ -10,6 +10,7 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
   companiesInGroupList,
+  companiesNativeInGroupList,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   resolveBootCompanyId,
@@ -375,6 +376,8 @@ export default function FormulaMaintenancePage() {
             companies: rows,
             selectedGroup: bootGroup,
             companyId: null,
+            groupsAllMode: false,
+            groupAllMode: false,
           });
           const meta = await bootstrapFormulaMaintenanceMeta({
             companies: rows,
@@ -467,7 +470,7 @@ export default function FormulaMaintenancePage() {
     const scope = formulaScope;
     const permCode =
       companyCode ||
-      (selectedGroup ? companiesInGroupList(companies, selectedGroup)[0]?.company_id : "") ||
+      (selectedGroup ? companiesNativeInGroupList(companies, selectedGroup)[0]?.company_id : "") ||
       "";
     const accountCompanyId = scope?.scopeCompanyId ?? companyId;
 
@@ -517,6 +520,8 @@ export default function FormulaMaintenancePage() {
         companies,
         selectedGroup: overrides.selectedGroup ?? selectedGroup,
         companyId: overrides.companyId ?? companyId,
+        groupsAllMode,
+        groupAllMode,
       });
     if (!formulaMaintenanceScopeIsReady(effectiveScope) || selectedProcess === null) return;
 
@@ -578,6 +583,8 @@ export default function FormulaMaintenancePage() {
     companies,
     selectedGroup,
     companyId,
+    groupsAllMode,
+    groupAllMode,
     activePermission,
     selectedProcess,
     notify,
@@ -622,6 +629,8 @@ export default function FormulaMaintenancePage() {
             companies,
             selectedGroup: g,
             companyId: null,
+            groupsAllMode,
+            groupAllMode,
           });
           const meta = await bootstrapFormulaMaintenanceMeta({ companies, groupId: g });
           const procList = scope ? await fetchProcesses(null, scope) : [];
@@ -657,6 +666,8 @@ export default function FormulaMaintenancePage() {
         companies,
         selectedGroup: newGroup,
         companyId: nextId,
+        groupsAllMode,
+        groupAllMode,
       });
 
       suppressNextSearchEffectRef.current = true;
@@ -689,7 +700,7 @@ export default function FormulaMaintenancePage() {
     });
     const permCode =
       companyCode ||
-      (selectedGroup ? companiesInGroupList(companies, selectedGroup)[0]?.company_id : "") ||
+      (selectedGroup ? companiesNativeInGroupList(companies, selectedGroup)[0]?.company_id : "") ||
       "";
     if (permCode) localStorage.setItem(`selectedPermission_${permCode}`, p);
     setSelectedProcess(null);
