@@ -483,7 +483,7 @@ export default function BankProcessListPage() {
                 </div>
               </div>
             </div>
-            {currencyPillCodes.length > 0 && (
+            {currencyListOrdered.length > 0 && (
               <div className="user-gc-inline-row">
                 <span className="user-gc-inline-label">{t("currency")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">

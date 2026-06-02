@@ -243,10 +243,10 @@ export default function ProcessListPage() {
         }
       }
       if (seq !== currencyMetaSeqRef.current) return;
-      setCurrencyListOrdered(codes);
+      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : codes));
     } catch {
       if (seq !== currencyMetaSeqRef.current) return;
-      setCurrencyListOrdered([]);
+      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : []));
     }
   }, [companyId]);
 
@@ -476,9 +476,11 @@ export default function ProcessListPage() {
     const list = Array.isArray(codes) ? codes.map((c) => String(c).toUpperCase()).filter(Boolean) : [];
     setCurrencyListOrdered(list);
     setCurrencyPillDisplayOrder(null);
-    const nextCur = list[0] || "";
-    setCurrencyFilterCode((prev) => (prev && list.includes(prev) ? prev : nextCur));
-    if (syncHistory && nextCur) syncUrl({ companyId: cid, currency: nextCur });
+    setCurrencyFilterCode((prev) => {
+      const next = prev && list.includes(prev) ? prev : list[0] || "";
+      if (syncHistory && next) syncUrl({ companyId: cid, currency: next });
+      return next;
+    });
   }, [companyId, syncUrl]);
 
   useEffect(() => {
@@ -777,24 +779,15 @@ export default function ProcessListPage() {
   }, [rows]);
 
   const baseCurrencyPills = useMemo(() => {
-    const merged = new Set([...currencyListOrdered, ...rowCurrencyCodes]);
-    const orderFirst = currencyListOrdered.filter((c) => merged.has(c));
-    const rest = [...merged].filter((c) => !orderFirst.includes(c)).sort((a, b) => a.localeCompare(b));
-    return [...orderFirst, ...rest];
+    if (!currencyListOrdered.length) return [];
+    const extra = rowCurrencyCodes.filter((c) => !currencyListOrdered.includes(c));
+    return extra.length ? [...currencyListOrdered, ...extra] : currencyListOrdered;
   }, [currencyListOrdered, rowCurrencyCodes]);
 
   const currencyPillCodes = useMemo(
     () => currencyPillDisplayOrder ?? baseCurrencyPills,
     [currencyPillDisplayOrder, baseCurrencyPills]
   );
-
-  useEffect(() => {
-    setCurrencyPillDisplayOrder((prev) => {
-      if (!prev) return null;
-      const add = baseCurrencyPills.filter((c) => !prev.includes(c));
-      return add.length ? [...prev, ...add] : prev;
-    });
-  }, [baseCurrencyPills]);
 
   const persistOrderedCompanyCurrencies = useCallback(
     async (orderedPills) => {
@@ -988,6 +981,13 @@ export default function ProcessListPage() {
       skipCompanyFetchEffectRef.current = true;
       suppressCrossPageSyncRef.current = true;
       currencyMetaSeqRef.current += 1;
+      const preservedUrlCurrency =
+        hadCache && Array.isArray(cached?.currencyCodes) && cached.currencyCodes.length
+          ? currencyFilterCode && cached.currencyCodes.includes(currencyFilterCode)
+            ? currencyFilterCode
+            : cached.currencyCodes[0]
+          : "";
+
       flushSync(() => {
         setGroupFilterKind("follow");
         if (nextGroup) setSelectedGroup(nextGroup);
@@ -1002,8 +1002,10 @@ export default function ProcessListPage() {
         }
       });
 
-      const urlCur = cached?.currencyCodes?.[0] || "";
-      syncUrl({ companyId: nextId, currency: urlCur || undefined });
+      syncUrl({
+        companyId: nextId,
+        currency: hadCache ? preservedUrlCurrency || undefined : undefined,
+      });
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
       persistDashboardFilterState(nextGroup, nextId);
@@ -1011,7 +1013,7 @@ export default function ProcessListPage() {
 
       void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
     },
-    [applyProcessListCache, companyId, debouncedSearch, showInactive, showAll, syncUrl],
+    [applyProcessListCache, companyId, currencyFilterCode, debouncedSearch, showInactive, showAll, syncUrl],
   );
 
   const handlePickGroup = useCallback(
@@ -1508,7 +1510,7 @@ export default function ProcessListPage() {
                 </div>
               </div>
             </div>
-            {currencyPillCodes.length > 0 && (
+            {currencyListOrdered.length > 0 && (
               <div className="user-gc-inline-row">
                 <span className="user-gc-inline-label">{t("currency")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">

@@ -792,7 +792,7 @@ export function useBankProcessListPage() {
       ]);
       const curJson = await curRes.json();
       if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
-        setCurrencyListOrdered([]);
+        setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : []));
         return;
       }
       let codes = curJson.data.map((r) => String(r.code).toUpperCase());
@@ -806,9 +806,9 @@ export function useBankProcessListPage() {
           codes = [...ordered, ...rest];
         }
       }
-      setCurrencyListOrdered(codes);
+      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : codes));
     } catch {
-      setCurrencyListOrdered([]);
+      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : []));
     }
   }, [companyId]);
 
@@ -1999,10 +1999,9 @@ export function useBankProcessListPage() {
   }, [rows]);
 
   const baseCurrencyPills = useMemo(() => {
-    const merged = new Set([...currencyListOrdered, ...rowCountryCodes]);
-    const orderFirst = currencyListOrdered.filter((c) => merged.has(c));
-    const rest = [...merged].filter((c) => !orderFirst.includes(c)).sort((a, b) => a.localeCompare(b));
-    return [...orderFirst, ...rest];
+    if (!currencyListOrdered.length) return [];
+    const extra = rowCountryCodes.filter((c) => !currencyListOrdered.includes(c));
+    return extra.length ? [...currencyListOrdered, ...extra] : currencyListOrdered;
   }, [currencyListOrdered, rowCountryCodes]);
 
   const currencyPillCodes = useMemo(
@@ -2013,8 +2012,11 @@ export function useBankProcessListPage() {
   useEffect(() => {
     setCurrencyPillDisplayOrder((prev) => {
       if (!prev) return null;
-      const add = baseCurrencyPills.filter((c) => !prev.includes(c));
-      return add.length ? [...prev, ...add] : prev;
+      const allowed = new Set(baseCurrencyPills);
+      const kept = prev.filter((c) => allowed.has(c));
+      const add = baseCurrencyPills.filter((c) => !kept.includes(c));
+      if (!kept.length && !add.length) return null;
+      return add.length ? [...kept, ...add] : kept;
     });
   }, [baseCurrencyPills]);
 
