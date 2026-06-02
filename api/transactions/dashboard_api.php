@@ -815,10 +815,14 @@ try {
                     WHERE ac.company_id = ?
                       AND UPPER(TRIM(COALESCE(a.role, ''))) = ?";
 
-            // 应用权限过滤
-            list($sql, $params) = filterAccountsByPermissions($pdo, $sql, [], $scopeCompanyId);
-            $sql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $sql);
-            $sql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $sql);
+            // 应用权限过滤（集团实体 EXPENSES 并入子公司 Dashboard 时不套白名单：
+            // 账户 id 在 IG 实体上，不可能出现在子公司 95 的 account_permissions 里，与 search_api 外部账户同理）
+            $params = [];
+            if (!($role === 'EXPENSES' && $scopeCompanyId !== $company_id)) {
+                list($sql, $params) = filterAccountsByPermissions($pdo, $sql, [], $scopeCompanyId);
+                $sql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $sql);
+                $sql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $sql);
+            }
 
             $params = array_merge([$scopeCompanyId, $role], $params);
             $stmt = $pdo->prepare($sql);
