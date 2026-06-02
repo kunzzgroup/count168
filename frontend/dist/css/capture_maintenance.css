@@ -708,33 +708,6 @@ body.dashboard-page.maintenance-page {
     line-height: 1;
 }
 
-.empty-state-container {
-    position: relative;
-    top: 10px;
-    background: #ffffff;
-    border: 1px solid #d0d7de;
-    border-radius: 8px;
-    padding: clamp(40px, 3.33vw, 64px);
-    margin-bottom: clamp(20px, 1.67vw, 32px);
-    margin-top: 10px;
-    max-width: none;
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    text-align: center;
-    box-sizing: border-box;
-}
-
-.empty-state {
-    color: #64748b;
-    font-size: clamp(14px, 1.04vw, 20px);
-}
-
-.empty-state p {
-    margin: 0;
-    font-family: var(--font-heading-page);
-}
-
 .maintenance-notification-container {
     position: fixed;
     top: 20px;
@@ -1236,33 +1209,6 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     font-size: clamp(10px, 0.83vw, 14px);
     font-weight: bold;
     line-height: 1;
-}
-
-.capture-maintenance-page-root .empty-state-container {
-    position: relative;
-    top: 10px;
-    background: #ffffff;
-    border: 1px solid #d0d7de;
-    border-radius: 8px;
-    padding: clamp(40px, 3.33vw, 64px);
-    margin-bottom: clamp(20px, 1.67vw, 32px);
-    margin-top: 10px;
-    max-width: none;
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    text-align: center;
-    box-sizing: border-box;
-}
-
-.capture-maintenance-page-root .empty-state {
-    color: #64748b;
-    font-size: clamp(14px, 1.04vw, 20px);
-}
-
-.capture-maintenance-page-root .empty-state p {
-    margin: 0;
-    font-family: var(--font-heading-page);
 }
 
 /* 勾选列：thead th 与 tbody td 的 padding 来源不同（th 无 maintenance-table-cell），纵向看勾选框易左右错位；对称 padding + 全宽 flex 内层与表头/行共用 */

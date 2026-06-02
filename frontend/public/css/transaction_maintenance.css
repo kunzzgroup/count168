@@ -606,35 +606,6 @@ body.dashboard-page.maintenance-page {
     text-decoration: line-through;
 }
 
-/* Empty State Styles */
-.empty-state-container {
-    background: #ffffff;
-    border: 1px solid #d0d7de;
-    border-radius: 12px;
-    padding: clamp(48px, 4vw, 72px) clamp(24px, 2vw, 40px);
-    margin-top: 10px;
-    margin-bottom: clamp(20px, 1.67vw, 32px);
-    max-width: 1600px;
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    text-align: center;
-    box-sizing: border-box;
-}
-
-.empty-state {
-    color: #475569;
-    font-size: clamp(15px, 1.15vw, 22px);
-    line-height: 1.5;
-    font-weight: 500;
-}
-
-.empty-state p {
-    margin: 0 auto;
-    max-width: 28rem;
-    font-family: var(--font-heading-page);
-}
-
 /* Notification Styles */
 .maintenance-notification-container {
     position: fixed;
