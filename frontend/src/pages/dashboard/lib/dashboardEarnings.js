@@ -107,7 +107,7 @@ export function computePieCenterMetrics(rows, selectedCode, { useConverted = fal
     useConverted && match.earningsConverted != null
       ? parseFloat(match.earningsConverted) || 0
       : parseFloat(match.earnings) || 0;
-  const pct = ((val / total) * 100).toFixed(0);
+  const pct = ((val / total) * 100).toFixed(1);
   return { pct, code: selected || match?.code || "—" };
 }
 

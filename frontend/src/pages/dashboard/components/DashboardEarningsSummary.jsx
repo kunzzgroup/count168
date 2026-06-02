@@ -194,11 +194,11 @@ export function DashboardEarningsSummary({
                     nameKey="code"
                     cx="50%"
                     cy="50%"
-                    innerRadius="58%"
-                    outerRadius="78%"
-                    paddingAngle={earningsPieSlices.length > 1 ? 2 : 0}
+                    innerRadius="62%"
+                    outerRadius="84%"
+                    paddingAngle={earningsPieSlices.length > 1 ? 3 : 0}
                     stroke="#fff"
-                    strokeWidth={2}
+                    strokeWidth={3}
                     label={false}
                     activeShape={false}
                     isAnimationActive={summaryPieReady && !earningsByCurrencyLoading}
@@ -210,7 +210,7 @@ export function DashboardEarningsSummary({
                   >
                     {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
                       (entry, index) => (
-                        <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={2} />
+                        <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={3} />
                       )
                     )}
                   </Pie>
@@ -218,10 +218,9 @@ export function DashboardEarningsSummary({
               </ResponsiveContainer>
               {!summaryEarningsLoading && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
                 <div key={currencyCode || "center"} className="dashboard-summary-pie-center" aria-hidden="true">
-                  <div className="dashboard-summary-pie-center-badge">
-                    <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
-                    <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
-                  </div>
+                  <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
+                  <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
+                  <span className="dashboard-summary-pie-center-caption">{i18n.shareOfTotal}</span>
                 </div>
               )}
             </div>

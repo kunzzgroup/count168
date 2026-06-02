@@ -93,6 +93,7 @@ export const DASHBOARD_I18N = {
     breakdownAmount: "Amount",
     breakdownRate: "Rate",
     breakdownShare: "Share",
+    shareOfTotal: "Share of total",
     rateOneUnit: "1 {from} = {rate} {base}",
   },
   zh: {
@@ -189,6 +190,7 @@ export const DASHBOARD_I18N = {
     breakdownAmount: "金额",
     breakdownRate: "汇率",
     breakdownShare: "占比",
+    shareOfTotal: "占总比",
     rateOneUnit: "1 {from} = {rate} {base}",
   },
 };
