@@ -3299,4 +3299,3 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         'has_transactions' => $transaction_count > 0 || searchMoneyNonZero($cr_dr),
     ];
 }
-?>

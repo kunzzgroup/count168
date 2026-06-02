@@ -762,14 +762,14 @@ function dashboardDiscoverExpenseAccounts(
                    WHERE t.company_id = ?
                      AND t.from_account_id IS NOT NULL
                      AND t.transaction_date <= ?
-                     AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                     AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE', 'ADJUSTMENT')
                      $contra
                    UNION
                    SELECT DISTINCT t.account_id
                    FROM transactions t
                    WHERE t.company_id = ?
                      AND t.transaction_date <= ?
-                     AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                     AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE', 'ADJUSTMENT')
                      $contra
                  )
                ORDER BY a.account_id";
@@ -844,6 +844,440 @@ function dashboardNormalizeSearchRange(string $dateFrom, string $dateTo): array
     }
 
     return [$from, $to];
+}
+
+/** Load search_api balance helpers without HTTP and without redeclare (dashboard duplicates removed). */
+function dashboardEnsureSearchApiLoaded(): void
+{
+    static $loaded = false;
+    if ($loaded) {
+        return;
+    }
+    if (!function_exists('calculateWinLossByCurrency')) {
+        if (!defined('SEARCH_API_LIBRARY_MODE')) {
+            define('SEARCH_API_LIBRARY_MODE', true);
+        }
+        ob_start();
+        require_once __DIR__ . '/search_api.php';
+        ob_end_clean();
+    }
+    $loaded = true;
+}
+
+/**
+ * @return int[]
+ */
+function dashboardResolveLedgerCurrencyIds(PDO $pdo, int $ledgerCompanyId, ?string $filterCurrencyCode): array
+{
+    if ($filterCurrencyCode === null || trim($filterCurrencyCode) === '') {
+        $stmt = $pdo->prepare('SELECT id FROM currency WHERE company_id = ?');
+        $stmt->execute([$ledgerCompanyId]);
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    $stmt = $pdo->prepare('SELECT id FROM currency WHERE company_id = ? AND UPPER(TRIM(code)) = ?');
+    $stmt->execute([$ledgerCompanyId, strtoupper(trim($filterCurrencyCode))]);
+
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
+ * @return array{0: string, 1: array<int, int|string>}
+ */
+function dashboardCaptureCurrencyFilterByIds(array $currencyIds, string $dcdAlias = 'dcd'): array
+{
+    if ($currencyIds === []) {
+        return [' AND 1=0', []];
+    }
+    $ph = implode(',', array_fill(0, count($currencyIds), '?'));
+
+    return [" AND {$dcdAlias}.currency_id IN ($ph)", $currencyIds];
+}
+
+/**
+ * @param int[] $currencyIds
+ * @param int[] $dcdCompanyIds
+ * @return array{0: string, 1: array<int, int|string>}
+ */
+function dashboardTransactionCurrencyFilterByIds(array $currencyIds, string $accountColumn, array $dcdCompanyIds): array
+{
+    if ($currencyIds === []) {
+        return [' AND 1=0', []];
+    }
+    if ($accountColumn !== 'from_account_id') {
+        $accountColumn = 'account_id';
+    }
+    $curPh = implode(',', array_fill(0, count($currencyIds), '?'));
+    $dcdPh = implode(',', array_fill(0, count($dcdCompanyIds), '?'));
+
+    return [
+        " AND (
+            t.currency_id IN ($curPh)
+            OR (
+                t.currency_id IS NULL
+                AND EXISTS (
+                    SELECT 1
+                    FROM data_capture_details dcd
+                    JOIN data_captures dc ON dcd.capture_id = dc.id
+                    WHERE dcd.company_id IN ($dcdPh)
+                      AND dc.company_id IN ($dcdPh)
+                      AND (
+                          CAST(dcd.account_id AS CHAR) = CAST(t.`{$accountColumn}` AS CHAR)
+                          OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(CAST(t.`{$accountColumn}` AS CHAR))
+                      )
+                      AND dcd.currency_id IN ($curPh)
+                )
+            )
+        )",
+        array_merge($currencyIds, $dcdCompanyIds, $dcdCompanyIds, $currencyIds),
+    ];
+}
+
+/**
+ * @return array{0: string, 1: array<int, int|string>}
+ */
+function dashboardEntryCurrencyFilterByIds(array $currencyIds): array
+{
+    if ($currencyIds === []) {
+        return [' AND 1=0', []];
+    }
+    $ph = implode(',', array_fill(0, count($currencyIds), '?'));
+
+    return [" AND e.currency_id IN ($ph)", $currencyIds];
+}
+
+/**
+ * Merge EXPENSES pool accounts referenced as from_account on subsidiary ledger (search_api parity).
+ *
+ * @param array<int, array<string, mixed>> $accountMap
+ */
+function dashboardMergeExpenseCounterpartyAccounts(
+    PDO $pdo,
+    int $ledgerCompanyId,
+    array &$accountMap,
+    string $dateToDb,
+    ?string $filterCurrencyCode
+): void {
+    $currencyIds = dashboardResolveLedgerCurrencyIds($pdo, $ledgerCompanyId, $filterCurrencyCode);
+    if ($currencyIds === []) {
+        return;
+    }
+
+    $contra = dashboardContraApprovedWhere($pdo, 't');
+    $curPh = implode(',', array_fill(0, count($currencyIds), '?'));
+    $sql = "SELECT DISTINCT t.from_account_id AS id
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.from_account_id IS NOT NULL
+              AND t.transaction_date <= ?
+              AND (
+                  t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
+                  OR (
+                      t.transaction_type IN ('WIN', 'LOSE')
+                      AND (
+                          t.description NOT LIKE 'Process: %'
+                          AND t.description NOT LIKE 'Inactive Compensation %'
+                          AND t.description NOT LIKE 'Compensation %'
+                          OR t.description IS NULL
+                      )
+                  )
+              )
+              AND t.currency_id IN ($curPh)
+              $contra";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge([$ledgerCompanyId, $dateToDb], $currencyIds));
+    $newIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    $newIds = array_values(array_filter($newIds, static fn (int $id): bool => $id > 0));
+    if ($newIds === []) {
+        return;
+    }
+
+    $ph = implode(',', array_fill(0, count($newIds), '?'));
+    $accStmt = $pdo->prepare("
+        SELECT a.id, a.account_id, a.name, a.role
+        FROM account a
+        WHERE a.id IN ($ph)
+          AND UPPER(TRIM(COALESCE(a.role, ''))) IN ('EXPENSES', 'EXPENSE')
+    ");
+    $accStmt->execute($newIds);
+    foreach ($accStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $accountMap[(int) $row['id']] = $row;
+    }
+}
+
+/**
+ * EXPENSES KPI = Σ(search win_loss_full + cr_dr) per account, same as Transaction List.
+ *
+ * @return array<string, mixed>
+ */
+function dashboardSummarizeExpensesViaSearch(
+    PDO $pdo,
+    int $companyId,
+    string $dateFrom,
+    string $dateTo,
+    ?string $filterCurrencyCode,
+    ?string $viewGroup,
+    bool $hasTransactionCurrency
+): array {
+    dashboardEnsureSearchApiLoaded();
+
+    $viewGroupNorm = reportNormalizeGroupId($viewGroup ?? '');
+    if ($viewGroupNorm === '') {
+        $vgStmt = $pdo->prepare('SELECT UPPER(TRIM(COALESCE(group_id, ""))) FROM company WHERE id = ? LIMIT 1');
+        $vgStmt->execute([$companyId]);
+        $viewGroupNorm = reportNormalizeGroupId($vgStmt->fetchColumn() ?: '');
+    }
+
+    $scopeIds = dashboardResolveRoleScopeCompanyIds($pdo, $companyId, 'EXPENSES', $viewGroupNorm);
+    $accountMap = [];
+    foreach ($scopeIds as $scopeId) {
+        foreach (dashboardDiscoverExpenseAccounts($pdo, $scopeId, $companyId, $dateTo) as $row) {
+            $accountMap[(int) $row['id']] = $row;
+        }
+    }
+    dashboardMergeExpenseCounterpartyAccounts($pdo, $companyId, $accountMap, $dateTo, $filterCurrencyCode);
+
+    if ($accountMap === []) {
+        return dashboardEmptyRoleBucket('EXPENSES');
+    }
+
+    $currencyIds = dashboardResolveLedgerCurrencyIds($pdo, $companyId, $filterCurrencyCode);
+    if ($currencyIds === []) {
+        return dashboardEmptyRoleBucket('EXPENSES');
+    }
+
+    list($dateFromSearch, $dateToSearch) = dashboardNormalizeSearchRange($dateFrom, $dateTo);
+
+    $periodTotal = dashboardMoneyZero();
+    $bfTotal = dashboardMoneyZero();
+
+    foreach ($accountMap as $aid => $row) {
+        $accountCode = (string) ($row['account_id'] ?? '');
+        foreach ($currencyIds as $currencyId) {
+            $bfVal = calculateBFByCurrency(
+                $pdo,
+                (int) $aid,
+                (int) $currencyId,
+                $dateFromSearch,
+                $companyId,
+                $accountCode
+            );
+            $bfTotal = dashboardMoneyAdd($bfTotal, $bfVal);
+
+            $wlPack = calculateWinLossByCurrency(
+                $pdo,
+                (int) $aid,
+                (int) $currencyId,
+                $dateFromSearch,
+                $dateToSearch,
+                $companyId,
+                $accountCode
+            );
+            $wlVal = (string) ($wlPack['win_loss_full'] ?? $wlPack['win_loss'] ?? '0');
+
+            $crPack = calculateCrDrByCurrency(
+                $pdo,
+                (int) $aid,
+                (int) $currencyId,
+                $dateFromSearch,
+                $dateToSearch,
+                $companyId
+            );
+            $crVal = (string) ($crPack['value'] ?? '0');
+
+            $periodTotal = dashboardMoneyAdd($periodTotal, dashboardMoneyAdd($wlVal, $crVal));
+        }
+    }
+
+    $dailyData = dashboardBuildExpensesDailyData(
+        $pdo,
+        $companyId,
+        $scopeIds,
+        array_keys($accountMap),
+        $dateFrom,
+        $dateTo,
+        $currencyIds,
+        $hasTransactionCurrency
+    );
+
+    return [
+        'role' => 'EXPENSES',
+        'total_balance' => dashboardOut(dashboardMoneyAdd($bfTotal, $periodTotal)),
+        'initial_balance' => dashboardOut($bfTotal),
+        'period_total' => dashboardOut($periodTotal),
+        'daily_data' => dashboardOutMap($dailyData),
+    ];
+}
+
+/**
+ * @param int[] $scopeCompanyIds
+ * @param int[] $accountIds
+ * @param int[] $currencyIds
+ * @return array<string, string>
+ */
+function dashboardBuildExpensesDailyData(
+    PDO $pdo,
+    int $ledgerCompanyId,
+    array $scopeCompanyIds,
+    array $accountIds,
+    string $dateFrom,
+    string $dateTo,
+    array $currencyIds,
+    bool $hasTransactionCurrency
+): array {
+    if ($accountIds === [] || $currencyIds === []) {
+        return [];
+    }
+
+    list($dateFromSearch, $dateToSearch) = dashboardNormalizeSearchRange($dateFrom, $dateTo);
+    $captureCompanyIds = dashboardCaptureCompanyIdsForRole('EXPENSES', $ledgerCompanyId, $scopeCompanyIds);
+    $dailyData = [];
+    $idsPlaceholder = implode(',', array_fill(0, count($accountIds), '?'));
+    $capPlaceholder = implode(',', array_fill(0, count($captureCompanyIds), '?'));
+
+    list($currency_filter_dcd, $currency_params_dcd) = dashboardCaptureCurrencyFilterByIds($currencyIds);
+    list($currency_filter_t_to, $currency_params_t_to) = dashboardTransactionCurrencyFilterByIds(
+        $currencyIds,
+        'account_id',
+        $captureCompanyIds
+    );
+    list($currency_filter_t_from, $currency_params_t_from) = dashboardTransactionCurrencyFilterByIds(
+        $currencyIds,
+        'from_account_id',
+        $captureCompanyIds
+    );
+    list($currency_filter_e, $currency_params_e) = dashboardEntryCurrencyFilterByIds($currencyIds);
+
+    $sql = "SELECT DATE(dc.capture_date) AS date,
+                   COALESCE(SUM(dcd.processed_amount), 0) AS win_loss
+            FROM data_capture_details dcd
+            JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE dc.company_id IN ($capPlaceholder)
+              AND dcd.company_id IN ($capPlaceholder)
+              AND dcd.account_id IN ($idsPlaceholder)
+              AND dc.capture_date BETWEEN ? AND ?" . $currency_filter_dcd . "
+            GROUP BY DATE(dc.capture_date)
+            ORDER BY DATE(dc.capture_date)";
+    $dailyStmt = $pdo->prepare($sql);
+    $dailyStmt->execute(array_merge(
+        $captureCompanyIds,
+        $captureCompanyIds,
+        $accountIds,
+        [$dateFromSearch, $dateToSearch],
+        $currency_params_dcd
+    ));
+    foreach ($dailyStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        dashboardAddDailyAmount($dailyData, (string) $row['date'], $row['win_loss'] ?? '0');
+    }
+
+    if (!$hasTransactionCurrency) {
+        return $dailyData;
+    }
+
+    $contraApproval = dashboardContraApprovedWhere($pdo, 't');
+    $bfTxnTypes = "('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE', 'ADJUSTMENT')";
+    $dailyFromTxnTypes = "('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE', 'WIN', 'LOSE')";
+    $manualDesc = dashboardManualProfitDescSql('t');
+
+    $sql = "SELECT DATE(t.transaction_date) AS date,
+                   COALESCE(SUM(CASE 
+                       WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
+                       WHEN transaction_type = 'CONTRA' THEN -t.amount
+                       WHEN transaction_type = 'CLEAR' THEN -t.amount
+                       WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
+                       WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                       WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
+                       WHEN transaction_type = 'PAYMENT' THEN -t.amount
+                       WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
+                       WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
+                       WHEN t.transaction_type = 'WIN' AND {$manualDesc} THEN -t.amount
+                       WHEN t.transaction_type = 'LOSE' AND {$manualDesc} THEN t.amount
+                       WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
+                       ELSE 0
+                   END), 0) AS cr_dr
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.account_id IN ($idsPlaceholder)
+              AND t.transaction_date BETWEEN ? AND ?
+              AND t.transaction_type IN $bfTxnTypes" . $currency_filter_t_to . $contraApproval . "
+            GROUP BY DATE(t.transaction_date)
+            ORDER BY DATE(t.transaction_date)";
+    $dailyStmt = $pdo->prepare($sql);
+    $dailyStmt->execute(array_merge(
+        [$ledgerCompanyId],
+        $accountIds,
+        [$dateFromSearch, $dateToSearch],
+        $currency_params_t_to
+    ));
+    foreach ($dailyStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        dashboardAddDailyAmount($dailyData, (string) $row['date'], $row['cr_dr'] ?? '0');
+    }
+
+    $fromDomainFilter = "
+              AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_SHARE_COMMISSION|%'
+              AND COALESCE(t.sms, '') NOT LIKE '[DOMAIN_NET_PROFIT|%'";
+    $sql = "SELECT DATE(t.transaction_date) AS date,
+                   COALESCE(SUM(CASE 
+                       WHEN transaction_type = 'CONTRA' THEN t.amount
+                       WHEN transaction_type = 'CLEAR' THEN t.amount
+                       WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
+                       WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                       WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
+                       WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
+                       WHEN t.transaction_type = 'WIN' AND {$manualDesc} THEN t.amount
+                       WHEN t.transaction_type = 'LOSE' AND {$manualDesc} THEN -t.amount
+                       ELSE 0
+                   END), 0) AS cr_dr
+            FROM transactions t
+            WHERE t.company_id = ?
+              AND t.from_account_id IN ($idsPlaceholder)
+              AND t.transaction_date BETWEEN ? AND ?
+              AND t.transaction_type IN $dailyFromTxnTypes" . $currency_filter_t_from . $fromDomainFilter . $contraApproval . "
+            GROUP BY DATE(t.transaction_date)
+            ORDER BY DATE(t.transaction_date)";
+    $dailyStmt = $pdo->prepare($sql);
+    $dailyStmt->execute(array_merge(
+        [$ledgerCompanyId],
+        $accountIds,
+        [$dateFromSearch, $dateToSearch],
+        $currency_params_t_from
+    ));
+    foreach ($dailyStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        dashboardAddDailyAmount($dailyData, (string) $row['date'], $row['cr_dr'] ?? '0');
+    }
+
+    try {
+        if (dashboardHasTransactionEntry($pdo)) {
+            $sql = "SELECT DATE(h.transaction_date) AS date,
+                           COALESCE(SUM(CASE
+                               WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+                               WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+                               WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
+                               ELSE e.amount
+                           END), 0) AS rate_delta
+                    FROM transaction_entry e
+                    JOIN transactions h ON e.header_id = h.id
+                    WHERE h.company_id = ?
+                      AND e.company_id = ?
+                      AND e.account_id IN ($idsPlaceholder)
+                      AND h.transaction_date BETWEEN ? AND ?" . $currency_filter_e . "
+                    GROUP BY DATE(h.transaction_date)";
+            $dailyStmt = $pdo->prepare($sql);
+            $dailyStmt->execute(array_merge(
+                [$ledgerCompanyId, $ledgerCompanyId],
+                $accountIds,
+                [$dateFromSearch, $dateToSearch],
+                $currency_params_e
+            ));
+            foreach ($dailyStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                dashboardAddDailyAmount($dailyData, (string) $row['date'], $row['rate_delta'] ?? '0');
+            }
+        }
+    } catch (Throwable $e) {
+    }
+
+    return $dailyData;
 }
 
 function dashboard_api_main(): void
@@ -1039,6 +1473,19 @@ try {
     }
 
     foreach ($roles as $role) {
+        if ($role === 'EXPENSES') {
+            $result['expenses'] = dashboardSummarizeExpensesViaSearch(
+                $pdo,
+                $company_id,
+                $date_from,
+                $date_to,
+                $filter_currency_code,
+                $viewGroupCodeForScope,
+                $hasTransactionCurrency
+            );
+            continue;
+        }
+
         $excludeClear = dashboardShouldExcludeClearForRole($role);
         $scopeCompanyIds = dashboardResolveRoleScopeCompanyIds($pdo, $company_id, $role, $viewGroupCodeForScope);
 
@@ -1795,386 +2242,4 @@ function calculateProfitPaymentDailyFlow(
     }
 
     return $daily;
-}
-
-/**
- * 按 Currency 计算 B/F (Balance Forward)
- * 与 Transaction Search API 一致：Data Capture 按 dcd.currency_id；B/F 含 RATE 从 transaction_entry
- * @param bool|null $has_transaction_currency 若已缓存可传入，避免重复 SHOW COLUMNS
- */
-function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $has_transaction_currency = null, bool $exclude_clear = false)
-{
-    $bf = dashboardMoneyZero();
-
-    // 1. 计算起始日期之前所有 Data Capture 的累计金额（按 Edit Formula 的 dcd.currency_id 过滤，与 Transaction 页一致）
-    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
-            FROM data_capture_details dcd
-            JOIN data_captures dc ON dcd.capture_id = dc.id
-            WHERE dcd.company_id = ?
-              AND dc.company_id = ?
-              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dcd.currency_id = ?
-              AND dc.capture_date < ?";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
-    $bf = dashboardMoneyAdd($bf, $stmt->fetchColumn());
-
-    // 2. 计算起始日期之前所有 Cr/Dr（作为 To Account：PAYMENT/RECEIVE/CONTRA/CLEAR/CLAIM/WIN/LOSE；RATE 单独从 transaction_entry）
-    if ($has_transaction_currency === null) {
-        $has_transaction_currency = dashboardHasTransactionCurrency($pdo);
-    }
-    if ($has_transaction_currency) {
-        $clearFilter = $exclude_clear ? " AND transaction_type <> 'CLEAR'" : "";
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
-                        WHEN transaction_type = 'CONTRA' THEN amount
-                        WHEN transaction_type = 'CLEAR' THEN -amount
-                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN amount
-                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN amount
-                        WHEN transaction_type = 'PAYMENT' THEN -amount
-                        WHEN transaction_type = 'WIN' AND (description LIKE 'Process: %') THEN amount
-                        WHEN transaction_type = 'LOSE' AND (description LIKE 'Process: %') THEN -amount
-                        WHEN transaction_type = 'WIN' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN -amount
-                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE 'Process: %' OR description IS NULL) THEN amount
-                        WHEN transaction_type = 'ADJUSTMENT' THEN amount
-                        ELSE 0
-                    END), 0) as cr_dr
-                FROM transactions
-                WHERE company_id = ?
-                  AND account_id = ?
-                  AND currency_id = ?
-                  AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE', 'ADJUSTMENT')"
-            . $clearFilter
-            . dashboardContraApprovedWhere($pdo, '');
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
-        $bf = dashboardMoneyAdd($bf, $stmt->fetchColumn());
-
-        // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account）
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN transaction_type = 'PAYMENT' AND (sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -amount
-                        WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN amount
-                        WHEN transaction_type IN ('CONTRA', 'CLEAR') THEN amount
-                        ELSE 0
-                    END), 0) as cr_dr
-                FROM transactions
-                WHERE company_id = ?
-                  AND from_account_id = ?
-                  AND currency_id = ?
-                  AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
-            . $clearFilter
-            . dashboardContraApprovedWhere($pdo, '');
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
-        $bf = dashboardMoneyAdd($bf, $stmt->fetchColumn());
-    }
-
-    // 4. 起始日期之前的 RATE 从 transaction_entry 计算（与 Transaction Search API 一致）
-    try {
-        if (dashboardHasTransactionEntry($pdo)) {
-            $rateStmt = $pdo->prepare("
-                SELECT COALESCE(SUM(CASE
-                  WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
-                  WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-                  WHEN e.entry_type = 'RATE_MIDDLEMAN' THEN e.amount
-                  ELSE e.amount
-                END), 0) AS total
-                FROM transaction_entry e
-                JOIN transactions h ON e.header_id = h.id
-                WHERE h.company_id = ?
-                  AND e.company_id = ?
-                  AND h.transaction_type = 'RATE'
-                  AND e.account_id = ?
-                  AND e.currency_id = ?
-                  AND h.transaction_date < ?
-            ");
-            $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
-            $bf = dashboardMoneyAdd($bf, $rateStmt->fetchColumn());
-        }
-    } catch (Throwable $e) {
-        // 忽略
-    }
-
-    return $bf;
-}
-
-/**
- * 按 Currency 计算 Win/Loss
- * 与 Transaction Search API 一致：Data Capture（dcd.currency_id）
- * + 所有 Bank Process 的 WIN/LOSE（description 以 Process: 开头）
- * + RATE Middle-Man 手续费（RATE_MIDDLEMAN）
- */
-function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id)
-{
-    $win_loss = dashboardMoneyZero();
-
-    // 1. 日期范围内的 Data Capture（按 dcd.currency_id 过滤）
-    $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
-            FROM data_capture_details dcd
-            JOIN data_captures dc ON dcd.capture_id = dc.id
-            WHERE dcd.company_id = ?
-              AND dc.company_id = ?
-              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dcd.currency_id = ?
-              AND dc.capture_date BETWEEN ? AND ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
-    $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());
-
-    // 2. 所有 Bank Process 的 WIN/LOSE（description 以 Process: 开头，与 Transaction 页一致）
-    if (dashboardHasTransactionCurrency($pdo)) {
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
-                FROM transactions
-                WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
-                  AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
-                  AND (description LIKE 'Process: %')";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
-        $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());
-
-        // 3. 手动 PROFIT（WIN/LOSE，与 Transaction List calculateWinLossByCurrency 一致）
-        $manualDesc = dashboardManualProfitDescSql('t');
-        $sql = "SELECT COALESCE(SUM(CASE
-                    WHEN t.transaction_type = 'WIN' AND {$manualDesc} THEN -t.amount
-                    WHEN t.transaction_type = 'LOSE' AND {$manualDesc} THEN t.amount
-                    ELSE 0 END), 0) as total
-                FROM transactions t
-                WHERE t.company_id = ? AND t.account_id = ? AND t.transaction_date BETWEEN ? AND ?
-                  AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')"
-            . dashboardContraApprovedWhere($pdo, 't');
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
-        $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());
-
-        $sql = "SELECT COALESCE(SUM(CASE
-                    WHEN t.transaction_type = 'WIN' AND {$manualDesc} THEN t.amount
-                    WHEN t.transaction_type = 'LOSE' AND {$manualDesc} THEN -t.amount
-                    ELSE 0 END), 0) as total
-                FROM transactions t
-                WHERE t.company_id = ? AND t.from_account_id = ? AND t.transaction_date BETWEEN ? AND ?
-                  AND t.currency_id = ? AND t.transaction_type IN ('WIN', 'LOSE')
-                  AND t.from_account_id IS NOT NULL"
-            . dashboardContraApprovedWhere($pdo, 't');
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
-        $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());
-
-        $sql = "SELECT COALESCE(SUM(amount), 0) as total
-                FROM transactions
-                WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
-                  AND currency_id = ? AND transaction_type = 'ADJUSTMENT'"
-            . dashboardContraApprovedWhere($pdo, '');
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
-        $win_loss = dashboardMoneyAdd($win_loss, $stmt->fetchColumn());
-
-        try {
-            if (dashboardHasTransactionEntry($pdo)) {
-                $rateStmt = $pdo->prepare("
-                    SELECT COALESCE(SUM(e.amount), 0) AS total
-                    FROM transaction_entry e
-                    JOIN transactions h ON e.header_id = h.id
-                    WHERE h.company_id = ?
-                      AND e.company_id = ?
-                      AND h.transaction_type = 'RATE'
-                      AND e.entry_type = 'RATE_MIDDLEMAN'
-                      AND e.account_id = ?
-                      AND e.currency_id = ?
-                      AND h.transaction_date BETWEEN ? AND ?
-                ");
-                $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
-                $win_loss = dashboardMoneyAdd($win_loss, $rateStmt->fetchColumn());
-            }
-        } catch (Throwable $e) {
-            // 忽略
-        }
-    }
-
-    return $win_loss;
-}
-
-/**
- * 按 Currency 计算 Cr/Dr
- * 与 Transaction Search API 一致：PAYMENT/RECEIVE/CONTRA/CLAIM + WIN/LOSE 中非 Bank Process 的（Process: 在 Win/Loss）；RATE 从 transaction_entry
- * @param bool|null $has_transaction_currency 若已缓存可传入，避免重复 SHOW COLUMNS
- */
-function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $has_transaction_currency = null, bool $exclude_clear = false)
-{
-    $cr_dr = dashboardMoneyZero();
-    $has_transactions = false;
-
-    if ($has_transaction_currency === null) {
-        $has_transaction_currency = dashboardHasTransactionCurrency($pdo);
-    }
-
-    if ($has_transaction_currency) {
-        // 新环境（有 currency_id 字段）：逻辑与 search_api.php 保持一致
-        $clearFilter = $exclude_clear ? " AND t.transaction_type <> 'CLEAR'" : "";
-        $sql = "
-            SELECT
-                COALESCE(SUM(
-                    CASE
-                        -- 作为 To Account（收到 / 支付）；CONTRA 时 TO 显示负数
-                        WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN -t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN -t.amount
-
-                        -- 作为 From Account（支付 / 收到）；CONTRA 时 FROM 显示正数
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN t.amount
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CLEAR' THEN t.amount
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type = 'CONTRA' THEN t.amount
-                        WHEN t.from_account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CLAIM') THEN t.amount
-
-                        ELSE 0
-                    END
-                ), 0) AS cr_dr,
-                COUNT(*) AS txn_count
-            FROM transactions t
-            WHERE t.company_id = :company_id
-              AND t.transaction_date BETWEEN :date_from AND :date_to
-              AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
-              AND t.currency_id = :currency_id
-              AND (t.account_id = :acc_id OR t.from_account_id = :acc_id)
-              " . $clearFilter . "
-              " . dashboardContraApprovedWhere($pdo, 't') . "
-        ";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            ':company_id' => $company_id,
-            ':date_from' => $date_from,
-            ':date_to' => $date_to,
-            ':currency_id' => $currency_id,
-            ':acc_id' => $account_id,
-        ]);
-
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $cr_dr = dashboardMoneyAdd($cr_dr, $row['cr_dr'] ?? '0');
-        $txn_count = (int) ($row['txn_count'] ?? 0);
-        $has_transactions = $txn_count > 0;
-
-        // 本期 RATE 从 transaction_entry 计算（与 Transaction Search API 一致）
-        // RATE_MIDDLEMAN 已归类到 Win/Loss，这里只保留其余 RATE 分录在 Cr/Dr
-        try {
-            if (dashboardHasTransactionEntry($pdo)) {
-                $rateStmt = $pdo->prepare("
-                    SELECT COALESCE(SUM(CASE
-                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
-                      WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-                      ELSE e.amount
-                    END), 0) AS total
-                    FROM transaction_entry e
-                    JOIN transactions h ON e.header_id = h.id
-                    WHERE h.company_id = ?
-                      AND e.company_id = ?
-                      AND h.transaction_type = 'RATE'
-                      AND e.account_id = ?
-                      AND e.currency_id = ?
-                      AND h.transaction_date BETWEEN ? AND ?
-                      AND e.entry_type <> 'RATE_MIDDLEMAN'
-                ");
-                $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
-                $cr_dr = dashboardMoneyAdd($cr_dr, $rateStmt->fetchColumn());
-            }
-        } catch (Throwable $e) {
-            // 忽略
-        }
-    } else {
-        // 旧环境（没有 currency_id 字段）：沿用 search_api.php 的旧逻辑
-        $clearFilter = $exclude_clear ? " AND transaction_type <> 'CLEAR'" : "";
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'CLEAR' THEN -t.amount
-                        WHEN transaction_type = 'CONTRA' THEN -t.amount
-                        WHEN transaction_type = 'PAYMENT' THEN -t.amount
-                        ELSE 0
-                    END), 0) as cr_dr,
-                    COUNT(*) as txn_count
-                FROM transactions t
-                WHERE t.company_id = ?
-                  AND t.account_id = ?
-                  AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
-            . $clearFilter
-            . dashboardContraApprovedWhere($pdo, 't');
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $date_to]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $cr_dr = dashboardMoneyAdd($cr_dr, $row['cr_dr'] ?? '0');
-        $txn_count = (int) ($row['txn_count'] ?? 0);
-        $has_transactions = $txn_count > 0;
-
-        // From Account（旧逻辑）；CONTRA 时 FROM 显示正数
-        $sql = "SELECT 
-                    COALESCE(SUM(CASE 
-                        WHEN transaction_type = 'PAYMENT' THEN t.amount
-                        WHEN transaction_type = 'CLEAR' THEN t.amount
-                        WHEN transaction_type = 'CONTRA' THEN t.amount
-                        WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN t.amount
-                        ELSE 0
-                    END), 0) as cr_dr,
-                    COUNT(*) as txn_count
-                FROM transactions t
-                WHERE t.company_id = ?
-                  AND t.from_account_id = ?
-                  AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')"
-            . $clearFilter
-            . dashboardContraApprovedWhere($pdo, 't');
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $date_to]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $cr_dr = dashboardMoneyAdd($cr_dr, $row['cr_dr'] ?? '0');
-        $txn_count += (int) ($row['txn_count'] ?? 0);
-        $has_transactions = $has_transactions || $txn_count > 0;
-
-        // RATE 分录（旧环境也从 transaction_entry 计算）
-        // RATE_MIDDLEMAN 已归类到 Win/Loss，这里只保留其余 RATE 分录在 Cr/Dr
-        try {
-            if (dashboardHasTransactionEntry($pdo)) {
-                $rateStmt = $pdo->prepare("
-                    SELECT COALESCE(SUM(CASE
-                      WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
-                      WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
-                      ELSE e.amount
-                    END), 0) AS total
-                    FROM transaction_entry e
-                    JOIN transactions h ON e.header_id = h.id
-                    WHERE h.company_id = ?
-                      AND e.company_id = ?
-                      AND h.transaction_type = 'RATE'
-                      AND e.account_id = ?
-                      AND e.currency_id = ?
-                      AND h.transaction_date BETWEEN ? AND ?
-                      AND e.entry_type <> 'RATE_MIDDLEMAN'
-                ");
-                $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
-                $cr_dr = dashboardMoneyAdd($cr_dr, $rateStmt->fetchColumn());
-            }
-        } catch (Throwable $e) {
-            // 忽略
-        }
-    }
-
-    return ['value' => $cr_dr, 'has_transactions' => $has_transactions];
 }
