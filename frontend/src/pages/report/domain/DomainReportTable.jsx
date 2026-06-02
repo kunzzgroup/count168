@@ -93,8 +93,8 @@ export default function DomainReportTable({ reportData, reportSyncing = false, e
               <div className="domain-report-card-item">{cellUpperOrDash(item.company_id)}</div>
               <div className="domain-report-card-item">{cellUpperOrDash(item.currency)}</div>
               <div className="domain-report-card-item domain-report-amount"><strong>{formatAmount(item.turnover)}</strong></div>
-              <div className="domain-report-card-item domain-report-amount"><strong>{formatAmount(item.win)}</strong></div>
-              <div className="domain-report-card-item domain-report-amount"><strong>{formatAmount(item.lose)}</strong></div>
+              <div className="domain-report-card-item domain-report-amount win"><strong>{formatAmount(item.win)}</strong></div>
+              <div className="domain-report-card-item domain-report-amount lose"><strong>{formatAmount(item.lose)}</strong></div>
               <div className={`domain-report-card-item domain-report-amount ${winLoseClass}`}><strong>{formatAmount(item.win_lose)}</strong></div>
             </div>
           );
@@ -105,8 +105,8 @@ export default function DomainReportTable({ reportData, reportSyncing = false, e
         <div className="domain-report-total" style={{ display: "grid" }}>
           <div className="domain-report-total-label">{t("total")}</div>
           <div className="domain-report-amount"><strong>{formatAmount(totals.turnover)}</strong></div>
-          <div className="domain-report-amount"><strong>{formatAmount(totals.win)}</strong></div>
-          <div className="domain-report-amount"><strong>{formatAmount(totals.lose)}</strong></div>
+          <div className="domain-report-amount win"><strong>{formatAmount(totals.win)}</strong></div>
+          <div className="domain-report-amount lose"><strong>{formatAmount(totals.lose)}</strong></div>
           <div className={`domain-report-amount ${parseFloat(totals.win_lose || 0) > 0 ? "domain-report-win-lose-positive" : (parseFloat(totals.win_lose || 0) < 0 ? "domain-report-win-lose-negative" : "")}`}>
             <strong>{formatAmount(totals.win_lose)}</strong>
           </div>

@@ -1468,6 +1468,22 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     font-weight: var(--font-weight-bold);
 }
 
+.transaction-page .transaction-amount {
+    font-variant-numeric: tabular-nums;
+}
+
+.transaction-page .transaction-amount--pos {
+    color: #0b2557;
+}
+
+.transaction-page .transaction-amount--neg {
+    color: #b91c1c;
+}
+
+.transaction-page .transaction-table tbody .transaction-table-row.transaction-alert-row .transaction-amount {
+    color: white !important;
+}
+
 .transaction-page .transaction-table-row:hover td {
     background-color: #bfc9ff;
 }

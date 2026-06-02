@@ -239,13 +239,23 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
     font-weight: 500;
 }
 
+.domain-report-card-item.domain-report-amount.win,
+.domain-report-total .domain-report-amount.win {
+    color: #0b2557;
+}
+
+.domain-report-card-item.domain-report-amount.lose,
+.domain-report-total .domain-report-amount.lose {
+    color: #b91c1c;
+}
+
 .domain-report-win-lose-positive {
-    color: #10b981;
+    color: #0b2557;
     /* font-weight: bold; */
 }
 
 .domain-report-win-lose-negative {
-    color: #DC143C;
+    color: #b91c1c;
     /* font-weight: bold; */
 }
 

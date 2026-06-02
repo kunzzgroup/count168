@@ -403,10 +403,12 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
     justify-content: flex-end;
 }
 
+.customer-report-card-item.customer-report-amount.win,
 .customer-report-amount.win {
-    color: #1c49a1;
+    color: #0b2557;
 }
 
+.customer-report-card-item.customer-report-amount.lose,
 .customer-report-amount.lose {
     color: #b91c1c;
 }
