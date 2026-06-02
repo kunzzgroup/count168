@@ -1,6 +1,67 @@
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { normalizeRows } from "./processListHelpers.js";
 
+/** Games process list row + currency pill payload (company switch cache / hover warm). */
+export async function fetchGamesProcessListSlice(
+  companyId,
+  { search = "", showInactive = false, showAll = false, signal } = {},
+) {
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) {
+    return { rows: null, currencyCodes: null };
+  }
+
+  const listUrl = new URL(buildApiUrl("api/processes/processlist_api.php"));
+  listUrl.searchParams.set("permission", "Games");
+  listUrl.searchParams.set("company_id", String(cid));
+  const q = String(search || "").trim();
+  if (q) listUrl.searchParams.set("search", q);
+  if (showInactive) listUrl.searchParams.set("showInactive", "1");
+  if (showAll) listUrl.searchParams.set("showAll", "1");
+
+  const curUrl = buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`);
+  const ordUrl = buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`);
+
+  try {
+    const fetchOpts = { credentials: "include", signal };
+    const [listRes, curRes, ordRes] = await Promise.all([
+      fetch(listUrl.toString(), fetchOpts),
+      fetch(curUrl, fetchOpts),
+      fetch(ordUrl, fetchOpts).catch(() => null),
+    ]);
+    const listJson = await listRes.json();
+    const curJson = await curRes.json();
+
+    const rows =
+      listRes.ok && listJson?.success && Array.isArray(listJson.data) ? normalizeRows(listJson.data) : null;
+
+    let currencyCodes = null;
+    if (curRes.ok && curJson?.success && Array.isArray(curJson.data)) {
+      let codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      if (ordRes) {
+        try {
+          const ordJson = await ordRes.json();
+          const order = ordJson?.data?.order;
+          if (Array.isArray(order) && order.length) {
+            const set = new Set(codes);
+            const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
+            const rest = codes.filter((c) => !ordered.includes(c));
+            codes = [...ordered, ...rest];
+          }
+        } catch {
+          /* optional order */
+        }
+      }
+      currencyCodes = codes;
+    }
+
+    return { rows, currencyCodes };
+  } catch (err) {
+    if (err?.name === "AbortError") throw err;
+    return { rows: null, currencyCodes: null };
+  }
+}
+
 /** Warm Bank Process List data before route swap (Games → Bank). */
 export async function prefetchBankProcessListPayload(companyId) {
   const cid = Number(companyId);
@@ -38,26 +99,18 @@ export async function prefetchBankProcessListPayload(companyId) {
 /** Warm Games Process List data before route swap (Bank → Games). */
 export async function prefetchGamesProcessListPayload(companyId) {
   const cid = Number(companyId);
-  if (!cid) return { rows: null, meta: null };
-
-  const listUrl = new URL(buildApiUrl("api/processes/processlist_api.php"));
-  listUrl.searchParams.set("permission", "Games");
-  listUrl.searchParams.set("company_id", String(cid));
+  if (!cid) return { rows: null, meta: null, currencyCodes: null };
 
   const metaUrl = new URL(buildApiUrl("api/processes/addprocess_api.php"));
   metaUrl.searchParams.set("company_id", String(cid));
 
   try {
-    const [listRes, metaRes] = await Promise.all([
-      fetch(listUrl.toString(), { credentials: "include" }),
+    const [slice, metaRes] = await Promise.all([
+      fetchGamesProcessListSlice(cid),
       fetch(metaUrl.toString(), { credentials: "include" }),
     ]);
-    const listJson = await listRes.json();
     const metaJson = await metaRes.json();
     const metaData = metaJson?.data || metaJson || {};
-
-    const rows =
-      listRes.ok && listJson?.success && Array.isArray(listJson.data) ? normalizeRows(listJson.data) : null;
 
     const meta = {
       currencies: Array.isArray(metaData.currencies) ? metaData.currencies : [],
@@ -66,8 +119,8 @@ export async function prefetchGamesProcessListPayload(companyId) {
       existingProcesses: Array.isArray(metaData.existingProcesses) ? metaData.existingProcesses : [],
     };
 
-    return { rows, meta };
+    return { rows: slice.rows, meta, currencyCodes: slice.currencyCodes };
   } catch {
-    return { rows: null, meta: null };
+    return { rows: null, meta: null, currencyCodes: null };
   }
 }
