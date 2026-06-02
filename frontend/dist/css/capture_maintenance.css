@@ -1290,6 +1290,16 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     }
 }
 
+/* Filter panel: same width alignment as Transaction Maintenance */
+.capture-maintenance-page-root .customer-report-filter-container,
+.capture-maintenance-page-root .capture-maintenance-table-region {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
 /* Virtual table (aligned with payment maintenance) */
 .capture-maintenance-page-root {
     --capture-list-cell-padding-y: clamp(4px, 0.5vw, 8px);

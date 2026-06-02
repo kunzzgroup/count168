@@ -1135,9 +1135,23 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-panel-card--summary {
+    --summary-font: var(--font-heading-page);
+    --summary-text-primary: #111827;
+    --summary-text-secondary: #6b7280;
+    --summary-text-muted: #64748b;
+    --summary-size-caption: clamp(11px, 0.78vw, 12px);
+    --summary-size-body: clamp(12px, 0.85vw, 14px);
+    --summary-size-hero: clamp(24px, 1.85vw, 32px);
+    --summary-size-pie-pct: clamp(22px, 1.65vw, 28px);
+    font-family: var(--summary-font);
     gap: clamp(8px, 0.65vw, 12px);
     padding: clamp(14px, 1.1vw, 18px) clamp(16px, 1.2vw, 20px);
     overflow: visible;
+}
+
+.dashboard-panel-card--summary .dashboard-summary-layout,
+.dashboard-panel-card--summary .dashboard-summary-rate-footnote {
+    font-family: var(--summary-font);
 }
 
 .dashboard-summary-hero {
@@ -1225,19 +1239,19 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-hero-caption {
-    font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
-    font-weight: 500;
-    color: var(--color-muted-fg, #6b7280);
-    font-family: var(--font-heading-page);
-    letter-spacing: 0.02em;
+    font-size: var(--summary-size-caption);
+    font-weight: 600;
+    color: var(--summary-text-secondary);
+    font-family: var(--summary-font);
+    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
 .dashboard-summary-hero-value {
-    font-size: clamp(24px, 1.85vw, 32px);
+    font-size: var(--summary-size-hero);
     font-weight: 700;
-    color: var(--color-text-ink-strong, #111827);
-    font-family: var(--font-heading-page);
+    color: var(--summary-text-primary);
+    font-family: var(--summary-font);
     line-height: 1.1;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
@@ -1245,10 +1259,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-summary-hero-conversion-note {
     margin-top: 2px;
-    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
-    font-weight: 400;
-    color: var(--color-text-caption, #64748b);
-    font-family: var(--font-ui);
+    font-size: var(--summary-size-caption);
+    font-weight: 500;
+    color: var(--summary-text-muted);
+    font-family: var(--summary-font);
     line-height: 1.3;
 }
 
@@ -1321,30 +1335,30 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-pie-center-pct {
-    font-size: clamp(22px, 1.65vw, 28px);
+    font-size: var(--summary-size-pie-pct);
     font-weight: 700;
-    color: var(--scd-title, #002c49);
-    font-family: var(--font-heading-page);
+    color: var(--summary-text-primary);
+    font-family: var(--summary-font);
     line-height: 1.05;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
 }
 
 .dashboard-summary-pie-center-code {
-    font-size: clamp(11px, 0.82vw, 13px);
+    font-size: var(--summary-size-caption);
     font-weight: 600;
-    color: var(--color-muted-fg, #6b7280);
-    font-family: var(--font-heading-page);
-    letter-spacing: 0.08em;
+    color: var(--summary-text-secondary);
+    font-family: var(--summary-font);
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     line-height: 1.2;
 }
 
 .dashboard-summary-pie-center-caption {
-    font-size: clamp(10px, 0.72vw, 11px);
+    font-size: var(--summary-size-caption);
     font-weight: 500;
-    color: #94a3b8;
-    font-family: var(--font-ui, inherit);
+    color: var(--summary-text-muted);
+    font-family: var(--summary-font);
     line-height: 1.25;
     letter-spacing: 0.01em;
 }
@@ -1442,9 +1456,9 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     background: var(--color-surface, #ffffff);
     border: 1px solid var(--color-border, #e5e7eb);
     box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
-    font-family: var(--font-ui);
-    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
-    color: var(--color-body-strong, #1f2937);
+    font-family: var(--summary-font, var(--font-heading-page));
+    font-size: var(--summary-size-caption);
+    color: var(--summary-text-primary, #111827);
     line-height: 1.35;
     white-space: nowrap;
 }
@@ -1501,30 +1515,30 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-pie-tooltip-label {
-    font-weight: var(--font-weight-semibold, 600);
-    color: var(--color-heading, #002c49);
+    font-weight: 600;
+    color: var(--summary-text-primary, #111827);
     margin-bottom: 2px;
 }
 
 .dashboard-summary-pie-tooltip-value {
     font-weight: 600;
-    color: var(--color-text-ink-strong, #111827);
+    color: var(--summary-text-primary, #111827);
     font-variant-numeric: tabular-nums;
 }
 
 .dashboard-summary-pie-tooltip-converted {
     margin-top: 1px;
-    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
-    font-weight: 400;
-    color: var(--color-text-caption, #64748b);
+    font-size: var(--summary-size-caption);
+    font-weight: 500;
+    color: var(--summary-text-muted, #64748b);
     font-variant-numeric: tabular-nums;
 }
 
 .dashboard-summary-pie-tooltip-pct {
     margin-top: 2px;
-    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
-    font-weight: 600;
-    color: var(--color-text-caption, #64748b);
+    font-size: var(--summary-size-caption);
+    font-weight: 500;
+    color: var(--summary-text-muted, #64748b);
     font-variant-numeric: tabular-nums;
 }
 
@@ -1559,11 +1573,11 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-list-head span {
-    font-size: var(--text-tiny, clamp(11px, 0.78vw, 13px));
-    font-weight: 500;
-    color: var(--color-muted-fg, #6b7280);
-    font-family: var(--font-heading-page);
-    letter-spacing: 0.02em;
+    font-size: var(--summary-size-caption);
+    font-weight: 600;
+    color: var(--summary-text-secondary);
+    font-family: var(--summary-font);
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     white-space: nowrap;
 }
@@ -1589,7 +1603,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     column-gap: 10px;
     padding: 6px 8px;
     border-radius: var(--radius-panel, 8px);
-    font-family: var(--font-heading-page);
+    font-family: var(--summary-font);
     border-left: none;
     background: transparent;
     transition: background-color var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
@@ -1604,7 +1618,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-row.is-active .dashboard-summary-currency-code {
-    color: var(--color-text-ink-strong, #111827);
+    color: var(--summary-text-primary);
     font-weight: 700;
 }
 
@@ -1623,10 +1637,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-code {
-    font-size: clamp(12px, 0.82vw, 13px);
+    font-size: var(--summary-size-body);
     font-weight: 600;
-    color: var(--color-text-label, #374151);
-    letter-spacing: 0.03em;
+    color: var(--summary-text-primary);
+    letter-spacing: 0.02em;
     white-space: nowrap;
 }
 
@@ -1643,9 +1657,9 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-amount {
-    font-size: clamp(12px, 0.85vw, 14px);
+    font-size: var(--summary-size-body);
     font-weight: 600;
-    color: var(--color-text-ink-strong, #111827);
+    color: var(--summary-text-primary);
     white-space: nowrap;
     line-height: 1.25;
     font-variant-numeric: tabular-nums;
@@ -1655,10 +1669,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-converted {
-    font-size: var(--text-tiny, clamp(10px, 0.72vw, 12px));
-    font-weight: 400;
-    color: var(--color-text-caption, #64748b);
-    font-family: var(--font-heading-page);
+    font-size: var(--summary-size-caption);
+    font-weight: 500;
+    color: var(--summary-text-muted);
+    font-family: var(--summary-font);
     white-space: nowrap;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
@@ -1668,10 +1682,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-rate {
-    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
-    font-weight: 600;
-    color: var(--color-text-caption, #64748b);
-    font-family: var(--font-heading-page);
+    font-size: var(--summary-size-body);
+    font-weight: 500;
+    color: var(--summary-text-primary);
+    font-family: var(--summary-font);
     text-align: right;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -1684,10 +1698,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-rate-footnote {
     margin-top: 0;
     padding: 5px 8px;
-    font-size: var(--text-tiny, clamp(10px, 0.68vw, 11px));
-    font-weight: 400;
-    color: var(--color-text-caption, #64748b);
-    font-family: var(--font-ui);
+    font-size: var(--summary-size-caption);
+    font-weight: 500;
+    color: var(--summary-text-muted);
+    font-family: var(--summary-font);
     line-height: 1.35;
     background: var(--color-surface-slate-100, #f1f5f9);
     border: 1px solid var(--color-border-slate, #e2e8f0);
