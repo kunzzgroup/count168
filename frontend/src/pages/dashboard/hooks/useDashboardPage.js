@@ -269,8 +269,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   });
 
   const companiesForPicker = useMemo(() => {
-    if (groupsAllMode) return filterCompaniesWithDisplayId(companies);
-    return companiesInGroupList(companies, selectedGroup);
+    let list;
+    if (groupsAllMode) {
+      list = filterCompaniesWithDisplayId(companies);
+    } else {
+      list = companiesInGroupList(companies, selectedGroup);
+    }
+    // Group code (e.g. AP) is already on the GroupID row; hide the matching group-entity company row here.
+    if (selectedGroup && !groupsAllMode) {
+      list = list.filter((c) => !companyRowIsGroupEntity(c, selectedGroup));
+    }
+    return list;
   }, [companies, selectedGroup, groupsAllMode]);
 
   const resolveMergeCompanyList = useCallback(() => {
