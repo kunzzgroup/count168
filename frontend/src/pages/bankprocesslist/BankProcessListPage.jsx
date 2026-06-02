@@ -1,8 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Navigate } from "react-router-dom";
-import { useAuthSession } from "../../context/AuthSessionContext.jsx";
-import { isGroupLogin } from "../../utils/company/loginScope.js";
 import AccountModal from "../../components/AccountModal.jsx";
 import { accountModalOverlayZIndex, processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
 import "../../../public/css/processCSS.css";
@@ -26,7 +23,6 @@ import { bankProcessFrequencyNormalized, normalizeBankProcessStatus } from "./li
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 
 export default function BankProcessListPage() {
-  const { me: authMe, sessionReady } = useAuthSession();
   const {
     navigate,
     location,
@@ -299,10 +295,6 @@ export default function BankProcessListPage() {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [isNarrowToolbar, searchExpanded, search]);
-
-  if (sessionReady && isGroupLogin(authMe)) {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   return (
     <div className="container">

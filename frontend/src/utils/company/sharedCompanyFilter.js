@@ -262,10 +262,10 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId) {
 }
 
 /**
- * Sidebar Process: hidden for group login; also when dashboard group-only (no company), except on process routes.
+ * Sidebar Process: hidden while a group is selected with no company (group-only), except on process routes.
+ * Group login with a subsidiary company selected (e.g. C168) keeps Process visible.
  */
-export function shouldHideSidebarProcess(pathname, me = null) {
-  if (me && isGroupLogin(me)) return true;
+export function shouldHideSidebarProcess(pathname) {
   if (
     pathname === "/process-list" ||
     pathname === "/bank-process-list" ||

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { ensureCrossPageCompanySelection } from "../../utils/company/companySessionSync.js";
 import {
@@ -12,7 +12,6 @@ import {
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
-import { isGroupLogin } from "../../utils/company/loginScope.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { saveUserCurrencyOrder } from "../transaction/lib/transactionApi.js";
@@ -1241,10 +1240,6 @@ export default function ProcessListPage() {
   const onSearchChange = (e) => {
     setSearch(filterSearchInput(e.target.value));
   };
-
-  if (sessionReady && isGroupLogin(sessionMeFromLayout)) {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   return (
     <div className="container">
