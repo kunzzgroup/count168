@@ -19,7 +19,7 @@ import {
   sumConvertedEarnings,
   sumConvertedKpiMetrics,
 } from "../../../utils/dashboard/frankfurterRates.js";
-import { DASHBOARD_API, DASHBOARD_PROFIT_COLOR } from "../lib/dashboardConstants.js";
+import { DASHBOARD_API, DASHBOARD_BOOTSTRAP_API, DASHBOARD_PROFIT_COLOR } from "../lib/dashboardConstants.js";
 import {
   buildChartRows,
   makeDashboardChartXTick,
@@ -608,6 +608,136 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [selectedGroup, companies, i18n]
   );
 
+  const applyDashboardPayloadAdjustments = useCallback(
+    (data, cid, viewGroupOverride) => {
+      if (!data || cid == null) return data;
+      const viewGroup =
+        viewGroupOverride ??
+        (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
+      if (!viewGroup) return data;
+      const gf = String(viewGroup).toUpperCase();
+      const row = companies.find((c) => {
+        if (parseInt(c.id, 10) !== parseInt(cid, 10)) return false;
+        const nativeG = c.group_id ? String(c.group_id).toUpperCase() : "";
+        const linkG = c.link_source_group ? String(c.link_source_group).trim().toUpperCase() : "";
+        return nativeG === gf || linkG === gf;
+      });
+      const pct =
+        row && row.link_percentage !== undefined && row.link_percentage !== null
+          ? parseFloat(row.link_percentage)
+          : NaN;
+      const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
+      if (linkMultiplier !== 1) {
+        return { ...data, _link_multiplier: linkMultiplier };
+      }
+      return data;
+    },
+    [selectedGroup, companies]
+  );
+
+  const seedDashboardPayloadCache = useCallback(
+    (rangeFrom, rangeTo, currencyOverride, data, viewGroupOverride) => {
+      if (!data) return;
+      const cur = currencyOverride ?? currencyCodeRef.current;
+      if (usesGroupLedgerDashboard && selectedGroup) {
+        const vg = String(selectedGroup).trim().toUpperCase();
+        const q = new URLSearchParams({
+          date_from: rangeFrom,
+          date_to: rangeTo,
+          view_group: vg,
+          group_id: vg,
+        });
+        if (cur) q.append("currency", cur);
+        setDashboardPayloadCache(q.toString(), data);
+        return;
+      }
+      if (companyId == null) return;
+      const q = new URLSearchParams({
+        date_from: rangeFrom,
+        date_to: rangeTo,
+        company_id: String(companyId),
+      });
+      if (cur) q.append("currency", cur);
+      const viewGroup =
+        viewGroupOverride ??
+        (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
+      if (viewGroup) q.append("view_group", viewGroup);
+      setDashboardPayloadCache(q.toString(), data);
+    },
+    [companyId, usesGroupLedgerDashboard, selectedGroup]
+  );
+
+  const earningsRowsFromBootstrapEntries = useCallback(
+    (entries) =>
+      (entries || []).map(({ code, payload }) => ({
+        code,
+        earnings: payload
+          ? computeKpiMetrics(
+              applyDashboardPayloadAdjustments(payload, companyId, selectedGroup),
+              selectedGroup
+            )?.earnings ?? 0
+          : 0,
+      })),
+    [applyDashboardPayloadAdjustments, companyId, selectedGroup]
+  );
+
+  const loadDashboardViaBootstrap = useCallback(async () => {
+    const q = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+    });
+    if (usesGroupLedgerDashboard && selectedGroup) {
+      const vg = String(selectedGroup).trim().toUpperCase();
+      q.set("view_group", vg);
+      q.set("group_id", vg);
+    } else if (companyId != null) {
+      q.set("company_id", String(companyId));
+      const vg = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+      if (vg) q.set("view_group", vg);
+    } else {
+      throw new Error(i18n.failedToLoadDashboard);
+    }
+    if (currencyCode) q.set("currency", currencyCode);
+    if (currencies.length > 1) q.set("currencies", currencies.join(","));
+
+    const res = await fetch(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${q}`), {
+      credentials: "include",
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success || !json.data?.current) {
+      throw new Error(json.message || json.error || i18n.dashboardApiError);
+    }
+
+    const current = applyDashboardPayloadAdjustments(json.data.current, companyId, selectedGroup);
+    const previous = json.data.previous
+      ? applyDashboardPayloadAdjustments(json.data.previous, companyId, selectedGroup)
+      : null;
+
+    seedDashboardPayloadCache(dateFrom, dateTo, currencyCode, current);
+    if (previous) {
+      const prevRange = previousPeriodRange(dateFrom, dateTo);
+      seedDashboardPayloadCache(prevRange.from, prevRange.to, currencyCode, previous);
+    }
+
+    const earningsCurrent = earningsRowsFromBootstrapEntries(json.data.earnings?.current);
+    const earningsPrevious = earningsRowsFromBootstrapEntries(json.data.earnings?.previous);
+
+    return { current, previous, earningsCurrent, earningsPrevious };
+  }, [
+    dateFrom,
+    dateTo,
+    usesGroupLedgerDashboard,
+    selectedGroup,
+    companyId,
+    currencyCode,
+    currencies,
+    applyDashboardPayloadAdjustments,
+    seedDashboardPayloadCache,
+    earningsRowsFromBootstrapEntries,
+    i18n.failedToLoadDashboard,
+    i18n.dashboardApiError,
+  ]);
+
   const fetchGroupDashboardPayload = useCallback(
     async (rangeFrom, rangeTo, currencyOverride, groupIdOverride = null) => {
       const q = new URLSearchParams({
@@ -915,6 +1045,43 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     try {
       let current;
       let currentKpi = null;
+      const canUseDashboardBootstrap =
+        !allCurrenciesActive &&
+        !(groupsAllMode && !groupAllMode) &&
+        !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
+        (companyId != null || groupAggregateMode);
+
+      if (canUseDashboardBootstrap) {
+        try {
+          const boot = await loadDashboardViaBootstrap();
+          if (gen !== dashboardFetchGenRef.current) return;
+
+          current = boot.current;
+          setMultiCurrencyKpi(null);
+          setMultiCurrencyKpiPrev(null);
+          setDashboardData(current);
+          setDashboardDataPrev(boot.previous);
+          setDisplayScopeKey(cacheKey);
+          setLoading(false);
+
+          if (boot.earningsCurrent.length > 1) {
+            setEarningsByCurrency(boot.earningsCurrent);
+            setEarningsByCurrencyPrev(boot.earningsPrevious);
+            setEarningsByCurrencyLoading(false);
+          }
+
+          setDashboardCache(cacheKey, {
+            current,
+            previous: boot.previous,
+            earnings: boot.earningsCurrent.length > 1 ? boot.earningsCurrent : cached?.earnings,
+            multiCurrencyKpi: null,
+            multiCurrencyKpiPrev: null,
+          });
+          return;
+        } catch {
+          /* Fall back to legacy per-endpoint loading. */
+        }
+      }
 
       if (allCurrenciesActive) {
         const currentBundle = await loadAllCurrenciesDashboard(dateFrom, dateTo);
@@ -993,10 +1160,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     currencyCode,
     loadMergedDashboard,
     loadAllCurrenciesDashboard,
+    loadDashboardViaBootstrap,
     i18n,
     dashboardScopeKey,
     showAllCurrencies,
     canShowAllCurrencies,
+    groupsAllMode,
+    groupAllMode,
+    mergedSubsetIds,
+    groupAggregateMode,
+    companyId,
+    currencies,
   ]);
 
   useEffect(() => {

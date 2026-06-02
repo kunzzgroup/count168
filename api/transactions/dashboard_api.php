@@ -558,6 +558,8 @@ function dashboardTxnCurrencyFilter(string $accountColumn): string
 // 引入 search_api.php 中的函数（通过定义函数的方式）
 // 注意：这些函数已经在 search_api.php 中定义，但为了独立使用，我们需要重新定义
 
+function dashboard_api_main(): void
+{
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
@@ -717,7 +719,7 @@ try {
                 ]
             ]
         ], JSON_UNESCAPED_UNICODE);
-        exit;
+        return;
     }
 
     // Explicit company_id: standard company dashboard (company_id rows).
@@ -1304,7 +1306,7 @@ try {
                 'to' => $date_to
             ]
         ]
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {
     error_log('dashboard_api: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
@@ -1315,6 +1317,46 @@ try {
         'data' => null,
         'error' => $e->getMessage(),
     ], JSON_UNESCAPED_UNICODE);
+}
+}
+
+/**
+ * Run dashboard_api_main with overridden query params; capture JSON without extra HTTP.
+ *
+ * @return array{success:bool,message?:string,data?:mixed,error?:string}
+ */
+function dashboard_api_capture(array $queryParams): array
+{
+    $backupGet = $_GET;
+    foreach ($queryParams as $key => $value) {
+        if ($value === null || $value === '') {
+            unset($_GET[$key]);
+        } else {
+            $_GET[$key] = (string) $value;
+        }
+    }
+
+    ob_start();
+    dashboard_api_main();
+    $raw = ob_get_clean();
+    $_GET = $backupGet;
+    http_response_code(200);
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return [
+            'success' => false,
+            'message' => 'Invalid dashboard response',
+            'data' => null,
+            'error' => 'Invalid dashboard response',
+        ];
+    }
+
+    return $decoded;
+}
+
+if (!defined('DASHBOARD_API_SKIP_MAIN') || !DASHBOARD_API_SKIP_MAIN) {
+    dashboard_api_main();
 }
 
 /**
