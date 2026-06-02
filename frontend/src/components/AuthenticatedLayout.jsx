@@ -21,6 +21,7 @@ import {
 import {
   applyLoginScopeToSessionStorageIfNeeded,
   clearDashboardFilterSession,
+  clearOwnerCompaniesCache,
   DASHBOARD_GROUP_FILTER_EVENT,
   loadOwnerCompaniesCached,
   shouldHideSidebarProcess,
@@ -432,6 +433,7 @@ export default function AuthenticatedLayout() {
     if (logoutLoading) return;
     setLogoutLoading(true);
     try {
+      sessionStorage.setItem("ec_skip_session_bootstrap", "1");
       await fetch(buildApiUrl("api/session/logout_api.php"), {
         method: "POST",
         credentials: "include",
@@ -441,9 +443,10 @@ export default function AuthenticatedLayout() {
       // Even if request fails, clear client route to login.
     } finally {
       clearDashboardFilterSession();
+      clearOwnerCompaniesCache();
       setLogoutLoading(false);
       setShowLogoutConfirm(false);
-      navigate("/login", { replace: true });
+      window.location.assign(new URL("/login", window.location.origin).href);
     }
   };
   const isProcessPage = path === "/process-list" || path === "/bank-process-list";

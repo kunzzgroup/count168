@@ -281,6 +281,11 @@ export function shouldHideSidebarProcess(pathname) {
 let ownerCompaniesCache = null;
 let ownerCompaniesInflight = null;
 
+export function clearOwnerCompaniesCache() {
+  ownerCompaniesCache = null;
+  ownerCompaniesInflight = null;
+}
+
 function hasOwnerCompaniesCache() {
   return Array.isArray(ownerCompaniesCache) && ownerCompaniesCache.length > 0;
 }

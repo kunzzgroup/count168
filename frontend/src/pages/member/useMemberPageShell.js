@@ -5,6 +5,7 @@ import { MAINTENANCE_I18N } from "../../translateFile/pages/maintenanceTranslate
 import { formatMemberRole, getMemberText } from "../../translateFile/pages/memberTranslate.js";
 import { ensureMaintenanceDateRangePicker } from "../../utils/date/dateRangePicker.js";
 import { useExpirationReminder } from "../../hooks/useExpirationReminder.js";
+import { clearDashboardFilterSession, clearOwnerCompaniesCache } from "../../utils/company/sharedCompanyFilter.js";
 
 function readCookie(name) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -206,13 +207,20 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
     if (logoutLoading) return;
     setLogoutLoading(true);
     try {
-      await fetch(buildApiUrl("api/session/logout_api.php"), { method: "POST", credentials: "include" });
+      sessionStorage.setItem("ec_skip_session_bootstrap", "1");
+      await fetch(buildApiUrl("api/session/logout_api.php"), {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      });
     } finally {
+      clearDashboardFilterSession();
+      clearOwnerCompaniesCache();
       setLogoutLoading(false);
       setShowLogoutConfirm(false);
-      navigate("/login", { replace: true });
+      window.location.assign(new URL("/login", window.location.origin).href);
     }
-  }, [logoutLoading, navigate]);
+  }, [logoutLoading]);
 
   const logoutI18n = useMemo(
     () => ({

@@ -136,6 +136,11 @@ export default function LoginPage() {
   }, [lang]);
 
   useEffect(() => {
+    if (sessionStorage.getItem("ec_skip_session_bootstrap") === "1") {
+      sessionStorage.removeItem("ec_skip_session_bootstrap");
+      return undefined;
+    }
+
     let cancelled = false;
     const controller = new AbortController();
     (async () => {

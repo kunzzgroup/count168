@@ -91,14 +91,16 @@ export default function SecondaryPasswordPage({ variant }) {
 
   const onBack = async () => {
     try {
+      sessionStorage.setItem("ec_skip_session_bootstrap", "1");
       await fetch(buildApiUrl("api/session/logout_api.php"), {
         method: "POST",
         credentials: "include",
+        cache: "no-store",
       });
     } catch {
       // still return to login
     }
-    navigate("/login", { replace: true });
+    window.location.assign(new URL("/login", window.location.origin).href);
   };
 
   const onSubmit = async (e) => {
