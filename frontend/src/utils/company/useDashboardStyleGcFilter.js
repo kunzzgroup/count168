@@ -28,6 +28,8 @@ export function useDashboardStyleGcFilter({
   selectedGroup,
   setSelectedGroup,
   onSelectCompany,
+  /** Sync optimistic UI (set company id, apply cache) before background session sync. */
+  onPrepareCompanySelect,
   onClearCompany,
   switchingCompany = false,
   preferredCompanyId = null,
@@ -95,7 +97,8 @@ export function useDashboardStyleGcFilter({
         persistDashboardFilterState(g, pick.id, { allowGroupOnly: false });
         markAnchorSynced(g, pick.id);
         notifyDashboardGroupFilterChanged(g, pick.id);
-        if (onSelectCompany) await onSelectCompany(pick);
+        if (onPrepareCompanySelect) onPrepareCompanySelect(pick);
+        if (onSelectCompany) void onSelectCompany(pick);
       }
     },
     [
@@ -103,6 +106,7 @@ export function useDashboardStyleGcFilter({
       selectedGroup,
       companies,
       setSelectedGroup,
+      onPrepareCompanySelect,
       onSelectCompany,
       onClearCompany,
       selectFirstCompanyOnGroupChange,
@@ -163,13 +167,15 @@ export function useDashboardStyleGcFilter({
       persistDashboardFilterState(nextGroup, id, { allowGroupOnly });
       markAnchorSynced(nextGroup, id);
       notifyDashboardGroupFilterChanged(nextGroup, id);
-      if (onSelectCompany) await onSelectCompany(c);
+      if (onPrepareCompanySelect) onPrepareCompanySelect(c);
+      if (onSelectCompany) void onSelectCompany(c);
     },
     [
       switchingCompany,
       companyId,
       selectedGroup,
       setSelectedGroup,
+      onPrepareCompanySelect,
       onSelectCompany,
       onClearCompany,
       resetAnchorSessionRef,

@@ -101,6 +101,7 @@ export default function CaptureMaintenancePage() {
   /** 切换公司已手动触发拉数时跳过 useEffect 里下一次重复请求，少等一轮渲染 */
   const suppressNextSearchEffectRef = useRef(false);
   const switchCompanyRef = useRef(async () => {});
+  const onPrepareCompanySelectRef = useRef(() => {});
   const onClearCompanyRef = useRef(() => {});
 
   const {
@@ -119,6 +120,7 @@ export default function CaptureMaintenancePage() {
     selectedGroup,
     setSelectedGroup,
     switchCompany: (c) => switchCompanyRef.current(c),
+    onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
   });
 

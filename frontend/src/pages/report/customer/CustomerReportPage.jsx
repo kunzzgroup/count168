@@ -1,6 +1,6 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   getCachedOwnerCompanies,
   loadOwnerCompaniesCached,
@@ -45,6 +45,7 @@ import {
   resolveCustomerReportScope,
 } from "../shared/reportScope.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 
 const REPORT_PAGE_KEY = "customer";
 const REPORT_FETCH_DEBOUNCE_MS = 150;
@@ -73,8 +74,7 @@ export default function CustomerReportPage() {
     const g = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
     return g ? String(g).trim().toUpperCase() : null;
   });
-  const [companyHighlightId, setCompanyHighlightId] = useState(null);
-  const switchCompanySeqRef = useRef(0);
+  const companySessionAbortRef = useRef(null);
   const [accountId, setAccountId] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
@@ -277,29 +277,46 @@ export default function CustomerReportPage() {
     }
   }, [invalidateReportFetch]);
 
-  const onSwitchCompany = useCallback(async (c) => {
-    if (!c?.id) return;
-    const reqId = ++switchCompanySeqRef.current;
-    setCompanyHighlightId(Number(c.id));
-    try {
-      const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${c.id}`), { credentials: "include" });
-      const json = await res.json();
-      if (reqId !== switchCompanySeqRef.current) return;
-      if (!json.success) {
-        setCompanyHighlightId(null);
-        notify(json.error || t("switchFailed"), "danger");
-        return;
-      }
-      if (reportDataRef.current != null) setReportSyncing(true);
-      setCompanyId(Number(c.id));
-      setCompanyHighlightId(null);
-      void checkBankOnly(c.id);
-      notifyCompanySessionUpdated();
-    } catch {
-      if (reqId === switchCompanySeqRef.current) setCompanyHighlightId(null);
-      notify(t("switchFailed"), "danger");
-    }
-  }, [notify, t, checkBankOnly]);
+  const onPrepareCompanySelect = useCallback((c) => {
+    const nextId = Number(c?.id);
+    if (!nextId) return;
+    flushSync(() => setCompanyId(nextId));
+    if (reportDataRef.current != null) setReportSyncing(true);
+    startTransition(() => {
+      setAccounts([]);
+      setAccountId("");
+      setCurrencyFilterReady(false);
+    });
+  }, []);
+
+  const onSwitchCompany = useCallback(
+    async (c) => {
+      if (!c?.id) return;
+      const nextId = Number(c.id);
+      const previousCompanyId = companyId;
+      void checkBankOnly(nextId);
+
+      companySessionAbortRef.current?.abort();
+      const ac = new AbortController();
+      companySessionAbortRef.current = ac;
+
+      const ok = await syncCompanySessionInBackground({
+        companyId: nextId,
+        sessionCompanyId: me?.company_id,
+        signal: ac.signal,
+        layoutSilent: true,
+        onFailure: () => {
+          if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
+            flushSync(() => setCompanyId(previousCompanyId));
+          }
+          setReportSyncing(false);
+          notify(t("switchFailed"), "danger");
+        },
+      });
+      if (!ok) return;
+    },
+    [checkBankOnly, companyId, me?.company_id, notify, t],
+  );
 
   const {
     groupIds,
@@ -316,10 +333,11 @@ export default function CustomerReportPage() {
     companyId,
     selectedGroup,
     setSelectedGroup,
+    onPrepareCompanySelect,
     onSelectCompany: onSwitchCompany,
     onClearCompany: handleClearCompany,
-    switchingCompany: companyHighlightId != null,
-    preferredCompanyId: companyHighlightId ?? companyId,
+    switchingCompany: false,
+    preferredCompanyId: companyId,
     me,
   });
 
@@ -584,7 +602,7 @@ export default function CustomerReportPage() {
           groupsAllMode={groupsAllMode}
           groupAllMode={groupAllMode}
           companyButtons={companyButtons}
-          highlightCompanyId={companyHighlightId}
+          highlightCompanyId={companyId}
           accountId={accountId}
           setAccountId={setAccountId}
           accounts={accounts}

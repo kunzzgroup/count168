@@ -98,6 +98,7 @@ export default function PaymentMaintenancePage() {
   const paymentDataRef = useRef(paymentData);
   paymentDataRef.current = paymentData;
   const switchCompanyRef = useRef(async () => {});
+  const onPrepareCompanySelectRef = useRef(() => {});
   const onClearCompanyRef = useRef(() => {});
 
   const {
@@ -116,6 +117,7 @@ export default function PaymentMaintenancePage() {
     selectedGroup,
     setSelectedGroup,
     switchCompany: (c) => switchCompanyRef.current(c),
+    onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
   });
 
@@ -555,47 +557,31 @@ export default function PaymentMaintenancePage() {
     [companies, selectedGroup],
   );
 
-  const handleSwitchCompany = async (c) => {
+  const onPrepareCompanySelect = useCallback((c) => {
     if (!c?.id) return;
     const nextId = Number(c.id);
     const nextCode = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-    const isOwner = String(me?.role || "").toLowerCase() === "owner";
+    suppressNextSearchEffectRef.current = true;
+    companyIdRef.current = nextId;
+    setCompanyId(nextId);
+    setCompanyCode(nextCode);
+    setSelectedGroup(newGroup);
+    persistDashboardFilterState(newGroup, nextId);
+    followGroupRef.current();
+    void performSearch({ companyId: nextId, selectedGroup: newGroup });
+  }, [performSearch]);
 
-    if (isOwner) {
-      suppressNextSearchEffectRef.current = true;
-      companyIdRef.current = nextId;
-      setCompanyId(nextId);
-      setCompanyCode(nextCode);
-      setSelectedGroup(newGroup);
-      persistDashboardFilterState(newGroup, nextId);
-      followGroupRef.current();
-      void performSearch({ companyId: nextId, selectedGroup: newGroup });
-      notify(t("switchedTo", { company: nextCode }), "success");
-      try {
-        await updateSessionCompany(c.id);
-        notifyCompanySessionUpdated();
-      } catch (err) {
-        notify(err.message || t("switchFailed"), "error");
-        navigate("/dashboard", { replace: true });
-      }
-      return;
-    }
+  onPrepareCompanySelectRef.current = onPrepareCompanySelect;
+
+  const handleSwitchCompany = async (c) => {
+    if (!c?.id) return;
+    const nextCode = c.company_id || "";
 
     try {
       await updateSessionCompany(c.id);
-
-      suppressNextSearchEffectRef.current = true;
-      companyIdRef.current = nextId;
-      setCompanyId(nextId);
-      setCompanyCode(nextCode);
-      setSelectedGroup(newGroup);
-      persistDashboardFilterState(newGroup, nextId);
-      followGroupRef.current();
-
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: nextCode }), "success");
-      void performSearch({ companyId: nextId, selectedGroup: newGroup });
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
       navigate("/dashboard", { replace: true });

@@ -130,6 +130,7 @@ export default function TransactionMaintenancePage() {
   );
 
   const switchCompanyRef = useRef(async () => {});
+  const onPrepareCompanySelectRef = useRef(() => {});
   const onClearCompanyRef = useRef(() => {});
 
   const {
@@ -148,6 +149,7 @@ export default function TransactionMaintenancePage() {
     selectedGroup,
     setSelectedGroup,
     switchCompany: (c) => switchCompanyRef.current(c),
+    onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
   });
 
@@ -790,22 +792,30 @@ export default function TransactionMaintenancePage() {
     })();
   }, [companies, selectedGroup]);
 
+  const onPrepareCompanySelect = useCallback((c) => {
+    if (!c?.id) return;
+    const nextCompanyId = Number(c.id);
+    const code = c.company_id || "";
+    const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    switchPermsCacheRef.current = null;
+    skipMetaAfterBootRef.current = true;
+    setSelectedGroup(newGroup);
+    setMetaReady(false);
+    setCompanyCode(code);
+    setCompanyId(nextCompanyId);
+    setSelectedProcess("");
+    persistDashboardFilterState(newGroup, nextCompanyId);
+  }, []);
+
+  onPrepareCompanySelectRef.current = onPrepareCompanySelect;
+
   const handleSwitchCompany = useCallback(async (c) => {
     if (!c?.id) return;
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-    setSelectedGroup(newGroup);
 
     const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
-    switchPermsCacheRef.current = null;
-    skipMetaAfterBootRef.current = true;
-    persistDashboardFilterState(newGroup, nextCompanyId);
-    // Force list query to re-arm for the new company once meta is ready.
-    setMetaReady(false);
-    setCompanyCode(code);
-    setCompanyId(nextCompanyId);
-    setSelectedProcess("");
 
     try {
       const res = await updateSessionCompany(c.id);

@@ -10,6 +10,7 @@ export function useMaintenanceGroupCompanyFilter({
   selectedGroup,
   setSelectedGroup,
   switchCompany,
+  onPrepareCompanySelect,
   onClearCompany,
   switchingCompany = false,
 }) {
@@ -20,6 +21,7 @@ export function useMaintenanceGroupCompanyFilter({
     selectedGroup,
     setSelectedGroup,
     onSelectCompany: switchCompany,
+    onPrepareCompanySelect,
     onClearCompany,
     switchingCompany,
     preferredCompanyId: companyId,
