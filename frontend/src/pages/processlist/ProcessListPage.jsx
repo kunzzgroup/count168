@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
+import { ensureCrossPageCompanySelection } from "../../utils/company/companySessionSync.js";
 import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
   pickDefaultCompanyForGroup,
+  readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../utils/company/sharedCompanyFilter.js";
@@ -247,6 +249,17 @@ export default function ProcessListPage() {
   }, [currencyFilterCode]);
 
   useEffect(() => {
+    if (loading || !companyId || groupFilterKind !== "follow") return;
+    const row = companies.find((c) => Number(c.id) === Number(companyId));
+    void ensureCrossPageCompanySelection(companyId, {
+      companies,
+      selectedGroup,
+      companyRow: row,
+      sessionCompanyId: sessionMeFromLayout?.company_id,
+    });
+  }, [loading, companyId, companies, selectedGroup, groupFilterKind, sessionMeFromLayout?.company_id]);
+
+  useEffect(() => {
     if (!sessionReady || !sessionMeFromLayout) return;
     const routePrefetch = location.state?.processListPrefetch;
     if (processListInitDoneRef.current && !routePrefetch) return;
@@ -291,6 +304,15 @@ export default function ProcessListPage() {
           } else {
             setTableLoading(true);
           }
+          const prefetchedRow = prefetchedCompanies.find((c) => Number(c.id) === prefetchCompanyId);
+          const prefBootGroup = resolveInitialSelectedGroupFromSession(prefetchedCompanies, prefetchedRow);
+          setSelectedGroup(prefBootGroup);
+          await ensureCrossPageCompanySelection(prefetchCompanyId, {
+            companies: prefetchedCompanies,
+            selectedGroup: prefBootGroup,
+            companyRow: prefetchedRow,
+            sessionCompanyId: layoutMe.company_id,
+          });
           setLoading(false);
           processListInitDoneRef.current = true;
           return;
@@ -690,7 +712,12 @@ export default function ProcessListPage() {
   const onSwitchCompany = useCallback(
     async (company) => {
       const nextId = Number(company?.id);
-      if (!nextId || nextId === Number(companyId)) return;
+      if (!nextId) return;
+
+      const savedId = readDashboardSelectedCompanyId();
+      const sessionId = Number(sessionMeFromLayout?.company_id);
+      const alreadyActiveLocally = nextId === Number(companyId);
+      if (alreadyActiveLocally && savedId === nextId && sessionId === nextId) return;
 
       const gid = company.group_id ? String(company.group_id).toUpperCase().trim() : selectedGroup;
       const previousCompanyId = companyId;
@@ -776,7 +803,7 @@ export default function ProcessListPage() {
         }
       }
     },
-    [companies, companyId, groupFilterKind, navigate, notify, selectedGroup, sessionMeFromLayout, t],
+    [companies, companyId, navigate, notify, selectedGroup, sessionMeFromLayout, t],
   );
 
   const handlePickGroup = useCallback(
