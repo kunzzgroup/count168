@@ -1125,16 +1125,22 @@ try {
     }
 
     // Strict split (no data bleed):
-    // - Payroll process (SALARY/BONUS) under a selected Group always queries the group-entity company.
-    // - Non-payroll processes remain company-scoped.
+    // - Group context + Select All => group-entity scope (group-only data).
+    // - Group context + SALARY/BONUS => group-entity scope.
+    // - Other process filters remain company-scoped.
     $requestedViewGroup = dcNormalizeGroupId(
         $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
     );
     $payrollCode = strtoupper(trim((string) ($process ?? '')));
     $isPayrollProcess = in_array($payrollCode, ['SALARY', 'BONUS'], true);
+    $isSelectAllProcess = $process === null || $process === '';
     $capture_company_id = $company_id;
     $capture_scope_group = $maintenance_scope_group;
-    if (!$capture_scope_group && $isPayrollProcess && $requestedViewGroup !== '') {
+    if (
+        !$capture_scope_group &&
+        $requestedViewGroup !== '' &&
+        ($isPayrollProcess || $isSelectAllProcess)
+    ) {
         $entityCompanyId = (int) tx_resolve_group_entity_company_id($pdo, $requestedViewGroup);
         if ($entityCompanyId > 0) {
             // Re-check access against the resolved entity company in the same group scope.
@@ -1144,31 +1150,6 @@ try {
         }
     }
     $captureScopeProcessFilter = $capture_scope_group
-        ? dcSqlGroupProcessFilter('p')
-        : '';
-
-    // Rule #1 (Transaction Maintenance):
-    // SALARY/BONUS should always follow group-entity scope when a group context is present,
-    // even if UI currently shows a subsidiary company (e.g. AP + C168).
-    if ($process !== null && $process !== '') {
-        $normalizedProcessCode = strtoupper(trim((string) $process));
-        $requestedViewGroup = dcNormalizeGroupId(
-            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
-        );
-        if (
-            in_array($normalizedProcessCode, ['SALARY', 'BONUS'], true) &&
-            $requestedViewGroup !== ''
-        ) {
-            $entityCompanyId = (int) tx_resolve_group_entity_company_id($pdo, $requestedViewGroup);
-            if ($entityCompanyId > 0) {
-                $company_id = $entityCompanyId;
-                $maintenance_scope_group = true;
-            }
-        }
-    }
-
-    // Recompute scope filter after potential process/scope override above.
-    $scopeProcessFilter = $maintenance_scope_group
         ? dcSqlGroupProcessFilter('p')
         : '';
 

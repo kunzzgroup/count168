@@ -875,7 +875,7 @@ export default function TransactionMaintenancePage() {
     (transactionQuery.isPlaceholderData || listRowCount > 0 || !maintenanceDataComplete);
   const showTopLoadingBar =
     transactionQuery.isFetching &&
-    (showListSkeleton || transactionQuery.isPlaceholderData || listSyncing);
+    listRowCount === 0;
 
   return (
     <div className="container">
