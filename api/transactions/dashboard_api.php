@@ -954,6 +954,178 @@ function dashboardExpenseAccountDcdFilterSql(array $accountIds, string $dcdAlias
     return dashboardDcdAccountMatchFilterSql($accounts, $dcdAlias);
 }
 
+function dashboardResolveCurrencyIdFromMap(?string $currencyCode, array $currencyMap): ?int
+{
+    if ($currencyCode === null || trim($currencyCode) === '') {
+        return null;
+    }
+    $want = strtoupper(trim($currencyCode));
+    foreach ($currencyMap as $id => $code) {
+        if (strtoupper((string) $code) === $want) {
+            return (int) $id;
+        }
+    }
+
+    return null;
+}
+
+function dashboardWlTxnAmountSqlQuant2(string $signedContributionExpr): string
+{
+    return dcd_processed_amount_sql_quant2('(' . $signedContributionExpr . ')');
+}
+
+/**
+ * EXPENSES Win/Loss series aligned with search_api calculateWinLossByCurrency (capture + WIN/LOSE + RATE_MM).
+ *
+ * @param array<int, array<string, mixed>> $accounts
+ * @return array{daily: array<string, string>, capture_bf: string, period_wl: string}
+ */
+function dashboardExpensesBuildWinLossBundle(
+    PDO $pdo,
+    int $companyId,
+    array $accounts,
+    array $currencyMap,
+    string $dateFromDb,
+    string $dateToDb,
+    ?string $currencyCode
+): array {
+    $currencyId = dashboardResolveCurrencyIdFromMap($currencyCode, $currencyMap);
+    if ($currencyId === null || $accounts === []) {
+        return [
+            'daily' => [],
+            'capture_bf' => dashboardMoneyZero(),
+            'period_wl' => dashboardMoneyZero(),
+        ];
+    }
+
+    $daily = [];
+    $captureBf = dashboardMoneyZero();
+    $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
+    $dcdMatchSql = "(
+        CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+        OR (? <> '' AND TRIM(COALESCE(dcd.account_id, '')) = TRIM(?))
+    )";
+    $dcdBaseWhere = "dcd.company_id = ? AND dc.company_id = ? AND {$dcdMatchSql} AND dcd.currency_id = ?";
+    $hasTxnCurrency = dashboardHasTransactionCurrency($pdo);
+    $contra = dashboardContraApprovedWhere($pdo, 't');
+
+    foreach ($accounts as $acc) {
+        $accountId = (int) ($acc['id'] ?? 0);
+        $accountCode = trim((string) ($acc['account_id'] ?? ''));
+        if ($accountId <= 0) {
+            continue;
+        }
+
+        $bindBase = [$companyId, $companyId, $accountId, $accountCode, $accountCode, $currencyId];
+
+        $sql = "SELECT COALESCE(SUM({$dcdQ}), 0)
+                FROM data_capture_details dcd
+                JOIN data_captures dc ON dcd.capture_id = dc.id
+                WHERE {$dcdBaseWhere} AND dc.capture_date < ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(array_merge($bindBase, [$dateFromDb]));
+        $captureBf = dashboardMoneyAdd($captureBf, $stmt->fetchColumn());
+
+        $sql = "SELECT DATE(dc.capture_date) AS date, COALESCE(SUM({$dcdQ}), 0) AS wl
+                FROM data_capture_details dcd
+                JOIN data_captures dc ON dcd.capture_id = dc.id
+                WHERE {$dcdBaseWhere} AND dc.capture_date BETWEEN ? AND ?
+                GROUP BY DATE(dc.capture_date)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(array_merge($bindBase, [$dateFromDb, $dateToDb]));
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            dashboardAddDailyAmount($daily, (string) $row['date'], $row['wl'] ?? '0');
+        }
+
+        if (!$hasTxnCurrency) {
+            continue;
+        }
+
+        $bankWin = dashboardWlTxnAmountSqlQuant2('t.amount');
+        $bankLose = dashboardWlTxnAmountSqlQuant2('-t.amount');
+        $sql = "SELECT DATE(t.transaction_date) AS date,
+                       COALESCE(SUM(CASE
+                           WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN {$bankWin}
+                           WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %') THEN {$bankLose}
+                           ELSE 0 END), 0) AS wl
+                FROM transactions t
+                WHERE t.company_id = ? AND t.account_id = ? AND t.currency_id = ?
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %')
+                  {$contra}
+                GROUP BY DATE(t.transaction_date)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$companyId, $accountId, $currencyId, $dateFromDb, $dateToDb]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            dashboardAddDailyAmount($daily, (string) $row['date'], $row['wl'] ?? '0');
+        }
+
+        $manualWinTo = dashboardWlTxnAmountSqlQuant2('-t.amount');
+        $manualLoseTo = dashboardWlTxnAmountSqlQuant2('t.amount');
+        $manualAdj = dashboardWlTxnAmountSqlQuant2('t.amount');
+        $sql = "SELECT DATE(t.transaction_date) AS date,
+                       COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN {$manualWinTo}
+                           WHEN t.transaction_type = 'LOSE' THEN {$manualLoseTo}
+                           WHEN t.transaction_type = 'ADJUSTMENT' THEN {$manualAdj}
+                           ELSE 0 END), 0) AS wl
+                FROM transactions t
+                WHERE t.company_id = ? AND t.account_id = ? AND t.currency_id = ?
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
+                  AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL)
+                  {$contra}
+                GROUP BY DATE(t.transaction_date)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$companyId, $accountId, $currencyId, $dateFromDb, $dateToDb]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            dashboardAddDailyAmount($daily, (string) $row['date'], $row['wl'] ?? '0');
+        }
+
+        $manualWinFrom = dashboardWlTxnAmountSqlQuant2('t.amount');
+        $manualLoseFrom = dashboardWlTxnAmountSqlQuant2('-t.amount');
+        $sql = "SELECT DATE(t.transaction_date) AS date,
+                       COALESCE(SUM(CASE WHEN t.transaction_type = 'WIN' THEN {$manualWinFrom}
+                           WHEN t.transaction_type = 'LOSE' THEN {$manualLoseFrom}
+                           ELSE 0 END), 0) AS wl
+                FROM transactions t
+                WHERE t.company_id = ? AND t.from_account_id = ? AND t.currency_id = ?
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('WIN', 'LOSE')
+                  AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL)
+                  {$contra}
+                GROUP BY DATE(t.transaction_date)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$companyId, $accountId, $currencyId, $dateFromDb, $dateToDb]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            dashboardAddDailyAmount($daily, (string) $row['date'], $row['wl'] ?? '0');
+        }
+
+        if (dashboardHasTransactionEntry($pdo)) {
+            $mmQ = dashboardWlTxnAmountSqlQuant2('e.amount');
+            $sql = "SELECT DATE(h.transaction_date) AS date, COALESCE(SUM({$mmQ}), 0) AS wl
+                    FROM transaction_entry e
+                    JOIN transactions h ON e.header_id = h.id
+                    WHERE h.company_id = ? AND e.company_id = ?
+                      AND e.account_id = ? AND e.currency_id = ?
+                      AND e.entry_type = 'RATE_MIDDLEMAN'
+                      AND h.transaction_date BETWEEN ? AND ?
+                    GROUP BY DATE(h.transaction_date)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$companyId, $companyId, $accountId, $currencyId, $dateFromDb, $dateToDb]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                dashboardAddDailyAmount($daily, (string) $row['date'], $row['wl'] ?? '0');
+            }
+        }
+    }
+
+    return [
+        'daily' => $daily,
+        'capture_bf' => $captureBf,
+        'period_wl' => dashboardSumDailyAmounts($daily),
+    ];
+}
+
 function dashboard_api_main(): void
 {
     global $pdo;
@@ -1157,9 +1329,19 @@ try {
         $daily_win_loss = [];
         $daily_cr_dr = [];
         $isExpensesRole = ($role === 'EXPENSES');
+        $expenseAccountRowsById = [];
         $primaryAccountIds = [];
         $hadAccounts = false;
         $seenExpenseAccountIds = [];
+
+        if ($isExpensesRole) {
+            foreach (dashboardDiscoverExpenseAccounts($pdo, $company_id, $company_id, $date_to_db) as $accRow) {
+                $aid = (int) ($accRow['id'] ?? 0);
+                if ($aid > 0) {
+                    $expenseAccountRowsById[$aid] = $accRow;
+                }
+            }
+        }
 
         foreach ($scopeCompanyIds as $scopeCompanyId) {
             list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
@@ -1206,6 +1388,11 @@ try {
                 continue;
             }
             $hadAccounts = true;
+            if ($isExpensesRole) {
+                foreach ($accounts as $accRow) {
+                    $expenseAccountRowsById[(int) ($accRow['id'] ?? 0)] = $accRow;
+                }
+            }
             if ($scopeCompanyId === $company_id) {
                 $primaryAccountIds = $account_ids;
             }
@@ -1232,7 +1419,8 @@ try {
             $dcdAmountSql = dcd_processed_amount_sql_quant2('dcd.processed_amount');
 
             // --- 1. 计算 B/F (Balance Forward) ---
-            // A. Data Capture B/F
+            // A. Data Capture B/F (EXPENSES uses search_api-aligned bundle after scope loop)
+            if (!$isExpensesRole) {
             $sql = "SELECT COALESCE(SUM({$dcdAmountSql}), 0)
                     FROM data_capture_details dcd
                     JOIN data_captures dc ON dcd.capture_id = dc.id
@@ -1249,6 +1437,7 @@ try {
                 $currency_params_dcd
             ));
             $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
+            }
 
         // B. Transactions B/F (To/From)
         if ($hasTransactionCurrency) {
@@ -1336,6 +1525,7 @@ try {
         }
 
         // --- 2. 计算每日数据 (Daily Deltas) ---
+        if (!$isExpensesRole) {
         $sql = "SELECT DATE(dc.capture_date) as date, 
                        COALESCE(SUM({$dcdAmountSql}), 0) as win_loss
                 FROM data_capture_details dcd
@@ -1355,8 +1545,8 @@ try {
             $currency_params_dcd
         ));
         foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $captureBucket = $isExpensesRole ? $daily_win_loss : $daily_data;
-            dashboardAddDailyAmount($captureBucket, (string) $row['date'], $row['win_loss'] ?? '0');
+            dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['win_loss'] ?? '0');
+        }
         }
 
         // B. Transactions Daily
@@ -1367,50 +1557,7 @@ try {
             $crDrTxnTypes = "('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')";
 
             if ($isExpensesRole) {
-                // Win/Loss — To Account
-                $sql = "SELECT DATE(t.transaction_date) as date,
-                               COALESCE(SUM(CASE 
-                                   WHEN t.transaction_type = 'WIN' AND (t.description LIKE 'Process: %') THEN t.amount
-                                   WHEN t.transaction_type = 'LOSE' AND (t.description LIKE 'Process: %') THEN -t.amount
-                                   WHEN t.transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN -t.amount
-                                   WHEN t.transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN t.amount
-                                   WHEN t.transaction_type = 'ADJUSTMENT' THEN t.amount
-                                   ELSE 0
-                               END), 0) as wl_delta
-                        FROM transactions t
-                        WHERE t.company_id = ?
-                          AND t.account_id IN ($ids_placeholder)
-                          AND t.transaction_date BETWEEN ? AND ?
-                          AND t.transaction_type IN $winLossTxnTypes"
-                    . $currency_filter_t_to . $contraApproval . "
-                        GROUP BY DATE(t.transaction_date)";
-                $daily_stmt = $pdo->prepare($sql);
-                $daily_stmt->execute(array_merge([$ledgerCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_to));
-                foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                    dashboardAddDailyAmount($daily_win_loss, (string) $row['date'], $row['wl_delta'] ?? '0');
-                }
-
-                // Win/Loss — From Account
-                $sql = "SELECT DATE(t.transaction_date) as date,
-                               COALESCE(SUM(CASE 
-                                   WHEN t.transaction_type = 'WIN' AND " . dashboardManualProfitDescSql('t') . " THEN t.amount
-                                   WHEN t.transaction_type = 'LOSE' AND " . dashboardManualProfitDescSql('t') . " THEN -t.amount
-                                   ELSE 0
-                               END), 0) as wl_delta
-                        FROM transactions t
-                        WHERE t.company_id = ?
-                          AND t.from_account_id IN ($ids_placeholder)
-                          AND t.transaction_date BETWEEN ? AND ?
-                          AND t.transaction_type IN $winLossTxnTypes"
-                    . $currency_filter_t_from . $fromDomainFilter . $contraApproval . "
-                        GROUP BY DATE(t.transaction_date)";
-                $daily_stmt = $pdo->prepare($sql);
-                $daily_stmt->execute(array_merge([$ledgerCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_from));
-                foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                    dashboardAddDailyAmount($daily_win_loss, (string) $row['date'], $row['wl_delta'] ?? '0');
-                }
-
-                // Cr/Dr — To Account (Payment 类，计入 balance 但不进 Expenses KPI)
+                // Cr/Dr — To Account (Payment 类，计入 balance 但不进 Expenses KPI / chart)
                 $sql = "SELECT DATE(t.transaction_date) as date,
                                COALESCE(SUM(CASE 
                                    WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
@@ -1518,7 +1665,8 @@ try {
             }
             }
 
-            // RATE daily from transaction_entry
+            // RATE daily from transaction_entry (EXPENSES Win/Loss uses search-aligned bundle)
+            if (!$isExpensesRole) {
             try {
                 if (dashboardHasTransactionEntry($pdo)) {
                     $sql = "SELECT DATE(h.transaction_date) as date,
@@ -1538,13 +1686,28 @@ try {
                     $daily_stmt = $pdo->prepare($sql);
                     $daily_stmt->execute(array_merge([$ledgerCompanyId, $ledgerCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_e));
                     foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                        $rateBucket = $isExpensesRole ? $daily_win_loss : $daily_data;
-                        dashboardAddDailyAmount($rateBucket, (string) $row['date'], $row['rate_delta'] ?? '0');
+                        dashboardAddDailyAmount($daily_data, (string) $row['date'], $row['rate_delta'] ?? '0');
                     }
                 }
             } catch (Throwable $e) {
             }
+            }
         }
+        }
+
+        if ($isExpensesRole && $expenseAccountRowsById !== []) {
+            $hadAccounts = true;
+            $wlBundle = dashboardExpensesBuildWinLossBundle(
+                $pdo,
+                $company_id,
+                array_values($expenseAccountRowsById),
+                $currency_map,
+                $date_from_db,
+                $date_to_db,
+                $filter_currency_code
+            );
+            $daily_win_loss = $wlBundle['daily'];
+            $total_bf = dashboardMoneyAdd($total_bf, $wlBundle['capture_bf']);
         }
 
         if (!$hadAccounts) {
