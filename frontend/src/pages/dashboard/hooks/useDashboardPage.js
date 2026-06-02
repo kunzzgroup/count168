@@ -37,7 +37,9 @@ import { canUseGroupOnlyMode, resolveVisibleGroupIds } from "../../../utils/comp
 import { sortIds } from "../lib/dashboardEarnings.js";
 import {
   companiesInGroupList,
+  companiesForCompanyPicker,
   companyRowIsGroupEntity,
+  excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
   pickDefaultCompanyForGroup,
   pickGroupAnchorCompany,
@@ -268,30 +270,26 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     sessionCompanyId: me?.company_id,
   });
 
+  const groupIds = useMemo(
+    () => resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies),
+    [companies, me]
+  );
+
   const companiesForPicker = useMemo(() => {
-    let list;
     if (groupsAllMode) {
-      list = filterCompaniesWithDisplayId(companies);
-    } else {
-      list = companiesInGroupList(companies, selectedGroup);
+      return excludeGroupLabelsFromCompanyPicker(
+        filterCompaniesWithDisplayId(companies),
+        groupIds
+      );
     }
-    // Group code (e.g. AP) is already on the GroupID row; hide the matching group-entity company row here.
-    if (selectedGroup && !groupsAllMode) {
-      list = list.filter((c) => !companyRowIsGroupEntity(c, selectedGroup));
-    }
-    return list;
-  }, [companies, selectedGroup, groupsAllMode]);
+    return companiesForCompanyPicker(companies, selectedGroup, groupIds);
+  }, [companies, selectedGroup, groupsAllMode, groupIds]);
 
   const resolveMergeCompanyList = useCallback(() => {
     if (groupsAllMode) return filterCompaniesWithDisplayId(companies);
     if (selectedGroup) return companiesInGroupList(companies, selectedGroup);
     return [];
   }, [companies, selectedGroup, groupsAllMode]);
-
-  const groupIds = useMemo(
-    () => resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies),
-    [companies, me]
-  );
 
   const applyCompanySelection = useCallback((id, options = {}) => {
     const clearSubset = options.clearSubset !== false;

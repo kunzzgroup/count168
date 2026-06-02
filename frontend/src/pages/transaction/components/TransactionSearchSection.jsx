@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
-  companiesInGroupList,
+  companiesForCompanyPicker,
+  excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import GcInlineFilterPanel from "../../../components/GcInlineFilterPanel.jsx";
@@ -38,8 +39,10 @@ export default function TransactionSearchSection({
 
   const companiesForCompanyStrip = useMemo(() => {
     const list = fs.snapCompaniesAll || fs.snapCompanies || [];
-    if (fs.groupsAllMode) return filterCompaniesWithDisplayId(list);
-    return filterCompaniesWithDisplayId(companiesInGroupList(list, fs.selectedGroup));
+    if (fs.groupsAllMode) {
+      return excludeGroupLabelsFromCompanyPicker(filterCompaniesWithDisplayId(list));
+    }
+    return companiesForCompanyPicker(list, fs.selectedGroup);
   }, [fs.snapCompanies, fs.snapCompaniesAll, fs.selectedGroup, fs.groupsAllMode]);
 
   return (

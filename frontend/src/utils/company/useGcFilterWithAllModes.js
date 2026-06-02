@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 
 import {
+  companiesForCompanyPicker,
   companiesInGroupList,
+  excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
@@ -59,9 +61,14 @@ export function useGcFilterWithAllModes({
   }, [groupsAllMode, selectedGroup, me]);
 
   const companiesForPicker = useMemo(() => {
-    if (groupsAllMode) return filterCompaniesWithDisplayId(companies);
-    return companiesInGroupList(companies, effectiveGroupForCompanies);
-  }, [companies, effectiveGroupForCompanies, groupsAllMode]);
+    if (groupsAllMode) {
+      return excludeGroupLabelsFromCompanyPicker(
+        filterCompaniesWithDisplayId(companies),
+        groupIds
+      );
+    }
+    return companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds);
+  }, [companies, effectiveGroupForCompanies, groupsAllMode, groupIds]);
 
   const resolveMergeCompanyList = useCallback(() => {
     if (groupsAllMode) return filterCompaniesWithDisplayId(companies);

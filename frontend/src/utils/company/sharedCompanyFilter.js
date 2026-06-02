@@ -581,6 +581,38 @@ export function companyRowIsGroupEntity(companyRow, groupId) {
   return code === "" && normalizeCompanyGroupId(companyRow) === g;
 }
 
+/** Display code equals a group label (AP, IG, …) — belongs on GroupID row only, not Company. */
+export function companyDisplayCodeIsGroupLabel(companyRow, groupIds) {
+  const code = String(companyRow?.company_id ?? companyRow?.companyId ?? companyRow?.code ?? "")
+    .trim()
+    .toUpperCase();
+  if (!code) return false;
+  const ids = groupIds?.length ? groupIds : [];
+  const set = new Set(ids.map((g) => String(g).trim().toUpperCase()).filter(Boolean));
+  return set.has(code);
+}
+
+/**
+ * Company filter strip: drop group labels and group-entity rows (incl. virtual link duplicates).
+ * @param {string[]|null} [groupIds] — visible group pills; defaults to {@link sortedUniqueGroupIds}
+ */
+export function excludeGroupLabelsFromCompanyPicker(companies, groupIds = null) {
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  return (companies || []).filter((c) => {
+    if (companyDisplayCodeIsGroupLabel(c, gids)) return false;
+    if (companyRowIsGroupEntityAnyShape(c)) return false;
+    return true;
+  });
+}
+
+/** Companies shown in the Company row when a GroupID is selected (Dashboard-aligned). */
+export function companiesForCompanyPicker(companies, selectedGroup, groupIds = null) {
+  const list = selectedGroup
+    ? companiesInGroupList(companies, selectedGroup)
+    : companiesInGroupList(companies, null);
+  return excludeGroupLabelsFromCompanyPicker(list, groupIds);
+}
+
 /**
  * Legacy group-button click: toggle off → independent companies + first independent active;
  * select group → first company in that group active.
