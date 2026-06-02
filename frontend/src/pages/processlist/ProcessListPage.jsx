@@ -852,7 +852,6 @@ export default function ProcessListPage() {
           sessionMeFromLayout?.company_id != null ? Number(sessionMeFromLayout.company_id) : null;
 
         const bankCategoryPromise = isBankCategoryCompany(company.company_id, buildApiUrl);
-        void fetchRows({ companyId: nextId, silent: true, forceLoading: true });
         void loadFormMeta(nextId);
 
         try {
@@ -966,7 +965,7 @@ export default function ProcessListPage() {
       const cached = processListCacheRef.current.get(cacheKey);
       const hadCache = !!cached?.rows;
 
-      skipCompanyFetchEffectRef.current = true;
+      skipCompanyFetchEffectRef.current = hadCache;
       suppressCrossPageSyncRef.current = true;
       const preservedUrlCurrency = hadCache
         ? resolveProcessCurrencyFilter(currencyFilterCode, cached.rows, cached.currencyCodes)
@@ -1023,7 +1022,7 @@ export default function ProcessListPage() {
           showAll,
         );
         const hadCache = !!processListCacheRef.current.get(cacheKey)?.rows;
-        skipCompanyFetchEffectRef.current = true;
+        skipCompanyFetchEffectRef.current = hadCache;
         suppressCrossPageSyncRef.current = true;
         flushSync(() => {
           setCompanyId(nextCompanyId);
@@ -1530,11 +1529,6 @@ export default function ProcessListPage() {
           showAll={showAll}
           showSelectColumn={showInactive || showAll}
           pageRows={pageRows}
-          emptyMessage={
-            !tableLoading && rows.length === 0 && !showInactive && !showAll
-              ? t("noActiveProcessHint")
-              : t("noProcessData")
-          }
           currentPage={currentPage}
           PAGE_SIZE={PAGE_SIZE}
           sortColumn={sortColumn}

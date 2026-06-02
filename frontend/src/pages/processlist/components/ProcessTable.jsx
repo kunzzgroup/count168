@@ -31,7 +31,6 @@ export default function ProcessTable({
   toggleSelectId,
   toggleSelectAll,
   mutationsBlocked,
-  emptyMessage,
   t,
 }) {
   const deletableRows = pageRows.filter(
@@ -110,7 +109,7 @@ export default function ProcessTable({
         {!tableLoading && pageRows.length === 0 && (
           <div className="process-card">
             <div className="card-item" style={{ textAlign: "left", padding: 20, gridColumn: "1 / -1" }}>
-              {emptyMessage || t("noProcessData")}
+              {t("noProcessData")}
             </div>
           </div>
         )}
