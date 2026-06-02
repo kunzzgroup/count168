@@ -246,7 +246,7 @@ body.user-page .user-list-table .user-card.user-list-row {
 
 .user-list-table .user-list-table-header .header-item:nth-child(9),
 .user-list-table .user-list-row .card-item--action {
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 body.user-page.user-page--show-all {
@@ -447,9 +447,20 @@ body.ec-auth-shell .user-gc-segment {
     cursor: pointer;
     white-space: nowrap;
     line-height: 1.25;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.12s ease, color 0.12s ease, transform 0.1s ease, opacity 0.12s ease;
     display: flex;
     justify-content: center;
+}
+
+body.user-page .user-gc-segment:not(:disabled):active,
+body.account-page .user-gc-segment:not(:disabled):active,
+body.process-page .user-gc-segment:not(:disabled):active {
+    transform: scale(0.97);
+}
+
+body.user-page .user-gc-segment.is-on.is-pending,
+body.account-page .user-gc-segment.is-on.is-pending {
+    opacity: 0.88;
 }
 
 body.user-page .user-gc-segment:last-child,
@@ -921,12 +932,20 @@ body.datacapture-summary-page .btn-delete:hover {
 }
 
 /* Read-only / disabled：顶栏 Add、Delete、行内编辑、确认删除、弹窗 Save 等 — 灰色（盖过蓝红渐变与 hover） */
+body.user-page .action-buttons .btn-add:disabled,
+body.user-page .action-buttons .btn-add:disabled:hover,
 body.user-page .user-toolbar-actions-right .btn-add:disabled,
 body.user-page .user-toolbar-actions-right .btn-add:disabled:hover,
+body.account-page .action-buttons .btn-add:disabled,
+body.account-page .action-buttons .btn-add:disabled:hover,
 body.account-page .user-toolbar-actions-right .btn-add:disabled,
 body.account-page .user-toolbar-actions-right .btn-add:disabled:hover,
+body.ec-auth-shell.user-page .action-buttons .btn-add:disabled,
+body.ec-auth-shell.user-page .action-buttons .btn-add:disabled:hover,
 body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-add:disabled,
 body.ec-auth-shell.user-page .user-toolbar-actions-right .btn-add:disabled:hover,
+body.ec-auth-shell.account-page .action-buttons .btn-add:disabled,
+body.ec-auth-shell.account-page .action-buttons .btn-add:disabled:hover,
 body.ec-auth-shell.account-page .user-toolbar-actions-right .btn-add:disabled,
 body.ec-auth-shell.account-page .user-toolbar-actions-right .btn-add:disabled:hover {
     background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;

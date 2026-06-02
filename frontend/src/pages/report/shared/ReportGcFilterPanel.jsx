@@ -1,4 +1,4 @@
-import { persistDashboardFilterState } from "../../../utils/company/sharedCompanyFilter.js";
+import GcInlineFilterPanel from "../../../components/GcInlineFilterPanel.jsx";
 
 /**
  * Process List（user-gc-inline-panel）同款：GroupID / Company / Currency 分段控件。
@@ -18,8 +18,11 @@ export default function ReportGcFilterPanel({
   onClearCompany,
   /** When false (company login), clicking the active company pill does not clear selection. */
   allowClearCompany = true,
-  /** "dashboard" = no group ALL, company toggle-off, group highlight from selectedGroup */
+  /** "dashboard" = All pills for group/company (All is never a real group/company id) */
   layout = "legacy",
+  groupsAllMode = false,
+  groupAllMode = false,
+  onPickAllInGroup,
   currencyList,
   showAllCurrencies,
   selectedCurrencies,
@@ -33,9 +36,54 @@ export default function ReportGcFilterPanel({
   const hasCompanies = Array.isArray(companyButtons) && companyButtons.length > 0;
   const hasCurrency = Array.isArray(currencyList) && currencyList.length > 0;
   if (!hasGroup && !hasCompanies && !hasCurrency) return null;
-  const groupHighlightKey = isDashboardLayout
-    ? String(selectedGroup || "").trim().toUpperCase()
-    : selectedGroupKey;
+
+  if (isDashboardLayout) {
+    return (
+      <div className="user-gc-inline-panel report-gc-inline-panel">
+        {(hasGroup || hasCompanies) && (
+          <GcInlineFilterPanel
+            embedded
+            t={t}
+            groupIds={groupIds}
+            groupsAllMode={groupsAllMode}
+            selectedGroup={selectedGroup}
+            onPickAllGroups={onPickAllGroups}
+            onPickGroup={onPickGroup}
+            companiesForPicker={companyButtons}
+            groupAllMode={groupAllMode}
+            pickerCompanyId={activeCompanyId}
+            onPickAllInGroup={onPickAllInGroup}
+            onPickCompany={onSwitchCompany}
+          />
+        )}
+        {hasCurrency ? (
+          <div className="user-gc-inline-row">
+            <span className="user-gc-inline-label">{t("currency")}</span>
+            <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+              <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
+                {currencyList.map((row) => {
+                  const code = row.code;
+                  const on = !showAllCurrencies && selectedCurrencies.includes(code);
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      className={`user-gc-segment${on ? " is-on" : ""}`}
+                      onClick={() => toggleCurrency(code)}
+                    >
+                      {code}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  const groupHighlightKey = selectedGroupKey;
 
   return (
     <div className="user-gc-inline-panel report-gc-inline-panel">
@@ -44,27 +92,19 @@ export default function ReportGcFilterPanel({
           <span className="user-gc-inline-label">{t("groupId")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-              {!isDashboardLayout && (
-                <button
-                  type="button"
-                  className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
-                  onClick={onPickAllGroups}
-                >
-                  {t("groupFilterAll")}
-                </button>
-              )}
+              <button
+                type="button"
+                className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
+                onClick={onPickAllGroups}
+              >
+                {t("groupFilterAll")}
+              </button>
               {groupIds.map((g) => (
                 <button
                   key={g}
                   type="button"
                   className={`user-gc-segment${
-                    isDashboardLayout
-                      ? groupHighlightKey === g
-                        ? " is-on"
-                        : ""
-                      : groupFilterKind === "follow" && g === selectedGroupKey
-                        ? " is-on"
-                        : ""
+                    groupFilterKind === "follow" && g === selectedGroupKey ? " is-on" : ""
                   }`}
                   onClick={() => onPickGroup(g)}
                 >
@@ -88,9 +128,7 @@ export default function ReportGcFilterPanel({
                     type="button"
                     className={`user-gc-segment${active ? " is-on" : ""}`}
                     onClick={() => {
-                      if (active && isDashboardLayout) {
-                        if (!allowClearCompany) return;
-                        persistDashboardFilterState(selectedGroup, null);
+                      if (active && allowClearCompany) {
                         onClearCompany?.();
                         return;
                       }
@@ -110,13 +148,6 @@ export default function ReportGcFilterPanel({
           <span className="user-gc-inline-label">{t("currency")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
-              <button
-                type="button"
-                className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
-                onClick={toggleAllCurrencies}
-              >
-                {t("groupFilterAll")}
-              </button>
               {currencyList.map((row) => {
                 const code = row.code;
                 const on = !showAllCurrencies && selectedCurrencies.includes(code);

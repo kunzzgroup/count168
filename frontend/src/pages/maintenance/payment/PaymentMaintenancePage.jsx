@@ -97,6 +97,27 @@ export default function PaymentMaintenancePage() {
   const followGroupRef = useRef(() => {});
   const paymentDataRef = useRef(paymentData);
   paymentDataRef.current = paymentData;
+  const switchCompanyRef = useRef(async () => {});
+  const onClearCompanyRef = useRef(() => {});
+
+  const {
+    snapGroupIds,
+    visibleCompanies,
+    handleGroupClick,
+    handlePickCompany,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    groupsAllMode,
+    groupAllMode,
+    allowClearCompany,
+  } = useMaintenanceGroupCompanyFilter({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    switchCompany: (c) => switchCompanyRef.current(c),
+    onClearCompany: (...args) => onClearCompanyRef.current(...args),
+  });
 
   const paymentScope = useMemo(
     () =>
@@ -104,8 +125,10 @@ export default function PaymentMaintenancePage() {
         companies,
         selectedGroup,
         companyId,
+        groupsAllMode,
+        groupAllMode,
       }),
-    [companies, selectedGroup, companyId],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
   );
 
   const paymentScopeKey = useMemo(
@@ -579,15 +602,8 @@ export default function PaymentMaintenancePage() {
     }
   };
 
-  const { snapGroupIds, visibleCompanies, handleGroupClick, handlePickCompany, allowClearCompany } =
-    useMaintenanceGroupCompanyFilter({
-      companies,
-      companyId,
-      selectedGroup,
-      setSelectedGroup,
-      switchCompany: handleSwitchCompany,
-      onClearCompany: handleClearCompany,
-    });
+  switchCompanyRef.current = handleSwitchCompany;
+  onClearCompanyRef.current = handleClearCompany;
 
   followGroupRef.current = () => {};
 
@@ -681,8 +697,10 @@ export default function PaymentMaintenancePage() {
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
         onPickCompany={handlePickCompany}
-        onClearCompany={handleClearCompany}
-        allowClearCompany={allowClearCompany}
+        onPickAllGroups={handlePickAllGroups}
+        onPickAllInGroup={handlePickAllInGroup}
+        groupsAllMode={groupsAllMode}
+        groupAllMode={groupAllMode}
         currencies={currencies}
         selectedCurrency={selectedCurrency}
         setSelectedCurrency={setSelectedCurrency}

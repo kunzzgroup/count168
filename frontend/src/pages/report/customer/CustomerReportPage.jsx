@@ -11,7 +11,7 @@ import {
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { useDashboardStyleGcFilter } from "../../../utils/company/useDashboardStyleGcFilter.js";
+import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
@@ -245,64 +245,6 @@ export default function CustomerReportPage() {
     });
   }, [companies, companyId]);
 
-  const reportScope = useMemo(
-    () => resolveCustomerReportScope({ companies, selectedGroup, companyId }),
-    [companies, selectedGroup, companyId],
-  );
-
-  const reportParams = useMemo(
-    () => ({
-      accountId,
-      dateFrom,
-      dateTo,
-      showAll,
-      reportScope,
-      selectedCurrencies,
-      showAllCurrencies,
-      scopeKey: customerReportScopeCacheKey(reportScope),
-    }),
-    [
-      accountId,
-      dateFrom,
-      dateTo,
-      showAll,
-      reportScope,
-      selectedCurrencies,
-      showAllCurrencies,
-    ],
-  );
-
-  const loadReport = useCallback(async () => {
-    if (!customerReportScopeIsReady(reportScope) || !dateFrom || !dateTo) return;
-    const { signal, seq } = beginReportFetch();
-    const quietRefresh = reportDataRef.current != null;
-    if (quietRefresh) setReportSyncing(true);
-    setError("");
-    try {
-      const data = await fetchCustomerReport(reportParams, { signal });
-      if (!isReportFetchCurrent(seq)) return;
-      startTransition(() => {
-        setReportData(data);
-      });
-      setReportSnapshot(REPORT_PAGE_KEY, buildReportSnapshotKey(reportParams), data);
-      if (!data?.data?.length) {
-        notify(t("noDataAdjustSearch"), "info");
-      }
-    } catch (err) {
-      if (err?.name === "AbortError" || !isReportFetchCurrent(seq)) return;
-      const msg = err.message || t("loadReportFailed");
-      setError(msg);
-      notify(msg, "error");
-      startTransition(() => {
-        setReportData(null);
-      });
-    } finally {
-      if (isReportFetchCurrent(seq)) {
-        setReportSyncing(false);
-      }
-    }
-  }, [reportScope, dateFrom, dateTo, reportParams, beginReportFetch, isReportFetchCurrent, t, notify]);
-
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
     try {
@@ -362,10 +304,14 @@ export default function CustomerReportPage() {
   const {
     groupIds,
     companiesForPicker: companyButtons,
+    groupsAllMode,
+    groupAllMode,
+    handlePickAllGroups,
+    handlePickAllInGroup,
     handlePickGroup,
     handlePickCompany,
     allowClearCompany,
-  } = useDashboardStyleGcFilter({
+  } = useGcFilterWithAllModes({
     companies,
     companyId,
     selectedGroup,
@@ -376,6 +322,71 @@ export default function CustomerReportPage() {
     preferredCompanyId: companyHighlightId ?? companyId,
     me,
   });
+
+  const reportScope = useMemo(
+    () =>
+      resolveCustomerReportScope({
+        companies,
+        selectedGroup,
+        companyId,
+        groupsAllMode,
+        groupAllMode,
+      }),
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
+  );
+
+  const reportParams = useMemo(
+    () => ({
+      accountId,
+      dateFrom,
+      dateTo,
+      showAll,
+      reportScope,
+      selectedCurrencies,
+      showAllCurrencies,
+      scopeKey: customerReportScopeCacheKey(reportScope),
+    }),
+    [
+      accountId,
+      dateFrom,
+      dateTo,
+      showAll,
+      reportScope,
+      selectedCurrencies,
+      showAllCurrencies,
+    ],
+  );
+
+  const loadReport = useCallback(async () => {
+    if (!customerReportScopeIsReady(reportScope) || !dateFrom || !dateTo) return;
+    const { signal, seq } = beginReportFetch();
+    const quietRefresh = reportDataRef.current != null;
+    if (quietRefresh) setReportSyncing(true);
+    setError("");
+    try {
+      const data = await fetchCustomerReport(reportParams, { signal });
+      if (!isReportFetchCurrent(seq)) return;
+      startTransition(() => {
+        setReportData(data);
+      });
+      setReportSnapshot(REPORT_PAGE_KEY, buildReportSnapshotKey(reportParams), data);
+      if (!data?.data?.length) {
+        notify(t("noDataAdjustSearch"), "info");
+      }
+    } catch (err) {
+      if (err?.name === "AbortError" || !isReportFetchCurrent(seq)) return;
+      const msg = err.message || t("loadReportFailed");
+      setError(msg);
+      notify(msg, "error");
+      startTransition(() => {
+        setReportData(null);
+      });
+    } finally {
+      if (isReportFetchCurrent(seq)) {
+        setReportSyncing(false);
+      }
+    }
+  }, [reportScope, dateFrom, dateTo, reportParams, beginReportFetch, isReportFetchCurrent, t, notify]);
 
   const persistCurrencyPrefs = useCallback((scope, currencies, showAll) => {
     const key = customerReportScopeCacheCompanyKey(scope);
@@ -565,11 +576,13 @@ export default function CustomerReportPage() {
         <CustomerReportFilters
           companyId={companyId}
           onSwitchCompany={handlePickCompany}
-          onClearCompany={handleClearCompany}
-          allowClearCompany={allowClearCompany}
           groupIds={groupIds}
           selectedGroup={selectedGroup}
           onPickGroup={handlePickGroup}
+          onPickAllGroups={handlePickAllGroups}
+          onPickAllInGroup={handlePickAllInGroup}
+          groupsAllMode={groupsAllMode}
+          groupAllMode={groupAllMode}
           companyButtons={companyButtons}
           highlightCompanyId={companyHighlightId}
           accountId={accountId}

@@ -1,5 +1,5 @@
-import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { lazyWithRetry } from "./utils/routing/lazyWithRetry.js";
 import LoginPage from "./pages/login/LoginPage.jsx";
 import AuthenticatedLayout from "./components/AuthenticatedLayout.jsx";
 import SecondaryPasswordPage from "./pages/login/SecondaryPasswordPage.jsx";
@@ -11,22 +11,22 @@ import ProcessListPage from "./pages/processlist/ProcessListPage.jsx";
 import AutoRenewPage from "./pages/autorenew/AutoRenewPage.jsx";
 import AnnouncementPage from "./pages/announcement/AnnouncementPage.jsx";
 
-const TransactionDashboardPage = lazy(() => import("./pages/dashboard/TransactionDashboardPage.jsx"));
-const DomainPage = lazy(() => import("./pages/domain/DomainPage.jsx"));
-const OwnershipPage = lazy(() => import("./pages/ownership/OwnershipPage.jsx"));
-const BankProcessListPage = lazy(() => import("./pages/bankprocesslist/BankProcessListPage.jsx"));
-const DataCapturePage = lazy(() => import("./pages/datacapture/DataCapturePage.jsx"));
-const DataCaptureSummaryPage = lazy(() => import("./pages/datacapturesummary/DataCaptureSummaryPage.jsx"));
-const TransactionPaymentPage = lazy(() => import("./pages/transaction/TransactionPaymentPage.jsx"));
-const CustomerReportPage = lazy(() => import("./pages/report/customer/CustomerReportPage.jsx"));
-const DomainReportPage = lazy(() => import("./pages/report/domain/DomainReportPage.jsx"));
-const CaptureMaintenancePage = lazy(() => import("./pages/maintenance/capture/CaptureMaintenancePage.jsx"));
-const TransactionMaintenancePage = lazy(() => import("./pages/maintenance/transaction/TransactionMaintenancePage.jsx"));
-const FormulaMaintenancePage = lazy(() => import("./pages/maintenance/formula/FormulaMaintenancePage.jsx"));
-const BankprocessMaintenancePage = lazy(() => import("./pages/maintenance/bankprocess/BankprocessMaintenancePage.jsx"));
-const PaymentMaintenancePage = lazy(() => import("./pages/maintenance/payment/PaymentMaintenancePage.jsx"));
-const UserAccessPage = lazy(() => import("./pages/useraccess/UserAccessPage.jsx"));
-const DeletedLogPage = lazy(() => import("./pages/deletedlog/DeletedLogPage.jsx"));
+const TransactionDashboardPage = lazyWithRetry(() => import("./pages/dashboard/TransactionDashboardPage.jsx"));
+const DomainPage = lazyWithRetry(() => import("./pages/domain/DomainPage.jsx"));
+const OwnershipPage = lazyWithRetry(() => import("./pages/ownership/OwnershipPage.jsx"));
+const BankProcessListPage = lazyWithRetry(() => import("./pages/bankprocesslist/BankProcessListPage.jsx"));
+const DataCapturePage = lazyWithRetry(() => import("./pages/datacapture/DataCapturePage.jsx"));
+const DataCaptureSummaryPage = lazyWithRetry(() => import("./pages/datacapturesummary/DataCaptureSummaryPage.jsx"));
+const TransactionPaymentPage = lazyWithRetry(() => import("./pages/transaction/TransactionPaymentPage.jsx"));
+const CustomerReportPage = lazyWithRetry(() => import("./pages/report/customer/CustomerReportPage.jsx"));
+const DomainReportPage = lazyWithRetry(() => import("./pages/report/domain/DomainReportPage.jsx"));
+const CaptureMaintenancePage = lazyWithRetry(() => import("./pages/maintenance/capture/CaptureMaintenancePage.jsx"));
+const TransactionMaintenancePage = lazyWithRetry(() => import("./pages/maintenance/transaction/TransactionMaintenancePage.jsx"));
+const FormulaMaintenancePage = lazyWithRetry(() => import("./pages/maintenance/formula/FormulaMaintenancePage.jsx"));
+const BankprocessMaintenancePage = lazyWithRetry(() => import("./pages/maintenance/bankprocess/BankprocessMaintenancePage.jsx"));
+const PaymentMaintenancePage = lazyWithRetry(() => import("./pages/maintenance/payment/PaymentMaintenancePage.jsx"));
+const UserAccessPage = lazyWithRetry(() => import("./pages/useraccess/UserAccessPage.jsx"));
+const DeletedLogPage = lazyWithRetry(() => import("./pages/deletedlog/DeletedLogPage.jsx"));
 
 export default function App() {
   return (

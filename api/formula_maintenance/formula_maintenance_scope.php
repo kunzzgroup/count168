@@ -210,13 +210,34 @@ function formulaMaintenanceResolveProcessFilter(
 }
 
 /**
- * Group payroll processes: show process code only (avoid "BONUS (SALARY)" from shared description).
+ * SQL: 1 when the joined process row belongs to a group-entity company (company_id = group_id).
  */
-function formulaMaintenanceFormatProcessDisplay(string $processCode, ?string $descriptionName = null): string
+function formulaMaintenanceSqlProcessOnGroupEntityFlag(string $processAlias = 'p'): string
 {
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $processAlias) ?: 'p';
+    return "CASE WHEN EXISTS (
+        SELECT 1
+        FROM company c_ge
+        WHERE c_ge.id = {$a}.company_id
+          AND TRIM(COALESCE(c_ge.company_id, '')) <> ''
+          AND UPPER(TRIM(c_ge.company_id)) = UPPER(TRIM(COALESCE(c_ge.group_id, '')))
+    ) THEN 1 ELSE 0 END";
+}
+
+/**
+ * SALARY/BONUS: group-entity process → code only; subsidiary company process → CODE (CODE).
+ */
+function formulaMaintenanceFormatProcessDisplay(
+    string $processCode,
+    ?string $descriptionName = null,
+    bool $processOnGroupEntity = false
+): string {
     $code = strtoupper(trim($processCode));
     if (in_array($code, ['SALARY', 'BONUS'], true)) {
-        return $code;
+        if ($processOnGroupEntity) {
+            return $code;
+        }
+        return $code . ' (' . $code . ')';
     }
     $desc = trim((string) ($descriptionName ?? ''));
     if ($desc !== '') {

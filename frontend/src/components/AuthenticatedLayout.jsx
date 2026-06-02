@@ -29,6 +29,7 @@ import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import AnimatedOutlet from "./AnimatedOutlet.jsx";
 import { prefetchAutoRenewList, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
+import { clearChunkReloadFlag } from "../utils/routing/lazyWithRetry.js";
 import {
   canAccessC168AutoRenew,
   canAccessC168DomainPages,
@@ -272,6 +273,7 @@ export default function AuthenticatedLayout() {
         }
         applyLoginScopeToSessionStorageIfNeeded(u);
         setMe(u);
+        clearChunkReloadFlag();
       } catch (err) {
         if (cancelled || err?.name === "AbortError") return;
         navigate("/login", { replace: true });

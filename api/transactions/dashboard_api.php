@@ -22,6 +22,8 @@ if (!$pdo instanceof PDO) {
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/transaction_scope.php';
+require_once __DIR__ . '/../reports/report_scope_common.php';
 
 /**
  * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
@@ -255,8 +257,27 @@ function dashboardOutMap(array $daily): array
     return $daily;
 }
 
-function dashboardResolveGroupScopeId(PDO $pdo): int
+function dashboardResolveGroupScopeIdByCode(PDO $pdo, string $groupCode): int
 {
+    $g = strtoupper(trim($groupCode));
+    if ($g === '') {
+        return 0;
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT id FROM `groups` WHERE UPPER(TRIM(group_code)) = UPPER(TRIM(?)) LIMIT 1");
+        $stmt->execute([$g]);
+        return (int) ($stmt->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function dashboardResolveGroupScopeId(PDO $pdo, ?string $viewGroup = null): int
+{
+    $fromParam = $viewGroup !== null ? strtoupper(trim($viewGroup)) : '';
+    if ($fromParam !== '') {
+        return dashboardResolveGroupScopeIdByCode($pdo, $fromParam);
+    }
     if (!gc_is_group_login()) {
         return 0;
     }
@@ -264,21 +285,76 @@ function dashboardResolveGroupScopeId(PDO $pdo): int
     if ($identifier === null || $identifier === '') {
         return 0;
     }
+    return dashboardResolveGroupScopeIdByCode($pdo, $identifier);
+}
+
+function dashboardResolveGroupCodeFromScopeId(PDO $pdo, int $groupScopeId): string
+{
+    if ($groupScopeId <= 0) {
+        return '';
+    }
     try {
-        $stmt = $pdo->prepare("SELECT id FROM `groups` WHERE UPPER(TRIM(group_code)) = UPPER(TRIM(?)) LIMIT 1");
-        $stmt->execute([$identifier]);
-        return (int) ($stmt->fetchColumn() ?: 0);
+        $stmt = $pdo->prepare('SELECT UPPER(TRIM(group_code)) FROM `groups` WHERE id = ? LIMIT 1');
+        $stmt->execute([$groupScopeId]);
+        return strtoupper(trim((string) ($stmt->fetchColumn() ?: '')));
     } catch (Throwable $e) {
-        return 0;
+        return '';
     }
 }
 
-function dashboardBuildGroupScopedSummary(PDO $pdo, string $dateFrom, string $dateTo, int $groupScopeId): array
+function dashboardAssertGroupLedgerAccess(PDO $pdo, string $groupCode, int $groupScopeId): void
 {
+    $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+    if ($entityId <= 0) {
+        throw new Exception('无效的集团');
+    }
+    assertGroupEntityAccess($pdo, $groupCode, $entityId);
+}
+
+function dashboardBuildGroupScopedSummary(
+    PDO $pdo,
+    string $dateFrom,
+    string $dateTo,
+    int $groupScopeId,
+    ?string $filterCurrencyCode = null
+): array {
     $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
     $result = [];
+    $hasTransactionCurrency = dashboardHasTransactionCurrency($pdo);
+    $groupCode = dashboardResolveGroupCodeFromScopeId($pdo, $groupScopeId);
+    $entityCompanyId = $groupCode !== '' ? tx_resolve_group_entity_company_id($pdo, $groupCode) : 0;
+    $currencyMap = [];
+    if ($entityCompanyId > 0) {
+        $currencyStmt = $pdo->prepare('SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?');
+        $currencyStmt->execute([$entityCompanyId]);
+        foreach ($currencyStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $currencyMap[$row['id']] = strtoupper($row['code']);
+        }
+    }
+    $currencyFilterSql = '';
+    $currencyFilterParams = [];
+    if ($filterCurrencyCode !== null && $hasTransactionCurrency) {
+        $currId = array_search($filterCurrencyCode, $currencyMap, true);
+        if ($currId === false) {
+            foreach ($roles as $role) {
+                $result[strtolower($role)] = [
+                    'role' => $role,
+                    'total_balance' => dashboardMoneyZero(),
+                    'initial_balance' => dashboardMoneyZero(),
+                    'period_total' => dashboardMoneyZero(),
+                    'daily_data' => [],
+                ];
+            }
+            return $result;
+        }
+        $currencyFilterSql = ' AND t.currency_id = ?';
+        $currencyFilterParams = [(int) $currId];
+    }
+    $contraApproval = dashboardContraApprovedWhere($pdo, 't');
 
     foreach ($roles as $role) {
+        $excludeClear = dashboardShouldExcludeClearForRole($role);
+        $clearFilter = $excludeClear ? " AND t.transaction_type <> 'CLEAR'" : '';
         $accStmt = $pdo->prepare("
             SELECT DISTINCT a.id
             FROM account a
@@ -317,10 +393,9 @@ function dashboardBuildGroupScopedSummary(PDO $pdo, string $dateFrom, string $da
             WHERE t.scope_type = 'group'
               AND t.scope_id = ?
               AND t.account_id IN ($in)
-              AND t.transaction_date < ?
-        ";
+              AND t.transaction_date < ?" . $currencyFilterSql . $clearFilter . $contraApproval;
         $bfToStmt = $pdo->prepare($bfToSql);
-        $bfToStmt->execute(array_merge([$groupScopeId], $accountIds, [$dateFrom]));
+        $bfToStmt->execute(array_merge([$groupScopeId], $accountIds, [$dateFrom], $currencyFilterParams));
         $bfTo = (string) ($bfToStmt->fetchColumn() ?? '0');
 
         $bfFromSql = "
@@ -334,10 +409,9 @@ function dashboardBuildGroupScopedSummary(PDO $pdo, string $dateFrom, string $da
             WHERE t.scope_type = 'group'
               AND t.scope_id = ?
               AND t.from_account_id IN ($in)
-              AND t.transaction_date < ?
-        ";
+              AND t.transaction_date < ?" . $currencyFilterSql . $clearFilter . $contraApproval;
         $bfFromStmt = $pdo->prepare($bfFromSql);
-        $bfFromStmt->execute(array_merge([$groupScopeId], $accountIds, [$dateFrom]));
+        $bfFromStmt->execute(array_merge([$groupScopeId], $accountIds, [$dateFrom], $currencyFilterParams));
         $bfFrom = (string) ($bfFromStmt->fetchColumn() ?? '0');
 
         $initial = dashboardMoneyAdd($bfTo, $bfFrom);
@@ -367,12 +441,12 @@ function dashboardBuildGroupScopedSummary(PDO $pdo, string $dateFrom, string $da
             WHERE t.scope_type = 'group'
               AND t.scope_id = ?
               AND t.transaction_date BETWEEN ? AND ?
-              AND (t.account_id IN ($in) OR t.from_account_id IN ($in))
+              AND (t.account_id IN ($in) OR t.from_account_id IN ($in))" . $currencyFilterSql . $clearFilter . $contraApproval . "
             GROUP BY DATE(t.transaction_date)
             ORDER BY DATE(t.transaction_date)
         ";
         $dailyStmt = $pdo->prepare($dailySql);
-        $dailyParams = array_merge($accountIds, $accountIds, [$groupScopeId, $dateFrom, $dateTo], $accountIds, $accountIds);
+        $dailyParams = array_merge($accountIds, $accountIds, [$groupScopeId, $dateFrom, $dateTo], $currencyFilterParams);
         $dailyStmt->execute($dailyParams);
         $dailyData = [];
         while ($r = $dailyStmt->fetch(PDO::FETCH_ASSOC)) {
@@ -473,8 +547,11 @@ try {
             }
         }
     } else {
-        // Group login without company_id: handled below (group scope ledger). Do not use session company.
-        if (!gc_is_group_login()) {
+        // Group-only request (no company_id): handled below. Do not fall back to session company.
+        $groupOnlyParam = reportNormalizeGroupId($_GET['group_id'] ?? '');
+        $viewGroupOnlyParam = reportNormalizeGroupId($_GET['view_group'] ?? '');
+        $hasGroupOnlyRequest = $groupOnlyParam !== '' || $viewGroupOnlyParam !== '';
+        if (!gc_is_group_login() && !$hasGroupOnlyRequest) {
             if (!isset($_SESSION['company_id'])) {
                 throw new Exception('用户未登录或缺少公司信息');
             }
@@ -493,14 +570,44 @@ try {
     $date_from_db = $date_from;
     $date_to_db = $date_to;
 
-    // Group login without company_id: group ledger only (scope_type=group). Never use session company_id here.
-    if (gc_is_group_login() && $requestedCompanyId <= 0) {
-        $groupScopeId = dashboardResolveGroupScopeId($pdo);
+    // 可选：按币别筛选（传 currency 为 code，如 MYR、USD）
+    $filter_currency_code = null;
+    if (isset($_GET['currency']) && trim((string) $_GET['currency']) !== '') {
+        $filter_currency_code = strtoupper(trim((string) $_GET['currency']));
+    }
+
+    // No company_id: group ledger only (scope_type=group). Distinct from company_id-scoped rows.
+    $groupLedgerCode = reportNormalizeGroupId($_GET['view_group'] ?? '');
+    if ($groupLedgerCode === '') {
+        $groupLedgerCode = reportNormalizeGroupId($_GET['group_id'] ?? '');
+    }
+    if ($groupLedgerCode === '' && gc_is_group_login()) {
+        $groupLedgerCode = (string) (gc_session_login_identifier() ?? '');
+    }
+    $useGroupLedger = $requestedCompanyId <= 0 && $groupLedgerCode !== '';
+    $groupEntityCompanyId = 0;
+
+    if ($useGroupLedger) {
+        $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupLedgerCode);
         if ($groupScopeId <= 0) {
             throw new Exception('Group scope is invalid or not initialized');
         }
+        dashboardAssertGroupLedgerAccess($pdo, $groupLedgerCode, $groupScopeId);
+        $groupEntityCompanyId = tx_resolve_group_entity_company_id($pdo, $groupLedgerCode);
+    }
 
-        $groupResult = dashboardBuildGroupScopedSummary($pdo, $date_from_db, $date_to_db, $groupScopeId);
+    // Group dashboard (no subsidiary company_id): group-entity row only — not subsidiaries under the group.
+    if ($useGroupLedger && $groupEntityCompanyId > 0) {
+        $company_id = $groupEntityCompanyId;
+        $useGroupLedger = false;
+    } elseif ($useGroupLedger) {
+        $groupResult = dashboardBuildGroupScopedSummary(
+            $pdo,
+            $date_from_db,
+            $date_to_db,
+            $groupScopeId,
+            $filter_currency_code
+        );
         echo json_encode([
             'success' => true,
             'data' => [
@@ -533,17 +640,11 @@ try {
                     'to' => $date_to
                 ]
             ]
-        ]);
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    // Group login + explicit company_id: standard company dashboard (company_id rows).
-
-    // 可选：按币别筛选（传 currency 为 code，如 MYR、USD）
-    $filter_currency_code = null;
-    if (isset($_GET['currency']) && trim((string) $_GET['currency']) !== '') {
-        $filter_currency_code = strtoupper(trim((string) $_GET['currency']));
-    }
+    // Explicit company_id: standard company dashboard (company_id rows).
 
     // 使用 static 缓存函数，整个请求中只查一次 schema
     $hasTransactionCurrency = dashboardHasTransactionCurrency($pdo);

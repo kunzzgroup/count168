@@ -22,10 +22,8 @@ export function formulaMaintenanceUsesGroupProcesses(scope) {
 export function formulaMaintenanceScopeApiParams(scope) {
   if (!scope) return {};
   const base = customerReportScopeApiParams(scope);
-  return {
-    ...base,
-    reportScope: scope.mode,
-  };
+  const params = { ...base, reportScope: scope.mode };
+  return params;
 }
 
 /** Numeric company id for API body/query; omit when group resolves via group_id only. */

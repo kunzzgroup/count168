@@ -24,8 +24,10 @@ export default function BankprocessMaintenanceFilters({
   selectedGroup,
   onGroupClick,
   onPickCompany,
-  onClearCompany,
-  allowClearCompany = true,
+  onPickAllGroups,
+  onPickAllInGroup,
+  groupsAllMode = false,
+  groupAllMode = false,
   companies,
   visibleCompanies,
   companyId,
@@ -137,16 +139,17 @@ export default function BankprocessMaintenanceFilters({
               groupIds={groupedIds}
               selectedGroup={selectedGroup}
               onPickGroup={(g) => onGroupClick(g)}
+              onPickAllGroups={onPickAllGroups}
+              onPickAllInGroup={onPickAllInGroup}
+              groupsAllMode={groupsAllMode}
+              groupAllMode={groupAllMode}
               companyButtons={visibleCompanies}
               companyId={companyId}
               highlightCompanyId={companyId}
               onSwitchCompany={onPickCompany}
-              onClearCompany={onClearCompany}
-              allowClearCompany={allowClearCompany}
               currencyList={currencies}
               showAllCurrencies={allCurrenciesSelected}
               selectedCurrencies={selectedCurrencies}
-              toggleAllCurrencies={onCurrencySelectAll}
               toggleCurrency={onCurrencyToggle}
               t={(key) => {
                 if (key === "groupId") return m.groupId;

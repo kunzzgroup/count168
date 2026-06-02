@@ -14,32 +14,41 @@ export default function GcInlineFilterPanel({
   pickerCompanyId = null,
   onPickAllInGroup,
   onPickCompany,
+  onClearCompanyPill = null,
+  allowCompanyDeselect = false,
   switchingCompany = false,
   showGroupRow = true,
   showCompanyRow = true,
+  showAllOption = true,
   allLabelKey = "groupFilterAll",
+  /** When true, render rows only (parent already provides .user-gc-inline-panel grid). */
+  embedded = false,
   children = null,
 }) {
   const selectedGroupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-  const allLabel = typeof t === "function" ? t(allLabelKey) : allLabelKey;
+  const allLabelRaw = typeof t === "function" ? t(allLabelKey) : allLabelKey;
+  const allLabel =
+    allLabelRaw && allLabelRaw !== allLabelKey ? allLabelRaw : "ALL";
 
   if (!showGroupRow && !showCompanyRow && !children) return null;
   if (!groupIds.length && !companiesForPicker.length && !children) return null;
 
-  return (
-    <div className="user-gc-inline-panel">
+  const rows = (
+    <>
       {showGroupRow && groupIds.length > 0 && (
         <div className="user-gc-inline-row">
           <span className="user-gc-inline-label">{t("groupId")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-              <button
-                type="button"
-                className={`user-gc-segment${groupsAllMode ? " is-on" : ""}`}
-                onClick={() => void onPickAllGroups?.()}
-              >
-                {allLabel}
-              </button>
+              {showAllOption ? (
+                <button
+                  type="button"
+                  className={`user-gc-segment${groupsAllMode ? " is-on" : ""}`}
+                  onClick={() => void onPickAllGroups?.()}
+                >
+                  {allLabel}
+                </button>
+              ) : null}
               {groupIds.map((gid) => (
                 <button
                   key={gid}
@@ -59,23 +68,29 @@ export default function GcInlineFilterPanel({
           <span className="user-gc-inline-label">{t("company")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
-              <button
-                type="button"
-                className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
-                onClick={() => void onPickAllInGroup?.()}
-              >
-                {allLabel}
-              </button>
+              {showAllOption ? (
+                <button
+                  type="button"
+                  className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
+                  onClick={() => void onPickAllInGroup?.()}
+                >
+                  {allLabel}
+                </button>
+              ) : null}
               {companiesForPicker.map((c) => {
                 const active = !groupAllMode && Number(pickerCompanyId) === Number(c.id);
+                const pending = switchingCompany && active;
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    className={`user-gc-segment${active ? " is-on" : ""}`}
+                    className={`user-gc-segment${active ? " is-on" : ""}${pending ? " is-pending" : ""}`}
                     onClick={() => {
-                      if (switchingCompany) return;
-                      void onPickCompany?.(c);
+                      if (active && allowCompanyDeselect && onClearCompanyPill) {
+                        onClearCompanyPill(c);
+                        return;
+                      }
+                      void onPickCompany?.(c, active);
                     }}
                   >
                     {String(c.company_id || "").toUpperCase()}
@@ -87,6 +102,10 @@ export default function GcInlineFilterPanel({
         </div>
       )}
       {children}
-    </div>
+    </>
   );
+
+  if (embedded) return rows;
+
+  return <div className="user-gc-inline-panel">{rows}</div>;
 }

@@ -35,6 +35,10 @@ export function useDashboardStyleGcFilter({
   sessionCompanyId = null,
   /** Data Capture uses custom anchor sync (gambling redirect). */
   enableGroupAnchorSession = true,
+  /** When false, do not auto-select first company while group is set and company is cleared. */
+  autoPickCompanyWhenEmpty = true,
+  /** When false, skip layout broadcast on selectedGroup/companyId changes (page handles manually). */
+  broadcastFilterToLayout = true,
   /** Current user from AuthSessionContext — enforces group vs company login rules. */
   me = null,
 }) {
@@ -104,7 +108,7 @@ export function useDashboardStyleGcFilter({
   );
 
   useLayoutEffect(() => {
-    if (allowGroupOnly || !selectedGroup || companyId != null) return;
+    if (allowGroupOnly || !autoPickCompanyWhenEmpty || !selectedGroup || companyId != null) return;
     const pick = pickDefaultCompanyForGroup(companies, selectedGroup, { me, preferredCompanyId: companyId });
     if (!pick) return;
     persistDashboardFilterState(selectedGroup, pick.id, { allowGroupOnly: false });
@@ -113,6 +117,7 @@ export function useDashboardStyleGcFilter({
     if (onSelectCompany) void onSelectCompany(pick);
   }, [
     allowGroupOnly,
+    autoPickCompanyWhenEmpty,
     selectedGroup,
     companyId,
     companies,
@@ -128,8 +133,7 @@ export function useDashboardStyleGcFilter({
       const id = Number(c.id);
       const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       const sel = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-      const isActive =
-        companyId != null && Number(companyId) === id && (!gid || gid === sel);
+      const isActive = companyId != null && Number(companyId) === id;
 
       if (isActive) {
         if (!allowClearCompany) return;
@@ -170,9 +174,10 @@ export function useDashboardStyleGcFilter({
   );
 
   useLayoutEffect(() => {
+    if (!broadcastFilterToLayout) return;
     const cid = isDashboardGroupOnlyMode() ? null : companyId;
     notifyDashboardGroupFilterChanged(selectedGroup, cid);
-  }, [selectedGroup, companyId]);
+  }, [selectedGroup, companyId, broadcastFilterToLayout]);
 
   return {
     groupIds,

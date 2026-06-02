@@ -11,8 +11,10 @@ export default function FormulaMaintenanceFilters({
   selectedGroup,
   onGroupClick,
   onPickCompany,
-  onClearCompany,
-  allowClearCompany = true,
+  onPickAllGroups,
+  onPickAllInGroup,
+  groupsAllMode = false,
+  groupAllMode = false,
   onClearFilters,
   selectedIds,
   confirmDelete,
@@ -80,12 +82,14 @@ export default function FormulaMaintenanceFilters({
             groupIds={snapGroupIds}
             selectedGroup={selectedGroup}
             onPickGroup={(g) => onGroupClick(g)}
+            onPickAllGroups={onPickAllGroups}
+            onPickAllInGroup={onPickAllInGroup}
+            groupsAllMode={groupsAllMode}
+            groupAllMode={groupAllMode}
             companyButtons={visibleCompanies}
             companyId={companyId}
             highlightCompanyId={companyId}
             onSwitchCompany={onPickCompany}
-            onClearCompany={onClearCompany}
-            allowClearCompany={allowClearCompany}
             t={(key) => {
               if (key === "groupId") return m.groupId;
               if (key === "company") return m.company;

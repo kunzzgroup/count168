@@ -2,7 +2,13 @@ config.local.php
 node_modules/
 frontend/node_modules/
 .env
+.env.*
 .env.local
+
+*.log
+.DS_Store
+Thumbs.db
+.cursor/
 
 # database: regenerable import intermediates
 database/generated/*.sql

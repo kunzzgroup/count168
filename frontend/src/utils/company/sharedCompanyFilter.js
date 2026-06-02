@@ -171,6 +171,19 @@ export function readDashboardSelectedCompanyId() {
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
+/** Cross-page Group / Company filter snapshot from sessionStorage. */
+export function readPersistedDashboardGcFilter() {
+  const selectedGroupRaw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+  const selectedGroup = selectedGroupRaw ? String(selectedGroupRaw).trim().toUpperCase() : null;
+  const savedCompanyId = readDashboardSelectedCompanyId();
+  const groupOnly = isDashboardGroupOnlyMode() && savedCompanyId == null;
+  return {
+    selectedGroup,
+    companyId: groupOnly ? null : savedCompanyId,
+    groupOnly,
+  };
+}
+
 /** Remove stale `company_id` from the address bar (Admin/Account bookmarked URLs). */
 export function stripCompanyIdFromUrl() {
   if (typeof window === "undefined") return;
@@ -411,6 +424,10 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
   }
 
   if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
+    return savedGroup;
+  }
+
+  if (savedGroup && groups.includes(savedGroup) && !isCompanyLogin(loginMe)) {
     return savedGroup;
   }
 

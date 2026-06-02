@@ -87,6 +87,7 @@ function fetchFormulaListRaw(
                 p.process_id AS process_code,
                 p.description_id,
                 d.name AS description_name,
+                " . formulaMaintenanceSqlProcessOnGroupEntityFlag('p') . " AS process_on_group_entity,
                 a.account_id AS account_code,
                 a.name AS account_name,
                 c.code AS currency_code
@@ -139,7 +140,12 @@ function mapRowsToDisplay(array $rows) {
         $formulaEdit = buildFormulaEditFromRow($row);
         $processCode = $row['process_code'] ?? '';
         $descriptionName = $row['description_name'] ?? '';
-        $processDisplay = formulaMaintenanceFormatProcessDisplay($processCode, $descriptionName);
+        $processOnGroupEntity = !empty($row['process_on_group_entity']);
+        $processDisplay = formulaMaintenanceFormatProcessDisplay(
+            $processCode,
+            $descriptionName,
+            $processOnGroupEntity
+        );
         $accountDisplay = $row['account_code'] ?? ($row['account_display'] ?? '');
         $currencyDisplay = $row['currency_code'] ?? ($row['currency_display'] ?? '');
         $product = $row['id_product'] ?? '';

@@ -23,8 +23,10 @@ export default function TransactionMaintenanceFilters({
   selectedGroup,
   onGroupClick,
   onPickCompany,
-  onClearCompany,
-  allowClearCompany = true,
+  onPickAllGroups,
+  onPickAllInGroup,
+  groupsAllMode = false,
+  groupAllMode = false,
   processValueMode = "processName",
   m,
 }) {
@@ -84,12 +86,14 @@ export default function TransactionMaintenanceFilters({
             groupIds={snapGroupIds}
             selectedGroup={selectedGroup}
             onPickGroup={(g) => onGroupClick(g)}
+            onPickAllGroups={onPickAllGroups}
+            onPickAllInGroup={onPickAllInGroup}
+            groupsAllMode={groupsAllMode}
+            groupAllMode={groupAllMode}
             companyButtons={visibleCompanies}
             companyId={companyId}
             highlightCompanyId={companyId}
             onSwitchCompany={onPickCompany}
-            onClearCompany={onClearCompany}
-            allowClearCompany={allowClearCompany}
             t={(key) => {
               if (key === "groupId") return m.groupId;
               if (key === "company") return m.company;
