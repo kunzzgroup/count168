@@ -65,7 +65,8 @@ function fetchCaptureRecords(
     string $date_to_db,
     ?int $process_id,
     ?string $process_name,
-    string $scopeProcessFilter = ''
+    string $scopeProcessFilter = '',
+    string $scopeCompanySql = ''
 ) {
     $where_conditions = ["dc.capture_date BETWEEN ? AND ?", "p.company_id = ?"];
     $params = [$company_id, $company_id, $date_from_db, $date_to_db, $company_id];
@@ -90,7 +91,7 @@ function fetchCaptureRecords(
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
             LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
-            WHERE dc.company_id = ? AND dcd.company_id = ? $where_sql $scopeProcessFilter
+            WHERE dc.company_id = ? AND dcd.company_id = ? $where_sql $scopeProcessFilter $scopeCompanySql
             GROUP BY dc.id, p.process_id, {$productLabelSql}, dc.capture_date, dc.created_at
             ORDER BY dc.capture_date DESC, p.process_id, {$productLabelSql}";
     $stmt = $pdo->prepare($sql);
@@ -108,7 +109,8 @@ function fetchDeletedRecords(
     string $date_to_db,
     ?int $process_id,
     ?string $process_name,
-    string $scopeProcessFilter = ''
+    string $scopeProcessFilter = '',
+    string $scopeCompanySql = ''
 ) {
     $checkStmt = $pdo->query("SHOW TABLES LIKE 'data_captures_deleted'");
     if (!$checkStmt->rowCount()) {
@@ -140,7 +142,7 @@ function fetchDeletedRecords(
             LEFT JOIN owner o ON dcd.created_by = o.id AND dcd.user_type = 'owner'
             LEFT JOIN user du ON dcd.deleted_by_user_id = du.id
             LEFT JOIN owner do ON dcd.deleted_by_owner_id = do.id
-            WHERE dcd.company_id = ? AND dcd.capture_date BETWEEN ? AND ? $deletedWhereSql $scopeProcessFilter
+            WHERE dcd.company_id = ? AND dcd.capture_date BETWEEN ? AND ? $deletedWhereSql $scopeProcessFilter $scopeCompanySql
             ORDER BY dcd.capture_date DESC, p.process_id, {$productLabelSql}";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($deletedParams);
@@ -210,8 +212,14 @@ try {
 
     if ($hasExplicitScope) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
-        $company_id = (int) $scopeResolved['company_id'];
-        $capture_scope_group = (bool) $scopeResolved['is_group_scope'];
+        $scopeCtx = dcFinalizeCaptureMaintenanceScope($pdo, $scopeResolved, $scopeParams);
+        $company_id = (int) $scopeCtx['company_id'];
+        $capture_scope_group = (bool) $scopeCtx['is_group_scope'];
+        $scopeProcessFilter = (string) $scopeCtx['scope_process_sql'];
+        $scopeCompanySql = (string) $scopeCtx['scope_company_sql'];
+        $scopeCompanySqlDeleted = $capture_scope_group
+            ? dcSqlCaptureOnGroupEntityCompany('dcd')
+            : dcSqlCaptureOnSubsidiaryCompany('dcd');
         $viewGroupForAccess = dcNormalizeGroupId(
             $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
         );
@@ -223,11 +231,22 @@ try {
     } else {
         $company_id = getCompanyIdForRequest($pdo);
         $capture_scope_group = false;
+        $scopeProcessFilter = dcSqlCompanyProcessFilter('p');
+        $scopeCompanySql = dcSqlCaptureOnSubsidiaryCompany('dc');
+        $scopeCompanySqlDeleted = dcSqlCaptureOnSubsidiaryCompany('dcd');
     }
 
-    $scopeProcessFilter = $capture_scope_group
-        ? dcSqlGroupProcessFilter('p')
-        : dcSqlCompanyProcessFilter('p');
+    if ($capture_scope_group) {
+        if ($company_id <= 0 || !dcCompanyIdIsGroupEntity($pdo, $company_id)) {
+            jsonResponse(true, 'OK', []);
+            return;
+        }
+    } elseif ($company_id > 0 && dcCompanyIdIsGroupEntity($pdo, $company_id)) {
+        jsonResponse(true, 'OK', []);
+        return;
+    }
+
+    // $scopeProcessFilter set above
 
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
@@ -293,7 +312,8 @@ try {
         $date_to_db,
         $process_id,
         $process_name,
-        $scopeProcessFilter
+        $scopeProcessFilter,
+        $scopeCompanySql
     );
     $deletedResults = [];
     try {
@@ -304,7 +324,8 @@ try {
             $date_to_db,
             $process_id,
             $process_name,
-            $scopeProcessFilter
+            $scopeProcessFilter,
+            $scopeCompanySqlDeleted
         );
     } catch (Exception $e) {
         error_log('查询已删除记录失败: ' . $e->getMessage());

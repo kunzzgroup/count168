@@ -1,5 +1,5 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
-import { companiesInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
+import { companiesNativeInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   fetchDomainCompanyPermissions,
   fetchMaintenanceProcesses,
@@ -54,7 +54,7 @@ export async function fetchProcesses(companyId, scope = null) {
  */
 export async function bootstrapCaptureMaintenanceMeta({ companies, groupId = null }) {
   const anchor =
-    (groupId ? companiesInGroupList(companies, groupId)[0] : null) ??
+    (groupId ? companiesNativeInGroupList(companies, groupId)[0] : null) ??
     (Array.isArray(companies) ? companies[0] : null) ??
     null;
   const code = anchor?.company_id ? String(anchor.company_id) : "";

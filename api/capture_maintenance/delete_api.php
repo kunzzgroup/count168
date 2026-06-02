@@ -122,8 +122,10 @@ try {
 
     if ($hasExplicitScope) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
-        $company_id = (int) $scopeResolved['company_id'];
-        $capture_scope_group = (bool) $scopeResolved['is_group_scope'];
+        $scopeCtx = dcFinalizeCaptureMaintenanceScope($pdo, $scopeResolved, $scopeParams);
+        $company_id = (int) $scopeCtx['company_id'];
+        $capture_scope_group = (bool) $scopeCtx['is_group_scope'];
+        $scopeProcessFilter = (string) $scopeCtx['scope_process_sql'];
         $viewGroupForAccess = dcNormalizeGroupId(
             $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
         );
@@ -138,11 +140,16 @@ try {
         }
         $company_id = (int) $_SESSION['company_id'];
         $capture_scope_group = false;
+        $scopeProcessFilter = dcSqlCompanyProcessFilter('p');
     }
 
-    $scopeProcessFilter = $capture_scope_group
-        ? dcSqlGroupProcessFilter('p')
-        : dcSqlCompanyProcessFilter('p');
+    if ($capture_scope_group) {
+        if ($company_id <= 0 || !dcCompanyIdIsGroupEntity($pdo, $company_id)) {
+            throw new Exception('集团范围无效或未配置集团实体公司');
+        }
+    } elseif ($company_id > 0 && dcCompanyIdIsGroupEntity($pdo, $company_id)) {
+        throw new Exception('公司范围不能操作集团实体抓数记录');
+    }
 
     $date_from = $payload['date_from'] ?? null;
     $date_to = $payload['date_to'] ?? null;
