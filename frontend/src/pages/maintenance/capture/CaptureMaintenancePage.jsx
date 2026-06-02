@@ -551,6 +551,14 @@ export default function CaptureMaintenancePage() {
       }
 
       notifyCompanySessionUpdated();
+      const switchedScope = resolveCaptureMaintenanceScope({
+        companies,
+        selectedGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
+        companyId: Number(c.id),
+        groupsAllMode,
+        groupAllMode,
+      });
+      await performSearch({ scope: switchedScope });
       notify(t("switchedTo", { company: nextCode }), "success");
     } catch (err) {
       const msg = String(err?.message || "");
