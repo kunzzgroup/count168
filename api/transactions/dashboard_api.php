@@ -637,6 +637,40 @@ function dashboardRoleFilterSql(string $role, string $alias = 'a'): array
     ];
 }
 
+/** Avoid utf8mb4_general_ci vs utf8mb4_unicode_ci mix on string compares (Hostinger default). */
+function dashboardSqlUnicodeCi(string $expr): string
+{
+    return "CONVERT(($expr) USING utf8mb4) COLLATE utf8mb4_unicode_ci";
+}
+
+function dashboardEnsureConnectionCollation(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    try {
+        $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+    } catch (Throwable $e) {
+    }
+    $done = true;
+}
+
+/** Match data_capture_details.account_id to transactions account column (id or account code). */
+function dashboardDcdToTxnAccountMatchSql(string $dcdAlias, string $accountColumn): string
+{
+    if ($accountColumn !== 'from_account_id') {
+        $accountColumn = 'account_id';
+    }
+    $tCol = 't.`' . $accountColumn . '`';
+    $dcdCast = dashboardSqlUnicodeCi("CAST({$dcdAlias}.account_id AS CHAR)");
+    $txnCast = dashboardSqlUnicodeCi("CAST({$tCol} AS CHAR)");
+    $dcdTrim = dashboardSqlUnicodeCi("TRIM(COALESCE({$dcdAlias}.account_id, ''))");
+    $txnTrim = dashboardSqlUnicodeCi("TRIM(CAST({$tCol} AS CHAR))");
+
+    return "({$dcdCast} = {$txnCast} OR {$dcdTrim} = {$txnTrim})";
+}
+
 /**
  * Filter capture rows by currency code (avoids mixing currency_id across companies).
  *
@@ -648,12 +682,13 @@ function dashboardCaptureCurrencyFilterSql(?string $filterCurrencyCode, string $
         return ['', []];
     }
     $code = strtoupper(trim($filterCurrencyCode));
+    $codeExpr = dashboardSqlUnicodeCi('UPPER(TRIM(cur.code))');
 
     return [
         " AND EXISTS (
             SELECT 1 FROM currency cur
             WHERE cur.id = {$dcdAlias}.currency_id
-              AND UPPER(TRIM(cur.code)) = ?
+              AND {$codeExpr} = ?
         )",
         [$code],
     ];
@@ -673,13 +708,15 @@ function dashboardTransactionCurrencyFilterSql(?string $filterCurrencyCode, stri
     if ($accountColumn !== 'from_account_id') {
         $accountColumn = 'account_id';
     }
+    $codeExpr = dashboardSqlUnicodeCi('UPPER(TRIM(cur.code))');
+    $dcdMatch = dashboardDcdToTxnAccountMatchSql('dcd', $accountColumn);
 
     return [
         " AND (
             EXISTS (
                 SELECT 1 FROM currency cur
                 WHERE cur.id = t.currency_id
-                  AND UPPER(TRIM(cur.code)) = ?
+                  AND {$codeExpr} = ?
             )
             OR (
                 t.currency_id IS NULL
@@ -690,8 +727,8 @@ function dashboardTransactionCurrencyFilterSql(?string $filterCurrencyCode, stri
                     JOIN currency cur ON cur.id = dcd.currency_id
                     WHERE dcd.company_id = t.company_id
                       AND dc.company_id = t.company_id
-                      AND CAST(dcd.account_id AS CHAR) = CAST(t.`{$accountColumn}` AS CHAR)
-                      AND UPPER(TRIM(cur.code)) = ?
+                      AND {$dcdMatch}
+                      AND {$codeExpr} = ?
                 )
             )
         )",
@@ -709,11 +746,13 @@ function dashboardEntryCurrencyFilterSql(?string $filterCurrencyCode): array
     }
     $code = strtoupper(trim($filterCurrencyCode));
 
+    $codeExpr = dashboardSqlUnicodeCi('UPPER(TRIM(cur.code))');
+
     return [
         " AND EXISTS (
             SELECT 1 FROM currency cur
             WHERE cur.id = e.currency_id
-              AND UPPER(TRIM(cur.code)) = ?
+              AND {$codeExpr} = ?
         )",
         [$code],
     ];
@@ -732,16 +771,19 @@ function dashboardDiscoverExpenseAccounts(
     ?string $dateToDb = null
 ): array {
     $byId = [];
+    $roleExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.role, '')))");
+    $acctCodeExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.account_id, '')))");
+    $nameExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.name, '')))");
 
     $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             WHERE ac.company_id = ?
               AND (
-                UPPER(TRIM(COALESCE(a.role, ''))) IN ('EXPENSES', 'EXPENSE')
-                OR UPPER(TRIM(COALESCE(a.role, ''))) LIKE 'EXPENSE%'
-                OR UPPER(TRIM(COALESCE(a.account_id, ''))) LIKE '%EXPENSE%'
-                OR UPPER(TRIM(COALESCE(a.name, ''))) LIKE '%EXPENSE%'
+                {$roleExpr} IN ('EXPENSES', 'EXPENSE')
+                OR {$roleExpr} LIKE 'EXPENSE%'
+                OR {$acctCodeExpr} LIKE '%EXPENSE%'
+                OR {$nameExpr} LIKE '%EXPENSE%'
               )
             ORDER BY a.account_id";
     $stmt = $pdo->prepare($sql);
@@ -755,7 +797,7 @@ function dashboardDiscoverExpenseAccounts(
     $contra = dashboardContraApprovedWhere($pdo, 't');
     $txnSql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
                FROM account a
-               WHERE UPPER(TRIM(COALESCE(a.role, ''))) IN ('EXPENSES', 'EXPENSE')
+               WHERE {$roleExpr} IN ('EXPENSES', 'EXPENSE')
                  AND a.id IN (
                    SELECT DISTINCT t.from_account_id
                    FROM transactions t
@@ -876,7 +918,8 @@ function dashboardResolveLedgerCurrencyIds(PDO $pdo, int $ledgerCompanyId, ?stri
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
-    $stmt = $pdo->prepare('SELECT id FROM currency WHERE company_id = ? AND UPPER(TRIM(code)) = ?');
+    $codeExpr = dashboardSqlUnicodeCi('UPPER(TRIM(code))');
+    $stmt = $pdo->prepare("SELECT id FROM currency WHERE company_id = ? AND {$codeExpr} = ?");
     $stmt->execute([$ledgerCompanyId, strtoupper(trim($filterCurrencyCode))]);
 
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
@@ -910,6 +953,7 @@ function dashboardTransactionCurrencyFilterByIds(array $currencyIds, string $acc
     }
     $curPh = implode(',', array_fill(0, count($currencyIds), '?'));
     $dcdPh = implode(',', array_fill(0, count($dcdCompanyIds), '?'));
+    $dcdMatch = dashboardDcdToTxnAccountMatchSql('dcd', $accountColumn);
 
     return [
         " AND (
@@ -922,10 +966,7 @@ function dashboardTransactionCurrencyFilterByIds(array $currencyIds, string $acc
                     JOIN data_captures dc ON dcd.capture_id = dc.id
                     WHERE dcd.company_id IN ($dcdPh)
                       AND dc.company_id IN ($dcdPh)
-                      AND (
-                          CAST(dcd.account_id AS CHAR) = CAST(t.`{$accountColumn}` AS CHAR)
-                          OR TRIM(COALESCE(dcd.account_id, '')) = TRIM(CAST(t.`{$accountColumn}` AS CHAR))
-                      )
+                      AND {$dcdMatch}
                       AND dcd.currency_id IN ($curPh)
                 )
             )
@@ -994,11 +1035,12 @@ function dashboardMergeExpenseCounterpartyAccounts(
     }
 
     $ph = implode(',', array_fill(0, count($newIds), '?'));
+    $roleExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.role, '')))");
     $accStmt = $pdo->prepare("
         SELECT a.id, a.account_id, a.name, a.role
         FROM account a
         WHERE a.id IN ($ph)
-          AND UPPER(TRIM(COALESCE(a.role, ''))) IN ('EXPENSES', 'EXPENSE')
+          AND {$roleExpr} IN ('EXPENSES', 'EXPENSE')
     ");
     $accStmt->execute($newIds);
     foreach ($accStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -1021,6 +1063,7 @@ function dashboardSummarizeExpensesViaSearch(
     bool $hasTransactionCurrency
 ): array {
     dashboardEnsureSearchApiLoaded();
+    dashboardEnsureConnectionCollation($pdo);
 
     $viewGroupNorm = reportNormalizeGroupId($viewGroup ?? '');
     if ($viewGroupNorm === '') {
@@ -1286,6 +1329,7 @@ function dashboard_api_main(): void
     if (!$pdo instanceof PDO) {
         throw new Exception('Database connection failed');
     }
+    dashboardEnsureConnectionCollation($pdo);
 
 try {
     // 检查用户是否登录
