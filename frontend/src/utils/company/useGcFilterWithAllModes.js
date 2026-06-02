@@ -2,10 +2,11 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   companiesForCompanyPicker,
-  companiesInGroupList,
+  companiesNativeInGroupList,
   dedupeOwnerCompaniesByCode,
   excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
+  isVirtualGroupLinkCompanyRow,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
@@ -83,11 +84,13 @@ export function useGcFilterWithAllModes({
   ]);
 
   const resolveMergeCompanyList = useCallback(() => {
-    if (groupsAllMode) return filterCompaniesWithDisplayId(companies);
-    if (effectiveGroupForCompanies) {
-      return companiesInGroupList(companies, effectiveGroupForCompanies);
+    if (groupsAllMode) {
+      return filterCompaniesWithDisplayId(companies).filter((c) => !isVirtualGroupLinkCompanyRow(c));
     }
-    return filterCompaniesWithDisplayId(companies);
+    if (effectiveGroupForCompanies) {
+      return companiesNativeInGroupList(companies, effectiveGroupForCompanies);
+    }
+    return filterCompaniesWithDisplayId(companies).filter((c) => !isVirtualGroupLinkCompanyRow(c));
   }, [companies, effectiveGroupForCompanies, groupsAllMode]);
 
   const mergeCompanyIds = useMemo(() => {

@@ -37,6 +37,7 @@ import { canUseGroupOnlyMode, resolveVisibleGroupIds } from "../../../utils/comp
 import { sortIds } from "../lib/dashboardEarnings.js";
 import {
   companiesInGroupList,
+  companiesNativeInGroupList,
   companiesForCompanyPicker,
   companyRowIsGroupEntity,
   dedupeOwnerCompaniesByCode,
@@ -53,6 +54,7 @@ import {
   filterCompaniesForLoginScope,
   persistAccessibleGroupIdsFromApi,
   sortedUniqueGroupIds,
+  isVirtualGroupLinkCompanyRow,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 
@@ -291,8 +293,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me?.company_id]);
 
   const resolveMergeCompanyList = useCallback(() => {
-    if (groupsAllMode) return filterCompaniesWithDisplayId(companies);
-    if (selectedGroup) return companiesInGroupList(companies, selectedGroup);
+    if (groupsAllMode) return filterCompaniesWithDisplayId(companies).filter((c) => !isVirtualGroupLinkCompanyRow(c));
+    if (selectedGroup) return companiesNativeInGroupList(companies, selectedGroup);
     return [];
   }, [companies, selectedGroup, groupsAllMode]);
 
@@ -411,7 +413,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       } else {
         const ids = new Set();
         for (const gid of groupIds) {
-          for (const c of companiesInGroupList(companies, gid)) {
+          for (const c of companiesNativeInGroupList(companies, gid)) {
             const n = parseInt(c.id, 10);
             if (Number.isFinite(n)) ids.add(n);
           }
@@ -419,7 +421,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         companyIds = [...ids];
       }
     } else if (groupAllMode && groupKey) {
-      companyIds = companiesInGroupList(companies, groupKey)
+      companyIds = companiesNativeInGroupList(companies, groupKey)
         .map((c) => parseInt(c.id, 10))
         .filter((id) => Number.isFinite(id));
     } else if (mergedSubsetIds && mergedSubsetIds.length > 1) {
@@ -442,7 +444,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
     } else if (groupKey) {
-      companyIds = companiesInGroupList(companies, groupKey)
+      companyIds = companiesNativeInGroupList(companies, groupKey)
         .map((c) => parseInt(c.id, 10))
         .filter((id) => Number.isFinite(id));
     }
