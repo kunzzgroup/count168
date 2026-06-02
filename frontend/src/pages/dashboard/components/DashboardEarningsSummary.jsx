@@ -18,6 +18,7 @@ export function DashboardEarningsSummary({
   currencies,
   earningsCurrencyRows,
   useConvertedEarnings,
+  earningsBreakdownShowsRate = false,
   summaryEarningsValue,
   summaryConversionNote,
   summaryEarningsLoading,
@@ -250,16 +251,15 @@ export function DashboardEarningsSummary({
           <div className="dashboard-summary-currency-list-head" aria-hidden="true">
             <span>{i18n.breakdownCurrency}</span>
             <span>{i18n.breakdownAmount}</span>
-            <span>{useConvertedEarnings ? i18n.breakdownRate : i18n.breakdownShare}</span>
+            <span>{earningsBreakdownShowsRate ? i18n.breakdownRate : i18n.breakdownShare}</span>
           </div>
           <div className="dashboard-summary-currency-list-body" role="list">
             {earningsCurrencyRows.map((row, index) => {
               const rowLoading = isRowEarningsLoading(row.code);
               const sharePct = computeCurrencySharePct(row, earningsShareTotal, useConvertedEarnings);
-              const unitRateLabel =
-                !rowLoading && useConvertedEarnings
-                  ? formatFrankfurterUnitRate(row.code, currencyCode, exchangeRates.rates)
-                  : null;
+              const unitRateLabel = earningsBreakdownShowsRate
+                ? formatFrankfurterUnitRate(row.code, currencyCode, exchangeRates.rates)
+                : null;
               const unitRateTitle =
                 unitRateLabel && unitRateLabel !== "—"
                   ? formatI18nTemplate(i18n.rateOneUnit, {
@@ -309,7 +309,15 @@ export function DashboardEarningsSummary({
                       )}
                   </div>
                   <span className="dashboard-summary-currency-rate" title={unitRateTitle}>
-                    {rowLoading ? "" : useConvertedEarnings ? unitRateLabel : `${sharePct.toFixed(1)}%`}
+                    {rowLoading
+                      ? "…"
+                      : earningsBreakdownShowsRate
+                        ? unitRateLabel && unitRateLabel !== "—"
+                          ? unitRateLabel
+                          : exchangeRatesLoading
+                            ? "…"
+                            : "—"
+                        : `${sharePct.toFixed(1)}%`}
                   </span>
                 </div>
               );

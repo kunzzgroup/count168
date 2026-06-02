@@ -1111,6 +1111,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     ]
   );
 
+  /** UI column mode: avoid flashing "Share" while rates/earnings still load (multi-currency). */
+  const earningsBreakdownShowsRate = useMemo(
+    () => currencies.length > 1 && !exchangeRatesError,
+    [currencies.length, exchangeRatesError]
+  );
+
   const convertedEarningsTotal = useMemo(() => {
     if (!useConvertedEarnings) return null;
     return sumConvertedEarnings(earningsCurrencyRows, displayCurrencyCode, exchangeRates.rates)
@@ -1166,9 +1172,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   ]);
 
   const summaryConversionNote = useMemo(() => {
-    if (!useConvertedEarnings || currencies.length <= 1) return "";
+    if (!earningsBreakdownShowsRate) return "";
     return i18n.earningsIncludesConversion;
-  }, [useConvertedEarnings, currencies.length, i18n.earningsIncludesConversion]);
+  }, [earningsBreakdownShowsRate, i18n.earningsIncludesConversion]);
 
   const rateFootnoteText = useMemo(() => {
     if (currencies.length <= 1) return "";
@@ -1420,6 +1426,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     chartXAxisLayout,
     earningsCurrencyRows,
     useConvertedEarnings,
+    earningsBreakdownShowsRate,
     summaryEarningsValue,
     summaryConversionNote,
     summaryEarningsLoading,
