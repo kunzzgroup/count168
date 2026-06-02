@@ -95,7 +95,9 @@ function appendMaintenanceScopeToParams(params, scope) {
   if (companyId) params.append("company_id", String(companyId));
   const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
   if (vg) params.append("view_group", vg);
-  const gid = groupId ? String(groupId).trim().toUpperCase() : "";
+  const gid = groupId
+    ? String(groupId).trim().toUpperCase()
+    : vg;
   if (gid) params.append("group_id", gid);
   if (groupsAll) params.append("groups_all", "1");
   if (groupAll) params.append("group_all", "1");

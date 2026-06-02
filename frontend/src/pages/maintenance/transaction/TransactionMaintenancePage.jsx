@@ -731,6 +731,24 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (!listQueryEnabled) return;
+    if (!transactionQuery.isError || !transactionQuery.error) return;
+    const msg = getMaintenanceSearchUserMessage(transactionQuery.error, {
+      loadingMessage: t("searchRetrying"),
+      narrowRangeMessage: t("searchRetryHint"),
+    });
+    if (!msg || msg === t("searchRetrying")) return;
+    notify(msg, "error");
+  }, [
+    listQueryEnabled,
+    transactionQuery.isError,
+    transactionQuery.error,
+    transactionQuery.errorUpdatedAt,
+    notify,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (!listQueryEnabled) return;
     if (!transactionQuery.isSuccess) return;
     if (!transactionQuery.isFetched) return;
     if (transactionQuery.isFetching) return;

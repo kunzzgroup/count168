@@ -86,6 +86,9 @@ function dcRequestHasExplicitScope(array $params): bool
     if (in_array($scopeHint, ['group', 'company', 'aggregate'], true)) {
         return true;
     }
+    if (isset($params['company_id']) && trim((string) $params['company_id']) !== '') {
+        return true;
+    }
     $groupId = dcNormalizeGroupId($params['group_id'] ?? '');
     if ($groupId !== '' && trim((string) ($params['company_id'] ?? '')) === '') {
         return true;

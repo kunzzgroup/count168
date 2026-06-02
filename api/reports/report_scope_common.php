@@ -134,7 +134,8 @@ function resolveReportRequestCompanyScope(PDO $pdo, array $get, string $category
 
     $companyId = tx_resolve_request_company_id($pdo, $requestParams);
 
-    $groupForAccess = $groupId !== '' ? $groupId : null;
+    $viewGroup = reportNormalizeGroupId($get['view_group'] ?? '');
+    $groupForAccess = $groupId !== '' ? $groupId : ($viewGroup !== '' ? $viewGroup : null);
     $hasAccess = $categoryAccess === 'maintenance'
         ? checkReportMaintenanceAccess($pdo, $companyId, $groupForAccess)
         : checkReportGamesAccess($pdo, $companyId, $groupForAccess);

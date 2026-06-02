@@ -1,4 +1,6 @@
-﻿/**
+﻿@import "./maintenance_empty_state.css";
+
+/**
  * transaction_maintenance.css - 从 transaction_maintenance.php 提取的样式
  */
 body {

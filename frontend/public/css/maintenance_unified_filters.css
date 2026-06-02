@@ -221,32 +221,35 @@ body.maintenance-page .maintenance-list-container {
     box-sizing: border-box;
 }
 
-/* Empty state — unified across all maintenance pages (aligned with Capture Maintenance) */
+/* Empty state — unified override (!important beats stale SPA sheets / old dist/css) */
 body.dashboard-page.maintenance-page .empty-state-container {
-    position: relative;
-    top: 10px;
-    background: #ffffff;
-    border: 1px solid #d0d7de;
-    border-radius: 8px;
-    padding: clamp(40px, 3.33vw, 64px);
-    margin-bottom: clamp(20px, 1.67vw, 32px);
-    margin-top: 10px;
-    max-width: none;
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    text-align: center;
-    box-sizing: border-box;
+    position: relative !important;
+    top: 10px !important;
+    background: #ffffff !important;
+    border: 1px solid #d0d7de !important;
+    border-radius: 8px !important;
+    padding: clamp(40px, 3.33vw, 64px) !important;
+    margin-bottom: clamp(20px, 1.67vw, 32px) !important;
+    margin-top: 10px !important;
+    max-width: none !important;
+    width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
 }
 
 body.dashboard-page.maintenance-page .empty-state {
-    color: #64748b;
-    font-size: clamp(14px, 1.04vw, 20px);
+    color: #64748b !important;
+    font-size: clamp(14px, 1.04vw, 20px) !important;
+    font-weight: inherit !important;
+    line-height: inherit !important;
 }
 
 body.dashboard-page.maintenance-page .empty-state p {
-    margin: 0;
-    font-family: var(--font-heading-page);
+    margin: 0 !important;
+    max-width: none !important;
+    font-family: var(--font-heading-page) !important;
 }
 
 /*

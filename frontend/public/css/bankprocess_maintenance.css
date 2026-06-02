@@ -1,4 +1,6 @@
-﻿/* bankprocess_maintenance.php - 页面样式 */
+﻿@import "./maintenance_empty_state.css";
+
+/* bankprocess_maintenance.php - 页面样式 */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
