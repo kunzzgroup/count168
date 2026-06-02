@@ -531,7 +531,7 @@ export default function ProcessListPage() {
       if (fetchAbortRef.current) fetchAbortRef.current.abort();
       const ac = new AbortController();
       fetchAbortRef.current = ac;
-      const showTableLoading = rowsRef.current.length === 0;
+      const showTableLoading = !!opts.forceLoading || rowsRef.current.length === 0;
       if (showTableLoading) setTableLoading(true);
       try {
         const slice = await fetchGamesProcessListSlice(cid, {
@@ -852,7 +852,7 @@ export default function ProcessListPage() {
           sessionMeFromLayout?.company_id != null ? Number(sessionMeFromLayout.company_id) : null;
 
         const bankCategoryPromise = isBankCategoryCompany(company.company_id, buildApiUrl);
-        void fetchRows({ companyId: nextId, silent: true });
+        void fetchRows({ companyId: nextId, silent: true, forceLoading: true });
         void loadFormMeta(nextId);
 
         try {
@@ -979,7 +979,9 @@ export default function ProcessListPage() {
         if (hadCache) {
           applyProcessListCache(nextId);
         } else {
+          rowsRef.current = [];
           setRows([]);
+          setTableLoading(true);
           setCurrencyFilterCode("");
           setCurrencyListOrdered([]);
           setCurrencyPillDisplayOrder(null);
@@ -1027,7 +1029,9 @@ export default function ProcessListPage() {
           setCompanyId(nextCompanyId);
           if (hadCache) applyProcessListCache(nextCompanyId);
           else {
+            rowsRef.current = [];
             setRows([]);
+            setTableLoading(true);
             setCurrencyFilterCode("");
             setCurrencyListOrdered([]);
             setCurrencyPillDisplayOrder(null);
@@ -1526,6 +1530,11 @@ export default function ProcessListPage() {
           showAll={showAll}
           showSelectColumn={showInactive || showAll}
           pageRows={pageRows}
+          emptyMessage={
+            !tableLoading && rows.length === 0 && !showInactive && !showAll
+              ? t("noActiveProcessHint")
+              : t("noProcessData")
+          }
           currentPage={currentPage}
           PAGE_SIZE={PAGE_SIZE}
           sortColumn={sortColumn}
