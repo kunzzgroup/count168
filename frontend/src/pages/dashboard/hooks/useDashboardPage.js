@@ -128,11 +128,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /**
    * Group-level KPI (AP/IG): group ledger API or group-entity row only — never merge subsidiaries (e.g. C168).
+   * Company "All" (groupAllMode) aggregates subsidiaries via merge, not group ledger.
    */
   const usesGroupLedgerDashboard = useMemo(() => {
     if (groupsAllMode && !groupAllMode) return false;
+    if (groupAllMode) return false;
     if (!selectedGroup) return false;
-    if (!companyId || groupAllMode) return true;
+    if (!companyId) return true;
     const row = companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
     return companyRowIsGroupEntity(row, selectedGroup);
   }, [groupsAllMode, groupAllMode, selectedGroup, companyId, companies]);
@@ -786,6 +788,37 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return fetchGroupDashboardPayload(rangeFrom, rangeTo, currencyOverride);
       }
 
+      const fetchMergedCompanyDashboards = async (companyList) => {
+        if (!companyList.length) {
+          throw new Error(i18n.failedToLoadDashboard);
+        }
+        const results = await Promise.all(
+          companyList.map((c) => {
+            const cid = parseInt(c.id, 10);
+            return fetchDashboardPayload(
+              cid,
+              rangeFrom,
+              rangeTo,
+              currencyOverride,
+              resolveViewGroupForCompany(c, selectedGroup)
+            );
+          })
+        );
+        return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
+      };
+
+      if (groupAllMode) {
+        if (groupsAllMode) {
+          const list = filterCompaniesWithDisplayId(companies).filter(
+            (c) => !isVirtualGroupLinkCompanyRow(c)
+          );
+          return fetchMergedCompanyDashboards(list);
+        }
+        if (selectedGroup) {
+          return fetchMergedCompanyDashboards(companiesNativeInGroupList(companies, selectedGroup));
+        }
+      }
+
       if (companyId != null) {
         return fetchDashboardPayload(companyId, rangeFrom, rangeTo, currencyOverride);
       }
@@ -889,6 +922,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const canUseDashboardBootstrap =
       !(showAllCurrencies && canShowAllCurrencies) &&
       !(groupsAllMode && !groupAllMode) &&
+      !groupAllMode &&
       !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
       (companyId != null || groupAggregateMode);
 
@@ -1092,6 +1126,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const canUseDashboardBootstrap =
         !allCurrenciesActive &&
         !(groupsAllMode && !groupAllMode) &&
+        !groupAllMode &&
         !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
         (companyId != null || groupAggregateMode);
 
