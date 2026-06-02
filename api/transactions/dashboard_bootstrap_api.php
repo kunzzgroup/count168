@@ -1,7 +1,8 @@
 <?php
 /**
  * Dashboard bootstrap: one HTTP request returns current KPI, previous period, and multi-currency earnings.
- * Reuses dashboard_api.php logic in-process (no repeated PHP/HTTP overhead).
+ * Reuses dashboard_api.php in-process via dashboard_api_capture() — same logic as
+ * GET /api/transactions/dashboard_api.php (not a separate calculation path).
  */
 
 session_start();
