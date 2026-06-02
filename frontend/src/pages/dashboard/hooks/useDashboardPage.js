@@ -1613,7 +1613,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       persistDashboardFilterState(g, id, { allowGroupOnly: false });
       applyCompanySelection(id);
       notifyDashboardGroupFilterChanged(g, id);
-      void syncCompanySession(id);
+      void syncCompanySession(id, g);
     },
     [
       selectedGroup,
