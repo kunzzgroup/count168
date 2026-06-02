@@ -1,7 +1,12 @@
 const MAX_ENTRIES = 24;
+const MAX_PAYLOAD_ENTRIES = 64;
 
 /** @type {Map<string, { current: unknown, previous: unknown, earnings?: Array<{ code: string, earnings: number }> }>} */
 const store = new Map();
+
+/** In-memory dedupe for dashboard_api.php payloads (same query = one network call). */
+/** @type {Map<string, unknown>} */
+const payloadStore = new Map();
 
 export function buildDashboardCacheKey({
   companyId,
@@ -51,4 +56,20 @@ export function patchDashboardCache(key, patch) {
     return;
   }
   setDashboardCache(key, { ...prev, ...patch });
+}
+
+export function getDashboardPayloadCache(queryString) {
+  return payloadStore.get(queryString) ?? null;
+}
+
+export function setDashboardPayloadCache(queryString, data) {
+  if (payloadStore.has(queryString)) payloadStore.delete(queryString);
+  payloadStore.set(queryString, data);
+  while (payloadStore.size > MAX_PAYLOAD_ENTRIES) {
+    payloadStore.delete(payloadStore.keys().next().value);
+  }
+}
+
+export function clearDashboardPayloadCache() {
+  payloadStore.clear();
 }

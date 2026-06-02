@@ -5,8 +5,10 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import {
   buildDashboardCacheKey,
   getDashboardCache,
+  getDashboardPayloadCache,
   patchDashboardCache,
   setDashboardCache,
+  setDashboardPayloadCache,
 } from "../../../utils/dashboard/dashboardCache.js";
 import { mergeGroupData } from "../../../utils/dashboard/dashboardMerge.js";
 import {
@@ -106,6 +108,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const currencyCodeRef = useRef(currencyCode);
   const earningsFetchGenRef = useRef(0);
   const dashboardFetchGenRef = useRef(0);
+  const dashboardDataRef = useRef(null);
+  const dateFromRef = useRef(dateFrom);
+  const dateToRef = useRef(dateTo);
   const companySwitchGenRef = useRef(0);
   const currencyLoadGenRef = useRef(0);
   /** @type {React.MutableRefObject<Map<number, string[]>>} */
@@ -546,6 +551,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     currencyCodeRef.current = currencyCode;
   }, [currencyCode]);
 
+  useEffect(() => {
+    dashboardDataRef.current = dashboardData;
+  }, [dashboardData]);
+
+  useEffect(() => {
+    dateFromRef.current = dateFrom;
+    dateToRef.current = dateTo;
+  }, [dateFrom, dateTo]);
+
   const fetchDashboardPayload = useCallback(
     async (cid, rangeFrom, rangeTo, currencyOverride, viewGroupOverride) => {
       const q = new URLSearchParams({
@@ -559,26 +573,37 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         viewGroupOverride ??
         (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
       if (viewGroup) q.append("view_group", viewGroup);
+      const cacheKey = q.toString();
+      const cachedPayload = getDashboardPayloadCache(cacheKey);
+      if (cachedPayload != null) {
+        return cachedPayload;
+      }
       const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success || !json.data) {
         throw new Error(json.message || json.error || i18n.dashboardApiError);
       }
-      if (!viewGroup) return json.data;
-      const gf = String(viewGroup).toUpperCase();
-      const row = companies.find((c) => {
-        if (parseInt(c.id, 10) !== parseInt(cid, 10)) return false;
-        const nativeG = c.group_id ? String(c.group_id).toUpperCase() : "";
-        const linkG = c.link_source_group
-          ? String(c.link_source_group).trim().toUpperCase()
-          : "";
-        return nativeG === gf || linkG === gf;
-      });
-      const pct = row && row.link_percentage !== undefined && row.link_percentage !== null
-        ? parseFloat(row.link_percentage)
-        : NaN;
-      const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
-      return linkMultiplier !== 1 ? { ...json.data, _link_multiplier: linkMultiplier } : json.data;
+      let data = json.data;
+      if (viewGroup) {
+        const gf = String(viewGroup).toUpperCase();
+        const row = companies.find((c) => {
+          if (parseInt(c.id, 10) !== parseInt(cid, 10)) return false;
+          const nativeG = c.group_id ? String(c.group_id).toUpperCase() : "";
+          const linkG = c.link_source_group
+            ? String(c.link_source_group).trim().toUpperCase()
+            : "";
+          return nativeG === gf || linkG === gf;
+        });
+        const pct = row && row.link_percentage !== undefined && row.link_percentage !== null
+          ? parseFloat(row.link_percentage)
+          : NaN;
+        const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
+        if (linkMultiplier !== 1) {
+          data = { ...json.data, _link_multiplier: linkMultiplier };
+        }
+      }
+      setDashboardPayloadCache(cacheKey, data);
+      return data;
     },
     [selectedGroup, companies, i18n]
   );
@@ -602,11 +627,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       q.append("view_group", vg);
       q.append("group_id", vg);
+      const cacheKey = q.toString();
+      const cachedPayload = getDashboardPayloadCache(cacheKey);
+      if (cachedPayload != null) {
+        return cachedPayload;
+      }
       const res = await fetch(buildApiUrl(`${DASHBOARD_API}?${q}`), { credentials: "include" });
       const json = await res.json();
       if (!res.ok || !json.success || !json.data) {
         throw new Error(json.message || json.error || i18n.dashboardApiError);
       }
+      setDashboardPayloadCache(cacheKey, json.data);
       return json.data;
     },
     [selectedGroup, i18n]
@@ -669,20 +700,33 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const fetchEarningsRowsForRange = useCallback(
     async (rangeFrom, rangeTo, gen) => {
-      const rows = await Promise.all(
-        currencies.map(async (code) => {
-          try {
-            const payload = await loadMergedDashboard(rangeFrom, rangeTo, code);
-            if (gen !== earningsFetchGenRef.current) return null;
-            const metrics = computeKpiMetrics(payload, selectedGroup);
-            return { code, earnings: metrics?.earnings ?? 0 };
-          } catch {
-            if (gen !== earningsFetchGenRef.current) return null;
-            return { code, earnings: 0 };
+      const rows = [];
+      const activeFrom = dateFromRef.current;
+      const activeTo = dateToRef.current;
+      const activeCurrency = currencyCodeRef.current;
+      const reuseMainPayload =
+        rangeFrom === activeFrom &&
+        rangeTo === activeTo &&
+        dashboardDataRef.current != null;
+
+      for (const code of currencies) {
+        if (gen !== earningsFetchGenRef.current) break;
+        try {
+          let payload;
+          if (reuseMainPayload && code === activeCurrency) {
+            payload = dashboardDataRef.current;
+          } else {
+            payload = await loadMergedDashboard(rangeFrom, rangeTo, code);
           }
-        })
-      );
-      return rows.filter(Boolean);
+          if (gen !== earningsFetchGenRef.current) break;
+          const metrics = computeKpiMetrics(payload, selectedGroup);
+          rows.push({ code, earnings: metrics?.earnings ?? 0 });
+        } catch {
+          if (gen !== earningsFetchGenRef.current) break;
+          rows.push({ code, earnings: 0 });
+        }
+      }
+      return rows;
     },
     [currencies, loadMergedDashboard, selectedGroup]
   );
@@ -698,25 +742,37 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
 
     const cacheKey = dashboardScopeKey;
+    const cached = getDashboardCache(cacheKey);
+    if (cached?.earnings?.length === currencies.length) {
+      setEarningsByCurrency(cached.earnings);
+      setEarningsByCurrencyLoading(false);
+      return;
+    }
+
     const gen = ++earningsFetchGenRef.current;
     setEarningsByCurrencyLoading(true);
     setEarningsByCurrency(currencies.map((code) => ({ code, earnings: null })));
     setEarningsByCurrencyPrev([]);
 
-    const prevRange = previousPeriodRange(dateFrom, dateTo);
-    const [currentRows, prevRows] = await Promise.all([
-      fetchEarningsRowsForRange(dateFrom, dateTo, gen),
-      fetchEarningsRowsForRange(prevRange.from, prevRange.to, gen).catch(() => []),
-    ]);
+    const currentRows = await fetchEarningsRowsForRange(dateFrom, dateTo, gen);
+    if (gen !== earningsFetchGenRef.current) return;
 
-    if (gen === earningsFetchGenRef.current) {
-      setEarningsByCurrency(currentRows);
-      setEarningsByCurrencyPrev(prevRows);
-      setEarningsByCurrencyLoading(false);
-      if (cacheKey && currentRows.length) {
-        patchDashboardCache(cacheKey, { earnings: currentRows });
-      }
+    setEarningsByCurrency(currentRows);
+    setEarningsByCurrencyLoading(false);
+    if (cacheKey && currentRows.length) {
+      patchDashboardCache(cacheKey, { earnings: currentRows });
     }
+
+    const prevRange = previousPeriodRange(dateFrom, dateTo);
+    void fetchEarningsRowsForRange(prevRange.from, prevRange.to, gen)
+      .then((prevRows) => {
+        if (gen !== earningsFetchGenRef.current) return;
+        setEarningsByCurrencyPrev(prevRows);
+      })
+      .catch(() => {
+        if (gen !== earningsFetchGenRef.current) return;
+        setEarningsByCurrencyPrev([]);
+      });
   }, [
     companyId,
     groupAggregateMode,
@@ -851,8 +907,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     } else {
       setLoading(true);
     }
-    setEarningsByCurrency([]);
-    setEarningsByCurrencyPrev([]);
+    if (!cached?.earnings?.length) {
+      setEarningsByCurrency([]);
+      setEarningsByCurrencyPrev([]);
+    }
 
     try {
       let current;
@@ -947,9 +1005,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   useEffect(() => {
     if (loading || !dashboardData || currencies.length <= 1) return undefined;
-    const timer = window.setTimeout(() => loadEarningsByCurrency(), 0);
-    return () => window.clearTimeout(timer);
-  }, [loading, dashboardData, currencies.length, loadEarningsByCurrency]);
+    const cached = getDashboardCache(dashboardScopeKey);
+    if (cached?.earnings?.length === currencies.length) {
+      setEarningsByCurrency(cached.earnings);
+      setEarningsByCurrencyLoading(false);
+      return undefined;
+    }
+    const run = () => void loadEarningsByCurrency();
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(run, { timeout: 2000 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timerId = window.setTimeout(run, 400);
+    return () => window.clearTimeout(timerId);
+  }, [loading, dashboardData, currencies.length, loadEarningsByCurrency, dashboardScopeKey]);
 
   const kpiCompareLabel = useMemo(
     () => (isFullCalendarMonth(dateFrom, dateTo) ? i18n.thanLastMonth : i18n.thanPreviousPeriod),
