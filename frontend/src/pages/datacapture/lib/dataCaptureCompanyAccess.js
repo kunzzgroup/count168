@@ -11,6 +11,17 @@ export function permissionsIncludeGames(permissions) {
   );
 }
 
+/** Session has any company category (direct row or aggregated group flags). */
+export function sessionUserHasCompanyCategoryAccess(sessionUser) {
+  const perms = Array.isArray(sessionUser?.company_permissions)
+    ? sessionUser.company_permissions
+    : [];
+  if (perms.length > 0) return true;
+  if (sessionUser?.company_has_gambling === true) return true;
+  if (sessionUser?.company_has_bank === true) return true;
+  return false;
+}
+
 export async function fetchCompanyHasGamesCategory(companyCode) {
   if (!companyCode) return false;
   try {
