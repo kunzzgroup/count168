@@ -7,14 +7,8 @@ $dbname = 'u857194726_c168site';
 $dbuser = 'admin';
 $dbpass = 'C168_site';
 
-$localConfig = __DIR__ . '/config.local.php';
-if (is_readable($localConfig)) {
-    require $localConfig;
-}
-
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
-
 
 
 // 全局禁用任何 PHP 接口和表单页面的浏览器缓存 (防止各模块出现显示同步遗漏问题)
