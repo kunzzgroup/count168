@@ -382,59 +382,58 @@ export function useTransactionData({
         await applyGroupOnlySelection(snap, gid || snap.selectedGroup);
         return;
       }
+
+      const numericCid = Number(cid);
+      const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
+      const nextGroup = gid || snap?.selectedGroup;
+      const viewGroup = resolveViewGroupForCompany(comp, nextGroup);
+      const nextSnap = {
+        ...snap,
+        companyId: numericCid,
+        selectedGroup: nextGroup || snap?.selectedGroup,
+        groupsAllMode: false,
+        groupAllMode: false,
+      };
+      const nextScope = resolveTransactionScope(nextSnap);
+      const nextScopeKey = transactionScopeCacheKey(nextScope);
+      const prefetchApi = transactionScopeApiParams(nextScope) || {
+        companyId: numericCid,
+        viewGroup,
+      };
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("company_id", String(cid));
+      window.history.replaceState(null, "", url.toString());
+      if (gid) persistDashboardGroupFilter(gid);
+      persistDashboardGroupOnlyMode(false);
+      persistDashboardFilterState(nextGroup, numericCid);
+      setFilterSnapshot(nextSnap);
+
+      void Promise.all([
+        queryClient.prefetchQuery({
+          queryKey: transactionQueryKeys.accounts(nextScopeKey),
+          queryFn: ({ signal }) => getAccounts({ ...prefetchApi, signal }),
+          staleTime: 60_000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: transactionQueryKeys.companyCurrencies(nextScopeKey),
+          queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
+          staleTime: 60_000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: transactionQueryKeys.userCurrencyOrder(),
+          queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
+          staleTime: 60_000,
+        }),
+      ]);
+
       try {
-        const numericCid = Number(cid);
-        const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
-        const nextGroup = gid || snap?.selectedGroup;
-        const viewGroup = resolveViewGroupForCompany(comp, nextGroup);
         const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${cid}`), {
           credentials: "include",
         });
         const sj = await res.json();
         if (res.ok && sj.success) {
           notifyCompanySessionUpdated();
-
-          const nextSnap = {
-            ...snap,
-            companyId: numericCid,
-            selectedGroup: nextGroup || snap?.selectedGroup,
-            groupsAllMode: false,
-            groupAllMode: false,
-          };
-          const nextScope = resolveTransactionScope(nextSnap);
-          const nextScopeKey = transactionScopeCacheKey(nextScope);
-          const prefetchApi = transactionScopeApiParams(nextScope) || {
-            companyId: numericCid,
-            viewGroup,
-          };
-
-          void Promise.all([
-            queryClient.prefetchQuery({
-              queryKey: transactionQueryKeys.accounts(nextScopeKey),
-              queryFn: ({ signal }) => getAccounts({ ...prefetchApi, signal }),
-              staleTime: 60_000,
-            }),
-            queryClient.prefetchQuery({
-              queryKey: transactionQueryKeys.companyCurrencies(nextScopeKey),
-              queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
-              staleTime: 60_000,
-            }),
-            queryClient.prefetchQuery({
-              queryKey: transactionQueryKeys.userCurrencyOrder(),
-              queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
-              staleTime: 60_000,
-            }),
-          ]);
-
-          const url = new URL(window.location.href);
-          url.searchParams.set("company_id", String(cid));
-          window.history.replaceState(null, "", url.toString());
-          if (gid) persistDashboardGroupFilter(gid);
-          persistDashboardGroupOnlyMode(false);
-          persistDashboardFilterState(nextGroup, numericCid);
-          setFilterSnapshot((prev) =>
-            prev ? { ...prev, companyId: numericCid, selectedGroup: nextGroup || prev.selectedGroup } : prev,
-          );
         }
       } catch (e) {
         if (e?.name === "AbortError" || isCancelledError(e)) return;

@@ -498,40 +498,32 @@ export default function CaptureMaintenancePage() {
     [selectedGroup],
   );
 
-  const handleSwitchCompany = async (c) => {
-    if (!c?.id) return;
-    const nextId = Number(c.id);
-    const nextCode = c.company_id || "";
-    const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-    const isOwner = String(me?.role || "").toLowerCase() === "owner";
-
-    const nextScope = resolveCaptureMaintenanceScope({
-      companies,
-      selectedGroup: newGroup,
-      companyId: nextId,
-    });
-
-    if (isOwner) {
+  const onPrepareCompanySelect = useCallback(
+    (c) => {
+      if (!c?.id) return;
+      const nextId = Number(c.id);
+      const nextCode = c.company_id || "";
+      const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      const nextScope = resolveCaptureMaintenanceScope({
+        companies,
+        selectedGroup: newGroup,
+        companyId: nextId,
+      });
       suppressNextSearchEffectRef.current = true;
       setCompanyId(nextId);
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
       void performSearch({ scope: nextScope });
-      notify(t("switchedTo", { company: nextCode }), "success");
-      try {
-        const sessionData = await updateSessionCompany(c.id);
-        if (sessionData && sessionData.has_gambling === false) {
-          navigate("/process-list", { replace: true });
-          return;
-        }
-        notifyCompanySessionUpdated();
-      } catch (err) {
-        notify(err.message || t("switchFailed"), "error");
-        navigate("/dashboard", { replace: true });
-      }
-      return;
-    }
+    },
+    [companies, performSearch],
+  );
+
+  onPrepareCompanySelectRef.current = onPrepareCompanySelect;
+
+  const handleSwitchCompany = async (c) => {
+    if (!c?.id) return;
+    const nextCode = c.company_id || "";
 
     try {
       const sessionData = await updateSessionCompany(c.id);
@@ -541,15 +533,8 @@ export default function CaptureMaintenancePage() {
         return;
       }
 
-      suppressNextSearchEffectRef.current = true;
-      setCompanyId(nextId);
-      setCompanyCode(nextCode);
-      setSelectedGroup(newGroup);
-      persistDashboardFilterState(newGroup, nextId);
-
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: nextCode }), "success");
-      void performSearch({ scope: nextScope });
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
       navigate("/dashboard", { replace: true });

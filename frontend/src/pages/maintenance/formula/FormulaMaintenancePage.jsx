@@ -98,6 +98,7 @@ export default function FormulaMaintenancePage() {
   const suppressNextSearchEffectRef = useRef(false);
   const followGroupRef = useRef(() => {});
   const switchCompanyRef = useRef(async () => {});
+  const onPrepareCompanySelectRef = useRef(() => {});
   const onClearCompanyRef = useRef(() => {});
 
   const {
@@ -116,6 +117,7 @@ export default function FormulaMaintenancePage() {
     selectedGroup,
     setSelectedGroup,
     switchCompany: (c) => switchCompanyRef.current(c),
+    onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
   });
 
@@ -650,17 +652,10 @@ export default function FormulaMaintenancePage() {
     [companies, selectedGroup, clearFormulaList],
   );
 
-  const handleSwitchCompany = async (c) => {
-    if (!c?.id) return;
-    const nextId = Number(c.id);
-    try {
-      await updateSessionCompany(c.id);
-      const perms = await fetchCompanyPermissionsRaw(c.company_id || "");
-      if (isBankOnlyCategoryCompany(perms)) {
-        navigate("/process-list", { replace: true });
-        return;
-      }
-
+  const onPrepareCompanySelect = useCallback(
+    (c) => {
+      if (!c?.id) return;
+      const nextId = Number(c.id);
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       const nextScope = resolveFormulaMaintenanceScope({
         companies,
@@ -669,7 +664,6 @@ export default function FormulaMaintenancePage() {
         groupsAllMode,
         groupAllMode,
       });
-
       suppressNextSearchEffectRef.current = true;
       companyIdRef.current = nextId;
       setCompanyId(nextId);
@@ -677,13 +671,26 @@ export default function FormulaMaintenancePage() {
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
-
       setSelectedProcess(null);
       clearFormulaList();
+      void performSearch({ companyId: nextId, selectedGroup: newGroup, scope: nextScope });
+    },
+    [clearFormulaList, companies, groupAllMode, groupsAllMode, performSearch],
+  );
 
+  onPrepareCompanySelectRef.current = onPrepareCompanySelect;
+
+  const handleSwitchCompany = async (c) => {
+    if (!c?.id) return;
+    try {
+      await updateSessionCompany(c.id);
+      const perms = await fetchCompanyPermissionsRaw(c.company_id || "");
+      if (isBankOnlyCategoryCompany(perms)) {
+        navigate("/process-list", { replace: true });
+        return;
+      }
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: c.company_id }), "success");
-      void performSearch({ companyId: nextId, selectedGroup: newGroup, scope: nextScope });
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
     }

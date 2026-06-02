@@ -14,6 +14,8 @@ export default function GcInlineFilterPanel({
   pickerCompanyId = null,
   onPickAllInGroup,
   onPickCompany,
+  /** Optional hover/focus warm-up (Process List cache prefetch, etc.). */
+  onWarmCompany,
   onClearCompanyPill = null,
   allowCompanyDeselect = false,
   switchingCompany = false,
@@ -85,6 +87,8 @@ export default function GcInlineFilterPanel({
                     key={c.id}
                     type="button"
                     className={`user-gc-segment${active ? " is-on" : ""}${pending ? " is-pending" : ""}`}
+                    onMouseEnter={() => onWarmCompany?.(c)}
+                    onFocus={() => onWarmCompany?.(c)}
                     onClick={() => {
                       if (active && allowCompanyDeselect && onClearCompanyPill) {
                         onClearCompanyPill(c);

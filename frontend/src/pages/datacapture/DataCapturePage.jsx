@@ -1,4 +1,5 @@
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
@@ -217,6 +218,7 @@ export default function DataCapturePage() {
 
   const onClearCompanyRef = useRef(() => {});
   const onSelectCompanyRef = useRef(async () => {});
+  const onPrepareCompanySelectRef = useRef(() => {});
 
   const {
     groupIds,
@@ -232,6 +234,7 @@ export default function DataCapturePage() {
     companyId,
     selectedGroup,
     setSelectedGroup,
+    onPrepareCompanySelect: (comp) => onPrepareCompanySelectRef.current(comp),
     onSelectCompany: (comp) => onSelectCompanyRef.current(comp),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     preferredCompanyId: companyId,
@@ -710,9 +713,20 @@ export default function DataCapturePage() {
     form.clearProcessSelection?.();
   }, [navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
 
+  const onPrepareCompanySelect = useCallback((comp) => {
+    const id = Number(comp?.id);
+    if (!id) return;
+    const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
+    flushSync(() => {
+      setCompanyId(id);
+      if (gid) setSelectedGroup(gid);
+    });
+  }, []);
+
   onClearCompanyRef.current = handleClearCompany;
+  onPrepareCompanySelectRef.current = onPrepareCompanySelect;
   onSelectCompanyRef.current = async (comp) => {
-    if (comp?.id) await switchCompanySessionAndNavigate(comp.id);
+    if (comp?.id) void switchCompanySessionAndNavigate(comp.id);
   };
 
   useEffect(() => {

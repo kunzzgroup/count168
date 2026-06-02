@@ -423,26 +423,37 @@ export default function BankprocessMaintenancePage() {
     currentCompanyIdRef.current = null;
   }, []);
 
-  const handleSwitchCompany = useCallback(async (targetCompany) => {
+  const switchCompanyRef = useRef(async () => {});
+  const onPrepareCompanySelectRef = useRef(() => {});
+
+  const onPrepareCompanySelect = useCallback((targetCompany) => {
     if (!targetCompany?.id) return;
     const nextId = Number(targetCompany.id);
+    const newGroup = targetCompany.group_id
+      ? String(targetCompany.group_id).toUpperCase().trim()
+      : null;
+    setCompanyId(nextId);
+    setCompanyCode(targetCompany.company_id || "");
+    setSelectedGroup(newGroup);
+    persistDashboardFilterState(newGroup, nextId);
+    currentCompanyIdRef.current = nextId;
+    followGroupRef.current();
+  }, []);
+
+  onPrepareCompanySelectRef.current = onPrepareCompanySelect;
+
+  const handleSwitchCompany = useCallback(async (targetCompany) => {
+    if (!targetCompany?.id) return;
     try {
-      await updateSessionCompany(nextId);
-      const newGroup = targetCompany.group_id
-        ? String(targetCompany.group_id).toUpperCase().trim()
-        : null;
-      setCompanyId(nextId);
-      setCompanyCode(targetCompany.company_id || "");
-      setSelectedGroup(newGroup);
-      persistDashboardFilterState(newGroup, nextId);
-      currentCompanyIdRef.current = nextId;
-      followGroupRef.current();
+      await updateSessionCompany(Number(targetCompany.id));
       notifyCompanySessionUpdated();
       notify(t("switchedTo", { company: targetCompany.company_id }), "success");
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
     }
   }, [notify, t]);
+
+  switchCompanyRef.current = handleSwitchCompany;
 
   const {
     snapGroupIds: groupedIdsFromHook,
@@ -459,7 +470,8 @@ export default function BankprocessMaintenancePage() {
     companyId,
     selectedGroup,
     setSelectedGroup,
-    switchCompany: handleSwitchCompany,
+    switchCompany: (c) => switchCompanyRef.current(c),
+    onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: handleClearCompany,
   });
 
