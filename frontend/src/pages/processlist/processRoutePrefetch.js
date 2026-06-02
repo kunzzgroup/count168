@@ -1,5 +1,5 @@
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
-import { normalizeRows } from "./processListHelpers.js";
+import { normalizeRows, processListCacheHasRows } from "./processListHelpers.js";
 
 const processListRouteWarmCache = new Map();
 const processListRouteWarmInflight = new Map();
@@ -16,7 +16,7 @@ export function warmProcessListRouteCache(companyId, opts = {}) {
   if (processListRouteWarmCache.has(key) || processListRouteWarmInflight.has(key)) return;
   const promise = fetchGamesProcessListSlice(cid, opts)
     .then((slice) => {
-      if (slice?.rows) processListRouteWarmCache.set(key, slice);
+      if (processListCacheHasRows(slice)) processListRouteWarmCache.set(key, slice);
       return slice;
     })
     .finally(() => {
@@ -41,13 +41,13 @@ export async function resolveProcessListRouteCache(companyId, opts = {}) {
     return { rows: null, currencyCodes: null };
   }
   const cached = consumeProcessListRouteCache(cid, opts);
-  if (cached?.rows) return cached;
+  if (processListCacheHasRows(cached)) return cached;
   const key = processListRouteCacheKey(cid, opts);
   const inflight = processListRouteWarmInflight.get(key);
   if (inflight) {
     try {
       const slice = await inflight;
-      if (slice?.rows) return slice;
+      if (processListCacheHasRows(slice)) return slice;
     } catch {
       /* fall through to fetch */
     }

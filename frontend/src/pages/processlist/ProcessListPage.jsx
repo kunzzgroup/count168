@@ -32,6 +32,7 @@ import {
   parseRemarkForForm,
   buildEditDescriptionSelection,
   resolveProcessCurrencyFilter,
+  processListCacheHasRows,
 } from "./processListHelpers.js";
 import {
   fetchGamesProcessListSlice,
@@ -271,7 +272,7 @@ export default function ProcessListPage() {
           setDays(Array.isArray(prefetchedMeta.days) ? prefetchedMeta.days : []);
           setExistingProcesses(Array.isArray(prefetchedMeta.existingProcesses) ? prefetchedMeta.existingProcesses : []);
 
-          if (Array.isArray(routePrefetch.rows)) {
+          if (processListCacheHasRows(routePrefetch)) {
             const prefRows = normalizeRows(routePrefetch.rows);
             setRows(prefRows);
             skipNextFetchRef.current = true;
@@ -389,7 +390,7 @@ export default function ProcessListPage() {
           showInactive: showInactiveChecked,
           showAll: showAllChecked,
         });
-        if (slice.rows) {
+        if (processListCacheHasRows(slice)) {
           const cacheKey = resolveProcessListCacheKey(
             effectiveCompany,
             normalizedSearch,
@@ -444,12 +445,13 @@ export default function ProcessListPage() {
     [companyId, debouncedSearch, showInactive, showAll, currencyFilterCode],
   );
 
-  const applyProcessListCurrencyCodes = useCallback((codes, { syncHistory = false, companyId: cid = companyId } = {}) => {
+  const applyProcessListCurrencyCodes = useCallback((codes, { syncHistory = false, companyId: cid = companyId, rowsForFilter = null } = {}) => {
     const list = Array.isArray(codes) ? codes.map((c) => String(c).toUpperCase()).filter(Boolean) : [];
+    const rowSource = rowsForFilter ?? rowsRef.current;
     setCurrencyListOrdered(list);
     setCurrencyPillDisplayOrder(null);
     setCurrencyFilterCode((prev) => {
-      const next = prev && list.includes(prev) ? prev : list[0] || "";
+      const next = resolveProcessCurrencyFilter(prev, rowSource, list);
       if (syncHistory && next) syncUrl({ companyId: cid, currency: next });
       return next;
     });
@@ -466,7 +468,7 @@ export default function ProcessListPage() {
       if (!Number.isFinite(id) || id <= 0) return false;
       const cacheKey = resolveProcessListCacheKey(id, debouncedSearch, showInactive, showAll);
       const cached = processListCacheRef.current.get(cacheKey);
-      if (!cached?.rows) return false;
+      if (!processListCacheHasRows(cached)) return false;
       setRows((prev) =>
         processRowsFingerprint(prev) === processRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
@@ -551,6 +553,7 @@ export default function ProcessListPage() {
           applyProcessListCurrencyCodes(slice.currencyCodes, {
             syncHistory: !silent,
             companyId: cid,
+            rowsForFilter: nextRows,
           });
         }
         if (!silent) {
@@ -953,7 +956,7 @@ export default function ProcessListPage() {
       const nextGroup = gid || null;
       const cacheKey = resolveProcessListCacheKey(nextId, debouncedSearch, showInactive, showAll);
       const cached = processListCacheRef.current.get(cacheKey);
-      const hadCache = !!cached?.rows;
+      const hadCache = processListCacheHasRows(cached);
 
       skipCompanyFetchEffectRef.current = hadCache;
       suppressCrossPageSyncRef.current = true;
@@ -979,7 +982,7 @@ export default function ProcessListPage() {
 
       syncUrl({
         companyId: nextId,
-        currency: hadCache ? preservedUrlCurrency || undefined : undefined,
+        currency: hadCache ? preservedUrlCurrency || undefined : "",
       });
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
@@ -1011,7 +1014,7 @@ export default function ProcessListPage() {
           showInactive,
           showAll,
         );
-        const hadCache = !!processListCacheRef.current.get(cacheKey)?.rows;
+        const hadCache = processListCacheHasRows(processListCacheRef.current.get(cacheKey));
         skipCompanyFetchEffectRef.current = hadCache;
         suppressCrossPageSyncRef.current = true;
         flushSync(() => {

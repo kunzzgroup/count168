@@ -53,6 +53,11 @@ export function resolveProcessCurrencyFilter(preferredCode, rows, companyCurrenc
   return companyCodes[0] || "";
 }
 
+/** In-memory cache is only reusable when it contains at least one row (never treat [] as a hit). */
+export function processListCacheHasRows(cached) {
+  return Array.isArray(cached?.rows) && cached.rows.length > 0;
+}
+
 /** Process / Bank Process company pills: in-group list without group labels (AP, IG, …). */
 export function filterProcessPageCompanyButtons(
   allCompanyButtons,

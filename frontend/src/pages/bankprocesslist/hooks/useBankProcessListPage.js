@@ -1018,7 +1018,7 @@ export function useBankProcessListPage() {
       if (!Number.isFinite(id) || id <= 0) return false;
       const cacheKey = resolveBankProcessListCacheKey(id, search);
       const cached = bankProcessListCacheRef.current.get(cacheKey);
-      if (!cached?.rows) return false;
+      if (!Array.isArray(cached?.rows) || cached.rows.length === 0) return false;
       setRows((prev) =>
         bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
@@ -1358,9 +1358,9 @@ export function useBankProcessListPage() {
       const nextGroup = gid || null;
       const cacheKey = resolveBankProcessListCacheKey(nextId, search);
       const cached = bankProcessListCacheRef.current.get(cacheKey);
-      const hadCache = !!cached?.rows;
+      const hadCache = Array.isArray(cached?.rows) && cached.rows.length > 0;
 
-      skipCompanyFetchEffectRef.current = true;
+      skipCompanyFetchEffectRef.current = hadCache;
       suppressCrossPageSyncRef.current = true;
       listAbortRef.current?.abort();
       flushSync(() => {
@@ -1371,6 +1371,7 @@ export function useBankProcessListPage() {
           applyBankProcessListCache(nextId);
         } else {
           setRows([]);
+          setTableLoading(true);
           setCurrencyFilterCode("");
           setCurrencyListOrdered([]);
           setCurrencyPillDisplayOrder(null);
@@ -1942,8 +1943,10 @@ export function useBankProcessListPage() {
 
       if (nextCompanyId != null) {
         const cacheKey = resolveBankProcessListCacheKey(nextCompanyId, search);
-        const hadCache = !!bankProcessListCacheRef.current.get(cacheKey)?.rows;
-        skipCompanyFetchEffectRef.current = true;
+        const hadCache =
+          Array.isArray(bankProcessListCacheRef.current.get(cacheKey)?.rows) &&
+          bankProcessListCacheRef.current.get(cacheKey).rows.length > 0;
+        skipCompanyFetchEffectRef.current = hadCache;
         suppressCrossPageSyncRef.current = true;
         flushSync(() => {
           setCompanyId(nextCompanyId);
