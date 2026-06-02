@@ -58,7 +58,7 @@ function dcSqlCompanyProcessFilter(string $processAlias = 'p'): string
  */
 function resolveDataCaptureRequestScope(PDO $pdo, array $params): array
 {
-    $resolved = resolveReportRequestCompanyScope($pdo, $params);
+    $resolved = resolveReportRequestCompanyScope($pdo, $params, 'maintenance');
     $isGroupScope = dcIsGroupScopeHint($resolved);
     if (($resolved['report_scope_hint'] ?? '') !== 'group' && $isGroupScope) {
         $resolved['report_scope_hint'] = 'group';

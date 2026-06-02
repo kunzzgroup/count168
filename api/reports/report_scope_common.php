@@ -44,7 +44,7 @@ function assertGroupEntityAccess(PDO $pdo, string $groupId, int $entityCompanyId
     ]);
 }
 
-function reportGroupHasGamesSubsidiary(PDO $pdo, string $groupId): bool
+function reportGroupHasCategorySubsidiary(PDO $pdo, string $groupId, string $category): bool
 {
     $g = reportNormalizeGroupId($groupId);
     if ($g === '') {
@@ -62,12 +62,22 @@ function reportGroupHasGamesSubsidiary(PDO $pdo, string $groupId): bool
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $sid = (int) ($row['id'] ?? 0);
-        if ($sid > 0 && checkCompanyCategoryPermission($pdo, $sid, 'Games')) {
+        if ($sid > 0 && checkCompanyCategoryPermission($pdo, $sid, $category)) {
             return true;
         }
     }
 
     return false;
+}
+
+function reportGroupHasGamesSubsidiary(PDO $pdo, string $groupId): bool
+{
+    return reportGroupHasCategorySubsidiary($pdo, $groupId, 'Games');
+}
+
+function reportGroupHasBankSubsidiary(PDO $pdo, string $groupId): bool
+{
+    return reportGroupHasCategorySubsidiary($pdo, $groupId, 'Bank');
 }
 
 function checkReportGamesAccess(PDO $pdo, int $companyId, ?string $groupId): bool
@@ -79,12 +89,27 @@ function checkReportGamesAccess(PDO $pdo, int $companyId, ?string $groupId): boo
     return reportGroupHasGamesSubsidiary($pdo, (string) ($groupId ?? ''));
 }
 
+/** Games or Bank — used by maintenance / data-capture scope APIs. */
+function checkReportMaintenanceAccess(PDO $pdo, int $companyId, ?string $groupId): bool
+{
+    if (checkCompanyCategoryPermission($pdo, $companyId, 'Games')) {
+        return true;
+    }
+    if (checkCompanyCategoryPermission($pdo, $companyId, 'Bank')) {
+        return true;
+    }
+
+    $g = (string) ($groupId ?? '');
+    return reportGroupHasGamesSubsidiary($pdo, $g) || reportGroupHasBankSubsidiary($pdo, $g);
+}
+
 /**
  * Resolve numeric company id for report APIs (group entity when group-only).
  *
+ * @param string $categoryAccess 'games' (customer/domain reports) or 'maintenance' (Games + Bank)
  * @return array{company_id: int, group_id: string, report_scope_hint: string, request_params: array<string, mixed>}
  */
-function resolveReportRequestCompanyScope(PDO $pdo, array $get): array
+function resolveReportRequestCompanyScope(PDO $pdo, array $get, string $categoryAccess = 'games'): array
 {
     $groupId = reportNormalizeGroupId($get['group_id'] ?? '');
     $companyIdRaw = $get['company_id'] ?? '';
@@ -109,7 +134,11 @@ function resolveReportRequestCompanyScope(PDO $pdo, array $get): array
 
     $companyId = tx_resolve_request_company_id($pdo, $requestParams);
 
-    if (!checkReportGamesAccess($pdo, $companyId, $groupId !== '' ? $groupId : null)) {
+    $groupForAccess = $groupId !== '' ? $groupId : null;
+    $hasAccess = $categoryAccess === 'maintenance'
+        ? checkReportMaintenanceAccess($pdo, $companyId, $groupForAccess)
+        : checkReportGamesAccess($pdo, $companyId, $groupForAccess);
+    if (!$hasAccess) {
         throw new Exception('Unauthorized permission category');
     }
 
