@@ -1,6 +1,6 @@
 # DataCaptureSummary 纯 React 迁移方案（API 不变）
 
-## 目标
+# 目标
 
 将 `datacapturesummary` 页面从 React + legacy 混合模式，迁移为纯 React + Vite + TanStack 架构；后端 API 保持不变（接口路径、参数、返回结构不改）。
 
