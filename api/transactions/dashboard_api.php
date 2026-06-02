@@ -809,19 +809,6 @@ function dashboardRoleUsesProfitTransactionRules(string $role): bool
     return strtoupper(trim($role)) === 'PROFIT';
 }
 
-function dashboardEnsureSearchApiLoaded(): void
-{
-    static $loaded = false;
-    if ($loaded) {
-        return;
-    }
-    if (!defined('SEARCH_API_LIBRARY_MODE')) {
-        define('SEARCH_API_LIBRARY_MODE', true);
-    }
-    require_once __DIR__ . '/search_api.php';
-    $loaded = true;
-}
-
 function dashboardNormalizeSearchRange(string $dateFrom, string $dateTo): array
 {
     $from = trim($dateFrom);
@@ -836,11 +823,6 @@ function dashboardNormalizeSearchRange(string $dateFrom, string $dateTo): array
     return [$from, $to];
 }
 
-/**
- * EXPENSES KPI aligned with Transaction List (Σ win_loss_full + cr_dr per EXPENSES account).
- *
- * @return array<string, mixed>
- */
 function dashboardSummarizeExpensesRole(
     PDO $pdo,
     int $companyId,
@@ -850,8 +832,6 @@ function dashboardSummarizeExpensesRole(
     ?string $viewGroup,
     bool $hasTransactionCurrency
 ): array {
-    dashboardEnsureSearchApiLoaded();
-
     $viewGroupNorm = reportNormalizeGroupId($viewGroup ?? '');
     if ($viewGroupNorm === '') {
         $vgStmt = $pdo->prepare('SELECT UPPER(TRIM(COALESCE(group_id, ""))) FROM company WHERE id = ? LIMIT 1');
@@ -891,20 +871,17 @@ function dashboardSummarizeExpensesRole(
     $bfTotal = dashboardMoneyZero();
 
     foreach ($accountMap as $aid => $row) {
-        $accountCode = (string) ($row['account_id'] ?? '');
         foreach ($currencyMap as $cid => $code) {
             if (!in_array($code, $filterCodes, true)) {
                 continue;
             }
-            $wlPack = calculateWinLossByCurrency(
+            $wlFull = calculateWinLossByCurrency(
                 $pdo,
                 (int) $aid,
                 (int) $cid,
                 $dateFromSearch,
                 $dateToSearch,
-                $companyId,
-                $accountCode,
-                null
+                $companyId
             );
             $crPack = calculateCrDrByCurrency(
                 $pdo,
@@ -913,14 +890,20 @@ function dashboardSummarizeExpensesRole(
                 $dateFromSearch,
                 $dateToSearch,
                 $companyId,
-                null
+                $hasTransactionCurrency
             );
-            $wlFull = (string) ($wlPack['win_loss_full'] ?? $wlPack['win_loss'] ?? '0');
             $crVal = (string) ($crPack['value'] ?? '0');
-            $periodTotal = dashboardMoneyAdd($periodTotal, money_add($wlFull, $crVal, 8));
+            $periodTotal = dashboardMoneyAdd($periodTotal, dashboardMoneyAdd($wlFull, $crVal));
             $bfTotal = dashboardMoneyAdd(
                 $bfTotal,
-                calculateBFByCurrency($pdo, (int) $aid, (int) $cid, $dateFromSearch, $companyId, $accountCode, null)
+                calculateBFByCurrency(
+                    $pdo,
+                    (int) $aid,
+                    (int) $cid,
+                    $dateFromSearch,
+                    $companyId,
+                    $hasTransactionCurrency
+                )
             );
         }
     }
@@ -2434,4 +2417,3 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
 
     return ['value' => $cr_dr, 'has_transactions' => $has_transactions];
 }
-?>
