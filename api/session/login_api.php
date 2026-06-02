@@ -29,6 +29,7 @@ ob_start();
 try {
     require_once __DIR__ . '/../../includes/config.php';
     require_once __DIR__ . '/../../includes/login_scope.php';
+    require_once __DIR__ . '/../../includes/company_expiration.php';
 } catch (Throwable $e) {
     ob_clean();
     echo json_encode(['status' => 'error', 'message' => 'Database connection failed']);
@@ -43,26 +44,11 @@ if (!isset($pdo) || !$pdo) {
 }
 
 /**
- * 规则：
- * - C168 永远可登录（不受 expiration_date 限制）
- * - 其他公司：未设置到期日（Not set）或已过期，视为不可登录
+ * @deprecated Use gc_is_company_expiration_blocking()
  */
-function isCompanyExpiredOrUnset($expirationDate, $companyCode = null): bool
+function isCompanyExpiredOrUnset($expirationDate, $companyCode = null, $groupId = null): bool
 {
-    if (strtoupper(trim((string)$companyCode)) === 'C168') {
-        return false;
-    }
-
-    if ($expirationDate === null || trim((string)$expirationDate) === '') {
-        return true;
-    }
-
-    $expTs = strtotime((string)$expirationDate);
-    if ($expTs === false) {
-        return true;
-    }
-
-    return $expTs < strtotime(date('Y-m-d'));
+    return gc_is_company_expiration_blocking($expirationDate, $companyCode, $groupId);
 }
 
 try {
@@ -84,7 +70,7 @@ try {
         // 从 account 表验证：验证公司、账号、密码、状态
         // 修改条件，允许匹配 company_id 或者 group_id
         $stmt = $pdo->prepare("
-            SELECT a.*, c.id AS company_numeric_id, c.company_id AS company_code, c.expiration_date 
+            SELECT a.*, c.id AS company_numeric_id, c.company_id AS company_code, c.group_id, c.expiration_date 
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             INNER JOIN company c ON ac.company_id = c.id
@@ -116,7 +102,7 @@ try {
                 continue;
             }
             $password_match = true;
-            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
+            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null, $row['group_id'] ?? null)) {
                 $has_expired = true;
             } else {
                 $account = $row;
@@ -185,6 +171,7 @@ try {
             u.*,
             c.id AS company_numeric_id,
             c.company_id AS company_code,
+            c.group_id,
             c.expiration_date
         FROM user u
         INNER JOIN user_company_map ucm ON u.id = ucm.user_id
@@ -201,7 +188,7 @@ try {
     foreach ($matched_users as $row) {
         if (password_verify($password, $row['password'])) {
             $user_password_match = true;
-            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
+            if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null, $row['group_id'] ?? null)) {
                 $user_has_expired = true;
             } else {
                 $user = $row;
@@ -284,7 +271,7 @@ try {
         // User 表找不到，尝试从 owner 表验证
         // 通过 company 表关联查询 owner
         $stmt = $pdo->prepare("
-            SELECT o.*, c.id AS company_numeric_id, c.company_id AS company_code, c.expiration_date
+            SELECT o.*, c.id AS company_numeric_id, c.company_id AS company_code, c.group_id, c.expiration_date
             FROM owner o
             INNER JOIN company c ON c.owner_id = o.id
             WHERE UPPER(o.owner_code) = UPPER(?) AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?)
@@ -311,7 +298,7 @@ try {
 
             if ($is_pwd_valid) {
                 $owner_password_match = true;
-                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null)) {
+                if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null, $row['group_id'] ?? null)) {
                     $owner_has_expired = true;
                 } else {
                     $owner = $row;
