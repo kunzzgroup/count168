@@ -381,7 +381,8 @@ export function useTransactionSearch({
       }
 
       let didSetBlockingLoading = false;
-      const showLoadingIndicator = blockOverlay || !instantData;
+      const hasExistingData = Boolean(rawSearchData);
+      const showLoadingIndicator = blockOverlay || (!instantData && !hasExistingData);
       if (showLoadingIndicator) {
         setSearchLoading(true);
         didSetBlockingLoading = true;
@@ -444,7 +445,6 @@ export function useTransactionSearch({
           const payloads = results.filter((r) => r?.success && r?.data).map((r) => r.data);
           if (!payloads.length) {
             if (notifyErr) pushToast(m.searchFailed, "error");
-            if (!silent) setRawSearchData(null);
             return;
           }
           currentData = mergeSearchApiDataList(payloads);
@@ -454,9 +454,6 @@ export function useTransactionSearch({
           if (!result?.success || !result?.data) {
             if (notifyErr) {
               pushToast(result?.message || result?.error || m.searchFailed, "error");
-            }
-            if (!silent) {
-              setRawSearchData(null);
             }
             return;
           }
@@ -528,6 +525,7 @@ export function useTransactionSearch({
       saveTxListToSession,
       queryClient,
       txType,
+      rawSearchData,
       m,
       t,
     ],
