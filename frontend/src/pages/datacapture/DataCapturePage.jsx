@@ -16,12 +16,14 @@ import {
   persistDashboardGroupFilter,
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
+  readDashboardSelectedCompanyId,
+  readPersistedDashboardGcFilter,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   filterCompaniesForLoginScope,
   persistAccessibleGroupIdsFromApi,
 } from "../../utils/company/sharedCompanyFilter.js";
-import { canUseGroupOnlyMode } from "../../utils/company/loginScope.js";
+import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 
@@ -41,6 +43,7 @@ import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
   sessionUserHasCompanyCategoryAccess,
+  sessionUserHasGamblingAccess,
   syncDataCaptureCompanySession,
 } from "./lib/dataCaptureCompanyAccess.js";
 import {
@@ -458,17 +461,22 @@ export default function DataCapturePage() {
         const queryGroupOnly = url.searchParams.get("group_only") === "1";
         const sessionMeta = restoreFromUrl ? readCaptureSessionMeta() : null;
         const allowGroupOnly = canUseGroupOnlyMode(u);
+        const persistedGc = readPersistedDashboardGcFilter();
+        const savedCompanyId = readDashboardSelectedCompanyId();
         const groupOnlyBoot =
           allowGroupOnly &&
+          !queryCompany &&
           (queryGroupOnly ||
             (sessionMeta?.groupOnlyCapture && restoreFromUrl) ||
             (submittedFromUrl && queryGroupOnly) ||
-            (isDashboardGroupOnlyMode() && !queryCompany));
+            isDashboardGroupOnlyMode() ||
+            persistedGc.groupOnly ||
+            (isGroupLogin(u) && savedCompanyId == null));
 
         if (cancelled) return;
 
         if (groupOnlyBoot) {
-          if (u.company_has_gambling === false) {
+          if (!sessionUserHasGamblingAccess(u)) {
             navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
             return;
           }
@@ -641,7 +649,10 @@ export default function DataCapturePage() {
       try {
         const syncJson = await syncDataCaptureCompanySession(anchorId);
         if (!syncJson.success || cancelled) return;
-        if (syncJson.data?.has_gambling === false) {
+        if (
+          syncJson.data?.has_gambling === false &&
+          !sessionUserHasGamblingAccess(me)
+        ) {
           navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
           return;
         }

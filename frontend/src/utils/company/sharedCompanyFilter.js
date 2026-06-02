@@ -338,7 +338,9 @@ export function companyRowIsGroupEntityAnyShape(companyRow) {
   if (!companyRow || isVirtualGroupLinkCompanyRow(companyRow)) return false;
   const grp = normalizeCompanyGroupId(companyRow);
   if (!grp) return false;
-  const code = String(companyRow.company_id ?? companyRow.companyId ?? companyRow.code ?? "")
+  const code = String(
+    companyRow.company_id ?? companyRow.companyId ?? companyRow.code ?? companyRow.name ?? "",
+  )
     .trim()
     .toUpperCase();
   if (code === grp) return true;
@@ -583,7 +585,9 @@ export function companyRowIsGroupEntity(companyRow, groupId) {
   const g = String(groupId || "").trim().toUpperCase();
   if (!g || !companyRow) return false;
   if (isVirtualGroupLinkCompanyRow(companyRow)) return false;
-  const code = String(companyRow.company_id ?? companyRow.companyId ?? companyRow.code ?? "")
+  const code = String(
+    companyRow.company_id ?? companyRow.companyId ?? companyRow.code ?? companyRow.name ?? "",
+  )
     .trim()
     .toUpperCase();
   if (code === g) return true;

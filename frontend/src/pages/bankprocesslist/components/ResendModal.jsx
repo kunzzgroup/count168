@@ -19,6 +19,8 @@ export default function ResendModal({
 }) {
   const fq = bankProcessFrequencyNormalized(resendFrequency);
   const isOnce = fq === "once";
+  const isMonthly = fq === "monthly";
+  const dayEndDisabled = isOnce || isMonthly;
   return (
     <ProcessModalPortal>
     <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={processModalBackdropStyle}>
@@ -57,11 +59,11 @@ export default function ResendModal({
               htmlFor="bank_resend_day_end"
               label={t("dayEnd")}
               value={resendDayEnd}
-              disabled={isOnce}
-              minYmd={isOnce ? undefined : (resendDayStart || undefined)}
+              disabled={dayEndDisabled}
+              minYmd={dayEndDisabled ? undefined : (resendDayStart || undefined)}
               placeholder={t("pickDate")}
               clearLabel={t("clearDate")}
-              className={isOnce ? "bank-resend-day-end-field--muted" : ""}
+              className={dayEndDisabled ? "bank-resend-day-end-field--muted" : ""}
             />
             <div className="bank-resend-field bank-resend-field--full">
               <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">{t("frequency")}</label>

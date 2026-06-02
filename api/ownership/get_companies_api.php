@@ -35,6 +35,7 @@ try {
             $companies[] = [
                 'id'              => $c['id'],
                 'name'            => $c['company_id'],
+                'company_id'      => $c['company_id'],
                 'expiration_date' => $c['expiration_date'] ?? null,
                 'group_id'        => $c['group_id'] ?? null,
             ];
@@ -45,6 +46,7 @@ try {
             $companies[] = [
                 'id'              => $c['id'],
                 'name'            => $c['company_id'],
+                'company_id'      => $c['company_id'],
                 'expiration_date' => $c['expiration_date'] ?? null,
                 'group_id'        => $c['group_id'] ?? null,
             ];
