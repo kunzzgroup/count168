@@ -346,6 +346,17 @@ export default function AccountListPage() {
     [searchTerm, showInactive, showAll],
   );
 
+  const applyCacheOrClearAccounts = useCallback(
+    (gcScope, options = {}) => {
+      const hit = applyAccountListCache(gcScope, options);
+      if (!hit) {
+        setAccounts([]);
+      }
+      return hit;
+    },
+    [applyAccountListCache],
+  );
+
   const resolveGroupOnlyFetch = useCallback((gcScope) => {
     const { companyId: cid, selectedGroup: sg, groupsAllMode: gAll, groupAllMode: cAll } = gcScope || {};
     return Boolean(sg && !cid && !cAll && !gAll && isDashboardGroupOnlyMode());
@@ -632,7 +643,7 @@ export default function AccountListPage() {
       skipCompanyFetchEffectRef.current = true;
       flushSync(() => {
         setCompanyId(null);
-        applyAccountListCache(gcScope, { groupOnly: true });
+        applyCacheOrClearAccounts(gcScope, { groupOnly: true });
       });
 
       persistDashboardGroupFilter(g);
@@ -647,7 +658,7 @@ export default function AccountListPage() {
       }
     },
     [
-      applyAccountListCache,
+      applyCacheOrClearAccounts,
       fetchAccounts,
       groupIds,
       mergeCompanyIds,
@@ -685,14 +696,14 @@ export default function AccountListPage() {
         setSelectedGroup(g);
         if (nextCompanyId != null) {
           setCompanyId(nextCompanyId);
-          applyAccountListCache({
+          applyCacheOrClearAccounts({
             companyId: nextCompanyId,
             selectedGroup: g,
             isListScopeReady: true,
           });
         } else {
           setCompanyId(null);
-          applyAccountListCache(
+          applyCacheOrClearAccounts(
             { companyId: null, selectedGroup: g, isListScopeReady: true },
             { groupOnly: true },
           );
@@ -713,7 +724,7 @@ export default function AccountListPage() {
     },
     [
       allCompanyButtons,
-      applyAccountListCache,
+      applyCacheOrClearAccounts,
       companyId,
       fetchAccounts,
       handleClearCompany,
@@ -745,7 +756,7 @@ export default function AccountListPage() {
       flushSync(() => {
         if (groupChanged) setSelectedGroup(nextGroup);
         setCompanyId(nextCompanyId);
-        applyAccountListCache({
+        applyCacheOrClearAccounts({
           companyId: nextCompanyId,
           selectedGroup: effectiveGroup,
           isListScopeReady: true,
@@ -759,7 +770,7 @@ export default function AccountListPage() {
 
       void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
     },
-    [applyAccountListCache, clearCompanyPillSelection, companyId, selectedGroup],
+    [applyCacheOrClearAccounts, clearCompanyPillSelection, companyId, selectedGroup],
   );
 
   const syncGcFilterFromSession = useCallback(() => {
@@ -783,13 +794,13 @@ export default function AccountListPage() {
       setSelectedGroup(targetGroup);
       setCompanyId(nextCompanyId);
       if (nextCompanyId != null) {
-        applyAccountListCache({
+        applyCacheOrClearAccounts({
           companyId: nextCompanyId,
           selectedGroup: targetGroup,
           isListScopeReady: true,
         });
       } else {
-        applyAccountListCache(
+        applyCacheOrClearAccounts(
           { companyId: null, selectedGroup: targetGroup, isListScopeReady: true },
           { groupOnly: true },
         );
@@ -812,7 +823,7 @@ export default function AccountListPage() {
       );
     }
   }, [
-    applyAccountListCache,
+    applyCacheOrClearAccounts,
     bootLoading,
     companies,
     companyId,
