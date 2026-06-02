@@ -169,6 +169,11 @@ export async function executeSummarySubmit({
   try {
     const quickResult = await submitBatch(baseData, null, 1, 1, { immediateAck: true });
     if (quickResult?.success && quickResult.queued) {
+      await recordSubmittedProcess(effectiveScope, {
+        ...parsedProcessData,
+        process: baseData.processId ?? parsedProcessData?.process,
+        date: baseData.captureDate ?? parsedProcessData?.date,
+      });
       notify("Success", "Data received by server. Processing in background...", "success");
       await new Promise((resolve) => window.setTimeout(resolve, QUICK_SUBMIT_REDIRECT_MS));
       onSuccess?.({ mode: "quick" });
