@@ -645,6 +645,51 @@ function dashboardResolveCurrencyIdForScope(
     return null;
 }
 
+/**
+ * Discover EXPENSES pool accounts (aligned with Transaction List category=EXPENSES).
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function dashboardDiscoverExpenseAccounts(PDO $pdo, int $companyId): array
+{
+    $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
+            FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE ac.company_id = ?
+              AND (
+                a.role IN ('EXPENSES', 'EXPENSE', 'Expenses', 'Expense')
+                OR UPPER(TRIM(COALESCE(a.role, ''))) LIKE 'EXPENSE%'
+                OR UPPER(TRIM(COALESCE(a.account_id, ''))) LIKE '%EXPENSE%'
+                OR UPPER(TRIM(COALESCE(a.name, ''))) LIKE '%EXPENSE%'
+              )
+            ORDER BY a.account_id";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$companyId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!empty($rows)) {
+        return $rows;
+    }
+
+    // Last resort: accounts with expense activity on this company (same idea as search_api extras).
+    $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
+            FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            INNER JOIN data_capture_details dcd ON dcd.account_id = a.id AND dcd.company_id = ?
+            INNER JOIN data_captures dc ON dc.id = dcd.capture_id AND dc.company_id = ?
+            WHERE ac.company_id = ?
+            ORDER BY a.account_id
+            LIMIT 50";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$companyId, $companyId, $companyId]);
+    $captureRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!empty($captureRows)) {
+        return $captureRows;
+    }
+
+    return [];
+}
+
 // 引入 search_api.php 中的函数（通过定义函数的方式）
 // 注意：这些函数已经在 search_api.php 中定义，但为了独立使用，我们需要重新定义
 
@@ -853,26 +898,29 @@ try {
 
             list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
 
-            // 获取该角色的所有账户
-            // 与 Transaction List 一致：含 inactive 账户（期内仍可能有 WIN/LOSE / PAYMENT）
-            $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
-                    FROM account a
-                    INNER JOIN account_company ac ON a.id = ac.account_id
-                    WHERE ac.company_id = ?
-                      AND {$roleFilterSql}";
+            if ($role === 'EXPENSES') {
+                $accounts = dashboardDiscoverExpenseAccounts($pdo, $scopeCompanyId);
+            } else {
+                // 获取该角色的所有账户
+                // 与 Transaction List 一致：含 inactive 账户（期内仍可能有 WIN/LOSE / PAYMENT）
+                $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
+                        FROM account a
+                        INNER JOIN account_company ac ON a.id = ac.account_id
+                        WHERE ac.company_id = ?
+                          AND {$roleFilterSql}";
 
-            // EXPENSES 池账户：Dashboard 不按 account_permissions 白名单过滤（与 search_api 外部账户同理）
-            $params = [];
-            if ($role !== 'EXPENSES') {
+                $params = [];
                 list($sql, $params) = filterAccountsByPermissions($pdo, $sql, [], $scopeCompanyId);
                 $sql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $sql);
                 $sql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $sql);
+
+                $params = array_merge([$scopeCompanyId], $roleFilterParams, $params);
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+                $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
 
-            $params = array_merge([$scopeCompanyId], $roleFilterParams, $params);
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($params);
-            $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            // EXPENSES 池账户：Dashboard 不按 account_permissions 白名单过滤
 
             $account_ids = array_column($accounts, 'id');
             if (empty($account_ids)) {
