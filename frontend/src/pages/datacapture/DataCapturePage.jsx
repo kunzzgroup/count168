@@ -16,12 +16,14 @@ import {
   persistDashboardGroupFilter,
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
+  readDashboardSelectedCompanyId,
+  readPersistedDashboardGcFilter,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   filterCompaniesForLoginScope,
   persistAccessibleGroupIdsFromApi,
 } from "../../utils/company/sharedCompanyFilter.js";
-import { canUseGroupOnlyMode } from "../../utils/company/loginScope.js";
+import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 
@@ -459,12 +461,17 @@ export default function DataCapturePage() {
         const queryGroupOnly = url.searchParams.get("group_only") === "1";
         const sessionMeta = restoreFromUrl ? readCaptureSessionMeta() : null;
         const allowGroupOnly = canUseGroupOnlyMode(u);
+        const persistedGc = readPersistedDashboardGcFilter();
+        const savedCompanyId = readDashboardSelectedCompanyId();
         const groupOnlyBoot =
           allowGroupOnly &&
+          !queryCompany &&
           (queryGroupOnly ||
             (sessionMeta?.groupOnlyCapture && restoreFromUrl) ||
             (submittedFromUrl && queryGroupOnly) ||
-            (isDashboardGroupOnlyMode() && !queryCompany));
+            isDashboardGroupOnlyMode() ||
+            persistedGc.groupOnly ||
+            (isGroupLogin(u) && savedCompanyId == null));
 
         if (cancelled) return;
 
