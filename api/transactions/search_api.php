@@ -9,9 +9,11 @@
  * 3. 返回左右两个表格的数据
  */
 
-session_start();
-session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
-header('Content-Type: application/json');
+if (!defined('SEARCH_API_LIBRARY_MODE')) {
+    session_start();
+    session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
+    header('Content-Type: application/json');
+}
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/transaction_scope.php';
@@ -800,6 +802,7 @@ function searchApiApplyDomainSourceCompanyRows(
     }));
 }
 
+if (!defined('SEARCH_API_LIBRARY_MODE')) {
 try {
     // 检查用户是否登录
     if (!isset($_SESSION['user_id'])) {
@@ -2186,6 +2189,7 @@ try {
         'data' => null,
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
+}
 }
 
 // ==================== 辅助函数 ====================
