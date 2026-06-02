@@ -196,17 +196,16 @@ try {
     $has_bank = false;
     $company_code = null;
     try {
-        $stmt = $pdo->prepare("SELECT company_id, permissions FROM company WHERE id = ?");
+        $flags = gc_resolve_company_category_flags($pdo, $requested_company_id);
+        $has_gambling = (bool) ($flags['has_gambling'] ?? false);
+        $has_bank = (bool) ($flags['has_bank'] ?? false);
+        $stmt = $pdo->prepare('SELECT company_id FROM company WHERE id = ? LIMIT 1');
         $stmt->execute([$requested_company_id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $company_code = isset($row['company_id']) ? (string) $row['company_id'] : null;
-            $permsJson = $row['permissions'] ?? null;
-            if ($permsJson) {
-                $perms = json_decode($permsJson, true);
-                $has_gambling = is_array($perms) && (in_array('Games', $perms) || in_array('Gambling', $perms));
-                $has_bank = is_array($perms) && in_array('Bank', $perms);
-            }
+        $company_code = $stmt->fetchColumn();
+        if ($company_code !== false && $company_code !== null) {
+            $company_code = (string) $company_code;
+        } else {
+            $company_code = null;
         }
     } catch (PDOException $e) {
         error_log("获取公司权限失败: " . $e->getMessage());

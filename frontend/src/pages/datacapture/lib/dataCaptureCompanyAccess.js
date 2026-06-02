@@ -22,6 +22,12 @@ export function sessionUserHasCompanyCategoryAccess(sessionUser) {
   return false;
 }
 
+/** Session may use Data Capture when group/company has Games (incl. aggregated group flags). */
+export function sessionUserHasGamblingAccess(sessionUser) {
+  if (sessionUser?.company_has_gambling === true) return true;
+  return permissionsIncludeGames(sessionUser?.company_permissions);
+}
+
 export async function fetchCompanyHasGamesCategory(companyCode) {
   if (!companyCode) return false;
   try {
@@ -46,15 +52,10 @@ export async function syncDataCaptureCompanySession(companyId) {
 
 /** @returns {Promise<boolean>} true when company may use Data Capture */
 export async function resolveCompanyGamesAccess({ companyId, companyCode, sessionUser }) {
+  if (sessionUserHasGamblingAccess(sessionUser)) return true;
+
   const numericId = Number(companyId);
   if (!Number.isFinite(numericId) || numericId <= 0) return false;
-
-  const sameAsSession =
-    sessionUser?.company_id != null && Number(sessionUser.company_id) === numericId;
-
-  if (sameAsSession && sessionUser.company_has_gambling === false) {
-    return false;
-  }
 
   try {
     const syncJson = await syncDataCaptureCompanySession(numericId);

@@ -508,3 +508,82 @@ function gc_fetch_linked_group_id_pairs(PDO $pdo, array $ownerIds): array
 
     return $pairs;
 }
+
+/** True when company row is a group entity (AP/IG), including empty company_id placeholder. */
+function gc_company_row_is_group_entity(?string $companyCode, ?string $groupId): bool
+{
+    $gid = strtoupper(trim((string) $groupId));
+    if ($gid === '') {
+        return false;
+    }
+    $code = strtoupper(trim((string) $companyCode));
+    if ($code === $gid) {
+        return true;
+    }
+
+    return $code === '';
+}
+
+/**
+ * Games/Bank flags for a company row; group entities aggregate subsidiary permissions.
+ *
+ * @return array{has_gambling: bool, has_bank: bool, permissions: list<string>}
+ */
+function gc_resolve_company_category_flags(PDO $pdo, int $companyId): array
+{
+    $stmt = $pdo->prepare('SELECT company_id, group_id, permissions FROM company WHERE id = ? LIMIT 1');
+    $stmt->execute([$companyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return ['has_gambling' => false, 'has_bank' => false, 'permissions' => []];
+    }
+
+    $groupId = strtoupper(trim((string) ($row['group_id'] ?? '')));
+    $perms = json_decode((string) ($row['permissions'] ?? ''), true);
+    $perms = is_array($perms) ? array_values($perms) : [];
+    $hasGambling = in_array('Games', $perms, true) || in_array('Gambling', $perms, true);
+    $hasBank = in_array('Bank', $perms, true);
+
+    if (gc_company_row_is_group_entity($row['company_id'] ?? '', $row['group_id'] ?? '') && $groupId !== '') {
+        $stmtSubs = $pdo->prepare("
+            SELECT permissions
+            FROM company
+            WHERE UPPER(TRIM(COALESCE(group_id, ''))) = ?
+              AND TRIM(COALESCE(company_id, '')) <> ''
+              AND UPPER(TRIM(company_id)) <> ?
+        ");
+        $stmtSubs->execute([$groupId, $groupId]);
+        foreach ($stmtSubs->fetchAll(PDO::FETCH_COLUMN) as $raw) {
+            $subsPerms = json_decode((string) $raw, true);
+            if (!is_array($subsPerms)) {
+                continue;
+            }
+            foreach ($subsPerms as $perm) {
+                if (!is_string($perm) || $perm === '') {
+                    continue;
+                }
+                if (!in_array($perm, $perms, true)) {
+                    $perms[] = $perm;
+                }
+            }
+            if (
+                !$hasGambling
+                && (in_array('Games', $subsPerms, true) || in_array('Gambling', $subsPerms, true))
+            ) {
+                $hasGambling = true;
+            }
+            if (!$hasBank && in_array('Bank', $subsPerms, true)) {
+                $hasBank = true;
+            }
+            if ($hasGambling && $hasBank) {
+                break;
+            }
+        }
+    }
+
+    return [
+        'has_gambling' => $hasGambling,
+        'has_bank' => $hasBank,
+        'permissions' => $perms,
+    ];
+}

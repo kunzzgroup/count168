@@ -41,6 +41,7 @@ import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
   sessionUserHasCompanyCategoryAccess,
+  sessionUserHasGamblingAccess,
   syncDataCaptureCompanySession,
 } from "./lib/dataCaptureCompanyAccess.js";
 import {
@@ -468,7 +469,7 @@ export default function DataCapturePage() {
         if (cancelled) return;
 
         if (groupOnlyBoot) {
-          if (u.company_has_gambling === false) {
+          if (!sessionUserHasGamblingAccess(u)) {
             navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
             return;
           }
@@ -641,7 +642,10 @@ export default function DataCapturePage() {
       try {
         const syncJson = await syncDataCaptureCompanySession(anchorId);
         if (!syncJson.success || cancelled) return;
-        if (syncJson.data?.has_gambling === false) {
+        if (
+          syncJson.data?.has_gambling === false &&
+          !sessionUserHasGamblingAccess(me)
+        ) {
           navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
           return;
         }
