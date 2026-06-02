@@ -55,6 +55,13 @@ import { syncCompanySessionInBackground } from "../../../utils/company/companySe
 
 const REPORT_PAGE_KEY = "domain";
 const REPORT_FETCH_DEBOUNCE_MS = 150;
+function sameCodeList(a = [], b = []) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (String(a[i] || "").toUpperCase() !== String(b[i] || "").toUpperCase()) return false;
+  }
+  return true;
+}
 
 function resolveReportBootCompanyId() {
   const cached = getCachedOwnerCompanies();
@@ -261,16 +268,11 @@ export default function DomainReportPage() {
     invalidateReportFetch();
     setCompanyId(null);
     setCompanyHighlightId(null);
-    setReportData(null);
     setError("");
-    setProcesses([]);
     setProcessId("");
     const groupKey = groupForScope ? String(groupForScope).trim().toUpperCase() : "";
     if (!groupKey) {
       setCurrencyFilterReady(false);
-      setCurrencyList([]);
-      setSelectedCurrencies([]);
-      setShowAllCurrencies(false);
     } else {
       setCurrencyFilterReady(false);
     }
@@ -445,11 +447,24 @@ export default function DomainReportPage() {
 
       if (applySavedCurrencyPrefs(reportScope, curs)) return;
 
-      if (
-        curs.length > 0 &&
-        selectedCurrenciesRef.current.length === 0 &&
-        !showAllCurrenciesRef.current
-      ) {
+      if (showAllCurrenciesRef.current) {
+        setShowAllCurrencies(true);
+        setSelectedCurrencies([]);
+        persistCurrencyPrefs(reportScope, [], true);
+        return;
+      }
+
+      const validCurrent = selectedCurrenciesRef.current.filter((code) =>
+        curs.some((c) => c.code === code),
+      );
+      if (validCurrent.length > 0) {
+        setShowAllCurrencies(false);
+        setSelectedCurrencies((prev) => (sameCodeList(prev, validCurrent) ? prev : validCurrent));
+        persistCurrencyPrefs(reportScope, validCurrent, false);
+        return;
+      }
+
+      if (curs.length > 0) {
         const myr = curs.find((c) => c.code === "MYR");
         const def = myr || curs[0];
         const codes = [def.code];
@@ -535,7 +550,6 @@ export default function DomainReportPage() {
     const prev = prevScopeKeyRef.current;
     if (prev != null && prev !== scopeKey) {
       invalidateReportFetch();
-      setReportData(null);
       setError("");
       setProcessId("");
     }
