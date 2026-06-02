@@ -35,23 +35,33 @@ define('DASHBOARD_API_SKIP_MAIN', true);
 require_once __DIR__ . '/dashboard_api.php';
 
 /**
- * Mirror frontend previousPeriodRange().
+ * Mirror frontend previousMonthEquivalentRange() — same calendar days one month earlier.
  *
  * @return array{from:string,to:string}
  */
+function dashboard_bootstrap_shift_ymd_by_months(string $ymd, int $monthDelta): string
+{
+    $dt = DateTimeImmutable::createFromFormat('Y-m-d', $ymd);
+    if (!$dt) {
+        return $ymd;
+    }
+    $day = (int) $dt->format('j');
+    $anchor = $dt->modify('first day of this month')->modify(
+        ($monthDelta >= 0 ? '+' : '') . $monthDelta . ' months'
+    );
+    $lastDay = (int) $anchor->modify('last day of this month')->format('j');
+    return $anchor->setDate(
+        (int) $anchor->format('Y'),
+        (int) $anchor->format('m'),
+        min($day, $lastDay)
+    )->format('Y-m-d');
+}
+
 function dashboard_bootstrap_previous_period(string $fromYmd, string $toYmd): array
 {
-    $from = DateTimeImmutable::createFromFormat('Y-m-d', $fromYmd);
-    $to = DateTimeImmutable::createFromFormat('Y-m-d', $toYmd);
-    if (!$from || !$to) {
-        return ['from' => $fromYmd, 'to' => $toYmd];
-    }
-    $dayCount = max(1, (int) $from->diff($to)->days + 1);
-    $prevTo = $from->modify('-1 day');
-    $prevFrom = $prevTo->modify('-' . ($dayCount - 1) . ' days');
     return [
-        'from' => $prevFrom->format('Y-m-d'),
-        'to' => $prevTo->format('Y-m-d'),
+        'from' => dashboard_bootstrap_shift_ymd_by_months($fromYmd, -1),
+        'to' => dashboard_bootstrap_shift_ymd_by_months($toYmd, -1),
     ];
 }
 

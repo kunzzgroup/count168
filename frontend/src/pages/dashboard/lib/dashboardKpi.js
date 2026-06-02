@@ -1,6 +1,6 @@
 const KPI_PCT_CAP = 999.9;
 
-/** Month-over-month change % vs previous period (not the cumulative footnote delta). */
+/** Month-over-month % vs previous month's equivalent date range. */
 export function kpiPercentChange(current, previous) {
   const c = parseFloat(current) || 0;
   const p = parseFloat(previous) || 0;
@@ -10,7 +10,7 @@ export function kpiPercentChange(current, previous) {
   }
   const raw = ((c - p) / Math.abs(p)) * 100;
   if (!Number.isFinite(raw)) return 0;
-  return Math.max(-KPI_PCT_CAP, Math.min(KPI_PCT_CAP, raw));
+  return Math.max(-KPI_PCT_CAP, Math.min(KPI_PCT_CAP, Math.round(raw * 10) / 10));
 }
 
 export function buildKpiCompare(current, previous) {

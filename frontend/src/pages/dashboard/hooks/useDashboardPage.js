@@ -28,9 +28,8 @@ import {
 import {
   chartMonthSpan,
   formatDisplayDate,
-  isFullCalendarMonth,
   parseYmd,
-  previousPeriodRange,
+  previousMonthEquivalentRange,
   shouldAggregateChartByMonth,
 } from "../lib/dashboardDateUtils.js";
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
@@ -722,7 +721,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         seedDashboardPayloadCache(dateFrom, dateTo, currencyCode, current);
       }
       if (previous) {
-        const prevRange = previousPeriodRange(dateFrom, dateTo);
+        const prevRange = previousMonthEquivalentRange(dateFrom, dateTo);
         seedDashboardPayloadCache(prevRange.from, prevRange.to, currencyCode, previous);
       }
 
@@ -960,7 +959,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       patchDashboardCache(cacheKey, { earnings: currentRows });
     }
 
-    const prevRange = previousPeriodRange(dateFrom, dateTo);
+    const prevRange = previousMonthEquivalentRange(dateFrom, dateTo);
     void fetchEarningsRowsForRange(prevRange.from, prevRange.to, gen)
       .then((prevRows) => {
         if (gen !== earningsFetchGenRef.current) return;
@@ -1202,7 +1201,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           multiCurrencyKpiPrev: cached?.multiCurrencyKpiPrev ?? null,
         });
 
-        const prevRange = previousPeriodRange(dateFrom, dateTo);
+        const prevRange = previousMonthEquivalentRange(dateFrom, dateTo);
         void loadAllCurrenciesDashboard(prevRange.from, prevRange.to)
           .then((prevBundle) => {
             if (gen !== dashboardFetchGenRef.current) return;
@@ -1232,7 +1231,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setLoading(false);
         patchDashboardCache(cacheKey, { current, previous: cached?.previous ?? null });
 
-        const prevRange = previousPeriodRange(dateFrom, dateTo);
+        const prevRange = previousMonthEquivalentRange(dateFrom, dateTo);
         void loadMergedDashboard(prevRange.from, prevRange.to, currencyCode)
           .then((previous) => {
             if (gen !== dashboardFetchGenRef.current) return;
@@ -1298,10 +1297,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return () => window.clearTimeout(timerId);
   }, [loading, dashboardData, currencies.length, loadEarningsByCurrency, dashboardScopeKey, earningsByCurrencyLoading]);
 
-  const kpiCompareLabel = useMemo(
-    () => (isFullCalendarMonth(dateFrom, dateTo) ? i18n.thanLastMonth : i18n.thanPreviousPeriod),
-    [dateFrom, dateTo, i18n.thanLastMonth, i18n.thanPreviousPeriod]
-  );
+  const kpiCompareLabel = i18n.thanLastMonth;
 
   const kpi = useMemo(() => {
     const empty = {
