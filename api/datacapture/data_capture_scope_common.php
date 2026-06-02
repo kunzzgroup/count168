@@ -809,3 +809,85 @@ function dcAssertProcessIdInCaptureScope(PDO $pdo, int $processId, int $companyI
         throw new Exception('Invalid process for company scope');
     }
 }
+
+/** True when numeric company row is a group entity (AP/IG). */
+function dcCompanyIdIsGroupEntity(PDO $pdo, int $companyId): bool
+{
+    if ($companyId <= 0) {
+        return false;
+    }
+    $stmt = $pdo->prepare("
+        SELECT 1
+        FROM company c
+        WHERE c.id = ?
+          AND TRIM(COALESCE(c.company_id, '')) <> ''
+          AND UPPER(TRIM(c.company_id)) = UPPER(TRIM(COALESCE(c.group_id, '')))
+        LIMIT 1
+    ");
+    $stmt->execute([$companyId]);
+
+    return (bool) $stmt->fetchColumn();
+}
+
+/** SQL: capture rows on group-entity company only. */
+function dcSqlCaptureOnGroupEntityCompany(string $dcAlias = 'dc'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $dcAlias) ?: 'dc';
+    return " AND EXISTS (
+        SELECT 1
+        FROM company c_ge
+        WHERE c_ge.id = {$a}.company_id
+          AND TRIM(COALESCE(c_ge.company_id, '')) <> ''
+          AND UPPER(TRIM(c_ge.company_id)) = UPPER(TRIM(COALESCE(c_ge.group_id, '')))
+    ) ";
+}
+
+/** SQL: capture rows on subsidiary companies only (exclude group-entity rows). */
+function dcSqlCaptureOnSubsidiaryCompany(string $dcAlias = 'dc'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $dcAlias) ?: 'dc';
+    return " AND NOT EXISTS (
+        SELECT 1
+        FROM company c_ge
+        WHERE c_ge.id = {$a}.company_id
+          AND TRIM(COALESCE(c_ge.company_id, '')) <> ''
+          AND UPPER(TRIM(c_ge.company_id)) = UPPER(TRIM(COALESCE(c_ge.group_id, '')))
+    ) ";
+}
+
+/**
+ * Capture Maintenance: group scope → entity company + SALARY/BONUS; company → subsidiaries only.
+ *
+ * @param array<string, mixed> $params
+ * @return array{company_id: int, is_group_scope: bool, scope_process_sql: string, scope_company_sql: string}
+ */
+function dcFinalizeCaptureMaintenanceScope(PDO $pdo, array $scopeResolved, array $params): array
+{
+    $isGroupScope = (bool) ($scopeResolved['is_group_scope'] ?? false);
+    $companyId = (int) ($scopeResolved['company_id'] ?? 0);
+    $groupId = dcNormalizeGroupId(
+        $params['view_group'] ?? $params['group_id'] ?? ($scopeResolved['group_id'] ?? '')
+    );
+
+    if ($isGroupScope) {
+        if ($groupId !== '') {
+            $entityId = tx_resolve_group_entity_company_id($pdo, $groupId);
+            if ($entityId > 0) {
+                $companyId = $entityId;
+            }
+        }
+        return [
+            'company_id' => $companyId,
+            'is_group_scope' => true,
+            'scope_process_sql' => dcSqlGroupProcessFilter('p'),
+            'scope_company_sql' => dcSqlCaptureOnGroupEntityCompany('dc'),
+        ];
+    }
+
+    return [
+        'company_id' => $companyId,
+        'is_group_scope' => false,
+        'scope_process_sql' => dcSqlCompanyProcessFilter('p'),
+        'scope_company_sql' => dcSqlCaptureOnSubsidiaryCompany('dc'),
+    ];
+}

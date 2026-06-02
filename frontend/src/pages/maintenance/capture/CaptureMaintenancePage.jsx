@@ -16,12 +16,16 @@ import { formatYmd } from "../../../utils/date/dateUtils.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import {
-  companiesInGroupList,
+  companiesNativeInGroupList,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  persistDashboardGroupOnlyMode,
+  persistDashboardSelectedCompany,
+  readPersistedDashboardGcFilter,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { isGroupLogin } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import {
   bootstrapCaptureMaintenanceMeta,
@@ -272,13 +276,22 @@ export default function CaptureMaintenancePage() {
             : null;
         const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
         setSelectedGroup(bootGroup);
-        if (isDashboardGroupOnlyMode()) {
+        const persistedGc = readPersistedDashboardGcFilter();
+        const groupOnlyBoot =
+          isDashboardGroupOnlyMode() ||
+          persistedGc.groupOnly ||
+          isGroupLogin(u);
+        if (groupOnlyBoot) {
+          persistDashboardGroupOnlyMode(true);
+          persistDashboardSelectedCompany(null);
           setCompanyId(null);
           setCompanyCode("");
           const bootScope = resolveCaptureMaintenanceScope({
             companies: rows,
             selectedGroup: bootGroup,
             companyId: null,
+            groupsAllMode: false,
+            groupAllMode: false,
           });
           const meta = await bootstrapCaptureMaintenanceMeta({
             companies: rows,
@@ -353,7 +366,7 @@ export default function CaptureMaintenancePage() {
       try {
         const anchor =
           companyId == null && selectedGroup
-            ? companiesInGroupList(companies, selectedGroup)[0]
+            ? companiesNativeInGroupList(companies, selectedGroup)[0]
             : null;
         const permCode = companyCode || anchor?.company_id || "";
         const [procList, permList] = await Promise.all([
@@ -395,6 +408,8 @@ export default function CaptureMaintenancePage() {
           companies,
           selectedGroup: overrides.selectedGroup ?? selectedGroup,
           companyId: overrides.companyId ?? companyId,
+          groupsAllMode,
+          groupAllMode,
         });
       if (!captureMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
 
@@ -448,7 +463,7 @@ export default function CaptureMaintenancePage() {
         }
       }
     },
-    [companies, selectedGroup, companyId, dateFrom, dateTo, selectedProcess, activePermission, notify, t],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, dateFrom, dateTo, selectedProcess, activePermission, notify, t],
   );
 
   // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
@@ -508,6 +523,8 @@ export default function CaptureMaintenancePage() {
         companies,
         selectedGroup: newGroup,
         companyId: nextId,
+        groupsAllMode,
+        groupAllMode,
       });
       suppressNextSearchEffectRef.current = true;
       setCompanyId(nextId);
@@ -516,7 +533,7 @@ export default function CaptureMaintenancePage() {
       persistDashboardFilterState(newGroup, nextId);
       void performSearch({ scope: nextScope });
     },
-    [companies, performSearch],
+    [companies, performSearch, groupsAllMode, groupAllMode],
   );
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
