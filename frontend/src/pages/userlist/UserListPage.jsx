@@ -678,14 +678,35 @@ export default function UserListPage() {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       const current = String(selectedGroup || "").trim().toUpperCase();
+      const groupLogin = isGroupLogin(me);
       // Group login UX: clicking the active group pill returns to group-only scope.
-      if (isGroupLogin(me) && g && g === current && companyId != null) {
+      if (groupLogin && g && g === current && companyId != null) {
         persistDashboardGroupOnlyMode(true);
         setSelectedGroup(g);
         handleClearCompany();
         return;
       }
       if (!g || (g === current && companyId != null)) return;
+
+      // Group login must stay in group-only scope when switching groups.
+      if (groupLogin) {
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setSelectedGroup(g);
+          setCompanyId(null);
+          applyUserListCache(null, { groupOnly: true });
+        });
+
+        persistDashboardGroupFilter(g);
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        notifyDashboardGroupFilterChanged(g, null);
+
+        const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);
+        if (!userListCacheRef.current.has(groupCacheKey)) {
+          void fetchUsers(null, { silent: true, groupOnly: true });
+        }
+        return;
+      }
 
       const pick = pickDefaultCompanyForGroup(allCompanyButtons, g, {
         me,
