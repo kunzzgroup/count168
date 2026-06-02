@@ -39,6 +39,7 @@ import {
   companiesInGroupList,
   companiesForCompanyPicker,
   companyRowIsGroupEntity,
+  dedupeOwnerCompaniesByCode,
   excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
   pickDefaultCompanyForGroup,
@@ -276,14 +277,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const companiesForPicker = useMemo(() => {
+    const preferredId = companyId ?? me?.company_id ?? null;
     if (groupsAllMode) {
       return excludeGroupLabelsFromCompanyPicker(
-        filterCompaniesWithDisplayId(companies),
+        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), preferredId),
         groupIds
       );
     }
-    return companiesForCompanyPicker(companies, selectedGroup, groupIds);
-  }, [companies, selectedGroup, groupsAllMode, groupIds]);
+    return dedupeOwnerCompaniesByCode(
+      companiesForCompanyPicker(companies, selectedGroup, groupIds),
+      preferredId
+    );
+  }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me?.company_id]);
 
   const resolveMergeCompanyList = useCallback(() => {
     if (groupsAllMode) return filterCompaniesWithDisplayId(companies);
