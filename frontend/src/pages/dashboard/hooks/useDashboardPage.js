@@ -56,6 +56,7 @@ import {
   sortedUniqueGroupIds,
   isVirtualGroupLinkCompanyRow,
   fetchOwnerCompaniesAll,
+  pickDefaultSubsidiaryForGroup,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 
@@ -1600,7 +1601,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
 
-      const pick = pickDefaultCompanyForGroup(companies, g, { me, preferredCompanyId: companyId });
+      const pick = pickDefaultSubsidiaryForGroup(companies, g, {
+        me,
+        preferredCompanyId: companyId,
+      });
       if (!pick?.id) {
         clearCompanySelection(g);
         notifyDashboardGroupFilterChanged(g, null);
@@ -1722,7 +1726,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       groupAllMode
     )
       return;
-    const pick = pickDefaultCompanyForGroup(companies, selectedGroup, { me, preferredCompanyId: companyId });
+    const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
+      me,
+      preferredCompanyId: companyId,
+    });
     if (!pick?.id) return;
     const id = parseInt(pick.id, 10);
     setGroupAllMode(false);
