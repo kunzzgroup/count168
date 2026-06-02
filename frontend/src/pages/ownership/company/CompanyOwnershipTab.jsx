@@ -1,5 +1,6 @@
 import React from "react";
 import CompanyCard from "./components/CompanyCard.jsx";
+import { countOwnershipSubsidiariesInGroup } from "../shared/ownershipHelpers.js";
 
 export default function CompanyOwnershipTab({ shell, company }) {
   const { t, loadingList, allCompanies, isHistoricalView } = shell;
@@ -41,9 +42,7 @@ export default function CompanyOwnershipTab({ shell, company }) {
           <span className="own-gfb-label">{t("group")}</span>
           <div className="own-gfb-buttons">
             {allGroupIds.map((g) => {
-              const count = allCompanies.filter(
-                (c) => c.group_id && String(c.group_id).toLowerCase() === String(g).toLowerCase(),
-              ).length;
+              const count = countOwnershipSubsidiariesInGroup(allCompanies, g);
               const active = groupFilter === g;
               return (
                 <button

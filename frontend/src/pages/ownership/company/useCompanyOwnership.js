@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
-import { getApiMessage, isApiConflict, isApiSuccess, rebuildGroupIds } from "../shared/ownershipHelpers.js";
+import { getApiMessage, isApiConflict, isApiSuccess, ownershipSubsidiariesInGroup, rebuildGroupIds } from "../shared/ownershipHelpers.js";
 import { formatOwnershipSavedAt } from "../shared/ownershipMonthHelpers.js";
 import {
   applyOwnershipRowFieldUpdate,
@@ -63,17 +63,13 @@ export function useCompanyOwnership(shell) {
 
   const companiesData = useMemo(() => {
     if (groupFilter !== null) {
-      return allCompanies.filter(
-        (c) => c.group_id && String(c.group_id).toLowerCase() === String(groupFilter).toLowerCase(),
-      );
+      return ownershipSubsidiariesInGroup(allCompanies, groupFilter);
     }
     const independent = allCompanies.filter((c) => !c.group_id);
     if (independent.length > 0) return independent;
     if (allGroupIds.length === 0) return independent;
     const firstGroup = allGroupIds[0];
-    return allCompanies.filter(
-      (c) => c.group_id && String(c.group_id).toLowerCase() === String(firstGroup).toLowerCase(),
-    );
+    return ownershipSubsidiariesInGroup(allCompanies, firstGroup);
   }, [allCompanies, groupFilter, allGroupIds]);
 
   useEffect(() => {
