@@ -64,6 +64,52 @@ function maintenanceUseLegacyCompanyQuery(array $params): bool
 }
 
 /**
+ * Transaction Maintenance 专用：company scope 允许 SALARY/BONUS（与 Formula Maintenance 对齐）。
+ * 其它页面仍沿用 data_capture_scope_common 的严格规则。
+ */
+function maintenanceResolveProcessIdByCode(PDO $pdo, int $companyId, string $processCode, bool $isGroupScope): ?int
+{
+    $code = strtoupper(trim($processCode));
+    if ($code === '') {
+        return null;
+    }
+    if ($isGroupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
+        return null;
+    }
+
+    $sql = 'SELECT id FROM process WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?';
+    if ($isGroupScope) {
+        $sql .= " AND UPPER(TRIM(process_id)) IN ('SALARY', 'BONUS')";
+    }
+    $sql .= ' LIMIT 1';
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$companyId, $code]);
+    $id = (int) ($stmt->fetchColumn() ?: 0);
+
+    return $id > 0 ? $id : null;
+}
+
+/**
+ * Transaction Maintenance 专用：company scope 下允许 SALARY/BONUS 的 process.id。
+ */
+function maintenanceAssertProcessIdForScope(PDO $pdo, int $processId, int $companyId, bool $isGroupScope): void
+{
+    if ($processId <= 0 || $companyId <= 0) {
+        throw new Exception('Invalid process for scope');
+    }
+    $stmt = $pdo->prepare('SELECT UPPER(TRIM(process_id)) FROM process WHERE id = ? AND company_id = ? LIMIT 1');
+    $stmt->execute([$processId, $companyId]);
+    $code = strtoupper(trim((string) ($stmt->fetchColumn() ?: '')));
+    if ($code === '') {
+        throw new Exception('Process not found for scope');
+    }
+    if ($isGroupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
+        throw new Exception('Invalid process for group scope');
+    }
+}
+
+/**
  * 统一 Rate 显示：最多 8 位小数，不补尾零（与 Data Summary / Payment History 一致）
  */
 function formatRateForDisplay($rate): ?string
@@ -1016,7 +1062,7 @@ try {
         if (preg_match('/^\d+$/', $process)) {
             $processPk = (int) $process;
             try {
-                dcAssertProcessIdInCaptureScope(
+                maintenanceAssertProcessIdForScope(
                     $pdo,
                     $processPk,
                     (int) $company_id,
@@ -1047,7 +1093,7 @@ try {
             if ($process === '') {
                 $process = null;
             } else {
-                $resolvedPid = dcResolveProcessIdByCode(
+                $resolvedPid = maintenanceResolveProcessIdByCode(
                     $pdo,
                     (int) $company_id,
                     (string) $process,
