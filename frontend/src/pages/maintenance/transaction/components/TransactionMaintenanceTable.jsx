@@ -117,6 +117,8 @@ export default function TransactionMaintenanceTable({
   showSkeleton,
   showEmptyState = false,
   statusMessage = "",
+  showTopLoading = false,
+  topLoadingLabel = "",
   isPlaceholderData,
   m,
 }) {
@@ -204,12 +206,13 @@ export default function TransactionMaintenanceTable({
     );
   }
 
-  const showBlueBar = showSkeleton || Boolean(isPlaceholderData);
+  const showBlueBar = Boolean(showTopLoading);
+  const topLabel = topLoadingLabel || m.loading;
 
   return (
     <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table" style={{ display: "block" }}>
       <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
-        {showBlueBar ? <TopLoadingBar label={m.loading} /> : null}
+        {showBlueBar ? <TopLoadingBar label={topLabel} /> : null}
         <VirtualTableHeader m={m} />
         <div ref={scrollRef} className="maintenance-virtual-scroll maintenance-virtual-scroll--body" tabIndex={0}>
           {rows.length > 0 ? (
