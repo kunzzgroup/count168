@@ -416,15 +416,16 @@ function dashboardBuildGroupScopedSummary(
     foreach ($roles as $role) {
         $excludeClear = dashboardShouldExcludeClearForRole($role);
         $clearFilter = $excludeClear ? " AND t.transaction_type <> 'CLEAR'" : '';
+        list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
         $accStmt = $pdo->prepare("
             SELECT DISTINCT a.id
             FROM account a
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.scope_type = 'group'
               AND ac.scope_id = ?
-              AND UPPER(TRIM(COALESCE(a.role, ''))) = ?
+              AND {$roleFilterSql}
         ");
-        $accStmt->execute([$groupScopeId, $role]);
+        $accStmt->execute(array_merge([$groupScopeId], $roleFilterParams));
         $accountIds = array_map('intval', $accStmt->fetchAll(PDO::FETCH_COLUMN));
 
         if (empty($accountIds)) {
@@ -599,6 +600,49 @@ function dashboardEmptyRoleBucket(string $role): array
         'period_total' => dashboardMoneyZero(),
         'daily_data' => [],
     ];
+}
+
+/**
+ * Role filter aligned with legacy dashboard + Transaction List (EXPENSES / EXPENSE).
+ *
+ * @return array{0: string, 1: array<int, string>}
+ */
+function dashboardRoleFilterSql(string $role, string $alias = 'a'): array
+{
+    $col = ($alias !== '' ? $alias . '.' : '') . 'role';
+    $roleUp = strtoupper(trim($role));
+    if ($roleUp === 'EXPENSES') {
+        return [
+            "UPPER(TRIM(COALESCE({$col}, ''))) IN ('EXPENSES', 'EXPENSE')",
+            [],
+        ];
+    }
+
+    return [
+        "UPPER(TRIM(COALESCE({$col}, ''))) = ?",
+        [$roleUp],
+    ];
+}
+
+function dashboardResolveCurrencyIdForScope(
+    string $filterCurrencyCode,
+    array $scopeCurrencyMap,
+    array $primaryCurrencyMap
+): ?int {
+    $code = strtoupper(trim($filterCurrencyCode));
+    if ($code === '') {
+        return null;
+    }
+    $currId = array_search($code, $scopeCurrencyMap, true);
+    if ($currId !== false) {
+        return (int) $currId;
+    }
+    $currId = array_search($code, $primaryCurrencyMap, true);
+    if ($currId !== false) {
+        return (int) $currId;
+    }
+
+    return null;
 }
 
 // 引入 search_api.php 中的函数（通过定义函数的方式）
@@ -807,24 +851,25 @@ try {
                 ? $currency_map
                 : dashboardLoadCurrencyMap($pdo, $scopeCompanyId);
 
+            list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
+
             // 获取该角色的所有账户
             // 与 Transaction List 一致：含 inactive 账户（期内仍可能有 WIN/LOSE / PAYMENT）
             $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
                     FROM account a
                     INNER JOIN account_company ac ON a.id = ac.account_id
                     WHERE ac.company_id = ?
-                      AND UPPER(TRIM(COALESCE(a.role, ''))) = ?";
+                      AND {$roleFilterSql}";
 
-            // 应用权限过滤（集团实体 EXPENSES 并入子公司 Dashboard 时不套白名单：
-            // 账户 id 在 IG 实体上，不可能出现在子公司 95 的 account_permissions 里，与 search_api 外部账户同理）
+            // EXPENSES 池账户：Dashboard 不按 account_permissions 白名单过滤（与 search_api 外部账户同理）
             $params = [];
-            if (!($role === 'EXPENSES' && $scopeCompanyId !== $company_id)) {
+            if ($role !== 'EXPENSES') {
                 list($sql, $params) = filterAccountsByPermissions($pdo, $sql, [], $scopeCompanyId);
                 $sql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $sql);
                 $sql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $sql);
             }
 
-            $params = array_merge([$scopeCompanyId, $role], $params);
+            $params = array_merge([$scopeCompanyId], $roleFilterParams, $params);
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -849,19 +894,22 @@ try {
             $currency_params_t_from = [];
             $currency_params_e = [];
             if ($filter_currency_code !== null) {
-                $curr_id = array_search($filter_currency_code, $scopeCurrencyMap);
-                if ($curr_id !== false) {
-                    $currency_filter_dcd = " AND dcd.currency_id = ?";
-                    $currency_filter_t_to = dashboardTxnCurrencyFilter('account_id');
-                    $currency_filter_t_from = dashboardTxnCurrencyFilter('from_account_id');
-                    $currency_filter_e = " AND e.currency_id = ?";
-                    $currency_params_dcd = [$curr_id];
-                    $currency_params_t_to = [$curr_id, $scopeCompanyId, $scopeCompanyId, $curr_id];
-                    $currency_params_t_from = [$curr_id, $scopeCompanyId, $scopeCompanyId, $curr_id];
-                    $currency_params_e = [$curr_id];
-                } else {
+                $curr_id = dashboardResolveCurrencyIdForScope(
+                    $filter_currency_code,
+                    $scopeCurrencyMap,
+                    $currency_map
+                );
+                if ($curr_id === null) {
                     continue;
                 }
+                $currency_filter_dcd = " AND dcd.currency_id = ?";
+                $currency_filter_t_to = dashboardTxnCurrencyFilter('account_id');
+                $currency_filter_t_from = dashboardTxnCurrencyFilter('from_account_id');
+                $currency_filter_e = " AND e.currency_id = ?";
+                $currency_params_dcd = [$curr_id];
+                $currency_params_t_to = [$curr_id, $scopeCompanyId, $scopeCompanyId, $curr_id];
+                $currency_params_t_from = [$curr_id, $scopeCompanyId, $scopeCompanyId, $curr_id];
+                $currency_params_e = [$curr_id];
             }
 
             // --- 1. 计算 B/F (Balance Forward) ---
