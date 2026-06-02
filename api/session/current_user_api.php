@@ -171,6 +171,7 @@ if ($companyId && $pdo instanceof PDO) {
                       AND TRIM(COALESCE(company_id, '')) <> ''
                 ");
                 $stmtSubs->execute([$groupCode]);
+                $mergedSubsPerms = [];
                 foreach ($stmtSubs->fetchAll(PDO::FETCH_COLUMN) as $raw) {
                     $subsPerms = json_decode((string) $raw, true) ?: [];
                     if (
@@ -182,9 +183,22 @@ if ($companyId && $pdo instanceof PDO) {
                     if (!$companyHasBank && in_array('Bank', $subsPerms, true)) {
                         $companyHasBank = true;
                     }
+                    if (is_array($subsPerms)) {
+                        foreach ($subsPerms as $perm) {
+                            if (is_string($perm) && $perm !== '') {
+                                $mergedSubsPerms[] = $perm;
+                            }
+                        }
+                    }
                     if ($companyHasGambling && $companyHasBank) {
                         break;
                     }
+                }
+                if ($mergedSubsPerms !== []) {
+                    $companyPermissionsList = array_values(array_unique(array_merge(
+                        $companyPermissionsList,
+                        $mergedSubsPerms
+                    )));
                 }
             }
         }

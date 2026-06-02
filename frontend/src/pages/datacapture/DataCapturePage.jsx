@@ -39,6 +39,7 @@ import { resolveGroupEntityRowFromSnap } from "../transaction/lib/transactionSco
 import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
+  sessionUserHasCompanyCategoryAccess,
   syncDataCaptureCompanySession,
 } from "./lib/dataCaptureCompanyAccess.js";
 import {
@@ -442,13 +443,6 @@ export default function DataCapturePage() {
         const companiesJson = await companiesRes.json();
         persistAccessibleGroupIdsFromApi(companiesJson);
 
-        const perms = Array.isArray(u.company_permissions) ? u.company_permissions : [];
-        if (cancelled) return;
-        if (perms.length === 0) {
-          navigate("/process-list?error=no_permission", { replace: true });
-          return;
-        }
-
         const raw = filterCompaniesForLoginScope(
           Array.isArray(companiesJson?.data) ? companiesJson.data.map(normalizeOwnerCompanyRow) : [],
           u
@@ -468,24 +462,13 @@ export default function DataCapturePage() {
             (submittedFromUrl && queryGroupOnly) ||
             (isDashboardGroupOnlyMode() && !queryCompany));
 
-        let effectiveCompany = groupOnlyBoot
-          ? null
-          : resolveBootCompanyId({
-              urlCompanyId: queryCompany,
-              sessionCompanyId: u.company_id,
-              defaultRowId: raw[0]?.id,
-            });
-
-        const rowForPickEarly =
-          effectiveCompany != null
-            ? raw.find((c) => Number(c.id) === Number(effectiveCompany)) || null
-            : null;
-        const initialGroupEarly =
-          (sessionMeta?.captureSelectedGroup &&
-            String(sessionMeta.captureSelectedGroup).trim().toUpperCase()) ||
-          resolveInitialSelectedGroupFromSession(raw, rowForPickEarly);
+        if (cancelled) return;
 
         if (groupOnlyBoot) {
+          if (u.company_has_gambling === false) {
+            navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+            return;
+          }
           if (sessionMeta?.captureSelectedGroup) {
             persistDashboardGroupFilter(sessionMeta.captureSelectedGroup);
           }
@@ -493,9 +476,24 @@ export default function DataCapturePage() {
           persistDashboardSelectedCompany(null);
           setCompanies(raw);
           setCompanyId(null);
-          setSelectedGroup(initialGroupEarly);
+          setSelectedGroup(
+            (sessionMeta?.captureSelectedGroup &&
+              String(sessionMeta.captureSelectedGroup).trim().toUpperCase()) ||
+              resolveInitialSelectedGroupFromSession(raw, null)
+          );
           return;
         }
+
+        if (!sessionUserHasCompanyCategoryAccess(u)) {
+          navigate("/process-list?error=no_permission", { replace: true });
+          return;
+        }
+
+        let effectiveCompany = resolveBootCompanyId({
+          urlCompanyId: queryCompany,
+          sessionCompanyId: u.company_id,
+          defaultRowId: raw[0]?.id,
+        });
 
         if (queryCompany && effectiveCompany && Number(effectiveCompany) !== Number(u.company_id)) {
           try {
