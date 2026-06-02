@@ -426,26 +426,16 @@ export function useTransactionData({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
 
-      // In company mode, switching group should always keep a concrete company selected.
-      // Prefer current company when it still belongs to target group; otherwise fall back to first company in group.
-      const allCompanies = filterCompaniesWithDisplayId(
-        snap.snapCompaniesAll || snap.snapCompanies || [],
-      );
-      const companiesInGroup = allCompanies.filter(
-        (comp) => String(comp?.group_id || "").trim().toUpperCase() === g,
-      );
-      if (companiesInGroup.length > 0) {
-        const preferredCompany =
-          companiesInGroup.find((comp) => Number(comp.id) === Number(snap.companyId)) ||
-          companiesInGroup[0];
-        await onCompanyButtonClick(preferredCompany);
+      // Same group + subsidiary selected: treat as "back to group view" (e.g. AP → C168 → AP).
+      if (g === snap.selectedGroup && !snap.groupsAllMode) {
+        if (snap.companyId == null || Number(snap.companyId) <= 0) return;
+        await applyGroupOnlySelection(snap, g);
         return;
       }
 
-      // Fallback for edge cases where target group has no company rows.
       await applyGroupOnlySelection(snap, g);
     },
-    [applyGroupOnlySelection, onCompanyButtonClick],
+    [applyGroupOnlySelection],
   );
 
   const onPickAllGroups = useCallback(() => {
