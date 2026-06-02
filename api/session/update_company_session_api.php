@@ -9,6 +9,7 @@ define('SESSION_KEEP_OPEN', true);
 
 require_once __DIR__ . '/../../includes/session_check.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/company_expiration.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 
 header('Content-Type: application/json');
@@ -41,30 +42,10 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 }
 
 /**
- * 返回公司状态：
- * - valid: 可访问（C168 永远 valid）
- * - no_set: 未设置到期日（Not set）
- * - expired: 已到期
+ * @deprecated Use gc_get_company_expiration_state()
  */
-function getCompanyExpirationState($expirationDate, $companyCode = null): string {
-    if (strtoupper(trim((string)$companyCode)) === 'C168') {
-        return 'valid';
-    }
-
-    if ($expirationDate === null || trim((string)$expirationDate) === '') {
-        return 'no_set';
-    }
-
-    $expTs = strtotime((string)$expirationDate);
-    if ($expTs === false) {
-        return 'no_set';
-    }
-
-    if ($expTs < strtotime(date('Y-m-d'))) {
-        return 'expired';
-    }
-
-    return 'valid';
+function getCompanyExpirationState($expirationDate, $companyCode = null, $groupId = null): string {
+    return gc_get_company_expiration_state($expirationDate, $companyCode, $groupId);
 }
 
 function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
@@ -72,14 +53,14 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
         // member 可能来自不同登录入口：有的用 account_company(account_id)，有的仍走 user_company_map(user_id)
         // 为避免切换 company 误判无权限，这里同时检查两种映射。
         $stmt = $pdo->prepare("
-            SELECT DISTINCT c.id, c.company_id, c.expiration_date
+            SELECT DISTINCT c.id, c.company_id, c.group_id, c.expiration_date
             FROM company c
             INNER JOIN account_company ac ON c.id = ac.company_id
             WHERE ac.account_id = ?
 
             UNION
 
-            SELECT DISTINCT c2.id, c2.company_id, c2.expiration_date
+            SELECT DISTINCT c2.id, c2.company_id, c2.group_id, c2.expiration_date
             FROM company c2
             INNER JOIN user_company_map ucm ON c2.id = ucm.company_id
             WHERE ucm.user_id = ?
@@ -97,6 +78,7 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
             return [
                 'id' => isset($c['id']) ? (int)$c['id'] : 0,
                 'company_id' => $c['company_id'] ?? '',
+                'group_id' => $c['group_id'] ?? null,
                 'expiration_date' => $c['expiration_date'] ?? null,
                 'is_external' => isset($c['is_external']) ? (int)$c['is_external'] : 0,
             ];
@@ -107,6 +89,7 @@ function getUserCompanies(PDO $pdo, $user_id, $user_role, $user_type) {
         return [
             'id' => isset($c['id']) ? (int)$c['id'] : 0,
             'company_id' => $c['company_id'] ?? '',
+            'group_id' => $c['group_id'] ?? null,
             'expiration_date' => $c['expiration_date'] ?? null,
             'is_external' => 0,
         ];
@@ -151,7 +134,11 @@ try {
     foreach ($user_companies as $comp) {
         if ((int) $comp['id'] === $requested_company_id) {
             $valid = true;
-            $expState = getCompanyExpirationState($comp['expiration_date'] ?? null, $comp['company_id'] ?? null);
+            $expState = gc_get_company_expiration_state(
+                $comp['expiration_date'] ?? null,
+                $comp['company_id'] ?? null,
+                $comp['group_id'] ?? null
+            );
             if ($expState === 'expired') {
                 $blockedReason = 'expired';
             } elseif ($expState === 'no_set') {
