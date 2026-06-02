@@ -801,7 +801,7 @@ export default function AuthenticatedLayout() {
                 <SidebarNavTip label={i18n.sidebarMaintenance} enabled={sidebarIconOnly} placement="top">
                   <div
                     ref={maintenanceTitleRef}
-                    className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
+                    className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance"].includes(path)) ? "active" : ""}`}
                     data-section="maintenance"
                     onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
                     role="presentation"
@@ -880,19 +880,6 @@ export default function AuthenticatedLayout() {
                         }}
                       >
                         <span>{i18n.sidebarFormula}</span>
-                      </a>
-                    )}
-                    {showFullMaintenanceMenu && me?.company_has_bank && (
-                      <a
-                        href={webHref("/bankprocess-maintenance")}
-                        className={`submenu-item ${path === "/bankprocess-maintenance" ? "current-page" : ""}`}
-                        data-prefetch-path="/bankprocess-maintenance"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          goTo("/bankprocess-maintenance");
-                        }}
-                      >
-                        <span>{i18n.sidebarProcess}</span>
                       </a>
                     )}
                   </div>
