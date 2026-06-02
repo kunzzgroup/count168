@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { ensureCrossPageCompanySelection } from "../../../utils/company/companySessionSync.js";
+import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
@@ -702,11 +703,7 @@ export function useBankProcessListPage() {
           return;
         }
 
-        const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-          credentials: "include",
-        });
-        const companiesJson = await companiesRes.json();
-        const cs = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
+        const cs = await fetchOwnerCompaniesAll();
         setCompanies(cs);
         const sessionUser = authMe;
         if (!sessionUser) {
@@ -815,8 +812,9 @@ export function useBankProcessListPage() {
 
   useEffect(() => {
     if (!companyId || loading) return;
+    if (currencyListOrdered.length > 0) return;
     void loadCurrencyMeta();
-  }, [companyId, loading, loadCurrencyMeta]);
+  }, [companyId, loading, loadCurrencyMeta, currencyListOrdered.length]);
 
   useEffect(() => {
     setCurrencyPillDisplayOrder(null);

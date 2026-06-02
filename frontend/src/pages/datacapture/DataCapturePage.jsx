@@ -21,8 +21,9 @@ import {
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   filterCompaniesForLoginScope,
-  persistAccessibleGroupIdsFromApi,
+  fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
@@ -443,16 +444,7 @@ export default function DataCapturePage() {
       }
       try {
         const u = me;
-        const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-          credentials: "include",
-        });
-        const companiesJson = await companiesRes.json();
-        persistAccessibleGroupIdsFromApi(companiesJson);
-
-        const raw = filterCompaniesForLoginScope(
-          Array.isArray(companiesJson?.data) ? companiesJson.data.map(normalizeOwnerCompanyRow) : [],
-          u
-        );
+        const raw = filterCompaniesForLoginScope(await fetchOwnerCompaniesAll(), u);
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
@@ -508,12 +500,8 @@ export default function DataCapturePage() {
 
         if (queryCompany && effectiveCompany && Number(effectiveCompany) !== Number(u.company_id)) {
           try {
-            const syncRes = await fetch(
-              buildApiUrl(`api/session/update_company_session_api.php?company_id=${effectiveCompany}`),
-              { credentials: "include" }
-            );
-            const syncJson = await syncRes.json();
-            if (!syncJson.success) {
+            const syncJson = await syncCompanySessionApi(effectiveCompany);
+            if (!syncJson?.success) {
               effectiveCompany = u.company_id ? Number(u.company_id) : effectiveCompany;
             }
           } catch {

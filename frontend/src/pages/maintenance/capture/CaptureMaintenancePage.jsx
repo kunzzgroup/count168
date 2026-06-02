@@ -27,6 +27,7 @@ import {
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { isGroupLogin } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
+import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   bootstrapCaptureMaintenanceMeta,
   fetchCompanyPermissions,
@@ -259,10 +260,8 @@ export default function CaptureMaintenancePage() {
         }
 
         // Load Companies
-        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-        const compJson = await compRes.json();
+        const rows = await fetchOwnerCompaniesAll();
         if (cancelled) return;
-        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
         setCompanies(rows);
 
         // Set Initial Company

@@ -1,12 +1,12 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
-import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
-  normalizeOwnerCompanyRow,
+  fetchOwnerCompaniesAll,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
   resolveBootCompanyId,
@@ -16,6 +16,10 @@ import {
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import {
+  syncCompanySessionAndNotify,
+  syncCompanySessionApi,
+} from "../../../utils/company/companySessionSync.js";
 import {
   getAccounts,
   getCategories,
@@ -34,12 +38,8 @@ import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchor
 
 async function syncSessionToScopeCompany(scopeCompanyId) {
   if (!scopeCompanyId) return false;
-  const res = await fetch(
-    buildApiUrl(`api/session/update_company_session_api.php?company_id=${scopeCompanyId}`),
-    { credentials: "include" },
-  );
-  const sj = await res.json();
-  if (!res.ok || !sj.success) return false;
+  const sj = await syncCompanySessionApi(scopeCompanyId);
+  if (!sj?.success) return false;
   notifyCompanySessionUpdated();
   return true;
 }
@@ -49,6 +49,7 @@ export function useTransactionData({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { me: u, sessionReady } = useAuthSession();
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
   const [filterSnapshot, setFilterSnapshot] = useState(null);
@@ -82,19 +83,15 @@ export function useTransactionData({
   }, [scopeCacheKey, queryClient]);
 
   useEffect(() => {
+    if (!sessionReady) return;
+    if (!u) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       try {
-        const [meRes, companiesRes] = await Promise.all([
-          fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" }),
-          fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" }),
-        ]);
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) {
-          navigate("/login", { replace: true });
-          return;
-        }
-        const u = meJson.data;
         if (String(u.user_type || "").toLowerCase() === "member") {
           window.location.assign(new URL("/member", window.location.origin).href);
           return;
@@ -107,9 +104,7 @@ export function useTransactionData({
           return;
         }
 
-        const companiesJson = await companiesRes.json();
-        const rawRows = Array.isArray(companiesJson?.data) ? companiesJson.data : [];
-        const rows = rawRows.map((r) => normalizeOwnerCompanyRow(r)).filter(Boolean);
+        const rows = await fetchOwnerCompaniesAll();
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
@@ -126,11 +121,8 @@ export function useTransactionData({
           queryCompany &&
           rows.some((c) => Number(c.id) === Number(queryCompany))
         ) {
-          const sync = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${queryCompany}`), {
-            credentials: "include",
-          });
-          const sj = await sync.json();
-          if (!sync.ok || !sj.success) {
+          const sj = await syncCompanySessionApi(queryCompany);
+          if (!sj?.success) {
             effective = u.company_id ? Number(u.company_id) : rows[0]?.id ? Number(rows[0].id) : null;
           } else {
             notifyCompanySessionUpdated();
@@ -163,34 +155,27 @@ export function useTransactionData({
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [sessionReady, u, navigate]);
 
   useEffect(() => {
-    const refreshSessionFlags = async () => {
-      try {
-        const meRes = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
-        const meJson = await meRes.json();
-        if (!meRes.ok || !meJson.success || !meJson.data) return;
-        const u = meJson.data;
-        setFilterSnapshot((prev) =>
-          prev
-            ? {
-                ...prev,
-                viewerRole: String(u.role || "").toLowerCase(),
-                mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
-              }
-            : prev,
-        );
-      } catch {
-        // ignore transient refresh failures
-      }
+    if (!sessionReady || !u) return;
+    const refreshSessionFlags = () => {
+      setFilterSnapshot((prev) =>
+        prev
+          ? {
+              ...prev,
+              viewerRole: String(u.role || "").toLowerCase(),
+              mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
+            }
+          : prev,
+      );
     };
     const onCompanySession = () => {
-      void refreshSessionFlags();
+      refreshSessionFlags();
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, []);
+  }, [sessionReady, u]);
 
   useEffect(() => {
     if (loading || forbidden || !transactionScope) return;
@@ -428,13 +413,7 @@ export function useTransactionData({
       ]);
 
       try {
-        const res = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${cid}`), {
-          credentials: "include",
-        });
-        const sj = await res.json();
-        if (res.ok && sj.success) {
-          notifyCompanySessionUpdated();
-        }
+        await syncCompanySessionAndNotify(cid);
       } catch (e) {
         if (e?.name === "AbortError" || isCancelledError(e)) return;
         console.error(e);

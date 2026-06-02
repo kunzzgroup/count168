@@ -18,8 +18,8 @@ import {
   pickDefaultCompanyForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
-  loadOwnerCompaniesCached,
   sortedUniqueGroupIds,
+  fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { isGroupLogin, resolveVisibleGroupIds } from "../../utils/company/loginScope.js";
 import { isCompanyLogin } from "../../utils/company/loginScope.js";
@@ -374,13 +374,7 @@ export default function UserListPage() {
           navigate("/dashboard", { replace: true });
           return;
         }
-        const rows = (await loadOwnerCompaniesCached(async () => {
-          const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-            credentials: "include",
-          });
-          const compJson = await compRes.json();
-          return Array.isArray(compJson?.data) ? compJson.data : [];
-        })).map(normalizeCompanyRow);
+        const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);
         if (cancelled) return;
         setCompanies(rows);
         const modalCompanyList = buildModalCompanyList(rows);
@@ -858,9 +852,7 @@ export default function UserListPage() {
       return modalPickerCompanies;
     }
     try {
-      const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-      const json = await res.json();
-      const rows = Array.isArray(json.data) ? json.data.map(normalizeCompanyRow) : [];
+      const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);
       // Group-only mode => choose group list.
       // Company-selected mode => choose companies visible under selected group, including linked groups (AP<->IG).
       if (groupOnlyUserList) {

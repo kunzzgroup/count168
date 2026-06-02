@@ -17,6 +17,7 @@ import {
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
+import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
 import "../../../../public/css/maintenance_unified_filters.css";
@@ -355,9 +356,8 @@ export default function FormulaMaintenancePage() {
           return;
         }
 
-        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-        const compJson = await compRes.json();
-        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
+        const rows = await fetchOwnerCompaniesAll();
+        if (cancelled) return;
         setCompanies(rows);
 
         const initialCompanyId = resolveBootCompanyId({

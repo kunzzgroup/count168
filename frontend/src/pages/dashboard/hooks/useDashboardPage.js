@@ -54,10 +54,9 @@ import {
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   filterCompaniesForLoginScope,
-  persistAccessibleGroupIdsFromApi,
   sortedUniqueGroupIds,
   isVirtualGroupLinkCompanyRow,
-  loadOwnerCompaniesCached,
+  fetchOwnerCompaniesAll,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 
@@ -200,18 +199,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     try {
       const u = me;
 
-      const cjRows = await loadOwnerCompaniesCached(async () => {
-        const cr = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-          credentials: "include",
-          signal,
-        });
-        const cj = await cr.json();
-        persistAccessibleGroupIdsFromApi(cj);
-        if (!cr.ok || !cj.success || !Array.isArray(cj.data)) {
-          throw new Error(cj?.message || cj?.error || i18n.failedToLoadDashboard);
-        }
-        return cj.data;
-      });
+      const cjRows = await fetchOwnerCompaniesAll({ signal, throwOnError: true });
       const scopedCompanies = filterCompaniesForLoginScope(cjRows, u);
       setCompanies(scopedCompanies);
       applyLoginScopeToSessionStorageIfNeeded(u, scopedCompanies);
@@ -1259,6 +1247,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   useEffect(() => {
     if (loading || !dashboardData || currencies.length <= 1) return undefined;
+    if (earningsByCurrencyLoading) return undefined;
     const cached = getDashboardCache(dashboardScopeKey);
     if (cached?.earnings?.length === currencies.length) {
       setEarningsByCurrency(cached.earnings);
@@ -1272,7 +1261,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
     const timerId = window.setTimeout(run, 400);
     return () => window.clearTimeout(timerId);
-  }, [loading, dashboardData, currencies.length, loadEarningsByCurrency, dashboardScopeKey]);
+  }, [loading, dashboardData, currencies.length, loadEarningsByCurrency, dashboardScopeKey, earningsByCurrencyLoading]);
 
   const kpiCompareLabel = useMemo(
     () => (isFullCalendarMonth(dateFrom, dateTo) ? i18n.thanLastMonth : i18n.thanPreviousPeriod),

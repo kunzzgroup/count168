@@ -24,6 +24,7 @@ import BankprocessMaintenanceFilters from "./components/BankprocessMaintenanceFi
 import BankprocessMaintenanceTable from "./components/BankprocessMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   deleteBankprocessData,
   fetchCompanyCurrencies,
@@ -181,10 +182,9 @@ export default function BankprocessMaintenancePage() {
     setBootLoading(true);
     (async () => {
       try {
-        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-
-        const compJson = await compRes.json();
-        const compRows = Array.isArray(compJson?.data) ? compJson.data.filter((c) => c.company_id) : [];
+        const allRows = await fetchOwnerCompaniesAll();
+        const compRows = allRows.filter((c) => c.company_id);
+        if (cancelled) return;
 
         const user = me;
         if (String(user.user_type || "").toLowerCase() === "member") {

@@ -16,8 +16,8 @@ import {
   readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
-  loadOwnerCompaniesCached,
   stripCompanyIdFromUrl,
+  fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { getLoginIdentifier, isCompanyLogin, isGroupLogin } from "../../utils/company/loginScope.js";
 import {
@@ -387,13 +387,7 @@ export default function AccountListPage() {
     (async () => {
       try {
         const [rows, editJson] = await Promise.all([
-          loadOwnerCompaniesCached(async () => {
-            const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-              credentials: "include",
-            });
-            const compJson = await compRes.json();
-            return Array.isArray(compJson?.data) ? compJson.data : [];
-          }).then((list) => list.map(normalizeCompanyRow)),
+          fetchOwnerCompaniesAll().then((list) => list.map(normalizeCompanyRow)),
           fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" }).then((r) => r.json()),
         ]);
         if (cancelled) return;

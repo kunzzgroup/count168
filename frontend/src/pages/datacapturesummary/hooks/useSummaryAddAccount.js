@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   DEFAULT_FORM,
   getOrderedRoles,
@@ -89,12 +90,9 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-          credentials: "include",
-        });
-        const json = await res.json();
-        if (!cancelled && json.success && Array.isArray(json.data)) {
-          setCompanies(json.data.map(normalizeCompanyRow));
+        const rows = await fetchOwnerCompaniesAll();
+        if (!cancelled && rows.length) {
+          setCompanies(rows.map(normalizeCompanyRow));
         }
       } catch {
         /* silent */

@@ -7,21 +7,45 @@ import {
   readDashboardSelectedCompanyId,
 } from "./sharedCompanyFilter.js";
 
+/** @type {Map<string, Promise<object>>} */
+const sessionSyncInflight = new Map();
+
+function sessionSyncKey(companyId, viewGroup) {
+  const id = Number(companyId);
+  const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+  return `${id}|${vg}`;
+}
+
 export async function syncCompanySessionApi(companyId, viewGroup = null) {
   const id = Number(companyId);
   if (!Number.isFinite(id) || id <= 0) return { success: false };
-  try {
-    const q = new URLSearchParams({ company_id: String(id) });
-    const vg = viewGroup ? String(viewGroup).trim() : "";
-    if (vg) q.set("view_group", vg);
-    const response = await fetch(
-      buildApiUrl(`api/session/update_company_session_api.php?${q.toString()}`),
-      { credentials: "include" }
-    );
-    return await response.json();
-  } catch {
-    return { success: false };
+
+  const key = sessionSyncKey(id, viewGroup);
+  if (sessionSyncInflight.has(key)) {
+    return sessionSyncInflight.get(key);
   }
+
+  const promise = (async () => {
+    try {
+      const q = new URLSearchParams({ company_id: String(id) });
+      const vg = viewGroup ? String(viewGroup).trim() : "";
+      if (vg) q.set("view_group", vg);
+      const response = await fetch(
+        buildApiUrl(`api/session/update_company_session_api.php?${q.toString()}`),
+        { credentials: "include" },
+      );
+      return await response.json();
+    } catch {
+      return { success: false };
+    } finally {
+      if (sessionSyncInflight.get(key) === promise) {
+        sessionSyncInflight.delete(key);
+      }
+    }
+  })();
+
+  sessionSyncInflight.set(key, promise);
+  return promise;
 }
 
 export async function syncCompanySessionAndNotify(companyId) {

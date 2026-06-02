@@ -3,13 +3,12 @@ import { flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   getCachedOwnerCompanies,
-  loadOwnerCompaniesCached,
-  normalizeOwnerCompanyRow,
   DASHBOARD_GROUP_FILTER_KEY,
   isDashboardGroupOnlyMode,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
+  fetchOwnerCompaniesAll,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
@@ -193,13 +192,7 @@ export default function CustomerReportPage() {
     let cancelled = false;
     (async () => {
       try {
-        const rows = await loadOwnerCompaniesCached(async () => {
-          const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-            credentials: "include",
-          });
-          const compJson = await compRes.json();
-          return Array.isArray(compJson?.data) ? compJson.data.map(normalizeOwnerCompanyRow) : [];
-        });
+        const rows = await fetchOwnerCompaniesAll();
         if (cancelled) return;
         setCompanies(rows);
 

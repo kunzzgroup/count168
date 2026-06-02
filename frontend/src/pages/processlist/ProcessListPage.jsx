@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
-import { ensureCrossPageCompanySelection } from "../../utils/company/companySessionSync.js";
+import { ensureCrossPageCompanySelection, syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
@@ -10,7 +10,7 @@ import {
   pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
-  loadOwnerCompaniesCached,
+  fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
@@ -313,13 +313,7 @@ export default function ProcessListPage() {
           return;
         }
 
-        const cs = await loadOwnerCompaniesCached(async () => {
-          const companiesRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-            credentials: "include",
-          });
-          const companiesJson = await companiesRes.json();
-          return Array.isArray(companiesJson?.data) ? companiesJson.data : [];
-        });
+        const cs = await fetchOwnerCompaniesAll();
         setCompanies(cs);
 
         const url = new URL(window.location.href);
@@ -338,12 +332,8 @@ export default function ProcessListPage() {
 
         if (effectiveCompany != null && Number(effectiveCompany) !== Number(layoutMe.company_id)) {
           try {
-            const syncRes = await fetch(
-              buildApiUrl(`api/session/update_company_session_api.php?company_id=${effectiveCompany}`),
-              { credentials: "include" }
-            );
-            const syncJson = await syncRes.json();
-            if (!syncJson.success) {
+            const syncJson = await syncCompanySessionApi(effectiveCompany);
+            if (!syncJson?.success) {
               effectiveCompany = layoutMe.company_id ? Number(layoutMe.company_id) : effectiveCompany;
             }
           } catch {

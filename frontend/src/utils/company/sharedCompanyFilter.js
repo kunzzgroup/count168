@@ -4,6 +4,7 @@
  *
  * Login scope rules: see `loginScope.js` and `includes/group_company_access.php`.
  */
+import { buildApiUrl } from "../core/apiUrl.js";
 import {
   canUseGroupOnlyMode,
   filterCompaniesForLoginScope,
@@ -321,6 +322,24 @@ export async function loadOwnerCompaniesCached(fetcher) {
       });
   }
   return ownerCompaniesInflight;
+}
+
+/** Shared GET owner companies — one HTTP request per session (Layout prefetch + page boot). */
+export async function fetchOwnerCompaniesAll(options = {}) {
+  const { signal, throwOnError = false } = options;
+  return loadOwnerCompaniesCached(async () => {
+    const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
+      credentials: "include",
+      signal,
+    });
+    const json = await res.json();
+    persistAccessibleGroupIdsFromApi(json);
+    if (throwOnError && (!res.ok || !json.success || !Array.isArray(json.data))) {
+      throw new Error(json?.message || json?.error || "Failed to load companies");
+    }
+    const rows = Array.isArray(json?.data) ? json.data : [];
+    return rows.map((r) => normalizeOwnerCompanyRow(r)).filter(Boolean);
+  });
 }
 
 /**

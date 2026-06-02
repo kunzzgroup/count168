@@ -10,10 +10,10 @@ import {
   companiesInGroupList,
   getCachedOwnerCompanies,
   isDashboardGroupOnlyMode,
-  loadOwnerCompaniesCached,
   persistDashboardFilterState,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
+  fetchOwnerCompaniesAll,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import "../../../../public/css/accountCSS.css";
@@ -516,13 +516,7 @@ export default function TransactionMaintenancePage() {
           return;
         }
 
-        const filtered = await loadOwnerCompaniesCached(async () => {
-          const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
-            credentials: "include",
-          });
-          const compJson = await compRes.json();
-          return Array.isArray(compJson?.data) ? compJson.data : [];
-        });
+        const filtered = await fetchOwnerCompaniesAll();
         if (cancelled) return;
         setCompanies(filtered);
 

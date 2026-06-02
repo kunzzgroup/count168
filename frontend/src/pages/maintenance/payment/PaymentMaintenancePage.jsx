@@ -12,6 +12,7 @@ import {
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
+import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   resolvePaymentMaintenanceScope,
   paymentMaintenanceScopeCacheCompanyKey,
@@ -94,6 +95,7 @@ export default function PaymentMaintenancePage() {
   const initialPaymentSearchDoneRef = useRef(false);
   /** 切换公司已手动 performSearch 时跳过 useEffect 里下一轮重复请求 */
   const suppressNextSearchEffectRef = useRef(false);
+  const skipMetaAfterBootRef = useRef(false);
   const followGroupRef = useRef(() => {});
   const paymentDataRef = useRef(paymentData);
   paymentDataRef.current = paymentData;
@@ -275,9 +277,8 @@ export default function PaymentMaintenancePage() {
         }
 
         // Load Companies
-        const compRes = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), { credentials: "include" });
-        const compJson = await compRes.json();
-        const rows = Array.isArray(compJson?.data) ? compJson.data : [];
+        const rows = await fetchOwnerCompaniesAll();
+        if (cancelled) return;
         setCompanies(rows);
 
         // Set Initial Company
@@ -323,6 +324,7 @@ export default function PaymentMaintenancePage() {
           const hasMYR = currList.some((c) => c.code === "MYR");
           setSelectedCurrency(hasMYR ? "MYR" : currList[0]?.code || null);
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
+          skipMetaAfterBootRef.current = true;
           return;
         }
         setCompanyId(initialCompanyId);
@@ -353,6 +355,7 @@ export default function PaymentMaintenancePage() {
           setSelectedCurrency(hasMYR ? "MYR" : (currList[0]?.code || null));
 
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
+          skipMetaAfterBootRef.current = true;
         }
 
       } catch (err) {
@@ -370,6 +373,10 @@ export default function PaymentMaintenancePage() {
   // -- Load Meta Data (Permissions & Currencies) --
   useEffect(() => {
     if (bootLoading || !paymentMaintenanceScopeIsReady(paymentScope)) return;
+    if (skipMetaAfterBootRef.current) {
+      skipMetaAfterBootRef.current = false;
+      return;
+    }
 
     let cancelled = false;
     const scope = paymentScope;
