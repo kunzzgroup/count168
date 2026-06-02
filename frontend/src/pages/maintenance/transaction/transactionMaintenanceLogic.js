@@ -90,13 +90,15 @@ export function mapProcessesForMaintenanceSelect(apiList) {
 }
 
 function appendMaintenanceScopeToParams(params, scope) {
-  const { companyId, viewGroup, groupId, reportScope } =
+  const { companyId, viewGroup, groupId, reportScope, groupsAll, groupAll } =
     transactionMaintenanceScopeApiParams(scope);
   if (companyId) params.append("company_id", String(companyId));
   const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
   if (vg) params.append("view_group", vg);
   const gid = groupId ? String(groupId).trim().toUpperCase() : "";
   if (gid) params.append("group_id", gid);
+  if (groupsAll) params.append("groups_all", "1");
+  if (groupAll) params.append("group_all", "1");
   if (reportScope) params.append("report_scope", reportScope);
 }
 
@@ -252,7 +254,6 @@ export async function searchTransactionData({
   dateFrom,
   dateTo,
   process,
-  companyId,
   category,
   scope,
   signal,
@@ -267,11 +268,58 @@ export async function searchTransactionData({
     if (typeof onProgress === "function") onProgress(snapshot);
     else if (typeof onFirstPage === "function") onFirstPage(snapshot);
   };
+
+  const mergeCompanyIds =
+    scope?.mode === "aggregate" && Array.isArray(scope.mergeCompanyIds)
+      ? scope.mergeCompanyIds.filter((id) => Number(id) > 0)
+      : [];
+
+  if (mergeCompanyIds.length > 0) {
+    let merged = [];
+    for (const scopedCompanyId of mergeCompanyIds) {
+      if (signal?.aborted) {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      }
+      const subScope = {
+        ...scope,
+        mode: "company",
+        scopeCompanyId: Number(scopedCompanyId),
+        uiCompanyId: Number(scopedCompanyId),
+        mergeCompanyIds: [Number(scopedCompanyId)],
+        groupsAllMode: false,
+        groupAllMode: false,
+      };
+      const part = await fetchMaintenanceDateRangeResilient({
+        dateFrom,
+        dateTo,
+        process: processFilter,
+        category: categoryFilter,
+        scope: subScope,
+        signal,
+        onProgress:
+          typeof onProgress === "function"
+            ? (rows) => {
+                if (!rows.length) return;
+                merged = merged.length
+                  ? mergeSortedMaintenanceRows(merged, finalizeMaintenanceRows(rows))
+                  : finalizeMaintenanceRows(rows);
+                emitProgress(merged);
+              }
+            : undefined,
+      });
+      if (!part.length) continue;
+      merged = merged.length
+        ? mergeSortedMaintenanceRows(merged, finalizeMaintenanceRows(part))
+        : finalizeMaintenanceRows(part);
+      if (typeof onProgress === "function") emitProgress(merged);
+    }
+    return renumberMaintenanceRows(merged);
+  }
+
   const merged = await fetchMaintenanceDateRangeResilient({
     dateFrom,
     dateTo,
     process: processFilter,
-    companyId,
     category: categoryFilter,
     scope,
     signal,
@@ -284,7 +332,6 @@ async function fetchMaintenanceDateRangeResilient({
   dateFrom,
   dateTo,
   process,
-  companyId,
   category,
   scope,
   signal,
@@ -302,7 +349,6 @@ async function fetchMaintenanceDateRangeResilient({
       dateFrom: rangesNewestFirst[0].dateFrom,
       dateTo: rangesNewestFirst[0].dateTo,
       process,
-      companyId,
       category,
       scope,
       signal,
@@ -319,7 +365,6 @@ async function fetchMaintenanceDateRangeResilient({
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
       process,
-      companyId,
       category,
       scope,
       signal,
@@ -506,7 +551,6 @@ async function searchTransactionMaintenanceOnce({
   dateFrom,
   dateTo,
   process,
-  companyId,
   category,
   scope,
   signal,
@@ -525,7 +569,6 @@ async function searchTransactionMaintenanceOnce({
     params.append("page", String(page));
   }
   if (process) params.append("process", process);
-  if (companyId) params.append("company_id", companyId);
   appendMaintenanceScopeToParams(params, scope);
   if (category) params.append("category", category);
 

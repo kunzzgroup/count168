@@ -230,7 +230,6 @@ export default function TransactionMaintenancePage() {
         dateFrom,
         dateTo,
         process: processFilter,
-        companyId,
         category: activePermission,
         scope: transactionScope,
         signal,

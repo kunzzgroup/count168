@@ -421,9 +421,10 @@ function maintenanceBuildCaptureFastBranch(
 ): array {
     $captureWhere = [
         "dc.company_id = ?",
+        "dcd.company_id = ?",
         "dc.capture_date BETWEEN ? AND ?",
     ];
-    $captureParams = [$company_id, $date_from_db, $date_to_db];
+    $captureParams = [$company_id, $company_id, $date_from_db, $date_to_db];
 
     if ($process) {
         $captureWhere[] = "p.process_id = ?";
@@ -465,7 +466,7 @@ function maintenanceBuildCaptureFastBranch(
         FROM data_captures dc
         INNER JOIN data_capture_details dcd ON dcd.capture_id = dc.id
         INNER JOIN process p ON dc.process_id = p.id
-        LEFT JOIN account a ON a.id = dcd.account_id
+        " . maintenanceDataCaptureAccountJoinSql('dcd', 'a') . "
         INNER JOIN currency c ON dcd.currency_id = c.id
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
@@ -794,6 +795,12 @@ try {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
         $company_id = (int) $scopeResolved['company_id'];
         $maintenance_scope_group = (bool) $scopeResolved['is_group_scope'];
+        $scopeHint = strtolower(trim((string) ($scopeParams['report_scope'] ?? $scopeParams['capture_scope'] ?? '')));
+        if ($scopeHint === 'company') {
+            $maintenance_scope_group = false;
+        } elseif ($scopeHint === 'group') {
+            $maintenance_scope_group = true;
+        }
         $viewGroupForAccess = dcNormalizeGroupId(
             $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
         );

@@ -59,8 +59,16 @@ function dcSqlCompanyProcessFilter(string $processAlias = 'p'): string
 function resolveDataCaptureRequestScope(PDO $pdo, array $params): array
 {
     $resolved = resolveReportRequestCompanyScope($pdo, $params, 'maintenance');
+    $scopeHint = strtolower(trim((string) ($params['report_scope'] ?? $params['capture_scope'] ?? '')));
     $isGroupScope = dcIsGroupScopeHint($resolved);
-    if (($resolved['report_scope_hint'] ?? '') !== 'group' && $isGroupScope) {
+    // UI report_scope wins over dcIsGroupScopeHint (e.g. subsidiary must not use group SALARY filter).
+    if ($scopeHint === 'company') {
+        $isGroupScope = false;
+        $resolved['report_scope_hint'] = 'company';
+    } elseif ($scopeHint === 'group') {
+        $isGroupScope = true;
+        $resolved['report_scope_hint'] = 'group';
+    } elseif (($resolved['report_scope_hint'] ?? '') !== 'group' && $isGroupScope) {
         $resolved['report_scope_hint'] = 'group';
     }
     return [
@@ -75,7 +83,7 @@ function resolveDataCaptureRequestScope(PDO $pdo, array $params): array
 function dcRequestHasExplicitScope(array $params): bool
 {
     $scopeHint = strtolower(trim((string) ($params['report_scope'] ?? $params['capture_scope'] ?? '')));
-    if ($scopeHint === 'group' || $scopeHint === 'company') {
+    if (in_array($scopeHint, ['group', 'company', 'aggregate'], true)) {
         return true;
     }
     $groupId = dcNormalizeGroupId($params['group_id'] ?? '');
