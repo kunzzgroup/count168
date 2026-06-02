@@ -378,8 +378,6 @@ export function useTransactionSearch({
       if (instantData) {
         setRawSearchData(instantData);
         setTablesVisible(true);
-      } else if (!isInitialLoad && !silent) {
-        setRawSearchData(null);
       }
 
       let didSetBlockingLoading = false;
@@ -678,7 +676,6 @@ export function useTransactionSearch({
     if (scopeKey == null) {
       if (prev != null) {
         suppressBlockingOverlayOnceRef.current = true;
-        setRawSearchData(null);
         prevCaptureDateRangeKeyRef.current = null;
         prevServerSideFiltersRef.current = null;
         clearTxSearchCache();
@@ -696,7 +693,6 @@ export function useTransactionSearch({
 
     if (scopeChanged) {
       suppressBlockingOverlayOnceRef.current = true;
-      setRawSearchData(null);
       prevCaptureDateRangeKeyRef.current = null;
       prevServerSideFiltersRef.current = null;
       clearTxSearchCache();
