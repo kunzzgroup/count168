@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import {
-  companiesInGroupList,
+  companiesForCompanyPicker,
+  dedupeOwnerCompaniesByCode,
+  excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import GcInlineFilterPanel from "../../../components/GcInlineFilterPanel.jsx";
@@ -38,9 +40,17 @@ export default function TransactionSearchSection({
 
   const companiesForCompanyStrip = useMemo(() => {
     const list = fs.snapCompaniesAll || fs.snapCompanies || [];
-    if (fs.groupsAllMode) return filterCompaniesWithDisplayId(list);
-    return filterCompaniesWithDisplayId(companiesInGroupList(list, fs.selectedGroup));
-  }, [fs.snapCompanies, fs.snapCompaniesAll, fs.selectedGroup, fs.groupsAllMode]);
+    const preferredId = fs.companyId ?? null;
+    if (fs.groupsAllMode) {
+      return excludeGroupLabelsFromCompanyPicker(
+        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(list), preferredId)
+      );
+    }
+    return dedupeOwnerCompaniesByCode(
+      companiesForCompanyPicker(list, fs.selectedGroup),
+      preferredId
+    );
+  }, [fs.snapCompanies, fs.snapCompaniesAll, fs.selectedGroup, fs.groupsAllMode, fs.companyId]);
 
   return (
     <div className="transaction-search-section">

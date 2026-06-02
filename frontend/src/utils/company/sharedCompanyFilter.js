@@ -261,9 +261,18 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId) {
   );
 }
 
-/** Sidebar Process: hidden when a group is selected and company is cleared (group-only), except on process list routes. */
+/**
+ * Sidebar Process: hidden while a group is selected with no company (group-only), except on process routes.
+ * Group login with a subsidiary company selected (e.g. C168) keeps Process visible.
+ */
 export function shouldHideSidebarProcess(pathname) {
-  if (pathname === "/process-list" || pathname === "/bank-process-list") return false;
+  if (
+    pathname === "/process-list" ||
+    pathname === "/bank-process-list" ||
+    pathname === "/games-process-list"
+  ) {
+    return false;
+  }
   const g = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
   return Boolean(String(g || "").trim()) && isDashboardGroupOnlyMode();
 }
@@ -579,6 +588,111 @@ export function companyRowIsGroupEntity(companyRow, groupId) {
     .toUpperCase();
   if (code === g) return true;
   return code === "" && normalizeCompanyGroupId(companyRow) === g;
+}
+
+/** Display code equals a group label (AP, IG, …) — belongs on GroupID row only, not Company. */
+export function companyDisplayCodeIsGroupLabel(companyRow, groupIds) {
+  const code = String(companyRow?.company_id ?? companyRow?.companyId ?? companyRow?.code ?? "")
+    .trim()
+    .toUpperCase();
+  if (!code) return false;
+  const ids = groupIds?.length ? groupIds : [];
+  const set = new Set(ids.map((g) => String(g).trim().toUpperCase()).filter(Boolean));
+  return set.has(code);
+}
+
+/**
+ * Company filter strip: drop group labels and group-entity rows (incl. virtual link duplicates).
+ * @param {string[]|null} [groupIds] — visible group pills; defaults to {@link sortedUniqueGroupIds}
+ */
+export function excludeGroupLabelsFromCompanyPicker(companies, groupIds = null) {
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  return (companies || []).filter((c) => {
+    if (companyDisplayCodeIsGroupLabel(c, gids)) return false;
+    if (companyRowIsGroupEntityAnyShape(c)) return false;
+    return true;
+  });
+}
+
+/** Companies shown in the Company row when a GroupID is selected (Dashboard-aligned). */
+export function companiesForCompanyPicker(companies, selectedGroup, groupIds = null) {
+  const list = selectedGroup
+    ? companiesInGroupList(companies, selectedGroup)
+    : companiesInGroupList(companies, null);
+  return excludeGroupLabelsFromCompanyPicker(list, groupIds);
+}
+
+/** Subsidiary company row (Process / Account pills) — not group entity or group-id label. */
+export function isSubsidiaryCompanyRow(companyRow, groupIds = null) {
+  if (!companyRow) return false;
+  const id = Number(companyRow.id);
+  if (!Number.isFinite(id) || id <= 0) return false;
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds([companyRow]);
+  if (companyDisplayCodeIsGroupLabel(companyRow, gids)) return false;
+  if (companyRowIsGroupEntityAnyShape(companyRow)) return false;
+  return true;
+}
+
+/** First selectable subsidiary under a group (never AP/IG group-entity row). */
+export function pickDefaultSubsidiaryForGroup(companies, groupId, options = {}) {
+  const g = String(groupId || "").trim().toUpperCase();
+  if (!g) return null;
+  const gids = sortedUniqueGroupIds(companies);
+  const pick = pickDefaultCompanyForGroup(companies, g, { ...options, nativeOnly: true });
+  if (pick && isSubsidiaryCompanyRow(pick, gids)) return pick;
+  const list = excludeGroupLabelsFromCompanyPicker(companiesInGroupList(companies, g), gids);
+  return list[0] ?? null;
+}
+
+/**
+ * Boot company for Process / Bank Process: never group-entity id (e.g. -301 / AP row).
+ * Prefers saved subsidiary, then first subsidiary in the active group.
+ */
+export function resolveSubsidiaryBootCompanyId(
+  companies,
+  { urlCompanyId, sessionCompanyId, selectedGroup = null, loginMe = null } = {},
+) {
+  const list = companies || [];
+  const groupIds = sortedUniqueGroupIds(list);
+  const groupKey =
+    (selectedGroup ? String(selectedGroup).trim().toUpperCase() : "") ||
+    (loginMe?.login_scope === "group" && loginMe?.login_identifier
+      ? String(loginMe.login_identifier).trim().toUpperCase()
+      : "");
+
+  const acceptId = (rawId) => {
+    const id = Number(rawId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    const row = list.find((c) => Number(c.id) === id);
+    return isSubsidiaryCompanyRow(row, groupIds) ? id : null;
+  };
+
+  let id = acceptId(
+    resolveBootCompanyId({
+      urlCompanyId,
+      sessionCompanyId: null,
+      defaultRowId: null,
+    }),
+  );
+  if (id == null) id = acceptId(sessionCompanyId);
+  if (id == null && !isDashboardGroupOnlyMode()) {
+    id = acceptId(readDashboardSelectedCompanyId());
+  }
+
+  if (id == null && groupKey) {
+    const pick = pickDefaultSubsidiaryForGroup(list, groupKey, {
+      me: loginMe,
+      preferredCompanyId: readDashboardSelectedCompanyId(),
+    });
+    if (pick?.id != null) id = Number(pick.id);
+  }
+
+  if (id == null) {
+    const any = excludeGroupLabelsFromCompanyPicker(filterCompaniesWithDisplayId(list), groupIds);
+    if (any[0]?.id != null) id = Number(any[0].id);
+  }
+
+  return id != null && Number.isFinite(id) && id > 0 ? id : null;
 }
 
 /**

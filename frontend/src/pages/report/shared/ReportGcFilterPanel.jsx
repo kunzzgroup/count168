@@ -18,8 +18,10 @@ export default function ReportGcFilterPanel({
   onClearCompany,
   /** When false (company login), clicking the active company pill does not clear selection. */
   allowClearCompany = true,
-  /** "dashboard" = All pills for group/company (All is never a real group/company id) */
+  /** "dashboard" = embedded GcInlineFilterPanel layout (not the Home dashboard route). */
   layout = "legacy",
+  /** Group/Company "All" pills — only the Home dashboard enables this. */
+  showAllOption = false,
   groupsAllMode = false,
   groupAllMode = false,
   onPickAllInGroup,
@@ -44,6 +46,7 @@ export default function ReportGcFilterPanel({
           <GcInlineFilterPanel
             embedded
             t={t}
+            showAllOption={showAllOption}
             groupIds={groupIds}
             groupsAllMode={groupsAllMode}
             selectedGroup={selectedGroup}
@@ -92,13 +95,15 @@ export default function ReportGcFilterPanel({
           <span className="user-gc-inline-label">{t("groupId")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-              <button
-                type="button"
-                className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
-                onClick={onPickAllGroups}
-              >
-                {t("groupFilterAll")}
-              </button>
+              {showAllOption ? (
+                <button
+                  type="button"
+                  className={`user-gc-segment${groupFilterKind === "all" ? " is-on" : ""}`}
+                  onClick={onPickAllGroups}
+                >
+                  {t("groupFilterAll")}
+                </button>
+              ) : null}
               {groupIds.map((g) => (
                 <button
                   key={g}

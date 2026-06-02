@@ -37,7 +37,10 @@ import { canUseGroupOnlyMode, resolveVisibleGroupIds } from "../../../utils/comp
 import { sortIds } from "../lib/dashboardEarnings.js";
 import {
   companiesInGroupList,
+  companiesForCompanyPicker,
   companyRowIsGroupEntity,
+  dedupeOwnerCompaniesByCode,
+  excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
   pickDefaultCompanyForGroup,
   pickGroupAnchorCompany,
@@ -268,21 +271,30 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     sessionCompanyId: me?.company_id,
   });
 
+  const groupIds = useMemo(
+    () => resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies),
+    [companies, me]
+  );
+
   const companiesForPicker = useMemo(() => {
-    if (groupsAllMode) return filterCompaniesWithDisplayId(companies);
-    return companiesInGroupList(companies, selectedGroup);
-  }, [companies, selectedGroup, groupsAllMode]);
+    const preferredId = companyId ?? me?.company_id ?? null;
+    if (groupsAllMode) {
+      return excludeGroupLabelsFromCompanyPicker(
+        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), preferredId),
+        groupIds
+      );
+    }
+    return dedupeOwnerCompaniesByCode(
+      companiesForCompanyPicker(companies, selectedGroup, groupIds),
+      preferredId
+    );
+  }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me?.company_id]);
 
   const resolveMergeCompanyList = useCallback(() => {
     if (groupsAllMode) return filterCompaniesWithDisplayId(companies);
     if (selectedGroup) return companiesInGroupList(companies, selectedGroup);
     return [];
   }, [companies, selectedGroup, groupsAllMode]);
-
-  const groupIds = useMemo(
-    () => resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies),
-    [companies, me]
-  );
 
   const applyCompanySelection = useCallback((id, options = {}) => {
     const clearSubset = options.clearSubset !== false;

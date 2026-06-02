@@ -1,8 +1,9 @@
 import { useCallback, useLayoutEffect, useMemo } from "react";
 
 import {
-  companiesInGroupList,
+  companiesForCompanyPicker,
   dedupeOwnerCompaniesByCode,
+  excludeGroupLabelsFromCompanyPicker,
   isDashboardGroupOnlyMode,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
@@ -59,9 +60,12 @@ export function useDashboardStyleGcFilter({
   );
 
   const companiesForPicker = useMemo(() => {
-    const list = companiesInGroupList(companies, selectedGroup);
-    return dedupeOwnerCompaniesByCode(list, preferredCompanyId ?? companyId);
-  }, [companies, selectedGroup, preferredCompanyId, companyId]);
+    const list = companiesForCompanyPicker(companies, selectedGroup, groupIds);
+    return excludeGroupLabelsFromCompanyPicker(
+      dedupeOwnerCompaniesByCode(list, preferredCompanyId ?? companyId),
+      groupIds
+    );
+  }, [companies, selectedGroup, groupIds, preferredCompanyId, companyId]);
 
   const handlePickGroup = useCallback(
     async (gid) => {

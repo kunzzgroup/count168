@@ -1,3 +1,5 @@
+import { excludeGroupLabelsFromCompanyPicker } from "../../utils/company/sharedCompanyFilter.js";
+
 export const PAGE_SIZE = 25;
 
 export const EMPTY_FORM = {
@@ -29,7 +31,31 @@ export function normalizeRows(data) {
   return Array.isArray(data) ? data : [];
 }
 
-/** One pill per display `company_id`; API duplicates collapse. Prefer the row whose `id` matches `preferredPk`. */
+/** Process / Bank Process company pills: in-group list without group labels (AP, IG, …). */
+export function filterProcessPageCompanyButtons(
+  allCompanyButtons,
+  { groupFilterKind, groupIds, selectedGroupKey }
+) {
+  let list;
+  if (groupFilterKind === "ungrouped") {
+    list = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+  } else if (groupIds.length === 0) {
+    list = allCompanyButtons;
+  } else if (!selectedGroupKey) {
+    const ung = allCompanyButtons.filter((c) => !String(c.group_id || "").trim());
+    list = ung.length ? ung : allCompanyButtons;
+  } else {
+    const g = selectedGroupKey;
+    const inG = allCompanyButtons.filter((c) => {
+      const native = String(c.group_id || "").trim().toUpperCase();
+      const link = String(c.link_source_group || "").trim().toUpperCase();
+      return native === g || link === g;
+    });
+    list = inG.length ? inG : allCompanyButtons;
+  }
+  return excludeGroupLabelsFromCompanyPicker(list, groupIds);
+}
+
 export function dedupeCompanyRowsForSwitcher(companies, preferredPk) {
   const filtered = normalizeRows(companies).filter((c) => c.company_id && String(c.company_id).trim() !== "");
   const byLabel = new Map();

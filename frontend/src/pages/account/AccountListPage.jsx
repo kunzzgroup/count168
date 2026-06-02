@@ -346,6 +346,38 @@ export default function AccountListPage() {
     [searchTerm, showInactive, showAll],
   );
 
+  const resolveGroupOnlyFetch = useCallback((gcScope) => {
+    const { companyId: cid, selectedGroup: sg, groupsAllMode: gAll, groupAllMode: cAll } = gcScope || {};
+    return Boolean(sg && !cid && !cAll && !gAll && isDashboardGroupOnlyMode());
+  }, []);
+
+  const invalidateAccountListCacheForScope = useCallback(
+    (gcScope, { groupOnly = null } = {}) => {
+      const { companyId: cid, selectedGroup: sg, groupsAllMode: gAll, groupAllMode: cAll } = gcScope || {};
+      const useGroupOnly = groupOnly ?? resolveGroupOnlyFetch(gcScope);
+      const scopeKey = resolveAccountScopeKey({
+        companyId: cid,
+        selectedGroup: sg,
+        groupOnly: useGroupOnly,
+      });
+      const cacheKey = resolveAccountListCacheKey(scopeKey, searchTerm, showInactive, showAll);
+      accountListCacheRef.current.delete(cacheKey);
+    },
+    [searchTerm, showInactive, showAll, resolveGroupOnlyFetch],
+  );
+
+  /** Refetch list after add/edit/delete — must pass gc scope (bare fetchAccounts() is a no-op). */
+  const refreshAccountList = useCallback(
+    (options = {}) => {
+      const scope = gcScopeRef.current;
+      if (!scope?.isListScopeReady) return;
+      const groupOnly = options.groupOnly ?? resolveGroupOnlyFetch(scope);
+      invalidateAccountListCacheForScope(scope, { groupOnly });
+      void fetchAccounts(scope, { groupOnly, silent: options.silent ?? false });
+    },
+    [fetchAccounts, invalidateAccountListCacheForScope, resolveGroupOnlyFetch],
+  );
+
   // -- Boot --
   useEffect(() => {
     if (!sessionReady || !sessionMe) return;
@@ -976,7 +1008,7 @@ export default function AccountListPage() {
           if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
           return updated;
         });
-        void fetchAccounts();
+        refreshAccountList();
       }
     } catch { notify(t("toggleFailed"), "danger"); }
   };
@@ -1095,7 +1127,7 @@ export default function AccountListPage() {
       setConfirmDeleteOpen(false);
       setSelectedDeleteIds(new Set());
       notifyApi(json.message, "accountsDeletedSuccessfully");
-      fetchAccounts();
+      refreshAccountList();
     } catch { notify(t("deleteFailed"), "danger"); }
   };
 
@@ -1193,7 +1225,7 @@ export default function AccountListPage() {
       } else {
         notify(t("accountSavedSuccessfully"));
       }
-      void fetchAccounts();
+      refreshAccountList();
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
@@ -1424,7 +1456,7 @@ export default function AccountListPage() {
       setSettingInitial(new Set(settingLinked));
       setCurrencySettingOpen(false);
       notify(t("currencySettingsSaved"));
-      void fetchAccounts();
+      refreshAccountList();
       if (editModalOpen && form.id) void loadSelectionMeta(form.id, true);
     } catch { notify(t("saveFailed"), "danger"); }
   };
@@ -1558,6 +1590,7 @@ export default function AccountListPage() {
       }
       setLinkModalOpen(false);
       notify(t("accountLinksSavedSuccessfully"));
+      refreshAccountList();
     } catch {
       notify(t("failedSaveAccountLinks"), "danger");
     }

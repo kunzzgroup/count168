@@ -1,6 +1,6 @@
 /**
- * Shared Group / Company pill strip (Dashboard-style All + per-group segments).
- * Currency row is intentionally omitted — pages manage currency separately.
+ * Shared Group / Company pill strip. Currency row is omitted — pages manage currency separately.
+ * Set showAllOption only on Dashboard (Group/Company "All" aggregate).
  */
 export default function GcInlineFilterPanel({
   t,
@@ -19,7 +19,7 @@ export default function GcInlineFilterPanel({
   switchingCompany = false,
   showGroupRow = true,
   showCompanyRow = true,
-  showAllOption = true,
+  showAllOption = false,
   allLabelKey = "groupFilterAll",
   /** When true, render rows only (parent already provides .user-gc-inline-panel grid). */
   embedded = false,
