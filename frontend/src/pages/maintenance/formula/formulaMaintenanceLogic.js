@@ -1,5 +1,5 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
-import { companiesInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
+import { companiesNativeInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   fetchFormulaCompanyPermissionsRaw,
   fetchMaintenanceProcesses,
@@ -53,10 +53,19 @@ function appendFormulaScopeToPayload(payload, scope, fallbackCompanyId = null) {
     delete payload.company_id;
   }
   const { companyId, viewGroup, groupId, reportScope } = formulaMaintenanceScopeApiParams(scope);
-  const resolved =
-    (companyId != null && Number(companyId) > 0 ? Number(companyId) : null) ??
-    (fallbackCompanyId != null && Number(fallbackCompanyId) > 0 ? Number(fallbackCompanyId) : null);
-  if (resolved) payload.company_id = resolved;
+  const groupScope = reportScope === "group";
+  if (groupScope) {
+    if (companyId != null && Number(companyId) > 0) {
+      payload.company_id = Number(companyId);
+    } else {
+      delete payload.company_id;
+    }
+  } else {
+    const resolved =
+      (companyId != null && Number(companyId) > 0 ? Number(companyId) : null) ??
+      (fallbackCompanyId != null && Number(fallbackCompanyId) > 0 ? Number(fallbackCompanyId) : null);
+    if (resolved) payload.company_id = resolved;
+  }
   if (viewGroup) payload.view_group = viewGroup;
   if (groupId) payload.group_id = groupId;
   if (reportScope) payload.report_scope = reportScope;
@@ -87,7 +96,7 @@ export async function fetchProcesses(companyId, scope = null) {
 
 export async function bootstrapFormulaMaintenanceMeta({ companies, groupId = null }) {
   const anchor =
-    (groupId ? companiesInGroupList(companies, groupId)[0] : null) ??
+    (groupId ? companiesNativeInGroupList(companies, groupId)[0] : null) ??
     (Array.isArray(companies) ? companies[0] : null) ??
     null;
   const code = anchor?.company_id ? String(anchor.company_id) : "";

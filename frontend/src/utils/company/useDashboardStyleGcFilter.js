@@ -38,12 +38,14 @@ export function useDashboardStyleGcFilter({
   enableGroupAnchorSession = true,
   /** When false, do not auto-select first company while group is set and company is cleared. */
   autoPickCompanyWhenEmpty = true,
+  /** Maintenance pages: allow group-only scope even for owner login (no auto-pick subsidiary). */
+  forceAllowGroupOnly = false,
   /** When false, skip layout broadcast on selectedGroup/companyId changes (page handles manually). */
   broadcastFilterToLayout = true,
   /** Current user from AuthSessionContext — enforces group vs company login rules. */
   me = null,
 }) {
-  const allowGroupOnly = canUseGroupOnlyMode(me);
+  const allowGroupOnly = canUseGroupOnlyMode(me) || forceAllowGroupOnly;
   const allowClearCompany = canClearCompanySelection(me);
 
   const { resetAnchorSessionRef, markAnchorSynced } = useGroupAnchorSessionSync({

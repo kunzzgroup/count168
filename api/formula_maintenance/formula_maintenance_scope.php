@@ -16,10 +16,11 @@ function formulaMaintenanceResolveEntityCompanyId(PDO $pdo, int $companyId, bool
     }
     $g = dcNormalizeGroupId($groupId);
     if ($g === '') {
-        return $companyId;
+        return 0;
     }
     $entityId = tx_resolve_group_entity_company_id($pdo, $g);
-    return $entityId > 0 ? $entityId : $companyId;
+
+    return $entityId > 0 ? $entityId : 0;
 }
 
 /**
@@ -35,6 +36,39 @@ function formulaMaintenanceSqlGroupEntityCompanyFilter(string $dctAlias = 'dct')
           AND TRIM(COALESCE(c_ge.company_id, '')) <> ''
           AND UPPER(TRIM(c_ge.company_id)) = UPPER(TRIM(COALESCE(c_ge.group_id, '')))
     ) ";
+}
+
+/**
+ * SQL: templates on subsidiary companies only (exclude AP/IG group-entity rows).
+ */
+function formulaMaintenanceSqlSubsidiaryCompanyFilter(string $dctAlias = 'dct'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $dctAlias) ?: 'dct';
+    return " AND NOT EXISTS (
+        SELECT 1
+        FROM company c_ge
+        WHERE c_ge.id = {$a}.company_id
+          AND TRIM(COALESCE(c_ge.company_id, '')) <> ''
+          AND UPPER(TRIM(c_ge.company_id)) = UPPER(TRIM(COALESCE(c_ge.group_id, '')))
+    ) ";
+}
+
+function formulaMaintenanceCompanyIsGroupEntity(PDO $pdo, int $companyId): bool
+{
+    if ($companyId <= 0) {
+        return false;
+    }
+    $stmt = $pdo->prepare("
+        SELECT 1
+        FROM company c
+        WHERE c.id = ?
+          AND TRIM(COALESCE(c.company_id, '')) <> ''
+          AND UPPER(TRIM(c.company_id)) = UPPER(TRIM(COALESCE(c.group_id, '')))
+        LIMIT 1
+    ");
+    $stmt->execute([$companyId]);
+
+    return (bool) $stmt->fetchColumn();
 }
 
 /**
@@ -103,11 +137,13 @@ function formulaMaintenanceResolveRequestScope(PDO $pdo, array $params): array
         $companyId = formulaMaintenanceResolveEntityCompanyId($pdo, $companyId, true, $groupId);
     }
 
-    // Formula: company scope keeps all processes for that company (including subsidiary SALARY).
-    // Group scope: SALARY/BONUS on group entity only (never subsidiary rows under same group_id).
+    // Group: SALARY/BONUS on group-entity templates only.
+    // Company: subsidiary templates only (never AP/IG entity rows).
     $scopeProcessSql = '';
     if ($isGroupScope) {
         $scopeProcessSql = dcSqlGroupProcessFilter('p') . formulaMaintenanceSqlGroupEntityCompanyFilter('dct');
+    } else {
+        $scopeProcessSql = formulaMaintenanceSqlSubsidiaryCompanyFilter('dct');
     }
 
     return [
@@ -230,13 +266,16 @@ function formulaMaintenanceSqlProcessOnGroupEntityFlag(string $processAlias = 'p
 function formulaMaintenanceFormatProcessDisplay(
     string $processCode,
     ?string $descriptionName = null,
-    bool $processOnGroupEntity = false
+    bool $processOnGroupEntity = false,
+    ?bool $isGroupScope = null
 ): string {
     $code = strtoupper(trim($processCode));
     if (in_array($code, ['SALARY', 'BONUS'], true)) {
-        if ($processOnGroupEntity) {
+        $groupStyle = $isGroupScope !== null ? $isGroupScope : $processOnGroupEntity;
+        if ($groupStyle) {
             return $code;
         }
+
         return $code . ' (' . $code . ')';
     }
     $desc = trim((string) ($descriptionName ?? ''));

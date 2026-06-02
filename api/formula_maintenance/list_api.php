@@ -126,7 +126,7 @@ function fetchFormulaListRaw(
 /**
  * 将原始行转换为前端需要的格式（no, process, account, source, formula 等）
  */
-function mapRowsToDisplay(array $rows) {
+function mapRowsToDisplay(array $rows, bool $isGroupScope = false) {
     // 以「界面上能看到的字段」为维度去重，
     // 确保同一 Process 下，Maintenance - Formula 的可见行数与 Data Summary 一致，
     // 但不影响底层 data_capture_templates 中的所有记录（仅列表展示去重）。
@@ -144,7 +144,8 @@ function mapRowsToDisplay(array $rows) {
         $processDisplay = formulaMaintenanceFormatProcessDisplay(
             $processCode,
             $descriptionName,
-            $processOnGroupEntity
+            $processOnGroupEntity,
+            $isGroupScope
         );
         $accountDisplay = $row['account_code'] ?? ($row['account_display'] ?? '');
         $currencyDisplay = $row['currency_code'] ?? ($row['currency_display'] ?? '');
@@ -231,6 +232,16 @@ try {
     $formula_scope_group = (bool) $scopeCtx['is_group_scope'];
     $scopeProcessSql = (string) $scopeCtx['scope_process_sql'];
 
+    if ($formula_scope_group) {
+        if ($companyId <= 0 || !formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
+            jsonResponse(true, 'success', ['list' => [], 'total' => 0]);
+            exit;
+        }
+    } elseif ($companyId > 0 && formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
+        jsonResponse(true, 'success', ['list' => [], 'total' => 0]);
+        exit;
+    }
+
     $category = trim($_GET['category'] ?? $_GET['permission'] ?? '');
     $catUpper = $category !== '' ? strtoupper($category) : '';
     if (in_array($catUpper, ['LOAN', 'RATE', 'MONEY'], true)) {
@@ -261,7 +272,7 @@ try {
         dcFixGroupPayrollProcessDescription($pdo, $processIdFilter);
     }
     $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processIdFilter, $scopeProcessSql);
-    $list = mapRowsToDisplay($rows);
+    $list = mapRowsToDisplay($rows, $formula_scope_group);
     jsonResponse(true, 'success', ['list' => $list, 'total' => count($list)]);
 } catch (PDOException $e) {
     jsonResponse(false, '数据库错误: ' . $e->getMessage(), null, 500);

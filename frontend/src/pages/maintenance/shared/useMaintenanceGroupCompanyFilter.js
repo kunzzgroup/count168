@@ -24,6 +24,8 @@ export function useMaintenanceGroupCompanyFilter({
     switchingCompany,
     preferredCompanyId: companyId,
     me,
+    autoPickCompanyWhenEmpty: false,
+    forceAllowGroupOnly: true,
   });
 
   return {
