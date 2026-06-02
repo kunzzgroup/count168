@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   companiesForCompanyPicker,
   companiesInGroupList,
+  dedupeOwnerCompaniesByCode,
   excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
   notifyDashboardGroupFilterChanged,
@@ -61,14 +62,25 @@ export function useGcFilterWithAllModes({
   }, [groupsAllMode, selectedGroup, me]);
 
   const companiesForPicker = useMemo(() => {
+    const preferredId = preferredCompanyId ?? companyId ?? null;
     if (groupsAllMode) {
       return excludeGroupLabelsFromCompanyPicker(
-        filterCompaniesWithDisplayId(companies),
+        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), preferredId),
         groupIds
       );
     }
-    return companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds);
-  }, [companies, effectiveGroupForCompanies, groupsAllMode, groupIds]);
+    return dedupeOwnerCompaniesByCode(
+      companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds),
+      preferredId
+    );
+  }, [
+    companies,
+    effectiveGroupForCompanies,
+    groupsAllMode,
+    groupIds,
+    preferredCompanyId,
+    companyId,
+  ]);
 
   const resolveMergeCompanyList = useCallback(() => {
     if (groupsAllMode) return filterCompaniesWithDisplayId(companies);

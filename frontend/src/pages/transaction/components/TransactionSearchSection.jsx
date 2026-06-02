@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
   companiesForCompanyPicker,
+  dedupeOwnerCompaniesByCode,
   excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -39,11 +40,17 @@ export default function TransactionSearchSection({
 
   const companiesForCompanyStrip = useMemo(() => {
     const list = fs.snapCompaniesAll || fs.snapCompanies || [];
+    const preferredId = fs.companyId ?? null;
     if (fs.groupsAllMode) {
-      return excludeGroupLabelsFromCompanyPicker(filterCompaniesWithDisplayId(list));
+      return excludeGroupLabelsFromCompanyPicker(
+        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(list), preferredId)
+      );
     }
-    return companiesForCompanyPicker(list, fs.selectedGroup);
-  }, [fs.snapCompanies, fs.snapCompaniesAll, fs.selectedGroup, fs.groupsAllMode]);
+    return dedupeOwnerCompaniesByCode(
+      companiesForCompanyPicker(list, fs.selectedGroup),
+      preferredId
+    );
+  }, [fs.snapCompanies, fs.snapCompaniesAll, fs.selectedGroup, fs.groupsAllMode, fs.companyId]);
 
   return (
     <div className="transaction-search-section">
