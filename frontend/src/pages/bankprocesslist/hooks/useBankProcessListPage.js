@@ -1026,7 +1026,7 @@ export function useBankProcessListPage() {
         setCurrencyListOrdered(cached.currencyCodes);
         setCurrencyPillDisplayOrder(null);
         setCurrencyFilterCode((prev) =>
-          prev && cached.currencyCodes.includes(prev) ? prev : cached.currencyCodes[0],
+          prev && cached.currencyCodes.includes(prev) ? prev : "",
         );
       }
       return true;
@@ -1100,7 +1100,7 @@ export function useBankProcessListPage() {
           setCurrencyListOrdered(slice.currencyCodes);
           setCurrencyPillDisplayOrder(null);
           setCurrencyFilterCode((prev) =>
-            prev && slice.currencyCodes.includes(prev) ? prev : slice.currencyCodes[0],
+            prev && slice.currencyCodes.includes(prev) ? prev : "",
           );
         }
         if (!preserveSelection) setSelectedIds(new Set());
