@@ -531,7 +531,7 @@ export function resolveViewGroupForCompany(companyRow, fallbackGroup = null) {
   return fallbackGroup ? String(fallbackGroup).trim().toUpperCase() : null;
 }
 
-/** Companies visible in the Company row when a GroupID is selected (Dashboard-aligned). */
+/** Companies visible under a group tab, including group_ownership virtual rows (for API access / linked earnings). */
 export function companiesInGroupList(companies, gid) {
   if (!gid) {
     return filterCompaniesWithDisplayId(companies).filter((c) => !normalizeCompanyGroupId(c));
@@ -617,8 +617,8 @@ export function excludeGroupLabelsFromCompanyPicker(companies, groupIds = null) 
 /** Companies shown in the Company row when a GroupID is selected (Dashboard-aligned). */
 export function companiesForCompanyPicker(companies, selectedGroup, groupIds = null) {
   const list = selectedGroup
-    ? companiesInGroupList(companies, selectedGroup)
-    : companiesInGroupList(companies, null);
+    ? companiesNativeInGroupList(companies, selectedGroup)
+    : companiesNativeInGroupList(companies, null);
   return excludeGroupLabelsFromCompanyPicker(list, groupIds);
 }
 
@@ -640,7 +640,7 @@ export function pickDefaultSubsidiaryForGroup(companies, groupId, options = {}) 
   const gids = sortedUniqueGroupIds(companies);
   const pick = pickDefaultCompanyForGroup(companies, g, { ...options, nativeOnly: true });
   if (pick && isSubsidiaryCompanyRow(pick, gids)) return pick;
-  const list = excludeGroupLabelsFromCompanyPicker(companiesInGroupList(companies, g), gids);
+  const list = excludeGroupLabelsFromCompanyPicker(companiesNativeInGroupList(companies, g), gids);
   return list[0] ?? null;
 }
 
@@ -763,7 +763,9 @@ export function filterMaintenanceVisibleCompanies(
     const ung = list.filter((c) => !normalizeCompanyGroupId(c));
     return ung.length ? ung : list;
   }
-  const inG = list.filter((c) => normalizeCompanyGroupId(c) === sel);
+  const inG = list.filter(
+    (c) => !isVirtualGroupLinkCompanyRow(c) && normalizeCompanyGroupId(c) === sel
+  );
   return inG.length ? inG : list;
 }
 
