@@ -48,6 +48,42 @@ function bankProcessBillFormatTripartNumber($amt): string
     return money_out($amt ?? '0', 2);
 }
 
+/**
+ * 关联 bank_process 的 Bank 列（history: bank_name；maintenance: process_bank）。
+ */
+function bankProcessResolveLinkedBankName(array $t): string
+{
+    foreach (['bank_name', 'process_bank', 'bp_bank', 'bank'] as $key) {
+        $v = trim((string) ($t[$key] ?? ''));
+        if ($v !== '') {
+            return $v;
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Payment History / Maintenance：Bank process 账单类 Description 末尾追加「 | {bank}」。
+ */
+function bankProcessAppendBankSuffixToDescription(string $description, array $t): string
+{
+    $description = trim($description);
+    if ($description === '' || $description === '-') {
+        return $description;
+    }
+    $bank = bankProcessResolveLinkedBankName($t);
+    if ($bank === '') {
+        return $description;
+    }
+    $suffix = ' | ' . $bank;
+    if (preg_match('/\s\|\s' . preg_quote($bank, '/') . '$/iu', $description)) {
+        return $description;
+    }
+
+    return $description . $suffix;
+}
+
 function bankProcessProfitSharingOriginalAmountByAccount(array $t): ?string
 {
     $profitSharingRaw = trim((string) ($t['process_profit_sharing'] ?? ''));

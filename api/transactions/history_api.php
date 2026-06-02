@@ -1908,6 +1908,9 @@ try {
                     }
                 }
             }
+            if ($isBankProcessTransaction) {
+                $description = bankProcessAppendBankSuffixToDescription((string) $description, $t);
+            }
         }
 
         // 手动 PROFIT：History 文案按当前账户的 Win/Loss 正负显示方向。
