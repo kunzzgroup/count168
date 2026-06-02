@@ -349,9 +349,8 @@ export default function AccountListPage() {
   const applyCacheOrClearAccounts = useCallback(
     (gcScope, options = {}) => {
       const hit = applyAccountListCache(gcScope, options);
-      if (!hit) {
-        setAccounts([]);
-      }
+      // Static switch UX: keep current rows while background request fetches next scope.
+      // Avoid empty/loading flash when cache is cold.
       return hit;
     },
     [applyAccountListCache],
