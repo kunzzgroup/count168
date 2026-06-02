@@ -580,14 +580,27 @@ function dashboardResolveRoleScopeCompanyIds(PDO $pdo, int $companyId, string $r
     if ($role !== 'EXPENSES') {
         return $scopes;
     }
-    $groupCode = reportNormalizeGroupId($viewGroup ?? '');
-    if ($groupCode === '') {
-        return $scopes;
+
+    $groupCodes = [];
+    $fromParam = reportNormalizeGroupId($viewGroup ?? '');
+    if ($fromParam !== '') {
+        $groupCodes[$fromParam] = true;
     }
-    $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
-    if ($entityId > 0 && $entityId !== $companyId) {
-        $scopes[] = $entityId;
+
+    $nativeStmt = $pdo->prepare('SELECT UPPER(TRIM(COALESCE(group_id, ""))) FROM company WHERE id = ? LIMIT 1');
+    $nativeStmt->execute([$companyId]);
+    $nativeGroup = reportNormalizeGroupId($nativeStmt->fetchColumn() ?: '');
+    if ($nativeGroup !== '') {
+        $groupCodes[$nativeGroup] = true;
     }
+
+    foreach (array_keys($groupCodes) as $groupCode) {
+        $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+        if ($entityId > 0 && $entityId !== $companyId) {
+            $scopes[] = $entityId;
+        }
+    }
+
     return array_values(array_unique($scopes));
 }
 
@@ -624,25 +637,86 @@ function dashboardRoleFilterSql(string $role, string $alias = 'a'): array
     ];
 }
 
-function dashboardResolveCurrencyIdForScope(
-    string $filterCurrencyCode,
-    array $scopeCurrencyMap,
-    array $primaryCurrencyMap
-): ?int {
+/**
+ * Filter capture rows by currency code (avoids mixing currency_id across companies).
+ *
+ * @return array{0: string, 1: array<int, string>}
+ */
+function dashboardCaptureCurrencyFilterSql(?string $filterCurrencyCode, string $dcdAlias = 'dcd'): array
+{
+    if ($filterCurrencyCode === null || trim($filterCurrencyCode) === '') {
+        return ['', []];
+    }
     $code = strtoupper(trim($filterCurrencyCode));
-    if ($code === '') {
-        return null;
+
+    return [
+        " AND EXISTS (
+            SELECT 1 FROM currency cur
+            WHERE cur.id = {$dcdAlias}.currency_id
+              AND UPPER(TRIM(cur.code)) = ?
+        )",
+        [$code],
+    ];
+}
+
+/**
+ * Filter transactions by currency code (aligned with search_api).
+ *
+ * @return array{0: string, 1: array<int, string>}
+ */
+function dashboardTransactionCurrencyFilterSql(?string $filterCurrencyCode, string $accountColumn = 'account_id'): array
+{
+    if ($filterCurrencyCode === null || trim($filterCurrencyCode) === '') {
+        return ['', []];
     }
-    $currId = array_search($code, $scopeCurrencyMap, true);
-    if ($currId !== false) {
-        return (int) $currId;
-    }
-    $currId = array_search($code, $primaryCurrencyMap, true);
-    if ($currId !== false) {
-        return (int) $currId;
+    $code = strtoupper(trim($filterCurrencyCode));
+    if ($accountColumn !== 'from_account_id') {
+        $accountColumn = 'account_id';
     }
 
-    return null;
+    return [
+        " AND (
+            EXISTS (
+                SELECT 1 FROM currency cur
+                WHERE cur.id = t.currency_id
+                  AND UPPER(TRIM(cur.code)) = ?
+            )
+            OR (
+                t.currency_id IS NULL
+                AND EXISTS (
+                    SELECT 1
+                    FROM data_capture_details dcd
+                    JOIN data_captures dc ON dcd.capture_id = dc.id
+                    JOIN currency cur ON cur.id = dcd.currency_id
+                    WHERE dcd.company_id = t.company_id
+                      AND dc.company_id = t.company_id
+                      AND CAST(dcd.account_id AS CHAR) = CAST(t.`{$accountColumn}` AS CHAR)
+                      AND UPPER(TRIM(cur.code)) = ?
+                )
+            )
+        )",
+        [$code, $code],
+    ];
+}
+
+/**
+ * @return array{0: string, 1: array<int, string>}
+ */
+function dashboardEntryCurrencyFilterSql(?string $filterCurrencyCode): array
+{
+    if ($filterCurrencyCode === null || trim($filterCurrencyCode) === '') {
+        return ['', []];
+    }
+    $code = strtoupper(trim($filterCurrencyCode));
+
+    return [
+        " AND EXISTS (
+            SELECT 1 FROM currency cur
+            WHERE cur.id = e.currency_id
+              AND UPPER(TRIM(cur.code)) = ?
+        )",
+        [$code],
+    ];
 }
 
 /**
@@ -880,6 +954,11 @@ try {
     $result = [];
 
     $viewGroupCodeForScope = reportNormalizeGroupId($_GET['view_group'] ?? '');
+    if ($viewGroupCodeForScope === '' && $company_id > 0) {
+        $vgStmt = $pdo->prepare('SELECT UPPER(TRIM(COALESCE(group_id, ""))) FROM company WHERE id = ? LIMIT 1');
+        $vgStmt->execute([$company_id]);
+        $viewGroupCodeForScope = reportNormalizeGroupId($vgStmt->fetchColumn() ?: '');
+    }
 
     foreach ($roles as $role) {
         $excludeClear = dashboardShouldExcludeClearForRole($role);
@@ -892,10 +971,6 @@ try {
         $hadAccounts = false;
 
         foreach ($scopeCompanyIds as $scopeCompanyId) {
-            $scopeCurrencyMap = $scopeCompanyId === $company_id
-                ? $currency_map
-                : dashboardLoadCurrencyMap($pdo, $scopeCompanyId);
-
             list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
 
             if ($role === 'EXPENSES') {
@@ -932,33 +1007,16 @@ try {
             }
 
             $ids_placeholder = implode(',', array_fill(0, count($account_ids), '?'));
-            // Prepare currency filters with explicit aliases to avoid ambiguity in joins
-            $currency_filter_dcd = "";
-            $currency_filter_t_to = "";
-            $currency_filter_t_from = "";
-            $currency_filter_e = "";
-            $currency_params_dcd = [];
-            $currency_params_t_to = [];
-            $currency_params_t_from = [];
-            $currency_params_e = [];
-            if ($filter_currency_code !== null) {
-                $curr_id = dashboardResolveCurrencyIdForScope(
-                    $filter_currency_code,
-                    $scopeCurrencyMap,
-                    $currency_map
-                );
-                if ($curr_id === null) {
-                    continue;
-                }
-                $currency_filter_dcd = " AND dcd.currency_id = ?";
-                $currency_filter_t_to = dashboardTxnCurrencyFilter('account_id');
-                $currency_filter_t_from = dashboardTxnCurrencyFilter('from_account_id');
-                $currency_filter_e = " AND e.currency_id = ?";
-                $currency_params_dcd = [$curr_id];
-                $currency_params_t_to = [$curr_id, $scopeCompanyId, $scopeCompanyId, $curr_id];
-                $currency_params_t_from = [$curr_id, $scopeCompanyId, $scopeCompanyId, $curr_id];
-                $currency_params_e = [$curr_id];
-            }
+            list($currency_filter_dcd, $currency_params_dcd) = dashboardCaptureCurrencyFilterSql($filter_currency_code);
+            list($currency_filter_t_to, $currency_params_t_to) = dashboardTransactionCurrencyFilterSql(
+                $filter_currency_code,
+                'account_id'
+            );
+            list($currency_filter_t_from, $currency_params_t_from) = dashboardTransactionCurrencyFilterSql(
+                $filter_currency_code,
+                'from_account_id'
+            );
+            list($currency_filter_e, $currency_params_e) = dashboardEntryCurrencyFilterSql($filter_currency_code);
 
             // --- 1. 计算 B/F (Balance Forward) ---
             // A. Data Capture B/F
@@ -1160,15 +1218,10 @@ try {
         // --- 2b. PROFIT 口径对齐 Transaction List：从池账号扣回 Domain Share Commission（毛额 -> 净额） ---
         if ($role === 'PROFIT' && !empty($primaryAccountIds)) {
             $profitIdsPlaceholder = implode(',', array_fill(0, count($primaryAccountIds), '?'));
-            $profitAdjCurrencyFilter = "";
-            $profitAdjCurrencyParams = [];
-            if ($filter_currency_code !== null) {
-                $curr_id = array_search($filter_currency_code, $currency_map);
-                if ($curr_id !== false) {
-                    $profitAdjCurrencyFilter = dashboardTxnCurrencyFilter('from_account_id');
-                    $profitAdjCurrencyParams = [$curr_id, $company_id, $company_id, $curr_id];
-                }
-            }
+            list($profitAdjCurrencyFilter, $profitAdjCurrencyParams) = dashboardTransactionCurrencyFilterSql(
+                $filter_currency_code,
+                'from_account_id'
+            );
 
             // A) 调整期初：起始日前的 Share Commission 需要从 B/F 扣回
             $adjBfSql = "SELECT COALESCE(SUM(t.amount), 0) AS adj_total
