@@ -1241,7 +1241,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-hero-caption {
     font-size: var(--summary-size-caption);
     font-weight: 600;
-    color: var(--summary-text-secondary);
+    color: var(--summary-text-primary);
     font-family: var(--summary-font);
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1575,7 +1575,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-currency-list-head span {
     font-size: var(--summary-size-caption);
     font-weight: 600;
-    color: var(--summary-text-secondary);
+    color: var(--summary-text-primary);
     font-family: var(--summary-font);
     letter-spacing: 0.04em;
     text-transform: uppercase;
