@@ -834,8 +834,6 @@ export default function ProcessListPage() {
       const nextId = Number(company?.id);
       if (!nextId) return;
 
-      void fetchRows({ companyId: nextId, silent: true });
-
       suppressCrossPageSyncRef.current = true;
       try {
         const sessionCompanyId =
@@ -866,7 +864,12 @@ export default function ProcessListPage() {
           /* fall through to session sync */
         }
 
-        if (sessionCompanyId === nextId) return;
+        const runFetch = () => void fetchRows({ companyId: nextId, silent: true });
+
+        if (sessionCompanyId === nextId) {
+          runFetch();
+          return;
+        }
 
         const previousCompanyId = Number(companyId) === nextId ? sessionCompanyId : companyId;
         companySessionAbortRef.current?.abort();
@@ -908,6 +911,7 @@ export default function ProcessListPage() {
             return;
           }
           notifyCompanySessionUpdated(json.data ?? null);
+          runFetch();
         } catch {
           if (sessionAc.signal.aborted) return;
           if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
@@ -955,11 +959,15 @@ export default function ProcessListPage() {
       skipCompanyFetchEffectRef.current = true;
       suppressCrossPageSyncRef.current = true;
 
+      const hadCache = applyProcessListCache(nextId);
       flushSync(() => {
         setGroupFilterKind("follow");
         if (nextGroup) setSelectedGroup(nextGroup);
         setCompanyId(nextId);
-        applyProcessListCache(nextId);
+        if (!hadCache) {
+          setRows([]);
+          setSelectedIds(new Set());
+        }
       });
 
       syncUrl({ companyId: nextId });

@@ -604,8 +604,8 @@ function getProcessesByDay($user_id)
     // 参数顺序：day_of_week, p.company_id, sp.company_id, sp账务日, dc.company_id, dc.capture_date
     $baseParams = [$day_of_week, $currentCompanyId, $currentCompanyId, $selected_date, $currentCompanyId, $selected_date];
 
-    // 应用权限过滤（使用 permissions.php 中的 filterProcessesByPermissions 函数）
-    list($baseSql, $baseParams) = filterProcessesByPermissions($pdo, $baseSql, $baseParams);
+    // 应用权限过滤（与查询的 company_id 一致，勿用可能滞后的 session 公司）
+    list($baseSql, $baseParams) = filterProcessesByPermissions($pdo, $baseSql, $baseParams, $currentCompanyId);
 
     // 添加排序
     $baseSql .= " ORDER BY p.process_id ASC";
