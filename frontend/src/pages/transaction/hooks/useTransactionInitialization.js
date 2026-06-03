@@ -1,5 +1,9 @@
 import { useLayoutEffect, useRef } from "react";
 import { readTransactionCurrencyFilterState } from "../lib/transactionPaymentLogic.js";
+import {
+  transactionScopeCacheCompanyKey,
+  transactionScopeCacheKey,
+} from "../lib/transactionScope.js";
 
 function sameCurrencySelection(a, b) {
   const left = Array.isArray(a) ? a.map((x) => String(x || "").toUpperCase()) : [];
@@ -8,47 +12,85 @@ function sameCurrencySelection(a, b) {
   return left.every((code, idx) => code === right[idx]);
 }
 
+/** Session memory uses { showAll, currencies }; normalize legacy { showAllCurrencies, selectedCurrencies }. */
+function resolveSavedCurrencyPrefs(companyCacheKey, memoryStore) {
+  const mem = companyCacheKey != null ? memoryStore[companyCacheKey] : null;
+  const fromStorage = readTransactionCurrencyFilterState(companyCacheKey);
+
+  const memCurrencies = Array.isArray(mem?.currencies)
+    ? mem.currencies
+    : Array.isArray(mem?.selectedCurrencies)
+      ? mem.selectedCurrencies
+      : [];
+
+  if (memCurrencies.length > 0) {
+    return {
+      showAll: !!(mem?.showAll ?? mem?.showAllCurrencies),
+      currencies: memCurrencies.map((c) => String(c || "").trim()).filter(Boolean),
+    };
+  }
+
+  return fromStorage;
+}
+
 export function useTransactionInitialization({
   loading,
   forbidden,
   filterSnapshot,
   transactionScope,
-  currencyRowsOrdered,
+  currencyScopeBundle,
   todayDmy,
   search,
   form,
 }) {
-  const currencyInitScopeKeyRef = useRef(null);
+  const currencyRestoredScopeKeyRef = useRef(null);
+  const currencyPrefsByCompanyRef = useRef({});
+  const prevCompanyCacheKeyRef = useRef(null);
+  const prevScopeCacheKeyRef = useRef(null);
   const searchRef = useRef(search);
   const formRef = useRef(form);
   searchRef.current = search;
   formRef.current = form;
 
   useLayoutEffect(() => {
-    if (loading || forbidden || !filterSnapshot || currencyRowsOrdered.length === 0) return;
+    if (loading || forbidden || !filterSnapshot) return;
 
     const activeSearch = searchRef.current;
     const activeForm = formRef.current;
     if (!activeSearch || !activeForm) return;
 
-    const cid =
-      transactionScope?.scopeCompanyId > 0
-        ? transactionScope.scopeCompanyId
-        : transactionScope?.selectedGroup
-          ? `group:${transactionScope.selectedGroup}`
-          : filterSnapshot.companyId ?? null;
+    const scopeCacheKey = transactionScopeCacheKey(transactionScope);
+    const companyCacheKey =
+      transactionScopeCacheCompanyKey(transactionScope) ?? filterSnapshot.companyId ?? null;
+
+    if (prevScopeCacheKeyRef.current !== scopeCacheKey) {
+      currencyRestoredScopeKeyRef.current = null;
+      prevScopeCacheKeyRef.current = scopeCacheKey;
+    }
+
+    const prevCompanyKey = prevCompanyCacheKeyRef.current;
+    if (prevCompanyKey != null && prevCompanyKey !== companyCacheKey) {
+      currencyPrefsByCompanyRef.current[prevCompanyKey] = {
+        showAll: activeSearch.showAllCurrencies,
+        currencies: [...activeSearch.selectedCurrencies],
+      };
+    }
+    prevCompanyCacheKeyRef.current = companyCacheKey;
+
+    const cid = companyCacheKey;
     const scopeKey = transactionScope
       ? `${transactionScope.scopeCompanyId > 0 ? transactionScope.scopeCompanyId : `group:${transactionScope.selectedGroup || ""}`}:${transactionScope.viewGroup || ""}`
       : String(cid ?? "");
-    const resetSelection = currencyInitScopeKeyRef.current !== scopeKey;
-    currencyInitScopeKeyRef.current = scopeKey;
 
     activeSearch.setDateFrom((v) => v || todayDmy);
     activeSearch.setDateTo((v) => v || todayDmy);
     activeForm.setTxDate((v) => v || todayDmy);
     activeForm.setRateDate((v) => v || todayDmy);
 
-    const rows = currencyRowsOrdered;
+    if (!scopeCacheKey || currencyScopeBundle.scopeKey !== scopeCacheKey) return;
+    if (currencyScopeBundle.rows.length === 0) return;
+
+    const rows = currencyScopeBundle.rows;
     const codes = rows.map((x) => String(x.code || x.currency || "").toUpperCase().trim()).filter(Boolean);
 
     let preferredDefault = null;
@@ -73,7 +115,6 @@ export function useTransactionInitialization({
       if (valid.length > 0) {
         if (!sameCurrencySelection(activeSearch.selectedCurrencies, valid)) {
           activeSearch.setSelectedCurrencies(valid);
-          activeSearch.persistCurrencyFilter(cid, false, valid);
         }
         return;
       }
@@ -82,9 +123,10 @@ export function useTransactionInitialization({
         rows[0];
       if (pick?.code) {
         activeSearch.setSelectedCurrencies([pick.code]);
-        activeSearch.persistCurrencyFilter(cid, false, [pick.code]);
       }
     };
+
+    const resetSelection = currencyRestoredScopeKeyRef.current !== scopeKey;
 
     if (!resetSelection) {
       ensureCurrencySelection();
@@ -96,7 +138,7 @@ export function useTransactionInitialization({
       return;
     }
 
-    const saved = readTransactionCurrencyFilterState(cid);
+    const saved = resolveSavedCurrencyPrefs(cid, currencyPrefsByCompanyRef.current);
     let nextShowAll = false;
     let nextSel = [];
 
@@ -117,7 +159,7 @@ export function useTransactionInitialization({
 
     activeSearch.setShowAllCurrencies((prev) => (prev === nextShowAll ? prev : nextShowAll));
     activeSearch.setSelectedCurrencies((prev) => (sameCurrencySelection(prev, nextSel) ? prev : nextSel));
-    activeSearch.persistCurrencyFilter(cid, nextShowAll, nextSel);
+    currencyRestoredScopeKeyRef.current = scopeKey;
 
     if (pickDefault?.code) {
       activeForm.setTxCurrency((v) => (v === pickDefault.code ? v : pickDefault.code));
@@ -128,9 +170,10 @@ export function useTransactionInitialization({
     loading,
     forbidden,
     filterSnapshot,
+    transactionScope,
     transactionScope?.scopeCompanyId,
     transactionScope?.viewGroup,
-    currencyRowsOrdered,
+    currencyScopeBundle,
     todayDmy,
   ]);
 }

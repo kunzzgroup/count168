@@ -32,6 +32,7 @@ import {
 export function useTransactionSearch({
   filterSnapshot,
   transactionScope,
+  currencyScopeBundle,
   todayDmy,
   pushToast,
   txType,
@@ -71,6 +72,7 @@ export function useTransactionSearch({
   const prevScopeKeyForSearchRef = useRef(null);
   /** Capture Date 变更后触发搜索；与「仅首次拉数」的 initial effect 分离，避免 initialSearchDoneRef 为 true 时改日期不请求 */
   const prevCaptureDateRangeKeyRef = useRef(null);
+  const lastInitialSearchKeyRef = useRef("");
   const [categoryOpen, setCategoryOpen] = useState(false);
 
   const categoryAllCheckboxRef = useRef(null);
@@ -78,7 +80,6 @@ export function useTransactionSearch({
   const effectiveDateTo = dateTo || todayDmy;
   const effectiveDateRangeText = `${effectiveDateFrom} - ${effectiveDateTo}`;
   const selectedCurrenciesKey = selectedCurrencies.map((c) => String(c || "").toUpperCase()).join(",");
-  const scopeCompanyId = transactionScope?.scopeCompanyId ?? null;
   const scopeViewGroup = transactionScope?.viewGroup ?? null;
   const scopeReady = transactionScopeIsReady(transactionScope);
   const scopeApi = useMemo(() => transactionScopeApiParams(transactionScope), [transactionScope]);
@@ -162,7 +163,7 @@ export function useTransactionSearch({
 
       setShowAllCurrencies(nextShowAll);
       setSelectedCurrencies(nextSel);
-      persistCurrencyFilter(scopeCompanyId, nextShowAll, nextSel);
+      persistCurrencyFilter(scopeCacheCompanyKey, nextShowAll, nextSel);
       scheduleAutoSearch();
     },
     [selectedCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch],
@@ -708,6 +709,7 @@ export function useTransactionSearch({
     if (scopeChanged) {
       lastCompletedSearchKeyRef.current = "";
       initialSearchDoneRef.current = false;
+      lastInitialSearchKeyRef.current = "";
     }
   }, [scopeKey, queryClient]);
 
@@ -721,16 +723,25 @@ export function useTransactionSearch({
     [selectedCategories],
   );
 
-  useEffect(() => {
-    if (scopeKey) initialSearchDoneRef.current = false;
-  }, [scopeKey]);
-
-  // Initial search / replay logic
+  // Initial search / replay logic — wait until currency bundle matches scope (after restore in useLayoutEffect).
   useEffect(() => {
     if (!scopeReady) return;
-    if (currencyRowsOrdered.length === 0) return;
+    if (!scopeKey || currencyScopeBundle?.scopeKey !== scopeKey) return;
+    if (currencyScopeBundle.rows.length === 0) return;
     if (!showAllCurrencies && selectedCurrencies.length === 0) return;
-    if (initialSearchDoneRef.current) return;
+
+    const initSearchKey = [
+      scopeKey,
+      showAllCurrencies ? "ALL" : selectedCurrenciesKey,
+      selectedCategoriesKey,
+      effectiveDateFrom,
+      effectiveDateTo,
+      searchState.showPaymentOnly ? "1" : "0",
+      searchState.showCaptureOnly ? "1" : "0",
+      searchState.showZeroBalance ? "1" : "0",
+    ].join("|");
+
+    if (lastInitialSearchKeyRef.current === initSearchKey) return;
 
     let hadReplay = false;
     try {
@@ -756,6 +767,7 @@ export function useTransactionSearch({
       /* ignore */
     }
 
+    lastInitialSearchKeyRef.current = initSearchKey;
     initialSearchDoneRef.current = true;
     void runSearchRef.current?.({
       isInitialLoad: true,
@@ -767,7 +779,8 @@ export function useTransactionSearch({
     scopeKey,
     scopeReady,
     scopeCacheCompanyKey,
-    currencyRowsOrdered.length,
+    currencyScopeBundle?.scopeKey,
+    currencyScopeBundle?.rows?.length,
     showAllCurrencies,
     selectedCurrenciesKey,
     effectiveDateFrom,
