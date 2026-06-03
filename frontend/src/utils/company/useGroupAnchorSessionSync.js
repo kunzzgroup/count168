@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { syncCompanySessionApi } from "./companySessionSync.js";
@@ -8,6 +8,11 @@ function isGroupOnlyFilterUi(selectedGroup, companyId) {
   if (!selectedGroup) return false;
   const cid = companyId != null && companyId !== "" ? Number(companyId) : Number.NaN;
   return !(Number.isFinite(cid) && cid > 0);
+}
+
+function parsePositiveCompanyId(companyId) {
+  const cid = companyId != null && companyId !== "" ? Number(companyId) : Number.NaN;
+  return Number.isFinite(cid) && cid > 0 ? cid : null;
 }
 
 /**
@@ -22,6 +27,7 @@ export function useGroupAnchorSessionSync({
   enabled = true,
 }) {
   const ref = useRef({ group: null, companyId: null });
+  const prevCompanyIdRef = useRef(parsePositiveCompanyId(companyId));
 
   const needsAnchorSession = useMemo(() => {
     if (!enabled) return false;
@@ -42,13 +48,30 @@ export function useGroupAnchorSessionSync({
     () => !isGroupOnlyFilterUi(selectedGroup, companyId),
   );
 
+  // Selecting a subsidiary changes PHP session — invalidate cached anchor sync.
+  useLayoutEffect(() => {
+    const prev = prevCompanyIdRef.current;
+    const next = parsePositiveCompanyId(companyId);
+    prevCompanyIdRef.current = next;
+
+    if (next != null) {
+      ref.current = { group: null, companyId: null };
+      return;
+    }
+
+    // Company cleared → group-only: force re-sync even if ref still matches boot state.
+    if (prev != null && next == null && selectedGroup) {
+      ref.current = { group: null, companyId: null };
+      setAnchorSessionReady(false);
+    }
+  }, [companyId, selectedGroup]);
+
   useEffect(() => {
     if (!needsAnchorSession) {
       setAnchorSessionReady(true);
       return;
     }
     if (!anchorId) {
-      // Wait for companies list; do not block search forever once companies are loaded.
       setAnchorSessionReady((companies?.length ?? 0) === 0);
       return;
     }

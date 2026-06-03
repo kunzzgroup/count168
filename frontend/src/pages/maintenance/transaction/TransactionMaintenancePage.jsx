@@ -218,13 +218,14 @@ export default function TransactionMaintenancePage() {
     [transactionScope, dateFrom, dateTo, processFilter, activePermission],
   );
 
-  const { anchorSessionReady, markAnchorSynced } = useGroupAnchorSessionSync({
-    companies,
-    selectedGroup,
-    companyId,
-    sessionCompanyId: me?.company_id,
-    enabled: true,
-  });
+  const { anchorSessionReady, markAnchorSynced, resetAnchorSessionRef } =
+    useGroupAnchorSessionSync({
+      companies,
+      selectedGroup,
+      companyId,
+      sessionCompanyId: me?.company_id,
+      enabled: true,
+    });
 
   const groupOnlyUi = isMaintenanceGroupOnlyUi(selectedGroup, companyId);
 
@@ -481,15 +482,6 @@ export default function TransactionMaintenancePage() {
       setSearchDeferredReady(false);
     };
   }, [listQueryEnabled]);
-
-  const prevListQueryEnabledRef = useRef(false);
-  useEffect(() => {
-    const wasEnabled = prevListQueryEnabledRef.current;
-    prevListQueryEnabledRef.current = listQueryEnabled;
-    if (!wasEnabled && listQueryEnabled && searchDeferredReady) {
-      void transactionQuery.refetch({ cancelRefetch: false });
-    }
-  }, [listQueryEnabled, searchDeferredReady, transactionQuery]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -821,37 +813,58 @@ export default function TransactionMaintenancePage() {
   // -- Handlers --
   const handleClearCompany = useCallback((groupForPersist) => {
     const g = groupForPersist ?? selectedGroup;
+    resetAnchorSessionRef();
+    skipMetaAfterBootRef.current = true;
+    setMetaReady(false);
     setCompanyId(null);
     setCompanyCode("");
     setSelectedProcess("");
     setProcesses([]);
     void (async () => {
       try {
+        let anchorId = null;
+        try {
+          const synced = await syncTransactionMaintenanceGroupAnchorSession(
+            companies,
+            g,
+            me?.company_id,
+          );
+          if (synced && g) {
+            const anchor =
+              pickDefaultSubsidiaryForGroup(companies, g, {
+                preferredCompanyId: me?.company_id,
+              }) ?? pickGroupAnchorCompany(companies, g);
+            anchorId = anchor?.id ?? null;
+          }
+        } catch (syncErr) {
+          console.error("Group anchor session sync after clear company:", syncErr);
+        }
+
         const meta = await bootstrapTransactionMaintenanceMeta({
           companies,
           groupId: g,
         });
         setPermissions(meta.permissions);
         setActivePermission(meta.activePermission);
-        setMetaReady(true);
-        try {
-          const synced = await syncTransactionMaintenanceGroupAnchorSession(companies, g, me?.company_id);
-          if (synced && g) {
-            const anchor =
-              pickDefaultSubsidiaryForGroup(companies, g, {
-                preferredCompanyId: me?.company_id,
-              }) ?? pickGroupAnchorCompany(companies, g);
-            if (anchor?.id) markAnchorSynced(g, anchor.id);
-          }
-        } catch (syncErr) {
-          console.error("Group anchor session sync after clear company:", syncErr);
+
+        if (anchorId && g) {
+          markAnchorSynced(g, anchorId);
+        } else if (g) {
+          resetAnchorSessionRef();
         }
+        setMetaReady(true);
       } catch (err) {
         console.error("Meta bootstrap after clear company:", err);
         setMetaReady(true);
       }
     })();
-  }, [companies, selectedGroup, me?.company_id, markAnchorSynced]);
+  }, [
+    companies,
+    selectedGroup,
+    me?.company_id,
+    markAnchorSynced,
+    resetAnchorSessionRef,
+  ]);
 
   const onPrepareCompanySelect = useCallback((c) => {
     if (!c?.id) return;
@@ -860,13 +873,14 @@ export default function TransactionMaintenancePage() {
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
     switchPermsCacheRef.current = null;
     skipMetaAfterBootRef.current = true;
+    resetAnchorSessionRef();
     setSelectedGroup(newGroup);
     setMetaReady(false);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
     persistDashboardFilterState(newGroup, nextCompanyId);
-  }, []);
+  }, [resetAnchorSessionRef]);
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
 
