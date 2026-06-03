@@ -140,16 +140,12 @@ export function useDataCaptureFormEngine(
 
   const [processOpen, setProcessOpen] = useState(false);
   const [processFilter, setProcessFilter] = useState("");
-  const [selectedProcess, setSelectedProcess] = useState(
-    () =>
-      readRestoredSelectedProcess(restoredProcessData) ||
-      selectedProcessFromGroupOnlyPrefs(initialGroupOnlyPrefs)
+  const [selectedProcess, setSelectedProcess] = useState(() =>
+    readRestoredSelectedProcess(restoredProcessData)
   );
 
   const selectedGroupRef = useRef(selectedGroup);
   selectedGroupRef.current = selectedGroup;
-  const skipGroupPrefsOnceRef = useRef(!!restoredProcessData?.process);
-
   const companyId = captureScope?.scopeCompanyId ?? null;
 
   const companyIdRef = useRef(companyId);
@@ -396,11 +392,8 @@ export function useDataCaptureFormEngine(
       void reloadProcessesForDate(today, { preserveSelection: false });
       return;
     }
-    persistGroupOnlyFormPrefs();
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
-  }, [clearProcessSelection, reloadProcessesForDate, persistGroupOnlyFormPrefs]);
+    clearProcessSelection();
+  }, [clearProcessSelection, reloadProcessesForDate]);
 
   const windowHooksRef = useRef({});
   windowHooksRef.current = {
@@ -535,27 +528,15 @@ export function useDataCaptureFormEngine(
     persistGroupOnlyFormPrefs();
   }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, currencyId, captureDate, persistGroupOnlyFormPrefs]);
 
-  useEffect(() => {
-    if (applyCompanyOnlyFields || !selectedGroup) return;
-    if (window.__DC_IS_RESTORING__) return;
-    const url = new URLSearchParams(window.location.search);
-    if (url.get("restore") === "1") return;
-    if (skipGroupPrefsOnceRef.current) {
-      skipGroupPrefsOnceRef.current = false;
-      return;
-    }
-    applyGroupOnlyPrefsForGroup(selectedGroup);
-  }, [applyCompanyOnlyFields, selectedGroup, applyGroupOnlyPrefsForGroup]);
-
   useLayoutEffect(() => {
     window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__ = async () => {
       if (applyCompanyOnlyFieldsRef.current) return;
-      applyGroupOnlyPrefsForGroup(selectedGroupRef.current);
+      clearProcessSelection();
     };
     return () => {
       delete window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__;
     };
-  }, [applyGroupOnlyPrefsForGroup]);
+  }, [clearProcessSelection]);
 
   return {
     dateOptions,

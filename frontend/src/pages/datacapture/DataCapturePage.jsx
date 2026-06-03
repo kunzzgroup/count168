@@ -177,6 +177,7 @@ export default function DataCapturePage() {
   const bootCompletedRef = useRef(false);
   const scriptsBootedRef = useRef(false);
   const prevGroupOnlyGroupRef = useRef(null);
+  const prevProcessCompanyRef = useRef(undefined);
   const prevScopeKeyRef = useRef(null);
   /** Tracks anchor session sync per group (sidebar flags follow PHP session company). */
   const groupAnchorSessionRef = useRef({ group: null, companyId: null });
@@ -712,15 +713,19 @@ export default function DataCapturePage() {
     form.clearProcessSelection?.();
   }, [navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
 
-  const onPrepareCompanySelect = useCallback((comp) => {
-    const id = Number(comp?.id);
-    if (!id) return;
-    const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
-    flushSync(() => {
-      setCompanyId(id);
-      if (gid) setSelectedGroup(gid);
-    });
-  }, []);
+  const onPrepareCompanySelect = useCallback(
+    (comp) => {
+      const id = Number(comp?.id);
+      if (!id) return;
+      const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
+      form.clearProcessSelection?.();
+      flushSync(() => {
+        setCompanyId(id);
+        if (gid) setSelectedGroup(gid);
+      });
+    },
+    [form.clearProcessSelection]
+  );
 
   onClearCompanyRef.current = handleClearCompany;
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
@@ -744,17 +749,32 @@ export default function DataCapturePage() {
   }, [isCompanySelected, form.selectedProcess?.id, form.clearProcessSelection]);
 
   useEffect(() => {
+    if (bootLoading) return;
+    if (window.__DC_IS_RESTORING__) return;
+    if (new URLSearchParams(window.location.search).get("restore") === "1") return;
+    const prev = prevProcessCompanyRef.current;
+    if (prev === undefined) {
+      prevProcessCompanyRef.current = companyId;
+      return;
+    }
+    if (prev !== companyId) {
+      form.clearProcessSelection?.();
+      prevProcessCompanyRef.current = companyId;
+    }
+  }, [bootLoading, companyId, form.clearProcessSelection]);
+
+  useEffect(() => {
     if (isCompanySelected) {
       prevGroupOnlyGroupRef.current = selectedGroup;
       return;
     }
     const prev = prevGroupOnlyGroupRef.current;
     if (prev != null && prev !== selectedGroup) {
-      form.applyGroupOnlyPrefsForGroup?.(selectedGroup);
+      form.clearProcessSelection?.();
       form.clearCompanyOnlyFields?.();
     }
     prevGroupOnlyGroupRef.current = selectedGroup;
-  }, [selectedGroup, isCompanySelected, form.applyGroupOnlyPrefsForGroup, form.clearCompanyOnlyFields]);
+  }, [selectedGroup, isCompanySelected, form.clearProcessSelection, form.clearCompanyOnlyFields]);
 
   useEffect(() => {
     if (bootLoading || !me) return;
