@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
-import { flushSync } from "react-dom";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
@@ -332,13 +331,11 @@ export default function AuthenticatedLayout() {
   }, []);
 
   const applySidebarPatch = useCallback((patch) => {
-    flushSync(() => {
-      setSidebarGcTick((n) => n + 1);
-      if (!patch) return;
-      setMe((prev) => {
-        if (!prev) return prev;
-        return patchMeFromCompanyContext(prev, patch);
-      });
+    setSidebarGcTick((n) => n + 1);
+    if (!patch) return;
+    setMe((prev) => {
+      if (!prev) return prev;
+      return patchMeFromCompanyContext(prev, patch);
     });
   }, []);
 

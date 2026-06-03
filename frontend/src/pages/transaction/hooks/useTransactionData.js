@@ -1,5 +1,4 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
-import { flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
@@ -51,23 +50,17 @@ export function useTransactionData({
   const [categories, setCategories] = useState([]);
   const [accountOptions, setAccountOptions] = useState([]);
   const [currencyOptions, setCurrencyOptions] = useState([]);
-  const [currencyRowsOrdered, setCurrencyRowsOrdered] = useState([]);
-  const currencyInitCompanyRef = useRef(null);
+  /** scopeKey + rows updated atomically — restore never sees stale rows for a new company. */
+  const [currencyScopeBundle, setCurrencyScopeBundle] = useState({ scopeKey: null, rows: [] });
   const filterSnapshotRef = useRef(null);
   const scopeSwitchSeqRef = useRef(0);
   const scopeCacheKeyRef = useRef("");
   const bootOnceRef = useRef(false);
   const companySessionAbortRef = useRef(null);
 
-  const commitFilterSnapshot = useCallback((nextSnap, { sync = true } = {}) => {
+  const commitFilterSnapshot = useCallback((nextSnap) => {
     filterSnapshotRef.current = nextSnap;
-    if (sync) {
-      flushSync(() => {
-        setFilterSnapshot(nextSnap);
-      });
-    } else {
-      setFilterSnapshot(nextSnap);
-    }
+    setFilterSnapshot(nextSnap);
   }, []);
 
   const transactionScope = useMemo(
@@ -88,10 +81,17 @@ export function useTransactionData({
   useLayoutEffect(() => {
     if (prevScopeCacheKeyRef.current === scopeCacheKey) return;
     prevScopeCacheKeyRef.current = scopeCacheKey;
-    currencyInitCompanyRef.current = null;
-    // Keep previous account/currency options visible until next scope data arrives.
-    // This avoids visual flicker when switching group/company in Transaction page.
+    // Keep previous account/currency pills visible until fetch completes (see currencyScopeBundle).
   }, [scopeCacheKey]);
+
+  const setCurrencyRowsOrdered = useCallback((next) => {
+    setCurrencyScopeBundle((prev) => ({
+      ...prev,
+      rows: typeof next === "function" ? next(prev.rows) : next,
+    }));
+  }, []);
+
+  const currencyRowsOrdered = currencyScopeBundle.rows;
 
   const syncPickerCompanySession = useCallback(
     async (companyId, seq) => {
@@ -369,13 +369,13 @@ export function useTransactionData({
         const ordered = orderCurrencyRows(curRows, ord);
         const codes = ordered.map((x) => String(x.code || x.currency || "").toUpperCase().trim()).filter(Boolean);
         setAccountOptions(accData);
-        setCurrencyRowsOrdered(ordered);
+        setCurrencyScopeBundle({ scopeKey: fetchScopeKey, rows: ordered });
         setCurrencyOptions([...new Set(codes)]);
       } catch {
         if (!cancelled && fetchScopeKey === scopeCacheKeyRef.current) {
           setAccountOptions([]);
           setCurrencyOptions([]);
-          setCurrencyRowsOrdered([]);
+          setCurrencyScopeBundle({ scopeKey: null, rows: [] });
         }
       }
     })();
@@ -384,7 +384,7 @@ export function useTransactionData({
     };
   }, [loading, forbidden, scopeCacheKey, todayDmy, queryClient, transactionScope]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!filterSnapshot) return;
     notifyDashboardGroupFilterChanged(filterSnapshot.selectedGroup, filterSnapshot.companyId);
   }, [filterSnapshot?.selectedGroup, filterSnapshot?.companyId]);
@@ -700,8 +700,8 @@ export function useTransactionData({
     currencyOptions,
     setCurrencyOptions,
     currencyRowsOrdered,
+    currencyScopeBundle,
     setCurrencyRowsOrdered,
-    currencyInitCompanyRef,
     onGroupButtonClick,
     onCompanyButtonClick,
     onPickAllGroups,

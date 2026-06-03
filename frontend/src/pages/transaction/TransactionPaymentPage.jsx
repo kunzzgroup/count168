@@ -80,6 +80,7 @@ export default function TransactionPaymentPage() {
   const search = useTransactionSearch({
     filterSnapshot,
     transactionScope,
+    currencyScopeBundle: data.currencyScopeBundle,
     todayDmy,
     pushToast,
     txType: form.txType,
@@ -96,7 +97,7 @@ export default function TransactionPaymentPage() {
     forbidden,
     filterSnapshot,
     transactionScope,
-    currencyRowsOrdered,
+    currencyScopeBundle: data.currencyScopeBundle,
     todayDmy,
     search,
     form,
