@@ -2,7 +2,10 @@
  * Persists group-only Process (and related form fields) across Summary final submit
  * and page reloads. Scoped per dashboard GroupID (AP / IG).
  */
-import { isGroupOnlyProcessId } from "./dataCaptureGroupOnlyProcesses.js";
+import {
+  isGroupOnlyProcessId,
+  selectedProcessFromGroupOnlySession,
+} from "./dataCaptureGroupOnlyProcesses.js";
 
 export const GROUP_ONLY_PROCESS_PREFS_KEY = "dc_group_only_process_prefs";
 
@@ -76,10 +79,13 @@ export function saveGroupOnlyProcessPrefsFromProcessData(processData, groupId) {
     normalizeGroupId(groupId) ||
     normalizeGroupId(processData.captureSelectedGroup) ||
     null;
+  const proc = processData.groupOnlyCapture
+    ? selectedProcessFromGroupOnlySession(processData)
+    : null;
   saveGroupOnlyProcessPrefs(gid, {
-    process: processData.process,
-    processCode: processData.processCode || processData.process_code,
-    processName: processData.processName || processData.process_name,
+    process: proc?.id ?? processData.process,
+    processCode: proc?.process_id || processData.processCode || processData.process_code,
+    processName: proc?.displayText || processData.processName || processData.process_name,
     currency: processData.currency,
     date: processData.date,
   });

@@ -14,6 +14,7 @@ import {
   selectedProcessFromGroupOnlyPrefs,
 } from "../lib/dataCaptureGroupOnlyProcessPersistence.js";
 import { selectedProcessFromGroupOnlySession } from "../lib/dataCaptureGroupOnlyProcesses.js";
+import { restoreGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
 
 const PROCESS_PLACEHOLDER = "Select Process";
@@ -322,6 +323,7 @@ export function useDataCaptureFormEngine(
     });
     setProcessOpen(false);
     setProcessFilter("");
+    void restoreGroupOnlyTableDraft(selectedGroupRef.current, next.id);
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
     }, 0);
@@ -378,6 +380,9 @@ export function useDataCaptureFormEngine(
     setSelectedProcess(proc);
     if (prefs?.currency) setCurrencyId(String(prefs.currency));
     if (prefs?.date) setCaptureDate(String(prefs.date));
+    if (proc?.id) {
+      void restoreGroupOnlyTableDraft(groupId, proc.id);
+    }
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
     }, 0);
