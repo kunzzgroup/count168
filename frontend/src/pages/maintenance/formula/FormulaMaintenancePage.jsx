@@ -853,7 +853,7 @@ export default function FormulaMaintenancePage() {
         groupsAllMode={groupsAllMode}
         groupAllMode={groupAllMode}
         onClearFilters={handleClearFilters}
-        selectedIds={selectedIds}
+        deleteDisabled={selectedCount === 0}
         confirmDelete={confirmDelete}
         setConfirmDelete={setConfirmDelete}
         onDelete={handleDeleteClick}
