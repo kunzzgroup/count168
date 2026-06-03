@@ -1,7 +1,5 @@
-import { useMemo } from "react";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import { supportsDashboardStyleGroupOnly } from "../../../utils/company/loginScope.js";
-import { gcInlinePickerCompanies } from "../../../utils/company/sharedCompanyFilter.js";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 
 /**
@@ -31,24 +29,13 @@ export function useMaintenanceGroupCompanyFilter({
     preferredCompanyId: companyId,
     me,
     autoPickCompanyWhenEmpty: false,
-    forceAllowGroupOnly: supportsDashboardStyleGroupOnly(me),
+    forceAllowGroupOnly: canUseGroupOnlyMode(me),
     enableGroupAnchorSession,
   });
 
-  const gcScope = {
-    selectedGroup,
-    companyId,
-    groupsAllMode: gc.groupsAllMode,
-    groupAllMode: gc.groupAllMode,
-  };
-  const visibleCompanies = useMemo(
-    () => gcInlinePickerCompanies(gc.companiesForPicker, gcScope),
-    [gc.companiesForPicker, selectedGroup, companyId, gc.groupsAllMode, gc.groupAllMode],
-  );
-
   return {
     snapGroupIds: gc.groupIds,
-    visibleCompanies,
+    visibleCompanies: gc.companiesForPicker,
     handleGroupClick: gc.handlePickGroup,
     handlePickCompany: gc.handlePickCompany,
     handlePickAllGroups: gc.handlePickAllGroups,

@@ -98,13 +98,6 @@ export function canUseGroupOnlyMode(me) {
   return isGroupLogin(me);
 }
 
-/** Owner / admin / multi-group user: Group pill clears Company (Dashboard-aligned). Company login still auto-picks subsidiary. */
-export function supportsDashboardStyleGroupOnly(me) {
-  if (isGroupLogin(me)) return true;
-  if (isCompanyLogin(me)) return false;
-  return true;
-}
-
 /** Mirrors api/c168/c168_domain_access.php c168DomainPageAllowedRoles */
 const C168_DOMAIN_PAGE_ROLES = new Set([
   "owner",

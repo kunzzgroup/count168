@@ -9,13 +9,11 @@ import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
-  persistDashboardGroupOnlyMode,
-  isGcGroupOnlyUi,
   pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { canUseGroupOnlyMode, supportsDashboardStyleGroupOnly } from "../../../utils/company/loginScope.js";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
@@ -1925,19 +1923,6 @@ export function useBankProcessListPage() {
       selectedGroupKey,
     });
   }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
-  const bankProcessGcGroupOnlyUi = useMemo(
-    () =>
-      groupFilterKind === "follow" &&
-      isGcGroupOnlyUi({
-        selectedGroup,
-        companyId,
-      }),
-    [groupFilterKind, selectedGroup, companyId],
-  );
-  const companyButtonsPanel = useMemo(
-    () => (bankProcessGcGroupOnlyUi ? [] : companyButtons),
-    [bankProcessGcGroupOnlyUi, companyButtons],
-  );
 
   const handlePickGroup = useCallback(
     (gid) => {
@@ -1962,29 +1947,12 @@ export function useBankProcessListPage() {
         return;
       }
 
+      const pick = pickDefaultSubsidiaryForGroup(companies, g);
+      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
+
       setGroupFilterKind("follow");
       setSelectedGroup(g);
       persistDashboardGroupFilter(g);
-
-      if (supportsDashboardStyleGroupOnly(authMe)) {
-        const cacheKey = resolveBankProcessListCacheKey(null, search);
-        skipCompanyFetchEffectRef.current = false;
-        suppressCrossPageSyncRef.current = true;
-        flushSync(() => {
-          setCompanyId(null);
-          setRows([]);
-          setCurrencyFilterCode("");
-          setCurrencyListOrdered([]);
-          setCurrencyPillDisplayOrder(null);
-        });
-        persistDashboardGroupOnlyMode(true);
-        persistDashboardFilterState(g, null, { allowGroupOnly: true });
-        notifyDashboardGroupFilterChanged(g, null);
-        return;
-      }
-
-      const pick = pickDefaultSubsidiaryForGroup(companies, g);
-      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
 
       if (nextCompanyId != null) {
         const cacheKey = resolveBankProcessListCacheKey(nextCompanyId, search);
@@ -2349,7 +2317,7 @@ export function useBankProcessListPage() {
     groupIds,
     selectedCompany,
     selectedGroupKey,
-    companyButtons: companyButtonsPanel,
+    companyButtons,
     handlePickGroup,
     handlePickAllGroups,
     sortedRows,

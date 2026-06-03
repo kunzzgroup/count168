@@ -9,9 +9,7 @@ import {
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
-  gcInlinePickerCompanies,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { supportsDashboardStyleGroupOnly } from "../../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
@@ -334,20 +332,8 @@ export default function CustomerReportPage() {
     onClearCompany: handleClearCompany,
     switchingCompany: false,
     preferredCompanyId: companyId,
-    forceAllowGroupOnly: supportsDashboardStyleGroupOnly(me),
     me,
   });
-
-  const companyButtonsPanel = useMemo(
-    () =>
-      gcInlinePickerCompanies(companyButtons, {
-        selectedGroup,
-        companyId,
-        groupsAllMode,
-        groupAllMode,
-      }),
-    [companyButtons, selectedGroup, companyId, groupsAllMode, groupAllMode],
-  );
 
   const reportScope = useMemo(
     () =>
@@ -621,7 +607,7 @@ export default function CustomerReportPage() {
           onPickAllInGroup={handlePickAllInGroup}
           groupsAllMode={groupsAllMode}
           groupAllMode={groupAllMode}
-          companyButtons={companyButtonsPanel}
+          companyButtons={companyButtons}
           highlightCompanyId={companyId}
           accountId={accountId}
           setAccountId={setAccountId}

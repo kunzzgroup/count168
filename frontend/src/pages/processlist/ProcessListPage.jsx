@@ -8,14 +8,12 @@ import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
-  persistDashboardGroupOnlyMode,
-  isGcGroupOnlyUi,
   pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
-import { canUseGroupOnlyMode, supportsDashboardStyleGroupOnly } from "../../utils/company/loginScope.js";
+import { canUseGroupOnlyMode } from "../../utils/company/loginScope.js";
 import { findOwnerCompanyById } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
@@ -736,19 +734,6 @@ export default function ProcessListPage() {
       }),
     [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]
   );
-  const processListGcGroupOnlyUi = useMemo(
-    () =>
-      groupFilterKind === "follow" &&
-      isGcGroupOnlyUi({
-        selectedGroup,
-        companyId,
-      }),
-    [groupFilterKind, selectedGroup, companyId],
-  );
-  const processListCompanyButtons = useMemo(
-    () => (processListGcGroupOnlyUi ? [] : companyButtons),
-    [processListGcGroupOnlyUi, companyButtons],
-  );
 
   const rowCurrencyCodes = useMemo(() => {
     const s = new Set();
@@ -1003,18 +988,6 @@ export default function ProcessListPage() {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
-        if (supportsDashboardStyleGroupOnly(sessionMe)) {
-          flushSync(() => {
-            setCompanyId(null);
-            setRows([]);
-            setCurrencyFilterCode("");
-          });
-          persistDashboardGroupOnlyMode(true);
-          persistDashboardFilterState(g, null, { allowGroupOnly: true });
-          resetAnchorSessionRef();
-          notifyDashboardGroupFilterChanged(g, null);
-          return;
-        }
         if (!canUseGroupOnlyMode(sessionMe)) {
           setGroupFilterKind("ungrouped");
           setSelectedGroup(null);
@@ -1024,25 +997,12 @@ export default function ProcessListPage() {
         return;
       }
 
+      const pick = pickDefaultSubsidiaryForGroup(companies, g);
+      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
+
       setGroupFilterKind("follow");
       setSelectedGroup(g);
       persistDashboardGroupFilter(g);
-
-      if (supportsDashboardStyleGroupOnly(sessionMe)) {
-        flushSync(() => {
-          setCompanyId(null);
-          setRows([]);
-          setCurrencyFilterCode("");
-        });
-        persistDashboardGroupOnlyMode(true);
-        persistDashboardFilterState(g, null, { allowGroupOnly: true });
-        resetAnchorSessionRef();
-        notifyDashboardGroupFilterChanged(g, null);
-        return;
-      }
-
-      const pick = pickDefaultSubsidiaryForGroup(companies, g);
-      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
 
       if (nextCompanyId != null) {
         skipCompanyFetchEffectRef.current = true;
@@ -1501,12 +1461,11 @@ export default function ProcessListPage() {
                 </div>
               </div>
             )}
-            {processListCompanyButtons.length > 0 && (
             <div className="user-gc-inline-row">
               <span className="user-gc-inline-label">{t("company")}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
-                  {processListCompanyButtons.map((c) => {
+                  {companyButtons.map((c) => {
                     const active = Number(c.id) === Number(pickerCompanyId);
                     return (
                       <button
@@ -1525,7 +1484,6 @@ export default function ProcessListPage() {
                 </div>
               </div>
             </div>
-            )}
             {currencyListOrdered.length > 0 && (
               <div className="user-gc-inline-row">
                 <span className="user-gc-inline-label">{t("currency")}</span>
