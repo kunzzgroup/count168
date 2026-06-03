@@ -31,6 +31,7 @@ import {
   groupIdsForGroupsAllAggregate,
   useGcFilterWithAllModes,
 } from "../../utils/company/useGcFilterWithAllModes.js";
+import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
@@ -593,6 +594,14 @@ export default function AccountListPage() {
 
   onSwitchCompanyRef.current = onSwitchCompany;
 
+  useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: sessionMe?.company_id,
+    enabled: !bootLoading && Boolean(sessionMe),
+  });
+
   const {
     groupIds,
     companiesForPicker,
@@ -739,6 +748,7 @@ export default function AccountListPage() {
         isListScopeReady: true,
       });
     });
+    persistDashboardGroupOnlyMode(false);
     persistDashboardFilterState(selectedGroup, nextId, { allowGroupOnly: false });
     notifyDashboardGroupFilterChanged(selectedGroup, nextId);
     void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
@@ -777,6 +787,7 @@ export default function AccountListPage() {
         });
 
         persistDashboardGroupFilter(g);
+        persistDashboardGroupOnlyMode(true);
         persistDashboardFilterState(g, null, { allowGroupOnly: true });
         notifyDashboardGroupFilterChanged(g, null);
 
@@ -833,6 +844,7 @@ export default function AccountListPage() {
           });
         });
         persistDashboardGroupFilter(g);
+        persistDashboardGroupOnlyMode(false);
         persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
         notifyDashboardGroupFilterChanged(g, nextCompanyId, {
           companyCode: String(pick.company_id || "").trim().toUpperCase(),
@@ -888,11 +900,12 @@ export default function AccountListPage() {
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
       else if (effectiveGroup) persistDashboardGroupFilter(effectiveGroup);
+      persistDashboardGroupOnlyMode(false);
       persistDashboardFilterState(effectiveGroup, nextCompanyId, { allowGroupOnly: false });
       const companyCode = String(c.company_id || "").trim().toUpperCase();
       notifyDashboardGroupFilterChanged(effectiveGroup, nextCompanyId, { companyCode });
 
-      void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
+      void onSwitchCompanyRef.current?.(c, { layoutSilent: false });
     },
     [applyCacheOrClearAccounts, clearCompanyPillSelection, companyId, selectedGroup],
   );
@@ -932,7 +945,12 @@ export default function AccountListPage() {
     });
 
     if (nextCompanyId != null) {
+      persistDashboardGroupOnlyMode(false);
       const pick = companies.find((c) => Number(c.id) === Number(nextCompanyId));
+      const companyCode = pick?.company_id
+        ? String(pick.company_id).trim().toUpperCase()
+        : null;
+      notifyDashboardGroupFilterChanged(targetGroup, nextCompanyId, { companyCode });
       if (pick) void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
       else {
         void fetchAccounts(
@@ -941,6 +959,8 @@ export default function AccountListPage() {
         );
       }
     } else {
+      persistDashboardGroupOnlyMode(true);
+      notifyDashboardGroupFilterChanged(targetGroup, null);
       void fetchAccounts(
         { companyId: null, selectedGroup: targetGroup, isListScopeReady: true },
         { silent: true, groupOnly: true },
