@@ -49,7 +49,7 @@ export function resolveEffectiveOwnershipPct(dashboardData, selectedGroup) {
 export function computeKpiMetrics(dashboardData, selectedGroup) {
   if (!dashboardData) return null;
   const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
-  // Expenses KPI = 本期 Win/Loss 合计 only (matches Payment History Win/Loss column, not Cr/Dr).
+  // Expenses KPI = 本期 Win/Loss + Cr/Dr（与 Transaction List / Payment History 一致，不含 CLEAR）。
   const rawExpenses = parseFloat(dashboardData?.period_total?.expenses) || 0;
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;

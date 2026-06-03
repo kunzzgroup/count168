@@ -199,8 +199,8 @@ function dashboardShouldExcludeClearForRole(?string $role): bool
         return false;
     }
     $role = strtoupper(trim((string) $role));
-    // Dashboard Profit 卡片：PROFIT 角色账户的 CLEAR 不计入（Transaction 页仍正常展示/提交）
-    return $role === 'PROFIT';
+    // Dashboard：PROFIT / EXPENSES 的 CLEAR 不计入 KPI（Transaction 页仍正常展示/提交）
+    return $role === 'PROFIT' || $role === 'EXPENSES';
 }
 
 /**
@@ -1126,6 +1126,125 @@ function dashboardExpensesBuildWinLossBundle(
     ];
 }
 
+/**
+ * EXPENSES Cr/Dr series aligned with search_api calculateCrDrByCurrency (PAYMENT/RECEIVE/CONTRA/CLAIM; excludes CLEAR).
+ *
+ * @param array<int, array<string, mixed>> $accounts
+ * @return array{daily: array<string, string>, period_cr_dr: string}
+ */
+function dashboardExpensesBuildCrDrBundle(
+    PDO $pdo,
+    int $companyId,
+    array $accounts,
+    array $currencyMap,
+    string $dateFromDb,
+    string $dateToDb,
+    ?string $currencyCode
+): array {
+    $currencyId = dashboardResolveCurrencyIdFromMap($currencyCode, $currencyMap);
+    $accountIds = array_values(array_unique(array_filter(
+        array_map(static fn (array $acc): int => (int) ($acc['id'] ?? 0), $accounts),
+        static fn (int $id): bool => $id > 0
+    )));
+    if ($currencyId === null || $accountIds === [] || !dashboardHasTransactionCurrency($pdo)) {
+        return [
+            'daily' => [],
+            'period_cr_dr' => dashboardMoneyZero(),
+        ];
+    }
+
+    $daily = [];
+    $idsPlaceholder = implode(',', array_fill(0, count($accountIds), '?'));
+    $clearFilter = dashboardShouldExcludeClearForRole('EXPENSES') ? " AND t.transaction_type <> 'CLEAR'" : '';
+    $contra = dashboardContraApprovedWhere($pdo, 't');
+    $crDrTypes = "('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')";
+
+    $toSql = "SELECT DATE(t.transaction_date) AS date,
+                     COALESCE(SUM(CASE
+                         WHEN t.transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                         WHEN t.transaction_type = 'CONTRA' THEN -t.amount
+                         WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
+                         WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                         WHEN t.transaction_type = 'PAYMENT'
+                              AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
+                         WHEN t.transaction_type = 'PAYMENT' THEN -t.amount
+                         ELSE 0
+                     END), 0) AS cr_dr
+              FROM transactions t
+              WHERE t.company_id = ?
+                AND t.account_id IN ($idsPlaceholder)
+                AND t.transaction_date BETWEEN ? AND ?
+                AND t.transaction_type IN $crDrTypes
+                AND t.currency_id = ?"
+        . $clearFilter . $contra . '
+              GROUP BY DATE(t.transaction_date)';
+    $toStmt = $pdo->prepare($toSql);
+    $toStmt->execute(array_merge([$companyId], $accountIds, [$dateFromDb, $dateToDb, $currencyId]));
+    foreach ($toStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        dashboardAddDailyAmount($daily, (string) $row['date'], $row['cr_dr'] ?? '0');
+    }
+
+    $fromSql = "SELECT DATE(t.transaction_date) AS date,
+                       COALESCE(SUM(CASE
+                           WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
+                           WHEN t.transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
+                           WHEN t.transaction_type = 'PAYMENT'
+                                AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
+                           WHEN t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM') THEN t.amount
+                           WHEN t.transaction_type = 'CONTRA' THEN t.amount
+                           ELSE 0
+                       END), 0) AS cr_dr
+                FROM transactions t
+                WHERE t.company_id = ?
+                  AND t.from_account_id IN ($idsPlaceholder)
+                  AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN $crDrTypes
+                  AND t.currency_id = ?"
+        . $clearFilter . $contra . '
+                GROUP BY DATE(t.transaction_date)';
+    $fromStmt = $pdo->prepare($fromSql);
+    $fromStmt->execute(array_merge([$companyId], $accountIds, [$dateFromDb, $dateToDb, $currencyId]));
+    foreach ($fromStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        dashboardAddDailyAmount($daily, (string) $row['date'], $row['cr_dr'] ?? '0');
+    }
+
+    if (dashboardHasTransactionEntry($pdo)) {
+        try {
+            $rateSql = "SELECT DATE(h.transaction_date) AS date,
+                               COALESCE(SUM(CASE
+                                   WHEN e.entry_type IN ('RATE_FIRST_FROM','RATE_TRANSFER_FROM') THEN -e.amount
+                                   WHEN e.entry_type IN ('RATE_FIRST_TO','RATE_TRANSFER_TO') THEN -e.amount
+                                   ELSE e.amount
+                               END), 0) AS cr_dr
+                        FROM transaction_entry e
+                        JOIN transactions h ON e.header_id = h.id
+                        WHERE h.company_id = ?
+                          AND e.company_id = ?
+                          AND e.account_id IN ($idsPlaceholder)
+                          AND e.currency_id = ?
+                          AND h.transaction_type = 'RATE'
+                          AND h.transaction_date BETWEEN ? AND ?
+                          AND e.entry_type <> 'RATE_MIDDLEMAN'
+                        GROUP BY DATE(h.transaction_date)";
+            $rateStmt = $pdo->prepare($rateSql);
+            $rateStmt->execute(array_merge(
+                [$companyId, $companyId],
+                $accountIds,
+                [$currencyId, $dateFromDb, $dateToDb]
+            ));
+            foreach ($rateStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                dashboardAddDailyAmount($daily, (string) $row['date'], $row['cr_dr'] ?? '0');
+            }
+        } catch (Throwable $e) {
+        }
+    }
+
+    return [
+        'daily' => $daily,
+        'period_cr_dr' => dashboardSumDailyAmounts($daily),
+    ];
+}
+
 function dashboard_api_main(): void
 {
     global $pdo;
@@ -1331,6 +1450,7 @@ try {
         $isExpensesRole = ($role === 'EXPENSES');
         $expenseAccountRowsById = [];
         $expensesPeriodWlFromBundle = null;
+        $expensesPeriodCrDrFromBundle = null;
         $primaryAccountIds = [];
         $hadAccounts = false;
         $seenExpenseAccountIds = [];
@@ -1557,7 +1677,7 @@ try {
             $winLossTxnTypes = "('WIN', 'LOSE', 'ADJUSTMENT')";
             $crDrTxnTypes = "('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')";
 
-            // EXPENSES: KPI/chart use Win/Loss only (search_api bundle); skip Cr/Dr (PAYMENT/CLEAR 等).
+            // EXPENSES: Win/Loss + Cr/Dr use search_api-aligned bundles (see dashboardExpensesBuild*).
             if (!$isExpensesRole) {
             // To Account
             $sql = "SELECT DATE(t.transaction_date) as date,
@@ -1662,6 +1782,19 @@ try {
             $daily_win_loss = $wlBundle['daily'];
             $total_bf = dashboardMoneyAdd($total_bf, $wlBundle['capture_bf']);
             $expensesPeriodWlFromBundle = $wlBundle['period_wl'];
+            $crDrBundle = dashboardExpensesBuildCrDrBundle(
+                $pdo,
+                $company_id,
+                array_values($expenseAccountRowsById),
+                $currency_map,
+                $date_from_db,
+                $date_to_db,
+                $filter_currency_code
+            );
+            $expensesPeriodCrDrFromBundle = $crDrBundle['period_cr_dr'];
+            foreach ($crDrBundle['daily'] as $date => $amount) {
+                dashboardAddDailyAmount($daily_win_loss, $date, $amount);
+            }
         }
 
         if (!$hadAccounts) {
@@ -1715,12 +1848,13 @@ try {
 
         // --- 3. 计算本期总余额 ---
         if ($isExpensesRole) {
-            // 与 Payment History 一致：Dashboard Expenses 仅本期 Win/Loss 合计（不含 Cr/Dr）。
+            // 与 Transaction List / Payment History 一致：本期 Win/Loss + Cr/Dr（不含 CLEAR）。
             $periodWinLoss = $expensesPeriodWlFromBundle !== null
                 ? $expensesPeriodWlFromBundle
                 : dashboardSumDailyAmounts($daily_win_loss);
-            $total_period_delta = $periodWinLoss;
-            $total_balance = dashboardMoneyAdd($total_bf, $periodWinLoss);
+            $periodCrDr = $expensesPeriodCrDrFromBundle ?? dashboardMoneyZero();
+            $total_period_delta = dashboardMoneyAdd($periodWinLoss, $periodCrDr);
+            $total_balance = dashboardMoneyAdd($total_bf, $total_period_delta);
             $daily_data = $daily_win_loss;
         } else {
             $total_period_delta = dashboardSumDailyAmounts($daily_data);
