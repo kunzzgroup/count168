@@ -592,45 +592,6 @@ export default function UserListPage() {
     broadcastFilterToLayout: false,
   });
 
-  const applyGroupOnlyScope = useCallback(
-    (g) => {
-      const group = String(g || selectedGroup || "")
-        .trim()
-        .toUpperCase();
-      if (!group) return;
-
-      skipCompanyFetchEffectRef.current = true;
-      flushSync(() => {
-        setCompanyId(null);
-        setGroupsAllMode(false);
-        setGroupAllMode(false);
-        setSelectedGroup(group);
-        applyUserListCache(null, { groupOnly: true });
-      });
-
-      persistDashboardGroupFilter(group);
-      persistDashboardGroupOnlyMode(true);
-      persistDashboardFilterState(group, null, { allowGroupOnly: true });
-      persistDashboardSelectedCompany(null);
-      stripCompanyIdFromUrl();
-      notifyDashboardGroupFilterChanged(group, null);
-
-      const groupCacheKey = resolveUserListCacheKey(null, true, group, false, false, false);
-      if (!userListCacheRef.current.has(groupCacheKey)) {
-        void fetchUsers(null, { silent: true, groupOnly: true });
-      }
-    },
-    [
-      applyUserListCache,
-      fetchUsers,
-      selectedGroup,
-      setGroupAllMode,
-      setGroupsAllMode,
-    ],
-  );
-
-  applyGroupOnlyScopeRef.current = applyGroupOnlyScope;
-
   /** When no Group is selected, the shared picker only lists “ungrouped” rows — often empty for AP/IG-only tenants. */
   const inlineCompaniesForPicker = useMemo(() => {
     if (companiesForPicker.length > 0) return companiesForPicker;
@@ -780,6 +741,45 @@ export default function UserListPage() {
     groupsAllMode,
     groupAllMode,
   ]);
+
+  const applyGroupOnlyScope = useCallback(
+    (g) => {
+      const group = String(g || selectedGroup || "")
+        .trim()
+        .toUpperCase();
+      if (!group) return;
+
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        setCompanyId(null);
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(group);
+        applyUserListCache(null, { groupOnly: true });
+      });
+
+      persistDashboardGroupFilter(group);
+      persistDashboardGroupOnlyMode(true);
+      persistDashboardFilterState(group, null, { allowGroupOnly: true });
+      persistDashboardSelectedCompany(null);
+      stripCompanyIdFromUrl();
+      notifyDashboardGroupFilterChanged(group, null);
+
+      const groupCacheKey = resolveUserListCacheKey(null, true, group, false, false, false);
+      if (!userListCacheRef.current.has(groupCacheKey)) {
+        void fetchUsers(null, { silent: true, groupOnly: true });
+      }
+    },
+    [
+      applyUserListCache,
+      fetchUsers,
+      selectedGroup,
+      setGroupAllMode,
+      setGroupsAllMode,
+    ],
+  );
+
+  applyGroupOnlyScopeRef.current = applyGroupOnlyScope;
 
   const onSwitchCompany = useCallback(async (c) => {
     const nextCompanyId = Number(c?.id);
