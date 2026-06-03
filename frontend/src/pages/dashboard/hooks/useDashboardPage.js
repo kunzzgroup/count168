@@ -1709,60 +1709,30 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (g === selectedGroup && companyId != null && !groupsAllMode) {
-        if (!canUseGroupOnlyMode(me)) {
-          setGroupsAllMode(false);
-          setGroupAllMode(false);
-          setMergedSubsetIds(null);
-          setSelectedGroup(null);
-          clearDashboardGroupFilterKeepCompany(companyId);
-          void syncCompanySession(companyId, null);
-          return;
-        }
-        return;
-      }
 
-      if (canUseGroupOnlyMode(me)) {
-        setGroupsAllMode(false);
-        setSelectedGroup(g);
-        sessionStorage.setItem("dashboard_group_filter", g);
-        clearCompanySelection(g);
-        notifyDashboardGroupFilterChanged(g, null);
-        return;
-      }
-
-      const pick = pickDefaultSubsidiaryForGroup(companies, g, {
-        me,
-        preferredCompanyId: companyId,
-      });
-      if (!pick?.id) {
-        clearCompanySelection(g);
-        notifyDashboardGroupFilterChanged(g, null);
-        return;
-      }
-
-      const id = parseInt(pick.id, 10);
       setGroupsAllMode(false);
-      persistDashboardFilterState(g, id, { allowGroupOnly: false });
-      notifyDashboardGroupFilterChanged(g, id, {
-        companyCode: pick.company_id,
-      });
       setGroupAllMode(false);
       setMergedSubsetIds(null);
+
+      if (g === selectedGroup && companyId == null && !groupsAllMode && canUseGroupOnlyMode(me)) {
+        setSelectedGroup(null);
+        sessionStorage.removeItem("dashboard_group_filter");
+        persistDashboardFilterState(null, null, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(null, null);
+        return;
+      }
+
       setSelectedGroup(g);
       sessionStorage.setItem("dashboard_group_filter", g);
-      applyCompanySelection(id);
-      void syncCompanySession(id, g);
+      clearCompanySelection(g);
+      notifyDashboardGroupFilterChanged(g, null);
     },
     [
       selectedGroup,
       groupsAllMode,
       companyId,
       me,
-      companies,
       clearCompanySelection,
-      applyCompanySelection,
-      syncCompanySession,
     ]
   );
 
