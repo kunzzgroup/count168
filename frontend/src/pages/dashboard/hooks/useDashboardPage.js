@@ -473,16 +473,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return;
     }
 
-    if (useGroupAccCurrency) {
-      setCurrencies([]);
-      setCurrencyCode("");
-      if (groupKey) currenciesByGroupRef.current.delete(groupKey);
-    } else if (singleCid) {
-      const cached = currenciesByCompanyRef.current.get(singleCid);
-      if (cached?.length) applyCurrencyCodes(cached, singleCid);
-    } else if (groupKey) {
-      const cached = currenciesByGroupRef.current.get(groupKey);
-      if (cached?.length) applyCurrencyCodes(cached, null);
+    if (!useGroupAccCurrency) {
+      if (singleCid) {
+        const cached = currenciesByCompanyRef.current.get(singleCid);
+        if (cached?.length) applyCurrencyCodes(cached, singleCid);
+      } else if (groupKey) {
+        const cached = currenciesByGroupRef.current.get(groupKey);
+        if (cached?.length) applyCurrencyCodes(cached, null);
+      }
     }
 
     try {
@@ -514,6 +512,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (curRes.ok && curJson.success && Array.isArray(curJson.data)) {
           codes = curJson.data.map((r) => String(r.code).toUpperCase());
         }
+        if (!codes.length) {
+          const fbCompanyId =
+            singleCid ??
+            (groupAggregateCurrency && groupKey
+              ? pickGroupAnchorCompany(companies, groupKey)?.id
+              : companyIds[0]);
+          if (fbCompanyId) {
+            const fq = new URLSearchParams({ company_id: String(fbCompanyId) });
+            if (groupKey) fq.set("view_group", groupKey);
+            const fbRes = await fetch(
+              buildApiUrl(`api/transactions/get_company_currencies_api.php?${fq.toString()}`),
+              { credentials: "include" }
+            );
+            const fbJson = await fbRes.json();
+            if (fbRes.ok && fbJson.success && Array.isArray(fbJson.data)) {
+              codes = fbJson.data.map((r) => String(r.code).toUpperCase());
+            }
+          }
+        }
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
 
         const orderCompanyId =
@@ -531,7 +548,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           codes = orderCurrencyCodes(codes, ordJson?.data?.order);
         }
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
-        commitCurrencyList(codes);
+        if (codes.length) {
+          commitCurrencyList(codes);
+        }
         return;
       }
 
@@ -589,10 +608,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         currenciesByGroupRef.current.set("GROUPS:ALL", codes);
       }
     } catch {
-      if (useGroupAccCurrency && gen === currencyLoadGenRef.current && scopeCurrencyKeyRef.current === scopeKey) {
-        setCurrencies([]);
-        setCurrencyCode("");
-      }
+      /* Keep previous currency pills on transient errors. */
     }
   }, [
     companyId,

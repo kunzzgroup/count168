@@ -740,6 +740,30 @@ function dashboardLoadAccountCurrencyMap(PDO $pdo, array $accountIds, array $com
 }
 
 /**
+ * Dashboard currency bar: account_currency first; if none, that scope's Currency Setting rows.
+ *
+ * @param int[] $accountIds
+ * @param int[] $currencyCompanyIds
+ * @return array<int, string>
+ */
+function dashboardFinalizeScopeCurrencyMap(PDO $pdo, array $accountIds, array $currencyCompanyIds): array
+{
+    $currencyCompanyIds = array_values(array_unique(array_filter(array_map('intval', $currencyCompanyIds))));
+    $accountIds = array_values(array_unique(array_map('intval', $accountIds)));
+
+    $map = [];
+    if ($accountIds !== [] && $currencyCompanyIds !== []) {
+        $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $currencyCompanyIds);
+    }
+
+    if ($map === [] && count($currencyCompanyIds) === 1) {
+        $map = dashboardLoadCurrencyMap($pdo, (int) $currencyCompanyIds[0]);
+    }
+
+    return $map;
+}
+
+/**
  * Group / group-tab dashboard: currency filter map from scoped accounts, not full company list.
  *
  * @return array<int, string>
@@ -771,7 +795,7 @@ function dashboardResolveFilterCurrencyMap(
     }
 
     $companyIds = array_values(array_unique($companyIds));
-    return dashboardLoadAccountCurrencyMap($pdo, $accountIds, $companyIds);
+    return dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $companyIds);
 }
 
 /**

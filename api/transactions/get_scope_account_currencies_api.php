@@ -59,12 +59,19 @@ try {
     $currencyCompanyIds = [];
     $accountIds = [];
 
-    // Group tab / group-only: only group-entity acc currencies — never subsidiary (95) via view_group expansion.
+    // Group tab / group-only: group-entity acc currencies — never subsidiary via view_group expansion.
     if ($viewGroup !== '' && !$subsidiaryAccountsOnly) {
         $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
         if ($entityId > 0) {
             $currencyCompanyIds = [$entityId];
             $accountIds = dashboardCollectScopeAccountIds($pdo, $entityId, null, 0);
+            if ($accountIds === []) {
+                $groupScopeId = dashboardResolveGroupScopeId($pdo, $viewGroup);
+                if ($groupScopeId > 0) {
+                    dashboardAssertGroupLedgerAccess($pdo, $viewGroup, $groupScopeId);
+                    $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
+                }
+            }
         } else {
             $groupScopeId = dashboardResolveGroupScopeId($pdo, $viewGroup);
             if ($groupScopeId <= 0) {
@@ -73,6 +80,10 @@ try {
             }
             dashboardAssertGroupLedgerAccess($pdo, $viewGroup, $groupScopeId);
             $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
+            $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+            if ($entityId > 0) {
+                $currencyCompanyIds = [$entityId];
+            }
         }
     } elseif ($groupCode !== '' && $primaryCompanyId <= 0 && $companyIds === []) {
         $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupCode);
@@ -125,8 +136,7 @@ try {
         }
     }
 
-    // Acc currency only — do not fall back to the full company currency table (Currency Setting list).
-    $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $currencyCompanyIds);
+    $map = dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $currencyCompanyIds);
 
     $rows = [];
     foreach ($map as $id => $code) {
