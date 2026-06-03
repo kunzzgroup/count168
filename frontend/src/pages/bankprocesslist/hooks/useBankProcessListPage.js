@@ -1307,7 +1307,7 @@ export function useBankProcessListPage() {
             notify(apiMsg(json, "switchCompanyFailed"), "danger");
             return;
           }
-          if (!layoutSilent) notifyCompanySessionUpdated();
+          notifyCompanySessionUpdated(json.data ?? null);
         } catch {
           if (sessionAc.signal.aborted) return;
           if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
