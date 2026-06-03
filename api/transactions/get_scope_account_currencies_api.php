@@ -104,17 +104,8 @@ try {
         );
     }
 
+    // Acc currency only — do not fall back to the full company currency table (Currency Setting list).
     $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $currencyCompanyIds);
-    if ($map === [] && $currencyCompanyIds !== []) {
-        $fallbackId = (int) $currencyCompanyIds[0];
-        if ($viewGroup !== '') {
-            $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
-            if ($entityId > 0) {
-                $fallbackId = $entityId;
-            }
-        }
-        $map = dashboardLoadCurrencyMap($pdo, $fallbackId);
-    }
 
     $rows = [];
     foreach ($map as $id => $code) {

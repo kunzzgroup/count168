@@ -454,12 +454,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return;
     }
 
-    if (singleCid) {
-      const cached = currenciesByCompanyRef.current.get(singleCid);
-      if (cached?.length) applyCurrencyCodes(cached, singleCid);
-    } else if (groupKey) {
-      const cached = currenciesByGroupRef.current.get(groupKey);
-      if (cached?.length) applyCurrencyCodes(cached, null);
+    if (!useGroupAccCurrency) {
+      if (singleCid) {
+        const cached = currenciesByCompanyRef.current.get(singleCid);
+        if (cached?.length) applyCurrencyCodes(cached, singleCid);
+      } else if (groupKey) {
+        const cached = currenciesByGroupRef.current.get(groupKey);
+        if (cached?.length) applyCurrencyCodes(cached, null);
+      }
     }
 
     try {
@@ -517,18 +519,26 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (gen !== currencyLoadGenRef.current) return;
 
       if (!codes.length) {
-        if (singleCid) {
-          const fallback = currenciesByCompanyRef.current.get(singleCid);
-          if (fallback?.length) applyCurrencyCodes(fallback, singleCid);
-        } else if (groupKey) {
-          const fallback = currenciesByGroupRef.current.get(groupKey);
-          if (fallback?.length) applyCurrencyCodes(fallback, null);
+        if (!useGroupAccCurrency) {
+          if (singleCid) {
+            const fallback = currenciesByCompanyRef.current.get(singleCid);
+            if (fallback?.length) applyCurrencyCodes(fallback, singleCid);
+          } else if (groupKey) {
+            const fallback = currenciesByGroupRef.current.get(groupKey);
+            if (fallback?.length) applyCurrencyCodes(fallback, null);
+          }
+        } else {
+          setCurrencies([]);
+          setCurrencyCode("");
         }
         return;
       }
 
       if (singleCid) {
         applyCurrencyCodes(codes, singleCid);
+        if (useGroupAccCurrency) {
+          currenciesByCompanyRef.current.set(singleCid, codes);
+        }
       } else if (groupKey) {
         applyCurrencyCodes(codes, null);
         currenciesByGroupRef.current.set(groupKey, codes);

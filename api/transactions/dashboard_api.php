@@ -675,6 +675,18 @@ function dashboardLoadAccountCurrencyMap(PDO $pdo, array $accountIds, array $com
                 $map[(int) $row['id']] = strtoupper((string) $row['code']);
             }
         }
+        if ($map === []) {
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT c.id, UPPER(c.code) AS code
+                FROM account_currency ac
+                INNER JOIN currency c ON c.id = ac.currency_id
+                WHERE ac.account_id IN ($ph)
+            ");
+            $stmt->execute($accountIds);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $map[(int) $row['id']] = strtoupper((string) $row['code']);
+            }
+        }
     }
 
     if ($map === [] && dashboardAccountHasCurrencyIdColumn($pdo)) {
@@ -729,19 +741,7 @@ function dashboardResolveFilterCurrencyMap(
     }
 
     $companyIds = array_values(array_unique($companyIds));
-    $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $companyIds);
-    if ($map !== []) {
-        return $map;
-    }
-
-    $fallbackCompanyId = $companyIds[0] ?? $companyId;
-    if ($viewGroupNorm !== '') {
-        $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
-        if ($entityId > 0) {
-            $fallbackCompanyId = $entityId;
-        }
-    }
-    return $fallbackCompanyId > 0 ? dashboardLoadCurrencyMap($pdo, $fallbackCompanyId) : [];
+    return dashboardLoadAccountCurrencyMap($pdo, $accountIds, $companyIds);
 }
 
 /**
