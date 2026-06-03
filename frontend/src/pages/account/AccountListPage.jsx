@@ -728,50 +728,7 @@ export default function AccountListPage() {
 
   onSwitchCompanyRef.current = onSwitchCompany;
 
-  const applyGroupOnlyScope = useCallback(
-    (g) => {
-      if (!g || isCompanyLogin(sessionMe)) return;
-
-      const scope = gcScopeRef.current;
-      const gcScope = {
-        companyId: null,
-        selectedGroup: g,
-        groupsAllMode: false,
-        groupAllMode: false,
-        mergeCompanyIds: scope?.mergeCompanyIds ?? [],
-        groupIds: scope?.groupIds ?? [],
-        isListScopeReady: true,
-      };
-
-      persistEnterDashboardGroupOnlyScope(g);
-
-      skipCompanyFetchEffectRef.current = true;
-      suppressGcSyncRef.current = true;
-      flushSync(() => {
-        setGroupsAllMode(false);
-        setGroupAllMode(false);
-        setSelectedGroup(g);
-        setCompanyId(null);
-        applyCacheOrClearAccounts(gcScope, { groupOnly: true });
-      });
-      suppressGcSyncRef.current = false;
-
-      const cacheKey = resolveAccountListCacheKey(`group:${g}`, searchTerm, showInactive, showAll);
-      lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
-        `group:${g}`,
-        searchTerm,
-        showInactive,
-        showAll,
-      );
-      if (!accountListCacheRef.current.has(cacheKey)) {
-        skipCompanyFetchEffectRef.current = true;
-        startTransition(() => {
-          void fetchAccounts(gcScope, { silent: true, groupOnly: true });
-        });
-      }
-    },
-    [applyCacheOrClearAccounts, fetchAccounts, searchTerm, sessionMe, showAll, showInactive, setGroupAllMode, setGroupsAllMode],
-  );
+  const applyGroupOnlyScopeRef = useRef(null);
 
   const {
     groupIds,
@@ -831,7 +788,7 @@ export default function AccountListPage() {
     },
     onClearCompany: (g) => {
       const grp = g ? String(g).trim().toUpperCase() : String(selectedGroup || "").trim().toUpperCase();
-      if (grp) applyGroupOnlyScope(grp);
+      if (grp && applyGroupOnlyScopeRef.current) applyGroupOnlyScopeRef.current(grp);
       else handleClearCompany();
     },
     switchingCompany: false,
@@ -841,6 +798,62 @@ export default function AccountListPage() {
     forceAllowGroupOnly: canUseGroupOnlyMode(sessionMe),
     broadcastFilterToLayout: false,
   });
+
+  const applyGroupOnlyScope = useCallback(
+    (g) => {
+      if (!g || isCompanyLogin(sessionMe)) return;
+
+      const scope = gcScopeRef.current;
+      const gcScope = {
+        companyId: null,
+        selectedGroup: g,
+        groupsAllMode: false,
+        groupAllMode: false,
+        mergeCompanyIds: scope?.mergeCompanyIds ?? [],
+        groupIds: scope?.groupIds ?? [],
+        isListScopeReady: true,
+      };
+
+      persistEnterDashboardGroupOnlyScope(g);
+
+      skipCompanyFetchEffectRef.current = true;
+      suppressGcSyncRef.current = true;
+      flushSync(() => {
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(g);
+        setCompanyId(null);
+        applyCacheOrClearAccounts(gcScope, { groupOnly: true });
+      });
+      suppressGcSyncRef.current = false;
+
+      const cacheKey = resolveAccountListCacheKey(`group:${g}`, searchTerm, showInactive, showAll);
+      lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
+        `group:${g}`,
+        searchTerm,
+        showInactive,
+        showAll,
+      );
+      if (!accountListCacheRef.current.has(cacheKey)) {
+        skipCompanyFetchEffectRef.current = true;
+        startTransition(() => {
+          void fetchAccounts(gcScope, { silent: true, groupOnly: true });
+        });
+      }
+    },
+    [
+      applyCacheOrClearAccounts,
+      fetchAccounts,
+      searchTerm,
+      sessionMe,
+      showAll,
+      showInactive,
+      setGroupAllMode,
+      setGroupsAllMode,
+    ],
+  );
+
+  applyGroupOnlyScopeRef.current = applyGroupOnlyScope;
 
   gcScopeRef.current = {
     companyId,
