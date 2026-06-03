@@ -739,6 +739,8 @@ export default function DataCapturePage() {
   }, [isCompanySelected, form.clearCompanyOnlyFields]);
 
   useEffect(() => {
+    if (window.__DC_IS_RESTORING__) return;
+    if (new URLSearchParams(window.location.search).get("restore") === "1") return;
     const id = form.selectedProcess?.id;
     if (!id) return;
     if (!isCompanySelected && !isGroupOnlyProcessId(id)) {

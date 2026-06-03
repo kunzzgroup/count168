@@ -13,6 +13,8 @@ import {
   saveGroupOnlyProcessPrefs,
   selectedProcessFromGroupOnlyPrefs,
 } from "../lib/dataCaptureGroupOnlyProcessPersistence.js";
+import { selectedProcessFromGroupOnlySession } from "../lib/dataCaptureGroupOnlyProcesses.js";
+import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
 
 const PROCESS_PLACEHOLDER = "Select Process";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
@@ -22,6 +24,8 @@ function readRestoredProcessData() {
   try {
     const url = new URLSearchParams(window.location.search);
     if (url.get("restore") !== "1") return null;
+    const session = loadActiveCaptureSession();
+    if (session?.processData) return session.processData;
     const raw = localStorage.getItem("capturedProcessData");
     if (!raw) return null;
     return JSON.parse(raw);
@@ -30,7 +34,17 @@ function readRestoredProcessData() {
   }
 }
 
-function readRestoredSelectedProcess(restoredProcessData) {
+function readRestoredSelectedProcess(restoredProcessData, selectedGroup = null) {
+  if (restoredProcessData?.groupOnlyCapture) {
+    const groupKey =
+      restoredProcessData.captureSelectedGroup ||
+      selectedGroup ||
+      null;
+    return (
+      selectedProcessFromGroupOnlySession(restoredProcessData) ||
+      selectedProcessFromGroupOnlyPrefs(readGroupOnlyProcessPrefs(groupKey))
+    );
+  }
   if (!restoredProcessData?.process) return null;
   const pid = String(restoredProcessData.process);
   const pcode = String(restoredProcessData.processCode || restoredProcessData.process_code || "").trim();
@@ -86,6 +100,7 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
 }
 
 function readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData) {
+  if (restoredProcessData?.groupOnlyCapture) return null;
   if (restoredProcessData?.process) return null;
   return readGroupOnlyProcessPrefs(selectedGroup);
 }
@@ -141,7 +156,7 @@ export function useDataCaptureFormEngine(
   const [processOpen, setProcessOpen] = useState(false);
   const [processFilter, setProcessFilter] = useState("");
   const [selectedProcess, setSelectedProcess] = useState(() =>
-    readRestoredSelectedProcess(restoredProcessData)
+    readRestoredSelectedProcess(restoredProcessData, selectedGroup)
   );
 
   const selectedGroupRef = useRef(selectedGroup);
@@ -446,41 +461,42 @@ export function useDataCaptureFormEngine(
       const pname = String(processData.processName || processData.process_name || "").trim();
       const rows = processRowsRef.current || [];
 
-      let row = null;
-      if (pid) row = rows.find((r) => String(r.id) === pid);
-      if (!row && pcode) row = rows.find((r) => String(r.process_id || "").trim() === pcode);
-      if (!row && pname) row = rows.find((r) => displayTextFromProcessRow(r) === pname);
-
-      if (row) {
-        setSelectedProcess({
-          id: String(row.id),
-          displayText: displayTextFromProcessRow(row),
-          process_id: row.process_id,
-          description_name: row.description_name || null,
-        });
-      } else if (pid || pcode || pname) {
-        setSelectedProcess({
-          id: pid || pcode,
-          displayText: pname || pcode || pid,
-          process_id: pcode,
-          description_name: null,
-        });
-      } else if (!applyCompanyOnlyFieldsRef.current && processData.groupOnlyCapture) {
-        const prefs = readGroupOnlyProcessPrefs(
-          processData.captureSelectedGroup || selectedGroupRef.current
-        );
-        const proc = selectedProcessFromGroupOnlyPrefs(prefs);
+      if (!applyCompanyOnlyFieldsRef.current && processData.groupOnlyCapture) {
+        const groupKey = processData.captureSelectedGroup || selectedGroupRef.current;
+        const proc =
+          selectedProcessFromGroupOnlySession(processData) ||
+          selectedProcessFromGroupOnlyPrefs(readGroupOnlyProcessPrefs(groupKey));
         if (proc) setSelectedProcess(proc);
-      }
+        if (proc?.id) {
+          saveGroupOnlyProcessPrefs(groupKey, {
+            process: proc.id,
+            processCode: proc.process_id || pcode,
+            processName: proc.displayText || pname,
+            currency: processData.currency,
+            date: processData.date,
+          });
+        }
+      } else {
+        let row = null;
+        if (pid) row = rows.find((r) => String(r.id) === pid);
+        if (!row && pcode) row = rows.find((r) => String(r.process_id || "").trim() === pcode);
+        if (!row && pname) row = rows.find((r) => displayTextFromProcessRow(r) === pname);
 
-      if (!applyCompanyOnlyFieldsRef.current && pid) {
-        saveGroupOnlyProcessPrefs(processData.captureSelectedGroup || selectedGroupRef.current, {
-          process: pid,
-          processCode: pcode,
-          processName: pname,
-          currency: processData.currency,
-          date: processData.date,
-        });
+        if (row) {
+          setSelectedProcess({
+            id: String(row.id),
+            displayText: displayTextFromProcessRow(row),
+            process_id: row.process_id,
+            description_name: row.description_name || null,
+          });
+        } else if (pid || pcode || pname) {
+          setSelectedProcess({
+            id: pid || pcode,
+            displayText: pname || pcode || pid,
+            process_id: pcode,
+            description_name: null,
+          });
+        }
       }
 
       setTimeout(() => {
@@ -528,15 +544,19 @@ export function useDataCaptureFormEngine(
     persistGroupOnlyFormPrefs();
   }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, currencyId, captureDate, persistGroupOnlyFormPrefs]);
 
+  const applyGroupOnlyPrefsForGroupRef = useRef(applyGroupOnlyPrefsForGroup);
+  applyGroupOnlyPrefsForGroupRef.current = applyGroupOnlyPrefsForGroup;
+
   useLayoutEffect(() => {
     window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__ = async () => {
       if (applyCompanyOnlyFieldsRef.current) return;
-      clearProcessSelection();
+      const groupId = selectedGroupRef.current;
+      if (groupId) applyGroupOnlyPrefsForGroupRef.current(groupId);
     };
     return () => {
       delete window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__;
     };
-  }, [clearProcessSelection]);
+  }, []);
 
   return {
     dateOptions,
