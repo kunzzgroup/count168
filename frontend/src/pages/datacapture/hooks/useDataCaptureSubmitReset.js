@@ -8,6 +8,7 @@ import {
   stripRestoreParamFromUrl,
 } from "../lib/dataCaptureStorage.js";
 import { isGroupOnlyProcessId } from "../lib/dataCaptureGroupOnlyProcesses.js";
+import { clearGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import {
   captureTableDataFromDom,
   pickRicherTableSnapshot,
@@ -219,6 +220,10 @@ export function useDataCaptureSubmitReset({
     }
     window.selectedDescriptions = [];
 
+    if (groupOnlyCapture && selectedGroup && isGroupOnlyProcessId(form.selectedProcess?.id)) {
+      clearGroupOnlyTableDraft(selectedGroup, form.selectedProcess.id);
+    }
+
     if (typeof window.__DC_CLEAR_CAPTURE_TABLE__ === "function") {
       window.__DC_CLEAR_CAPTURE_TABLE__();
     }
@@ -230,7 +235,7 @@ export function useDataCaptureSubmitReset({
     }
 
     recomputeSubmitState();
-  }, [recomputeSubmitState]);
+  }, [recomputeSubmitState, groupOnlyCapture, selectedGroup, form.selectedProcess?.id]);
 
   const restoreFromStorage = useCallback(async () => {
     if (!shouldRestoreFromUrl()) return;

@@ -1,5 +1,6 @@
-import { loadCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
+import { loadActiveCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
 import { saveGroupOnlyProcessPrefsFromProcessData } from "../../datacapture/lib/dataCaptureGroupOnlyProcessPersistence.js";
+import { saveGroupOnlyTableDraftFromCaptureSession } from "../../datacapture/lib/dataCaptureGroupOnlyTableDraft.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
 /** Persist formula/source/rate draft caches before refresh or leaving (not final Submit). */
@@ -37,8 +38,9 @@ export function buildSummarySubmittedCapturePath(companyId, options = {}) {
 export function clearSummarySessionAfterSubmit(options = {}) {
   window.isNavigatingAwayByBackOrSubmit = true;
   if (options.groupOnly === true) {
-    const session = loadCaptureSession();
+    const session = loadActiveCaptureSession();
     if (session?.processData) {
+      saveGroupOnlyTableDraftFromCaptureSession(session);
       saveGroupOnlyProcessPrefsFromProcessData(session.processData, session.processData.captureSelectedGroup);
     }
   }
