@@ -66,7 +66,7 @@ export default function GcInlineFilterPanel({
         </div>
       )}
       {showCompanyRow && (groupIds.length > 0 || companiesForPicker.length > 0) && (
-        <div className="user-gc-inline-row">
+        <div className="user-gc-inline-row user-gc-inline-row--company">
           <span className="user-gc-inline-label">{t("company")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
@@ -82,6 +82,7 @@ export default function GcInlineFilterPanel({
               {companiesForPicker.map((c) => {
                 const active = !groupAllMode && Number(pickerCompanyId) === Number(c.id);
                 const pending = switchingCompany && active;
+                const label = String(c.company_id || "").toUpperCase();
                 return (
                   <button
                     key={c.id}
@@ -97,7 +98,7 @@ export default function GcInlineFilterPanel({
                       void onPickCompany?.(c, active);
                     }}
                   >
-                    {String(c.company_id || "").toUpperCase()}
+                    <span className="user-gc-segment-label">{label}</span>
                   </button>
                 );
               })}

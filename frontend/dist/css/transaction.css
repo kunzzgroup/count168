@@ -379,6 +379,27 @@ body.transaction-page .transaction-bottom-filters .user-gc-segment.is-on {
     border-right-color: rgba(255, 255, 255, 0.28);
 }
 
+/* Company row: instant highlight move when switching companies in the same group */
+body.transaction-page .transaction-bottom-filters .user-gc-inline-row--company .user-gc-segment {
+    transition: none;
+    opacity: 1;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-inline-row--company .user-gc-segment.is-on {
+    transition: none;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-inline-row--company .user-gc-segment-label {
+    display: inline-block;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+}
+
+body.transaction-page .transaction-bottom-filters .user-gc-inline-row--company .user-gc-segment-group {
+    contain: layout style;
+}
+
 body.transaction-page .transaction-bottom-filters .user-gc-segment:disabled {
     opacity: 0.6;
     cursor: not-allowed;
@@ -2285,11 +2306,6 @@ body.transaction-page #historyModal .transaction-history-modal .transaction-moda
 /**
  * transaction.css - 原根目录 transaction.css 已移入此文件夹，并包含 transaction.php 页面专用样式
  */
-/* Bold transaction workspace only — sidebar is outside .transaction-container */
-body.transaction-page .transaction-container,
-body.transaction-page .transaction-container * {
-    font-weight: 700;
-}
 
 /* ==================== Contra Approval Inbox ==================== */
 .transaction-header-bar {

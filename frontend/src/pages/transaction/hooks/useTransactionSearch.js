@@ -707,6 +707,7 @@ export function useTransactionSearch({
     setTablesVisible((prev) => (prev ? prev : true));
     if (scopeChanged) {
       lastCompletedSearchKeyRef.current = "";
+      initialSearchDoneRef.current = false;
     }
   }, [scopeKey, queryClient]);
 
@@ -720,13 +721,11 @@ export function useTransactionSearch({
     [selectedCategories],
   );
 
-  // Initial search / replay logic
   useEffect(() => {
-    if (scopeKey) {
-      initialSearchDoneRef.current = false;
-    }
+    if (scopeKey) initialSearchDoneRef.current = false;
   }, [scopeKey]);
 
+  // Initial search / replay logic
   useEffect(() => {
     if (!scopeReady) return;
     if (currencyRowsOrdered.length === 0) return;

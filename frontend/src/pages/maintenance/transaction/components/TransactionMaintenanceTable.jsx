@@ -1,6 +1,9 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useProgressiveScrollExtent } from "../../shared/useProgressiveScrollExtent.js";
+import {
+  useMaintenanceCyclicScrollExtent,
+  useMaintenanceCyclicScrollObserver,
+} from "../../shared/useMaintenanceCyclicVirtualScroll.js";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 
@@ -123,6 +126,7 @@ export default function TransactionMaintenanceTable({
   m,
 }) {
   const scrollRef = useRef(null);
+  const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
   const sizeCacheRef = useRef(new Map());
   const rowsRef = useRef([]);
   const rows = Array.isArray(data) ? data : [];
@@ -163,9 +167,11 @@ export default function TransactionMaintenanceTable({
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
+    observeElementOffset,
   });
 
   useLayoutEffect(() => {
+    contentOffsetRef.current = 0;
     scrollRef.current?.scrollTo(0, 0);
     sizeCacheRef.current.clear();
     rowVirtualizer.measure();
@@ -173,18 +179,19 @@ export default function TransactionMaintenanceTable({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH } = useProgressiveScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceCyclicScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: ROW_HEIGHT,
     resetDeps: [rows],
+    contentOffsetRef,
   });
 
   if (rows.length === 0 && (showSkeleton || statusMessage)) {
     const label = statusMessage || m.loading;
     return (
-      <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table" style={{ display: "block" }}>
+      <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table">
         <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
           <TopLoadingBar label={label} />
           <VirtualTableHeader m={m} />
@@ -210,7 +217,7 @@ export default function TransactionMaintenanceTable({
   const topLabel = topLoadingLabel || m.loading;
 
   return (
-    <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table" style={{ display: "block" }}>
+    <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table">
       <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
         {showBlueBar ? <TopLoadingBar label={topLabel} /> : null}
         <VirtualTableHeader m={m} />
@@ -232,7 +239,7 @@ export default function TransactionMaintenanceTable({
                       width: "100%",
                       height: `${virtualRow.size}px`,
                       minHeight: `${virtualRow.size}px`,
-                      transform: `translateY(${virtualRow.start}px)`,
+                      transform: `translateY(${virtualRow.start - cyclicRowOffset}px)`,
                     }}
                   >
                     <VirtualDataRow row={row} index={virtualRow.index} />

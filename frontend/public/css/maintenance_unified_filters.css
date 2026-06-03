@@ -421,4 +421,63 @@ body.maintenance-page .maintenance-table td.maintenance-table-cell {
     text-align: left !important;
 }
 
+/* All maintenance pages: no window scroll; list scrolls inside virtual table only */
+html:has(body.maintenance-page),
+body.dashboard-page.maintenance-page {
+    overflow: hidden !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
+}
+
+body.maintenance-page #root {
+    overflow: hidden !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
+}
+
+body.maintenance-page .container,
+body.maintenance-page .capture-maintenance-page-root,
+body.maintenance-page .payment-maintenance-page-root,
+body.maintenance-page .transaction-maintenance-page-root,
+body.maintenance-page .formula-maintenance-page-root,
+body.maintenance-page .bankprocess-maintenance-page-root {
+    overflow: hidden !important;
+    box-sizing: border-box;
+    max-height: 100dvh;
+}
+
+/* Wrapper scrolls horizontally only; vertical scroll lives on .maintenance-virtual-scroll */
+body.maintenance-page .maintenance-virtual-table,
+body.maintenance-page .payment-virtual-table,
+body.maintenance-page .formula-virtual-table,
+body.maintenance-page .transaction-virtual-table,
+body.maintenance-page .capture-virtual-table,
+body.maintenance-page .bankprocess-virtual-table {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+body.maintenance-page .maintenance-virtual-table-inner,
+body.maintenance-page .payment-virtual-table-inner,
+body.maintenance-page .formula-virtual-table-inner,
+body.maintenance-page .transaction-virtual-table-inner,
+body.maintenance-page .capture-virtual-table-inner,
+body.maintenance-page .bankprocess-virtual-table-inner {
+    overflow: hidden !important;
+}
+
+body.maintenance-page .maintenance-list-container {
+    overflow: hidden !important;
+}
+
+body.maintenance-page .maintenance-virtual-scroll,
+body.maintenance-page .maintenance-virtual-scroll--body {
+    max-height: min(72vh, calc(100dvh - 260px), 900px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto !important;
+    -ms-overflow-style: auto !important;
+}
+
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

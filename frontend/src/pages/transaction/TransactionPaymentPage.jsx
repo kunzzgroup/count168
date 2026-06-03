@@ -287,6 +287,7 @@ export default function TransactionPaymentPage() {
             onCompanyButtonClick={data.onCompanyButtonClick}
             onPickAllGroups={data.onPickAllGroups}
             onPickAllInGroup={data.onPickAllInGroup}
+            allowCompanyDeselect={data.allowCompanyDeselect}
             currencyRowsOrdered={currencyRowsOrdered}
             onCurrencyDragStart={search.onCurrencyDragStart}
             onCurrencyDropOn={search.onCurrencyDropOn}
