@@ -16,6 +16,26 @@ function isSummarySpaRoute() {
     );
 }
 
+/** True only on Summary route or when Summary page shell is mounted (not generic .container pages). */
+function isDataCaptureSummaryPageContext() {
+    if (isSummarySpaRoute()) return true;
+    return Boolean(
+        document.getElementById('summaryTableContainer') ||
+        document.getElementById('summarySubmitContainer') ||
+        document.getElementById('summaryTableBody')
+    );
+}
+
+function scheduleDataCaptureSummaryAutoInit() {
+    if (window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) return;
+    if (!isDataCaptureSummaryPageContext()) return;
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage(), { once: true });
+    } else {
+        initDataCaptureSummaryPage();
+    }
+}
+
 // Resolve API URLs from site root (SPA-safe when pathname is /datacapturesummary)
 function buildApiUrl(pathAndQuery) {
     const pathname = window.location.pathname || '/';
@@ -240,6 +260,7 @@ function hideNotification() {
 
 // Initialize page (classic PHP auto-runs unless __DATACAPTURESUMMARY_SPA_BOOTSTRAP__ is set)
 function initDataCaptureSummaryPage() {
+    if (!isDataCaptureSummaryPageContext()) return;
     const summaryShell = document.querySelector('.container');
     if (!summaryShell || summaryShell.dataset.summaryPageInit === '1') return;
     summaryShell.dataset.summaryPageInit = '1';
@@ -353,13 +374,6 @@ window.addEventListener('pageshow', function (ev) {
 });
 
 window.initDataCaptureSummaryPage = initDataCaptureSummaryPage;
-if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage());
-    } else {
-        initDataCaptureSummaryPage();
-    }
-}
 
 // Save draft state on browser refresh (F5); skip when leaving via Back or Submit
 window.addEventListener('beforeunload', function () {
@@ -1734,6 +1748,7 @@ function refreshPage() {
 
 // Load captured table data from localStorage and render it. 会先从服务端拉取 Summary 状态（若有），供后续恢复顺序与公式，减少对 localStorage 的依赖。
 async function loadAndRenderCapturedTable() {
+    if (!isDataCaptureSummaryPageContext()) return;
     try {
         // 兜底：确保 fresh 标记在异步链路里可用（避免调用顺序变化导致首屏判定错误）
         if (typeof window.__summaryFreshFromCapture === 'undefined') {
@@ -20188,6 +20203,7 @@ function updateIdProductWithDescription(processValue, descriptionValue, targetRo
 // Show empty state when no data is available
 function showEmptyState() {
     if (window.__SUMMARY_REACT_TABLE__ || window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) return;
+    if (!isDataCaptureSummaryPageContext()) return;
     const dcHref = buildApiUrl('datacapture');
     const emptyStateHTML = `
         <div class="summary-table-container empty-state-container">
@@ -20205,9 +20221,11 @@ function showEmptyState() {
     const submitButtonContainer = document.getElementById('summarySubmitContainer');
     if (submitButtonContainer) {
         submitButtonContainer.insertAdjacentHTML('afterend', emptyStateHTML);
-    } else {
-        // Fallback: insert after the summary table if submit button not found
-        const originalTableContainer = document.querySelector('.summary-table-container');
+        return;
+    }
+    // Fallback: insert after the summary table if submit button not found
+    const originalTableContainer = document.querySelector('.summary-table-container');
+    if (originalTableContainer) {
         originalTableContainer.insertAdjacentHTML('afterend', emptyStateHTML);
     }
 }
@@ -21737,10 +21755,4 @@ window.deleteSelectedRows = deleteSelectedRows;
 window.updateDeleteButton = updateDeleteButton;
 window.collectValidDeleteRowTargets = collectValidDeleteRowTargetsFromDom;
 window.executeDeleteSelectedRows = performDeleteSelectedRows;
-if (!window.__DATACAPTURESUMMARY_SPA_BOOTSTRAP__) {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => initDataCaptureSummaryPage());
-    } else {
-        initDataCaptureSummaryPage();
-    }
-}
+scheduleDataCaptureSummaryAutoInit();
