@@ -1,6 +1,12 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/date/dateUtils.js";
-import { companiesInGroupList } from "../../../utils/company/sharedCompanyFilter.js";
+import {
+  companiesInGroupList,
+  pickDefaultSubsidiaryForGroup,
+  pickGroupAnchorCompany,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { syncCompanySessionApi } from "../../../utils/company/companySessionSync.js";
 import {
   fetchDomainCompanyPermissions,
   fetchMaintenanceProcesses,
@@ -637,6 +643,25 @@ export async function updateSessionCompany(companyId) {
     throw new Error(result.error || 'Failed to update session company');
   }
   return result.data;
+}
+
+/** Group-only: sync anchor subsidiary + view_group before maintenance search APIs run. */
+export async function syncTransactionMaintenanceGroupAnchorSession(
+  companies,
+  groupId,
+  sessionCompanyId = null,
+) {
+  const g = groupId ? String(groupId).trim().toUpperCase() : "";
+  if (!g) return false;
+  const anchor =
+    pickDefaultSubsidiaryForGroup(companies, g, {
+      preferredCompanyId: sessionCompanyId,
+    }) ?? pickGroupAnchorCompany(companies, g);
+  const id = anchor?.id != null ? Number(anchor.id) : Number.NaN;
+  if (!Number.isFinite(id) || id <= 0) return false;
+  const json = await syncCompanySessionApi(id, g);
+  if (json?.success) notifyCompanySessionUpdated();
+  return Boolean(json?.success);
 }
 
 export function isMaintenanceRecoverableError(err) {

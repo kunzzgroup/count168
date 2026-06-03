@@ -14,9 +14,11 @@ import {
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
   readPersistedDashboardGcFilter,
+  readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   fetchOwnerCompaniesAll,
+  DASHBOARD_GROUP_FILTER_KEY,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
@@ -38,6 +40,7 @@ import {
   pickTransactionMaintenancePermission,
   searchTransactionData,
   updateSessionCompany,
+  syncTransactionMaintenanceGroupAnchorSession,
   isMaintenanceRecoverableError,
   getMaintenanceSearchUserMessage,
   packMaintenanceCache,
@@ -78,6 +81,21 @@ function consumeNoDataToastDedupeKey(key) {
   return true;
 }
 
+function readInitialMaintenanceSelectedGroup() {
+  try {
+    const saved = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+    return saved ? String(saved).trim().toUpperCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+function readInitialMaintenanceCompanyId() {
+  const persisted = readPersistedDashboardGcFilter();
+  if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
+  return readDashboardSelectedCompanyId();
+}
+
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -91,9 +109,9 @@ export default function TransactionMaintenancePage() {
   const [permissions, setPermissions] = useState([]);
 
   // -- Filter State --
-  const [companyId, setCompanyId] = useState(null);
+  const [companyId, setCompanyId] = useState(readInitialMaintenanceCompanyId);
   const [companyCode, setCompanyCode] = useState("");
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(readInitialMaintenanceSelectedGroup);
   const [selectedProcess, setSelectedProcess] = useState("");
   const [activePermission, setActivePermission] = useState("");
   
@@ -187,6 +205,14 @@ export default function TransactionMaintenancePage() {
     [transactionScope, dateFrom, dateTo, processFilter, activePermission],
   );
 
+  const { anchorSessionReady } = useGroupAnchorSessionSync({
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: me?.company_id,
+    enabled: true,
+  });
+
   const listQueryEnabled = Boolean(
     filtersReady &&
     dateRangeReady &&
@@ -194,16 +220,9 @@ export default function TransactionMaintenancePage() {
     transactionMaintenanceScopeIsReady(transactionScope) &&
     dateFrom &&
     dateTo &&
-    activePermission,
+    activePermission &&
+    anchorSessionReady,
   );
-
-  useGroupAnchorSessionSync({
-    companies,
-    selectedGroup,
-    companyId,
-    sessionCompanyId: me?.company_id,
-    enabled: true,
-  });
 
   const bootPending =
     !filtersReady ||
@@ -413,6 +432,7 @@ export default function TransactionMaintenancePage() {
 
   // Hydrate company from cache before async boot — skip when user cleared company (group-only).
   useEffect(() => {
+    if (!filtersReady) return;
     const persistedGc = readPersistedDashboardGcFilter();
     if (!me || companyId != null || isDashboardGroupOnlyMode() || persistedGc.groupOnly) return;
     const cached = getCachedOwnerCompanies();
@@ -431,7 +451,7 @@ export default function TransactionMaintenancePage() {
     const comp = cached?.find((c) => Number(c.id) === initialCompanyId);
     setCompanyId(initialCompanyId);
     if (comp?.company_id) setCompanyCode(comp.company_id);
-  }, [me?.user_id, me?.company_id, companyId]);
+  }, [me?.user_id, me?.company_id, companyId, filtersReady]);
 
   // Defer first search one tick after filters are ready (align with Capture/Payment maintenance).
   useEffect(() => {
@@ -532,6 +552,15 @@ export default function TransactionMaintenancePage() {
             if (!cancelled) setProcesses(procList);
           } catch (err) {
             console.error("Process list load error:", err);
+          }
+          try {
+            await syncTransactionMaintenanceGroupAnchorSession(
+              filtered,
+              bootGroup,
+              u.company_id,
+            );
+          } catch (err) {
+            console.error("Group anchor session sync error:", err);
           }
           skipMetaAfterBootRef.current = true;
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
@@ -764,12 +793,17 @@ export default function TransactionMaintenancePage() {
         setPermissions(meta.permissions);
         setActivePermission(meta.activePermission);
         setMetaReady(true);
+        try {
+          await syncTransactionMaintenanceGroupAnchorSession(companies, g, me?.company_id);
+        } catch (syncErr) {
+          console.error("Group anchor session sync after clear company:", syncErr);
+        }
       } catch (err) {
         console.error("Meta bootstrap after clear company:", err);
         setMetaReady(true);
       }
     })();
-  }, [companies, selectedGroup]);
+  }, [companies, selectedGroup, me?.company_id]);
 
   const onPrepareCompanySelect = useCallback((c) => {
     if (!c?.id) return;
