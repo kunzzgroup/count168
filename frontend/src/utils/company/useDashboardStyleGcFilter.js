@@ -17,6 +17,7 @@ import {
 import {
   canClearCompanySelection,
   canUseGroupOnlyMode,
+  supportsDashboardStyleGroupOnly,
   resolveVisibleGroupIds,
 } from "./loginScope.js";
 import { useGroupAnchorSessionSync } from "./useGroupAnchorSessionSync.js";
@@ -38,7 +39,7 @@ export function useDashboardStyleGcFilter({
   onDeselectGroup,
   switchingCompany = false,
   preferredCompanyId = null,
-  /** When false, picking a group clears company (default — shared across all pages). */
+  /** When true, picking a group auto-selects first company in that group (legacy). */
   selectFirstCompanyOnGroupChange = false,
   sessionCompanyId = null,
   /** Data Capture uses custom anchor sync (gambling redirect). */
@@ -52,7 +53,8 @@ export function useDashboardStyleGcFilter({
   /** Current user from AuthSessionContext — enforces group vs company login rules. */
   me = null,
 }) {
-  const allowGroupOnly = canUseGroupOnlyMode(me) || forceAllowGroupOnly;
+  const allowGroupOnly =
+    canUseGroupOnlyMode(me) || forceAllowGroupOnly || supportsDashboardStyleGroupOnly(me);
   const allowClearCompany = canClearCompanySelection(me);
 
   const { resetAnchorSessionRef, markAnchorSynced } = useGroupAnchorSessionSync({
@@ -81,18 +83,18 @@ export function useDashboardStyleGcFilter({
       if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
+
       if (g === selectedGroup && companyId != null) {
-        if (!canUseGroupOnlyMode(me)) {
+        if (!allowGroupOnly) {
           clearDashboardGroupFilterKeepCompany(companyId);
           setSelectedGroup(null);
           onDeselectGroup?.(companyId);
           return;
         }
-        if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
+        if (!selectFirstCompanyOnGroupChange) {
           persistDashboardFilterState(g, null, { allowGroupOnly: true });
           resetAnchorSessionRef();
           onClearCompany?.(g);
-          notifyDashboardGroupFilterChanged(g, null);
         }
         return;
       }
@@ -100,11 +102,10 @@ export function useDashboardStyleGcFilter({
       persistDashboardGroupFilter(g);
       setSelectedGroup(g);
 
-      if (allowGroupOnly && !selectFirstCompanyOnGroupChange && g === selectedGroup) {
+      if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
         persistDashboardFilterState(g, null, { allowGroupOnly: true });
         resetAnchorSessionRef();
         onClearCompany?.(g);
-        notifyDashboardGroupFilterChanged(g, null);
         return;
       }
 
@@ -126,7 +127,6 @@ export function useDashboardStyleGcFilter({
       if (!canUseGroupOnlyMode(me) && companyId != null) {
         persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
         notifyDashboardGroupFilterChanged(g, companyId, { ignoreGroupOnly: true });
-        return;
       }
     },
     [
@@ -153,7 +153,10 @@ export function useDashboardStyleGcFilter({
     if (!pick) return;
     persistDashboardFilterState(selectedGroup, pick.id, { allowGroupOnly: false });
     markAnchorSynced(selectedGroup, pick.id);
-    notifyDashboardGroupFilterChanged(selectedGroup, pick.id);
+    notifyDashboardGroupFilterChanged(selectedGroup, pick.id, {
+      companyCode: pick.company_id,
+      ignoreGroupOnly: true,
+    });
     if (onSelectCompany) void onSelectCompany(pick);
   }, [
     allowGroupOnly,
@@ -172,34 +175,24 @@ export function useDashboardStyleGcFilter({
 
       const id = Number(c.id);
       const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-      const sel = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-      const isActive = companyId != null && Number(companyId) === id;
-
+      const sel = String(selectedGroup || "").trim().toUpperCase();
+      const isActive =
+        companyId != null && Number(companyId) === id && (!gid || gid === sel);
       if (isActive) {
         if (!allowClearCompany) return;
-        const g = sel || gid;
-        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        persistDashboardFilterState(sel || gid, null, { allowGroupOnly: true });
         resetAnchorSessionRef();
-        onClearCompany?.(g);
-        notifyDashboardGroupFilterChanged(g, null);
+        onClearCompany?.(sel || gid);
         return;
       }
 
-      const nextGroup = gid || null;
-      if (nextGroup) {
-        persistDashboardGroupFilter(nextGroup);
-        setSelectedGroup(nextGroup);
-      } else {
-        persistDashboardGroupFilter(null);
-        setSelectedGroup(null);
-      }
-
-      persistDashboardFilterState(nextGroup, id, {
-        allowGroupOnly: allowGroupOnly && canUseGroupOnlyMode(me),
-      });
-      markAnchorSynced(nextGroup, id);
-      notifyDashboardGroupFilterChanged(nextGroup, id, {
+      const effectiveGroup = gid || sel;
+      if (gid) setSelectedGroup(gid);
+      persistDashboardFilterState(effectiveGroup, id, { allowGroupOnly: false });
+      markAnchorSynced(effectiveGroup, id);
+      notifyDashboardGroupFilterChanged(effectiveGroup, id, {
         companyCode: c.company_id,
+        ignoreGroupOnly: true,
       });
       if (onPrepareCompanySelect) onPrepareCompanySelect(c);
       if (onSelectCompany) void onSelectCompany(c);
@@ -212,25 +205,20 @@ export function useDashboardStyleGcFilter({
       onPrepareCompanySelect,
       onSelectCompany,
       onClearCompany,
+      allowClearCompany,
       resetAnchorSessionRef,
       markAnchorSynced,
-      allowClearCompany,
-      allowGroupOnly,
     ]
   );
-
-  useLayoutEffect(() => {
-    if (!broadcastFilterToLayout) return;
-    const cid = isDashboardGroupOnlyMode() ? null : companyId;
-    notifyDashboardGroupFilterChanged(selectedGroup, cid);
-  }, [selectedGroup, companyId, broadcastFilterToLayout]);
 
   return {
     groupIds,
     companiesForPicker,
     handlePickGroup,
     handlePickCompany,
-    allowGroupOnly,
     allowClearCompany,
+    allowGroupOnly,
+    resetAnchorSessionRef,
+    markAnchorSynced,
   };
 }

@@ -14,6 +14,7 @@ import {
   isCompanyLogin,
   isGroupLogin,
   resolveAccessibleGroupIds,
+  supportsDashboardStyleGroupOnly,
 } from "./loginScope.js";
 
 export {
@@ -23,6 +24,7 @@ export {
   getLoginScope,
   isCompanyLogin,
   isGroupLogin,
+  supportsDashboardStyleGroupOnly,
 } from "./loginScope.js";
 
 export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
@@ -288,6 +290,25 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
  * Sidebar Process: hidden while a group is selected with no company (group-only), except on process routes.
  * Group login with a subsidiary company selected (e.g. C168) keeps Process visible.
  */
+/** UI scope: group selected, no company pill (matches Dashboard filter strip). */
+export function isGcGroupOnlyUi({
+  selectedGroup,
+  companyId,
+  groupsAllMode = false,
+  groupAllMode = false,
+} = {}) {
+  if (groupsAllMode || groupAllMode) return false;
+  if (!selectedGroup) return false;
+  const cid = companyId != null && companyId !== "" ? Number(companyId) : Number.NaN;
+  return !(Number.isFinite(cid) && cid > 0);
+}
+
+/** Hide company pills when group-only (Dashboard-aligned filter strip). */
+export function gcInlinePickerCompanies(companiesForPicker, scope = {}) {
+  if (isGcGroupOnlyUi(scope)) return [];
+  return Array.isArray(companiesForPicker) ? companiesForPicker : [];
+}
+
 export function shouldHideSidebarProcess(pathname) {
   if (
     pathname === "/process-list" ||

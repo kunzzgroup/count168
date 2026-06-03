@@ -35,7 +35,12 @@ import {
 } from "../lib/dashboardDateUtils.js";
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
-import { canUseGroupOnlyMode, resolveVisibleGroupIds } from "../../../utils/company/loginScope.js";
+import {
+  canUseGroupOnlyMode,
+  supportsDashboardStyleGroupOnly,
+  resolveVisibleGroupIds,
+} from "../../../utils/company/loginScope.js";
+import { isGcGroupOnlyUi } from "../../../utils/company/sharedCompanyFilter.js";
 import { sortIds } from "../lib/dashboardEarnings.js";
 import {
   companiesInGroupList,
@@ -1722,7 +1727,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
 
-      if (canUseGroupOnlyMode(me)) {
+      if (supportsDashboardStyleGroupOnly(me)) {
         setGroupsAllMode(false);
         setSelectedGroup(g);
         sessionStorage.setItem("dashboard_group_filter", g);
@@ -1907,12 +1912,26 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     setCurrencyCode(code);
   }, []);
 
+  const companiesForPickerPanel = useMemo(() => {
+    if (
+      isGcGroupOnlyUi({
+        selectedGroup,
+        companyId,
+        groupsAllMode,
+        groupAllMode,
+      })
+    ) {
+      return [];
+    }
+    return companiesForPicker;
+  }, [companiesForPicker, selectedGroup, companyId, groupsAllMode, groupAllMode]);
+
   return {
     me,
     loadError,
     companyAccessModal,
     closeCompanyAccessModal,
-    companiesForPicker,
+    companiesForPicker: companiesForPickerPanel,
     groupIds,
     selectedGroup,
     groupsAllMode,

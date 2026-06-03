@@ -459,6 +459,7 @@ export default function BankProcessListPage() {
                 </div>
               </div>
             )}
+            {companyButtons.length > 0 && (
             <div className="user-gc-inline-row">
               <span className="user-gc-inline-label">{t("company")}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
@@ -483,6 +484,7 @@ export default function BankProcessListPage() {
                 </div>
               </div>
             </div>
+            )}
             {currencyListOrdered.length > 0 && (
               <div className="user-gc-inline-row">
                 <span className="user-gc-inline-label">{t("currency")}</span>

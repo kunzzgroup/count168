@@ -31,12 +31,14 @@ import {
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
+  isGcGroupOnlyUi,
 } from "../../utils/company/sharedCompanyFilter.js";
 import {
   canUseGroupOnlyMode,
   isCompanyLogin,
   isGroupLogin,
   resolveVisibleGroupIds,
+  supportsDashboardStyleGroupOnly,
 } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
@@ -244,12 +246,25 @@ export default function UserListPage() {
       ),
     [companies]
   );
+  const gcGroupOnlyUi = useMemo(
+    () =>
+      isGcGroupOnlyUi({
+        selectedGroup,
+        companyId,
+        groupsAllMode,
+        groupAllMode,
+      }),
+    [selectedGroup, companyId, groupsAllMode, groupAllMode],
+  );
   const groupOnlyUserList = useMemo(() => {
-    if (!selectedGroup || companyId != null) return false;
+    if (!gcGroupOnlyUi) return false;
     if (isCompanyLogin(me)) return false;
-    if (isGroupLogin(me)) return isDashboardGroupOnlyMode();
-    return isDashboardGroupOnlyMode();
-  }, [selectedGroup, companyId, me]);
+    return (
+      supportsDashboardStyleGroupOnly(me) ||
+      isGroupLogin(me) ||
+      isDashboardGroupOnlyMode()
+    );
+  }, [gcGroupOnlyUi, me]);
   const groupEntityCompanies = useMemo(
     () => (selectedGroup ? companiesGroupEntityList(companies, selectedGroup) : []),
     [companies, selectedGroup],
@@ -551,12 +566,8 @@ export default function UserListPage() {
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
-  const handleClearCompany = useCallback(() => {
-    setCompanyId(null);
-    setUsersRaw([]);
-  }, []);
-
   const onSwitchCompanyRef = useRef(null);
+  const clearCompanyForGroupOnlyRef = useRef(() => {});
 
   const {
     groupIds,
@@ -565,6 +576,7 @@ export default function UserListPage() {
     groupAllMode,
     handlePickAllGroups,
     handlePickAllInGroup,
+    handlePickGroup,
     isListScopeReady,
     setGroupsAllMode,
     setGroupAllMode,
@@ -587,16 +599,18 @@ export default function UserListPage() {
       skipCompanyFetchEffectRef.current = true;
       flushSync(() => applyUserListCache(cid));
     },
-    onClearCompany: handleClearCompany,
+    onClearCompany: (groupKey) => clearCompanyForGroupOnlyRef.current(groupKey),
     switchingCompany: false,
     preferredCompanyId: companyId,
     me,
     autoPickCompanyWhenEmpty: false,
+    forceAllowGroupOnly: supportsDashboardStyleGroupOnly(me),
     broadcastFilterToLayout: false,
   });
 
   /** When no Group is selected, the shared picker only lists “ungrouped” rows — often empty for AP/IG-only tenants. */
   const inlineCompaniesForPicker = useMemo(() => {
+    if (gcGroupOnlyUi) return [];
     if (companiesForPicker.length > 0) return companiesForPicker;
 
     const effectiveGroup =
@@ -624,6 +638,9 @@ export default function UserListPage() {
     companies,
     groupIds,
     allCompanyButtons,
+    gcGroupOnlyUi,
+    groupsAllMode,
+    groupAllMode,
   ]);
 
   const aggregateUserList = useMemo(
@@ -744,6 +761,36 @@ export default function UserListPage() {
     groupsAllMode,
     groupAllMode,
   ]);
+
+  const clearCompanyForGroupOnly = useCallback(
+    (groupKey) => {
+      const g = groupKey
+        ? String(groupKey).trim().toUpperCase()
+        : String(selectedGroup || "").trim().toUpperCase();
+      if (!g) return;
+
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(g);
+        setCompanyId(null);
+        applyUserListCache(null, { groupOnly: true });
+      });
+
+      persistDashboardGroupFilter(g);
+      persistDashboardGroupOnlyMode(true);
+      persistDashboardFilterState(g, null, { allowGroupOnly: true });
+      stripCompanyIdFromUrl();
+
+      const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);
+      if (!userListCacheRef.current.has(groupCacheKey)) {
+        void fetchUsers(null, { silent: true, groupOnly: true });
+      }
+    },
+    [applyUserListCache, fetchUsers, selectedGroup, setGroupAllMode, setGroupsAllMode],
+  );
+  clearCompanyForGroupOnlyRef.current = clearCompanyForGroupOnly;
 
   const onSwitchCompany = useCallback(async (c) => {
     const nextCompanyId = Number(c?.id);
@@ -875,75 +922,16 @@ export default function UserListPage() {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       const current = String(selectedGroup || "").trim().toUpperCase();
-      const groupLogin = isGroupLogin(me);
-
-      if (groupLogin && g) {
-        skipCompanyFetchEffectRef.current = true;
-        flushSync(() => {
-          setGroupsAllMode(false);
-          setGroupAllMode(false);
-          setSelectedGroup(g);
-          setCompanyId(null);
-          applyUserListCache(null, { groupOnly: true });
-        });
-
-        persistDashboardGroupFilter(g);
-        persistDashboardGroupOnlyMode(true);
-        persistDashboardFilterState(g, null, { allowGroupOnly: true });
-
-        const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);
-        if (!userListCacheRef.current.has(groupCacheKey)) {
-          void fetchUsers(null, { silent: true, groupOnly: true });
+      if (!g) return;
+      if (g === current && companyId == null) {
+        if (supportsDashboardStyleGroupOnly(me) || isGroupLogin(me)) {
+          deselectGroupKeepCompany();
         }
         return;
       }
-
-      if (!g || (groupLogin && g === current && companyId != null)) return;
-
-      if (requiresCompanyWithGroup) {
-        if (g === current) {
-          deselectGroupKeepCompany();
-          return;
-        }
-
-        const pick = pickDefaultSubsidiaryForGroup(companies, g, {
-          me,
-          preferredCompanyId: companyId ?? me?.company_id,
-        });
-        if (!pick?.id) return;
-
-        const nextCompanyId = Number(pick.id);
-        skipCompanyFetchEffectRef.current = true;
-        sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
-        flushSync(() => {
-          setGroupsAllMode(false);
-          setGroupAllMode(false);
-          setSelectedGroup(g);
-          setCompanyId(nextCompanyId);
-          applyUserListCache(nextCompanyId);
-        });
-        persistDashboardGroupFilter(g);
-        persistDashboardGroupOnlyMode(false);
-        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
-          companyCode: String(pick.company_id || "").trim().toUpperCase(),
-        });
-        void onSwitchCompany(pick);
-      }
+      void handlePickGroup(gid);
     },
-    [
-      applyUserListCache,
-      companyId,
-      companies,
-      deselectGroupKeepCompany,
-      fetchUsers,
-      me,
-      onSwitchCompany,
-      requiresCompanyWithGroup,
-      selectedGroup,
-      setGroupAllMode,
-      setGroupsAllMode,
-    ],
+    [companyId, deselectGroupKeepCompany, handlePickGroup, me, selectedGroup],
   );
 
   const syncGcFilterFromSession = useCallback(() => {
@@ -1592,12 +1580,15 @@ export default function UserListPage() {
               onPickAllGroups={handlePickAllGroups}
               onPickGroup={onPickGroupPill}
               companiesForPicker={inlineCompaniesForPicker}
+              showCompanyRow={!gcGroupOnlyUi}
               groupAllMode={groupAllMode}
               pickerCompanyId={pickerCompanyId}
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={onPickCompanyPill}
               onClearCompanyPill={clearCompanyPillSelection}
-              allowCompanyDeselect={!isCompanyLogin(me)}
+              allowCompanyDeselect={
+                supportsDashboardStyleGroupOnly(me) && !isCompanyLogin(me)
+              }
               switchingCompany={false}
               showAllOption={false}
             />

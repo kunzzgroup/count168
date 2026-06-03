@@ -19,7 +19,12 @@ import {
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { canUseGroupOnlyMode, isCompanyLogin, isGroupLogin } from "../../../utils/company/loginScope.js";
+import {
+  canUseGroupOnlyMode,
+  isCompanyLogin,
+  isGroupLogin,
+  supportsDashboardStyleGroupOnly,
+} from "../../../utils/company/loginScope.js";
 import { syncCompanySessionApi } from "../../../utils/company/companySessionSync.js";
 import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 import {
@@ -604,8 +609,7 @@ export function useTransactionData({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
 
-      if (isGroupLogin(u)) {
-        // Same group + subsidiary selected: treat as "back to group view" (e.g. AP → C168 → AP).
+      if (isGroupLogin(u) || supportsDashboardStyleGroupOnly(u)) {
         if (g === snap.selectedGroup && !snap.groupsAllMode) {
           if (snap.companyId == null || Number(snap.companyId) <= 0) return;
           await applyGroupOnlySelection(snap, g);
@@ -616,7 +620,7 @@ export function useTransactionData({
       }
 
       if (g === snap.selectedGroup && snap.companyId != null) {
-        if (!canUseGroupOnlyMode(u)) {
+        if (!canUseGroupOnlyMode(u) && !supportsDashboardStyleGroupOnly(u)) {
           const numericCid = Number(snap.companyId);
           const nextSnap = {
             ...snap,

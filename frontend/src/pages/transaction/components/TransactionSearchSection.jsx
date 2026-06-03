@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import GcInlineFilterPanel from "../../../components/GcInlineFilterPanel.jsx";
+import { isGcGroupOnlyUi } from "../../../utils/company/sharedCompanyFilter.js";
 import { buildTransactionCompanyStripRows } from "../lib/transactionCompanyStrip.js";
 
 export default function TransactionSearchSection({
@@ -34,7 +35,21 @@ export default function TransactionSearchSection({
     { id: "show_zero_balance", key: "showZeroBalance", label: m.showZeroBalance },
   ], [m]);
 
+  const gcGroupOnlyUi = useMemo(
+    () =>
+      fs
+        ? isGcGroupOnlyUi({
+            selectedGroup: fs.selectedGroup,
+            companyId: fs.companyId,
+            groupsAllMode: Boolean(fs.groupsAllMode),
+            groupAllMode: Boolean(fs.groupAllMode),
+          })
+        : false,
+    [fs?.selectedGroup, fs?.companyId, fs?.groupsAllMode, fs?.groupAllMode, fs],
+  );
+
   const companiesForCompanyStrip = useMemo(() => {
+    if (gcGroupOnlyUi) return [];
     if (Array.isArray(fs.companyStripRows) && fs.companyStripRows.length) {
       return fs.companyStripRows;
     }
@@ -45,6 +60,7 @@ export default function TransactionSearchSection({
       groupsAllMode: Boolean(fs.groupsAllMode),
     });
   }, [
+    gcGroupOnlyUi,
     fs,
     fs?.companyStripRows,
     fs?.selectedGroup,
@@ -210,6 +226,7 @@ export default function TransactionSearchSection({
             onPickAllGroups={onPickAllGroups}
             onPickGroup={onGroupButtonClick}
             companiesForPicker={companiesForCompanyStrip}
+            showCompanyRow={!gcGroupOnlyUi}
             groupAllMode={Boolean(fs.groupAllMode)}
             pickerCompanyId={fs.companyId}
             onPickAllInGroup={onPickAllInGroup}

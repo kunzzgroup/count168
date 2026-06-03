@@ -22,9 +22,15 @@ import {
   resolveInitialSelectedGroupFromSession,
   filterCompaniesForLoginScope,
   fetchOwnerCompaniesAll,
+  gcInlinePickerCompanies,
+  isGcGroupOnlyUi,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
-import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
+import {
+  canUseGroupOnlyMode,
+  isGroupLogin,
+  supportsDashboardStyleGroupOnly,
+} from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 
@@ -219,7 +225,21 @@ export default function DataCapturePage() {
     return inGroup[0] ?? null;
   }, [isCompanySelected, currentCompanyRow, companiesDeduped, selectedGroup]);
 
-  const groupOnlyTable = !isCompanySelected && canUseGroupOnlyMode(me);
+  const gcGroupOnlyUi = useMemo(
+    () =>
+      isGcGroupOnlyUi({
+        selectedGroup,
+        companyId,
+        groupsAllMode,
+        groupAllMode,
+      }),
+    [selectedGroup, companyId, groupsAllMode, groupAllMode],
+  );
+  const groupOnlyTable =
+    gcGroupOnlyUi &&
+    (supportsDashboardStyleGroupOnly(me) ||
+      canUseGroupOnlyMode(me) ||
+      isDashboardGroupOnlyMode());
 
   const onClearCompanyRef = useRef(() => {});
   const onSelectCompanyRef = useRef(async () => {});
@@ -244,6 +264,7 @@ export default function DataCapturePage() {
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     preferredCompanyId: companyId,
     enableGroupAnchorSession: false,
+    forceAllowGroupOnly: supportsDashboardStyleGroupOnly(me),
     me,
   });
 
@@ -873,7 +894,10 @@ export default function DataCapturePage() {
     preloadSummaryLegacyScriptsInBackground();
   }, [scriptsReady]);
 
-  const list = filterCompaniesWithDisplayId(companiesForPicker);
+  const list = gcInlinePickerCompanies(
+    filterCompaniesWithDisplayId(companiesForPicker),
+    { selectedGroup, companyId, groupsAllMode, groupAllMode },
+  );
   const pageShellKey = dataCaptureScopeCacheKey(captureScope) || "pending";
 
   return (
@@ -934,6 +958,7 @@ export default function DataCapturePage() {
                     onPickAllGroups={handlePickAllGroups}
                     onPickGroup={handlePickGroup}
                     companiesForPicker={list}
+                    showCompanyRow={!gcGroupOnlyUi}
                     groupAllMode={groupAllMode}
                     pickerCompanyId={companyId}
                     onPickAllInGroup={handlePickAllInGroup}

@@ -20,6 +20,7 @@ export default function GcInlineFilterPanel({
   allowCompanyDeselect = false,
   switchingCompany = false,
   showGroupRow = true,
+  /** When false, hide Company row (Dashboard group-only: Group selected, no company). */
   showCompanyRow = true,
   showAllOption = false,
   allLabelKey = "groupFilterAll",
@@ -65,7 +66,7 @@ export default function GcInlineFilterPanel({
           </div>
         </div>
       )}
-      {showCompanyRow && (groupIds.length > 0 || companiesForPicker.length > 0) && (
+      {showCompanyRow && companiesForPicker.length > 0 && (
         <div className="user-gc-inline-row user-gc-inline-row--company">
           <span className="user-gc-inline-label">{t("company")}</span>
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
