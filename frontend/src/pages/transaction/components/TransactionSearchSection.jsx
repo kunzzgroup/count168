@@ -1,11 +1,6 @@
 import { useMemo } from "react";
-import {
-  companiesForCompanyPicker,
-  dedupeOwnerCompaniesByCode,
-  excludeGroupLabelsFromCompanyPicker,
-  filterCompaniesWithDisplayId,
-} from "../../../utils/company/sharedCompanyFilter.js";
 import GcInlineFilterPanel from "../../../components/GcInlineFilterPanel.jsx";
+import { buildTransactionCompanyStripRows } from "../lib/transactionCompanyStrip.js";
 
 export default function TransactionSearchSection({
   selectedCategories,
@@ -23,6 +18,7 @@ export default function TransactionSearchSection({
   onCompanyButtonClick,
   onPickAllGroups,
   onPickAllInGroup,
+  allowCompanyDeselect = false,
   currencyRowsOrdered,
   selectedCurrencies,
   onCurrencyDragStart,
@@ -39,18 +35,24 @@ export default function TransactionSearchSection({
   ], [m]);
 
   const companiesForCompanyStrip = useMemo(() => {
-    const list = fs.snapCompaniesAll || fs.snapCompanies || [];
-    const preferredId = fs.companyId ?? null;
-    if (fs.groupsAllMode) {
-      return excludeGroupLabelsFromCompanyPicker(
-        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(list), preferredId)
-      );
+    if (Array.isArray(fs.companyStripRows) && fs.companyStripRows.length) {
+      return fs.companyStripRows;
     }
-    return dedupeOwnerCompaniesByCode(
-      companiesForCompanyPicker(list, fs.selectedGroup),
-      preferredId
-    );
-  }, [fs.snapCompanies, fs.snapCompaniesAll, fs.selectedGroup, fs.groupsAllMode, fs.companyId]);
+    if (!fs) return [];
+    return buildTransactionCompanyStripRows(fs, {
+      selectedGroup: fs.selectedGroup,
+      companyId: fs.companyId,
+      groupsAllMode: Boolean(fs.groupsAllMode),
+    });
+  }, [
+    fs,
+    fs?.companyStripRows,
+    fs?.selectedGroup,
+    fs?.companyId,
+    fs?.groupsAllMode,
+    fs?.snapCompanies,
+    fs?.snapCompaniesAll,
+  ]);
 
   return (
     <div className="transaction-search-section">
@@ -198,7 +200,7 @@ export default function TransactionSearchSection({
         })}
       </div>
 
-      {(fs.snapGroupIds.length > 0 || fs.snapCompanies.length > 0 || currencyRowsOrdered.length > 0) && (
+      {(fs.snapGroupIds.length > 0 || fs.snapCompanies.length > 0) && (
         <div className="transaction-bottom-filters">
           <GcInlineFilterPanel
             t={(key) => m[key] ?? key}
@@ -212,6 +214,7 @@ export default function TransactionSearchSection({
             pickerCompanyId={fs.companyId}
             onPickAllInGroup={onPickAllInGroup}
             onPickCompany={onCompanyButtonClick}
+            allowCompanyDeselect={allowCompanyDeselect}
           >
             {currencyRowsOrdered.length > 0 && (
               <div id="currency-buttons-wrapper" className="user-gc-inline-row">

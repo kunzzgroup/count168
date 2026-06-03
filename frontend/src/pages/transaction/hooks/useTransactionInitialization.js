@@ -65,16 +65,29 @@ export function useTransactionInitialization({
       (preferredDefault ? rows.find((c) => String(c.code || "").toUpperCase() === preferredDefault) : null) ||
       rows[0];
 
-    if (!resetSelection) {
-      if (!activeSearch.showAllCurrencies && activeSearch.selectedCurrencies.length === 0 && rows.length > 0) {
-        const pick =
-          (preferredDefault ? rows.find((c) => String(c.code || "").toUpperCase() === preferredDefault) : null) ||
-          rows[0];
-        if (pick?.code) {
-          activeSearch.setSelectedCurrencies((prev) => (sameCurrencySelection(prev, [pick.code]) ? prev : [pick.code]));
-          activeSearch.persistCurrencyFilter(cid, false, [pick.code]);
+    const ensureCurrencySelection = () => {
+      if (activeSearch.showAllCurrencies || rows.length === 0) return;
+      const valid = activeSearch.selectedCurrencies.filter((code) =>
+        codes.includes(String(code || "").toUpperCase().trim()),
+      );
+      if (valid.length > 0) {
+        if (!sameCurrencySelection(activeSearch.selectedCurrencies, valid)) {
+          activeSearch.setSelectedCurrencies(valid);
+          activeSearch.persistCurrencyFilter(cid, false, valid);
         }
+        return;
       }
+      const pick =
+        (preferredDefault ? rows.find((c) => String(c.code || "").toUpperCase() === preferredDefault) : null) ||
+        rows[0];
+      if (pick?.code) {
+        activeSearch.setSelectedCurrencies([pick.code]);
+        activeSearch.persistCurrencyFilter(cid, false, [pick.code]);
+      }
+    };
+
+    if (!resetSelection) {
+      ensureCurrencySelection();
       if (pickDefault?.code) {
         activeForm.setTxCurrency((v) => v || pickDefault.code);
         activeForm.setRateCurrencyFrom((v) => v || pickDefault.code);

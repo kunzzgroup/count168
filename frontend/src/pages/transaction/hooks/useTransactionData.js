@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
+import { flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
@@ -12,14 +13,14 @@ import {
   resolveBootCompanyId,
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
+  pickDefaultCompanyForGroup,
   resolveInitialSelectedGroupFromSession,
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import {
-  syncCompanySessionAndNotify,
-  syncCompanySessionApi,
-} from "../../../utils/company/companySessionSync.js";
+import { isCompanyLogin, isGroupLogin } from "../../../utils/company/loginScope.js";
+import { syncCompanySessionApi } from "../../../utils/company/companySessionSync.js";
+import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 import {
   getAccounts,
   getCategories,
@@ -35,14 +36,7 @@ import {
   transactionScopeCacheKey,
 } from "../lib/transactionScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
-
-async function syncSessionToScopeCompany(scopeCompanyId) {
-  if (!scopeCompanyId) return false;
-  const sj = await syncCompanySessionApi(scopeCompanyId);
-  if (!sj?.success) return false;
-  notifyCompanySessionUpdated();
-  return true;
-}
+import { buildTransactionCompanyStripRows } from "../lib/transactionCompanyStrip.js";
 
 export function useTransactionData({
   todayDmy,
@@ -59,6 +53,21 @@ export function useTransactionData({
   const [currencyRowsOrdered, setCurrencyRowsOrdered] = useState([]);
   const currencyInitCompanyRef = useRef(null);
   const filterSnapshotRef = useRef(null);
+  const scopeSwitchSeqRef = useRef(0);
+  const scopeCacheKeyRef = useRef("");
+  const bootOnceRef = useRef(false);
+  const companySessionAbortRef = useRef(null);
+
+  const commitFilterSnapshot = useCallback((nextSnap, { sync = true } = {}) => {
+    filterSnapshotRef.current = nextSnap;
+    if (sync) {
+      flushSync(() => {
+        setFilterSnapshot(nextSnap);
+      });
+    } else {
+      setFilterSnapshot(nextSnap);
+    }
+  }, []);
 
   const transactionScope = useMemo(
     () => resolveTransactionScope(filterSnapshot),
@@ -66,6 +75,10 @@ export function useTransactionData({
   );
   const scopeCacheKey = transactionScopeCacheKey(transactionScope);
   const prevScopeCacheKeyRef = useRef(scopeCacheKey);
+
+  useEffect(() => {
+    scopeCacheKeyRef.current = scopeCacheKey;
+  }, [scopeCacheKey]);
 
   useEffect(() => {
     filterSnapshotRef.current = filterSnapshot;
@@ -79,10 +92,51 @@ export function useTransactionData({
     // This avoids visual flicker when switching group/company in Transaction page.
   }, [scopeCacheKey]);
 
+  const syncPickerCompanySession = useCallback(
+    async (companyId, seq) => {
+      const cid = Number(companyId);
+      if (!Number.isFinite(cid) || cid <= 0) return;
+      companySessionAbortRef.current?.abort();
+      const ac = new AbortController();
+      companySessionAbortRef.current = ac;
+      try {
+        await syncCompanySessionInBackground({
+          companyId: cid,
+          sessionCompanyId: u?.company_id,
+          signal: ac.signal,
+          layoutSilent: true,
+        });
+      } catch (e) {
+        if (e?.name === "AbortError" || isCancelledError(e)) return;
+        console.error(e);
+      } finally {
+        if (companySessionAbortRef.current === ac) {
+          companySessionAbortRef.current = null;
+        }
+      }
+      if (seq !== scopeSwitchSeqRef.current) return;
+    },
+    [u?.company_id],
+  );
+
   useEffect(() => {
     if (!sessionReady) return;
     if (!u) {
+      bootOnceRef.current = false;
       navigate("/login", { replace: true });
+      return;
+    }
+
+    if (bootOnceRef.current && filterSnapshotRef.current) {
+      setFilterSnapshot((prev) =>
+        prev
+          ? {
+              ...prev,
+              viewerRole: String(u.role || "").toLowerCase(),
+              mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
+            }
+          : prev,
+      );
       return;
     }
 
@@ -130,10 +184,11 @@ export function useTransactionData({
           effective != null ? snapRows.find((c) => Number(c.id) === Number(effective)) : null;
         const selGroup = resolveInitialSelectedGroupFromSession(snapRows, current);
 
-        if (!cancelled) {
-          setFilterSnapshot({
+        if (!cancelled && !filterSnapshotRef.current) {
+          const bootSnap = {
             companyId: effective,
             selectedGroup: selGroup,
+            displayCompanyRow: current,
             groupsAllMode: false,
             groupAllMode: false,
             snapCompanies: snapRows,
@@ -141,7 +196,16 @@ export function useTransactionData({
             snapGroupIds: sortedUniqueGroupIds(snapRows),
             viewerRole: String(u.role || "").toLowerCase(),
             mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
+          };
+          bootSnap.companyStripRows = buildTransactionCompanyStripRows(bootSnap, {
+            selectedGroup: selGroup,
+            companyId: effective,
+            groupsAllMode: false,
           });
+          bootOnceRef.current = true;
+          setFilterSnapshot(bootSnap);
+        } else if (!cancelled) {
+          bootOnceRef.current = true;
         }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -176,6 +240,7 @@ export function useTransactionData({
 
   useEffect(() => {
     if (loading || forbidden || !transactionScope) return;
+    const fetchScopeKey = scopeCacheKey;
     let cancelled = false;
     const scopeApi = transactionScopeApiParams(transactionScope);
     (async () => {
@@ -299,14 +364,14 @@ export function useTransactionData({
           accData = Array.isArray(acc?.data) ? acc.data : [];
           curRows = Array.isArray(cur?.data) ? cur.data : [];
         }
-        if (cancelled) return;
-        setAccountOptions(accData);
+        if (cancelled || fetchScopeKey !== scopeCacheKeyRef.current) return;
         const ordered = orderCurrencyRows(curRows, ord);
-        setCurrencyRowsOrdered(ordered);
         const codes = ordered.map((x) => String(x.code || x.currency || "").toUpperCase().trim()).filter(Boolean);
+        setAccountOptions(accData);
+        setCurrencyRowsOrdered(ordered);
         setCurrencyOptions([...new Set(codes)]);
       } catch {
-        if (!cancelled) {
+        if (!cancelled && fetchScopeKey === scopeCacheKeyRef.current) {
           setAccountOptions([]);
           setCurrencyOptions([]);
           setCurrencyRowsOrdered([]);
@@ -334,6 +399,7 @@ export function useTransactionData({
     const g = String(groupId || "").trim().toUpperCase();
     if (!g || !snap) return;
 
+    const seq = ++scopeSwitchSeqRef.current;
     const url = new URL(window.location.href);
     url.searchParams.delete("company_id");
     window.history.replaceState(null, "", url.toString());
@@ -342,40 +408,76 @@ export function useTransactionData({
       ...snap,
       selectedGroup: g,
       companyId: null,
+      displayCompanyRow: null,
       groupsAllMode: false,
       groupAllMode: false,
     };
+    nextSnap.companyStripRows = buildTransactionCompanyStripRows(nextSnap, {
+      selectedGroup: g,
+      companyId: null,
+      groupsAllMode: false,
+    });
     const scope = resolveTransactionScope(nextSnap);
-    if (scope?.scopeCompanyId > 0) await syncSessionToScopeCompany(scope.scopeCompanyId);
 
     persistDashboardGroupOnlyMode(true);
     persistDashboardFilterState(g, null);
-    notifyDashboardGroupFilterChanged(g, null);
-    setFilterSnapshot(nextSnap);
-  }, []);
+    commitFilterSnapshot(nextSnap);
 
-  const onCompanyButtonClick = useCallback(
-    async (comp) => {
-      const cid = comp.id;
-      if (!cid) return;
-      const snap = filterSnapshotRef.current;
-      if (snap && Number(cid) === Number(snap.companyId)) {
-        const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : snap.selectedGroup;
-        await applyGroupOnlySelection(snap, gid || snap.selectedGroup);
+    if (scope?.scopeCompanyId > 0) {
+      void syncPickerCompanySession(scope.scopeCompanyId, seq);
+    }
+  }, [commitFilterSnapshot, syncPickerCompanySession]);
+
+  const applyCompanyGroupSelection = useCallback(
+    async (snap, groupId) => {
+      const g = String(groupId || "").trim().toUpperCase();
+      if (!g || !snap) return;
+
+      const seq = ++scopeSwitchSeqRef.current;
+      const companies = snap.snapCompaniesAll || snap.snapCompanies || [];
+      const pick = pickDefaultCompanyForGroup(companies, g, {
+        me: u,
+        preferredCompanyId: null,
+        nativeOnly: true,
+      });
+      if (!pick?.id) {
+        if (isCompanyLogin(u)) {
+          const nextSnap = {
+            ...snap,
+            selectedGroup: g,
+            groupsAllMode: false,
+            groupAllMode: false,
+          };
+          nextSnap.companyStripRows = buildTransactionCompanyStripRows(nextSnap, {
+            selectedGroup: g,
+            companyId: snap.companyId,
+            groupsAllMode: false,
+          });
+          persistDashboardGroupFilter(g);
+          persistDashboardGroupOnlyMode(false);
+          persistDashboardFilterState(g, snap.companyId, { allowGroupOnly: false });
+          commitFilterSnapshot(nextSnap);
+          return;
+        }
+        await applyGroupOnlySelection(snap, g);
         return;
       }
 
-      const numericCid = Number(cid);
-      const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
-      const nextGroup = gid || snap?.selectedGroup;
-      const viewGroup = resolveViewGroupForCompany(comp, nextGroup);
+      const numericCid = Number(pick.id);
+      const viewGroup = resolveViewGroupForCompany(pick, g);
       const nextSnap = {
         ...snap,
         companyId: numericCid,
-        selectedGroup: nextGroup || snap?.selectedGroup,
+        selectedGroup: g,
+        displayCompanyRow: pick,
         groupsAllMode: false,
         groupAllMode: false,
       };
+      nextSnap.companyStripRows = buildTransactionCompanyStripRows(nextSnap, {
+        selectedGroup: g,
+        companyId: numericCid,
+        groupsAllMode: false,
+      });
       const nextScope = resolveTransactionScope(nextSnap);
       const nextScopeKey = transactionScopeCacheKey(nextScope);
       const prefetchApi = transactionScopeApiParams(nextScope) || {
@@ -384,12 +486,12 @@ export function useTransactionData({
       };
 
       const url = new URL(window.location.href);
-      url.searchParams.set("company_id", String(cid));
+      url.searchParams.set("company_id", String(numericCid));
       window.history.replaceState(null, "", url.toString());
-      if (gid) persistDashboardGroupFilter(gid);
+      persistDashboardGroupFilter(g);
       persistDashboardGroupOnlyMode(false);
-      persistDashboardFilterState(nextGroup, numericCid);
-      setFilterSnapshot(nextSnap);
+      persistDashboardFilterState(g, numericCid, { allowGroupOnly: false });
+      commitFilterSnapshot(nextSnap);
 
       void Promise.all([
         queryClient.prefetchQuery({
@@ -409,14 +511,89 @@ export function useTransactionData({
         }),
       ]);
 
-      try {
-        await syncCompanySessionAndNotify(cid);
-      } catch (e) {
-        if (e?.name === "AbortError" || isCancelledError(e)) return;
-        console.error(e);
-      }
+      void syncPickerCompanySession(numericCid, seq);
     },
-    [applyGroupOnlySelection, queryClient],
+    [applyGroupOnlySelection, commitFilterSnapshot, queryClient, syncPickerCompanySession, u],
+  );
+
+  const onCompanyButtonClick = useCallback(
+    (comp) => {
+      const cid = comp.id;
+      if (!cid) return;
+      const snap = filterSnapshotRef.current;
+      if (!snap) return;
+      if (Number(cid) === Number(snap.companyId)) {
+        if (isCompanyLogin(u)) return;
+        const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : snap.selectedGroup;
+        void applyGroupOnlySelection(snap, gid || snap.selectedGroup);
+        return;
+      }
+
+      const seq = ++scopeSwitchSeqRef.current;
+      const numericCid = Number(cid);
+      const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : null;
+      const nextGroup = gid || snap.selectedGroup;
+      const nextGroupNorm = String(nextGroup || "").trim().toUpperCase();
+      const currGroupNorm = String(snap.selectedGroup || "").trim().toUpperCase();
+      const viewGroup = resolveViewGroupForCompany(comp, nextGroup);
+      const stripUnchanged =
+        nextGroupNorm === currGroupNorm &&
+        Array.isArray(snap.companyStripRows) &&
+        snap.companyStripRows.length > 0;
+      const nextSnap = {
+        ...snap,
+        companyId: numericCid,
+        selectedGroup: nextGroup || snap.selectedGroup,
+        displayCompanyRow: comp,
+        groupsAllMode: false,
+        groupAllMode: false,
+        companyStripRows: stripUnchanged
+          ? snap.companyStripRows
+          : buildTransactionCompanyStripRows(
+              { ...snap, selectedGroup: nextGroup || snap.selectedGroup },
+              {
+                selectedGroup: nextGroup || snap.selectedGroup,
+                companyId: numericCid,
+                groupsAllMode: false,
+              },
+            ),
+      };
+      const nextScope = resolveTransactionScope(nextSnap);
+      const nextScopeKey = transactionScopeCacheKey(nextScope);
+      const prefetchApi = transactionScopeApiParams(nextScope) || {
+        companyId: numericCid,
+        viewGroup,
+      };
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("company_id", String(cid));
+      window.history.replaceState(null, "", url.toString());
+      if (gid) persistDashboardGroupFilter(gid);
+      persistDashboardGroupOnlyMode(false);
+      persistDashboardFilterState(nextGroup, numericCid);
+      commitFilterSnapshot(nextSnap);
+
+      void Promise.all([
+        queryClient.prefetchQuery({
+          queryKey: transactionQueryKeys.accounts(nextScopeKey),
+          queryFn: ({ signal }) => getAccounts({ ...prefetchApi, signal }),
+          staleTime: 60_000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: transactionQueryKeys.companyCurrencies(nextScopeKey),
+          queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
+          staleTime: 60_000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: transactionQueryKeys.userCurrencyOrder(),
+          queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
+          staleTime: 60_000,
+        }),
+      ]);
+
+      void syncPickerCompanySession(cid, seq);
+    },
+    [applyGroupOnlySelection, commitFilterSnapshot, queryClient, syncPickerCompanySession, u],
   );
 
   const onGroupButtonClick = useCallback(
@@ -426,16 +603,21 @@ export function useTransactionData({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
 
-      // Same group + subsidiary selected: treat as "back to group view" (e.g. AP → C168 → AP).
-      if (g === snap.selectedGroup && !snap.groupsAllMode) {
-        if (snap.companyId == null || Number(snap.companyId) <= 0) return;
+      if (isGroupLogin(u)) {
+        // Same group + subsidiary selected: treat as "back to group view" (e.g. AP → C168 → AP).
+        if (g === snap.selectedGroup && !snap.groupsAllMode) {
+          if (snap.companyId == null || Number(snap.companyId) <= 0) return;
+          await applyGroupOnlySelection(snap, g);
+          return;
+        }
         await applyGroupOnlySelection(snap, g);
         return;
       }
 
-      await applyGroupOnlySelection(snap, g);
+      if (g === snap.selectedGroup && snap.companyId != null) return;
+      await applyCompanyGroupSelection(snap, g);
     },
-    [applyGroupOnlySelection],
+    [applyCompanyGroupSelection, applyGroupOnlySelection, u],
   );
 
   const onPickAllGroups = useCallback(() => {
@@ -454,6 +636,11 @@ export function useTransactionData({
       groupAllMode: false,
       selectedGroup: null,
       companyId: null,
+      displayCompanyRow: null,
+      companyStripRows: buildTransactionCompanyStripRows(
+        { ...snap, groupsAllMode: true },
+        { selectedGroup: null, companyId: null, groupsAllMode: true },
+      ),
     });
   }, []);
 
@@ -470,6 +657,12 @@ export function useTransactionData({
       ...snap,
       groupAllMode: true,
       companyId: null,
+      displayCompanyRow: null,
+      companyStripRows: buildTransactionCompanyStripRows(snap, {
+        selectedGroup: snap.selectedGroup,
+        companyId: null,
+        groupsAllMode: snap.groupsAllMode,
+      }),
     });
   }, []);
 
@@ -494,5 +687,6 @@ export function useTransactionData({
     onCompanyButtonClick,
     onPickAllGroups,
     onPickAllInGroup,
+    allowCompanyDeselect: !isCompanyLogin(u),
   };
 }
