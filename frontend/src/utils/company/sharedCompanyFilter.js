@@ -25,6 +25,8 @@ export {
 } from "./loginScope.js";
 
 export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
+/** Set to "1" when company login explicitly cleared the group pill (do not re-derive from company row). */
+export const DASHBOARD_GROUP_FILTER_OPT_OUT_KEY = "dashboard_group_filter_opt_out";
 /** Set to "1" when user cleared company but kept a group (group-only mode across pages). */
 export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
 /** Last explicitly selected company id (SPA navigation; overrides stale PHP session when set). */
@@ -37,6 +39,7 @@ export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-ch
 
 export function clearDashboardFilterSession() {
   sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
+  sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
   sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
   sessionStorage.removeItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY);
@@ -249,7 +252,7 @@ export function resolveInitialCompanyId(fallbackCompanyId) {
  * Notify layout (sidebar Process visibility) when dashboard Group / Company filter changes.
  * Process is hidden only while a group is selected with no company (see AuthenticatedLayout).
  */
-export function notifyDashboardGroupFilterChanged(selectedGroup, companyId) {
+export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, options = {}) {
   const value = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
   const groupOnly = isDashboardGroupOnlyMode();
   const cid = groupOnly
@@ -257,8 +260,18 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId) {
     : companyId != null && companyId !== "" && Number.isFinite(Number(companyId))
       ? Number(companyId)
       : null;
+  let companyCode = options.companyCode
+    ? String(options.companyCode).trim().toUpperCase()
+    : null;
+  if (!companyCode && cid != null) {
+    const row = findOwnerCompanyById(cid);
+    const fromRow = row?.company_id ? String(row.company_id).trim().toUpperCase() : "";
+    if (fromRow) companyCode = fromRow;
+  }
   window.dispatchEvent(
-    new CustomEvent(DASHBOARD_GROUP_FILTER_EVENT, { detail: { selectedGroup: value, companyId: cid } })
+    new CustomEvent(DASHBOARD_GROUP_FILTER_EVENT, {
+      detail: { selectedGroup: value, companyId: cid, companyCode },
+    })
   );
 }
 
@@ -293,6 +306,15 @@ function hasOwnerCompaniesCache() {
 
 export function getCachedOwnerCompanies() {
   return hasOwnerCompaniesCache() ? ownerCompaniesCache : null;
+}
+
+/** Resolve owner company row from in-memory cache (sidebar optimistic updates). */
+export function findOwnerCompanyById(companyId) {
+  const id = Number(companyId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const rows = getCachedOwnerCompanies();
+  if (!rows?.length) return null;
+  return rows.find((c) => Number(c.id) === id) ?? null;
 }
 
 export function setCachedOwnerCompanies(rows) {
@@ -433,14 +455,34 @@ export function sortedUniqueGroupIds(companies) {
 }
 
 export function persistDashboardGroupFilter(selectedGroup) {
-  if (selectedGroup) sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, selectedGroup);
-  else sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
+  if (selectedGroup) {
+    sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, selectedGroup);
+    sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+  } else {
+    sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
+  }
+}
+
+/** Company login: deselect group pill while keeping company (never group-only). */
+export function clearDashboardGroupFilterKeepCompany(companyId) {
+  sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
+  persistDashboardGroupFilter(null);
+  persistDashboardGroupOnlyMode(false);
+  persistDashboardFilterState(null, companyId, { allowGroupOnly: false });
+  notifyDashboardGroupFilterChanged(null, companyId);
 }
 
 /**
  * Boot-time resolution (matches transaction/maintenance pages): honour session only when it matches current company's group.
  */
 export function resolveInitialSelectedGroupFromSession(companies, currentCompany, loginMe = null) {
+  if (
+    sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1" &&
+    loginMe &&
+    !canUseGroupOnlyMode(loginMe)
+  ) {
+    return null;
+  }
   const savedRaw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
   const savedGroup = savedRaw ? String(savedRaw).trim().toUpperCase() : null;
   const groups = sortedUniqueGroupIds(companies);

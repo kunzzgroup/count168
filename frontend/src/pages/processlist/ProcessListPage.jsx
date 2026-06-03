@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { ensureCrossPageCompanySelection, syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import {
+  clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
@@ -12,6 +13,7 @@ import {
   resolveSubsidiaryBootCompanyId,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { canUseGroupOnlyMode } from "../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
@@ -998,7 +1000,15 @@ export default function ProcessListPage() {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
+        if (!canUseGroupOnlyMode(sessionMe)) {
+          setGroupFilterKind("ungrouped");
+          setSelectedGroup(null);
+          clearDashboardGroupFilterKeepCompany(companyId);
+          return;
+        }
+        return;
+      }
 
       const pick = pickDefaultSubsidiaryForGroup(companies, g);
       const nextCompanyId = pick?.id != null ? Number(pick.id) : null;

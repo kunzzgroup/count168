@@ -14,6 +14,7 @@ import {
   persistDashboardSelectedCompany,
   readDashboardSelectedCompanyId,
   stripCompanyIdFromUrl,
+  clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
   pickDefaultCompanyForGroup,
   resolveBootCompanyId,
@@ -21,8 +22,12 @@ import {
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
-import { isGroupLogin, resolveVisibleGroupIds } from "../../utils/company/loginScope.js";
-import { isCompanyLogin } from "../../utils/company/loginScope.js";
+import {
+  canUseGroupOnlyMode,
+  isCompanyLogin,
+  isGroupLogin,
+  resolveVisibleGroupIds,
+} from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
@@ -684,6 +689,15 @@ export default function UserListPage() {
         persistDashboardGroupOnlyMode(true);
         setSelectedGroup(g);
         handleClearCompany();
+        return;
+      }
+      if (!canUseGroupOnlyMode(me) && g === current && companyId != null) {
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setSelectedGroup(null);
+          applyUserListCache(companyId);
+        });
+        clearDashboardGroupFilterKeepCompany(companyId);
         return;
       }
       if (!g || (g === current && companyId != null)) return;
