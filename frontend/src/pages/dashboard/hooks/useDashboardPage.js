@@ -480,6 +480,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           else if (companyIds.length) q.set("company_ids", companyIds.join(","));
           if (groupKey) q.set("view_group", groupKey);
           if (groupAggregateCurrency) q.set("group_aggregate", "1");
+          if (singleCid && groupKey && !groupAggregateCurrency) {
+            q.set("subsidiary_accounts_only", "1");
+          }
         }
         const curRes = await fetch(
           buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
@@ -730,7 +733,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       const codesForBootstrap =
         currencyCodesOverride ??
-        (companyId != null ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) : null) ??
+        (selectedGroup && currencies.length > 0
+          ? currencies
+          : companyId != null
+            ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
+            : null) ??
         (currencies.length > 1 ? currencies : null);
       if (Array.isArray(codesForBootstrap) && codesForBootstrap.length > 1) {
         q.set("currencies", codesForBootstrap.join(","));
@@ -1190,7 +1197,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           });
 
           const codesForEarnings =
-            (companyId != null ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) : null) ??
+            (selectedGroup && currencies.length > 0
+              ? currencies
+              : companyId != null
+                ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
+                : null) ??
             (currencies.length > 1 ? currencies : null);
           if (Array.isArray(codesForEarnings) && codesForEarnings.length > 1) {
             setEarningsByCurrencyLoading(true);

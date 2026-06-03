@@ -645,6 +645,48 @@ function dashboardCollectScopeAccountIds(
 }
 
 /**
+ * Currency codes enabled in Account → Currency Setting (company currency table).
+ *
+ * @param int[] $companyIds
+ * @return array<string, true> uppercase code => true
+ */
+function dashboardAllowedCurrencyCodesForCompanies(PDO $pdo, array $companyIds): array
+{
+    $allowed = [];
+    foreach ($companyIds as $companyId) {
+        foreach (dashboardLoadCurrencyMap($pdo, (int) $companyId) as $code) {
+            $allowed[strtoupper((string) $code)] = true;
+        }
+    }
+    return $allowed;
+}
+
+/**
+ * Keep only account_currency rows whose code exists on the scoped company currency table.
+ *
+ * @param array<int, string> $map
+ * @return array<int, string>
+ */
+function dashboardIntersectAccountCurrencyWithCompanyTable(PDO $pdo, array $map, array $companyIds): array
+{
+    if ($map === []) {
+        return [];
+    }
+    $allowed = dashboardAllowedCurrencyCodesForCompanies($pdo, $companyIds);
+    if ($allowed === []) {
+        return $map;
+    }
+    $out = [];
+    foreach ($map as $id => $code) {
+        $up = strtoupper((string) $code);
+        if (isset($allowed[$up])) {
+            $out[(int) $id] = $up;
+        }
+    }
+    return $out;
+}
+
+/**
  * Filter / display currencies from account_currency (Edit Account active currencies).
  *
  * @param int[] $accountIds
@@ -675,18 +717,6 @@ function dashboardLoadAccountCurrencyMap(PDO $pdo, array $accountIds, array $com
                 $map[(int) $row['id']] = strtoupper((string) $row['code']);
             }
         }
-        if ($map === []) {
-            $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, UPPER(c.code) AS code
-                FROM account_currency ac
-                INNER JOIN currency c ON c.id = ac.currency_id
-                WHERE ac.account_id IN ($ph)
-            ");
-            $stmt->execute($accountIds);
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $map[(int) $row['id']] = strtoupper((string) $row['code']);
-            }
-        }
     }
 
     if ($map === [] && dashboardAccountHasCurrencyIdColumn($pdo)) {
@@ -706,7 +736,7 @@ function dashboardLoadAccountCurrencyMap(PDO $pdo, array $accountIds, array $com
         }
     }
 
-    return $map;
+    return dashboardIntersectAccountCurrencyWithCompanyTable($pdo, $map, $companyIds);
 }
 
 /**

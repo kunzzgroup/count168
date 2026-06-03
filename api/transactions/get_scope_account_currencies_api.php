@@ -46,6 +46,7 @@ try {
 
     $viewGroup = reportNormalizeGroupId($_GET['view_group'] ?? $groupCode);
     $groupAggregateOnly = isset($_GET['group_aggregate']) && (string) $_GET['group_aggregate'] === '1';
+    $subsidiaryAccountsOnly = isset($_GET['subsidiary_accounts_only']) && (string) $_GET['subsidiary_accounts_only'] === '1';
     if ($groupAggregateOnly && $viewGroup !== '') {
         $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
         if ($entityId > 0) {
@@ -96,12 +97,17 @@ try {
             }
             $currencyCompanyIds = array_values(array_unique(array_filter($currencyCompanyIds)));
         }
-        $accountIds = dashboardCollectScopeAccountIds(
-            $pdo,
-            $primaryCompanyId,
-            $groupAggregateOnly ? null : ($viewGroup !== '' ? $viewGroup : null),
-            0
-        );
+        if ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
+            $currencyCompanyIds = [$primaryCompanyId];
+            $accountIds = dashboardCollectScopeAccountIds($pdo, $primaryCompanyId, null, 0);
+        } else {
+            $accountIds = dashboardCollectScopeAccountIds(
+                $pdo,
+                $primaryCompanyId,
+                $groupAggregateOnly ? null : ($viewGroup !== '' ? $viewGroup : null),
+                0
+            );
+        }
     }
 
     // Acc currency only — do not fall back to the full company currency table (Currency Setting list).
