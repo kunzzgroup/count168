@@ -459,21 +459,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       companyIds = mergedSubsetIds.filter((id) => Number.isFinite(id));
     } else if (singleCid) {
       companyIds = [singleCid];
-    } else if (groupKey && usesGroupLedgerDashboard) {
-      const anchor = pickGroupAnchorCompany(companies, groupKey);
-      const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
-      if (anchorId) {
-        companyIds = [anchorId];
-      } else {
-        groupLedgerOnly = true;
-      }
     } else if (groupKey && !singleCid) {
+      // Group-only / Company All: entity acc currency only — never subsidiary anchor (e.g. 95 under IG).
       groupAggregateCurrency = true;
       const anchor = pickGroupAnchorCompany(companies, groupKey);
-      const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
-      if (anchorId) {
-        companyIds = [anchorId];
-      } else {
+      if (!anchor?.id) {
         groupLedgerOnly = true;
       }
     }
@@ -504,8 +494,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           q.set("view_group", groupKey);
         } else {
           if (singleCid) q.set("company_id", String(singleCid));
-          else if (companyIds.length) q.set("company_ids", companyIds.join(","));
-          if (groupKey) q.set("view_group", groupKey);
+          else if (companyIds.length && !groupAggregateCurrency) {
+            q.set("company_ids", companyIds.join(","));
+          }
+          if (groupKey) {
+            q.set("view_group", groupKey);
+            q.set("group_id", groupKey);
+          }
           if (groupAggregateCurrency) q.set("group_aggregate", "1");
           if (singleCid && groupKey && !groupAggregateCurrency) {
             q.set("subsidiary_accounts_only", "1");

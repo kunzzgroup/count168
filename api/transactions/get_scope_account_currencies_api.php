@@ -57,8 +57,24 @@ try {
 
     $groupScopeId = 0;
     $currencyCompanyIds = [];
+    $accountIds = [];
 
-    if ($groupCode !== '' && $primaryCompanyId <= 0 && $companyIds === []) {
+    // Group tab / group-only: only group-entity acc currencies — never subsidiary (95) via view_group expansion.
+    if ($viewGroup !== '' && !$subsidiaryAccountsOnly) {
+        $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+        if ($entityId > 0) {
+            $currencyCompanyIds = [$entityId];
+            $accountIds = dashboardCollectScopeAccountIds($pdo, $entityId, null, 0);
+        } else {
+            $groupScopeId = dashboardResolveGroupScopeId($pdo, $viewGroup);
+            if ($groupScopeId <= 0) {
+                api_success([]);
+                exit;
+            }
+            dashboardAssertGroupLedgerAccess($pdo, $viewGroup, $groupScopeId);
+            $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
+        }
+    } elseif ($groupCode !== '' && $primaryCompanyId <= 0 && $companyIds === []) {
         $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupCode);
         if ($groupScopeId <= 0) {
             api_success([]);
@@ -84,7 +100,11 @@ try {
             if ($entityId > 0) {
                 $currencyCompanyIds = [$entityId];
                 $primaryCompanyId = $entityId;
+                $accountIds = dashboardCollectScopeAccountIds($pdo, $entityId, null, 0);
             }
+        } elseif ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
+            $currencyCompanyIds = [$primaryCompanyId];
+            $accountIds = dashboardCollectScopeAccountIds($pdo, $primaryCompanyId, null, 0);
         } else {
             foreach ($companyIds as $cid) {
                 $currencyCompanyIds[] = (int) $cid;
@@ -96,15 +116,10 @@ try {
                 }
             }
             $currencyCompanyIds = array_values(array_unique(array_filter($currencyCompanyIds)));
-        }
-        if ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
-            $currencyCompanyIds = [$primaryCompanyId];
-            $accountIds = dashboardCollectScopeAccountIds($pdo, $primaryCompanyId, null, 0);
-        } else {
             $accountIds = dashboardCollectScopeAccountIds(
                 $pdo,
                 $primaryCompanyId,
-                $groupAggregateOnly ? null : ($viewGroup !== '' ? $viewGroup : null),
+                $viewGroup !== '' ? $viewGroup : null,
                 0
             );
         }
