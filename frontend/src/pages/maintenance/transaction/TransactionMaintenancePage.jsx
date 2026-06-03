@@ -110,6 +110,12 @@ export default function TransactionMaintenancePage() {
   }, [today]);
   const [dateFrom, setDateFrom] = useState(todayDmy);
   const [dateTo, setDateTo] = useState(todayDmy);
+  const dateFromRef = useRef(dateFrom);
+  const dateToRef = useRef(dateTo);
+  useEffect(() => {
+    dateFromRef.current = dateFrom;
+    dateToRef.current = dateTo;
+  }, [dateFrom, dateTo]);
 
   const [toasts, setToasts] = useState([]);
   /** Boot finished metadata; date picker synced — avoids racing search with boot/meta fetches. */
@@ -220,16 +226,10 @@ export default function TransactionMaintenancePage() {
     dateRangeReady &&
     transactionMaintenanceScopeIsReady(transactionScope) &&
     dateFrom &&
-    dateTo &&
-    activePermission,
+    dateTo,
   );
 
-  const bootPending =
-    !filtersReady ||
-    !dateRangeReady ||
-    !dateFrom ||
-    !dateTo ||
-    !activePermission;
+  const bootPending = !filtersReady || !dateRangeReady || !dateFrom || !dateTo;
 
   const listRowCount = transactionData.length;
   const searchRecoverable =
@@ -278,12 +278,15 @@ export default function TransactionMaintenancePage() {
           groupsAllMode,
           groupAllMode,
         });
-      const category = overrides.category ?? activePermission;
+      const category =
+        overrides.category ??
+        (activePermission ||
+          pickTransactionMaintenancePermission(permissions, null) ||
+          "Games");
       if (
         !transactionMaintenanceScopeIsReady(effectiveScope) ||
         !dateFrom ||
-        !dateTo ||
-        !category
+        !dateTo
       ) {
         return;
       }
@@ -360,10 +363,51 @@ export default function TransactionMaintenancePage() {
       dateTo,
       processFilter,
       activePermission,
+      permissions,
       notify,
       t,
     ],
   );
+
+  const runBootMaintenanceSearch = useCallback(async (pending) => {
+    if (!pending?.scope || !transactionMaintenanceScopeIsReady(pending.scope)) return false;
+    const category =
+      pending.category ||
+      pickTransactionMaintenancePermission(permissions, null) ||
+      "Games";
+    maintenanceAbortRef.current?.abort();
+    const ac = new AbortController();
+    maintenanceAbortRef.current = ac;
+    const seq = ++maintenanceSeqRef.current;
+    const searchScopeKey = transactionMaintenanceScopeCacheKey(pending.scope);
+    scopeKeyRef.current = searchScopeKey;
+    setListLoading(true);
+    setSearchError(null);
+    try {
+      const rows = await searchTransactionData({
+        dateFrom: dateFromRef.current,
+        dateTo: dateToRef.current,
+        process: processFilter,
+        category,
+        scope: pending.scope,
+        signal: ac.signal,
+      });
+      if (seq !== maintenanceSeqRef.current) return false;
+      setTransactionData(rows);
+      setMaintenanceDataComplete(true);
+      initialSearchDoneRef.current = true;
+      return true;
+    } catch (err) {
+      if (err?.name === "AbortError" || seq !== maintenanceSeqRef.current) return false;
+      setSearchError(err);
+      setTransactionData([]);
+      setMaintenanceDataComplete(false);
+      initialSearchDoneRef.current = true;
+      return false;
+    } finally {
+      if (seq === maintenanceSeqRef.current) setListLoading(false);
+    }
+  }, [permissions, processFilter]);
 
   useEffect(() => {
     if (!listQueryEnabled || !searchRecoverable) return;
@@ -398,17 +442,6 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (!filtersReady || !listQueryEnabled) return;
-
-    if (pendingBootSearchRef.current) {
-      const pending = pendingBootSearchRef.current;
-      pendingBootSearchRef.current = null;
-      suppressNextSearchEffectRef.current = true;
-      void performMaintenanceSearch({
-        scope: pending.scope,
-        category: pending.category,
-      });
-      return;
-    }
 
     if (suppressNextSearchEffectRef.current) {
       suppressNextSearchEffectRef.current = false;
@@ -546,7 +579,7 @@ export default function TransactionMaintenancePage() {
           isDashboardGroupOnlyMode() ||
           persistedGc.groupOnly ||
           (bootGroup != null && initialUiCompanyId == null) ||
-          (sessionGroup != null && initialUiCompanyId == null && companyId == null);
+          (sessionGroup != null && initialUiCompanyId == null);
 
         const runGroupOnlyBoot = async () => {
           persistDashboardGroupOnlyMode(true);
@@ -587,6 +620,7 @@ export default function TransactionMaintenancePage() {
             pickTransactionMaintenancePermission(meta.permissions, null);
           setPermissions(meta.permissions);
           setActivePermission(nextPerm);
+          pendingBootSearchRef.current = { scope: bootScope, category: nextPerm };
           try {
             const procList = bootScope
               ? await fetchProcessesForPermission(null, nextPerm, bootScope)
@@ -595,6 +629,7 @@ export default function TransactionMaintenancePage() {
           } catch (err) {
             console.error("Process list load error:", err);
           }
+          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           skipMetaAfterBootRef.current = true;
           handledMetaScopeKeyRef.current = buildMaintenanceMetaEffectKey(
             transactionMaintenanceScopeCacheKey(bootScope),
@@ -602,8 +637,6 @@ export default function TransactionMaintenancePage() {
             "",
             bootGroup,
           );
-          pendingBootSearchRef.current = { scope: bootScope, category: nextPerm };
-          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         };
 
         if (groupOnlyBoot) {
@@ -646,20 +679,19 @@ export default function TransactionMaintenancePage() {
           const initialActive = pickTransactionMaintenancePermission(companyPerms, savedPerm);
           setActivePermission(initialActive);
 
-          // Process list is a UI nicety; do not block initial list query on this.
+          const bootScope = resolveTransactionMaintenanceScope({
+            companies: filtered,
+            selectedGroup: bootGroup,
+            companyId: initialCompanyId,
+          });
+          pendingBootSearchRef.current = { scope: bootScope, category: initialActive };
           try {
-            const bootScope = resolveTransactionMaintenanceScope({
-              companies: filtered,
-              selectedGroup: bootGroup,
-              companyId: initialCompanyId,
-            });
             const procList = await fetchProcessesForPermission(
               initialCompanyId,
               initialActive,
               bootScope,
             );
             if (!cancelled) setProcesses(procList);
-            pendingBootSearchRef.current = { scope: bootScope, category: initialActive };
           } catch (err) {
             console.error("Process list load error:", err);
           }
@@ -690,6 +722,12 @@ export default function TransactionMaintenancePage() {
         if (!cancelled && runId === bootRunIdRef.current) navigate("/login", { replace: true });
       } finally {
         if (!cancelled && runId === bootRunIdRef.current) {
+          const pending = pendingBootSearchRef.current;
+          pendingBootSearchRef.current = null;
+          if (pending?.scope) {
+            suppressNextSearchEffectRef.current = true;
+            await runBootMaintenanceSearch(pending);
+          }
           setFiltersReady(true);
         }
       }
