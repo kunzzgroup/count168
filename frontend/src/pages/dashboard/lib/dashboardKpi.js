@@ -55,6 +55,7 @@ export function computeKpiMetrics(dashboardData, selectedGroup) {
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
   const netProfitDisplay = displayProfitNum + displayExpensesNum;
   const effectivePct = resolveEffectiveOwnershipPct(dashboardData, selectedGroup);
+  // Earnings = 当前筛选币种的 Net Profit × ownership%（供 Ownership 对账，不做跨币种折算）。
   const earningsDisplay = netProfitDisplay * effectivePct;
   const linkMul = parseFloat(dashboardData?._link_multiplier || 0) || 0;
   const hasLinkOwnership = linkMul > 0 && linkMul !== 1;

@@ -1076,6 +1076,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       );
       const baseEntry =
         perCurrency.find((row) => row.code === base) ?? perCurrency[0] ?? null;
+      // Earnings = ownership; do not FX-convert other currencies into the base total.
+      if (baseEntry?.metrics) {
+        aggregated.earnings = baseEntry.metrics.earnings;
+      }
       return { data: baseEntry?.data ?? null, metrics: aggregated };
     },
     [conversionBaseCurrency, currencies, loadMergedDashboard, selectedGroup]
@@ -1467,29 +1471,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [currencies.length, earningsCurrencyRows]
   );
 
-  const useConvertedEarnings = useMemo(
-    () =>
-      currencies.length > 1 &&
-      !exchangeRatesError &&
-      !exchangeRatesLoading &&
-      Object.keys(exchangeRates.rates || {}).length > 0 &&
-      (allCurrencyEarningsReady || (showAllCurrencies && canShowAllCurrencies)),
-    [
-      currencies.length,
-      exchangeRatesError,
-      exchangeRatesLoading,
-      exchangeRates.rates,
-      allCurrencyEarningsReady,
-      showAllCurrencies,
-      canShowAllCurrencies,
-    ]
-  );
+  /** Earnings = ownership share of net profit; never Frankfurter roll-up across currencies. */
+  const useConvertedEarnings = false;
 
-  /** UI column mode: avoid flashing "Share" while rates/earnings still load (multi-currency). */
-  const earningsBreakdownShowsRate = useMemo(
-    () => currencies.length > 1 && !exchangeRatesError,
-    [currencies.length, exchangeRatesError]
-  );
+  /** Breakdown uses native per-currency ownership amounts and share %, not FX rates. */
+  const earningsBreakdownShowsRate = false;
 
   const convertedEarningsTotal = useMemo(() => {
     if (!useConvertedEarnings) return null;
@@ -1528,95 +1514,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
 
-  const summaryEarningsValue = useMemo(() => {
-    if (showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi) {
-      return multiCurrencyKpi.earnings;
-    }
-    if (useConvertedEarnings && convertedEarningsTotal != null) {
-      return convertedEarningsTotal;
-    }
-    return kpi.earnings;
-  }, [
-    showAllCurrencies,
-    canShowAllCurrencies,
-    multiCurrencyKpi,
-    useConvertedEarnings,
-    convertedEarningsTotal,
-    kpi.earnings,
-  ]);
+  /** Hero + KPI card: selected filter currency's ownership earnings only. */
+  const summaryEarningsValue = kpi?.earnings ?? 0;
 
-  /** KPI Earnings card matches right-panel total when multi-currency conversion is active. */
-  const kpiForDisplay = useMemo(() => {
-    if (!kpi) return kpi;
-    const displayEarnings =
-      currencies.length > 1 && useConvertedEarnings && convertedEarningsTotal != null
-        ? convertedEarningsTotal
-        : kpi.earnings;
-    const prevEarnings =
-      currencies.length > 1 && useConvertedEarnings && convertedEarningsTotalPrev != null
-        ? convertedEarningsTotalPrev
-        : computeKpiMetrics(dashboardDataPrev, selectedGroup)?.earnings;
-    const comparisons =
-      kpi.comparisons && prevEarnings != null
-        ? {
-            ...kpi.comparisons,
-            earnings: buildKpiCompare(displayEarnings, prevEarnings),
-          }
-        : kpi.comparisons;
-    return { ...kpi, earnings: displayEarnings, comparisons };
-  }, [
-    kpi,
-    currencies.length,
-    useConvertedEarnings,
-    convertedEarningsTotal,
-    convertedEarningsTotalPrev,
-    dashboardDataPrev,
-    selectedGroup,
-  ]);
+  const kpiForDisplay = kpi;
 
-  const summaryConversionNote = useMemo(() => {
-    if (!earningsBreakdownShowsRate) return "";
-    return i18n.earningsIncludesConversion;
-  }, [earningsBreakdownShowsRate, i18n.earningsIncludesConversion]);
+  const summaryConversionNote = "";
 
-  const rateFootnoteText = useMemo(() => {
-    if (currencies.length <= 1) return "";
-    if (exchangeRatesLoading) return i18n.rateLoading;
-    if (exchangeRatesError) return i18n.rateUnavailable;
-    const foreignCodes = currencies
-      .map((c) => String(c).toUpperCase())
-      .filter((c) => c !== String(displayCurrencyCode).toUpperCase());
-    if (!foreignCodes.length) return "";
-    const dateLabel = exchangeRates.date || "—";
-    let text = formatI18nTemplate(i18n.rateFootnote, {
-      codes: foreignCodes.join(", "),
-      date: dateLabel,
-    });
-    if (exchangeRates.unsupported?.length) {
-      text += ` · ${i18n.rateUnavailable}`;
-    }
-    return text;
-  }, [
-    currencies,
-    displayCurrencyCode,
-    exchangeRatesLoading,
-    exchangeRatesError,
-    exchangeRates.date,
-    exchangeRates.unsupported,
-    i18n,
-  ]);
+  const rateFootnoteText = "";
 
   const scopeDataPending =
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
   const summaryEarningsLoading =
     scopeDataPending ||
     (loading && !dashboardData) ||
-    (currencies.length > 1 &&
-      !exchangeRatesError &&
-      (earningsByCurrencyLoading ||
-        exchangeRatesLoading ||
-        !allCurrencyEarningsReady ||
-        (useConvertedEarnings && convertedEarningsTotal == null)));
+    (currencies.length > 1 && (earningsByCurrencyLoading || !allCurrencyEarningsReady));
   const kpiLoading = scopeDataPending || (loading && !dashboardData);
 
   const handlePickGroup = useCallback(
