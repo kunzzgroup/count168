@@ -1,13 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import {
+  clearDashboardGroupFilterKeepCompany,
+  companiesForCompanyPicker,
   companiesGroupEntityList,
   companyRowIsGroupEntity,
   companiesInGroupList,
+  dedupeOwnerCompaniesByCode,
+  excludeGroupLabelsFromCompanyPicker,
+  filterCompaniesWithDisplayId,
   isDashboardGroupOnlyMode,
+  isSubsidiaryCompanyRow,
   isVirtualGroupLinkCompanyRow,
+  normalizeCompanyGroupId,
   persistDashboardGroupOnlyMode,
   persistDashboardGroupFilter,
   persistDashboardFilterState,
@@ -16,6 +23,7 @@ import {
   stripCompanyIdFromUrl,
   notifyDashboardGroupFilterChanged,
   pickDefaultCompanyForGroup,
+  pickDefaultSubsidiaryForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
@@ -404,13 +412,62 @@ export default function UserListPage() {
           stripCompanyIdFromUrl();
         }
 
-        const bootGroup = resolveInitialSelectedGroupFromSession(
+        const visibleGroups = resolveVisibleGroupIds(sortedUniqueGroupIds(rows), me, rows);
+        let bootGroup = resolveInitialSelectedGroupFromSession(
           rows,
           effectiveNum != null
             ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null
             : null,
           me,
         );
+
+        if (!bootGroup && effectiveNum != null) {
+          const bootRow = rows.find((c) => Number(c.id) === Number(effectiveNum));
+          const gid = normalizeCompanyGroupId(bootRow);
+          if (gid && visibleGroups.includes(gid)) {
+            bootGroup = gid;
+            persistDashboardGroupFilter(gid);
+          }
+        }
+
+        const groupFilterOptOut =
+          typeof sessionStorage !== "undefined" &&
+          sessionStorage.getItem("dashboard_group_filter_opt_out") === "1";
+        const groupOnlyBoot = isGroupLogin(me) && isDashboardGroupOnlyMode();
+        if (!groupOnlyBoot && !isGroupLogin(me)) {
+          if (
+            !bootGroup &&
+            !groupFilterOptOut &&
+            visibleGroups.length > 0 &&
+            (effectiveNum == null || !Number.isFinite(Number(effectiveNum)))
+          ) {
+            bootGroup = visibleGroups[0];
+          }
+          const bootRow =
+            effectiveNum != null ? rows.find((c) => Number(c.id) === Number(effectiveNum)) : null;
+          const rowGroupIds = sortedUniqueGroupIds(rows);
+          const targetGroup =
+            bootGroup || normalizeCompanyGroupId(bootRow) || null;
+          const needsSubsidiary =
+            effectiveNum == null ||
+            !Number.isFinite(Number(effectiveNum)) ||
+            !isSubsidiaryCompanyRow(bootRow, rowGroupIds);
+          if (needsSubsidiary && targetGroup) {
+            const pick = pickDefaultSubsidiaryForGroup(rows, targetGroup, {
+              me,
+              preferredCompanyId: me?.company_id ?? effectiveNum,
+            });
+            if (pick?.id != null) {
+              effectiveNum = Number(pick.id);
+              bootGroup = normalizeCompanyGroupId(pick) || targetGroup;
+              persistDashboardGroupFilter(bootGroup);
+            } else if (!bootGroup) {
+              bootGroup = targetGroup;
+            }
+          } else if (!bootGroup && targetGroup) {
+            bootGroup = targetGroup;
+          }
+        }
 
         if (bootGroup && effectiveNum != null) {
           const inGroup = companiesInGroupList(rows, bootGroup).some(
@@ -422,13 +479,26 @@ export default function UserListPage() {
           }
         }
 
-        if (isCompanyLogin(me) && (effectiveNum == null || !Number.isFinite(Number(effectiveNum)))) {
-          const pick = pickDefaultCompanyForGroup(rows, bootGroup, {
-            me,
-            preferredCompanyId: me.company_id,
-          });
-          if (pick?.id != null) effectiveNum = Number(pick.id);
-          else if (me.company_id != null) effectiveNum = Number(me.company_id);
+        if (isCompanyLogin(me)) {
+          const groupIds = sortedUniqueGroupIds(rows);
+          if (effectiveNum != null && Number.isFinite(Number(effectiveNum))) {
+            const bootRow = rows.find((c) => Number(c.id) === Number(effectiveNum));
+            if (!isSubsidiaryCompanyRow(bootRow, groupIds)) {
+              const pick = pickDefaultSubsidiaryForGroup(rows, bootGroup || bootRow?.group_id, {
+                me,
+                preferredCompanyId: me.company_id,
+              });
+              effectiveNum = pick?.id != null ? Number(pick.id) : null;
+            }
+          }
+          if (effectiveNum == null || !Number.isFinite(Number(effectiveNum))) {
+            const pick = pickDefaultSubsidiaryForGroup(rows, bootGroup, {
+              me,
+              preferredCompanyId: me.company_id,
+            });
+            if (pick?.id != null) effectiveNum = Number(pick.id);
+            else if (me.company_id != null) effectiveNum = Number(me.company_id);
+          }
         }
 
         setCompanyId(isGroupLogin(me) && isDashboardGroupOnlyMode() ? null : effectiveNum);
@@ -479,7 +549,6 @@ export default function UserListPage() {
     groupAllMode,
     handlePickAllGroups,
     handlePickAllInGroup,
-    handlePickGroup: gcHandlePickGroup,
     isListScopeReady,
   } = useGcFilterWithAllModes({
     companies: allCompanyButtons,
@@ -506,6 +575,37 @@ export default function UserListPage() {
     me,
     autoPickCompanyWhenEmpty: false,
   });
+
+  /** When no Group is selected, the shared picker only lists “ungrouped” rows — often empty for AP/IG-only tenants. */
+  const inlineCompaniesForPicker = useMemo(() => {
+    if (companiesForPicker.length > 0) return companiesForPicker;
+
+    const effectiveGroup =
+      (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null) ||
+      (companyId != null
+        ? normalizeCompanyGroupId(companies.find((c) => Number(c.id) === Number(companyId)))
+        : null) ||
+      (groupIds.length > 0 ? groupIds[0] : null);
+
+    if (effectiveGroup) {
+      return dedupeOwnerCompaniesByCode(
+        companiesForCompanyPicker(allCompanyButtons, effectiveGroup, groupIds),
+        companyId,
+      );
+    }
+
+    return excludeGroupLabelsFromCompanyPicker(
+      dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(allCompanyButtons), companyId),
+      groupIds,
+    );
+  }, [
+    companiesForPicker,
+    selectedGroup,
+    companyId,
+    companies,
+    groupIds,
+    allCompanyButtons,
+  ]);
 
   const aggregateUserList = useMemo(
     () => Boolean((groupsAllMode || groupAllMode) && companyId == null),
@@ -692,6 +792,38 @@ export default function UserListPage() {
     }
   }, [bootLoading, companyId, groupOnlyUserList, aggregateUserList, isListScopeReady, me, fetchUsers]);
 
+  /** Non-group-login: group selected without company leaves Company row empty and blocks list fetch. */
+  useLayoutEffect(() => {
+    if (bootLoading || !me) return;
+    if (isGroupLogin(me) && isDashboardGroupOnlyMode()) return;
+    if (!selectedGroup || companyId != null) return;
+    const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
+      me,
+      preferredCompanyId: me?.company_id ?? companyId,
+    });
+    if (!pick?.id) {
+      setSelectedGroup(null);
+      persistDashboardGroupFilter(null);
+      return;
+    }
+    const nextId = Number(pick.id);
+    skipCompanyFetchEffectRef.current = true;
+    flushSync(() => {
+      setCompanyId(nextId);
+      applyUserListCache(nextId);
+    });
+    persistDashboardFilterState(selectedGroup, nextId, { allowGroupOnly: false });
+    notifyDashboardGroupFilterChanged(selectedGroup, nextId);
+    void onSwitchCompanyRef.current?.(pick);
+  }, [
+    bootLoading,
+    me,
+    selectedGroup,
+    companyId,
+    companies,
+    applyUserListCache,
+  ]);
+
   const onPickGroupPill = useCallback(
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
@@ -707,7 +839,35 @@ export default function UserListPage() {
       if (!g || (groupLogin && g === current && companyId != null)) return;
 
       if (!groupLogin) {
-        void gcHandlePickGroup(g);
+        if (g === current && companyId != null) {
+          skipCompanyFetchEffectRef.current = true;
+          flushSync(() => {
+            setSelectedGroup(null);
+            applyUserListCache(companyId);
+          });
+          clearDashboardGroupFilterKeepCompany(companyId);
+          persistDashboardFilterState(null, companyId, { allowGroupOnly: false });
+          notifyDashboardGroupFilterChanged(null, companyId);
+          return;
+        }
+
+        const pick = pickDefaultSubsidiaryForGroup(companies, g, {
+          me,
+          preferredCompanyId: companyId ?? me?.company_id,
+        });
+        if (!pick?.id) return;
+
+        const nextCompanyId = Number(pick.id);
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setSelectedGroup(g);
+          setCompanyId(nextCompanyId);
+          applyUserListCache(nextCompanyId);
+        });
+        persistDashboardGroupFilter(g);
+        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, nextCompanyId);
+        void onSwitchCompany(pick);
         return;
       }
 
@@ -735,10 +895,11 @@ export default function UserListPage() {
     [
       applyUserListCache,
       companyId,
+      companies,
       fetchUsers,
-      gcHandlePickGroup,
       handleClearCompany,
       me,
+      onSwitchCompany,
       selectedGroup,
     ],
   );
@@ -1318,7 +1479,7 @@ export default function UserListPage() {
               selectedGroup={selectedGroup}
               onPickAllGroups={handlePickAllGroups}
               onPickGroup={onPickGroupPill}
-              companiesForPicker={companiesForPicker}
+              companiesForPicker={inlineCompaniesForPicker}
               groupAllMode={groupAllMode}
               pickerCompanyId={pickerCompanyId}
               onPickAllInGroup={handlePickAllInGroup}
