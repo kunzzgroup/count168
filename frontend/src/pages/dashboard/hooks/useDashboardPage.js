@@ -471,7 +471,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     } else if (groupKey && !singleCid) {
       groupOnlyCurrencyScope = true;
       const anchor = pickGroupAnchorCompany(companies, groupKey);
-      if (!anchor?.id) {
+      const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
+      if (anchorId) {
+        companyIds = [anchorId];
+      } else {
         groupLedgerOnly = true;
       }
     }
@@ -479,7 +482,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const groupPlusCompanyCurrency =
       Boolean(groupKey) && singleCid != null && !groupOnlyCurrencyScope;
 
-    if (!companyIds.length && !groupLedgerOnly) {
+    if (!companyIds.length && !groupLedgerOnly && !groupOnlyCurrencyScope) {
       commitCurrencyList([]);
       return;
     }

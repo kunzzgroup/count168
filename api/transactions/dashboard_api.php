@@ -645,6 +645,39 @@ function dashboardCollectScopeAccountIds(
 }
 
 /**
+ * Group-only scope: entity company accounts + group-ledger accounts (always merged).
+ *
+ * @return int[]
+ */
+function dashboardCollectGroupOnlyAccountIds(PDO $pdo, string $viewGroup): array
+{
+    $viewGroup = reportNormalizeGroupId($viewGroup);
+    if ($viewGroup === '') {
+        return [];
+    }
+
+    $accountIds = [];
+    $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+    if ($entityId > 0) {
+        $accountIds = array_merge(
+            $accountIds,
+            dashboardCollectScopeAccountIds($pdo, $entityId, null, 0)
+        );
+    }
+
+    $groupScopeId = dashboardResolveGroupScopeId($pdo, $viewGroup);
+    if ($groupScopeId > 0) {
+        dashboardAssertGroupLedgerAccess($pdo, $viewGroup, $groupScopeId);
+        $accountIds = array_merge(
+            $accountIds,
+            dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId)
+        );
+    }
+
+    return array_values(array_unique($accountIds));
+}
+
+/**
  * Currency codes enabled in Account → Currency Setting (company currency table).
  *
  * @param int[] $companyIds
@@ -816,15 +849,18 @@ function dashboardResolveFilterCurrencyMap(
 
     if ($groupScopeId > 0) {
         $groupCode = dashboardResolveGroupCodeFromScopeId($pdo, $groupScopeId);
-        $entityId = $groupCode !== '' ? tx_resolve_group_entity_company_id($pdo, $groupCode) : 0;
+        if ($groupCode !== '') {
+            $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $groupCode);
+            $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+            if ($entityId > 0) {
+                $companyIds = [$entityId];
+            }
+        }
+    } elseif ($viewGroupNorm !== '' && $companyId <= 0) {
+        $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroupNorm);
+        $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
         if ($entityId > 0) {
             $companyIds = [$entityId];
-            $accountIds = dashboardCollectScopeAccountIds($pdo, $entityId, null, 0);
-            if ($accountIds === []) {
-                $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
-            }
-        } else {
-            $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
         }
     } else {
         $accountIds = dashboardCollectScopeAccountIds(
