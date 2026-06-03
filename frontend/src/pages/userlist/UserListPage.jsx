@@ -20,7 +20,6 @@ import {
   persistDashboardGroupOnlyMode,
   persistDashboardGroupFilter,
   persistDashboardFilterState,
-  persistEnterDashboardGroupOnlyScope,
   persistDashboardSelectedCompany,
   readDashboardSelectedCompanyId,
   readPersistedDashboardGcFilter,
@@ -812,10 +811,10 @@ export default function UserListPage() {
     }
   }, [bootLoading, companyId, groupOnlyUserList, aggregateUserList, isListScopeReady, me, fetchUsers]);
 
-  /** Company login only: never keep group-only — auto-pick subsidiary when group set without company. */
+  /** Company / owner login: never keep group-only — auto-pick a subsidiary when a group is selected. */
   useLayoutEffect(() => {
     if (bootLoading || !me) return;
-    if (isDashboardGroupOnlyMode()) return;
+    if (isGroupLogin(me) && isDashboardGroupOnlyMode()) return;
     if (!selectedGroup || companyId != null) return;
     const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
       me,
@@ -876,40 +875,71 @@ export default function UserListPage() {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       const current = String(selectedGroup || "").trim().toUpperCase();
+      const groupLogin = isGroupLogin(me);
 
-      if (!g) return;
+      if (groupLogin && g) {
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+          setSelectedGroup(g);
+          setCompanyId(null);
+          applyUserListCache(null, { groupOnly: true });
+        });
 
-      if (g === current && companyId == null) {
-        deselectGroupKeepCompany();
+        persistDashboardGroupFilter(g);
+        persistDashboardGroupOnlyMode(true);
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+
+        const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);
+        if (!userListCacheRef.current.has(groupCacheKey)) {
+          void fetchUsers(null, { silent: true, groupOnly: true });
+        }
         return;
       }
 
-      if (g === current && companyId != null && isCompanyLogin(me)) {
-        deselectGroupKeepCompany();
-        return;
-      }
+      if (!g || (groupLogin && g === current && companyId != null)) return;
 
-      skipCompanyFetchEffectRef.current = true;
-      persistEnterDashboardGroupOnlyScope(g);
-      flushSync(() => {
-        setGroupsAllMode(false);
-        setGroupAllMode(false);
-        setSelectedGroup(g);
-        setCompanyId(null);
-        applyUserListCache(null, { groupOnly: true });
-      });
+      if (requiresCompanyWithGroup) {
+        if (g === current) {
+          deselectGroupKeepCompany();
+          return;
+        }
 
-      const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);
-      if (!userListCacheRef.current.has(groupCacheKey)) {
-        void fetchUsers(null, { silent: true, groupOnly: true });
+        const pick = pickDefaultSubsidiaryForGroup(companies, g, {
+          me,
+          preferredCompanyId: companyId ?? me?.company_id,
+        });
+        if (!pick?.id) return;
+
+        const nextCompanyId = Number(pick.id);
+        skipCompanyFetchEffectRef.current = true;
+        sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+        flushSync(() => {
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+          setSelectedGroup(g);
+          setCompanyId(nextCompanyId);
+          applyUserListCache(nextCompanyId);
+        });
+        persistDashboardGroupFilter(g);
+        persistDashboardGroupOnlyMode(false);
+        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
+          companyCode: String(pick.company_id || "").trim().toUpperCase(),
+        });
+        void onSwitchCompany(pick);
       }
     },
     [
       applyUserListCache,
       companyId,
+      companies,
       deselectGroupKeepCompany,
       fetchUsers,
       me,
+      onSwitchCompany,
+      requiresCompanyWithGroup,
       selectedGroup,
       setGroupAllMode,
       setGroupsAllMode,
