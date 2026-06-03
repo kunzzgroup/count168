@@ -48,6 +48,19 @@ export function useGroupAnchorSessionSync({
     () => !isGroupOnlyFilterUi(selectedGroup, companyId),
   );
 
+  const applyReadyFromRef = useCallback(
+    (group, id) => {
+      const g = group ? String(group).trim().toUpperCase() : "";
+      const aid = id != null ? Number(id) : Number.NaN;
+      if (g && Number.isFinite(aid) && aid > 0 && ref.current.group === g && ref.current.companyId === aid) {
+        setAnchorSessionReady(true);
+        return true;
+      }
+      return false;
+    },
+    [],
+  );
+
   // Selecting a subsidiary changes PHP session — invalidate cached anchor sync.
   useLayoutEffect(() => {
     const prev = prevCompanyIdRef.current;
@@ -59,7 +72,6 @@ export function useGroupAnchorSessionSync({
       return;
     }
 
-    // Company cleared → group-only: force re-sync even if ref still matches boot state.
     if (prev != null && next == null && selectedGroup) {
       ref.current = { group: null, companyId: null };
       setAnchorSessionReady(false);
@@ -77,9 +89,7 @@ export function useGroupAnchorSessionSync({
     }
 
     const g = String(selectedGroup).trim().toUpperCase();
-    const prev = ref.current;
-    if (prev.group === g && prev.companyId === anchorId) {
-      setAnchorSessionReady(true);
+    if (applyReadyFromRef(g, anchorId)) {
       return;
     }
 
@@ -87,7 +97,10 @@ export function useGroupAnchorSessionSync({
     setAnchorSessionReady(false);
     (async () => {
       const json = await syncCompanySessionApi(anchorId, g);
-      if (cancelled) return;
+      if (cancelled) {
+        applyReadyFromRef(g, anchorId);
+        return;
+      }
       if (json?.success) {
         ref.current = { group: g, companyId: anchorId };
         notifyCompanySessionUpdated();
@@ -97,7 +110,7 @@ export function useGroupAnchorSessionSync({
     return () => {
       cancelled = true;
     };
-  }, [needsAnchorSession, anchorId, selectedGroup, companies]);
+  }, [needsAnchorSession, anchorId, selectedGroup, companies, applyReadyFromRef]);
 
   const resetAnchorSessionRef = useCallback(() => {
     ref.current = { group: null, companyId: null };

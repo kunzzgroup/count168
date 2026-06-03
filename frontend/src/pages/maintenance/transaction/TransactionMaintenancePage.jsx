@@ -102,12 +102,6 @@ function readInitialMaintenanceCompanyId() {
   return null;
 }
 
-function isMaintenanceGroupOnlyUi(selectedGroup, companyId) {
-  if (!selectedGroup) return false;
-  const cid = companyId != null && companyId !== "" ? Number(companyId) : Number.NaN;
-  return !(Number.isFinite(cid) && cid > 0);
-}
-
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -218,16 +212,14 @@ export default function TransactionMaintenancePage() {
     [transactionScope, dateFrom, dateTo, processFilter, activePermission],
   );
 
-  const { anchorSessionReady, markAnchorSynced, resetAnchorSessionRef } =
-    useGroupAnchorSessionSync({
+  const { markAnchorSynced, resetAnchorSessionRef } = useGroupAnchorSessionSync({
       companies,
       selectedGroup,
       companyId,
       sessionCompanyId: me?.company_id,
-      enabled: true,
+      // Boot owns initial anchor sync; hook runs after boot for user toggles / sidebar only.
+      enabled: filtersReady,
     });
-
-  const groupOnlyUi = isMaintenanceGroupOnlyUi(selectedGroup, companyId);
 
   const listQueryEnabled = Boolean(
     filtersReady &&
@@ -236,8 +228,7 @@ export default function TransactionMaintenancePage() {
     transactionMaintenanceScopeIsReady(transactionScope) &&
     dateFrom &&
     dateTo &&
-    activePermission &&
-    (!groupOnlyUi || anchorSessionReady),
+    activePermission,
   );
 
   const bootPending =
@@ -246,8 +237,7 @@ export default function TransactionMaintenancePage() {
     !metaReady ||
     !dateFrom ||
     !dateTo ||
-    !activePermission ||
-    (groupOnlyUi && !anchorSessionReady);
+    !activePermission;
 
   const maintenancePlaceholder = useCallback(
     (previousData, previousQuery) => {
@@ -552,6 +542,24 @@ export default function TransactionMaintenancePage() {
           persistDashboardSelectedCompany(null);
           setCompanyId(null);
           setCompanyCode("");
+
+          try {
+            const synced = await syncTransactionMaintenanceGroupAnchorSession(
+              filtered,
+              bootGroup,
+              u.company_id,
+            );
+            if (synced && bootGroup) {
+              const anchor =
+                pickDefaultSubsidiaryForGroup(filtered, bootGroup, {
+                  preferredCompanyId: u.company_id,
+                }) ?? pickGroupAnchorCompany(filtered, bootGroup);
+              if (anchor?.id) markAnchorSynced(bootGroup, anchor.id);
+            }
+          } catch (err) {
+            console.error("Group anchor session sync error:", err);
+          }
+
           const bootScope = resolveTransactionMaintenanceScope({
             companies: filtered,
             selectedGroup: bootGroup,
@@ -572,22 +580,6 @@ export default function TransactionMaintenancePage() {
             if (!cancelled) setProcesses(procList);
           } catch (err) {
             console.error("Process list load error:", err);
-          }
-          try {
-            const synced = await syncTransactionMaintenanceGroupAnchorSession(
-              filtered,
-              bootGroup,
-              u.company_id,
-            );
-            if (synced && bootGroup) {
-              const anchor =
-                pickDefaultSubsidiaryForGroup(filtered, bootGroup, {
-                  preferredCompanyId: u.company_id,
-                }) ?? pickGroupAnchorCompany(filtered, bootGroup);
-              if (anchor?.id) markAnchorSynced(bootGroup, anchor.id);
-            }
-          } catch (err) {
-            console.error("Group anchor session sync error:", err);
           }
           skipMetaAfterBootRef.current = true;
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
@@ -670,7 +662,7 @@ export default function TransactionMaintenancePage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, navigate, me?.user_id]);
+  }, [sessionReady, navigate, me?.user_id, markAnchorSynced]);
 
   // -- Load Meta Data (Processes & Permissions) --
   useEffect(() => {
