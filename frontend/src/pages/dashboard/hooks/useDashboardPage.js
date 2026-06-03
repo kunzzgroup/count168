@@ -1709,50 +1709,28 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (g === selectedGroup && companyId != null && !groupsAllMode) {
-        if (!canUseGroupOnlyMode(me)) {
-          setGroupsAllMode(false);
-          setGroupAllMode(false);
-          setMergedSubsetIds(null);
-          setSelectedGroup(null);
-          clearDashboardGroupFilterKeepCompany(companyId);
-          void syncCompanySession(companyId, null);
-          return;
-        }
+
+      if (g === selectedGroup && companyId == null && !groupsAllMode) {
         return;
       }
 
-      if (canUseGroupOnlyMode(me)) {
+      if (g === selectedGroup && companyId != null && !groupsAllMode && !canUseGroupOnlyMode(me)) {
         setGroupsAllMode(false);
-        setSelectedGroup(g);
-        sessionStorage.setItem("dashboard_group_filter", g);
-        clearCompanySelection(g);
-        notifyDashboardGroupFilterChanged(g, null);
+        setGroupAllMode(false);
+        setMergedSubsetIds(null);
+        setSelectedGroup(null);
+        clearDashboardGroupFilterKeepCompany(companyId);
+        void syncCompanySession(companyId, null);
         return;
       }
 
-      const pick = pickDefaultSubsidiaryForGroup(companies, g, {
-        me,
-        preferredCompanyId: companyId,
-      });
-      if (!pick?.id) {
-        clearCompanySelection(g);
-        notifyDashboardGroupFilterChanged(g, null);
-        return;
-      }
-
-      const id = parseInt(pick.id, 10);
       setGroupsAllMode(false);
-      persistDashboardFilterState(g, id, { allowGroupOnly: false });
-      notifyDashboardGroupFilterChanged(g, id, {
-        companyCode: pick.company_id,
-      });
       setGroupAllMode(false);
       setMergedSubsetIds(null);
       setSelectedGroup(g);
       sessionStorage.setItem("dashboard_group_filter", g);
-      applyCompanySelection(id);
-      void syncCompanySession(id, g);
+      clearCompanySelection(g);
+      notifyDashboardGroupFilterChanged(g, null);
     },
     [
       selectedGroup,
@@ -1856,7 +1834,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useLayoutEffect(() => {
     if (
       !me ||
-      canUseGroupOnlyMode(me) ||
+      isDashboardGroupOnlyMode() ||
       !selectedGroup ||
       companyId != null ||
       groupsAllMode ||

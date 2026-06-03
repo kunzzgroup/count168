@@ -254,6 +254,20 @@ export function resolveInitialCompanyId(fallbackCompanyId) {
  * Notify layout (sidebar Process visibility) when dashboard Group / Company filter changes.
  * Process is hidden only while a group is selected with no company (see AuthenticatedLayout).
  */
+/**
+ * Group+company → click group pill: clear company and enter group-only (Dashboard parity).
+ * Caller updates React state (setSelectedGroup, setCompanyId(null), etc.) after this.
+ */
+export function persistEnterDashboardGroupOnlyScope(groupId) {
+  const g = groupId ? String(groupId).trim().toUpperCase() : null;
+  if (!g) return;
+  persistDashboardGroupFilter(g);
+  persistDashboardGroupOnlyMode(true);
+  persistDashboardFilterState(g, null, { allowGroupOnly: true });
+  stripCompanyIdFromUrl();
+  notifyDashboardGroupFilterChanged(g, null);
+}
+
 export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, options = {}) {
   const value = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
   const groupOnly = options.ignoreGroupOnly === true ? false : isDashboardGroupOnlyMode();
