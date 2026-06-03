@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import ProcessSelect from "../../shared/ProcessSelect.jsx";
 import {
   buildMaintenancePeriodPresets,
-  formatDmyFromYmd,
   parseDmy,
 } from "../../shared/maintenanceDateHelpers.js";
 import ReportDatePicker from "../../../report/common/ReportDatePicker.jsx";
@@ -14,8 +13,7 @@ export default function TransactionMaintenanceFilters({
   setSelectedProcess,
   dateFrom,
   dateTo,
-  setDateFrom,
-  setDateTo,
+  onDateRangeChange,
   today,
   companyId,
   snapGroupIds,
@@ -64,10 +62,7 @@ export default function TransactionMaintenanceFilters({
         <ReportDatePicker
           dateFrom={parseDmy(dateFrom || today)}
           dateTo={parseDmy(dateTo || today)}
-          onRangeChange={(start, end) => {
-            setDateFrom(formatDmyFromYmd(start));
-            setDateTo(formatDmyFromYmd(end));
-          }}
+          onRangeChange={(start, end) => onDateRangeChange(start, end)}
           containerClass="customer-report-filter-group"
           label={m.dateRange}
           placeholder={m.selectDateRange}

@@ -54,6 +54,7 @@ import {
 } from "./transactionMaintenanceScope.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
+import { formatDmyFromYmd } from "../shared/maintenanceDateHelpers.js";
 
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
@@ -141,6 +142,7 @@ export default function TransactionMaintenancePage() {
   const lastSearchQueryKeyRef = useRef("");
   /** Boot finished with scope/permission — trigger one explicit search before auto-effect. */
   const pendingBootSearchRef = useRef(null);
+  const searchDebounceRef = useRef(null);
 
   const [transactionData, setTransactionData] = useState([]);
   const [maintenanceDataComplete, setMaintenanceDataComplete] = useState(false);
@@ -471,10 +473,17 @@ export default function TransactionMaintenancePage() {
       return;
     }
 
-    const h = window.setTimeout(() => {
+    if (searchDebounceRef.current) window.clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = window.setTimeout(() => {
+      searchDebounceRef.current = null;
       void performMaintenanceSearch();
-    }, 0);
-    return () => window.clearTimeout(h);
+    }, 280);
+    return () => {
+      if (searchDebounceRef.current) {
+        window.clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
   }, [
     filtersReady,
     listQueryEnabled,
@@ -852,6 +861,20 @@ export default function TransactionMaintenancePage() {
   ]);
 
   // -- Handlers --
+  const handleDateRangeChange = useCallback((start, end) => {
+    const nextFrom = formatDmyFromYmd(start);
+    const nextTo = formatDmyFromYmd(end);
+    if (!nextFrom || !nextTo) return;
+    if (nextFrom === dateFrom && nextTo === dateTo) return;
+    setTransactionData([]);
+    setMaintenanceDataComplete(false);
+    setListLoading(true);
+    setListSyncing(false);
+    setSearchError(null);
+    setDateFrom(nextFrom);
+    setDateTo(nextTo);
+  }, [dateFrom, dateTo]);
+
   const handleClearCompany = useCallback((groupForPersist) => {
     const g = groupForPersist ?? selectedGroup;
     const nextScope = resolveTransactionMaintenanceScope({
@@ -1043,8 +1066,7 @@ export default function TransactionMaintenancePage() {
           }
           dateFrom={dateFrom}
           dateTo={dateTo}
-          setDateFrom={setDateFrom}
-          setDateTo={setDateTo}
+          onDateRangeChange={handleDateRangeChange}
           today={todayDmy}
           companyId={companyId}
           companies={companies}

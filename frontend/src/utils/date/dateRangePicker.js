@@ -738,6 +738,7 @@ export function ensureMaintenanceDateRangePicker() {
     updateQuickPresetActive(range);
     renderCalendar();
     runOnChange();
+    closeMaintenanceCalendarPopup();
     const qd = document.getElementById("quick-select-dropdown");
     if (qd) qd.classList.remove("show");
   }
