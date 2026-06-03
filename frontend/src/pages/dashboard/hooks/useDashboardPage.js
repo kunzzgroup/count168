@@ -428,14 +428,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     let companyIds = [];
     let groupLedgerOnly = false;
-    let groupAggregateCurrency = false;
+    /** Group-only currency: entity / group-ledger acc currency — never all subsidiaries. */
+    let groupOnlyCurrencyScope = false;
     if (groupsAllMode) {
       if (singleCid) {
         companyIds = [singleCid];
       } else if (groupAllMode) {
-        companyIds = filterCompaniesWithDisplayId(companies)
-          .map((c) => parseInt(c.id, 10))
-          .filter((id) => Number.isFinite(id));
+        if (selectedGroup) {
+          groupOnlyCurrencyScope = true;
+          const anchor = pickGroupAnchorCompany(companies, selectedGroup);
+          const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
+          if (anchorId) companyIds = [anchorId];
+          else groupLedgerOnly = true;
+        } else {
+          companyIds = filterCompaniesWithDisplayId(companies)
+            .map((c) => parseInt(c.id, 10))
+            .filter((id) => Number.isFinite(id));
+        }
       } else {
         const ids = new Set();
         for (const gid of groupIds) {
@@ -447,7 +456,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         companyIds = [...ids];
       }
     } else if (groupAllMode && groupKey) {
-      groupAggregateCurrency = true;
+      groupOnlyCurrencyScope = true;
       const anchor = pickGroupAnchorCompany(companies, groupKey);
       const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
       if (anchorId) {
@@ -460,13 +469,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     } else if (singleCid) {
       companyIds = [singleCid];
     } else if (groupKey && !singleCid) {
-      // Group-only / Company All: entity acc currency only — never subsidiary anchor (e.g. 95 under IG).
-      groupAggregateCurrency = true;
+      groupOnlyCurrencyScope = true;
       const anchor = pickGroupAnchorCompany(companies, groupKey);
       if (!anchor?.id) {
         groupLedgerOnly = true;
       }
     }
+
+    const groupPlusCompanyCurrency =
+      Boolean(groupKey) && singleCid != null && !groupOnlyCurrencyScope;
 
     if (!companyIds.length && !groupLedgerOnly) {
       commitCurrencyList([]);
@@ -492,17 +503,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           q.set("view_group", groupKey);
         } else {
           if (singleCid) q.set("company_id", String(singleCid));
-          else if (companyIds.length && !groupAggregateCurrency) {
+          else if (companyIds.length && !groupOnlyCurrencyScope) {
             q.set("company_ids", companyIds.join(","));
           }
           if (groupKey) {
             q.set("view_group", groupKey);
             q.set("group_id", groupKey);
           }
-          if (groupAggregateCurrency) q.set("group_aggregate", "1");
-          if (singleCid && groupKey && !groupAggregateCurrency) {
-            q.set("subsidiary_accounts_only", "1");
-          }
+          if (groupOnlyCurrencyScope) q.set("group_aggregate", "1");
+          if (groupPlusCompanyCurrency) q.set("subsidiary_accounts_only", "1");
         }
         const curRes = await fetch(
           buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
@@ -512,29 +521,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (curRes.ok && curJson.success && Array.isArray(curJson.data)) {
           codes = curJson.data.map((r) => String(r.code).toUpperCase());
         }
-        if (!codes.length) {
-          const fbCompanyId =
-            singleCid ??
-            (groupAggregateCurrency && groupKey
-              ? pickGroupAnchorCompany(companies, groupKey)?.id
-              : companyIds[0]);
-          if (fbCompanyId) {
-            const fq = new URLSearchParams({ company_id: String(fbCompanyId) });
-            if (groupKey) fq.set("view_group", groupKey);
-            const fbRes = await fetch(
-              buildApiUrl(`api/transactions/get_company_currencies_api.php?${fq.toString()}`),
-              { credentials: "include" }
-            );
-            const fbJson = await fbRes.json();
-            if (fbRes.ok && fbJson.success && Array.isArray(fbJson.data)) {
-              codes = fbJson.data.map((r) => String(r.code).toUpperCase());
-            }
+        // Group-only: acc currency from scope API only — never Currency Setting list.
+        if (!codes.length && !groupOnlyCurrencyScope && !groupLedgerOnly && singleCid) {
+          const fq = new URLSearchParams({ company_id: String(singleCid) });
+          if (groupKey) fq.set("view_group", groupKey);
+          const fbRes = await fetch(
+            buildApiUrl(`api/transactions/get_company_currencies_api.php?${fq.toString()}`),
+            { credentials: "include" }
+          );
+          const fbJson = await fbRes.json();
+          if (fbRes.ok && fbJson.success && Array.isArray(fbJson.data)) {
+            codes = fbJson.data.map((r) => String(r.code).toUpperCase());
           }
         }
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
 
         const orderCompanyId =
-          groupAggregateCurrency && groupKey
+          groupOnlyCurrencyScope && groupKey
             ? pickGroupAnchorCompany(companies, groupKey)?.id
             : singleCid ?? companyIds[0];
         const ordParams = new URLSearchParams({ _t: String(Date.now()) });

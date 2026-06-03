@@ -691,76 +691,112 @@ function dashboardIntersectAccountCurrencyWithCompanyTable(PDO $pdo, array $map,
  *
  * @param int[] $accountIds
  * @param int[] $companyIds currency.company_id rows to join (subsidiary + group entity)
+ * @param bool $accountCurrencyOnly group-only: acc active currencies only, never Currency Setting list
  * @return array<int, string>
  */
-function dashboardLoadAccountCurrencyMap(PDO $pdo, array $accountIds, array $companyIds): array
-{
+function dashboardLoadAccountCurrencyMap(
+    PDO $pdo,
+    array $accountIds,
+    array $companyIds,
+    bool $accountCurrencyOnly = false
+): array {
     $accountIds = array_values(array_unique(array_map('intval', $accountIds)));
     $companyIds = array_values(array_unique(array_map('intval', $companyIds)));
     $companyIds = array_values(array_filter($companyIds, static fn(int $id): bool => $id > 0));
-    if ($accountIds === [] || $companyIds === []) {
+    if ($accountIds === []) {
         return [];
     }
 
     $map = [];
     if (dashboardHasAccountCurrencyTable($pdo)) {
         $ph = implode(',', array_fill(0, count($accountIds), '?'));
-        foreach ($companyIds as $companyId) {
+        if ($accountCurrencyOnly) {
             $stmt = $pdo->prepare("
                 SELECT DISTINCT c.id, UPPER(c.code) AS code
                 FROM account_currency ac
-                INNER JOIN currency c ON c.id = ac.currency_id AND c.company_id = ?
+                INNER JOIN currency c ON c.id = ac.currency_id
                 WHERE ac.account_id IN ($ph)
             ");
-            $stmt->execute(array_merge([$companyId], $accountIds));
+            $stmt->execute($accountIds);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $map[(int) $row['id']] = strtoupper((string) $row['code']);
+            }
+        } elseif ($companyIds !== []) {
+            foreach ($companyIds as $companyId) {
+                $stmt = $pdo->prepare("
+                    SELECT DISTINCT c.id, UPPER(c.code) AS code
+                    FROM account_currency ac
+                    INNER JOIN currency c ON c.id = ac.currency_id AND c.company_id = ?
+                    WHERE ac.account_id IN ($ph)
+                ");
+                $stmt->execute(array_merge([$companyId], $accountIds));
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    $map[(int) $row['id']] = strtoupper((string) $row['code']);
+                }
             }
         }
     }
 
     if ($map === [] && dashboardAccountHasCurrencyIdColumn($pdo)) {
         $ph = implode(',', array_fill(0, count($accountIds), '?'));
-        foreach ($companyIds as $companyId) {
+        if ($accountCurrencyOnly) {
             $stmt = $pdo->prepare("
                 SELECT DISTINCT c.id, UPPER(c.code) AS code
                 FROM account a
-                INNER JOIN currency c ON c.id = a.currency_id AND c.company_id = ?
+                INNER JOIN currency c ON c.id = a.currency_id
                 WHERE a.id IN ($ph)
                   AND a.currency_id IS NOT NULL
             ");
-            $stmt->execute(array_merge([$companyId], $accountIds));
+            $stmt->execute($accountIds);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $map[(int) $row['id']] = strtoupper((string) $row['code']);
             }
+        } elseif ($companyIds !== []) {
+            foreach ($companyIds as $companyId) {
+                $stmt = $pdo->prepare("
+                    SELECT DISTINCT c.id, UPPER(c.code) AS code
+                    FROM account a
+                    INNER JOIN currency c ON c.id = a.currency_id AND c.company_id = ?
+                    WHERE a.id IN ($ph)
+                      AND a.currency_id IS NOT NULL
+                ");
+                $stmt->execute(array_merge([$companyId], $accountIds));
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    $map[(int) $row['id']] = strtoupper((string) $row['code']);
+                }
+            }
         }
+    }
+
+    if ($accountCurrencyOnly) {
+        return $map;
     }
 
     return dashboardIntersectAccountCurrencyWithCompanyTable($pdo, $map, $companyIds);
 }
 
 /**
- * Dashboard currency bar: account_currency first; if none, that scope's Currency Setting rows.
+ * Dashboard currency bar from scoped accounts.
  *
  * @param int[] $accountIds
  * @param int[] $currencyCompanyIds
+ * @param bool $accountCurrencyOnly never fall back to company currency table
  * @return array<int, string>
  */
-function dashboardFinalizeScopeCurrencyMap(PDO $pdo, array $accountIds, array $currencyCompanyIds): array
-{
+function dashboardFinalizeScopeCurrencyMap(
+    PDO $pdo,
+    array $accountIds,
+    array $currencyCompanyIds,
+    bool $accountCurrencyOnly = false
+): array {
     $currencyCompanyIds = array_values(array_unique(array_filter(array_map('intval', $currencyCompanyIds))));
     $accountIds = array_values(array_unique(array_map('intval', $accountIds)));
 
-    $map = [];
-    if ($accountIds !== [] && $currencyCompanyIds !== []) {
-        $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $currencyCompanyIds);
+    if ($accountIds === []) {
+        return [];
     }
 
-    if ($map === [] && count($currencyCompanyIds) === 1) {
-        $map = dashboardLoadCurrencyMap($pdo, (int) $currencyCompanyIds[0]);
-    }
-
-    return $map;
+    return dashboardLoadAccountCurrencyMap($pdo, $accountIds, $currencyCompanyIds, $accountCurrencyOnly);
 }
 
 /**
@@ -775,27 +811,43 @@ function dashboardResolveFilterCurrencyMap(
     int $groupScopeId = 0
 ): array {
     $viewGroupNorm = reportNormalizeGroupId($viewGroup ?? '');
-    $accountIds = dashboardCollectScopeAccountIds($pdo, $companyId, $viewGroupNorm !== '' ? $viewGroupNorm : null, $groupScopeId);
-
+    $accountCurrencyOnly = false;
     $companyIds = [];
+
     if ($groupScopeId > 0) {
+        $accountCurrencyOnly = true;
         $groupCode = dashboardResolveGroupCodeFromScopeId($pdo, $groupScopeId);
         $entityId = $groupCode !== '' ? tx_resolve_group_entity_company_id($pdo, $groupCode) : 0;
         if ($entityId > 0) {
-            $companyIds[] = $entityId;
+            $companyIds = [$entityId];
+            $accountIds = dashboardCollectScopeAccountIds($pdo, $entityId, null, 0);
+            if ($accountIds === []) {
+                $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
+            }
+        } else {
+            $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
         }
-    } elseif ($companyId > 0) {
-        $companyIds[] = $companyId;
-        if ($viewGroupNorm !== '') {
-            $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
-            if ($entityId > 0) {
-                $companyIds[] = $entityId;
+    } else {
+        $accountCurrencyOnly = false;
+        $accountIds = dashboardCollectScopeAccountIds(
+            $pdo,
+            $companyId,
+            $viewGroupNorm !== '' ? $viewGroupNorm : null,
+            0
+        );
+        if ($companyId > 0) {
+            $companyIds[] = $companyId;
+            if ($viewGroupNorm !== '') {
+                $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
+                if ($entityId > 0) {
+                    $companyIds[] = $entityId;
+                }
             }
         }
     }
 
     $companyIds = array_values(array_unique($companyIds));
-    return dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $companyIds);
+    return dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $companyIds, $accountCurrencyOnly);
 }
 
 /**

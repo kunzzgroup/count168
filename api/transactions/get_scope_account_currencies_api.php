@@ -115,7 +115,19 @@ try {
             }
         } elseif ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
             $currencyCompanyIds = [$primaryCompanyId];
-            $accountIds = dashboardCollectScopeAccountIds($pdo, $primaryCompanyId, null, 0);
+            if ($viewGroup !== '') {
+                $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+                if ($entityId > 0 && $entityId !== $primaryCompanyId) {
+                    $currencyCompanyIds[] = $entityId;
+                }
+            }
+            $currencyCompanyIds = array_values(array_unique($currencyCompanyIds));
+            $accountIds = dashboardCollectScopeAccountIds(
+                $pdo,
+                $primaryCompanyId,
+                $viewGroup !== '' ? $viewGroup : null,
+                0
+            );
         } else {
             foreach ($companyIds as $cid) {
                 $currencyCompanyIds[] = (int) $cid;
@@ -136,7 +148,10 @@ try {
         }
     }
 
-    $map = dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $currencyCompanyIds);
+    $hasExplicitCompany = isset($_GET['company_id']) && trim((string) $_GET['company_id']) !== '';
+    $groupOnlyCurrency = !$subsidiaryAccountsOnly
+        && ($groupAggregateOnly || !$hasExplicitCompany);
+    $map = dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $currencyCompanyIds, $groupOnlyCurrency);
 
     $rows = [];
     foreach ($map as $id => $code) {
