@@ -189,6 +189,11 @@ try {
     $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
     ownership_history_save_group($pdo, $group_id, $owner_id, $historyRows, $savedBy);
 
+    $retrofillMonths = $inputData['retrofill_months'] ?? [];
+    if (is_array($retrofillMonths) && count($retrofillMonths) > 0) {
+        ownership_history_apply_group_retrofill_months($pdo, $group_id, $owner_id, $historyRows, $savedBy, $retrofillMonths);
+    }
+
     $pdo->commit();
 
     echo json_encode([

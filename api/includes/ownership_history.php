@@ -81,10 +81,14 @@ function ownership_history_is_past_month(string $monthKey): bool
 /**
  * @param list<array{account_id:int,owner_type:string,percentage:string,partner_group_id:?string,read_only:int}> $rows
  */
-function ownership_history_save_company(PDO $pdo, int $companyId, array $rows, ?int $savedBy): void
-{
+function ownership_history_save_company_for_month(
+    PDO $pdo,
+    int $companyId,
+    array $rows,
+    ?int $savedBy,
+    string $effectiveMonth
+): void {
     ownership_history_ensure_tables($pdo);
-    $effectiveMonth = ownership_history_effective_month_from_now();
 
     $del = $pdo->prepare('DELETE FROM company_ownership_history WHERE company_id = ? AND effective_month = ?');
     $del->execute([$companyId, $effectiveMonth]);
@@ -115,10 +119,29 @@ function ownership_history_save_company(PDO $pdo, int $companyId, array $rows, ?
 /**
  * @param list<array{account_id:int,owner_type:string,percentage:string,partner_group_id:?string,read_only:int}> $rows
  */
-function ownership_history_save_group(PDO $pdo, string $groupId, int $ownerId, array $rows, ?int $savedBy): void
+function ownership_history_save_company(PDO $pdo, int $companyId, array $rows, ?int $savedBy): void
 {
+    ownership_history_save_company_for_month(
+        $pdo,
+        $companyId,
+        $rows,
+        $savedBy,
+        ownership_history_effective_month_from_now()
+    );
+}
+
+/**
+ * @param list<array{account_id:int,owner_type:string,percentage:string,partner_group_id:?string,read_only:int}> $rows
+ */
+function ownership_history_save_group_for_month(
+    PDO $pdo,
+    string $groupId,
+    int $ownerId,
+    array $rows,
+    ?int $savedBy,
+    string $effectiveMonth
+): void {
     ownership_history_ensure_tables($pdo);
-    $effectiveMonth = ownership_history_effective_month_from_now();
 
     $del = $pdo->prepare('DELETE FROM group_ownership_history WHERE group_id = ? AND effective_month = ?');
     $del->execute([$groupId, $effectiveMonth]);
@@ -144,6 +167,117 @@ function ownership_history_save_group(PDO $pdo, string $groupId, int $ownerId, a
             (int) $row['read_only'],
             $savedBy,
         ]);
+    }
+}
+
+/**
+ * @param list<array{account_id:int,owner_type:string,percentage:string,partner_group_id:?string,read_only:int}> $rows
+ */
+function ownership_history_save_group(PDO $pdo, string $groupId, int $ownerId, array $rows, ?int $savedBy): void
+{
+    ownership_history_save_group_for_month(
+        $pdo,
+        $groupId,
+        $ownerId,
+        $rows,
+        $savedBy,
+        ownership_history_effective_month_from_now()
+    );
+}
+
+/**
+ * Copy live ownership tables into monthly history for a past month (after data adjustment).
+ *
+ * @return array{effective_month: string, company_rows: int, group_rows: int}
+ */
+function ownership_history_backfill_month_from_live(PDO $pdo, string $monthKey, ?int $savedBy = null): array
+{
+    $parsed = ownership_history_parse_month_param($monthKey);
+    if ($parsed === null) {
+        throw new InvalidArgumentException('Invalid month key (expected YYYY-MM)');
+    }
+    if (!ownership_history_is_past_month($parsed['month_key'])) {
+        throw new InvalidArgumentException('Backfill is only allowed for past months');
+    }
+
+    ownership_history_ensure_tables($pdo);
+    $effectiveMonth = $parsed['effective_month'];
+    $companyRows = 0;
+    $groupRows = 0;
+
+    if ($pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0) {
+        $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+        if ($hasOwnerType) {
+            $pdo->prepare('DELETE FROM company_ownership_history WHERE effective_month = ?')
+                ->execute([$effectiveMonth]);
+            $stmt = $pdo->prepare("
+                INSERT INTO company_ownership_history
+                    (company_id, effective_month, account_id, owner_type, percentage, partner_group_id, read_only, saved_by, saved_at)
+                SELECT company_id, ?, account_id, owner_type, percentage, partner_group_id, COALESCE(read_only, 1), ?, NOW()
+                FROM company_ownership
+                WHERE owner_type != 'account'
+            ");
+            $stmt->execute([$effectiveMonth, $savedBy]);
+            $companyRows = $stmt->rowCount();
+        }
+    }
+
+    if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0) {
+        $pdo->prepare('DELETE FROM group_ownership_history WHERE effective_month = ?')
+            ->execute([$effectiveMonth]);
+        $stmt = $pdo->prepare("
+            INSERT INTO group_ownership_history
+                (group_id, owner_id, effective_month, account_id, owner_type, percentage, partner_group_id, read_only, saved_by, saved_at)
+            SELECT group_id, owner_id, ?, account_id, owner_type, percentage, partner_group_id, COALESCE(read_only, 1), ?, NOW()
+            FROM group_ownership
+        ");
+        $stmt->execute([$effectiveMonth, $savedBy]);
+        $groupRows = $stmt->rowCount();
+    }
+
+    return [
+        'effective_month' => $effectiveMonth,
+        'company_rows' => $companyRows,
+        'group_rows' => $groupRows,
+    ];
+}
+
+/**
+ * @param list<string> $monthKeys YYYY-MM
+ */
+function ownership_history_apply_retrofill_months(
+    PDO $pdo,
+    int $companyId,
+    array $rows,
+    ?int $savedBy,
+    array $monthKeys
+): void {
+    foreach ($monthKeys as $monthKey) {
+        $parsed = ownership_history_parse_month_param($monthKey);
+        if ($parsed === null || !ownership_history_is_past_month($parsed['month_key'])) {
+            continue;
+        }
+        ownership_history_save_company_for_month($pdo, $companyId, $rows, $savedBy, $parsed['effective_month']);
+    }
+}
+
+/**
+ * @param list<string> $monthKeys YYYY-MM
+ */
+function ownership_history_apply_group_retrofill_months(
+    PDO $pdo,
+    string $groupId,
+    int $ownerId,
+    array $rows,
+    ?int $savedBy,
+    array $monthKeys
+): void {
+    foreach ($monthKeys as $monthKey) {
+        $parsed = ownership_history_parse_month_param($monthKey);
+        if ($parsed === null || !ownership_history_is_past_month($parsed['month_key'])) {
+            continue;
+        }
+        ownership_history_save_group_for_month($pdo, $groupId, $ownerId, $rows, $savedBy, $parsed['effective_month']);
     }
 }
 
