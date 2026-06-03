@@ -76,7 +76,15 @@ export function useDashboardStyleGcFilter({
       if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (g === selectedGroup && companyId != null) return;
+      if (g === selectedGroup && companyId != null) {
+        if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
+          persistDashboardFilterState(g, null, { allowGroupOnly: true });
+          resetAnchorSessionRef();
+          onClearCompany?.(g);
+          notifyDashboardGroupFilterChanged(g, null);
+        }
+        return;
+      }
 
       persistDashboardGroupFilter(g);
       setSelectedGroup(g);

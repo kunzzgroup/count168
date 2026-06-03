@@ -25,6 +25,8 @@ export default function TransactionMaintenanceFilters({
   onPickCompany,
   onPickAllGroups,
   onPickAllInGroup,
+  onClearCompany,
+  allowClearCompany = false,
   groupsAllMode = false,
   groupAllMode = false,
   processValueMode = "processName",
@@ -94,6 +96,8 @@ export default function TransactionMaintenanceFilters({
             companyId={companyId}
             highlightCompanyId={companyId}
             onSwitchCompany={onPickCompany}
+            onClearCompany={onClearCompany}
+            allowClearCompany={allowClearCompany}
             t={(key) => {
               if (key === "groupId") return m.groupId;
               if (key === "company") return m.company;

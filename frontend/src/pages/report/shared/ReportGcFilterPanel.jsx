@@ -57,6 +57,8 @@ export default function ReportGcFilterPanel({
             pickerCompanyId={activeCompanyId}
             onPickAllInGroup={onPickAllInGroup}
             onPickCompany={onSwitchCompany}
+            allowCompanyDeselect={allowClearCompany}
+            onClearCompanyPill={() => onClearCompany?.()}
           />
         )}
         {hasCurrency ? (

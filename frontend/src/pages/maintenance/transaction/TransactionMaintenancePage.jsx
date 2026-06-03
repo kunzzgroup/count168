@@ -11,6 +11,9 @@ import {
   getCachedOwnerCompanies,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  persistDashboardGroupOnlyMode,
+  persistDashboardSelectedCompany,
+  readPersistedDashboardGcFilter,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   fetchOwnerCompaniesAll,
@@ -410,7 +413,8 @@ export default function TransactionMaintenancePage() {
 
   // Hydrate company from cache before async boot — skip when user cleared company (group-only).
   useEffect(() => {
-    if (!me || companyId != null || isDashboardGroupOnlyMode()) return;
+    const persistedGc = readPersistedDashboardGcFilter();
+    if (!me || companyId != null || isDashboardGroupOnlyMode() || persistedGc.groupOnly) return;
     const cached = getCachedOwnerCompanies();
     let initialCompanyId = resolveBootCompanyId({
       sessionCompanyId: me.company_id,
@@ -499,10 +503,20 @@ export default function TransactionMaintenancePage() {
             : null;
         const bootGroup = resolveInitialSelectedGroupFromSession(filtered, currentComp);
         setSelectedGroup(bootGroup);
+        const persistedGc = readPersistedDashboardGcFilter();
+        const groupOnlyBoot =
+          isDashboardGroupOnlyMode() || persistedGc.groupOnly;
 
-        if (isDashboardGroupOnlyMode()) {
+        if (groupOnlyBoot) {
+          persistDashboardGroupOnlyMode(true);
+          persistDashboardSelectedCompany(null);
           setCompanyId(null);
           setCompanyCode("");
+          const bootScope = resolveTransactionMaintenanceScope({
+            companies: filtered,
+            selectedGroup: bootGroup,
+            companyId: null,
+          });
           const meta = await bootstrapTransactionMaintenanceMeta({
             companies: filtered,
             groupId: bootGroup,
@@ -511,6 +525,15 @@ export default function TransactionMaintenancePage() {
           setPermissions(meta.permissions);
           setActivePermission(meta.activePermission);
           setMetaReady(true);
+          try {
+            const procList = bootScope
+              ? await fetchProcessesForPermission(null, meta.activePermission, bootScope)
+              : [];
+            if (!cancelled) setProcesses(procList);
+          } catch (err) {
+            console.error("Process list load error:", err);
+          }
+          skipMetaAfterBootRef.current = true;
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           return;
         }
@@ -649,6 +672,8 @@ export default function TransactionMaintenancePage() {
         if (cancelled) return;
         console.error("Meta data load error:", err);
         notify(t("failedLoadMetaData"), "error");
+        setActivePermission((prev) => prev || pickTransactionMaintenancePermission(["Games", "Gambling", "Bank"], null));
+        setMetaReady(true);
       }
     })();
 
@@ -882,6 +907,8 @@ export default function TransactionMaintenancePage() {
           onPickAllInGroup={handlePickAllInGroup}
           groupsAllMode={groupsAllMode}
           groupAllMode={groupAllMode}
+          onClearCompany={handleClearCompany}
+          allowClearCompany={allowClearCompany}
           m={m}
         />
 

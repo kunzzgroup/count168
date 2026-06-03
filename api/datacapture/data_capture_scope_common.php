@@ -825,8 +825,18 @@ function dcCompanyIdIsGroupEntity(PDO $pdo, int $companyId): bool
         LIMIT 1
     ");
     $stmt->execute([$companyId]);
+    if ((bool) $stmt->fetchColumn()) {
+        return true;
+    }
 
-    return (bool) $stmt->fetchColumn();
+    $grpStmt = $pdo->prepare('SELECT UPPER(TRIM(COALESCE(group_id, ""))) FROM company WHERE id = ? LIMIT 1');
+    $grpStmt->execute([$companyId]);
+    $groupId = dcNormalizeGroupId((string) ($grpStmt->fetchColumn() ?: ''));
+    if ($groupId === '') {
+        return false;
+    }
+
+    return tx_resolve_group_entity_company_id($pdo, $groupId) === $companyId;
 }
 
 /** SQL: capture rows on group-entity company only. */
