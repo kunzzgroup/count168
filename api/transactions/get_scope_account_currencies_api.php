@@ -45,6 +45,15 @@ try {
     }
 
     $viewGroup = reportNormalizeGroupId($_GET['view_group'] ?? $groupCode);
+    $groupAggregateOnly = isset($_GET['group_aggregate']) && (string) $_GET['group_aggregate'] === '1';
+    if ($groupAggregateOnly && $viewGroup !== '') {
+        $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+        if ($entityId > 0) {
+            $primaryCompanyId = $entityId;
+            $companyIds = [$entityId];
+        }
+    }
+
     $groupScopeId = 0;
     $currencyCompanyIds = [];
 
@@ -69,27 +78,42 @@ try {
             exit;
         }
 
-        foreach ($companyIds as $cid) {
-            $currencyCompanyIds[] = (int) $cid;
-        }
-        if ($viewGroup !== '') {
+        if ($groupAggregateOnly && $viewGroup !== '') {
             $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
             if ($entityId > 0) {
-                $currencyCompanyIds[] = $entityId;
+                $currencyCompanyIds = [$entityId];
+                $primaryCompanyId = $entityId;
             }
+        } else {
+            foreach ($companyIds as $cid) {
+                $currencyCompanyIds[] = (int) $cid;
+            }
+            if ($viewGroup !== '') {
+                $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+                if ($entityId > 0) {
+                    $currencyCompanyIds[] = $entityId;
+                }
+            }
+            $currencyCompanyIds = array_values(array_unique(array_filter($currencyCompanyIds)));
         }
-        $currencyCompanyIds = array_values(array_unique(array_filter($currencyCompanyIds)));
         $accountIds = dashboardCollectScopeAccountIds(
             $pdo,
             $primaryCompanyId,
-            $viewGroup !== '' ? $viewGroup : null,
+            $groupAggregateOnly ? null : ($viewGroup !== '' ? $viewGroup : null),
             0
         );
     }
 
     $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $currencyCompanyIds);
     if ($map === [] && $currencyCompanyIds !== []) {
-        $map = dashboardLoadCurrencyMap($pdo, (int) $currencyCompanyIds[0]);
+        $fallbackId = (int) $currencyCompanyIds[0];
+        if ($viewGroup !== '') {
+            $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+            if ($entityId > 0) {
+                $fallbackId = $entityId;
+            }
+        }
+        $map = dashboardLoadCurrencyMap($pdo, $fallbackId);
     }
 
     $rows = [];

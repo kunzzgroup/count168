@@ -735,6 +735,12 @@ function dashboardResolveFilterCurrencyMap(
     }
 
     $fallbackCompanyId = $companyIds[0] ?? $companyId;
+    if ($viewGroupNorm !== '') {
+        $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
+        if ($entityId > 0) {
+            $fallbackCompanyId = $entityId;
+        }
+    }
     return $fallbackCompanyId > 0 ? dashboardLoadCurrencyMap($pdo, $fallbackCompanyId) : [];
 }
 

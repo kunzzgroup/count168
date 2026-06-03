@@ -398,6 +398,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     let companyIds = [];
     let groupLedgerOnly = false;
+    let groupAggregateCurrency = false;
     if (groupsAllMode) {
       if (singleCid) {
         companyIds = [singleCid];
@@ -416,9 +417,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         companyIds = [...ids];
       }
     } else if (groupAllMode && groupKey) {
-      companyIds = companiesNativeInGroupList(companies, groupKey)
-        .map((c) => parseInt(c.id, 10))
-        .filter((id) => Number.isFinite(id));
+      groupAggregateCurrency = true;
+      const anchor = pickGroupAnchorCompany(companies, groupKey);
+      const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
+      if (anchorId) {
+        companyIds = [anchorId];
+      } else {
+        groupLedgerOnly = true;
+      }
     } else if (mergedSubsetIds && mergedSubsetIds.length > 1) {
       companyIds = mergedSubsetIds.filter((id) => Number.isFinite(id));
     } else if (singleCid) {
@@ -431,10 +437,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       } else {
         groupLedgerOnly = true;
       }
-    } else if (groupKey) {
-      companyIds = companiesNativeInGroupList(companies, groupKey)
-        .map((c) => parseInt(c.id, 10))
-        .filter((id) => Number.isFinite(id));
+    } else if (groupKey && !singleCid) {
+      groupAggregateCurrency = true;
+      const anchor = pickGroupAnchorCompany(companies, groupKey);
+      const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
+      if (anchorId) {
+        companyIds = [anchorId];
+      } else {
+        groupLedgerOnly = true;
+      }
     }
 
     if (!companyIds.length && !groupLedgerOnly) {
@@ -466,6 +477,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           if (singleCid) q.set("company_id", String(singleCid));
           else if (companyIds.length) q.set("company_ids", companyIds.join(","));
           if (groupKey) q.set("view_group", groupKey);
+          if (groupAggregateCurrency) q.set("group_aggregate", "1");
         }
         const curRes = await fetch(
           buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
