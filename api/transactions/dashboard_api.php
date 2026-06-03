@@ -1263,7 +1263,7 @@ try {
             'success' => true,
             'data' => [
                 'capital' => $groupResult['capital']['total_balance'],
-                'expenses' => $groupResult['expenses']['total_balance'],
+                'expenses' => $groupResult['expenses']['period_total'],
                 'profit' => $groupResult['profit']['total_balance'],
                 'ownership_percentage' => 0,
                 'has_ownership_setup' => false,
@@ -1330,6 +1330,7 @@ try {
         $daily_cr_dr = [];
         $isExpensesRole = ($role === 'EXPENSES');
         $expenseAccountRowsById = [];
+        $expensesPeriodWlFromBundle = null;
         $primaryAccountIds = [];
         $hadAccounts = false;
         $seenExpenseAccountIds = [];
@@ -1439,8 +1440,8 @@ try {
             $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
             }
 
-        // B. Transactions B/F (To/From)
-        if ($hasTransactionCurrency) {
+        // B. Transactions B/F (To/From) — EXPENSES period uses search_api-aligned wl bundle only
+        if ($hasTransactionCurrency && !$isExpensesRole) {
             $clearFilter = $excludeClear ? " AND t.transaction_type <> 'CLEAR'" : "";
             $contraApproval = dashboardContraApprovedWhere($pdo, 't');
             $fromDomainFilter = $useProfitTxnRules ? '' : "
@@ -1556,56 +1557,8 @@ try {
             $winLossTxnTypes = "('WIN', 'LOSE', 'ADJUSTMENT')";
             $crDrTxnTypes = "('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'RATE')";
 
-            if ($isExpensesRole) {
-                // Cr/Dr — To Account (Payment 类，计入 balance 但不进 Expenses KPI / chart)
-                $sql = "SELECT DATE(t.transaction_date) as date,
-                               COALESCE(SUM(CASE 
-                                   WHEN transaction_type IN ('RECEIVE', 'CLAIM', 'RATE') THEN -t.amount
-                                   WHEN transaction_type = 'CONTRA' THEN -t.amount
-                                   WHEN transaction_type = 'CLEAR' THEN -t.amount
-                                   WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN t.amount
-                                   WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                                   WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN t.amount
-                                   WHEN transaction_type = 'PAYMENT' THEN -t.amount
-                                   ELSE 0
-                               END), 0) as cr_dr
-                        FROM transactions t
-                        WHERE t.company_id = ?
-                          AND t.account_id IN ($ids_placeholder)
-                          AND t.transaction_date BETWEEN ? AND ?
-                          AND t.transaction_type IN $crDrTxnTypes"
-                    . $currency_filter_t_to . $clearFilter . $contraApproval . "
-                        GROUP BY DATE(t.transaction_date)";
-                $daily_stmt = $pdo->prepare($sql);
-                $daily_stmt->execute(array_merge([$ledgerCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_to));
-                foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                    dashboardAddDailyAmount($daily_cr_dr, (string) $row['date'], $row['cr_dr'] ?? '0');
-                }
-
-                // Cr/Dr — From Account
-                $sql = "SELECT DATE(t.transaction_date) as date,
-                               COALESCE(SUM(CASE 
-                                   WHEN transaction_type = 'CONTRA' THEN t.amount
-                                   WHEN transaction_type = 'CLEAR' THEN t.amount
-                                   WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%' THEN 0
-                                   WHEN transaction_type = 'PAYMENT' AND t.sms LIKE '[DOMAIN_NET_PROFIT|%' THEN 0
-                                   WHEN transaction_type = 'PAYMENT' AND (t.sms LIKE '[DOMAIN_LIST_FEE|%' OR UPPER(TRIM(COALESCE(t.description, ''))) LIKE 'DOMAIN LIST FEE FROM %') THEN -t.amount
-                                   WHEN transaction_type IN ('PAYMENT', 'RECEIVE', 'CLAIM', 'RATE') THEN t.amount
-                                   ELSE 0
-                               END), 0) as cr_dr
-                        FROM transactions t
-                        WHERE t.company_id = ?
-                          AND t.from_account_id IN ($ids_placeholder)
-                          AND t.transaction_date BETWEEN ? AND ?
-                          AND t.transaction_type IN $crDrTxnTypes"
-                    . $currency_filter_t_from . $clearFilter . $fromDomainFilter . $contraApproval . "
-                        GROUP BY DATE(t.transaction_date)";
-                $daily_stmt = $pdo->prepare($sql);
-                $daily_stmt->execute(array_merge([$ledgerCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_t_from));
-                foreach ($daily_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                    dashboardAddDailyAmount($daily_cr_dr, (string) $row['date'], $row['cr_dr'] ?? '0');
-                }
-            } else {
+            // EXPENSES: KPI/chart use Win/Loss only (search_api bundle); skip Cr/Dr (PAYMENT/CLEAR 等).
+            if (!$isExpensesRole) {
             // To Account
             $sql = "SELECT DATE(t.transaction_date) as date,
                            COALESCE(SUM(CASE 
@@ -1708,6 +1661,7 @@ try {
             );
             $daily_win_loss = $wlBundle['daily'];
             $total_bf = dashboardMoneyAdd($total_bf, $wlBundle['capture_bf']);
+            $expensesPeriodWlFromBundle = $wlBundle['period_wl'];
         }
 
         if (!$hadAccounts) {
@@ -1761,10 +1715,12 @@ try {
 
         // --- 3. 计算本期总余额 ---
         if ($isExpensesRole) {
-            $periodWinLoss = dashboardSumDailyAmounts($daily_win_loss);
-            $periodCrDr = dashboardSumDailyAmounts($daily_cr_dr);
+            // 与 Payment History 一致：Dashboard Expenses 仅本期 Win/Loss 合计（不含 Cr/Dr）。
+            $periodWinLoss = $expensesPeriodWlFromBundle !== null
+                ? $expensesPeriodWlFromBundle
+                : dashboardSumDailyAmounts($daily_win_loss);
             $total_period_delta = $periodWinLoss;
-            $total_balance = dashboardMoneyAdd($total_bf, dashboardMoneyAdd($periodWinLoss, $periodCrDr));
+            $total_balance = dashboardMoneyAdd($total_bf, $periodWinLoss);
             $daily_data = $daily_win_loss;
         } else {
             $total_period_delta = dashboardSumDailyAmounts($daily_data);
@@ -1999,7 +1955,7 @@ try {
         'success' => true,
         'data' => [
             'capital' => $result['capital']['total_balance'],
-            'expenses' => $result['expenses']['total_balance'],
+            'expenses' => $result['expenses']['period_total'],
             'profit' => $result['profit']['total_balance'],
             'ownership_percentage' => $ownership_percentage,
             'has_ownership_setup' => $has_ownership_setup,

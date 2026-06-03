@@ -4,6 +4,7 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   buildDashboardCacheKey,
+  clearDashboardPayloadCache,
   getDashboardCache,
   getDashboardPayloadCache,
   patchDashboardCache,
@@ -986,19 +987,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     mergedSubsetIds,
   ]);
 
+  /** Avoid reusing another month's per-currency earnings when the date range changes. */
   useEffect(() => {
-    if (!dashboardData || !currencyCode || currencies.length <= 1) return;
-    const metrics = computeKpiMetrics(dashboardData, selectedGroup);
-    setEarningsByCurrency((prev) => {
-      const base =
-        prev.length === currencies.length
-          ? prev
-          : currencies.map((code) => ({ code, earnings: null }));
-      return base.map((row) =>
-        row.code === currencyCode ? { ...row, earnings: metrics?.earnings ?? 0 } : row
-      );
-    });
-  }, [dashboardData, currencyCode, selectedGroup, currencies]);
+    earningsFetchGenRef.current += 1;
+    if (currencies.length <= 1) {
+      setEarningsByCurrency([]);
+      setEarningsByCurrencyPrev([]);
+      setEarningsByCurrencyLoading(false);
+      return;
+    }
+    setEarningsByCurrency(currencies.map((code) => ({ code, earnings: null })));
+    setEarningsByCurrencyPrev([]);
+    setEarningsByCurrencyLoading(true);
+    clearDashboardPayloadCache();
+  }, [dateFrom, dateTo, companyId, selectedGroup, currencies]);
 
   useEffect(() => {
     const rateBase =
@@ -1342,8 +1344,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const chartRows = useMemo(
-    () => (dashboardData ? buildChartRows(dashboardData, dateFrom, dateTo, i18n.locale) : []),
-    [dashboardData, dateFrom, dateTo, i18n.locale]
+    () =>
+      dashboardData
+        ? buildChartRows(dashboardData, dateFrom, dateTo, i18n.locale, selectedGroup)
+        : [],
+    [dashboardData, dateFrom, dateTo, i18n.locale, selectedGroup]
   );
 
   const chartMonthSpanCount = useMemo(
@@ -1538,6 +1543,35 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     useConvertedEarnings,
     convertedEarningsTotal,
     kpi.earnings,
+  ]);
+
+  /** KPI Earnings card matches right-panel total when multi-currency conversion is active. */
+  const kpiForDisplay = useMemo(() => {
+    if (!kpi) return kpi;
+    const displayEarnings =
+      currencies.length > 1 && useConvertedEarnings && convertedEarningsTotal != null
+        ? convertedEarningsTotal
+        : kpi.earnings;
+    const prevEarnings =
+      currencies.length > 1 && useConvertedEarnings && convertedEarningsTotalPrev != null
+        ? convertedEarningsTotalPrev
+        : computeKpiMetrics(dashboardDataPrev, selectedGroup)?.earnings;
+    const comparisons =
+      kpi.comparisons && prevEarnings != null
+        ? {
+            ...kpi.comparisons,
+            earnings: buildKpiCompare(displayEarnings, prevEarnings),
+          }
+        : kpi.comparisons;
+    return { ...kpi, earnings: displayEarnings, comparisons };
+  }, [
+    kpi,
+    currencies.length,
+    useConvertedEarnings,
+    convertedEarningsTotal,
+    convertedEarningsTotalPrev,
+    dashboardDataPrev,
+    selectedGroup,
   ]);
 
   const summaryConversionNote = useMemo(() => {
@@ -1790,7 +1824,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     handleCurrencyChange,
     loading: kpiLoading,
     dashboardData,
-    kpi,
+    kpi: kpiForDisplay,
     kpiCompareLabel,
     kpiFooter,
     chartRows,

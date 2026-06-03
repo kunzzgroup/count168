@@ -29,7 +29,7 @@ export function mergeGroupData(dataList, dateRange) {
 
   dataList.forEach((d) => {
     capital += parseFloat(d.capital || 0);
-    expenses += parseFloat(d.expenses || 0);
+    expenses += parseFloat(d?.period_total?.expenses ?? 0);
     profit += parseFloat(d.profit || 0);
 
     if (d.period_total) {
@@ -95,7 +95,7 @@ export function mergeGroupData(dataList, dateRange) {
 
   return {
     capital,
-    expenses,
+    expenses: periodExpenses,
     profit,
     period_total: { capital: periodCapital, expenses: periodExpenses, profit: periodProfit },
     initial_balance: { capital: bfCapital, expenses: bfExpenses, profit: bfProfit },
