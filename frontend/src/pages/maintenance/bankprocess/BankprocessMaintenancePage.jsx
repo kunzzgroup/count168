@@ -6,6 +6,7 @@ import { injectStylesheet } from "../../../utils/core/injectStylesheet.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import {
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
@@ -58,6 +59,7 @@ export default function BankprocessMaintenancePage() {
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
   const t = useCallback((key, params) => getMaintenanceText(lang, key, params), [lang]);
+  useMaintenancePageScrollLock();
   const [bootLoading, setBootLoading] = useState(true);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
@@ -109,33 +111,6 @@ export default function BankprocessMaintenancePage() {
     setDateFrom(today);
     setDateTo(today);
 
-    // Force native page scrolling for maintenance screens even if legacy CSS locks viewport.
-    const targets = [document.documentElement, document.body, document.getElementById("root")].filter(Boolean);
-    const originalStyles = targets.map((el) => ({
-      el,
-      overflow: el.style.getPropertyValue("overflow"),
-      overflowPriority: el.style.getPropertyPriority("overflow"),
-      overflowY: el.style.getPropertyValue("overflow-y"),
-      overflowYPriority: el.style.getPropertyPriority("overflow-y"),
-      overflowX: el.style.getPropertyValue("overflow-x"),
-      overflowXPriority: el.style.getPropertyPriority("overflow-x"),
-      height: el.style.getPropertyValue("height"),
-      heightPriority: el.style.getPropertyPriority("height"),
-      minHeight: el.style.getPropertyValue("min-height"),
-      minHeightPriority: el.style.getPropertyPriority("min-height"),
-      maxHeight: el.style.getPropertyValue("max-height"),
-      maxHeightPriority: el.style.getPropertyPriority("max-height"),
-    }));
-
-    targets.forEach((el) => {
-      el.style.setProperty("overflow", "auto", "important");
-      el.style.setProperty("overflow-y", "auto", "important");
-      el.style.setProperty("overflow-x", "hidden", "important");
-      el.style.setProperty("height", "auto", "important");
-      el.style.setProperty("min-height", "100vh", "important");
-      el.style.setProperty("max-height", "none", "important");
-    });
-
     const setup = async () => {
       removeOtherMaintenanceStylesheets("bankprocess_maintenance.css");
       const links = [
@@ -147,21 +122,6 @@ export default function BankprocessMaintenancePage() {
 
     setup().catch(() => null);
     return () => {
-      originalStyles.forEach((item) => {
-        const { el } = item;
-        if (item.overflow) el.style.setProperty("overflow", item.overflow, item.overflowPriority);
-        else el.style.removeProperty("overflow");
-        if (item.overflowY) el.style.setProperty("overflow-y", item.overflowY, item.overflowYPriority);
-        else el.style.removeProperty("overflow-y");
-        if (item.overflowX) el.style.setProperty("overflow-x", item.overflowX, item.overflowXPriority);
-        else el.style.removeProperty("overflow-x");
-        if (item.height) el.style.setProperty("height", item.height, item.heightPriority);
-        else el.style.removeProperty("height");
-        if (item.minHeight) el.style.setProperty("min-height", item.minHeight, item.minHeightPriority);
-        else el.style.removeProperty("min-height");
-        if (item.maxHeight) el.style.setProperty("max-height", item.maxHeight, item.maxHeightPriority);
-        else el.style.removeProperty("max-height");
-      });
       document.body.classList.remove("maintenance-page");
     };
   }, [today]);

@@ -123,7 +123,6 @@ export default function BankprocessMaintenanceTable({
     <div
       className="maintenance-list-container maintenance-virtual-table bankprocess-virtual-table"
       id="tableContainer"
-      style={{ display: "block" }}
     >
       <div className="maintenance-virtual-table-inner bankprocess-virtual-table-inner" role="table">
         <BankprocessVirtualTableHead

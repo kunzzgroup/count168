@@ -26,7 +26,7 @@ body.dashboard-page.maintenance-page {
     height: auto !important;
     min-height: 100vh !important;
     max-height: none !important;
-    overflow-y: auto !important;
+    overflow-y: hidden !important;
     overflow-x: hidden !important;
 }
 
@@ -1325,8 +1325,6 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 }
 
 .formula-maintenance-page-root .maintenance-virtual-scroll {
-    max-height: min(72vh, 900px);
-    overflow: auto;
     border-radius: 0 0 8px 8px;
     background: #fff;
 }
