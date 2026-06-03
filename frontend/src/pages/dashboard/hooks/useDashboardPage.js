@@ -1003,10 +1003,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [dateFrom, dateTo, companyId, selectedGroup, currencies]);
 
   useEffect(() => {
-    const rateBase =
-      showAllCurrencies && canShowAllCurrencies ? conversionBaseCurrency : currencyCode;
-    if (!rateBase || currencies.length <= 1) {
-      setExchangeRates({ rates: { [rateBase]: 1 }, date: null, unsupported: [] });
+    // Frankfurter is only for optional all-currency Profit/Expense roll-up — never for ownership Earnings.
+    const needsFxRollup = showAllCurrencies && canShowAllCurrencies;
+    const rateBase = needsFxRollup ? conversionBaseCurrency : currencyCode;
+    if (!needsFxRollup || !rateBase || currencies.length <= 1) {
+      const idleCode = String(rateBase || currencyCode || currencies[0] || "MYR").toUpperCase();
+      setExchangeRates({ rates: { [idleCode]: 1 }, date: null, unsupported: [] });
       setExchangeRatesError("");
       setExchangeRatesLoading(false);
       return undefined;
@@ -1433,34 +1435,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           earnings: code === currencyCode && dashboardData ? kpi.earnings : null,
         }));
 
-    const base = String(displayCurrencyCode || "").toUpperCase();
-    const rates = exchangeRates.rates || {};
-    const canConvert =
-      currencies.length > 1 &&
-      !exchangeRatesError &&
-      Object.keys(rates).length > 0 &&
-      !exchangeRatesLoading;
-
-    return baseRows.map((row) => {
-      const earningsConverted =
-        canConvert && row.earnings != null
-          ? convertToBaseAmount(row.earnings, row.code, base, rates)
-          : null;
-      return {
-        ...row,
-        earningsConverted,
-      };
-    });
+    return baseRows.map((row) => ({
+      ...row,
+      earningsConverted: null,
+    }));
   }, [
     earningsByCurrency,
     currencies,
-    displayCurrencyCode,
     currencyCode,
     kpi.earnings,
     dashboardData,
-    exchangeRates.rates,
-    exchangeRatesError,
-    exchangeRatesLoading,
   ]);
 
   const allCurrencyEarningsReady = useMemo(
@@ -1483,31 +1467,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       .total;
   }, [useConvertedEarnings, earningsCurrencyRows, displayCurrencyCode, exchangeRates.rates]);
 
-  const earningsCurrencyRowsPrev = useMemo(() => {
-    if (!earningsByCurrencyPrev.length) return [];
-    const base = String(currencyCode || "").toUpperCase();
-    const rates = exchangeRates.rates || {};
-    const canConvert =
-      currencies.length > 1 &&
-      !exchangeRatesError &&
-      Object.keys(rates).length > 0 &&
-      !exchangeRatesLoading;
-
-    return earningsByCurrencyPrev.map((row) => ({
-      ...row,
-      earningsConverted:
-        canConvert && row.earnings != null
-          ? convertToBaseAmount(row.earnings, row.code, base, rates)
-          : null,
-    }));
-  }, [
-    earningsByCurrencyPrev,
-    currencyCode,
-    currencies.length,
-    exchangeRates.rates,
-    exchangeRatesError,
-    exchangeRatesLoading,
-  ]);
+  const earningsCurrencyRowsPrev = useMemo(
+    () =>
+      earningsByCurrencyPrev.map((row) => ({
+        ...row,
+        earningsConverted: null,
+      })),
+    [earningsByCurrencyPrev]
+  );
 
   const convertedEarningsTotalPrev = useMemo(() => {
     if (!useConvertedEarnings || !earningsCurrencyRowsPrev.length) return null;
