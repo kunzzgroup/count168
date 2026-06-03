@@ -16,7 +16,7 @@ export default function FormulaMaintenanceFilters({
   groupsAllMode = false,
   groupAllMode = false,
   onClearFilters,
-  selectedIds,
+  deleteDisabled,
   confirmDelete,
   setConfirmDelete,
   onDelete,
@@ -68,7 +68,7 @@ export default function FormulaMaintenanceFilters({
             className="maintenance-delete-btn"
             id="deleteBtn"
             onClick={onDelete}
-            disabled={selectedIds.length === 0}
+            disabled={deleteDisabled}
           >
             {m.delete}
           </button>
