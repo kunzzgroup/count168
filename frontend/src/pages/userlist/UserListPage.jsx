@@ -14,7 +14,6 @@ import {
   persistDashboardSelectedCompany,
   readDashboardSelectedCompanyId,
   stripCompanyIdFromUrl,
-  clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
   pickDefaultCompanyForGroup,
   resolveBootCompanyId,
@@ -480,6 +479,7 @@ export default function UserListPage() {
     groupAllMode,
     handlePickAllGroups,
     handlePickAllInGroup,
+    handlePickGroup: gcHandlePickGroup,
     isListScopeReady,
   } = useGcFilterWithAllModes({
     companies: allCompanyButtons,
@@ -487,6 +487,19 @@ export default function UserListPage() {
     selectedGroup,
     setSelectedGroup,
     onSelectCompany: (c) => onSwitchCompanyRef.current?.(c),
+    onPrepareCompanySelect: (pick) => {
+      const id = Number(pick?.id);
+      if (!Number.isFinite(id) || id <= 0) return;
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        setCompanyId(id);
+        applyUserListCache(id);
+      });
+    },
+    onDeselectGroup: (cid) => {
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => applyUserListCache(cid));
+    },
     onClearCompany: handleClearCompany,
     switchingCompany: false,
     preferredCompanyId: companyId,
@@ -691,16 +704,12 @@ export default function UserListPage() {
         handleClearCompany();
         return;
       }
-      if (!canUseGroupOnlyMode(me) && g === current && companyId != null) {
-        skipCompanyFetchEffectRef.current = true;
-        flushSync(() => {
-          setSelectedGroup(null);
-          applyUserListCache(companyId);
-        });
-        clearDashboardGroupFilterKeepCompany(companyId);
+      if (!g || (groupLogin && g === current && companyId != null)) return;
+
+      if (!groupLogin) {
+        void gcHandlePickGroup(g);
         return;
       }
-      if (!g || (g === current && companyId != null)) return;
 
       // Group login must stay in group-only scope when switching groups.
       if (groupLogin) {
@@ -722,37 +731,14 @@ export default function UserListPage() {
         return;
       }
 
-      const pick = pickDefaultCompanyForGroup(allCompanyButtons, g, {
-        me,
-        preferredCompanyId: null,
-        nativeOnly: true,
-      });
-      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
-
-      skipCompanyFetchEffectRef.current = true;
-      flushSync(() => {
-        setSelectedGroup(g);
-        if (nextCompanyId != null) {
-          setCompanyId(nextCompanyId);
-          applyUserListCache(nextCompanyId);
-        }
-      });
-
-      persistDashboardGroupFilter(g);
-      persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-      notifyDashboardGroupFilterChanged(g, nextCompanyId);
-
-      if (pick) void onSwitchCompany(pick);
-      else void fetchUsers(null, { silent: true });
     },
     [
-      allCompanyButtons,
       applyUserListCache,
       companyId,
       fetchUsers,
+      gcHandlePickGroup,
       handleClearCompany,
       me,
-      onSwitchCompany,
       selectedGroup,
     ],
   );
