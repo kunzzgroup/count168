@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient, isCancelledError } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
@@ -45,10 +44,6 @@ import {
   syncTransactionMaintenanceGroupAnchorSession,
   isMaintenanceRecoverableError,
   getMaintenanceSearchUserMessage,
-  packMaintenanceCache,
-  getMaintenanceCacheRows,
-  isMaintenanceCacheComplete,
-  buildTransactionMaintenanceQueryKey,
   bootstrapTransactionMaintenanceMeta,
 } from "./transactionMaintenanceLogic.js";
 import {
@@ -64,24 +59,6 @@ import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pag
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
 import TransactionMaintenanceTable from "./components/TransactionMaintenanceTable.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-
-/**
- * Dedupe "no data" toast on Transaction Maintenance.
- * React 18 Strict Mode remounts the tree in dev: component refs reset, so ref-based
- * dedupe fires twice for the same successful empty response.
- */
-const transactionMaintenanceNoDataToastKeys = new Set();
-const MAX_NO_DATA_TOAST_KEYS = 64;
-
-function consumeNoDataToastDedupeKey(key) {
-  if (!key || transactionMaintenanceNoDataToastKeys.has(key)) return false;
-  transactionMaintenanceNoDataToastKeys.add(key);
-  while (transactionMaintenanceNoDataToastKeys.size > MAX_NO_DATA_TOAST_KEYS) {
-    const first = transactionMaintenanceNoDataToastKeys.values().next().value;
-    transactionMaintenanceNoDataToastKeys.delete(first);
-  }
-  return true;
-}
 
 function readInitialMaintenanceSelectedGroup() {
   try {
@@ -108,7 +85,6 @@ function buildMaintenanceMetaEffectKey(scopeKey, companyId, companyCode, selecte
 
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
@@ -150,6 +126,19 @@ export default function TransactionMaintenancePage() {
   const switchPermsCacheRef = useRef(null);
   /** Boot already loaded process/permission meta — skip duplicate meta effect on first paint. */
   const skipMetaAfterBootRef = useRef(false);
+  const maintenanceAbortRef = useRef(null);
+  const maintenanceSeqRef = useRef(0);
+  const initialSearchDoneRef = useRef(false);
+  const suppressNextSearchEffectRef = useRef(false);
+  const scopeKeyRef = useRef("");
+  /** Boot finished with scope/permission — trigger one explicit search before auto-effect. */
+  const pendingBootSearchRef = useRef(null);
+
+  const [transactionData, setTransactionData] = useState([]);
+  const [maintenanceDataComplete, setMaintenanceDataComplete] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+  const [listSyncing, setListSyncing] = useState(false);
+  const [searchError, setSearchError] = useState(null);
 
   const processFilter = useMemo(
     () => normalizeMaintenanceProcessFilter(selectedProcess),
@@ -203,18 +192,6 @@ export default function TransactionMaintenancePage() {
     [transactionScope],
   );
 
-  const maintenanceQueryKey = useMemo(
-    () =>
-      buildTransactionMaintenanceQueryKey({
-        scope: transactionScope,
-        dateFrom,
-        dateTo,
-        process: processFilter,
-        category: activePermission || "",
-      }),
-    [transactionScope, dateFrom, dateTo, processFilter, activePermission],
-  );
-
   const { markAnchorSynced, resetAnchorSessionRef } = useGroupAnchorSessionSync({
     companies,
     selectedGroup,
@@ -224,6 +201,19 @@ export default function TransactionMaintenancePage() {
     notifyOnSync: false,
   });
   markAnchorSyncedRef.current = markAnchorSynced;
+
+  const notify = useCallback((message, type = "success") => {
+    const id = Date.now();
+    setToasts(prev => {
+      if (prev.some(t => t.message === message)) return prev;
+      const next = [...prev, { id, message, type }];
+      if (next.length > 2) return next.slice(1);
+      return next;
+    });
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 2000);
+  }, []);
 
   const listQueryEnabled = Boolean(
     filtersReady &&
@@ -241,95 +231,19 @@ export default function TransactionMaintenancePage() {
     !dateTo ||
     !activePermission;
 
-  const maintenancePlaceholder = useCallback(
-    (previousData, previousQuery) => {
-      const cached = queryClient.getQueryData(maintenanceQueryKey);
-      const cachedRows = getMaintenanceCacheRows(cached);
-      if (cachedRows.length > 0) {
-        return packMaintenanceCache(cachedRows, isMaintenanceCacheComplete(cached));
-      }
-      const prevScopeKey = previousQuery?.queryKey?.[1];
-      const prevRows = getMaintenanceCacheRows(previousData);
-      if (prevScopeKey === transactionScopeKey && prevRows.length > 0) {
-        return packMaintenanceCache(prevRows, isMaintenanceCacheComplete(previousData));
-      }
-      return undefined;
-    },
-    [queryClient, maintenanceQueryKey, transactionScopeKey],
-  );
-
-  const transactionQuery = useQuery({
-    queryKey: maintenanceQueryKey,
-    queryFn: async ({ signal }) => {
-      const rows = await searchTransactionData({
-        dateFrom,
-        dateTo,
-        process: processFilter,
-        category: activePermission,
-        scope: transactionScope,
-        signal,
-        onProgress: (progressRows) => {
-          const existing = queryClient.getQueryData(maintenanceQueryKey);
-          if (isMaintenanceCacheComplete(existing)) return;
-          queryClient.setQueryData(
-            maintenanceQueryKey,
-            packMaintenanceCache(progressRows, false),
-          );
-        },
-      });
-      const packed = packMaintenanceCache(rows, true);
-      queryClient.setQueryData(maintenanceQueryKey, packed);
-      return packed;
-    },
-    enabled: listQueryEnabled,
-    initialData: () => {
-      const cached = queryClient.getQueryData(maintenanceQueryKey);
-      if (!isMaintenanceCacheComplete(cached)) return undefined;
-      // Do not hydrate empty complete cache — SPA revisit would skip fetch until hard refresh.
-      if (getMaintenanceCacheRows(cached).length === 0) return undefined;
-      return cached;
-    },
-    initialDataUpdatedAt: () => {
-      const state = queryClient.getQueryState(maintenanceQueryKey);
-      return state?.dataUpdatedAt;
-    },
-    staleTime: (query) => {
-      const data = query.state.data;
-      if (!isMaintenanceCacheComplete(data)) return 0;
-      if (getMaintenanceCacheRows(data).length === 0) return 0;
-      return 60 * 60 * 1000;
-    },
-    gcTime: 60 * 60 * 1000,
-    refetchOnMount: (query) => {
-      const data = query.state.data;
-      if (!data) return true;
-      if (getMaintenanceCacheRows(data).length === 0) return true;
-      return !isMaintenanceCacheComplete(data);
-    },
-    refetchOnReconnect: false,
-    placeholderData: maintenancePlaceholder,
-    retry: (failureCount, error) =>
-      error?.name !== "AbortError" && !isCancelledError(error) && failureCount < 5,
-    retryDelay: (attempt) => Math.min(2500, 500 * (attempt + 1)),
-  });
-
-  const transactionData = getMaintenanceCacheRows(transactionQuery.data);
-  const maintenanceDataComplete = isMaintenanceCacheComplete(transactionQuery.data);
   const listRowCount = transactionData.length;
   const searchRecoverable =
-    transactionQuery.isError &&
+    Boolean(searchError) &&
     listRowCount === 0 &&
-    isMaintenanceRecoverableError(transactionQuery.error);
-  /** 无数据：加载中或可恢复错误 — 显示 Loading，不出现 Search failed */
+    isMaintenanceRecoverableError(searchError);
   const showListSkeleton =
     listRowCount === 0 &&
     (bootPending ||
-      (listQueryEnabled &&
-        (transactionQuery.isLoading || transactionQuery.isFetching)) ||
+      listLoading ||
+      listSyncing ||
       (searchRecoverable && !recoverableExhausted));
   const recoverableRetryRef = useRef(0);
   const [recoverableExhausted, setRecoverableExhausted] = useState(false);
-  const lastToastKeyRef = useRef(null);
 
   const searchQueryKey = useMemo(
     () =>
@@ -346,11 +260,114 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     recoverableRetryRef.current = 0;
     setRecoverableExhausted(false);
-    lastToastKeyRef.current = null;
+    setSearchError(null);
   }, [searchQueryKey]);
 
   useEffect(() => {
-    if (!listQueryEnabled || !searchRecoverable || transactionQuery.isFetching) return;
+    scopeKeyRef.current = transactionScopeKey;
+  }, [transactionScopeKey]);
+
+  const performMaintenanceSearch = useCallback(
+    async (overrides = {}) => {
+      const effectiveScope =
+        overrides.scope ??
+        resolveTransactionMaintenanceScope({
+          companies,
+          selectedGroup: overrides.selectedGroup ?? selectedGroup,
+          companyId: overrides.companyId ?? companyId,
+          groupsAllMode,
+          groupAllMode,
+        });
+      const category = overrides.category ?? activePermission;
+      if (
+        !transactionMaintenanceScopeIsReady(effectiveScope) ||
+        !dateFrom ||
+        !dateTo ||
+        !category
+      ) {
+        return;
+      }
+
+      const searchScopeKey = transactionMaintenanceScopeCacheKey(effectiveScope);
+      if (overrides.scope) {
+        scopeKeyRef.current = searchScopeKey;
+      }
+      maintenanceAbortRef.current?.abort();
+      const ac = new AbortController();
+      maintenanceAbortRef.current = ac;
+      const seq = ++maintenanceSeqRef.current;
+      const quietRefresh = initialSearchDoneRef.current;
+      if (!quietRefresh) setListLoading(true);
+      else {
+        setListLoading(false);
+        setListSyncing(true);
+      }
+      setSearchError(null);
+      try {
+        const rows = await searchTransactionData({
+          dateFrom,
+          dateTo,
+          process: processFilter,
+          category,
+          scope: effectiveScope,
+          signal: ac.signal,
+          onProgress: (progressRows) => {
+            if (seq !== maintenanceSeqRef.current) return;
+            if (searchScopeKey !== scopeKeyRef.current) return;
+            setTransactionData(progressRows);
+            setMaintenanceDataComplete(false);
+          },
+        });
+        if (seq !== maintenanceSeqRef.current) return;
+        if (searchScopeKey !== scopeKeyRef.current) return;
+        setTransactionData(rows);
+        setMaintenanceDataComplete(true);
+        if (!quietRefresh) {
+          if (rows.length > 0) {
+            notify(t("foundRecords", { n: rows.length }), "success");
+          } else {
+            notify(t("noDataAdjustSearch"), "info");
+          }
+        }
+      } catch (err) {
+        if (err?.name === "AbortError" || seq !== maintenanceSeqRef.current) return;
+        if (searchScopeKey !== scopeKeyRef.current) return;
+        setSearchError(err);
+        setTransactionData([]);
+        setMaintenanceDataComplete(false);
+        const msg = getMaintenanceSearchUserMessage(err, {
+          loadingMessage: t("searchRetrying"),
+          narrowRangeMessage: t("searchRetryHint"),
+        });
+        if (msg && msg !== t("searchRetrying")) {
+          notify(msg, "error");
+        }
+      } finally {
+        initialSearchDoneRef.current = true;
+        if (seq === maintenanceSeqRef.current) {
+          setListLoading(false);
+          setListSyncing(false);
+        }
+      }
+    },
+    [
+      companies,
+      selectedGroup,
+      companyId,
+      groupsAllMode,
+      groupAllMode,
+      dateFrom,
+      dateTo,
+      processFilter,
+      activePermission,
+      notify,
+      t,
+    ],
+  );
+
+  useEffect(() => {
+    if (!listQueryEnabled || !searchRecoverable) return;
+    if (listLoading || listSyncing) return;
     if (recoverableRetryRef.current >= 10) {
       setRecoverableExhausted(true);
       return;
@@ -359,31 +376,68 @@ export default function TransactionMaintenancePage() {
     const delay = Math.min(4000, 700 * (recoverableRetryRef.current + 1));
     const timer = window.setTimeout(() => {
       recoverableRetryRef.current += 1;
-      void transactionQuery.refetch({ cancelRefetch: false });
+      void performMaintenanceSearch();
     }, delay);
     return () => window.clearTimeout(timer);
   }, [
     listQueryEnabled,
     searchRecoverable,
     recoverableExhausted,
-    transactionQuery.isFetching,
-    transactionQuery.errorUpdatedAt,
+    listLoading,
+    listSyncing,
     searchQueryKey,
-    transactionQuery,
+    performMaintenanceSearch,
   ]);
 
   useEffect(() => {
-    if (transactionQuery.isSuccess) {
+    if (maintenanceDataComplete && listRowCount > 0) {
       recoverableRetryRef.current = 0;
       setRecoverableExhausted(false);
     }
-  }, [transactionQuery.isSuccess, transactionQuery.dataUpdatedAt]);
+  }, [maintenanceDataComplete, listRowCount]);
+
+  useEffect(() => {
+    if (!filtersReady || !listQueryEnabled) return;
+
+    if (pendingBootSearchRef.current) {
+      const pending = pendingBootSearchRef.current;
+      pendingBootSearchRef.current = null;
+      suppressNextSearchEffectRef.current = true;
+      void performMaintenanceSearch({
+        scope: pending.scope,
+        category: pending.category,
+      });
+      return;
+    }
+
+    if (suppressNextSearchEffectRef.current) {
+      suppressNextSearchEffectRef.current = false;
+      return;
+    }
+
+    const h = window.setTimeout(() => {
+      void performMaintenanceSearch();
+    }, 0);
+    return () => window.clearTimeout(h);
+  }, [
+    filtersReady,
+    listQueryEnabled,
+    searchQueryKey,
+    performMaintenanceSearch,
+  ]);
+
+  useEffect(
+    () => () => {
+      maintenanceAbortRef.current?.abort();
+    },
+    [],
+  );
 
   const listStatusMessage = useMemo(() => {
     if (showListSkeleton) return t("searchRetrying");
     if (recoverableExhausted) return t("searchRetryHint");
-    if (transactionQuery.isError && listRowCount === 0) {
-      return getMaintenanceSearchUserMessage(transactionQuery.error, {
+    if (searchError && listRowCount === 0) {
+      return getMaintenanceSearchUserMessage(searchError, {
         loadingMessage: t("searchRetrying"),
         narrowRangeMessage: t("searchRetryHint"),
       });
@@ -392,8 +446,7 @@ export default function TransactionMaintenancePage() {
   }, [
     showListSkeleton,
     recoverableExhausted,
-    transactionQuery.isError,
-    transactionQuery.error,
+    searchError,
     listRowCount,
     t,
   ]);
@@ -401,25 +454,12 @@ export default function TransactionMaintenancePage() {
   const showNoDataEmpty =
     listQueryEnabled &&
     !bootPending &&
-    transactionQuery.isFetched &&
-    !transactionQuery.isFetching &&
-    !transactionQuery.isLoading &&
+    !listLoading &&
+    !listSyncing &&
+    maintenanceDataComplete &&
     listRowCount === 0 &&
     !showListSkeleton &&
     !listStatusMessage;
-
-  const notify = useCallback((message, type = "success") => {
-    const id = Date.now();
-    setToasts(prev => {
-      if (prev.some(t => t.message === message)) return prev;
-      const next = [...prev, { id, message, type }];
-      if (next.length > 2) return next.slice(1);
-      return next;
-    });
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 2000);
-  }, []);
 
   // -- Initialization --
   useEffect(() => {
@@ -455,6 +495,8 @@ export default function TransactionMaintenancePage() {
     let cancelled = false;
     setFiltersReady(false);
     handledMetaScopeKeyRef.current = "";
+    initialSearchDoneRef.current = false;
+    pendingBootSearchRef.current = null;
 
     (async () => {
       try {
@@ -560,6 +602,7 @@ export default function TransactionMaintenancePage() {
             "",
             bootGroup,
           );
+          pendingBootSearchRef.current = { scope: bootScope, category: nextPerm };
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         };
 
@@ -616,6 +659,7 @@ export default function TransactionMaintenancePage() {
               bootScope,
             );
             if (!cancelled) setProcesses(procList);
+            pendingBootSearchRef.current = { scope: bootScope, category: initialActive };
           } catch (err) {
             console.error("Process list load error:", err);
           }
@@ -647,7 +691,6 @@ export default function TransactionMaintenancePage() {
       } finally {
         if (!cancelled && runId === bootRunIdRef.current) {
           setFiltersReady(true);
-          notifyCompanySessionUpdated();
         }
       }
     })();
@@ -747,75 +790,13 @@ export default function TransactionMaintenancePage() {
     t,
   ]);
 
-  useEffect(() => {
-    if (!listQueryEnabled || !maintenanceDataComplete) return;
-    if (!transactionQuery.isSuccess || transactionQuery.isPlaceholderData) return;
-    if (transactionQuery.isFetching || transactionQuery.isLoading) return;
-    if (transactionData.length === 0) return;
-    const key = `${transactionQuery.dataUpdatedAt}:${transactionData.length}`;
-    if (lastToastKeyRef.current === key) return;
-    lastToastKeyRef.current = key;
-    notify(t("foundRecords", { n: transactionData.length }), "success");
-  }, [
-    transactionQuery.isSuccess,
-    transactionQuery.isFetching,
-    transactionQuery.dataUpdatedAt,
-    transactionQuery.isPlaceholderData,
-    maintenanceDataComplete,
-    transactionData.length,
-    notify,
-    t,
-  ]);
-
-  useEffect(() => {
-    if (!listQueryEnabled) return;
-    if (!transactionQuery.isError || !transactionQuery.error) return;
-    const msg = getMaintenanceSearchUserMessage(transactionQuery.error, {
-      loadingMessage: t("searchRetrying"),
-      narrowRangeMessage: t("searchRetryHint"),
-    });
-    if (!msg || msg === t("searchRetrying")) return;
-    notify(msg, "error");
-  }, [
-    listQueryEnabled,
-    transactionQuery.isError,
-    transactionQuery.error,
-    transactionQuery.errorUpdatedAt,
-    notify,
-    t,
-  ]);
-
-  useEffect(() => {
-    if (!listQueryEnabled) return;
-    if (!maintenanceDataComplete) return;
-    if (!transactionQuery.isSuccess) return;
-    if (!transactionQuery.isFetched) return;
-    if (transactionQuery.isFetching) return;
-    if (transactionData.length > 0) return;
-    const key = `${transactionQuery.dataUpdatedAt ?? ""}:empty`;
-    if (!consumeNoDataToastDedupeKey(key)) return;
-    notify(t("noDataAdjustSearch"), "info");
-  }, [
-    listQueryEnabled,
-    maintenanceDataComplete,
-    transactionQuery.isSuccess,
-    transactionQuery.isFetched,
-    transactionQuery.isFetching,
-    transactionData.length,
-    transactionQuery.dataUpdatedAt,
-    notify,
-    t,
-  ]);
-
   // -- Handlers --
   const handleClearCompany = useCallback((groupForPersist) => {
     const g = groupForPersist ?? selectedGroup;
     resetAnchorSessionRef();
-    handledMetaScopeKeyRef.current = "";
     setCompanyId(null);
     setCompanyCode("");
     setSelectedProcess("");
-    setProcesses([]);
     void (async () => {
       try {
         const synced = await syncTransactionMaintenanceGroupAnchorSession(
@@ -831,11 +812,11 @@ export default function TransactionMaintenancePage() {
             }) ?? pickGroupAnchorCompany(companies, g);
           if (anchor?.id) markAnchorSyncedRef.current(g, anchor.id);
         }
-        notifyCompanySessionUpdated();
       } catch (syncErr) {
         console.error("Group anchor session sync after clear company:", syncErr);
       }
     })();
+    persistDashboardFilterState(g, null);
   }, [companies, selectedGroup, me?.company_id, resetAnchorSessionRef]);
 
   const onPrepareCompanySelect = useCallback((c) => {
@@ -843,15 +824,23 @@ export default function TransactionMaintenancePage() {
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const nextScope = resolveTransactionMaintenanceScope({
+      companies,
+      selectedGroup: newGroup,
+      companyId: nextCompanyId,
+      groupsAllMode,
+      groupAllMode,
+    });
     switchPermsCacheRef.current = null;
     resetAnchorSessionRef();
-    handledMetaScopeKeyRef.current = "";
+    suppressNextSearchEffectRef.current = true;
     setSelectedGroup(newGroup);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
     persistDashboardFilterState(newGroup, nextCompanyId);
-  }, [resetAnchorSessionRef]);
+    void performMaintenanceSearch({ scope: nextScope });
+  }, [companies, groupsAllMode, groupAllMode, performMaintenanceSearch, resetAnchorSessionRef]);
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
 
@@ -889,10 +878,14 @@ export default function TransactionMaintenancePage() {
           companies,
           selectedGroup: newGroup,
           companyId: nextCompanyId,
+          groupsAllMode,
+          groupAllMode,
         });
         const procList = await fetchProcessesForPermission(nextCompanyId, nextActive, nextScope);
         setProcesses(procList);
         setSelectedProcess("");
+        suppressNextSearchEffectRef.current = true;
+        await performMaintenanceSearch({ scope: nextScope, category: nextActive });
       } catch (err) {
         console.error("Process list load error:", err);
       }
@@ -909,7 +902,7 @@ export default function TransactionMaintenancePage() {
       }
       notify(err.message || t("switchFailed"), "error");
     }
-  }, [companies, navigate, notify, t]);
+  }, [companies, groupsAllMode, groupAllMode, navigate, notify, performMaintenanceSearch, t]);
 
   switchCompanyRef.current = handleSwitchCompany;
   onClearCompanyRef.current = handleClearCompany;
@@ -921,12 +914,9 @@ export default function TransactionMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  const listSyncing =
-    transactionQuery.isFetching &&
-    (transactionQuery.isPlaceholderData || listRowCount > 0 || !maintenanceDataComplete);
-  const showTopLoadingBar =
-    transactionQuery.isFetching &&
-    (showListSkeleton || transactionQuery.isPlaceholderData || listSyncing);
+  const listSyncingUi =
+    listSyncing && (listRowCount > 0 || !maintenanceDataComplete);
+  const showTopLoadingBar = listLoading || listSyncingUi;
 
   return (
     <div className="container">
@@ -981,12 +971,12 @@ export default function TransactionMaintenancePage() {
 
         <TransactionMaintenanceTable
           data={transactionData}
-          showSkeleton={showListSkeleton && !listSyncing}
+          showSkeleton={showListSkeleton && !listSyncingUi}
           showEmptyState={showNoDataEmpty}
           statusMessage={listStatusMessage}
           showTopLoading={showTopLoadingBar}
           topLoadingLabel={listStatusMessage || t("loading")}
-          isPlaceholderData={transactionQuery.isPlaceholderData || listSyncing}
+          isPlaceholderData={listSyncingUi}
           m={m}
         />
       </div>
