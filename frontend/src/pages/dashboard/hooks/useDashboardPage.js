@@ -1312,13 +1312,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       comparisons: null,
     };
     const useAggregated = showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi;
-    const current = useAggregated
+    const ownershipCurrent = computeKpiMetrics(dashboardData, selectedGroup);
+    const ownershipPrevious = computeKpiMetrics(dashboardDataPrev, selectedGroup);
+    let current = useAggregated
       ? multiCurrencyKpi
-      : computeKpiMetrics(dashboardData, selectedGroup);
+      : ownershipCurrent;
     if (!current) return empty;
-    const previous = useAggregated
-      ? multiCurrencyKpiPrev
-      : computeKpiMetrics(dashboardDataPrev, selectedGroup);
+    if (ownershipCurrent) {
+      current = {
+        ...current,
+        earnings: ownershipCurrent.earnings,
+        showEarnings: ownershipCurrent.showEarnings,
+      };
+    }
+    let previous = useAggregated ? multiCurrencyKpiPrev : ownershipPrevious;
+    if (previous && ownershipPrevious) {
+      previous = { ...previous, earnings: ownershipPrevious.earnings };
+    }
     const comparisons = previous
       ? {
           profit: buildKpiCompare(current.profit, previous.profit),
@@ -1528,6 +1538,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
 
+  /** Pie panel total only — includes multi-currency conversion when rates are available. */
   const summaryEarningsValue = useMemo(() => {
     if (showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi) {
       return multiCurrencyKpi.earnings;
@@ -1543,35 +1554,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     useConvertedEarnings,
     convertedEarningsTotal,
     kpi.earnings,
-  ]);
-
-  /** KPI Earnings card matches right-panel total when multi-currency conversion is active. */
-  const kpiForDisplay = useMemo(() => {
-    if (!kpi) return kpi;
-    const displayEarnings =
-      currencies.length > 1 && useConvertedEarnings && convertedEarningsTotal != null
-        ? convertedEarningsTotal
-        : kpi.earnings;
-    const prevEarnings =
-      currencies.length > 1 && useConvertedEarnings && convertedEarningsTotalPrev != null
-        ? convertedEarningsTotalPrev
-        : computeKpiMetrics(dashboardDataPrev, selectedGroup)?.earnings;
-    const comparisons =
-      kpi.comparisons && prevEarnings != null
-        ? {
-            ...kpi.comparisons,
-            earnings: buildKpiCompare(displayEarnings, prevEarnings),
-          }
-        : kpi.comparisons;
-    return { ...kpi, earnings: displayEarnings, comparisons };
-  }, [
-    kpi,
-    currencies.length,
-    useConvertedEarnings,
-    convertedEarningsTotal,
-    convertedEarningsTotalPrev,
-    dashboardDataPrev,
-    selectedGroup,
   ]);
 
   const summaryConversionNote = useMemo(() => {
@@ -1824,7 +1806,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     handleCurrencyChange,
     loading: kpiLoading,
     dashboardData,
-    kpi: kpiForDisplay,
+    kpi,
     kpiCompareLabel,
     kpiFooter,
     chartRows,
