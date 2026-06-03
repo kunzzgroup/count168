@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { syncCompanySessionApi } from "./companySessionSync.js";
-import { isDashboardGroupOnlyMode, pickDefaultSubsidiaryForGroup, pickGroupAnchorCompany } from "./sharedCompanyFilter.js";
+import { pickDefaultSubsidiaryForGroup, pickGroupAnchorCompany } from "./sharedCompanyFilter.js";
+
+function isGroupOnlyFilterUi(selectedGroup, companyId) {
+  if (!selectedGroup) return false;
+  const cid = companyId != null && companyId !== "" ? Number(companyId) : Number.NaN;
+  return !(Number.isFinite(cid) && cid > 0);
+}
 
 /**
  * Group-only UI keeps company unselected; sync anchor company to PHP session so sidebar
@@ -16,12 +22,10 @@ export function useGroupAnchorSessionSync({
   enabled = true,
 }) {
   const ref = useRef({ group: null, companyId: null });
-  const [anchorSessionReady, setAnchorSessionReady] = useState(true);
 
   const needsAnchorSession = useMemo(() => {
-    if (!enabled || !isDashboardGroupOnlyMode() || !selectedGroup) return false;
-    if (companyId != null && Number(companyId) > 0) return false;
-    return true;
+    if (!enabled) return false;
+    return isGroupOnlyFilterUi(selectedGroup, companyId);
   }, [enabled, selectedGroup, companyId]);
 
   const anchorId = useMemo(() => {
@@ -34,13 +38,18 @@ export function useGroupAnchorSessionSync({
     return Number.isFinite(id) && id > 0 ? id : null;
   }, [needsAnchorSession, companies, selectedGroup, sessionCompanyId]);
 
+  const [anchorSessionReady, setAnchorSessionReady] = useState(
+    () => !isGroupOnlyFilterUi(selectedGroup, companyId),
+  );
+
   useEffect(() => {
     if (!needsAnchorSession) {
       setAnchorSessionReady(true);
       return;
     }
     if (!anchorId) {
-      setAnchorSessionReady(false);
+      // Wait for companies list; do not block search forever once companies are loaded.
+      setAnchorSessionReady((companies?.length ?? 0) === 0);
       return;
     }
 
@@ -65,7 +74,7 @@ export function useGroupAnchorSessionSync({
     return () => {
       cancelled = true;
     };
-  }, [needsAnchorSession, anchorId, selectedGroup]);
+  }, [needsAnchorSession, anchorId, selectedGroup, companies]);
 
   const resetAnchorSessionRef = useCallback(() => {
     ref.current = { group: null, companyId: null };

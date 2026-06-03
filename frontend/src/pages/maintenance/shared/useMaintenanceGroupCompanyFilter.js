@@ -13,6 +13,7 @@ export function useMaintenanceGroupCompanyFilter({
   onPrepareCompanySelect,
   onClearCompany,
   switchingCompany = false,
+  enableGroupAnchorSession = true,
 }) {
   const { me } = useAuthSession();
   const gc = useGcFilterWithAllModes({
@@ -28,6 +29,7 @@ export function useMaintenanceGroupCompanyFilter({
     me,
     autoPickCompanyWhenEmpty: false,
     forceAllowGroupOnly: true,
+    enableGroupAnchorSession,
   });
 
   return {
