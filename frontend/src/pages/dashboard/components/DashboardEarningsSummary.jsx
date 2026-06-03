@@ -171,6 +171,9 @@ export function DashboardEarningsSummary({
             <div className="dashboard-summary-hero-value">
               {summaryEarningsLoading ? "…" : formatCurrency(summaryEarningsValue)}
             </div>
+            {summaryConversionNote && (
+              <span className="dashboard-summary-hero-conversion-note">{summaryConversionNote}</span>
+            )}
           </div>
           <div
             ref={pieAreaRef}
