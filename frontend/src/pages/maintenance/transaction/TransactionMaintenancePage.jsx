@@ -136,10 +136,10 @@ export default function TransactionMaintenancePage() {
   const [filtersReady, setFiltersReady] = useState(false);
   const [dateRangeReady, setDateRangeReady] = useState(false);
   const [searchDeferredReady, setSearchDeferredReady] = useState(false);
-  /** Meta (process list + permission/category) ready for querying. */
-  const [metaReady, setMetaReady] = useState(false);
   const followGroupRef = useRef(() => {});
   const bootRunIdRef = useRef(0);
+  const markAnchorSyncedRef = useRef(() => {});
+  const handledMetaScopeKeyRef = useRef("");
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -213,18 +213,18 @@ export default function TransactionMaintenancePage() {
   );
 
   const { markAnchorSynced, resetAnchorSessionRef } = useGroupAnchorSessionSync({
-      companies,
-      selectedGroup,
-      companyId,
-      sessionCompanyId: me?.company_id,
-      // Boot owns initial anchor sync; hook runs after boot for user toggles / sidebar only.
-      enabled: filtersReady,
-    });
+    companies,
+    selectedGroup,
+    companyId,
+    sessionCompanyId: me?.company_id,
+    enabled: filtersReady,
+    notifyOnSync: false,
+  });
+  markAnchorSyncedRef.current = markAnchorSynced;
 
   const listQueryEnabled = Boolean(
     filtersReady &&
     dateRangeReady &&
-    metaReady &&
     transactionMaintenanceScopeIsReady(transactionScope) &&
     dateFrom &&
     dateTo &&
@@ -234,7 +234,6 @@ export default function TransactionMaintenancePage() {
   const bootPending =
     !filtersReady ||
     !dateRangeReady ||
-    !metaReady ||
     !dateFrom ||
     !dateTo ||
     !activePermission;
@@ -489,7 +488,7 @@ export default function TransactionMaintenancePage() {
     const runId = ++bootRunIdRef.current;
     let cancelled = false;
     setFiltersReady(false);
-    setMetaReady(false);
+    handledMetaScopeKeyRef.current = "";
 
     (async () => {
       try {
@@ -532,10 +531,12 @@ export default function TransactionMaintenancePage() {
         setSelectedGroup(bootGroup);
         const persistedGc = readPersistedDashboardGcFilter();
         const savedCompanyId = readDashboardSelectedCompanyId();
+        const initialUiCompanyId = readInitialMaintenanceCompanyId();
         const groupOnlyBoot =
           isDashboardGroupOnlyMode() ||
           persistedGc.groupOnly ||
-          (bootGroup != null && savedCompanyId == null);
+          (bootGroup != null && savedCompanyId == null) ||
+          (bootGroup != null && initialUiCompanyId == null && currentComp == null);
 
         const runGroupOnlyBoot = async () => {
           persistDashboardGroupOnlyMode(true);
@@ -548,13 +549,14 @@ export default function TransactionMaintenancePage() {
               filtered,
               bootGroup,
               u.company_id,
+              { notify: false },
             );
             if (synced && bootGroup) {
               const anchor =
                 pickDefaultSubsidiaryForGroup(filtered, bootGroup, {
                   preferredCompanyId: u.company_id,
                 }) ?? pickGroupAnchorCompany(filtered, bootGroup);
-              if (anchor?.id) markAnchorSynced(bootGroup, anchor.id);
+              if (anchor?.id) markAnchorSyncedRef.current(bootGroup, anchor.id);
             }
           } catch (err) {
             console.error("Group anchor session sync error:", err);
@@ -572,7 +574,6 @@ export default function TransactionMaintenancePage() {
           if (cancelled) return;
           setPermissions(meta.permissions);
           setActivePermission(meta.activePermission);
-          setMetaReady(true);
           try {
             const procList = bootScope
               ? await fetchProcessesForPermission(null, meta.activePermission, bootScope)
@@ -582,6 +583,7 @@ export default function TransactionMaintenancePage() {
             console.error("Process list load error:", err);
           }
           skipMetaAfterBootRef.current = true;
+          handledMetaScopeKeyRef.current = transactionMaintenanceScopeCacheKey(bootScope);
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         };
 
@@ -624,7 +626,6 @@ export default function TransactionMaintenancePage() {
           const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
           const initialActive = pickTransactionMaintenancePermission(companyPerms, savedPerm);
           setActivePermission(initialActive);
-          setMetaReady(true);
 
           // Process list is a UI nicety; do not block initial list query on this.
           try {
@@ -646,6 +647,13 @@ export default function TransactionMaintenancePage() {
           // Cache permissions so the meta-effect below skips redundant API call
           switchPermsCacheRef.current = { companyCode: code, perms: companyPerms };
           skipMetaAfterBootRef.current = true;
+          handledMetaScopeKeyRef.current = transactionMaintenanceScopeCacheKey(
+            resolveTransactionMaintenanceScope({
+              companies: filtered,
+              selectedGroup: bootGroup,
+              companyId: initialCompanyId,
+            }),
+          );
 
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
         } else if (bootGroup) {
@@ -656,21 +664,29 @@ export default function TransactionMaintenancePage() {
         console.error("Boot error:", err);
         if (!cancelled && runId === bootRunIdRef.current) navigate("/login", { replace: true });
       } finally {
-        if (!cancelled && runId === bootRunIdRef.current) setFiltersReady(true);
+        if (!cancelled && runId === bootRunIdRef.current) {
+          setFiltersReady(true);
+          notifyCompanySessionUpdated();
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, navigate, me?.user_id, markAnchorSynced]);
+  }, [sessionReady, navigate, me?.user_id]);
 
-  // -- Load Meta Data (Processes & Permissions) --
+  // -- Load Meta Data (Processes & Permissions) on filter change --
   useEffect(() => {
     if (!filtersReady || !transactionMaintenanceScopeIsReady(transactionScope)) return;
+
+    const scopeKey = `${transactionScopeKey}:${companyId ?? ""}:${companyCode}:${selectedGroup ?? ""}`;
     if (skipMetaAfterBootRef.current) {
       skipMetaAfterBootRef.current = false;
+      handledMetaScopeKeyRef.current = scopeKey;
       return;
     }
+    if (handledMetaScopeKeyRef.current === scopeKey) return;
+    handledMetaScopeKeyRef.current = scopeKey;
 
     let cancelled = false;
     const scope = transactionScope;
@@ -684,7 +700,6 @@ export default function TransactionMaintenancePage() {
 
     (async () => {
       try {
-        setMetaReady(false);
         const cached = switchPermsCacheRef.current;
         let permList;
         if (cached && cached.companyCode === permCode) {
@@ -703,7 +718,6 @@ export default function TransactionMaintenancePage() {
           permCode ? localStorage.getItem(`selectedPermission_${permCode}`) : null,
         );
         setActivePermission(nextPerm);
-        setMetaReady(true);
 
         try {
           const procList = await fetchProcessesForPermission(cid, nextPerm, scope);
@@ -726,8 +740,9 @@ export default function TransactionMaintenancePage() {
         if (cancelled) return;
         console.error("Meta data load error:", err);
         notify(t("failedLoadMetaData"), "error");
-        setActivePermission((prev) => prev || pickTransactionMaintenancePermission(["Games", "Gambling", "Bank"], null));
-        setMetaReady(true);
+        setActivePermission((prev) =>
+          prev || pickTransactionMaintenancePermission(["Games", "Gambling", "Bank"], null),
+        );
       }
     })();
 
@@ -737,6 +752,7 @@ export default function TransactionMaintenancePage() {
   }, [
     filtersReady,
     transactionScope,
+    transactionScopeKey,
     companyId,
     companyCode,
     selectedGroup,
@@ -806,57 +822,32 @@ export default function TransactionMaintenancePage() {
   const handleClearCompany = useCallback((groupForPersist) => {
     const g = groupForPersist ?? selectedGroup;
     resetAnchorSessionRef();
-    skipMetaAfterBootRef.current = true;
-    setMetaReady(false);
+    handledMetaScopeKeyRef.current = "";
     setCompanyId(null);
     setCompanyCode("");
     setSelectedProcess("");
     setProcesses([]);
     void (async () => {
       try {
-        let anchorId = null;
-        try {
-          const synced = await syncTransactionMaintenanceGroupAnchorSession(
-            companies,
-            g,
-            me?.company_id,
-          );
-          if (synced && g) {
-            const anchor =
-              pickDefaultSubsidiaryForGroup(companies, g, {
-                preferredCompanyId: me?.company_id,
-              }) ?? pickGroupAnchorCompany(companies, g);
-            anchorId = anchor?.id ?? null;
-          }
-        } catch (syncErr) {
-          console.error("Group anchor session sync after clear company:", syncErr);
-        }
-
-        const meta = await bootstrapTransactionMaintenanceMeta({
+        const synced = await syncTransactionMaintenanceGroupAnchorSession(
           companies,
-          groupId: g,
-        });
-        setPermissions(meta.permissions);
-        setActivePermission(meta.activePermission);
-
-        if (anchorId && g) {
-          markAnchorSynced(g, anchorId);
-        } else if (g) {
-          resetAnchorSessionRef();
+          g,
+          me?.company_id,
+          { notify: false },
+        );
+        if (synced && g) {
+          const anchor =
+            pickDefaultSubsidiaryForGroup(companies, g, {
+              preferredCompanyId: me?.company_id,
+            }) ?? pickGroupAnchorCompany(companies, g);
+          if (anchor?.id) markAnchorSyncedRef.current(g, anchor.id);
         }
-        setMetaReady(true);
-      } catch (err) {
-        console.error("Meta bootstrap after clear company:", err);
-        setMetaReady(true);
+        notifyCompanySessionUpdated();
+      } catch (syncErr) {
+        console.error("Group anchor session sync after clear company:", syncErr);
       }
     })();
-  }, [
-    companies,
-    selectedGroup,
-    me?.company_id,
-    markAnchorSynced,
-    resetAnchorSessionRef,
-  ]);
+  }, [companies, selectedGroup, me?.company_id, resetAnchorSessionRef]);
 
   const onPrepareCompanySelect = useCallback((c) => {
     if (!c?.id) return;
@@ -864,10 +855,9 @@ export default function TransactionMaintenancePage() {
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
     switchPermsCacheRef.current = null;
-    skipMetaAfterBootRef.current = true;
     resetAnchorSessionRef();
+    handledMetaScopeKeyRef.current = "";
     setSelectedGroup(newGroup);
-    setMetaReady(false);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
@@ -903,7 +893,7 @@ export default function TransactionMaintenancePage() {
       switchPermsCacheRef.current = { companyCode: code, perms };
       setActivePermission(nextActive);
       setPermissions(perms);
-      setMetaReady(true);
+      handledMetaScopeKeyRef.current = "";
 
       try {
         const nextScope = resolveTransactionMaintenanceScope({

@@ -650,7 +650,9 @@ export async function syncTransactionMaintenanceGroupAnchorSession(
   companies,
   groupId,
   sessionCompanyId = null,
+  options = {},
 ) {
+  const { notify = true } = options;
   const g = groupId ? String(groupId).trim().toUpperCase() : "";
   if (!g) return false;
   const anchor =
@@ -660,7 +662,7 @@ export async function syncTransactionMaintenanceGroupAnchorSession(
   const id = anchor?.id != null ? Number(anchor.id) : Number.NaN;
   if (!Number.isFinite(id) || id <= 0) return false;
   const json = await syncCompanySessionApi(id, g);
-  if (json?.success) notifyCompanySessionUpdated();
+  if (json?.success && notify) notifyCompanySessionUpdated();
   return Boolean(json?.success);
 }
 

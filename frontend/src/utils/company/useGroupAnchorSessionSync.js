@@ -25,6 +25,7 @@ export function useGroupAnchorSessionSync({
   companyId,
   sessionCompanyId = null,
   enabled = true,
+  notifyOnSync = true,
 }) {
   const ref = useRef({ group: null, companyId: null });
   const prevCompanyIdRef = useRef(parsePositiveCompanyId(companyId));
@@ -103,14 +104,14 @@ export function useGroupAnchorSessionSync({
       }
       if (json?.success) {
         ref.current = { group: g, companyId: anchorId };
-        notifyCompanySessionUpdated();
+        if (notifyOnSync) notifyCompanySessionUpdated();
       }
       setAnchorSessionReady(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [needsAnchorSession, anchorId, selectedGroup, companies, applyReadyFromRef]);
+  }, [needsAnchorSession, anchorId, selectedGroup, companies, applyReadyFromRef, notifyOnSync]);
 
   const resetAnchorSessionRef = useCallback(() => {
     ref.current = { group: null, companyId: null };
