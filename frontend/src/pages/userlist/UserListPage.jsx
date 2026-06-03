@@ -246,81 +246,10 @@ export default function UserListPage() {
       ),
     [companies]
   );
-  const gcGroupOnlyUi = useMemo(
-    () =>
-      isGcGroupOnlyUi({
-        selectedGroup,
-        companyId,
-        groupsAllMode,
-        groupAllMode,
-      }),
-    [selectedGroup, companyId, groupsAllMode, groupAllMode],
-  );
-  const groupOnlyUserList = useMemo(() => {
-    if (!gcGroupOnlyUi) return false;
-    if (isCompanyLogin(me)) return false;
-    return (
-      supportsDashboardStyleGroupOnly(me) ||
-      isGroupLogin(me) ||
-      isDashboardGroupOnlyMode()
-    );
-  }, [gcGroupOnlyUi, me]);
   const groupEntityCompanies = useMemo(
     () => (selectedGroup ? companiesGroupEntityList(companies, selectedGroup) : []),
     [companies, selectedGroup],
   );
-  const anchorCompanyId = useMemo(() => {
-    if (!groupOnlyUserList || !selectedGroup) return null;
-    const entityPick = pickDefaultCompanyForGroup(companies, selectedGroup, {
-      me,
-      preferredCompanyId: me?.company_id,
-      groupEntityOnly: true,
-    });
-    if (entityPick?.id != null) {
-      const eid = Number(entityPick.id);
-      if (Number.isFinite(eid) && eid > 0) return eid;
-    }
-    const fallback = pickDefaultCompanyForGroup(companies, selectedGroup, {
-      me,
-      preferredCompanyId: me?.company_id,
-    });
-    const id = fallback?.id != null ? Number(fallback.id) : Number.NaN;
-    return Number.isFinite(id) && id > 0 ? id : null;
-  }, [groupOnlyUserList, selectedGroup, companies, me]);
-  /** API/modal scope: selected company, group anchor, or login/default company in the active group. */
-  const scopeCompanyId = useMemo(() => {
-    if (companyId != null) {
-      const id = Number(companyId);
-      if (Number.isFinite(id) && id > 0) return id;
-    }
-    if (groupOnlyUserList && anchorCompanyId != null) return anchorCompanyId;
-    if (selectedGroup) {
-      const pick = pickDefaultCompanyForGroup(companies, selectedGroup, {
-        me,
-        preferredCompanyId: me?.company_id ?? companyId,
-      });
-      const pid = pick?.id != null ? Number(pick.id) : Number.NaN;
-      if (Number.isFinite(pid) && pid > 0) return pid;
-    }
-    const sessionId = me?.company_id != null ? Number(me.company_id) : Number.NaN;
-    return Number.isFinite(sessionId) && sessionId > 0 ? sessionId : null;
-  }, [companyId, groupOnlyUserList, anchorCompanyId, selectedGroup, companies, me]);
-  /** Group-only list/add-user: group entity only (e.g. AP), not subsidiaries (e.g. C168). */
-  const groupScopedModalCompanies = useMemo(() => {
-    if (isGroupLogin(me) && !groupOnlyUserList) {
-      // Group login + company-selected mode:
-      // allow choosing across all companies visible to this login scope (AP+IG linked set).
-      return buildModalCompanyList(companies);
-    }
-    // Company-selected mode: show normal company list (within selected group if present).
-    // Group-only mode uses group picker (handled in `modalPickerCompanies`).
-    const base = selectedGroup ? companiesInGroupList(companies, selectedGroup) : allCompanyButtons;
-    return buildModalCompanyList(base);
-  }, [allCompanyButtons, companies, selectedGroup, me, groupOnlyUserList]);
-  const modalPickerCompanies = useMemo(() => {
-    if (groupOnlyUserList) return buildModalGroupOptions(companies, me);
-    return groupScopedModalCompanies;
-  }, [groupOnlyUserList, companies, me, groupScopedModalCompanies]);
   const pickerCompanyId = companyId;
   const filteredSorted = useMemo(() => {
     const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
@@ -607,6 +536,74 @@ export default function UserListPage() {
     forceAllowGroupOnly: supportsDashboardStyleGroupOnly(me),
     broadcastFilterToLayout: false,
   });
+
+  const gcGroupOnlyUi = useMemo(
+    () =>
+      isGcGroupOnlyUi({
+        selectedGroup,
+        companyId,
+        groupsAllMode,
+        groupAllMode,
+      }),
+    [selectedGroup, companyId, groupsAllMode, groupAllMode],
+  );
+  const groupOnlyUserList = useMemo(() => {
+    if (!gcGroupOnlyUi) return false;
+    if (isCompanyLogin(me)) return false;
+    return (
+      supportsDashboardStyleGroupOnly(me) ||
+      isGroupLogin(me) ||
+      isDashboardGroupOnlyMode()
+    );
+  }, [gcGroupOnlyUi, me]);
+  const anchorCompanyId = useMemo(() => {
+    if (!groupOnlyUserList || !selectedGroup) return null;
+    const entityPick = pickDefaultCompanyForGroup(companies, selectedGroup, {
+      me,
+      preferredCompanyId: me?.company_id,
+      groupEntityOnly: true,
+    });
+    if (entityPick?.id != null) {
+      const eid = Number(entityPick.id);
+      if (Number.isFinite(eid) && eid > 0) return eid;
+    }
+    const fallback = pickDefaultCompanyForGroup(companies, selectedGroup, {
+      me,
+      preferredCompanyId: me?.company_id,
+    });
+    const id = fallback?.id != null ? Number(fallback.id) : Number.NaN;
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }, [groupOnlyUserList, selectedGroup, companies, me]);
+  /** API/modal scope: selected company, group anchor, or login/default company in the active group. */
+  const scopeCompanyId = useMemo(() => {
+    if (companyId != null) {
+      const id = Number(companyId);
+      if (Number.isFinite(id) && id > 0) return id;
+    }
+    if (groupOnlyUserList && anchorCompanyId != null) return anchorCompanyId;
+    if (selectedGroup) {
+      const pick = pickDefaultCompanyForGroup(companies, selectedGroup, {
+        me,
+        preferredCompanyId: me?.company_id ?? companyId,
+      });
+      const pid = pick?.id != null ? Number(pick.id) : Number.NaN;
+      if (Number.isFinite(pid) && pid > 0) return pid;
+    }
+    const sessionId = me?.company_id != null ? Number(me.company_id) : Number.NaN;
+    return Number.isFinite(sessionId) && sessionId > 0 ? sessionId : null;
+  }, [companyId, groupOnlyUserList, anchorCompanyId, selectedGroup, companies, me]);
+  /** Group-only list/add-user: group entity only (e.g. AP), not subsidiaries (e.g. C168). */
+  const groupScopedModalCompanies = useMemo(() => {
+    if (isGroupLogin(me) && !groupOnlyUserList) {
+      return buildModalCompanyList(companies);
+    }
+    const base = selectedGroup ? companiesInGroupList(companies, selectedGroup) : allCompanyButtons;
+    return buildModalCompanyList(base);
+  }, [allCompanyButtons, companies, selectedGroup, me, groupOnlyUserList]);
+  const modalPickerCompanies = useMemo(() => {
+    if (groupOnlyUserList) return buildModalGroupOptions(companies, me);
+    return groupScopedModalCompanies;
+  }, [groupOnlyUserList, companies, me, groupScopedModalCompanies]);
 
   /** When no Group is selected, the shared picker only lists “ungrouped” rows — often empty for AP/IG-only tenants. */
   const inlineCompaniesForPicker = useMemo(() => {

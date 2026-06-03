@@ -225,22 +225,6 @@ export default function DataCapturePage() {
     return inGroup[0] ?? null;
   }, [isCompanySelected, currentCompanyRow, companiesDeduped, selectedGroup]);
 
-  const gcGroupOnlyUi = useMemo(
-    () =>
-      isGcGroupOnlyUi({
-        selectedGroup,
-        companyId,
-        groupsAllMode,
-        groupAllMode,
-      }),
-    [selectedGroup, companyId, groupsAllMode, groupAllMode],
-  );
-  const groupOnlyTable =
-    gcGroupOnlyUi &&
-    (supportsDashboardStyleGroupOnly(me) ||
-      canUseGroupOnlyMode(me) ||
-      isDashboardGroupOnlyMode());
-
   const onClearCompanyRef = useRef(() => {});
   const onSelectCompanyRef = useRef(async () => {});
   const onPrepareCompanySelectRef = useRef(() => {});
@@ -267,6 +251,22 @@ export default function DataCapturePage() {
     forceAllowGroupOnly: supportsDashboardStyleGroupOnly(me),
     me,
   });
+
+  const gcGroupOnlyUi = useMemo(
+    () =>
+      isGcGroupOnlyUi({
+        selectedGroup,
+        companyId,
+        groupsAllMode,
+        groupAllMode,
+      }),
+    [selectedGroup, companyId, groupsAllMode, groupAllMode],
+  );
+  const groupOnlyTable =
+    gcGroupOnlyUi &&
+    (supportsDashboardStyleGroupOnly(me) ||
+      canUseGroupOnlyMode(me) ||
+      isDashboardGroupOnlyMode());
 
   const captureScope = useMemo(
     () =>
