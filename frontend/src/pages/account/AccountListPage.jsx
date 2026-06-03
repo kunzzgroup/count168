@@ -43,7 +43,6 @@ import {
   groupIdsForGroupsAllAggregate,
   useGcFilterWithAllModes,
 } from "../../utils/company/useGcFilterWithAllModes.js";
-import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
@@ -729,14 +728,6 @@ export default function AccountListPage() {
 
   onSwitchCompanyRef.current = onSwitchCompany;
 
-  useGroupAnchorSessionSync({
-    companies,
-    selectedGroup,
-    companyId,
-    sessionCompanyId: sessionMe?.company_id,
-    enabled: !bootLoading && Boolean(sessionMe),
-  });
-
   const {
     groupIds,
     companiesForPicker,
@@ -1125,11 +1116,13 @@ export default function AccountListPage() {
           return;
         }
 
-        const pick = pickDefaultSubsidiaryForGroup(companies, g, {
-          me: sessionMe,
-          preferredCompanyId:
-            g === current ? (companyId ?? sessionMe?.company_id) : (sessionMe?.company_id ?? null),
-        });
+        const pick =
+          resolveCompanyPickWhenSwitchingGroup(companies, g, companyId) ??
+          pickDefaultSubsidiaryForGroup(companies, g, {
+            me: sessionMe,
+            preferredCompanyId:
+              g === current ? (companyId ?? sessionMe?.company_id) : (sessionMe?.company_id ?? null),
+          });
         if (!pick?.id) return;
 
         const nextCompanyId = Number(pick.id);

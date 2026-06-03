@@ -761,6 +761,11 @@ export function resolveCompanyPickWhenSwitchingGroup(companies, targetGroupId, c
     }
   }
 
+  const c168InGroup = companiesInGroupList(companies, g).find(
+    (c) => String(c.company_id || "").trim().toUpperCase() === "C168",
+  );
+  if (c168InGroup) return c168InGroup;
+
   return pickDefaultSubsidiaryForGroup(companies, g, { preferredCompanyId: null });
 }
 

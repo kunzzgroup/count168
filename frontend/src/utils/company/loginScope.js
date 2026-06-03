@@ -98,6 +98,33 @@ export function canUseGroupOnlyMode(me) {
   return isGroupLogin(me);
 }
 
+/** Mirrors api/c168/c168_domain_access.php c168DomainPageAllowedRoles */
+const C168_DOMAIN_PAGE_ROLES = new Set([
+  "owner",
+  "partnership",
+  "admin",
+  "manager",
+  "supervisor",
+  "accountant",
+  "audit",
+  "customer service",
+  "company",
+]);
+
+/** Mirrors c168AutoRenewAllowedRoles */
+const C168_AUTO_RENEW_ROLES = new Set(["owner", "admin"]);
+
+export function userRoleAllowsC168Domain(role) {
+  const r = String(role || "").trim().toLowerCase();
+  return C168_DOMAIN_PAGE_ROLES.has(r);
+}
+
+export function userRoleAllowsC168AutoRenew(role, userType) {
+  if (String(userType || "").trim().toLowerCase() === "member") return false;
+  const r = String(role || "").trim().toLowerCase();
+  return C168_AUTO_RENEW_ROLES.has(r);
+}
+
 export function canClearCompanySelection(me) {
   return isGroupLogin(me);
 }
@@ -154,12 +181,24 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
   const explicitCode = hasExplicitCode ? normalizeCompanyCode(ctx.companyCode) : null;
   const fallbackCode = normalizeCompanyCode(me.company_code) ?? "";
   const code = hasExplicitCode ? explicitCode ?? "" : fallbackCode;
+  const isC168 = code === "C168";
   const next = {
     ...me,
     company_id: id,
     company_code: hasExplicitCode ? code : code || me.company_code,
-    is_current_company_c168: code === "C168",
+    is_current_company_c168: isC168,
   };
+  if (isC168) {
+    if (userRoleAllowsC168Domain(me.role)) {
+      next.has_c168_domain_page_access = true;
+    }
+    if (userRoleAllowsC168AutoRenew(me.role, me.user_type)) {
+      next.has_c168_auto_renew_access = true;
+    }
+  } else {
+    next.has_c168_domain_page_access = false;
+    next.has_c168_auto_renew_access = false;
+  }
   if (ctx.hasGambling != null) next.company_has_gambling = Boolean(ctx.hasGambling);
   if (ctx.hasBank != null) next.company_has_bank = Boolean(ctx.hasBank);
   return next;
@@ -179,14 +218,16 @@ export function isActiveCompanyContextC168(me) {
  * Hidden in group-only dashboard mode (no company selected) even if anchor session is C168.
  */
 export function canAccessC168DomainPages(me) {
-  if (!me?.has_c168_domain_page_access) return false;
+  if (!me) return false;
   if (isGroupLogin(me) && isDashboardGroupOnlyMode()) return false;
-  return isActiveCompanyContextC168(me);
+  if (!isActiveCompanyContextC168(me)) return false;
+  return userRoleAllowsC168Domain(me.role) || Boolean(me.has_c168_domain_page_access);
 }
 
 /** Auto Renew — same rules as Domain / Announcement. */
 export function canAccessC168AutoRenew(me) {
-  if (!me?.has_c168_auto_renew_access) return false;
+  if (!me) return false;
   if (isGroupLogin(me) && isDashboardGroupOnlyMode()) return false;
-  return isActiveCompanyContextC168(me);
+  if (!isActiveCompanyContextC168(me)) return false;
+  return userRoleAllowsC168AutoRenew(me.role, me.user_type) || Boolean(me.has_c168_auto_renew_access);
 }
