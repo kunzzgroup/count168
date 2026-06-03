@@ -10,6 +10,8 @@ import {
   clearDashboardGroupFilterKeepCompany,
   persistDashboardGroupFilter,
   pickDefaultCompanyForGroup,
+  pickDefaultSubsidiaryForGroup,
+  resolveCompanyPickWhenSwitchingGroup,
   sortedUniqueGroupIds,
 } from "./sharedCompanyFilter.js";
 import {
@@ -98,7 +100,7 @@ export function useDashboardStyleGcFilter({
       persistDashboardGroupFilter(g);
       setSelectedGroup(g);
 
-      if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
+      if (allowGroupOnly && !selectFirstCompanyOnGroupChange && g === selectedGroup) {
         persistDashboardFilterState(g, null, { allowGroupOnly: true });
         resetAnchorSessionRef();
         onClearCompany?.(g);
@@ -106,15 +108,16 @@ export function useDashboardStyleGcFilter({
         return;
       }
 
-      const pick = pickDefaultCompanyForGroup(companies, g, {
-        me,
-        preferredCompanyId: companyId,
-      });
+      const pick =
+        resolveCompanyPickWhenSwitchingGroup(companies, g, companyId) ??
+        pickDefaultSubsidiaryForGroup(companies, g, { me, preferredCompanyId: null }) ??
+        pickDefaultCompanyForGroup(companies, g, { me, preferredCompanyId: companyId });
       if (pick) {
         persistDashboardFilterState(g, pick.id, { allowGroupOnly: false });
         markAnchorSynced(g, pick.id);
         notifyDashboardGroupFilterChanged(g, pick.id, {
           companyCode: pick.company_id,
+          ignoreGroupOnly: true,
         });
         if (onPrepareCompanySelect) onPrepareCompanySelect(pick);
         if (onSelectCompany) void onSelectCompany(pick);
@@ -122,7 +125,7 @@ export function useDashboardStyleGcFilter({
       }
       if (!canUseGroupOnlyMode(me) && companyId != null) {
         persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(g, companyId);
+        notifyDashboardGroupFilterChanged(g, companyId, { ignoreGroupOnly: true });
         return;
       }
     },

@@ -350,7 +350,7 @@ export default function AuthenticatedLayout() {
       }
       const cid = detail.companyId;
       if (cid == null) {
-        applySidebarPatch(null);
+        applySidebarPatch({ companyId: null, companyCode: "" });
         return;
       }
       const row = findOwnerCompanyById(cid);

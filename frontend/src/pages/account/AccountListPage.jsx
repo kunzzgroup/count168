@@ -1025,138 +1025,56 @@ export default function AccountListPage() {
       const current = String(selectedGroup || "").trim().toUpperCase();
       const allowGroupOnly = isGroupLogin(sessionMe) || canUseGroupOnlyMode(sessionMe);
 
-      if (allowGroupOnly && g) {
-        if (g === current && companyId == null) {
-          deselectGroupKeepCompany();
-          return;
-        }
+      if (!g) return;
 
-        if (g !== current && companyId != null) {
-          const pick = resolveCompanyPickWhenSwitchingGroup(companies, g, companyId);
-          if (pick?.id) {
-            const nextCompanyId = Number(pick.id);
-            skipCompanyFetchEffectRef.current = true;
-            suppressGcSyncRef.current = true;
-            flushSync(() => {
-              setGroupsAllMode(false);
-              setGroupAllMode(false);
-              setSelectedGroup(g);
-              setCompanyId(nextCompanyId);
-              applyCacheOrClearAccounts({
-                companyId: nextCompanyId,
-                selectedGroup: g,
-                groupsAllMode: false,
-                groupAllMode: false,
-                mergeCompanyIds,
-                groupIds,
-                isListScopeReady: true,
-              });
-            });
-            persistDashboardGroupFilter(g);
-            persistDashboardGroupOnlyMode(false);
-            persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-            void (async () => {
-              try {
-                await onSwitchCompanyRef.current?.(pick, { viewGroup: g });
-              } finally {
-                suppressGcSyncRef.current = false;
-              }
-            })();
-            return;
-          }
-        }
+      if (g === current && companyId == null) {
+        if (allowGroupOnly) deselectGroupKeepCompany();
+        return;
+      }
 
-        const gcScope = {
-          companyId: null,
+      if (g === current) {
+        if (allowGroupOnly) return;
+        deselectGroupKeepCompany();
+        return;
+      }
+
+      const pick =
+        resolveCompanyPickWhenSwitchingGroup(companies, g, companyId) ??
+        pickDefaultSubsidiaryForGroup(companies, g, {
+          me: sessionMe,
+          preferredCompanyId: null,
+        });
+      if (!pick?.id) return;
+
+      const nextCompanyId = Number(pick.id);
+      skipCompanyFetchEffectRef.current = true;
+      suppressGcSyncRef.current = true;
+      sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+      flushSync(() => {
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(g);
+        setCompanyId(nextCompanyId);
+        applyCacheOrClearAccounts({
+          companyId: nextCompanyId,
           selectedGroup: g,
           groupsAllMode: false,
           groupAllMode: false,
           mergeCompanyIds,
           groupIds,
           isListScopeReady: true,
-        };
-
-        persistDashboardGroupFilter(g);
-        persistDashboardGroupOnlyMode(true);
-        persistDashboardFilterState(g, null, { allowGroupOnly: true });
-
-        skipCompanyFetchEffectRef.current = true;
-        suppressGcSyncRef.current = true;
-        flushSync(() => {
-          setGroupsAllMode(false);
-          setGroupAllMode(false);
-          setSelectedGroup(g);
-          setCompanyId(null);
-          applyCacheOrClearAccounts(gcScope, { groupOnly: true });
         });
-
-        suppressGcSyncRef.current = false;
-
-        const cacheKey = resolveAccountListCacheKey(`group:${g}`, searchTerm, showInactive, showAll);
-        lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
-          `group:${g}`,
-          searchTerm,
-          showInactive,
-          showAll,
-        );
-        if (!accountListCacheRef.current.has(cacheKey)) {
-          skipCompanyFetchEffectRef.current = true;
-          startTransition(() => {
-            void fetchAccounts(gcScope, { silent: true, groupOnly: true });
-          });
+      });
+      persistDashboardGroupFilter(g);
+      persistDashboardGroupOnlyMode(false);
+      persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
+      void (async () => {
+        try {
+          await onSwitchCompanyRef.current?.(pick, { viewGroup: g });
+        } finally {
+          suppressGcSyncRef.current = false;
         }
-        return;
-      }
-
-      if (!g || (allowGroupOnly && g === current && companyId != null)) return;
-
-      if (!allowGroupOnly) {
-        if (g === current) {
-          deselectGroupKeepCompany();
-          return;
-        }
-
-        const pick =
-          resolveCompanyPickWhenSwitchingGroup(companies, g, companyId) ??
-          pickDefaultSubsidiaryForGroup(companies, g, {
-            me: sessionMe,
-            preferredCompanyId:
-              g === current ? (companyId ?? sessionMe?.company_id) : (sessionMe?.company_id ?? null),
-          });
-        if (!pick?.id) return;
-
-        const nextCompanyId = Number(pick.id);
-        skipCompanyFetchEffectRef.current = true;
-        suppressGcSyncRef.current = true;
-        sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
-        flushSync(() => {
-          setGroupsAllMode(false);
-          setGroupAllMode(false);
-          setSelectedGroup(g);
-          setCompanyId(nextCompanyId);
-          applyCacheOrClearAccounts({
-            companyId: nextCompanyId,
-            selectedGroup: g,
-            groupsAllMode: false,
-            groupAllMode: false,
-            mergeCompanyIds,
-            groupIds,
-            isListScopeReady: true,
-          });
-        });
-        persistDashboardGroupFilter(g);
-        persistDashboardGroupOnlyMode(false);
-        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-        skipCompanyFetchEffectRef.current = true;
-        suppressGcSyncRef.current = true;
-        void (async () => {
-          try {
-            await onSwitchCompanyRef.current?.(pick, { viewGroup: g });
-          } finally {
-            suppressGcSyncRef.current = false;
-          }
-        })();
-      }
+      })();
     },
     [
       applyCacheOrClearAccounts,

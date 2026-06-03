@@ -170,14 +170,17 @@ export function normalizeCompanyCode(value) {
 export function patchMeFromCompanyContext(me, ctx = {}) {
   if (!me) return me;
   const rawId = ctx.companyId;
+  const hasExplicitCode = ctx.companyCode != null && String(ctx.companyCode).trim() !== "";
   if (rawId == null || rawId === "" || !Number.isFinite(Number(rawId)) || Number(rawId) <= 0) {
     return {
       ...me,
       is_current_company_c168: false,
+      has_c168_domain_page_access: false,
+      has_c168_auto_renew_access: false,
+      company_code: hasExplicitCode ? normalizeCompanyCode(ctx.companyCode) : "",
     };
   }
   const id = Number(rawId);
-  const hasExplicitCode = ctx.companyCode != null && String(ctx.companyCode).trim() !== "";
   const explicitCode = hasExplicitCode ? normalizeCompanyCode(ctx.companyCode) : null;
   const fallbackCode = normalizeCompanyCode(me.company_code) ?? "";
   const code = hasExplicitCode ? explicitCode ?? "" : fallbackCode;

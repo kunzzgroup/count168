@@ -743,28 +743,33 @@ export function resolvePreferredCompanyIdForGroupAnchor(companies, groupId, sess
 export function resolveCompanyPickWhenSwitchingGroup(companies, targetGroupId, currentCompanyId) {
   const g = String(targetGroupId || "").trim().toUpperCase();
   const cid = Number(currentCompanyId);
-  if (!g || !Number.isFinite(cid) || cid <= 0) return null;
+  if (!g) return null;
 
-  const row = (companies || []).find((c) => Number(c.id) === cid);
-  if (row) {
-    const native = normalizeCompanyGroupId(row);
-    const link = row.link_source_group
-      ? String(row.link_source_group).trim().toUpperCase()
-      : "";
-    if (native === g || link === g) return row;
-    const code = String(row.company_id || "").trim().toUpperCase();
-    if (code) {
-      const match = companiesInGroupList(companies, g).find(
-        (c) => String(c.company_id || "").trim().toUpperCase() === code,
-      );
-      if (match) return match;
+  if (Number.isFinite(cid) && cid > 0) {
+    const row = (companies || []).find((c) => Number(c.id) === cid);
+    if (row) {
+      const native = normalizeCompanyGroupId(row);
+      const link = row.link_source_group
+        ? String(row.link_source_group).trim().toUpperCase()
+        : "";
+      if (native === g || link === g) return row;
+      const code = String(row.company_id || "").trim().toUpperCase();
+      // Do not carry C168 (or group entity label) into another group's subsidiary pick.
+      if (code && code !== "C168" && code !== g) {
+        const match = companiesInGroupList(companies, g).find(
+          (c) => String(c.company_id || "").trim().toUpperCase() === code,
+        );
+        if (match) return match;
+      }
     }
   }
 
-  const c168InGroup = companiesInGroupList(companies, g).find(
-    (c) => String(c.company_id || "").trim().toUpperCase() === "C168",
-  );
-  if (c168InGroup) return c168InGroup;
+  if (g === "AP") {
+    const c168InGroup = companiesInGroupList(companies, g).find(
+      (c) => String(c.company_id || "").trim().toUpperCase() === "C168",
+    );
+    if (c168InGroup) return c168InGroup;
+  }
 
   return pickDefaultSubsidiaryForGroup(companies, g, { preferredCompanyId: null });
 }
