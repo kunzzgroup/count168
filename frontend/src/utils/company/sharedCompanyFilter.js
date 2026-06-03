@@ -5,6 +5,7 @@
  * Login scope rules: see `loginScope.js` and `includes/group_company_access.php`.
  */
 import { buildApiUrl } from "../core/apiUrl.js";
+import { clearCompanySessionFlagsCache, peekCompanySessionFlags } from "./companySessionFlagsCache.js";
 import {
   canUseGroupOnlyMode,
   filterCompaniesForLoginScope,
@@ -38,6 +39,7 @@ export const DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY = "dashboard_accessible_group_id
 export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-changed";
 
 export function clearDashboardFilterSession() {
+  clearCompanySessionFlagsCache();
   sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
   sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
   sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
@@ -268,9 +270,16 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
     const fromRow = row?.company_id ? String(row.company_id).trim().toUpperCase() : "";
     if (fromRow) companyCode = fromRow;
   }
+  const cachedFlags = cid != null ? peekCompanySessionFlags(cid) : null;
   window.dispatchEvent(
     new CustomEvent(DASHBOARD_GROUP_FILTER_EVENT, {
-      detail: { selectedGroup: value, companyId: cid, companyCode },
+      detail: {
+        selectedGroup: value,
+        companyId: cid,
+        companyCode: companyCode ?? cachedFlags?.company_code ?? null,
+        hasGambling: options.hasGambling ?? cachedFlags?.has_gambling,
+        hasBank: options.hasBank ?? cachedFlags?.has_bank,
+      },
     })
   );
 }
