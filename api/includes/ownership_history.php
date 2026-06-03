@@ -1,7 +1,12 @@
 <?php
 /**
  * Monthly ownership snapshot helpers.
- * Saves on confirm: archive by calendar month (last save in month wins).
+ *
+ * Live tables (company_ownership / group_ownership) = current working config (carries into next month).
+ * History tables (*_history, effective_month = YYYY-MM-01) = frozen past months for the Ownership UI.
+ *
+ * On save: update live first, then snapshot ONLY the current calendar month in history.
+ * Past months are never overwritten unless retrofill_months is passed explicitly.
  */
 
 function ownership_history_ensure_tables(PDO $pdo): void
@@ -76,6 +81,113 @@ function ownership_history_parse_month_param(?string $raw): ?array
 function ownership_history_is_past_month(string $monthKey): bool
 {
     return $monthKey < ownership_history_current_month_key();
+}
+
+function ownership_history_previous_month_key(): string
+{
+    return date('Y-m', strtotime('first day of last month'));
+}
+
+/** @return list<array{account_id:int,owner_type:string,percentage:string,partner_group_id:?string,read_only:int}> */
+function ownership_history_collect_company_rows_from_live(PDO $pdo, int $companyId): array
+{
+    if ($pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() < 1) {
+        return [];
+    }
+    if ($pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() < 1) {
+        return [];
+    }
+
+    require_once __DIR__ . '/money_decimal.php';
+
+    $stmt = $pdo->prepare("
+        SELECT account_id, owner_type, percentage, partner_group_id, COALESCE(read_only, 1) AS read_only
+        FROM company_ownership
+        WHERE company_id = ? AND owner_type != 'account'
+    ");
+    $stmt->execute([$companyId]);
+    $rows = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $rows[] = [
+            'account_id' => (int) $row['account_id'],
+            'owner_type' => (string) $row['owner_type'],
+            'percentage' => money_out($row['percentage'], 2),
+            'partner_group_id' => $row['partner_group_id'],
+            'read_only' => (int) $row['read_only'],
+        ];
+    }
+
+    return $rows;
+}
+
+/** Snapshot current calendar month for one company from live rows (does not touch other months). */
+function ownership_history_snapshot_company_from_live(PDO $pdo, int $companyId, ?int $savedBy): void
+{
+    ownership_history_save_company(
+        $pdo,
+        $companyId,
+        ownership_history_collect_company_rows_from_live($pdo, $companyId),
+        $savedBy
+    );
+}
+
+/** @return list<array{account_id:int,owner_type:string,percentage:string,partner_group_id:?string,read_only:int}> */
+function ownership_history_collect_group_rows_from_live(PDO $pdo, string $groupId): array
+{
+    if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() < 1) {
+        return [];
+    }
+
+    require_once __DIR__ . '/money_decimal.php';
+
+    $stmt = $pdo->prepare("
+        SELECT account_id, owner_type, percentage, partner_group_id, COALESCE(read_only, 1) AS read_only
+        FROM group_ownership
+        WHERE group_id = ?
+    ");
+    $stmt->execute([$groupId]);
+    $rows = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $rows[] = [
+            'account_id' => (int) $row['account_id'],
+            'owner_type' => (string) $row['owner_type'],
+            'percentage' => money_out($row['percentage'], 2),
+            'partner_group_id' => $row['partner_group_id'],
+            'read_only' => (int) $row['read_only'],
+        ];
+    }
+
+    return $rows;
+}
+
+function ownership_history_resolve_group_owner_id(PDO $pdo, string $groupId): int
+{
+    if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0) {
+        $stmt = $pdo->prepare('SELECT owner_id FROM group_ownership WHERE group_id = ? LIMIT 1');
+        $stmt->execute([$groupId]);
+        $ownerId = (int) $stmt->fetchColumn();
+        if ($ownerId > 0) {
+            return $ownerId;
+        }
+    }
+
+    $stmt = $pdo->prepare('SELECT DISTINCT owner_id FROM company WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) LIMIT 1');
+    $stmt->execute([$groupId]);
+
+    return (int) $stmt->fetchColumn();
+}
+
+/** Snapshot current calendar month for one group from live rows (does not touch other months). */
+function ownership_history_snapshot_group_from_live(PDO $pdo, string $groupId, ?int $savedBy): void
+{
+    $ownerId = ownership_history_resolve_group_owner_id($pdo, $groupId);
+    ownership_history_save_group(
+        $pdo,
+        $groupId,
+        $ownerId,
+        ownership_history_collect_group_rows_from_live($pdo, $groupId),
+        $savedBy
+    );
 }
 
 /**
@@ -279,6 +391,72 @@ function ownership_history_apply_group_retrofill_months(
         }
         ownership_history_save_group_for_month($pdo, $groupId, $ownerId, $rows, $savedBy, $parsed['effective_month']);
     }
+}
+
+/**
+ * For a past month: copy live → history only for companies/groups that have no rows yet for that month.
+ * Live table is unchanged. Current/future months are never written.
+ *
+ * @return array{effective_month: string, company_rows: int, group_rows: int}
+ */
+function ownership_history_seal_month_gaps_from_live(PDO $pdo, string $monthKey, ?int $savedBy = null): array
+{
+    $parsed = ownership_history_parse_month_param($monthKey);
+    if ($parsed === null) {
+        throw new InvalidArgumentException('Invalid month key (expected YYYY-MM)');
+    }
+    if (!ownership_history_is_past_month($parsed['month_key'])) {
+        throw new InvalidArgumentException('Can only seal completed past months');
+    }
+
+    ownership_history_ensure_tables($pdo);
+    $effectiveMonth = $parsed['effective_month'];
+    $companyRows = 0;
+    $groupRows = 0;
+
+    if ($pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0
+        && $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0) {
+        $stmt = $pdo->prepare("
+            INSERT INTO company_ownership_history
+                (company_id, effective_month, account_id, owner_type, percentage, partner_group_id, read_only, saved_by, saved_at)
+            SELECT co.company_id, ?, co.account_id, co.owner_type, co.percentage, co.partner_group_id, COALESCE(co.read_only, 1), ?, NOW()
+            FROM company_ownership co
+            WHERE co.owner_type != 'account'
+              AND NOT EXISTS (
+                  SELECT 1 FROM company_ownership_history h
+                  WHERE h.company_id = co.company_id AND h.effective_month = ?
+              )
+        ");
+        $stmt->execute([$effectiveMonth, $savedBy, $effectiveMonth]);
+        $companyRows = $stmt->rowCount();
+    }
+
+    if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0) {
+        $stmt = $pdo->prepare("
+            INSERT INTO group_ownership_history
+                (group_id, owner_id, effective_month, account_id, owner_type, percentage, partner_group_id, read_only, saved_by, saved_at)
+            SELECT go.group_id, go.owner_id, ?, go.account_id, go.owner_type, go.percentage, go.partner_group_id, COALESCE(go.read_only, 1), ?, NOW()
+            FROM group_ownership go
+            WHERE NOT EXISTS (
+                SELECT 1 FROM group_ownership_history h
+                WHERE h.group_id = go.group_id AND h.effective_month = ?
+            )
+        ");
+        $stmt->execute([$effectiveMonth, $savedBy, $effectiveMonth]);
+        $groupRows = $stmt->rowCount();
+    }
+
+    return [
+        'effective_month' => $effectiveMonth,
+        'company_rows' => $companyRows,
+        'group_rows' => $groupRows,
+    ];
+}
+
+/** @return array{effective_month: string, company_rows: int, group_rows: int} */
+function ownership_history_seal_previous_month_gaps_from_live(PDO $pdo, ?int $savedBy = null): array
+{
+    return ownership_history_seal_month_gaps_from_live($pdo, ownership_history_previous_month_key(), $savedBy);
 }
 
 /** @return array{saved_at: ?string, has_snapshot: bool} */

@@ -2,6 +2,7 @@
 require_once '../../includes/session_check.php';
 require_once '../../includes/config.php';
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
+require_once '../includes/ownership_history.php';
 
 header('Content-Type: application/json');
 
@@ -23,6 +24,10 @@ if (!$ownership_id) {
 }
 
 try {
+    $stmtLookup = $pdo->prepare('SELECT company_id FROM company_ownership WHERE id = ?');
+    $stmtLookup->execute([$ownership_id]);
+    $companyId = (int) $stmtLookup->fetchColumn();
+
     deletedLog(
         $pdo,
         (string) ($_SESSION['login_id'] ?? $_SESSION['name'] ?? ''),
@@ -32,6 +37,11 @@ try {
     );
     $stmt = $pdo->prepare("DELETE FROM company_ownership WHERE id = ?");
     $stmt->execute([$ownership_id]);
+
+    if ($companyId > 0) {
+        $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+        ownership_history_snapshot_company_from_live($pdo, $companyId, $savedBy);
+    }
 
     echo json_encode([
         'status' => 'success',

@@ -12,6 +12,7 @@
 session_start();
 session_write_close();
 require_once '../../includes/config.php';
+require_once '../includes/ownership_history.php';
 
 header('Content-Type: application/json');
 
@@ -208,6 +209,9 @@ try {
         ");
         $stmtInsert->execute([$group_id, $currentOwnerId, $partnerId, $matched_by_group]);
     }
+
+    $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+    ownership_history_snapshot_group_from_live($pdo, $group_id, $savedBy);
 
     echo json_encode([
         'status'  => 'success',

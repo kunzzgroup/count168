@@ -38,8 +38,13 @@ CREATE TABLE IF NOT EXISTS `group_ownership_history` (
   KEY `idx_go_hist_effective_month` (`effective_month`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Optional: seed current live data as this month's snapshot (run once after deploy).
--- INSERT INTO company_ownership_history (company_id, effective_month, account_id, owner_type, percentage, partner_group_id, read_only, saved_by, saved_at)
--- SELECT co.company_id, DATE_FORMAT(CURDATE(), '%Y-%m-01'), co.account_id, co.owner_type, co.percentage, co.partner_group_id, COALESCE(co.read_only, 1), NULL, NOW()
--- FROM company_ownership co
--- ON DUPLICATE KEY UPDATE percentage = VALUES(percentage), partner_group_id = VALUES(partner_group_id), read_only = VALUES(read_only), saved_at = VALUES(saved_at);
+-- Workflow:
+--   company_ownership / group_ownership = live config (carries into next month until changed).
+--   *_history.effective_month = YYYY-MM-01 = frozen month for Ownership "HISTORICAL" view.
+--   Each save updates live + snapshots CURRENT month only.
+--
+-- Backfill missing past months from live (production, after deploy):
+--   php cron/backfill_ownership_history_month.php 2026-04 2026-05
+--
+-- Optional daily cron (seal last month if user never clicked save that month):
+--   php cron/ownership_history_seal_previous_month.php
