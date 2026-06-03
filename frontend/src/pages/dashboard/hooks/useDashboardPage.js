@@ -259,10 +259,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return () => controller.abort();
   }, [bootstrap, sessionReady, me]);
 
-  useLayoutEffect(() => {
-    notifyDashboardGroupFilterChanged(selectedGroup, companyId);
-  }, [selectedGroup, companyId]);
-
   useGroupAnchorSessionSync({
     companies,
     selectedGroup,
@@ -1619,11 +1615,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
 
-      setGroupsAllMode(false);
-      setSelectedGroup(g);
-      sessionStorage.setItem("dashboard_group_filter", g);
-
       if (canUseGroupOnlyMode(me)) {
+        setGroupsAllMode(false);
+        setSelectedGroup(g);
+        sessionStorage.setItem("dashboard_group_filter", g);
         clearCompanySelection(g);
         notifyDashboardGroupFilterChanged(g, null);
         return;
@@ -1640,13 +1635,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
 
       const id = parseInt(pick.id, 10);
-      setGroupAllMode(false);
-      setMergedSubsetIds(null);
+      setGroupsAllMode(false);
       persistDashboardFilterState(g, id, { allowGroupOnly: false });
-      applyCompanySelection(id);
       notifyDashboardGroupFilterChanged(g, id, {
         companyCode: pick.company_id,
       });
+      setGroupAllMode(false);
+      setMergedSubsetIds(null);
+      setSelectedGroup(g);
+      sessionStorage.setItem("dashboard_group_filter", g);
+      applyCompanySelection(id);
       void syncCompanySession(id, g);
     },
     [
@@ -1690,10 +1688,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         }
       }
       persistDashboardFilterState(persistGroup, id);
-      applyCompanySelection(id);
       notifyDashboardGroupFilterChanged(persistGroup, id, {
         companyCode: c.company_id,
       });
+      applyCompanySelection(id);
       void syncCompanySession(id, groupsAllMode ? null : gid || selectedGroup).then((ok) => {
         if (switchGen !== companySwitchGenRef.current) return;
         if (!ok && prevId != null) {

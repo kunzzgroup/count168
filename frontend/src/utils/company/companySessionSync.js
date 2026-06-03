@@ -1,5 +1,6 @@
 import { buildApiUrl } from "../core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
+import { rememberCompanySessionFlags } from "./companySessionFlagsCache.js";
 import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
@@ -34,7 +35,9 @@ export async function syncCompanySessionApi(companyId, viewGroup = null) {
         buildApiUrl(`api/session/update_company_session_api.php?${q.toString()}`),
         { credentials: "include" },
       );
-      return await response.json();
+      const json = await response.json();
+      if (json?.success && json?.data) rememberCompanySessionFlags(json.data);
+      return json;
     } catch {
       return { success: false };
     } finally {

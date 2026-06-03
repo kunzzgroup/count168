@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
+import { flushSync } from "react-dom";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
@@ -27,6 +28,7 @@ import {
   fetchOwnerCompaniesAll,
   findOwnerCompanyById,
 } from "../utils/company/sharedCompanyFilter.js";
+import { rememberCompanySessionFlags } from "../utils/company/companySessionFlagsCache.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import AnimatedOutlet from "./AnimatedOutlet.jsx";
@@ -281,6 +283,12 @@ export default function AuthenticatedLayout() {
           return;
         }
         applyLoginScopeToSessionStorageIfNeeded(u);
+        rememberCompanySessionFlags({
+          company_id: u.company_id,
+          company_code: u.company_code,
+          has_gambling: u.company_has_gambling,
+          has_bank: u.company_has_bank,
+        });
         setMe(u);
         clearChunkReloadFlag();
       } catch (err) {
@@ -306,6 +314,12 @@ export default function AuthenticatedLayout() {
       const json = await res.json();
       if (res.ok && json.success && json.data) {
         applyLoginScopeToSessionStorageIfNeeded(json.data);
+        rememberCompanySessionFlags({
+          company_id: json.data.company_id,
+          company_code: json.data.company_code,
+          has_gambling: json.data.company_has_gambling,
+          has_bank: json.data.company_has_bank,
+        });
         setMe(json.data);
         return json.data;
       }
@@ -315,42 +329,59 @@ export default function AuthenticatedLayout() {
     return null;
   }, []);
 
-  const applySidebarFromFilterDetail = useCallback((detail) => {
-    setSidebarGcTick((n) => n + 1);
-    if (!detail) return;
-    setMe((prev) => {
-      if (!prev) return prev;
+  const applySidebarPatch = useCallback((patch) => {
+    flushSync(() => {
+      setSidebarGcTick((n) => n + 1);
+      if (!patch) return;
+      setMe((prev) => {
+        if (!prev) return prev;
+        return patchMeFromCompanyContext(prev, patch);
+      });
+    });
+  }, []);
+
+  const applySidebarFromFilterDetail = useCallback(
+    (detail) => {
+      if (!detail) {
+        applySidebarPatch(null);
+        return;
+      }
       const cid = detail.companyId;
       if (cid == null) {
-        return patchMeFromCompanyContext(prev, { companyId: null });
+        applySidebarPatch({ companyId: null });
+        return;
       }
       const row = findOwnerCompanyById(cid);
       const companyCode =
         detail.companyCode ??
         (row?.company_id ? String(row.company_id).trim().toUpperCase() : null);
-      return patchMeFromCompanyContext(prev, { companyId: cid, companyCode });
-    });
-  }, []);
+      applySidebarPatch({
+        companyId: cid,
+        companyCode,
+        hasGambling: detail.hasGambling,
+        hasBank: detail.hasBank,
+      });
+    },
+    [applySidebarPatch],
+  );
 
   useEffect(() => {
     const onCompanySession = (e) => {
       const data = e?.detail;
       if (data && typeof data === "object") {
-        setMe((prev) =>
-          patchMeFromCompanyContext(prev, {
-            companyId: data.company_id,
-            companyCode: data.company_code,
-            hasGambling: data.has_gambling,
-            hasBank: data.has_bank,
-          }),
-        );
-        setSidebarGcTick((n) => n + 1);
+        applySidebarPatch({
+          companyId: data.company_id,
+          companyCode: data.company_code,
+          hasGambling: data.has_gambling,
+          hasBank: data.has_bank,
+        });
+        return;
       }
       void refreshSession();
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, [refreshSession]);
+  }, [applySidebarPatch, refreshSession]);
 
   useEffect(() => {
     const onFilterChange = (e) => applySidebarFromFilterDetail(e?.detail ?? null);
