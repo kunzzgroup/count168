@@ -723,6 +723,47 @@ export function pickDefaultSubsidiaryForGroup(companies, groupId, options = {}) 
   return list[0] ?? null;
 }
 
+/** Only use PHP session company as anchor preference when it belongs to the active group tab. */
+export function resolvePreferredCompanyIdForGroupAnchor(companies, groupId, sessionCompanyId) {
+  const g = String(groupId || "").trim().toUpperCase();
+  if (!g) return null;
+  const cid = sessionCompanyId != null ? Number(sessionCompanyId) : Number.NaN;
+  if (!Number.isFinite(cid) || cid <= 0) return null;
+  const row = (companies || []).find((c) => Number(c.id) === cid);
+  if (!row) return null;
+  const native = normalizeCompanyGroupId(row);
+  const link = row.link_source_group
+    ? String(row.link_source_group).trim().toUpperCase()
+    : "";
+  if (native === g || link === g) return cid;
+  return null;
+}
+
+/** When switching Group pills, keep the same company code in the target group when possible. */
+export function resolveCompanyPickWhenSwitchingGroup(companies, targetGroupId, currentCompanyId) {
+  const g = String(targetGroupId || "").trim().toUpperCase();
+  const cid = Number(currentCompanyId);
+  if (!g || !Number.isFinite(cid) || cid <= 0) return null;
+
+  const row = (companies || []).find((c) => Number(c.id) === cid);
+  if (row) {
+    const native = normalizeCompanyGroupId(row);
+    const link = row.link_source_group
+      ? String(row.link_source_group).trim().toUpperCase()
+      : "";
+    if (native === g || link === g) return row;
+    const code = String(row.company_id || "").trim().toUpperCase();
+    if (code) {
+      const match = companiesInGroupList(companies, g).find(
+        (c) => String(c.company_id || "").trim().toUpperCase() === code,
+      );
+      if (match) return match;
+    }
+  }
+
+  return pickDefaultSubsidiaryForGroup(companies, g, { preferredCompanyId: null });
+}
+
 /**
  * Boot company for Process / Bank Process: never group-entity id (e.g. -301 / AP row).
  * Prefers saved subsidiary, then first subsidiary in the active group.

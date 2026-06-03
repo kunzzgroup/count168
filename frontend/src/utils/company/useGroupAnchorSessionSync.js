@@ -2,7 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { syncCompanySessionApi } from "./companySessionSync.js";
-import { pickDefaultSubsidiaryForGroup, pickGroupAnchorCompany } from "./sharedCompanyFilter.js";
+import {
+  notifyDashboardGroupFilterChanged,
+  pickDefaultSubsidiaryForGroup,
+  pickGroupAnchorCompany,
+  resolvePreferredCompanyIdForGroupAnchor,
+} from "./sharedCompanyFilter.js";
 
 function isGroupOnlyFilterUi(selectedGroup, companyId) {
   if (!selectedGroup) return false;
@@ -37,9 +42,14 @@ export function useGroupAnchorSessionSync({
 
   const anchorId = useMemo(() => {
     if (!needsAnchorSession) return null;
+    const preferred = resolvePreferredCompanyIdForGroupAnchor(
+      companies,
+      selectedGroup,
+      sessionCompanyId,
+    );
     const anchor =
       pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
-        preferredCompanyId: sessionCompanyId,
+        preferredCompanyId: preferred,
       }) ?? pickGroupAnchorCompany(companies, selectedGroup);
     const id = anchor?.id != null ? Number(anchor.id) : Number.NaN;
     return Number.isFinite(id) && id > 0 ? id : null;
@@ -49,18 +59,24 @@ export function useGroupAnchorSessionSync({
     () => !isGroupOnlyFilterUi(selectedGroup, companyId),
   );
 
-  const applyReadyFromRef = useCallback(
-    (group, id) => {
-      const g = group ? String(group).trim().toUpperCase() : "";
-      const aid = id != null ? Number(id) : Number.NaN;
-      if (g && Number.isFinite(aid) && aid > 0 && ref.current.group === g && ref.current.companyId === aid) {
-        setAnchorSessionReady(true);
-        return true;
-      }
-      return false;
-    },
-    [],
-  );
+  const applyReadyFromRef = useCallback((group, id) => {
+    const g = group ? String(group).trim().toUpperCase() : "";
+    const aid = id != null ? Number(id) : Number.NaN;
+    if (g && Number.isFinite(aid) && aid > 0 && ref.current.group === g && ref.current.companyId === aid) {
+      setAnchorSessionReady(true);
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Group tab changed (e.g. IG → AP): force re-sync anchor session for the new group.
+  useLayoutEffect(() => {
+    const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+    if (ref.current.group && g && ref.current.group !== g) {
+      ref.current = { group: null, companyId: null };
+      setAnchorSessionReady(false);
+    }
+  }, [selectedGroup]);
 
   // Selecting a subsidiary changes PHP session — invalidate cached anchor sync.
   useLayoutEffect(() => {
@@ -104,7 +120,15 @@ export function useGroupAnchorSessionSync({
       }
       if (json?.success) {
         ref.current = { group: g, companyId: anchorId };
-        if (notifyOnSync) notifyCompanySessionUpdated();
+        const data = json.data ?? {};
+        const row = (companies || []).find((c) => Number(c.id) === anchorId);
+        notifyDashboardGroupFilterChanged(g, anchorId, {
+          ignoreGroupOnly: true,
+          companyCode: data.company_code ?? row?.company_id,
+          hasGambling: data.has_gambling,
+          hasBank: data.has_bank,
+        });
+        if (notifyOnSync) notifyCompanySessionUpdated(data);
       }
       setAnchorSessionReady(true);
     })();

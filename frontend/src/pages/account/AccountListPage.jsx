@@ -23,6 +23,7 @@ import {
   persistDashboardSelectedCompany,
   pickDefaultCompanyForGroup,
   pickDefaultSubsidiaryForGroup,
+  resolveCompanyPickWhenSwitchingGroup,
   readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -865,10 +866,7 @@ export default function AccountListPage() {
         applyCacheOrClearAccounts(gcScope, { groupOnly: true });
       });
 
-      queueMicrotask(() => {
-        notifyDashboardGroupFilterChanged(g, null);
-        suppressGcSyncRef.current = false;
-      });
+      suppressGcSyncRef.current = false;
 
       const cacheKey = resolveAccountListCacheKey(`group:${g}`, searchTerm, showInactive, showAll);
       lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
@@ -1042,6 +1040,41 @@ export default function AccountListPage() {
           return;
         }
 
+        if (g !== current && companyId != null) {
+          const pick = resolveCompanyPickWhenSwitchingGroup(companies, g, companyId);
+          if (pick?.id) {
+            const nextCompanyId = Number(pick.id);
+            skipCompanyFetchEffectRef.current = true;
+            suppressGcSyncRef.current = true;
+            flushSync(() => {
+              setGroupsAllMode(false);
+              setGroupAllMode(false);
+              setSelectedGroup(g);
+              setCompanyId(nextCompanyId);
+              applyCacheOrClearAccounts({
+                companyId: nextCompanyId,
+                selectedGroup: g,
+                groupsAllMode: false,
+                groupAllMode: false,
+                mergeCompanyIds,
+                groupIds,
+                isListScopeReady: true,
+              });
+            });
+            persistDashboardGroupFilter(g);
+            persistDashboardGroupOnlyMode(false);
+            persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
+            void (async () => {
+              try {
+                await onSwitchCompanyRef.current?.(pick, { viewGroup: g });
+              } finally {
+                suppressGcSyncRef.current = false;
+              }
+            })();
+            return;
+          }
+        }
+
         const gcScope = {
           companyId: null,
           selectedGroup: g,
@@ -1066,10 +1099,7 @@ export default function AccountListPage() {
           applyCacheOrClearAccounts(gcScope, { groupOnly: true });
         });
 
-        queueMicrotask(() => {
-          notifyDashboardGroupFilterChanged(g, null);
-          suppressGcSyncRef.current = false;
-        });
+        suppressGcSyncRef.current = false;
 
         const cacheKey = resolveAccountListCacheKey(`group:${g}`, searchTerm, showInactive, showAll);
         lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
@@ -1262,9 +1292,6 @@ export default function AccountListPage() {
         showInactive,
         showAll,
       );
-      queueMicrotask(() => {
-        notifyDashboardGroupFilterChanged(targetGroup, null);
-      });
       void fetchAccounts(groupScope, { silent: true, groupOnly: true });
     }
   }, [

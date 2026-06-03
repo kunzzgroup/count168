@@ -890,7 +890,6 @@ export default function UserListPage() {
         persistDashboardGroupFilter(g);
         persistDashboardGroupOnlyMode(true);
         persistDashboardFilterState(g, null, { allowGroupOnly: true });
-        notifyDashboardGroupFilterChanged(g, null);
 
         const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);
         if (!userListCacheRef.current.has(groupCacheKey)) {
