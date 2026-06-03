@@ -130,6 +130,33 @@ export function loginScopeBodyClass(me) {
   return "";
 }
 
+/**
+ * Optimistic sidebar `me` patch when group/company filter changes (before current_user_api returns).
+ */
+export function patchMeFromCompanyContext(me, ctx = {}) {
+  if (!me) return me;
+  const rawId = ctx.companyId;
+  if (rawId == null || rawId === "" || !Number.isFinite(Number(rawId)) || Number(rawId) <= 0) {
+    return {
+      ...me,
+      is_current_company_c168: false,
+    };
+  }
+  const id = Number(rawId);
+  const code = String(ctx.companyCode ?? me.company_code ?? "")
+    .trim()
+    .toUpperCase();
+  const next = {
+    ...me,
+    company_id: id,
+    company_code: code || me.company_code,
+    is_current_company_c168: code === "C168",
+  };
+  if (ctx.hasGambling != null) next.company_has_gambling = Boolean(ctx.hasGambling);
+  if (ctx.hasBank != null) next.company_has_bank = Boolean(ctx.hasBank);
+  return next;
+}
+
 /** Session / current_user reflects active company (after dashboard company pick + session sync). */
 export function isActiveCompanyContextC168(me) {
   if (!me) return false;

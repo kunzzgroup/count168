@@ -7,6 +7,7 @@ import {
   isDashboardGroupOnlyMode,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
+  clearDashboardGroupFilterKeepCompany,
   persistDashboardGroupFilter,
   pickDefaultCompanyForGroup,
   sortedUniqueGroupIds,
@@ -77,6 +78,11 @@ export function useDashboardStyleGcFilter({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (g === selectedGroup && companyId != null) {
+        if (!canUseGroupOnlyMode(me)) {
+          clearDashboardGroupFilterKeepCompany(companyId);
+          setSelectedGroup(null);
+          return;
+        }
         if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
           persistDashboardFilterState(g, null, { allowGroupOnly: true });
           resetAnchorSessionRef();
@@ -121,6 +127,7 @@ export function useDashboardStyleGcFilter({
       resetAnchorSessionRef,
       allowGroupOnly,
       companyId,
+      me,
       markAnchorSynced,
     ]
   );

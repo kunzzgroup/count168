@@ -8,6 +8,7 @@ import {
   dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
   fetchOwnerCompaniesAll,
+  clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
   resolveBootCompanyId,
@@ -18,7 +19,7 @@ import {
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { isCompanyLogin, isGroupLogin } from "../../../utils/company/loginScope.js";
+import { canUseGroupOnlyMode, isCompanyLogin, isGroupLogin } from "../../../utils/company/loginScope.js";
 import { syncCompanySessionApi } from "../../../utils/company/companySessionSync.js";
 import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 import {
@@ -614,7 +615,25 @@ export function useTransactionData({
         return;
       }
 
-      if (g === snap.selectedGroup && snap.companyId != null) return;
+      if (g === snap.selectedGroup && snap.companyId != null) {
+        if (!canUseGroupOnlyMode(u)) {
+          const numericCid = Number(snap.companyId);
+          const nextSnap = {
+            ...snap,
+            selectedGroup: null,
+            groupsAllMode: false,
+            groupAllMode: false,
+            companyStripRows: buildTransactionCompanyStripRows(
+              { ...snap, selectedGroup: null },
+              { selectedGroup: null, companyId: numericCid, groupsAllMode: false },
+            ),
+          };
+          clearDashboardGroupFilterKeepCompany(numericCid);
+          commitFilterSnapshot(nextSnap);
+          return;
+        }
+        return;
+      }
       await applyCompanyGroupSelection(snap, g);
     },
     [applyCompanyGroupSelection, applyGroupOnlySelection, u],

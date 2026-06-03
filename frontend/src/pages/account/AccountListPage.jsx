@@ -6,6 +6,7 @@ import {
   companiesInGroupList,
   isDashboardGroupOnlyMode,
   DASHBOARD_GROUP_FILTER_EVENT,
+  clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   readPersistedDashboardGcFilter,
@@ -19,7 +20,12 @@ import {
   stripCompanyIdFromUrl,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
-import { getLoginIdentifier, isCompanyLogin, isGroupLogin } from "../../utils/company/loginScope.js";
+import {
+  canUseGroupOnlyMode,
+  getLoginIdentifier,
+  isCompanyLogin,
+  isGroupLogin,
+} from "../../utils/company/loginScope.js";
 import {
   groupIdsForGroupsAllAggregate,
   useGcFilterWithAllModes,
@@ -702,6 +708,28 @@ export default function AccountListPage() {
         if (!accountListCacheRef.current.has(cacheKey)) {
           void fetchAccounts(gcScope, { silent: true, groupOnly: true });
         }
+        return;
+      }
+      if (!canUseGroupOnlyMode(sessionMe) && g === current && companyId != null) {
+        skipCompanyFetchEffectRef.current = true;
+        flushSync(() => {
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+          setSelectedGroup(null);
+          applyCacheOrClearAccounts(
+            {
+              companyId,
+              selectedGroup: null,
+              groupsAllMode: false,
+              groupAllMode: false,
+              mergeCompanyIds,
+              groupIds,
+              isListScopeReady: true,
+            },
+            { groupOnly: false },
+          );
+        });
+        clearDashboardGroupFilterKeepCompany(companyId);
         return;
       }
       if (!g || (g === current && companyId != null)) return;

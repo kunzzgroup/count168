@@ -5,6 +5,7 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import { ensureCrossPageCompanySelection } from "../../../utils/company/companySessionSync.js";
 import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import {
+  clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
@@ -12,6 +13,7 @@ import {
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
@@ -1929,10 +1931,21 @@ export function useBankProcessListPage() {
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
         setGroupFilterKind("ungrouped");
         setSelectedGroup(null);
-        persistDashboardGroupFilter(null);
+        if (companyId != null && !canUseGroupOnlyMode(authMe)) {
+          clearDashboardGroupFilterKeepCompany(companyId);
+        } else {
+          persistDashboardGroupFilter(null);
+        }
         return;
       }
-      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) return;
+      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
+        if (!canUseGroupOnlyMode(authMe)) {
+          setGroupFilterKind("ungrouped");
+          setSelectedGroup(null);
+          clearDashboardGroupFilterKeepCompany(companyId);
+        }
+        return;
+      }
 
       const pick = pickDefaultSubsidiaryForGroup(companies, g);
       const nextCompanyId = pick?.id != null ? Number(pick.id) : null;

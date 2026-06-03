@@ -25,6 +25,7 @@ import {
   DASHBOARD_GROUP_FILTER_EVENT,
   shouldHideSidebarProcess,
   fetchOwnerCompaniesAll,
+  findOwnerCompanyById,
 } from "../utils/company/sharedCompanyFilter.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
@@ -38,6 +39,7 @@ import {
   isCompanyLogin,
   isGroupLogin,
   loginScopeBodyClass,
+  patchMeFromCompanyContext,
 } from "../utils/company/loginScope.js";
 import "../../public/css/modal-close-unified.css";
 
@@ -143,8 +145,14 @@ export default function AuthenticatedLayout() {
     () => mergeAnnouncements(announcements),
     [announcements, mergeAnnouncements],
   );
-  const showC168DomainPages = canAccessC168DomainPages(me);
-  const showAutoRenewEntry = canAccessC168AutoRenew(me);
+  const showC168DomainPages = useMemo(
+    () => canAccessC168DomainPages(me),
+    [me, sidebarGcTick],
+  );
+  const showAutoRenewEntry = useMemo(
+    () => canAccessC168AutoRenew(me),
+    [me, sidebarGcTick],
+  );
   const goAutoRenew = useCallback(() => {
     navigate("/auto-renew");
   }, [navigate]);
@@ -307,8 +315,37 @@ export default function AuthenticatedLayout() {
     return null;
   }, []);
 
+  const applySidebarFromFilterDetail = useCallback((detail) => {
+    setSidebarGcTick((n) => n + 1);
+    if (!detail) return;
+    setMe((prev) => {
+      if (!prev) return prev;
+      const cid = detail.companyId;
+      if (cid == null) {
+        return patchMeFromCompanyContext(prev, { companyId: null });
+      }
+      const row = findOwnerCompanyById(cid);
+      const companyCode =
+        detail.companyCode ??
+        (row?.company_id ? String(row.company_id).trim().toUpperCase() : null);
+      return patchMeFromCompanyContext(prev, { companyId: cid, companyCode });
+    });
+  }, []);
+
   useEffect(() => {
-    const onCompanySession = () => {
+    const onCompanySession = (e) => {
+      const data = e?.detail;
+      if (data && typeof data === "object") {
+        setMe((prev) =>
+          patchMeFromCompanyContext(prev, {
+            companyId: data.company_id,
+            companyCode: data.company_code,
+            hasGambling: data.has_gambling,
+            hasBank: data.has_bank,
+          }),
+        );
+        setSidebarGcTick((n) => n + 1);
+      }
       void refreshSession();
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
@@ -316,14 +353,10 @@ export default function AuthenticatedLayout() {
   }, [refreshSession]);
 
   useEffect(() => {
-    const onFilterChange = () => {
-      setSidebarGcTick((n) => n + 1);
-      // Group-only: wait for useGroupAnchorSessionSync → company-session-updated before refreshSession,
-      // otherwise sidebar flags (Data Capture, etc.) reflect the previous group's PHP session company.
-    };
+    const onFilterChange = (e) => applySidebarFromFilterDetail(e?.detail ?? null);
     window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
     return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-  }, []);
+  }, [applySidebarFromFilterDetail]);
 
   useEffect(() => {
     setHoverSection(null);

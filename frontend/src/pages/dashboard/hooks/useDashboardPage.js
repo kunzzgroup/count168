@@ -48,6 +48,7 @@ import {
   pickDefaultCompanyForGroup,
   pickGroupAnchorCompany,
   notifyDashboardGroupFilterChanged,
+  clearDashboardGroupFilterKeepCompany,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   applyLoginScopeToSessionStorageIfNeeded,
@@ -368,7 +369,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (typeof window.updateSidebarDataCaptureVisibility === "function" && j?.data) {
           window.updateSidebarDataCaptureVisibility(j.data.has_gambling, j.data.has_bank);
         }
-        notifyCompanySessionUpdated();
+        notifyCompanySessionUpdated(j?.data ?? null);
         return true;
       } catch {
         setLoadError(i18n.couldNotSwitchCompany);
@@ -1605,7 +1606,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (g === selectedGroup && companyId != null && !groupsAllMode) return;
+      if (g === selectedGroup && companyId != null && !groupsAllMode) {
+        if (!canUseGroupOnlyMode(me)) {
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+          setMergedSubsetIds(null);
+          setSelectedGroup(null);
+          clearDashboardGroupFilterKeepCompany(companyId);
+          void syncCompanySession(companyId, null);
+          return;
+        }
+        return;
+      }
 
       setGroupsAllMode(false);
       setSelectedGroup(g);
@@ -1632,7 +1644,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setMergedSubsetIds(null);
       persistDashboardFilterState(g, id, { allowGroupOnly: false });
       applyCompanySelection(id);
-      notifyDashboardGroupFilterChanged(g, id);
+      notifyDashboardGroupFilterChanged(g, id, {
+        companyCode: pick.company_id,
+      });
       void syncCompanySession(id, g);
     },
     [
@@ -1677,7 +1691,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       persistDashboardFilterState(persistGroup, id);
       applyCompanySelection(id);
-      notifyDashboardGroupFilterChanged(persistGroup, id);
+      notifyDashboardGroupFilterChanged(persistGroup, id, {
+        companyCode: c.company_id,
+      });
       void syncCompanySession(id, groupsAllMode ? null : gid || selectedGroup).then((ok) => {
         if (switchGen !== companySwitchGenRef.current) return;
         if (!ok && prevId != null) {

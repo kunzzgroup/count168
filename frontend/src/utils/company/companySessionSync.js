@@ -50,7 +50,7 @@ export async function syncCompanySessionApi(companyId, viewGroup = null) {
 
 export async function syncCompanySessionAndNotify(companyId) {
   const json = await syncCompanySessionApi(companyId);
-  if (json?.success) notifyCompanySessionUpdated();
+  if (json?.success) notifyCompanySessionUpdated(json.data ?? null);
   return json;
 }
 
@@ -102,7 +102,7 @@ export async function ensureCrossPageCompanySelection(companyId, options = {}) {
 
   if (needsPhpSync) {
     const json = await syncCompanySessionApi(id, gid);
-    if (json?.success) notifyCompanySessionUpdated();
+    if (json?.success) notifyCompanySessionUpdated(json.data ?? null);
     return Boolean(json?.success);
   }
   return true;

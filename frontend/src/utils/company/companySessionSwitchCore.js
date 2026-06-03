@@ -44,7 +44,7 @@ export async function syncCompanySessionInBackground({
       onFailure?.(json);
       return false;
     }
-    if (!layoutSilent) notifyCompanySessionUpdated();
+    if (!layoutSilent) notifyCompanySessionUpdated(json?.data ?? null);
     return true;
   } catch (err) {
     if (err?.name === "AbortError") return false;
