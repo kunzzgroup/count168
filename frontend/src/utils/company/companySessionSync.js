@@ -17,12 +17,14 @@ function sessionSyncKey(companyId, viewGroup) {
   return `${id}|${vg}`;
 }
 
-export async function syncCompanySessionApi(companyId, viewGroup = null) {
+export async function syncCompanySessionApi(companyId, viewGroup = null, options = {}) {
   const id = Number(companyId);
   if (!Number.isFinite(id) || id <= 0) return { success: false };
 
   const key = sessionSyncKey(id, viewGroup);
-  if (sessionSyncInflight.has(key)) {
+  if (options.force) {
+    sessionSyncInflight.delete(key);
+  } else if (sessionSyncInflight.has(key)) {
     return sessionSyncInflight.get(key);
   }
 

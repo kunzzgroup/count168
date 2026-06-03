@@ -130,8 +130,15 @@ export function loginScopeBodyClass(me) {
   return "";
 }
 
+/** Normalize company code for sidebar / session patches (empty → null). */
+export function normalizeCompanyCode(value) {
+  const code = String(value ?? "").trim().toUpperCase();
+  return code || null;
+}
+
 /**
  * Optimistic sidebar `me` patch when group/company filter changes (before current_user_api returns).
+ * When `companyCode` is supplied in ctx, never fall back to stale `me.company_code` (fixes 95→C168 sidebar).
  */
 export function patchMeFromCompanyContext(me, ctx = {}) {
   if (!me) return me;
@@ -143,13 +150,14 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
     };
   }
   const id = Number(rawId);
-  const code = String(ctx.companyCode ?? me.company_code ?? "")
-    .trim()
-    .toUpperCase();
+  const hasExplicitCode = ctx.companyCode != null && String(ctx.companyCode).trim() !== "";
+  const explicitCode = hasExplicitCode ? normalizeCompanyCode(ctx.companyCode) : null;
+  const fallbackCode = normalizeCompanyCode(me.company_code) ?? "";
+  const code = hasExplicitCode ? explicitCode ?? "" : fallbackCode;
   const next = {
     ...me,
     company_id: id,
-    company_code: code || me.company_code,
+    company_code: hasExplicitCode ? code : code || me.company_code,
     is_current_company_c168: code === "C168",
   };
   if (ctx.hasGambling != null) next.company_has_gambling = Boolean(ctx.hasGambling);

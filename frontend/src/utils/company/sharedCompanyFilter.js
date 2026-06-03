@@ -256,7 +256,7 @@ export function resolveInitialCompanyId(fallbackCompanyId) {
  */
 export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, options = {}) {
   const value = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
-  const groupOnly = isDashboardGroupOnlyMode();
+  const groupOnly = options.ignoreGroupOnly === true ? false : isDashboardGroupOnlyMode();
   const cid = groupOnly
     ? null
     : companyId != null && companyId !== "" && Number.isFinite(Number(companyId))

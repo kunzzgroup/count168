@@ -24,6 +24,8 @@ import {
   clearDashboardFilterSession,
   clearOwnerCompaniesCache,
   DASHBOARD_GROUP_FILTER_EVENT,
+  isDashboardGroupOnlyMode,
+  readPersistedDashboardGcFilter,
   shouldHideSidebarProcess,
   fetchOwnerCompaniesAll,
   findOwnerCompanyById,
@@ -405,11 +407,29 @@ export default function AuthenticatedLayout() {
       void fetchOwnerCompaniesAll();
     };
 
+    const runAccountListWarm = () => {
+      const { selectedGroup, companyId } = readPersistedDashboardGcFilter();
+      const groupOnly = isDashboardGroupOnlyMode();
+      void import("../pages/account/accountRoutePrefetch.js").then(({ warmAccountListRouteCache }) => {
+        warmAccountListRouteCache({
+          companyId: groupOnly ? null : companyId,
+          groupId: groupOnly ? selectedGroup : null,
+        });
+      });
+    };
+
+    const runIdleWarm = () => {
+      runCompanies();
+      if (path === "/dashboard" || path === "/account-list") {
+        runAccountListWarm();
+      }
+    };
+
     if (typeof window.requestIdleCallback === "function") {
-      const idleId = window.requestIdleCallback(runCompanies, { timeout: 2500 });
+      const idleId = window.requestIdleCallback(runIdleWarm, { timeout: 2500 });
       return () => window.cancelIdleCallback(idleId);
     }
-    const timerId = window.setTimeout(runCompanies, 300);
+    const timerId = window.setTimeout(runIdleWarm, 300);
     return () => window.clearTimeout(timerId);
   }, [loading, me, path]);
 
@@ -428,6 +448,16 @@ export default function AuthenticatedLayout() {
         ) {
           void import("../pages/processlist/processRoutePrefetch.js").then(({ warmProcessListRouteCache }) => {
             warmProcessListRouteCache(me.company_id);
+          });
+        }
+        if (routePath === "/account-list") {
+          const { selectedGroup, companyId } = readPersistedDashboardGcFilter();
+          const groupOnly = isDashboardGroupOnlyMode();
+          void import("../pages/account/accountRoutePrefetch.js").then(({ warmAccountListRouteCache }) => {
+            warmAccountListRouteCache({
+              companyId: groupOnly ? null : companyId,
+              groupId: groupOnly ? selectedGroup : null,
+            });
           });
         }
       }
