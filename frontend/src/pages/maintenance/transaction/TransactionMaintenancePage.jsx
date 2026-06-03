@@ -143,8 +143,6 @@ export default function TransactionMaintenancePage() {
   const bootRunIdRef = useRef(0);
   const markAnchorSyncedRef = useRef(() => {});
   const handledMetaScopeKeyRef = useRef("");
-  const maintenanceSearchSeqRef = useRef(0);
-  const suppressNextSearchRef = useRef(false);
 
   // -- Data State --
   const [processes, setProcesses] = useState([]);
@@ -283,7 +281,7 @@ export default function TransactionMaintenancePage() {
       queryClient.setQueryData(maintenanceQueryKey, packed);
       return packed;
     },
-    enabled: false,
+    enabled: listQueryEnabled,
     initialData: () => {
       const cached = queryClient.getQueryData(maintenanceQueryKey);
       if (!isMaintenanceCacheComplete(cached)) return undefined;
@@ -326,7 +324,8 @@ export default function TransactionMaintenancePage() {
   const showListSkeleton =
     listRowCount === 0 &&
     (bootPending ||
-      (listQueryEnabled && !maintenanceDataComplete && (transactionQuery.isFetching || !transactionQuery.isFetched)) ||
+      (listQueryEnabled &&
+        (transactionQuery.isLoading || transactionQuery.isFetching)) ||
       (searchRecoverable && !recoverableExhausted));
   const recoverableRetryRef = useRef(0);
   const [recoverableExhausted, setRecoverableExhausted] = useState(false);
@@ -344,56 +343,6 @@ export default function TransactionMaintenancePage() {
     [transactionScopeKey, dateFrom, dateTo, processFilter, activePermission],
   );
 
-  const runMaintenanceSearch = useCallback(async () => {
-    if (!listQueryEnabled) return;
-    const seq = ++maintenanceSearchSeqRef.current;
-    const queryKey = maintenanceQueryKey;
-    try {
-      await queryClient.fetchQuery({
-        queryKey,
-        queryFn: async ({ signal }) => {
-          const rows = await searchTransactionData({
-            dateFrom,
-            dateTo,
-            process: processFilter,
-            category: activePermission,
-            scope: transactionScope,
-            signal,
-            onProgress: (progressRows) => {
-              if (seq !== maintenanceSearchSeqRef.current) return;
-              const existing = queryClient.getQueryData(queryKey);
-              if (isMaintenanceCacheComplete(existing)) return;
-              queryClient.setQueryData(
-                queryKey,
-                packMaintenanceCache(progressRows, false),
-              );
-            },
-          });
-          if (seq !== maintenanceSearchSeqRef.current) {
-            return packMaintenanceCache(rows, true);
-          }
-          const packed = packMaintenanceCache(rows, true);
-          queryClient.setQueryData(queryKey, packed);
-          return packed;
-        },
-        staleTime: 0,
-      });
-    } catch (err) {
-      if (seq !== maintenanceSearchSeqRef.current) return;
-      if (err?.name === "AbortError" || isCancelledError(err)) return;
-      throw err;
-    }
-  }, [
-    listQueryEnabled,
-    queryClient,
-    maintenanceQueryKey,
-    dateFrom,
-    dateTo,
-    processFilter,
-    activePermission,
-    transactionScope,
-  ]);
-
   useEffect(() => {
     recoverableRetryRef.current = 0;
     setRecoverableExhausted(false);
@@ -410,7 +359,7 @@ export default function TransactionMaintenancePage() {
     const delay = Math.min(4000, 700 * (recoverableRetryRef.current + 1));
     const timer = window.setTimeout(() => {
       recoverableRetryRef.current += 1;
-      void runMaintenanceSearch();
+      void transactionQuery.refetch({ cancelRefetch: false });
     }, delay);
     return () => window.clearTimeout(timer);
   }, [
@@ -420,7 +369,7 @@ export default function TransactionMaintenancePage() {
     transactionQuery.isFetching,
     transactionQuery.errorUpdatedAt,
     searchQueryKey,
-    runMaintenanceSearch,
+    transactionQuery,
   ]);
 
   useEffect(() => {
@@ -451,9 +400,10 @@ export default function TransactionMaintenancePage() {
 
   const showNoDataEmpty =
     listQueryEnabled &&
-    maintenanceDataComplete &&
+    !bootPending &&
     transactionQuery.isFetched &&
     !transactionQuery.isFetching &&
+    !transactionQuery.isLoading &&
     listRowCount === 0 &&
     !showListSkeleton &&
     !listStatusMessage;
@@ -470,19 +420,6 @@ export default function TransactionMaintenancePage() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 2000);
   }, []);
-
-  // Explicit search when filters change (aligned with Capture Maintenance).
-  useEffect(() => {
-    if (!listQueryEnabled) return;
-    if (suppressNextSearchRef.current) {
-      suppressNextSearchRef.current = false;
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void runMaintenanceSearch();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [listQueryEnabled, searchQueryKey, runMaintenanceSearch]);
 
   // -- Initialization --
   useEffect(() => {
@@ -556,14 +493,18 @@ export default function TransactionMaintenancePage() {
           initialCompanyId != null
             ? filtered.find((c) => Number(c.id) === initialCompanyId) || null
             : null;
-        const bootGroup = resolveInitialSelectedGroupFromSession(filtered, currentComp);
-        setSelectedGroup(bootGroup);
+        const bootGroup =
+          resolveInitialSelectedGroupFromSession(filtered, currentComp, u) ??
+          readInitialMaintenanceSelectedGroup();
+        if (bootGroup) setSelectedGroup(bootGroup);
         const persistedGc = readPersistedDashboardGcFilter();
         const initialUiCompanyId = readInitialMaintenanceCompanyId();
+        const sessionGroup = readInitialMaintenanceSelectedGroup();
         const groupOnlyBoot =
           isDashboardGroupOnlyMode() ||
           persistedGc.groupOnly ||
-          (bootGroup != null && initialUiCompanyId == null);
+          (bootGroup != null && initialUiCompanyId == null) ||
+          (sessionGroup != null && initialUiCompanyId == null && companyId == null);
 
         const runGroupOnlyBoot = async () => {
           persistDashboardGroupOnlyMode(true);
@@ -599,11 +540,14 @@ export default function TransactionMaintenancePage() {
             groupId: bootGroup,
           });
           if (cancelled) return;
+          const nextPerm =
+            meta.activePermission ||
+            pickTransactionMaintenancePermission(meta.permissions, null);
           setPermissions(meta.permissions);
-          setActivePermission(meta.activePermission);
+          setActivePermission(nextPerm);
           try {
             const procList = bootScope
-              ? await fetchProcessesForPermission(null, meta.activePermission, bootScope)
+              ? await fetchProcessesForPermission(null, nextPerm, bootScope)
               : [];
             if (!cancelled) setProcesses(procList);
           } catch (err) {
@@ -806,7 +750,7 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (!listQueryEnabled || !maintenanceDataComplete) return;
     if (!transactionQuery.isSuccess || transactionQuery.isPlaceholderData) return;
-    if (transactionQuery.isFetching) return;
+    if (transactionQuery.isFetching || transactionQuery.isLoading) return;
     if (transactionData.length === 0) return;
     const key = `${transactionQuery.dataUpdatedAt}:${transactionData.length}`;
     if (lastToastKeyRef.current === key) return;
