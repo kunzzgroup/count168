@@ -98,11 +98,6 @@ export function canUseGroupOnlyMode(me) {
   return isGroupLogin(me);
 }
 
-/** Company login: clicking an active Group pill collapses Company (Dashboard parity). */
-export function canCollapseCompanyOnGroupPill(me) {
-  return isGroupLogin(me) || isCompanyLogin(me);
-}
-
 /** Mirrors api/c168/c168_domain_access.php c168DomainPageAllowedRoles */
 const C168_DOMAIN_PAGE_ROLES = new Set([
   "owner",

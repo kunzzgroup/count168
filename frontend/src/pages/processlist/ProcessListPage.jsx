@@ -987,25 +987,53 @@ export default function ProcessListPage() {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId == null) {
-        setGroupFilterKind("ungrouped");
-        setSelectedGroup(null);
-        persistDashboardGroupFilter(null);
-        persistDashboardFilterState(null, null, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(null, null);
+      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
+        if (!canUseGroupOnlyMode(sessionMe)) {
+          setGroupFilterKind("ungrouped");
+          setSelectedGroup(null);
+          clearDashboardGroupFilterKeepCompany(companyId);
+          return;
+        }
         return;
       }
+
+      const pick = pickDefaultSubsidiaryForGroup(companies, g);
+      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
 
       setGroupFilterKind("follow");
       setSelectedGroup(g);
       persistDashboardGroupFilter(g);
+
+      if (nextCompanyId != null) {
+        skipCompanyFetchEffectRef.current = true;
+        suppressCrossPageSyncRef.current = true;
+        flushSync(() => {
+          setCompanyId(nextCompanyId);
+          applyProcessListCache(nextCompanyId);
+        });
+        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
+          companyCode: pick.company_id,
+        });
+        void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
+        return;
+      }
+
+      if (!canUseGroupOnlyMode(sessionMe) && companyId != null) {
+        persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
+        const row = findOwnerCompanyById(companyId);
+        notifyDashboardGroupFilterChanged(g, companyId, {
+          companyCode: row?.company_id,
+        });
+        return;
+      }
 
       flushSync(() => {
         setCompanyId(null);
         setRows([]);
         setCurrencyFilterCode("");
       });
-      persistDashboardFilterState(g, null, { allowGroupOnly: true });
+      persistDashboardFilterState(g, null);
       resetAnchorSessionRef();
       notifyDashboardGroupFilterChanged(g, null);
     },

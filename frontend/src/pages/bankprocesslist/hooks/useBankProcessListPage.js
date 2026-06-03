@@ -1928,30 +1928,61 @@ export function useBankProcessListPage() {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId == null) {
+      if (groupFilterKind === "follow" && g === selectedGroupKey) {
         setGroupFilterKind("ungrouped");
         setSelectedGroup(null);
-        persistDashboardGroupFilter(null);
-        persistDashboardFilterState(null, null, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(null, null);
+        if (companyId != null && !canUseGroupOnlyMode(authMe)) {
+          clearDashboardGroupFilterKeepCompany(companyId);
+        } else {
+          persistDashboardGroupFilter(null);
+        }
         return;
       }
+      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
+        if (!canUseGroupOnlyMode(authMe)) {
+          setGroupFilterKind("ungrouped");
+          setSelectedGroup(null);
+          clearDashboardGroupFilterKeepCompany(companyId);
+        }
+        return;
+      }
+
+      const pick = pickDefaultSubsidiaryForGroup(companies, g);
+      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
 
       setGroupFilterKind("follow");
       setSelectedGroup(g);
       persistDashboardGroupFilter(g);
 
-      skipCompanyFetchEffectRef.current = true;
-      suppressCrossPageSyncRef.current = true;
-      flushSync(() => {
-        setCompanyId(null);
-        setRows([]);
-        setCurrencyFilterCode("");
-        setCurrencyListOrdered([]);
-        setCurrencyPillDisplayOrder(null);
-      });
-      persistDashboardFilterState(g, null, { allowGroupOnly: true });
-      notifyDashboardGroupFilterChanged(g, null);
+      if (nextCompanyId != null) {
+        const cacheKey = resolveBankProcessListCacheKey(nextCompanyId, search);
+        const hadCache =
+          Array.isArray(bankProcessListCacheRef.current.get(cacheKey)?.rows) &&
+          bankProcessListCacheRef.current.get(cacheKey).rows.length > 0;
+        skipCompanyFetchEffectRef.current = hadCache;
+        suppressCrossPageSyncRef.current = true;
+        flushSync(() => {
+          setCompanyId(nextCompanyId);
+          if (hadCache) applyBankProcessListCache(nextCompanyId);
+          else {
+            setRows([]);
+            setCurrencyFilterCode("");
+            setCurrencyListOrdered([]);
+            setCurrencyPillDisplayOrder(null);
+          }
+        });
+        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
+          companyCode: pick.company_id,
+        });
+        void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
+        return;
+      }
+
+      if (!canUseGroupOnlyMode(authMe) && companyId != null) {
+        persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, companyId);
+      }
     },
     [
       applyBankProcessListCache,
