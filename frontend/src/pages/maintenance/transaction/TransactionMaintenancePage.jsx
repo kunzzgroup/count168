@@ -137,6 +137,8 @@ export default function TransactionMaintenancePage() {
   const initialSearchDoneRef = useRef(false);
   const suppressNextSearchEffectRef = useRef(false);
   const scopeKeyRef = useRef("");
+  /** Last successful search key — detect scope/filter change to drop stale rows. */
+  const lastSearchQueryKeyRef = useRef("");
   /** Boot finished with scope/permission — trigger one explicit search before auto-effect. */
   const pendingBootSearchRef = useRef(null);
 
@@ -292,16 +294,29 @@ export default function TransactionMaintenancePage() {
       }
 
       const searchScopeKey = transactionMaintenanceScopeCacheKey(effectiveScope);
-      if (overrides.scope) {
+      const effectiveSearchKey = JSON.stringify([
+        searchScopeKey,
+        dateFrom,
+        dateTo,
+        processFilter,
+        category,
+      ]);
+      const filtersChanged = effectiveSearchKey !== lastSearchQueryKeyRef.current;
+      if (overrides.scope || filtersChanged) {
         scopeKeyRef.current = searchScopeKey;
       }
       maintenanceAbortRef.current?.abort();
       const ac = new AbortController();
       maintenanceAbortRef.current = ac;
       const seq = ++maintenanceSeqRef.current;
-      const quietRefresh = initialSearchDoneRef.current;
-      if (!quietRefresh) setListLoading(true);
-      else {
+      if (filtersChanged || overrides.scope) {
+        setTransactionData([]);
+        setMaintenanceDataComplete(false);
+        setListLoading(true);
+        setListSyncing(false);
+      } else if (!initialSearchDoneRef.current) {
+        setListLoading(true);
+      } else {
         setListLoading(false);
         setListSyncing(true);
       }
@@ -325,7 +340,8 @@ export default function TransactionMaintenancePage() {
         if (searchScopeKey !== scopeKeyRef.current) return;
         setTransactionData(rows);
         setMaintenanceDataComplete(true);
-        if (!quietRefresh) {
+        lastSearchQueryKeyRef.current = effectiveSearchKey;
+        if (filtersChanged || overrides.scope) {
           if (rows.length > 0) {
             notify(t("foundRecords", { n: rows.length }), "success");
           } else {
@@ -396,6 +412,13 @@ export default function TransactionMaintenancePage() {
       setTransactionData(rows);
       setMaintenanceDataComplete(true);
       initialSearchDoneRef.current = true;
+      lastSearchQueryKeyRef.current = JSON.stringify([
+        searchScopeKey,
+        dateFromRef.current,
+        dateToRef.current,
+        processFilter,
+        category,
+      ]);
       return true;
     } catch (err) {
       if (err?.name === "AbortError" || seq !== maintenanceSeqRef.current) return false;
@@ -831,10 +854,25 @@ export default function TransactionMaintenancePage() {
   // -- Handlers --
   const handleClearCompany = useCallback((groupForPersist) => {
     const g = groupForPersist ?? selectedGroup;
+    const nextScope = resolveTransactionMaintenanceScope({
+      companies,
+      selectedGroup: g,
+      companyId: null,
+      groupsAllMode,
+      groupAllMode,
+    });
     resetAnchorSessionRef();
+    switchPermsCacheRef.current = null;
+    handledMetaScopeKeyRef.current = "";
+    suppressNextSearchEffectRef.current = true;
     setCompanyId(null);
     setCompanyCode("");
     setSelectedProcess("");
+    setTransactionData([]);
+    setMaintenanceDataComplete(false);
+    setListLoading(true);
+    setListSyncing(false);
+    persistDashboardFilterState(g, null);
     void (async () => {
       try {
         const synced = await syncTransactionMaintenanceGroupAnchorSession(
@@ -850,12 +888,29 @@ export default function TransactionMaintenancePage() {
             }) ?? pickGroupAnchorCompany(companies, g);
           if (anchor?.id) markAnchorSyncedRef.current(g, anchor.id);
         }
+        await performMaintenanceSearch({
+          scope: nextScope,
+          selectedGroup: g,
+          companyId: null,
+        });
       } catch (syncErr) {
         console.error("Group anchor session sync after clear company:", syncErr);
+        await performMaintenanceSearch({
+          scope: nextScope,
+          selectedGroup: g,
+          companyId: null,
+        });
       }
     })();
-    persistDashboardFilterState(g, null);
-  }, [companies, selectedGroup, me?.company_id, resetAnchorSessionRef]);
+  }, [
+    companies,
+    selectedGroup,
+    groupsAllMode,
+    groupAllMode,
+    me?.company_id,
+    resetAnchorSessionRef,
+    performMaintenanceSearch,
+  ]);
 
   const onPrepareCompanySelect = useCallback((c) => {
     if (!c?.id) return;
