@@ -811,11 +811,10 @@ function dashboardResolveFilterCurrencyMap(
     int $groupScopeId = 0
 ): array {
     $viewGroupNorm = reportNormalizeGroupId($viewGroup ?? '');
-    $accountCurrencyOnly = false;
+    $accountCurrencyOnly = $groupScopeId > 0 || $viewGroupNorm !== '';
     $companyIds = [];
 
     if ($groupScopeId > 0) {
-        $accountCurrencyOnly = true;
         $groupCode = dashboardResolveGroupCodeFromScopeId($pdo, $groupScopeId);
         $entityId = $groupCode !== '' ? tx_resolve_group_entity_company_id($pdo, $groupCode) : 0;
         if ($entityId > 0) {
@@ -828,7 +827,6 @@ function dashboardResolveFilterCurrencyMap(
             $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
         }
     } else {
-        $accountCurrencyOnly = false;
         $accountIds = dashboardCollectScopeAccountIds(
             $pdo,
             $companyId,

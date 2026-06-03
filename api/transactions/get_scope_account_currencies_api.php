@@ -148,10 +148,8 @@ try {
         }
     }
 
-    $hasExplicitCompany = isset($_GET['company_id']) && trim((string) $_GET['company_id']) !== '';
-    $groupOnlyCurrency = !$subsidiaryAccountsOnly
-        && ($groupAggregateOnly || !$hasExplicitCompany);
-    $map = dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $currencyCompanyIds, $groupOnlyCurrency);
+    // Always acc active currencies on scoped accounts — never the company currency table list.
+    $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, [], true);
 
     $rows = [];
     foreach ($map as $id => $code) {

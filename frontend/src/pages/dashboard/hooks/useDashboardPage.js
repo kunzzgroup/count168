@@ -521,18 +521,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (curRes.ok && curJson.success && Array.isArray(curJson.data)) {
           codes = curJson.data.map((r) => String(r.code).toUpperCase());
         }
-        // Group-only: acc currency from scope API only — never Currency Setting list.
-        if (!codes.length && !groupOnlyCurrencyScope && !groupLedgerOnly && singleCid) {
-          const fq = new URLSearchParams({ company_id: String(singleCid) });
-          if (groupKey) fq.set("view_group", groupKey);
-          const fbRes = await fetch(
-            buildApiUrl(`api/transactions/get_company_currencies_api.php?${fq.toString()}`),
-            { credentials: "include" }
-          );
-          const fbJson = await fbRes.json();
-          if (fbRes.ok && fbJson.success && Array.isArray(fbJson.data)) {
-            codes = fbJson.data.map((r) => String(r.code).toUpperCase());
-          }
+        if (!codes.length && singleCid) {
+          const cached = currenciesByCompanyRef.current.get(singleCid);
+          if (cached?.length) codes = [...cached];
+        } else if (!codes.length && groupKey) {
+          const cached = currenciesByGroupRef.current.get(groupKey);
+          if (cached?.length) codes = [...cached];
         }
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
 
@@ -551,9 +545,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           codes = orderCurrencyCodes(codes, ordJson?.data?.order);
         }
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
-        if (codes.length) {
-          commitCurrencyList(codes);
-        }
+        commitCurrencyList(codes);
         return;
       }
 
