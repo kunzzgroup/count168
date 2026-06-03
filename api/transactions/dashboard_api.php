@@ -383,16 +383,7 @@ function dashboardBuildGroupScopedSummary(
     $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
     $result = [];
     $hasTransactionCurrency = dashboardHasTransactionCurrency($pdo);
-    $groupCode = dashboardResolveGroupCodeFromScopeId($pdo, $groupScopeId);
-    $entityCompanyId = $groupCode !== '' ? tx_resolve_group_entity_company_id($pdo, $groupCode) : 0;
-    $currencyMap = [];
-    if ($entityCompanyId > 0) {
-        $currencyStmt = $pdo->prepare('SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?');
-        $currencyStmt->execute([$entityCompanyId]);
-        foreach ($currencyStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $currencyMap[$row['id']] = strtoupper($row['code']);
-        }
-    }
+    $currencyMap = dashboardResolveFilterCurrencyMap($pdo, 0, null, $groupScopeId);
     $currencyFilterSql = '';
     $currencyFilterParams = [];
     if ($filterCurrencyCode !== null && $hasTransactionCurrency) {
@@ -567,6 +558,184 @@ function dashboardLoadCurrencyMap(PDO $pdo, int $companyId): array
         $currency_map[$row['id']] = strtoupper($row['code']);
     }
     return $currency_map;
+}
+
+function dashboardHasAccountCurrencyTable(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    try {
+        $has = $pdo->query("SHOW TABLES LIKE 'account_currency'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+function dashboardAccountHasCurrencyIdColumn(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    try {
+        $has = $pdo->query("SHOW COLUMNS FROM account LIKE 'currency_id'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $has = false;
+    }
+    return $has;
+}
+
+/**
+ * Account ids used for dashboard KPI (company and/or group ledger scope).
+ *
+ * @return int[]
+ */
+function dashboardCollectScopeAccountIds(
+    PDO $pdo,
+    int $companyId,
+    ?string $viewGroup,
+    int $groupScopeId = 0
+): array {
+    $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
+    $ids = [];
+
+    if ($groupScopeId > 0) {
+        foreach ($roles as $role) {
+            list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
+            $accStmt = $pdo->prepare("
+                SELECT DISTINCT a.id
+                FROM account a
+                INNER JOIN account_company ac ON ac.account_id = a.id
+                WHERE ac.scope_type = 'group'
+                  AND ac.scope_id = ?
+                  AND {$roleFilterSql}
+            ");
+            $accStmt->execute(array_merge([$groupScopeId], $roleFilterParams));
+            foreach ($accStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                $ids[(int) $id] = true;
+            }
+        }
+        return array_keys($ids);
+    }
+
+    foreach ($roles as $role) {
+        $scopeCompanyIds = $companyId > 0
+            ? dashboardResolveRoleScopeCompanyIds($pdo, $companyId, $role, $viewGroup)
+            : [];
+        foreach ($scopeCompanyIds as $scopeCompanyId) {
+            list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
+            $accStmt = $pdo->prepare("
+                SELECT DISTINCT a.id
+                FROM account a
+                INNER JOIN account_company ac ON ac.account_id = a.id
+                WHERE ac.company_id = ?
+                  AND {$roleFilterSql}
+            ");
+            $accStmt->execute(array_merge([$scopeCompanyId], $roleFilterParams));
+            foreach ($accStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                $ids[(int) $id] = true;
+            }
+        }
+    }
+
+    return array_keys($ids);
+}
+
+/**
+ * Filter / display currencies from account_currency (Edit Account active currencies).
+ *
+ * @param int[] $accountIds
+ * @param int[] $companyIds currency.company_id rows to join (subsidiary + group entity)
+ * @return array<int, string>
+ */
+function dashboardLoadAccountCurrencyMap(PDO $pdo, array $accountIds, array $companyIds): array
+{
+    $accountIds = array_values(array_unique(array_map('intval', $accountIds)));
+    $companyIds = array_values(array_unique(array_map('intval', $companyIds)));
+    $companyIds = array_values(array_filter($companyIds, static fn(int $id): bool => $id > 0));
+    if ($accountIds === [] || $companyIds === []) {
+        return [];
+    }
+
+    $map = [];
+    if (dashboardHasAccountCurrencyTable($pdo)) {
+        $ph = implode(',', array_fill(0, count($accountIds), '?'));
+        foreach ($companyIds as $companyId) {
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT c.id, UPPER(c.code) AS code
+                FROM account_currency ac
+                INNER JOIN currency c ON c.id = ac.currency_id AND c.company_id = ?
+                WHERE ac.account_id IN ($ph)
+            ");
+            $stmt->execute(array_merge([$companyId], $accountIds));
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $map[(int) $row['id']] = strtoupper((string) $row['code']);
+            }
+        }
+    }
+
+    if ($map === [] && dashboardAccountHasCurrencyIdColumn($pdo)) {
+        $ph = implode(',', array_fill(0, count($accountIds), '?'));
+        foreach ($companyIds as $companyId) {
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT c.id, UPPER(c.code) AS code
+                FROM account a
+                INNER JOIN currency c ON c.id = a.currency_id AND c.company_id = ?
+                WHERE a.id IN ($ph)
+                  AND a.currency_id IS NOT NULL
+            ");
+            $stmt->execute(array_merge([$companyId], $accountIds));
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $map[(int) $row['id']] = strtoupper((string) $row['code']);
+            }
+        }
+    }
+
+    return $map;
+}
+
+/**
+ * Group / group-tab dashboard: currency filter map from scoped accounts, not full company list.
+ *
+ * @return array<int, string>
+ */
+function dashboardResolveFilterCurrencyMap(
+    PDO $pdo,
+    int $companyId,
+    ?string $viewGroup,
+    int $groupScopeId = 0
+): array {
+    $viewGroupNorm = reportNormalizeGroupId($viewGroup ?? '');
+    $accountIds = dashboardCollectScopeAccountIds($pdo, $companyId, $viewGroupNorm !== '' ? $viewGroupNorm : null, $groupScopeId);
+
+    $companyIds = [];
+    if ($groupScopeId > 0) {
+        $groupCode = dashboardResolveGroupCodeFromScopeId($pdo, $groupScopeId);
+        $entityId = $groupCode !== '' ? tx_resolve_group_entity_company_id($pdo, $groupCode) : 0;
+        if ($entityId > 0) {
+            $companyIds[] = $entityId;
+        }
+    } elseif ($companyId > 0) {
+        $companyIds[] = $companyId;
+        if ($viewGroupNorm !== '') {
+            $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
+            if ($entityId > 0) {
+                $companyIds[] = $entityId;
+            }
+        }
+    }
+
+    $companyIds = array_values(array_unique($companyIds));
+    $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $companyIds);
+    if ($map !== []) {
+        return $map;
+    }
+
+    $fallbackCompanyId = $companyIds[0] ?? $companyId;
+    return $fallbackCompanyId > 0 ? dashboardLoadCurrencyMap($pdo, $fallbackCompanyId) : [];
 }
 
 /**
@@ -1419,24 +1588,26 @@ try {
     // 使用 static 缓存函数，整个请求中只查一次 schema
     $hasTransactionCurrency = dashboardHasTransactionCurrency($pdo);
 
-    // 公司 currency 映射只查一次，供多角色复用
-    $currency_map = [];
-    $currency_stmt = $pdo->prepare("SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?");
-    $currency_stmt->execute([$company_id]);
-    foreach ($currency_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $currency_map[$row['id']] = strtoupper($row['code']);
-    }
-
-    // 定义要查询的角色
-    $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
-    $result = [];
-
     $viewGroupCodeForScope = reportNormalizeGroupId($_GET['view_group'] ?? '');
     if ($viewGroupCodeForScope === '' && $company_id > 0) {
         $vgStmt = $pdo->prepare('SELECT UPPER(TRIM(COALESCE(group_id, ""))) FROM company WHERE id = ? LIMIT 1');
         $vgStmt->execute([$company_id]);
         $viewGroupCodeForScope = reportNormalizeGroupId($vgStmt->fetchColumn() ?: '');
     }
+
+    // Group tab: currencies from account_currency on scoped accounts (not full company currency list).
+    $currency_map = $viewGroupCodeForScope !== ''
+        ? dashboardResolveFilterCurrencyMap(
+            $pdo,
+            $company_id,
+            $viewGroupCodeForScope,
+            0
+        )
+        : dashboardLoadCurrencyMap($pdo, $company_id);
+
+    // 定义要查询的角色
+    $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
+    $result = [];
 
     foreach ($roles as $role) {
         $excludeClear = dashboardShouldExcludeClearForRole($role);

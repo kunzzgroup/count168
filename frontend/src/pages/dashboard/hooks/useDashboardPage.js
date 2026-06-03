@@ -394,8 +394,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const gen = ++currencyLoadGenRef.current;
     const singleCid = companyId != null ? parseInt(companyId, 10) : null;
     const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+    const useGroupAccCurrency = Boolean(groupKey) || groupsAllMode;
 
     let companyIds = [];
+    let groupLedgerOnly = false;
     if (groupsAllMode) {
       if (singleCid) {
         companyIds = [singleCid];
@@ -427,14 +429,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (anchorId) {
         companyIds = [anchorId];
       } else {
-        const cached = currenciesByGroupRef.current.get(groupKey);
-        if (cached?.length) {
-          applyCurrencyCodes(cached, null);
-        } else {
-          applyCurrencyCodes(["MYR"], null);
-          currenciesByGroupRef.current.set(groupKey, ["MYR"]);
-        }
-        return;
+        groupLedgerOnly = true;
       }
     } else if (groupKey) {
       companyIds = companiesNativeInGroupList(companies, groupKey)
@@ -442,7 +437,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         .filter((id) => Number.isFinite(id));
     }
 
-    if (!companyIds.length) {
+    if (!companyIds.length && !groupLedgerOnly) {
       setCurrencies([]);
       setCurrencyCode("");
       return;
@@ -461,26 +456,48 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         credentials: "include",
       }).catch(() => null);
 
-      const currencyResults = await Promise.all(
-        companyIds.map(async (cid) => {
-          const row = companies.find((c) => parseInt(c.id, 10) === cid);
-          const vg = groupsAllMode
-            ? resolveViewGroupForCompany(row, selectedGroup)
-            : groupKey;
-          const q = new URLSearchParams({ company_id: String(cid) });
-          if (vg) q.set("view_group", vg);
-          const curRes = await fetch(
-            buildApiUrl(`api/transactions/get_company_currencies_api.php?${q.toString()}`),
-            { credentials: "include" }
-          );
-          const curJson = await curRes.json();
-          if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) return [];
-          return curJson.data.map((r) => String(r.code).toUpperCase());
-        })
-      );
+      let codes = [];
+      if (useGroupAccCurrency) {
+        const q = new URLSearchParams();
+        if (groupLedgerOnly && groupKey) {
+          q.set("group_id", groupKey);
+          q.set("view_group", groupKey);
+        } else {
+          if (singleCid) q.set("company_id", String(singleCid));
+          else if (companyIds.length) q.set("company_ids", companyIds.join(","));
+          if (groupKey) q.set("view_group", groupKey);
+        }
+        const curRes = await fetch(
+          buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
+          { credentials: "include" }
+        );
+        const curJson = await curRes.json();
+        if (curRes.ok && curJson.success && Array.isArray(curJson.data)) {
+          codes = curJson.data.map((r) => String(r.code).toUpperCase());
+        }
+      } else {
+        const currencyResults = await Promise.all(
+          companyIds.map(async (cid) => {
+            const row = companies.find((c) => parseInt(c.id, 10) === cid);
+            const vg = groupsAllMode
+              ? resolveViewGroupForCompany(row, selectedGroup)
+              : groupKey;
+            const q = new URLSearchParams({ company_id: String(cid) });
+            if (vg) q.set("view_group", vg);
+            const curRes = await fetch(
+              buildApiUrl(`api/transactions/get_company_currencies_api.php?${q.toString()}`),
+              { credentials: "include" }
+            );
+            const curJson = await curRes.json();
+            if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) return [];
+            return curJson.data.map((r) => String(r.code).toUpperCase());
+          })
+        );
+        codes = [...new Set(currencyResults.flat())];
+      }
       if (gen !== currencyLoadGenRef.current) return;
 
-      let codes = [...new Set(currencyResults.flat())];
+      codes = [...new Set(codes)];
       if (ordRes) {
         const ordJson = await ordRes.json();
         codes = orderCurrencyCodes(codes, ordJson?.data?.order);

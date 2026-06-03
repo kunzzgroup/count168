@@ -1,0 +1,106 @@
+<?php
+/**
+ * Dashboard / group scope: currencies from account_currency on KPI-scoped accounts.
+ * Path: api/transactions/get_scope_account_currencies_api.php
+ */
+
+session_start();
+session_write_close();
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/transaction_scope.php';
+require_once __DIR__ . '/../reports/report_scope_common.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../api_response.php';
+
+define('DASHBOARD_API_SKIP_MAIN', true);
+require_once __DIR__ . '/dashboard_api.php';
+
+header('Content-Type: application/json');
+
+try {
+    if (!isset($_SESSION['user_id'])) {
+        api_error('用户未登录', 401);
+        exit;
+    }
+
+    $groupCode = reportNormalizeGroupId($_GET['group_id'] ?? $_GET['view_group'] ?? '');
+    $companyIdsRaw = trim((string) ($_GET['company_ids'] ?? ''));
+    $companyIds = [];
+    if ($companyIdsRaw !== '') {
+        foreach (explode(',', $companyIdsRaw) as $part) {
+            $n = (int) trim($part);
+            if ($n > 0) {
+                $companyIds[$n] = true;
+            }
+        }
+        $companyIds = array_keys($companyIds);
+    }
+
+    $primaryCompanyId = 0;
+    if (isset($_GET['company_id']) && trim((string) $_GET['company_id']) !== '') {
+        $primaryCompanyId = (int) tx_resolve_request_company_id($pdo, $_GET);
+        if ($primaryCompanyId > 0 && !in_array($primaryCompanyId, $companyIds, true)) {
+            $companyIds[] = $primaryCompanyId;
+        }
+    }
+
+    $viewGroup = reportNormalizeGroupId($_GET['view_group'] ?? $groupCode);
+    $groupScopeId = 0;
+    $currencyCompanyIds = [];
+
+    if ($groupCode !== '' && $primaryCompanyId <= 0 && $companyIds === []) {
+        $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupCode);
+        if ($groupScopeId <= 0) {
+            api_success([]);
+            exit;
+        }
+        dashboardAssertGroupLedgerAccess($pdo, $groupCode, $groupScopeId);
+        $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+        if ($entityId > 0) {
+            $currencyCompanyIds[] = $entityId;
+        }
+        $accountIds = dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId);
+    } else {
+        if ($primaryCompanyId <= 0 && $companyIds !== []) {
+            $primaryCompanyId = (int) $companyIds[0];
+        }
+        if ($primaryCompanyId <= 0) {
+            api_error('缺少 company_id 或 group_id', 400);
+            exit;
+        }
+
+        foreach ($companyIds as $cid) {
+            $currencyCompanyIds[] = (int) $cid;
+        }
+        if ($viewGroup !== '') {
+            $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+            if ($entityId > 0) {
+                $currencyCompanyIds[] = $entityId;
+            }
+        }
+        $currencyCompanyIds = array_values(array_unique(array_filter($currencyCompanyIds)));
+        $accountIds = dashboardCollectScopeAccountIds(
+            $pdo,
+            $primaryCompanyId,
+            $viewGroup !== '' ? $viewGroup : null,
+            0
+        );
+    }
+
+    $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $currencyCompanyIds);
+    if ($map === [] && $currencyCompanyIds !== []) {
+        $map = dashboardLoadCurrencyMap($pdo, (int) $currencyCompanyIds[0]);
+    }
+
+    $rows = [];
+    foreach ($map as $id => $code) {
+        $rows[] = ['id' => (int) $id, 'code' => $code];
+    }
+    usort($rows, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
+
+    api_success($rows);
+} catch (PDOException $e) {
+    api_error('数据库错误: ' . $e->getMessage(), 500);
+} catch (Exception $e) {
+    api_error($e->getMessage(), 400);
+}
