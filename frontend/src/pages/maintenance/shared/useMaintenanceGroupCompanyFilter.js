@@ -1,4 +1,5 @@
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 
 /**
@@ -28,7 +29,7 @@ export function useMaintenanceGroupCompanyFilter({
     preferredCompanyId: companyId,
     me,
     autoPickCompanyWhenEmpty: false,
-    forceAllowGroupOnly: true,
+    forceAllowGroupOnly: canUseGroupOnlyMode(me),
     enableGroupAnchorSession,
   });
 

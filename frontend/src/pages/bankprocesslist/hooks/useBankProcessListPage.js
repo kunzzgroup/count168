@@ -1972,8 +1972,16 @@ export function useBankProcessListPage() {
           }
         });
         persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(g, nextCompanyId);
+        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
+          companyCode: pick.company_id,
+        });
         void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
+        return;
+      }
+
+      if (!canUseGroupOnlyMode(authMe) && companyId != null) {
+        persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, companyId);
       }
     },
     [

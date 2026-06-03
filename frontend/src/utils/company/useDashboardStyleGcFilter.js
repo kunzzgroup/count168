@@ -32,6 +32,8 @@ export function useDashboardStyleGcFilter({
   /** Sync optimistic UI (set company id, apply cache) before background session sync. */
   onPrepareCompanySelect,
   onClearCompany,
+  /** Company login: after user deselects the active group pill (company unchanged). */
+  onDeselectGroup,
   switchingCompany = false,
   preferredCompanyId = null,
   /** When false, picking a group clears company (default — shared across all pages). */
@@ -81,6 +83,7 @@ export function useDashboardStyleGcFilter({
         if (!canUseGroupOnlyMode(me)) {
           clearDashboardGroupFilterKeepCompany(companyId);
           setSelectedGroup(null);
+          onDeselectGroup?.(companyId);
           return;
         }
         if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
@@ -110,9 +113,17 @@ export function useDashboardStyleGcFilter({
       if (pick) {
         persistDashboardFilterState(g, pick.id, { allowGroupOnly: false });
         markAnchorSynced(g, pick.id);
-        notifyDashboardGroupFilterChanged(g, pick.id);
+        notifyDashboardGroupFilterChanged(g, pick.id, {
+          companyCode: pick.company_id,
+        });
         if (onPrepareCompanySelect) onPrepareCompanySelect(pick);
         if (onSelectCompany) void onSelectCompany(pick);
+        return;
+      }
+      if (!canUseGroupOnlyMode(me) && companyId != null) {
+        persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, companyId);
+        return;
       }
     },
     [
@@ -123,6 +134,7 @@ export function useDashboardStyleGcFilter({
       onPrepareCompanySelect,
       onSelectCompany,
       onClearCompany,
+      onDeselectGroup,
       selectFirstCompanyOnGroupChange,
       resetAnchorSessionRef,
       allowGroupOnly,
@@ -179,9 +191,13 @@ export function useDashboardStyleGcFilter({
         setSelectedGroup(null);
       }
 
-      persistDashboardFilterState(nextGroup, id, { allowGroupOnly });
+      persistDashboardFilterState(nextGroup, id, {
+        allowGroupOnly: allowGroupOnly && canUseGroupOnlyMode(me),
+      });
       markAnchorSynced(nextGroup, id);
-      notifyDashboardGroupFilterChanged(nextGroup, id);
+      notifyDashboardGroupFilterChanged(nextGroup, id, {
+        companyCode: c.company_id,
+      });
       if (onPrepareCompanySelect) onPrepareCompanySelect(c);
       if (onSelectCompany) void onSelectCompany(c);
     },

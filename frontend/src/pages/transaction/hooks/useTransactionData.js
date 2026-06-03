@@ -442,7 +442,7 @@ export function useTransactionData({
         nativeOnly: true,
       });
       if (!pick?.id) {
-        if (isCompanyLogin(u)) {
+        if (!canUseGroupOnlyMode(u)) {
           const nextSnap = {
             ...snap,
             selectedGroup: g,

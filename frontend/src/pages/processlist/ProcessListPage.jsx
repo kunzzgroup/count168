@@ -14,6 +14,7 @@ import {
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { canUseGroupOnlyMode } from "../../utils/company/loginScope.js";
+import { findOwnerCompanyById } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
@@ -1040,8 +1041,19 @@ export default function ProcessListPage() {
           }
         });
         persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(g, nextCompanyId);
+        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
+          companyCode: pick.company_id,
+        });
         void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
+        return;
+      }
+
+      if (!canUseGroupOnlyMode(sessionMe) && companyId != null) {
+        persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
+        const row = findOwnerCompanyById(companyId);
+        notifyDashboardGroupFilterChanged(g, companyId, {
+          companyCode: row?.company_id,
+        });
         return;
       }
 
@@ -1062,6 +1074,7 @@ export default function ProcessListPage() {
       groupFilterKind,
       resetAnchorSessionRef,
       selectedGroupKey,
+      sessionMe,
       showAll,
       showInactive,
     ],

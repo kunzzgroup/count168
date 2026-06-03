@@ -6,7 +6,6 @@ import {
   companiesInGroupList,
   isDashboardGroupOnlyMode,
   DASHBOARD_GROUP_FILTER_EVENT,
-  clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   readPersistedDashboardGcFilter,
@@ -599,6 +598,7 @@ export default function AccountListPage() {
     groupAllMode,
     handlePickAllGroups,
     handlePickAllInGroup,
+    handlePickGroup: gcHandlePickGroup,
     isListScopeReady,
     mergeCompanyIds,
     setGroupsAllMode,
@@ -609,6 +609,42 @@ export default function AccountListPage() {
     selectedGroup,
     setSelectedGroup,
     onSelectCompany: (c) => onSwitchCompanyRef.current?.(c, { layoutSilent: true }),
+    onPrepareCompanySelect: (pick) => {
+      const id = Number(pick?.id);
+      if (!Number.isFinite(id) || id <= 0) return;
+      const scope = gcScopeRef.current;
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        setCompanyId(id);
+        applyCacheOrClearAccounts({
+          companyId: id,
+          selectedGroup: scope?.selectedGroup ?? selectedGroup,
+          groupsAllMode: false,
+          groupAllMode: false,
+          mergeCompanyIds: scope?.mergeCompanyIds ?? [],
+          groupIds: scope?.groupIds ?? [],
+          isListScopeReady: true,
+        });
+      });
+    },
+    onDeselectGroup: (cid) => {
+      const scope = gcScopeRef.current;
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        applyCacheOrClearAccounts(
+          {
+            companyId: cid,
+            selectedGroup: null,
+            groupsAllMode: false,
+            groupAllMode: false,
+            mergeCompanyIds: scope?.mergeCompanyIds ?? [],
+            groupIds: scope?.groupIds ?? [],
+            isListScopeReady: true,
+          },
+          { groupOnly: false },
+        );
+      });
+    },
     onClearCompany: handleClearCompany,
     switchingCompany: false,
     preferredCompanyId: companyId,
@@ -710,75 +746,17 @@ export default function AccountListPage() {
         }
         return;
       }
-      if (!canUseGroupOnlyMode(sessionMe) && g === current && companyId != null) {
-        skipCompanyFetchEffectRef.current = true;
-        flushSync(() => {
-          setGroupsAllMode(false);
-          setGroupAllMode(false);
-          setSelectedGroup(null);
-          applyCacheOrClearAccounts(
-            {
-              companyId,
-              selectedGroup: null,
-              groupsAllMode: false,
-              groupAllMode: false,
-              mergeCompanyIds,
-              groupIds,
-              isListScopeReady: true,
-            },
-            { groupOnly: false },
-          );
-        });
-        clearDashboardGroupFilterKeepCompany(companyId);
+      if (!g || (groupLogin && g === current && companyId != null)) return;
+
+      if (!groupLogin) {
+        void gcHandlePickGroup(g);
         return;
-      }
-      if (!g || (g === current && companyId != null)) return;
-
-      const pick = pickDefaultCompanyForGroup(allCompanyButtons, g, {
-        me: sessionMe,
-        preferredCompanyId: null,
-        nativeOnly: true,
-      });
-      const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
-
-      skipCompanyFetchEffectRef.current = true;
-      flushSync(() => {
-        setGroupsAllMode(false);
-        setGroupAllMode(false);
-        setSelectedGroup(g);
-        if (nextCompanyId != null) {
-          setCompanyId(nextCompanyId);
-          applyCacheOrClearAccounts({
-            companyId: nextCompanyId,
-            selectedGroup: g,
-            isListScopeReady: true,
-          });
-        } else {
-          setCompanyId(null);
-          applyCacheOrClearAccounts(
-            { companyId: null, selectedGroup: g, isListScopeReady: true },
-            { groupOnly: true },
-          );
-        }
-      });
-
-      persistDashboardGroupFilter(g);
-      persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: !nextCompanyId });
-      notifyDashboardGroupFilterChanged(g, nextCompanyId == null ? null : nextCompanyId);
-
-      if (pick) void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
-      else {
-        void fetchAccounts(
-          { companyId: null, selectedGroup: g, isListScopeReady: true },
-          { silent: true, groupOnly: true },
-        );
       }
     },
     [
-      allCompanyButtons,
-      applyCacheOrClearAccounts,
       companyId,
       fetchAccounts,
+      gcHandlePickGroup,
       groupIds,
       mergeCompanyIds,
       searchTerm,
