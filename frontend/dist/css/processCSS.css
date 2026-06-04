@@ -4923,10 +4923,11 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
 .modal-content.description-selection-modal,
 .process-page .modal-content.description-selection-modal {
-    width: var(--desc-modal-width);
-    max-width: var(--desc-modal-width);
+    width: var(--desc-modal-width) !important;
+    max-width: var(--desc-modal-width) !important;
+    min-height: var(--desc-modal-min-height);
     max-height: var(--desc-modal-max-height);
-    margin: 4vh auto;
+    margin: 2vh auto;
     padding: 0;
     border: none;
     border-radius: var(--desc-modal-radius);
@@ -4979,7 +4980,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: var(--desc-modal-col-gap);
     flex: 1 1 auto;
-    min-height: 0;
+    min-height: var(--desc-modal-body-min-h);
     align-items: stretch;
 }
 
@@ -5108,9 +5109,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .selected-descriptions-list,
 .process-page .description-selection-modal .description-list,
 .process-page .description-selection-modal .selected-descriptions-list {
-    height: var(--desc-modal-list-min-h);
     min-height: var(--desc-modal-list-min-h);
-    max-height: var(--desc-modal-list-min-h);
+    height: 100%;
+    max-height: none;
     overflow-y: auto;
     border: 1px solid var(--color-border);
     border-radius: calc(var(--desc-modal-radius) * 0.45);
