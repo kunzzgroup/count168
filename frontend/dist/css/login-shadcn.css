@@ -289,33 +289,6 @@ button.sc-login-lang-seg.active {
   color: #000000;
 }
 
-.sc-login-tenant-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.sc-login-tenant-tab {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 6px;
-  border: 1px solid #c5d4e8;
-  border-radius: 8px;
-  background: #f4f7fb;
-  color: #334155;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.2;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.sc-login-tenant-tab.active {
-  background: linear-gradient(135deg, var(--login-bg-start), var(--login-bg-end));
-  border-color: transparent;
-  color: #ffffff;
-}
-
 .sc-login-form {
   display: flex;
   flex-direction: column;
