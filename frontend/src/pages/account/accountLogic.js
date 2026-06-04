@@ -47,9 +47,6 @@ export function getOrderedRoles(roles) {
     const t = String(r || "").trim();
     if (t) map.set(toUpper(t), t);
   });
-  ["PARTNER", "STAFF", "DEBTOR"].forEach((r) => {
-    if (!map.has(r)) map.set(r, r);
-  });
   const out = [];
   ROLE_PRIORITY.forEach((p) => {
     if (map.has(p)) {

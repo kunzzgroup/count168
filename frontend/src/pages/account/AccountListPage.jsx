@@ -420,6 +420,26 @@ export default function AccountListPage() {
     [searchTerm, showInactive, showAll, resolveGroupOnlyFetch],
   );
 
+  const loadRoles = useCallback(async ({ companyId: cid = null, groupId = null } = {}) => {
+    try {
+      const url = new URL(buildApiUrl("api/editdata/editdata_api.php"));
+      const numericCid =
+        cid != null ? Number(cid) : companyId != null ? Number(companyId) : null;
+      if (Number.isFinite(numericCid) && numericCid > 0) {
+        url.searchParams.set("company_id", String(numericCid));
+      }
+      const gid = groupId ?? selectedGroup;
+      if (gid) url.searchParams.set("group_id", String(gid));
+      const res = await fetch(url.toString(), { credentials: "include" });
+      const json = await res.json();
+      if (json?.success && Array.isArray(json?.data?.roles)) {
+        setRoles(json.data.roles);
+      }
+    } catch {
+      /* roles are optional for list; modal refetch on open */
+    }
+  }, [companyId, selectedGroup]);
+
   /** Refetch list after add/edit/delete — must pass gc scope (bare fetchAccounts() is a no-op). */
   const refreshAccountList = useCallback(
     (options = {}) => {
@@ -438,14 +458,6 @@ export default function AccountListPage() {
     if (bootInitializedRef.current) return;
     bootInitializedRef.current = true;
     let cancelled = false;
-
-    void fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" })
-      .then((r) => r.json())
-      .then((editJson) => {
-        if (cancelled) return;
-        setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
-      })
-      .catch(() => {});
 
     (async () => {
       try {
@@ -514,6 +526,7 @@ export default function AccountListPage() {
         setShowAll(initialShowAll);
         skipInitialGcSyncRef.current = true;
         setBootLoading(false);
+        void loadRoles({ companyId: resolvedCompanyId, groupId: bootGroup });
 
         const scopeKey = resolvedCompanyId
           ? `company:${Number(resolvedCompanyId)}`
@@ -584,7 +597,7 @@ export default function AccountListPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, sessionMe, navigate, fetchAccounts]);
+  }, [sessionReady, sessionMe, navigate, fetchAccounts, loadRoles]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
@@ -1447,7 +1460,9 @@ export default function AccountListPage() {
     setSelectedCurrencyIds([]); setCurrencyInput("");
     setInitialEditCurrencyIds([]);
     setHiddenCurrencyIds([]);
-    setAddModalOpen(true); loadSelectionMeta(null, false);
+    setAddModalOpen(true);
+    void loadRoles();
+    loadSelectionMeta(null, false);
   };
 
   const openCurrencySetting = () => {
