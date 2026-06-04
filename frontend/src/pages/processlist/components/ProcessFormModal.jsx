@@ -228,7 +228,7 @@ export default function ProcessFormModal({
                     <label>{t("selectMultiUseProcesses")}</label>
                     <div className="process-checkboxes" id="process_checkboxes">
                       {multiUseRows.map((p) => (
-                        <div key={p.process_name} className="checkbox-item">
+                        <div key={p.process_name} className="checkbox-item" title={p.process_name}>
                           <input
                             type="checkbox"
                             id={`mp_${p.process_name.replace(/[^a-zA-Z0-9_]/g, "_")}`}
@@ -268,7 +268,7 @@ export default function ProcessFormModal({
                     <label>{t("selectedMultiUseProcesses")}</label>
                     <div className="selected-processes" id="selected_processes_list">
                       {form.selected_processes?.map((name) => (
-                        <div key={name} className="selected-process-item">
+                        <div key={name} className="selected-process-item" title={name}>
                           <span>{name}</span>
                           <button
                             type="button"
