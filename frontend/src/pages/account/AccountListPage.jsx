@@ -1051,6 +1051,49 @@ export default function AccountListPage() {
         return;
       }
 
+      if (allowGroupOnly) {
+        sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+        const gcScope = {
+          companyId: null,
+          selectedGroup: g,
+          groupsAllMode: false,
+          groupAllMode: false,
+          mergeCompanyIds,
+          groupIds,
+          isListScopeReady: true,
+        };
+        skipCompanyFetchEffectRef.current = true;
+        suppressGcSyncRef.current = true;
+        flushSync(() => {
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+          setSelectedGroup(g);
+          setCompanyId(null);
+          applyCacheOrClearAccounts(gcScope, { groupOnly: true });
+        });
+        persistDashboardGroupFilter(g);
+        persistDashboardGroupOnlyMode(true);
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        persistDashboardSelectedCompany(null);
+        stripCompanyIdFromUrl();
+        notifyDashboardGroupFilterChanged(g, null);
+        suppressGcSyncRef.current = false;
+        const cacheKey = resolveAccountListCacheKey(`group:${g}`, searchTerm, showInactive, showAll);
+        lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
+          `group:${g}`,
+          searchTerm,
+          showInactive,
+          showAll,
+        );
+        if (!accountListCacheRef.current.has(cacheKey)) {
+          skipCompanyFetchEffectRef.current = true;
+          startTransition(() => {
+            void fetchAccounts(gcScope, { silent: true, groupOnly: true });
+          });
+        }
+        return;
+      }
+
       const pick =
         resolveCompanyPickWhenSwitchingGroup(companies, g, companyId) ??
         pickDefaultSubsidiaryForGroup(companies, g, {
