@@ -218,6 +218,17 @@ export function pruneEmptyShareRows(fs) {
   return out;
 }
 
+/**
+ * Group 实体行：company_id 与 group_id 相同，或 company_id 为空仅带 group_id（与 PHP ensureGroupEntityCompanyId 一致）。
+ * 此类行不算「独立公司」，不与 Group ID 做互斥冲突。
+ */
+export function domainCompanyRowIsGroupEntity(company) {
+  const gid = String(company?.group_id ?? "").trim().toUpperCase();
+  if (!gid) return false;
+  const cid = String(company?.company_id ?? "").trim().toUpperCase();
+  return cid === gid || cid === "";
+}
+
 /** 将 tempCompany 对象映射为 API payload entry */
 export function companyToDomainPayloadEntry(c) {
   return {

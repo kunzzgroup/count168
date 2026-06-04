@@ -1848,7 +1848,22 @@ function domainApiNormalizeCompaniesPayload($companies): array {
 }
 
 /**
- * Group ID 与 Company ID 不得使用相同代码（同一 owner 提交的 companies payload）
+ * Group 实体行（company_id 与 group_id 相同，或仅 group 占位）：与 addaccountapi ensureGroupEntityCompanyId 一致，不参与互斥。
+ */
+function domainApiRowIsGroupEntity(array $row): bool
+{
+    $gidRaw = $row['group_id'] ?? null;
+    $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
+    if ($gid === '') {
+        return false;
+    }
+    $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
+
+    return $cid === $gid || $cid === '';
+}
+
+/**
+ * Group ID 与 Company ID 不得使用相同代码（同一 owner 提交的 companies payload；排除 group 实体行）
  */
 function domainApiValidateGroupCompanyIdMutualExclusivity(array $rows): ?string
 {
@@ -1861,7 +1876,7 @@ function domainApiValidateGroupCompanyIdMutualExclusivity(array $rows): ?string
         $cid = strtoupper(trim((string) ($row['company_id'] ?? '')));
         $gidRaw = $row['group_id'] ?? null;
         $gid = ($gidRaw !== null && trim((string) $gidRaw) !== '') ? strtoupper(trim((string) $gidRaw)) : '';
-        if ($cid !== '') {
+        if ($cid !== '' && !domainApiRowIsGroupEntity($row)) {
             $companyKeys[$cid] = true;
         }
         if ($gid !== '') {

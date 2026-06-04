@@ -9,6 +9,7 @@ import {
   normalizeFeeShareFromServer,
   ensureCompanyFeeShare,
   companyToDomainPayloadEntry,
+  domainCompanyRowIsGroupEntity,
   forceUppercaseValue,
   forceNumericValue,
 } from "../domainHelpers.js";
@@ -20,10 +21,11 @@ function normalizeDomainCode(value) {
   return String(value ?? "").trim().toUpperCase();
 }
 
-/** @returns {string|null} conflicting code if any group id equals a company id */
+/** @returns {string|null} conflicting code if a non–group-entity company id equals a group id */
 function findGroupCompanyCodeOverlap(tempGroups, tempCompanies) {
   const groupSet = new Set(tempGroups.map((g) => normalizeDomainCode(g)).filter(Boolean));
   for (const c of tempCompanies) {
+    if (domainCompanyRowIsGroupEntity(c)) continue;
     const cid = normalizeDomainCode(c.company_id);
     if (cid && groupSet.has(cid)) return cid;
   }
