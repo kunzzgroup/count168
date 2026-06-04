@@ -330,6 +330,9 @@ function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): 
         && filter_var($params['group_only'], FILTER_VALIDATE_BOOLEAN);
 
     $forceGroupLedger = $groupOnly;
+    if ($groupOnly) {
+        $requestedId = 0;
+    }
     // Group login defaults to group ledger only when no explicit subsidiary company_id was sent.
     if (
         !$forceGroupLedger

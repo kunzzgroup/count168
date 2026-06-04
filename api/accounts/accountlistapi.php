@@ -516,15 +516,20 @@ try {
                 ]);
                 exit;
             }
-            $legacyEntityId = resolveGroupEntityCompanyId($pdo, $group_scope_id);
-            if ($legacyEntityId > 0) {
-                $company_id = $legacyEntityId;
-                if (gc_is_group_login()) {
-                    gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
-                }
-            } else {
+            if ($explicitGroupOnly) {
                 $groupOnlyLedger = true;
                 $company_id = null;
+            } else {
+                $legacyEntityId = resolveGroupEntityCompanyId($pdo, $group_scope_id);
+                if ($legacyEntityId > 0) {
+                    $company_id = $legacyEntityId;
+                    if (gc_is_group_login()) {
+                        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
+                    }
+                } else {
+                    $groupOnlyLedger = true;
+                    $company_id = null;
+                }
             }
         }
     }

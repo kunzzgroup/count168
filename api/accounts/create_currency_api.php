@@ -108,6 +108,8 @@ try {
         $groupOnly = true;
         $groupScopeId = $groupScopeId ?? normalizeGroupId($_SESSION['login_identifier'] ?? null);
         $requestedCompanyId = 0;
+    } elseif ($groupOnly) {
+        $requestedCompanyId = 0;
     } elseif (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
         $requestedCompanyId = (int) $input['company_id'];
     }

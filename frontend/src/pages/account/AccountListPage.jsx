@@ -262,17 +262,10 @@ export default function AccountListPage() {
     window.history.replaceState({}, document.title, url.toString());
   }, [companyId, searchTerm, showInactive, showAll]);
 
-  const resolveGroupOnlyFetch = useCallback(
-    (gcScope) => {
-      const { companyId: cid, selectedGroup: sg, groupsAllMode: gAll, groupAllMode: cAll } = gcScope || {};
-      const scopeReady = Boolean(sg && !cid && !cAll && !gAll);
-      if (!scopeReady) return false;
-      if (isGroupLogin(sessionMe)) return true;
-      if (!isCompanyLogin(sessionMe)) return true;
-      return isDashboardGroupOnlyMode();
-    },
-    [sessionMe],
-  );
+  const resolveGroupOnlyFetch = useCallback((gcScope) => {
+    const { companyId: cid, selectedGroup: sg, groupsAllMode: gAll, groupAllMode: cAll } = gcScope || {};
+    return Boolean(sg && !cid && !cAll && !gAll);
+  }, []);
 
   const fetchAccounts = useCallback(
     async (gcScope, { silent = false, groupOnly = null } = {}) => {
@@ -1374,13 +1367,8 @@ export default function AccountListPage() {
     () => Boolean(selectedGroup && !companyId && !groupAllMode && !groupsAllMode),
     [selectedGroup, companyId, groupAllMode, groupsAllMode],
   );
-  /** True only when no subsidiary company pill is selected (group ledger). Company pill always wins. */
-  const groupOnlyAccountMode = useMemo(() => {
-    if (!isGroupOnlyScope) return false;
-    if (isGroupLogin(sessionMe)) return true;
-    if (maintenancePageAllowGroupOnlyPill(sessionMe)) return true;
-    return isDashboardGroupOnlyMode();
-  }, [isGroupOnlyScope, sessionMe]);
+  /** No subsidiary company pill selected → group ledger APIs only (never legacy group-entity company row). */
+  const groupOnlyAccountMode = isGroupOnlyScope;
   const groupPickerCompanies = useMemo(() => {
     if (!groupOnlyAccountMode) return [];
     return groupIds

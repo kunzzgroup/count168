@@ -56,9 +56,13 @@ function resolveDeleteCurrencyContext(PDO $pdo, array $input): array
         $groupOnly = true;
     }
 
+    if ($groupOnly) {
+        unset($input['company_id']);
+    }
+
     $params = [
         'group_id' => $input['group_id'] ?? ($_GET['group_id'] ?? null),
-        'company_id' => $input['company_id'] ?? ($_GET['company_id'] ?? null),
+        'company_id' => $groupOnly ? null : ($input['company_id'] ?? ($_GET['company_id'] ?? null)),
         'group_only' => $groupOnly ? '1' : ($input['group_only'] ?? ($_GET['group_only'] ?? null)),
         'session_company_id' => $_SESSION['company_id'] ?? null,
     ];
