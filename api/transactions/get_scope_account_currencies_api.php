@@ -59,19 +59,43 @@ try {
     $currencyCompanyIds = [];
     $accountIds = [];
 
-    // Group-only: entity + group-ledger acc currencies (never subsidiary company_ids expansion).
+    // Group-only: group ledger + entity/subsidiary anchor currencies.
     if ($viewGroup !== '' && !$subsidiaryAccountsOnly) {
         $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+        $subsidiaryIds = gc_company_numeric_ids_for_group_code($pdo, $viewGroup);
         if ($entityId > 0) {
             $currencyCompanyIds = [$entityId];
+        } elseif ($subsidiaryIds !== []) {
+            $currencyCompanyIds = $subsidiaryIds;
         }
         $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
+        foreach ($subsidiaryIds as $subId) {
+            $accountIds = array_merge(
+                $accountIds,
+                dashboardCollectScopeAccountIds($pdo, (int) $subId, $viewGroup, 0)
+            );
+        }
+        $accountIds = array_values(array_unique(array_filter($accountIds)));
     } elseif ($groupCode !== '' && $primaryCompanyId <= 0 && $companyIds === []) {
+        if (!gc_session_can_access_group_code($pdo, $groupCode)) {
+            api_error('无效的集团', 400);
+            exit;
+        }
         $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+        $subsidiaryIds = gc_company_numeric_ids_for_group_code($pdo, $groupCode);
         if ($entityId > 0) {
             $currencyCompanyIds[] = $entityId;
+        } elseif ($subsidiaryIds !== []) {
+            $currencyCompanyIds = $subsidiaryIds;
         }
         $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $groupCode);
+        foreach ($subsidiaryIds as $subId) {
+            $accountIds = array_merge(
+                $accountIds,
+                dashboardCollectScopeAccountIds($pdo, (int) $subId, $groupCode, 0)
+            );
+        }
+        $accountIds = array_values(array_unique(array_filter($accountIds)));
     } else {
         if ($primaryCompanyId <= 0 && $companyIds !== []) {
             $primaryCompanyId = (int) $companyIds[0];

@@ -58,6 +58,7 @@ const WEEKDAYS_ZH = ["日", "一", "二", "三", "四", "五", "六"];
  */
 export default function CompanySettingsModal({
   lang = "en",
+  tenantType = "company",
   company: initCompany,
   domainPeriodPrices,
   sessionCompanyId,
@@ -65,6 +66,10 @@ export default function CompanySettingsModal({
   onSave,
   onClose,
 }) {
+  const isGroup = tenantType === "group";
+  const entityCode = isGroup
+    ? String(initCompany?.group_code ?? initCompany?.company_id ?? "").trim().toUpperCase()
+    : String(initCompany?.company_id ?? "").trim().toUpperCase();
   const isZh = lang === "zh";
   const t = (key, params) => getDomainText(lang, key, params);
   // Local copy of company being edited
@@ -134,7 +139,10 @@ export default function CompanySettingsModal({
       cache: "no-cache",
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "get_company_share_settings", company_id: company.company_id }),
+      body: JSON.stringify({
+        action: "get_company_share_settings",
+        company_id: isGroup ? (sessionCompanyCode || "C168") : company.company_id,
+      }),
     })
       .then((r) => r.json())
       .then((res) => {
@@ -146,13 +154,16 @@ export default function CompanySettingsModal({
         }
       })
       .catch(() => { setShareAccounts([]); setShareAccountsProfit([]); });
-  }, [company.company_id, fsa]);
+  }, [company.company_id, fsa, isGroup, sessionCompanyCode]);
 
   // Load share accounts from API
   useEffect(() => {
     loadAccounts();
 
-    // Load permissions if not cached
+    if (isGroup) {
+      return;
+    }
+
     if (!Array.isArray(initCompany.permissions) || initCompany.permissions.length === 0) {
       fetch(buildApiUrl("api/domain/domain_api.php"), {
         cache: "no-cache",
@@ -232,6 +243,24 @@ export default function CompanySettingsModal({
 
     const cleanFsa = pruneEmptyShareRows(fsa);
 
+    if (isGroup) {
+      const updated = {
+        ...company,
+        group_code: entityCode,
+        expiration_date: expDate,
+        selectedPeriod: period || company.selectedPeriod,
+        startDate,
+        isExtending: company.isExtending,
+        originalExpirationDate: company.originalExpirationDate,
+        permissions: [...permissions],
+        fee_share_allocations: cleanFsa,
+        apply_commission_payments_on_domain_save: chargeOnSave,
+      };
+      showDomainAlert(t("groupUpdatedShareAfterSave"));
+      onSave(updated);
+      return;
+    }
+
     const permReq = fetch(buildApiUrl("api/domain/domain_api.php"), {
       cache: "no-cache",
       method: "POST",
@@ -293,7 +322,11 @@ export default function CompanySettingsModal({
   }
 
   // ─── Share % helpers（周期变更时按 Price 中对应金额重算，含 C168 行） ─────
-  const effectiveFeePrice = resolveDomainFeePriceForPeriod(domainPeriodPrices, period);
+  const effectiveFeePrice = resolveDomainFeePriceForPeriod(
+    domainPeriodPrices,
+    period,
+    isGroup ? "group" : "company"
+  );
   const totals = computeShareTotals(fsa, effectiveFeePrice);
 
   function updateShareRow(role, idx, field, value) {
@@ -367,7 +400,9 @@ export default function CompanySettingsModal({
       >
         <div className="company-settings-react-modal modal-content company-settings-modal-content--split relative mx-auto mt-[2%] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
         <div className="modal-header company-settings-modal-header border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)]">
-          <h2 className="m-0 text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">{t("companySettings")}</h2>
+          <h2 className="m-0 text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">
+            {isGroup ? t("groupSettings") : t("companySettings")}
+          </h2>
           <button
             type="button"
             className="account-close"
@@ -379,10 +414,13 @@ export default function CompanySettingsModal({
           <div className="company-settings-split">
             {/* ── Left: General ── */}
             <div id="companySettingsPanelGeneral" className="company-settings-split-left">
-              <h3 className="company-settings-column-title">{t("companySettingsLower")}</h3>
+              <h3 className="company-settings-column-title">
+                {isGroup ? t("groupSettingsLower") : t("companySettingsLower")}
+              </h3>
               <div className="mb-[clamp(6px,0.625vw,12px)]">
                 <label id="expDateCompanyName" className="company-settings-company-name-label">
-                  {t("companyPrefix")}{company.company_id}
+                  {isGroup ? t("groupPrefix") : t("companyPrefix")}
+                  {entityCode}
                 </label>
               </div>
               {/* Start Date + Period */}

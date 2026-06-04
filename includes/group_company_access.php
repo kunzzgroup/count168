@@ -14,6 +14,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/group_scope_resolve.php';
+
 const GC_LOGIN_SCOPE_GROUP = 'group';
 const GC_LOGIN_SCOPE_COMPANY = 'company';
 
@@ -309,6 +311,89 @@ function gc_assert_company_id_allowed_for_login_scope(PDO $pdo, int $numericComp
     }
 }
 
+/**
+ * Filter company rows for list/switch APIs (same rules as get_owner_companies_api).
+ *
+ * @param array<int, array<string, mixed>> $companies
+ * @return array<int, array<string, mixed>>
+ */
+function gc_apply_login_scope_company_filter(PDO $pdo, array $companies): array
+{
+    gc_hydrate_accessible_group_ids($pdo, $companies);
+
+    return gc_filter_companies_for_login_scope($companies);
+}
+
+/**
+ * Exclude legacy empty company_id placeholder rows from UI lists.
+ *
+ * @param array<int, array<string, mixed>> $companies
+ * @return array<int, array<string, mixed>>
+ */
+function gc_filter_real_company_rows(array $companies): array
+{
+    return array_values(array_filter($companies, static function ($c) {
+        $code = strtoupper(trim((string) ($c['company_id'] ?? '')));
+
+        return $code !== '';
+    }));
+}
+
+/**
+ * Standard write/read API guard for a numeric company id (group login fence + owner/user map).
+ */
+function gc_assert_api_company_access(PDO $pdo, int $companyId, ?string $viewGroup = null): void
+{
+    if ($companyId <= 0) {
+        throw new RuntimeException('无效的 company_id');
+    }
+
+    if (gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $viewGroup);
+
+        return;
+    }
+
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    if ($userId <= 0) {
+        throw new RuntimeException('用户未登录');
+    }
+
+    $role = strtolower((string) ($_SESSION['role'] ?? ''));
+    $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
+
+    if ($role === 'owner' || $userType === 'owner') {
+        $ownerId = (int) ($_SESSION['owner_id'] ?? $userId);
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?');
+        $stmt->execute([$companyId, $ownerId]);
+        if ((int) $stmt->fetchColumn() > 0) {
+            return;
+        }
+        throw new RuntimeException('无权限访问该公司');
+    }
+
+    if ($userType === 'member') {
+        $memberId = $userId;
+        $stmt = $pdo->prepare('
+            SELECT COUNT(*)
+            FROM account_company ac
+            WHERE ac.account_id = ? AND ac.company_id = ?
+        ');
+        $stmt->execute([$memberId, $companyId]);
+        if ((int) $stmt->fetchColumn() > 0) {
+            return;
+        }
+    }
+
+    $ucm = $pdo->prepare('SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?');
+    $ucm->execute([$userId, $companyId]);
+    if ((int) $ucm->fetchColumn() > 0) {
+        return;
+    }
+
+    throw new RuntimeException('无权限访问该公司');
+}
+
 /** Block company-login callers from group-only APIs. */
 function gc_assert_group_only_operation_allowed(): void
 {
@@ -358,6 +443,53 @@ function gc_session_accessible_group_ids(): array
 /**
  * @param array<int, array<string, mixed>> $companies
  */
+/**
+ * Whether the logged-in user may use this group code (group login, owner, or subsidiary access).
+ */
+function gc_session_can_access_group_code(PDO $pdo, string $groupCode): bool
+{
+    $g = gc_normalize_group_code($groupCode);
+    if ($g === '') {
+        return false;
+    }
+
+    if (gc_is_group_login()) {
+        $ident = gc_session_login_identifier();
+        if ($ident !== null && $ident === $g) {
+            return true;
+        }
+        if (in_array($g, gc_session_accessible_group_ids(), true)) {
+            return true;
+        }
+    }
+
+    $role = strtolower((string) ($_SESSION['role'] ?? ''));
+    if ($role === 'owner' && gc_has_groups_table($pdo)) {
+        $ownerId = (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0);
+        if ($ownerId > 0) {
+            try {
+                $stmt = $pdo->prepare(
+                    'SELECT 1 FROM `groups` WHERE UPPER(TRIM(group_code)) = ? AND owner_id = ? LIMIT 1'
+                );
+                $stmt->execute([$g, $ownerId]);
+                if ($stmt->fetchColumn()) {
+                    return true;
+                }
+            } catch (Throwable $e) {
+                // fall through
+            }
+        }
+    }
+
+    foreach (gc_company_numeric_ids_for_group_code($pdo, $g) as $cid) {
+        if (gc_session_can_access_company_id($pdo, (int) $cid, $g)) {
+            return true;
+        }
+    }
+
+    return gc_resolve_group_pk_by_code($pdo, $g) > 0;
+}
+
 function gc_hydrate_accessible_group_ids(PDO $pdo, array $companies): void
 {
     if (gc_session_login_scope() === null) {
@@ -370,6 +502,12 @@ function gc_hydrate_accessible_group_ids(PDO $pdo, array $companies): void
         $ident = gc_session_login_identifier();
         if ($ident !== null) {
             $groups[$ident] = true;
+        }
+        if (gc_has_groups_table($pdo) && $ident !== null) {
+            $pk = gc_resolve_group_pk_by_code($pdo, $ident);
+            if ($pk > 0) {
+                $_SESSION['login_group_scope_id'] = $pk;
+            }
         }
     }
 
@@ -421,6 +559,20 @@ function gc_resolve_owner_ids_for_group_links(PDO $pdo, array $companies): array
     $ident = gc_session_login_identifier();
     if ($ident !== null) {
         if (gc_is_group_login()) {
+            if (gc_has_groups_table($pdo)) {
+                try {
+                    $gOwner = $pdo->prepare(
+                        'SELECT owner_id FROM `groups` WHERE UPPER(TRIM(group_code)) = ? AND owner_id IS NOT NULL LIMIT 1'
+                    );
+                    $gOwner->execute([$ident]);
+                    $oid = (int) ($gOwner->fetchColumn() ?: 0);
+                    if ($oid > 0) {
+                        $ownerIds[] = $oid;
+                    }
+                } catch (Throwable $e) {
+                    // fall through
+                }
+            }
             $stmt = $pdo->prepare(
                 'SELECT DISTINCT owner_id FROM company
                  WHERE UPPER(TRIM(group_id)) = ? AND owner_id IS NOT NULL'

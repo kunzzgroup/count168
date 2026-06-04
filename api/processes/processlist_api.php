@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
@@ -153,20 +154,19 @@ function getCurrentUserId(PDO $pdo) {
     throw new Exception("无法获取有效的用户 ID。请确保已登录并且 user 表中有有效的用户记录。");
 }
 
-/** 检查当前用户是否有权访问指定公司（owner 查 company，普通用户查 user_company_map） */
+/** 检查当前用户是否有权访问指定公司（owner 查 company，普通用户查 user_company_map；集团登录加 scope 围栏） */
 function checkCompanyAccess(PDO $pdo, int $requestedCompanyId): bool
 {
-    $currentUserId = $_SESSION['user_id'] ?? null;
-    $currentUserRole = $_SESSION['role'] ?? '';
-    if ($currentUserRole === 'owner') {
-        $ownerId = $_SESSION['owner_id'] ?? $currentUserId;
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-        $stmt->execute([$requestedCompanyId, $ownerId]);
-        return $stmt->fetchColumn() > 0;
+    try {
+        $viewGroup = isset($_GET['group_id']) ? gc_normalize_view_group((string) $_GET['group_id']) : null;
+        if ($viewGroup === null && gc_is_group_login()) {
+            $viewGroup = gc_session_login_identifier();
+        }
+        gc_assert_api_company_access($pdo, $requestedCompanyId, $viewGroup);
+        return true;
+    } catch (RuntimeException $e) {
+        return false;
     }
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
-    $stmt->execute([$currentUserId, $requestedCompanyId]);
-    return $stmt->fetchColumn() > 0;
 }
 
 /**

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import CompanySettingsModal from "./CompanySettingsModal.jsx";
+import GroupSettingsModal from "./GroupSettingsModal.jsx";
 import {
   calculateExpirationDate,
   formatDate,
@@ -9,7 +10,10 @@ import {
   normalizeFeeShareFromServer,
   ensureCompanyFeeShare,
   companyToDomainPayloadEntry,
-  domainCompanyRowIsGroupEntity,
+  createEmptyGroup,
+  groupFromApiRow,
+  groupToDomainPayloadEntry,
+  tempGroupCode,
   forceUppercaseValue,
   forceNumericValue,
 } from "../domainHelpers.js";
@@ -23,9 +27,8 @@ function normalizeDomainCode(value) {
 
 /** @returns {string|null} conflicting code if a non–group-entity company id equals a group id */
 function findGroupCompanyCodeOverlap(tempGroups, tempCompanies) {
-  const groupSet = new Set(tempGroups.map((g) => normalizeDomainCode(g)).filter(Boolean));
+  const groupSet = new Set(tempGroups.map((g) => tempGroupCode(g)).filter(Boolean));
   for (const c of tempCompanies) {
-    if (domainCompanyRowIsGroupEntity(c)) continue;
     const cid = normalizeDomainCode(c.company_id);
     if (cid && groupSet.has(cid)) return cid;
   }
@@ -68,8 +71,8 @@ export default function DomainFormModal({
   const [companyInput, setCompanyInput] = useState("");
   const [groupInput, setGroupInput] = useState("");
 
-  // Company Settings sub-modal
   const [csModalCompanyId, setCsModalCompanyId] = useState(null);
+  const [gsModalGroupCode, setGsModalGroupCode] = useState(null);
 
   function toastDanger(message) {
     showDomainAlert(message, "danger");
@@ -114,39 +117,50 @@ export default function DomainFormModal({
       setOwnerCode(editingDomain.owner_code || "");
       setName(editingDomain.name || "");
       setEmail(editingDomain.email || "");
-      // Load companies from API
-      fetch(buildApiUrl("api/domain/domain_api.php"), {
-        cache: "no-cache",
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get_companies", owner_id: editingDomain.id }),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success && data.data?.companies) {
-            const allGroups = new Set();
-            const validCompanies = [];
-            data.data.companies.forEach((c) => {
-              if (c.group_id) allGroups.add(normalizeDomainCode(c.group_id));
-              if (c.company_id) {
-                const co = {
-                  company_id: c.company_id,
-                  expiration_date: c.expiration_date || null,
-                  permissions: Array.isArray(c.permissions) ? c.permissions : [],
-                  group_id: c.group_id ? normalizeDomainCode(c.group_id) : null,
-                  fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations),
-                };
-                ensureCompanyFeeShare(co);
-                co.originalExpirationDate = co.expiration_date || null;
-                co.selectedPeriod = null;
-                co.startDate = new Date().toISOString().split("T")[0];
-                co.isExtending = false;
-                validCompanies.push(co);
-              }
+      const ownerId = editingDomain.id;
+      const req = (action) =>
+        fetch(buildApiUrl("api/domain/domain_api.php"), {
+          cache: "no-cache",
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, owner_id: ownerId }),
+        }).then((r) => r.json());
+
+      Promise.all([req("get_companies"), req("get_groups")])
+        .then(([coData, grData]) => {
+          const validCompanies = [];
+          if (coData.success && Array.isArray(coData.data?.companies)) {
+            coData.data.companies.forEach((c) => {
+              if (!c.company_id) return;
+              const co = {
+                company_id: c.company_id,
+                expiration_date: c.expiration_date || null,
+                permissions: Array.isArray(c.permissions) ? c.permissions : [],
+                group_id: c.group_id ? normalizeDomainCode(c.group_id) : null,
+                fee_share_allocations: normalizeFeeShareFromServer(c.fee_share_allocations),
+              };
+              ensureCompanyFeeShare(co);
+              co.originalExpirationDate = co.expiration_date || null;
+              co.selectedPeriod = null;
+              co.startDate = new Date().toISOString().split("T")[0];
+              co.isExtending = false;
+              validCompanies.push(co);
             });
-            setTempCompanies(validCompanies);
-            setTempGroups([...allGroups].map(normalizeDomainCode).filter(Boolean).sort());
           }
+          setTempCompanies(validCompanies);
+
+          const groups = [];
+          if (grData.success && Array.isArray(grData.data?.groups) && grData.data.groups.length > 0) {
+            grData.data.groups.forEach((row) => groups.push(groupFromApiRow(row)));
+          } else {
+            const legacy = new Set();
+            validCompanies.forEach((c) => {
+              if (c.group_id) legacy.add(c.group_id);
+            });
+            [...legacy].sort().forEach((code) => groups.push(createEmptyGroup(code)));
+          }
+          groups.sort((a, b) => tempGroupCode(a).localeCompare(tempGroupCode(b)));
+          setTempGroups(groups);
         })
         .catch(() => {});
     }
@@ -157,7 +171,7 @@ export default function DomainFormModal({
   async function addCompany() {
     const cid = companyInput.trim().toUpperCase();
     if (!cid) { toastDanger(t("pleaseEnterCompanyId")); return; }
-    if (tempGroups.some((g) => normalizeDomainCode(g) === cid)) {
+    if (tempGroups.some((g) => tempGroupCode(g) === cid)) {
       toastDanger(t("cannotAddCompanyUsesGroupId", { id: cid }));
       return;
     }
@@ -179,6 +193,7 @@ export default function DomainFormModal({
       permissions: [],
       fee_share_allocations: defaultFeeShareAllocations(),
     };
+    ensureCompanyFeeShare(newCo);
     setTempCompanies((prev) => [...prev, newCo]);
     setCompanyInput("");
   }
@@ -194,30 +209,32 @@ export default function DomainFormModal({
       toastDanger(t("cannotAddGroupUsesCompanyId", { id: gid }));
       return;
     }
-    if (tempGroups.some((g) => normalizeDomainCode(g) === gid)) {
+    if (tempGroups.some((g) => tempGroupCode(g) === gid)) {
       toastDanger(t("groupIdAlreadyExists"));
       return;
     }
     if (!(await validateCodeGlobally(gid))) return;
-    setTempGroups((prev) => [...prev, gid]);
+    setTempGroups((prev) => [...prev, createEmptyGroup(gid)]);
     setGroupInput("");
     showDomainAlert(t("groupAdded", { gid }));
   }
 
   function removeGroup(gid) {
-    const count = tempCompanies.filter((c) => c.group_id === gid).length;
+    const code = tempGroupCode(gid);
+    const count = tempCompanies.filter((c) => c.group_id === code).length;
     const msg = count > 0
-      ? t("confirmDeleteGroupWithCount", { gid, count })
-      : t("confirmDeleteGroup", { gid });
+      ? t("confirmDeleteGroupWithCount", { gid: code, count })
+      : t("confirmDeleteGroup", { gid: code });
     if (!confirm(msg)) return;
-    setTempCompanies((prev) => prev.map((c) => c.group_id === gid ? { ...c, group_id: null } : c));
-    setTempGroups((prev) => prev.filter((g) => g !== gid));
-    if (selectedGroupId === gid) { setSelectedGroupId(null); setIsMultipleChoiceMode(false); }
-    showDomainAlert(t("groupRemoved", { gid }));
+    setTempCompanies((prev) => prev.map((c) => c.group_id === code ? { ...c, group_id: null } : c));
+    setTempGroups((prev) => prev.filter((g) => tempGroupCode(g) !== code));
+    if (selectedGroupId === code) { setSelectedGroupId(null); setIsMultipleChoiceMode(false); }
+    showDomainAlert(t("groupRemoved", { gid: code }));
   }
 
   function selectGroup(gid) {
-    setSelectedGroupId((prev) => prev === gid ? null : gid);
+    const code = tempGroupCode(gid);
+    setSelectedGroupId((prev) => prev === code ? null : code);
     setIsMultipleChoiceMode(false);
   }
 
@@ -257,6 +274,18 @@ export default function DomainFormModal({
     setCsModalCompanyId(cid);
   }
 
+  function openGroupSettings(code) {
+    setGsModalGroupCode(tempGroupCode(code));
+  }
+
+  function handleGroupSettingsSaved(updatedGroup) {
+    const code = tempGroupCode(updatedGroup);
+    setTempGroups((prev) =>
+      prev.map((g) => (tempGroupCode(g) === code ? { ...g, ...updatedGroup, group_code: code } : g))
+    );
+    setGsModalGroupCode(null);
+  }
+
   function handleCompanySettingsSaved(updatedCo) {
     setTempCompanies((prev) =>
       prev.map((c) => c.company_id === updatedCo.company_id ? { ...c, ...updatedCo } : c)
@@ -266,22 +295,16 @@ export default function DomainFormModal({
 
   // ── Form submit ────────────────────────────────────────────────────────────
 
+  function buildGroupsPayload() {
+    return [...tempGroups]
+      .sort((a, b) => tempGroupCode(a).localeCompare(tempGroupCode(b)))
+      .map(groupToDomainPayloadEntry);
+  }
+
   function buildCompaniesPayload() {
-    const sorted = [...tempCompanies].sort((a, b) =>
-      a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase())
-    );
-    const cleaned = sorted.map(companyToDomainPayloadEntry);
-    // Add empty-company entries for groups with no companies
-    const groupsWithCos = new Set(cleaned.map((c) => c.group_id).filter(Boolean));
-    tempGroups.forEach((gid) => {
-      if (!groupsWithCos.has(gid)) {
-        cleaned.push(companyToDomainPayloadEntry({
-          company_id: "", expiration_date: null, permissions: [],
-          group_id: gid, fee_share_allocations: defaultFeeShareAllocations(),
-        }));
-      }
-    });
-    return cleaned;
+    return [...tempCompanies]
+      .sort((a, b) => a.company_id.toUpperCase().localeCompare(b.company_id.toUpperCase()))
+      .map(companyToDomainPayloadEntry);
   }
 
   async function handleSubmit(e) {
@@ -302,6 +325,7 @@ export default function DomainFormModal({
       name,
       email: emailCheck.normalized,
       companies: JSON.stringify(buildCompaniesPayload()),
+      groups: JSON.stringify(buildGroupsPayload()),
     };
     if (!isEditMode || password) data.password = password;
     if (!isEditMode) {
@@ -440,6 +464,47 @@ export default function DomainFormModal({
   const csCompany = csModalCompanyId
     ? tempCompanies.find((c) => c.company_id === csModalCompanyId)
     : null;
+
+  const gsGroup = gsModalGroupCode
+    ? tempGroups.find((g) => tempGroupCode(g) === gsModalGroupCode)
+    : null;
+
+  function renderSelectedGroupsList() {
+    if (tempGroups.length === 0) {
+      return <span className="dfm-empty-hint">{t("noGroupsAddedYet")}</span>;
+    }
+    const sorted = [...tempGroups].sort((a, b) =>
+      tempGroupCode(a).localeCompare(tempGroupCode(b))
+    );
+    return sorted.map((g) => {
+      const code = tempGroupCode(g);
+      const count = tempCompanies.filter((c) => c.group_id === code).length;
+      return (
+        <div key={code} className="company-item">
+          <div className="company-item-left">
+            <span>{code}</span>
+            <span className="dfm-group-co-count text-slate-500"> ({count})</span>
+          </div>
+          <div className="company-item-right">
+            <span className="exp-date-display">
+              {g.expiration_date ? formatDate(g.expiration_date) : t("notSet")}
+            </span>
+            <button
+              type="button"
+              className="company-reset-btn"
+              onClick={() => openGroupSettings(code)}
+              title={t("setExpirationDate")}
+            >
+              {t("set")}
+            </button>
+            <button type="button" className="company-remove-btn" onClick={() => removeGroup(code)}>
+              {t("remove")}
+            </button>
+          </div>
+        </div>
+      );
+    });
+  }
 
   const showMcAssignPanel = isMultipleChoiceMode && selectedGroupId;
   const multiChoiceToggle =
@@ -597,28 +662,29 @@ export default function DomainFormModal({
                     <div className="group-pills">
                       {tempGroups.length === 0
                         ? <span className="dfm-empty-hint">{t("noGroupsCreated")}</span>
-                        : tempGroups.map((gid) => {
-                          const count = tempCompanies.filter((c) => c.group_id === gid).length;
+                        : tempGroups.map((g) => {
+                          const code = tempGroupCode(g);
+                          const count = tempCompanies.filter((c) => c.group_id === code).length;
                           return (
                             <span
-                              key={gid}
+                              key={code}
                               role="button"
                               tabIndex={0}
-                              className={`group-pill ${selectedGroupId === gid ? "active" : ""}`}
-                              onClick={() => selectGroup(gid)}
+                              className={`group-pill ${selectedGroupId === code ? "active" : ""}`}
+                              onClick={() => selectGroup(code)}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
                                   e.preventDefault();
-                                  selectGroup(gid);
+                                  selectGroup(code);
                                 }
                               }}
                             >
-                              {gid} ({count})
+                              {code} ({count})
                               <span
                                 className="remove-x"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  removeGroup(gid);
+                                  removeGroup(code);
                                 }}
                               >
                                 &times;
@@ -627,6 +693,13 @@ export default function DomainFormModal({
                           );
                         })
                       }
+                    </div>
+                  </div>
+
+                  <div className="dfm-field">
+                    <span className="dfm-selected-companies-label">{t("selectedGroups")}</span>
+                    <div className="dfm-selected-list dfm-selected-list--groups mt-1 max-h-[140px]">
+                      {renderSelectedGroupsList()}
                     </div>
                   </div>
 
@@ -674,6 +747,17 @@ export default function DomainFormModal({
           sessionCompanyCode={sessionCompanyCode}
           onSave={handleCompanySettingsSaved}
           onClose={() => setCsModalCompanyId(null)}
+        />
+      )}
+      {gsGroup && (
+        <GroupSettingsModal
+          lang={lang}
+          group={gsGroup}
+          domainPeriodPrices={domainPeriodPrices}
+          sessionCompanyId={sessionCompanyId}
+          sessionCompanyCode={sessionCompanyCode}
+          onSave={handleGroupSettingsSaved}
+          onClose={() => setGsModalGroupCode(null)}
         />
       )}
     </DomainModalPortal>

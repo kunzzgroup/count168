@@ -366,11 +366,24 @@ function dashboardResolveGroupCodeFromScopeId(PDO $pdo, int $groupScopeId): stri
 
 function dashboardAssertGroupLedgerAccess(PDO $pdo, string $groupCode, int $groupScopeId): void
 {
-    $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+    $g = reportNormalizeGroupId($groupCode);
+    if ($g === '') {
+        throw new Exception('无效的集团');
+    }
+
+    if ($groupScopeId > 0 && gc_session_can_access_group_code($pdo, $g)) {
+        $entityId = tx_resolve_group_entity_company_id($pdo, $g);
+        if ($entityId > 0) {
+            assertGroupEntityAccess($pdo, $g, $entityId);
+        }
+        return;
+    }
+
+    $entityId = tx_resolve_group_entity_company_id($pdo, $g);
     if ($entityId <= 0) {
         throw new Exception('无效的集团');
     }
-    assertGroupEntityAccess($pdo, $groupCode, $entityId);
+    assertGroupEntityAccess($pdo, $g, $entityId);
 }
 
 function dashboardBuildGroupScopedSummary(

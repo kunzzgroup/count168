@@ -13,6 +13,8 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
+require_once __DIR__ . '/../transactions/transaction_scope.php';
+require_once __DIR__ . '/../../includes/group_company_access.php';
 
 /**
  * 标准 JSON 响应：success, message, data
@@ -32,27 +34,21 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
  * 解析并校验当前请求的公司 ID（GET company_id 或 session）
  */
 function resolveCompanyId(PDO $pdo) {
+    $params = $_GET;
+    if (isset($params['group_id']) || isset($params['view_group']) || gc_is_group_login()) {
+        return tx_resolve_request_company_id($pdo, $params);
+    }
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
         $requestedCompanyId = (int) $_GET['company_id'];
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        if ($userRole === 'owner') {
-            $owner_id = isset($_SESSION['owner_id']) ? (int) $_SESSION['owner_id'] : (int) $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requestedCompanyId, $owner_id]);
-            if ($stmt->fetchColumn()) {
-                return $requestedCompanyId;
-            }
-            throw new Exception('无权访问该公司');
-        }
-        if (!isset($_SESSION['company_id']) || $requestedCompanyId !== (int) $_SESSION['company_id']) {
-            throw new Exception('无权访问该公司');
-        }
+        gc_assert_api_company_access($pdo, $requestedCompanyId, null);
         return $requestedCompanyId;
     }
     if (!isset($_SESSION['company_id'])) {
         throw new Exception('缺少公司信息');
     }
-    return (int) $_SESSION['company_id'];
+    $sessionId = (int) $_SESSION['company_id'];
+    gc_assert_api_company_access($pdo, $sessionId, gc_is_group_login() ? gc_session_login_identifier() : null);
+    return $sessionId;
 }
 
 /**

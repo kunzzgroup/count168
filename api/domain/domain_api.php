@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/email_validation.php';
 require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/domain_groups_helpers.php';
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -2442,20 +2443,32 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
  * 根据 owner_id 获取 owner 及其公司列表（含到期日）
  */
 function getOwnerWithCompanies(PDO $pdo, $owner_id) {
+    $ownerId = (int) $owner_id;
+    $groupCodes = domainApiOwnerGroupIdsForList($pdo, $ownerId);
+    $groupIdsStr = $groupCodes !== [] ? implode(', ', $groupCodes) : null;
+
     $stmt = $pdo->prepare("
         SELECT o.id, o.owner_code, o.name, o.email, o.created_by,
-               GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
                GROUP_CONCAT(NULLIF(TRIM(c.company_id), '') ORDER BY c.company_id SEPARATOR ', ') as companies
         FROM owner o
         LEFT JOIN company c ON o.id = c.owner_id
         WHERE o.id = ?
         GROUP BY o.id
     ");
-    $stmt->execute([$owner_id]);
+    $stmt->execute([$ownerId]);
     $owner = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$owner) return null;
-    $stmt2 = $pdo->prepare("SELECT company_id, expiration_date, group_id FROM company WHERE owner_id = ? ORDER BY company_id");
-    $stmt2->execute([$owner_id]);
+    if (!$owner) {
+        return null;
+    }
+    $owner['group_ids'] = $groupIdsStr;
+    $stmt2 = $pdo->prepare("
+        SELECT company_id, expiration_date, group_id
+        FROM company
+        WHERE owner_id = ?
+          AND company_id IS NOT NULL AND TRIM(company_id) <> ''
+        ORDER BY company_id
+    ");
+    $stmt2->execute([$ownerId]);
     $owner['companies_full'] = $stmt2->fetchAll(PDO::FETCH_ASSOC);
     return $owner;
 }
@@ -2490,7 +2503,6 @@ try {
                         o.email,
                         o.created_by,
                         o.created_at,
-                        GROUP_CONCAT(DISTINCT NULLIF(TRIM(c.group_id), '') ORDER BY c.group_id SEPARATOR ', ') as group_ids,
                         GROUP_CONCAT(NULLIF(TRIM(c.company_id), '') ORDER BY c.company_id SEPARATOR ', ') as companies
                     FROM owner o
                     LEFT JOIN company c ON o.id = c.owner_id
@@ -2500,8 +2512,17 @@ try {
                 $domains = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 foreach ($domains as &$domain) {
-                    $stmt2 = $pdo->prepare("SELECT company_id, expiration_date FROM company WHERE owner_id = ? ORDER BY company_id");
-                    $stmt2->execute([$domain['id']]);
+                    $oid = (int) $domain['id'];
+                    $gCodes = domainApiOwnerGroupIdsForList($pdo, $oid);
+                    $domain['group_ids'] = $gCodes !== [] ? implode(', ', $gCodes) : null;
+                    $stmt2 = $pdo->prepare("
+                        SELECT company_id, expiration_date
+                        FROM company
+                        WHERE owner_id = ?
+                          AND company_id IS NOT NULL AND TRIM(company_id) <> ''
+                        ORDER BY company_id
+                    ");
+                    $stmt2->execute([$oid]);
                     $domain['companies_full'] = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                 }
                 unset($domain);
@@ -2529,6 +2550,7 @@ try {
             $password = $data['password'] ?? '';
             $secondary_password = $data['secondary_password'] ?? '';
             $companies = $data['companies'] ?? '';
+            $groups = $data['groups'] ?? '';
             
             // Validate required fields
             if (empty($owner_code) || empty($name) || empty($email) || empty($password) || empty($secondary_password)) {
@@ -2542,10 +2564,17 @@ try {
                 exit;
             }
 
-            $companies_data = domainApiNormalizeCompaniesPayload($companies);
-            $overlapErr = domainApiValidateGroupCompanyIdMutualExclusivity($companies_data);
+            $groups_data = domainApiNormalizeGroupsPayload($groups);
+            $companies_data = domainApiFilterRealCompaniesPayload(domainApiNormalizeCompaniesPayload($companies));
+            $overlapErr = domainApiValidateGroupsAndCompaniesExclusivity($groups_data, $companies_data);
             if ($overlapErr !== null) {
                 echo json_encode(['success' => false, 'message' => $overlapErr, 'data' => null]);
+                exit;
+            }
+
+            $dupGroupErr = domainApiValidateGroupCodesUniqueWithinPayload($groups_data);
+            if ($dupGroupErr !== null) {
+                echo json_encode(['success' => false, 'message' => $dupGroupErr, 'data' => null]);
                 exit;
             }
 
@@ -2555,7 +2584,7 @@ try {
                 exit;
             }
 
-            $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $companies_data, null);
+            $crossOwnerErr = domainApiValidateCrossOwnerCodesIncludingGroups($pdo, $groups_data, $companies_data, null);
             if ($crossOwnerErr !== null) {
                 echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
                 exit;
@@ -2579,22 +2608,28 @@ try {
                 $stmt->execute([$owner_code, $name, $email, $hashed_password, $hashed_secondary_password, $_SESSION['login_id'] ?? 'system']);
                 
                 $owner_id = $pdo->lastInsertId();
+                $loginId = $_SESSION['login_id'] ?? 'system';
+
+                domainApiSaveOwnerGroups($pdo, (int) $owner_id, $groups_data, $loginId);
                 
-                // Insert companies if any（companies 可为 JSON 字符串或已解析数组）
+                // Insert companies if any（仅真实 company_id，不含 group 占位行）
                 if (!empty($companies_data)) {
                     $stmt = $pdo->prepare("INSERT INTO company (company_id, owner_id, created_by, expiration_date, permissions, group_id, fee_share_allocations) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     foreach ($companies_data as $company) {
                         $company_id = strtoupper(trim((string) ($company['company_id'] ?? '')));
+                        if ($company_id === '') {
+                            continue;
+                        }
                         $expiration_date = !empty($company['expiration_date']) ? $company['expiration_date'] : null;
                         $permissions = (isset($company['permissions']) && is_array($company['permissions'])) ? json_encode($company['permissions']) : null;
                         $group_id = !empty($company['group_id']) ? strtoupper(trim((string) $company['group_id'])) : null;
                         $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($company['fee_share_allocations'] ?? null));
-                        if (!empty($company_id) || !empty($group_id)) {
-                            $db_company_id = !empty($company_id) ? $company_id : '';
-                            $stmt->execute([$db_company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date, $permissions, $group_id, $fee_share_json]);
-                        }
+                        $stmt->execute([$company_id, $owner_id, $loginId, $expiration_date, $permissions, $group_id, $fee_share_json]);
                     }
                 }
+
+                domainApiSyncGroupCompanyMap($pdo, (int) $owner_id);
+                domainApiDeleteGroupOnlyCompanyRows($pdo, (int) $owner_id);
 
                 // 复用已标准化的 companies 数组，避免原始 JSON 字符串格式差异导致只提取到部分 company
                 $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies_data);
@@ -2641,6 +2676,7 @@ try {
             $password = $data['password'] ?? '';
             $secondary_password = $data['secondary_password'] ?? '';
             $companies = $data['companies'] ?? '';
+            $groups = $data['groups'] ?? '';
             
             if (empty($id) || empty($name) || empty($email)) {
                 echo json_encode(['success' => false, 'message' => 'Required fields are missing', 'data' => null]);
@@ -2661,10 +2697,17 @@ try {
                 }
             }
 
-            $companies_data = domainApiNormalizeCompaniesPayload($companies);
-            $overlapErr = domainApiValidateGroupCompanyIdMutualExclusivity($companies_data);
+            $groups_data = domainApiNormalizeGroupsPayload($groups);
+            $companies_data = domainApiFilterRealCompaniesPayload(domainApiNormalizeCompaniesPayload($companies));
+            $overlapErr = domainApiValidateGroupsAndCompaniesExclusivity($groups_data, $companies_data);
             if ($overlapErr !== null) {
                 echo json_encode(['success' => false, 'message' => $overlapErr, 'data' => null]);
+                exit;
+            }
+
+            $dupGroupErr = domainApiValidateGroupCodesUniqueWithinPayload($groups_data);
+            if ($dupGroupErr !== null) {
+                echo json_encode(['success' => false, 'message' => $dupGroupErr, 'data' => null]);
                 exit;
             }
 
@@ -2675,9 +2718,10 @@ try {
             }
 
             // 编辑保存：仅对新添加的 Company/Group ID 做跨 domain 唯一性校验（与前端 Add 按钮行为一致）
+            $newGroupRows = domainApiFilterGroupsToNewCodes($pdo, (int) $id, $groups_data);
             $newCodeRows = domainApiFilterRowsToNewCompanyGroupCodes($pdo, (int) $id, $companies_data);
-            if ($newCodeRows !== []) {
-                $crossOwnerErr = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $newCodeRows, null);
+            if ($newGroupRows !== [] || $newCodeRows !== []) {
+                $crossOwnerErr = domainApiValidateCrossOwnerCodesIncludingGroups($pdo, $newGroupRows, $newCodeRows, null);
                 if ($crossOwnerErr !== null) {
                     echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
                     exit;
@@ -2720,40 +2764,44 @@ try {
                 $sql = "UPDATE owner SET " . implode(', ', $updateFields) . " WHERE id = ?";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute($updateValues);
+
+                $loginId = $_SESSION['login_id'] ?? 'system';
+                domainApiSaveOwnerGroups($pdo, (int) $id, $groups_data, $loginId);
                 
-                // Get existing companies for this owner
-                $stmt = $pdo->prepare("SELECT id, company_id, group_id FROM company WHERE owner_id = ?");
+                // Get existing companies for this owner (real companies only)
+                $stmt = $pdo->prepare("
+                    SELECT id, company_id, group_id FROM company
+                    WHERE owner_id = ?
+                      AND company_id IS NOT NULL AND TRIM(company_id) <> ''
+                ");
                 $stmt->execute([$id]);
                 $existing_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                $existing_company_keys = array_map(function($c) { 
-                    return !empty($c['company_id']) ? strtoupper($c['company_id']) : 'GROUPONLY:' . strtoupper($c['group_id']); 
+                $existing_company_keys = array_map(function ($c) {
+                    return strtoupper(trim((string) ($c['company_id'] ?? '')));
                 }, $existing_companies);
                 
-                // Get new company IDs from input（companies 可为 JSON 字符串或已解析数组）
                 $new_companies_data = [];
                 foreach ($companies_data as $company) {
                     $company_id = strtoupper(trim((string) ($company['company_id'] ?? '')));
-                    $group_id = !empty($company['group_id']) ? strtoupper(trim((string) $company['group_id'])) : null;
-                    if (!empty($company_id) || !empty($group_id)) {
-                        $db_company_id = !empty($company_id) ? $company_id : '';
-                        $key = $db_company_id !== '' ? $db_company_id : 'GROUPONLY:' . $group_id;
-                        $new_companies_data[] = [
-                            'key' => $key,
-                            'company_id' => $db_company_id,
-                            'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null,
-                            'permissions' => (isset($company['permissions']) && is_array($company['permissions'])) ? $company['permissions'] : [],
-                            'group_id' => $group_id,
-                            'fee_share_allocations' => $company['fee_share_allocations'] ?? null,
-                        ];
+                    if ($company_id === '') {
+                        continue;
                     }
+                    $group_id = !empty($company['group_id']) ? strtoupper(trim((string) $company['group_id'])) : null;
+                    $new_companies_data[] = [
+                        'key' => $company_id,
+                        'company_id' => $company_id,
+                        'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null,
+                        'permissions' => (isset($company['permissions']) && is_array($company['permissions'])) ? $company['permissions'] : [],
+                        'group_id' => $group_id,
+                        'fee_share_allocations' => $company['fee_share_allocations'] ?? null,
+                    ];
                 }
                 $new_company_keys = array_column($new_companies_data, 'key');
                 
-                // Find companies to delete (existing but not in new list)
                 $companies_to_delete = [];
                 foreach ($existing_companies as $existing) {
-                    $key = !empty($existing['company_id']) ? strtoupper($existing['company_id']) : 'GROUPONLY:' . strtoupper($existing['group_id']);
-                    if (!in_array($key, $new_company_keys)) {
+                    $key = strtoupper(trim((string) ($existing['company_id'] ?? '')));
+                    if ($key !== '' && !in_array($key, $new_company_keys, true)) {
                         $companies_to_delete[] = $existing;
                     }
                 }
@@ -2926,11 +2974,10 @@ try {
                     }
                 }
                 
-                // Update existing companies' expiration dates and permissions if changed
                 foreach ($new_companies_data as $new_company) {
-                    if (in_array($new_company['key'], $existing_company_keys)) {
+                    if (in_array($new_company['key'], $existing_company_keys, true)) {
                         foreach ($existing_companies as $existing) {
-                            $existing_key = !empty($existing['company_id']) ? strtoupper($existing['company_id']) : 'GROUPONLY:' . strtoupper($existing['group_id']);
+                            $existing_key = strtoupper(trim((string) ($existing['company_id'] ?? '')));
                             if ($existing_key === $new_company['key']) {
                                 $permissions_json = !empty($new_company['permissions']) && is_array($new_company['permissions']) ? json_encode($new_company['permissions']) : null;
                                 $fee_share_json = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($new_company['fee_share_allocations'] ?? null));
@@ -2941,6 +2988,9 @@ try {
                         }
                     }
                 }
+
+                domainApiSyncGroupCompanyMap($pdo, (int) $id);
+                domainApiDeleteGroupOnlyCompanyRows($pdo, (int) $id);
 
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
                 
@@ -3134,9 +3184,9 @@ try {
                 jsonResponse(false, 'Code is required', ['available' => false], 400);
                 exit;
             }
-            // 单列即可：校验逻辑会把 code 拿去匹配库中 company_id 与 group_id 两列
-            $pseudoRows = [['company_id' => $code, 'group_id' => null]];
-            $err = domainApiValidateCrossOwnerCompanyGroupExclusivity($pdo, $pseudoRows, $excludeOwnerId);
+            $pseudoGroups = [['group_code' => $code]];
+            $pseudoCompanies = [['company_id' => $code, 'group_id' => null]];
+            $err = domainApiValidateCrossOwnerCodesIncludingGroups($pdo, $pseudoGroups, $pseudoCompanies, $excludeOwnerId);
             if ($err !== null) {
                 jsonResponse(false, $err, ['available' => false, 'code' => $code], 200);
                 exit;
@@ -3155,11 +3205,20 @@ try {
             
             try {
                 ensureCompanyFeeShareColumn($pdo);
-                $stmt = $pdo->prepare("SELECT company_id, expiration_date, permissions, group_id, fee_share_allocations FROM company WHERE owner_id = ? ORDER BY company_id");
+                $stmt = $pdo->prepare("
+                    SELECT company_id, expiration_date, permissions, group_id, fee_share_allocations
+                    FROM company
+                    WHERE owner_id = ?
+                      AND company_id IS NOT NULL AND TRIM(company_id) <> ''
+                    ORDER BY company_id
+                ");
                 $stmt->execute([$owner_id]);
                 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $companies = [];
                 foreach ($rows as $row) {
+                    if (domainApiRowIsGroupEntity($row)) {
+                        continue;
+                    }
                     $perms = $row['permissions'];
                     if ($perms !== null && $perms !== '') {
                         $decoded = json_decode($perms, true);
@@ -3180,6 +3239,29 @@ try {
                     'success' => false,
                     'message' => 'Error: ' . $e->getMessage(),
                     'data' => null
+                ]);
+            }
+            break;
+
+        case 'get_groups':
+            $owner_id = $data['owner_id'] ?? ($_GET['owner_id'] ?? 0);
+            if (empty($owner_id)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid owner ID', 'data' => null]);
+                exit;
+            }
+            try {
+                ensureCompanyFeeShareColumn($pdo);
+                $groups = domainApiFetchOwnerGroupsFormatted($pdo, (int) $owner_id);
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'OK',
+                    'data' => ['groups' => $groups],
+                ]);
+            } catch (Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Error: ' . $e->getMessage(),
+                    'data' => null,
                 ]);
             }
             break;

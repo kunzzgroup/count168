@@ -19,8 +19,11 @@ function formulaMaintenanceResolveEntityCompanyId(PDO $pdo, int $companyId, bool
         return 0;
     }
     $entityId = tx_resolve_group_entity_company_id($pdo, $g);
+    if ($entityId > 0) {
+        return $entityId;
+    }
 
-    return $entityId > 0 ? $entityId : 0;
+    return gc_resolve_group_anchor_company_id($pdo, $g);
 }
 
 /**
@@ -107,30 +110,35 @@ function formulaMaintenanceResolveRequestScope(PDO $pdo, array $params): array
             $viewGroupForAccess !== '' ? $viewGroupForAccess : null
         );
     } else {
-        $requested = isset($params['company_id']) ? trim((string) $params['company_id']) : '';
-        if ($requested !== '') {
-            $requested = (int) $requested;
-            $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-            if ($userRole === 'owner') {
-                $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-                $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
-                $stmt->execute([$requested, $owner_id]);
-                if ($stmt->fetchColumn()) {
-                    $companyId = $requested;
-                } else {
+        if (gc_is_group_login() || isset($params['group_id']) || isset($params['view_group'])) {
+            $companyId = tx_resolve_request_company_id($pdo, $params);
+            $isGroupScope = false;
+        } else {
+            $requested = isset($params['company_id']) ? trim((string) $params['company_id']) : '';
+            if ($requested !== '') {
+                $requested = (int) $requested;
+                $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
+                if ($userRole === 'owner') {
+                    $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
+                    $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
+                    $stmt->execute([$requested, $owner_id]);
+                    if ($stmt->fetchColumn()) {
+                        $companyId = $requested;
+                    } else {
+                        throw new Exception('无权访问该公司');
+                    }
+                } elseif (!isset($_SESSION['company_id']) || (int) $_SESSION['company_id'] !== $requested) {
                     throw new Exception('无权访问该公司');
+                } else {
+                    $companyId = (int) $_SESSION['company_id'];
                 }
-            } elseif (!isset($_SESSION['company_id']) || (int) $_SESSION['company_id'] !== $requested) {
-                throw new Exception('无权访问该公司');
+            } elseif (!isset($_SESSION['company_id'])) {
+                throw new Exception('缺少公司信息');
             } else {
                 $companyId = (int) $_SESSION['company_id'];
             }
-        } elseif (!isset($_SESSION['company_id'])) {
-            throw new Exception('缺少公司信息');
-        } else {
-            $companyId = (int) $_SESSION['company_id'];
+            $isGroupScope = false;
         }
-        $isGroupScope = false;
     }
 
     if ($isGroupScope) {
@@ -141,7 +149,13 @@ function formulaMaintenanceResolveRequestScope(PDO $pdo, array $params): array
     // Company: subsidiary templates only (never AP/IG entity rows).
     $scopeProcessSql = '';
     if ($isGroupScope) {
-        $scopeProcessSql = dcSqlGroupProcessFilter('p') . formulaMaintenanceSqlGroupEntityCompanyFilter('dct');
+        $scopeProcessSql = dcSqlGroupProcessFilter('p');
+        if ($companyId > 0 && formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
+            $scopeProcessSql .= formulaMaintenanceSqlGroupEntityCompanyFilter('dct');
+        } elseif ($companyId > 0) {
+            $a = 'dct';
+            $scopeProcessSql .= " AND {$a}.company_id = " . (int) $companyId . ' ';
+        }
     } else {
         $scopeProcessSql = formulaMaintenanceSqlSubsidiaryCompanyFilter('dct');
     }

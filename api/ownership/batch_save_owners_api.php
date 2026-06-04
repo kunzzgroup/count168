@@ -1,6 +1,7 @@
 <?php
 require_once '../../includes/session_check.php';
 require_once '../../includes/config.php';
+require_once '../../includes/group_company_access.php';
 require_once '../includes/money_decimal.php';
 require_once '../includes/ownership_history.php';
 
@@ -37,6 +38,13 @@ $owners = $inputData['owners'] ?? [];
 
 if (!$company_id) {
     echo json_encode(['status' => 'error', 'message' => 'Missing company_id']);
+    exit();
+}
+
+try {
+    gc_assert_api_company_access($pdo, (int) $company_id, gc_session_login_identifier());
+} catch (RuntimeException $e) {
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     exit();
 }
 
