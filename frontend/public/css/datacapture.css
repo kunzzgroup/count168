@@ -1124,87 +1124,83 @@ body.datacapture-page .bottom-section .form-actions {
     color: #ffffff;
 }
 
-.modal-content.description-selection-modal .modal-footer .btn {
-    min-width: 92px;
-    min-height: 34px;
-    height: 34px;
-    padding: 0 12px;
-    font-size: 13px;
-    border-radius: 5px;
-}
-
-.modal-content.description-selection-modal .add-description-input-group .btn {
-    min-width: 64px;
-    max-width: 64px;
-    min-height: 28px;
-    height: 28px;
-    padding: 0 8px;
-    font-size: 12px;
-    border-radius: 4px;
-}
-
 .description-selection-container {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 28px;
+    grid-template-areas:
+        "desc-sel-list desc-add-h3"
+        "desc-sel-list desc-add-form"
+        "desc-sel-list desc-avail-h3"
+        "desc-sel-list desc-search"
+        "desc-sel-list desc-avail-list";
+    column-gap: var(--desc-modal-col-gap, 28px);
+    row-gap: 0;
     flex: 1 1 auto;
     min-height: 0;
     width: 100%;
-    align-items: stretch;
+    align-items: start;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-section,
 .modal-content.description-selection-modal .available-descriptions-section,
-.selected-descriptions-section,
-.available-descriptions-section {
-    height: 100%;
-    align-self: stretch;
-    min-width: 0;
+.modal-content.description-selection-modal .add-description-bar {
+    display: contents;
 }
 
-.modal-content.description-selection-modal .selected-descriptions-section,
-.selected-descriptions-section {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    border-right: 1px solid #e5e7eb;
-    padding-right: 16px;
-}
-
-.modal-content.description-selection-modal .available-descriptions-section,
-.available-descriptions-section {
-    display: grid;
-    grid-template-rows: auto auto auto auto;
-    padding-left: 8px;
-    overflow: hidden;
-    align-content: start;
-}
-
-.modal-content.description-selection-modal .selected-descriptions-section h3,
-.modal-content.description-selection-modal .available-descriptions-section h3,
-.modal-content.description-selection-modal .add-description-bar h3,
-.selected-descriptions-section h3,
-.available-descriptions-section h3,
-.add-description-bar h3 {
-    margin: 0 0 8px 0;
-    color: var(--color-body-strong, #374151);
+.modal-content.description-selection-modal .selected-descriptions-list-heading {
+    margin: 0 0 var(--desc-modal-list-item-gap, 0.45rem) 0;
     font-size: var(--desc-modal-section-size, var(--text-h3));
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-semibold, 600);
+    color: var(--color-body-strong, #374151);
     line-height: 1.25;
 }
 
-.add-description-bar {
-    margin-bottom: clamp(10px, 1.04vw, 20px);
-    padding-bottom: clamp(10px, 1.04vw, 20px);
+.modal-content.description-selection-modal .selected-descriptions-list-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-content.description-selection-modal .add-description-bar h3 {
+    grid-area: desc-add-h3;
+    margin: 0 0 var(--desc-modal-list-item-gap, 0.45rem) 0;
+    padding-left: calc(var(--desc-modal-col-gap, 28px) * 0.25);
+}
+
+.modal-content.description-selection-modal .available-descriptions-section > h3 {
+    grid-area: desc-avail-h3;
+    margin: 0 0 var(--desc-modal-list-item-gap, 0.45rem) 0;
+    padding-left: calc(var(--desc-modal-col-gap, 28px) * 0.25);
+}
+
+.modal-content.description-selection-modal .add-description-form {
+    grid-area: desc-add-form;
+    margin: 0 0 var(--space-gap, 0.75rem) 0;
+    padding: 0 0 var(--space-gap, 0.75rem) 0;
+    padding-left: calc(var(--desc-modal-col-gap, 28px) * 0.25);
     border-bottom: 1px solid #e9ecef;
 }
 
-.add-description-bar h3 {
-    margin-bottom: 6px;
+.modal-content.description-selection-modal .description-search {
+    grid-area: desc-search;
+    padding-left: calc(var(--desc-modal-col-gap, 28px) * 0.25);
 }
 
-.add-description-form {
-    margin: 0;
+.modal-content.description-selection-modal .description-list {
+    grid-area: desc-avail-list;
+    padding-left: calc(var(--desc-modal-col-gap, 28px) * 0.25);
+}
+
+.modal-content.description-selection-modal .selected-descriptions-list {
+    grid-area: desc-sel-list;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid #e5e7eb;
+    padding-right: var(--desc-modal-col-gap, 28px);
 }
 
 .add-description-input-group {
@@ -1228,7 +1224,7 @@ body.datacapture-page .bottom-section .form-actions {
 }
 
 .description-search {
-    margin-bottom: 0.9375rem;
+    margin-bottom: var(--space-gap, 0.75rem);
 }
 
 .description-search input,

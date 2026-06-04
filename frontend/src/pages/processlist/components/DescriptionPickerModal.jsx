@@ -70,8 +70,9 @@ export default function DescriptionPickerModal({
         <div className="modal-body">
           <div className="description-selection-container">
             <div className="selected-descriptions-section">
-              <h3>{t("selectedDescriptions")}</h3>
               <div className="selected-descriptions-list" id="selectedDescriptionsInModal">
+                <h3 className="selected-descriptions-list-heading">{t("selectedDescriptions")}</h3>
+                <div className="selected-descriptions-list-body">
                 {localSelected.length === 0 ? (
                   <div className="no-descriptions">{t("noDescriptionsSelected")}</div>
                 ) : (
@@ -84,6 +85,7 @@ export default function DescriptionPickerModal({
                     </div>
                   ))
                 )}
+                </div>
               </div>
             </div>
 

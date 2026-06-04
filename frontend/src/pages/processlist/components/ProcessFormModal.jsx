@@ -199,25 +199,24 @@ export default function ProcessFormModal({
                       placeholder={t("enterProcessId")}
                     />
                     {!editMode && (
-                      <div className="checkbox-container">
-                        <input
-                          type="checkbox"
-                          id="add_multi_use"
-                          checked={form.is_multi_process || false}
-                          disabled={ro}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setForm((prev) => ({
-                              ...prev,
-                              is_multi_process: checked,
-                              show_multi_process_selection: true,
-                              selected_processes: checked ? prev.selected_processes : [],
-                              process_name: checked ? "" : prev.process_name,
-                            }));
-                          }}
-                        />
-                        <label htmlFor="add_multi_use">{t("multiProcess")}</label>
-                      </div>
+                      <button
+                        type="button"
+                        className={`btn btn-multi-process-toggle${form.is_multi_process ? " is-on" : ""}`}
+                        disabled={ro}
+                        aria-pressed={Boolean(form.is_multi_process)}
+                        onClick={() => {
+                          const next = !form.is_multi_process;
+                          setForm((prev) => ({
+                            ...prev,
+                            is_multi_process: next,
+                            show_multi_process_selection: true,
+                            selected_processes: next ? prev.selected_processes : [],
+                            process_name: next ? "" : prev.process_name,
+                          }));
+                        }}
+                      >
+                        {t("multiProcess")}
+                      </button>
                     )}
                   </div>
                 </div>

@@ -4582,16 +4582,78 @@ body.process-page > .process-modal {
 
 
 /* Process Form Specific Styles */
-.process-page .input-with-checkbox {
+.process-page .input-with-checkbox,
+.process-form-modal .input-with-checkbox,
+#addModal .modal-content.process-form-modal .input-with-checkbox {
     display: flex;
-    align-items: center;
-    gap: 0.9375rem;
-    flex-wrap: wrap;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: calc(var(--space-gap, 0.75rem) * 0.65);
+    width: 100%;
+    min-width: 0;
 }
 
-.process-page .input-with-checkbox input[type="text"] {
-    flex: 1;
-    min-width: 12rem;
+.process-page .input-with-checkbox > input[type="text"],
+.process-form-modal .input-with-checkbox > input[type="text"],
+#addModal .modal-content.process-form-modal .input-with-checkbox > input[type="text"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto !important;
+    max-width: 100%;
+}
+
+.process-page .btn-multi-process-toggle,
+.process-form-modal .btn-multi-process-toggle,
+#addModal .modal-content.process-form-modal .btn-multi-process-toggle {
+    flex-shrink: 0;
+    align-self: stretch;
+    min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem));
+    height: auto;
+    min-width: clamp(7rem, 9vw, 9.5rem);
+    padding: 0 calc(var(--space-gap, 0.75rem) * 0.75);
+    font-family: var(--font-heading-page);
+    font-size: var(--process-form-modal-control-size, var(--text-small));
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.55);
+    border: 1px solid var(--color-border-muted, #dbe3ee);
+    background: var(--color-surface, #fff);
+    color: var(--color-body-strong, #1f2937);
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    transform: none;
+}
+
+.process-page .btn-multi-process-toggle.is-on,
+.process-form-modal .btn-multi-process-toggle.is-on,
+#addModal .modal-content.process-form-modal .btn-multi-process-toggle.is-on {
+    border: none;
+    background: var(--btn-add-gradient);
+    color: var(--color-surface, #fff);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.process-page .btn-multi-process-toggle:hover:not(:disabled),
+.process-form-modal .btn-multi-process-toggle:hover:not(:disabled),
+#addModal .modal-content.process-form-modal .btn-multi-process-toggle:hover:not(:disabled) {
+    border-color: var(--color-primary, #0d60ff);
+    color: var(--color-primary-strong, #0d60ff);
+}
+
+.process-page .btn-multi-process-toggle.is-on:hover:not(:disabled),
+.process-form-modal .btn-multi-process-toggle.is-on:hover:not(:disabled),
+#addModal .modal-content.process-form-modal .btn-multi-process-toggle.is-on:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover);
+    color: var(--color-surface, #fff);
+    transform: none;
+}
+
+.process-page .btn-multi-process-toggle:disabled,
+.process-form-modal .btn-multi-process-toggle:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .process-page .checkbox-container {
@@ -4977,51 +5039,59 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     overflow-x: hidden;
 }
 
+/* 双栏对齐：左列表顶 = 右「Add New Description」标题行；左列表底 = 右列表底 */
 .modal-content.description-selection-modal .description-selection-container,
 .process-page .description-selection-container {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+        "desc-sel-list desc-add-h3"
+        "desc-sel-list desc-add-form"
+        "desc-sel-list desc-avail-h3"
+        "desc-sel-list desc-search"
+        "desc-sel-list desc-avail-list";
     column-gap: var(--desc-modal-col-gap);
+    row-gap: 0;
     flex: 1 1 auto;
     min-height: 0;
     width: 100%;
-    align-items: stretch;
+    align-items: start;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-section,
 .modal-content.description-selection-modal .available-descriptions-section,
+.modal-content.description-selection-modal .add-description-bar,
 .process-page .description-selection-modal .selected-descriptions-section,
-.process-page .description-selection-modal .available-descriptions-section {
-    height: 100%;
-    align-self: stretch;
+.process-page .description-selection-modal .available-descriptions-section,
+.process-page .description-selection-modal .add-description-bar {
+    display: contents;
 }
 
-.modal-content.description-selection-modal .selected-descriptions-section {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    min-width: 0;
+.modal-content.description-selection-modal .selected-descriptions-list-heading,
+.process-page .description-selection-modal .selected-descriptions-list-heading {
+    margin: 0 0 var(--desc-modal-list-item-gap, 0.45rem) 0;
+    font-size: var(--desc-modal-section-size, var(--text-h3));
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-body-strong);
+    line-height: 1.25;
+    flex-shrink: 0;
+}
+
+.modal-content.description-selection-modal .selected-descriptions-list-body,
+.process-page .description-selection-modal .selected-descriptions-list-body {
+    flex: 1 1 auto;
     min-height: 0;
-    padding-right: var(--desc-modal-col-gap);
-    border-right: 1px solid var(--color-border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
-.modal-content.description-selection-modal .available-descriptions-section {
-    display: grid;
-    grid-template-rows: auto auto auto auto;
-    min-width: 0;
-    min-height: 0;
-    padding-left: calc(var(--desc-modal-col-gap) * 0.25);
-    overflow: hidden;
-    align-content: start;
-}
-
-.modal-content.description-selection-modal .selected-descriptions-section h3,
-.modal-content.description-selection-modal .available-descriptions-section h3,
 .modal-content.description-selection-modal .add-description-bar h3,
-.process-page .description-selection-modal .selected-descriptions-section h3,
-.process-page .description-selection-modal .available-descriptions-section h3,
 .process-page .description-selection-modal .add-description-bar h3 {
-    margin: 0 0 var(--space-gap) 0;
+    grid-area: desc-add-h3;
+    margin: 0 0 var(--desc-modal-list-item-gap, 0.45rem) 0;
+    padding-left: calc(var(--desc-modal-col-gap) * 0.25);
     font-size: var(--desc-modal-section-size, var(--text-h3));
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-semibold);
@@ -5029,23 +5099,28 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     line-height: 1.25;
 }
 
-.modal-content.description-selection-modal .add-description-bar,
-.process-page .description-selection-modal .add-description-bar {
-    margin-bottom: var(--space-gap);
-    padding-bottom: var(--space-gap);
-    border-bottom: 1px solid var(--color-border);
-}
-
-.modal-content.description-selection-modal .add-description-bar h3,
-.process-page .description-selection-modal .add-description-bar h3 {
-    margin-bottom: calc(var(--space-gap) * 0.6);
+.modal-content.description-selection-modal .available-descriptions-section > h3,
+.process-page .description-selection-modal .available-descriptions-section > h3 {
+    grid-area: desc-avail-h3;
+    margin: 0 0 var(--desc-modal-list-item-gap, 0.45rem) 0;
+    padding-left: calc(var(--desc-modal-col-gap) * 0.25);
+    font-size: var(--desc-modal-section-size, var(--text-h3));
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-body-strong);
+    line-height: 1.25;
 }
 
 .modal-content.description-selection-modal .add-description-form,
 .process-page .description-selection-modal .add-description-form {
-    margin: 0;
+    grid-area: desc-add-form;
+    margin: 0 0 var(--space-gap) 0;
+    padding: 0 0 var(--space-gap) 0;
+    padding-left: calc(var(--desc-modal-col-gap) * 0.25);
+    border-bottom: 1px solid var(--color-border);
     width: 100%;
     min-width: 0;
+    box-sizing: border-box;
 }
 
 .modal-content.description-selection-modal .add-description-input-group,
@@ -5062,7 +5137,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     flex: 1;
     min-width: 0;
     box-sizing: border-box;
-    min-height: var(--desc-modal-control-min-h);
+    min-height: var(--process-form-modal-control-min-h, var(--desc-modal-control-min-h));
     padding: calc(var(--space-gap) * 0.4) calc(var(--space-gap) * 0.55);
     border: 1px solid var(--color-border-muted);
     border-radius: calc(var(--desc-modal-radius) * 0.45);
@@ -5091,28 +5166,43 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
 .modal-content.description-selection-modal .description-search,
 .process-page .description-selection-modal .description-search {
-    margin-bottom: var(--space-gap);
+    grid-area: desc-search;
+    margin: 0 0 var(--space-gap) 0;
+    padding-left: calc(var(--desc-modal-col-gap) * 0.25);
+    min-width: 0;
+}
+
+.modal-content.description-selection-modal .add-description-input-group .btn,
+.process-page .description-selection-modal .add-description-input-group .btn,
+.modal-content.description-selection-modal .modal-footer .btn,
+.process-page .description-selection-modal .modal-footer .btn {
+    flex-shrink: 0;
+    font-family: var(--font-heading-page);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-semibold);
+    min-width: var(--userlist-btn-add-width);
+    width: auto;
+    min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem));
+    height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem));
+    padding: 0 calc(var(--space-gap, 0.75rem) * 0.9);
+    line-height: 1.2;
+    border-radius: calc(var(--desc-modal-radius) * 0.55);
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    transform: none;
 }
 
 .modal-content.description-selection-modal .add-description-input-group .btn,
 .process-page .description-selection-modal .add-description-input-group .btn {
-    flex-shrink: 0;
     min-width: var(--desc-modal-add-btn-width);
     max-width: var(--desc-modal-add-btn-width);
-    min-height: var(--desc-modal-control-min-h);
-    height: var(--desc-modal-control-min-h);
-    margin: 0;
-    padding: 0 0.5rem;
-    font-family: var(--font-heading-page);
-    font-size: var(--desc-modal-control-text);
-    font-weight: var(--font-weight-semibold);
-    line-height: 1;
-    border-radius: calc(var(--desc-modal-radius) * 0.45);
-    border: none;
+    padding: 0 calc(var(--space-gap, 0.75rem) * 0.65);
     background: var(--btn-add-gradient);
     color: var(--color-surface);
-    box-shadow: none;
-    transform: none;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
 .modal-content.description-selection-modal .add-description-input-group .btn:hover:not(:disabled),
@@ -5127,36 +5217,44 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .description-selection-modal .selected-descriptions-list {
     width: 100%;
     box-sizing: border-box;
-    overflow-y: auto;
     border: 1px solid var(--color-border);
     border-radius: calc(var(--desc-modal-radius) * 0.45);
     padding: var(--desc-modal-list-pad, 0.5rem);
     background-color: var(--color-surface-gray-50, #f8fafc);
 }
 
+.modal-content.description-selection-modal .description-list,
+.process-page .description-selection-modal .description-list {
+    overflow-y: auto;
+}
+
 /* 右侧 Available：与 Add Process 弹窗同尺度，固定列表区高度、框内滚动 */
 .modal-content.description-selection-modal .description-list,
 .process-page .description-selection-modal .description-list {
+    grid-area: desc-avail-list;
     flex: 0 0 auto;
     align-self: stretch;
     height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
     min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
     max-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    padding-left: calc(var(--desc-modal-col-gap) * 0.25);
+    min-width: 0;
 }
 
-/* 左侧 Selected：随栏拉伸，底边与右侧栏对齐 */
+/* 左侧 Selected：外框顶与右栏 Add 标题齐平，底边与右列表对齐 */
 .modal-content.description-selection-modal .selected-descriptions-list,
 .process-page .description-selection-modal .selected-descriptions-list {
+    grid-area: desc-sel-list;
+    display: flex;
+    flex-direction: column;
     align-self: stretch;
     min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
     height: 100%;
     max-height: none;
-}
-
-.modal-content.description-selection-modal .selected-descriptions-list {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+    padding-right: var(--desc-modal-col-gap);
+    border-right: 1px solid var(--color-border);
+    min-width: 0;
+    overflow: hidden;
 }
 
 .process-page .selected-description-modal-item,
@@ -5292,27 +5390,6 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     flex-wrap: nowrap;
 }
 
-.modal-content.description-selection-modal .modal-footer .btn,
-.process-page .description-selection-modal .modal-footer .btn {
-    font-family: var(--font-heading-page);
-    font-size: var(--text-medium);
-    font-weight: var(--font-weight-semibold);
-    min-width: var(--userlist-btn-add-width);
-    width: auto;
-    min-height: var(--desc-modal-control-min-h);
-    height: var(--desc-modal-control-min-h);
-    padding: 0 calc(var(--space-gap) * 0.9);
-    line-height: 1.2;
-    border-radius: calc(var(--desc-modal-radius) * 0.55);
-    border: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    white-space: nowrap;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-    transform: none;
-}
-
 .modal-content.description-selection-modal .modal-footer .btn-save,
 .process-page .description-selection-modal .modal-footer .btn-save {
     background: var(--btn-add-gradient);
@@ -5334,19 +5411,39 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
     .modal-content.description-selection-modal .description-selection-container,
     .process-page .description-selection-container {
-        grid-template-columns: minmax(0, 1fr);
-        row-gap: var(--desc-modal-col-gap);
+        display: flex;
+        flex-direction: column;
+        gap: var(--desc-modal-col-gap);
+    }
+
+    .modal-content.description-selection-modal .selected-descriptions-section,
+    .modal-content.description-selection-modal .available-descriptions-section,
+    .modal-content.description-selection-modal .add-description-bar,
+    .process-page .description-selection-modal .selected-descriptions-section,
+    .process-page .description-selection-modal .available-descriptions-section,
+    .process-page .description-selection-modal .add-description-bar {
+        display: block;
+    }
+
+    .modal-content.description-selection-modal .selected-descriptions-section h3,
+    .modal-content.description-selection-modal .add-description-bar h3,
+    .modal-content.description-selection-modal .available-descriptions-section > h3,
+    .modal-content.description-selection-modal .add-description-form,
+    .modal-content.description-selection-modal .description-search,
+    .modal-content.description-selection-modal .description-list,
+    .modal-content.description-selection-modal .selected-descriptions-list {
+        grid-area: auto;
+        padding-left: 0;
+        padding-right: 0;
     }
 
     .modal-content.description-selection-modal .selected-descriptions-section {
-        padding-right: 0;
         padding-bottom: var(--desc-modal-col-gap);
-        border-right: none;
         border-bottom: 1px solid var(--color-border);
     }
 
-    .modal-content.description-selection-modal .available-descriptions-section {
-        padding-left: 0;
+    .modal-content.description-selection-modal .selected-descriptions-list {
+        border-right: none;
     }
 
     .modal-content.description-selection-modal .description-list {
@@ -5382,7 +5479,8 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 }
 
 .process-page .no-descriptions,
-.modal-content.description-selection-modal .no-descriptions {
+.modal-content.description-selection-modal .no-descriptions,
+.modal-content.description-selection-modal .selected-descriptions-list-body .no-descriptions {
     flex: 1;
     display: flex;
     align-items: center;
