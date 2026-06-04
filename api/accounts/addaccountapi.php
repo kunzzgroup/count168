@@ -5,6 +5,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/group_tenant_bootstrap.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
@@ -282,17 +283,7 @@ function insertAccount(PDO $pdo, array $row): int {
 }
 
 function linkAccountToCompanies(PDO $pdo, int $accountId, array $companyIds): void {
-    $stmt = $pdo->prepare("INSERT INTO account_company (account_id, company_id) VALUES (?, ?)");
-    foreach ($companyIds as $comp_id) {
-        try {
-            $stmt->execute([$accountId, $comp_id]);
-        } catch (PDOException $e) {
-            if ($e->getCode() != 23000) {
-                error_log("Error linking company to account: " . $e->getMessage());
-                throw $e;
-            }
-        }
-    }
+    gc_link_account_to_companies($pdo, $accountId, $companyIds);
 }
 
 function userCanAccessCompany(PDO $pdo, int $userId, int $companyId, string $role): bool {

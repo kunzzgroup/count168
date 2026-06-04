@@ -17,6 +17,10 @@
 --   mysql -u root -e "DROP DATABASE IF EXISTS easycount; CREATE DATABASE easycount CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 --   mysql -u root easycount < database/schema/easycount_fresh_install.sql
 --
+-- Existing DB with groups (after 20260528_dual_tenant_company_group.sql), also run:
+--   mysql -u root your_db < database/migrations/20260604_group_tenant_bootstrap.sql
+-- Or re-save Domain (BOSS/AP/IG) to bootstrap via domainApiBootstrapOwnerGroupTenants.
+--
 -- Re-generate after editing easycount_schema.sql:
 --   powershell -File database/scripts/build_fresh_install_schema.ps1
 -- =============================================================================

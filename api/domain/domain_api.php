@@ -2629,7 +2629,7 @@ try {
                 }
 
                 domainApiSyncGroupCompanyMap($pdo, (int) $owner_id);
-                domainApiDeleteGroupOnlyCompanyRows($pdo, (int) $owner_id);
+                domainApiBootstrapOwnerGroupTenants($pdo, (int) $owner_id, $loginId);
 
                 // 复用已标准化的 companies 数组，避免原始 JSON 字符串格式差异导致只提取到部分 company
                 $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies_data);
@@ -2990,7 +2990,7 @@ try {
                 }
 
                 domainApiSyncGroupCompanyMap($pdo, (int) $id);
-                domainApiDeleteGroupOnlyCompanyRows($pdo, (int) $id);
+                domainApiBootstrapOwnerGroupTenants($pdo, (int) $id, $loginId);
 
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
                 

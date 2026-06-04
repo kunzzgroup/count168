@@ -57,6 +57,11 @@ try {
         $password = trim($_POST['password']);
         $company_id = strtoupper(trim($_POST['company_id'])); // 转换为大写，不区分大小写
         $login_role = isset($_POST['login_role']) ? trim($_POST['login_role']) : 'admin'; // 获取登录角色
+        $tenant_mode = gc_normalize_login_tenant_mode($_POST['login_tenant_mode'] ?? 'auto');
+        $login_resolved = resolve_login_identifier_scope($pdo, $company_id, $tenant_mode);
+        $company_where = gc_login_company_where_fragment($tenant_mode);
+        $company_bind = gc_login_company_where_params($company_id, $tenant_mode);
+        $company_order = gc_login_company_order_by($company_id, $tenant_mode, $login_resolved);
     
     // 如果选择的是 member，从 account 表验证
     if ($login_role === 'member') {
@@ -68,24 +73,24 @@ try {
             exit;
         }
         
-        // 从 account 表验证：验证公司、账号、密码、状态
-        // 修改条件，允许匹配 company_id 或者 group_id
         $stmt = $pdo->prepare("
             SELECT a.*, c.id AS company_numeric_id, c.company_id AS company_code, c.group_id, c.expiration_date 
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             INNER JOIN company c ON ac.company_id = c.id
             WHERE UPPER(a.account_id) = UPPER(?) 
-            AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?)
+            AND {$company_where}
             AND a.status = 'active'
+            ORDER BY {$company_order}
         ");
-        $stmt->execute([$account_id, $company_id, $company_id]);
+        $stmt->execute(array_merge([$account_id], $company_bind));
         $matched_accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         $account = null;
         $has_expired = false;
         $password_match = false;
         $account_record_to_update = null;
+        $valid_accounts = [];
 
         foreach ($matched_accounts as $row) {
             if (empty($row['password'])) {
@@ -106,10 +111,10 @@ try {
             if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null, $row['group_id'] ?? null)) {
                 $has_expired = true;
             } else {
-                $account = $row;
-                break;
+                $valid_accounts[] = $row;
             }
         }
+        $account = gc_pick_login_company_row($valid_accounts, $company_id, $login_resolved);
         
         // 检查账户是否存在且密码匹配
         if ($account) {
@@ -138,8 +143,8 @@ try {
             $stmt = $pdo->prepare("UPDATE account SET last_login = NOW() WHERE id = ?");
             $stmt->execute([$account['id']]);
 
-            persist_login_filter_scope($pdo, $company_id);
-            $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
+            $loginFilter = persist_login_filter_scope($pdo, $company_id, $tenant_mode);
+            gc_finalize_login_session_company($pdo, $company_id, $loginFilter);
             echo json_encode([
                 'status' => 'success',
                 'redirect' => '/member',
@@ -147,6 +152,7 @@ try {
                 'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
                 'login_scope' => $loginFilter['scope'],
                 'login_identifier' => $loginFilter['identifier'],
+                'login_tenant_mode' => $tenant_mode,
             ]);
             exit;
         } else {
@@ -178,14 +184,16 @@ try {
         FROM user u
         INNER JOIN user_company_map ucm ON u.id = ucm.user_id
         INNER JOIN company c ON ucm.company_id = c.id
-        WHERE u.login_id = ? AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?) AND u.status = 'active'
+        WHERE u.login_id = ? AND {$company_where} AND u.status = 'active'
+        ORDER BY {$company_order}
     ");
-    $stmt->execute([$login_id, $company_id, $company_id]);
+    $stmt->execute(array_merge([$login_id], $company_bind));
     $matched_users = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     $user = null;
     $user_has_expired = false;
     $user_password_match = false;
+    $valid_users = [];
     
     foreach ($matched_users as $row) {
         if (password_verify($password, $row['password'])) {
@@ -193,11 +201,11 @@ try {
             if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null, $row['group_id'] ?? null)) {
                 $user_has_expired = true;
             } else {
-                $user = $row;
-                break;
+                $valid_users[] = $row;
             }
         }
     }
+    $user = gc_pick_login_company_row($valid_users, $company_id, $login_resolved);
     
     if ($user) {
         // User 登录成功
@@ -241,8 +249,8 @@ try {
             }
         }
 
-        persist_login_filter_scope($pdo, $company_id);
-        $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
+        $loginFilter = persist_login_filter_scope($pdo, $company_id, $tenant_mode);
+        gc_finalize_login_session_company($pdo, $company_id, $loginFilter);
 
         if ($needs_secondary_password) {
             // 需要二级密码验证，跳转到二级密码验证页面
@@ -252,6 +260,7 @@ try {
                 'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
                 'login_scope' => $loginFilter['scope'],
                 'login_identifier' => $loginFilter['identifier'],
+                'login_tenant_mode' => $tenant_mode,
             ]);
         } else {
             // 不需要二级密码验证，直接跳转到dashboard
@@ -262,6 +271,7 @@ try {
                 'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
                 'login_scope' => $loginFilter['scope'],
                 'login_identifier' => $loginFilter['identifier'],
+                'login_tenant_mode' => $tenant_mode,
             ]);
         }
         exit;
@@ -277,15 +287,17 @@ try {
             SELECT o.*, c.id AS company_numeric_id, c.company_id AS company_code, c.group_id, c.expiration_date
             FROM owner o
             INNER JOIN company c ON c.owner_id = o.id
-            WHERE UPPER(o.owner_code) = UPPER(?) AND (UPPER(c.company_id) = ? OR UPPER(c.group_id) = ?)
+            WHERE UPPER(o.owner_code) = UPPER(?) AND {$company_where}
+            ORDER BY {$company_order}
         ");
-        $stmt->execute([$login_id, $company_id, $company_id]);
+        $stmt->execute(array_merge([$login_id], $company_bind));
         $matched_owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         $owner = null;
         $owner_has_expired = false;
         $owner_password_match = false;
         $owner_record_to_update = null;
+        $valid_owners = [];
         
         foreach ($matched_owners as $row) {
             $is_pwd_valid = false;
@@ -304,11 +316,11 @@ try {
                 if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null, $row['group_id'] ?? null)) {
                     $owner_has_expired = true;
                 } else {
-                    $owner = $row;
-                    break;
+                    $valid_owners[] = $row;
                 }
             }
         }
+        $owner = gc_pick_login_company_row($valid_owners, $company_id, $login_resolved);
         
         if ($owner) {
             // 如果使用明文密码验证成功，自动升级为哈希密码
@@ -338,8 +350,8 @@ try {
                 // Owner 的 remember me 可以存在 session 或另外处理
             }
 
-            persist_login_filter_scope($pdo, $company_id);
-            $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
+            $loginFilter = persist_login_filter_scope($pdo, $company_id, $tenant_mode);
+            gc_finalize_login_session_company($pdo, $company_id, $loginFilter);
             echo json_encode([
                 'status' => 'success',
                 'redirect' => '/owner-secondary-password',
@@ -347,6 +359,7 @@ try {
                 'company_id' => (int) ($_SESSION['company_id'] ?? 0) ?: null,
                 'login_scope' => $loginFilter['scope'],
                 'login_identifier' => $loginFilter['identifier'],
+                'login_tenant_mode' => $tenant_mode,
             ]);
         } else {
             if ($owner_password_match && $owner_has_expired) {

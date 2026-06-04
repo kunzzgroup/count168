@@ -78,6 +78,8 @@ export default function LoginPage() {
     [navigate, searchParams],
   );
   const [companyId, setCompanyId] = useState("");
+  /** @type {'auto' | 'group' | 'company'} */
+  const [tenantMode, setTenantMode] = useState("auto");
   const [userField, setUserField] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -253,6 +255,12 @@ export default function LoginPage() {
     [role, i18n.accountPlaceholder, i18n.usernamePlaceholder]
   );
 
+  const companyPlaceholder = useMemo(() => {
+    if (tenantMode === "group") return i18n.companyPlaceholderGroup;
+    if (tenantMode === "company") return i18n.companyPlaceholderCompany;
+    return i18n.companyPlaceholder;
+  }, [tenantMode, i18n]);
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
@@ -261,6 +269,7 @@ export default function LoginPage() {
       const fd = new FormData();
       fd.append("action", "login");
       fd.append("company_id", companyId.toUpperCase().trim());
+      fd.append("login_tenant_mode", tenantMode);
       fd.append("password", password);
       fd.append("login_role", role);
       if (role === "member") {
@@ -381,13 +390,36 @@ export default function LoginPage() {
 
           <div className="sc-login-card-content">
             <form className="sc-login-form" onSubmit={onSubmit}>
+              <div className="sc-login-tenant-tabs" role="tablist" aria-label={i18n.companyPlaceholder}>
+                <button
+                  type="button"
+                  className={`sc-login-tenant-tab${tenantMode === "group" ? " active" : ""}`}
+                  onClick={() => setTenantMode("group")}
+                >
+                  {i18n.loginTenantGroup}
+                </button>
+                <button
+                  type="button"
+                  className={`sc-login-tenant-tab${tenantMode === "company" ? " active" : ""}`}
+                  onClick={() => setTenantMode("company")}
+                >
+                  {i18n.loginTenantCompany}
+                </button>
+                <button
+                  type="button"
+                  className={`sc-login-tenant-tab${tenantMode === "auto" ? " active" : ""}`}
+                  onClick={() => setTenantMode("auto")}
+                >
+                  {i18n.loginTenantAuto}
+                </button>
+              </div>
               <div className="sc-login-input-row">
                 <i className="fas fa-building sc-login-input-icon" />
                 <input
                   id="company-id"
                   type="text"
                   className="sc-login-input"
-                  placeholder={i18n.companyPlaceholder}
+                  placeholder={companyPlaceholder}
                   required
                   value={companyId}
                   onChange={(e) => setCompanyId(e.target.value.toUpperCase())}
