@@ -446,8 +446,8 @@ try {
         if ($group_scope_owner_id <= 0) {
             throw new Exception('无权限访问该公司');
         }
-        $forceGroupLedger = gc_is_group_login()
-            || $explicit_group_only
+        $forceGroupLedger = $explicit_group_only
+            || (gc_is_group_login() && (!$company_id || $company_id <= 0))
             || (function_exists('tenant_dual_tenant_enabled') && tenant_dual_tenant_enabled($pdo));
         if ($forceGroupLedger) {
             $groupPk = gc_resolve_group_pk_by_code($pdo, $group_scope_id);

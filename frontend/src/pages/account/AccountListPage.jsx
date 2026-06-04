@@ -1754,8 +1754,8 @@ export default function AccountListPage() {
         setCurrencyInput("");
       } else {
         const msg = String(json.message || json.error || "");
-        if (/already exists/i.test(msg) && isEditMode && form.id) {
-          await loadSelectionMeta(form.id, true, {
+        if (/already exists/i.test(msg)) {
+          await loadSelectionMeta(isEditMode && form.id ? form.id : null, isEditMode, {
             selectCode: code,
             ledgerScope: modalLedgerScopeRef.current ?? modalLedgerScope,
           });

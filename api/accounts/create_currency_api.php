@@ -107,14 +107,25 @@ try {
     $groupOnly = !empty($input['group_only'])
         && filter_var($input['group_only'], FILTER_VALIDATE_BOOLEAN);
 
+    $explicitCompanyId = 0;
+    if (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
+        $explicitCompanyId = (int) $input['company_id'];
+    }
+
     if (gc_is_group_login()) {
-        $groupOnly = true;
         $groupScopeId = $groupScopeId ?? normalizeGroupId($_SESSION['login_identifier'] ?? null);
-        $requestedCompanyId = 0;
+        if ($explicitCompanyId > 0) {
+            // Group login + subsidiary Company pill → company ledger, not group-only.
+            $groupOnly = false;
+            $requestedCompanyId = $explicitCompanyId;
+        } else {
+            $groupOnly = true;
+            $requestedCompanyId = 0;
+        }
     } elseif ($groupOnly) {
         $requestedCompanyId = 0;
-    } elseif (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
-        $requestedCompanyId = (int) $input['company_id'];
+    } elseif ($explicitCompanyId > 0) {
+        $requestedCompanyId = $explicitCompanyId;
     }
 
     try {

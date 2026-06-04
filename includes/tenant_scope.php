@@ -381,10 +381,10 @@ function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): 
     $groupOnly = !empty($params['group_only'])
         && filter_var($params['group_only'], FILTER_VALIDATE_BOOLEAN);
 
-    $forceGroupLedger = $groupOnly || tenant_dual_tenant_enabled($pdo);
     if ($groupOnly) {
         $requestedId = 0;
     }
+    $forceGroupLedger = $groupOnly;
     if (
         !$groupOnly
         && $requestedId <= 0
@@ -392,6 +392,7 @@ function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): 
         && gc_is_group_login()
     ) {
         $forceGroupLedger = true;
+        $groupOnly = true;
         if ($groupCode === '') {
             $groupCode = gc_normalize_group_code((string) ($_SESSION['login_identifier'] ?? ''));
         }
