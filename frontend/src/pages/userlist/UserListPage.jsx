@@ -1626,8 +1626,12 @@ export default function UserListPage() {
 
     const buildDeleteBody = (id) => {
       const body = { action: "delete", id };
-      if (groupOnlyUserList && selectedGroup) body.group_id = selectedGroup;
-      if (!groupOnlyUserList && companyId != null) body.company_id = Number(companyId);
+      if (groupOnlyUserList && selectedGroup) {
+        body.group_id = selectedGroup;
+        body.group_only = 1;
+      } else if (companyId != null) {
+        body.company_id = Number(companyId);
+      }
       return body;
     };
 
@@ -1689,6 +1693,9 @@ export default function UserListPage() {
     if (shouldForceGroupScope) {
       saveGroupId = String(selectedGroup || inferredGroupIdFromPicker || "").trim().toUpperCase();
       payload.group_id = saveGroupId;
+      payload.group_only = 1;
+    } else if (companyId != null) {
+      payload.company_id = Number(companyId);
       const entityPick = pickDefaultCompanyForGroup(companies, saveGroupId, {
         me,
         preferredCompanyId: me?.company_id ?? companyId,
@@ -1725,7 +1732,10 @@ export default function UserListPage() {
       }
       if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) {
         payload.company_ids = shouldForceGroupScope ? saveCompanyIds : (groupOnlyUserList ? saveCompanyIds : selectedCompanyIds);
-        if (shouldForceGroupScope && saveGroupId) payload.group_id = saveGroupId;
+        if (shouldForceGroupScope && saveGroupId) {
+          payload.group_id = saveGroupId;
+          payload.group_only = 1;
+        }
       }
     }
     try {
