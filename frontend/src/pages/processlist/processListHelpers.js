@@ -7,6 +7,11 @@ export function normalizeDescriptionName(raw) {
   return String(raw ?? "").trim().toUpperCase();
 }
 
+/** Process 表单文本：输入时统一大写（不 trim，避免打字中途删空格） */
+export function toProcessFormUpperInput(raw) {
+  return String(raw ?? "").toUpperCase();
+}
+
 export const EMPTY_FORM = {
   id: "",
   process_name: "",

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
+import { toProcessFormUpperInput } from "../processListHelpers.js";
 
 const DAY_NAME_MAP = {
   "MON": "dayMonday",
@@ -186,11 +187,15 @@ export default function ProcessFormModal({
                     <input
                       id={editMode ? "edit_process_name" : "add_process_id"}
                       value={form.process_name}
-                      onChange={(e) => setForm((prev) => ({ ...prev, process_name: e.target.value }))}
+                      onChange={(e) => setForm((prev) => ({ ...prev, process_name: toProcessFormUpperInput(e.target.value) }))}
+                      style={
+                        editMode || form.is_multi_process
+                          ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" }
+                          : { textTransform: "uppercase" }
+                      }
                       required={!form.is_multi_process}
                       readOnly={editMode || form.is_multi_process}
                       disabled={ro}
-                      style={editMode || form.is_multi_process ? { backgroundColor: "#f5f5f5", cursor: "not-allowed" } : undefined}
                       placeholder={t("enterProcessId")}
                     />
                     {!editMode && (
@@ -467,8 +472,9 @@ export default function ProcessFormModal({
                   <input
                     value={form.remove_word}
                     disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, remove_word: e.target.value }))}
+                    onChange={(e) => setForm((prev) => ({ ...prev, remove_word: toProcessFormUpperInput(e.target.value) }))}
                     placeholder={t("enterWordsToRemove")}
+                    style={{ textTransform: "uppercase" }}
                   />
                   <small className="field-help">{t("removeWordsHelp")}</small>
                 </div>
@@ -480,8 +486,9 @@ export default function ProcessFormModal({
                   <input
                     value={form.replace_word_from}
                     disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: e.target.value }))}
+                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_from: toProcessFormUpperInput(e.target.value) }))}
                     placeholder={t("oldWord")}
+                    style={{ textTransform: "uppercase" }}
                   />
                   <small className="field-help">{t("wordToBeReplaced")}</small>
                 </div>
@@ -490,8 +497,9 @@ export default function ProcessFormModal({
                   <input
                     value={form.replace_word_to}
                     disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: e.target.value }))}
+                    onChange={(e) => setForm((prev) => ({ ...prev, replace_word_to: toProcessFormUpperInput(e.target.value) }))}
                     placeholder={t("newWord")}
+                    style={{ textTransform: "uppercase" }}
                   />
                   <small className="field-help">{t("replacementWord")}</small>
                 </div>
