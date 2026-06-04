@@ -5115,9 +5115,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .description-selection-modal .description-list,
 .process-page .description-selection-modal .selected-descriptions-list {
     flex: 1 1 auto;
-    min-height: 11rem;
+    min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
     max-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
-    height: auto;
+    height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
     overflow-y: auto;
     border: 1px solid var(--color-border);
     border-radius: calc(var(--desc-modal-radius) * 0.45);
@@ -5316,9 +5316,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
     .modal-content.description-selection-modal .description-list,
     .modal-content.description-selection-modal .selected-descriptions-list {
-        height: clamp(12rem, 28vh, 17rem);
-        min-height: clamp(12rem, 28vh, 17rem);
-        max-height: clamp(12rem, 28vh, 17rem);
+        height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
+        min-height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
+        max-height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
     }
 }
 

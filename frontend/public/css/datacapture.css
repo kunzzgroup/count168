@@ -1220,9 +1220,9 @@ body.datacapture-page .bottom-section .form-actions {
 }
 
 .description-list {
-    height: 315px;
-    min-height: 315px;
-    max-height: 315px;
+    height: var(--desc-modal-list-min-h, 19.75rem);
+    min-height: var(--desc-modal-list-min-h, 19.75rem);
+    max-height: var(--desc-modal-list-min-h, 19.75rem);
     overflow-y: auto;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
@@ -1231,9 +1231,9 @@ body.datacapture-page .bottom-section .form-actions {
 }
 
 .selected-descriptions-list {
-    height: 315px;
-    min-height: 315px;
-    max-height: 315px;
+    height: var(--desc-modal-list-min-h, 19.75rem);
+    min-height: var(--desc-modal-list-min-h, 19.75rem);
+    max-height: var(--desc-modal-list-min-h, 19.75rem);
     overflow-y: auto;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
