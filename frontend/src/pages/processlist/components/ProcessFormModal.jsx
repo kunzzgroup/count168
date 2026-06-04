@@ -575,8 +575,9 @@ export default function ProcessFormModal({
                     rows={5}
                     value={form.remark}
                     disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, remark: e.target.value }))}
+                    onChange={(e) => setForm((prev) => ({ ...prev, remark: toProcessFormUpperInput(e.target.value) }))}
                     placeholder={t("enterRemarks")}
+                    style={{ textTransform: "uppercase" }}
                   />
                 </div>
               </div>

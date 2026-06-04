@@ -141,17 +141,20 @@
    */
   /* 默认（手机/平板）：与 PHP 一致 1040px 封顶；大屏见下方 @media */
   --desc-modal-width: min(1040px, calc(100vw - 48px));
+  --desc-modal-margin-block: 4vh;
   --desc-modal-max-height: 90vh;
+  /* 与 margin-block 配套：白框底边对齐遮罩可用区域（箭头示意） */
+  --desc-modal-min-height: min(var(--desc-modal-max-height), calc(100vh - 2 * var(--desc-modal-margin-block)));
   --desc-modal-radius: 0.75rem;
   --desc-modal-pad-block: var(--space-card);
   --desc-modal-pad-inline: var(--space-card);
   --desc-modal-title-size: var(--text-page-title);
   --desc-modal-section-size: var(--text-h3);
   --desc-modal-list-text: var(--text-tiny);
-  --desc-modal-body-size: var(--text-base);
-  --desc-modal-empty-size: var(--text-medium);
-  --desc-modal-control-text: var(--text-base);
-  --desc-modal-control-min-h: clamp(2.75rem, 2.25vw, 3.25rem);
+  --desc-modal-body-size: var(--text-tiny);
+  --desc-modal-empty-size: var(--text-tiny);
+  --desc-modal-control-text: var(--text-tiny);
+  --desc-modal-control-min-h: clamp(2.5rem, 2vw, 3rem);
   /* 列表滚动区高度（手机/平板）；大屏见 @media min-width 62rem */
   --desc-modal-list-min-h: clamp(11rem, 28vh, 16rem);
   --desc-modal-col-gap: clamp(1rem, 1.75vw, 1.75rem);
@@ -468,8 +471,10 @@
 /* 手机竖屏单栏：列表略矮，避免弹窗过高 */
 @media (max-width: 40rem) {
   :root {
+    --desc-modal-margin-block: 3vh;
     --desc-modal-list-min-h: clamp(10rem, 22vh, 13.5rem);
     --desc-modal-max-height: 88vh;
+    --desc-modal-min-height: min(var(--desc-modal-max-height), calc(100vh - 2 * var(--desc-modal-margin-block)));
   }
 }
 

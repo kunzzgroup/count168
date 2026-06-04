@@ -4926,8 +4926,10 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     width: var(--desc-modal-width, min(1040px, calc(100vw - 48px))) !important;
     max-width: var(--desc-modal-width, min(1040px, calc(100vw - 48px))) !important;
     box-sizing: border-box;
+    min-height: var(--desc-modal-min-height, min(var(--desc-modal-max-height, 90vh), calc(100vh - 8vh)));
+    height: var(--desc-modal-min-height, min(var(--desc-modal-max-height, 90vh), calc(100vh - 8vh)));
     max-height: var(--desc-modal-max-height);
-    margin: 4vh auto;
+    margin: var(--desc-modal-margin-block, 4vh) auto;
     padding: 0;
     border: none;
     border-radius: var(--desc-modal-radius);
@@ -5004,12 +5006,12 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
 .modal-content.description-selection-modal .available-descriptions-section {
     display: grid;
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
     padding-left: calc(var(--desc-modal-col-gap) * 0.25);
     overflow: hidden;
-    align-content: start;
+    align-content: stretch;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-section h3,
@@ -5131,14 +5133,13 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     background-color: var(--color-surface-gray-50, #f8fafc);
 }
 
-/* 右侧 Available：固定高度，数据多时在框内滚动 */
+/* 右侧 Available：随弹窗拉高，数据多时在框内滚动 */
 .modal-content.description-selection-modal .description-list,
 .process-page .description-selection-modal .description-list {
-    flex: 0 0 auto;
     align-self: stretch;
-    height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    height: 100%;
     min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
-    max-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    max-height: none;
 }
 
 /* 左侧 Selected：随栏拉伸，底边与右侧栏对齐 */
@@ -5322,7 +5323,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     .process-page .modal-content.description-selection-modal {
         width: var(--desc-modal-width, min(1040px, calc(100vw - 24px))) !important;
         max-width: var(--desc-modal-width, min(1040px, calc(100vw - 24px))) !important;
-        margin: 3vh auto;
+        margin: var(--desc-modal-margin-block, 3vh) auto;
+        min-height: var(--desc-modal-min-height, min(88vh, calc(100vh - 6vh)));
+        height: var(--desc-modal-min-height, min(88vh, calc(100vh - 6vh)));
     }
 
     .modal-content.description-selection-modal .description-selection-container,
@@ -5343,9 +5346,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     }
 
     .modal-content.description-selection-modal .description-list {
-        height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
+        height: 100%;
         min-height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
-        max-height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
+        max-height: none;
     }
 
     .modal-content.description-selection-modal .selected-descriptions-list {
@@ -6900,9 +6903,15 @@ body.process-page.process-page--bank.process-page--bank-show-all .process-table-
 }
 
 /* Description picker — 压过通用 .modal-content，与 PHP 同宽 */
-body.process-page > #descriptionPickerModal.modal.show > .modal-content.description-selection-modal {
+body.process-page > #descriptionPickerModal.modal.show > .modal-content.description-selection-modal,
+#descriptionPickerModal.modal.show > .modal-content.description-selection-modal,
+#descriptionSelectionModal.modal.show > .modal-content.description-selection-modal {
     width: var(--desc-modal-width, min(1040px, calc(100vw - 48px))) !important;
     max-width: var(--desc-modal-width, min(1040px, calc(100vw - 48px))) !important;
+    min-height: var(--desc-modal-min-height, min(var(--desc-modal-max-height, 90vh), calc(100vh - 8vh))) !important;
+    height: var(--desc-modal-min-height, min(var(--desc-modal-max-height, 90vh), calc(100vh - 8vh))) !important;
+    max-height: var(--desc-modal-max-height, 90vh) !important;
+    margin: var(--desc-modal-margin-block, 4vh) auto !important;
     box-sizing: border-box !important;
 }
 
@@ -7014,6 +7023,12 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     font-weight: var(--font-weight-semibold) !important;
     color: var(--color-body-strong, #0f172a);
     margin-bottom: calc(var(--space-gap, 0.75rem) * 0.45) !important;
+}
+
+.process-form-modal .process-form .form-group textarea,
+#addModal .modal-content.process-form-modal .process-form .form-group textarea,
+#editModal .modal-content.process-form-modal .process-form .form-group textarea {
+    text-transform: uppercase;
 }
 
 .process-form-modal .process-form .form-group input,
