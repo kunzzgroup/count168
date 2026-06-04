@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
-import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
+import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
 import {
   companiesInGroupList,
   getCachedOwnerCompanies,
@@ -21,7 +23,6 @@ import {
   pickDefaultSubsidiaryForGroup,
   pickGroupAnchorCompany,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
@@ -35,7 +36,6 @@ import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchor
 import {
   fetchCompanyPermissions,
   fetchProcessesForPermission,
-  isBankOnlyCategoryCompany,
   normalizeMaintenanceProcessFilter,
   filterTransactionMaintenancePermissions,
   pickTransactionMaintenancePermission,
@@ -86,6 +86,7 @@ function buildMaintenanceMetaEffectKey(scopeKey, companyId, companyCode, selecte
 
 export default function TransactionMaintenancePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
@@ -97,6 +98,7 @@ export default function TransactionMaintenancePage() {
 
   // -- Filter State --
   const [companyId, setCompanyId] = useState(readInitialMaintenanceCompanyId);
+  useMaintenanceBankOnlyGuard(companyId);
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(readInitialMaintenanceSelectedGroup);
   const [selectedProcess, setSelectedProcess] = useState("");
@@ -690,7 +692,7 @@ export default function TransactionMaintenancePage() {
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
-            navigate("/process-list", { replace: true });
+            navigate("/dashboard", { replace: true });
             return;
           }
           if (!hasGames) {
@@ -965,60 +967,54 @@ export default function TransactionMaintenancePage() {
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-
     const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
 
     try {
-      const res = await updateSessionCompany(c.id);
+      const { redirected } = await runMaintenanceCompanySwitch({
+        companyRow: c,
+        viewGroup: newGroup ?? selectedGroup,
+        currentPath: location.pathname,
+        navigate,
+        updateSessionCompany,
+        onStay: async () => {
+          const perms = await fetchCompanyPermissions(code);
+          const nextActive = pickTransactionMaintenancePermission(perms, savedPerm);
+          switchPermsCacheRef.current = { companyCode: code, perms };
+          setActivePermission(nextActive);
+          setPermissions(perms);
+          handledMetaScopeKeyRef.current = "";
 
-      if (res.has_gambling === false) {
-        navigate("/process-list", { replace: true });
-        return;
-      }
+          try {
+            const nextScope = resolveTransactionMaintenanceScope({
+              companies,
+              selectedGroup: newGroup,
+              companyId: nextCompanyId,
+              groupsAllMode,
+              groupAllMode,
+            });
+            const procList = await fetchProcessesForPermission(nextCompanyId, nextActive, nextScope);
+            setProcesses(procList);
+            setSelectedProcess("");
+            suppressNextSearchEffectRef.current = true;
+            await performMaintenanceSearch({ scope: nextScope, category: nextActive });
+          } catch (err) {
+            console.error("Process list load error:", err);
+          }
 
-      const perms = await fetchCompanyPermissions(code);
-
-      if (isBankOnlyCategoryCompany(perms)) {
-        navigate("/process-list", { replace: true });
-        return;
-      }
-
-      const nextActive = pickTransactionMaintenancePermission(perms, savedPerm);
-      switchPermsCacheRef.current = { companyCode: code, perms };
-      setActivePermission(nextActive);
-      setPermissions(perms);
-      handledMetaScopeKeyRef.current = "";
-
-      try {
-        const nextScope = resolveTransactionMaintenanceScope({
-          companies,
-          selectedGroup: newGroup,
-          companyId: nextCompanyId,
-          groupsAllMode,
-          groupAllMode,
-        });
-        const procList = await fetchProcessesForPermission(nextCompanyId, nextActive, nextScope);
-        setProcesses(procList);
-        setSelectedProcess("");
-        suppressNextSearchEffectRef.current = true;
-        await performMaintenanceSearch({ scope: nextScope, category: nextActive });
-      } catch (err) {
-        console.error("Process list load error:", err);
-      }
-
-      followGroupRef.current();
-
-      notifyCompanySessionUpdated();
-      notify(t("switchedTo", { company: c.company_id }), "success");
+          followGroupRef.current();
+          notify(t("switchedTo", { company: c.company_id }), "success");
+        },
+      });
+      if (redirected) return;
     } catch (err) {
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
-        navigate("/process-list", { replace: true });
+        navigate("/dashboard", { replace: true });
         return;
       }
       notify(err.message || t("switchFailed"), "error");
     }
-  }, [companies, groupsAllMode, groupAllMode, navigate, notify, performMaintenanceSearch, t]);
+  }, [companies, groupsAllMode, groupAllMode, location.pathname, navigate, notify, performMaintenanceSearch, selectedGroup, t]);
 
   switchCompanyRef.current = handleSwitchCompany;
   onClearCompanyRef.current = handleClearCompany;

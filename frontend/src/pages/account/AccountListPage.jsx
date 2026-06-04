@@ -5,6 +5,10 @@ import { peekCompanySessionFlags } from "../../utils/company/companySessionFlags
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import {
+  applySidebarForCompanySwitch,
+  resolveRowCompanyCode,
+} from "../../utils/company/sidebarCompanySwitch.js";
+import {
   clearDashboardGroupFilterKeepCompany,
   companiesForCompanyPicker,
   companiesInGroupList,
@@ -609,40 +613,6 @@ export default function AccountListPage() {
   const handleClearCompany = useCallback(() => {
     setCompanyId(null);
   }, []);
-
-  const resolveRowCompanyCode = useCallback((companyRow, apiData = null) => {
-    const fromApi = normalizeCompanyCode(apiData?.company_code);
-    if (fromApi) return fromApi;
-    const fromRow = normalizeCompanyCode(companyRow?.company_id ?? companyRow?.companyId);
-    if (fromRow) return fromRow;
-    const cached = peekCompanySessionFlags(Number(companyRow?.id));
-    return normalizeCompanyCode(cached?.company_code);
-  }, []);
-
-  const applySidebarForCompanySwitch = useCallback((viewGroup, companyRow, apiData) => {
-    const cid = Number(companyRow?.id);
-    if (!Number.isFinite(cid) || cid <= 0) return;
-
-    const companyCode = resolveRowCompanyCode(companyRow, apiData);
-    const vg = viewGroup != null && String(viewGroup).trim() !== "" ? String(viewGroup).trim().toUpperCase() : null;
-
-    if (apiData && typeof apiData === "object") {
-      notifyCompanySessionUpdated(apiData);
-    }
-
-    const opts = { ignoreGroupOnly: true, companyCode };
-    if (apiData && typeof apiData === "object") {
-      if (apiData.has_gambling != null) opts.hasGambling = Boolean(apiData.has_gambling);
-      if (apiData.has_bank != null) opts.hasBank = Boolean(apiData.has_bank);
-    } else {
-      const cached = peekCompanySessionFlags(cid);
-      if (cached) {
-        if (cached.has_gambling != null) opts.hasGambling = Boolean(cached.has_gambling);
-        if (cached.has_bank != null) opts.hasBank = Boolean(cached.has_bank);
-      }
-    }
-    notifyDashboardGroupFilterChanged(vg, cid, opts);
-  }, [resolveRowCompanyCode]);
 
   const onSwitchCompany = useCallback(
     async (c, { viewGroup = null, fetchList = true } = {}) => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 /* 与 DataCapture 相同：打进 Vite 产物，避免 dynamic import 在生产包中被拆成空 chunk、样式从未加载 */
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
@@ -13,8 +13,9 @@ import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { formatYmd } from "../../../utils/date/dateUtils.js";
-import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
+import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import {
   companiesNativeInGroupList,
@@ -55,6 +56,7 @@ import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmMod
 
 export default function CaptureMaintenancePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
@@ -172,6 +174,7 @@ export default function CaptureMaintenancePage() {
   }, []);
 
   const { guardWrite } = usePartnershipAuditWriteGuard(me, notify);
+  useMaintenanceBankOnlyGuard(companyId);
   useMaintenancePageScrollLock();
 
   // -- Initialization --
@@ -286,7 +289,7 @@ export default function CaptureMaintenancePage() {
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
-            navigate("/process-list", { replace: true });
+            navigate("/dashboard", { replace: true });
             return;
           }
           if (!hasGames) {
@@ -502,27 +505,29 @@ export default function CaptureMaintenancePage() {
     const nextCode = c.company_id || "";
 
     try {
-      const sessionData = await updateSessionCompany(c.id);
-
-      if (sessionData && sessionData.has_gambling === false) {
-        navigate("/process-list", { replace: true });
-        return;
-      }
-
-      notifyCompanySessionUpdated();
-      const switchedScope = resolveCaptureMaintenanceScope({
-        companies,
-        selectedGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
-        companyId: Number(c.id),
-        groupsAllMode,
-        groupAllMode,
+      const { redirected } = await runMaintenanceCompanySwitch({
+        companyRow: c,
+        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
+        currentPath: location.pathname,
+        navigate,
+        updateSessionCompany,
+        onStay: async () => {
+          const switchedScope = resolveCaptureMaintenanceScope({
+            companies,
+            selectedGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
+            companyId: Number(c.id),
+            groupsAllMode,
+            groupAllMode,
+          });
+          await performSearch({ scope: switchedScope });
+          notify(t("switchedTo", { company: nextCode }), "success");
+        },
       });
-      await performSearch({ scope: switchedScope });
-      notify(t("switchedTo", { company: nextCode }), "success");
+      if (redirected) return;
     } catch (err) {
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
-        navigate("/process-list", { replace: true });
+        navigate("/dashboard", { replace: true });
         return;
       }
       notify(err.message || t("switchFailed"), "error");

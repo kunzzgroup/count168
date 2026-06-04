@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { injectStylesheet } from "../../../utils/core/injectStylesheet.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
-import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import { runMaintenanceCompanySwitch, syncMaintenanceBootSidebar } from "../shared/maintenanceCompanySwitch.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import {
   isDashboardGroupOnlyMode,
@@ -55,6 +55,7 @@ function consumeNoDataToastDedupeKey(key) {
 
 export default function BankprocessMaintenancePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
@@ -226,7 +227,36 @@ export default function BankprocessMaintenancePage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, navigate, me]);
+  }, [sessionReady, navigate, me?.user_id]);
+
+  useEffect(() => {
+    if (bootLoading || !companyId || !companies.length) return;
+    const id = Number(companyId);
+    if (!Number.isFinite(id) || id <= 0) return;
+    if (sidebarSyncedCompanyIdRef.current === id) return;
+
+    const row = companies.find((c) => Number(c.id) === id);
+    if (!row?.id) return;
+
+    let cancelled = false;
+    sidebarSyncedCompanyIdRef.current = id;
+    void (async () => {
+      try {
+        await syncMaintenanceBootSidebar({
+          companyRow: row,
+          viewGroup: selectedGroup,
+          updateSessionCompany: (cid) => updateSessionCompany(Number(cid)),
+          sessionCompanyId: me?.company_id,
+        });
+      } finally {
+        if (cancelled) sidebarSyncedCompanyIdRef.current = null;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, companyId, companies, selectedGroup, me?.company_id]);
 
   useEffect(() => {
     if (bootLoading || !companyId || !companyCode) return;
@@ -385,6 +415,7 @@ export default function BankprocessMaintenancePage() {
 
   const switchCompanyRef = useRef(async () => {});
   const onPrepareCompanySelectRef = useRef(() => {});
+  const sidebarSyncedCompanyIdRef = useRef(null);
 
   const onPrepareCompanySelect = useCallback((targetCompany) => {
     if (!targetCompany?.id) return;
@@ -405,13 +436,23 @@ export default function BankprocessMaintenancePage() {
   const handleSwitchCompany = useCallback(async (targetCompany) => {
     if (!targetCompany?.id) return;
     try {
-      await updateSessionCompany(Number(targetCompany.id));
-      notifyCompanySessionUpdated();
-      notify(t("switchedTo", { company: targetCompany.company_id }), "success");
+      const { redirected } = await runMaintenanceCompanySwitch({
+        companyRow: targetCompany,
+        viewGroup: targetCompany.group_id
+          ? String(targetCompany.group_id).trim().toUpperCase()
+          : selectedGroup,
+        currentPath: location.pathname,
+        navigate,
+        updateSessionCompany: (id) => updateSessionCompany(Number(id)),
+        onStay: async () => {
+          notify(t("switchedTo", { company: targetCompany.company_id }), "success");
+        },
+      });
+      if (redirected) return;
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
     }
-  }, [notify, t]);
+  }, [location.pathname, navigate, notify, selectedGroup, t]);
 
   switchCompanyRef.current = handleSwitchCompany;
 
