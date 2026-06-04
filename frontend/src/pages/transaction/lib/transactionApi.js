@@ -74,7 +74,7 @@ function appendViewGroup(params, viewGroup) {
 /** Append company_id / view_group / group_id (same rules as transactionScopeApiParams). */
 function appendTransactionScope(
   target,
-  { companyId, viewGroup, groupId, groupAggregate },
+  { companyId, viewGroup, groupId, groupAggregate, subsidiaryAccountsOnly },
   kind = "params",
 ) {
   const cid = companyId != null && companyId !== "" ? Number(companyId) : 0;
@@ -96,6 +96,10 @@ function appendTransactionScope(
     if (kind === "form") target.append("group_aggregate", "1");
     else target.set("group_aggregate", "1");
   }
+  if (subsidiaryAccountsOnly) {
+    if (kind === "form") target.append("subsidiary_accounts_only", "1");
+    else target.set("subsidiary_accounts_only", "1");
+  }
 }
 
 export async function getAccounts({ companyId, viewGroup, groupId, role, status = "active", currency, signal } = {}) {
@@ -111,20 +115,44 @@ export async function getAccounts({ companyId, viewGroup, groupId, role, status 
   return safeJson(res);
 }
 
-export async function getCompanyCurrencies({ companyId, viewGroup, groupId, groupAggregate } = {}) {
+export async function getCompanyCurrencies({
+  companyId,
+  viewGroup,
+  groupId,
+  groupAggregate,
+  subsidiaryAccountsOnly,
+  signal,
+} = {}) {
   const params = new URLSearchParams();
-  appendTransactionScope(params, { companyId, viewGroup, groupId, groupAggregate });
-  const useGroupScopeApi =
-    groupAggregate && !companyId && (viewGroup || groupId);
-  const path = useGroupScopeApi
+  appendTransactionScope(params, {
+    companyId,
+    viewGroup,
+    groupId,
+    groupAggregate,
+    subsidiaryAccountsOnly,
+  });
+  const cid = companyId != null && companyId !== "" ? Number(companyId) : 0;
+  const useScopeCurrencyApi =
+    (groupAggregate && !(Number.isFinite(cid) && cid > 0) && (viewGroup || groupId)) ||
+    (Number.isFinite(cid) && cid > 0 && subsidiaryAccountsOnly);
+  const path = useScopeCurrencyApi
     ? "api/transactions/get_scope_account_currencies_api.php"
     : "api/transactions/get_company_currencies_api.php";
-  const res = await fetch(buildApiUrl(`${path}?${params.toString()}`), { credentials: "include" });
+  const res = await fetch(buildApiUrl(`${path}?${params.toString()}`), {
+    credentials: "include",
+    signal,
+  });
   return safeJson(res);
 }
 
-export async function getUserCurrencyOrder() {
-  const res = await fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), { credentials: "include" });
+export async function getUserCurrencyOrder({ companyId, signal } = {}) {
+  const params = new URLSearchParams({ _t: String(Date.now()) });
+  const cid = companyId != null && companyId !== "" ? Number(companyId) : 0;
+  if (Number.isFinite(cid) && cid > 0) params.set("company_id", String(cid));
+  const res = await fetch(
+    buildApiUrl(`api/transactions/user_currency_order_api.php?${params.toString()}`),
+    { credentials: "include", signal },
+  );
   return safeJson(res);
 }
 

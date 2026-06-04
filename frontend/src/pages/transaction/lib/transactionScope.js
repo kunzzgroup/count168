@@ -34,15 +34,18 @@ export function resolveTransactionScope(filterSnapshot) {
     ? String(filterSnapshot.selectedGroup).trim().toUpperCase()
     : null;
   const uiCompanyIdRaw = filterSnapshot.companyId;
-  const groupOnlyLedger =
-    Boolean(filterSnapshot.groupOnlyLedger) ||
-    (selectedGroup && isDashboardGroupOnlyMode());
-  const uiCompanyId =
-    groupOnlyLedger
-      ? null
-      : uiCompanyIdRaw != null && Number(uiCompanyIdRaw) > 0
-        ? Number(uiCompanyIdRaw)
-        : null;
+  const hasExplicitCompany =
+    uiCompanyIdRaw != null && Number(uiCompanyIdRaw) > 0;
+  // Explicit company pill wins over cross-page group-only session flag (prevents IG currencies leaking into 95).
+  const groupOnlyLedger = hasExplicitCompany
+    ? Boolean(filterSnapshot.groupOnlyLedger)
+    : Boolean(filterSnapshot.groupOnlyLedger) ||
+      (selectedGroup && isDashboardGroupOnlyMode());
+  const uiCompanyId = groupOnlyLedger
+    ? null
+    : hasExplicitCompany
+      ? Number(uiCompanyIdRaw)
+      : null;
 
   const mergeCompanyIds = (() => {
     if (uiCompanyId) return [uiCompanyId];
@@ -180,11 +183,12 @@ export function transactionScopeApiParams(scope) {
       groupAggregate: true,
     };
   }
-  // Subsidiary drill-down: company_id wins; omit group_id so company scope is used.
+  // Subsidiary drill-down: company_id wins; scope currencies API uses subsidiary_accounts_only.
   return {
     companyId: scope.scopeCompanyId > 0 ? scope.scopeCompanyId : scope.uiCompanyId ?? undefined,
     viewGroup,
     groupId: undefined,
+    subsidiaryAccountsOnly: true,
   };
 }
 

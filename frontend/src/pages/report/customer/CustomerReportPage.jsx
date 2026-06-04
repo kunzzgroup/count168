@@ -9,7 +9,10 @@ import {
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
+  readPersistedDashboardGcFilter,
+  persistDashboardGroupOnlyMode,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { isGroupLogin } from "../../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
@@ -205,20 +208,24 @@ export default function CustomerReportPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        const effective = resolveBootCompanyId({
+        const persisted = readPersistedDashboardGcFilter();
+        let effective = resolveBootCompanyId({
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
+        if (persisted.groupOnly || (isGroupLogin(u) && !queryCompany)) {
+          effective = null;
+          persistDashboardGroupOnlyMode(true);
+        }
+        const bootGroupOnly = persisted.groupOnly || (isGroupLogin(u) && effective == null);
         const nextCompanyId =
-          companyId != null ? companyId : effective != null || isDashboardGroupOnlyMode() ? effective : null;
+          companyId != null ? companyId : bootGroupOnly ? null : effective;
         const row =
           nextCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
             : null;
-        if (nextCompanyId != null || isDashboardGroupOnlyMode()) {
-          setCompanyId((prev) => (prev != null ? prev : effective));
-        }
+        setCompanyId((prev) => (prev != null ? prev : nextCompanyId));
         setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
         if (nextCompanyId != null) void checkBankOnly(nextCompanyId);
       } catch {
@@ -261,20 +268,19 @@ export default function CustomerReportPage() {
   const handleClearCompany = useCallback((groupForScope) => {
     invalidateReportFetch();
     setCompanyId(null);
-    setCompanyHighlightId(null);
     setError("");
     setAccountId("");
     const groupKey = groupForScope ? String(groupForScope).trim().toUpperCase() : "";
-    if (!groupKey) {
-      setCurrencyFilterReady(false);
-    } else {
-      setCurrencyFilterReady(false);
+    if (groupKey) {
+      persistDashboardGroupOnlyMode(true);
     }
+    setCurrencyFilterReady(false);
   }, [invalidateReportFetch]);
 
   const onPrepareCompanySelect = useCallback((c) => {
     const nextId = Number(c?.id);
     if (!nextId) return;
+    persistDashboardGroupOnlyMode(false);
     flushSync(() => setCompanyId(nextId));
     if (reportDataRef.current != null) setReportSyncing(true);
     startTransition(() => {

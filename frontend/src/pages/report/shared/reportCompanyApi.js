@@ -1,5 +1,5 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
-import { resolveCustomerReportScope } from "./reportScope.js";
+import { customerReportScopeApiParams, resolveCustomerReportScope } from "./reportScope.js";
 
 function normalizeReportScopeInput(scopeOrLegacy) {
   if (!scopeOrLegacy || typeof scopeOrLegacy !== "object") return null;
@@ -70,32 +70,25 @@ export async function fetchCurrencies(companyId, options = {}) {
   return json.data || [];
 }
 
-/** Currencies for the active report scope company (group entity or subsidiary). */
+/** Currencies for the active report scope (group ledger vs subsidiary company). */
 export async function fetchReportScopeCurrencies(scopeOrLegacy, options = {}) {
   const reportScope = normalizeReportScopeInput(scopeOrLegacy);
   if (!reportScope) return [];
   const { signal } = options;
   const q = new URLSearchParams();
-  const cid = Number(reportScope.scopeCompanyId);
-  const vg = reportScope.viewGroup || reportScope.groupId || "";
-  if (
-    reportScope.resolveCompanyViaGroupId ||
-    (reportScope.mode === "group" && (!Number.isFinite(cid) || cid <= 0))
-  ) {
-    const gid = reportScope.groupId ? String(reportScope.groupId).trim().toUpperCase() : "";
-    if (!gid) return [];
-    q.set("group_id", gid);
-    if (vg) q.set("view_group", String(vg).trim().toUpperCase());
-  } else {
-    if (!Number.isFinite(cid) || cid <= 0) return [];
-    q.set("company_id", String(cid));
-    if (vg) q.set("view_group", String(vg).trim().toUpperCase());
-    const gid = reportScope.groupId ? String(reportScope.groupId).trim().toUpperCase() : "";
-    if (gid) q.set("group_id", gid);
-  }
+  const api = customerReportScopeApiParams(reportScope);
+  if (api.companyId) q.set("company_id", String(api.companyId));
+  const vg = api.viewGroup ? String(api.viewGroup).trim().toUpperCase() : "";
+  if (vg) q.set("view_group", vg);
+  const gid = api.groupId ? String(api.groupId).trim().toUpperCase() : "";
+  if (gid) q.set("group_id", gid);
+  if (api.groupAggregate) q.set("group_aggregate", "1");
+  const useGroupScopeApi = api.groupAggregate && !api.companyId && (api.viewGroup || api.groupId);
   const qs = q.toString();
   const url = buildApiUrl(
-    `api/transactions/get_company_currencies_api.php${qs ? `?${qs}` : ""}`,
+    useGroupScopeApi
+      ? `api/transactions/get_scope_account_currencies_api.php${qs ? `?${qs}` : ""}`
+      : `api/transactions/get_company_currencies_api.php${qs ? `?${qs}` : ""}`,
   );
   const res = await fetch(url, { credentials: "include", signal });
   const json = await res.json();

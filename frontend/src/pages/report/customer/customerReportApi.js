@@ -6,7 +6,7 @@ export const formatAmount = formatReportAmount;
 export const reportAdd = reportAmountAdd;
 
 function appendScopeParams(params, scope) {
-  const { companyId, viewGroup, groupId, groupsAll, groupAll } =
+  const { companyId, viewGroup, groupId, groupsAll, groupAll, groupAggregate } =
     customerReportScopeApiParams(scope);
   if (companyId) params.append("company_id", String(companyId));
   const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
@@ -15,6 +15,7 @@ function appendScopeParams(params, scope) {
   if (gid) params.append("group_id", gid);
   if (groupsAll) params.append("groups_all", "1");
   if (groupAll) params.append("group_all", "1");
+  if (groupAggregate) params.append("group_aggregate", "1");
   if (scope?.mode) params.append("report_scope", scope.mode);
 }
 

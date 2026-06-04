@@ -120,14 +120,8 @@ try {
             }
             $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
         } elseif ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
+            // Subsidiary drill-down: that company's Currency Setting only — never merge group entity currencies.
             $currencyCompanyIds = [$primaryCompanyId];
-            if ($viewGroup !== '') {
-                $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
-                if ($entityId > 0 && $entityId !== $primaryCompanyId) {
-                    $currencyCompanyIds[] = $entityId;
-                }
-            }
-            $currencyCompanyIds = array_values(array_unique($currencyCompanyIds));
             $accountIds = dashboardCollectScopeAccountIds(
                 $pdo,
                 $primaryCompanyId,

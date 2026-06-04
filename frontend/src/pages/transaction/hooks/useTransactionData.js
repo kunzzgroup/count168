@@ -82,10 +82,12 @@ export function useTransactionData({
   useLayoutEffect(() => {
     if (prevScopeCacheKeyRef.current === scopeCacheKey) return;
     prevScopeCacheKeyRef.current = scopeCacheKey;
+    scopeCacheKeyRef.current = scopeCacheKey;
+    queryClient.removeQueries({ queryKey: ["tx-company-currencies"] });
     setAccountOptions([]);
     setCurrencyOptions([]);
     setCurrencyScopeBundle({ scopeKey: null, rows: [] });
-  }, [scopeCacheKey]);
+  }, [scopeCacheKey, queryClient]);
 
   const setCurrencyRowsOrdered = useCallback((next) => {
     setCurrencyScopeBundle((prev) => ({
@@ -262,6 +264,10 @@ export function useTransactionData({
     const fetchScopeKey = scopeCacheKey;
     let cancelled = false;
     const scopeApi = transactionScopeApiParams(transactionScope);
+    const orderCompanyId =
+      transactionScope?.mode === "company" && transactionScope.scopeCompanyId > 0
+        ? transactionScope.scopeCompanyId
+        : undefined;
     (async () => {
       try {
         const c = await queryClient.fetchQuery({
@@ -278,8 +284,8 @@ export function useTransactionData({
 
       try {
         const ord = await queryClient.fetchQuery({
-          queryKey: transactionQueryKeys.userCurrencyOrder(),
-          queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
+          queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId ?? ""],
+          queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
           staleTime: 60_000,
           gcTime: 10 * 60_000,
         });
@@ -504,7 +510,12 @@ export function useTransactionData({
       const prefetchApi = transactionScopeApiParams(nextScope) || {
         companyId: numericCid,
         viewGroup,
+        subsidiaryAccountsOnly: true,
       };
+      const orderCompanyId =
+        nextScope?.mode === "company" && nextScope.scopeCompanyId > 0
+          ? nextScope.scopeCompanyId
+          : undefined;
 
       const url = new URL(window.location.href);
       url.searchParams.set("company_id", String(numericCid));
@@ -526,8 +537,8 @@ export function useTransactionData({
           staleTime: 60_000,
         }),
         queryClient.prefetchQuery({
-          queryKey: transactionQueryKeys.userCurrencyOrder(),
-          queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
+          queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId ?? ""],
+          queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
           staleTime: 60_000,
         }),
       ]);
@@ -585,7 +596,12 @@ export function useTransactionData({
       const prefetchApi = transactionScopeApiParams(nextScope) || {
         companyId: numericCid,
         viewGroup,
+        subsidiaryAccountsOnly: true,
       };
+      const orderCompanyId =
+        nextScope?.mode === "company" && nextScope.scopeCompanyId > 0
+          ? nextScope.scopeCompanyId
+          : undefined;
 
       const url = new URL(window.location.href);
       url.searchParams.set("company_id", String(cid));
@@ -607,8 +623,8 @@ export function useTransactionData({
           staleTime: 60_000,
         }),
         queryClient.prefetchQuery({
-          queryKey: transactionQueryKeys.userCurrencyOrder(),
-          queryFn: ({ signal }) => getUserCurrencyOrder({ signal }),
+          queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId ?? ""],
+          queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
           staleTime: 60_000,
         }),
       ]);
