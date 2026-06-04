@@ -1160,13 +1160,18 @@ body.datacapture-page .bottom-section .form-actions {
     padding-left: 8px;
 }
 
+.modal-content.description-selection-modal .selected-descriptions-section h3,
+.modal-content.description-selection-modal .available-descriptions-section h3,
+.modal-content.description-selection-modal .add-description-bar h3,
 .selected-descriptions-section h3,
-.available-descriptions-section h3 {
+.available-descriptions-section h3,
+.add-description-bar h3 {
     margin: 0 0 8px 0;
-    color: #374151;
-    font-size: var(--text-medium);
+    color: var(--color-body-strong, #374151);
+    font-size: var(--desc-modal-section-size, var(--text-h3));
     font-family: var(--font-heading-page);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold, 600);
+    line-height: 1.25;
 }
 
 .add-description-bar {
@@ -1176,11 +1181,7 @@ body.datacapture-page .bottom-section .form-actions {
 }
 
 .add-description-bar h3 {
-    margin: 0 0 6px 0;
-    color: #374151;
-    font-size: var(--text-small);
-    font-family: var(--font-heading-page);
-    font-weight: 600;
+    margin-bottom: 6px;
 }
 
 .add-description-form {
@@ -1266,12 +1267,16 @@ body.datacapture-page .bottom-section .form-actions {
     width: clamp(10px, 0.73vw, 14px);
 }
 
-.description-item label {
+.description-item label,
+.modal-content.description-selection-modal .description-item label {
     margin: 0;
-    font-size: clamp(10px, 0.73vw, 14px);
+    font-size: var(--desc-modal-list-text, var(--text-tiny));
+    font-family: var(--font-ui);
+    font-weight: var(--font-weight-normal);
     cursor: pointer;
     flex: 1;
-    color: #333;
+    color: var(--color-body-strong, #333);
+    line-height: 1.35;
 }
 
 .description-delete-btn {

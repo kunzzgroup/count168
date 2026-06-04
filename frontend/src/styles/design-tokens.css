@@ -147,7 +147,7 @@
   --desc-modal-pad-inline: var(--space-card);
   --desc-modal-title-size: var(--text-page-title);
   --desc-modal-section-size: var(--text-h3);
-  --desc-modal-label-size: var(--text-medium);
+  --desc-modal-list-text: var(--text-tiny);
   --desc-modal-body-size: var(--text-base);
   --desc-modal-empty-size: var(--text-medium);
   --desc-modal-control-text: var(--text-base);

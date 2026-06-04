@@ -5005,13 +5005,16 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
 .modal-content.description-selection-modal .selected-descriptions-section h3,
 .modal-content.description-selection-modal .available-descriptions-section h3,
+.modal-content.description-selection-modal .add-description-bar h3,
 .process-page .description-selection-modal .selected-descriptions-section h3,
-.process-page .description-selection-modal .available-descriptions-section h3 {
+.process-page .description-selection-modal .available-descriptions-section h3,
+.process-page .description-selection-modal .add-description-bar h3 {
     margin: 0 0 var(--space-gap) 0;
-    font-size: var(--desc-modal-section-size);
+    font-size: var(--desc-modal-section-size, var(--text-h3));
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-semibold);
     color: var(--color-body-strong);
+    line-height: 1.25;
 }
 
 .modal-content.description-selection-modal .add-description-bar,
@@ -5023,11 +5026,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
 .modal-content.description-selection-modal .add-description-bar h3,
 .process-page .description-selection-modal .add-description-bar h3 {
-    margin: 0 0 calc(var(--space-gap) * 0.6) 0;
-    font-size: var(--desc-modal-label-size);
-    font-family: var(--font-heading-page);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-body-strong);
+    margin-bottom: calc(var(--space-gap) * 0.6);
 }
 
 .modal-content.description-selection-modal .add-description-form,
@@ -5150,10 +5149,11 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .selected-description-modal-item span,
 .modal-content.description-selection-modal .selected-description-modal-item span {
     flex: 1;
-    font-size: var(--desc-modal-body-size);
+    font-size: var(--desc-modal-list-text, var(--text-tiny));
     font-family: var(--font-ui);
     color: var(--desc-modal-selected-fg);
     font-weight: var(--font-weight-semibold);
+    line-height: 1.35;
 }
 
 .modal-content.description-selection-modal .description-item,
@@ -5198,8 +5198,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .description-item label,
 .process-page .description-selection-modal .description-item label {
     margin: 0;
-    font-size: var(--desc-modal-body-size);
+    font-size: var(--desc-modal-list-text, var(--text-tiny));
     font-family: var(--font-ui);
+    font-weight: var(--font-weight-normal);
     cursor: pointer;
     flex: 1;
     color: var(--color-body-strong);
