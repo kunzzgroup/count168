@@ -201,7 +201,7 @@ function dbRemoveAccountCurrency($pdo, $account_id, $currency_id) {
 }
 
 try {
-    if (!isset($_SESSION['company_id'])) {
+    if (!isset($_SESSION['user_id'])) {
         jsonResponse(false, '用户未登录或缺少公司信息', null, 401);
         exit;
     }

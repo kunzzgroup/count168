@@ -163,6 +163,121 @@ function tenant_create_currency(PDO $pdo, string $code, array $ctx): array
 }
 
 /**
+ * @return array{code: string}|null
+ */
+function tenant_get_currency_row(PDO $pdo, int $currencyId, array $ctx): ?array
+{
+    if (!tenant_currency_belongs_to_context($pdo, $currencyId, $ctx)) {
+        return null;
+    }
+    $stmt = $pdo->prepare('SELECT code FROM currency WHERE id = ? LIMIT 1');
+    $stmt->execute([$currencyId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+function tenant_delete_currency(PDO $pdo, int $currencyId, array $ctx): int
+{
+    if (($ctx['mode'] ?? '') === 'group' && tenant_table_has_scope_columns($pdo, 'currency')) {
+        $stmt = $pdo->prepare("
+            DELETE FROM currency
+            WHERE id = ? AND scope_type = 'group' AND scope_id = ?
+        ");
+        $stmt->execute([$currencyId, (int) ($ctx['group_pk'] ?? 0)]);
+    } else {
+        $companyId = (int) ($ctx['company_id'] ?? 0);
+        $stmt = $pdo->prepare(
+            'DELETE FROM currency WHERE id = ? AND company_id = ?'
+            . tenant_sql_currency_subsidiary_only($pdo)
+        );
+        $stmt->execute([$currencyId, $companyId]);
+    }
+
+    return $stmt->rowCount();
+}
+
+/**
+ * @return array<int, array{id: int, name: string, account_id: string}>
+ */
+function tenant_get_accounts_using_currency(PDO $pdo, int $currencyId, array $ctx): array
+{
+    $isGroup = (($ctx['mode'] ?? '') === 'group');
+    $groupPk = (int) ($ctx['group_pk'] ?? 0);
+    $companyId = (int) ($ctx['company_id'] ?? 0);
+    $accounts = [];
+
+    if (!tableExistsForTenant($pdo, 'account_currency')) {
+        return [];
+    }
+
+    if ($isGroup && $groupPk > 0) {
+        $groupAccountIds = tenant_collect_group_account_ids($pdo, $groupPk);
+        if ($groupAccountIds === []) {
+            return [];
+        }
+        $idPh = implode(',', array_fill(0, count($groupAccountIds), '?'));
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT a.id, a.name, a.account_id
+            FROM account_currency ac
+            INNER JOIN account a ON a.id = ac.account_id
+            WHERE ac.currency_id = ? AND a.id IN ($idPh)
+            ORDER BY a.name ASC, a.account_id ASC
+        ");
+        $stmt->execute(array_merge([$currencyId], $groupAccountIds));
+
+        return tenant_normalize_account_usage_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    if (!tableExistsForTenant($pdo, 'account_company')) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT a.id, a.name, a.account_id
+        FROM account_currency ac
+        INNER JOIN account a ON a.id = ac.account_id
+        INNER JOIN account_company acc ON a.id = acc.account_id
+        WHERE ac.currency_id = ? AND acc.company_id = ?"
+        . tenant_sql_account_company_subsidiary_only($pdo, 'acc')
+        . ' ORDER BY a.name ASC, a.account_id ASC
+    ');
+    $stmt->execute([$currencyId, $companyId]);
+
+    return tenant_normalize_account_usage_rows($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+/**
+ * @param array<int, array<string, mixed>> $rows
+ * @return array<int, array{id: int, name: string, account_id: string}>
+ */
+function tenant_normalize_account_usage_rows(array $rows): array
+{
+    $normalized = [];
+    foreach ($rows as $row) {
+        $normalized[] = [
+            'id' => (int) ($row['id'] ?? 0),
+            'name' => (string) ($row['name'] ?? ''),
+            'account_id' => (string) ($row['account_id'] ?? ''),
+        ];
+    }
+
+    return $normalized;
+}
+
+/** @internal */
+function tableExistsForTenant(PDO $pdo, string $tableName): bool
+{
+    try {
+        $stmt = $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($tableName));
+
+        return $stmt !== false && $stmt->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
  * @return array<int, array{id: int, code: string}>
  */
 function tenant_fetch_currencies(PDO $pdo, array $ctx): array

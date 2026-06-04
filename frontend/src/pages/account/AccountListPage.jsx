@@ -1863,19 +1863,23 @@ export default function AccountListPage() {
 
     try {
       const deleteUrl = new URL(buildApiUrl("api/accounts/delete_currency_api.php"));
-      if (selectedGroup) {
-        deleteUrl.searchParams.set("group_id", String(selectedGroup));
-      } else if (scopeCompanyId) {
-        deleteUrl.searchParams.set("company_id", String(scopeCompanyId));
+      appendCurrencyScopeParams(deleteUrl.searchParams);
+      const deletePayload = { id };
+      const gid =
+        (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
+        (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null);
+      if (groupOnlyAccountMode) {
+        deletePayload.group_only = true;
+        if (gid) deletePayload.group_id = gid;
+      } else {
+        if (companyId) deletePayload.company_id = Number(companyId);
+        else if (scopeCompanyId) deletePayload.company_id = Number(scopeCompanyId);
+        if (gid) deletePayload.group_id = gid;
       }
       const res = await fetch(deleteUrl.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id,
-          company_id: scopeCompanyId || undefined,
-          group_id: selectedGroup ? String(selectedGroup) : undefined,
-        }),
+        body: JSON.stringify(deletePayload),
         credentials: "include",
       });
       const json = await res.json();
