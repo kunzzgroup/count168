@@ -54,7 +54,13 @@ export default function DescriptionPickerModal({
 
   return (
     <ProcessModalPortal>
-    <div className="modal show" style={{ ...processModalBackdropStyle, zIndex: 10100 }} role="dialog" aria-modal="true">
+    <div
+      id="descriptionPickerModal"
+      className="modal show"
+      style={{ ...processModalBackdropStyle, zIndex: 10100 }}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="modal-content description-selection-modal">
         <div className="modal-header description-selection-modal-header">
           <h2>{t("selectOrAddDescription")}</h2>

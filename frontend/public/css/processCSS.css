@@ -4923,8 +4923,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
 .modal-content.description-selection-modal,
 .process-page .modal-content.description-selection-modal {
-    width: var(--desc-modal-width) !important;
-    max-width: var(--desc-modal-width) !important;
+    width: var(--desc-modal-width, min(1040px, calc(100vw - 48px))) !important;
+    max-width: var(--desc-modal-width, min(1040px, calc(100vw - 48px))) !important;
+    box-sizing: border-box;
     max-height: var(--desc-modal-max-height);
     margin: 4vh auto;
     padding: 0;
@@ -4980,6 +4981,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     column-gap: var(--desc-modal-col-gap);
     flex: 1 1 auto;
     min-height: 0;
+    width: 100%;
     align-items: stretch;
 }
 
@@ -5031,6 +5033,8 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .add-description-form,
 .process-page .description-selection-modal .add-description-form {
     margin: 0;
+    width: 100%;
+    min-width: 0;
 }
 
 .modal-content.description-selection-modal .add-description-input-group,
@@ -5038,6 +5042,8 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     display: flex;
     gap: calc(var(--space-gap) * 0.5);
     align-items: center;
+    width: 100%;
+    min-width: 0;
 }
 
 .modal-content.description-selection-modal .add-description-input-group input,
@@ -5108,9 +5114,10 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .selected-descriptions-list,
 .process-page .description-selection-modal .description-list,
 .process-page .description-selection-modal .selected-descriptions-list {
-    height: var(--desc-modal-list-min-h);
-    min-height: var(--desc-modal-list-min-h);
-    max-height: var(--desc-modal-list-min-h);
+    flex: 1 1 auto;
+    min-height: 11rem;
+    max-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    height: auto;
     overflow-y: auto;
     border: 1px solid var(--color-border);
     border-radius: calc(var(--desc-modal-radius) * 0.45);
@@ -5281,12 +5288,12 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     font-family: var(--font-heading-page);
 }
 
-/* Tablet / 小屏：双栏改单栏，避免横向溢出（PHP 宽度在窄屏用 94vw） */
-@media (max-width: 56.25rem) {
+/* 手机竖屏：双栏改单栏；平板/笔记本保持双栏 + PHP 宽度 */
+@media (max-width: 40rem) {
     .modal-content.description-selection-modal,
     .process-page .modal-content.description-selection-modal {
-        width: min(94vw, 65rem) !important;
-        max-width: min(94vw, 65rem) !important;
+        width: min(1040px, calc(100vw - 24px)) !important;
+        max-width: min(1040px, calc(100vw - 24px)) !important;
         margin: 3vh auto;
     }
 
@@ -6857,5 +6864,17 @@ body.process-page.process-page--bank.process-page--bank-show-all .process-table-
 #editModal #edit_dts_modified span,
 #editModal #edit_dts_created span {
     font-size: clamp(12px, 0.86vw, 13px) !important;
+}
+
+/* Description picker — 压过通用 .modal-content，与 PHP 同宽 */
+body.process-page > #descriptionPickerModal.modal.show > .modal-content.description-selection-modal {
+    width: min(1040px, calc(100vw - 48px)) !important;
+    max-width: min(1040px, calc(100vw - 48px)) !important;
+    box-sizing: border-box !important;
+}
+
+body.process-page > #descriptionPickerModal.modal.show > .modal-content.description-selection-modal .add-description-input-group input {
+    flex: 1 1 0%;
+    min-width: 0;
 }
 
