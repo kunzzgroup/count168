@@ -1144,20 +1144,34 @@ body.datacapture-page .bottom-section .form-actions {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 28px;
     flex: 1 1 auto;
-    min-height: 450px;
+    min-height: 0;
     width: 100%;
     align-items: stretch;
 }
 
-.selected-descriptions-section {
+.modal-content.description-selection-modal .selected-descriptions-section,
+.modal-content.description-selection-modal .available-descriptions-section,
+.selected-descriptions-section,
+.available-descriptions-section {
+    height: 100%;
+    align-self: stretch;
     min-width: 0;
+}
+
+.modal-content.description-selection-modal .selected-descriptions-section,
+.selected-descriptions-section {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     border-right: 1px solid #e5e7eb;
     padding-right: 16px;
 }
 
+.modal-content.description-selection-modal .available-descriptions-section,
 .available-descriptions-section {
-    min-width: 0;
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
     padding-left: 8px;
+    overflow: hidden;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-section h3,
@@ -1220,10 +1234,14 @@ body.datacapture-page .bottom-section .form-actions {
     background-color: white;
 }
 
-.description-list {
-    height: var(--desc-modal-list-min-h, 19.75rem);
-    min-height: var(--desc-modal-list-min-h, 19.75rem);
-    max-height: var(--desc-modal-list-min-h, 19.75rem);
+.description-list,
+.modal-content.description-selection-modal .description-list {
+    align-self: stretch;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    height: 100%;
+    max-height: none;
     overflow-y: auto;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
@@ -1231,10 +1249,17 @@ body.datacapture-page .bottom-section .form-actions {
     background-color: #f8fafc;
 }
 
-.selected-descriptions-list {
-    height: var(--desc-modal-list-min-h, 19.75rem);
-    min-height: var(--desc-modal-list-min-h, 19.75rem);
-    max-height: var(--desc-modal-list-min-h, 19.75rem);
+.selected-descriptions-list,
+.modal-content.description-selection-modal .selected-descriptions-list {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    align-self: stretch;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    height: 100%;
+    max-height: none;
     overflow-y: auto;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
