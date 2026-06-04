@@ -14,6 +14,7 @@ import {
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
+  notifyDashboardGroupFilterChanged,
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
   readDashboardSelectedCompanyId,
@@ -244,6 +245,8 @@ export default function DataCapturePage() {
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     preferredCompanyId: companyId,
     enableGroupAnchorSession: false,
+    autoPickCompanyWhenEmpty: false,
+    broadcastFilterToLayout: false,
     me,
   });
 
@@ -618,6 +621,19 @@ export default function DataCapturePage() {
     form.clearProcessSelection?.();
   }, [companyId, selectedGroup, currentCompanyRow, navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
 
+  /** Sidebar menu flags follow group/company filter (page-owned broadcast; avoids GC hook auto-pick loop). */
+  useLayoutEffect(() => {
+    if (bootLoading) return;
+    const code =
+      currentCompanyRow?.company_id != null && String(currentCompanyRow.company_id).trim() !== ""
+        ? String(currentCompanyRow.company_id).trim()
+        : null;
+    notifyDashboardGroupFilterChanged(selectedGroup, companyId, {
+      companyCode: code,
+      ignoreGroupOnly: true,
+    });
+  }, [bootLoading, selectedGroup, companyId, currentCompanyRow?.company_id]);
+
   /** Group-only UI: sync PHP session to group entity so Summary/API match scope. */
   useEffect(() => {
     if (bootLoading || isCompanySelected || !selectedGroup) return;
@@ -684,7 +700,7 @@ export default function DataCapturePage() {
       const syncJson = await syncDataCaptureCompanySession(id);
       if (!syncJson.success) return;
 
-      notifyCompanySessionUpdated();
+      notifyCompanySessionUpdated(syncJson.data ?? null);
 
       if (syncJson.data?.has_gambling === false) {
         navigate(DATA_CAPTURE_HOME_PATH, { replace: true });

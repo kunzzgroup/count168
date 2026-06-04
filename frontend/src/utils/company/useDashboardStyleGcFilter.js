@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 import {
   companiesForCompanyPicker,
@@ -55,6 +55,15 @@ export function useDashboardStyleGcFilter({
   const allowGroupOnly = canUseGroupOnlyMode(me) || forceAllowGroupOnly;
   const allowClearCompany = canClearCompanySelection(me);
 
+  const onSelectCompanyRef = useRef(onSelectCompany);
+  const onPrepareCompanySelectRef = useRef(onPrepareCompanySelect);
+  useEffect(() => {
+    onSelectCompanyRef.current = onSelectCompany;
+  }, [onSelectCompany]);
+  useEffect(() => {
+    onPrepareCompanySelectRef.current = onPrepareCompanySelect;
+  }, [onPrepareCompanySelect]);
+
   const { resetAnchorSessionRef, markAnchorSynced } = useGroupAnchorSessionSync({
     companies,
     selectedGroup,
@@ -97,10 +106,9 @@ export function useDashboardStyleGcFilter({
         return;
       }
 
-      persistDashboardGroupFilter(g);
-      setSelectedGroup(g);
-
       if (allowGroupOnly && !selectFirstCompanyOnGroupChange && g === selectedGroup) {
+        persistDashboardGroupFilter(g);
+        setSelectedGroup(g);
         persistDashboardFilterState(g, null, { allowGroupOnly: true });
         resetAnchorSessionRef();
         onClearCompany?.(g);
@@ -113,21 +121,23 @@ export function useDashboardStyleGcFilter({
         pickDefaultSubsidiaryForGroup(companies, g, { me, preferredCompanyId: null }) ??
         pickDefaultCompanyForGroup(companies, g, { me, preferredCompanyId: companyId });
       if (pick) {
+        persistDashboardGroupFilter(g);
         persistDashboardFilterState(g, pick.id, { allowGroupOnly: false });
         markAnchorSynced(g, pick.id);
+        const prepare = onPrepareCompanySelectRef.current;
+        if (prepare) prepare(pick);
+        else setSelectedGroup(g);
         notifyDashboardGroupFilterChanged(g, pick.id, {
           companyCode: pick.company_id,
           ignoreGroupOnly: true,
         });
-        if (onPrepareCompanySelect) onPrepareCompanySelect(pick);
-        if (onSelectCompany) void onSelectCompany(pick);
+        const select = onSelectCompanyRef.current;
+        if (select) void select(pick);
         return;
       }
-      if (!canUseGroupOnlyMode(me) && companyId != null) {
-        persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(g, companyId, { ignoreGroupOnly: true });
-        return;
-      }
+
+      persistDashboardGroupFilter(g);
+      setSelectedGroup(g);
     },
     [
       switchingCompany,
@@ -154,7 +164,8 @@ export function useDashboardStyleGcFilter({
     persistDashboardFilterState(selectedGroup, pick.id, { allowGroupOnly: false });
     markAnchorSynced(selectedGroup, pick.id);
     notifyDashboardGroupFilterChanged(selectedGroup, pick.id);
-    if (onSelectCompany) void onSelectCompany(pick);
+    const select = onSelectCompanyRef.current;
+    if (select) void select(pick);
   }, [
     allowGroupOnly,
     autoPickCompanyWhenEmpty,
@@ -162,7 +173,6 @@ export function useDashboardStyleGcFilter({
     companyId,
     companies,
     me,
-    onSelectCompany,
     markAnchorSynced,
   ]);
 
@@ -186,23 +196,25 @@ export function useDashboardStyleGcFilter({
       }
 
       const nextGroup = gid || null;
-      if (nextGroup) {
+      persistDashboardFilterState(nextGroup, id, {
+        allowGroupOnly: allowGroupOnly && canUseGroupOnlyMode(me),
+      });
+      markAnchorSynced(nextGroup, id);
+      const prepare = onPrepareCompanySelectRef.current;
+      if (prepare) {
+        prepare(c);
+      } else if (nextGroup) {
         persistDashboardGroupFilter(nextGroup);
         setSelectedGroup(nextGroup);
       } else {
         persistDashboardGroupFilter(null);
         setSelectedGroup(null);
       }
-
-      persistDashboardFilterState(nextGroup, id, {
-        allowGroupOnly: allowGroupOnly && canUseGroupOnlyMode(me),
-      });
-      markAnchorSynced(nextGroup, id);
       notifyDashboardGroupFilterChanged(nextGroup, id, {
         companyCode: c.company_id,
       });
-      if (onPrepareCompanySelect) onPrepareCompanySelect(c);
-      if (onSelectCompany) void onSelectCompany(c);
+      const select = onSelectCompanyRef.current;
+      if (select) void select(c);
     },
     [
       switchingCompany,
