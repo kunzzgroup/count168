@@ -440,12 +440,12 @@
   --login-card-min-height-narrow: 528px;
 }
 
-/* Description picker：≥992px 略加宽、列表略增高（对齐 PHP ~315px）；小屏不变 */
+/* Description picker：≥992px 略加宽、列表略增高；小屏不变 */
 @media (min-width: 62rem) {
   :root {
     --desc-modal-width: min(1120px, calc(100vw - 40px));
-    --desc-modal-list-min-h: clamp(14rem, 34vh, 19.75rem);
-    --desc-modal-max-height: 92vh;
+    --desc-modal-list-min-h: clamp(15rem, 36vh, 21.25rem);
+    --desc-modal-max-height: 93vh;
   }
 }
 
