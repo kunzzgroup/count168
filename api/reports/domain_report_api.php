@@ -34,6 +34,16 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 function resolveDomainReportGroupScope(PDO $pdo, array $resolved, int $companyId): bool
 {
     unset($pdo, $companyId);
+    $hint = strtolower(trim((string) ($resolved['report_scope_hint'] ?? '')));
+    if ($hint === 'company') {
+        return false;
+    }
+    if ($hint === 'group') {
+        return true;
+    }
+    if (strtolower(trim((string) ($resolved['list_scope']['mode'] ?? ''))) === 'group') {
+        return true;
+    }
     return dcIsGroupScopeHint($resolved);
 }
 
@@ -72,7 +82,9 @@ function fetchProcesses(PDO $pdo, int $company_id, bool $groupScope = false) {
         WHERE p.company_id = ?
     ";
     if ($groupScope) {
-        $sql .= " AND UPPER(TRIM(p.process_id)) IN ('SALARY', 'BONUS')";
+        $sql .= dcSqlGroupProcessFilter('p');
+    } else {
+        $sql .= dcSqlCompanyProcessFilter('p');
     }
     $sql .= " ORDER BY FIELD(UPPER(TRIM(p.process_id)), 'SALARY', 'BONUS'), p.process_id ASC";
     $stmt = $pdo->prepare($sql);
@@ -178,7 +190,9 @@ function fetchDomainReportRows(
     ";
     $params[] = $company_id;
     if ($groupScope) {
-        $sql .= " AND UPPER(TRIM(p.process_id)) IN ('SALARY', 'BONUS')";
+        $sql .= dcSqlGroupProcessFilter('p');
+    } else {
+        $sql .= dcSqlCompanyProcessFilter('p');
     }
     if ($process_id !== null && $process_id > 0) {
         $sql .= " AND p.id = ? ";

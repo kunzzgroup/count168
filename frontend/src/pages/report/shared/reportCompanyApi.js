@@ -77,18 +77,18 @@ export async function fetchReportScopeCurrencies(scopeOrLegacy, options = {}) {
   const { signal } = options;
   const q = new URLSearchParams();
   const api = customerReportScopeApiParams(reportScope);
-  if (api.companyId) q.set("company_id", String(api.companyId));
+  const cid = api.companyId != null && api.companyId !== "" ? Number(api.companyId) : 0;
+  if (Number.isFinite(cid) && cid > 0) q.set("company_id", String(cid));
   const vg = api.viewGroup ? String(api.viewGroup).trim().toUpperCase() : "";
   if (vg) q.set("view_group", vg);
   const gid = api.groupId ? String(api.groupId).trim().toUpperCase() : "";
   if (gid) q.set("group_id", gid);
   if (api.groupAggregate) q.set("group_aggregate", "1");
-  const useGroupScopeApi = api.groupAggregate && !api.companyId && (api.viewGroup || api.groupId);
+  if (api.subsidiaryAccountsOnly) q.set("subsidiary_accounts_only", "1");
+  if (reportScope.mode) q.set("report_scope", reportScope.mode);
   const qs = q.toString();
   const url = buildApiUrl(
-    useGroupScopeApi
-      ? `api/transactions/get_scope_account_currencies_api.php${qs ? `?${qs}` : ""}`
-      : `api/transactions/get_company_currencies_api.php${qs ? `?${qs}` : ""}`,
+    `api/transactions/get_scope_account_currencies_api.php${qs ? `?${qs}` : ""}`,
   );
   const res = await fetch(url, { credentials: "include", signal });
   const json = await res.json();

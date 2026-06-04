@@ -8,6 +8,8 @@ export default function DomainReportFilters({
   companyId,
   highlightCompanyId,
   onSwitchCompany,
+  onClearCompany,
+  allowClearCompany = true,
   groupIds,
   selectedGroup,
   onPickGroup,
@@ -152,6 +154,8 @@ export default function DomainReportFilters({
         companyId={companyId}
         highlightCompanyId={highlightCompanyId}
         onSwitchCompany={onSwitchCompany}
+        onClearCompany={onClearCompany}
+        allowClearCompany={allowClearCompany}
         currencyList={currencyList}
         showAllCurrencies={showAllCurrencies}
         selectedCurrencies={selectedCurrencies}
