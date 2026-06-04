@@ -87,12 +87,20 @@ try {
     }
 
     $roles = getRoles($pdo);
-    $company_id = editdataResolveCurrencyCompanyId($pdo);
-    $currencies = $company_id > 0 ? getCurrenciesByCompany($pdo, $company_id) : [];
+    $currencies = [];
+    try {
+        $company_id = editdataResolveCurrencyCompanyId($pdo);
+        if ($company_id > 0) {
+            $currencies = getCurrenciesByCompany($pdo, $company_id);
+        }
+    } catch (Throwable $currencyScopeError) {
+        // Roles are global; currency scope may be unavailable in group-only view.
+        $currencies = [];
+    }
 
     jsonResponse(true, 'OK', [
         'currencies' => $currencies,
-        'roles' => $roles
+        'roles' => $roles,
     ]);
 } catch (PDOException $e) {
     jsonResponse(false, 'Database error: ' . $e->getMessage(), null, 500);

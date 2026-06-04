@@ -8,6 +8,7 @@ session_start();
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
@@ -40,57 +41,15 @@ function normalizeGroupId(?string $groupId): ?string {
     return $g !== '' ? $g : null;
 }
 
-function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int {
-    $stmt = $pdo->prepare("
-        SELECT id
-        FROM company
-        WHERE UPPER(TRIM(company_id)) = ?
-        LIMIT 1
-    ");
-    $stmt->execute([$groupId]);
-    $id = (int)($stmt->fetchColumn() ?: 0);
-    if ($id > 0) {
-        return $id;
-    }
-
-    $stmt = $pdo->prepare("
-        SELECT id
-        FROM company
-        WHERE TRIM(COALESCE(company_id, '')) = ''
-          AND UPPER(TRIM(group_id)) = ?
-        ORDER BY id ASC
-        LIMIT 1
-    ");
-    $stmt->execute([$groupId]);
-    return (int)($stmt->fetchColumn() ?: 0);
-}
-
-function resolveScopeCompanyId(PDO $pdo): int {
-    $groupScopeId = normalizeGroupId($_POST['group_id'] ?? null);
-    if (isset($_POST['company_id']) && (int)$_POST['company_id'] > 0) {
-        $explicitCompanyId = (int)$_POST['company_id'];
-        if (gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $explicitCompanyId, $groupScopeId);
-        }
-        return $explicitCompanyId;
-    }
-
-    if ($groupScopeId !== null) {
-        $groupEntityCompanyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
-        if ($groupEntityCompanyId <= 0) {
-            throw new Exception('缺少公司信息');
-        }
-        if (gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $groupEntityCompanyId, $groupScopeId);
-        }
-        return $groupEntityCompanyId;
-    }
-
-    if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] > 0) {
-        return (int)$_SESSION['company_id'];
-    }
-
-    throw new Exception('用户未登录或缺少公司信息');
+function resolveAccountUpdateContext(PDO $pdo): array
+{
+    return tenant_resolve_currency_context_from_request($pdo, [
+        'group_id' => $_POST['group_id'] ?? null,
+        'view_group' => $_POST['view_group'] ?? null,
+        'company_id' => $_POST['company_id'] ?? null,
+        'group_only' => $_POST['group_only'] ?? null,
+        'session_company_id' => $_SESSION['company_id'] ?? null,
+    ]);
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -105,7 +64,20 @@ try {
     if (is_partnership_audit_read_only_active($pdo)) {
         throw new Exception('只读账号无法修改账户');
     }
-    $company_id = resolveScopeCompanyId($pdo);
+    try {
+        $accountCtx = resolveAccountUpdateContext($pdo);
+    } catch (Exception $e) {
+        throw new Exception($e->getMessage());
+    }
+    $company_id = (int) ($accountCtx['company_id'] ?? 0);
+    if ($company_id <= 0) {
+        throw new Exception('用户未登录或缺少公司信息');
+    }
+    $isGroupScope = (($accountCtx['mode'] ?? '') === 'group');
+    $groupCode = (string) ($accountCtx['group_code'] ?? '');
+    if ($groupCode !== '' && gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $groupCode);
+    }
 
     $id = (int) $_POST['id'];
     $name = trim($_POST['name']);
@@ -188,56 +160,14 @@ try {
         throw new Exception('用户未登录');
     }
 
-    if (gc_is_group_login()) {
-        gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, normalizeGroupId($_POST['group_id'] ?? null));
-        $stmt = $pdo->prepare("
-            SELECT a.status
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE a.id = ? AND ac.company_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$id, $company_id]);
-    } elseif ($current_user_role === 'owner') {
-        $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-        $stmt = $pdo->prepare("
-            SELECT a.status
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            INNER JOIN company c ON ac.company_id = c.id
-            WHERE a.id = ? AND c.owner_id = ? AND ac.company_id = ?
-        ");
-        $stmt->execute([$id, $owner_id, $company_id]);
-    } else {
-        $stmt = $pdo->prepare("
-            SELECT a.status
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            INNER JOIN user_company_map ucm ON ac.company_id = ucm.company_id
-            WHERE a.id = ? AND ucm.user_id = ? AND ac.company_id = ?
-        ");
-        $stmt->execute([$id, $current_user_id, $company_id]);
+    if (!tenant_account_belongs_to_context($pdo, $id, $accountCtx)) {
+        throw new Exception('无权限操作此账户');
     }
+    $stmt = $pdo->prepare('SELECT status FROM account WHERE id = ? LIMIT 1');
+    $stmt->execute([$id]);
     $currentAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-
     if (!$currentAccount) {
-        $debug_info = [];
-        $check_stmt = $pdo->prepare("SELECT id FROM account WHERE id = ?");
-        $check_stmt->execute([$id]);
-        $account_exists = $check_stmt->fetchColumn();
-        if ($account_exists) {
-            $ac_stmt = $pdo->prepare("SELECT company_id FROM account_company WHERE account_id = ?");
-            $ac_stmt->execute([$id]);
-            $linked_companies = $ac_stmt->fetchAll(PDO::FETCH_COLUMN);
-            $debug_info[] = $linked_companies ? "关联的公司ID: " . implode(', ', $linked_companies) : "没有 account_company 关联";
-        } else {
-            $debug_info[] = "账户不存在";
-        }
-        $debug_info[] = "当前公司ID: " . $company_id;
-        $debug_info[] = "当前用户ID: " . $current_user_id;
-        $debug_info[] = "当前用户角色: " . $current_user_role;
-        $error_msg = '无权限操作此账户 (' . implode('; ', $debug_info) . ')';
-        throw new Exception($error_msg);
+        throw new Exception('无权限操作此账户');
     }
 
     $status = isset($_POST['status']) && trim($_POST['status']) !== '' ? trim($_POST['status']) : $currentAccount['status'];
@@ -254,11 +184,7 @@ try {
         }
     }
 
-    if (is_array($submitted_company_ids) && !empty($submitted_company_ids)) {
-        if (normalizeGroupId($_POST['group_id'] ?? null) !== null && (!isset($_POST['company_id']) || (int)$_POST['company_id'] <= 0)) {
-            // Group-scope edit must remain inside the resolved group entity company.
-            $submitted_company_ids = [$company_id];
-        }
+    if (!$isGroupScope && is_array($submitted_company_ids) && !empty($submitted_company_ids)) {
         $stmt = $pdo->prepare("SELECT company_id FROM account_company WHERE account_id = ?");
         $stmt->execute([$id]);
         $current_company_ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));

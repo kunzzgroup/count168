@@ -14,6 +14,7 @@ import {
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
   pickDefaultCompanyForGroup,
+  readPersistedDashboardGcFilter,
   resolveInitialSelectedGroupFromSession,
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
@@ -160,11 +161,17 @@ export function useTransactionData({
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
+        const persisted = readPersistedDashboardGcFilter();
         let effective = resolveBootCompanyId({
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
+        if (persisted.groupOnly) {
+          effective = null;
+        } else if (persisted.companyId != null) {
+          effective = persisted.companyId;
+        }
 
         const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);
 
@@ -183,11 +190,13 @@ export function useTransactionData({
 
         const current =
           effective != null ? snapRows.find((c) => Number(c.id) === Number(effective)) : null;
-        const selGroup = resolveInitialSelectedGroupFromSession(snapRows, current);
+        const selGroup =
+          persisted.selectedGroup ||
+          resolveInitialSelectedGroupFromSession(snapRows, current);
 
         if (!cancelled && !filterSnapshotRef.current) {
           const bootSnap = {
-            companyId: effective,
+            companyId: persisted.groupOnly ? null : effective,
             selectedGroup: selGroup,
             displayCompanyRow: current,
             groupsAllMode: false,
@@ -604,39 +613,15 @@ export function useTransactionData({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
 
-      if (isGroupLogin(u)) {
-        // Same group + subsidiary selected: treat as "back to group view" (e.g. AP → C168 → AP).
-        if (g === snap.selectedGroup && !snap.groupsAllMode) {
-          if (snap.companyId == null || Number(snap.companyId) <= 0) return;
-          await applyGroupOnlySelection(snap, g);
-          return;
-        }
+      // Group pill = group ledger list (no auto-pick subsidiary). Click again to leave group-only.
+      if (g === snap.selectedGroup && !snap.groupsAllMode) {
+        if (snap.companyId == null || Number(snap.companyId) <= 0) return;
         await applyGroupOnlySelection(snap, g);
         return;
       }
-
-      if (g === snap.selectedGroup && snap.companyId != null) {
-        if (!canUseGroupOnlyMode(u)) {
-          const numericCid = Number(snap.companyId);
-          const nextSnap = {
-            ...snap,
-            selectedGroup: null,
-            groupsAllMode: false,
-            groupAllMode: false,
-            companyStripRows: buildTransactionCompanyStripRows(
-              { ...snap, selectedGroup: null },
-              { selectedGroup: null, companyId: numericCid, groupsAllMode: false },
-            ),
-          };
-          clearDashboardGroupFilterKeepCompany(numericCid);
-          commitFilterSnapshot(nextSnap);
-          return;
-        }
-        return;
-      }
-      await applyCompanyGroupSelection(snap, g);
+      await applyGroupOnlySelection(snap, g);
     },
-    [applyCompanyGroupSelection, applyGroupOnlySelection, u],
+    [applyGroupOnlySelection],
   );
 
   const onPickAllGroups = useCallback(() => {

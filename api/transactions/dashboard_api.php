@@ -788,6 +788,15 @@ function dashboardResolveGroupScopeCurrencyMap(PDO $pdo, string $viewGroup): arr
         return [];
     }
 
+    if (!function_exists('tenant_load_group_tenant_currency_map')) {
+        require_once __DIR__ . '/../../includes/tenant_scope.php';
+    }
+
+    $groupTenantMap = tenant_load_group_tenant_currency_map($pdo, $viewGroup);
+    if ($groupTenantMap !== []) {
+        return $groupTenantMap;
+    }
+
     $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
     $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
     $companyIds = $entityId > 0 ? [$entityId] : [];

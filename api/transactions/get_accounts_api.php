@@ -11,6 +11,10 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/transaction_scope.php';
+require_once __DIR__ . '/../reports/report_scope_common.php';
+
+define('DASHBOARD_API_SKIP_MAIN', true);
+require_once __DIR__ . '/dashboard_api.php';
 
 try {
     if (!isset($_SESSION['user_id'])) {
@@ -29,14 +33,18 @@ try {
         throw new Exception('account_company 表不存在，请先执行 create_account_company_table.sql');
     }
 
-    $company_id = tx_resolve_request_company_id($pdo, $_GET);
+    $listScope = tx_resolve_transaction_list_scope($pdo, $_GET);
+    $company_id = (int) ($listScope['company_id'] ?? 0);
+    $permCompanyId = $company_id > 0
+        ? $company_id
+        : tx_resolve_group_anchor_company_id($pdo, (string) ($listScope['group_code'] ?? ''));
 
     $role = $_GET['role'] ?? null;
     $status = $_GET['status'] ?? 'active';
     $currency = $_GET['currency'] ?? null;
 
     $currency_id = null;
-    if ($currency) {
+    if ($currency && $company_id > 0) {
         $currency_stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
         $currency_stmt->execute([$currency, $company_id]);
         $currency_id = $currency_stmt->fetchColumn();
@@ -44,8 +52,23 @@ try {
 
     $where_conditions = [];
     $params = [];
-    $where_conditions[] = "ac.company_id = ?";
-    $params[] = $company_id;
+    if (($listScope['mode'] ?? '') === 'group') {
+        $groupScopeId = (int) ($listScope['group_scope_id'] ?? 0);
+        if ($groupScopeId <= 0) {
+            throw new Exception('无效的 group_id');
+        }
+        $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, (string) $listScope['group_code']);
+        if ($accountIds === []) {
+            $where_conditions[] = '1=0';
+        } else {
+            $placeholders = implode(',', array_fill(0, count($accountIds), '?'));
+            $where_conditions[] = "a.id IN ($placeholders)";
+            $params = array_merge($params, $accountIds);
+        }
+    } else {
+        $where_conditions[] = 'ac.company_id = ?';
+        $params[] = $company_id;
+    }
     if ($role) {
         $where_conditions[] = "a.role = ?";
         $params[] = $role;
@@ -67,11 +90,14 @@ try {
     }
 
     $where_sql = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
+    $joinAc = ($listScope['mode'] ?? '') === 'group'
+        ? ''
+        : ' INNER JOIN account_company ac ON a.id = ac.account_id';
     $baseSql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role, a.status
             FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
+            $joinAc
             $where_sql";
-    list($baseSql, $params) = filterAccountsByPermissions($pdo, $baseSql, $params, $company_id);
+    list($baseSql, $params) = filterAccountsByPermissions($pdo, $baseSql, $params, $permCompanyId > 0 ? $permCompanyId : $company_id);
     $baseSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $baseSql);
     $baseSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $baseSql);
     $baseSql = preg_replace('/\bAND 1=0\b/i', 'AND 1=0', $baseSql);

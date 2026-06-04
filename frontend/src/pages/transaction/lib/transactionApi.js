@@ -69,7 +69,11 @@ function appendViewGroup(params, viewGroup) {
 }
 
 /** Append company_id / view_group / group_id (same rules as transactionScopeApiParams). */
-function appendTransactionScope(target, { companyId, viewGroup, groupId }, kind = "params") {
+function appendTransactionScope(
+  target,
+  { companyId, viewGroup, groupId, groupAggregate },
+  kind = "params",
+) {
   const cid = companyId != null && companyId !== "" ? Number(companyId) : 0;
   if (Number.isFinite(cid) && cid > 0) {
     if (kind === "form") target.append("company_id", String(cid));
@@ -84,6 +88,10 @@ function appendTransactionScope(target, { companyId, viewGroup, groupId }, kind 
   if (gid) {
     if (kind === "form") target.append("group_id", gid);
     else target.set("group_id", gid);
+  }
+  if (groupAggregate) {
+    if (kind === "form") target.append("group_aggregate", "1");
+    else target.set("group_aggregate", "1");
   }
 }
 
@@ -100,10 +108,15 @@ export async function getAccounts({ companyId, viewGroup, groupId, role, status 
   return safeJson(res);
 }
 
-export async function getCompanyCurrencies({ companyId, viewGroup, groupId } = {}) {
+export async function getCompanyCurrencies({ companyId, viewGroup, groupId, groupAggregate } = {}) {
   const params = new URLSearchParams();
-  appendTransactionScope(params, { companyId, viewGroup, groupId });
-  const res = await fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?${params.toString()}`), { credentials: "include" });
+  appendTransactionScope(params, { companyId, viewGroup, groupId, groupAggregate });
+  const useGroupScopeApi =
+    groupAggregate && !companyId && (viewGroup || groupId);
+  const path = useGroupScopeApi
+    ? "api/transactions/get_scope_account_currencies_api.php"
+    : "api/transactions/get_company_currencies_api.php";
+  const res = await fetch(buildApiUrl(`${path}?${params.toString()}`), { credentials: "include" });
   return safeJson(res);
 }
 
