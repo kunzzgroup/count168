@@ -4918,9 +4918,9 @@ body.process-page > .process-modal {
 /* Description Selection Modal Styles (restore to reference layout) */
 .process-page .description-selection-modal,
 .description-selection-modal {
-    width: min(980px, 94vw) !important;
-    max-width: min(980px, 94vw) !important;
-    border-radius: 0.85rem !important;
+    width: min(1180px, 96vw) !important;
+    max-width: min(1180px, 96vw) !important;
+    border-radius: 14px !important;
     overflow: hidden;
 }
 
@@ -6494,12 +6494,12 @@ body.process-page > .modal.show {
 }
 
 .modal-content.description-selection-modal {
-    width: min(1040px, 95vw) !important;
-    max-width: min(1040px, 95vw) !important;
-    min-height: 610px !important;
-    max-height: 90vh !important;
-    margin: 3vh auto !important;
-    border-radius: 12px !important;
+    width: min(1180px, 96vw) !important;
+    max-width: min(1180px, 96vw) !important;
+    min-height: 720px !important;
+    max-height: 92vh !important;
+    margin: 2.5vh auto !important;
+    border-radius: 14px !important;
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
@@ -6511,21 +6511,21 @@ body.process-page > .modal.show {
     position: relative;
     flex-shrink: 0;
     margin: 0 !important;
-    padding: 3px 20px !important;
+    padding: 6px 28px !important;
     background: #f8fafc !important;
     border-bottom: none !important;
-    border-radius: 12px 12px 0 0 !important;
+    border-radius: 14px 14px 0 0 !important;
 }
 
 .modal-content.description-selection-modal .modal-header h2 {
     margin: 0 !important;
-    padding: clamp(12px, 0.75vw, 15px) clamp(20px, 1.25vw, 25px) !important;
-    font-size: var(--text-page-title) !important;
+    padding: 18px 8px 16px 8px !important;
+    font-size: clamp(1.85rem, 2.4vw, 2.35rem) !important;
     font-family: var(--font-heading-page) !important;
     font-weight: var(--font-weight-page-title) !important;
     letter-spacing: var(--letter-spacing-page-title) !important;
-    color: #1f2937 !important;
-    line-height: 1.2 !important;
+    color: #0f172a !important;
+    line-height: 1.15 !important;
 }
 
 .modal-content.description-selection-modal .modal-header .close {
@@ -6533,10 +6533,10 @@ body.process-page > .modal.show {
 }
 
 .modal-content.description-selection-modal .modal-body {
-    padding: 12px 16px 14px 16px !important;
+    padding: 20px 28px 22px 28px !important;
     display: flex !important;
     flex-direction: column !important;
-    min-height: 515px !important;
+    min-height: 580px !important;
     flex: 1 1 auto !important;
     width: 100% !important;
     overflow: hidden !important;
@@ -6545,8 +6545,8 @@ body.process-page > .modal.show {
 .modal-content.description-selection-modal .description-selection-container {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-    column-gap: 28px !important;
-    min-height: 450px !important;
+    column-gap: 40px !important;
+    min-height: 520px !important;
     flex: 1 1 auto !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -6555,84 +6555,93 @@ body.process-page > .modal.show {
 
 .modal-content.description-selection-modal .selected-descriptions-section {
     min-width: 0 !important;
-    padding-right: 16px !important;
+    padding-right: 24px !important;
     border-right: 1px solid #e5e7eb !important;
     width: 100% !important;
 }
 
 .modal-content.description-selection-modal .available-descriptions-section {
     min-width: 0 !important;
-    padding-left: 8px !important;
+    padding-left: 12px !important;
     width: 100% !important;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-section h3,
 .modal-content.description-selection-modal .available-descriptions-section h3 {
-    margin: 0 0 8px 0 !important;
-    font-size: 15px !important;
+    margin: 0 0 12px 0 !important;
+    font-size: 1.0625rem !important;
     font-weight: 700 !important;
+    color: #374151 !important;
 }
 
 .modal-content.description-selection-modal .add-description-bar {
-    margin-bottom: 10px !important;
-    padding-bottom: 10px !important;
+    margin-bottom: 14px !important;
+    padding-bottom: 14px !important;
+    border-bottom: 1px solid #e5e7eb !important;
 }
 
 .modal-content.description-selection-modal .add-description-bar h3 {
-    margin: 0 0 6px 0 !important;
-    font-size: 14px !important;
+    margin: 0 0 10px 0 !important;
+    font-size: 1rem !important;
     font-weight: 700 !important;
+    color: #374151 !important;
 }
 
 .modal-content.description-selection-modal .add-description-input-group {
     display: flex !important;
     align-items: center !important;
-    gap: 6px !important;
+    gap: 10px !important;
 }
 
 .modal-content.description-selection-modal .add-description-input-group input,
 .modal-content.description-selection-modal .description-search input {
-    padding: 7px 10px !important;
-    font-size: 13px !important;
-    border-radius: 4px !important;
+    padding: 11px 14px !important;
+    font-size: 0.9375rem !important;
+    border-radius: 6px !important;
+    min-height: 42px !important;
+    box-sizing: border-box !important;
+}
+
+.modal-content.description-selection-modal .description-search {
+    margin-bottom: 12px !important;
 }
 
 .modal-content.description-selection-modal .add-description-input-group .btn {
-    min-width: 64px !important;
-    max-width: 64px !important;
-    min-height: 28px !important;
-    height: 28px !important;
-    padding: 0 8px !important;
-    font-size: 12px !important;
-    border-radius: 4px !important;
+    min-width: 88px !important;
+    max-width: 88px !important;
+    min-height: 42px !important;
+    height: 42px !important;
+    padding: 0 14px !important;
+    font-size: 0.9375rem !important;
+    border-radius: 6px !important;
 }
 
 .modal-content.description-selection-modal .description-list,
 .modal-content.description-selection-modal .selected-descriptions-list {
-    height: 315px !important;
-    min-height: 315px !important;
-    max-height: 315px !important;
+    height: 400px !important;
+    min-height: 400px !important;
+    max-height: 400px !important;
     overflow-y: auto !important;
     border: 1px solid #e5e7eb !important;
-    border-radius: 4px !important;
-    padding: 10px !important;
+    border-radius: 8px !important;
+    padding: 12px 14px !important;
     background-color: #f8fafc !important;
 }
 
 .modal-content.description-selection-modal .no-descriptions {
     text-align: center !important;
     color: #6c757d !important;
-    font-size: clamp(10px, 0.78vw, 15px) !important;
+    font-size: 1rem !important;
     font-style: italic !important;
-    padding: clamp(20px, 2.08vw, 40px) 20px !important;
+    padding: 48px 24px !important;
 }
 
 .modal-content.description-selection-modal .description-item {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    gap: 8px !important;
-    padding: 8px 0 !important;
+    gap: 10px !important;
+    padding: 10px 4px !important;
     border-bottom: 1px solid #e9ecef !important;
 }
 
@@ -6658,18 +6667,20 @@ body.process-page > .modal.show {
 
 .modal-content.description-selection-modal .description-item input[type="checkbox"] {
     margin: 0 !important;
-    width: 14px !important;
-    height: 14px !important;
+    width: 18px !important;
+    height: 18px !important;
     flex-shrink: 0 !important;
+    cursor: pointer !important;
 }
 
 .modal-content.description-selection-modal .description-item label,
 .modal-content.description-selection-modal .selected-description-modal-item span {
     margin: 0 !important;
-    font-size: 14px !important;
+    font-size: 1rem !important;
     cursor: pointer !important;
     flex: 1 !important;
-    color: #333 !important;
+    color: #1f2937 !important;
+    line-height: 1.35 !important;
 }
 
 .modal-content.description-selection-modal .description-delete-btn,
@@ -6677,7 +6688,7 @@ body.process-page > .modal.show {
     border: none !important;
     background: transparent !important;
     color: #c00 !important;
-    font-size: 18px !important;
+    font-size: 1.35rem !important;
     font-weight: 700 !important;
     cursor: pointer !important;
     padding: 4px 6px !important;
@@ -6697,12 +6708,12 @@ body.process-page > .modal.show {
 .modal-content.description-selection-modal .selected-description-modal-item {
     display: flex !important;
     align-items: center !important;
-    gap: 0.5rem !important;
-    padding: 8px !important;
+    gap: 0.65rem !important;
+    padding: 11px 12px !important;
     border-bottom: 1px solid #e9ecef !important;
     background-color: #e3f2fd !important;
-    border-radius: 4px !important;
-    margin-bottom: 8px !important;
+    border-radius: 6px !important;
+    margin-bottom: 10px !important;
 }
 
 .modal-content.description-selection-modal .selected-description-modal-item:last-child {
@@ -6771,12 +6782,12 @@ body.process-page > .modal.show {
 
 .modal-content.description-selection-modal .modal-footer {
     margin-top: 0 !important;
-    padding: 10px 16px 12px 16px !important;
+    padding: 16px 28px 18px 28px !important;
     border-top: 1px solid #e5e7eb !important;
     display: flex !important;
     justify-content: flex-end !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 12px !important;
     flex-wrap: nowrap !important;
     width: 100% !important;
     align-self: stretch !important;
@@ -6785,14 +6796,14 @@ body.process-page > .modal.show {
 
 .modal-content.description-selection-modal .modal-footer .btn {
     font-family: var(--font-heading-page) !important;
-    font-size: var(--text-medium) !important;
+    font-size: 1rem !important;
     font-weight: var(--font-weight-semibold) !important;
-    min-width: var(--userlist-btn-add-width) !important;
+    min-width: 120px !important;
     width: auto !important;
-    min-height: auto !important;
-    height: auto !important;
-    padding: clamp(6px, 0.42vw, 8px) 20px !important;
-    border-radius: 6px !important;
+    min-height: 42px !important;
+    height: 42px !important;
+    padding: 0 28px !important;
+    border-radius: 8px !important;
     border: none !important;
     display: inline-flex !important;
     align-items: center;
