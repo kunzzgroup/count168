@@ -420,11 +420,24 @@ export function resolveGridRowToAccountOption(row, accountOptions) {
   };
 }
 
+/** One row per currency code (scope APIs may return same code with different currency ids). */
+export function dedupeCurrencyRowsByCode(rows) {
+  const byCode = new Map();
+  for (const row of rows) {
+    const code = String(row?.code || row?.currency || "")
+      .trim()
+      .toUpperCase();
+    if (!code || byCode.has(code)) continue;
+    byCode.set(code, { ...row, code });
+  }
+  return [...byCode.values()];
+}
+
 /**
  * Apply saved API/global/local order to currency rows from get_company_currencies_api.
  */
 export function orderCurrencyRows(orderedData, orderData) {
-  let ordered = [...orderedData];
+  let ordered = dedupeCurrencyRowsByCode(orderedData);
   try {
     let saved = null;
     if (orderData && orderData.success && Array.isArray(orderData.data?.order) && orderData.data.order.length > 0) {
@@ -443,7 +456,14 @@ export function orderCurrencyRows(orderedData, orderData) {
       if (!upper || upper === "ALL") return;
       if (!normalized.includes(upper)) normalized.push(upper);
     });
-    const byCode = new Map(ordered.map((c) => [String(c.code || "").trim().toUpperCase(), c]));
+    const byCode = new Map(
+      ordered.map((c) => [
+        String(c.code || c.currency || "")
+          .trim()
+          .toUpperCase(),
+        c,
+      ]),
+    );
     const out = [];
     normalized.forEach((upper) => {
       if (byCode.has(upper)) {
