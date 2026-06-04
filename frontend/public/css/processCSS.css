@@ -4923,15 +4923,15 @@ body.process-page > .process-modal {
 .process-form-modal .btn-multi-use-confirm,
 #addModal .btn-multi-use-confirm {
     font-family: var(--font-heading-page) !important;
-    font-size: var(--text-medium) !important;
+    font-size: var(--process-form-modal-multi-confirm-font, var(--text-small)) !important;
     font-weight: var(--font-weight-semibold) !important;
-    min-width: var(--userlist-btn-add-width) !important;
+    min-width: 0 !important;
     width: auto !important;
-    min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem)) !important;
-    height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem)) !important;
-    padding: 0 calc(var(--space-gap, 0.75rem) * 0.9) !important;
+    min-height: var(--process-form-modal-multi-confirm-min-h, clamp(2rem, 1.6vw, 2.35rem)) !important;
+    height: auto !important;
+    padding: 0.3rem var(--process-form-modal-multi-confirm-pad-x, clamp(0.75rem, 0.9vw, 1rem)) !important;
     border: none !important;
-    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.55) !important;
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.4) !important;
     background: var(--btn-add-gradient) !important;
     color: var(--color-surface, #fff) !important;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
@@ -4939,6 +4939,7 @@ body.process-page > .process-modal {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
+    line-height: 1.2;
     transform: none;
     cursor: pointer;
 }
@@ -7222,6 +7223,7 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
 #addModal .modal-content.process-form-modal #multi_use_processes .multi-use-actions {
     flex-shrink: 0;
     margin-top: var(--process-form-modal-multi-list-row-gap, var(--desc-modal-list-item-gap));
+    min-height: 0;
 }
 
 .process-form-modal .process-form.add-grid,

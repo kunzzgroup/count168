@@ -251,24 +251,20 @@ export default function ProcessFormModal({
                         </div>
                       ))}
                     </div>
-                    <div className="multi-use-actions">
-                      <button
-                        type="button"
-                        className="btn btn-save btn-multi-use-confirm"
-                        disabled={ro || !(form.selected_processes?.length > 0)}
-                        title={
-                          form.selected_processes?.length > 0 ? undefined : t("needOneMultiProcess")
-                        }
-                        onClick={() =>
-                          setForm((prev) => {
-                            if (!(prev.selected_processes?.length > 0)) return prev;
-                            return { ...prev, show_multi_process_selection: false };
-                          })
-                        }
-                      >
-                        {t("confirm")}
-                      </button>
-                    </div>
+                    {(form.selected_processes?.length ?? 0) > 0 && (
+                      <div className="multi-use-actions">
+                        <button
+                          type="button"
+                          className="btn btn-save btn-multi-use-confirm"
+                          disabled={ro}
+                          onClick={() =>
+                            setForm((prev) => ({ ...prev, show_multi_process_selection: false }))
+                          }
+                        >
+                          {t("confirm")}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

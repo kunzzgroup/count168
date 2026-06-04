@@ -163,6 +163,9 @@
   --process-form-modal-multi-item-gap: var(--desc-modal-list-item-gap);
   --process-form-modal-multi-item-pad-block: var(--desc-modal-list-item-pad-block);
   --process-form-modal-multi-item-line-height: 1.35;
+  --process-form-modal-multi-confirm-font: var(--text-small);
+  --process-form-modal-multi-confirm-min-h: clamp(2rem, 1.6vw, 2.35rem);
+  --process-form-modal-multi-confirm-pad-x: clamp(0.75rem, 0.9vw, 1rem);
 
   /*
    * Description picker modal（Process List / Data Capture）
