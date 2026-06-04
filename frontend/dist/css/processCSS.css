@@ -4947,7 +4947,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .modal-content.description-selection-modal .modal-header {
     flex-shrink: 0;
     margin: 0;
-    padding: var(--desc-modal-pad-block) var(--desc-modal-pad-inline);
+    padding: var(--desc-modal-pad-block) var(--desc-modal-pad-inline) 0;
     background: var(--color-surface);
     border-bottom: none;
     border-radius: var(--desc-modal-radius) var(--desc-modal-radius) 0 0;

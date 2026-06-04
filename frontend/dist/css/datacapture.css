@@ -1025,7 +1025,7 @@ body.datacapture-page .bottom-section .form-actions {
     position: relative;
     flex-shrink: 0;
     margin: 0;
-    padding: 3px 20px;
+    padding: var(--desc-modal-pad-block, 3px) var(--desc-modal-pad-inline, 20px) 0;
     background: #f8fafc;
     border-bottom: none;
     border-radius: 12px 12px 0 0;
@@ -1034,7 +1034,7 @@ body.datacapture-page .bottom-section .form-actions {
 
 .modal-content.description-selection-modal .modal-header h2 {
     margin: 0;
-    padding: clamp(12px, 0.75vw, 15px) clamp(20px, 1.25vw, 25px);
+    padding: 0;
     background: transparent;
     border-bottom: none;
     font-size: var(--text-page-title);
