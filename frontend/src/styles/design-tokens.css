@@ -170,6 +170,11 @@
   --desc-modal-col-gap: clamp(1rem, 1.75vw, 1.75rem);
   --desc-modal-add-btn-width: clamp(4.5rem, 5.5vw, 6.25rem);
   --desc-modal-checkbox-size: clamp(1.125rem, 1vw, 1.25rem);
+  /* 列表区内边距/行距（仅 .description-list / .selected-descriptions-list，不碰全局 --space-gap） */
+  --desc-modal-list-pad: clamp(0.4rem, 0.2vw + 0.28rem, 0.5rem);
+  --desc-modal-list-item-gap: clamp(0.35rem, 0.15vw + 0.25rem, 0.45rem);
+  --desc-modal-list-item-pad-block: clamp(0.35rem, 0.15vw + 0.28rem, 0.45rem);
+  --desc-modal-list-item-pad-inline: clamp(0.25rem, 0.1vw + 0.2rem, 0.35rem);
   --desc-modal-selected-bg: var(--color-surface-info-tint);
   --desc-modal-selected-fg: var(--color-primary-strong);
   --desc-modal-delete-fg: var(--color-danger-text-strong);

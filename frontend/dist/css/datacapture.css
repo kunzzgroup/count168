@@ -1256,7 +1256,7 @@ body.datacapture-page .bottom-section .form-actions {
     overflow-y: auto;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
-    padding: 0 10px;
+    padding: var(--desc-modal-list-pad, 0.5rem);
     background-color: #f8fafc;
 }
 
@@ -1274,16 +1274,17 @@ body.datacapture-page .bottom-section .form-actions {
     overflow-y: auto;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
-    padding: 10px;
+    padding: var(--desc-modal-list-pad, 0.5rem);
     background-color: #f8fafc;
 }
 
+.modal-content.description-selection-modal .description-item,
 .description-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--desc-modal-list-item-gap, 0.45rem);
     justify-content: space-between;
-    padding: clamp(4px, 0.21vw, 8px) 0;
+    padding: var(--desc-modal-list-item-pad-block, 0.45rem) var(--desc-modal-list-item-pad-inline, 0.35rem);
     border-bottom: 0.0625rem solid #e9ecef;
 }
 
@@ -1291,11 +1292,13 @@ body.datacapture-page .bottom-section .form-actions {
     border-bottom: none;
 }
 
+.modal-content.description-selection-modal .description-item-left,
 .description-item-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--desc-modal-list-item-gap, 0.45rem);
     flex: 1;
+    min-width: 0;
 }
 
 .description-item input[type="checkbox"] {
@@ -1315,14 +1318,17 @@ body.datacapture-page .bottom-section .form-actions {
     line-height: 1.35;
 }
 
+.modal-content.description-selection-modal .description-delete-btn,
 .description-delete-btn {
     border: none;
     background: transparent;
     color: #c00;
     font-size: 18px;
     cursor: pointer;
-    padding: 4px 6px;
+    padding: 0.15rem var(--desc-modal-list-item-pad-inline, 0.35rem);
     line-height: 1;
+    flex-shrink: 0;
+    margin-left: auto;
 }
 
 .description-delete-btn:hover {
@@ -1333,15 +1339,16 @@ body.datacapture-page .bottom-section .form-actions {
     background-color: #e9ecef;
 }
 
+.modal-content.description-selection-modal .selected-description-modal-item,
 .selected-description-modal-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: clamp(2px, 0.42vw, 8px) 8px;
+    gap: var(--desc-modal-list-item-gap, 0.45rem);
+    padding: var(--desc-modal-list-item-pad-block, 0.45rem) var(--desc-modal-list-item-pad-inline, 0.35rem);
     border-bottom: 0.0625rem solid #e9ecef;
     background-color: #e3f2fd;
     border-radius: 0.25rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--desc-modal-list-item-gap, 0.45rem);
 }
 
 .selected-description-modal-item:last-child {

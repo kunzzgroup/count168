@@ -5130,7 +5130,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     overflow-y: auto;
     border: 1px solid var(--color-border);
     border-radius: calc(var(--desc-modal-radius) * 0.45);
-    padding: calc(var(--space-gap) * 0.45);
+    padding: var(--desc-modal-list-pad, 0.5rem);
     background-color: var(--color-surface-gray-50, #f8fafc);
 }
 
@@ -5163,12 +5163,12 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .selected-description-modal-item {
     display: flex;
     align-items: center;
-    gap: calc(var(--space-gap) * 0.4);
-    padding: calc(var(--space-gap) * 0.45);
+    gap: var(--desc-modal-list-item-gap, 0.45rem);
+    padding: var(--desc-modal-list-item-pad-block, 0.45rem) var(--desc-modal-list-item-pad-inline, 0.35rem);
     border-bottom: 1px solid var(--color-border);
     background-color: var(--desc-modal-selected-bg);
     border-radius: calc(var(--desc-modal-radius) * 0.4);
-    margin-bottom: calc(var(--space-gap) * 0.45);
+    margin-bottom: var(--desc-modal-list-item-gap, 0.45rem);
 }
 
 .process-page .selected-description-modal-item:last-child {
@@ -5191,8 +5191,8 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: calc(var(--space-gap) * 0.45);
-    padding: calc(var(--space-gap) * 0.55) calc(var(--space-gap) * 0.35);
+    gap: var(--desc-modal-list-item-gap, 0.45rem);
+    padding: var(--desc-modal-list-item-pad-block, 0.45rem) var(--desc-modal-list-item-pad-inline, 0.35rem);
     border-bottom: 1px solid var(--color-border);
 }
 
@@ -5211,7 +5211,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .description-selection-modal .description-item-left {
     display: flex;
     align-items: center;
-    gap: calc(var(--space-gap) * 0.45);
+    gap: var(--desc-modal-list-item-gap, 0.45rem);
     flex: 1;
     min-width: 0;
 }
@@ -5245,9 +5245,10 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     font-size: var(--text-h3);
     font-weight: var(--font-weight-bold);
     cursor: pointer;
-    padding: calc(var(--space-gap) * 0.2);
+    padding: 0.15rem var(--desc-modal-list-item-pad-inline, 0.35rem);
     line-height: 1;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 .modal-content.description-selection-modal .description-delete-btn:hover:not(:disabled),
