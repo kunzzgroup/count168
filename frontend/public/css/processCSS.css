@@ -5046,9 +5046,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     min-width: 0;
     box-sizing: border-box;
     min-height: var(--desc-modal-control-min-h);
-    padding: 0.42rem 0.65rem;
+    padding: calc(var(--space-gap) * 0.4) calc(var(--space-gap) * 0.55);
     border: 1px solid var(--color-border-muted);
-    border-radius: 0.35rem;
+    border-radius: calc(var(--desc-modal-radius) * 0.45);
     font-family: var(--font-ui);
     font-size: var(--desc-modal-control-text);
     color: var(--color-body-strong);
@@ -5062,9 +5062,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     width: 100%;
     box-sizing: border-box;
     min-height: var(--desc-modal-control-min-h);
-    padding: 0.4rem 0.6rem;
+    padding: calc(var(--space-gap) * 0.4) calc(var(--space-gap) * 0.55);
     border: 1px solid var(--color-border-muted);
-    border-radius: 0.35rem;
+    border-radius: calc(var(--desc-modal-radius) * 0.45);
     font-family: var(--font-ui);
     font-size: var(--desc-modal-control-text);
     color: var(--color-body-strong);
@@ -5090,7 +5090,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     font-size: var(--desc-modal-control-text);
     font-weight: var(--font-weight-semibold);
     line-height: 1;
-    border-radius: 0.35rem;
+    border-radius: calc(var(--desc-modal-radius) * 0.45);
     border: none;
     background: var(--btn-add-gradient);
     color: var(--color-surface);
@@ -5113,8 +5113,8 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     max-height: var(--desc-modal-list-min-h);
     overflow-y: auto;
     border: 1px solid var(--color-border);
-    border-radius: 0.35rem;
-    padding: 0.4rem;
+    border-radius: calc(var(--desc-modal-radius) * 0.45);
+    padding: calc(var(--space-gap) * 0.45);
     background-color: var(--color-surface-gray-50, #f8fafc);
 }
 
@@ -5155,7 +5155,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     align-items: center;
     justify-content: space-between;
     gap: calc(var(--space-gap) * 0.45);
-    padding: calc(var(--space-gap) * 0.4) calc(var(--space-gap) * 0.25);
+    padding: calc(var(--space-gap) * 0.55) calc(var(--space-gap) * 0.35);
     border-bottom: 1px solid var(--color-border);
 }
 
@@ -5260,11 +5260,11 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     font-weight: var(--font-weight-semibold);
     min-width: var(--userlist-btn-add-width);
     width: auto;
-    min-height: auto;
-    height: auto;
-    padding: clamp(6px, 0.42vw, 8px) 20px;
+    min-height: var(--desc-modal-control-min-h);
+    height: var(--desc-modal-control-min-h);
+    padding: 0 calc(var(--space-gap) * 0.9);
     line-height: 1.2;
-    border-radius: 6px;
+    border-radius: calc(var(--desc-modal-radius) * 0.55);
     border: none;
     display: inline-flex;
     align-items: center;
@@ -5310,7 +5310,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     font-family: var(--font-ui);
     font-style: italic;
     font-weight: 400;
-    padding: 1.25rem;
+    padding: var(--space-card);
     margin: 0;
 }
 
