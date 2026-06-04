@@ -5292,8 +5292,8 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 @media (max-width: 40rem) {
     .modal-content.description-selection-modal,
     .process-page .modal-content.description-selection-modal {
-        width: min(1040px, calc(100vw - 24px)) !important;
-        max-width: min(1040px, calc(100vw - 24px)) !important;
+        width: var(--desc-modal-width, min(1040px, calc(100vw - 24px))) !important;
+        max-width: var(--desc-modal-width, min(1040px, calc(100vw - 24px))) !important;
         margin: 3vh auto;
     }
 
@@ -6868,8 +6868,8 @@ body.process-page.process-page--bank.process-page--bank-show-all .process-table-
 
 /* Description picker — 压过通用 .modal-content，与 PHP 同宽 */
 body.process-page > #descriptionPickerModal.modal.show > .modal-content.description-selection-modal {
-    width: min(1040px, calc(100vw - 48px)) !important;
-    max-width: min(1040px, calc(100vw - 48px)) !important;
+    width: var(--desc-modal-width, min(1040px, calc(100vw - 48px))) !important;
+    max-width: var(--desc-modal-width, min(1040px, calc(100vw - 48px))) !important;
     box-sizing: border-box !important;
 }
 
