@@ -56,11 +56,8 @@ export default function DescriptionPickerModal({
     <ProcessModalPortal>
     <div className="modal show" style={{ ...processModalBackdropStyle, zIndex: 10100 }} role="dialog" aria-modal="true">
       <div className="modal-content description-selection-modal">
-        <div className="modal-header">
+        <div className="modal-header description-selection-modal-header">
           <h2>{t("selectOrAddDescription")}</h2>
-          <span className="close" onClick={onClose} role="presentation">
-            &times;
-          </span>
         </div>
         <div className="modal-body">
           <div className="description-selection-container">
@@ -106,6 +103,7 @@ export default function DescriptionPickerModal({
               <div className="description-search">
                 <input
                   type="text"
+                  className="description-search-input"
                   placeholder={t("searchDescriptions")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

@@ -4915,10 +4915,10 @@ body.process-page > .process-modal {
     display: block;
 }
 
-/* Description Selection Modal — single source; design tokens (--desc-modal-*, --text-*, --color-*) */
+/* Description Selection Modal — align count168.com / processlist.php; tokens --desc-modal-* */
 body.process-page > .modal.show:has(.description-selection-modal) {
     background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(0.25rem);
 }
 
 .modal-content.description-selection-modal,
@@ -4926,29 +4926,31 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     width: var(--desc-modal-width);
     max-width: var(--desc-modal-width);
     max-height: var(--desc-modal-max-height);
-    margin: var(--space-gap) auto;
+    margin: 4vh auto;
+    padding: 0;
+    border: none;
     border-radius: var(--desc-modal-radius);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     background-color: var(--color-surface);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
     font-family: var(--font-ui);
     font-size: var(--desc-modal-body-size);
     color: var(--color-body-strong);
 }
 
-.modal-content.description-selection-modal .modal-header,
+.modal-content.description-selection-modal .description-selection-modal-header.modal-header,
 .process-page .modal-content.description-selection-modal .modal-header {
     flex-shrink: 0;
     margin: 0;
     padding: var(--desc-modal-pad-block) var(--desc-modal-pad-inline);
-    padding-bottom: calc(var(--desc-modal-pad-block) * 0.65);
-    background: var(--color-surface-modal-header);
-    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-bottom: none;
     border-radius: var(--desc-modal-radius) var(--desc-modal-radius) 0 0;
 }
 
+.modal-content.description-selection-modal .description-selection-modal-header h2,
 .modal-content.description-selection-modal .modal-header h2,
 .process-page .modal-content.description-selection-modal .modal-header h2 {
     margin: 0;
@@ -4957,7 +4959,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-page-title);
     letter-spacing: var(--letter-spacing-page-title);
-    color: var(--color-heading);
+    color: var(--color-body-strong);
     line-height: 1.2;
 }
 
@@ -4981,21 +4983,22 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     align-items: stretch;
 }
 
-.modal-content.description-selection-modal .selected-descriptions-section,
-.modal-content.description-selection-modal .available-descriptions-section {
-    display: flex;
-    flex-direction: column;
+.modal-content.description-selection-modal .selected-descriptions-section {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
-}
-
-.modal-content.description-selection-modal .selected-descriptions-section {
     padding-right: var(--desc-modal-col-gap);
     border-right: 1px solid var(--color-border);
 }
 
 .modal-content.description-selection-modal .available-descriptions-section {
-    padding-left: calc(var(--desc-modal-col-gap) * 0.35);
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    padding-left: calc(var(--desc-modal-col-gap) * 0.25);
+    overflow: hidden;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-section h3,
@@ -5038,22 +5041,35 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 }
 
 .modal-content.description-selection-modal .add-description-input-group input,
-.modal-content.description-selection-modal .description-search input,
-.process-page .description-selection-modal .add-description-input-group input,
-.process-page .description-selection-modal .description-search input {
+.process-page .description-selection-modal .add-description-input-group input {
     flex: 1;
     min-width: 0;
-    width: 100%;
     box-sizing: border-box;
     min-height: var(--desc-modal-control-min-h);
-    padding: calc(var(--space-gap) * 0.35) calc(var(--space-gap) * 0.55);
+    padding: 0.42rem 0.65rem;
     border: 1px solid var(--color-border-muted);
-    border-radius: calc(var(--desc-modal-radius) * 0.5);
+    border-radius: 0.35rem;
     font-family: var(--font-ui);
     font-size: var(--desc-modal-control-text);
     color: var(--color-body-strong);
     background-color: var(--color-surface);
     text-transform: uppercase;
+}
+
+.modal-content.description-selection-modal .description-search-input,
+.modal-content.description-selection-modal .description-search input,
+.process-page .description-selection-modal .description-search input {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: var(--desc-modal-control-min-h);
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--color-border-muted);
+    border-radius: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: var(--desc-modal-control-text);
+    color: var(--color-body-strong);
+    background-color: var(--color-surface);
+    text-transform: none;
 }
 
 .modal-content.description-selection-modal .description-search,
@@ -5064,30 +5080,47 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .add-description-input-group .btn,
 .process-page .description-selection-modal .add-description-input-group .btn {
     flex-shrink: 0;
-    min-width: var(--userlist-btn-add-width);
+    min-width: var(--desc-modal-add-btn-width);
+    max-width: var(--desc-modal-add-btn-width);
     min-height: var(--desc-modal-control-min-h);
     height: var(--desc-modal-control-min-h);
     margin: 0;
-    padding: 0 calc(var(--space-gap) * 0.65);
+    padding: 0 0.5rem;
     font-family: var(--font-heading-page);
     font-size: var(--desc-modal-control-text);
     font-weight: var(--font-weight-semibold);
-    line-height: 1.2;
-    border-radius: calc(var(--desc-modal-radius) * 0.5);
+    line-height: 1;
+    border-radius: 0.35rem;
+    border: none;
+    background: var(--btn-add-gradient);
+    color: var(--color-surface);
+    box-shadow: none;
+    transform: none;
+}
+
+.modal-content.description-selection-modal .add-description-input-group .btn:hover:not(:disabled),
+.process-page .description-selection-modal .add-description-input-group .btn:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover);
+    transform: none;
 }
 
 .modal-content.description-selection-modal .description-list,
 .modal-content.description-selection-modal .selected-descriptions-list,
 .process-page .description-selection-modal .description-list,
 .process-page .description-selection-modal .selected-descriptions-list {
-    flex: 1 1 auto;
+    height: var(--desc-modal-list-min-h);
     min-height: var(--desc-modal-list-min-h);
     max-height: var(--desc-modal-list-min-h);
     overflow-y: auto;
     border: 1px solid var(--color-border);
-    border-radius: calc(var(--desc-modal-radius) * 0.5);
-    padding: calc(var(--space-gap) * 0.45);
+    border-radius: 0.35rem;
+    padding: 0.4rem;
     background-color: var(--color-surface-gray-50, #f8fafc);
+}
+
+.modal-content.description-selection-modal .selected-descriptions-list {
+    display: flex;
+    flex-direction: column;
 }
 
 .process-page .selected-description-modal-item,
@@ -5155,6 +5188,17 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     cursor: pointer;
 }
 
+.modal-content.description-selection-modal .description-item label,
+.process-page .description-selection-modal .description-item label {
+    margin: 0;
+    font-size: var(--desc-modal-body-size);
+    font-family: var(--font-ui);
+    cursor: pointer;
+    flex: 1;
+    color: var(--color-body-strong);
+    line-height: 1.35;
+}
+
 .modal-content.description-selection-modal .description-delete-btn,
 .process-page .description-selection-modal .description-delete-btn {
     border: none;
@@ -5212,48 +5256,62 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .modal-footer .btn,
 .process-page .description-selection-modal .modal-footer .btn {
     font-family: var(--font-heading-page);
-    font-size: var(--desc-modal-section-size);
+    font-size: var(--text-medium);
     font-weight: var(--font-weight-semibold);
     min-width: var(--userlist-btn-add-width);
-    min-height: var(--desc-modal-control-min-h);
-    height: var(--desc-modal-control-min-h);
-    padding: 0 calc(var(--space-gap) * 0.9);
+    width: auto;
+    min-height: auto;
+    height: auto;
+    padding: clamp(6px, 0.42vw, 8px) 20px;
     line-height: 1.2;
-    border-radius: calc(var(--desc-modal-radius) * 0.55);
+    border-radius: 6px;
     border: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    transform: none;
 }
 
-.modal-content.description-selection-modal .btn-save,
-.process-page .description-selection-modal .btn-save {
+.modal-content.description-selection-modal .modal-footer .btn-save,
+.process-page .description-selection-modal .modal-footer .btn-save {
     background: var(--btn-add-gradient);
     color: var(--color-surface);
-    box-shadow: var(--shadow-sm);
 }
 
-.modal-content.description-selection-modal .btn-save:hover:not(:disabled),
-.process-page .description-selection-modal .btn-save:hover:not(:disabled) {
+.modal-content.description-selection-modal .modal-footer .btn-save:hover:not(:disabled),
+.process-page .description-selection-modal .modal-footer .btn-save:hover:not(:disabled) {
     background: var(--btn-add-gradient-hover);
+    transform: none;
 }
 
 .modal-content.description-selection-modal .btn-cancel,
 .process-page .description-selection-modal .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: var(--color-surface);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
+}
+
+.modal-content.description-selection-modal .btn-cancel:hover:not(:disabled),
+.process-page .description-selection-modal .btn-cancel:hover:not(:disabled) {
+    transform: none;
 }
 
 .process-page .no-descriptions,
 .modal-content.description-selection-modal .no-descriptions {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     color: var(--color-muted-fg);
     font-size: var(--desc-modal-empty-size);
     font-family: var(--font-ui);
     font-style: italic;
-    padding: var(--space-card);
+    font-weight: 400;
+    padding: 1.25rem;
+    margin: 0;
 }
 
 /* Selected Descriptions Display */
