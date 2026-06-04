@@ -251,7 +251,7 @@ export default function ProcessFormModal({
                     <div className="multi-use-actions">
                       <button
                         type="button"
-                        className="btn btn-save btn-small"
+                        className="btn btn-save btn-multi-use-confirm"
                         disabled={ro}
                         onClick={() => setForm((prev) => ({ ...prev, show_multi_process_selection: false }))}
                       >

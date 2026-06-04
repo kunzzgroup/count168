@@ -4610,29 +4610,32 @@ body.process-page > .process-modal {
     align-self: stretch;
     min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem));
     height: auto;
-    min-width: clamp(7rem, 9vw, 9.5rem);
-    padding: 0 calc(var(--space-gap, 0.75rem) * 0.75);
+    min-width: clamp(7.25rem, 9vw, 9.75rem);
+    padding: 0 calc(var(--space-gap, 0.75rem) * 0.85);
     font-family: var(--font-heading-page);
-    font-size: var(--process-form-modal-control-size, var(--text-small));
+    font-size: var(--text-medium);
     font-weight: var(--font-weight-semibold);
     line-height: 1.2;
+    letter-spacing: 0.01em;
     border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.55);
-    border: 1px solid var(--color-border-muted, #dbe3ee);
-    background: var(--color-surface, #fff);
-    color: var(--color-body-strong, #1f2937);
+    border: 1px solid var(--color-border-muted, #cbd5e1);
+    outline: none;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    color: var(--color-body-muted, #475569);
     cursor: pointer;
     white-space: nowrap;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
     transform: none;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .process-page .btn-multi-process-toggle.is-on,
 .process-form-modal .btn-multi-process-toggle.is-on,
 #addModal .modal-content.process-form-modal .btn-multi-process-toggle.is-on {
-    border: none;
+    border: 1px solid transparent;
     background: var(--btn-add-gradient);
     color: var(--color-surface, #fff);
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.28);
 }
 
 .process-page .btn-multi-process-toggle:hover:not(:disabled),
@@ -4640,20 +4643,32 @@ body.process-page > .process-modal {
 #addModal .modal-content.process-form-modal .btn-multi-process-toggle:hover:not(:disabled) {
     border-color: var(--color-primary, #0d60ff);
     color: var(--color-primary-strong, #0d60ff);
+    background: linear-gradient(180deg, #fff 0%, #eff6ff 100%);
+    box-shadow: 0 2px 6px rgba(13, 96, 255, 0.12);
 }
 
 .process-page .btn-multi-process-toggle.is-on:hover:not(:disabled),
 .process-form-modal .btn-multi-process-toggle.is-on:hover:not(:disabled),
 #addModal .modal-content.process-form-modal .btn-multi-process-toggle.is-on:hover:not(:disabled) {
+    border-color: transparent;
     background: var(--btn-add-gradient-hover);
     color: var(--color-surface, #fff);
-    transform: none;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.35);
+    transform: translateY(-1px);
+}
+
+.process-page .btn-multi-process-toggle:focus-visible,
+.process-form-modal .btn-multi-process-toggle:focus-visible,
+#addModal .modal-content.process-form-modal .btn-multi-process-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(13, 96, 255, 0.2);
 }
 
 .process-page .btn-multi-process-toggle:disabled,
 .process-form-modal .btn-multi-process-toggle:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+    transform: none;
 }
 
 .process-page .checkbox-container {
@@ -4886,13 +4901,47 @@ body.process-page > .process-modal {
 }
 
 /* Multi-use actions under checkbox grid */
-.process-page .multi-use-actions {
+.process-page .multi-use-actions,
+.process-form-modal .multi-use-actions,
+#addModal .multi-use-actions {
     display: flex;
     justify-content: flex-end;
-    margin-top: 0.5rem;
+    margin-top: calc(var(--space-gap, 0.75rem) * 0.55);
 }
 
-/* Multi-use Processes Checkbox Grid - left aligned */
+.process-page .btn-multi-use-confirm,
+.process-form-modal .btn-multi-use-confirm,
+#addModal .btn-multi-use-confirm {
+    font-family: var(--font-heading-page) !important;
+    font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    min-width: var(--userlist-btn-add-width) !important;
+    width: auto !important;
+    min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem)) !important;
+    height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem)) !important;
+    padding: 0 calc(var(--space-gap, 0.75rem) * 0.9) !important;
+    border: none !important;
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.55) !important;
+    background: var(--btn-add-gradient) !important;
+    color: var(--color-surface, #fff) !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    transform: none;
+    cursor: pointer;
+}
+
+.process-page .btn-multi-use-confirm:hover:not(:disabled),
+.process-form-modal .btn-multi-use-confirm:hover:not(:disabled),
+#addModal .btn-multi-use-confirm:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover) !important;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
+    transform: translateY(-1px);
+}
+
+/* Multi-use Processes Checkbox Grid — 3 列、tiny 字号、勾选垂直居中 */
 .process-page .process-checkboxes {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -4906,8 +4955,24 @@ body.process-page > .process-modal {
     padding: 0.625rem 0.75rem;
     background-color: #f8fafc;
     justify-items: start;
-    /* ensure items align left */
     text-align: left;
+}
+
+.process-form-modal .process-checkboxes,
+#addModal .modal-content.process-form-modal .process-checkboxes,
+#multi_use_processes .process-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: minmax(2rem, auto);
+    align-items: center;
+    gap: var(--desc-modal-list-item-gap, 0.45rem) calc(var(--space-gap, 0.75rem) * 0.55);
+    margin-top: calc(var(--space-gap, 0.75rem) * 0.45);
+    max-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    overflow-y: auto;
+    border: 1px solid var(--color-border-muted, #dbe3ee);
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.45);
+    padding: var(--desc-modal-list-pad, 0.5rem);
+    background-color: var(--color-surface-gray-50, #f8fafc);
 }
 
 .process-page .process-checkboxes .checkbox-item {
@@ -4917,13 +4982,34 @@ body.process-page > .process-modal {
     column-gap: 0.5rem;
     min-width: 0;
     justify-items: start;
-    /* left align contents */
+}
+
+.process-form-modal .process-checkboxes .checkbox-item,
+#addModal .process-checkboxes .checkbox-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: calc(var(--desc-modal-list-item-gap, 0.45rem) * 0.75);
+    min-width: 0;
+    min-height: 1.75rem;
+    padding: 0.1rem 0;
 }
 
 .process-page .process-checkboxes .checkbox-item input[type="checkbox"] {
     margin: 0;
     width: 16px;
     height: 16px;
+}
+
+.process-form-modal .process-checkboxes .checkbox-item input[type="checkbox"],
+#addModal .process-checkboxes .checkbox-item input[type="checkbox"] {
+    margin: 0;
+    flex-shrink: 0;
+    width: var(--desc-modal-checkbox-size, 1.125rem);
+    height: var(--desc-modal-checkbox-size, 1.125rem);
+    align-self: center;
+    cursor: pointer;
 }
 
 .process-page .process-checkboxes .checkbox-item label {
@@ -4935,6 +5021,36 @@ body.process-page > .process-modal {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.process-form-modal .process-checkboxes .checkbox-item label,
+#addModal .process-checkboxes .checkbox-item label {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-ui);
+    font-size: var(--text-tiny);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.35;
+    cursor: pointer;
+    color: var(--color-body-strong, #0f172a);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 48rem) {
+    .process-form-modal .process-checkboxes,
+    #addModal .modal-content.process-form-modal .process-checkboxes {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 30rem) {
+    .process-form-modal .process-checkboxes,
+    #addModal .modal-content.process-form-modal .process-checkboxes {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .process-page .btn.btn-small,
