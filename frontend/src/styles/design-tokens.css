@@ -150,6 +150,20 @@
   --process-form-modal-control-min-h: clamp(2.75rem, 2.25vw, 3.25rem);
 
   /*
+   * Add Process — Multi-Process 三列勾选列表（.process-checkboxes）
+   * 与 Description 列表共用 --desc-modal-* 刻度；改 --text-tiny / --desc-modal-* 会连带缩放。
+   */
+  --process-form-modal-multi-list-text: var(--desc-modal-list-text);
+  --process-form-modal-multi-list-min-h: var(--desc-modal-list-min-h);
+  --process-form-modal-multi-list-pad: var(--desc-modal-list-pad);
+  --process-form-modal-multi-list-row-gap: var(--desc-modal-list-item-gap);
+  --process-form-modal-multi-grid-col-gap: calc(var(--desc-modal-list-item-gap) * 1.65);
+  --process-form-modal-multi-checkbox-size: var(--desc-modal-checkbox-size);
+  --process-form-modal-multi-item-gap: var(--desc-modal-list-item-gap);
+  --process-form-modal-multi-item-pad-block: var(--desc-modal-list-item-pad-block);
+  --process-form-modal-multi-item-line-height: 1.35;
+
+  /*
    * Description picker modal（Process List / Data Capture）
    * 外壳宽/高与 Add Process 一致；字号走 --text-* 阶梯。
    */

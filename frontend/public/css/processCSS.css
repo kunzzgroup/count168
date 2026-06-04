@@ -4965,18 +4965,19 @@ body.process-page > .process-modal {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-auto-rows: auto;
     align-items: center;
-    gap: calc(var(--desc-modal-list-item-gap, 0.45rem) * 0.85) calc(var(--space-gap, 0.75rem) * 0.4);
-    margin-top: calc(var(--space-gap, 0.75rem) * 0.45);
-    max-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    gap: var(--process-form-modal-multi-list-row-gap, var(--desc-modal-list-item-gap))
+        var(--process-form-modal-multi-grid-col-gap, calc(var(--desc-modal-list-item-gap) * 1.65));
+    margin-top: var(--process-form-modal-multi-list-row-gap, var(--desc-modal-list-item-gap));
+    max-height: var(--process-form-modal-multi-list-min-h, var(--desc-modal-list-min-h));
     overflow-x: hidden;
     overflow-y: auto;
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    border: 1px solid var(--color-border-muted, #dbe3ee);
-    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.45);
-    padding: var(--desc-modal-list-pad, 0.5rem);
-    background-color: var(--color-surface-gray-50, #f8fafc);
+    border: 1px solid var(--color-border-muted);
+    border-radius: calc(var(--process-form-modal-radius) * 0.45);
+    padding: var(--process-form-modal-multi-list-pad, var(--desc-modal-list-pad));
+    background-color: var(--color-surface-gray-50);
 }
 
 .process-page .process-checkboxes .checkbox-item {
@@ -4992,18 +4993,19 @@ body.process-page > .process-modal {
 .process-form-modal .process-checkboxes .checkbox-item,
 #addModal .modal-content.process-form-modal .process-checkboxes .checkbox-item,
 #multi_use_processes .process-checkboxes .checkbox-item {
-    display: grid !important;
-    grid-template-columns: auto minmax(0, 1fr) !important;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     align-items: center !important;
-    justify-items: start !important;
-    column-gap: 0.35rem !important;
-    row-gap: 0 !important;
+    justify-content: flex-start !important;
+    gap: var(--process-form-modal-multi-item-gap, var(--desc-modal-list-item-gap)) !important;
     min-width: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
     min-height: 0 !important;
-    padding: 0.12rem 0 !important;
+    padding: var(--process-form-modal-multi-item-pad-block, var(--desc-modal-list-item-pad-block)) 0 !important;
     margin: 0 !important;
+    box-sizing: border-box !important;
 }
 
 .process-form-modal .process-checkboxes .checkbox-item input[type="checkbox"],
@@ -5011,15 +5013,13 @@ body.process-page > .process-modal {
 #multi_use_processes .process-checkboxes .checkbox-item input[type="checkbox"] {
     margin: 0 !important;
     padding: 0 !important;
-    width: 0.875rem !important;
-    height: 0.875rem !important;
-    min-width: 0.875rem !important;
-    min-height: 0.875rem !important;
-    flex: none !important;
-    align-self: center !important;
-    justify-self: start !important;
+    width: var(--process-form-modal-multi-checkbox-size, var(--desc-modal-checkbox-size)) !important;
+    height: var(--process-form-modal-multi-checkbox-size, var(--desc-modal-checkbox-size)) !important;
+    min-width: var(--process-form-modal-multi-checkbox-size, var(--desc-modal-checkbox-size)) !important;
+    min-height: var(--process-form-modal-multi-checkbox-size, var(--desc-modal-checkbox-size)) !important;
+    flex: 0 0 auto !important;
     cursor: pointer;
-    vertical-align: middle;
+    accent-color: var(--color-primary-strong);
 }
 
 .process-form-modal .process-checkboxes .checkbox-item label,
@@ -5028,21 +5028,18 @@ body.process-page > .process-modal {
     margin: 0 !important;
     margin-bottom: 0 !important;
     padding: 0 !important;
+    flex: 1 1 auto !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    width: auto !important;
     font-family: var(--font-ui) !important;
-    font-size: clamp(0.6875rem, 0.1vw + 0.58rem, 0.75rem) !important;
-    font-weight: var(--font-weight-normal) !important;
-    line-height: 1.15 !important;
-    letter-spacing: 0.01em;
+    font-size: var(--process-form-modal-multi-list-text, var(--desc-modal-list-text, var(--text-tiny))) !important;
+    font-weight: 400 !important;
+    line-height: var(--process-form-modal-multi-item-line-height, 1.35) !important;
     cursor: pointer;
-    color: var(--color-body-strong, #0f172a) !important;
+    color: var(--color-body-strong) !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    align-self: center !important;
-    justify-self: start !important;
     display: block !important;
 }
 
