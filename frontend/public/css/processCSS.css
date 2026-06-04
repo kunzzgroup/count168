@@ -6878,3 +6878,269 @@ body.process-page > #descriptionPickerModal.modal.show > .modal-content.descript
     min-width: 0;
 }
 
+/* Add/Edit Process modal — 与 Description picker 同款壳层 / token */
+body.process-page > #addModal.modal.show > .modal-content.process-form-modal,
+body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
+#addModal .modal-content.process-form-modal,
+#editModal .modal-content.process-form-modal {
+    width: var(--process-form-modal-width, min(1040px, calc(100vw - 48px))) !important;
+    max-width: var(--process-form-modal-width, min(1040px, calc(100vw - 48px))) !important;
+    max-height: var(--process-form-modal-max-height, 92vh) !important;
+    min-height: 0 !important;
+    margin: 4vh auto;
+    padding: 0;
+    border: none;
+    border-radius: var(--process-form-modal-radius, 0.75rem);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-surface, #fff);
+    box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04);
+    font-family: var(--font-ui);
+    color: var(--color-body-strong, #1f2937);
+    box-sizing: border-box;
+}
+
+.process-form-modal .process-form-modal-header.modal-header,
+#addModal .modal-content.process-form-modal .modal-header,
+#editModal .modal-content.process-form-modal .modal-header {
+    flex-shrink: 0;
+    margin: 0;
+    padding: var(--process-form-modal-pad, var(--space-card));
+    background: var(--color-surface, #fff);
+    border-bottom: none;
+    border-radius: var(--process-form-modal-radius, 0.75rem) var(--process-form-modal-radius, 0.75rem) 0 0;
+}
+
+.process-form-modal .process-form-modal-header h2,
+#addModal .modal-content.process-form-modal .modal-header h2,
+#editModal .modal-content.process-form-modal .modal-header h2 {
+    margin: 0;
+    padding: 0;
+    font-size: var(--process-form-modal-title-size, var(--text-page-title));
+    font-family: var(--font-heading-page);
+    font-weight: var(--font-weight-page-title);
+    letter-spacing: var(--letter-spacing-page-title);
+    color: var(--color-body-strong, #1f2937);
+    line-height: 1.2;
+}
+
+.process-form-modal .modal-body,
+#addModal .modal-content.process-form-modal .modal-body,
+#editModal .modal-content.process-form-modal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: var(--process-form-modal-pad, var(--space-card));
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.process-form-modal .process-form.add-grid,
+#addModal .modal-content.process-form-modal .process-form.add-grid,
+#editModal .modal-content.process-form-modal .process-form.add-grid {
+    padding: 0 0 calc(var(--space-gap, 0.75rem) * 0.5) 0;
+    column-gap: var(--desc-modal-col-gap, clamp(1rem, 1.75vw, 1.75rem));
+    row-gap: calc(var(--space-gap, 0.75rem) * 0.65);
+}
+
+.process-form-modal .process-form.add-grid .add-col,
+#addModal .modal-content.process-form-modal .process-form.add-grid .add-col,
+#editModal .modal-content.process-form-modal .process-form.add-grid .add-col {
+    padding: calc(var(--space-gap, 0.75rem) * 0.35) calc(var(--space-gap, 0.75rem) * 0.5);
+    background: transparent;
+}
+
+.process-form-modal .process-form.add-grid .add-col > .process-form-section:not(:last-child),
+#addModal .modal-content.process-form-modal .process-form.add-grid .add-col > .process-form-section:not(:last-child),
+#editModal .modal-content.process-form-modal .process-form.add-grid .add-col > .process-form-section:not(:last-child) {
+    margin-bottom: calc(var(--space-gap, 0.75rem) * 1.1);
+    padding-bottom: calc(var(--space-gap, 0.75rem) * 0.95);
+    border-bottom: 1px solid var(--color-border, #e8eef5);
+}
+
+.process-form-modal .process-form-section-title,
+#addModal .modal-content.process-form-modal .process-form-section-title,
+#editModal .modal-content.process-form-modal .process-form-section-title {
+    margin: 0 0 calc(var(--space-gap, 0.75rem) * 0.75) 0;
+    padding: 0 0 calc(var(--space-gap, 0.75rem) * 0.45) 0.55rem;
+    font-size: var(--process-form-modal-section-size, var(--text-h3));
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-heading-page);
+    color: var(--color-body-muted, #475569);
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    border-left: 3px solid var(--color-primary, #0d60ff);
+    border-bottom: 1px solid var(--color-border-muted, #e2e8f0);
+}
+
+.process-form-modal .process-form .form-group label,
+#addModal .modal-content.process-form-modal .process-form .form-group label,
+#editModal .modal-content.process-form-modal .process-form .form-group label {
+    font-size: var(--process-form-modal-label-size, var(--text-medium)) !important;
+    font-family: var(--font-heading-page) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    color: var(--color-body-strong, #0f172a);
+    margin-bottom: calc(var(--space-gap, 0.75rem) * 0.45) !important;
+}
+
+.process-form-modal .process-form .form-group input,
+.process-form-modal .process-form .form-group select,
+.process-form-modal .process-form .form-group textarea,
+#addModal .modal-content.process-form-modal .process-form .form-group input,
+#addModal .modal-content.process-form-modal .process-form .form-group select,
+#addModal .modal-content.process-form-modal .process-form .form-group textarea,
+#editModal .modal-content.process-form-modal .process-form .form-group input,
+#editModal .modal-content.process-form-modal .process-form .form-group select,
+#editModal .modal-content.process-form-modal .process-form .form-group textarea {
+    font-size: var(--process-form-modal-control-size, var(--text-small)) !important;
+    font-family: var(--font-ui) !important;
+    min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem));
+    padding: calc(var(--space-gap, 0.75rem) * 0.45) calc(var(--space-gap, 0.75rem) * 0.65) !important;
+    border: 1px solid var(--color-border-muted, #dbe3ee) !important;
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.55) !important;
+    background-color: var(--color-surface, #fff);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    color: var(--color-body-strong, #1f2937);
+}
+
+.process-form-modal .process-form .form-group input:focus,
+.process-form-modal .process-form .form-group select:focus,
+.process-form-modal .process-form .form-group textarea:focus,
+#addModal .modal-content.process-form-modal .process-form .form-group input:focus,
+#addModal .modal-content.process-form-modal .process-form .form-group textarea:focus {
+    border-color: var(--color-primary, #0d60ff) !important;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(13, 96, 255, 0.12);
+}
+
+.process-form-modal .input-with-icon input[readonly],
+#addModal .modal-content.process-form-modal .input-with-icon input[readonly] {
+    background-color: var(--color-surface-gray-50, #f8fafc);
+    cursor: pointer;
+}
+
+.process-form-modal .custom-select-button,
+#addModal .modal-content.process-form-modal .custom-select-button,
+#editModal .modal-content.process-form-modal .custom-select-button {
+    min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem)) !important;
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.55) !important;
+    border-color: var(--color-border-muted, #dbe3ee) !important;
+    font-size: var(--process-form-modal-control-size, var(--text-small)) !important;
+}
+
+.process-form-modal .field-help,
+.process-form-modal .form-row small,
+#addModal .modal-content.process-form-modal .field-help,
+#addModal .modal-content.process-form-modal .form-row small {
+    font-size: var(--process-form-modal-hint-size, var(--text-small)) !important;
+    font-family: var(--font-ui) !important;
+    color: var(--color-text-muted, #64748b);
+}
+
+.process-form-modal .selected-descriptions,
+.process-form-modal .selected-processes,
+#addModal .modal-content.process-form-modal .selected-descriptions {
+    padding: calc(var(--space-gap, 0.75rem) * 0.55);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.45);
+    background-color: var(--color-surface-gray-50, #f8fafc);
+}
+
+.process-form-modal .selected-description-tag,
+#addModal .modal-content.process-form-modal .selected-description-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: calc(var(--space-gap, 0.75rem) * 0.25) calc(var(--space-gap, 0.75rem) * 0.5);
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.35);
+    background: var(--desc-modal-selected-bg, var(--color-surface-info-tint));
+    color: var(--desc-modal-selected-fg, var(--color-primary-strong));
+    font-size: var(--process-form-modal-control-size, var(--text-small));
+    font-family: var(--font-ui);
+    font-weight: var(--font-weight-semibold);
+}
+
+.process-form-modal .add-icon,
+#addModal .modal-content.process-form-modal .add-icon {
+    width: clamp(2rem, 2.2vw, 2.35rem);
+    height: clamp(2rem, 2.2vw, 2.35rem);
+    font-size: var(--text-h3);
+    background: var(--btn-add-gradient);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
+}
+
+.process-form-modal .add-icon:hover:not(:disabled),
+#addModal .modal-content.process-form-modal .add-icon:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover);
+}
+
+.process-form-modal .process-form-modal-footer.add-actions,
+#addModal .modal-content.process-form-modal .process-form-modal-footer,
+#editModal .modal-content.process-form-modal .process-form-modal-footer {
+    flex-shrink: 0;
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: var(--process-form-modal-pad, var(--space-card));
+    padding-top: calc(var(--space-gap, 0.75rem) * 0.85);
+    border-top: 1px solid var(--color-border, #e8eef5);
+    background: var(--color-surface, #fff);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--space-gap, 0.75rem);
+    flex-wrap: nowrap;
+}
+
+.process-form-modal .process-form-modal-footer .btn,
+#addModal .modal-content.process-form-modal .process-form-modal-footer .btn,
+#editModal .modal-content.process-form-modal .process-form-modal-footer .btn {
+    font-family: var(--font-heading-page) !important;
+    font-size: var(--text-medium) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    min-width: var(--userlist-btn-add-width);
+    min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem));
+    height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem));
+    padding: 0 calc(var(--space-gap, 0.75rem) * 0.9) !important;
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.55) !important;
+    border: none !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    transform: none;
+}
+
+.process-form-modal .process-form-modal-footer .btn-save,
+#addModal .modal-content.process-form-modal .process-form-modal-footer .btn-save,
+#editModal .modal-content.process-form-modal .process-form-modal-footer .btn-save {
+    background: var(--btn-add-gradient) !important;
+    color: var(--color-surface, #fff) !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+}
+
+.process-form-modal .process-form-modal-footer .btn-save:hover:not(:disabled),
+#addModal .modal-content.process-form-modal .process-form-modal-footer .btn-save:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover) !important;
+    transform: none;
+}
+
+.process-form-modal .process-form-modal-footer .btn-cancel,
+#addModal .modal-content.process-form-modal .process-form-modal-footer .btn-cancel,
+#editModal .modal-content.process-form-modal .process-form-modal-footer .btn-cancel {
+    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%) !important;
+    color: var(--color-surface, #fff) !important;
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3) !important;
+}
+
+@media (max-width: 40rem) {
+    body.process-page > #addModal.modal.show > .modal-content.process-form-modal,
+    body.process-page > #editModal.modal.show > .modal-content.process-form-modal {
+        width: min(1040px, calc(100vw - 24px)) !important;
+        max-width: min(1040px, calc(100vw - 24px)) !important;
+        margin: 3vh auto;
+    }
+
+    .process-form-modal .process-form.add-grid,
+    #addModal .modal-content.process-form-modal .process-form.add-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+

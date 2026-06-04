@@ -95,8 +95,8 @@ export default function ProcessFormModal({
   return (
     <ProcessModalPortal>
     <div id={editMode ? "editModal" : "addModal"} className="modal" style={processModalBackdropStyle}>
-      <div className="modal-content">
-        <div className="modal-header">
+      <div className="modal-content process-form-modal">
+        <div className="modal-header process-form-modal-header">
           <h2>{editMode ? t("editProcess") : t("addProcess")}</h2>
           <span className="close" onClick={onClose} role="presentation">
             &times;
@@ -305,7 +305,6 @@ export default function ProcessFormModal({
                       required={!editMode}
                       value={descSummary}
                       placeholder={t("clickToSelectDescriptions")}
-                      style={{ backgroundColor: "#f5f5f5" }}
                     />
                     <button
                       type="button"
@@ -576,7 +575,7 @@ export default function ProcessFormModal({
               </div>
             </div>
 
-            <div className="form-actions add-actions">
+            <div className="form-actions add-actions modal-footer process-form-modal-footer">
               <button type="submit" className="btn btn-save" disabled={ro}>
                 {editMode ? t("updateProcess") : t("addProcess")}
               </button>

@@ -161,6 +161,20 @@
   --desc-modal-selected-fg: var(--color-primary-strong);
   --desc-modal-delete-fg: var(--color-danger-text-strong);
 
+  /*
+   * Add/Edit Process modal（Process List）
+   */
+  --process-form-modal-width: min(1040px, calc(100vw - 48px));
+  --process-form-modal-max-height: 92vh;
+  --process-form-modal-radius: var(--desc-modal-radius);
+  --process-form-modal-pad: var(--space-card);
+  --process-form-modal-title-size: var(--text-page-title);
+  --process-form-modal-section-size: var(--text-h3);
+  --process-form-modal-label-size: var(--text-medium);
+  --process-form-modal-control-size: var(--text-small);
+  --process-form-modal-hint-size: var(--text-small);
+  --process-form-modal-control-min-h: clamp(2.75rem, 2.25vw, 3.25rem);
+
   /* --- 主区水平留白（userlist / ownership 容器）--- */
   --page-pad-inline-end: 4rem;
   --page-pad-inline-start: clamp(18rem, 14.06vw, 27rem);
@@ -440,12 +454,14 @@
   --login-card-min-height-narrow: 528px;
 }
 
-/* Description picker：≥992px 略加宽、列表略增高；小屏不变 */
+/* Description picker / Process form：≥992px 略加宽；小屏不变 */
 @media (min-width: 62rem) {
   :root {
     --desc-modal-width: min(1120px, calc(100vw - 40px));
     --desc-modal-list-min-h: clamp(16rem, 40vh, 23.5rem);
     --desc-modal-max-height: 94vh;
+    --process-form-modal-width: min(1120px, calc(100vw - 40px));
+    --process-form-modal-max-height: 94vh;
   }
 }
 
