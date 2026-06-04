@@ -449,6 +449,17 @@ function tenant_collect_group_account_ids(PDO $pdo, int $groupPk): array
     return array_values(array_filter(array_map('intval', array_keys($ids)), static fn (int $id): bool => $id > 0));
 }
 
+function tenant_group_code_from_pk(PDO $pdo, int $groupPk): string
+{
+    if ($groupPk <= 0 || !gc_has_groups_table($pdo)) {
+        return '';
+    }
+    $codeStmt = $pdo->prepare('SELECT group_code FROM `groups` WHERE id = ? LIMIT 1');
+    $codeStmt->execute([$groupPk]);
+
+    return gc_normalize_group_code((string) ($codeStmt->fetchColumn() ?: ''));
+}
+
 /**
  * Whether the account row is on the group ledger (account_company.scope_type = group).
  *
@@ -457,30 +468,66 @@ function tenant_collect_group_account_ids(PDO $pdo, int $groupPk): array
 function tenant_resolve_account_ledger_scope(PDO $pdo, int $accountId): array
 {
     $default = ['mode' => 'company', 'group_code' => '', 'group_pk' => 0];
-    if ($accountId <= 0 || !tenant_table_has_scope_columns($pdo, 'account_company')) {
+    if ($accountId <= 0) {
         return $default;
     }
 
-    $stmt = $pdo->prepare("
-        SELECT scope_id
-        FROM account_company
-        WHERE account_id = ? AND scope_type = 'group' AND scope_id > 0
-        LIMIT 1
-    ");
-    $stmt->execute([$accountId]);
-    $groupPk = (int) ($stmt->fetchColumn() ?: 0);
+    $groupPk = 0;
+    if (tenant_table_has_scope_columns($pdo, 'account_company')) {
+        $stmt = $pdo->prepare("
+            SELECT scope_id
+            FROM account_company
+            WHERE account_id = ? AND scope_type = 'group' AND scope_id > 0
+            LIMIT 1
+        ");
+        $stmt->execute([$accountId]);
+        $groupPk = (int) ($stmt->fetchColumn() ?: 0);
+    }
+
+    if ($groupPk <= 0) {
+        try {
+            if ($pdo->query("SHOW TABLES LIKE 'account_group_map'")->rowCount() > 0) {
+                $stmt = $pdo->prepare('SELECT group_id FROM account_group_map WHERE account_id = ? LIMIT 1');
+                $stmt->execute([$accountId]);
+                $groupPk = (int) ($stmt->fetchColumn() ?: 0);
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+
     if ($groupPk <= 0) {
         return $default;
     }
 
-    $groupCode = '';
-    if (gc_has_groups_table($pdo)) {
-        $codeStmt = $pdo->prepare('SELECT group_code FROM `groups` WHERE id = ? LIMIT 1');
-        $codeStmt->execute([$groupPk]);
-        $groupCode = gc_normalize_group_code((string) ($codeStmt->fetchColumn() ?: ''));
-    }
+    $groupCode = tenant_group_code_from_pk($pdo, $groupPk);
 
     return ['mode' => 'group', 'group_code' => $groupCode, 'group_pk' => $groupPk];
+}
+
+/**
+ * Currency API context for an account (group ledger vs subsidiary), ignoring page filter.
+ *
+ * @return array{mode: 'group'|'company', group_pk: int, company_id: int, group_code: string}|null
+ */
+function tenant_resolve_currency_context_for_account(PDO $pdo, int $accountId): ?array
+{
+    if ($accountId <= 0) {
+        return null;
+    }
+    $ledger = tenant_resolve_account_ledger_scope($pdo, $accountId);
+    if (($ledger['mode'] ?? '') !== 'group') {
+        return null;
+    }
+    $groupCode = (string) ($ledger['group_code'] ?? '');
+    if ($groupCode === '' && (int) ($ledger['group_pk'] ?? 0) > 0) {
+        $groupCode = tenant_group_code_from_pk($pdo, (int) $ledger['group_pk']);
+    }
+    if ($groupCode === '') {
+        return null;
+    }
+
+    return tenant_resolve_currency_context($pdo, null, $groupCode, true);
 }
 
 function tenant_account_belongs_to_context(PDO $pdo, int $accountId, array $ctx): bool

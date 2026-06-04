@@ -82,24 +82,19 @@ try {
     }
 
     $ledgerScope = tenant_resolve_account_ledger_scope($pdo, $account_id);
+    if (($ledgerScope['group_code'] ?? '') === '' && (int) ($ledgerScope['group_pk'] ?? 0) > 0) {
+        $ledgerScope['group_code'] = tenant_group_code_from_pk($pdo, (int) $ledgerScope['group_pk']);
+    }
     $belongs = tenant_account_belongs_to_context($pdo, $account_id, $accountCtx);
-    if (!$belongs && ($ledgerScope['mode'] ?? '') === 'group' && ($ledgerScope['group_code'] ?? '') !== '') {
-        $ledgerCtx = tenant_resolve_currency_context($pdo, null, (string) $ledgerScope['group_code'], true);
+    $ledgerCtx = tenant_resolve_currency_context_for_account($pdo, $account_id);
+    if (!$belongs && $ledgerCtx !== null) {
         $belongs = tenant_account_belongs_to_context($pdo, $account_id, $ledgerCtx);
     }
     if (!$belongs) {
         throw new Exception('Account not found');
     }
 
-    $currencyCtxForAccount = $accountCtx;
-    if (($ledgerScope['mode'] ?? '') === 'group' && ($ledgerScope['group_code'] ?? '') !== '') {
-        $currencyCtxForAccount = tenant_resolve_currency_context(
-            $pdo,
-            null,
-            (string) $ledgerScope['group_code'],
-            true
-        );
-    }
+    $currencyCtxForAccount = $ledgerCtx ?? $accountCtx;
 
     $sql = "SELECT 
                 a.id,
