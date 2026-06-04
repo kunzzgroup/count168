@@ -44,6 +44,7 @@ import {
   loginScopeBodyClass,
   patchMeFromCompanyContext,
 } from "../utils/company/loginScope.js";
+import { categoryFlagsFromSession } from "../utils/company/sidebarCompanySwitch.js";
 import "../../public/css/modal-close-unified.css";
 
 function formatSidebarExpirationHint(hint, i18n) {
@@ -354,11 +355,22 @@ export default function AuthenticatedLayout() {
       const companyCode =
         detail.companyCode ??
         (row?.company_id ? String(row.company_id).trim().toUpperCase() : null);
+      const flags =
+        detail.hasGambling != null || detail.hasBank != null
+          ? {
+              hasGambling: Boolean(detail.hasGambling),
+              hasBank: Boolean(detail.hasBank),
+            }
+          : categoryFlagsFromSession(null, cid);
       applySidebarPatch({
         companyId: cid,
         companyCode,
-        hasGambling: detail.hasGambling,
-        hasBank: detail.hasBank,
+        ...(flags
+          ? {
+              hasGambling: Boolean(flags.hasGambling),
+              hasBank: Boolean(flags.hasBank),
+            }
+          : {}),
       });
     },
     [applySidebarPatch],
@@ -947,7 +959,7 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarTransaction}</span>
                       </a>
                     )}
-                    {showFullMaintenanceMenu && (
+                    {showFullMaintenanceMenu && (me?.company_has_gambling || me?.company_has_bank) && (
                       <a
                         href={webHref("/payment-maintenance")}
                         className={`submenu-item ${path === "/payment-maintenance" ? "current-page" : ""}`}

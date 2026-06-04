@@ -14,6 +14,7 @@ import {
   resolveCompanyPickWhenSwitchingGroup,
   sortedUniqueGroupIds,
 } from "./sharedCompanyFilter.js";
+import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
 import {
   canClearCompanySelection,
   canUseGroupOnlyMode,
@@ -133,6 +134,15 @@ export function useDashboardStyleGcFilter({
         notifyDashboardGroupFilterChanged(g, pick.id, {
           companyCode: pick.company_id,
           ignoreGroupOnly: true,
+          ...(() => {
+            const cached = peekCompanySessionFlags(Number(pick.id));
+            return cached
+              ? {
+                  hasGambling: Boolean(cached.has_gambling),
+                  hasBank: Boolean(cached.has_bank),
+                }
+              : {};
+          })(),
         });
         const select = onSelectCompanyRef.current;
         if (select) void select(pick);
@@ -213,9 +223,13 @@ export function useDashboardStyleGcFilter({
         persistDashboardGroupFilter(null);
         setSelectedGroup(null);
       }
-      notifyDashboardGroupFilterChanged(nextGroup, id, {
-        companyCode: c.company_id,
-      });
+      const notifyOpts = { companyCode: c.company_id, ignoreGroupOnly: true };
+      const cachedFlags = peekCompanySessionFlags(id);
+      if (cachedFlags) {
+        notifyOpts.hasGambling = Boolean(cachedFlags.has_gambling);
+        notifyOpts.hasBank = Boolean(cachedFlags.has_bank);
+      }
+      notifyDashboardGroupFilterChanged(nextGroup, id, notifyOpts);
       const select = onSelectCompanyRef.current;
       if (select) void select(c);
     },

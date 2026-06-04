@@ -1,0 +1,22 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { isBankOnlyCategoryFlags } from "../../../utils/company/sidebarCompanySwitch.js";
+
+/**
+ * Games maintenance pages (capture / transaction / formula): redirect when active company is bank-only.
+ */
+export function useMaintenanceBankOnlyGuard(companyId) {
+  const navigate = useNavigate();
+  const { me } = useAuthSession();
+
+  useEffect(() => {
+    if (companyId == null || Number(companyId) <= 0) return;
+    const flags = {
+      hasGambling: Boolean(me?.company_has_gambling),
+      hasBank: Boolean(me?.company_has_bank),
+    };
+    if (!isBankOnlyCategoryFlags(flags)) return;
+    navigate("/dashboard", { replace: true });
+  }, [companyId, me?.company_has_gambling, me?.company_has_bank, navigate]);
+}

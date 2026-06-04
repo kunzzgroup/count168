@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
-import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import { runMaintenanceCompanySwitch, syncMaintenanceBootSidebar } from "../shared/maintenanceCompanySwitch.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import {
   companiesInGroupList,
@@ -45,6 +45,7 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function PaymentMaintenancePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
@@ -104,6 +105,7 @@ export default function PaymentMaintenancePage() {
   const switchCompanyRef = useRef(async () => {});
   const onPrepareCompanySelectRef = useRef(() => {});
   const onClearCompanyRef = useRef(() => {});
+  const sidebarSyncedCompanyIdRef = useRef(null);
 
   const {
     snapGroupIds,
@@ -202,16 +204,19 @@ export default function PaymentMaintenancePage() {
     };
   }, []);
 
-  // Handle sidebar company switch
+  // Handle sidebar company switch (payload uses company_id from update_company_session_api)
   useEffect(() => {
     const handleSwitch = (e) => {
-      if (!e.detail) return;
-      const { companyId, companyCode } = e.detail;
-      if (Number(companyId) === Number(companyIdRef.current)) return;
+      const data = e?.detail;
+      if (!data || typeof data !== "object") return;
+      const nextId = Number(data.company_id ?? data.companyId);
+      if (!Number.isFinite(nextId) || nextId <= 0) return;
+      if (nextId === Number(companyIdRef.current)) return;
 
-      companyIdRef.current = Number(companyId);
-      setCompanyId(Number(companyId));
-      setCompanyCode(companyCode);
+      const nextCode = String(data.company_code ?? data.companyCode ?? "").trim();
+      companyIdRef.current = nextId;
+      setCompanyId(nextId);
+      if (nextCode) setCompanyCode(nextCode);
       setPaymentData([]);
       setSelectedIds([]);
       setConfirmDelete(false);
@@ -329,7 +334,37 @@ export default function PaymentMaintenancePage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, navigate, me]);
+  }, [sessionReady, navigate, me?.user_id]);
+
+  // Sync sidebar category flags after boot (once per company id).
+  useEffect(() => {
+    if (bootLoading || !companyId || !companies.length) return;
+    const id = Number(companyId);
+    if (!Number.isFinite(id) || id <= 0) return;
+    if (sidebarSyncedCompanyIdRef.current === id) return;
+
+    const row = companies.find((c) => Number(c.id) === id);
+    if (!row?.id) return;
+
+    let cancelled = false;
+    sidebarSyncedCompanyIdRef.current = id;
+    void (async () => {
+      try {
+        await syncMaintenanceBootSidebar({
+          companyRow: row,
+          viewGroup: selectedGroup,
+          updateSessionCompany,
+          sessionCompanyId: me?.company_id,
+        });
+      } finally {
+        if (cancelled) sidebarSyncedCompanyIdRef.current = null;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, companyId, companies, selectedGroup, me?.company_id]);
 
   // -- Load Meta Data (Permissions & Currencies) --
   useEffect(() => {
@@ -547,9 +582,17 @@ export default function PaymentMaintenancePage() {
     const nextCode = c.company_id || "";
 
     try {
-      await updateSessionCompany(c.id);
-      notifyCompanySessionUpdated();
-      notify(t("switchedTo", { company: nextCode }), "success");
+      const { redirected } = await runMaintenanceCompanySwitch({
+        companyRow: c,
+        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
+        currentPath: location.pathname,
+        navigate,
+        updateSessionCompany,
+        onStay: async () => {
+          notify(t("switchedTo", { company: nextCode }), "success");
+        },
+      });
+      if (redirected) return;
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
       navigate("/dashboard", { replace: true });

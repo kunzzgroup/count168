@@ -162,61 +162,12 @@ if ($companyId && $pdo instanceof PDO) {
                 && (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true);
         }
 
-        $stmtCompanyPerm = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
-        $stmtCompanyPerm->execute([$companyId]);
-        $companyPermsRaw = $stmtCompanyPerm->fetchColumn();
-        $companyPerms = $companyPermsRaw ? (json_decode((string) $companyPermsRaw, true) ?: []) : [];
-        if (is_array($companyPerms)) {
-            $companyPermissionsList = array_values($companyPerms);
-            $companyHasGambling = in_array('Games', $companyPerms, true) || in_array('Gambling', $companyPerms, true);
-            $companyHasBank = in_array('Bank', $companyPerms, true);
-        }
-
-        if (gc_is_group_login() && (!$companyHasGambling || !$companyHasBank)) {
-            $stmtGrp = $pdo->prepare(
-                'SELECT UPPER(TRIM(COALESCE(group_id, \'\'))) FROM company WHERE id = ? LIMIT 1'
-            );
-            $stmtGrp->execute([$companyId]);
-            $groupCode = strtoupper(trim((string) ($stmtGrp->fetchColumn() ?: '')));
-            if ($groupCode !== '') {
-                $stmtSubs = $pdo->prepare("
-                    SELECT permissions
-                    FROM company
-                    WHERE UPPER(TRIM(COALESCE(group_id, ''))) = ?
-                      AND TRIM(COALESCE(company_id, '')) <> ''
-                ");
-                $stmtSubs->execute([$groupCode]);
-                $mergedSubsPerms = [];
-                foreach ($stmtSubs->fetchAll(PDO::FETCH_COLUMN) as $raw) {
-                    $subsPerms = json_decode((string) $raw, true) ?: [];
-                    if (
-                        !$companyHasGambling
-                        && (in_array('Games', $subsPerms, true) || in_array('Gambling', $subsPerms, true))
-                    ) {
-                        $companyHasGambling = true;
-                    }
-                    if (!$companyHasBank && in_array('Bank', $subsPerms, true)) {
-                        $companyHasBank = true;
-                    }
-                    if (is_array($subsPerms)) {
-                        foreach ($subsPerms as $perm) {
-                            if (is_string($perm) && $perm !== '') {
-                                $mergedSubsPerms[] = $perm;
-                            }
-                        }
-                    }
-                    if ($companyHasGambling && $companyHasBank) {
-                        break;
-                    }
-                }
-                if ($mergedSubsPerms !== []) {
-                    $companyPermissionsList = array_values(array_unique(array_merge(
-                        $companyPermissionsList,
-                        $mergedSubsPerms
-                    )));
-                }
-            }
-        }
+        $flags = gc_resolve_company_category_flags($pdo, (int) $companyId);
+        $companyHasGambling = (bool) ($flags['has_gambling'] ?? false);
+        $companyHasBank = (bool) ($flags['has_bank'] ?? false);
+        $companyPermissionsList = is_array($flags['permissions'] ?? null)
+            ? array_values($flags['permissions'])
+            : [];
 
         $stmt = $pdo->prepare('SELECT expiration_date FROM company WHERE id = ?');
         $stmt->execute([$companyId]);

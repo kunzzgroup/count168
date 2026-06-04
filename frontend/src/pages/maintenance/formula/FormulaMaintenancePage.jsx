@@ -1,13 +1,14 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N, getFormulaInputMethodOptions } from "../../../translateFile/pages/maintenanceTranslate.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/maintenanceStylesheets.js";
-import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
+import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import {
   companiesInGroupList,
@@ -36,7 +37,6 @@ import {
   updateFormulaTemplate,
   deleteFormulaTemplates,
   updateSessionCompany,
-  isBankOnlyCategoryCompany,
   prepareFormulaRowsForDisplay,
   formulaRowIdsMatch,
   patchFormulaRowAfterSave,
@@ -58,6 +58,7 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
 export default function FormulaMaintenancePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { me, sessionReady } = useAuthSession();
   const lang = useLoginLang();
   const m = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
@@ -71,6 +72,7 @@ export default function FormulaMaintenancePage() {
 
   // -- Filter State --
   const [companyId, setCompanyId] = useState(null);
+  useMaintenanceBankOnlyGuard(companyId);
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedProcess, setSelectedProcess] = useState(null);
@@ -350,7 +352,7 @@ export default function FormulaMaintenancePage() {
             meta.rawPerms.includes("Games") || meta.rawPerms.includes("Gambling");
           const bankOnly = meta.rawPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
-            navigate("/process-list", { replace: true });
+            navigate("/dashboard", { replace: true });
             return;
           }
           if (!hasGames && meta.rawPerms.length > 0) {
@@ -391,7 +393,7 @@ export default function FormulaMaintenancePage() {
           const hasGames = rawPerms.includes("Games") || rawPerms.includes("Gambling");
           const bankOnly = rawPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
-            navigate("/process-list", { replace: true });
+            navigate("/dashboard", { replace: true });
             return;
           }
           if (!hasGames) {
@@ -643,14 +645,17 @@ export default function FormulaMaintenancePage() {
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;
     try {
-      await updateSessionCompany(c.id);
-      const perms = await fetchCompanyPermissionsRaw(c.company_id || "");
-      if (isBankOnlyCategoryCompany(perms)) {
-        navigate("/process-list", { replace: true });
-        return;
-      }
-      notifyCompanySessionUpdated();
-      notify(t("switchedTo", { company: c.company_id }), "success");
+      const { redirected } = await runMaintenanceCompanySwitch({
+        companyRow: c,
+        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
+        currentPath: location.pathname,
+        navigate,
+        updateSessionCompany,
+        onStay: async () => {
+          notify(t("switchedTo", { company: c.company_id }), "success");
+        },
+      });
+      if (redirected) return;
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
     }
