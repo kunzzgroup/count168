@@ -4299,12 +4299,15 @@ body.process-page > .process-modal {
     padding-top: 0.55rem !important;
 }
 
-.process-page #addModal .process-form .form-group label {
+.process-page #addModal .process-form .form-group > label {
     font-size: var(--text-medium) !important;
     font-weight: 600 !important;
     font-family: var(--font-heading-page) !important;
     letter-spacing: 0.015em !important;
     margin-bottom: 0.55rem !important;
+    max-width: none !important;
+    white-space: nowrap;
+    hyphens: none;
 }
 
 .process-page #addModal .process-form .form-row {
@@ -6688,7 +6691,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     padding-top: 0.55rem !important;
 }
 
-#addModal .process-form .form-group label {
+#addModal .process-form .form-group > label {
     display: block !important;
     font-size: var(--text-medium) !important;
     font-family: var(--font-heading-page) !important;
@@ -6696,6 +6699,10 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     letter-spacing: 0.015em !important;
     line-height: 1.3 !important;
     margin-bottom: 0.45rem !important;
+    max-width: none !important;
+    white-space: nowrap;
+    hyphens: none;
+    word-break: normal;
 }
 
 #addModal .process-form .form-group {
@@ -7263,6 +7270,22 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     font-weight: var(--font-weight-semibold) !important;
     color: var(--color-body-strong, #0f172a);
     margin-bottom: calc(var(--space-gap, 0.75rem) * 0.45) !important;
+    display: block !important;
+    width: 100%;
+    max-width: none !important;
+    white-space: nowrap;
+    hyphens: none;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+/* 勿套用勾选行 label 的 ellipsis / max-width */
+.process-form-modal #multi_use_processes .form-group > label,
+#addModal .modal-content.process-form-modal #multi_use_processes .form-group > label {
+    white-space: nowrap !important;
+    hyphens: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
 }
 
 .process-form-modal .process-form .form-group textarea,
