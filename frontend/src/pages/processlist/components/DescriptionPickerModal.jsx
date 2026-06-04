@@ -115,7 +115,8 @@ export default function DescriptionPickerModal({
                   className="description-search-input"
                   placeholder={t("searchDescriptions")}
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => setSearch(e.target.value.toUpperCase())}
+                  style={{ textTransform: "uppercase" }}
                 />
               </div>
               <div className="description-list" id="existingDescriptions">

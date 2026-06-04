@@ -5083,7 +5083,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     font-size: var(--desc-modal-control-text);
     color: var(--color-body-strong);
     background-color: var(--color-surface);
-    text-transform: none;
+    text-transform: uppercase;
 }
 
 .modal-content.description-selection-modal .description-search,

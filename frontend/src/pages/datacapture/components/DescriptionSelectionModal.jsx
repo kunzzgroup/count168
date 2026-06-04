@@ -220,6 +220,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                   placeholder={t("searchDescriptions")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value.toUpperCase())}
+                  style={{ textTransform: "uppercase" }}
                 />
               </div>
               <div className="description-list" id="existingDescriptions">
