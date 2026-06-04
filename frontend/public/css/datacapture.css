@@ -1128,7 +1128,7 @@ body.datacapture-page .bottom-section .form-actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
-        "desc-sel-list desc-add-h3"
+        "desc-sel-h3   desc-add-h3"
         "desc-sel-list desc-add-form"
         "desc-sel-list desc-avail-h3"
         "desc-sel-list desc-search"
@@ -1147,21 +1147,15 @@ body.datacapture-page .bottom-section .form-actions {
     display: contents;
 }
 
-.modal-content.description-selection-modal .selected-descriptions-list-heading {
+.modal-content.description-selection-modal .selected-descriptions-section h3 {
+    grid-area: desc-sel-h3;
     margin: 0 0 var(--desc-modal-list-item-gap, 0.45rem) 0;
+    padding-right: var(--desc-modal-col-gap, 28px);
     font-size: var(--desc-modal-section-size, var(--text-h3));
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-semibold, 600);
     color: var(--color-body-strong, #374151);
     line-height: 1.25;
-}
-
-.modal-content.description-selection-modal .selected-descriptions-list-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
 }
 
 .modal-content.description-selection-modal .add-description-bar h3 {

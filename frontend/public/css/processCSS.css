@@ -5039,13 +5039,13 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     overflow-x: hidden;
 }
 
-/* 双栏对齐：左列表顶 = 右「Add New Description」标题行；左列表底 = 右列表底 */
+/* 双栏对齐：标题同行；左列表顶 = 右「Enter new description」输入行（图二） */
 .modal-content.description-selection-modal .description-selection-container,
 .process-page .description-selection-container {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
-        "desc-sel-list desc-add-h3"
+        "desc-sel-h3   desc-add-h3"
         "desc-sel-list desc-add-form"
         "desc-sel-list desc-avail-h3"
         "desc-sel-list desc-search"
@@ -5067,24 +5067,16 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     display: contents;
 }
 
-.modal-content.description-selection-modal .selected-descriptions-list-heading,
-.process-page .description-selection-modal .selected-descriptions-list-heading {
+.modal-content.description-selection-modal .selected-descriptions-section h3,
+.process-page .description-selection-modal .selected-descriptions-section h3 {
+    grid-area: desc-sel-h3;
     margin: 0 0 var(--desc-modal-list-item-gap, 0.45rem) 0;
+    padding-right: var(--desc-modal-col-gap);
     font-size: var(--desc-modal-section-size, var(--text-h3));
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-semibold);
     color: var(--color-body-strong);
     line-height: 1.25;
-    flex-shrink: 0;
-}
-
-.modal-content.description-selection-modal .selected-descriptions-list-body,
-.process-page .description-selection-modal .selected-descriptions-list-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
 }
 
 .modal-content.description-selection-modal .add-description-bar h3,
@@ -5241,12 +5233,10 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     min-width: 0;
 }
 
-/* 左侧 Selected：外框顶与右栏 Add 标题齐平，底边与右列表对齐 */
+/* 左侧 Selected：外框顶与右栏新增输入行齐平，底边与右列表对齐 */
 .modal-content.description-selection-modal .selected-descriptions-list,
 .process-page .description-selection-modal .selected-descriptions-list {
     grid-area: desc-sel-list;
-    display: flex;
-    flex-direction: column;
     align-self: stretch;
     min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
     height: 100%;
@@ -5254,7 +5244,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     padding-right: var(--desc-modal-col-gap);
     border-right: 1px solid var(--color-border);
     min-width: 0;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 .process-page .selected-description-modal-item,
@@ -5435,6 +5425,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
         grid-area: auto;
         padding-left: 0;
         padding-right: 0;
+        border-right: none;
     }
 
     .modal-content.description-selection-modal .selected-descriptions-section {
@@ -5480,7 +5471,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
 .process-page .no-descriptions,
 .modal-content.description-selection-modal .no-descriptions,
-.modal-content.description-selection-modal .selected-descriptions-list-body .no-descriptions {
+.modal-content.description-selection-modal .selected-descriptions-list .no-descriptions {
     flex: 1;
     display: flex;
     align-items: center;
