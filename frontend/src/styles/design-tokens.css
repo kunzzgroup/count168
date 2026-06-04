@@ -444,8 +444,8 @@
 @media (min-width: 62rem) {
   :root {
     --desc-modal-width: min(1120px, calc(100vw - 40px));
-    --desc-modal-list-min-h: clamp(15rem, 36vh, 21.25rem);
-    --desc-modal-max-height: 93vh;
+    --desc-modal-list-min-h: clamp(16rem, 40vh, 23.5rem);
+    --desc-modal-max-height: 94vh;
   }
 }
 
