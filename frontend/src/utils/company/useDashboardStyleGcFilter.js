@@ -90,6 +90,25 @@ export function useDashboardStyleGcFilter({
       if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
+
+      /** Group login: stay group-only when switching tabs; never auto-pick a subsidiary. */
+      if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
+        if (g === selectedGroup && companyId != null) {
+          persistDashboardFilterState(g, null, { allowGroupOnly: true });
+          resetAnchorSessionRef();
+          onClearCompany?.(g);
+          notifyDashboardGroupFilterChanged(g, null);
+          return;
+        }
+        persistDashboardGroupFilter(g);
+        setSelectedGroup(g);
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        resetAnchorSessionRef();
+        onClearCompany?.(g);
+        notifyDashboardGroupFilterChanged(g, null);
+        return;
+      }
+
       if (g === selectedGroup && companyId != null) {
         if (!canUseGroupOnlyMode(me)) {
           clearDashboardGroupFilterKeepCompany(companyId);
@@ -97,22 +116,6 @@ export function useDashboardStyleGcFilter({
           onDeselectGroup?.(companyId);
           return;
         }
-        if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
-          persistDashboardFilterState(g, null, { allowGroupOnly: true });
-          resetAnchorSessionRef();
-          onClearCompany?.(g);
-          notifyDashboardGroupFilterChanged(g, null);
-        }
-        return;
-      }
-
-      if (allowGroupOnly && !selectFirstCompanyOnGroupChange && g === selectedGroup) {
-        persistDashboardGroupFilter(g);
-        setSelectedGroup(g);
-        persistDashboardFilterState(g, null, { allowGroupOnly: true });
-        resetAnchorSessionRef();
-        onClearCompany?.(g);
-        notifyDashboardGroupFilterChanged(g, null);
         return;
       }
 

@@ -30,31 +30,11 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
     ], JSON_UNESCAPED_UNICODE);
 }
 
-function domainReportIsSalaryBonusGroup(string $groupId): bool
+/** Group entity scope: SALARY/BONUS only (same rules as Data Capture). */
+function resolveDomainReportGroupScope(PDO $pdo, array $resolved, int $companyId): bool
 {
-    $g = reportNormalizeGroupId($groupId);
-    return $g === 'AP' || $g === 'IG';
-}
-
-function resolveDomainReportGroupScope(PDO $pdo, array $resolved, int $companyId): bool {
-    $groupId = reportNormalizeGroupId($resolved['group_id'] ?? '');
-    if (!domainReportIsSalaryBonusGroup($groupId)) {
-        return false;
-    }
-    if (($resolved['report_scope_hint'] ?? '') === 'group') {
-        return true;
-    }
-    if ($groupId === '') {
-        return false;
-    }
-    $coMeta = fetchCompanyReportMeta($pdo, $companyId);
-    if (
-        !empty($coMeta['company_id'])
-        && reportNormalizeGroupId($coMeta['company_id']) === $groupId
-    ) {
-        return true;
-    }
-    return false;
+    unset($pdo, $companyId);
+    return dcIsGroupScopeHint($resolved);
 }
 
 /** Use group entity company id for SALARY/BONUS when scope is group. */

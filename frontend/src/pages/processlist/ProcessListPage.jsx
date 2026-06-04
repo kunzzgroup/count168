@@ -997,6 +997,21 @@ export default function ProcessListPage() {
         return;
       }
 
+      if (canUseGroupOnlyMode(sessionMe)) {
+        setGroupFilterKind("follow");
+        setSelectedGroup(g);
+        persistDashboardGroupFilter(g);
+        flushSync(() => {
+          setCompanyId(null);
+          setRows([]);
+          setCurrencyFilterCode("");
+        });
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        resetAnchorSessionRef();
+        notifyDashboardGroupFilterChanged(g, null);
+        return;
+      }
+
       const pick = pickDefaultSubsidiaryForGroup(companies, g);
       const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
 

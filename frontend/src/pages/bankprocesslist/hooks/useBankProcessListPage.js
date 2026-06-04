@@ -1947,6 +1947,22 @@ export function useBankProcessListPage() {
         return;
       }
 
+      if (canUseGroupOnlyMode(authMe)) {
+        setGroupFilterKind("follow");
+        setSelectedGroup(g);
+        persistDashboardGroupFilter(g);
+        flushSync(() => {
+          setCompanyId(null);
+          setRows([]);
+          setCurrencyFilterCode("");
+          setCurrencyListOrdered([]);
+          setCurrencyPillDisplayOrder(null);
+        });
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        notifyDashboardGroupFilterChanged(g, null);
+        return;
+      }
+
       const pick = pickDefaultSubsidiaryForGroup(companies, g);
       const nextCompanyId = pick?.id != null ? Number(pick.id) : null;
 

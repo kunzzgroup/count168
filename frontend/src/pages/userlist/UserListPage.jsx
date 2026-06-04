@@ -1087,6 +1087,12 @@ export default function UserListPage() {
         return;
       }
 
+      if (allowGroupOnly) {
+        sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+        applyGroupOnlyScope(g);
+        return;
+      }
+
       const pick =
         resolveCompanyPickWhenSwitchingGroup(companies, g, companyId) ??
         pickDefaultSubsidiaryForGroup(companies, g, {
@@ -1130,6 +1136,7 @@ export default function UserListPage() {
       companyId,
       companies,
       deselectGroupKeepCompany,
+      applyGroupOnlyScope,
       applyUserListCache,
       fetchUsers,
       setGroupAllMode,
