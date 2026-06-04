@@ -139,13 +139,12 @@
    * Description picker modal（Process List / Data Capture）
    * 字号走 --text-* 阶梯；间距走 --space-*；色走 --color-*。
    */
-  --desc-modal-width: min(94vw, 112rem);
-  --desc-modal-min-height: min(82vh, 46rem);
-  --desc-modal-max-height: 92vh;
-  --desc-modal-body-min-h: min(62vh, 40rem);
-  --desc-modal-radius: var(--radius-panel);
-  --desc-modal-pad-block: clamp(1.25rem, 1.5vw, 1.75rem);
-  --desc-modal-pad-inline: clamp(1.5rem, 2vw, 2.25rem);
+  /* 与 count168.com processlist.php 一致：约 1040px，94vw 封顶 */
+  --desc-modal-width: min(65rem, 94vw);
+  --desc-modal-max-height: 90vh;
+  --desc-modal-radius: 0.75rem;
+  --desc-modal-pad-block: var(--space-card);
+  --desc-modal-pad-inline: var(--space-card);
   --desc-modal-title-size: var(--text-page-title);
   --desc-modal-section-size: var(--text-h3);
   --desc-modal-label-size: var(--text-medium);
@@ -153,8 +152,8 @@
   --desc-modal-empty-size: var(--text-medium);
   --desc-modal-control-text: var(--text-base);
   --desc-modal-control-min-h: clamp(2.75rem, 2.25vw, 3.25rem);
-  --desc-modal-list-min-h: min(50vh, 34rem);
-  --desc-modal-col-gap: clamp(1.5rem, 2.5vw, 2.5rem);
+  --desc-modal-list-min-h: clamp(14rem, 36vh, 19.75rem);
+  --desc-modal-col-gap: clamp(1rem, 1.75vw, 1.75rem);
   --desc-modal-add-btn-width: clamp(5.5rem, 6vw, 7rem);
   --desc-modal-checkbox-size: clamp(1.125rem, 1vw, 1.25rem);
   --desc-modal-selected-bg: var(--color-surface-info-tint);

@@ -1007,9 +1007,8 @@ body.datacapture-page .bottom-section .form-actions {
 
 /* Description Selection Modal — align with Process List / app-wide modal pattern */
 .modal-content.description-selection-modal {
-    width: min(980px, 94vw);
-    max-width: min(980px, 94vw);
-    min-height: 610px;
+    width: min(65rem, 94vw);
+    max-width: min(65rem, 94vw);
     max-height: 90vh;
     border-radius: 12px;
     overflow: hidden;

@@ -4925,9 +4925,8 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .modal-content.description-selection-modal {
     width: var(--desc-modal-width) !important;
     max-width: var(--desc-modal-width) !important;
-    min-height: var(--desc-modal-min-height);
     max-height: var(--desc-modal-max-height);
-    margin: 2vh auto;
+    margin: 4vh auto;
     padding: 0;
     border: none;
     border-radius: var(--desc-modal-radius);
@@ -4980,7 +4979,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: var(--desc-modal-col-gap);
     flex: 1 1 auto;
-    min-height: var(--desc-modal-body-min-h);
+    min-height: 0;
     align-items: stretch;
 }
 
@@ -5109,9 +5108,9 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .selected-descriptions-list,
 .process-page .description-selection-modal .description-list,
 .process-page .description-selection-modal .selected-descriptions-list {
+    height: var(--desc-modal-list-min-h);
     min-height: var(--desc-modal-list-min-h);
-    height: 100%;
-    max-height: none;
+    max-height: var(--desc-modal-list-min-h);
     overflow-y: auto;
     border: 1px solid var(--color-border);
     border-radius: calc(var(--desc-modal-radius) * 0.45);
@@ -5279,6 +5278,41 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .description-selection-modal .modal-footer .btn-save {
     background: var(--btn-add-gradient);
     color: var(--color-surface);
+    font-family: var(--font-heading-page);
+}
+
+/* Tablet / 小屏：双栏改单栏，避免横向溢出（PHP 宽度在窄屏用 94vw） */
+@media (max-width: 56.25rem) {
+    .modal-content.description-selection-modal,
+    .process-page .modal-content.description-selection-modal {
+        width: min(94vw, 65rem) !important;
+        max-width: min(94vw, 65rem) !important;
+        margin: 3vh auto;
+    }
+
+    .modal-content.description-selection-modal .description-selection-container,
+    .process-page .description-selection-container {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: var(--desc-modal-col-gap);
+    }
+
+    .modal-content.description-selection-modal .selected-descriptions-section {
+        padding-right: 0;
+        padding-bottom: var(--desc-modal-col-gap);
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .modal-content.description-selection-modal .available-descriptions-section {
+        padding-left: 0;
+    }
+
+    .modal-content.description-selection-modal .description-list,
+    .modal-content.description-selection-modal .selected-descriptions-list {
+        height: clamp(12rem, 28vh, 17rem);
+        min-height: clamp(12rem, 28vh, 17rem);
+        max-height: clamp(12rem, 28vh, 17rem);
+    }
 }
 
 .modal-content.description-selection-modal .modal-footer .btn-save:hover:not(:disabled),
@@ -5291,6 +5325,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .description-selection-modal .btn-cancel {
     background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
     color: var(--color-surface);
+    font-family: var(--font-heading-page);
     box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
 }
 
