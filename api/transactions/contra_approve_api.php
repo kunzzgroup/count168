@@ -28,14 +28,16 @@ function canApproveTransactionType(string $transactionType): bool {
     return in_array($type, ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'CLEAR', 'ADJUSTMENT', 'PROFIT', 'WIN', 'LOSE'], true);
 }
 
-function approveContraTransaction(PDO $pdo, int $transactionId, int $companyId, string $userType): void {
+function approveContraTransaction(PDO $pdo, int $transactionId, array $scope, string $userType): void {
     $hasApprovedBy = tableHasColumn($pdo, 'transactions', 'approved_by');
     $hasApprovedByOwner = tableHasColumn($pdo, 'transactions', 'approved_by_owner');
     $hasApprovedAt = tableHasColumn($pdo, 'transactions', 'approved_at');
-    $stmt = $pdo->prepare("SELECT id, company_id, transaction_type, approval_status FROM transactions WHERE id = ? AND company_id = ? FOR UPDATE");
-    $stmt->execute([$transactionId, $companyId]);
+    $scopeWhere = tx_sql_transaction_scope_where($scope);
+    $scopeBind = tx_bind_transaction_scope_id($scope);
+    $stmt = $pdo->prepare("SELECT id, company_id, transaction_type, approval_status FROM transactions WHERE id = ? AND {$scopeWhere} FOR UPDATE");
+    $stmt->execute([$transactionId, $scopeBind]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) throw new Exception('记录不存在或不属于当前公司');
+    if (!$row) throw new Exception('记录不存在或不属于当前范围');
     if (!canApproveTransactionType((string)($row['transaction_type'] ?? ''))) throw new Exception('该类型不在审批范围内');
     if (strtoupper((string)$row['approval_status']) === 'APPROVED') return;
     $setParts = ["approval_status = 'APPROVED'"];
@@ -44,8 +46,8 @@ function approveContraTransaction(PDO $pdo, int $transactionId, int $companyId, 
     if ($hasApprovedByOwner) { $setParts[] = "approved_by_owner = ?"; $params[] = ($userType === 'owner') ? (int)($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0) : null; }
     if ($hasApprovedAt) $setParts[] = "approved_at = NOW()";
     $params[] = $transactionId;
-    $params[] = $companyId;
-    $sql = "UPDATE transactions SET " . implode(', ', $setParts) . " WHERE id = ? AND company_id = ?";
+    $params[] = $scopeBind;
+    $sql = "UPDATE transactions SET " . implode(', ', $setParts) . " WHERE id = ? AND {$scopeWhere}";
     $pdo->prepare($sql)->execute($params);
 }
 
@@ -61,10 +63,10 @@ try {
         api_error('系统未启用 Contra 审批字段（approval_status），请先更新数据库', 400);
         exit;
     }
-    $companyId = tx_resolve_request_company_id($pdo, $_POST);
+    $scope = tx_resolve_transaction_list_scope($pdo, $_POST);
     $pdo->beginTransaction();
     try {
-        approveContraTransaction($pdo, $transactionId, $companyId, $userType);
+        approveContraTransaction($pdo, $transactionId, $scope, $userType);
         $pdo->commit();
         api_success(null, 'Approved');
     } catch (Exception $e) {

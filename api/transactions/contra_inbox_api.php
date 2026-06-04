@@ -1,7 +1,7 @@
 <?php
 /**
  * Approval Inbox API (Manager+)
- * 返回当前公司所有待批准的审批交易（approval_status = PENDING）
+ * 返回当前 scope 所有待批准的审批交易（approval_status = PENDING）
  * 路径: api/transactions/contra_inbox_api.php
  */
 
@@ -24,13 +24,11 @@ function tableHasColumn(PDO $pdo, string $table, string $column): bool {
     return $stmt->rowCount() > 0;
 }
 
-function resolveContraCompanyId(PDO $pdo): int {
-    return tx_resolve_request_company_id($pdo, $_GET);
-}
-
-function fetchPendingContras(PDO $pdo, int $companyId): array {
+function fetchPendingContras(PDO $pdo, array $scope): array {
     $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
     $hasCreatedAt = tableHasColumn($pdo, 'transactions', 'created_at');
+    $scopeWhere = tx_sql_transaction_scope_where($scope, 't');
+    $scopeBind = tx_bind_transaction_scope_id($scope);
     $sql = "SELECT t.id, DATE_FORMAT(t.transaction_date, '%d/%m/%Y') AS transaction_date, t.amount,
             COALESCE(t.description, '') AS description,
             to_acc.account_id AS to_account_code, to_acc.name AS to_account_name,
@@ -46,11 +44,11 @@ function fetchPendingContras(PDO $pdo, int $companyId): array {
     $orderBy = $hasCreatedAt
         ? " ORDER BY t.transaction_date ASC, t.created_at ASC, t.id ASC"
         : " ORDER BY t.transaction_date ASC, t.id ASC";
-    $sql .= " WHERE t.company_id = ? AND UPPER(TRIM(COALESCE(t.approval_status, ''))) = 'PENDING'
+    $sql .= " WHERE {$scopeWhere} AND UPPER(TRIM(COALESCE(t.approval_status, ''))) = 'PENDING'
               AND t.transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','PROFIT','WIN','LOSE')"
         . $orderBy;
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$companyId]);
+    $stmt->execute([$scopeBind]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     return array_map(function ($r) {
         return [
@@ -83,8 +81,8 @@ try {
         api_success([]);
         exit;
     }
-    $companyId = resolveContraCompanyId($pdo);
-    $data = fetchPendingContras($pdo, $companyId);
+    $scope = tx_resolve_transaction_list_scope($pdo, $_GET);
+    $data = fetchPendingContras($pdo, $scope);
     header('Content-Type: application/json');
     echo json_encode(['success' => true, 'message' => '', 'data' => $data], JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {

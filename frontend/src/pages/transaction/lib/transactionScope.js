@@ -2,6 +2,7 @@ import {
   companiesNativeInGroupList,
   companyRowIsGroupEntity,
   filterCompaniesWithDisplayId,
+  isDashboardGroupOnlyMode,
   isVirtualGroupLinkCompanyRow,
   resolveViewGroupForCompany,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -33,8 +34,15 @@ export function resolveTransactionScope(filterSnapshot) {
     ? String(filterSnapshot.selectedGroup).trim().toUpperCase()
     : null;
   const uiCompanyIdRaw = filterSnapshot.companyId;
+  const groupOnlyLedger =
+    Boolean(filterSnapshot.groupOnlyLedger) ||
+    (selectedGroup && isDashboardGroupOnlyMode());
   const uiCompanyId =
-    uiCompanyIdRaw != null && Number(uiCompanyIdRaw) > 0 ? Number(uiCompanyIdRaw) : null;
+    groupOnlyLedger
+      ? null
+      : uiCompanyIdRaw != null && Number(uiCompanyIdRaw) > 0
+        ? Number(uiCompanyIdRaw)
+        : null;
 
   const mergeCompanyIds = (() => {
     if (uiCompanyId) return [uiCompanyId];
@@ -67,21 +75,13 @@ export function resolveTransactionScope(filterSnapshot) {
   const entityId = entityRow?.id != null ? Number(entityRow.id) : null;
 
   if (selectedGroup && !uiCompanyId && !groupsAllMode && !groupAllMode) {
-    if (entityId > 0) {
-      return {
-        mode: "group",
-        scopeCompanyId: entityId,
-        viewGroup: selectedGroup,
-        selectedGroup,
-        uiCompanyId: null,
-      };
-    }
     return {
       mode: "group",
       scopeCompanyId: 0,
       viewGroup: selectedGroup,
       selectedGroup,
       uiCompanyId: null,
+      groupOnlyLedger: true,
       resolveCompanyViaGroupId: true,
     };
   }
@@ -171,19 +171,20 @@ export function transactionScopeApiParams(scope) {
     };
   }
   const viewGroup = scope.viewGroup || scope.selectedGroup || undefined;
-  const groupId = scope.mode === "group" ? scope.selectedGroup : undefined;
-  if (scope.resolveCompanyViaGroupId || (scope.mode === "group" && scope.scopeCompanyId <= 0)) {
+  // Group ledger (AP only): never send company_id — backend uses scope_type=group.
+  if (scope.mode === "group") {
     return {
       companyId: undefined,
       viewGroup,
-      groupId,
+      groupId: scope.selectedGroup || undefined,
       groupAggregate: true,
     };
   }
+  // Subsidiary drill-down: company_id wins; omit group_id so company scope is used.
   return {
-    companyId: scope.scopeCompanyId,
+    companyId: scope.scopeCompanyId > 0 ? scope.scopeCompanyId : scope.uiCompanyId ?? undefined,
     viewGroup,
-    groupId,
+    groupId: undefined,
   };
 }
 

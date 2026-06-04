@@ -11,10 +11,8 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/transaction_scope.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 require_once __DIR__ . '/../reports/report_scope_common.php';
-
-define('DASHBOARD_API_SKIP_MAIN', true);
-require_once __DIR__ . '/dashboard_api.php';
 
 try {
     if (!isset($_SESSION['user_id'])) {
@@ -57,7 +55,7 @@ try {
         if ($groupScopeId <= 0) {
             throw new Exception('无效的 group_id');
         }
-        $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, (string) $listScope['group_code']);
+        $accountIds = tenant_collect_group_account_ids($pdo, $groupScopeId);
         if ($accountIds === []) {
             $where_conditions[] = '1=0';
         } else {
@@ -97,6 +95,9 @@ try {
             FROM account a
             $joinAc
             $where_sql";
+    if (($listScope['mode'] ?? '') !== 'group') {
+        $baseSql .= tenant_sql_account_company_subsidiary_only($pdo, 'ac');
+    }
     list($baseSql, $params) = filterAccountsByPermissions($pdo, $baseSql, $params, $permCompanyId > 0 ? $permCompanyId : $company_id);
     $baseSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $baseSql);
     $baseSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $baseSql);

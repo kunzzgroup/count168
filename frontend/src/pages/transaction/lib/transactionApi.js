@@ -31,21 +31,24 @@ export const transactionQueryKeys = {
   accounts: (scopeKey) => ["tx-accounts", String(scopeKey || "")],
   companyCurrencies: (scopeKey) => ["tx-company-currencies", String(scopeKey || "")],
   userCurrencyOrder: () => ["tx-user-currency-order"],
-  history: ({ companyId, viewGroup, accountDbId, dateFrom, dateTo, currency, virtualCompanyCode }) => [
+  history: ({ companyId, viewGroup, groupId, groupAggregate, accountDbId, dateFrom, dateTo, currency, virtualCompanyCode }) => [
     "tx-history",
     Number(companyId ?? 0),
     viewGroup ? String(viewGroup).trim().toUpperCase() : "",
+    groupId ? String(groupId).trim().toUpperCase() : "",
+    groupAggregate ? "g" : "c",
     String(accountDbId || ""),
     String(dateFrom || ""),
     String(dateTo || ""),
     String(currency || "").toUpperCase().trim(),
     String(virtualCompanyCode || "").toUpperCase().trim(),
   ],
-  contraInbox: ({ companyId, viewGroup, groupId } = {}) => [
+  contraInbox: ({ companyId, viewGroup, groupId, groupAggregate } = {}) => [
     "tx-contra-inbox",
     Number(companyId ?? 0),
     viewGroup ? String(viewGroup).trim().toUpperCase() : "",
     groupId ? String(groupId).trim().toUpperCase() : "",
+    groupAggregate ? "g" : "c",
   ],
   contraInboxRoot: () => ["tx-contra-inbox"],
 };
@@ -212,9 +215,16 @@ export async function searchTransactions({
   return body;
 }
 
-export async function submitTransaction({ companyId, viewGroup, groupId, payload, clientRequestId }) {
+export async function submitTransaction({
+  companyId,
+  viewGroup,
+  groupId,
+  groupAggregate,
+  payload,
+  clientRequestId,
+}) {
   const fd = new FormData();
-  appendTransactionScope(fd, { companyId, viewGroup, groupId }, "form");
+  appendTransactionScope(fd, { companyId, viewGroup, groupId, groupAggregate }, "form");
   if (clientRequestId) fd.append("client_request_id", clientRequestId);
   Object.entries(payload || {}).forEach(([k, v]) => {
     if (v === undefined || v === null) return;
@@ -232,6 +242,7 @@ export async function getHistory({
   companyId,
   viewGroup,
   groupId,
+  groupAggregate,
   accountId,
   dateFrom,
   dateTo,
@@ -240,7 +251,7 @@ export async function getHistory({
   signal,
 } = {}) {
   const params = new URLSearchParams();
-  appendTransactionScope(params, { companyId, viewGroup, groupId });
+  appendTransactionScope(params, { companyId, viewGroup, groupId, groupAggregate });
   if (accountId != null && accountId !== "") params.set("account_id", String(accountId));
   if (dateFrom) params.set("date_from", String(dateFrom));
   if (dateTo) params.set("date_to", String(dateTo));
@@ -272,9 +283,9 @@ export async function getHistory({
   return body;
 }
 
-export async function loadContraInbox({ companyId, viewGroup, groupId, signal } = {}) {
+export async function loadContraInbox({ companyId, viewGroup, groupId, groupAggregate, signal } = {}) {
   const params = new URLSearchParams();
-  appendTransactionScope(params, { companyId, viewGroup, groupId });
+  appendTransactionScope(params, { companyId, viewGroup, groupId, groupAggregate });
   const res = await fetch(buildApiUrl(`api/transactions/contra_inbox_api.php?${params.toString()}`), {
     credentials: "include",
     cache: "no-cache",
@@ -283,18 +294,18 @@ export async function loadContraInbox({ companyId, viewGroup, groupId, signal } 
   return safeJson(res);
 }
 
-export async function approveContra({ transactionId, companyId, viewGroup, groupId }) {
+export async function approveContra({ transactionId, companyId, viewGroup, groupId, groupAggregate }) {
   const fd = new FormData();
   fd.append("transaction_id", String(transactionId));
-  appendTransactionScope(fd, { companyId, viewGroup, groupId }, "form");
+  appendTransactionScope(fd, { companyId, viewGroup, groupId, groupAggregate }, "form");
   const res = await fetch(buildApiUrl("api/transactions/contra_approve_api.php"), { method: "POST", body: fd, credentials: "include" });
   return safeJson(res);
 }
 
-export async function rejectContra({ transactionId, companyId, viewGroup, groupId }) {
+export async function rejectContra({ transactionId, companyId, viewGroup, groupId, groupAggregate }) {
   const fd = new FormData();
   fd.append("transaction_id", String(transactionId));
-  appendTransactionScope(fd, { companyId, viewGroup, groupId }, "form");
+  appendTransactionScope(fd, { companyId, viewGroup, groupId, groupAggregate }, "form");
   const res = await fetch(buildApiUrl("api/transactions/contra_reject_api.php"), { method: "POST", body: fd, credentials: "include" });
   return safeJson(res);
 }
