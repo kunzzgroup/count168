@@ -54,7 +54,7 @@ export default function DescriptionPickerModal({
 
   return (
     <ProcessModalPortal>
-    <div className="modal" style={{ ...processModalBackdropStyle, zIndex: 10100 }} role="dialog" aria-modal="true">
+    <div className="modal show" style={{ ...processModalBackdropStyle, zIndex: 10100 }} role="dialog" aria-modal="true">
       <div className="modal-content description-selection-modal">
         <div className="modal-header">
           <h2>{t("selectOrAddDescription")}</h2>
@@ -68,9 +68,7 @@ export default function DescriptionPickerModal({
               <h3>{t("selectedDescriptions")}</h3>
               <div className="selected-descriptions-list" id="selectedDescriptionsInModal">
                 {localSelected.length === 0 ? (
-                  <div style={{ padding: "20px", textAlign: "center", color: "#999", fontStyle: "italic" }}>
-                    {t("noDescriptionsSelected")}
-                  </div>
+                  <div className="no-descriptions">{t("noDescriptionsSelected")}</div>
                 ) : (
                   localSelected.map((item) => (
                     <div key={item.id} className="selected-description-modal-item">
@@ -118,17 +116,18 @@ export default function DescriptionPickerModal({
                   const isSelected = localSelected.some((item) => String(item.id) === String(d.id));
                   return (
                     <div key={d.id} className="description-item">
-                      <input
-                        type="checkbox"
-                        id={`desc_checkbox_${d.id}`}
-                        checked={isSelected}
-                        onChange={() => toggleSelect(d)}
-                        style={{ margin: 0 }}
-                      />
-                      <label htmlFor={`desc_checkbox_${d.id}`}>{String(d.name || "").toUpperCase()}</label>
+                      <div className="description-item-left">
+                        <input
+                          type="checkbox"
+                          id={`desc_checkbox_${d.id}`}
+                          checked={isSelected}
+                          onChange={() => toggleSelect(d)}
+                        />
+                        <label htmlFor={`desc_checkbox_${d.id}`}>{String(d.name || "").toUpperCase()}</label>
+                      </div>
                       <button
                         type="button"
-                        className="remove-description"
+                        className="description-delete-btn"
                         disabled={ro}
                         onClick={(e) => {
                           if (ro) return;
@@ -136,6 +135,7 @@ export default function DescriptionPickerModal({
                           setDeleteConfirmId(d.id);
                         }}
                         title={t("deleteDescription")}
+                        aria-label={t("deleteDescription")}
                       >
                         &times;
                       </button>

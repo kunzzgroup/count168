@@ -6487,28 +6487,49 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     resize: none !important;
 }
 
-/* Final lock: restore Select/Add Description modal to reference layout */
+/* Final lock: Select/Add Description modal — match .com (PHP) reference */
+body.process-page > .modal.show {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
 .modal-content.description-selection-modal {
     width: min(1040px, 95vw) !important;
     max-width: min(1040px, 95vw) !important;
     min-height: 610px !important;
     max-height: 90vh !important;
+    margin: 3vh auto !important;
     border-radius: 12px !important;
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04) !important;
 }
 
 .modal-content.description-selection-modal .modal-header {
-    padding: 14px 18px 12px 18px !important;
+    position: relative;
+    flex-shrink: 0;
+    margin: 0 !important;
+    padding: 3px 20px !important;
+    background: #f8fafc !important;
     border-bottom: none !important;
+    border-radius: 12px 12px 0 0 !important;
 }
 
 .modal-content.description-selection-modal .modal-header h2 {
     margin: 0 !important;
-    padding: 0 !important;
-    font-size: 40px !important;
-    line-height: 1 !important;
+    padding: clamp(12px, 0.75vw, 15px) clamp(20px, 1.25vw, 25px) !important;
+    font-size: var(--text-page-title) !important;
+    font-family: var(--font-heading-page) !important;
+    font-weight: var(--font-weight-page-title) !important;
+    letter-spacing: var(--letter-spacing-page-title) !important;
+    color: #1f2937 !important;
+    line-height: 1.2 !important;
+}
+
+.modal-content.description-selection-modal .modal-header .close {
+    display: none !important;
 }
 
 .modal-content.description-selection-modal .modal-body {
@@ -6592,18 +6613,160 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     min-height: 315px !important;
     max-height: 315px !important;
     overflow-y: auto !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 4px !important;
+    padding: 10px !important;
+    background-color: #f8fafc !important;
+}
+
+.modal-content.description-selection-modal .no-descriptions {
+    text-align: center !important;
+    color: #6c757d !important;
+    font-size: clamp(10px, 0.78vw, 15px) !important;
+    font-style: italic !important;
+    padding: clamp(20px, 2.08vw, 40px) 20px !important;
+}
+
+.modal-content.description-selection-modal .description-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid #e9ecef !important;
+}
+
+.modal-content.description-selection-modal .description-item:last-child {
+    border-bottom: none !important;
+}
+
+.modal-content.description-selection-modal .description-item:hover {
+    background-color: #e9ecef !important;
+    border-radius: 4px !important;
+    margin: 0 -4px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+}
+
+.modal-content.description-selection-modal .description-item-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.modal-content.description-selection-modal .description-item input[type="checkbox"] {
+    margin: 0 !important;
+    width: 14px !important;
+    height: 14px !important;
+    flex-shrink: 0 !important;
 }
 
 .modal-content.description-selection-modal .description-item label,
 .modal-content.description-selection-modal .selected-description-modal-item span {
+    margin: 0 !important;
     font-size: 14px !important;
+    cursor: pointer !important;
+    flex: 1 !important;
+    color: #333 !important;
 }
 
-.modal-content.description-selection-modal .description-item .remove-description {
-    font-size: 1.15rem !important;
-    width: 1.3rem !important;
-    height: 1.3rem !important;
+.modal-content.description-selection-modal .description-delete-btn,
+.modal-content.description-selection-modal .description-item .description-delete-btn {
+    border: none !important;
+    background: transparent !important;
+    color: #c00 !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    padding: 4px 6px !important;
     line-height: 1 !important;
+    flex-shrink: 0 !important;
+}
+
+.modal-content.description-selection-modal .description-delete-btn:hover:not(:disabled) {
+    color: #900 !important;
+}
+
+.modal-content.description-selection-modal .description-delete-btn:disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+}
+
+.modal-content.description-selection-modal .selected-description-modal-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    padding: 8px !important;
+    border-bottom: 1px solid #e9ecef !important;
+    background-color: #e3f2fd !important;
+    border-radius: 4px !important;
+    margin-bottom: 8px !important;
+}
+
+.modal-content.description-selection-modal .selected-description-modal-item:last-child {
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+}
+
+.modal-content.description-selection-modal .selected-description-modal-item span {
+    color: #1976d2 !important;
+    font-weight: 500 !important;
+}
+
+.modal-content.description-selection-modal .remove-description-modal {
+    background: none !important;
+    border: none !important;
+    color: #1976d2 !important;
+    font-size: 1rem !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+}
+
+.modal-content.description-selection-modal .remove-description-modal:hover:not(:disabled) {
+    background-color: #1976d2 !important;
+    color: #fff !important;
+}
+
+.modal-content.description-selection-modal .add-description-input-group input,
+.modal-content.description-selection-modal .description-search input {
+    text-transform: uppercase !important;
+    background-color: #fff !important;
+    border: 1px solid #d1d5db !important;
+}
+
+.modal-content.description-selection-modal .btn-save {
+    background: var(--btn-add-gradient) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+}
+
+.modal-content.description-selection-modal .btn-save:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover) !important;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
+    transform: translateY(-1px);
+}
+
+.modal-content.description-selection-modal .btn-cancel {
+    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3) !important;
+}
+
+.modal-content.description-selection-modal .btn-cancel:hover:not(:disabled) {
+    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%) !important;
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4) !important;
+    transform: translateY(-1px);
 }
 
 .modal-content.description-selection-modal .modal-footer {
