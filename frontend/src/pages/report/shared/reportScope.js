@@ -86,6 +86,7 @@ export function customerReportScopeApiParams(scope) {
     groupId: p.groupId,
     groupsAll: p.groupsAll,
     groupAll: p.groupAll,
+    groupAggregate: p.groupAggregate,
   };
 }
 

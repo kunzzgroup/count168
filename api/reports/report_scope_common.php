@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 require_once __DIR__ . '/../transactions/transaction_scope.php';
 
 function reportNormalizeGroupId(?string $groupId): string
@@ -104,57 +105,56 @@ function checkReportMaintenanceAccess(PDO $pdo, int $companyId, ?string $groupId
 }
 
 /**
- * Resolve numeric company id for report APIs (group entity when group-only).
+ * Resolve report scope (group ledger vs subsidiary company) — aligned with Transaction Payment.
  *
  * @param string $categoryAccess 'games' (customer/domain reports) or 'maintenance' (Games + Bank)
- * @return array{company_id: int, group_id: string, report_scope_hint: string, request_params: array<string, mixed>}
+ * @return array{
+ *   company_id: int,
+ *   group_id: string,
+ *   report_scope_hint: string,
+ *   list_scope: array<string, mixed>,
+ *   request_params: array<string, mixed>
+ * }
  */
 function resolveReportRequestCompanyScope(PDO $pdo, array $get, string $categoryAccess = 'games'): array
 {
-    $groupId = reportNormalizeGroupId($get['group_id'] ?? '');
-    $companyIdRaw = $get['company_id'] ?? '';
-    $reportScopeHint = strtolower(trim((string) ($get['report_scope'] ?? '')));
-    $requestParams = $get;
-
-    if ($companyIdRaw === '' || $companyIdRaw === null) {
-        if ($groupId === '') {
-            throw new Exception('缺少公司或集团信息');
-        }
-        $entityId = tx_resolve_group_entity_company_id($pdo, $groupId);
-        if ($entityId <= 0) {
-            if (!gc_session_can_access_group_code($pdo, $groupId)) {
-                throw new Exception('无效的集团');
-            }
-            $subs = gc_company_numeric_ids_for_group_code($pdo, $groupId);
-            $entityId = $subs !== [] ? (int) $subs[0] : 0;
-            if ($entityId <= 0) {
-                throw new Exception('无效的集团');
-            }
-        } else {
-            assertGroupEntityAccess($pdo, $groupId, $entityId);
-        }
-        $requestParams['company_id'] = (string) $entityId;
-        if (trim((string) ($requestParams['view_group'] ?? '')) === '') {
-            $requestParams['view_group'] = $groupId;
-        }
-        $reportScopeHint = 'group';
+    $listScope = tx_resolve_transaction_list_scope($pdo, $get);
+    $permCompanyId = tx_permission_company_id_for_scope($pdo, $listScope);
+    $companyIdForAccess = (int) ($listScope['company_id'] ?? 0);
+    if ($companyIdForAccess <= 0) {
+        $companyIdForAccess = $permCompanyId;
+    }
+    if ($companyIdForAccess <= 0 && ($listScope['mode'] ?? '') !== 'group') {
+        throw new Exception('缺少公司或集团信息');
     }
 
-    $companyId = tx_resolve_request_company_id($pdo, $requestParams);
-
-    $viewGroup = reportNormalizeGroupId($get['view_group'] ?? '');
+    $groupId = reportNormalizeGroupId($get['group_id'] ?? $listScope['group_code'] ?? '');
+    $viewGroup = reportNormalizeGroupId($get['view_group'] ?? $listScope['view_group'] ?? '');
     $groupForAccess = $groupId !== '' ? $groupId : ($viewGroup !== '' ? $viewGroup : null);
+
+    if (($listScope['mode'] ?? '') === 'group' && $groupId !== '') {
+        if (!gc_session_can_access_group_code($pdo, $groupId)) {
+            throw new Exception('无权访问该集团');
+        }
+    }
+
     $hasAccess = $categoryAccess === 'maintenance'
-        ? checkReportMaintenanceAccess($pdo, $companyId, $groupForAccess)
-        : checkReportGamesAccess($pdo, $companyId, $groupForAccess);
+        ? checkReportMaintenanceAccess($pdo, $companyIdForAccess, $groupForAccess)
+        : checkReportGamesAccess($pdo, $companyIdForAccess, $groupForAccess);
     if (!$hasAccess) {
         throw new Exception('Unauthorized permission category');
     }
 
+    $reportScopeHint = strtolower(trim((string) ($get['report_scope'] ?? '')));
+    if ($reportScopeHint === '') {
+        $reportScopeHint = (($listScope['mode'] ?? '') === 'group') ? 'group' : 'company';
+    }
+
     return [
-        'company_id' => $companyId,
+        'company_id' => $companyIdForAccess,
         'group_id' => $groupId,
         'report_scope_hint' => $reportScopeHint,
-        'request_params' => $requestParams,
+        'list_scope' => $listScope,
+        'request_params' => $get,
     ];
 }
