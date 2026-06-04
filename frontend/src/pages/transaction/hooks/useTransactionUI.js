@@ -12,7 +12,7 @@ function scopeApiReady(scopeApi) {
   if (!scopeApi) return false;
   const cid = scopeApi.companyId != null ? Number(scopeApi.companyId) : 0;
   if (Number.isFinite(cid) && cid > 0) return true;
-  return Boolean(scopeApi.groupId);
+  return Boolean(scopeApi.groupId || scopeApi.groupAggregate);
 }
 
 export function useTransactionUI() {

@@ -82,7 +82,9 @@ export function useTransactionData({
   useLayoutEffect(() => {
     if (prevScopeCacheKeyRef.current === scopeCacheKey) return;
     prevScopeCacheKeyRef.current = scopeCacheKey;
-    // Keep previous account/currency pills visible until fetch completes (see currencyScopeBundle).
+    setAccountOptions([]);
+    setCurrencyOptions([]);
+    setCurrencyScopeBundle({ scopeKey: null, rows: [] });
   }, [scopeCacheKey]);
 
   const setCurrencyRowsOrdered = useCallback((next) => {
@@ -167,10 +169,14 @@ export function useTransactionData({
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
-        if (persisted.groupOnly) {
+        const groupLoginBoot = isGroupLogin(u);
+        if (persisted.groupOnly || (groupLoginBoot && !queryCompany)) {
           effective = null;
         } else if (persisted.companyId != null) {
           effective = persisted.companyId;
+        }
+        if (effective == null && groupLoginBoot) {
+          persistDashboardGroupOnlyMode(true);
         }
 
         const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);
@@ -195,10 +201,13 @@ export function useTransactionData({
           resolveInitialSelectedGroupFromSession(snapRows, current);
 
         if (!cancelled && !filterSnapshotRef.current) {
+          const bootGroupOnly =
+            persisted.groupOnly || (groupLoginBoot && effective == null);
           const bootSnap = {
-            companyId: persisted.groupOnly ? null : effective,
+            companyId: bootGroupOnly ? null : effective,
+            groupOnlyLedger: bootGroupOnly,
             selectedGroup: selGroup,
-            displayCompanyRow: current,
+            displayCompanyRow: bootGroupOnly ? null : current,
             groupsAllMode: false,
             groupAllMode: false,
             snapCompanies: snapRows,
@@ -418,6 +427,7 @@ export function useTransactionData({
       ...snap,
       selectedGroup: g,
       companyId: null,
+      groupOnlyLedger: true,
       displayCompanyRow: null,
       groupsAllMode: false,
       groupAllMode: false,
@@ -478,6 +488,7 @@ export function useTransactionData({
       const nextSnap = {
         ...snap,
         companyId: numericCid,
+        groupOnlyLedger: false,
         selectedGroup: g,
         displayCompanyRow: pick,
         groupsAllMode: false,
@@ -553,6 +564,7 @@ export function useTransactionData({
       const nextSnap = {
         ...snap,
         companyId: numericCid,
+        groupOnlyLedger: false,
         selectedGroup: nextGroup || snap.selectedGroup,
         displayCompanyRow: comp,
         groupsAllMode: false,
@@ -638,6 +650,7 @@ export function useTransactionData({
       ...snap,
       groupsAllMode: true,
       groupAllMode: false,
+      groupOnlyLedger: false,
       selectedGroup: null,
       companyId: null,
       displayCompanyRow: null,
@@ -660,6 +673,7 @@ export function useTransactionData({
     setFilterSnapshot({
       ...snap,
       groupAllMode: true,
+      groupOnlyLedger: false,
       companyId: null,
       displayCompanyRow: null,
       companyStripRows: buildTransactionCompanyStripRows(snap, {

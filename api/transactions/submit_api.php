@@ -223,8 +223,15 @@ try {
         }
     }
 
-    $company_id = tx_resolve_request_company_id($pdo, $_POST);
-    
+    $listScope = tx_resolve_transaction_list_scope($pdo, $_POST);
+    $company_id = (int) ($listScope['company_id'] ?? 0);
+    if ($company_id <= 0) {
+        $company_id = tx_permission_company_id_for_scope($pdo, $listScope);
+    }
+    if ($company_id <= 0 && ($listScope['mode'] ?? '') !== 'group') {
+        throw new Exception('缺少 company_id');
+    }
+
     // 检查请求方法
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         throw new Exception('只支持 POST 请求');
@@ -236,7 +243,7 @@ try {
     }
     $idempotencyKey = '';
     if ($client_request_id !== '') {
-        $idempotencyKey = (string)$company_id . ':' . $client_request_id;
+        $idempotencyKey = tx_idempotency_scope_key($listScope) . ':' . $client_request_id;
         $cachedResponse = getSubmitIdempotencyCache($idempotencyKey);
         if ($cachedResponse !== null) {
             session_write_close(); // 命中缓存，无需继续持有 session 锁
@@ -354,67 +361,29 @@ try {
         }
     }
     
-    // 验证账户是否存在且属于当前公司（非 RATE 类型）
-    // 支持 account 通过 company_id 或 account_company 表关联到公司
+    // 验证账户是否属于当前 scope（集团账套 vs 子公司）
     if (!$is_rate) {
-        // 验证 To Account（只使用 account_company 表）
-        $stmt = $pdo->prepare("
-            SELECT a.id, a.account_id, a.name 
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE a.id = ? AND ac.company_id = ?
-        ");
-        $stmt->execute([$account_id, $company_id]);
-        $to_account = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+        $to_account = tx_fetch_account_row($pdo, $account_id, $listScope);
         if (!$to_account) {
-            throw new Exception('To Account 不存在或不属于当前公司');
+            throw new Exception('To Account 不存在或不属于当前范围');
         }
-        
-        // 验证 From Account（只使用 account_company 表）
+
         if ($from_account_id) {
-            $stmt = $pdo->prepare("
-                SELECT a.id, a.account_id, a.name 
-                FROM account a
-                INNER JOIN account_company ac ON a.id = ac.account_id
-                WHERE a.id = ? AND ac.company_id = ?
-            ");
-            $stmt->execute([$from_account_id, $company_id]);
-            $from_account = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+            $from_account = tx_fetch_account_row($pdo, (int) $from_account_id, $listScope);
             if (!$from_account) {
-                throw new Exception('From Account 不存在或不属于当前公司');
+                throw new Exception('From Account 不存在或不属于当前范围');
             }
         }
     }
-    
+
     // 验证 currency 并获取 currency_id，如果不存在则自动创建
     $currency_id = null;
     if (!empty($currency)) {
-        $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-        $stmt->execute([$currency, $company_id]);
-        $currency_id = $stmt->fetchColumn();
-        
-        // 如果 currency 不存在于该公司，自动创建
-        if (!$currency_id) {
-            $currencyCode = strtoupper(trim($currency));
-            if (strlen($currencyCode) > 10) {
-                throw new Exception('Currency code 长度不能超过 10 个字符');
-            }
-            
-            // 检查该 currency code 是否在其他公司存在（用于验证格式）
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM currency WHERE code = ?");
-            $stmt->execute([$currencyCode]);
-            $existsElsewhere = $stmt->fetchColumn() > 0;
-            
-            // 自动创建 currency 到当前公司
-            $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
-            $stmt->execute([$currencyCode, $company_id]);
-            $currency_id = $pdo->lastInsertId();
+        $currencyCode = strtoupper(trim($currency));
+        if (strlen($currencyCode) > 10) {
+            throw new Exception('Currency code 长度不能超过 10 个字符');
         }
-        
-        // 注意：不再检查账户是否在 data_capture_details 中有记录
-        // 允许即使没有 data_capture 记录也可以提交交易
+        $currency_id = tx_resolve_currency_id_for_scope($pdo, $currencyCode, $listScope);
     }
     
     // 自动生成 description（如果为空）
@@ -989,6 +958,7 @@ try {
                     $txnRow['approved_at'] = $approved_at;
                 }
             }
+            tx_apply_scope_columns_to_row($pdo, $txnRow, $listScope);
 
             $transaction_id = insertTransactionRow($pdo, $txnRow);
         
