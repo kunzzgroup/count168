@@ -135,6 +135,29 @@
   --font-weight-page-title: 600;
   --letter-spacing-page-title: -0.025em;
 
+  /*
+   * Description picker modal（Process List / Data Capture）
+   * 字号走 --text-* 阶梯；间距走 --space-*；色走 --color-*。
+   */
+  --desc-modal-width: min(85rem, 96vw);
+  --desc-modal-max-height: min(92vh, 44rem);
+  --desc-modal-radius: var(--radius-panel);
+  --desc-modal-pad-block: var(--space-card);
+  --desc-modal-pad-inline: var(--space-card);
+  --desc-modal-title-size: var(--text-h2);
+  --desc-modal-section-size: var(--text-medium);
+  --desc-modal-label-size: var(--text-small);
+  --desc-modal-body-size: var(--text-medium);
+  --desc-modal-empty-size: var(--text-small);
+  --desc-modal-control-text: var(--text-small);
+  --desc-modal-control-min-h: clamp(2.6rem, 2.1vw, 3.1rem);
+  --desc-modal-list-min-h: clamp(14rem, 42vh, 26rem);
+  --desc-modal-col-gap: var(--space-gap);
+  --desc-modal-checkbox-size: clamp(1rem, 0.9vw, 1.125rem);
+  --desc-modal-selected-bg: var(--color-surface-info-tint);
+  --desc-modal-selected-fg: var(--color-primary-strong);
+  --desc-modal-delete-fg: var(--color-danger-text-strong);
+
   /* --- 主区水平留白（userlist / ownership 容器）--- */
   --page-pad-inline-end: 4rem;
   --page-pad-inline-start: clamp(18rem, 14.06vw, 27rem);

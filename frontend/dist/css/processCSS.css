@@ -4915,194 +4915,191 @@ body.process-page > .process-modal {
     display: block;
 }
 
-/* Description Selection Modal Styles (restore to reference layout) */
-.process-page .description-selection-modal,
-.description-selection-modal {
-    width: min(1180px, 96vw) !important;
-    max-width: min(1180px, 96vw) !important;
-    border-radius: 14px !important;
+/* Description Selection Modal — single source; design tokens (--desc-modal-*, --text-*, --color-*) */
+body.process-page > .modal.show:has(.description-selection-modal) {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content.description-selection-modal,
+.process-page .modal-content.description-selection-modal {
+    width: var(--desc-modal-width);
+    max-width: var(--desc-modal-width);
+    max-height: var(--desc-modal-max-height);
+    margin: var(--space-gap) auto;
+    border-radius: var(--desc-modal-radius);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-md);
+    font-family: var(--font-ui);
+    font-size: var(--desc-modal-body-size);
+    color: var(--color-body-strong);
 }
 
-.process-page .description-selection-modal .modal-header,
-.description-selection-modal .modal-header {
-    padding: 1rem 1.25rem 0.9rem 1.25rem;
-    border-bottom: none;
+.modal-content.description-selection-modal .modal-header,
+.process-page .modal-content.description-selection-modal .modal-header {
+    flex-shrink: 0;
+    margin: 0;
+    padding: var(--desc-modal-pad-block) var(--desc-modal-pad-inline);
+    padding-bottom: calc(var(--desc-modal-pad-block) * 0.65);
+    background: var(--color-surface-modal-header);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: var(--desc-modal-radius) var(--desc-modal-radius) 0 0;
 }
 
-.process-page .description-selection-modal .modal-header h2,
-.description-selection-modal .modal-header h2 {
+.modal-content.description-selection-modal .modal-header h2,
+.process-page .modal-content.description-selection-modal .modal-header h2 {
     margin: 0;
     padding: 0;
-    font-size: var(--text-page-title);
+    font-size: var(--desc-modal-title-size);
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-page-title);
     letter-spacing: var(--letter-spacing-page-title);
-    color: #1f2937;
+    color: var(--color-heading);
+    line-height: 1.2;
 }
 
-.process-page .description-selection-modal .modal-body,
-.description-selection-modal .modal-body {
-    padding: 0.9rem 1.15rem 1rem 1.15rem !important;
+.modal-content.description-selection-modal .modal-body,
+.process-page .modal-content.description-selection-modal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: var(--desc-modal-pad-block) var(--desc-modal-pad-inline);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.process-page .description-selection-container,
-.description-selection-container {
+.modal-content.description-selection-modal .description-selection-container,
+.process-page .description-selection-container {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 1rem;
-    min-height: 380px;
+    column-gap: var(--desc-modal-col-gap);
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
 }
 
-.process-page .selected-descriptions-section,
-.selected-descriptions-section {
+.modal-content.description-selection-modal .selected-descriptions-section,
+.modal-content.description-selection-modal .available-descriptions-section {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
-    border-right: 1px solid #e5e7eb;
-    padding-right: 1rem;
+    min-height: 0;
 }
 
-.process-page .available-descriptions-section,
-.available-descriptions-section {
-    min-width: 0;
-    padding-left: 0.2rem;
+.modal-content.description-selection-modal .selected-descriptions-section {
+    padding-right: var(--desc-modal-col-gap);
+    border-right: 1px solid var(--color-border);
 }
 
-.process-page .selected-descriptions-section h3,
-.process-page .available-descriptions-section h3,
-.description-selection-modal .selected-descriptions-section h3,
-.description-selection-modal .available-descriptions-section h3 {
-    margin: 0 0 0.5rem 0;
-    color: #374151;
-    font-size: var(--text-medium);
+.modal-content.description-selection-modal .available-descriptions-section {
+    padding-left: calc(var(--desc-modal-col-gap) * 0.35);
+}
+
+.modal-content.description-selection-modal .selected-descriptions-section h3,
+.modal-content.description-selection-modal .available-descriptions-section h3,
+.process-page .description-selection-modal .selected-descriptions-section h3,
+.process-page .description-selection-modal .available-descriptions-section h3 {
+    margin: 0 0 var(--space-gap) 0;
+    font-size: var(--desc-modal-section-size);
     font-family: var(--font-heading-page);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-body-strong);
 }
 
-.process-page .add-description-bar,
-.description-selection-modal .add-description-bar {
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
+.modal-content.description-selection-modal .add-description-bar,
+.process-page .description-selection-modal .add-description-bar {
+    margin-bottom: var(--space-gap);
+    padding-bottom: var(--space-gap);
+    border-bottom: 1px solid var(--color-border);
 }
 
-.process-page .add-description-bar h3,
-.description-selection-modal .add-description-bar h3 {
-    margin: 0 0 0.45rem 0;
-    color: #374151;
-    font-size: var(--text-small);
+.modal-content.description-selection-modal .add-description-bar h3,
+.process-page .description-selection-modal .add-description-bar h3 {
+    margin: 0 0 calc(var(--space-gap) * 0.6) 0;
+    font-size: var(--desc-modal-label-size);
     font-family: var(--font-heading-page);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-body-strong);
 }
 
-.process-page .add-description-form,
-.description-selection-modal .add-description-form {
+.modal-content.description-selection-modal .add-description-form,
+.process-page .description-selection-modal .add-description-form {
     margin: 0;
 }
 
-.process-page .add-description-input-group,
-.description-selection-modal .add-description-input-group {
+.modal-content.description-selection-modal .add-description-input-group,
+.process-page .description-selection-modal .add-description-input-group {
     display: flex;
-    gap: 0.45rem;
+    gap: calc(var(--space-gap) * 0.5);
     align-items: center;
 }
 
-.process-page .add-description-input-group input,
-.description-selection-modal .add-description-input-group input {
+.modal-content.description-selection-modal .add-description-input-group input,
+.modal-content.description-selection-modal .description-search input,
+.process-page .description-selection-modal .add-description-input-group input,
+.process-page .description-selection-modal .description-search input {
     flex: 1;
     min-width: 0;
-    padding: 0.42rem 0.65rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.35rem;
-    font-size: 0.72rem;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: var(--desc-modal-control-min-h);
+    padding: calc(var(--space-gap) * 0.35) calc(var(--space-gap) * 0.55);
+    border: 1px solid var(--color-border-muted);
+    border-radius: calc(var(--desc-modal-radius) * 0.5);
+    font-family: var(--font-ui);
+    font-size: var(--desc-modal-control-text);
+    color: var(--color-body-strong);
+    background-color: var(--color-surface);
     text-transform: uppercase;
 }
 
-.process-page .add-description-input-group .btn,
-.description-selection-modal .add-description-input-group .btn {
-    min-width: 72px;
-    height: 1.4rem;
-    padding: 0.2rem 0.8rem;
+.modal-content.description-selection-modal .description-search,
+.process-page .description-selection-modal .description-search {
+    margin-bottom: var(--space-gap);
+}
+
+.modal-content.description-selection-modal .add-description-input-group .btn,
+.process-page .description-selection-modal .add-description-input-group .btn {
+    flex-shrink: 0;
+    min-width: var(--userlist-btn-add-width);
+    min-height: var(--desc-modal-control-min-h);
+    height: var(--desc-modal-control-min-h);
     margin: 0;
-    font-size: 0.68rem;
-    line-height: 1;
-    border-radius: 0.35rem;
+    padding: 0 calc(var(--space-gap) * 0.65);
+    font-family: var(--font-heading-page);
+    font-size: var(--desc-modal-control-text);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    border-radius: calc(var(--desc-modal-radius) * 0.5);
 }
 
-.process-page .description-search,
-.description-selection-modal .description-search {
-    margin-bottom: 0.45rem;
-}
-
-.process-page .description-search input,
-.description-selection-modal .description-search input {
-    width: 100%;
-    padding: 0.4rem 0.6rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.35rem;
-    font-size: 0.72rem;
-}
-
-.process-page .description-list,
-.description-selection-modal .description-list {
-    height: 265px;
+.modal-content.description-selection-modal .description-list,
+.modal-content.description-selection-modal .selected-descriptions-list,
+.process-page .description-selection-modal .description-list,
+.process-page .description-selection-modal .selected-descriptions-list {
+    flex: 1 1 auto;
+    min-height: var(--desc-modal-list-min-h);
+    max-height: var(--desc-modal-list-min-h);
     overflow-y: auto;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.35rem;
-    padding: 0.4rem;
-    background-color: #f8fafc;
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--desc-modal-radius) * 0.5);
+    padding: calc(var(--space-gap) * 0.45);
+    background-color: var(--color-surface-gray-50, #f8fafc);
 }
 
-.process-page .selected-descriptions-list,
-.description-selection-modal .selected-descriptions-list {
-    height: 265px;
-    overflow-y: auto;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.35rem;
-    padding: 0.4rem;
-    background-color: #f8fafc;
-}
-
-.process-page .description-item {
+.process-page .selected-description-modal-item,
+.modal-content.description-selection-modal .selected-description-modal-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
-    border-bottom: 0.0625rem solid #e9ecef;
-}
-
-.process-page .description-item:last-child {
-    border-bottom: none;
-}
-
-.process-page .description-item input[type="radio"] {
-    margin: 0;
-}
-
-.process-page .description-item label {
-    margin: 0;
-    font-size: 0.875rem;
-    cursor: pointer;
-    flex: 1;
-    color: #333;
-}
-
-.process-page .description-item:hover {
-    background-color: #e9ecef;
-    border-radius: 0.25rem;
-    padding: 0.5rem;
-    margin: 0 -0.5rem;
-}
-
-.process-page .selected-description-modal-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
-    border-bottom: 0.0625rem solid #e9ecef;
-    background-color: #e3f2fd;
-    border-radius: 0.25rem;
-    margin-bottom: 0.5rem;
-    padding: 0.5rem;
+    gap: calc(var(--space-gap) * 0.4);
+    padding: calc(var(--space-gap) * 0.45);
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--desc-modal-selected-bg);
+    border-radius: calc(var(--desc-modal-radius) * 0.4);
+    margin-bottom: calc(var(--space-gap) * 0.45);
 }
 
 .process-page .selected-description-modal-item:last-child {
@@ -5110,71 +5107,153 @@ body.process-page > .process-modal {
     margin-bottom: 0;
 }
 
-.process-page .selected-description-modal-item span {
+.process-page .selected-description-modal-item span,
+.modal-content.description-selection-modal .selected-description-modal-item span {
     flex: 1;
-    font-size: 0.875rem;
-    color: #1976d2;
-    font-weight: 500;
+    font-size: var(--desc-modal-body-size);
+    font-family: var(--font-ui);
+    color: var(--desc-modal-selected-fg);
+    font-weight: var(--font-weight-semibold);
 }
 
-.process-page .remove-description-modal {
+.modal-content.description-selection-modal .description-item,
+.process-page .description-selection-modal .description-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: calc(var(--space-gap) * 0.45);
+    padding: calc(var(--space-gap) * 0.4) calc(var(--space-gap) * 0.25);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.modal-content.description-selection-modal .description-item:last-child,
+.process-page .description-selection-modal .description-item:last-child {
+    border-bottom: none;
+}
+
+.modal-content.description-selection-modal .description-item:hover,
+.process-page .description-selection-modal .description-item:hover {
+    background-color: var(--color-surface-slate-200, #eef2f7);
+    border-radius: calc(var(--desc-modal-radius) * 0.35);
+}
+
+.modal-content.description-selection-modal .description-item-left,
+.process-page .description-selection-modal .description-item-left {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--space-gap) * 0.45);
+    flex: 1;
+    min-width: 0;
+}
+
+.modal-content.description-selection-modal .description-item input[type="checkbox"],
+.process-page .description-selection-modal .description-item input[type="checkbox"] {
+    margin: 0;
+    width: var(--desc-modal-checkbox-size);
+    height: var(--desc-modal-checkbox-size);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.modal-content.description-selection-modal .description-delete-btn,
+.process-page .description-selection-modal .description-delete-btn {
+    border: none;
+    background: transparent;
+    color: var(--desc-modal-delete-fg);
+    font-size: var(--text-h3);
+    font-weight: var(--font-weight-bold);
+    cursor: pointer;
+    padding: calc(var(--space-gap) * 0.2);
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.modal-content.description-selection-modal .description-delete-btn:hover:not(:disabled),
+.process-page .description-selection-modal .description-delete-btn:hover:not(:disabled) {
+    color: var(--color-danger);
+}
+
+.modal-content.description-selection-modal .remove-description-modal,
+.process-page .description-selection-modal .remove-description-modal {
     background: none;
     border: none;
-    color: #1976d2;
-    font-size: 1rem;
-    font-weight: bold;
+    color: var(--desc-modal-selected-fg);
+    font-size: var(--text-medium);
+    font-weight: var(--font-weight-bold);
     cursor: pointer;
     padding: 0;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1.35rem;
+    height: 1.35rem;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: background-color 0.2s;
 }
 
-.process-page .remove-description-modal:hover {
-    background-color: #1976d2;
-    color: white;
+.modal-content.description-selection-modal .remove-description-modal:hover:not(:disabled),
+.process-page .description-selection-modal .remove-description-modal:hover:not(:disabled) {
+    background-color: var(--desc-modal-selected-fg);
+    color: var(--color-surface);
 }
 
-.process-page .description-selection-modal .modal-footer,
-.description-selection-modal .modal-footer {
-    margin-top: 0.6rem;
-    padding-top: 0.7rem;
-    border-top: 1px solid #e5e7eb;
+.modal-content.description-selection-modal .modal-footer,
+.process-page .description-selection-modal .modal-footer {
+    flex-shrink: 0;
+    margin-top: 0;
+    padding: var(--desc-modal-pad-block) var(--desc-modal-pad-inline);
+    border-top: 1px solid var(--color-border);
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 0.55rem;
+    gap: var(--space-gap);
     flex-wrap: nowrap;
 }
 
-.process-page .description-selection-modal .modal-footer .btn,
-.description-selection-modal .modal-footer .btn {
+.modal-content.description-selection-modal .modal-footer .btn,
+.process-page .description-selection-modal .modal-footer .btn {
     font-family: var(--font-heading-page);
-    font-size: var(--text-medium);
+    font-size: var(--desc-modal-section-size);
     font-weight: var(--font-weight-semibold);
     min-width: var(--userlist-btn-add-width);
-    width: auto;
-    min-height: auto;
-    padding: clamp(6px, 0.42vw, 8px) 20px;
+    min-height: var(--desc-modal-control-min-h);
+    height: var(--desc-modal-control-min-h);
+    padding: 0 calc(var(--space-gap) * 0.9);
     line-height: 1.2;
-    border-radius: 6px;
+    border-radius: calc(var(--desc-modal-radius) * 0.55);
     border: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(5px, 0.42vw, 8px);
     white-space: nowrap;
 }
 
-.process-page .no-descriptions {
+.modal-content.description-selection-modal .btn-save,
+.process-page .description-selection-modal .btn-save {
+    background: var(--btn-add-gradient);
+    color: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.modal-content.description-selection-modal .btn-save:hover:not(:disabled),
+.process-page .description-selection-modal .btn-save:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover);
+}
+
+.modal-content.description-selection-modal .btn-cancel,
+.process-page .description-selection-modal .btn-cancel {
+    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+    color: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.process-page .no-descriptions,
+.modal-content.description-selection-modal .no-descriptions {
     text-align: center;
-    color: #6c757d;
+    color: var(--color-muted-fg);
+    font-size: var(--desc-modal-empty-size);
+    font-family: var(--font-ui);
     font-style: italic;
-    padding: 1.25rem;
+    padding: var(--space-card);
 }
 
 /* Selected Descriptions Display */
@@ -6485,329 +6564,6 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     min-height: 8.25rem !important;
     max-height: 8.25rem !important;
     resize: none !important;
-}
-
-/* Final lock: Select/Add Description modal — match .com (PHP) reference */
-body.process-page > .modal.show {
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-}
-
-.modal-content.description-selection-modal {
-    width: min(1180px, 96vw) !important;
-    max-width: min(1180px, 96vw) !important;
-    min-height: 720px !important;
-    max-height: 92vh !important;
-    margin: 2.5vh auto !important;
-    border-radius: 14px !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-    background-color: #ffffff !important;
-    box-shadow: 0 1.25rem 1.5625rem -0.3125rem rgba(0, 0, 0, 0.1), 0 0.625rem 0.625rem -0.3125rem rgba(0, 0, 0, 0.04) !important;
-}
-
-.modal-content.description-selection-modal .modal-header {
-    position: relative;
-    flex-shrink: 0;
-    margin: 0 !important;
-    padding: 6px 28px !important;
-    background: #f8fafc !important;
-    border-bottom: none !important;
-    border-radius: 14px 14px 0 0 !important;
-}
-
-.modal-content.description-selection-modal .modal-header h2 {
-    margin: 0 !important;
-    padding: 18px 8px 16px 8px !important;
-    font-size: clamp(1.85rem, 2.4vw, 2.35rem) !important;
-    font-family: var(--font-heading-page) !important;
-    font-weight: var(--font-weight-page-title) !important;
-    letter-spacing: var(--letter-spacing-page-title) !important;
-    color: #0f172a !important;
-    line-height: 1.15 !important;
-}
-
-.modal-content.description-selection-modal .modal-header .close {
-    display: none !important;
-}
-
-.modal-content.description-selection-modal .modal-body {
-    padding: 20px 28px 22px 28px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: 580px !important;
-    flex: 1 1 auto !important;
-    width: 100% !important;
-    overflow: hidden !important;
-}
-
-.modal-content.description-selection-modal .description-selection-container {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-    column-gap: 40px !important;
-    min-height: 520px !important;
-    flex: 1 1 auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    align-items: stretch !important;
-}
-
-.modal-content.description-selection-modal .selected-descriptions-section {
-    min-width: 0 !important;
-    padding-right: 24px !important;
-    border-right: 1px solid #e5e7eb !important;
-    width: 100% !important;
-}
-
-.modal-content.description-selection-modal .available-descriptions-section {
-    min-width: 0 !important;
-    padding-left: 12px !important;
-    width: 100% !important;
-}
-
-.modal-content.description-selection-modal .selected-descriptions-section h3,
-.modal-content.description-selection-modal .available-descriptions-section h3 {
-    margin: 0 0 12px 0 !important;
-    font-size: 1.0625rem !important;
-    font-weight: 700 !important;
-    color: #374151 !important;
-}
-
-.modal-content.description-selection-modal .add-description-bar {
-    margin-bottom: 14px !important;
-    padding-bottom: 14px !important;
-    border-bottom: 1px solid #e5e7eb !important;
-}
-
-.modal-content.description-selection-modal .add-description-bar h3 {
-    margin: 0 0 10px 0 !important;
-    font-size: 1rem !important;
-    font-weight: 700 !important;
-    color: #374151 !important;
-}
-
-.modal-content.description-selection-modal .add-description-input-group {
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-}
-
-.modal-content.description-selection-modal .add-description-input-group input,
-.modal-content.description-selection-modal .description-search input {
-    padding: 11px 14px !important;
-    font-size: 0.9375rem !important;
-    border-radius: 6px !important;
-    min-height: 42px !important;
-    box-sizing: border-box !important;
-}
-
-.modal-content.description-selection-modal .description-search {
-    margin-bottom: 12px !important;
-}
-
-.modal-content.description-selection-modal .add-description-input-group .btn {
-    min-width: 88px !important;
-    max-width: 88px !important;
-    min-height: 42px !important;
-    height: 42px !important;
-    padding: 0 14px !important;
-    font-size: 0.9375rem !important;
-    border-radius: 6px !important;
-}
-
-.modal-content.description-selection-modal .description-list,
-.modal-content.description-selection-modal .selected-descriptions-list {
-    height: 400px !important;
-    min-height: 400px !important;
-    max-height: 400px !important;
-    overflow-y: auto !important;
-    border: 1px solid #e5e7eb !important;
-    border-radius: 8px !important;
-    padding: 12px 14px !important;
-    background-color: #f8fafc !important;
-}
-
-.modal-content.description-selection-modal .no-descriptions {
-    text-align: center !important;
-    color: #6c757d !important;
-    font-size: 1rem !important;
-    font-style: italic !important;
-    padding: 48px 24px !important;
-}
-
-.modal-content.description-selection-modal .description-item {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 10px !important;
-    padding: 10px 4px !important;
-    border-bottom: 1px solid #e9ecef !important;
-}
-
-.modal-content.description-selection-modal .description-item:last-child {
-    border-bottom: none !important;
-}
-
-.modal-content.description-selection-modal .description-item:hover {
-    background-color: #e9ecef !important;
-    border-radius: 4px !important;
-    margin: 0 -4px !important;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
-}
-
-.modal-content.description-selection-modal .description-item-left {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    flex: 1 !important;
-    min-width: 0 !important;
-}
-
-.modal-content.description-selection-modal .description-item input[type="checkbox"] {
-    margin: 0 !important;
-    width: 18px !important;
-    height: 18px !important;
-    flex-shrink: 0 !important;
-    cursor: pointer !important;
-}
-
-.modal-content.description-selection-modal .description-item label,
-.modal-content.description-selection-modal .selected-description-modal-item span {
-    margin: 0 !important;
-    font-size: 1rem !important;
-    cursor: pointer !important;
-    flex: 1 !important;
-    color: #1f2937 !important;
-    line-height: 1.35 !important;
-}
-
-.modal-content.description-selection-modal .description-delete-btn,
-.modal-content.description-selection-modal .description-item .description-delete-btn {
-    border: none !important;
-    background: transparent !important;
-    color: #c00 !important;
-    font-size: 1.35rem !important;
-    font-weight: 700 !important;
-    cursor: pointer !important;
-    padding: 4px 6px !important;
-    line-height: 1 !important;
-    flex-shrink: 0 !important;
-}
-
-.modal-content.description-selection-modal .description-delete-btn:hover:not(:disabled) {
-    color: #900 !important;
-}
-
-.modal-content.description-selection-modal .description-delete-btn:disabled {
-    opacity: 0.45 !important;
-    cursor: not-allowed !important;
-}
-
-.modal-content.description-selection-modal .selected-description-modal-item {
-    display: flex !important;
-    align-items: center !important;
-    gap: 0.65rem !important;
-    padding: 11px 12px !important;
-    border-bottom: 1px solid #e9ecef !important;
-    background-color: #e3f2fd !important;
-    border-radius: 6px !important;
-    margin-bottom: 10px !important;
-}
-
-.modal-content.description-selection-modal .selected-description-modal-item:last-child {
-    border-bottom: none !important;
-    margin-bottom: 0 !important;
-}
-
-.modal-content.description-selection-modal .selected-description-modal-item span {
-    color: #1976d2 !important;
-    font-weight: 500 !important;
-}
-
-.modal-content.description-selection-modal .remove-description-modal {
-    background: none !important;
-    border: none !important;
-    color: #1976d2 !important;
-    font-size: 1rem !important;
-    font-weight: bold !important;
-    cursor: pointer !important;
-    padding: 0 !important;
-    width: 1.25rem !important;
-    height: 1.25rem !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 50% !important;
-}
-
-.modal-content.description-selection-modal .remove-description-modal:hover:not(:disabled) {
-    background-color: #1976d2 !important;
-    color: #fff !important;
-}
-
-.modal-content.description-selection-modal .add-description-input-group input,
-.modal-content.description-selection-modal .description-search input {
-    text-transform: uppercase !important;
-    background-color: #fff !important;
-    border: 1px solid #d1d5db !important;
-}
-
-.modal-content.description-selection-modal .btn-save {
-    background: var(--btn-add-gradient) !important;
-    color: #ffffff !important;
-    border: none !important;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
-}
-
-.modal-content.description-selection-modal .btn-save:hover:not(:disabled) {
-    background: var(--btn-add-gradient-hover) !important;
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
-    transform: translateY(-1px);
-}
-
-.modal-content.description-selection-modal .btn-cancel {
-    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%) !important;
-    color: #ffffff !important;
-    border: none !important;
-    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3) !important;
-}
-
-.modal-content.description-selection-modal .btn-cancel:hover:not(:disabled) {
-    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%) !important;
-    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4) !important;
-    transform: translateY(-1px);
-}
-
-.modal-content.description-selection-modal .modal-footer {
-    margin-top: 0 !important;
-    padding: 16px 28px 18px 28px !important;
-    border-top: 1px solid #e5e7eb !important;
-    display: flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-    gap: 12px !important;
-    flex-wrap: nowrap !important;
-    width: 100% !important;
-    align-self: stretch !important;
-    flex: 0 0 auto !important;
-}
-
-.modal-content.description-selection-modal .modal-footer .btn {
-    font-family: var(--font-heading-page) !important;
-    font-size: 1rem !important;
-    font-weight: var(--font-weight-semibold) !important;
-    min-width: 120px !important;
-    width: auto !important;
-    min-height: 42px !important;
-    height: 42px !important;
-    padding: 0 28px !important;
-    border-radius: 8px !important;
-    border: none !important;
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
 }
 
 /* Bank list: pagination uses shared .pagination-container (see rules above) */
