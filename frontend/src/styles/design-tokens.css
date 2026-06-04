@@ -453,12 +453,13 @@
   --login-card-min-height-narrow: 528px;
 }
 
-/* Description picker / Process form：≥992px 略加宽；小屏不变 */
+/* Description picker / Process form：≥992px — 与 DevTools 调校一致（1120px / 95vh / 列表区更高） */
 @media (min-width: 62rem) {
   :root {
     --process-form-modal-width: min(1120px, calc(100vw - 40px));
-    --process-form-modal-max-height: 94vh;
-    --desc-modal-list-min-h: clamp(16rem, 40vh, 23.5rem);
+    --process-form-modal-max-height: 95vh;
+    --desc-modal-list-min-h: clamp(24rem, 40vh, 34.5rem);
+    --desc-modal-col-gap: clamp(1.2rem, 1vw + 0.2rem, 1.75rem);
   }
 }
 
