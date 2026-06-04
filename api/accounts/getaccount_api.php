@@ -81,8 +81,24 @@ try {
         throw new Exception('Account ID is required');
     }
 
-    if (!tenant_account_belongs_to_context($pdo, $account_id, $accountCtx)) {
+    $ledgerScope = tenant_resolve_account_ledger_scope($pdo, $account_id);
+    $belongs = tenant_account_belongs_to_context($pdo, $account_id, $accountCtx);
+    if (!$belongs && ($ledgerScope['mode'] ?? '') === 'group' && ($ledgerScope['group_code'] ?? '') !== '') {
+        $ledgerCtx = tenant_resolve_currency_context($pdo, null, (string) $ledgerScope['group_code'], true);
+        $belongs = tenant_account_belongs_to_context($pdo, $account_id, $ledgerCtx);
+    }
+    if (!$belongs) {
         throw new Exception('Account not found');
+    }
+
+    $currencyCtxForAccount = $accountCtx;
+    if (($ledgerScope['mode'] ?? '') === 'group' && ($ledgerScope['group_code'] ?? '') !== '') {
+        $currencyCtxForAccount = tenant_resolve_currency_context(
+            $pdo,
+            null,
+            (string) $ledgerScope['group_code'],
+            true
+        );
     }
 
     $sql = "SELECT 
@@ -111,7 +127,7 @@ try {
         throw new Exception('Account not found');
     }
 
-    if (($accountCtx['mode'] ?? '') === 'group' && tenant_table_has_scope_columns($pdo, 'currency')) {
+    if (($currencyCtxForAccount['mode'] ?? '') === 'group' && tenant_table_has_scope_columns($pdo, 'currency')) {
         $sql_currencies = "SELECT 
                             ac.currency_id,
                             c.code AS currency_code
@@ -120,8 +136,9 @@ try {
                         WHERE ac.account_id = ? AND c.scope_type = 'group' AND c.scope_id = ?
                         ORDER BY ac.created_at ASC";
         $stmt_currencies = $pdo->prepare($sql_currencies);
-        $stmt_currencies->execute([$account_id, (int) ($accountCtx['group_pk'] ?? 0)]);
+        $stmt_currencies->execute([$account_id, (int) ($currencyCtxForAccount['group_pk'] ?? 0)]);
     } else {
+        $permForCurrencies = (int) ($currencyCtxForAccount['company_id'] ?? $permCompanyId);
         $sql_currencies = "SELECT 
                             ac.currency_id,
                             c.code AS currency_code
@@ -131,12 +148,17 @@ try {
             . tenant_sql_currency_subsidiary_only($pdo, 'c')
             . ' ORDER BY ac.created_at ASC';
         $stmt_currencies = $pdo->prepare($sql_currencies);
-        $stmt_currencies->execute([$account_id, $permCompanyId]);
+        $stmt_currencies->execute([$account_id, $permForCurrencies]);
     }
 
     $account_currencies = $stmt_currencies->fetchAll(PDO::FETCH_ASSOC);
 
     $account['account_currencies'] = $account_currencies;
+    $account['ledger_scope'] = [
+        'mode' => (string) ($ledgerScope['mode'] ?? 'company'),
+        'group_code' => (string) ($ledgerScope['group_code'] ?? ''),
+        'group_pk' => (int) ($ledgerScope['group_pk'] ?? 0),
+    ];
     $account['account_id'] = formatAccountIdForDisplay((string) ($account['account_id'] ?? ''));
 
     echo json_encode([

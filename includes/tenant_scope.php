@@ -449,6 +449,40 @@ function tenant_collect_group_account_ids(PDO $pdo, int $groupPk): array
     return array_values(array_filter(array_map('intval', array_keys($ids)), static fn (int $id): bool => $id > 0));
 }
 
+/**
+ * Whether the account row is on the group ledger (account_company.scope_type = group).
+ *
+ * @return array{mode: 'group'|'company', group_code: string, group_pk: int}
+ */
+function tenant_resolve_account_ledger_scope(PDO $pdo, int $accountId): array
+{
+    $default = ['mode' => 'company', 'group_code' => '', 'group_pk' => 0];
+    if ($accountId <= 0 || !tenant_table_has_scope_columns($pdo, 'account_company')) {
+        return $default;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT scope_id
+        FROM account_company
+        WHERE account_id = ? AND scope_type = 'group' AND scope_id > 0
+        LIMIT 1
+    ");
+    $stmt->execute([$accountId]);
+    $groupPk = (int) ($stmt->fetchColumn() ?: 0);
+    if ($groupPk <= 0) {
+        return $default;
+    }
+
+    $groupCode = '';
+    if (gc_has_groups_table($pdo)) {
+        $codeStmt = $pdo->prepare('SELECT group_code FROM `groups` WHERE id = ? LIMIT 1');
+        $codeStmt->execute([$groupPk]);
+        $groupCode = gc_normalize_group_code((string) ($codeStmt->fetchColumn() ?: ''));
+    }
+
+    return ['mode' => 'group', 'group_code' => $groupCode, 'group_pk' => $groupPk];
+}
+
 function tenant_account_belongs_to_context(PDO $pdo, int $accountId, array $ctx): bool
 {
     if ($accountId <= 0) {

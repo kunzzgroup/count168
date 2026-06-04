@@ -53,6 +53,14 @@ function accountCurrencyResolveContext(PDO $pdo): array
         'session_company_id' => $_SESSION['company_id'] ?? null,
     ];
 
+    $accountId = isset($_GET['account_id']) ? (int) $_GET['account_id'] : 0;
+    if ($accountId > 0) {
+        $ledger = tenant_resolve_account_ledger_scope($pdo, $accountId);
+        if (($ledger['mode'] ?? '') === 'group' && ($ledger['group_code'] ?? '') !== '') {
+            return tenant_resolve_currency_context($pdo, null, (string) $ledger['group_code'], true);
+        }
+    }
+
     return tenant_resolve_currency_context_from_request($pdo, $params);
 }
 

@@ -177,6 +177,8 @@ export default function AccountListPage() {
   const [currencyInput, setCurrencyInput] = useState("");
   /** Add/Edit 弹窗内点 × 隐藏的货币 id（本会话），避免仅取消勾选时界面无变化 */
   const [hiddenCurrencyIds, setHiddenCurrencyIds] = useState([]);
+  /** Edit 时账户真实账本 scope（group ledger vs 子公司），与顶部筛选解耦 */
+  const [modalLedgerScope, setModalLedgerScope] = useState(null);
   const [settingCurrencyId, setSettingCurrencyId] = useState(null);
   const [settingLinked, setSettingLinked] = useState(new Set());
   const [settingInitial, setSettingInitial] = useState(new Set());
@@ -1464,22 +1466,47 @@ export default function AccountListPage() {
 
   const appendCurrencyScopeParams = appendAccountScopeParams;
 
-  const loadSelectionMeta = async (id, isEdit) => {
+  const appendModalCurrencyScopeParams = useCallback(
+    (params) => {
+      const ledgerGroup = String(modalLedgerScope?.group_code || "").trim().toUpperCase();
+      if (modalLedgerScope?.mode === "group" && ledgerGroup) {
+        const setParam = (key, value) => {
+          if (params instanceof URLSearchParams) params.set(key, value);
+          else if (params instanceof FormData) params.set(key, value);
+        };
+        setParam("group_id", ledgerGroup);
+        setParam("group_only", "1");
+        return;
+      }
+      appendAccountScopeParams(params);
+    },
+    [modalLedgerScope, appendAccountScopeParams],
+  );
+
+  const loadSelectionMeta = async (id, isEdit, { selectCode = null } = {}) => {
     try {
       const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
       if (id) currencyParams.set("account_id", String(id));
-      appendCurrencyScopeParams(currencyParams);
+      appendModalCurrencyScopeParams(currencyParams);
       const [curRes, compRes] = await Promise.all([
         fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/accounts/account_company_api.php?action=get_available_companies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
       ]);
       const curJ = await curRes.json(); const compJ = await compRes.json();
       if (curJ.success) {
-        setCurrencies(curJ.data.map(c => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
+        const rows = curJ.data.map((c) => ({ id: c.id, code: c.code, is_linked: !!c.is_linked }));
+        setCurrencies(rows);
+        const wantCode = selectCode ? toUpper(String(selectCode)).trim() : "";
+        const matched = wantCode ? rows.find((c) => toUpper(c.code).trim() === wantCode) : null;
         if (isEdit) {
-          const ids = curJ.data.filter(c => c.is_linked).map(c => Number(c.id));
-          setSelectedCurrencyIds(ids);
+          const ids = curJ.data.filter((c) => c.is_linked).map((c) => Number(c.id));
+          const base = matched ? [...new Set([...ids, Number(matched.id)])] : ids;
+          setSelectedCurrencyIds(base);
           setInitialEditCurrencyIds(ids);
+        } else if (matched) {
+          setSelectedCurrencyIds((prev) =>
+            prev.map(Number).includes(Number(matched.id)) ? prev : [...prev, Number(matched.id)],
+          );
         } else {
           setSelectedCurrencyIds(pickDefaultAddCurrencyIds(curJ.data));
         }
@@ -1508,6 +1535,7 @@ export default function AccountListPage() {
     setSelectedCurrencyIds([]); setCurrencyInput("");
     setInitialEditCurrencyIds([]);
     setHiddenCurrencyIds([]);
+    setModalLedgerScope(null);
     setAddModalOpen(true);
     if (!groupOnlyAccountMode && companyId) {
       setSelectedCompanyIds([String(companyId)]);
@@ -1558,11 +1586,15 @@ export default function AccountListPage() {
       const d = json.data;
       setIsEditMode(true);
       setHiddenCurrencyIds([]);
+      const ledger = d.ledger_scope && typeof d.ledger_scope === "object" ? d.ledger_scope : null;
+      setModalLedgerScope(
+        ledger?.mode === "group" && ledger?.group_code
+          ? { mode: "group", group_code: String(ledger.group_code).trim().toUpperCase() }
+          : null,
+      );
       setForm({ id: d.id, account_id: toUpper(d.account_id), name: toUpper(d.name), role: d.role || "", password: d.password || "", remark: toUpper(d.remark), payment_alert: String(d.payment_alert == 1 ? "1" : "0"), alert_type: d.alert_type || d.alert_day || "", alert_start_date: d.alert_start_date || d.alert_specific_date || "", alert_amount: d.alert_amount || "" });
-      await Promise.all([
-        loadRoles({ companyId, groupId: selectedGroup }),
-        loadSelectionMeta(id, true),
-      ]);
+      await loadRoles({ companyId, groupId: selectedGroup });
+      await loadSelectionMeta(id, true);
       setEditModalOpen(true);
     } catch { notify(t("errorLoadingAccount"), "danger"); }
   };
@@ -1697,11 +1729,13 @@ export default function AccountListPage() {
     }
     try {
       const payload = { code };
+      const ledgerGroup = String(modalLedgerScope?.group_code || "").trim().toUpperCase();
       const gid =
+        ledgerGroup ||
         (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
         (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null);
       if (gid) payload.group_id = gid;
-      if (groupOnlyAccountMode) {
+      if (modalLedgerScope?.mode === "group" || groupOnlyAccountMode) {
         payload.group_only = true;
       } else if (companyId) {
         payload.company_id = Number(companyId);
@@ -1716,6 +1750,12 @@ export default function AccountListPage() {
         setSelectedCurrencyIds((prev) => (prev.map(Number).includes(newId) ? prev : [...prev, newId]));
         setCurrencyInput("");
       } else {
+        const msg = String(json.message || json.error || "");
+        if (/already exists/i.test(msg) && isEditMode && form.id) {
+          await loadSelectionMeta(form.id, true, { selectCode: code });
+          setCurrencyInput("");
+          return;
+        }
         notifyApi(json.message, "createFailed", "danger");
       }
     } catch { notify(t("createFailed"), "danger"); }
@@ -1724,10 +1764,11 @@ export default function AccountListPage() {
   const accountCurrencyApiUrl = useCallback(
     (action) => {
       const params = new URLSearchParams({ action });
-      appendCurrencyScopeParams(params);
+      if (isEditMode && form.id) params.set("account_id", String(form.id));
+      appendModalCurrencyScopeParams(params);
       return buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`);
     },
-    [appendCurrencyScopeParams],
+    [appendModalCurrencyScopeParams, isEditMode, form.id],
   );
 
   const fetchAccountsUsingCurrency = async (currencyId) => {
@@ -1736,7 +1777,7 @@ export default function AccountListPage() {
         action: "get_linked_accounts_by_currency",
         currency_id: String(currencyId),
       });
-      appendCurrencyScopeParams(params);
+      appendModalCurrencyScopeParams(params);
       const res = await fetch(
         buildApiUrl(`api/accounts/bulk_account_currency_api.php?${params.toString()}`),
         { method: "POST", credentials: "include" },
@@ -1851,12 +1892,14 @@ export default function AccountListPage() {
 
     try {
       const deleteUrl = new URL(buildApiUrl("api/accounts/delete_currency_api.php"));
-      appendCurrencyScopeParams(deleteUrl.searchParams);
+      appendModalCurrencyScopeParams(deleteUrl.searchParams);
       const deletePayload = { id };
+      const ledgerGroup = String(modalLedgerScope?.group_code || "").trim().toUpperCase();
       const gid =
+        ledgerGroup ||
         (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
         (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null);
-      if (groupOnlyAccountMode) {
+      if (modalLedgerScope?.mode === "group" || groupOnlyAccountMode) {
         deletePayload.group_only = true;
         if (gid) deletePayload.group_id = gid;
       } else {
@@ -2315,6 +2358,7 @@ export default function AccountListPage() {
           setAddModalOpen(false);
           setEditModalOpen(false);
           setHiddenCurrencyIds([]);
+          setModalLedgerScope(null);
         }}
         groupPickerMode={groupOnlyAccountMode}
         t={t}
