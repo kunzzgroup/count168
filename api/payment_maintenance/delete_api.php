@@ -58,6 +58,12 @@ try {
             throw new Exception('缺少公司信息');
         }
         $company_id = (int) $_SESSION['company_id'];
+        require_once __DIR__ . '/../../includes/group_company_access.php';
+        gc_assert_api_company_access(
+            $pdo,
+            $company_id,
+            gc_is_group_login() ? gc_session_login_identifier() : null
+        );
     }
 
     $ids = $payload['transaction_ids'] ?? [];

@@ -157,6 +157,30 @@ export function loginScopeBodyClass(me) {
   return "";
 }
 
+/**
+ * Append group scope query params for API calls when logged in as a group tenant.
+ * @param {URLSearchParams|Record<string, string>} target
+ */
+export function appendLoginScopeQueryParams(target, me) {
+  if (!isGroupLogin(me)) return target;
+  const code = getLoginIdentifier(me);
+  if (!code) return target;
+  if (target instanceof URLSearchParams) {
+    if (!target.has("group_id")) target.set("group_id", code);
+    if (!target.has("view_group")) target.set("view_group", code);
+    return target;
+  }
+  if (target && typeof target === "object") {
+    if (target.group_id == null || String(target.group_id).trim() === "") {
+      target.group_id = code;
+    }
+    if (target.view_group == null || String(target.view_group).trim() === "") {
+      target.view_group = code;
+    }
+  }
+  return target;
+}
+
 /** Normalize company code for sidebar / session patches (empty → null). */
 export function normalizeCompanyCode(value) {
   const code = String(value ?? "").trim().toUpperCase();

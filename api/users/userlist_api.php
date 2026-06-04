@@ -215,6 +215,7 @@ function userlist_resolve_owner_id_for_group_scope(PDO $pdo, string $groupScope)
     return (int) ($stmt->fetchColumn() ?: 0);
 }
 
+/** Legacy helper: resolve anchor company id only (no auto-insert into company). */
 function userlist_ensure_group_entity_company_id(PDO $pdo, string $groupScope): int
 {
     $g = userlist_normalize_group_id($groupScope);
@@ -222,57 +223,7 @@ function userlist_ensure_group_entity_company_id(PDO $pdo, string $groupScope): 
         return 0;
     }
 
-    $stmt = $pdo->prepare("
-        SELECT id
-        FROM company
-        WHERE UPPER(TRIM(company_id)) = ?
-        ORDER BY id ASC
-        LIMIT 1
-    ");
-    $stmt->execute([$g]);
-    $existing = (int) ($stmt->fetchColumn() ?: 0);
-    if ($existing > 0) {
-        return $existing;
-    }
-
-    $ownerId = userlist_resolve_owner_id_for_group_scope($pdo, $g);
-    $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
-    if ($ownerId <= 0 || $currentUserId <= 0) {
-        return 0;
-    }
-
-    try {
-        $insert = $pdo->prepare("
-            INSERT INTO company (company_id, owner_id, created_by, group_id)
-            VALUES (?, ?, ?, ?)
-        ");
-        $insert->execute([$g, $ownerId, (string) $currentUserId, $g]);
-    } catch (PDOException $e) {
-        if ((string) $e->getCode() !== '23000') {
-            throw $e;
-        }
-    }
-
-    $stmt->execute([$g]);
-    $createdId = (int) ($stmt->fetchColumn() ?: 0);
-    if ($createdId <= 0) {
-        return 0;
-    }
-
-    // Ensure current operator can see this group entity in getCompaniesByUser scope.
-    try {
-        $mapStmt = $pdo->prepare("
-            INSERT INTO user_company_map (user_id, company_id)
-            VALUES (?, ?)
-        ");
-        $mapStmt->execute([$currentUserId, $createdId]);
-    } catch (PDOException $e) {
-        if ((string) $e->getCode() !== '23000') {
-            throw $e;
-        }
-    }
-
-    return $createdId;
+    return gc_resolve_group_anchor_company_id($pdo, $g);
 }
 
 /**
@@ -441,25 +392,16 @@ function userlist_group_entity_company_ids(PDO $pdo, string $groupScope): array
     }
 
     if ($ids === []) {
-        $ensured = userlist_ensure_group_entity_company_id($pdo, $g);
-        if ($ensured > 0) {
-            $ids[] = $ensured;
+        $anchor = gc_resolve_group_anchor_company_id($pdo, $g);
+        if ($anchor > 0) {
+            $ids[] = $anchor;
         }
     }
 
     if ($ids === []) {
-        $placeholderStmt = $pdo->prepare("
-            SELECT id
-            FROM company
-            WHERE TRIM(COALESCE(company_id, '')) = ''
-              AND UPPER(TRIM(group_id)) = ?
-            ORDER BY id ASC
-        ");
-        $placeholderStmt->execute([$g]);
-        foreach ($placeholderStmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
-            $nid = (int) $id;
-            if ($nid > 0) {
-                $ids[] = $nid;
+        foreach (gc_company_numeric_ids_for_group_code($pdo, $g) as $subId) {
+            if ($subId > 0) {
+                $ids[] = $subId;
             }
         }
     }

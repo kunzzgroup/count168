@@ -1,6 +1,7 @@
 <?php
 require_once '../../includes/session_check.php';
 require_once '../../includes/config.php';
+require_once '../../includes/group_company_access.php';
 require_once '../includes/money_decimal.php';
 require_once '../includes/ownership_history.php';
 
@@ -52,6 +53,9 @@ try {
             ];
         }
     }
+
+    $companies = gc_filter_real_company_rows($companies);
+    $companies = gc_apply_login_scope_company_filter($pdo, $companies);
 
     // Get total ownership assigned for each company
     if (count($companies) > 0) {

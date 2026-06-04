@@ -315,6 +315,9 @@ $payload = [
     'login_group_id' => isset($_SESSION['login_group_id']) && trim((string) $_SESSION['login_group_id']) !== ''
         ? strtoupper(trim((string) $_SESSION['login_group_id']))
         : null,
+    'login_group_scope_id' => isset($_SESSION['login_group_scope_id']) && (int) $_SESSION['login_group_scope_id'] > 0
+        ? (int) $_SESSION['login_group_scope_id']
+        : null,
     'accessible_group_ids' => gc_session_accessible_group_ids(),
     'needs_owner_secondary' => $needsOwnerSecondary,
     'needs_user_secondary' => $needsUserSecondary,

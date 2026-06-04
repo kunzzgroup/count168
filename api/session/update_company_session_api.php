@@ -122,6 +122,8 @@ try {
 
     try {
         $user_companies = getUserCompanies($pdo, $current_user_id, $current_user_role, $current_user_type);
+        $user_companies = gc_filter_real_company_rows($user_companies);
+        $user_companies = gc_apply_login_scope_company_filter($pdo, $user_companies);
     } catch (PDOException $e) {
         error_log("获取用户 company 列表失败: " . $e->getMessage());
         jsonResponse(false, '获取公司列表失败', null, 500);
@@ -156,11 +158,14 @@ try {
         exit;
     }
 
-    // NOTE:
-    // Permission is already validated by matching requested_company_id against
-    // getUserCompanies() result (same source as dashboard company visibility).
-    // Do not apply an additional group-scope assert here, otherwise some valid
-    // linked/virtual rows can be falsely rejected.
+    try {
+        $viewGroup = gc_session_login_identifier();
+        gc_assert_company_id_allowed_for_login_scope($pdo, $requested_company_id, $viewGroup);
+    } catch (RuntimeException $e) {
+        jsonResponse(false, '无权限访问该公司', null, 403);
+        exit;
+    }
+
     if ($blockedReason === 'expired') {
         jsonResponse(false, 'Company has expired', ['reason' => 'expired'], 403);
         exit;

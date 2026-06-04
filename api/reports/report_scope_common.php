@@ -122,9 +122,17 @@ function resolveReportRequestCompanyScope(PDO $pdo, array $get, string $category
         }
         $entityId = tx_resolve_group_entity_company_id($pdo, $groupId);
         if ($entityId <= 0) {
-            throw new Exception('无效的集团');
+            if (!gc_session_can_access_group_code($pdo, $groupId)) {
+                throw new Exception('无效的集团');
+            }
+            $subs = gc_company_numeric_ids_for_group_code($pdo, $groupId);
+            $entityId = $subs !== [] ? (int) $subs[0] : 0;
+            if ($entityId <= 0) {
+                throw new Exception('无效的集团');
+            }
+        } else {
+            assertGroupEntityAccess($pdo, $groupId, $entityId);
         }
-        assertGroupEntityAccess($pdo, $groupId, $entityId);
         $requestParams['company_id'] = (string) $entityId;
         if (trim((string) ($requestParams['view_group'] ?? '')) === '') {
             $requestParams['view_group'] = $groupId;

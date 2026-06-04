@@ -12,6 +12,8 @@ function session_user_payload_cache_key(): string
         (string) (int) ($_SESSION['read_only'] ?? 0),
         (string) (int) ($_SESSION['secondary_password_verified'] ?? 0),
         (string) ($_SESSION['login_scope'] ?? ''),
+        (string) ($_SESSION['login_identifier'] ?? ''),
+        (string) (int) ($_SESSION['login_group_scope_id'] ?? 0),
         (string) ($_SESSION['user_type'] ?? ''),
         (string) ($_SESSION['role'] ?? ''),
     ]);

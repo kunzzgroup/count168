@@ -242,6 +242,59 @@ export function companyToDomainPayloadEntry(c) {
   };
 }
 
+export function createEmptyGroup(groupCode) {
+  const code = String(groupCode || "").trim().toUpperCase();
+  const today = new Date().toISOString().split("T")[0];
+  const exp = calculateExpirationDate("1month", today);
+  return {
+    group_code: code,
+    expiration_date: exp,
+    originalExpirationDate: exp,
+    startDate: today,
+    selectedPeriod: null,
+    isExtending: false,
+    permissions: [],
+    fee_share_allocations: defaultFeeShareAllocations(),
+    apply_commission_payments_on_domain_save: false,
+  };
+}
+
+/** API / temp group row → form state */
+export function groupFromApiRow(row) {
+  const code = String(row?.group_code ?? "").trim().toUpperCase();
+  const g = {
+    group_code: code,
+    expiration_date: row?.expiration_date || null,
+    permissions: Array.isArray(row?.permissions) ? row.permissions : [],
+    fee_share_allocations: normalizeFeeShareFromServer(row?.fee_share_allocations),
+    apply_commission_payments_on_domain_save:
+      !!row?.apply_commission_payments_on_domain_save,
+  };
+  ensureCompanyFeeShare(g);
+  g.originalExpirationDate = g.expiration_date || null;
+  g.selectedPeriod = null;
+  g.startDate = new Date().toISOString().split("T")[0];
+  g.isExtending = false;
+  return g;
+}
+
+export function groupToDomainPayloadEntry(g) {
+  return {
+    group_code: g.group_code,
+    expiration_date: g.expiration_date,
+    permissions: Array.isArray(g.permissions) ? g.permissions : [],
+    fee_share_allocations: normalizeFeeShareFromServer(g.fee_share_allocations),
+    apply_commission_payments_on_domain_save:
+      !!g.apply_commission_payments_on_domain_save,
+  };
+}
+
+export function tempGroupCode(groupOrCode) {
+  if (groupOrCode == null) return "";
+  if (typeof groupOrCode === "string") return groupOrCode.trim().toUpperCase();
+  return String(groupOrCode.group_code ?? "").trim().toUpperCase();
+}
+
 // ===================== Display Helpers =====================
 
 /** Domain Price 弹窗未配置时的默认金额（1 年，兼容旧逻辑） */
@@ -285,15 +338,21 @@ export function normalizeDomainPeriodPricesFromApi(raw) {
 }
 
 /**
- * 按所选周期取 Domain Price（Company Settings 中 C168 金额基数）
+ * 按所选周期取 Domain Price（Settings 弹窗中分成基数）
  * @param {Record<string, string>|null|undefined} periodPrices
  * @param {string} period
+ * @param {'company'|'group'} [feeKind]
  */
-export function resolveDomainFeePriceForPeriod(periodPrices, period) {
+export function resolveDomainFeePriceForPeriod(periodPrices, period, feeKind = "company") {
   if (!period) return 0;
   if (periodPrices && periodPrices[period] !== undefined && periodPrices[period] !== "") {
     const n = Number(periodPrices[period]);
     if (isFinite(n)) return n;
+  }
+  const flatKey = feeKind === "group" ? "group_price" : "company_price";
+  if (periodPrices && periodPrices[flatKey] !== undefined && periodPrices[flatKey] !== "") {
+    const flat = Number(periodPrices[flatKey]);
+    if (isFinite(flat)) return flat;
   }
   return 0;
 }

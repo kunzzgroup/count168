@@ -25,28 +25,9 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
  * 从 JSON 请求体中解析并验证 company_id
  */
 function getCompanyIdFromInput(PDO $pdo, array $input) {
-    $requested = isset($input['company_id']) ? trim((string)$input['company_id']) : '';
-    if ($requested !== '') {
-        $requested = (int)$requested;
-        $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-        if ($userRole === 'owner') {
-            $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-            $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
-            $stmt->execute([$requested, $owner_id]);
-            if ($stmt->fetchColumn()) {
-                return $requested;
-            }
-            throw new Exception('无权访问该公司');
-        }
-        if (!isset($_SESSION['company_id']) || (int)$_SESSION['company_id'] !== $requested) {
-            throw new Exception('无权访问该公司');
-        }
-        return (int)$_SESSION['company_id'];
-    }
-    if (!isset($_SESSION['company_id'])) {
-        throw new Exception('用户未登录或缺少公司信息');
-    }
-    return (int)$_SESSION['company_id'];
+    $scope = formulaMaintenanceResolveRequestScope($pdo, $input);
+
+    return (int) $scope['company_id'];
 }
 
 /**

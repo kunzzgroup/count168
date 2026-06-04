@@ -15,38 +15,10 @@ function tx_normalize_view_group(?string $viewGroup): ?string
     return $g !== '' ? $g : null;
 }
 
-/** Match accountlistapi resolveGroupEntityCompanyId — group entity numeric id from DB. */
+/** Group anchor company pk: legacy entity row, else first subsidiary (groups + group_company_map). */
 function tx_resolve_group_entity_company_id(PDO $pdo, string $groupId): int
 {
-    $g = strtoupper(trim($groupId));
-    if ($g === '') {
-        return 0;
-    }
-
-    $stmt = $pdo->prepare('
-        SELECT id
-        FROM company
-        WHERE UPPER(TRIM(company_id)) = ?
-        ORDER BY id ASC
-        LIMIT 1
-    ');
-    $stmt->execute([$g]);
-    $id = (int) ($stmt->fetchColumn() ?: 0);
-    if ($id > 0) {
-        return $id;
-    }
-
-    $placeholderStmt = $pdo->prepare("
-        SELECT id
-        FROM company
-        WHERE TRIM(COALESCE(company_id, '')) = ''
-          AND UPPER(TRIM(group_id)) = ?
-        ORDER BY id ASC
-        LIMIT 1
-    ");
-    $placeholderStmt->execute([$g]);
-
-    return (int) ($placeholderStmt->fetchColumn() ?: 0);
+    return gc_resolve_group_anchor_company_id($pdo, $groupId);
 }
 
 /**
@@ -152,5 +124,13 @@ function tx_resolve_request_company_id(PDO $pdo, array $params): int
         throw new Exception('缺少公司信息');
     }
 
-    return (int) $_SESSION['company_id'];
+    $sessionCompanyId = (int) $_SESSION['company_id'];
+    if (gc_is_group_login()) {
+        $view = $viewGroup ?? $groupScope ?? gc_session_login_identifier();
+        if (!gc_session_can_access_company_id($pdo, $sessionCompanyId, $view)) {
+            throw new Exception('无权访问该公司');
+        }
+    }
+
+    return $sessionCompanyId;
 }
