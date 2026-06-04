@@ -9,6 +9,11 @@ import {
   resolveRowCompanyCode,
 } from "../../utils/company/sidebarCompanySwitch.js";
 import {
+  applyTenantLedgerToParams,
+  resolveModalLedgerScope,
+  resolvePageLedgerScope,
+} from "../../utils/company/tenantLedgerParams.js";
+import {
   clearDashboardGroupFilterKeepCompany,
   companiesForCompanyPicker,
   companiesInGroupList,
@@ -1445,54 +1450,43 @@ export default function AccountListPage() {
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
+  const pageLedgerScope = useMemo(
+    () =>
+      resolvePageLedgerScope({
+        groupOnly: groupOnlyAccountMode,
+        selectedGroup,
+        companyId,
+        sessionMe,
+      }),
+    [groupOnlyAccountMode, selectedGroup, companyId, sessionMe],
+  );
+
   const appendAccountScopeParams = useCallback(
     (params) => {
-      const gid =
-        (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
-        (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null);
-      const isGroupOnly = groupOnlyAccountMode;
-      const setParam = (key, value) => {
-        if (params instanceof URLSearchParams) {
-          params.set(key, value);
-        } else if (params instanceof FormData) {
-          params.set(key, value);
-        }
-      };
-      if (gid) setParam("group_id", gid);
-      if (isGroupOnly) {
-        setParam("group_only", "1");
-        return;
-      }
-      if (companyId) setParam("company_id", String(companyId));
-      else if (scopeCompanyId) setParam("company_id", String(scopeCompanyId));
+      applyTenantLedgerToParams(params, pageLedgerScope);
     },
-    [selectedGroup, groupOnlyAccountMode, companyId, scopeCompanyId, sessionMe],
+    [pageLedgerScope],
   );
 
   const appendCurrencyScopeParams = appendAccountScopeParams;
 
   const appendModalCurrencyScopeParams = useCallback(
     (params, scopeOverride = null) => {
-      const scope = scopeOverride ?? modalLedgerScopeRef.current ?? modalLedgerScope;
-      const ledgerGroup = String(scope?.group_code || "").trim().toUpperCase();
-      if (scope?.mode === "group" && ledgerGroup) {
-        const setParam = (key, value) => {
-          if (params instanceof URLSearchParams) params.set(key, value);
-          else if (params instanceof FormData) params.set(key, value);
-        };
-        setParam("group_id", ledgerGroup);
-        setParam("group_only", "1");
-        return;
-      }
-      appendAccountScopeParams(params);
+      const modalScope = scopeOverride
+        ? resolveModalLedgerScope(pageLedgerScope, scopeOverride)
+        : resolveModalLedgerScope(
+            pageLedgerScope,
+            modalLedgerScopeRef.current ?? modalLedgerScope,
+          );
+      applyTenantLedgerToParams(params, modalScope);
     },
-    [modalLedgerScope, appendAccountScopeParams],
+    [pageLedgerScope, modalLedgerScope],
   );
 
-  const resolveActiveModalLedgerScope = useCallback(
-    () => modalLedgerScopeRef.current ?? modalLedgerScope,
-    [modalLedgerScope],
-  );
+  const resolveActiveModalLedgerScope = useCallback(() => {
+    const modal = modalLedgerScopeRef.current ?? modalLedgerScope;
+    return resolveModalLedgerScope(pageLedgerScope, modal);
+  }, [pageLedgerScope, modalLedgerScope]);
 
   const loadSelectionMeta = async (id, isEdit, { selectCode = null, ledgerScope = null } = {}) => {
     const scopeForRequest = ledgerScope ?? modalLedgerScopeRef.current ?? modalLedgerScope;
@@ -1743,20 +1737,13 @@ export default function AccountListPage() {
       return;
     }
     try {
+      const modalScope = resolveActiveModalLedgerScope();
       const payload = { code };
-      const activeLedger = resolveActiveModalLedgerScope();
-      const ledgerGroup = String(activeLedger?.group_code || "").trim().toUpperCase();
-      const gid =
-        ledgerGroup ||
-        (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
-        (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null);
-      if (gid) payload.group_id = gid;
-      if (activeLedger?.mode === "group" || groupOnlyAccountMode) {
+      if (modalScope.groupId) payload.group_id = modalScope.groupId;
+      if (modalScope.ledger === "group") {
         payload.group_only = true;
-      } else if (companyId) {
-        payload.company_id = Number(companyId);
-      } else if (scopeCompanyId) {
-        payload.company_id = Number(scopeCompanyId);
+      } else if (modalScope.companyId) {
+        payload.company_id = modalScope.companyId;
       }
       const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), credentials: "include" });
       const json = await res.json();
@@ -1770,7 +1757,7 @@ export default function AccountListPage() {
         if (/already exists/i.test(msg) && isEditMode && form.id) {
           await loadSelectionMeta(form.id, true, {
             selectCode: code,
-            ledgerScope: activeLedger,
+            ledgerScope: modalLedgerScopeRef.current ?? modalLedgerScope,
           });
           setCurrencyInput("");
           return;
@@ -1913,19 +1900,13 @@ export default function AccountListPage() {
       const deleteUrl = new URL(buildApiUrl("api/accounts/delete_currency_api.php"));
       appendModalCurrencyScopeParams(deleteUrl.searchParams);
       const deletePayload = { id };
-      const activeLedger = resolveActiveModalLedgerScope();
-      const ledgerGroup = String(activeLedger?.group_code || "").trim().toUpperCase();
-      const gid =
-        ledgerGroup ||
-        (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
-        (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null);
-      if (activeLedger?.mode === "group" || groupOnlyAccountMode) {
+      const modalScope = resolveActiveModalLedgerScope();
+      if (modalScope.ledger === "group") {
         deletePayload.group_only = true;
-        if (gid) deletePayload.group_id = gid;
+        if (modalScope.groupId) deletePayload.group_id = modalScope.groupId;
       } else {
-        if (companyId) deletePayload.company_id = Number(companyId);
-        else if (scopeCompanyId) deletePayload.company_id = Number(scopeCompanyId);
-        if (gid) deletePayload.group_id = gid;
+        if (modalScope.companyId) deletePayload.company_id = modalScope.companyId;
+        if (modalScope.groupId) deletePayload.group_id = modalScope.groupId;
       }
       const res = await fetch(deleteUrl.toString(), {
         method: "POST",

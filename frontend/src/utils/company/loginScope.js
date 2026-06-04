@@ -25,6 +25,11 @@ export function getLoginIdentifier(me) {
   return id || null;
 }
 
+/**
+ * Login scope from sign-in:
+ * - group: dashboard uses group_only ledger (AP/IG as group_code), never legacy group-entity company row
+ * - company: pick subsidiary company pills (group_id is view filter only)
+ */
 export function isGroupLogin(me) {
   return getLoginScope(me) === LOGIN_SCOPE_GROUP;
 }

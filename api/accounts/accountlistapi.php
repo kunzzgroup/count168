@@ -516,7 +516,9 @@ try {
                 ]);
                 exit;
             }
-            if ($explicitGroupOnly) {
+            $useGroupLedgerOnly = $explicitGroupOnly
+                || (function_exists('tenant_dual_tenant_enabled') && tenant_dual_tenant_enabled($pdo));
+            if ($useGroupLedgerOnly) {
                 $groupOnlyLedger = true;
                 $company_id = null;
             } else {

@@ -22,6 +22,39 @@ function tenant_table_has_scope_columns(PDO $pdo, string $table): bool
     return $cache[$key];
 }
 
+/** Dual-tenant schema: currency.scope_type separates group ledger from subsidiary rows. */
+function tenant_dual_tenant_enabled(PDO $pdo): bool
+{
+    return tenant_table_has_scope_columns($pdo, 'currency');
+}
+
+/**
+ * Group-only request: strip company_id so APIs never hit legacy group-entity company scope.
+ *
+ * @param array<string, mixed> $params
+ * @return array<string, mixed>
+ */
+function tenant_normalize_scope_params(array $params): array
+{
+    $groupOnly = !empty($params['group_only'])
+        && filter_var($params['group_only'], FILTER_VALIDATE_BOOLEAN);
+    if ($groupOnly) {
+        unset($params['company_id']);
+    }
+
+    return $params;
+}
+
+function tenant_request_is_group_only(array $params): bool
+{
+    if (!empty($params['group_only']) && filter_var($params['group_only'], FILTER_VALIDATE_BOOLEAN)) {
+        return true;
+    }
+
+    return function_exists('gc_is_group_login') && gc_is_group_login()
+        && empty($params['company_id']);
+}
+
 /**
  * @return array{mode: 'group'|'company', group_pk: int, company_id: int, group_code: string}
  */
@@ -39,7 +72,23 @@ function tenant_resolve_currency_context(
         if ($groupPk <= 0) {
             throw new Exception('无效的 group_id');
         }
-        $legacyId = $forceGroupLedger ? 0 : gc_resolve_legacy_group_entity_company_id($pdo, $groupCode);
+
+        $useGroupLedger = $forceGroupLedger || tenant_dual_tenant_enabled($pdo);
+        if ($useGroupLedger) {
+            $anchorId = gc_resolve_group_anchor_company_id($pdo, $groupCode);
+            if ($anchorId <= 0) {
+                throw new Exception('缺少 company_id');
+            }
+
+            return [
+                'mode' => 'group',
+                'group_pk' => $groupPk,
+                'company_id' => $anchorId,
+                'group_code' => $groupCode,
+            ];
+        }
+
+        $legacyId = gc_resolve_legacy_group_entity_company_id($pdo, $groupCode);
         if ($legacyId > 0) {
             return [
                 'mode' => 'company',
@@ -48,6 +97,7 @@ function tenant_resolve_currency_context(
                 'group_code' => $groupCode,
             ];
         }
+
         $anchorId = gc_resolve_group_anchor_company_id($pdo, $groupCode);
         if ($anchorId <= 0) {
             throw new Exception('缺少 company_id');
@@ -323,19 +373,20 @@ function tenant_fetch_currencies(PDO $pdo, array $ctx): array
  */
 function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): array
 {
+    $params = tenant_normalize_scope_params($params);
+
     $groupCode = gc_normalize_group_code((string) ($params['group_id'] ?? $params['view_group'] ?? ''));
     $requestedRaw = $params['company_id'] ?? null;
     $requestedId = ($requestedRaw !== null && trim((string) $requestedRaw) !== '') ? (int) $requestedRaw : 0;
     $groupOnly = !empty($params['group_only'])
         && filter_var($params['group_only'], FILTER_VALIDATE_BOOLEAN);
 
-    $forceGroupLedger = $groupOnly;
+    $forceGroupLedger = $groupOnly || tenant_dual_tenant_enabled($pdo);
     if ($groupOnly) {
         $requestedId = 0;
     }
-    // Group login defaults to group ledger only when no explicit subsidiary company_id was sent.
     if (
-        !$forceGroupLedger
+        !$groupOnly
         && $requestedId <= 0
         && function_exists('gc_is_group_login')
         && gc_is_group_login()
@@ -346,10 +397,8 @@ function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): 
         }
     }
 
-    if ($groupCode !== '' && ($requestedId <= 0 || $groupOnly || $forceGroupLedger)) {
-        return tenant_resolve_currency_context($pdo, null, $groupCode, $forceGroupLedger);
-    }
-    if ($requestedId > 0) {
+    // Subsidiary company pill wins: never map to legacy group-entity company row.
+    if ($requestedId > 0 && !$groupOnly) {
         return tenant_resolve_currency_context(
             $pdo,
             $requestedId,
@@ -357,6 +406,7 @@ function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): 
             false
         );
     }
+
     if ($groupCode !== '') {
         return tenant_resolve_currency_context($pdo, null, $groupCode, $forceGroupLedger);
     }

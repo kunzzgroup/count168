@@ -446,14 +446,10 @@ try {
         if ($group_scope_owner_id <= 0) {
             throw new Exception('无权限访问该公司');
         }
-        $forceGroupLedger = gc_is_group_login() || $explicit_group_only;
-        $legacy_entity_id = $forceGroupLedger
-            ? 0
-            : gc_resolve_legacy_group_entity_company_id($pdo, $group_scope_id);
-        if ($legacy_entity_id > 0) {
-            $company_id = $legacy_entity_id;
-            $forced_company_ids_to_link = [$legacy_entity_id];
-        } else {
+        $forceGroupLedger = gc_is_group_login()
+            || $explicit_group_only
+            || (function_exists('tenant_dual_tenant_enabled') && tenant_dual_tenant_enabled($pdo));
+        if ($forceGroupLedger) {
             $groupPk = gc_resolve_group_pk_by_code($pdo, $group_scope_id);
             $anchorId = gc_resolve_group_anchor_company_id($pdo, $group_scope_id);
             if ($groupPk <= 0 || $anchorId <= 0) {
@@ -461,6 +457,20 @@ try {
             }
             $company_id = $anchorId;
             $group_ledger_link = ['group_pk' => $groupPk, 'anchor_company_id' => $anchorId];
+        } else {
+            $legacy_entity_id = gc_resolve_legacy_group_entity_company_id($pdo, $group_scope_id);
+            if ($legacy_entity_id > 0) {
+                $company_id = $legacy_entity_id;
+                $forced_company_ids_to_link = [$legacy_entity_id];
+            } else {
+                $groupPk = gc_resolve_group_pk_by_code($pdo, $group_scope_id);
+                $anchorId = gc_resolve_group_anchor_company_id($pdo, $group_scope_id);
+                if ($groupPk <= 0 || $anchorId <= 0) {
+                    throw new Exception('Missing company information');
+                }
+                $company_id = $anchorId;
+                $group_ledger_link = ['group_pk' => $groupPk, 'anchor_company_id' => $anchorId];
+            }
         }
         if (gc_is_group_login()) {
             gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);

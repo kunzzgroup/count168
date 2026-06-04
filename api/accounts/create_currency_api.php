@@ -85,6 +85,9 @@ try {
 
     $raw = file_get_contents('php://input');
     $input = json_decode($raw, true);
+    if (is_array($input)) {
+        $input = tenant_normalize_scope_params($input);
+    }
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($input)) {
         http_response_code(400);
         jsonOut(false, 'Invalid JSON', null);
