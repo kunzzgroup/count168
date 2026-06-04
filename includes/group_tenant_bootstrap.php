@@ -83,7 +83,13 @@ function gc_ensure_group_entity_company_for_group_pk(
         return 0;
     }
 
-    $existing = gc_resolve_legacy_group_entity_company_id($pdo, $code);
+    $ownStmt = $pdo->prepare('
+        SELECT id FROM company
+        WHERE owner_id = ? AND UPPER(TRIM(company_id)) = ?
+        LIMIT 1
+    ');
+    $ownStmt->execute([$ownerId, $code]);
+    $existing = (int) ($ownStmt->fetchColumn() ?: 0);
     if ($existing > 0) {
         $upd = $pdo->prepare("
             UPDATE company
@@ -99,6 +105,17 @@ function gc_ensure_group_entity_company_for_group_pk(
             $existing,
         ]);
         return $existing;
+    }
+
+    $globalPk = gc_resolve_legacy_group_entity_company_id($pdo, $code);
+    if ($globalPk > 0) {
+        error_log(sprintf(
+            'gc_ensure_group_entity_company: skip group %s (owner %d); company_id already used by company pk %d',
+            $code,
+            $ownerId,
+            $globalPk
+        ));
+        return 0;
     }
 
     try {

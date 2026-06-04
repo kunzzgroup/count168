@@ -8,6 +8,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 START TRANSACTION;
 
 -- 1) Group entity company rows (AP, IG, …)
+-- company.company_id is globally UNIQUE; skip insert when any row already uses that code
+-- (e.g. group T1 vs an existing subsidiary company_id T1 under another owner).
 INSERT INTO company (company_id, owner_id, created_by, group_id, expiration_date, permissions)
 SELECT
   UPPER(TRIM(g.group_code)),
@@ -22,8 +24,7 @@ WHERE g.owner_id IS NOT NULL
   AND TRIM(g.group_code) <> ''
   AND NOT EXISTS (
     SELECT 1 FROM company c
-    WHERE c.owner_id = g.owner_id
-      AND UPPER(TRIM(c.company_id)) = UPPER(TRIM(g.group_code))
+    WHERE UPPER(TRIM(c.company_id)) = UPPER(TRIM(g.group_code))
   );
 
 -- Sync expiration/permissions onto existing entity rows
