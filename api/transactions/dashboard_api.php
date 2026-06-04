@@ -708,6 +708,96 @@ function dashboardAllowedCurrencyCodesForCompanies(PDO $pdo, array $companyIds):
 }
 
 /**
+ * Currency codes from Currency Setting on the group tenant (scope_type=group), if any rows exist.
+ *
+ * @return array<string, true>
+ */
+function dashboardAllowedCurrencyCodesForGroupTenant(PDO $pdo, string $groupCode): array
+{
+    $g = reportNormalizeGroupId($groupCode);
+    if ($g === '') {
+        return [];
+    }
+    $pk = gc_resolve_group_pk_by_code($pdo, $g);
+    if ($pk <= 0) {
+        return [];
+    }
+    $allowed = [];
+    try {
+        $stmt = $pdo->prepare("
+            SELECT UPPER(TRIM(code)) AS code
+            FROM currency
+            WHERE scope_type = 'group' AND scope_id = ?
+        ");
+        $stmt->execute([$pk]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $code) {
+            $up = strtoupper(trim((string) $code));
+            if ($up !== '') {
+                $allowed[$up] = true;
+            }
+        }
+    } catch (Throwable $e) {
+        return [];
+    }
+    return $allowed;
+}
+
+/**
+ * Restrict account currency map to group Currency Setting (group scope rows and/or anchor company table).
+ *
+ * @param array<int, string> $map
+ * @return array<int, string>
+ */
+function dashboardRestrictCurrencyMapToGroupTenant(PDO $pdo, string $groupCode, array $map): array
+{
+    if ($map === []) {
+        return [];
+    }
+
+    $groupAllowed = dashboardAllowedCurrencyCodesForGroupTenant($pdo, $groupCode);
+    $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+    $companyAllowed = $entityId > 0
+        ? dashboardAllowedCurrencyCodesForCompanies($pdo, [$entityId])
+        : [];
+
+    $allowed = $groupAllowed !== [] ? $groupAllowed : $companyAllowed;
+    if ($allowed === []) {
+        return $map;
+    }
+
+    $out = [];
+    foreach ($map as $id => $code) {
+        $up = strtoupper((string) $code);
+        if (isset($allowed[$up])) {
+            $out[(int) $id] = $up;
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * Group tab / group login: currencies from group-ledger accounts intersected with group Currency Setting.
+ *
+ * @return array<int, string>
+ */
+function dashboardResolveGroupScopeCurrencyMap(PDO $pdo, string $viewGroup): array
+{
+    $viewGroup = reportNormalizeGroupId($viewGroup);
+    if ($viewGroup === '') {
+        return [];
+    }
+
+    $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
+    $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
+    $companyIds = $entityId > 0 ? [$entityId] : [];
+
+    $map = dashboardLoadAccountCurrencyMap($pdo, $accountIds, $companyIds, false);
+
+    return dashboardRestrictCurrencyMapToGroupTenant($pdo, $viewGroup, $map);
+}
+
+/**
  * Keep only account_currency rows whose code exists on the scoped company currency table.
  *
  * @param array<int, string> $map
@@ -857,44 +947,38 @@ function dashboardResolveFilterCurrencyMap(
     int $groupScopeId = 0
 ): array {
     $viewGroupNorm = reportNormalizeGroupId($viewGroup ?? '');
-    $accountCurrencyOnly = $groupScopeId > 0 || $viewGroupNorm !== '';
     $companyIds = [];
 
     if ($groupScopeId > 0) {
         $groupCode = dashboardResolveGroupCodeFromScopeId($pdo, $groupScopeId);
         if ($groupCode !== '') {
-            $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $groupCode);
-            $entityId = tx_resolve_group_entity_company_id($pdo, $groupCode);
+            return dashboardResolveGroupScopeCurrencyMap($pdo, $groupCode);
+        }
+        return [];
+    }
+    if ($viewGroupNorm !== '' && $companyId <= 0) {
+        return dashboardResolveGroupScopeCurrencyMap($pdo, $viewGroupNorm);
+    }
+
+    $accountIds = dashboardCollectScopeAccountIds(
+        $pdo,
+        $companyId,
+        $viewGroupNorm !== '' ? $viewGroupNorm : null,
+        0
+    );
+    if ($companyId > 0) {
+        $companyIds[] = $companyId;
+        if ($viewGroupNorm !== '') {
+            $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
             if ($entityId > 0) {
-                $companyIds = [$entityId];
-            }
-        }
-    } elseif ($viewGroupNorm !== '' && $companyId <= 0) {
-        $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroupNorm);
-        $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
-        if ($entityId > 0) {
-            $companyIds = [$entityId];
-        }
-    } else {
-        $accountIds = dashboardCollectScopeAccountIds(
-            $pdo,
-            $companyId,
-            $viewGroupNorm !== '' ? $viewGroupNorm : null,
-            0
-        );
-        if ($companyId > 0) {
-            $companyIds[] = $companyId;
-            if ($viewGroupNorm !== '') {
-                $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
-                if ($entityId > 0) {
-                    $companyIds[] = $entityId;
-                }
+                $companyIds[] = $entityId;
             }
         }
     }
 
     $companyIds = array_values(array_unique($companyIds));
-    return dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $companyIds, $accountCurrencyOnly);
+
+    return dashboardFinalizeScopeCurrencyMap($pdo, $accountIds, $companyIds, false);
 }
 
 /**
