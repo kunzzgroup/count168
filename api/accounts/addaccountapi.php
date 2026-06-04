@@ -5,7 +5,6 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
-require_once __DIR__ . '/../../includes/group_tenant_bootstrap.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 
@@ -283,7 +282,17 @@ function insertAccount(PDO $pdo, array $row): int {
 }
 
 function linkAccountToCompanies(PDO $pdo, int $accountId, array $companyIds): void {
-    gc_link_account_to_companies($pdo, $accountId, $companyIds);
+    $stmt = $pdo->prepare("INSERT INTO account_company (account_id, company_id) VALUES (?, ?)");
+    foreach ($companyIds as $comp_id) {
+        try {
+            $stmt->execute([$accountId, $comp_id]);
+        } catch (PDOException $e) {
+            if ($e->getCode() != 23000) {
+                error_log("Error linking company to account: " . $e->getMessage());
+                throw $e;
+            }
+        }
+    }
 }
 
 function userCanAccessCompany(PDO $pdo, int $userId, int $companyId, string $role): bool {
@@ -399,7 +408,6 @@ try {
     }
 
     $forced_company_ids_to_link = [];
-    $forced_group_ledger = null;
     if ($group_scope_id !== null && (!$company_id || $company_id <= 0)) {
         $current_user_id = (int)($_SESSION['user_id'] ?? 0);
         $current_user_role = (string)($_SESSION['role'] ?? '');
@@ -412,33 +420,19 @@ try {
         if ($group_scope_owner_id <= 0) {
             throw new Exception('无权限访问该公司');
         }
-        $group_scope_pk = gc_resolve_group_pk_by_code($pdo, $group_scope_id);
-        if ($group_scope_pk <= 0) {
-            throw new Exception('无效的集团');
+        // Group-only mode must bind to the selected group entity only,
+        // not to all companies in that group (prevents AP data leaking into C168).
+        $group_entity_company_id = ensureGroupEntityCompanyId(
+            $pdo,
+            $group_scope_id,
+            $group_scope_owner_id,
+            $current_user_id
+        );
+        if ($group_entity_company_id <= 0) {
+            throw new Exception('Missing company information');
         }
-        if (gc_use_group_entity_company_row()) {
-            $group_entity_company_id = ensureGroupEntityCompanyId(
-                $pdo,
-                $group_scope_id,
-                $group_scope_owner_id,
-                $current_user_id
-            );
-            if ($group_entity_company_id <= 0) {
-                throw new Exception('Missing company information');
-            }
-            $company_id = $group_entity_company_id;
-            $forced_company_ids_to_link = [$group_entity_company_id];
-        } else {
-            $anchor_company_id = gc_resolve_group_anchor_company_id($pdo, $group_scope_id);
-            if ($anchor_company_id <= 0) {
-                throw new Exception('集团下没有子公司，无法创建集团账户');
-            }
-            $company_id = $anchor_company_id;
-            $forced_group_ledger = [
-                'group_pk' => $group_scope_pk,
-                'anchor_company_id' => $anchor_company_id,
-            ];
-        }
+        $company_id = $group_entity_company_id;
+        $forced_company_ids_to_link = [$group_entity_company_id];
         if (gc_is_group_login()) {
             gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
         }
@@ -577,16 +571,7 @@ try {
                 $company_ids_to_link[] = $company_id;
             }
 
-            if ($forced_group_ledger !== null) {
-                gc_link_account_to_group_ledger(
-                    $pdo,
-                    $newAccountId,
-                    (int) $forced_group_ledger['group_pk'],
-                    (int) $forced_group_ledger['anchor_company_id']
-                );
-            } else {
-                linkAccountToCompanies($pdo, $newAccountId, $company_ids_to_link);
-            }
+            linkAccountToCompanies($pdo, $newAccountId, $company_ids_to_link);
             $users = getUsersWithCompanyAccess($pdo, $company_ids_to_link);
             updateUserAccountPermissionsForNewAccount($pdo, $users, $company_ids_to_link, $newAccountId, $account_id);
 

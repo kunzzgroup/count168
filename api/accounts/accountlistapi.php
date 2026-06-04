@@ -462,13 +462,9 @@ try {
                 gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
             }
         } else {
+            $group_entity_company_id = resolveGroupEntityCompanyId($pdo, $group_scope_id);
             $groupScopePk = gc_resolve_group_pk_by_code($pdo, $group_scope_id);
-            $group_entity_company_id = gc_use_group_entity_company_row()
-                ? resolveGroupEntityCompanyId($pdo, $group_scope_id)
-                : 0;
-            if ($groupScopePk > 0 && !gc_use_group_entity_company_row()) {
-                $groupOnlyLedger = true;
-            } elseif ($group_entity_company_id <= 0 && $groupScopePk <= 0) {
+            if ($group_entity_company_id <= 0 && $groupScopePk <= 0) {
                 echo json_encode([
                     'success' => true,
                     'message' => '',

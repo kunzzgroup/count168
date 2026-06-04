@@ -3,8 +3,6 @@
  * Domain API — groups table (separate from company group_id labels).
  */
 
-require_once __DIR__ . '/../../includes/group_tenant_bootstrap.php';
-
 function domainApiHasGroupsTable(PDO $pdo): bool
 {
     try {
@@ -362,17 +360,23 @@ function domainApiSyncGroupCompanyMap(PDO $pdo, int $ownerId): void
 }
 
 /**
- * After groups save: entity company rows (AP/IG), group ledger scope, module policy, user_group_map.
+ * Remove legacy group-only company rows (empty company_id) for this owner after groups table save.
  */
-function domainApiBootstrapOwnerGroupTenants(PDO $pdo, int $ownerId, string $createdBy = 'system'): void
-{
-    gc_bootstrap_owner_group_tenants($pdo, $ownerId, $createdBy);
-}
-
-/** @deprecated Use domainApiBootstrapOwnerGroupTenants */
 function domainApiDeleteGroupOnlyCompanyRows(PDO $pdo, int $ownerId): void
 {
-    domainApiBootstrapOwnerGroupTenants($pdo, $ownerId, 'system');
+    if ($ownerId <= 0) {
+        return;
+    }
+    $stmt = $pdo->prepare("
+        SELECT id FROM company
+        WHERE owner_id = ?
+          AND (company_id IS NULL OR TRIM(company_id) = '')
+    ");
+    $stmt->execute([$ownerId]);
+    $ids = normalizeIds($stmt->fetchAll(PDO::FETCH_COLUMN));
+    if ($ids !== []) {
+        deleteByIds($pdo, 'company', 'id', $ids);
+    }
 }
 
 /**
