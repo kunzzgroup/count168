@@ -1015,6 +1015,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     color: #ef4444;
 }
 
+.dashboard-kpi-card--net .kpi-card-head-icon {
+    color: #10b981;
+}
+
 .dashboard-kpi-card--positive .kpi-card-head-icon {
     color: #22c55e;
 }
