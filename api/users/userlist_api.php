@@ -307,7 +307,10 @@ function userlist_assert_group_id_allowed(string $groupId): void
         sendResponse(false, 'Invalid group');
     }
     if (!gc_is_group_login()) {
-        sendResponse(false, 'Group filter is not allowed for company login');
+        $role = isset($_SESSION['role']) ? strtolower(trim((string) $_SESSION['role'])) : '';
+        if ($role !== 'owner') {
+            sendResponse(false, 'Group filter is not allowed for company login');
+        }
     }
     $accessible = gc_session_accessible_group_ids();
     if ($accessible === [] || !in_array($g, $accessible, true)) {
@@ -455,12 +458,12 @@ function userlist_group_entity_company_ids(PDO $pdo, string $groupScope): array
 
 function userlist_is_group_only_list_request(array $input): bool
 {
-    if (!empty($input['group_only']) || !empty($input['group_aggregate'])) {
-        return userlist_normalize_group_id($input['group_id'] ?? null) !== null;
-    }
     $groupId = userlist_normalize_group_id($input['group_id'] ?? null);
     if ($groupId === null) {
         return false;
+    }
+    if (!empty($input['group_only']) || !empty($input['group_aggregate'])) {
+        return true;
     }
     if (!empty($input['groups_all']) || !empty($input['group_all'])) {
         return false;
