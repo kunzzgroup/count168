@@ -4267,6 +4267,13 @@ body.process-page > .process-modal {
     margin-right: auto !important;
 }
 
+/* React process-form-modal：勿用旧版 min-height 撑满视口，避免 Multi-Process 展开时出现外壳滚动条 */
+.process-page #addModal .modal-content.process-form-modal,
+.process-page #editModal .modal-content.process-form-modal {
+    min-height: 0 !important;
+    height: auto !important;
+}
+
 .process-page #addModal .modal-body {
     padding: 1.2rem 1.6rem 1rem 1.6rem !important;
 }
@@ -4968,9 +4975,13 @@ body.process-page > .process-modal {
     gap: var(--process-form-modal-multi-list-row-gap, var(--desc-modal-list-item-gap))
         var(--process-form-modal-multi-grid-col-gap, calc(var(--desc-modal-list-item-gap) * 1.65));
     margin-top: var(--process-form-modal-multi-list-row-gap, var(--desc-modal-list-item-gap));
-    max-height: var(--process-form-modal-multi-list-min-h, var(--desc-modal-list-min-h));
+    height: auto;
+    min-height: 0;
+    max-height: var(--process-form-modal-multi-list-max-h, clamp(6.5rem, 14vh, 9.5rem));
+    flex: 0 1 auto;
     overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
@@ -5032,7 +5043,7 @@ body.process-page > .process-modal {
     min-width: 0 !important;
     max-width: 100% !important;
     font-family: var(--font-ui) !important;
-    font-size: var(--process-form-modal-multi-list-text, var(--desc-modal-list-text, var(--text-tiny))) !important;
+    font-size: var(--process-form-modal-multi-list-text, var(--process-form-modal-control-size, var(--text-small))) !important;
     font-weight: 400 !important;
     line-height: var(--process-form-modal-multi-item-line-height, 1.35) !important;
     cursor: pointer;
@@ -6643,7 +6654,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 }
 
 /* Hard fallback: ensure Add Process modal stays readable even if parent wrapper class changes */
-#addModal .modal-content {
+#addModal .modal-content:not(.process-form-modal) {
     width: clamp(900px, 84vw, 1120px) !important;
     max-width: 1120px !important;
     min-height: clamp(500px, 66vh, 660px) !important;
@@ -7186,8 +7197,24 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     flex: 1 1 auto;
     min-height: 0;
     padding: var(--process-form-modal-pad, var(--space-card));
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
+}
+
+/* Multi-Process 区块：列表独占滚动，不把 modal-body 撑出纵向滚动条 */
+.process-form-modal #multi_use_processes .form-group,
+#addModal .modal-content.process-form-modal #multi_use_processes .form-group,
+#multi_use_processes .form-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+    min-width: 0;
+}
+
+.process-form-modal #multi_use_processes .multi-use-actions,
+#addModal .modal-content.process-form-modal #multi_use_processes .multi-use-actions {
+    flex-shrink: 0;
+    margin-top: var(--process-form-modal-multi-list-row-gap, var(--desc-modal-list-item-gap));
 }
 
 .process-form-modal .process-form.add-grid,
