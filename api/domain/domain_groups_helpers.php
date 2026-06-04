@@ -15,7 +15,7 @@ function domainApiHasGroupsTable(PDO $pdo): bool
 
 /**
  * @param mixed $groups
- * @return array<int, array<string, mixed>>
+ * @return array<int, array<string, mixe>>
  */
 function domainApiNormalizeGroupsPayload($groups): array
 {
