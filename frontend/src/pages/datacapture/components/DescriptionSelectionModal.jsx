@@ -10,7 +10,7 @@ function normalizeCatalog(json) {
   return raw
     .map((d) => ({
       id: d.id,
-      name: d.name != null ? String(d.name) : "",
+      name: d.name != null ? String(d.name).trim().toUpperCase() : "",
     }))
     .filter((d) => d.name && d.id != null);
 }
@@ -49,7 +49,11 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
 
   useEffect(() => {
     if (!open) return;
-    setPendingNames(Array.isArray(window.selectedDescriptions) ? [...window.selectedDescriptions] : []);
+    setPendingNames(
+      (Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : []).map((n) =>
+        String(n).trim().toUpperCase(),
+      ),
+    );
     setSearch("");
     setNewName("");
     void loadCatalog();
@@ -78,7 +82,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
   const handleAdd = useCallback(
     async (e) => {
       e.preventDefault();
-      const trimmed = newName.trim();
+      const trimmed = newName.trim().toUpperCase();
       if (!trimmed || !companyId) return;
       try {
         const result = await postAddDescription(companyId, trimmed);
@@ -178,7 +182,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                 ) : (
                   pendingNames.map((name) => (
                     <div key={name} className="selected-description-modal-item">
-                      <span>{name}</span>
+                      <span>{String(name).toUpperCase()}</span>
                       <button type="button" className="remove-description-modal" onClick={() => removeSelected(name)}>
                         &times;
                       </button>
@@ -200,6 +204,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                       required
                       value={newName}
                       onChange={(e) => setNewName(e.target.value.toUpperCase())}
+                      style={{ textTransform: "uppercase" }}
                     />
                     <button type="submit" className="btn btn-save">
                       {t("add")}
@@ -233,7 +238,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                           checked={pendingNames.includes(d.name)}
                           onChange={(e) => toggleName(d.name, e.target.checked)}
                         />
-                        <label htmlFor={`desc_${d.id}`}>{d.name}</label>
+                        <label htmlFor={`desc_${d.id}`}>{String(d.name).toUpperCase()}</label>
                       </div>
                       <button
                         type="button"

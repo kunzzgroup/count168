@@ -2,6 +2,11 @@ import { excludeGroupLabelsFromCompanyPicker } from "../../utils/company/sharedC
 
 export const PAGE_SIZE = 25;
 
+/** Description 名称：输入与保存统一大写 */
+export function normalizeDescriptionName(raw) {
+  return String(raw ?? "").trim().toUpperCase();
+}
+
 export const EMPTY_FORM = {
   id: "",
   process_name: "",

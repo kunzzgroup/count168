@@ -607,10 +607,12 @@ export default function ProcessListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return null;
     }
+    const normalizedName = String(descName || "").trim().toUpperCase();
+    if (!normalizedName) return null;
     try {
       const fd = new FormData();
       fd.append("action", "add_description");
-      fd.append("description_name", descName);
+      fd.append("description_name", normalizedName);
       if (companyId) fd.append("company_id", String(companyId));
       const res = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
         method: "POST",
@@ -629,7 +631,7 @@ export default function ProcessListPage() {
       notify(t("descAdded"), "success");
       await reloadDescriptions();
       const newId = json?.data?.description_id ?? json?.description_id;
-      return newId != null ? { id: newId, name: descName } : null;
+      return newId != null ? { id: newId, name: normalizedName } : null;
     } catch {
       notify(t("failedAddDescription"), "danger");
       return null;

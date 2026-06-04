@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
+import { normalizeDescriptionName } from "../processListHelpers.js";
 
 export default function DescriptionPickerModal({
   descriptions,
@@ -34,13 +35,14 @@ export default function DescriptionPickerModal({
   const handleAdd = async (e) => {
     e.preventDefault();
     if (ro) return;
-    if (!newDescName.trim()) return;
-    const added = await onAddDescription(newDescName.trim());
+    const name = normalizeDescriptionName(newDescName);
+    if (!name) return;
+    const added = await onAddDescription(name);
     setNewDescName("");
     if (added?.id != null) {
       setLocalSelected((prev) => {
         if (prev.some((item) => String(item.id) === String(added.id))) return prev;
-        return [...prev, { id: added.id, name: added.name }];
+        return [...prev, { id: added.id, name: normalizeDescriptionName(added.name) }];
       });
     }
   };
@@ -95,7 +97,8 @@ export default function DescriptionPickerModal({
                       placeholder={t("enterNewDescriptionName")}
                       value={newDescName}
                       disabled={ro}
-                      onChange={(e) => setNewDescName(e.target.value)}
+                      onChange={(e) => setNewDescName(e.target.value.toUpperCase())}
+                      style={{ textTransform: "uppercase" }}
                       required
                     />
                     <button type="submit" className="btn btn-save" disabled={ro}>
