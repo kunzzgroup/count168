@@ -136,20 +136,30 @@
   --letter-spacing-page-title: -0.025em;
 
   /*
-   * Description picker modal（Process List / Data Capture）
-   * 字号走 --text-* 阶梯；间距走 --space-*；色走 --color-*。
+   * Add/Edit Process modal（Process List）— 外壳宽高为 Description picker 共用基准
    */
-  /* 默认（手机/平板）：与 PHP 一致 1040px 封顶；大屏见下方 @media */
-  --desc-modal-width: min(1040px, calc(100vw - 48px));
-  --desc-modal-margin-block: 4vh;
-  --desc-modal-max-height: 90vh;
-  /* 与 margin-block 配套：白框底边对齐遮罩可用区域（箭头示意） */
-  --desc-modal-min-height: min(var(--desc-modal-max-height), calc(100vh - 2 * var(--desc-modal-margin-block)));
-  --desc-modal-radius: 0.75rem;
-  --desc-modal-pad-block: var(--space-card);
-  --desc-modal-pad-inline: var(--space-card);
-  --desc-modal-title-size: var(--text-page-title);
-  --desc-modal-section-size: var(--text-h3);
+  --process-form-modal-width: min(1040px, calc(100vw - 48px));
+  --process-form-modal-max-height: 92vh;
+  --process-form-modal-radius: 0.75rem;
+  --process-form-modal-pad: var(--space-card);
+  --process-form-modal-title-size: var(--text-page-title);
+  --process-form-modal-section-size: var(--text-h3);
+  --process-form-modal-label-size: var(--text-medium);
+  --process-form-modal-control-size: var(--text-small);
+  --process-form-modal-hint-size: var(--text-small);
+  --process-form-modal-control-min-h: clamp(2.75rem, 2.25vw, 3.25rem);
+
+  /*
+   * Description picker modal（Process List / Data Capture）
+   * 外壳宽/高与 Add Process 一致；字号走 --text-* 阶梯。
+   */
+  --desc-modal-width: var(--process-form-modal-width);
+  --desc-modal-max-height: var(--process-form-modal-max-height);
+  --desc-modal-radius: var(--process-form-modal-radius);
+  --desc-modal-pad-block: var(--process-form-modal-pad);
+  --desc-modal-pad-inline: var(--process-form-modal-pad);
+  --desc-modal-title-size: var(--process-form-modal-title-size);
+  --desc-modal-section-size: var(--process-form-modal-section-size);
   --desc-modal-list-text: var(--text-tiny);
   --desc-modal-body-size: var(--text-tiny);
   --desc-modal-empty-size: var(--text-tiny);
@@ -163,20 +173,6 @@
   --desc-modal-selected-bg: var(--color-surface-info-tint);
   --desc-modal-selected-fg: var(--color-primary-strong);
   --desc-modal-delete-fg: var(--color-danger-text-strong);
-
-  /*
-   * Add/Edit Process modal（Process List）
-   */
-  --process-form-modal-width: min(1040px, calc(100vw - 48px));
-  --process-form-modal-max-height: 92vh;
-  --process-form-modal-radius: var(--desc-modal-radius);
-  --process-form-modal-pad: var(--space-card);
-  --process-form-modal-title-size: var(--text-page-title);
-  --process-form-modal-section-size: var(--text-h3);
-  --process-form-modal-label-size: var(--text-medium);
-  --process-form-modal-control-size: var(--text-small);
-  --process-form-modal-hint-size: var(--text-small);
-  --process-form-modal-control-min-h: clamp(2.75rem, 2.25vw, 3.25rem);
 
   /* --- 主区水平留白（userlist / ownership 容器）--- */
   --page-pad-inline-end: 4rem;
@@ -460,21 +456,16 @@
 /* Description picker / Process form：≥992px 略加宽；小屏不变 */
 @media (min-width: 62rem) {
   :root {
-    --desc-modal-width: min(1120px, calc(100vw - 40px));
-    --desc-modal-list-min-h: clamp(16rem, 40vh, 23.5rem);
-    --desc-modal-max-height: 94vh;
     --process-form-modal-width: min(1120px, calc(100vw - 40px));
     --process-form-modal-max-height: 94vh;
+    --desc-modal-list-min-h: clamp(16rem, 40vh, 23.5rem);
   }
 }
 
 /* 手机竖屏单栏：列表略矮，避免弹窗过高 */
 @media (max-width: 40rem) {
   :root {
-    --desc-modal-margin-block: 3vh;
     --desc-modal-list-min-h: clamp(10rem, 22vh, 13.5rem);
-    --desc-modal-max-height: 88vh;
-    --desc-modal-min-height: min(var(--desc-modal-max-height), calc(100vh - 2 * var(--desc-modal-margin-block)));
   }
 }
 

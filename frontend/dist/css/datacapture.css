@@ -1008,16 +1008,16 @@ body.datacapture-page .bottom-section .form-actions {
 /* Description Selection Modal — align with Process List / app-wide modal pattern */
 .modal-content.description-selection-modal,
 #descriptionSelectionModal.modal.show > .modal-content.description-selection-modal {
-    width: var(--desc-modal-width, min(1040px, calc(100vw - 48px)));
-    max-width: var(--desc-modal-width, min(1040px, calc(100vw - 48px)));
-    min-height: var(--desc-modal-min-height, min(var(--desc-modal-max-height, 90vh), calc(100vh - 8vh)));
-    height: var(--desc-modal-min-height, min(var(--desc-modal-max-height, 90vh), calc(100vh - 8vh)));
-    max-height: var(--desc-modal-max-height, 90vh);
-    border-radius: 12px;
+    width: var(--process-form-modal-width, var(--desc-modal-width, min(1040px, calc(100vw - 48px))));
+    max-width: var(--process-form-modal-width, var(--desc-modal-width, min(1040px, calc(100vw - 48px))));
+    min-height: 0;
+    height: auto;
+    max-height: var(--process-form-modal-max-height, var(--desc-modal-max-height, 92vh));
+    border-radius: var(--desc-modal-radius, 12px);
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    margin: var(--desc-modal-margin-block, 4vh) auto;
+    margin: 4vh auto;
     box-sizing: border-box;
 }
 
@@ -1173,10 +1173,10 @@ body.datacapture-page .bottom-section .form-actions {
 .modal-content.description-selection-modal .available-descriptions-section,
 .available-descriptions-section {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
     padding-left: 8px;
     overflow: hidden;
-    align-content: stretch;
+    align-content: start;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-section h3,
@@ -1250,9 +1250,9 @@ body.datacapture-page .bottom-section .form-actions {
 .modal-content.description-selection-modal .description-list {
     width: 100%;
     box-sizing: border-box;
-    height: 100%;
+    height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
     min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
-    max-height: none;
+    max-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
     overflow-y: auto;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
