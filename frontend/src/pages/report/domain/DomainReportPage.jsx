@@ -5,11 +5,14 @@ import {
   getCachedOwnerCompanies,
   DASHBOARD_GROUP_FILTER_KEY,
   isDashboardGroupOnlyMode,
+  persistDashboardGroupOnlyMode,
+  readPersistedDashboardGcFilter,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { isGroupLogin, maintenancePageAllowGroupOnlyPill } from "../../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
@@ -114,6 +117,7 @@ export default function DomainReportPage() {
   const pageBootOnceRef = useRef(false);
   const prevCompanyIdRef = useRef(null);
   const prevScopeKeyRef = useRef(null);
+  const prevScopeModeRef = useRef(null);
   /** Per-company / per-group currency filter prefs */
   const currencyPrefsByCompanyRef = useRef({});
   const selectedCurrenciesRef = useRef(selectedCurrencies);
@@ -211,20 +215,24 @@ export default function DomainReportPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        const effective = resolveBootCompanyId({
+        const persisted = readPersistedDashboardGcFilter();
+        let effective = resolveBootCompanyId({
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
+        if (persisted.groupOnly || (isGroupLogin(u) && !queryCompany)) {
+          effective = null;
+          persistDashboardGroupOnlyMode(true);
+        }
+        const bootGroupOnly = persisted.groupOnly || (isGroupLogin(u) && effective == null);
         const nextCompanyId =
-          companyId != null ? companyId : effective != null || isDashboardGroupOnlyMode() ? effective : null;
+          companyId != null ? companyId : bootGroupOnly ? null : effective;
         const row =
           nextCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
             : null;
-        if (nextCompanyId != null || isDashboardGroupOnlyMode()) {
-          setCompanyId((prev) => (prev != null ? prev : effective));
-        }
+        setCompanyId((prev) => (prev != null ? prev : nextCompanyId));
         setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
         if (nextCompanyId != null) void checkBankOnly(nextCompanyId);
       } catch {
@@ -267,20 +275,19 @@ export default function DomainReportPage() {
   const handleClearCompany = useCallback((groupForScope) => {
     invalidateReportFetch();
     setCompanyId(null);
-    setCompanyHighlightId(null);
     setError("");
     setProcessId("");
     const groupKey = groupForScope ? String(groupForScope).trim().toUpperCase() : "";
-    if (!groupKey) {
-      setCurrencyFilterReady(false);
-    } else {
-      setCurrencyFilterReady(false);
+    if (groupKey) {
+      persistDashboardGroupOnlyMode(true);
     }
+    setCurrencyFilterReady(false);
   }, [invalidateReportFetch]);
 
   const onPrepareCompanySelect = useCallback((c) => {
     const nextId = Number(c?.id);
     if (!nextId) return;
+    persistDashboardGroupOnlyMode(false);
     flushSync(() => setCompanyId(nextId));
     if (reportDataRef.current != null) setReportSyncing(true);
     startTransition(() => {
@@ -339,6 +346,7 @@ export default function DomainReportPage() {
     switchingCompany: false,
     preferredCompanyId: companyId,
     me,
+    forceAllowGroupOnly: maintenancePageAllowGroupOnlyPill(me),
   });
 
   const reportScope = useMemo(
@@ -445,18 +453,24 @@ export default function DomainReportPage() {
       }
       setCurrencyList(curs);
 
-      if (applySavedCurrencyPrefs(reportScope, curs)) return;
+      const scopeModeChanged =
+        prevScopeModeRef.current != null && prevScopeModeRef.current !== reportScope?.mode;
+      prevScopeModeRef.current = reportScope?.mode ?? null;
 
-      if (showAllCurrenciesRef.current) {
+      if (!scopeModeChanged && applySavedCurrencyPrefs(reportScope, curs)) return;
+
+      if (!scopeModeChanged && showAllCurrenciesRef.current) {
         setShowAllCurrencies(true);
         setSelectedCurrencies([]);
         persistCurrencyPrefs(reportScope, [], true);
         return;
       }
 
-      const validCurrent = selectedCurrenciesRef.current.filter((code) =>
-        curs.some((c) => c.code === code),
-      );
+      const validCurrent = scopeModeChanged
+        ? []
+        : selectedCurrenciesRef.current.filter((code) =>
+            curs.some((c) => c.code === code),
+          );
       if (validCurrent.length > 0) {
         setShowAllCurrencies(false);
         setSelectedCurrencies((prev) => (sameCodeList(prev, validCurrent) ? prev : validCurrent));
@@ -513,16 +527,14 @@ export default function DomainReportPage() {
       if (saved?.showAllCurrencies) {
         setShowAllCurrencies(true);
         setSelectedCurrencies([]);
-        setCurrencyFilterReady(true);
       } else if (saved?.selectedCurrencies?.length) {
         setSelectedCurrencies([...saved.selectedCurrencies]);
         setShowAllCurrencies(false);
-        setCurrencyFilterReady(true);
       } else {
         setSelectedCurrencies([]);
         setShowAllCurrencies(false);
-        setCurrencyFilterReady(false);
       }
+      setCurrencyFilterReady(false);
       setProcessId("");
       if (reportDataRef.current != null) setReportSyncing(true);
     }
@@ -541,6 +553,7 @@ export default function DomainReportPage() {
       setCurrencyFilterReady(false);
       return;
     }
+    setCurrencyList([]);
     setCurrencyFilterReady(false);
     loadMetaData();
   }, [reportScope, loadMetaData]);
@@ -606,6 +619,8 @@ export default function DomainReportPage() {
           companyId={companyId}
           highlightCompanyId={companyId}
           onSwitchCompany={handlePickCompany}
+          onClearCompany={handleClearCompany}
+          allowClearCompany={allowClearCompany}
           groupIds={groupIds}
           selectedGroup={selectedGroup}
           onPickGroup={handlePickGroup}

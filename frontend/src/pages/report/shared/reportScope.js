@@ -87,6 +87,7 @@ export function customerReportScopeApiParams(scope) {
     groupsAll: p.groupsAll,
     groupAll: p.groupAll,
     groupAggregate: p.groupAggregate,
+    subsidiaryAccountsOnly: p.subsidiaryAccountsOnly,
   };
 }
 
