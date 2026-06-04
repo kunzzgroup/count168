@@ -24,6 +24,7 @@ import {
   persistDashboardSelectedCompany,
   readDashboardSelectedCompanyId,
   readPersistedDashboardGcFilter,
+  applyLoginScopeToSessionStorageIfNeeded,
   stripCompanyIdFromUrl,
   notifyDashboardGroupFilterChanged,
   pickDefaultCompanyForGroup,
@@ -38,6 +39,7 @@ import {
   canUseGroupOnlyMode,
   isCompanyLogin,
   isGroupLogin,
+  getLoginIdentifier,
   resolveVisibleGroupIds,
 } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
@@ -259,7 +261,8 @@ export default function UserListPage() {
   const groupOnlyUserList = useMemo(() => {
     if (!selectedGroup || companyId != null) return false;
     if (isCompanyLogin(me)) return false;
-    if (isGroupLogin(me)) return isDashboardGroupOnlyMode();
+    // Group login: AP pill without a subsidiary company = group ledger users only.
+    if (isGroupLogin(me)) return true;
     return isDashboardGroupOnlyMode();
   }, [selectedGroup, companyId, me]);
   const groupEntityCompanies = useMemo(
@@ -404,6 +407,7 @@ export default function UserListPage() {
         const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);
         if (cancelled) return;
         setCompanies(rows);
+        applyLoginScopeToSessionStorageIfNeeded(me, rows);
         const modalCompanyList = buildModalCompanyList(rows);
         modalCompaniesCacheRef.current = modalCompanyList;
         setModalCompanies(modalCompanyList);
@@ -413,28 +417,35 @@ export default function UserListPage() {
           persistDashboardGroupOnlyMode(false);
         }
 
+        const persistedGc = readPersistedDashboardGcFilter();
         const savedCompanyId = readDashboardSelectedCompanyId();
-        let effectiveNum = savedCompanyId;
-        if (effectiveNum == null && !isDashboardGroupOnlyMode()) {
+        let effectiveNum = persistedGc.groupOnly ? null : (persistedGc.companyId ?? savedCompanyId);
+        if (effectiveNum == null && !isDashboardGroupOnlyMode() && !isGroupLogin(me)) {
           effectiveNum = resolveBootCompanyId({
             urlCompanyId,
             sessionCompanyId: me.company_id,
             defaultRowId: rows[0]?.id,
           });
         }
-        if (isDashboardGroupOnlyMode()) {
+        if (isDashboardGroupOnlyMode() || (isGroupLogin(me) && persistedGc.groupOnly)) {
           effectiveNum = null;
           stripCompanyIdFromUrl();
         }
+        if (isGroupLogin(me) && effectiveNum == null) {
+          persistDashboardGroupOnlyMode(true);
+        }
 
         const visibleGroups = resolveVisibleGroupIds(sortedUniqueGroupIds(rows), me, rows);
-        let bootGroup = resolveInitialSelectedGroupFromSession(
-          rows,
-          effectiveNum != null
-            ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null
-            : null,
-          me,
-        );
+        let bootGroup =
+          persistedGc.selectedGroup ||
+          (isGroupLogin(me) ? getLoginIdentifier(me) : null) ||
+          resolveInitialSelectedGroupFromSession(
+            rows,
+            effectiveNum != null
+              ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null
+              : null,
+            me,
+          );
 
         const groupFilterOptOut =
           typeof sessionStorage !== "undefined" &&
@@ -532,7 +543,9 @@ export default function UserListPage() {
           bootGroup = null;
         }
 
-        setCompanyId(isGroupLogin(me) && isDashboardGroupOnlyMode() ? null : effectiveNum);
+        setCompanyId(
+          isGroupLogin(me) && (isDashboardGroupOnlyMode() || effectiveNum == null) ? null : effectiveNum,
+        );
         setSelectedGroup(bootGroup);
         setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
@@ -700,6 +713,7 @@ export default function UserListPage() {
       if (selectedGroup && !groupsAllMode) body.group_id = selectedGroup;
     } else if (useGroupOnly && selectedGroup) {
       body.group_id = selectedGroup;
+      body.group_only = 1;
     } else if (activeCompanyId != null) {
       body.company_id = Number(activeCompanyId);
     }

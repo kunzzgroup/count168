@@ -33,7 +33,6 @@ import {
   sortProcessTableRows,
   notifyTransactionDataChanged,
   parseRemarkForForm,
-  toProcessFormUpperInput,
   buildEditDescriptionSelection,
   resolveProcessCurrencyFilter,
   processListCacheHasRows,
@@ -1201,7 +1200,7 @@ export default function ProcessListPage() {
       fd.append("remove_word", form.remove_word || "");
       fd.append("replace_word_from", form.replace_word_from || "");
       fd.append("replace_word_to", form.replace_word_to || "");
-      fd.append("remark", toProcessFormUpperInput(form.remark));
+      fd.append("remark", form.remark || "");
       fd.append("currency_id", form.currency_id);
       try {
         const res = await fetch(buildApiUrl("api/processes/processlist_api.php?action=update_process"), {
@@ -1235,7 +1234,7 @@ export default function ProcessListPage() {
     fd.append("remove_word", form.remove_word || "");
     fd.append("replace_word_from", form.replace_word_from || "");
     fd.append("replace_word_to", form.replace_word_to || "");
-    fd.append("remark", toProcessFormUpperInput(form.remark));
+    fd.append("remark", form.remark || "");
     if (form.copy_from) fd.append("copy_from", form.copy_from);
     fd.append("permission", "Games");
     if (companyId) fd.append("company_id", String(companyId));

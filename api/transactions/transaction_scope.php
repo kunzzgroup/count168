@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/group_scope_resolve.php';
 require_once __DIR__ . '/../includes/member_linked_closure.php';
 
 function tx_normalize_view_group(?string $viewGroup): ?string
@@ -15,10 +16,118 @@ function tx_normalize_view_group(?string $viewGroup): ?string
     return $g !== '' ? $g : null;
 }
 
-/** Group anchor company pk: legacy entity row, else first subsidiary (groups + group_company_map). */
+/**
+ * Legacy group-entity company row only (company_id = AP/IG).
+ * Do not fall back to a subsidiary — use groups.id ledger scope instead.
+ */
 function tx_resolve_group_entity_company_id(PDO $pdo, string $groupId): int
 {
+    return gc_resolve_legacy_group_entity_company_id($pdo, $groupId);
+}
+
+/** Numeric company id when an API still requires one (legacy entity, else first subsidiary). */
+function tx_resolve_group_anchor_company_id(PDO $pdo, string $groupId): int
+{
     return gc_resolve_group_anchor_company_id($pdo, $groupId);
+}
+
+function tx_request_has_group_only_scope(array $params): bool
+{
+    $requestedRaw = $params['company_id'] ?? null;
+    if ($requestedRaw !== null && trim((string) $requestedRaw) !== '') {
+        return false;
+    }
+    $viewGroup = tx_normalize_view_group(isset($params['view_group']) ? (string) $params['view_group'] : null);
+    $groupScope = tx_normalize_view_group(isset($params['group_id']) ? (string) $params['group_id'] : null);
+
+    return $viewGroup !== null || $groupScope !== null;
+}
+
+/**
+ * Resolve transaction list scope (group ledger vs company).
+ *
+ * @return array{
+ *   mode: 'group'|'company',
+ *   company_id: int,
+ *   group_code: string,
+ *   group_scope_id: int,
+ *   view_group: ?string
+ * }
+ */
+function tx_resolve_transaction_list_scope(PDO $pdo, array $params): array
+{
+    $viewGroup = tx_normalize_view_group(isset($params['view_group']) ? (string) $params['view_group'] : null);
+    $groupScope = tx_normalize_view_group(isset($params['group_id']) ? (string) $params['group_id'] : null);
+    if ($groupScope !== null && $viewGroup === null) {
+        $viewGroup = $groupScope;
+    }
+    $groupCode = $viewGroup ?? $groupScope ?? '';
+
+    if (tx_request_has_group_only_scope($params)) {
+        if ($groupCode === '') {
+            throw new Exception('缺少 group_id');
+        }
+        if (!gc_session_can_access_group_code($pdo, $groupCode)) {
+            throw new Exception('无权访问该集团');
+        }
+        $legacyEntityId = gc_resolve_legacy_group_entity_company_id($pdo, $groupCode);
+        if ($legacyEntityId > 0) {
+            return [
+                'mode' => 'company',
+                'company_id' => $legacyEntityId,
+                'group_code' => $groupCode,
+                'group_scope_id' => gc_resolve_group_pk_by_code($pdo, $groupCode),
+                'view_group' => $groupCode,
+            ];
+        }
+        $groupScopeId = gc_resolve_group_pk_by_code($pdo, $groupCode);
+        if ($groupScopeId <= 0) {
+            throw new Exception('无效的 group_id');
+        }
+
+        return [
+            'mode' => 'group',
+            'company_id' => 0,
+            'group_code' => $groupCode,
+            'group_scope_id' => $groupScopeId,
+            'view_group' => $groupCode,
+        ];
+    }
+
+    $companyId = tx_resolve_request_company_id($pdo, $params);
+
+    return [
+        'mode' => 'company',
+        'company_id' => $companyId,
+        'group_code' => $groupCode,
+        'group_scope_id' => $groupCode !== '' ? gc_resolve_group_pk_by_code($pdo, $groupCode) : 0,
+        'view_group' => $viewGroup,
+    ];
+}
+
+function tx_sql_transaction_scope_where(array $scope, string $alias = 't'): string
+{
+    return (($scope['mode'] ?? '') === 'group')
+        ? "{$alias}.scope_type = 'group' AND {$alias}.scope_id = ?"
+        : "{$alias}.company_id = ?";
+}
+
+function tx_bind_transaction_scope_id(array $scope): int
+{
+    return (($scope['mode'] ?? '') === 'group')
+        ? (int) ($scope['group_scope_id'] ?? 0)
+        : (int) ($scope['company_id'] ?? 0);
+}
+
+function tx_permission_company_id_for_scope(PDO $pdo, array $scope): int
+{
+    $companyId = (int) ($scope['company_id'] ?? 0);
+    if ($companyId > 0) {
+        return $companyId;
+    }
+    $groupCode = (string) ($scope['group_code'] ?? '');
+
+    return $groupCode !== '' ? tx_resolve_group_anchor_company_id($pdo, $groupCode) : 0;
 }
 
 /**
@@ -108,7 +217,7 @@ function tx_resolve_request_company_id(PDO $pdo, array $params): int
         throw new Exception('无权访问该公司');
     }
 
-    if ($groupScope !== null) {
+    if ($groupScope !== null && ($requestedRaw === null || trim((string) $requestedRaw) === '')) {
         $entityId = tx_resolve_group_entity_company_id($pdo, $groupScope);
         if ($entityId > 0) {
             if (gc_is_group_login()) {
@@ -118,6 +227,7 @@ function tx_resolve_request_company_id(PDO $pdo, array $params): int
             }
             return $entityId;
         }
+        throw new Exception('缺少 company_id');
     }
 
     if (!isset($_SESSION['company_id'])) {

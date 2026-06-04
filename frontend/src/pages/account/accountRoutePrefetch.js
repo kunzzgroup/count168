@@ -7,6 +7,7 @@ const accountListRouteWarmInflight = new Map();
 function buildGroupAccountsUrl(groupId, searchTerm, showInactive, showAll) {
   const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
   url.searchParams.set("group_id", String(groupId));
+  url.searchParams.set("group_only", "1");
   if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
   if (showInactive) url.searchParams.set("showInactive", "1");
   if (showAll) url.searchParams.set("showAll", "1");

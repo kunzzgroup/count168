@@ -5,6 +5,8 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/group_scope_resolve.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 session_start();
@@ -142,9 +144,10 @@ function normalizeGroupId(?string $groupId): ?string {
     return $g !== '' ? $g : null;
 }
 
+/** Legacy group-entity company row only (company_id = AP/IG). No subsidiary anchor. */
 function resolveGroupEntityCompanyId(PDO $pdo, string $groupId): int
 {
-    return gc_resolve_group_anchor_company_id($pdo, $groupId);
+    return gc_resolve_legacy_group_entity_company_id($pdo, $groupId);
 }
 
 function accountListHasAccountScopeColumn(PDO $pdo): bool
@@ -165,6 +168,15 @@ function accountListHasAccountScopeColumn(PDO $pdo): bool
 /**
  * Group ledger accounts (account_company.scope_type = group).
  */
+function accountListTableExists(PDO $pdo, string $table): bool
+{
+    try {
+        return $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($table))->rowCount() > 0;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
 function fetchAccountsForGroupScope(
     PDO $pdo,
     int $groupScopePk,
@@ -174,21 +186,45 @@ function fetchAccountsForGroupScope(
     ?array $accountIdFilter,
     ?array $rolesFilter = null
 ): array {
-    if ($groupScopePk <= 0 || !accountListHasAccountScopeColumn($pdo)) {
+    if ($groupScopePk <= 0) {
+        return [];
+    }
+
+    $accountIds = [];
+    if (accountListHasAccountScopeColumn($pdo)) {
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT ac.account_id
+            FROM account_company ac
+            WHERE ac.scope_type = 'group' AND ac.scope_id = ?
+        ");
+        $stmt->execute([$groupScopePk]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $accountIds[(int) $id] = true;
+        }
+    }
+    if (accountListTableExists($pdo, 'account_group_map')) {
+        $stmt = $pdo->prepare('SELECT DISTINCT account_id FROM account_group_map WHERE group_id = ?');
+        $stmt->execute([$groupScopePk]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $accountIds[(int) $id] = true;
+        }
+    }
+    $accountIds = array_values(array_filter(array_map('intval', array_keys($accountIds)), static fn (int $id): bool => $id > 0));
+    if ($accountIds === []) {
         return [];
     }
 
     $hasCreatedSource = hasAccountCreatedSourceColumn($pdo);
     $selectCreatedSource = $hasCreatedSource ? ', a.created_source' : ', NULL AS created_source';
+    $idPh = implode(',', array_fill(0, count($accountIds), '?'));
     $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.status, a.last_login, a.role,
             COALESCE(a.payment_alert, 0) AS payment_alert,
             a.alert_day, a.alert_day AS alert_type, a.alert_specific_date, a.alert_specific_date AS alert_start_date,
             a.alert_amount, a.remark
             {$selectCreatedSource}
             FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE ac.scope_type = 'group' AND ac.scope_id = ?";
-    $params = [$groupScopePk];
+            WHERE a.id IN ($idPh)";
+    $params = $accountIds;
 
     if ($rolesFilter !== null && !empty($rolesFilter)) {
         $placeholders = implode(',', array_fill(0, count($rolesFilter), '?'));
@@ -328,7 +364,7 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
             {$selectCreatedSource}
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE ac.company_id = ?";
+            WHERE ac.company_id = ?" . tenant_sql_account_company_subsidiary_only($pdo, 'ac');
     $params = [$company_id];
 
     if ($rolesFilter !== null && !empty($rolesFilter)) {
@@ -456,15 +492,15 @@ try {
     }
 
     $groupOnlyLedger = false;
+    $explicitGroupOnly = isset($_GET['group_only']) && filter_var($_GET['group_only'], FILTER_VALIDATE_BOOLEAN);
     if ($group_scope_id !== null) {
-        if ($company_id > 0) {
+        if ($company_id > 0 && !$explicitGroupOnly) {
             if (gc_is_group_login()) {
                 gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
             }
         } else {
-            $group_entity_company_id = resolveGroupEntityCompanyId($pdo, $group_scope_id);
             $groupScopePk = gc_resolve_group_pk_by_code($pdo, $group_scope_id);
-            if ($group_entity_company_id <= 0 && $groupScopePk <= 0) {
+            if ($groupScopePk <= 0) {
                 echo json_encode([
                     'success' => true,
                     'message' => '',
@@ -480,13 +516,15 @@ try {
                 ]);
                 exit;
             }
-            if ($group_entity_company_id > 0) {
-                $company_id = $group_entity_company_id;
+            $legacyEntityId = resolveGroupEntityCompanyId($pdo, $group_scope_id);
+            if ($legacyEntityId > 0) {
+                $company_id = $legacyEntityId;
                 if (gc_is_group_login()) {
                     gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
                 }
             } else {
                 $groupOnlyLedger = true;
+                $company_id = null;
             }
         }
     }
@@ -522,8 +560,8 @@ try {
             $rolesFilter
         );
     } elseif ($group_scope_id !== null && $company_id > 0) {
-        $groupScopePk = gc_resolve_group_pk_by_code($pdo, $group_scope_id);
-        $companyAccounts = fetchAccountsForCompany(
+        // Subsidiary company pill (e.g. C168): that company only — do not merge group ledger rows.
+        $accounts = fetchAccountsForCompany(
             $pdo,
             $company_id,
             $searchTerm,
@@ -532,16 +570,6 @@ try {
             $accountIdFilter,
             $rolesFilter
         );
-        $groupAccounts = fetchAccountsForGroupScope(
-            $pdo,
-            $groupScopePk,
-            $searchTerm,
-            $showInactive,
-            $showAll,
-            $accountIdFilter,
-            $rolesFilter
-        );
-        $accounts = mergeAccountRowsById($companyAccounts, $groupAccounts);
     } else {
         $accounts = fetchAccountsForCompany($pdo, $company_id, $searchTerm, $showInactive, $showAll, $accountIdFilter, $rolesFilter);
     }

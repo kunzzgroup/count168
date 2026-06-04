@@ -173,7 +173,12 @@ export function transactionScopeApiParams(scope) {
   const viewGroup = scope.viewGroup || scope.selectedGroup || undefined;
   const groupId = scope.mode === "group" ? scope.selectedGroup : undefined;
   if (scope.resolveCompanyViaGroupId || (scope.mode === "group" && scope.scopeCompanyId <= 0)) {
-    return { companyId: undefined, viewGroup, groupId };
+    return {
+      companyId: undefined,
+      viewGroup,
+      groupId,
+      groupAggregate: true,
+    };
   }
   return {
     companyId: scope.scopeCompanyId,

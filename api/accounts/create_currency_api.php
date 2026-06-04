@@ -6,6 +6,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -99,25 +100,38 @@ try {
     $code = strtoupper($code);
 
     $groupScopeId = normalizeGroupId($input['group_id'] ?? null);
-    $companyId = 0;
-    if (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
-        $companyId = (int) $input['company_id'];
-        if ($companyId > 0 && gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $groupScopeId);
-        }
-    } elseif ($groupScopeId !== null) {
-        $companyId = resolveGroupEntityCompanyId($pdo, $groupScopeId);
-        if ($companyId > 0 && gc_is_group_login()) {
-            gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $groupScopeId);
+    $requestedCompanyId = 0;
+    $groupOnly = !empty($input['group_only'])
+        && filter_var($input['group_only'], FILTER_VALIDATE_BOOLEAN);
+
+    if (gc_is_group_login()) {
+        $groupOnly = true;
+        $groupScopeId = $groupScopeId ?? normalizeGroupId($_SESSION['login_identifier'] ?? null);
+        $requestedCompanyId = 0;
+    } elseif (isset($input['company_id']) && $input['company_id'] !== '' && $input['company_id'] !== null) {
+        $requestedCompanyId = (int) $input['company_id'];
+    }
+
+    try {
+        $ctx = tenant_resolve_currency_context_from_request($pdo, [
+            'group_id' => $groupScopeId,
+            'company_id' => $requestedCompanyId > 0 ? $requestedCompanyId : null,
+            'group_only' => $groupOnly,
+            'session_company_id' => $_SESSION['company_id'] ?? null,
+        ]);
+    } catch (Exception $e) {
+        if (!$groupOnly && $groupScopeId === null && isset($_SESSION['company_id'])) {
+            $ctx = tenant_resolve_currency_context($pdo, (int) $_SESSION['company_id'], null);
+        } else {
+            http_response_code(400);
+            jsonOut(false, $e->getMessage(), null);
+            exit;
         }
     }
-    if ($companyId <= 0 && isset($_SESSION['company_id'])) {
-        $companyId = (int) $_SESSION['company_id'];
-    }
-    if ($companyId <= 0) {
-        http_response_code(400);
-        jsonOut(false, '缺少公司信息', null);
-        exit;
+
+    $companyId = (int) $ctx['company_id'];
+    if ($companyId > 0 && gc_is_group_login()) {
+        gc_assert_company_id_allowed_for_login_scope($pdo, $companyId, $groupScopeId);
     }
 
     if (!userCanAccessCompany($pdo, $companyId, $groupScopeId)) {
@@ -126,19 +140,15 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-    $stmt->execute([$code, $companyId]);
-    if ($stmt->fetchColumn()) {
+    try {
+        $created = tenant_create_currency($pdo, $code, $ctx);
+    } catch (Exception $e) {
         http_response_code(400);
-        jsonOut(false, 'Currency ' . $code . ' already exists', null);
+        jsonOut(false, $e->getMessage(), null);
         exit;
     }
 
-    $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
-    $stmt->execute([$code, $companyId]);
-    $id = (int) $pdo->lastInsertId();
-
-    jsonOut(true, 'OK', ['id' => $id, 'code' => $code]);
+    jsonOut(true, 'OK', ['id' => $created['id'], 'code' => $created['code']]);
 } catch (PDOException $e) {
     error_log('create_currency_api: ' . $e->getMessage());
     http_response_code(500);

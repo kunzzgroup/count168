@@ -88,9 +88,10 @@ export function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
   return url;
 }
 
-function buildGroupAccountsUrl(groupId, searchTerm, showInactive, showAll) {
+export function buildGroupAccountsUrl(groupId, searchTerm, showInactive, showAll, { groupOnly = true } = {}) {
   const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
   url.searchParams.set("group_id", String(groupId));
+  if (groupOnly) url.searchParams.set("group_only", "1");
   if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
   if (showInactive) url.searchParams.set("showInactive", "1");
   if (showAll) url.searchParams.set("showAll", "1");

@@ -99,6 +99,11 @@ export function canUseGroupOnlyMode(me) {
   return isGroupLogin(me);
 }
 
+/** User/Account List etc.: owner/admin pick a group without auto-selecting first subsidiary. */
+export function maintenancePageAllowGroupOnlyPill(me) {
+  return isGroupLogin(me) || !isCompanyLogin(me);
+}
+
 /** Mirrors api/c168/c168_domain_access.php c168DomainPageAllowedRoles */
 const C168_DOMAIN_PAGE_ROLES = new Set([
   "owner",

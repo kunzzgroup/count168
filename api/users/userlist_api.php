@@ -12,6 +12,7 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/email_validation.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/group_scope_resolve.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 
 session_start();
@@ -368,14 +369,19 @@ function userlist_safe_rollback(PDO $pdo): void
  *
  * @return list<int>
  */
-function userlist_group_entity_company_ids(PDO $pdo, string $groupScope): array
+/**
+ * Legacy group-entity company row only (e.g. company_id = AP). No subsidiary anchor fallback.
+ *
+ * @return list<int>
+ */
+function userlist_strict_group_entity_company_ids(PDO $pdo, string $groupScope): array
 {
     $g = userlist_normalize_group_id($groupScope);
     if ($g === null) {
         return [];
     }
 
-    $ids = [];
+    $ids = userlist_company_ids_for_group(userlist_fetch_accessible_companies($pdo), $g);
 
     $stmt = $pdo->prepare("
         SELECT id
@@ -391,22 +397,6 @@ function userlist_group_entity_company_ids(PDO $pdo, string $groupScope): array
         }
     }
 
-    if ($ids === []) {
-        $anchor = gc_resolve_group_anchor_company_id($pdo, $g);
-        if ($anchor > 0) {
-            $ids[] = $anchor;
-        }
-    }
-
-    if ($ids === []) {
-        foreach (gc_company_numeric_ids_for_group_code($pdo, $g) as $subId) {
-            if ($subId > 0) {
-                $ids[] = $subId;
-            }
-        }
-    }
-
-    // Safety: keep only ids the current login scope can access.
     $allowed = [];
     foreach (array_values(array_unique($ids)) as $cid) {
         if (gc_session_can_access_company_id($pdo, (int) $cid, $g)) {
@@ -415,6 +405,132 @@ function userlist_group_entity_company_ids(PDO $pdo, string $groupScope): array
     }
 
     return $allowed;
+}
+
+/**
+ * Resolve group entity company ids (legacy row, else anchor/subsidiaries for aggregate modes).
+ *
+ * @return list<int>
+ */
+function userlist_group_entity_company_ids(PDO $pdo, string $groupScope): array
+{
+    $g = userlist_normalize_group_id($groupScope);
+    if ($g === null) {
+        return [];
+    }
+
+    $strict = userlist_strict_group_entity_company_ids($pdo, $g);
+    if ($strict !== []) {
+        return $strict;
+    }
+
+    $ids = [];
+    $anchor = gc_resolve_group_anchor_company_id($pdo, $g);
+    if ($anchor > 0) {
+        $ids[] = $anchor;
+    }
+    if ($ids === []) {
+        foreach (gc_company_numeric_ids_for_group_code($pdo, $g) as $subId) {
+            if ($subId > 0) {
+                $ids[] = $subId;
+            }
+        }
+    }
+
+    $allowed = [];
+    foreach (array_values(array_unique($ids)) as $cid) {
+        if (gc_session_can_access_company_id($pdo, (int) $cid, $g)) {
+            $allowed[] = (int) $cid;
+        }
+    }
+
+    return $allowed;
+}
+
+function userlist_is_group_only_list_request(array $input): bool
+{
+    if (!empty($input['group_only']) || !empty($input['group_aggregate'])) {
+        return userlist_normalize_group_id($input['group_id'] ?? null) !== null;
+    }
+    $groupId = userlist_normalize_group_id($input['group_id'] ?? null);
+    if ($groupId === null) {
+        return false;
+    }
+    if (!empty($input['groups_all']) || !empty($input['group_all'])) {
+        return false;
+    }
+
+    return (int) ($input['company_id'] ?? 0) <= 0;
+}
+
+function userlist_ucm_has_scope_columns(PDO $pdo): bool
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    try {
+        $cache = $pdo->query("SHOW COLUMNS FROM user_company_map LIKE 'scope_type'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $cache = false;
+    }
+
+    return $cache;
+}
+
+function userlist_table_exists(PDO $pdo, string $table): bool
+{
+    try {
+        return $pdo->query("SHOW TABLES LIKE " . $pdo->quote($table))->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * User ids visible on group-only User List (AP ledger — not C168 subsidiary staff).
+ *
+ * @return list<int>
+ */
+function userlist_fetch_group_only_user_ids(PDO $pdo, string $groupScope): array
+{
+    $g = userlist_normalize_group_id($groupScope);
+    if ($g === null) {
+        return [];
+    }
+    userlist_assert_group_id_allowed($g);
+
+    $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+    $ids = [];
+
+    if ($groupPk > 0 && userlist_table_exists($pdo, 'user_group_map')) {
+        $stmt = $pdo->prepare('SELECT user_id FROM user_group_map WHERE group_id = ?');
+        $stmt->execute([$groupPk]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+            $ids[(int) $uid] = true;
+        }
+    }
+
+    if ($groupPk > 0 && userlist_ucm_has_scope_columns($pdo)) {
+        $stmt = $pdo->prepare("
+            SELECT user_id FROM user_company_map
+            WHERE scope_type = 'group' AND scope_id = ?
+        ");
+        $stmt->execute([$groupPk]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+            $ids[(int) $uid] = true;
+        }
+    }
+
+    foreach (userlist_strict_group_entity_company_ids($pdo, $g) as $entityCompanyId) {
+        $stmt = $pdo->prepare('SELECT user_id FROM user_company_map WHERE company_id = ?');
+        $stmt->execute([$entityCompanyId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+            $ids[(int) $uid] = true;
+        }
+    }
+
+    return array_values(array_filter(array_map('intval', array_keys($ids)), static fn (int $id): bool => $id > 0));
 }
 
 /**
@@ -519,6 +635,9 @@ function userlist_resolve_filter_company_ids(PDO $pdo, array $input): array
 
     if ($groupId !== null) {
         userlist_assert_group_id_allowed($groupId);
+        if (userlist_is_group_only_list_request($input)) {
+            return userlist_strict_group_entity_company_ids($pdo, $groupId);
+        }
         if ($groupAll) {
             $scoped = userlist_company_ids_in_group_scope($accessible, $groupId);
             if ($scoped !== []) {
@@ -1705,7 +1824,34 @@ try {
                     }
                 }
             } else {
-                // Get all users — single company or group-only aggregate (group login)
+                // Get all users — single company, group-only (AP ledger), or group aggregate
+                $groupScope = userlist_normalize_group_id($input['group_id'] ?? null);
+                if ($groupScope !== null && userlist_is_group_only_list_request($input)) {
+                    $groupUserIds = userlist_fetch_group_only_user_ids($pdo, $groupScope);
+                    if ($groupUserIds === []) {
+                        sendResponse(true, 'Users retrieved successfully', []);
+                    }
+                    $placeholders = implode(',', array_fill(0, count($groupUserIds), '?'));
+                    $stmt = $pdo->prepare("
+                        SELECT DISTINCT u.id, u.login_id, u.name, u.email, u.role, u.permissions, u.status, u.created_by, u.created_at, u.last_login
+                        FROM user u
+                        WHERE u.id IN ($placeholders)
+                        ORDER BY
+                        CASE
+                            WHEN u.login_id REGEXP '^[0-9]' THEN 0
+                            ELSE 1
+                        END,
+                        CASE
+                            WHEN u.login_id REGEXP '^[0-9]' THEN CAST(u.login_id AS UNSIGNED)
+                            ELSE ASCII(UPPER(u.login_id))
+                        END,
+                        u.login_id ASC
+                    ");
+                    $stmt->execute($groupUserIds);
+                    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    sendResponse(true, 'Users retrieved successfully', $users);
+                }
+
                 $filterCompanyIds = userlist_resolve_filter_company_ids($pdo, $input);
                 if ($filterCompanyIds === []) {
                     sendResponse(true, 'Users retrieved successfully', []);
@@ -1713,11 +1859,11 @@ try {
 
                 $placeholders = implode(',', array_fill(0, count($filterCompanyIds), '?'));
                 $stmt = $pdo->prepare("
-                    SELECT DISTINCT u.id, u.login_id, u.name, u.email, u.role, u.permissions, u.status, u.created_by, u.created_at, u.last_login 
+                    SELECT DISTINCT u.id, u.login_id, u.name, u.email, u.role, u.permissions, u.status, u.created_by, u.created_at, u.last_login
                     FROM user u
                     INNER JOIN user_company_map ucm ON u.id = ucm.user_id
                     WHERE ucm.company_id IN ($placeholders)
-                    ORDER BY 
+                    ORDER BY
                         CASE 
                             WHEN u.login_id REGEXP '^[0-9]' THEN 0 
                             ELSE 1 

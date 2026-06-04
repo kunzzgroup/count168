@@ -4,6 +4,7 @@
  */
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
@@ -198,13 +199,29 @@ function accountExistsInCompany(PDO $pdo, string $account_id, int $company_id): 
             SELECT COUNT(*) FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             WHERE UPPER(TRIM(COALESCE(a.account_id, ''))) = UPPER(TRIM(?)) AND ac.company_id = ?
-        ");
+            " . tenant_sql_account_company_subsidiary_only($pdo, 'ac'));
         $stmt->execute([$account_id, $company_id]);
     } else {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM account WHERE UPPER(TRIM(COALESCE(account_id, ''))) = UPPER(TRIM(?)) AND company_id = ?");
         $stmt->execute([$account_id, $company_id]);
     }
     return $stmt->fetchColumn() > 0;
+}
+
+function accountExistsInGroupScope(PDO $pdo, string $account_id, int $groupPk): bool {
+    if ($groupPk <= 0 || !tenant_table_has_scope_columns($pdo, 'account_company')) {
+        return false;
+    }
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE UPPER(TRIM(COALESCE(a.account_id, ''))) = UPPER(TRIM(?))
+          AND ac.scope_type = 'group'
+          AND ac.scope_id = ?
+    ");
+    $stmt->execute([$account_id, $groupPk]);
+
+    return (int) $stmt->fetchColumn() > 0;
 }
 
 function resolveCompanyScopeLabel(PDO $pdo, int $companyId): string {
@@ -382,17 +399,25 @@ try {
     }
 
     $group_scope_id = normalizeGroupId($_POST['group_id'] ?? null);
+    $explicit_group_only = !empty($_POST['group_only'])
+        && filter_var($_POST['group_only'], FILTER_VALIDATE_BOOLEAN);
 
     $company_id = null;
     if (isset($_POST['company_id']) && $_POST['company_id'] !== '') {
-        $company_id = (int)$_POST['company_id'];
+        $company_id = (int) $_POST['company_id'];
+    }
+    if (gc_is_group_login()) {
+        $group_scope_id = $group_scope_id ?? normalizeGroupId($_SESSION['login_identifier'] ?? null);
+        if ($explicit_group_only) {
+            $company_id = null;
+        }
     } elseif ($group_scope_id === null && isset($_SESSION['company_id'])) {
         // Group-scoped add must not implicitly fall back to session company (e.g. C168).
-        $company_id = (int)$_SESSION['company_id'];
+        $company_id = (int) $_SESSION['company_id'];
     }
 
     // 容错：前端有时仅传 company_ids，不传 company_id
-    if (!$company_id && $group_scope_id === null) {
+    if (!$company_id && $group_scope_id === null && !gc_is_group_login()) {
         if (isset($_POST['company_ids']) && $_POST['company_ids'] !== '') {
             $decodedCompanyIds = json_decode($_POST['company_ids'], true);
             if (is_array($decodedCompanyIds)) {
@@ -408,6 +433,7 @@ try {
     }
 
     $forced_company_ids_to_link = [];
+    $group_ledger_link = null;
     if ($group_scope_id !== null && (!$company_id || $company_id <= 0)) {
         $current_user_id = (int)($_SESSION['user_id'] ?? 0);
         $current_user_role = (string)($_SESSION['role'] ?? '');
@@ -420,19 +446,22 @@ try {
         if ($group_scope_owner_id <= 0) {
             throw new Exception('无权限访问该公司');
         }
-        // Group-only mode must bind to the selected group entity only,
-        // not to all companies in that group (prevents AP data leaking into C168).
-        $group_entity_company_id = ensureGroupEntityCompanyId(
-            $pdo,
-            $group_scope_id,
-            $group_scope_owner_id,
-            $current_user_id
-        );
-        if ($group_entity_company_id <= 0) {
-            throw new Exception('Missing company information');
+        $forceGroupLedger = gc_is_group_login() || $explicit_group_only;
+        $legacy_entity_id = $forceGroupLedger
+            ? 0
+            : gc_resolve_legacy_group_entity_company_id($pdo, $group_scope_id);
+        if ($legacy_entity_id > 0) {
+            $company_id = $legacy_entity_id;
+            $forced_company_ids_to_link = [$legacy_entity_id];
+        } else {
+            $groupPk = gc_resolve_group_pk_by_code($pdo, $group_scope_id);
+            $anchorId = gc_resolve_group_anchor_company_id($pdo, $group_scope_id);
+            if ($groupPk <= 0 || $anchorId <= 0) {
+                throw new Exception('Missing company information');
+            }
+            $company_id = $anchorId;
+            $group_ledger_link = ['group_pk' => $groupPk, 'anchor_company_id' => $anchorId];
         }
-        $company_id = $group_entity_company_id;
-        $forced_company_ids_to_link = [$group_entity_company_id];
         if (gc_is_group_login()) {
             gc_assert_company_id_allowed_for_login_scope($pdo, $company_id, $group_scope_id);
         }
@@ -519,7 +548,11 @@ try {
         throw new Exception('Account creation is in progress for this ID, please retry');
     }
     try {
-        if (accountExistsInCompany($pdo, $account_id, $company_id)) {
+        if ($group_ledger_link !== null) {
+            if (accountExistsInGroupScope($pdo, $account_id, (int) $group_ledger_link['group_pk'])) {
+                throw new Exception('账户ID已存在于 Group ' . strtoupper($group_scope_id ?? ''));
+            }
+        } elseif (accountExistsInCompany($pdo, $account_id, $company_id)) {
             $scopeLabel = resolveCompanyScopeLabel($pdo, $company_id);
             throw new Exception('账户ID已存在于 ' . $scopeLabel);
         }
@@ -533,7 +566,11 @@ try {
         $pdo->beginTransaction();
         try {
             // Re-check inside transaction while holding lock to avoid duplicate inserts under concurrency.
-            if (accountExistsInCompany($pdo, $account_id, $company_id)) {
+            if ($group_ledger_link !== null) {
+                if (accountExistsInGroupScope($pdo, $account_id, (int) $group_ledger_link['group_pk'])) {
+                    throw new Exception('账户ID已存在于 Group ' . strtoupper($group_scope_id ?? ''));
+                }
+            } elseif (accountExistsInCompany($pdo, $account_id, $company_id)) {
                 $scopeLabel = resolveCompanyScopeLabel($pdo, $company_id);
                 throw new Exception('账户ID已存在于 ' . $scopeLabel);
             }
@@ -567,11 +604,20 @@ try {
                     }
                 }
             }
-            if (empty($company_ids_to_link)) {
-                $company_ids_to_link[] = $company_id;
+            if ($group_ledger_link !== null) {
+                tenant_link_account_group_scope(
+                    $pdo,
+                    $newAccountId,
+                    (int) $group_ledger_link['group_pk'],
+                    (int) $group_ledger_link['anchor_company_id']
+                );
+                $company_ids_to_link = [(int) $group_ledger_link['anchor_company_id']];
+            } else {
+                if (empty($company_ids_to_link)) {
+                    $company_ids_to_link[] = $company_id;
+                }
+                linkAccountToCompanies($pdo, $newAccountId, $company_ids_to_link);
             }
-
-            linkAccountToCompanies($pdo, $newAccountId, $company_ids_to_link);
             $users = getUsersWithCompanyAccess($pdo, $company_ids_to_link);
             updateUserAccountPermissionsForNewAccount($pdo, $users, $company_ids_to_link, $newAccountId, $account_id);
 
