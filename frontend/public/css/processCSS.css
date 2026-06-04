@@ -5004,11 +5004,12 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 
 .modal-content.description-selection-modal .available-descriptions-section {
     display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
     min-width: 0;
     min-height: 0;
     padding-left: calc(var(--desc-modal-col-gap) * 0.25);
     overflow: hidden;
+    align-content: start;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-section h3,
@@ -5121,17 +5122,32 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .selected-descriptions-list,
 .process-page .description-selection-modal .description-list,
 .process-page .description-selection-modal .selected-descriptions-list {
-    align-self: stretch;
     width: 100%;
     box-sizing: border-box;
-    min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
-    height: 100%;
-    max-height: none;
     overflow-y: auto;
     border: 1px solid var(--color-border);
     border-radius: calc(var(--desc-modal-radius) * 0.45);
     padding: calc(var(--space-gap) * 0.45);
     background-color: var(--color-surface-gray-50, #f8fafc);
+}
+
+/* 右侧 Available：固定高度，数据多时在框内滚动 */
+.modal-content.description-selection-modal .description-list,
+.process-page .description-selection-modal .description-list {
+    flex: 0 0 auto;
+    align-self: stretch;
+    height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    max-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+}
+
+/* 左侧 Selected：随栏拉伸，底边与右侧栏对齐 */
+.modal-content.description-selection-modal .selected-descriptions-list,
+.process-page .description-selection-modal .selected-descriptions-list {
+    align-self: stretch;
+    min-height: var(--desc-modal-list-min-h, clamp(11rem, 28vh, 16rem));
+    height: 100%;
+    max-height: none;
 }
 
 .modal-content.description-selection-modal .selected-descriptions-list {
@@ -5326,10 +5342,15 @@ body.process-page > .modal.show:has(.description-selection-modal) {
         padding-left: 0;
     }
 
-    .modal-content.description-selection-modal .description-list,
+    .modal-content.description-selection-modal .description-list {
+        height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
+        min-height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
+        max-height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
+    }
+
     .modal-content.description-selection-modal .selected-descriptions-list {
         min-height: var(--desc-modal-list-min-h, clamp(10rem, 22vh, 13.5rem));
-        height: auto;
+        height: 100%;
         max-height: none;
     }
 }
