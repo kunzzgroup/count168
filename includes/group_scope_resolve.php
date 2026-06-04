@@ -5,6 +5,15 @@
 
 declare(strict_types=1);
 
+/**
+ * When false (default): group codes (AP/IG) live only in `groups`; APIs use groups.id + scope_type=group.
+ * No new rows with company_id = group_code. Legacy entity rows may still exist until cleaned up.
+ */
+function gc_use_group_entity_company_row(): bool
+{
+    return false;
+}
+
 function gc_has_groups_table(PDO $pdo): bool
 {
     static $cache = [];
@@ -48,6 +57,10 @@ function gc_resolve_group_pk_by_code(PDO $pdo, string $groupCode): int
  */
 function gc_resolve_legacy_group_entity_company_id(PDO $pdo, string $groupCode): int
 {
+    if (!gc_use_group_entity_company_row()) {
+        return 0;
+    }
+
     $g = gc_normalize_group_code($groupCode);
     if ($g === '') {
         return 0;

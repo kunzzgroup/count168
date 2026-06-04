@@ -83,6 +83,10 @@ function gc_ensure_group_entity_company_for_group_pk(
         return 0;
     }
 
+    if (!gc_use_group_entity_company_row()) {
+        return 0;
+    }
+
     $ownStmt = $pdo->prepare('
         SELECT id FROM company
         WHERE owner_id = ? AND UPPER(TRIM(company_id)) = ?
@@ -137,6 +141,44 @@ function gc_ensure_group_entity_company_for_group_pk(
             throw $e;
         }
         return gc_resolve_legacy_group_entity_company_id($pdo, $code);
+    }
+}
+
+/**
+ * Group ledger link: scope_type=group + scope_id=groups.id; company_id is a subsidiary anchor (FK only).
+ */
+function gc_link_account_to_group_ledger(PDO $pdo, int $accountId, int $groupPk, int $anchorCompanyId): void
+{
+    if ($accountId <= 0 || $groupPk <= 0 || $anchorCompanyId <= 0) {
+        return;
+    }
+
+    if (!gc_table_has_columns($pdo, 'account_company', 'scope_type')) {
+        $stmt = $pdo->prepare('INSERT INTO account_company (account_id, company_id) VALUES (?, ?)');
+        try {
+            $stmt->execute([$accountId, $anchorCompanyId]);
+        } catch (PDOException $e) {
+            if ((string) $e->getCode() !== '23000') {
+                throw $e;
+            }
+        }
+        return;
+    }
+
+    $stmt = $pdo->prepare("
+        INSERT INTO account_company (account_id, company_id, scope_type, scope_id)
+        VALUES (?, ?, 'group', ?)
+        ON DUPLICATE KEY UPDATE
+            scope_type = VALUES(scope_type),
+            scope_id = VALUES(scope_id),
+            updated_at = CURRENT_TIMESTAMP
+    ");
+    try {
+        $stmt->execute([$accountId, $anchorCompanyId, $groupPk]);
+    } catch (PDOException $e) {
+        if ((string) $e->getCode() !== '23000') {
+            throw $e;
+        }
     }
 }
 

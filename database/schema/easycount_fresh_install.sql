@@ -20,6 +20,8 @@
 -- Existing DB with groups (after 20260528_dual_tenant_company_group.sql), also run:
 --   mysql -u root your_db < database/migrations/20260604_group_tenant_bootstrap.sql
 -- Or re-save Domain (BOSS/AP/IG) to bootstrap via domainApiBootstrapOwnerGroupTenants.
+-- Group codes live in `groups` only (not company_id=AP/IG); see migrations 20260604/20260605.
+-- Group codes (AP/IG) belong in `groups` only; run 20260604 bootstrap (no company_id=group_code rows).
 --
 -- Re-generate after editing easycount_schema.sql:
 --   powershell -File database/scripts/build_fresh_install_schema.ps1
