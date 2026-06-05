@@ -18,6 +18,7 @@ import "../../../public/css/userlist.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
+import AvatarPickerModal from "../../components/AvatarPickerModal.jsx";
 import ConfirmLogoutModal from "../../components/ConfirmLogoutModal.jsx";
 import ExpirationReminderModal from "../../components/ExpirationReminderModal.jsx";
 import SidebarExpirationCountdown from "../../components/SidebarExpirationCountdown.jsx";
@@ -115,7 +116,6 @@ export default function MemberPage() {
     setSelectedGender,
     showAvatarOptions,
     setShowAvatarOptions,
-    avatarContainerRef,
     handleSelectAvatar,
     showNotifications,
     toggleNotifications,
@@ -280,31 +280,15 @@ export default function MemberPage() {
             </div>
           </div>
           <div className="user-info-container">
-            <div className="avatar-selector-container" ref={avatarContainerRef}>
-              <div className="current-avatar" onClick={() => setShowAvatarOptions((prev) => !prev)}>
+            <div className="avatar-selector-container">
+              <button
+                type="button"
+                className="current-avatar"
+                aria-label={t("chooseAvatar")}
+                onClick={() => setShowAvatarOptions(true)}
+              >
                 <img id="currentAvatarImg" className="current-avatar-img" src={avatarSrc} alt="Avatar" />
-              </div>
-              <div className={`avatar-options ${showAvatarOptions ? "show" : ""}`} id="avatarOptions">
-                <div className="options-title">{t("chooseAvatar")}</div>
-                <div className="gender-selection">
-                  <button type="button" className={`gender-btn ${selectedGender === "male" ? "active" : ""}`} onClick={() => setSelectedGender("male")}>{t("male")}</button>
-                  <button type="button" className={`gender-btn ${selectedGender === "female" ? "active" : ""}`} onClick={() => setSelectedGender("female")}>{t("female")}</button>
-                </div>
-                <div className={`avatar-list ${selectedGender === "male" ? "show" : ""}`}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <div key={`male-${num}`} className={`avatar-option ${selectedAvatarId === `male${num}` ? "selected" : ""}`} onClick={() => handleSelectAvatar(`male${num}`)}>
-                      <img src={assetUrl(`images/avatar${num}.png`)} alt={`Male Avatar ${num}`} className="avatar-option-img" />
-                    </div>
-                  ))}
-                </div>
-                <div className={`avatar-list ${selectedGender === "female" ? "show" : ""}`}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <div key={`female-${num}`} className={`avatar-option ${selectedAvatarId === `female${num}` ? "selected" : ""}`} onClick={() => handleSelectAvatar(`female${num}`)}>
-                      <img src={assetUrl(`images/female${num}.png`)} alt={`Female Avatar ${num}`} className="avatar-option-img" />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              </button>
             </div>
             <div className="user-avatar-dropdown">
               <div className="user-info">
@@ -650,6 +634,19 @@ export default function MemberPage() {
         confirmLabel={expirationReminder.modalI18n.confirm}
         onConfirm={expirationReminder.dismissModal}
         urgencyTier={expirationReminder.reminder?.tier || "yellow"}
+      />
+
+      <AvatarPickerModal
+        open={showAvatarOptions}
+        onClose={() => setShowAvatarOptions(false)}
+        selectedAvatarId={selectedAvatarId}
+        selectedGender={selectedGender}
+        onGenderChange={setSelectedGender}
+        onSelect={handleSelectAvatar}
+        title={t("chooseAvatar")}
+        maleLabel={t("male")}
+        femaleLabel={t("female")}
+        cancelLabel={t("cancel")}
       />
 
       <ConfirmLogoutModal

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import { MAINTENANCE_I18N } from "../../translateFile/pages/maintenanceTranslate.js";
@@ -57,7 +57,6 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
   const [notifications, setNotifications] = useState([]);
 
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
-  const avatarContainerRef = useRef(null);
 
   const showNotification = useCallback((message, type = "info") => {
     if (!message) return;
@@ -153,16 +152,6 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
     });
   }, [loading, me, lang, t]);
 
-  useEffect(() => {
-    const onClickOutside = (e) => {
-      if (avatarContainerRef.current && !avatarContainerRef.current.contains(e.target)) {
-        setShowAvatarOptions(false);
-      }
-    };
-    document.addEventListener("click", onClickOutside);
-    return () => document.removeEventListener("click", onClickOutside);
-  }, []);
-
   const handleSelectAvatar = useCallback((avatarId) => {
     setSelectedAvatarId(avatarId);
     setShowAvatarOptions(false);
@@ -244,7 +233,6 @@ export function useMemberPageShell({ navigate, initSession, mondayDmy, todayDmy,
     setSelectedGender,
     showAvatarOptions,
     setShowAvatarOptions,
-    avatarContainerRef,
     handleSelectAvatar,
     notifications,
     showNotification,

@@ -90,6 +90,11 @@
 .current-avatar {
     width: clamp(30px, 2.6vw, 50px);
     height: clamp(30px, 2.6vw, 50px);
+    margin: 0;
+    padding: 0;
+    font: inherit;
+    appearance: none;
+    -webkit-appearance: none;
     border-radius: 50%;
     cursor: pointer;
     /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
@@ -243,6 +248,177 @@
 }
 
 /* .avatar-options scrollbars: app-wide — dashboard-scrollbar.css */
+
+/* Avatar picker — centered modal (portal), replaces sidebar dropdown */
+.avatar-picker-modal-root {
+    position: fixed;
+    inset: 0;
+    z-index: 28000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    pointer-events: none;
+}
+
+.avatar-picker-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(0, 45, 73, 0.38);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.avatar-picker-modal {
+    position: relative;
+    z-index: 1;
+    width: min(400px, 100%);
+    max-height: min(85vh, 520px);
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow:
+        0 24px 48px -12px rgba(0, 44, 73, 0.2),
+        0 8px 20px -8px rgba(15, 23, 42, 0.12);
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.avatar-picker-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    font-weight: 700;
+    font-size: 16px;
+    color: #002c49;
+    flex-shrink: 0;
+}
+
+.avatar-picker-modal-close {
+    border: none;
+    background: #f1f5f9;
+    font-size: 18px;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.avatar-picker-modal-close:hover {
+    background: #e2e8f0;
+    color: #002c49;
+}
+
+.avatar-picker-modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.avatar-picker-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.avatar-picker-modal-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+.avatar-picker-modal-gender {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.avatar-picker-modal-gender-btn {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.avatar-picker-modal-gender-btn:hover {
+    border-color: #93c5fd;
+    background: #f0f7ff;
+}
+
+.avatar-picker-modal-gender-btn.is-active {
+    background: #0d60ff;
+    border-color: #0d60ff;
+    color: #ffffff;
+}
+
+.avatar-picker-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    justify-items: center;
+}
+
+.avatar-picker-modal-option {
+    width: 100%;
+    max-width: 96px;
+    aspect-ratio: 1;
+    margin: 0;
+    padding: 4px;
+    border: 2px solid #e2e8f0;
+    border-radius: 50%;
+    background: #f8fafc;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        background-color 0.15s ease;
+}
+
+.avatar-picker-modal-option:hover {
+    border-color: #667eea;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.avatar-picker-modal-option.is-selected {
+    border-color: #0d60ff;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(13, 96, 255, 0.18);
+}
+
+.avatar-picker-modal-option-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+}
 
 .user-info {
     display: flex;

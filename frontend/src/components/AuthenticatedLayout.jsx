@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
 import AppBootLoading from "./AppBootLoading.jsx";
+import AvatarPickerModal from "./AvatarPickerModal.jsx";
 import ConfirmLogoutModal from "./ConfirmLogoutModal.jsx";
 import ExpirationReminderModal from "./ExpirationReminderModal.jsx";
 import { AuthSessionProvider } from "../context/AuthSessionContext.jsx";
@@ -122,7 +123,6 @@ export default function AuthenticatedLayout() {
   const initialAvatarId = readCookie("selectedAvatar") || "male1";
   const [selectedAvatarId, setSelectedAvatarId] = useState(initialAvatarId);
   const [selectedGender, setSelectedGender] = useState(initialAvatarId.startsWith("female") ? "female" : "male");
-  const avatarContainerRef = useRef(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
@@ -491,17 +491,6 @@ export default function AuthenticatedLayout() {
     };
   }, []);
 
-  // --- Click outside handlers ---
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (avatarContainerRef.current && !avatarContainerRef.current.contains(e.target)) {
-        setShowAvatarOptions(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
   // --- Notification Logic ---
   const toggleNotifications = async (e) => {
     if (e) {
@@ -650,33 +639,15 @@ export default function AuthenticatedLayout() {
             </div>
           </div>
           <div className="user-info-container">
-            <div className="avatar-selector-container" ref={avatarContainerRef}>
-              <div className="current-avatar" onClick={() => setShowAvatarOptions(!showAvatarOptions)}>
+            <div className="avatar-selector-container">
+              <button
+                type="button"
+                className="current-avatar"
+                aria-label={i18n.chooseAvatar}
+                onClick={() => setShowAvatarOptions(true)}
+              >
                 <img className="current-avatar-img" src={avatarSrc} alt="" width={36} height={36} />
-              </div>
-              
-              <div className={`avatar-options ${showAvatarOptions ? "show" : ""}`} id="avatarOptions">
-                  <div className="options-title">{i18n.chooseAvatar}</div>
-                  <div className="gender-selection">
-                      <button type="button" className={`gender-btn ${selectedGender === 'male' ? 'active' : ''}`} onClick={() => setSelectedGender('male')}>{i18n.male}</button>
-                      <button type="button" className={`gender-btn ${selectedGender === 'female' ? 'active' : ''}`} onClick={() => setSelectedGender('female')}>{i18n.female}</button>
-                  </div>
-                  
-                  <div className={`avatar-list ${selectedGender === 'male' ? 'show' : ''}`}>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                          <div key={`male${num}`} className={`avatar-option ${selectedAvatarId === `male${num}` ? 'selected' : ''}`} onClick={() => handleSelectAvatar(`male${num}`)}>
-                              <img src={assetUrl(`images/avatar${num}.png`)} alt={`Male Avatar ${num}`} className="avatar-option-img" />
-                          </div>
-                      ))}
-                  </div>
-                  <div className={`avatar-list ${selectedGender === 'female' ? 'show' : ''}`}>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                          <div key={`female${num}`} className={`avatar-option ${selectedAvatarId === `female${num}` ? 'selected' : ''}`} onClick={() => handleSelectAvatar(`female${num}`)}>
-                              <img src={assetUrl(`images/female${num}.png`)} alt={`Female Avatar ${num}`} className="avatar-option-img" />
-                          </div>
-                      ))}
-                  </div>
-              </div>
+              </button>
             </div>
             
             <div className="user-info">
@@ -1099,6 +1070,19 @@ export default function AuthenticatedLayout() {
         onConfirm={dismissExpirationModal}
         secondaryLabel={showAutoRenewEntry ? getExpirationReminderText(lang, "expReminderAutoRenew") : undefined}
         onSecondary={showAutoRenewEntry ? handleExpirationModalSecondary : undefined}
+      />
+
+      <AvatarPickerModal
+        open={showAvatarOptions}
+        onClose={() => setShowAvatarOptions(false)}
+        selectedAvatarId={selectedAvatarId}
+        selectedGender={selectedGender}
+        onGenderChange={setSelectedGender}
+        onSelect={handleSelectAvatar}
+        title={i18n.chooseAvatar}
+        maleLabel={i18n.male}
+        femaleLabel={i18n.female}
+        cancelLabel={i18n.cancel}
       />
 
       <ConfirmLogoutModal
