@@ -316,31 +316,104 @@ function maintenanceBuildTransactionUnionBranch(
 }
 
 /**
+ * Build scope context for legacy requests without explicit report_scope params.
+ *
+ * @return array<string, mixed>
+ */
+function maintenanceBuildScopeCtxFromLegacy(
+    PDO $pdo,
+    int $companyId,
+    bool $isGroupScope,
+    string $scopeProcessFilter,
+    string $scopeCompanySql,
+    string $scopeCompanySqlDeleted,
+    array $params
+): array {
+    $dualTenant = tenant_table_has_scope_columns($pdo, 'data_captures');
+    $ctx = [
+        'company_id' => $companyId,
+        'anchor_company_id' => $companyId,
+        'is_group_scope' => $isGroupScope,
+        'scope_process_sql' => $scopeProcessFilter,
+        'scope_company_sql' => $scopeCompanySql,
+        'scope_company_sql_deleted' => $scopeCompanySqlDeleted,
+        'dual_tenant' => $dualTenant,
+    ];
+
+    if ($isGroupScope) {
+        $groupId = dcNormalizeGroupId($params['view_group'] ?? $params['group_id'] ?? '');
+        if ($groupId !== '') {
+            $groupPk = gc_resolve_group_pk_by_code($pdo, $groupId);
+            $anchorId = gc_resolve_group_anchor_company_id($pdo, $groupId);
+            if ($anchorId > 0) {
+                $ctx['company_id'] = $anchorId;
+                $ctx['anchor_company_id'] = $anchorId;
+            }
+            if ($groupPk > 0) {
+                $ctx['group_id'] = $groupId;
+                $ctx['group_scope_id'] = $groupPk;
+                $ctx['scope_id'] = $groupPk;
+                $ctx['scope_type'] = 'group';
+            }
+        }
+    }
+
+    return $ctx;
+}
+
+/**
+ * Ledger-aware WHERE for data_captures (group/company isolation).
+ *
+ * @return array{where_sql: string, params: array}
+ */
+function maintenanceBuildCaptureWhere(
+    PDO $pdo,
+    array $scopeCtx,
+    string $date_from_db,
+    string $date_to_db,
+    ?string $process = null,
+    string $scopeProcessFilter = ''
+): array {
+    $ledgerDc = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dc', 'data_captures');
+    $ledgerDcd = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dcd', 'data_capture_details');
+    $processCompanyId = dcCaptureProcessCompanyId($scopeCtx);
+
+    $conditions = ['dc.capture_date BETWEEN ? AND ?', 'p.company_id = ?'];
+    $params = [$ledgerDc['bind'], $ledgerDcd['bind'], $date_from_db, $date_to_db, $processCompanyId];
+
+    if ($process) {
+        $conditions[] = 'p.process_id = ?';
+        $params[] = $process;
+    }
+
+    $whereSql = 'WHERE 1=1 ' . $ledgerDc['sql'] . $ledgerDcd['sql']
+        . ' AND ' . implode(' AND ', $conditions) . $scopeProcessFilter;
+
+    return ['where_sql' => $whereSql, 'params' => $params];
+}
+
+/**
  * 构建 Data Capture 分支（UNION 子查询）。
  * @return array{sql: string, params: array}
  */
 function maintenanceBuildCaptureUnionBranch(
     PDO $pdo,
-    int $company_id,
+    array $scopeCtx,
     string $date_from_db,
     string $date_to_db,
     ?string $process,
-    string $scopeProcessFilter = '',
-    string $scopeCompanySql = ''
+    string $scopeProcessFilter = ''
 ): array {
-    $captureWhere = [
-        "dc.company_id = ?",
-        "dcd.company_id = ?",
-        "dc.capture_date BETWEEN ? AND ?",
-    ];
-    $captureParams = [$company_id, $company_id, $date_from_db, $date_to_db];
-
-    if ($process) {
-        $captureWhere[] = "p.process_id = ?";
-        $captureParams[] = $process;
-    }
-
-    $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere);
+    $built = maintenanceBuildCaptureWhere(
+        $pdo,
+        $scopeCtx,
+        $date_from_db,
+        $date_to_db,
+        $process,
+        $scopeProcessFilter
+    );
+    $captureWhereSql = $built['where_sql'];
+    $captureParams = $built['params'];
 
     $sql = "
         SELECT
@@ -380,7 +453,7 @@ function maintenanceBuildCaptureUnionBranch(
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
         LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
-        $captureWhereSql $scopeProcessFilter $scopeCompanySql
+        $captureWhereSql
     ";
 
     return ['sql' => $sql, 'params' => $captureParams];
@@ -462,26 +535,23 @@ function maintenanceBuildTransactionFastBranch(
  * @return array{sql: string, params: array}
  */
 function maintenanceBuildCaptureFastBranch(
-    int $company_id,
+    PDO $pdo,
+    array $scopeCtx,
     string $date_from_db,
     string $date_to_db,
     ?string $process,
-    string $scopeProcessFilter = '',
-    string $scopeCompanySql = ''
+    string $scopeProcessFilter = ''
 ): array {
-    $captureWhere = [
-        "dc.company_id = ?",
-        "dcd.company_id = ?",
-        "dc.capture_date BETWEEN ? AND ?",
-    ];
-    $captureParams = [$company_id, $company_id, $date_from_db, $date_to_db];
-
-    if ($process) {
-        $captureWhere[] = "p.process_id = ?";
-        $captureParams[] = $process;
-    }
-
-    $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere);
+    $built = maintenanceBuildCaptureWhere(
+        $pdo,
+        $scopeCtx,
+        $date_from_db,
+        $date_to_db,
+        $process,
+        $scopeProcessFilter
+    );
+    $captureWhereSql = $built['where_sql'];
+    $captureParams = $built['params'];
 
     $sql = "
         SELECT
@@ -521,7 +591,7 @@ function maintenanceBuildCaptureFastBranch(
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
         LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
-        $captureWhereSql $scopeProcessFilter $scopeCompanySql
+        $captureWhereSql
     ";
 
     return ['sql' => $sql, 'params' => $captureParams];
@@ -788,6 +858,7 @@ function maintenanceSearchScopeDebug(
 function maintenanceSearchPaginatedFast(
     PDO $pdo,
     int $company_id,
+    array $scopeCtx,
     string $date_from_db,
     string $date_to_db,
     ?string $process,
@@ -797,8 +868,7 @@ function maintenanceSearchPaginatedFast(
     int $page_size,
     ?string $cursor_raw = null,
     bool $maintenance_scope_group = false,
-    string $scopeProcessFilter = '',
-    string $scopeCompanySql = ''
+    string $scopeProcessFilter = ''
 ): void {
     $has_source_bank_col = maintenanceHasSourceBankCol($pdo);
     $unionParts = [];
@@ -820,12 +890,12 @@ function maintenanceSearchPaginatedFast(
     if (!$is_bank_category) {
         try {
             $cap = maintenanceBuildCaptureFastBranch(
-                $company_id,
+                $pdo,
+                $scopeCtx,
                 $date_from_db,
                 $date_to_db,
                 $process,
-                $scopeProcessFilter,
-                $scopeCompanySql
+                $scopeProcessFilter
             );
             $unionParts[] = '(' . $cap['sql'] . ')';
             $params = array_merge($params, $cap['params']);
@@ -1003,6 +1073,15 @@ try {
             $scopeCompanySql = dcSqlCaptureOnGroupEntityCompany('dc');
             $scopeCompanySqlDeleted = dcSqlCaptureOnGroupEntityCompany('dcd');
         }
+        $scopeCtx = maintenanceBuildScopeCtxFromLegacy(
+            $pdo,
+            (int) $company_id,
+            $maintenance_scope_group,
+            $scopeProcessFilter,
+            $scopeCompanySql,
+            $scopeCompanySqlDeleted,
+            $scopeParams
+        );
     }
 
     if ($maintenance_scope_group && (int) $company_id <= 0) {
@@ -1162,6 +1241,7 @@ try {
             maintenanceSearchPaginatedFast(
                 $pdo,
                 $capture_company_id,
+                $scopeCtx,
                 $date_from_db,
                 $date_to_db,
                 $process,
@@ -1171,8 +1251,7 @@ try {
                 $page_size,
                 $cursor_raw !== '' ? $cursor_raw : null,
                 (bool) $capture_scope_group,
-                $captureScopeProcessFilter,
-                $scopeCompanySql
+                $captureScopeProcessFilter
             );
             return;
         } catch (Throwable $fastErr) {
@@ -1288,26 +1367,16 @@ try {
     // ========== 2. 查询 Data Capture 数据（Bank category 不包含 Data Capture，仅 Transaction）==========
     if (!$is_bank_category) {
     try {
-        $captureWhere = [];
-        $captureParams = [];
-
-        $captureWhere[] = "dc.company_id = ?";
-        $captureParams[] = $capture_company_id;
-
-        $captureWhere[] = "dcd.company_id = ?";
-        $captureParams[] = $capture_company_id;
-
-        $captureWhere[] = "dc.capture_date BETWEEN ? AND ?";
-        $captureParams[] = $date_from_db;
-        $captureParams[] = $date_to_db;
-
-        // Process 过滤（如果指定）
-        if ($process) {
-            $captureWhere[] = "p.process_id = ?";
-            $captureParams[] = $process;
-        }
-
-        $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere) . $captureScopeProcessFilter . $scopeCompanySql;
+        $captureBuilt = maintenanceBuildCaptureWhere(
+            $pdo,
+            $scopeCtx,
+            $date_from_db,
+            $date_to_db,
+            $process,
+            $captureScopeProcessFilter
+        );
+        $captureWhereSql = $captureBuilt['where_sql'];
+        $captureParams = $captureBuilt['params'];
 
         $captureSql = "
             SELECT
