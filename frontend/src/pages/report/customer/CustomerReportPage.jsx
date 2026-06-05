@@ -7,9 +7,10 @@ import {
   readInitialGcFilterCompanyId,
   readPersistedDashboardGcFilter,
   resolveInitialSelectedGroupFromSession,
-  resolveSubsidiaryBootCompanyId,
+  resolveReportGroupCompanyBootId,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
+  clearOwnerCompaniesCache,
   resolveGcFilterBootCompanyId,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
@@ -53,7 +54,10 @@ import {
   resolveCustomerReportScope,
 } from "../shared/reportScope.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import { ensureCrossPageCompanySelection } from "../../../utils/company/companySessionSync.js";
+import {
+  ensureCrossPageCompanySelection,
+  syncCompanySessionApi,
+} from "../../../utils/company/companySessionSync.js";
 import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 
 const REPORT_PAGE_KEY = "customer";
@@ -111,7 +115,7 @@ export default function CustomerReportPage() {
   const { begin: beginMetaFetch, invalidate: invalidateMetaFetch, isCurrent: isMetaFetchCurrent } =
     useReportAbortSeq();
   const pageBootOnceRef = useRef(false);
-  const companiesBootstrappedRef = useRef(false);
+  const [companiesBootstrapped, setCompaniesBootstrapped] = useState(false);
   const prevCompanyIdRef = useRef(null);
   const prevScopeKeyRef = useRef(null);
   /** Per-company / per-group currency filter prefs */
@@ -206,50 +210,76 @@ export default function CustomerReportPage() {
     let cancelled = false;
     (async () => {
       try {
-        const rows = await fetchOwnerCompaniesAll();
-        if (cancelled) return;
-        setCompanies(rows);
-
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
         const persisted = readPersistedDashboardGcFilter();
+
+        let rows = await fetchOwnerCompaniesAll();
+        if (cancelled) return;
+
         const bootGroup = resolveInitialSelectedGroupFromSession(rows, null, u);
         const activeGroup = bootGroup ?? persisted.selectedGroup;
-        const resolvedBootId = resolveSubsidiaryBootCompanyId(rows, {
+
+        let effectiveCompany = resolveReportGroupCompanyBootId(rows, {
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
+          sessionCompanyCode: u.company_code,
           selectedGroup: activeGroup,
           loginMe: u,
         });
-        const nextCompanyId =
-          companyId != null
-            ? companyId
-            : resolvedBootId != null
-              ? resolvedBootId
-              : persisted.groupOnly || isDashboardGroupOnlyMode()
-                ? null
-                : resolveGcFilterBootCompanyId({
-                    urlCompanyId: queryCompany,
-                    sessionCompanyId: u.company_id,
-                    defaultRowId: rows[0]?.id,
-                  }).companyId;
+
+        if (
+          effectiveCompany != null &&
+          Number(effectiveCompany) !== Number(u.company_id)
+        ) {
+          try {
+            const syncJson = await syncCompanySessionApi(effectiveCompany, activeGroup);
+            if (!syncJson?.success) {
+              effectiveCompany = resolveReportGroupCompanyBootId(rows, {
+                urlCompanyId: queryCompany,
+                sessionCompanyId: u.company_id,
+                sessionCompanyCode: u.company_code,
+                selectedGroup: activeGroup,
+                loginMe: u,
+              });
+            } else {
+              clearOwnerCompaniesCache();
+              rows = await fetchOwnerCompaniesAll();
+              if (cancelled) return;
+              effectiveCompany = resolveReportGroupCompanyBootId(rows, {
+                urlCompanyId: queryCompany,
+                sessionCompanyId: effectiveCompany,
+                sessionCompanyCode: syncJson?.data?.company_code ?? u.company_code,
+                selectedGroup: activeGroup,
+                loginMe: u,
+              });
+            }
+          } catch {
+            /* keep pre-sync resolution */
+          }
+        }
+
+        if (cancelled) return;
+        setCompanies(rows);
+
         const row =
-          nextCompanyId != null
-            ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
+          effectiveCompany != null
+            ? rows.find((c) => Number(c.id) === Number(effectiveCompany)) || null
             : null;
-        const bootSelectedGroup = resolveInitialSelectedGroupFromSession(rows, row, u);
-        if (nextCompanyId != null) {
+        const bootSelectedGroup = resolveInitialSelectedGroupFromSession(rows, row, u) ?? activeGroup;
+
+        if (effectiveCompany != null) {
           persistDashboardGroupOnlyMode(false);
-          persistDashboardFilterState(bootSelectedGroup ?? activeGroup, nextCompanyId, {
+          persistDashboardFilterState(bootSelectedGroup, effectiveCompany, {
             allowGroupOnly: false,
           });
-          setCompanyId((prev) => (prev != null ? prev : nextCompanyId));
+          setCompanyId(effectiveCompany);
           setSelectedGroup(bootSelectedGroup);
-          companiesBootstrappedRef.current = true;
-          void checkBankOnly(nextCompanyId);
-          await ensureCrossPageCompanySelection(nextCompanyId, {
+          setCompaniesBootstrapped(true);
+          void checkBankOnly(effectiveCompany);
+          await ensureCrossPageCompanySelection(effectiveCompany, {
             companies: rows,
-            selectedGroup: bootSelectedGroup ?? activeGroup,
+            selectedGroup: bootSelectedGroup,
             companyRow: row,
             sessionCompanyId: u.company_id,
           });
@@ -257,9 +287,9 @@ export default function CustomerReportPage() {
           if (persisted.groupOnly || isDashboardGroupOnlyMode()) {
             persistDashboardGroupOnlyMode(true);
           }
-          setCompanyId((prev) => (prev != null ? prev : null));
+          setCompanyId(null);
           setSelectedGroup(bootSelectedGroup);
-          companiesBootstrappedRef.current = true;
+          setCompaniesBootstrapped(true);
         }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -268,10 +298,10 @@ export default function CustomerReportPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, me, navigate, companyId]);
+  }, [sessionReady, me, navigate]);
 
   useEffect(() => {
-    if (!companies.length || !companiesBootstrappedRef.current) return;
+    if (!companies.length || !companiesBootstrapped) return;
     const row =
       companyId != null
         ? companies.find((c) => Number(c.id) === Number(companyId)) || null
@@ -283,10 +313,10 @@ export default function CustomerReportPage() {
       if (g && sortedUniqueGroupIds(companies).includes(g)) return g;
       return prev;
     });
-  }, [companies, companyId, me]);
+  }, [companies, companyId, me, companiesBootstrapped]);
 
   useEffect(() => {
-    if (!companiesBootstrappedRef.current || !companies.length || companyId == null) return;
+    if (!companiesBootstrapped || !companies.length || companyId == null) return;
     const row = companies.find((c) => Number(c.id) === Number(companyId)) || null;
     void ensureCrossPageCompanySelection(companyId, {
       companies,
@@ -294,7 +324,7 @@ export default function CustomerReportPage() {
       companyRow: row,
       sessionCompanyId: me?.company_id,
     });
-  }, [companies, companyId, selectedGroup, me?.company_id]);
+  }, [companies, companyId, selectedGroup, me?.company_id, companiesBootstrapped]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;

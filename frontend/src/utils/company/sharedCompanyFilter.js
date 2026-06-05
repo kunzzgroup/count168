@@ -900,8 +900,97 @@ export function pickDefaultSubsidiaryForGroup(companies, groupId, options = {}) 
   const gids = sortedUniqueGroupIds(companies);
   const pick = pickDefaultCompanyForGroup(companies, g, { ...options, nativeOnly: true });
   if (pick && isSubsidiaryCompanyRow(pick, gids)) return pick;
-  const list = excludeGroupLabelsFromCompanyPicker(companiesNativeInGroupList(companies, g), gids);
+  const list = excludeGroupLabelsFromCompanyPicker(companiesInGroupList(companies, g), gids);
   return list[0] ?? null;
+}
+
+/** Match subsidiary in active group tab by company code (e.g. session company_code C168). */
+export function resolveCompanyIdInGroupByCode(companies, groupId, companyCode) {
+  const code = String(companyCode || "").trim().toUpperCase();
+  const g = String(groupId || "").trim().toUpperCase();
+  if (!code || !g) return null;
+  const row = companiesInGroupList(companies, g).find(
+    (c) => String(c.company_id || "").trim().toUpperCase() === code,
+  );
+  const id = row?.id != null ? Number(row.id) : Number.NaN;
+  return Number.isFinite(id) && id !== 0 ? id : null;
+}
+
+/**
+ * Report / maintenance boot: restore explicit subsidiary in group (incl. linked rows).
+ * Less strict than {@link resolveSubsidiaryBootCompanyId} — keeps saved id when row exists in group.
+ */
+export function resolveReportGroupCompanyBootId(
+  companies,
+  { urlCompanyId, sessionCompanyId, sessionCompanyCode, selectedGroup, loginMe = null } = {},
+) {
+  const list = companies || [];
+  const groupKey =
+    (selectedGroup ? String(selectedGroup).trim().toUpperCase() : "") ||
+    (loginMe?.login_scope === "group" && loginMe?.login_identifier
+      ? String(loginMe.login_identifier).trim().toUpperCase()
+      : "");
+
+  const rowInGroup = (row) => {
+    if (!row || !groupKey) return true;
+    const native = normalizeCompanyGroupId(row);
+    const link = row.link_source_group
+      ? String(row.link_source_group).trim().toUpperCase()
+      : "";
+    return native === groupKey || link === groupKey;
+  };
+
+  const acceptRowId = (row) => {
+    if (!row || !filterCompaniesWithDisplayId([row]).length) return null;
+    if (companyRowIsGroupEntityAnyShape(row)) return null;
+    if (!rowInGroup(row)) return null;
+    const id = Number(row.id);
+    return Number.isFinite(id) && id !== 0 ? id : null;
+  };
+
+  const acceptRawId = (rawId) => {
+    const row = list.find((c) => Number(c.id) === Number(rawId));
+    return acceptRowId(row);
+  };
+
+  const urlNum =
+    urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
+  if (Number.isFinite(urlNum) && urlNum !== 0) {
+    const fromUrl = acceptRawId(urlNum);
+    if (fromUrl != null) return fromUrl;
+  }
+
+  const saved = readDashboardSelectedCompanyId();
+  if (saved != null) {
+    const fromSaved = acceptRawId(saved);
+    if (fromSaved != null) return fromSaved;
+  }
+
+  const fromSubsidiary = resolveSubsidiaryBootCompanyId(list, {
+    urlCompanyId: null,
+    sessionCompanyId,
+    selectedGroup: groupKey,
+    loginMe,
+  });
+  if (fromSubsidiary != null) return fromSubsidiary;
+
+  if (groupKey && sessionCompanyCode) {
+    const fromCode = resolveCompanyIdInGroupByCode(list, groupKey, sessionCompanyCode);
+    if (fromCode != null) return fromCode;
+  }
+
+  const anchor = resolvePreferredCompanyIdForGroupAnchor(list, groupKey, sessionCompanyId);
+  if (anchor != null) {
+    const fromAnchor = acceptRawId(anchor);
+    if (fromAnchor != null) return fromAnchor;
+  }
+
+  if (!isDashboardGroupOnlyMode() && groupKey) {
+    const pick = pickDefaultSubsidiaryForGroup(list, groupKey, { me: loginMe });
+    if (pick?.id != null) return Number(pick.id);
+  }
+
+  return null;
 }
 
 /** Only use PHP session company as anchor preference when it belongs to the active group tab. */
@@ -986,7 +1075,7 @@ export function resolveSubsidiaryBootCompanyId(
     }),
   );
   if (id == null) id = acceptId(sessionCompanyId);
-  if (id == null && !isDashboardGroupOnlyMode()) {
+  if (id == null) {
     id = acceptId(readDashboardSelectedCompanyId());
   }
 
