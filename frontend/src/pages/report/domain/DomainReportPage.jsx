@@ -9,14 +9,10 @@ import {
   persistDashboardGroupOnlyMode,
   resolveBootCompanyId,
   resolveGcFilterBootCompanyId,
-  notifyDashboardCurrencyFilterChanged,
-  resolveCrossPageCurrencyPreference,
-  buildDashboardCurrencyScopeKey,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import { useReportGroupCompanyFilter } from "../shared/useReportGroupCompanyFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
@@ -34,7 +30,6 @@ import {
 } from "./domainReportGroupProcesses.js";
 import {
   fetchCompanyPermissions,
-  fetchReportScopeCurrencies,
   isBankOnlyCategoryCompany,
 } from "../shared/reportCompanyApi.js";
 import { formatYmd } from "../../../utils/date/dateUtils.js";
@@ -48,10 +43,7 @@ import {
   setReportSnapshot,
 } from "../shared/reportPageSnapshotCache.js";
 import { useReportAbortSeq } from "../shared/useReportAbortSeq.js";
-import {
-  customerReportScopeCacheCompanyKey,
-  customerReportScopeCacheKey,
-} from "../shared/reportScope.js";
+import { customerReportScopeCacheKey } from "../shared/reportScope.js";
 import {
   domainReportScopeIsReady,
   domainReportUsesSalaryBonusProcesses,
@@ -62,13 +54,6 @@ import { syncCompanySessionInBackground } from "../../../utils/company/companySe
 
 const REPORT_PAGE_KEY = "domain";
 const REPORT_FETCH_DEBOUNCE_MS = 150;
-function sameCodeList(a = [], b = []) {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (String(a[i] || "").toUpperCase() !== String(b[i] || "").toUpperCase()) return false;
-  }
-  return true;
-}
 
 function resolveReportBootCompanyId() {
   const cached = getCachedOwnerCompanies();
@@ -96,17 +81,13 @@ export default function DomainReportPage() {
   });
   const companySessionAbortRef = useRef(null);
   const [processId, setProcessId] = useState("");
-  const [selectedCurrencies, setSelectedCurrencies] = useState([]);
-  const [showAllCurrencies, setShowAllCurrencies] = useState(false);
-  /** Avoid report fetch before currency filter is resolved (prevents double load on entry). */
-  const [currencyFilterReady, setCurrencyFilterReady] = useState(false);
+  const [metaReady, setMetaReady] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const [dateFrom, setDateFrom] = useState(formatYmd(today));
   const [dateTo, setDateTo] = useState(formatYmd(today));
 
   const [processes, setProcesses] = useState([]);
-  const [currencyList, setCurrencyList] = useState([]);
   const [reportData, setReportData] = useState(null);
   const reportDataRef = useRef(null);
   const [reportSyncing, setReportSyncing] = useState(false);
@@ -121,20 +102,6 @@ export default function DomainReportPage() {
   const pageBootOnceRef = useRef(false);
   const prevCompanyIdRef = useRef(null);
   const prevScopeKeyRef = useRef(null);
-  const prevScopeModeRef = useRef(null);
-  /** Per-company / per-group currency filter prefs */
-  const currencyPrefsByCompanyRef = useRef({});
-  const selectedCurrenciesRef = useRef(selectedCurrencies);
-  const showAllCurrenciesRef = useRef(showAllCurrencies);
-
-  useEffect(() => {
-    selectedCurrenciesRef.current = selectedCurrencies;
-  }, [selectedCurrencies]);
-
-  useEffect(() => {
-    showAllCurrenciesRef.current = showAllCurrencies;
-  }, [showAllCurrencies]);
-
   useEffect(() => {
     reportDataRef.current = reportData;
   }, [reportData]);
@@ -287,7 +254,7 @@ export default function DomainReportPage() {
       setError("");
       setProcessId("");
       if (reportDataRef.current != null) setReportSyncing(true);
-      setCurrencyFilterReady(false);
+      setMetaReady(false);
     },
     [invalidateReportFetch, selectedGroup],
   );
@@ -300,7 +267,7 @@ export default function DomainReportPage() {
     if (reportDataRef.current != null) setReportSyncing(true);
     startTransition(() => {
       setProcessId("");
-      setCurrencyFilterReady(false);
+      setMetaReady(false);
     });
   }, []);
 
@@ -369,36 +336,16 @@ export default function DomainReportPage() {
 
   const isGroupScope = domainReportUsesSalaryBonusProcesses(reportScope);
 
-  const reportCurrencyCodes = useMemo(
-    () => currencyList.map((c) => c.code).filter(Boolean),
-    [currencyList],
-  );
-
-  const applyCrossPageCurrency = useCallback((code) => {
-    setShowAllCurrencies(false);
-    setSelectedCurrencies([code]);
-  }, []);
-
-  const { persistSelection: persistCrossPageCurrency } = useCrossPageCurrencySync({
-    enabled: currencyFilterReady && reportCurrencyCodes.length > 0,
-    companyId: reportScope?.scopeCompanyId > 0 ? reportScope.scopeCompanyId : companyId,
-    selectedGroup: reportScope?.viewGroup ?? selectedGroup,
-    availableCodes: reportCurrencyCodes,
-    currentCode: selectedCurrencies.length === 1 ? selectedCurrencies[0] : "",
-    onApplyCode: applyCrossPageCurrency,
-  });
-
   const reportParams = useMemo(
     () => ({
       processId,
       dateFrom,
       dateTo,
       reportScope,
-      selectedCurrencies,
-      showAllCurrencies,
+      showAllCurrencies: true,
       scopeKey: customerReportScopeCacheKey(reportScope),
     }),
-    [processId, dateFrom, dateTo, reportScope, selectedCurrencies, showAllCurrencies],
+    [processId, dateFrom, dateTo, reportScope],
   );
 
   const loadReport = useCallback(async () => {
@@ -432,52 +379,10 @@ export default function DomainReportPage() {
     }
   }, [reportScope, dateFrom, dateTo, reportParams, beginReportFetch, isReportFetchCurrent, t, notify]);
 
-  const persistCurrencyPrefs = useCallback((scope, currencies, showAll) => {
-    const key = customerReportScopeCacheCompanyKey(scope);
-    if (key == null) return;
-    currencyPrefsByCompanyRef.current[key] = {
-      selectedCurrencies: currencies,
-      showAllCurrencies: showAll,
-    };
-    if (!showAll && currencies?.length >= 1) {
-      notifyDashboardCurrencyFilterChanged(
-        currencies[currencies.length - 1],
-        buildDashboardCurrencyScopeKey({
-          companyId: scope?.scopeCompanyId > 0 ? scope.scopeCompanyId : null,
-          selectedGroup: scope?.viewGroup ?? selectedGroup,
-        }) || String(key),
-      );
-    }
-  }, [selectedGroup]);
-
-  const applySavedCurrencyPrefs = useCallback((scope, curs) => {
-    const key = customerReportScopeCacheCompanyKey(scope);
-    const saved = key != null ? currencyPrefsByCompanyRef.current[key] : null;
-    if (!saved) return false;
-    if (saved.showAllCurrencies) {
-      setShowAllCurrencies(true);
-      setSelectedCurrencies([]);
-      return true;
-    }
-    if (saved.selectedCurrencies?.length > 0) {
-      const valid = saved.selectedCurrencies.filter((code) =>
-        curs.some((c) => c.code === code),
-      );
-      if (valid.length > 0) {
-        setSelectedCurrencies(valid);
-        setShowAllCurrencies(false);
-        return true;
-      }
-    }
-    return false;
-  }, []);
-
   const loadMetaData = useCallback(async () => {
     if (!domainReportScopeIsReady(reportScope)) return;
     const { signal, seq } = beginMetaFetch();
     try {
-      const curs = await fetchReportScopeCurrencies(reportScope, { signal });
-      if (!isMetaFetchCurrent(seq)) return;
       const procsRaw = await fetchProcesses(reportScope, { signal });
       if (!isMetaFetchCurrent(seq)) return;
       const procs = isGroupScope ? mapDomainGroupProcesses(procsRaw) : procsRaw;
@@ -485,68 +390,15 @@ export default function DomainReportPage() {
       if (isGroupScope && !isDomainGroupProcessSelection(processId, procs)) {
         setProcessId("");
       }
-      setCurrencyList(curs);
-
-      const scopeModeChanged =
-        prevScopeModeRef.current != null && prevScopeModeRef.current !== reportScope?.mode;
-      prevScopeModeRef.current = reportScope?.mode ?? null;
-
-      if (!scopeModeChanged && applySavedCurrencyPrefs(reportScope, curs)) return;
-
-      if (!scopeModeChanged && showAllCurrenciesRef.current) {
-        setShowAllCurrencies(true);
-        setSelectedCurrencies([]);
-        persistCurrencyPrefs(reportScope, [], true);
-        return;
-      }
-
-      const validCurrent = scopeModeChanged
-        ? []
-        : selectedCurrenciesRef.current.filter((code) =>
-            curs.some((c) => c.code === code),
-          );
-      if (validCurrent.length > 0) {
-        setShowAllCurrencies(false);
-        setSelectedCurrencies((prev) => (sameCodeList(prev, validCurrent) ? prev : validCurrent));
-        persistCurrencyPrefs(reportScope, validCurrent, false);
-        return;
-      }
-
-      if (curs.length > 0) {
-        const persistedCur = resolveCrossPageCurrencyPreference({
-          scopeKey: buildDashboardCurrencyScopeKey({
-            companyId: reportScope?.scopeCompanyId > 0 ? reportScope.scopeCompanyId : null,
-            selectedGroup: reportScope?.viewGroup ?? selectedGroup,
-          }),
-          availableCodes: curs.map((c) => c.code),
-        });
-        const fromPersisted = persistedCur
-          ? curs.find((c) => c.code === persistedCur)
-          : null;
-        const myr = curs.find((c) => c.code === "MYR");
-        const def = fromPersisted || myr || curs[0];
-        const codes = [def.code];
-        setSelectedCurrencies(codes);
-        setShowAllCurrencies(false);
-        persistCurrencyPrefs(reportScope, codes, false);
-      }
     } catch (err) {
       if (err?.name === "AbortError" || !isMetaFetchCurrent(seq)) return;
       console.error("Meta data load error:", err);
     } finally {
       if (isMetaFetchCurrent(seq)) {
-        setCurrencyFilterReady(true);
+        setMetaReady(true);
       }
     }
-  }, [
-    reportScope,
-    isGroupScope,
-    processId,
-    applySavedCurrencyPrefs,
-    persistCurrencyPrefs,
-    beginMetaFetch,
-    isMetaFetchCurrent,
-  ]);
+  }, [reportScope, isGroupScope, processId, beginMetaFetch, isMetaFetchCurrent]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -554,51 +406,26 @@ export default function DomainReportPage() {
     if (prev != null && Number(prev) !== Number(companyId)) {
       invalidateReportFetch();
       setReportSyncing(false);
-      const prevScope = resolveDomainReportScope({
-        companies,
-        selectedGroup,
-        companyId: prev,
-      });
-      persistCurrencyPrefs(
-        prevScope,
-        selectedCurrenciesRef.current,
-        showAllCurrenciesRef.current,
-      );
-      const savedKey = customerReportScopeCacheCompanyKey(
-        resolveDomainReportScope({ companies, selectedGroup, companyId }),
-      );
-      const saved = savedKey != null ? currencyPrefsByCompanyRef.current[savedKey] : null;
-      if (saved?.showAllCurrencies) {
-        setShowAllCurrencies(true);
-        setSelectedCurrencies([]);
-      } else if (saved?.selectedCurrencies?.length) {
-        setSelectedCurrencies([...saved.selectedCurrencies]);
-        setShowAllCurrencies(false);
-      } else {
-        setSelectedCurrencies([]);
-        setShowAllCurrencies(false);
-      }
-      setCurrencyFilterReady(false);
+      setMetaReady(false);
       setProcessId("");
       if (reportDataRef.current != null) setReportSyncing(true);
     }
     prevCompanyIdRef.current = companyId;
-  }, [companyId, companies, selectedGroup, persistCurrencyPrefs, invalidateReportFetch]);
+  }, [companyId, invalidateReportFetch]);
 
   useEffect(() => {
-    if (!currencyFilterReady) {
+    if (!metaReady) {
       invalidateReportFetch();
       setReportSyncing(false);
     }
-  }, [currencyFilterReady, invalidateReportFetch]);
+  }, [metaReady, invalidateReportFetch]);
 
   useEffect(() => {
     if (!domainReportScopeIsReady(reportScope)) {
-      setCurrencyFilterReady(false);
+      setMetaReady(false);
       return;
     }
-    setCurrencyList([]);
-    setCurrencyFilterReady(false);
+    setMetaReady(false);
     loadMetaData();
   }, [reportScope, loadMetaData]);
 
@@ -614,7 +441,7 @@ export default function DomainReportPage() {
   }, [reportScope, invalidateReportFetch]);
 
   useEffect(() => {
-    if (!domainReportScopeIsReady(reportScope) || !currencyFilterReady) return undefined;
+    if (!domainReportScopeIsReady(reportScope) || !metaReady) return undefined;
     const handler = window.setTimeout(() => {
       loadReport();
     }, REPORT_FETCH_DEBOUNCE_MS);
@@ -622,10 +449,10 @@ export default function DomainReportPage() {
       window.clearTimeout(handler);
       invalidateReportFetch();
     };
-  }, [reportScope, currencyFilterReady, loadReport, invalidateReportFetch]);
+  }, [reportScope, metaReady, loadReport, invalidateReportFetch]);
 
   useEffect(() => {
-    if (!domainReportScopeIsReady(reportScope) || !currencyFilterReady) return;
+    if (!domainReportScopeIsReady(reportScope) || !metaReady) return;
     const key = buildReportSnapshotKey(reportParams);
     const snap = getReportSnapshot(REPORT_PAGE_KEY);
     if (snap?.key === key && snap.data && reportDataRef.current == null) {
@@ -634,28 +461,7 @@ export default function DomainReportPage() {
         setReportData(snap.data);
       });
     }
-  }, [reportScope, currencyFilterReady, reportParams]);
-
-  const toggleCurrency = (code) => {
-    setShowAllCurrencies(false);
-    setSelectedCurrencies((prev) => {
-      const next = prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code];
-      persistCurrencyPrefs(reportScope, next, false);
-      if (next.includes(code)) persistCrossPageCurrency(code);
-      return next;
-    });
-  };
-
-  const toggleAllCurrencies = () => {
-    const nextAll = !showAllCurrencies;
-    setShowAllCurrencies(nextAll);
-    if (nextAll) {
-      setSelectedCurrencies([]);
-      persistCurrencyPrefs(reportScope, [], true);
-    } else {
-      persistCurrencyPrefs(reportScope, selectedCurrenciesRef.current, false);
-    }
-  };
+  }, [reportScope, metaReady, reportParams]);
 
   return (
     <div className="container">
@@ -678,11 +484,6 @@ export default function DomainReportPage() {
           setProcessId={setProcessId}
           processes={processes}
           isGroupScope={isGroupScope}
-          currencyList={currencyList}
-          selectedCurrencies={selectedCurrencies}
-          toggleCurrency={toggleCurrency}
-          showAllCurrencies={showAllCurrencies}
-          toggleAllCurrencies={toggleAllCurrencies}
           dateFrom={dateFrom}
           dateTo={dateTo}
           onRangeChange={(s, e) => { setDateFrom(s); setDateTo(e); }}

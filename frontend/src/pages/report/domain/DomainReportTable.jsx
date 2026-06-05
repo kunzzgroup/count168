@@ -1,26 +1,15 @@
 import { formatAmount } from "./domainReportApi.js";
 
-function cellUpperOrDash(v) {
-  if (v == null || String(v).trim() === "") return "-";
-  return String(v).trim().toUpperCase();
-}
-
 function rowKey(item, idx) {
   const p = String(item.process ?? "").trim();
   const d = String(item.description ?? "").trim();
-  const c = String(item.currency ?? "").trim();
-  const g = String(item.group_id ?? "").trim();
-  const co = String(item.company_id ?? "").trim();
-  return `${p}|${d}|${c}|${g}|${co}|${idx}`;
+  return `${p}|${d}|${idx}`;
 }
 
 export default function DomainReportTable({ reportData, reportSyncing = false, error, t }) {
   const tableHeader = (
     <div className="domain-report-table-header">
       <div>{t("colProcess")}</div>
-      <div>{t("colGroupId")}</div>
-      <div>{t("colCompanyId")}</div>
-      <div>{t("colCurrency")}</div>
       <div>{t("colTurnover")}</div>
       <div>{t("colWin")}</div>
       <div>{t("colLose")}</div>
@@ -89,9 +78,6 @@ export default function DomainReportTable({ reportData, reportSyncing = false, e
           return (
             <div key={rowKey(item, idx)} className="domain-report-card">
               <div className="domain-report-card-item">{label}</div>
-              <div className="domain-report-card-item">{cellUpperOrDash(item.group_id)}</div>
-              <div className="domain-report-card-item">{cellUpperOrDash(item.company_id)}</div>
-              <div className="domain-report-card-item">{cellUpperOrDash(item.currency)}</div>
               <div className="domain-report-card-item domain-report-amount"><strong>{formatAmount(item.turnover)}</strong></div>
               <div className="domain-report-card-item domain-report-amount win"><strong>{formatAmount(item.win)}</strong></div>
               <div className="domain-report-card-item domain-report-amount lose"><strong>{formatAmount(item.lose)}</strong></div>

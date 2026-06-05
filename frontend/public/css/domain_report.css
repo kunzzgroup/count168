@@ -172,7 +172,7 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
 .domain-report-card,
 .domain-report-total {
     display: grid;
-    grid-template-columns: 1.55fr 0.68fr 0.74fr 0.82fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1.55fr 1fr 1fr 1fr 1fr;
     gap: 15px;
     min-width: 0;
 }
@@ -187,10 +187,10 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
     font-size: clamp(10px, 0.89vw, 17px);
 }
 
-.domain-report-table-header > div:nth-child(5),
-.domain-report-table-header > div:nth-child(6),
-.domain-report-table-header > div:nth-child(7),
-.domain-report-table-header > div:nth-child(8) {
+.domain-report-table-header > div:nth-child(2),
+.domain-report-table-header > div:nth-child(3),
+.domain-report-table-header > div:nth-child(4),
+.domain-report-table-header > div:nth-child(5) {
     text-align: right;
 }
 
@@ -271,7 +271,7 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
 }
 
 .domain-report-total-label {
-    grid-column: 1 / 5;
+    grid-column: 1 / 2;
     font-weight: bold;
 }
 
