@@ -188,10 +188,11 @@ function fetchDomainReportRows(
         LEFT JOIN data_capture_details dcd ON dcd.capture_id = dc.id
           {$ledgerDcd['sql']}
     ";
-    $params = [$date_from, $date_to, $ledgerDc['bind']];
-    if (strpos($ledgerDcd['sql'], '?') !== false) {
-        $params[] = $ledgerDcd['bind'];
-    }
+    $params = array_merge(
+        [$date_from, $date_to],
+        dcCaptureLedgerBindParams($ledgerDc),
+        dcCaptureLedgerBindParams($ledgerDcd)
+    );
 
     if (!empty($currency_codes)) {
         $placeholders = implode(',', array_fill(0, count($currency_codes), '?'));

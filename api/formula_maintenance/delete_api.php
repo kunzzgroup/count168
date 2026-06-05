@@ -32,18 +32,10 @@ function getCompanyIdFromInput(PDO $pdo, array $input) {
 }
 
 /**
- * 验证 template_ids 是否属于当前公司，返回有效 ID 列表
+ * 验证 template_ids 是否属于当前 scope（group/company ledger），返回有效 ID 列表
  */
-function validateTemplateIds(PDO $pdo, array $template_ids, int $company_id) {
-    if (empty($template_ids)) {
-        return [];
-    }
-    $placeholders = str_repeat('?,', count($template_ids) - 1) . '?';
-    $sql = "SELECT id FROM data_capture_templates WHERE id IN ($placeholders) AND company_id = ?";
-    $params = array_merge($template_ids, [$company_id]);
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+function validateTemplateIds(PDO $pdo, array $template_ids, array $scopeCtx) {
+    return formulaMaintenanceValidateTemplateIdsInScope($pdo, $template_ids, $scopeCtx);
 }
 
 try {
@@ -79,7 +71,7 @@ try {
         throw new Exception('请选择要删除的记录');
     }
 
-    $validIds = validateTemplateIds($pdo, $template_ids, $company_id);
+    $validIds = validateTemplateIds($pdo, $template_ids, $scopeCtx);
     if (empty($validIds)) {
         throw new Exception('没有找到符合条件且属于当前公司的记录');
     }

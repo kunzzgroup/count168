@@ -246,6 +246,20 @@ function dcCaptureProcessCompanyId(array $scopeCtx): int
     return (int) ($scopeCtx['anchor_company_id'] ?? $scopeCtx['company_id'] ?? 0);
 }
 
+/** Bind values for a ledger SQL fragment (empty when placeholders are inlined). */
+function dcCaptureLedgerBindParams(array $ledger): array
+{
+    if (isset($ledger['params']) && is_array($ledger['params'])) {
+        return $ledger['params'];
+    }
+    $sql = (string) ($ledger['sql'] ?? '');
+    if (strpos($sql, '?') === false) {
+        return [];
+    }
+
+    return [(int) ($ledger['bind'] ?? 0)];
+}
+
 /** Bind value for ledger scope filter on a table alias. */
 function dcCaptureLedgerBindId(array $scopeCtx): int
 {
@@ -269,9 +283,12 @@ function dcBuildCaptureLedgerFilter(PDO $pdo, array $scopeCtx, string $alias, st
 
     if (($scopeCtx['dual_tenant'] ?? false) && $hasScope) {
         if (!empty($scopeCtx['is_group_scope'])) {
+            $groupPk = (int) ($scopeCtx['group_scope_id'] ?? $scopeCtx['scope_id'] ?? 0);
+
             return [
                 'sql' => " AND {$a}.scope_type = 'group' AND {$a}.scope_id = ? ",
-                'bind' => (int) ($scopeCtx['group_scope_id'] ?? $scopeCtx['scope_id'] ?? 0),
+                'bind' => $groupPk,
+                'params' => [$groupPk],
                 'uses_dual_tenant' => true,
             ];
         }
@@ -281,6 +298,7 @@ function dcBuildCaptureLedgerFilter(PDO $pdo, array $scopeCtx, string $alias, st
         return [
             'sql' => " AND {$a}.company_id = ? AND (COALESCE({$a}.scope_type, '') = '' OR {$a}.scope_type = 'company') ",
             'bind' => $companyId,
+            'params' => [$companyId],
             'uses_dual_tenant' => true,
         ];
     }
@@ -294,9 +312,12 @@ function dcBuildCaptureLedgerFilter(PDO $pdo, array $scopeCtx, string $alias, st
             }
         }
 
+        $bind = (int) ($scopeCtx['company_id'] ?? 0);
+
         return [
             'sql' => " AND {$a}.company_id = ? {$legacySql} ",
-            'bind' => (int) ($scopeCtx['company_id'] ?? 0),
+            'bind' => $bind,
+            'params' => [$bind],
             'uses_dual_tenant' => false,
         ];
     }
@@ -306,9 +327,12 @@ function dcBuildCaptureLedgerFilter(PDO $pdo, array $scopeCtx, string $alias, st
         $legacySql = dcSqlCaptureOnSubsidiaryCompany($a);
     }
 
+    $bind = (int) ($scopeCtx['company_id'] ?? 0);
+
     return [
         'sql' => " AND {$a}.company_id = ? {$legacySql} ",
-        'bind' => (int) ($scopeCtx['company_id'] ?? 0),
+        'bind' => $bind,
+        'params' => [$bind],
         'uses_dual_tenant' => false,
     ];
 }

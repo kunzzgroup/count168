@@ -379,7 +379,11 @@ function maintenanceBuildCaptureWhere(
     $processCompanyId = dcCaptureProcessCompanyId($scopeCtx);
 
     $conditions = ['dc.capture_date BETWEEN ? AND ?', 'p.company_id = ?'];
-    $params = [$ledgerDc['bind'], $ledgerDcd['bind'], $date_from_db, $date_to_db, $processCompanyId];
+    $params = array_merge(
+        dcCaptureLedgerBindParams($ledgerDc),
+        dcCaptureLedgerBindParams($ledgerDcd),
+        [$date_from_db, $date_to_db, $processCompanyId]
+    );
 
     if ($process) {
         $conditions[] = 'p.process_id = ?';

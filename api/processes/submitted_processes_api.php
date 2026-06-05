@@ -543,11 +543,13 @@ function getSubmissionsByCaptureDate($user_id)
         ");
 
         $paramsSegment = array_merge(
-            [$ledgerSp['bind'], $dateParam, $processCompanyId],
+            dcCaptureLedgerBindParams($ledgerSp),
+            [$dateParam, $processCompanyId],
             !empty($processIds) ? $processIds : []
         );
         $paramsDcSegment = array_merge(
-            [$ledgerDc['bind'], $dateParam, $processCompanyId],
+            dcCaptureLedgerBindParams($ledgerDc),
+            [$dateParam, $processCompanyId],
             !empty($processIds) ? $processIds : []
         );
         $params = array_merge($paramsSegment, $paramsDcSegment);
@@ -647,14 +649,13 @@ function getProcessesByDay($user_id)
         )";
 
     // 参数顺序：day_of_week, p.company_id, sp scope bind, sp账务日, dc scope bind, dc.capture_date
-    $baseParams = [
-        $day_of_week,
-        $processCompanyId,
-        $ledgerSp['bind'],
-        $selected_date,
-        $ledgerDc['bind'],
-        $selected_date,
-    ];
+    $baseParams = array_merge(
+        [$day_of_week, $processCompanyId],
+        dcCaptureLedgerBindParams($ledgerSp),
+        [$selected_date],
+        dcCaptureLedgerBindParams($ledgerDc),
+        [$selected_date]
+    );
 
     // 应用权限过滤（与查询的 company_id 一致，勿用可能滞后的 session 公司）
     list($baseSql, $baseParams) = filterProcessesByPermissions($pdo, $baseSql, $baseParams, $currentCompanyId);

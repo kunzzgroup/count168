@@ -78,7 +78,11 @@ function validateCaptureIds(
               AND dc.capture_date BETWEEN ? AND ?
               AND p.company_id = ?
               $scopeProcessFilter";
-    $params = array_merge([$ledgerDc['bind']], $captureIds, [$date_from_db, $date_to_db, $processCompanyId]);
+    $params = array_merge(
+        dcCaptureLedgerBindParams($ledgerDc),
+        $captureIds,
+        [$date_from_db, $date_to_db, $processCompanyId]
+    );
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -241,7 +245,11 @@ try {
         INNER JOIN process p ON dc.process_id = p.id
         WHERE 1=1 {$ledgerDc['sql']} AND p.company_id = ? AND dc.id IN ($placeholders)
     ";
-    $captureMetaParams = array_merge([$ledgerDc['bind'], $processCompanyId], $validCaptureIds);
+    $captureMetaParams = array_merge(
+        dcCaptureLedgerBindParams($ledgerDc),
+        [$processCompanyId],
+        $validCaptureIds
+    );
     $captureMetaStmt = $pdo->prepare($captureMetaSql);
     $captureMetaStmt->execute($captureMetaParams);
     $captureMetaRows = $captureMetaStmt->fetchAll(PDO::FETCH_ASSOC);

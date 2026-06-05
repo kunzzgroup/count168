@@ -42,12 +42,14 @@ function getCompanyIdForRequest(PDO $pdo) {
  */
 function fetchFormulaListRaw(
     PDO $pdo,
-    int $companyId,
+    array $scopeCtx,
     string $search,
     ?int $processIdFilter,
     string $scopeProcessSql = '',
     bool $isGroupScope = false
 ) {
+    $companyId = (int) ($scopeCtx['company_id'] ?? 0);
+    $ledger = formulaMaintenanceBuildTemplateLedgerFilter($pdo, $scopeCtx);
     $sql = "SELECT 
                 dct.id,
                 dct.process_id,
@@ -79,8 +81,8 @@ function fetchFormulaListRaw(
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN account a ON dct.account_id = a.id
             LEFT JOIN currency c ON dct.currency_id = c.id
-            WHERE dct.company_id = ?";
-    $params = [$companyId];
+            WHERE 1=1 {$ledger['sql']}";
+    $params = $ledger['params'];
     if ($scopeProcessSql !== '') {
         $sql .= $scopeProcessSql;
     }
@@ -254,7 +256,7 @@ try {
     if ($processIdFilter !== null && $processIdFilter > 0) {
         dcFixGroupPayrollProcessDescription($pdo, $processIdFilter);
     }
-    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processIdFilter, $scopeProcessSql, $formula_scope_group);
+    $rows = fetchFormulaListRaw($pdo, $scopeCtx, $search, $processIdFilter, $scopeProcessSql, $formula_scope_group);
     $list = mapRowsToDisplay($rows, $formula_scope_group);
     jsonResponse(true, 'success', ['list' => $list, 'total' => count($list)]);
 } catch (PDOException $e) {

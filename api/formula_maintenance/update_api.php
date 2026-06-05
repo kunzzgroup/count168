@@ -31,18 +31,11 @@ function getCompanyIdFromInput(PDO $pdo, array $input) {
 }
 
 /**
- * 验证模板是否属于当前公司（使用 process 表）
+ * 验证模板是否属于当前 scope（group/company ledger）
  */
-function validateTemplateBelongsToCompany(PDO $pdo, int $templateId, int $companyId) {
-    $stmt = $pdo->prepare("
-        SELECT dct.id
-        FROM data_capture_templates dct
-        INNER JOIN process p ON dct.process_id = p.id
-        WHERE dct.id = ? AND p.company_id = ?
-    ");
-    $stmt->execute([$templateId, $companyId]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
+function validateTemplateBelongsToCompany(PDO $pdo, int $templateId, array $scopeCtx) {
+    $validIds = formulaMaintenanceValidateTemplateIdsInScope($pdo, [$templateId], $scopeCtx);
+    if ($validIds === []) {
         throw new Exception('模板不存在或不属于当前公司');
     }
 }
@@ -299,7 +292,7 @@ try {
         throw new Exception('公司范围不能操作集团实体公式');
     }
 
-    validateTemplateBelongsToCompany($pdo, $templateId, $companyId);
+    validateTemplateBelongsToCompany($pdo, $templateId, $scopeCtx);
     $accountDisplay = getAccountDisplay($pdo, $accountId, $companyId);
     $templateInfo = getTemplateProcessInfo($pdo, $templateId);
     $sourceProcessId = $templateInfo ? (int)$templateInfo['process_id'] : null;
