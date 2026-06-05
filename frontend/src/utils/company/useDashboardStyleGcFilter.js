@@ -84,7 +84,9 @@ export function useDashboardStyleGcFilter({
   );
 
   const companiesForPicker = useMemo(() => {
-    const list = companiesForCompanyPicker(companies, selectedGroup, groupIds);
+    const list = companiesForCompanyPicker(companies, selectedGroup, groupIds, {
+      preferredCompanyId: preferredCompanyId ?? companyId,
+    });
     return excludeGroupLabelsFromCompanyPicker(
       dedupeOwnerCompaniesByCode(list, preferredCompanyId ?? companyId),
       groupIds

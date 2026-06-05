@@ -80,7 +80,9 @@ export function useGcFilterWithAllModes({
       );
     }
     return dedupeOwnerCompaniesByCode(
-      companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds),
+      companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds, {
+        preferredCompanyId: preferredId,
+      }),
       preferredId
     );
   }, [

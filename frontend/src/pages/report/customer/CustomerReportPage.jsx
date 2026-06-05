@@ -5,10 +5,13 @@ import {
   getCachedOwnerCompanies,
   DASHBOARD_GROUP_FILTER_KEY,
   readInitialGcFilterCompanyId,
+  readPersistedDashboardGcFilter,
   resolveInitialSelectedGroupFromSession,
+  resolveSubsidiaryBootCompanyId,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
   resolveGcFilterBootCompanyId,
+  isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
   notifyDashboardCurrencyFilterChanged,
@@ -50,6 +53,7 @@ import {
   resolveCustomerReportScope,
 } from "../shared/reportScope.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { ensureCrossPageCompanySelection } from "../../../utils/company/companySessionSync.js";
 import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 
 const REPORT_PAGE_KEY = "customer";
@@ -107,6 +111,7 @@ export default function CustomerReportPage() {
   const { begin: beginMetaFetch, invalidate: invalidateMetaFetch, isCurrent: isMetaFetchCurrent } =
     useReportAbortSeq();
   const pageBootOnceRef = useRef(false);
+  const companiesBootstrappedRef = useRef(false);
   const prevCompanyIdRef = useRef(null);
   const prevScopeKeyRef = useRef(null);
   /** Per-company / per-group currency filter prefs */
@@ -207,43 +212,54 @@ export default function CustomerReportPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        const bootGc = resolveGcFilterBootCompanyId({
+        const persisted = readPersistedDashboardGcFilter();
+        const bootGroup = resolveInitialSelectedGroupFromSession(rows, null, u);
+        const activeGroup = bootGroup ?? persisted.selectedGroup;
+        const resolvedBootId = resolveSubsidiaryBootCompanyId(rows, {
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
-          defaultRowId: rows[0]?.id,
+          selectedGroup: activeGroup,
+          loginMe: u,
         });
-        const bootGroup = resolveInitialSelectedGroupFromSession(rows, null, u);
-        if (bootGc.groupOnly) {
-          persistDashboardGroupOnlyMode(true);
-        } else {
-          persistDashboardGroupOnlyMode(false);
-          if (bootGc.companyId != null) {
-            persistDashboardFilterState(bootGc.selectedGroup ?? bootGroup, bootGc.companyId, {
-              allowGroupOnly: false,
-            });
-          }
-        }
         const nextCompanyId =
-          companyId != null ? companyId : bootGc.groupOnly ? null : bootGc.companyId;
+          companyId != null
+            ? companyId
+            : resolvedBootId != null
+              ? resolvedBootId
+              : persisted.groupOnly || isDashboardGroupOnlyMode()
+                ? null
+                : resolveGcFilterBootCompanyId({
+                    urlCompanyId: queryCompany,
+                    sessionCompanyId: u.company_id,
+                    defaultRowId: rows[0]?.id,
+                  }).companyId;
         const row =
           nextCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
             : null;
-        setCompanyId((prev) => (prev != null ? prev : nextCompanyId));
-        setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row, u));
+        const bootSelectedGroup = resolveInitialSelectedGroupFromSession(rows, row, u);
         if (nextCompanyId != null) {
+          persistDashboardGroupOnlyMode(false);
+          persistDashboardFilterState(bootSelectedGroup ?? activeGroup, nextCompanyId, {
+            allowGroupOnly: false,
+          });
+          setCompanyId((prev) => (prev != null ? prev : nextCompanyId));
+          setSelectedGroup(bootSelectedGroup);
+          companiesBootstrappedRef.current = true;
           void checkBankOnly(nextCompanyId);
-          if (Number(nextCompanyId) !== Number(u.company_id)) {
-            companySessionAbortRef.current?.abort();
-            const ac = new AbortController();
-            companySessionAbortRef.current = ac;
-            void syncCompanySessionInBackground({
-              companyId: nextCompanyId,
-              sessionCompanyId: u.company_id,
-              signal: ac.signal,
-              layoutSilent: true,
-            });
+          await ensureCrossPageCompanySelection(nextCompanyId, {
+            companies: rows,
+            selectedGroup: bootSelectedGroup ?? activeGroup,
+            companyRow: row,
+            sessionCompanyId: u.company_id,
+          });
+        } else {
+          if (persisted.groupOnly || isDashboardGroupOnlyMode()) {
+            persistDashboardGroupOnlyMode(true);
           }
+          setCompanyId((prev) => (prev != null ? prev : null));
+          setSelectedGroup(bootSelectedGroup);
+          companiesBootstrappedRef.current = true;
         }
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -255,19 +271,30 @@ export default function CustomerReportPage() {
   }, [sessionReady, me, navigate, companyId]);
 
   useEffect(() => {
-    if (!companies.length) return;
+    if (!companies.length || !companiesBootstrappedRef.current) return;
     const row =
       companyId != null
         ? companies.find((c) => Number(c.id) === Number(companyId)) || null
         : null;
     setSelectedGroup((prev) => {
-      const resolved = resolveInitialSelectedGroupFromSession(companies, row);
+      const resolved = resolveInitialSelectedGroupFromSession(companies, row, me);
       if (resolved) return resolved;
       const g = prev ? String(prev).trim().toUpperCase() : "";
       if (g && sortedUniqueGroupIds(companies).includes(g)) return g;
       return prev;
     });
-  }, [companies, companyId]);
+  }, [companies, companyId, me]);
+
+  useEffect(() => {
+    if (!companiesBootstrappedRef.current || !companies.length || companyId == null) return;
+    const row = companies.find((c) => Number(c.id) === Number(companyId)) || null;
+    void ensureCrossPageCompanySelection(companyId, {
+      companies,
+      selectedGroup,
+      companyRow: row,
+      sessionCompanyId: me?.company_id,
+    });
+  }, [companies, companyId, selectedGroup, me?.company_id]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;

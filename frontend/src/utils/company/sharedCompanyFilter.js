@@ -652,7 +652,12 @@ export function clearDashboardGroupFilterKeepCompany(companyId) {
 /**
  * Boot-time resolution (matches transaction/maintenance pages): honour session only when it matches current company's group.
  */
-export function resolveInitialSelectedGroupFromSession(companies, currentCompany, loginMe = null) {
+export function resolveInitialSelectedGroupFromSession(
+  companies,
+  currentCompany,
+  loginMe = null,
+  options = {},
+) {
   if (
     sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1" &&
     loginMe &&
@@ -692,7 +697,7 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
     normalizeCompanyGroupId(currentCompany) === savedGroup
   ) {
     selGroup = savedGroup;
-  } else if (savedGroup && !groups.includes(savedGroup)) {
+  } else if (savedGroup && !groups.includes(savedGroup) && options.allowStaleGroupPurge === true) {
     sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
     sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
     sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
@@ -862,11 +867,19 @@ export function excludeGroupLabelsFromCompanyPicker(companies, groupIds = null) 
 }
 
 /** Companies shown in the Company row when a GroupID is selected (Dashboard-aligned). */
-export function companiesForCompanyPicker(companies, selectedGroup, groupIds = null) {
-  const list = selectedGroup
-    ? companiesNativeInGroupList(companies, selectedGroup)
-    : companiesNativeInGroupList(companies, null);
-  return excludeGroupLabelsFromCompanyPicker(list, groupIds);
+export function companiesForCompanyPicker(companies, selectedGroup, groupIds = null, options = {}) {
+  const preferredId = options.preferredCompanyId ?? null;
+  let list = selectedGroup
+    ? companiesInGroupList(companies, selectedGroup)
+    : companiesInGroupList(companies, null);
+  list = excludeGroupLabelsFromCompanyPicker(list, groupIds);
+  if (preferredId != null) {
+    const row = (companies || []).find((c) => Number(c.id) === Number(preferredId));
+    if (row && !list.some((c) => Number(c.id) === Number(row.id))) {
+      list = [...list, row];
+    }
+  }
+  return list;
 }
 
 /** Subsidiary company row (Process / Account pills) — not group entity or group-id label. */
