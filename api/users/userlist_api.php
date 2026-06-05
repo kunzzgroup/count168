@@ -352,16 +352,18 @@ function userlist_assert_group_id_allowed(string $groupId): void
             sendResponse(false, 'Group filter is not allowed for company login');
         }
     }
-    $accessible = gc_session_accessible_group_ids();
-    if ($accessible === [] || !in_array($g, $accessible, true)) {
-        // Self-heal stale session cache before denying (AP -> IG switch case).
+    $pdo = $GLOBALS['pdo'] ?? null;
+    if ($pdo instanceof PDO) {
         try {
-            userlist_fetch_accessible_companies($GLOBALS['pdo']);
+            userlist_fetch_accessible_companies($pdo);
         } catch (Throwable $e) {
-            // Keep original fallback checks below.
+            // Fall through to legacy session checks.
         }
-        $accessible = gc_session_accessible_group_ids();
+        if (gc_session_can_access_group_code($pdo, $g)) {
+            return;
+        }
     }
+    $accessible = gc_session_accessible_group_ids();
     if ($accessible !== [] && !in_array($g, $accessible, true)) {
         sendResponse(false, 'Group not accessible');
     }
@@ -1128,7 +1130,11 @@ function userlist_group_code_from_entity_company_id(PDO $pdo, int $companyId): ?
             if ($code === '' && $gid !== '') {
                 return userlist_normalize_group_id($gid);
             }
-            foreach ([$code, $gid] as $candidate) {
+            // Subsidiary row (e.g. C168 under AP): bind to native group_id, not company code.
+            if ($code !== '' && $gid !== '' && $code !== $gid) {
+                return userlist_normalize_group_id($gid);
+            }
+            foreach ([$gid, $code] as $candidate) {
                 if ($candidate === '') {
                     continue;
                 }
@@ -1406,13 +1412,25 @@ function userlist_resolve_company_ids_for_group_scope(PDO $pdo, string $groupSco
             }
             return [$entityId];
         }
+        $resolved = [];
         foreach ($candidateIds as $cid) {
-            if (!in_array($cid, $allowedEntityIds, true)) {
+            if (in_array($cid, $allowedEntityIds, true)) {
+                $resolved[] = $cid;
+                continue;
+            }
+            $mappedGroup = userlist_group_code_from_entity_company_id($pdo, $cid);
+            if ($mappedGroup === null) {
                 sendResponse(false, 'One or more selected groups are not allowed');
             }
+            userlist_assert_group_id_allowed($mappedGroup);
+            $entityId = userlist_resolve_group_tenant_entity_company_id($pdo, $mappedGroup);
+            if ($entityId <= 0 || !in_array($entityId, $allowedEntityIds, true)) {
+                sendResponse(false, 'One or more selected groups are not allowed');
+            }
+            $resolved[] = $entityId;
         }
 
-        return $candidateIds;
+        return array_values(array_unique($resolved));
     }
 
     $groupCompanyIds = userlist_company_ids_for_group(userlist_fetch_accessible_companies($pdo), $groupScope);

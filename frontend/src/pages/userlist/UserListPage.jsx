@@ -1753,6 +1753,8 @@ export default function UserListPage() {
       payload.group_id = saveGroupId;
       payload.group_only = 1;
       payload.group_codes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
+      // Bind via group_codes; picker ids may be subsidiary anchors, not group-entity rows.
+      saveCompanyIds = [];
     } else if (companyId != null) {
       payload.company_id = Number(companyId);
       const entityPick = pickDefaultCompanyForGroup(companies, saveGroupId, {
