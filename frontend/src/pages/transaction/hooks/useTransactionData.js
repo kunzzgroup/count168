@@ -8,14 +8,17 @@ import {
   filterCompaniesWithDisplayId,
   fetchOwnerCompaniesAll,
   clearDashboardGroupFilterKeepCompany,
+  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   notifyDashboardGroupFilterChanged,
   persistDashboardGroupFilter,
   resolveBootCompanyId,
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
-  pickDefaultCompanyForGroup,
+  normalizeCompanyGroupId,
   pickDefaultSubsidiaryForGroup,
   readPersistedDashboardGcFilter,
+  resolveCompanyPickWhenSwitchingGroup,
+  resolveCompanyWhenClosingGroup,
   resolveGcFilterBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   resolveViewGroupForCompany,
@@ -195,14 +198,19 @@ export function useTransactionData({
 
         const current =
           effective != null ? snapRows.find((c) => Number(c.id) === Number(effective)) : null;
-        const selGroup =
-          bootGc.selectedGroup ||
-          persisted.selectedGroup ||
-          resolveInitialSelectedGroupFromSession(snapRows, current);
+        const groupFilterOptOut =
+          typeof sessionStorage !== "undefined" &&
+          sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+        const selGroup = groupFilterOptOut
+          ? null
+          : bootGc.selectedGroup ||
+            persisted.selectedGroup ||
+            resolveInitialSelectedGroupFromSession(snapRows, current, u);
 
         const allowBootGroupOnly = canUseGroupOnlyMode(u, selGroup);
-        let bootGroupOnly = (bootGc.groupOnly || effective == null) && allowBootGroupOnly;
-        if (!bootGroupOnly && effective == null && selGroup) {
+        let bootGroupOnly =
+          (bootGc.groupOnly || effective == null) && allowBootGroupOnly && !groupFilterOptOut;
+        if (!bootGroupOnly && effective == null && selGroup && !groupFilterOptOut) {
           const pick = pickDefaultSubsidiaryForGroup(snapRows, selGroup, {
             me: u,
             preferredCompanyId: u?.company_id ?? null,
@@ -222,6 +230,7 @@ export function useTransactionData({
             companyId: bootGroupOnly ? null : effective,
             groupOnlyLedger: bootGroupOnly,
             selectedGroup: selGroup,
+            groupFilterOptOut: groupFilterOptOut,
             displayCompanyRow: bootGroupOnly ? null : current,
             groupsAllMode: false,
             groupAllMode: false,
@@ -451,11 +460,13 @@ export function useTransactionData({
     url.searchParams.delete("company_id");
     window.history.replaceState(null, "", url.toString());
 
+    persistDashboardGroupFilter(g);
     const nextSnap = {
       ...snap,
       selectedGroup: g,
       companyId: null,
       groupOnlyLedger: true,
+      groupFilterOptOut: false,
       displayCompanyRow: null,
       groupsAllMode: false,
       groupAllMode: false,
@@ -483,41 +494,26 @@ export function useTransactionData({
 
       const seq = ++scopeSwitchSeqRef.current;
       const companies = snap.snapCompaniesAll || snap.snapCompanies || [];
-      const pick = pickDefaultCompanyForGroup(companies, g, {
-        me: u,
-        preferredCompanyId: null,
-        nativeOnly: true,
-      });
+      const pick =
+        resolveCompanyPickWhenSwitchingGroup(companies, g, snap.companyId) ??
+        pickDefaultSubsidiaryForGroup(companies, g, {
+          me: u,
+          preferredCompanyId: u?.company_id ?? snap.companyId,
+        });
       if (!pick?.id) {
-        if (!canUseGroupOnlyMode(u)) {
-          const nextSnap = {
-            ...snap,
-            selectedGroup: g,
-            groupsAllMode: false,
-            groupAllMode: false,
-          };
-          nextSnap.companyStripRows = buildTransactionCompanyStripRows(nextSnap, {
-            selectedGroup: g,
-            companyId: snap.companyId,
-            groupsAllMode: false,
-          });
-          persistDashboardGroupFilter(g);
-          persistDashboardGroupOnlyMode(false);
-          persistDashboardFilterState(g, snap.companyId, { allowGroupOnly: false });
-          commitFilterSnapshot(nextSnap);
-          return;
-        }
         await applyGroupOnlySelection(snap, g);
         return;
       }
 
       const numericCid = Number(pick.id);
       const viewGroup = resolveViewGroupForCompany(pick, g);
+      persistDashboardGroupFilter(g);
       const nextSnap = {
         ...snap,
         companyId: numericCid,
         groupOnlyLedger: false,
         selectedGroup: g,
+        groupFilterOptOut: false,
         displayCompanyRow: pick,
         groupsAllMode: false,
         groupAllMode: false,
@@ -542,7 +538,6 @@ export function useTransactionData({
       const url = new URL(window.location.href);
       url.searchParams.set("company_id", String(numericCid));
       window.history.replaceState(null, "", url.toString());
-      persistDashboardGroupFilter(g);
       persistDashboardGroupOnlyMode(false);
       persistDashboardFilterState(g, numericCid, { allowGroupOnly: false });
       commitFilterSnapshot(nextSnap);
@@ -592,6 +587,7 @@ export function useTransactionData({
       const viewGroup = resolveViewGroupForCompany(comp, nextGroup);
       const stripUnchanged =
         nextGroupNorm === currGroupNorm &&
+        !snap.groupFilterOptOut &&
         Array.isArray(snap.companyStripRows) &&
         snap.companyStripRows.length > 0;
       const nextSnap = {
@@ -656,6 +652,102 @@ export function useTransactionData({
     [applyGroupOnlySelection, commitFilterSnapshot, queryClient, syncPickerCompanySession, u],
   );
 
+  const prefetchScopeData = useCallback(
+    (nextSnap, numericCid) => {
+      const nextScope = resolveTransactionScope(nextSnap);
+      const nextScopeKey = transactionScopeCacheKey(nextScope);
+      const viewGroup = resolveViewGroupForCompany(
+        nextSnap.displayCompanyRow ||
+          (nextSnap.snapCompanies || []).find((c) => Number(c.id) === Number(numericCid)),
+        nextSnap.selectedGroup,
+      );
+      const prefetchApi = transactionScopeApiParams(nextScope) || {
+        companyId: numericCid,
+        viewGroup,
+        subsidiaryAccountsOnly: true,
+      };
+      const orderCompanyId =
+        nextScope?.mode === "company" && nextScope.scopeCompanyId > 0
+          ? nextScope.scopeCompanyId
+          : undefined;
+
+      void Promise.all([
+        queryClient.prefetchQuery({
+          queryKey: transactionQueryKeys.accounts(nextScopeKey),
+          queryFn: ({ signal }) => getAccounts({ ...prefetchApi, signal }),
+          staleTime: 60_000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: transactionQueryKeys.companyCurrencies(nextScopeKey),
+          queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
+          staleTime: 60_000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId ?? ""],
+          queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
+          staleTime: 60_000,
+        }),
+      ]);
+    },
+    [queryClient],
+  );
+
+  const deselectGroupKeepCompany = useCallback(
+    async (snap) => {
+      if (!snap) return;
+
+      const seq = ++scopeSwitchSeqRef.current;
+      const companies = snap.snapCompaniesAll || snap.snapCompanies || [];
+      const groupIds = snap.snapGroupIds || sortedUniqueGroupIds(companies);
+
+      persistDashboardGroupOnlyMode(false);
+
+      const pickIndependent = resolveCompanyWhenClosingGroup(
+        companies,
+        snap.companyId,
+        groupIds,
+      );
+      const nextCompanyId =
+        pickIndependent?.id != null ? Number(pickIndependent.id) : null;
+
+      const url = new URL(window.location.href);
+      if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
+        clearDashboardGroupFilterKeepCompany(nextCompanyId);
+        url.searchParams.set("company_id", String(nextCompanyId));
+      } else {
+        sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
+        persistDashboardGroupFilter(null);
+        persistDashboardFilterState(null, null, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(null, null);
+        url.searchParams.delete("company_id");
+      }
+      window.history.replaceState(null, "", url.toString());
+
+      const nextSnap = {
+        ...snap,
+        selectedGroup: null,
+        companyId: nextCompanyId,
+        groupOnlyLedger: false,
+        groupFilterOptOut: true,
+        displayCompanyRow: pickIndependent,
+        groupsAllMode: false,
+        groupAllMode: false,
+      };
+      nextSnap.companyStripRows = buildTransactionCompanyStripRows(nextSnap, {
+        selectedGroup: null,
+        companyId: nextCompanyId,
+        groupsAllMode: false,
+      });
+      commitFilterSnapshot(nextSnap);
+
+      if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
+        prefetchScopeData(nextSnap, nextCompanyId);
+        void syncPickerCompanySession(nextCompanyId, seq);
+      }
+    },
+    [commitFilterSnapshot, prefetchScopeData, syncPickerCompanySession],
+  );
+
   const onGroupButtonClick = useCallback(
     async (gid) => {
       const snap = filterSnapshotRef.current;
@@ -663,23 +755,31 @@ export function useTransactionData({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
 
-      const allowGroupOnly = canUseGroupOnlyMode(u, g);
-
-      // Re-click active group: enter group-only only when permitted.
+      // Re-click active group: close group and show independent companies.
       if (g === snap.selectedGroup && !snap.groupsAllMode) {
-        if (!allowGroupOnly) return;
-        if (snap.companyId == null || Number(snap.companyId) <= 0) return;
-        await applyGroupOnlySelection(snap, g);
+        await deselectGroupKeepCompany(snap);
         return;
       }
 
-      if (allowGroupOnly) {
+      const allowGroupOnly = canUseGroupOnlyMode(u, g);
+      const companies = snap.snapCompaniesAll || snap.snapCompanies || [];
+      const currentRow =
+        snap.companyId != null
+          ? companies.find((c) => Number(c.id) === Number(snap.companyId))
+          : null;
+      const currentInGroup =
+        currentRow &&
+        (normalizeCompanyGroupId(currentRow) === g ||
+          String(currentRow.link_source_group || "").trim().toUpperCase() === g);
+      const reopeningFromClosedGroup = Boolean(snap.groupFilterOptOut) || !currentInGroup;
+
+      if (allowGroupOnly && !reopeningFromClosedGroup && snap.companyId == null) {
         await applyGroupOnlySelection(snap, g);
       } else {
         await applyCompanyGroupSelection(snap, g);
       }
     },
-    [applyGroupOnlySelection, applyCompanyGroupSelection, u],
+    [applyGroupOnlySelection, applyCompanyGroupSelection, deselectGroupKeepCompany, u],
   );
 
   const onPickAllGroups = useCallback(() => {

@@ -35,9 +35,6 @@ export default function TransactionSearchSection({
   ], [m]);
 
   const companiesForCompanyStrip = useMemo(() => {
-    if (Array.isArray(fs.companyStripRows) && fs.companyStripRows.length) {
-      return fs.companyStripRows;
-    }
     if (!fs) return [];
     return buildTransactionCompanyStripRows(fs, {
       selectedGroup: fs.selectedGroup,
@@ -46,12 +43,13 @@ export default function TransactionSearchSection({
     });
   }, [
     fs,
-    fs?.companyStripRows,
     fs?.selectedGroup,
     fs?.companyId,
+    fs?.groupFilterOptOut,
     fs?.groupsAllMode,
     fs?.snapCompanies,
     fs?.snapCompaniesAll,
+    fs?.snapGroupIds,
   ]);
 
   return (
