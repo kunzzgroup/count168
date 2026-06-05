@@ -348,7 +348,10 @@ export default function AuthenticatedLayout() {
       }
       const cid = detail.companyId;
       if (cid == null) {
-        applySidebarPatch({ companyId: null, companyCode: "" });
+        const patch = { companyId: null, companyCode: detail.companyCode ?? "" };
+        if (detail.hasGambling != null) patch.hasGambling = Boolean(detail.hasGambling);
+        if (detail.hasBank != null) patch.hasBank = Boolean(detail.hasBank);
+        applySidebarPatch(patch);
         return;
       }
       const row = findOwnerCompanyById(cid);

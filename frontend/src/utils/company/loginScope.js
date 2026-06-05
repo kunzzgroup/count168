@@ -207,15 +207,22 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
   const rawId = ctx.companyId;
   const hasExplicitCode = ctx.companyCode != null && String(ctx.companyCode).trim() !== "";
   if (rawId == null || rawId === "" || !Number.isFinite(Number(rawId)) || Number(rawId) <= 0) {
-    return {
+    const next = {
       ...me,
       is_current_company_c168: false,
       has_c168_domain_page_access: false,
       has_c168_auto_renew_access: false,
       company_code: hasExplicitCode ? normalizeCompanyCode(ctx.companyCode) : "",
-      company_has_gambling: false,
-      company_has_bank: false,
     };
+    // Group-only filter clears company selection — keep login category flags so sidebar
+    // Maintenance / Data Capture entries do not disappear while viewing group scope.
+    if (ctx.hasGambling != null) {
+      next.company_has_gambling = Boolean(ctx.hasGambling);
+    }
+    if (ctx.hasBank != null) {
+      next.company_has_bank = Boolean(ctx.hasBank);
+    }
+    return next;
   }
   const id = Number(rawId);
   const companyChanged = Number(me.company_id) !== id;
