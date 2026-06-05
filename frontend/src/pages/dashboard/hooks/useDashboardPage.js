@@ -34,7 +34,11 @@ import {
 } from "../lib/dashboardDateUtils.js";
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
-import { canUseGroupOnlyMode, resolveVisibleGroupIds } from "../../../utils/company/loginScope.js";
+import {
+  canUseGroupOnlyMode,
+  companyLoginRequiresSubsidiaryWithGroup,
+  resolveVisibleGroupIds,
+} from "../../../utils/company/loginScope.js";
 import { sortIds } from "../lib/dashboardEarnings.js";
 import {
   companiesInGroupList,
@@ -68,6 +72,10 @@ import {
   isSubsidiaryCompanyRow,
   companyRowIsIndependent,
   normalizeNativeCompanyGroupId,
+  normalizeCompanyGroupId,
+  persistDashboardGroupOnlyMode,
+  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
+  persistDashboardGroupFilter,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
@@ -2167,45 +2175,44 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (g === selectedGroup && !groupsAllMode) {
-        if (!canUseGroupOnlyMode(me)) {
-          const target = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
-          setGroupsAllMode(false);
-          setGroupAllMode(false);
-          setMergedSubsetIds(null);
-          setSelectedGroup(null);
+        const target = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setMergedSubsetIds(null);
+        setSelectedGroup(null);
+
+        if (target?.id) {
+          const id = parseInt(target.id, 10);
+          applyCompanySelection(id);
+          clearDashboardGroupFilterKeepCompany(id, target);
+          primeCurrenciesFromCache({ companyId: id, selectedGroup: null, groupsAllMode: false });
+          primeDashboardFromCache({
+            companyId: id,
+            selectedGroup: null,
+            groupsAllMode: false,
+            groupAllMode: false,
+            mergedSubsetIds: null,
+          });
+          void syncCompanySession(id, null);
+        } else if (companyId != null) {
+          clearDashboardGroupFilterKeepCompany(companyId);
+          void syncCompanySession(companyId, null);
+        } else {
           if (typeof sessionStorage !== "undefined") {
+            sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
             sessionStorage.removeItem("dashboard_group_filter");
           }
-          if (target?.id) {
-            const id = parseInt(target.id, 10);
-            persistDashboardFilterState(null, id, { allowGroupOnly: false });
-            notifyDashboardGroupFilterChanged(null, id, { companyCode: target.company_id });
-            applyCompanySelection(id);
-            primeCurrenciesFromCache({ companyId: id, selectedGroup: null, groupsAllMode: false });
-            primeDashboardFromCache({
-              companyId: id,
-              selectedGroup: null,
-              groupsAllMode: false,
-              groupAllMode: false,
-              mergedSubsetIds: null,
-            });
-            void syncCompanySession(id, null);
-          } else if (companyId != null) {
-            clearDashboardGroupFilterKeepCompany(companyId);
-            void syncCompanySession(companyId, null);
-          } else {
-            persistDashboardFilterState(null, null, { allowGroupOnly: false });
-            notifyDashboardGroupFilterChanged(null, null);
-          }
-          return;
+          persistDashboardGroupOnlyMode(false);
+          persistDashboardFilterState(null, null, { allowGroupOnly: false });
+          notifyDashboardGroupFilterChanged(null, null);
         }
-        if (companyId != null) return;
+        return;
       }
 
       if (canUseGroupOnlyMode(me)) {
         setGroupsAllMode(false);
         setSelectedGroup(g);
-        sessionStorage.setItem("dashboard_group_filter", g);
+        persistDashboardGroupFilter(g);
         clearCompanySelection(g);
         primeCurrenciesFromCache({ companyId: null, selectedGroup: g, groupsAllMode: false });
         notifyDashboardGroupFilterChanged(g, null);
@@ -2232,7 +2239,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setGroupAllMode(false);
       setMergedSubsetIds(null);
       setSelectedGroup(g);
-      sessionStorage.setItem("dashboard_group_filter", g);
+      persistDashboardGroupFilter(g);
       applyCompanySelection(id);
       primeCurrenciesFromCache({ companyId: id, selectedGroup: g, groupsAllMode: false });
       primeDashboardFromCache({
@@ -2251,7 +2258,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       me,
       companies,
       groupIds,
-      clearCompanySelection,
       applyCompanySelection,
       syncCompanySession,
       primeCurrenciesFromCache,
@@ -2436,26 +2442,50 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   ]);
 
   useLayoutEffect(() => {
+    if (!me || companyId != null || groupAllMode) return;
     if (
-      !me ||
-      canUseGroupOnlyMode(me) ||
-      !selectedGroup ||
-      companyId != null ||
-      groupsAllMode ||
-      groupAllMode
-    )
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1"
+    ) {
       return;
-    const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
-      me,
-      preferredCompanyId: companyId,
-    });
-    if (!pick?.id) return;
-    const id = parseInt(pick.id, 10);
+    }
+    if (companyLoginRequiresSubsidiaryWithGroup(me)) {
+      if (groupsAllMode) setGroupsAllMode(false);
+    } else if (groupsAllMode || canUseGroupOnlyMode(me, selectedGroup)) {
+      return;
+    }
+
+    persistDashboardGroupOnlyMode(false);
+
+    let id = me?.company_id ? parseInt(me.company_id, 10) : Number.NaN;
+    let bootGroup = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+
+    if (selectedGroup && companies.length) {
+      const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
+        me,
+        preferredCompanyId: Number.isFinite(id) ? id : null,
+      });
+      if (pick?.id) {
+        id = parseInt(pick.id, 10);
+        bootGroup = selectedGroup;
+      }
+    } else if (Number.isFinite(id)) {
+      const row = companies.find((c) => parseInt(c.id, 10) === id);
+      const g = row && !companyRowIsIndependent(row, groupIds) ? normalizeCompanyGroupId(row) : null;
+      if (g) {
+        bootGroup = g;
+        setSelectedGroup(g);
+        persistDashboardGroupFilter(g);
+      }
+    }
+
+    if (!Number.isFinite(id) || id <= 0) return;
+
     setGroupAllMode(false);
-    persistDashboardFilterState(selectedGroup, id, { allowGroupOnly: false });
+    persistDashboardFilterState(bootGroup, id, { allowGroupOnly: false });
     applyCompanySelection(id);
-    notifyDashboardGroupFilterChanged(selectedGroup, id);
-    void syncCompanySession(id);
+    notifyDashboardGroupFilterChanged(bootGroup, id);
+    void syncCompanySession(id, bootGroup);
   }, [
     me,
     selectedGroup,
@@ -2463,6 +2493,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     groupsAllMode,
     groupAllMode,
     companies,
+    groupIds,
     applyCompanySelection,
     syncCompanySession,
   ]);

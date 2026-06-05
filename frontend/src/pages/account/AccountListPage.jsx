@@ -38,6 +38,7 @@ import {
   readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
+  independentCompaniesForPicker,
   stripCompanyIdFromUrl,
   fetchOwnerCompaniesAll,
   getCachedOwnerCompanies,
@@ -523,14 +524,19 @@ export default function AccountListPage() {
         const initialShowInactive = url.searchParams.get("showInactive") === "1";
         const initialShowAll = url.searchParams.get("showAll") === "1";
 
+        const groupFilterOptOut =
+          typeof sessionStorage !== "undefined" &&
+          sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+
         const row =
           initialCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(initialCompanyId)) || null
             : null;
-        let bootGroup =
-          persistedGc.selectedGroup ||
-          (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null) ||
-          resolveInitialSelectedGroupFromSession(rows, row, sessionMe);
+        let bootGroup = groupFilterOptOut
+          ? null
+          : persistedGc.selectedGroup ||
+            (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null) ||
+            resolveInitialSelectedGroupFromSession(rows, row, sessionMe);
 
         if (bootGroup && initialCompanyId != null) {
           const inGroup = companiesInGroupList(rows, bootGroup).some(
@@ -540,6 +546,10 @@ export default function AccountListPage() {
             initialCompanyId = savedCompanyId != null ? savedCompanyId : null;
             if (initialCompanyId == null) stripCompanyIdFromUrl();
           }
+        }
+
+        if (groupFilterOptOut) {
+          bootGroup = null;
         }
 
         const groupOnlyBoot =
@@ -822,33 +832,31 @@ export default function AccountListPage() {
 
   /** Group-only: still show Company pills so user can narrow scope (same as User List). */
   const inlineCompaniesForPicker = useMemo(() => {
-    if (companiesForPicker.length > 0) return companiesForPicker;
+    const groupFilterOptOut =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
 
-    // When Group is cleared, only list independent companies; keep Company empty if none exist.
-    if (!selectedGroup) {
+    const independentPicker = () => {
+      const list = independentCompaniesForPicker(companies, groupIds);
+      if (list.length) {
+        return dedupeOwnerCompaniesByCode(list, companyId);
+      }
       return excludeGroupLabelsFromCompanyPicker(
         dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), companyId),
         groupIds,
       ).filter((c) => !normalizeCompanyGroupId(c));
+    };
+
+    if (!selectedGroup || groupFilterOptOut) {
+      return independentPicker();
     }
 
-    const effectiveGroup =
-      (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null) ||
-      (companyId != null
-        ? normalizeCompanyGroupId(companies.find((c) => Number(c.id) === Number(companyId)))
-        : null) ||
-      (groupIds.length > 0 ? groupIds[0] : null);
+    if (companiesForPicker.length > 0) return companiesForPicker;
 
-    if (effectiveGroup) {
-      return dedupeOwnerCompaniesByCode(
-        companiesForCompanyPicker(companies, effectiveGroup, groupIds),
-        companyId,
-      );
-    }
-
-    return excludeGroupLabelsFromCompanyPicker(
-      dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), companyId),
-      groupIds,
+    const effectiveGroup = String(selectedGroup).trim().toUpperCase();
+    return dedupeOwnerCompaniesByCode(
+      companiesForCompanyPicker(companies, effectiveGroup, groupIds),
+      companyId,
     );
   }, [companiesForPicker, selectedGroup, companyId, companies, groupIds]);
 
@@ -916,6 +924,12 @@ export default function AccountListPage() {
     if (bootLoading || !sessionMe) return;
     if (isGroupLedgerMode(sessionMe, { companyId, selectedGroup })) return;
     if (canUseGroupOnlyMode(sessionMe, selectedGroup) && isDashboardGroupOnlyMode()) return;
+    if (
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1"
+    ) {
+      return;
+    }
     if (!isCompanyLogin(sessionMe)) return;
     if (!selectedGroup || companyId != null) return;
 
@@ -1053,13 +1067,7 @@ export default function AccountListPage() {
 
       if (!g) return;
 
-      if (g === current && companyId == null) {
-        if (allowGroupOnly) deselectGroupKeepCompany();
-        return;
-      }
-
       if (g === current) {
-        if (allowGroupOnly) return;
         deselectGroupKeepCompany();
         return;
       }
@@ -1212,6 +1220,39 @@ export default function AccountListPage() {
     if (suppressGcSyncRef.current) return;
 
     const { selectedGroup: nextGroup, companyId: nextCompanyId } = readPersistedDashboardGcFilter();
+    const optOut =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+
+    if (!nextGroup && optOut) {
+      const targetCompanyId =
+        nextCompanyId != null && Number.isFinite(Number(nextCompanyId)) && Number(nextCompanyId) > 0
+          ? Number(nextCompanyId)
+          : companyId;
+      const groupCleared = !selectedGroup;
+      const companySynced =
+        targetCompanyId == null
+          ? companyId == null
+          : companyId != null && Number(companyId) === Number(targetCompanyId);
+      if (groupCleared && companySynced) return;
+
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(null);
+        if (targetCompanyId != null) {
+          setCompanyId(targetCompanyId);
+          applyCacheOrClearAccounts({
+            companyId: targetCompanyId,
+            selectedGroup: null,
+            isListScopeReady: true,
+          });
+        }
+      });
+      return;
+    }
+
     if (!nextGroup) return;
 
     const currentGroup = String(selectedGroup || "").trim().toUpperCase();

@@ -33,6 +33,7 @@ import {
   resolveCompanyPickWhenSwitchingGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
+  independentCompaniesForPicker,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
@@ -436,20 +437,21 @@ export default function UserListPage() {
         }
 
         const visibleGroups = resolveVisibleGroupIds(sortedUniqueGroupIds(rows), me, rows);
-        let bootGroup =
-          persistedGc.selectedGroup ||
-          (isGroupLogin(me) ? getLoginIdentifier(me) : null) ||
-          resolveInitialSelectedGroupFromSession(
-            rows,
-            effectiveNum != null
-              ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null
-              : null,
-            me,
-          );
-
         const groupFilterOptOut =
           typeof sessionStorage !== "undefined" &&
           sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+
+        let bootGroup = groupFilterOptOut
+          ? null
+          : persistedGc.selectedGroup ||
+            (isGroupLogin(me) ? getLoginIdentifier(me) : null) ||
+            resolveInitialSelectedGroupFromSession(
+              rows,
+              effectiveNum != null
+                ? rows.find((c) => Number(c.id) === Number(effectiveNum)) || null
+                : null,
+              me,
+            );
 
         if (!bootGroup && effectiveNum != null && !groupFilterOptOut) {
           const bootRow = rows.find((c) => Number(c.id) === Number(effectiveNum));
@@ -578,7 +580,7 @@ export default function UserListPage() {
           }
         }
 
-        if (!isGroupLogin(me) && groupFilterOptOut) {
+        if (groupFilterOptOut) {
           bootGroup = null;
         }
 
@@ -666,43 +668,33 @@ export default function UserListPage() {
 
   /** When no Group is selected, the shared picker only lists “ungrouped” rows — often empty for AP/IG-only tenants. */
   const inlineCompaniesForPicker = useMemo(() => {
-    if (companiesForPicker.length > 0) return companiesForPicker;
+    const groupFilterOptOut =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
 
-    // When Group is cleared, the dashboard-style picker intentionally only lists independent companies.
-    // If none exist, keep the Company row empty (do not fall back to first group).
-    if (!selectedGroup) {
+    const independentPicker = () => {
+      const list = independentCompaniesForPicker(companies, groupIds);
+      if (list.length) {
+        return dedupeOwnerCompaniesByCode(list, companyId);
+      }
       return excludeGroupLabelsFromCompanyPicker(
         dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), companyId),
         groupIds,
       ).filter((c) => !normalizeCompanyGroupId(c));
+    };
+
+    if (!selectedGroup || groupFilterOptOut) {
+      return independentPicker();
     }
 
-    const effectiveGroup =
-      (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null) ||
-      (companyId != null
-        ? normalizeCompanyGroupId(companies.find((c) => Number(c.id) === Number(companyId)))
-        : null) ||
-      (groupIds.length > 0 ? groupIds[0] : null);
+    if (companiesForPicker.length > 0) return companiesForPicker;
 
-    if (effectiveGroup) {
-      return dedupeOwnerCompaniesByCode(
-        companiesForCompanyPicker(companies, effectiveGroup, groupIds),
-        companyId,
-      );
-    }
-
-    return excludeGroupLabelsFromCompanyPicker(
-      dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), companyId),
-      groupIds,
+    const effectiveGroup = String(selectedGroup).trim().toUpperCase();
+    return dedupeOwnerCompaniesByCode(
+      companiesForCompanyPicker(companies, effectiveGroup, groupIds),
+      companyId,
     );
-  }, [
-    companiesForPicker,
-    selectedGroup,
-    companyId,
-    companies,
-    groupIds,
-    allCompanyButtons,
-  ]);
+  }, [companiesForPicker, selectedGroup, companyId, companies, groupIds]);
 
   const groupOnlyUserList = useMemo(() => {
     if (groupsAllMode || groupAllMode) return false;
@@ -1083,6 +1075,12 @@ export default function UserListPage() {
   useLayoutEffect(() => {
     if (bootLoading || !me) return;
     if (!selectedGroup || companyId != null) return;
+    if (
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1"
+    ) {
+      return;
+    }
     if (isGroupLogin(me) || !requiresCompanyWithGroup) {
       return;
     }
@@ -1227,18 +1225,7 @@ export default function UserListPage() {
       const current = String(selectedGroup || "").trim().toUpperCase();
       const allowGroupOnly = isGroupLogin(me) || canUseGroupOnlyMode(me, g);
 
-      if (g === current && companyId == null) {
-        if (allowGroupOnly) deselectGroupKeepCompany();
-        return;
-      }
-
       if (g === current) {
-        if (allowGroupOnly) {
-          if (companyId != null) {
-            applyGroupOnlyScope(g);
-          }
-          return;
-        }
         deselectGroupKeepCompany();
         return;
       }
@@ -1313,13 +1300,26 @@ export default function UserListPage() {
       sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
 
     if (!nextGroup && (optOut || requiresCompanyWithGroup)) {
-      if (!selectedGroup) return;
+      const targetCompanyId =
+        nextCompanyId != null && Number.isFinite(Number(nextCompanyId)) && Number(nextCompanyId) > 0
+          ? Number(nextCompanyId)
+          : companyId;
+      const groupCleared = !selectedGroup;
+      const companySynced =
+        targetCompanyId == null
+          ? companyId == null
+          : companyId != null && Number(companyId) === Number(targetCompanyId);
+      if (groupCleared && companySynced) return;
+
       skipCompanyFetchEffectRef.current = true;
       flushSync(() => {
         setGroupsAllMode(false);
         setGroupAllMode(false);
         setSelectedGroup(null);
-        if (companyId != null) applyUserListCache(companyId);
+        if (targetCompanyId != null) {
+          setCompanyId(targetCompanyId);
+          applyUserListCache(targetCompanyId, { groupOnly: false });
+        }
       });
       return;
     }
