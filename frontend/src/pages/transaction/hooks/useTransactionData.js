@@ -18,7 +18,7 @@ import {
   pickDefaultSubsidiaryForGroup,
   readPersistedDashboardGcFilter,
   resolveCompanyPickWhenSwitchingGroup,
-  resolveCompanyWhenClosingGroup,
+  resolveCompanyWhenDeselectingGroup,
   resolveGcFilterBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   resolveViewGroupForCompany,
@@ -255,6 +255,7 @@ export function useTransactionData({
             snapCompanies: snapRows,
             snapCompaniesAll: rows,
             snapGroupIds: sortedUniqueGroupIds(snapRows),
+            sessionMe: u,
             viewerRole: String(u.role || "").toLowerCase(),
             mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
           };
@@ -510,7 +511,7 @@ export function useTransactionData({
       const seq = ++scopeSwitchSeqRef.current;
       const companies = snap.snapCompaniesAll || snap.snapCompanies || [];
       const groupIds = snap.snapGroupIds || sortedUniqueGroupIds(companies);
-      const pick = resolveCompanyWhenClosingGroup(companies, snap.companyId, groupIds);
+      const pick = resolveCompanyWhenDeselectingGroup(u, companies, snap.companyId, groupIds);
       const numericCid = pick?.id != null ? Number(pick.id) : null;
 
       const url = new URL(window.location.href);

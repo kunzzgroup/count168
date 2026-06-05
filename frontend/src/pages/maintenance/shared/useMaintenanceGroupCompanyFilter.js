@@ -2,6 +2,8 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import {
   canClearCompanySelection,
   canUseGroupOnlyMode,
+  isCompanyLogin,
+  maintenancePageAllowGroupOnlyPill,
 } from "../../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 
@@ -31,8 +33,9 @@ export function useMaintenanceGroupCompanyFilter({
     switchingCompany,
     preferredCompanyId: companyId,
     me,
-    autoPickCompanyWhenEmpty: false,
-    forceAllowGroupOnly: canUseGroupOnlyMode(me),
+    autoPickCompanyWhenEmpty: isCompanyLogin(me),
+    requireCompanyWithGroup: isCompanyLogin(me),
+    forceAllowGroupOnly: !isCompanyLogin(me) && maintenancePageAllowGroupOnlyPill(me),
     clearCompanyOnActiveGroupReselect: false,
     enableGroupAnchorSession,
   });

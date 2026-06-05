@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 
 import {
   companiesForCompanyPicker,
+  companiesForPickerWhenGroupClosed,
   dedupeOwnerCompaniesByCode,
   excludeGroupLabelsFromCompanyPicker,
   isDashboardGroupOnlyMode,
@@ -12,7 +13,7 @@ import {
   pickDefaultCompanyForGroup,
   pickDefaultSubsidiaryForGroup,
   resolveCompanyPickWhenSwitchingGroup,
-  resolveCompanyWhenClosingGroup,
+  resolveCompanyWhenDeselectingGroup,
   sortedUniqueGroupIds,
   persistDashboardGroupOnlyMode,
 } from "./sharedCompanyFilter.js";
@@ -20,6 +21,8 @@ import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
 import {
   canClearCompanySelection,
   canUseGroupOnlyMode,
+  companyLoginRequiresSubsidiaryWithGroup,
+  isCompanyLogin,
   resolveVisibleGroupIds,
 } from "./loginScope.js";
 import { useGroupAnchorSessionSync } from "./useGroupAnchorSessionSync.js";
@@ -74,12 +77,24 @@ export function useDashboardStyleGcFilter({
   me = null,
 }) {
   const activeGroup = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+  const companyLoginSubsidiaryMode = Boolean(
+    me && (isCompanyLogin(me) || companyLoginRequiresSubsidiaryWithGroup(me))
+  );
+  const effectiveRequireCompanyWithGroup =
+    requireCompanyWithGroup || companyLoginRequiresSubsidiaryWithGroup(me);
+  const effectiveAutoPickCompanyWhenEmpty =
+    autoPickCompanyWhenEmpty || effectiveRequireCompanyWithGroup;
+  const effectiveAllowActiveGroupDeselect =
+    allowActiveGroupDeselect || isCompanyLogin(me);
+  const resolveOnGroupClose =
+    resolveCompanyOnGroupClose ??
+    ((rows, cid, gids) => resolveCompanyWhenDeselectingGroup(me, rows, cid, gids));
   const allowGroupOnly =
-    !requireCompanyWithGroup &&
+    !effectiveRequireCompanyWithGroup &&
     (canUseGroupOnlyMode(me, activeGroup) || (forceAllowGroupOnly && canUseGroupOnlyMode(me)));
   const allowClearCompany =
     allowClearCompanyOverride ??
-    (!requireCompanyWithGroup &&
+    (!effectiveRequireCompanyWithGroup &&
       (canClearCompanySelection(me, activeGroup) ||
         (forceAllowGroupOnly && canUseGroupOnlyMode(me, activeGroup))));
 
@@ -106,12 +121,15 @@ export function useDashboardStyleGcFilter({
   );
 
   const companiesForPicker = useMemo(() => {
-    const list = companiesForCompanyPicker(companies, selectedGroup, groupIds);
+    const preferred = preferredCompanyId ?? companyId;
+    const list = selectedGroup
+      ? companiesForCompanyPicker(companies, selectedGroup, groupIds)
+      : companiesForPickerWhenGroupClosed(me, companies, groupIds, preferred);
     return excludeGroupLabelsFromCompanyPicker(
-      dedupeOwnerCompaniesByCode(list, preferredCompanyId ?? companyId),
+      dedupeOwnerCompaniesByCode(list, preferred),
       groupIds
     );
-  }, [companies, selectedGroup, groupIds, preferredCompanyId, companyId]);
+  }, [companies, selectedGroup, groupIds, preferredCompanyId, companyId, me]);
 
   const handlePickGroup = useCallback(
     async (gid) => {
@@ -119,50 +137,56 @@ export function useDashboardStyleGcFilter({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
 
-      /** Re-click active group: cancel group scope and switch to independent company (Report). */
-      if (g === selectedGroup && allowActiveGroupDeselect) {
-        const target = resolveCompanyOnGroupClose
-          ? resolveCompanyOnGroupClose(companies, companyId, groupIds)
-          : pickDefaultCompanyForGroup(companies, null, { me, preferredCompanyId: companyId }) ??
-            resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
-        setSelectedGroup(null);
-        resetAnchorSessionRef();
-        if (target?.id) {
-          clearDashboardGroupFilterKeepCompany(target.id, target);
-          markAnchorSynced(null, target.id);
-          const select = onSelectCompanyRef.current;
-          if (select) await select(target);
-          const prepare = onPrepareCompanySelectRef.current;
-          if (prepare) prepare(target);
-          onDeselectGroup?.(target.id);
-        } else if (companyId != null) {
-          clearDashboardGroupFilterKeepCompany(companyId);
-          markAnchorSynced(null, companyId);
-          onDeselectGroup?.(companyId);
-        } else {
+      const groupLedgerPick = canUseGroupOnlyMode(me, g);
+
+      /** Re-click active group — Transaction Payment: company login always closes group → login company. */
+      if (g === selectedGroup) {
+        const shouldCloseGroup =
+          isCompanyLogin(me) ||
+          effectiveAllowActiveGroupDeselect ||
+          !canUseGroupOnlyMode(me, g);
+        if (shouldCloseGroup) {
+          const target = resolveOnGroupClose(companies, companyId, groupIds);
+          setSelectedGroup(null);
+          resetAnchorSessionRef();
           persistDashboardGroupFilter(null);
-          persistDashboardGroupOnlyMode(false);
-          persistDashboardFilterState(null, null, { allowGroupOnly: false });
-          notifyDashboardGroupFilterChanged(null, null);
-          onClearCompany?.(null);
-          onDeselectGroup?.(null);
+          if (target?.id) {
+            clearDashboardGroupFilterKeepCompany(target.id, target);
+            markAnchorSynced(null, target.id);
+            const select = onSelectCompanyRef.current;
+            if (select) await select(target);
+            const prepare = onPrepareCompanySelectRef.current;
+            if (prepare) prepare(target);
+            onDeselectGroup?.(target.id);
+          } else if (companyId != null) {
+            clearDashboardGroupFilterKeepCompany(companyId);
+            markAnchorSynced(null, companyId);
+            onDeselectGroup?.(companyId);
+          } else {
+            persistDashboardGroupOnlyMode(false);
+            persistDashboardFilterState(null, null, { allowGroupOnly: false });
+            notifyDashboardGroupFilterChanged(null, null);
+            onClearCompany?.(null);
+            onDeselectGroup?.(null);
+          }
+          return;
+        }
+        if (
+          groupLedgerPick &&
+          !selectFirstCompanyOnGroupChange &&
+          companyId != null &&
+          clearCompanyOnActiveGroupReselect
+        ) {
+          persistDashboardFilterState(g, null, { allowGroupOnly: true });
+          resetAnchorSessionRef();
+          onClearCompany?.(g);
+          notifyDashboardGroupFilterChanged(g, null);
         }
         return;
       }
 
-      const groupLedgerPick = canUseGroupOnlyMode(me, g);
-
       /** Group ledger: clear company when switching tabs (requires assignment or owner/admin). */
       if (groupLedgerPick && !selectFirstCompanyOnGroupChange) {
-        if (g === selectedGroup && companyId != null) {
-          if (clearCompanyOnActiveGroupReselect) {
-            persistDashboardFilterState(g, null, { allowGroupOnly: true });
-            resetAnchorSessionRef();
-            onClearCompany?.(g);
-            notifyDashboardGroupFilterChanged(g, null);
-          }
-          return;
-        }
         persistDashboardGroupFilter(g);
         setSelectedGroup(g);
         persistDashboardFilterState(g, null, { allowGroupOnly: true });
@@ -170,50 +194,6 @@ export function useDashboardStyleGcFilter({
         onClearCompany?.(g);
         notifyDashboardGroupFilterChanged(g, null);
         return;
-      }
-
-      if (g === selectedGroup) {
-        if (!canUseGroupOnlyMode(me, g)) {
-          const target = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
-          persistDashboardGroupFilter(null);
-          setSelectedGroup(null);
-          if (target?.id && Number(target.id) !== Number(companyId)) {
-            persistDashboardFilterState(null, target.id, { allowGroupOnly: false });
-            markAnchorSynced(null, target.id);
-            const prepare = onPrepareCompanySelectRef.current;
-            if (prepare) prepare(target);
-            else setSelectedGroup(null);
-            notifyDashboardGroupFilterChanged(null, target.id, {
-              companyCode: target.company_id,
-              ignoreGroupOnly: true,
-              ...(() => {
-                const cached = peekCompanySessionFlags(Number(target.id));
-                return cached
-                  ? {
-                      hasGambling: Boolean(cached.has_gambling),
-                      hasBank: Boolean(cached.has_bank),
-                    }
-                  : {};
-              })(),
-            });
-            const select = onSelectCompanyRef.current;
-            if (select) void select(target);
-          } else if (companyId != null) {
-            persistDashboardFilterState(null, companyId, { allowGroupOnly: false });
-            markAnchorSynced(null, companyId);
-            clearDashboardGroupFilterKeepCompany(companyId);
-            notifyDashboardGroupFilterChanged(null, companyId, { ignoreGroupOnly: true });
-            onDeselectGroup?.(companyId);
-          } else if (companyId != null) {
-            clearDashboardGroupFilterKeepCompany(companyId);
-            onDeselectGroup?.(companyId);
-          } else {
-            persistDashboardFilterState(null, null, { allowGroupOnly: false });
-            notifyDashboardGroupFilterChanged(null, null);
-          }
-          return;
-        }
-        if (companyId != null) return;
       }
 
       const pick =
@@ -265,15 +245,15 @@ export function useDashboardStyleGcFilter({
       companyId,
       me,
       markAnchorSynced,
-      resolveCompanyOnGroupClose,
-      allowActiveGroupDeselect,
+      resolveOnGroupClose,
+      effectiveAllowActiveGroupDeselect,
     ]
   );
 
   useLayoutEffect(() => {
     if (
       (selectedGroup && canUseGroupOnlyMode(me, selectedGroup)) ||
-      !autoPickCompanyWhenEmpty ||
+      !effectiveAutoPickCompanyWhenEmpty ||
       !selectedGroup ||
       companyId != null
     ) {
@@ -292,12 +272,31 @@ export function useDashboardStyleGcFilter({
     const select = onSelectCompanyRef.current;
     if (select) void select(pick);
   }, [
-    autoPickCompanyWhenEmpty,
+    effectiveAutoPickCompanyWhenEmpty,
     selectedGroup,
     companyId,
     companies,
     me,
     markAnchorSynced,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!companyLoginSubsidiaryMode || companyId != null) return;
+    const pick = resolveOnGroupClose(companies, me?.company_id ?? null, groupIds);
+    if (!pick?.id) return;
+    persistDashboardGroupOnlyMode(false);
+    clearDashboardGroupFilterKeepCompany(pick.id, pick);
+    markAnchorSynced(null, pick.id);
+    const select = onSelectCompanyRef.current;
+    if (select) void select(pick);
+  }, [
+    companyLoginSubsidiaryMode,
+    companyId,
+    companies,
+    groupIds,
+    me,
+    markAnchorSynced,
+    resolveOnGroupClose,
   ]);
 
   const handlePickCompany = useCallback(

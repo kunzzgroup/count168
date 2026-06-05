@@ -65,8 +65,10 @@ import {
   isVirtualGroupLinkCompanyRow,
   fetchOwnerCompaniesAll,
   pickDefaultSubsidiaryForGroup,
+  resolveCompanyWhenDeselectingGroup,
   resolveCompanyWhenClosingGroup,
   resolveCompanyWhenPickingAllGroups,
+  companiesForPickerWhenGroupClosed,
   independentCompaniesForPicker,
   allGroupedCompaniesForPicker,
   resolveGroupAllMergeCompanyList,
@@ -384,7 +386,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       setCompanyId(bootCid);
       if (bootCid != null) {
-        persistDashboardFilterState(coerced.selectedGroup, bootCid, { allowGroupOnly: false });
+        const bootRow = scopedCompanies.find((c) => parseInt(c.id, 10) === parseInt(bootCid, 10));
+        if (!coerced.selectedGroup && isCompanyLogin(u)) {
+          clearDashboardGroupFilterKeepCompany(bootCid, bootRow);
+        } else {
+          persistDashboardFilterState(coerced.selectedGroup, bootCid, { allowGroupOnly: false });
+        }
       } else {
         setCurrencies([]);
         setCurrencyCode("");
@@ -430,12 +437,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         preferredId
       );
     }
-    // Group closed: show independent companies only (group subsidiaries collapsed).
-    return dedupeOwnerCompaniesByCode(
-      independentCompaniesForPicker(companies, groupIds),
-      preferredId
-    );
-  }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me?.company_id]);
+    // Group closed: independents + company-login subsidiaries (e.g. C168).
+    return companiesForPickerWhenGroupClosed(me, companies, groupIds, preferredId);
+  }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me]);
 
   const resolveMergeCompanyList = useCallback(() => {
     if (groupsAllMode) return resolveGroupsAllMergeCompanyList(companies, groupIds);
@@ -2247,19 +2251,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (g === selectedGroup && !groupsAllMode) {
-        if (!canUseGroupOnlyMode(me, g)) {
-          const target = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
+        if (isCompanyLogin(me) || !canUseGroupOnlyMode(me, g)) {
+          const target = resolveCompanyWhenDeselectingGroup(me, companies, companyId, groupIds);
           setGroupsAllMode(false);
           setGroupAllMode(false);
           setMergedSubsetIds(null);
           setSelectedGroup(null);
-          if (typeof sessionStorage !== "undefined") {
-            sessionStorage.removeItem("dashboard_group_filter");
-          }
           if (target?.id) {
             const id = parseInt(target.id, 10);
-            persistDashboardFilterState(null, id, { allowGroupOnly: false });
-            notifyDashboardGroupFilterChanged(null, id, { companyCode: target.company_id });
+            clearDashboardGroupFilterKeepCompany(id, target);
             applyCompanySelection(id);
             primeCurrenciesFromCache({ companyId: id, selectedGroup: null, groupsAllMode: false });
             primeDashboardFromCache({
@@ -2552,34 +2552,32 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     persistDashboardGroupOnlyMode(false);
 
-    let id = me?.company_id ? parseInt(me.company_id, 10) : Number.NaN;
+    const target = resolveCompanyWhenDeselectingGroup(me, companies, companyId ?? me?.company_id, groupIds);
+    if (!target?.id) return;
+
+    const id = parseInt(target.id, 10);
     let bootGroup = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
 
-    if (selectedGroup && companies.length) {
+    if (!bootGroup && selectedGroup && companies.length) {
+      bootGroup = selectedGroup;
+    } else if (!bootGroup && !selectedGroup && isCompanyLogin(me)) {
+      bootGroup = null;
+    } else if (!bootGroup && selectedGroup && companies.length) {
       const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
         me,
-        preferredCompanyId: Number.isFinite(id) ? id : null,
+        preferredCompanyId: id,
       });
-      if (pick?.id) {
-        id = parseInt(pick.id, 10);
-        bootGroup = selectedGroup;
-      }
-    } else if (Number.isFinite(id)) {
-      const row = companies.find((c) => parseInt(c.id, 10) === id);
-      const g = row ? normalizeCompanyGroupId(row) : null;
-      if (g) {
-        bootGroup = g;
-        setSelectedGroup(g);
-        sessionStorage.setItem("dashboard_group_filter", g);
-      }
+      if (pick?.id) bootGroup = selectedGroup;
     }
 
-    if (!Number.isFinite(id) || id <= 0) return;
-
     setGroupAllMode(false);
-    persistDashboardFilterState(bootGroup, id, { allowGroupOnly: false });
+    if (!selectedGroup && isCompanyLogin(me)) {
+      clearDashboardGroupFilterKeepCompany(id, target);
+    } else {
+      persistDashboardFilterState(bootGroup, id, { allowGroupOnly: false });
+      notifyDashboardGroupFilterChanged(bootGroup, id, { companyCode: target.company_id });
+    }
     applyCompanySelection(id);
-    notifyDashboardGroupFilterChanged(bootGroup, id);
     void syncCompanySession(id, bootGroup);
   }, [
     me,

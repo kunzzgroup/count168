@@ -9,6 +9,7 @@ import { clearCompanySessionFlagsCache, peekCompanySessionFlags } from "./compan
 import {
   canUseGroupOnlyMode,
   filterCompaniesForLoginScope,
+  getAssignedCompanyIds,
   getLoginIdentifier,
   getLoginScope,
   isCompanyLogin,
@@ -810,7 +811,14 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
     sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
     sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
   }
-  if (!selGroup && currentCompany?.group_id?.trim()) {
+  if (
+    !selGroup &&
+    currentCompany?.group_id?.trim() &&
+    !(
+      isCompanyLogin(loginMe) &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1"
+    )
+  ) {
     selGroup = normalizeCompanyGroupId(currentCompany);
     sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, selGroup);
   }
@@ -1114,6 +1122,53 @@ export function independentCompaniesForPicker(companies, groupIds = null) {
 }
 
 /**
+ * Company pills when GroupID is cleared (Transaction Payment behaviour).
+ * Ungrouped independents plus, for company login, login / assigned subsidiaries (e.g. C168).
+ */
+export function companiesForPickerWhenGroupClosed(
+  me,
+  companies,
+  groupIds = null,
+  preferredCompanyId = null
+) {
+  const list = companies ?? [];
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(list);
+  const preferred = preferredCompanyId ?? me?.company_id ?? null;
+  const merged = [...independentCompaniesForPicker(list, gids)];
+  const seen = new Set(
+    merged.map((c) => Number(c.id)).filter((id) => Number.isFinite(id) && id > 0)
+  );
+
+  const append = (row) => {
+    const id = Number(row?.id);
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) return;
+    if (!isSubsidiaryCompanyRow(row, gids) || companyDisplayCodeIsGroupLabel(row, gids)) return;
+    seen.add(id);
+    merged.push(row);
+  };
+
+  if (isCompanyLogin(me)) {
+    const tryIds = [];
+    const prefNum = preferred != null ? Number(preferred) : Number.NaN;
+    if (Number.isFinite(prefNum) && prefNum > 0) tryIds.push(prefNum);
+    const loginNum = me?.company_id != null ? Number(me.company_id) : Number.NaN;
+    if (Number.isFinite(loginNum) && loginNum > 0) tryIds.push(loginNum);
+    for (const id of getAssignedCompanyIds(me)) tryIds.push(id);
+    for (const id of tryIds) {
+      append(list.find((c) => Number(c.id) === id));
+    }
+    const ident = getLoginIdentifier(me);
+    if (ident) {
+      append(
+        list.find((c) => String(c.company_id || "").trim().toUpperCase() === ident)
+      );
+    }
+  }
+
+  return dedupeOwnerCompaniesByCode(merged, preferred);
+}
+
+/**
  * All subsidiaries under visible groups (AP, IG, …) for Company picker when GroupID is "All".
  * Excludes independent companies.
  */
@@ -1196,6 +1251,43 @@ export function resolveCompanyWhenClosingGroup(companies, currentCompanyId, grou
     }
   }
   return independents[0] ?? null;
+}
+
+/**
+ * Transaction-aligned: company login closing Group → login / assigned subsidiary (e.g. C168).
+ * Group login / owner paths fall back to independent companies.
+ */
+export function resolveCompanyWhenDeselectingGroup(me, companies, currentCompanyId, groupIds = null) {
+  const list = companies ?? [];
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(list);
+
+  if (isCompanyLogin(me)) {
+    const tryId = (raw) => {
+      const id = Number(raw);
+      if (!Number.isFinite(id) || id <= 0) return null;
+      return list.find((c) => Number(c.id) === id) ?? null;
+    };
+    const cur = currentCompanyId != null ? Number(currentCompanyId) : Number.NaN;
+    if (Number.isFinite(cur) && cur > 0) {
+      const row = tryId(cur);
+      if (row) return row;
+    }
+    const loginRow = tryId(me?.company_id);
+    if (loginRow) return loginRow;
+    const ident = getLoginIdentifier(me);
+    if (ident) {
+      const byCode = list.find(
+        (c) => String(c.company_id || "").trim().toUpperCase() === ident
+      );
+      if (byCode) return byCode;
+    }
+    for (const id of getAssignedCompanyIds(me)) {
+      const row = tryId(id);
+      if (row) return row;
+    }
+  }
+
+  return resolveCompanyWhenClosingGroup(list, currentCompanyId, gids);
 }
 
 /**

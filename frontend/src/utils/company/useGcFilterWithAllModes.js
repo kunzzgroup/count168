@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   companiesForCompanyPicker,
+  companiesForPickerWhenGroupClosed,
   companiesNativeInGroupList,
   dedupeOwnerCompaniesByCode,
   excludeGroupLabelsFromCompanyPicker,
@@ -87,10 +88,10 @@ export function useGcFilterWithAllModes({
         groupIds
       );
     }
-    return dedupeOwnerCompaniesByCode(
-      companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds),
-      preferredId
-    );
+    const pickerList = effectiveGroupForCompanies
+      ? companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds)
+      : companiesForPickerWhenGroupClosed(me, companies, groupIds, preferredId);
+    return dedupeOwnerCompaniesByCode(pickerList, preferredId);
   }, [
     companies,
     effectiveGroupForCompanies,
