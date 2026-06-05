@@ -3,10 +3,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { syncCompanySessionApi } from "./companySessionSync.js";
 import {
+  companyRowIsGroupEntity,
   notifyDashboardGroupFilterChanged,
-  pickDefaultSubsidiaryForGroup,
   pickGroupAnchorCompany,
-  resolvePreferredCompanyIdForGroupAnchor,
 } from "./sharedCompanyFilter.js";
 
 function isGroupOnlyFilterUi(selectedGroup, companyId) {
@@ -21,8 +20,8 @@ function parsePositiveCompanyId(companyId) {
 }
 
 /**
- * Group-only UI keeps company unselected; sync anchor company to PHP session so sidebar
- * flags (e.g. C168 domain access) match AP vs IG without selecting company in the filter.
+ * Group-only UI keeps company unselected. Only sync a group-entity row (AP/IG) to PHP session
+ * when one exists — never sync a subsidiary anchor (e.g. C168) to avoid company data bleed.
  */
 export function useGroupAnchorSessionSync({
   companies = [],
@@ -42,18 +41,15 @@ export function useGroupAnchorSessionSync({
 
   const anchorId = useMemo(() => {
     if (!needsAnchorSession) return null;
-    const preferred = resolvePreferredCompanyIdForGroupAnchor(
-      companies,
-      selectedGroup,
-      sessionCompanyId,
-    );
-    const anchor =
-      pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
-        preferredCompanyId: preferred,
-      }) ?? pickGroupAnchorCompany(companies, selectedGroup);
+    const g = String(selectedGroup || "").trim().toUpperCase();
+    const anchor = pickGroupAnchorCompany(companies, g);
+    if (!anchor || !companyRowIsGroupEntity(anchor, g)) {
+      // Group-only: never write subsidiary (e.g. C168) into PHP session — prevents data/currency bleed.
+      return null;
+    }
     const id = anchor?.id != null ? Number(anchor.id) : Number.NaN;
     return Number.isFinite(id) && id > 0 ? id : null;
-  }, [needsAnchorSession, companies, selectedGroup, sessionCompanyId]);
+  }, [needsAnchorSession, companies, selectedGroup]);
 
   const [anchorSessionReady, setAnchorSessionReady] = useState(
     () => !isGroupOnlyFilterUi(selectedGroup, companyId),

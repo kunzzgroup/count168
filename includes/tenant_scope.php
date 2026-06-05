@@ -182,10 +182,6 @@ function tenant_load_group_tenant_currency_map(PDO $pdo, string $groupCode): arr
 function tenant_group_currency_legacy_company_ids(PDO $pdo, array $ctx): array
 {
     $ids = [];
-    $anchor = (int) ($ctx['company_id'] ?? 0);
-    if ($anchor > 0) {
-        $ids[$anchor] = true;
-    }
     $groupCode = gc_normalize_group_code((string) ($ctx['group_code'] ?? ''));
     if ($groupCode !== '') {
         $legacyEntity = gc_resolve_legacy_group_entity_company_id($pdo, $groupCode);
@@ -194,6 +190,7 @@ function tenant_group_currency_legacy_company_ids(PDO $pdo, array $ctx): array
         }
     }
 
+    // Never merge subsidiary anchor (e.g. C168) currencies into group-only ledger.
     return array_values(array_keys($ids));
 }
 
@@ -579,6 +576,11 @@ function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): 
 
     if ($groupCode !== '') {
         return tenant_resolve_currency_context($pdo, null, $groupCode, $forceGroupLedger);
+    }
+
+    // Group-only UI must not fall back to PHP session subsidiary (anchor sync for sidebar).
+    if ($groupOnly || $forceGroupLedger) {
+        throw new Exception('缺少 group_id');
     }
 
     $sessionId = (int) ($params['session_company_id'] ?? 0);
