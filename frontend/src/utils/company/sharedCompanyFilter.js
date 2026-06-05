@@ -377,6 +377,8 @@ export function resolveBootCompanyId({ urlCompanyId, sessionCompanyId, defaultRo
   const urlNum =
     urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
   if (Number.isFinite(urlNum) && urlNum > 0) return urlNum;
+  const saved = readDashboardSelectedCompanyId();
+  if (saved != null) return saved;
   if (isDashboardGroupOnlyMode()) return null;
   return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null);
 }
@@ -388,12 +390,32 @@ export function syncDashboardGroupOnlyFromFilter(selectedGroup, companyId) {
 
 /** Company id for page boot: group-only → null; else saved id, then PHP/fallback. */
 export function resolveInitialCompanyId(fallbackCompanyId) {
-  if (isDashboardGroupOnlyMode()) return null;
   const saved = readDashboardSelectedCompanyId();
   if (saved != null) return saved;
+  if (isDashboardGroupOnlyMode()) return null;
   if (fallbackCompanyId == null || fallbackCompanyId === "") return null;
   const id = Number(fallbackCompanyId);
   return Number.isFinite(id) ? id : null;
+}
+
+/**
+ * SPA page initial company id (report / maintenance): persisted subsidiary wins over group-only flag.
+ */
+export function readInitialGcFilterCompanyId({ sessionCompanyId = null, defaultRowId = null } = {}) {
+  let queryCompany = null;
+  if (typeof window !== "undefined") {
+    try {
+      queryCompany = new URL(window.location.href).searchParams.get("company_id");
+    } catch {
+      /* ignore */
+    }
+  }
+  const bootGc = resolveGcFilterBootCompanyId({
+    urlCompanyId: queryCompany,
+    sessionCompanyId,
+    defaultRowId,
+  });
+  return bootGc.groupOnly ? null : bootGc.companyId ?? null;
 }
 
 /**
