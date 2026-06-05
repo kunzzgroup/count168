@@ -730,6 +730,7 @@ export default function UserListPage() {
       body.group_aggregate = 1;
     } else if (activeCompanyId != null) {
       body.company_id = Number(activeCompanyId);
+      if (selectedGroup) body.group_id = selectedGroup;
     }
     const res = await fetch(buildApiUrl("api/users/userlist_api.php"), {
       method: "POST",

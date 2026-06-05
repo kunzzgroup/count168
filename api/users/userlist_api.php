@@ -1178,6 +1178,8 @@ function userlist_fetch_user_group_entity_company_ids(PDO $pdo, int $userId): ar
  */
 function userlist_sync_user_group_tenants(PDO $pdo, int $userId, array $groupScopes): int
 {
+    userlist_fetch_accessible_companies($pdo);
+
     $normalized = [];
     foreach ($groupScopes as $scope) {
         $g = userlist_normalize_group_id($scope);
@@ -2498,6 +2500,23 @@ try {
 
                 $filterCompanyIds = userlist_resolve_filter_company_ids($pdo, $input);
                 $companyUserIds = userlist_fetch_company_scope_user_ids($pdo, $filterCompanyIds);
+                // Group pill + subsidiary company: also show group-ledger users mapped to this group (AP/IG).
+                if (
+                    $groupScope !== null
+                    && !userlist_is_group_only_list_request($input)
+                ) {
+                    $groupLedgerUserIds = userlist_fetch_group_only_user_ids($pdo, $groupScope);
+                    if ($groupLedgerUserIds !== []) {
+                        $merged = [];
+                        foreach (array_merge($companyUserIds, $groupLedgerUserIds) as $uid) {
+                            $uid = (int) $uid;
+                            if ($uid > 0) {
+                                $merged[$uid] = true;
+                            }
+                        }
+                        $companyUserIds = array_keys($merged);
+                    }
+                }
                 if ($companyUserIds === []) {
                     sendResponse(true, 'Users retrieved successfully', []);
                 }
