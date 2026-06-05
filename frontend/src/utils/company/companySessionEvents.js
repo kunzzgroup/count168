@@ -13,3 +13,8 @@ export function notifyCompanySessionUpdated(sessionData = null) {
     new CustomEvent("eazycount:company-session-updated", { detail: sessionData ?? null })
   );
 }
+
+/** Refresh sidebar expiration / current_user after company settings change (Domain, etc.). */
+export function notifySessionRefreshRequested() {
+  window.dispatchEvent(new CustomEvent("eazycount:session-refresh-requested"));
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { notifySessionRefreshRequested } from "../../../utils/company/companySessionEvents.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import FormDateField from "../../../components/FormDateField.jsx";
 import MaintenanceCalendarPopup from "../../../components/MaintenanceCalendarPopup.jsx";
@@ -258,6 +259,7 @@ export default function CompanySettingsModal({
       };
       showDomainAlert(t("groupUpdatedShareAfterSave"));
       onSave(updated);
+      notifySessionRefreshRequested();
       return;
     }
 
@@ -314,6 +316,7 @@ export default function CompanySettingsModal({
           fee_share_allocations: cleanFsa,
           apply_commission_payments_on_domain_save: chargeOnSave,
         });
+        notifySessionRefreshRequested();
       })
       .catch(() => {
         showDomainAlert(t("serverUnreachableChangesKept"), "danger");

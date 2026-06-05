@@ -386,12 +386,19 @@ export default function AuthenticatedLayout() {
           hasGambling: data.has_gambling,
           hasBank: data.has_bank,
         });
-        return;
       }
+      // Always re-fetch current_user so expiration_hint / expiration_status stay in sync.
+      void refreshSession();
+    };
+    const onSessionRefresh = () => {
       void refreshSession();
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
-    return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+    window.addEventListener("eazycount:session-refresh-requested", onSessionRefresh);
+    return () => {
+      window.removeEventListener("eazycount:company-session-updated", onCompanySession);
+      window.removeEventListener("eazycount:session-refresh-requested", onSessionRefresh);
+    };
   }, [applySidebarPatch, refreshSession]);
 
   useEffect(() => {

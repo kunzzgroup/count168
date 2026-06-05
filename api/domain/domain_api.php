@@ -11,6 +11,21 @@ header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
+function domain_api_clear_session_user_cache(): void
+{
+    static $loaded = false;
+    if (!$loaded) {
+        $path = __DIR__ . '/../../includes/session_user_payload_cache.php';
+        if (is_file($path)) {
+            require_once $path;
+        }
+        $loaded = true;
+    }
+    if (function_exists('session_user_payload_cache_clear')) {
+        session_user_payload_cache_clear();
+    }
+}
+
 // Get JSON input
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
@@ -2995,7 +3010,8 @@ try {
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
                 
                 $pdo->commit();
-                
+                domain_api_clear_session_user_cache();
+
                 $owner = getOwnerWithCompanies($pdo, $id);
                 echo json_encode([
                     'success' => true,
@@ -3343,6 +3359,7 @@ try {
                         : null;
                     $stmt = $pdo->prepare("UPDATE company SET permissions = ?, expiration_date = ? WHERE company_id = ?");
                     $stmt->execute([$permissions_json, $expiration_date_val, strtoupper($company_id)]);
+                    domain_api_clear_session_user_cache();
                 } else {
                     // 旧调用方式兼容：未传 expiration_date 时只更新权限
                     $stmt = $pdo->prepare("UPDATE company SET permissions = ? WHERE company_id = ?");

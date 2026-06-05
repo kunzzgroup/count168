@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { notifySessionRefreshRequested } from "../../../utils/company/companySessionEvents.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
 import CompanySettingsModal from "./CompanySettingsModal.jsx";
 import GroupSettingsModal from "./GroupSettingsModal.jsx";
@@ -349,6 +350,7 @@ export default function DomainFormModal({
       if (json.success) {
         showDomainAlert(isEditMode ? t("ownerUpdated") : t("ownerCreated"));
         onSaved(json.data);
+        notifySessionRefreshRequested();
         onClose();
       } else {
         toastDanger(json.message || t("operationFailed"));
