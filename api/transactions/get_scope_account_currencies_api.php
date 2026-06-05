@@ -125,8 +125,9 @@ try {
             $accountIds = dashboardCollectScopeAccountIds(
                 $pdo,
                 $primaryCompanyId,
-                $viewGroup !== '' ? $viewGroup : null,
-                0
+                null,
+                0,
+                true
             );
         } else {
             foreach ($companyIds as $cid) {

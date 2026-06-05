@@ -4,6 +4,7 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   buildDashboardCacheKey,
+  clearDashboardCache,
   clearDashboardPayloadCache,
   getDashboardCache,
   getDashboardPayloadCache,
@@ -141,15 +142,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       canUseGroupOnlyMode(me)
   );
 
-  /** Subsidiary drill-down under a group tab (e.g. C168 under AP) — isolate from group-ledger data. */
-  const subsidiaryDashboardScope = useMemo(() => {
-    if (companyId == null || groupsAllMode || groupAllMode) return false;
-    if (!selectedGroup) return false;
-    const row = companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
-    if (!row) return false;
-    return !companyRowIsGroupEntity(row, selectedGroup);
-  }, [companyId, selectedGroup, companies, groupsAllMode, groupAllMode]);
-
   /**
    * Group-level KPI (AP/IG): group ledger API or group-entity row only — never merge subsidiaries (e.g. C168).
    * Company "All" (groupAllMode) aggregates subsidiaries via merge, not group ledger.
@@ -163,6 +155,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return companyRowIsGroupEntity(row, selectedGroup);
   }, [groupsAllMode, groupAllMode, selectedGroup, companyId, companies]);
 
+  /** Subsidiary drill-down under a group tab (e.g. C168 under AP) — isolate from group-ledger data. */
+  const subsidiaryDashboardScope = useMemo(() => {
+    if (companyId == null || groupsAllMode || groupAllMode || !selectedGroup) return false;
+    return !usesGroupLedgerDashboard;
+  }, [companyId, selectedGroup, groupsAllMode, groupAllMode, usesGroupLedgerDashboard]);
+
   const groupsAllGroupLevel = groupsAllMode && companyId == null && !groupAllMode;
   const groupAggregateMode =
     groupAllMode || groupOnlyDashboard || groupsAllGroupLevel || usesGroupLedgerDashboard;
@@ -173,6 +171,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const dashboardScopeKey = useMemo(() => {
     let scopeCompanyKey = companyId ?? null;
+    if (subsidiaryDashboardScope && scopeCompanyKey != null) {
+      scopeCompanyKey = `sub:${scopeCompanyKey}`;
+    }
     if (scopeCompanyKey == null && usesGroupLedgerDashboard && selectedGroup) {
       scopeCompanyKey = `group:${selectedGroup}`;
     }
@@ -201,6 +202,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     });
   }, [
     companyId,
+    subsidiaryDashboardScope,
     usesGroupLedgerDashboard,
     selectedGroup,
     groupsAllMode,
@@ -489,7 +491,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
 
     const groupPlusCompanyCurrency =
-      Boolean(groupKey) && singleCid != null && !groupOnlyCurrencyScope;
+      Boolean(groupKey) && singleCid != null && !groupOnlyCurrencyScope && !subsidiaryDashboardScope;
 
     if (!companyIds.length && !groupLedgerOnly && !groupOnlyCurrencyScope) {
       commitCurrencyList([]);
@@ -510,7 +512,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       let codes = [];
       if (useGroupAccCurrency) {
         const q = new URLSearchParams();
-        if (groupLedgerOnly && groupKey) {
+        if (subsidiaryDashboardScope && singleCid) {
+          q.set("company_id", String(singleCid));
+          q.set("subsidiary_accounts_only", "1");
+        } else if (groupLedgerOnly && groupKey) {
           q.set("group_id", groupKey);
           q.set("view_group", groupKey);
         } else {
@@ -536,7 +541,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (!codes.length && singleCid) {
           const cached = currenciesByCompanyRef.current.get(singleCid);
           if (cached?.length) codes = [...cached];
-        } else if (!codes.length && groupKey) {
+        } else if (!codes.length && groupKey && !subsidiaryDashboardScope) {
           const cached = currenciesByGroupRef.current.get(groupKey);
           if (cached?.length) codes = [...cached];
         }
@@ -619,6 +624,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
   }, [
     companyId,
+    subsidiaryDashboardScope,
     usesGroupLedgerDashboard,
     selectedGroup,
     groupsAllMode,
@@ -670,7 +676,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
       const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
       const subsidiaryOnly =
-        Boolean(viewGroup) && row != null && !companyRowIsGroupEntity(row, viewGroup);
+        Boolean(viewGroup) && !(row && companyRowIsGroupEntity(row, viewGroup));
       if (subsidiaryOnly) {
         q.append("subsidiary_accounts_only", "1");
       } else if (viewGroup) {
@@ -814,11 +820,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       const codesForBootstrap =
         currencyCodesOverride ??
-        (selectedGroup && currencies.length > 0
-          ? currencies
-          : companyId != null
-            ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
-            : null) ??
+        (subsidiaryDashboardScope && companyId != null
+          ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currencies
+          : selectedGroup && currencies.length > 0 && !subsidiaryDashboardScope
+            ? currencies
+            : companyId != null
+              ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
+              : null) ??
         (currencies.length > 1 ? currencies : null);
       if (Array.isArray(codesForBootstrap) && codesForBootstrap.length > 1) {
         q.set("currencies", codesForBootstrap.join(","));
@@ -1279,11 +1287,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           });
 
           const codesForEarnings =
-            (selectedGroup && currencies.length > 0
-              ? currencies
-              : companyId != null
-                ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
-                : null) ??
+            (subsidiaryDashboardScope && companyId != null
+              ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currencies
+              : selectedGroup && currencies.length > 0 && !subsidiaryDashboardScope
+                ? currencies
+                : companyId != null
+                  ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
+                  : null) ??
             (currencies.length > 1 ? currencies : null);
           if (Array.isArray(codesForEarnings) && codesForEarnings.length > 1) {
             setEarningsByCurrencyLoading(true);
@@ -1825,6 +1835,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         ignoreGroupOnly: true,
       });
       clearDashboardPayloadCache();
+      clearDashboardCache();
       setDashboardData(null);
       setDashboardDataPrev(null);
       setDisplayScopeKey("");
@@ -1833,6 +1844,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setEarningsByCurrencyLoading(false);
       setMultiCurrencyKpi(null);
       setMultiCurrencyKpiPrev(null);
+      setCurrencies([]);
+      setCurrencyCode("");
       applyCompanySelection(id);
       void syncCompanySession(id, groupsAllMode ? null : gid || selectedGroup).then((ok) => {
         if (switchGen !== companySwitchGenRef.current) return;

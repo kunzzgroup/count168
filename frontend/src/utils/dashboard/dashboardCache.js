@@ -73,3 +73,7 @@ export function setDashboardPayloadCache(queryString, data) {
 export function clearDashboardPayloadCache() {
   payloadStore.clear();
 }
+
+export function clearDashboardCache() {
+  store.clear();
+}

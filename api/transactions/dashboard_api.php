@@ -1858,7 +1858,7 @@ try {
     $hasTransactionCurrency = dashboardHasTransactionCurrency($pdo);
 
     $viewGroupCodeForScope = reportNormalizeGroupId($_GET['view_group'] ?? '');
-    if ($viewGroupCodeForScope === '' && $company_id > 0) {
+    if (!$subsidiaryAccountsOnly && $viewGroupCodeForScope === '' && $company_id > 0) {
         $vgStmt = $pdo->prepare('SELECT UPPER(TRIM(COALESCE(group_id, ""))) FROM company WHERE id = ? LIMIT 1');
         $vgStmt->execute([$company_id]);
         $viewGroupCodeForScope = reportNormalizeGroupId($vgStmt->fetchColumn() ?: '');
