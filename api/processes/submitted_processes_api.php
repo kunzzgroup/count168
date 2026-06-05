@@ -4,6 +4,8 @@ require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 
+dcEnsureSubmittedProcessesScopeColumns($pdo);
+
 // 开启 session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -28,12 +30,14 @@ if (!isset($_SESSION['user_id'])) {
 
 $scopeParams = array_merge($_GET, $_POST);
 $capture_scope_group = false;
+$capture_scope_ctx = [];
 
 try {
     if (dcRequestHasExplicitScope($scopeParams)) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
-        $company_id = (int) $scopeResolved['company_id'];
-        $capture_scope_group = (bool) $scopeResolved['is_group_scope'];
+        $capture_scope_ctx = dcFinalizeDualTenantCaptureScope($pdo, $scopeResolved, $scopeParams);
+        $company_id = (int) $capture_scope_ctx['company_id'];
+        $capture_scope_group = (bool) $capture_scope_ctx['is_group_scope'];
     } else {
         $company_id = null;
         if (isset($scopeParams['company_id']) && $scopeParams['company_id'] !== '') {
@@ -42,6 +46,14 @@ try {
             $company_id = (int) $_SESSION['company_id'];
         }
         $capture_scope_group = false;
+        $capture_scope_ctx = [
+            'company_id' => (int) ($company_id ?? 0),
+            'anchor_company_id' => (int) ($company_id ?? 0),
+            'is_group_scope' => false,
+            'dual_tenant' => tenant_table_has_scope_columns($pdo, 'data_captures'),
+            'submitted_dual_tenant' => dcSubmittedProcessesDualTenantEnabled($pdo),
+            'scope_process_sql' => '',
+        ];
     }
 } catch (Exception $scopeException) {
     http_response_code(403);
@@ -67,10 +79,27 @@ if (!checkReportGamesAccess($pdo, $company_id, $groupIdForAccess !== '' ? $group
 
 function dcSubmittedProcessScopeFilter(string $processAlias = 'p'): string
 {
-    global $capture_scope_group;
-    return $capture_scope_group
-        ? dcSqlGroupProcessFilter($processAlias)
-        : dcSqlCompanyProcessFilter($processAlias);
+    global $capture_scope_group, $pdo, $company_id, $capture_scope_ctx;
+    if (!empty($capture_scope_ctx['scope_process_sql'])) {
+        return (string) $capture_scope_ctx['scope_process_sql'];
+    }
+    if ($capture_scope_group) {
+        return dcSqlGroupProcessFilter($processAlias);
+    }
+    return dcSqlDataCaptureCompanyProcessFilter($pdo, (int) ($company_id ?? 0), $processAlias);
+}
+
+function dcSubmittedLedgerFilter(string $alias, string $table = 'submitted_processes'): array
+{
+    global $pdo, $capture_scope_ctx, $company_id, $capture_scope_group;
+    if (!empty($capture_scope_ctx)) {
+        return dcBuildCaptureLedgerFilter($pdo, $capture_scope_ctx, $alias, $table);
+    }
+    return [
+        'sql' => ' AND ' . preg_replace('/[^a-zA-Z0-9_]/', '', $alias) . '.company_id = ? ',
+        'bind' => (int) $company_id,
+        'uses_dual_tenant' => false,
+    ];
 }
 
 try {
@@ -352,11 +381,16 @@ function getSubmissionsByDate($user_id)
 // 根据 capture_date 获取提交的processes（按选择的日期归类，显示提交日期）
 function getSubmissionsByCaptureDate($user_id)
 {
-    global $pdo, $company_id;
+    global $pdo, $company_id, $capture_scope_ctx;
 
     try {
         // 使用全局的 $company_id（已经过验证）
         $currentCompanyId = $company_id;
+        $processCompanyId = !empty($capture_scope_ctx)
+            ? dcCaptureProcessCompanyId($capture_scope_ctx)
+            : $currentCompanyId;
+        $ledgerSp = dcSubmittedLedgerFilter('sp', 'submitted_processes');
+        $ledgerDc = dcSubmittedLedgerFilter('dc', 'data_captures');
 
         if (!$currentCompanyId) {
             echo json_encode([
@@ -469,7 +503,8 @@ function getSubmissionsByCaptureDate($user_id)
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
                 LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
-                WHERE sp.company_id = ?
+                WHERE 1=1
+                  {$ledgerSp['sql']}
                   AND $spDateFilter
                   AND p.company_id = ?
                 $scopeProcessFilter
@@ -491,7 +526,8 @@ function getSubmissionsByCaptureDate($user_id)
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
                 LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
-                WHERE dc.company_id = ?
+                WHERE 1=1
+                  {$ledgerDc['sql']}
                   AND DATE(dc.capture_date) = ?
                   AND p.company_id = ?
                 $scopeProcessFilter
@@ -507,10 +543,16 @@ function getSubmissionsByCaptureDate($user_id)
         ");
 
         $paramsSegment = array_merge(
-            [$currentCompanyId, $dateParam, $currentCompanyId],
+            dcCaptureLedgerBindParams($ledgerSp),
+            [$dateParam, $processCompanyId],
             !empty($processIds) ? $processIds : []
         );
-        $params = array_merge($paramsSegment, $paramsSegment);
+        $paramsDcSegment = array_merge(
+            dcCaptureLedgerBindParams($ledgerDc),
+            [$dateParam, $processCompanyId],
+            !empty($processIds) ? $processIds : []
+        );
+        $params = array_merge($paramsSegment, $paramsDcSegment);
 
         $stmt->execute($params);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -540,10 +582,15 @@ function getSubmissionsByCaptureDate($user_id)
 // 根据星期几获取processes
 function getProcessesByDay($user_id)
 {
-    global $pdo, $company_id;
+    global $pdo, $company_id, $capture_scope_ctx;
 
     // 使用全局的 $company_id（已经过验证）
     $currentCompanyId = $company_id;
+    $processCompanyId = !empty($capture_scope_ctx)
+        ? dcCaptureProcessCompanyId($capture_scope_ctx)
+        : $currentCompanyId;
+    $ledgerSp = dcSubmittedLedgerFilter('sp', 'submitted_processes');
+    $ledgerDc = dcSubmittedLedgerFilter('dc', 'data_captures');
 
     if (!$currentCompanyId) {
         echo json_encode([
@@ -591,18 +638,24 @@ function getProcessesByDay($user_id)
         AND NOT EXISTS (
             SELECT 1 FROM submitted_processes sp
             WHERE sp.process_id = p.id
-              AND sp.company_id = ?
+              {$ledgerSp['sql']}
               AND $submittedDateMatchSql
         )
         AND NOT EXISTS (
             SELECT 1 FROM data_captures dc
             WHERE dc.process_id = p.id
-              AND dc.company_id = ?
+              {$ledgerDc['sql']}
               AND DATE(dc.capture_date) = ?
         )";
 
-    // 参数顺序：day_of_week, p.company_id, sp.company_id, sp账务日, dc.company_id, dc.capture_date
-    $baseParams = [$day_of_week, $currentCompanyId, $currentCompanyId, $selected_date, $currentCompanyId, $selected_date];
+    // 参数顺序：day_of_week, p.company_id, sp scope bind, sp账务日, dc scope bind, dc.capture_date
+    $baseParams = array_merge(
+        [$day_of_week, $processCompanyId],
+        dcCaptureLedgerBindParams($ledgerSp),
+        [$selected_date],
+        dcCaptureLedgerBindParams($ledgerDc),
+        [$selected_date]
+    );
 
     // 应用权限过滤（与查询的 company_id 一致，勿用可能滞后的 session 公司）
     list($baseSql, $baseParams) = filterProcessesByPermissions($pdo, $baseSql, $baseParams, $currentCompanyId);
@@ -640,7 +693,7 @@ function getProcessesByDay($user_id)
 // 保存新的提交记录
 function saveSubmission($user_id)
 {
-    global $pdo, $company_id;
+    global $pdo, $company_id, $capture_scope_ctx, $capture_scope_group;
 
     try {
         if (is_partnership_audit_read_only_active($pdo)) {
@@ -701,31 +754,65 @@ function saveSubmission($user_id)
 
         $processCompanyId = (int) $process['company_id'];
 
-        // 验证 company_id 是否与当前用户的 company_id 匹配
-        $currentCompanyId = $company_id;
-        if (!$currentCompanyId) {
+        $expectedProcessCompanyId = !empty($capture_scope_ctx)
+            ? dcCaptureProcessCompanyId($capture_scope_ctx)
+            : (int) $company_id;
+        if (!$expectedProcessCompanyId) {
             error_log("Missing company_id in session for saveSubmission");
             echo json_encode(['success' => false, 'error' => '缺少公司信息']);
             return;
         }
 
-        if ($processCompanyId != $currentCompanyId) {
-            error_log("Process company_id ($processCompanyId) does not match current company_id ($currentCompanyId)");
+        if ($processCompanyId != $expectedProcessCompanyId) {
+            error_log("Process company_id ($processCompanyId) does not match scope ($expectedProcessCompanyId)");
             echo json_encode(['success' => false, 'error' => 'Process 不属于当前公司']);
             return;
         }
 
-        // 检查是否已经存在相同的提交记录（避免重复）
-        $checkStmt = $pdo->prepare("
-            SELECT id FROM submitted_processes 
-            WHERE company_id = ? 
-              AND user_id = ? 
-              AND user_type = ? 
-              AND process_id = ? 
-              AND date_submitted = ?
-            LIMIT 1
-        ");
-        $checkStmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
+        dcAssertProcessIdInCaptureScope(
+            $pdo,
+            $process_id,
+            $expectedProcessCompanyId,
+            (bool) $capture_scope_group
+        );
+
+        $scopeInsert = !empty($capture_scope_ctx)
+            ? dcCaptureScopeInsertValues($capture_scope_ctx)
+            : ['company_id' => $expectedProcessCompanyId, 'scope_type' => null, 'scope_id' => null];
+        $storeCompanyId = (int) ($scopeInsert['company_id'] ?? $expectedProcessCompanyId);
+        $useScopeColumns = !empty($capture_scope_ctx['submitted_dual_tenant']);
+
+        if ($useScopeColumns) {
+            $checkStmt = $pdo->prepare("
+                SELECT id FROM submitted_processes 
+                WHERE scope_type = ?
+                  AND scope_id = ?
+                  AND user_id = ? 
+                  AND user_type = ? 
+                  AND process_id = ? 
+                  AND date_submitted = ?
+                LIMIT 1
+            ");
+            $checkStmt->execute([
+                $scopeInsert['scope_type'],
+                $scopeInsert['scope_id'],
+                $user_id,
+                $user_type,
+                $process_id,
+                $date_submitted,
+            ]);
+        } else {
+            $checkStmt = $pdo->prepare("
+                SELECT id FROM submitted_processes 
+                WHERE company_id = ? 
+                  AND user_id = ? 
+                  AND user_type = ? 
+                  AND process_id = ? 
+                  AND date_submitted = ?
+                LIMIT 1
+            ");
+            $checkStmt->execute([$storeCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
+        }
         $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($existing) {
@@ -742,21 +829,53 @@ function saveSubmission($user_id)
         // Try to insert with capture_date field (if it exists in the table)
         // If the field doesn't exist, the SQL will fail and we'll try without it
         try {
-            $stmt = $pdo->prepare("
-                INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted, capture_date)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
-
-            $success = $stmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted, $capture_date]);
+            if ($useScopeColumns) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO submitted_processes (company_id, scope_type, scope_id, user_id, user_type, process_id, date_submitted, capture_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $success = $stmt->execute([
+                    $storeCompanyId,
+                    $scopeInsert['scope_type'],
+                    $scopeInsert['scope_id'],
+                    $user_id,
+                    $user_type,
+                    $process_id,
+                    $date_submitted,
+                    $capture_date,
+                ]);
+            } else {
+                $stmt = $pdo->prepare("
+                    INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted, capture_date)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $success = $stmt->execute([$storeCompanyId, $user_id, $user_type, $process_id, $date_submitted, $capture_date]);
+            }
         } catch (PDOException $e) {
             // If capture_date column doesn't exist, try without it
             if (strpos($e->getMessage(), 'Unknown column') !== false && strpos($e->getMessage(), 'capture_date') !== false) {
                 error_log("capture_date column doesn't exist, inserting without it");
-                $stmt = $pdo->prepare("
-                    INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted)
-                    VALUES (?, ?, ?, ?, ?)
-                ");
-                $success = $stmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
+                if ($useScopeColumns) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO submitted_processes (company_id, scope_type, scope_id, user_id, user_type, process_id, date_submitted)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $success = $stmt->execute([
+                        $storeCompanyId,
+                        $scopeInsert['scope_type'],
+                        $scopeInsert['scope_id'],
+                        $user_id,
+                        $user_type,
+                        $process_id,
+                        $date_submitted,
+                    ]);
+                } else {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted)
+                        VALUES (?, ?, ?, ?, ?)
+                    ");
+                    $success = $stmt->execute([$storeCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
+                }
             } else {
                 throw $e; // Re-throw if it's a different error
             }
@@ -858,7 +977,7 @@ function getTodayEntries($user_id)
 
 function getGroupProcessId()
 {
-    global $pdo, $company_id, $capture_scope_group, $scopeParams;
+    global $pdo, $company_id, $capture_scope_group, $scopeParams, $capture_scope_ctx;
 
     $processCode = strtoupper(trim((string) ($_GET['process_code'] ?? '')));
     if ($processCode === '') {
@@ -874,11 +993,16 @@ function getGroupProcessId()
         $preferredCurrencyId = (int) $_POST['currency_id'];
     }
 
-    $entityCompanyId = (int) $company_id;
-    if ($capture_scope_group && $groupIdForEnsure !== '') {
-        $resolvedEntity = tx_resolve_group_entity_company_id($pdo, $groupIdForEnsure);
-        if ($resolvedEntity > 0) {
-            $entityCompanyId = $resolvedEntity;
+    $entityCompanyId = !empty($capture_scope_ctx)
+        ? dcCaptureProcessCompanyId($capture_scope_ctx)
+        : (int) $company_id;
+    if ($entityCompanyId <= 0 && $capture_scope_group && $groupIdForEnsure !== '') {
+        $entityCompanyId = gc_resolve_group_anchor_company_id($pdo, $groupIdForEnsure);
+        if ($entityCompanyId <= 0) {
+            $resolvedEntity = tx_resolve_group_entity_company_id($pdo, $groupIdForEnsure);
+            if ($resolvedEntity > 0) {
+                $entityCompanyId = $resolvedEntity;
+            }
         }
     }
 

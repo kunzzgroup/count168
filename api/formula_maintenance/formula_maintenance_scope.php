@@ -192,6 +192,11 @@ function formulaMaintenanceBuildScopeProcessSql(PDO $pdo, int $companyId, bool $
         return $sql;
     }
 
+    // Subsidiary company (e.g. C168): allow SALARY/BONUS — template ledger filter splits group vs company rows.
+    if ($companyId > 0 && !dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+        return '';
+    }
+
     $sql = " AND (
         UPPER(TRIM(p.process_id)) NOT IN ('SALARY', 'BONUS')";
     if ($class['subsidiary'] !== []) {
@@ -215,6 +220,22 @@ function formulaMaintenanceResolveScopedPayrollProcessId(
     $class = formulaMaintenanceClassifyPayrollProcessIds($pdo, $companyId);
     $pool = $isGroupScope ? $class['group'] : $class['subsidiary'];
     if ($pool === []) {
+        if (
+            !$isGroupScope
+            && $companyId > 0
+            && !dcCompanyIdIsGroupEntity($pdo, $companyId)
+        ) {
+            $stmt = $pdo->prepare(
+                'SELECT id FROM process
+                 WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?
+                 ORDER BY id ASC LIMIT 1'
+            );
+            $stmt->execute([$companyId, $code]);
+            $directId = (int) ($stmt->fetchColumn() ?: 0);
+
+            return $directId > 0 ? $directId : null;
+        }
+
         return null;
     }
     $stmt = $pdo->prepare("
@@ -248,6 +269,166 @@ function formulaMaintenanceSqlTemplateScopeFilter(bool $isGroupScope, int $scope
     }
 
     return " AND (dct.scope_type IS NULL OR TRIM(dct.scope_type) = '' OR dct.scope_type = 'company') ";
+}
+
+/**
+ * Build scope context for legacy requests without explicit report_scope params.
+ *
+ * @return array<string, mixed>
+ */
+function formulaMaintenanceBuildScopeCtxFromLegacy(
+    PDO $pdo,
+    int $companyId,
+    bool $isGroupScope,
+    string $scopeProcessSql,
+    array $params
+): array {
+    $dualTenant = tenant_table_has_scope_columns($pdo, 'data_capture_templates');
+    $ctx = [
+        'company_id' => $companyId,
+        'anchor_company_id' => $companyId,
+        'is_group_scope' => $isGroupScope,
+        'scope_process_sql' => $scopeProcessSql,
+        'dual_tenant' => $dualTenant,
+    ];
+
+    if ($isGroupScope) {
+        $groupId = dcNormalizeGroupId($params['view_group'] ?? $params['group_id'] ?? '');
+        if ($groupId !== '') {
+            $groupPk = gc_resolve_group_pk_by_code($pdo, $groupId);
+            $anchorId = gc_resolve_group_anchor_company_id($pdo, $groupId);
+            if ($anchorId > 0) {
+                $ctx['company_id'] = $anchorId;
+                $ctx['anchor_company_id'] = $anchorId;
+            }
+            if ($groupPk > 0) {
+                $ctx['group_id'] = $groupId;
+                $ctx['group_scope_id'] = $groupPk;
+                $ctx['scope_id'] = $groupPk;
+                $ctx['scope_type'] = 'group';
+            }
+        }
+    }
+
+    return $ctx;
+}
+
+/**
+ * Anchor payroll rows saved as company ledger (AG/EXPENSES — C168 SALARY/BONUS style).
+ */
+function formulaMaintenanceSqlTemplateAnchorPayrollCompanyStyle(string $dctAlias = 'dct'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $dctAlias) ?: 'dct';
+
+    return "EXISTS (
+        SELECT 1 FROM account ac_co
+        WHERE ac_co.id = {$a}.account_id
+          AND UPPER(TRIM(ac_co.account_id)) IN ('AG', 'EXPENSES')
+    )";
+}
+
+/**
+ * Legacy group templates on anchor: scope_id unset, not company payroll (AG/EXPENSES) style.
+ */
+function formulaMaintenanceSqlTemplateGroupLedgerLegacy(string $dctAlias = 'dct'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $dctAlias) ?: 'dct';
+    $companyStyle = formulaMaintenanceSqlTemplateAnchorPayrollCompanyStyle($a);
+
+    return "(
+        ({$a}.scope_id IS NULL OR {$a}.scope_id = 0)
+        AND NOT ({$companyStyle})
+    )";
+}
+
+/**
+ * Legacy company templates on anchor: scope_id = company.id, or unset scope_id with AG/EXPENSES.
+ */
+function formulaMaintenanceSqlTemplateCompanyLedgerLegacy(string $dctAlias = 'dct'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $dctAlias) ?: 'dct';
+    $companyStyle = formulaMaintenanceSqlTemplateAnchorPayrollCompanyStyle($a);
+
+    return "(
+        ({$a}.scope_id IS NOT NULL AND {$a}.scope_id > 0 AND {$a}.scope_id = {$a}.company_id)
+        OR (
+            ({$a}.scope_id IS NULL OR {$a}.scope_id = 0)
+            AND ({$companyStyle})
+        )
+    )";
+}
+
+/**
+ * Ledger-aware WHERE fragment for data_capture_templates (group/company isolation).
+ *
+ * @return array{sql: string, params: array}
+ */
+function formulaMaintenanceBuildTemplateLedgerFilter(PDO $pdo, array $scopeCtx, string $alias = 'dct'): array
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $alias) ?: 'dct';
+    $dualTenant = ($scopeCtx['dual_tenant'] ?? false) && tenant_table_has_scope_columns($pdo, 'data_capture_templates');
+
+    if (!$dualTenant) {
+        $ledger = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, $a, 'data_capture_templates');
+
+        return ['sql' => $ledger['sql'], 'params' => [$ledger['bind']]];
+    }
+
+    if (!empty($scopeCtx['is_group_scope'])) {
+        $groupPk = (int) ($scopeCtx['group_scope_id'] ?? $scopeCtx['scope_id'] ?? 0);
+        $anchorId = (int) dcCaptureProcessCompanyId($scopeCtx);
+        if ($groupPk <= 0 || $anchorId <= 0) {
+            return ['sql' => ' AND 1=0 ', 'params' => []];
+        }
+        $legacy = formulaMaintenanceSqlTemplateGroupLedgerLegacy($a);
+
+        return [
+            'sql' => " AND (
+                ({$a}.scope_type = 'group' AND {$a}.scope_id = ?)
+                OR (
+                    {$a}.scope_type = 'company'
+                    AND {$a}.company_id = ?
+                    AND ({$legacy})
+                )
+            ) ",
+            'params' => [$groupPk, $anchorId],
+        ];
+    }
+
+    $companyId = (int) ($scopeCtx['company_id'] ?? 0);
+    if ($companyId <= 0) {
+        return ['sql' => ' AND 1=0 ', 'params' => []];
+    }
+
+    $companyLegacy = formulaMaintenanceSqlTemplateCompanyLedgerLegacy($a);
+
+    return [
+        'sql' => " AND {$a}.company_id = ?
+            AND (COALESCE({$a}.scope_type, '') = '' OR {$a}.scope_type = 'company')
+            AND {$companyLegacy} ",
+        'params' => [$companyId],
+    ];
+}
+
+/**
+ * @param list<int> $templateIds
+ * @return list<int>
+ */
+function formulaMaintenanceValidateTemplateIdsInScope(PDO $pdo, array $templateIds, array $scopeCtx): array
+{
+    $safeIds = array_values(array_unique(array_filter(array_map('intval', $templateIds), static fn (int $id): bool => $id > 0)));
+    if ($safeIds === []) {
+        return [];
+    }
+
+    $ledger = formulaMaintenanceBuildTemplateLedgerFilter($pdo, $scopeCtx);
+    $placeholders = implode(',', array_fill(0, count($safeIds), '?'));
+    $sql = "SELECT dct.id FROM data_capture_templates dct WHERE dct.id IN ({$placeholders}) {$ledger['sql']}";
+    $params = array_merge($safeIds, $ledger['params']);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
 function formulaMaintenanceCompanyIsGroupEntity(PDO $pdo, int $companyId): bool
@@ -308,11 +489,9 @@ function formulaMaintenanceResolveRequestScope(PDO $pdo, array $params): array
             $requestedViewGroup !== '' ? $requestedViewGroup : null
         );
 
-        return [
-            'company_id' => $companyId,
-            'is_group_scope' => $isGroupScope,
+        return array_merge($scopeCtx, [
             'scope_process_sql' => $scopeProcessSql,
-        ];
+        ]);
     }
 
     if (gc_is_group_login() || isset($params['group_id']) || isset($params['view_group'])) {
@@ -348,11 +527,13 @@ function formulaMaintenanceResolveRequestScope(PDO $pdo, array $params): array
     $scopeProcessSql = formulaMaintenanceBuildScopeProcessSql($pdo, $companyId, $isGroupScope)
         . ($isGroupScope ? '' : dcSqlCaptureOnSubsidiaryCompany('dct'));
 
-    return [
-        'company_id' => $companyId,
-        'is_group_scope' => $isGroupScope,
-        'scope_process_sql' => $scopeProcessSql,
-    ];
+    return formulaMaintenanceBuildScopeCtxFromLegacy(
+        $pdo,
+        $companyId,
+        $isGroupScope,
+        $scopeProcessSql,
+        $params
+    );
 }
 
 /**

@@ -22,11 +22,6 @@ export default function DomainReportFilters({
   setProcessId,
   processes,
   isGroupScope = false,
-  currencyList,
-  selectedCurrencies,
-  toggleCurrency,
-  showAllCurrencies,
-  toggleAllCurrencies,
   dateFrom,
   dateTo,
   onRangeChange,
@@ -156,10 +151,6 @@ export default function DomainReportFilters({
         onSwitchCompany={onSwitchCompany}
         onClearCompany={onClearCompany}
         allowClearCompany={allowClearCompany}
-        currencyList={currencyList}
-        showAllCurrencies={showAllCurrencies}
-        selectedCurrencies={selectedCurrencies}
-        toggleCurrency={toggleCurrency}
         t={t}
       />
     </div>

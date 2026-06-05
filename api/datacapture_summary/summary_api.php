@@ -2029,6 +2029,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $scopeParams = array_merge($_GET, $_POST);
 $capture_scope_group = false;
+$capture_scope_ctx = [];
 $req_action_for_company = isset($_GET['action']) ? (string) $_GET['action'] : '';
 $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
 
@@ -2036,6 +2037,7 @@ try {
     if ($hasExplicitScope) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
         $scopeCtx = dcFinalizeCaptureMaintenanceScope($pdo, $scopeResolved, $scopeParams);
+        $capture_scope_ctx = $scopeCtx;
         $company_id = (int) $scopeCtx['company_id'];
         $capture_scope_group = (bool) $scopeCtx['is_group_scope'];
     } else {
@@ -2681,11 +2683,18 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $companyId = (int) $company_id;
+        $processCompanyId = !empty($capture_scope_ctx)
+            ? dcCaptureProcessCompanyId($capture_scope_ctx)
+            : $companyId;
+        $scopeInsert = !empty($capture_scope_ctx)
+            ? dcCaptureScopeInsertValues($capture_scope_ctx)
+            : ['company_id' => $companyId, 'scope_type' => null, 'scope_id' => null];
+        $useCaptureScopeColumns = !empty($capture_scope_ctx['dual_tenant']);
 
         dcAssertProcessIdInCaptureScope(
             $pdo,
             (int) $data['processId'],
-            (int) $company_id,
+            (int) $processCompanyId,
             (bool) $capture_scope_group
         );
 
@@ -2753,40 +2762,77 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if (!$isBatchAppend) {
                 // Insert main capture record (first batch)
-                $stmt = $pdo->prepare("
-                    INSERT INTO data_captures (company_id, capture_date, process_id, currency_id, created_by, user_type, remark) 
-                    VALUES (:company_id, :capture_date, :process_id, :currency_id, :created_by, :user_type, :remark)
-                ");
-                
-                $stmt->execute([
-                    ':company_id' => $companyId,
-                    ':capture_date' => $data['captureDate'],
-                    ':process_id' => $data['processId'],
-                    ':currency_id' => $data['currencyId'],
-                    ':created_by' => $userId,
-                    ':user_type' => $user_type,
-                    ':remark' => isset($data['remark']) && !empty($data['remark']) ? $data['remark'] : null
-                ]);
+                if ($useCaptureScopeColumns) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO data_captures (company_id, scope_type, scope_id, capture_date, process_id, currency_id, created_by, user_type, remark) 
+                        VALUES (:company_id, :scope_type, :scope_id, :capture_date, :process_id, :currency_id, :created_by, :user_type, :remark)
+                    ");
+                    $stmt->execute([
+                        ':company_id' => (int) ($scopeInsert['company_id'] ?? $companyId),
+                        ':scope_type' => $scopeInsert['scope_type'],
+                        ':scope_id' => $scopeInsert['scope_id'],
+                        ':capture_date' => $data['captureDate'],
+                        ':process_id' => $data['processId'],
+                        ':currency_id' => $data['currencyId'],
+                        ':created_by' => $userId,
+                        ':user_type' => $user_type,
+                        ':remark' => isset($data['remark']) && !empty($data['remark']) ? $data['remark'] : null,
+                    ]);
+                } else {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO data_captures (company_id, capture_date, process_id, currency_id, created_by, user_type, remark) 
+                        VALUES (:company_id, :capture_date, :process_id, :currency_id, :created_by, :user_type, :remark)
+                    ");
+                    $stmt->execute([
+                        ':company_id' => $companyId,
+                        ':capture_date' => $data['captureDate'],
+                        ':process_id' => $data['processId'],
+                        ':currency_id' => $data['currencyId'],
+                        ':created_by' => $userId,
+                        ':user_type' => $user_type,
+                        ':remark' => isset($data['remark']) && !empty($data['remark']) ? $data['remark'] : null,
+                    ]);
+                }
                 
                 // Get the inserted capture ID
                 $captureId = $pdo->lastInsertId();
             } else {
                 // Verify capture exists and belongs to same process/date/currency/company
-                $stmt = $pdo->prepare("
-                    SELECT id FROM data_captures 
-                    WHERE id = :capture_id 
-                      AND company_id = :company_id
-                      AND capture_date = :capture_date 
-                      AND process_id = :process_id 
-                      AND currency_id = :currency_id
-                ");
-                $stmt->execute([
-                    ':capture_id' => $captureId,
-                    ':company_id' => $companyId,
-                    ':capture_date' => $data['captureDate'],
-                    ':process_id' => $data['processId'],
-                    ':currency_id' => $data['currencyId']
-                ]);
+                if ($useCaptureScopeColumns) {
+                    $stmt = $pdo->prepare("
+                        SELECT id FROM data_captures 
+                        WHERE id = :capture_id 
+                          AND scope_type = :scope_type
+                          AND scope_id = :scope_id
+                          AND capture_date = :capture_date 
+                          AND process_id = :process_id 
+                          AND currency_id = :currency_id
+                    ");
+                    $stmt->execute([
+                        ':capture_id' => $captureId,
+                        ':scope_type' => $scopeInsert['scope_type'],
+                        ':scope_id' => $scopeInsert['scope_id'],
+                        ':capture_date' => $data['captureDate'],
+                        ':process_id' => $data['processId'],
+                        ':currency_id' => $data['currencyId'],
+                    ]);
+                } else {
+                    $stmt = $pdo->prepare("
+                        SELECT id FROM data_captures 
+                        WHERE id = :capture_id 
+                          AND company_id = :company_id
+                          AND capture_date = :capture_date 
+                          AND process_id = :process_id 
+                          AND currency_id = :currency_id
+                    ");
+                    $stmt->execute([
+                        ':capture_id' => $captureId,
+                        ':company_id' => $companyId,
+                        ':capture_date' => $data['captureDate'],
+                        ':process_id' => $data['processId'],
+                        ':currency_id' => $data['currencyId'],
+                    ]);
+                }
                 
                 if (!$stmt->fetch()) {
                     throw new Exception('Invalid capture ID for batch append');
@@ -2853,12 +2899,24 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            $stmt = $pdo->prepare("
-                INSERT INTO data_capture_details 
-                (company_id, capture_id, id_product_main, description_main, id_product_sub, description_sub, product_type, formula_variant, id_product, account_id, currency_id, columns_value, source_value, source_percent, enable_source_percent, formula, processed_amount, rate, display_order) 
-                VALUES 
-                (:company_id, :capture_id, :id_product_main, :description_main, :id_product_sub, :description_sub, :product_type, :formula_variant, :id_product, :account_id, :currency_id, :columns_value, :source_value, :source_percent, :enable_source_percent, :formula, :processed_amount, :rate, :display_order)
-            ");
+            $detailCompanyId = (int) ($scopeInsert['company_id'] ?? $companyId);
+            $useDetailScopeColumns = $useCaptureScopeColumns
+                && tenant_table_has_scope_columns($pdo, 'data_capture_details');
+            if ($useDetailScopeColumns) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO data_capture_details 
+                    (company_id, scope_type, scope_id, capture_id, id_product_main, description_main, id_product_sub, description_sub, product_type, formula_variant, id_product, account_id, currency_id, columns_value, source_value, source_percent, enable_source_percent, formula, processed_amount, rate, display_order) 
+                    VALUES 
+                    (:company_id, :scope_type, :scope_id, :capture_id, :id_product_main, :description_main, :id_product_sub, :description_sub, :product_type, :formula_variant, :id_product, :account_id, :currency_id, :columns_value, :source_value, :source_percent, :enable_source_percent, :formula, :processed_amount, :rate, :display_order)
+                ");
+            } else {
+                $stmt = $pdo->prepare("
+                    INSERT INTO data_capture_details 
+                    (company_id, capture_id, id_product_main, description_main, id_product_sub, description_sub, product_type, formula_variant, id_product, account_id, currency_id, columns_value, source_value, source_percent, enable_source_percent, formula, processed_amount, rate, display_order) 
+                    VALUES 
+                    (:company_id, :capture_id, :id_product_main, :description_main, :id_product_sub, :description_sub, :product_type, :formula_variant, :id_product, :account_id, :currency_id, :columns_value, :source_value, :source_percent, :enable_source_percent, :formula, :processed_amount, :rate, :display_order)
+                ");
+            }
             
             // 同一 capture 下相同 id_product_main 按顺序：第一条为 main，后续均为 sub
             $mainSeenForIdProductMain = [];
@@ -3163,8 +3221,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     $rateValue = isset($row['rateValue']) && $row['rateValue'] !== '' && $row['rateValue'] !== null ? (float)$row['rateValue'] : null;
                 }
                 
-                $stmt->execute([
-                    ':company_id' => $companyId,
+                $detailParams = [
+                    ':company_id' => $detailCompanyId,
                     ':capture_id' => $captureId,
                     ':id_product_main' => $normalizedIdProductMain !== '' ? $normalizedIdProductMain : null,
                     ':description_main' => $row['descriptionMain'] ?? null,
@@ -3177,15 +3235,18 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':currency_id' => $rowCurrencyId,
                     ':columns_value' => $row['columns'] ?? '',
                     ':source_value' => $row['source'] ?? '',
-                    // source_percent: default to '1' (multiplier, 1 = multiply by 1), auto-enable if has value
-                    // Store as string to preserve expressions like "1/2" or "0.5/2"
                     ':source_percent' => isset($row['sourcePercent']) && $row['sourcePercent'] !== '' ? (string)$row['sourcePercent'] : '1',
                     ':enable_source_percent' => (isset($row['sourcePercent']) && $row['sourcePercent'] !== '' && $row['sourcePercent'] !== '0') ? 1 : 0,
                     ':formula' => $row['formula'] ?? '',
                     ':processed_amount' => $row['processedAmount'] ?? 0,
                     ':rate' => $rateValue,
-                    ':display_order' => $rowDisplayOrder
-                ]);
+                    ':display_order' => $rowDisplayOrder,
+                ];
+                if ($useDetailScopeColumns) {
+                    $detailParams[':scope_type'] = $scopeInsert['scope_type'];
+                    $detailParams[':scope_id'] = $scopeInsert['scope_id'];
+                }
+                $stmt->execute($detailParams);
             }
 
             // ⚠ 这里开始不再在 Submit 时写入 / 更新 data_capture_templates，

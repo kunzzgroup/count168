@@ -60,21 +60,28 @@ function getCompanyIdForRequest(PDO $pdo) {
  */
 function fetchCaptureRecords(
     PDO $pdo,
-    int $company_id,
+    array $scopeCtx,
     string $date_from_db,
     string $date_to_db,
     ?int $process_id,
     ?string $process_name,
-    string $scopeProcessFilter = '',
-    string $scopeCompanySql = ''
+    string $scopeProcessFilter = ''
 ) {
-    $where_conditions = ["dc.capture_date BETWEEN ? AND ?", "p.company_id = ?"];
-    $params = [$company_id, $company_id, $date_from_db, $date_to_db, $company_id];
+    $ledgerDc = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dc', 'data_captures');
+    $ledgerDcd = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dcd', 'data_capture_details');
+    $processCompanyId = dcCaptureProcessCompanyId($scopeCtx);
+
+    $where_conditions = ['dc.capture_date BETWEEN ? AND ?', 'p.company_id = ?'];
+    $params = array_merge(
+        dcCaptureLedgerBindParams($ledgerDc),
+        dcCaptureLedgerBindParams($ledgerDcd),
+        [$date_from_db, $date_to_db, $processCompanyId]
+    );
     if ($process_id !== null) {
-        $where_conditions[] = "p.id = ?";
+        $where_conditions[] = 'p.id = ?';
         $params[] = $process_id;
     } elseif ($process_name) {
-        $where_conditions[] = "p.process_id = ?";
+        $where_conditions[] = 'p.process_id = ?';
         $params[] = $process_name;
     }
     $where_sql = 'AND ' . implode(' AND ', $where_conditions);
@@ -91,7 +98,7 @@ function fetchCaptureRecords(
             INNER JOIN currency c ON dcd.currency_id = c.id
             LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
             LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
-            WHERE dc.company_id = ? AND dcd.company_id = ? $where_sql $scopeProcessFilter $scopeCompanySql
+            WHERE 1=1 {$ledgerDc['sql']} {$ledgerDcd['sql']} $where_sql $scopeProcessFilter
             GROUP BY dc.id, p.process_id, {$productLabelSql}, dc.capture_date, dc.created_at
             ORDER BY dc.capture_date DESC, p.process_id, {$productLabelSql}";
     $stmt = $pdo->prepare($sql);
@@ -220,9 +227,8 @@ try {
         $company_id = (int) $scopeCtx['company_id'];
         $capture_scope_group = (bool) $scopeCtx['is_group_scope'];
         $scopeProcessFilter = (string) $scopeCtx['scope_process_sql'];
-        $scopeCompanySql = (string) $scopeCtx['scope_company_sql'];
         $scopeCompanySqlDeleted = (string) ($scopeCtx['scope_company_sql_deleted'] ?? '');
-        if ($scopeCompanySqlDeleted === '' && !$capture_scope_group) {
+        if ($scopeCompanySqlDeleted === '' && !$capture_scope_group && empty($scopeCtx['dual_tenant'])) {
             $scopeCompanySqlDeleted = dcSqlCaptureOnSubsidiaryCompany('dcd');
         }
         dcAssertUserCanAccessCompany(
@@ -233,8 +239,15 @@ try {
     } else {
         $company_id = getCompanyIdForRequest($pdo);
         $capture_scope_group = false;
+        $scopeCtx = [
+            'company_id' => $company_id,
+            'anchor_company_id' => $company_id,
+            'is_group_scope' => false,
+            'dual_tenant' => tenant_table_has_scope_columns($pdo, 'data_captures'),
+            'scope_process_sql' => dcSqlCompanyProcessFilter('p'),
+            'scope_company_sql_deleted' => dcSqlCaptureOnSubsidiaryCompany('dcd'),
+        ];
         $scopeProcessFilter = dcSqlCompanyProcessFilter('p');
-        $scopeCompanySql = dcSqlCaptureOnSubsidiaryCompany('dc');
         $scopeCompanySqlDeleted = dcSqlCaptureOnSubsidiaryCompany('dcd');
     }
 
@@ -243,7 +256,12 @@ try {
             jsonResponse(true, 'OK', []);
             return;
         }
-    } elseif ($company_id > 0 && dcCompanyIdIsGroupEntity($pdo, $company_id)) {
+    } elseif (
+        !$capture_scope_group
+        && $company_id > 0
+        && dcCompanyIdIsGroupEntity($pdo, $company_id)
+        && empty($scopeCtx['dual_tenant'])
+    ) {
         jsonResponse(true, 'OK', []);
         return;
     }
@@ -309,13 +327,12 @@ try {
 
     $results = fetchCaptureRecords(
         $pdo,
-        $company_id,
+        $scopeCtx,
         $date_from_db,
         $date_to_db,
         $process_id,
         $process_name,
-        $scopeProcessFilter,
-        $scopeCompanySql
+        $scopeProcessFilter
     );
     $deletedResults = [];
     try {
