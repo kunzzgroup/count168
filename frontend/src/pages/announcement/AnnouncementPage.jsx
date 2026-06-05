@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { getAnnouncementText } from "../../translateFile/pages/announcementTranslate.js";
-import "../../../public/css/accountCSS.css";
 import "../../../public/css/announcement.css";
 
 // Components

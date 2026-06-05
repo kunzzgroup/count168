@@ -276,7 +276,7 @@ body.account-page:not(.account-page--show-all) .account-pagination-container {
     flex-shrink: 0;
 }
 
-.page-header {
+body.account-page .page-header {
     display: none;
 }
 
