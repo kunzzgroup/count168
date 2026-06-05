@@ -513,7 +513,14 @@ function dashboardBuildGroupScopedSummary(
             ORDER BY DATE(t.transaction_date)
         ";
         $dailyStmt = $pdo->prepare($dailySql);
-        $dailyParams = array_merge($accountIds, $accountIds, [$groupScopeId, $dateFrom, $dateTo], $currencyFilterParams);
+        $dailyParams = array_merge(
+            $accountIds,
+            $accountIds,
+            [$groupScopeId, $dateFrom, $dateTo],
+            $accountIds,
+            $accountIds,
+            $currencyFilterParams
+        );
         $dailyStmt->execute($dailyParams);
         $dailyData = [];
         while ($r = $dailyStmt->fetch(PDO::FETCH_ASSOC)) {
