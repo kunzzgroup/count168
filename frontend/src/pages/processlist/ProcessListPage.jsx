@@ -8,9 +8,6 @@ import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
-  buildDashboardCurrencyScopeKey,
-  persistDashboardSelectedCurrency,
-  readDashboardSelectedCurrency,
   pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
@@ -21,7 +18,6 @@ import { findOwnerCompanyById } from "../../utils/company/sharedCompanyFilter.js
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
-import { saveUserCurrencyOrder } from "../transaction/lib/transactionApi.js";
 import { isBankCategoryCompany } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
@@ -37,7 +33,6 @@ import {
   notifyTransactionDataChanged,
   parseRemarkForForm,
   buildEditDescriptionSelection,
-  resolveProcessCurrencyFilter,
   processListCacheHasRows,
 } from "./processListHelpers.js";
 import {
@@ -128,10 +123,6 @@ export default function ProcessListPage() {
   const rowsRef = useRef([]);
   const companySessionAbortRef = useRef(null);
 
-  const [currencyListOrdered, setCurrencyListOrdered] = useState([]);
-  const [currencyFilterCode, setCurrencyFilterCode] = useState("");
-  const [currencyPillDisplayOrder, setCurrencyPillDisplayOrder] = useState(null);
-
   const [existingProcesses, setExistingProcesses] = useState([]);
 
   const notify = useCallback((message, type = "success") => {
@@ -208,14 +199,6 @@ export default function ProcessListPage() {
   }, []);
 
   useEffect(() => {
-    setCurrencyPillDisplayOrder(null);
-  }, [companyId]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [currencyFilterCode]);
-
-  useEffect(() => {
     if (loading || !companyId || groupFilterKind !== "follow") return;
     if (suppressCrossPageSyncRef.current) return;
     const row = companies.find((c) => Number(c.id) === Number(companyId));
@@ -270,8 +253,6 @@ export default function ProcessListPage() {
           setShowAll(showAllChecked);
           setShowInactive(showInactiveChecked);
 
-          setCurrencyFilterCode(String(currentUrl.searchParams.get("currency") || "").trim().toUpperCase());
-
           setCurrencies(Array.isArray(prefetchedMeta.currencies) ? prefetchedMeta.currencies : []);
           setDescriptions(Array.isArray(prefetchedMeta.descriptions) ? prefetchedMeta.descriptions : []);
           setDays(Array.isArray(prefetchedMeta.days) ? prefetchedMeta.days : []);
@@ -294,10 +275,6 @@ export default function ProcessListPage() {
                   ? routePrefetch.currencyCodes
                   : null,
               });
-            }
-            if (Array.isArray(routePrefetch.currencyCodes) && routePrefetch.currencyCodes.length) {
-              setCurrencyListOrdered(routePrefetch.currencyCodes);
-              setCurrencyPillDisplayOrder(null);
             }
           }
           setSelectedGroup(prefBootGroup);
@@ -383,15 +360,6 @@ export default function ProcessListPage() {
         setShowAll(showAllChecked);
         setShowInactive(showInactiveChecked);
 
-        const urlCurrency = String(url.searchParams.get("currency") || "").trim().toUpperCase();
-        const persistedCurrency = readDashboardSelectedCurrency(
-          buildDashboardCurrencyScopeKey({
-            companyId: effectiveCompany,
-            selectedGroup: bootGroup,
-          }),
-        );
-        const preferredCurrency = urlCurrency || persistedCurrency || "";
-
         void loadFormMeta(effectiveCompany);
 
         const slice = await resolveProcessListRouteCache(effectiveCompany, {
@@ -411,18 +379,7 @@ export default function ProcessListPage() {
             currencyCodes: slice.currencyCodes,
           });
           setRows(slice.rows);
-          if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
-            setCurrencyListOrdered(slice.currencyCodes);
-            setCurrencyPillDisplayOrder(null);
-            setCurrencyFilterCode(
-              resolveProcessCurrencyFilter(preferredCurrency, slice.rows, slice.currencyCodes),
-            );
-          } else {
-            setCurrencyFilterCode(preferredCurrency);
-          }
           skipNextFetchRef.current = true;
-        } else {
-          setCurrencyFilterCode(preferredCurrency);
         }
 
         processListInitDoneRef.current = true;
@@ -438,7 +395,6 @@ export default function ProcessListPage() {
     (overrides = {}) => {
       const url = new URL(window.location.href);
       const cid = overrides.companyId != null ? overrides.companyId : companyId;
-      const cur = overrides.currency != null ? overrides.currency : currencyFilterCode;
       if (cid) url.searchParams.set("company_id", String(cid));
       else url.searchParams.delete("company_id");
       if (debouncedSearch.trim()) url.searchParams.set("search", debouncedSearch.trim());
@@ -447,29 +403,16 @@ export default function ProcessListPage() {
       else url.searchParams.delete("showInactive");
       if (showAll) url.searchParams.set("showAll", "1");
       else url.searchParams.delete("showAll");
-      if (cur) url.searchParams.set("currency", cur);
-      else url.searchParams.delete("currency");
+      url.searchParams.delete("currency");
       window.history.replaceState({}, document.title, url.toString());
     },
-    [companyId, debouncedSearch, showInactive, showAll, currencyFilterCode],
+    [companyId, debouncedSearch, showInactive, showAll],
   );
-
-  const applyProcessListCurrencyCodes = useCallback((codes, { syncHistory = false, companyId: cid = companyId, rowsForFilter = null } = {}) => {
-    const list = Array.isArray(codes) ? codes.map((c) => String(c).toUpperCase()).filter(Boolean) : [];
-    const rowSource = rowsForFilter ?? rowsRef.current;
-    setCurrencyListOrdered(list);
-    setCurrencyPillDisplayOrder(null);
-    setCurrencyFilterCode((prev) => {
-      const next = resolveProcessCurrencyFilter(prev, rowSource, list);
-      if (syncHistory && next) syncUrl({ companyId: cid, currency: next });
-      return next;
-    });
-  }, [companyId, syncUrl]);
 
   useEffect(() => {
     if (loading || !companyId) return;
     syncUrl();
-  }, [loading, companyId, currencyFilterCode, syncUrl]);
+  }, [loading, companyId, syncUrl]);
 
   const applyProcessListCache = useCallback(
     (cid) => {
@@ -481,12 +424,9 @@ export default function ProcessListPage() {
       setRows((prev) =>
         processRowsFingerprint(prev) === processRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
-      if (Array.isArray(cached.currencyCodes) && cached.currencyCodes.length) {
-        applyProcessListCurrencyCodes(cached.currencyCodes);
-      }
       return true;
     },
-    [applyProcessListCurrencyCodes, debouncedSearch, showInactive, showAll],
+    [debouncedSearch, showInactive, showAll],
   );
 
   const warmProcessListCompanyCache = useCallback(
@@ -556,13 +496,6 @@ export default function ProcessListPage() {
           }
           return nextRows;
         });
-        if (Array.isArray(slice.currencyCodes)) {
-          applyProcessListCurrencyCodes(slice.currencyCodes, {
-            syncHistory: !silent,
-            companyId: cid,
-            rowsForFilter: nextRows,
-          });
-        }
         if (!silent) {
           setSelectedIds(new Set());
           setCurrentPage(1);
@@ -574,7 +507,6 @@ export default function ProcessListPage() {
       }
     },
     [
-      applyProcessListCurrencyCodes,
       companyId,
       debouncedSearch,
       showInactive,
@@ -747,69 +679,9 @@ export default function ProcessListPage() {
     [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]
   );
 
-  const rowCurrencyCodes = useMemo(() => {
-    const s = new Set();
-    for (const r of rows) {
-      const c = String(r.currency || "").trim().toUpperCase();
-      if (c) s.add(c);
-    }
-    return [...s].sort((a, b) => a.localeCompare(b));
-  }, [rows]);
-
-  const baseCurrencyPills = useMemo(() => {
-    if (!currencyListOrdered.length) return [];
-    const extra = rowCurrencyCodes.filter((c) => !currencyListOrdered.includes(c));
-    return extra.length ? [...currencyListOrdered, ...extra] : currencyListOrdered;
-  }, [currencyListOrdered, rowCurrencyCodes]);
-
-  const currencyPillCodes = useMemo(
-    () => currencyPillDisplayOrder ?? baseCurrencyPills,
-    [currencyPillDisplayOrder, baseCurrencyPills]
-  );
-
-  const persistOrderedCompanyCurrencies = useCallback(
-    async (orderedPills) => {
-      if (processMutationsBlocked) return;
-      const companySet = new Set(currencyListOrdered);
-      const apiOrder = orderedPills.filter((c) => companySet.has(c));
-      if (apiOrder.length === 0) return;
-      const json = await saveUserCurrencyOrder(apiOrder);
-      if (!json?.success) return;
-      const tail = currencyListOrdered.filter((c) => !apiOrder.includes(c));
-      setCurrencyListOrdered([...apiOrder, ...tail]);
-    },
-    [currencyListOrdered, processMutationsBlocked]
-  );
-
-  useEffect(() => {
-    if (!companyId) return;
-
-    if (rows.length > 0) {
-      const next = resolveProcessCurrencyFilter(currencyFilterCode, rows, currencyPillCodes);
-      if (next && next !== currencyFilterCode) {
-        setCurrencyFilterCode(next);
-        syncUrl({ currency: next });
-      }
-      return;
-    }
-
-    if (!currencyPillCodes.length) {
-      if (currencyFilterCode) setCurrencyFilterCode("");
-      return;
-    }
-    if (!currencyFilterCode || !currencyPillCodes.includes(currencyFilterCode)) {
-      setCurrencyFilterCode(currencyPillCodes[0]);
-    }
-  }, [companyId, rows, currencyFilterCode, currencyPillCodes, syncUrl]);
-
-  const currencyFilteredRows = useMemo(() => {
-    if (!currencyFilterCode) return rows;
-    return rows.filter((r) => String(r.currency || "").trim().toUpperCase() === currencyFilterCode);
-  }, [rows, currencyFilterCode]);
-
   const sortedDisplayRows = useMemo(
-    () => sortProcessTableRows(currencyFilteredRows, sortColumn, sortDirection),
-    [currencyFilteredRows, sortColumn, sortDirection],
+    () => sortProcessTableRows(rows, sortColumn, sortDirection),
+    [rows, sortColumn, sortDirection],
   );
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedDisplayRows.length / PAGE_SIZE)), [sortedDisplayRows]);
@@ -1016,7 +888,6 @@ export default function ProcessListPage() {
         flushSync(() => {
           setCompanyId(null);
           setRows([]);
-          setCurrencyFilterCode("");
         });
         persistDashboardFilterState(g, null, { allowGroupOnly: true });
         resetAnchorSessionRef();
@@ -1058,7 +929,6 @@ export default function ProcessListPage() {
       flushSync(() => {
         setCompanyId(null);
         setRows([]);
-        setCurrencyFilterCode("");
       });
       persistDashboardFilterState(g, null);
       resetAnchorSessionRef();
@@ -1511,34 +1381,6 @@ export default function ProcessListPage() {
                 </div>
               </div>
             </div>
-            {currencyListOrdered.length > 0 && (
-              <div className="user-gc-inline-row">
-                <span className="user-gc-inline-label">{t("currency")}</span>
-                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                  <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
-                    {currencyPillCodes.map((code) => (
-                      <button
-                        key={code}
-                        type="button"
-                        className={`user-gc-segment${currencyFilterCode === code ? " is-on" : ""}`}
-                        disabled={processMutationsBlocked}
-                        onClick={() => {
-                          if (currencyFilterCode === code) return;
-                          setCurrencyFilterCode(code);
-                          persistDashboardSelectedCurrency(
-                            buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
-                            code,
-                          );
-                          setCurrentPage(1);
-                        }}
-                      >
-                        {code}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
