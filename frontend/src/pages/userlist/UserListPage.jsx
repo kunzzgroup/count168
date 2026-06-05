@@ -102,16 +102,14 @@ function buildModalCompanyList(raw) {
   });
 }
 
-/** Group login add/edit user: one row per accessible group (AP, IG), id = group entity company id. */
+/** Group login add/edit user: one row per accessible group (AP, IG), id = group entity company id only. */
 function buildModalGroupOptions(companies, me) {
   const gids = resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies);
   const out = [];
   for (const gid of gids) {
     const entities = companiesGroupEntityList(companies, gid);
-    const entity =
-      entities.find((c) => companyRowIsGroupEntity(c, gid)) ||
-      entities[0] ||
-      pickDefaultCompanyForGroup(companies, gid, { me });
+    const entity = entities.find((c) => companyRowIsGroupEntity(c, gid)) || entities[0];
+    if (!entity || !companyRowIsGroupEntity(entity, gid)) continue;
     const id = entity?.id != null ? Number(entity.id) : Number.NaN;
     if (!Number.isFinite(id) || id <= 0) continue;
     out.push({
@@ -121,6 +119,17 @@ function buildModalGroupOptions(companies, me) {
     });
   }
   return out;
+}
+
+function resolveSelectedGroupCodesFromPicker(modalPickerCompanies, selectedCompanyIds) {
+  const idSet = new Set(selectedCompanyIds.map(Number));
+  const codes = [];
+  for (const row of modalPickerCompanies) {
+    if (!idSet.has(Number(row.id))) continue;
+    const code = String(row.group_id || row.company_id || "").trim().toUpperCase();
+    if (code && !codes.includes(code)) codes.push(code);
+  }
+  return codes;
 }
 
 function resolveGroupIdFromEntityCompanyId(companies, entityCompanyId) {
@@ -1736,6 +1745,8 @@ export default function UserListPage() {
       saveGroupId = String(selectedGroup || inferredGroupIdFromPicker || "").trim().toUpperCase();
       payload.group_id = saveGroupId;
       payload.group_only = 1;
+      const groupCodes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
+      if (groupCodes.length) payload.group_codes = groupCodes;
     } else if (companyId != null) {
       payload.company_id = Number(companyId);
       const entityPick = pickDefaultCompanyForGroup(companies, saveGroupId, {
@@ -1777,6 +1788,8 @@ export default function UserListPage() {
         if (shouldForceGroupScope && saveGroupId) {
           payload.group_id = saveGroupId;
           payload.group_only = 1;
+          const groupCodes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
+          if (groupCodes.length) payload.group_codes = groupCodes;
         }
       }
     }

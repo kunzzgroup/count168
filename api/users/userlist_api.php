@@ -1068,23 +1068,6 @@ function userlist_group_code_from_entity_company_id(PDO $pdo, int $companyId): ?
     if ($companyId <= 0) {
         return null;
     }
-    foreach (userlist_fetch_accessible_companies($pdo) as $c) {
-        if ((int) ($c['id'] ?? 0) !== $companyId) {
-            continue;
-        }
-        $linkSrc = strtoupper(trim((string) ($c['link_source_group'] ?? '')));
-        if ($linkSrc !== '') {
-            continue;
-        }
-        $code = strtoupper(trim((string) ($c['company_id'] ?? '')));
-        $gid = strtoupper(trim((string) ($c['group_id'] ?? '')));
-        if ($code !== '' && ($code === $gid || $gid === '')) {
-            return $code;
-        }
-        if ($code === '' && $gid !== '') {
-            return $gid;
-        }
-    }
 
     try {
         $stmt = $pdo->prepare('
@@ -1096,22 +1079,94 @@ function userlist_group_code_from_entity_company_id(PDO $pdo, int $companyId): ?
         ');
         $stmt->execute([$companyId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row) {
-            return null;
-        }
-        $code = strtoupper(trim((string) ($row['code'] ?? '')));
-        $gid = strtoupper(trim((string) ($row['gid'] ?? '')));
-        if ($code !== '' && ($code === $gid || $gid === '')) {
-            return $code;
-        }
-        if ($code === '' && $gid !== '') {
-            return $gid;
+        if ($row) {
+            $code = strtoupper(trim((string) ($row['code'] ?? '')));
+            $gid = strtoupper(trim((string) ($row['gid'] ?? '')));
+            if ($code !== '' && ($code === $gid || $gid === '')) {
+                return userlist_normalize_group_id($code);
+            }
+            if ($code === '' && $gid !== '') {
+                return userlist_normalize_group_id($gid);
+            }
+            foreach ([$code, $gid] as $candidate) {
+                if ($candidate === '') {
+                    continue;
+                }
+                if (gc_resolve_legacy_group_entity_company_id($pdo, $candidate) === $companyId) {
+                    return userlist_normalize_group_id($candidate);
+                }
+            }
         }
     } catch (Throwable $e) {
         return null;
     }
 
+    foreach (gc_session_accessible_group_ids() as $sessionGroup) {
+        $g = userlist_normalize_group_id($sessionGroup);
+        if ($g === null) {
+            continue;
+        }
+        if (userlist_resolve_group_tenant_entity_company_id($pdo, $g) === $companyId) {
+            return $g;
+        }
+    }
+
     return null;
+}
+
+/**
+ * @param mixed $raw
+ * @return list<string>
+ */
+function userlist_normalize_group_code_list($raw): array
+{
+    if (!is_array($raw)) {
+        return [];
+    }
+    $out = [];
+    foreach ($raw as $item) {
+        $g = userlist_normalize_group_id(is_scalar($item) ? (string) $item : null);
+        if ($g !== null) {
+            $out[$g] = true;
+        }
+    }
+
+    return array_keys($out);
+}
+
+/**
+ * Resolve all group tenants to bind from explicit group_codes + entity company ids.
+ *
+ * @param list<int> $entityCompanyIds
+ * @param list<string> $explicitGroupCodes
+ * @return list<string>
+ */
+function userlist_resolve_bind_group_scopes(
+    PDO $pdo,
+    array $entityCompanyIds,
+    ?string $contextGroupScope,
+    array $explicitGroupCodes = []
+): array {
+    $scopes = [];
+    foreach (userlist_normalize_group_code_list($explicitGroupCodes) as $g) {
+        userlist_assert_group_id_allowed($g);
+        $scopes[$g] = true;
+    }
+    foreach (userlist_resolve_group_scopes_from_entity_company_ids($pdo, $entityCompanyIds) as $g) {
+        $norm = userlist_normalize_group_id($g);
+        if ($norm !== null) {
+            $scopes[$norm] = true;
+        }
+    }
+    if ($scopes === []) {
+        $fallback = userlist_normalize_group_id($contextGroupScope);
+        if ($fallback !== null) {
+            userlist_assert_group_id_allowed($fallback);
+            $scopes[$fallback] = true;
+        }
+    }
+
+    return array_keys($scopes);
 }
 
 /**
@@ -1216,6 +1271,7 @@ function userlist_sync_user_group_tenants(PDO $pdo, int $userId, array $groupSco
         $pk = gc_resolve_group_pk_by_code($pdo, $g);
         if ($pk > 0) {
             $selectedPks[$pk] = true;
+            $accessiblePks[$pk] = true;
         }
     }
 
@@ -1456,10 +1512,12 @@ try {
             
             $bindGroupScopes = [];
             if ($groupTenantWrite && $groupScope !== null) {
-                $bindGroupScopes = userlist_resolve_group_scopes_from_entity_company_ids($pdo, $company_ids);
-                if ($bindGroupScopes === []) {
-                    $bindGroupScopes = [$groupScope];
-                }
+                $bindGroupScopes = userlist_resolve_bind_group_scopes(
+                    $pdo,
+                    $company_ids,
+                    $groupScope,
+                    userlist_normalize_group_code_list($input['group_codes'] ?? [])
+                );
                 foreach ($bindGroupScopes as $bindGroup) {
                     if (userlist_login_id_exists_in_group_tenant($pdo, $input['login_id'], $bindGroup)) {
                         sendResponse(false, 'Login ID already exists in this group');
@@ -1771,13 +1829,12 @@ try {
             
             $updateBindGroupScopes = [];
             if ($groupTenantWrite && $groupScope !== null) {
-                $updateBindGroupScopes = userlist_resolve_group_scopes_from_entity_company_ids(
+                $updateBindGroupScopes = userlist_resolve_bind_group_scopes(
                     $pdo,
-                    $validatedScopeCompanyIds
+                    $validatedScopeCompanyIds,
+                    $groupScope,
+                    userlist_normalize_group_code_list($input['group_codes'] ?? [])
                 );
-                if ($updateBindGroupScopes === []) {
-                    $updateBindGroupScopes = [$groupScope];
-                }
                 foreach ($updateBindGroupScopes as $bindGroup) {
                     if (userlist_login_id_exists_in_group_tenant($pdo, $input['login_id'], $bindGroup, (int) $input['id'])) {
                         sendResponse(false, 'Login ID already exists in this group');
@@ -1897,10 +1954,12 @@ try {
                     }
                     
                     if ($groupTenantWrite && $groupScope !== null) {
-                        $bindGroupScopes = userlist_resolve_group_scopes_from_entity_company_ids($pdo, $input['company_ids']);
-                        if ($bindGroupScopes === []) {
-                            $bindGroupScopes = [$groupScope];
-                        }
+                        $bindGroupScopes = userlist_resolve_bind_group_scopes(
+                            $pdo,
+                            $input['company_ids'],
+                            $groupScope,
+                            userlist_normalize_group_code_list($input['group_codes'] ?? [])
+                        );
                         userlist_sync_user_group_tenants($pdo, (int) $input['id'], $bindGroupScopes);
                     } else {
                         if (userlist_ucm_has_scope_columns($pdo)) {
