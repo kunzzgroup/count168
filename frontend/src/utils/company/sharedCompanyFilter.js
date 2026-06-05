@@ -438,8 +438,18 @@ export function coerceGroupWrappedCompanyState(me, companies, state = {}) {
   return { selectedGroup: g, companyId: cid, groupOnly: false };
 }
 
+function readPersistedGroupFilterCode() {
+  const raw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+  return raw ? String(raw).trim().toUpperCase() : null;
+}
+
 /** Boot helper: explicit URL company wins; otherwise honour group-only + saved id. */
-export function resolveBootCompanyId({ urlCompanyId, sessionCompanyId, defaultRowId } = {}) {
+export function resolveBootCompanyId({
+  urlCompanyId = null,
+  sessionCompanyId = null,
+  defaultRowId = null,
+  me = null,
+} = {}) {
   const urlNum =
     urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
   if (Number.isFinite(urlNum) && urlNum > 0) return urlNum;
@@ -448,8 +458,15 @@ export function resolveBootCompanyId({ urlCompanyId, sessionCompanyId, defaultRo
     persistDashboardGroupOnlyMode(false);
     return saved;
   }
-  if (isDashboardGroupOnlyMode()) return null;
-  return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null);
+  if (isDashboardGroupOnlyMode()) {
+    const g = readPersistedGroupFilterCode();
+    if (me && !canUseGroupOnlyMode(me, g)) {
+      persistDashboardGroupOnlyMode(false);
+      return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null, me);
+    }
+    return null;
+  }
+  return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null, me);
 }
 
 /** @deprecated Use {@link persistDashboardFilterState} */
@@ -458,10 +475,17 @@ export function syncDashboardGroupOnlyFromFilter(selectedGroup, companyId) {
 }
 
 /** Company id for page boot: group-only → null; else saved id, then PHP/fallback. */
-export function resolveInitialCompanyId(fallbackCompanyId) {
+export function resolveInitialCompanyId(fallbackCompanyId, me = null) {
   const saved = readDashboardSelectedCompanyId();
   if (saved != null) return saved;
-  if (isDashboardGroupOnlyMode()) return null;
+  if (isDashboardGroupOnlyMode()) {
+    const g = readPersistedGroupFilterCode();
+    if (me && !canUseGroupOnlyMode(me, g)) {
+      persistDashboardGroupOnlyMode(false);
+    } else {
+      return null;
+    }
+  }
   if (fallbackCompanyId == null || fallbackCompanyId === "") return null;
   const id = Number(fallbackCompanyId);
   return Number.isFinite(id) ? id : null;
