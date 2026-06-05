@@ -755,44 +755,77 @@ export default function UserModal({
                   {t("selectAll")}
                 </button>
               </div>
-              {dualTenantPicker ? (
-                <>
-                  <div className="user-modal-company-picker-section-title">{t("groupsSectionTitle")}</div>
-                  <ul className="user-modal-company-picker-list user-modal-company-picker-list--groups">
-                    {groupPickerFiltered.map((c) => {
-                      const id = Number(c.id);
-                      const label = String(c?.group_id || c?.company_id || "").trim().toUpperCase();
-                      const checked = selectedGroupIds.includes(id);
-                      const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
-                      return (
-                        <li key={`g-${c.id}`} className="user-modal-company-picker-row">
-                          <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={rowDisabled || !setSelectedGroupIds}
-                              onChange={() => {
-                                setSelectedGroupIds?.((prev) => {
-                                  if (prev.includes(id)) return prev.filter((x) => x !== id);
-                                  return [...prev, id];
-                                });
-                              }}
-                            />
-                            <span>{label}</span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="user-modal-company-picker-section-title">{t("companiesSectionTitle")}</div>
-                  <ul className="user-modal-company-picker-list user-modal-company-picker-list--companies">
+              <div className="user-modal-company-picker-body">
+                {dualTenantPicker ? (
+                  <>
+                    <div className="user-modal-company-picker-section">
+                      <div className="user-modal-company-picker-section-title">{t("groupsSectionTitle")}</div>
+                      <ul className="user-modal-company-picker-list user-modal-company-picker-list--groups">
+                        {groupPickerFiltered.map((c) => {
+                          const id = Number(c.id);
+                          const label = String(c?.group_id || c?.company_id || "").trim().toUpperCase();
+                          const checked = selectedGroupIds.includes(id);
+                          const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
+                          return (
+                            <li key={`g-${c.id}`} className="user-modal-company-picker-row">
+                              <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={rowDisabled || !setSelectedGroupIds}
+                                  onChange={() => {
+                                    setSelectedGroupIds?.((prev) => {
+                                      if (prev.includes(id)) return prev.filter((x) => x !== id);
+                                      return [...prev, id];
+                                    });
+                                  }}
+                                />
+                                <span>{label}</span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                    <div className="user-modal-company-picker-section">
+                      <div className="user-modal-company-picker-section-title">{t("companiesSectionTitle")}</div>
+                      <ul className="user-modal-company-picker-list user-modal-company-picker-list--companies">
+                        {companyPickerFiltered.map((c) => {
+                          const id = Number(c.id);
+                          const label = getCompanyPickerLabel(c);
+                          const checked = selectedCompanyIds.includes(id);
+                          const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
+                          return (
+                            <li key={`c-${c.id}`} className="user-modal-company-picker-row">
+                              <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={rowDisabled}
+                                  onChange={() => {
+                                    setSelectedCompanyIds((prev) => {
+                                      if (prev.includes(id)) return prev.filter((x) => x !== id);
+                                      return [...prev, id];
+                                    });
+                                  }}
+                                />
+                                <span>{label}</span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <ul className="user-modal-company-picker-list">
                     {companyPickerFiltered.map((c) => {
                       const id = Number(c.id);
                       const label = getCompanyPickerLabel(c);
                       const checked = selectedCompanyIds.includes(id);
                       const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
                       return (
-                        <li key={`c-${c.id}`} className="user-modal-company-picker-row">
+                        <li key={c.id} className="user-modal-company-picker-row">
                           <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
                             <input
                               type="checkbox"
@@ -811,35 +844,8 @@ export default function UserModal({
                       );
                     })}
                   </ul>
-                </>
-              ) : (
-                <ul className="user-modal-company-picker-list">
-                  {companyPickerFiltered.map((c) => {
-                    const id = Number(c.id);
-                    const label = getCompanyPickerLabel(c);
-                    const checked = selectedCompanyIds.includes(id);
-                    const rowDisabled = fieldLocks.company || !!editingRow?.is_owner_shadow || pageReadOnlyLock;
-                    return (
-                      <li key={c.id} className="user-modal-company-picker-row">
-                        <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={rowDisabled}
-                            onChange={() => {
-                              setSelectedCompanyIds((prev) => {
-                                if (prev.includes(id)) return prev.filter((x) => x !== id);
-                                return [...prev, id];
-                              });
-                            }}
-                          />
-                          <span>{label}</span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+                )}
+              </div>
               <div className="user-modal-company-picker-footer">
                 <button
                   type="button"

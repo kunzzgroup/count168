@@ -98,6 +98,8 @@
         font-size: 11px !important;
         padding-top: 8px !important;
         padding-bottom: 8px !important;
+        padding-left: 32px !important;
+        background-position: 9px center !important;
     }
 
     body.ec-auth-shell.user-page .user-modal-company-picker-select-all {
