@@ -91,7 +91,7 @@ try {
         }
         $accountIds = array_values(array_unique(array_filter($accountIds)));
     } elseif ($groupCode !== '' && $primaryCompanyId <= 0 && $companyIds === []) {
-        if (!gc_session_can_access_group_code($pdo, $groupCode)) {
+        if (!gc_session_can_access_group_ledger($pdo, $groupCode)) {
             api_error('无效的集团', 400);
             exit;
         }

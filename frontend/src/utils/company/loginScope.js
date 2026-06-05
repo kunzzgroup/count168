@@ -64,6 +64,7 @@ export function resolveAccessibleGroupIds(me, companies = []) {
   if (isCompanyLogin(me)) {
     const loginGroup = resolveCompanyLoginGroupId(me, companies);
     if (loginGroup) set.add(loginGroup);
+    for (const g of getAssignedGroupCodes(me)) set.add(g);
   }
   for (const c of companies || []) {
     const g = String(c?.group_id || "").trim().toUpperCase();
@@ -100,8 +101,40 @@ export function filterCompaniesForLoginScope(companies, me) {
   return companies.filter((c) => companyMatchesLoginScope(c, me, companies));
 }
 
-export function canUseGroupOnlyMode(me) {
-  return isGroupLogin(me);
+/** Admin-assigned group ledger tenants (user_group_map), from current_user_api. */
+export function getAssignedGroupCodes(me) {
+  const raw = me?.assigned_group_codes;
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const code of raw) {
+    const g = String(code || "").trim().toUpperCase();
+    if (!g || seen.has(g)) continue;
+    seen.add(g);
+    out.push(g);
+  }
+  return out.sort();
+}
+
+export function userCanUseGroupLedger(me) {
+  if (!me) return false;
+  if (me.can_use_group_ledger === true) return true;
+  if (isGroupLogin(me)) return true;
+  return getAssignedGroupCodes(me).length > 0;
+}
+
+/**
+ * @param {object|null|undefined} me
+ * @param {string|null|undefined} [groupCode] When set, requires assignment to that specific group.
+ */
+export function canUseGroupOnlyMode(me, groupCode = null) {
+  if (!me) return false;
+  if (isGroupLogin(me)) return true;
+  const assigned = getAssignedGroupCodes(me);
+  if (!assigned.length) return false;
+  if (groupCode == null || String(groupCode).trim() === "") return true;
+  const g = String(groupCode).trim().toUpperCase();
+  return assigned.includes(g);
 }
 
 /** User/Account List etc.: owner/admin pick a group without auto-selecting first subsidiary. */
@@ -137,7 +170,7 @@ export function userRoleAllowsC168AutoRenew(role, userType) {
 }
 
 export function canClearCompanySelection(me) {
-  return isGroupLogin(me);
+  return canUseGroupOnlyMode(me);
 }
 
 /**

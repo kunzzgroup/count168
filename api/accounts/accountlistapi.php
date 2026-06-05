@@ -542,7 +542,7 @@ try {
 
     if ($company_id > 0) {
         validateCompanyAccess($pdo, $company_id);
-    } elseif ($group_scope_id !== null && !gc_session_can_access_group_code($pdo, $group_scope_id)) {
+    } elseif ($group_scope_id !== null && !gc_session_can_access_group_ledger($pdo, $group_scope_id)) {
         throw new Exception('无权限访问该集团');
     }
 

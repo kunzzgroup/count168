@@ -394,10 +394,13 @@ function gc_assert_api_company_access(PDO $pdo, int $companyId, ?string $viewGro
     throw new RuntimeException('无权限访问该公司');
 }
 
-/** Block company-login callers from group-only APIs. */
+/** Block company-login callers from group-only APIs unless admin assigned group ledger access. */
 function gc_assert_group_only_operation_allowed(): void
 {
     if (gc_is_group_login()) {
+        return;
+    }
+    if (gc_session_assigned_group_codes() !== []) {
         return;
     }
     throw new RuntimeException('Group-only operation is not allowed for company login');
@@ -443,6 +446,155 @@ function gc_session_accessible_group_ids(): array
 /**
  * @param array<int, array<string, mixed>> $companies
  */
+/**
+ * Group codes explicitly assigned via Admin (user_group_map).
+ *
+ * @return list<string>
+ */
+function gc_fetch_user_assigned_group_codes(PDO $pdo, int $userId): array
+{
+    if ($userId <= 0) {
+        return [];
+    }
+
+    $codes = [];
+
+    try {
+        if ($pdo->query("SHOW TABLES LIKE 'user_group_map'")->rowCount() > 0 && gc_has_groups_table($pdo)) {
+            $stmt = $pdo->prepare('
+                SELECT UPPER(TRIM(g.group_code)) AS group_code
+                FROM user_group_map ugm
+                INNER JOIN `groups` g ON g.id = ugm.group_id
+                WHERE ugm.user_id = ?
+            ');
+            $stmt->execute([$userId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $raw) {
+                $c = gc_normalize_group_code((string) $raw);
+                if ($c !== '') {
+                    $codes[$c] = true;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // fall through
+    }
+
+    try {
+        if ($pdo->query("SHOW COLUMNS FROM user_company_map LIKE 'scope_type'")->rowCount() > 0) {
+            $stmt = $pdo->prepare("
+                SELECT UPPER(TRIM(g.group_code)) AS group_code
+                FROM user_company_map ucm
+                INNER JOIN `groups` g ON g.id = ucm.scope_id
+                WHERE ucm.user_id = ?
+                  AND ucm.scope_type = 'group'
+                  AND ucm.scope_id > 0
+            ");
+            $stmt->execute([$userId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $raw) {
+                $c = gc_normalize_group_code((string) $raw);
+                if ($c !== '') {
+                    $codes[$c] = true;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // fall through
+    }
+
+    $out = array_keys($codes);
+    sort($out);
+
+    return $out;
+}
+
+function gc_hydrate_session_assigned_group_codes(PDO $pdo): void
+{
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    $_SESSION['assigned_group_codes'] = $userId > 0
+        ? gc_fetch_user_assigned_group_codes($pdo, $userId)
+        : [];
+}
+
+/**
+ * @return list<string>
+ */
+function gc_session_assigned_group_codes(): array
+{
+    if (!isset($_SESSION['assigned_group_codes']) || !is_array($_SESSION['assigned_group_codes'])) {
+        return [];
+    }
+    $out = [];
+    foreach ($_SESSION['assigned_group_codes'] as $g) {
+        $g = gc_normalize_group_code((string) $g);
+        if ($g !== '') {
+            $out[] = $g;
+        }
+    }
+    sort($out);
+
+    return array_values(array_unique($out));
+}
+
+function gc_user_assigned_to_group_code(PDO $pdo, int $userId, string $groupCode): bool
+{
+    $g = gc_normalize_group_code($groupCode);
+    if ($g === '' || $userId <= 0) {
+        return false;
+    }
+
+    return in_array($g, gc_fetch_user_assigned_group_codes($pdo, $userId), true);
+}
+
+/**
+ * Group ledger (group_only APIs): group login, owner, or admin-assigned group tenant.
+ */
+function gc_session_can_access_group_ledger(PDO $pdo, string $groupCode): bool
+{
+    $g = gc_normalize_group_code($groupCode);
+    if ($g === '') {
+        return false;
+    }
+
+    if (gc_is_group_login()) {
+        $ident = gc_session_login_identifier();
+        if ($ident !== null && $ident === $g) {
+            return true;
+        }
+
+        return in_array($g, gc_session_accessible_group_ids(), true);
+    }
+
+    $role = strtolower((string) ($_SESSION['role'] ?? ''));
+    if ($role === 'owner' && gc_has_groups_table($pdo)) {
+        $ownerId = (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0);
+        if ($ownerId > 0) {
+            try {
+                $stmt = $pdo->prepare(
+                    'SELECT 1 FROM `groups` WHERE UPPER(TRIM(group_code)) = ? AND owner_id = ? LIMIT 1'
+                );
+                $stmt->execute([$g, $ownerId]);
+                if ($stmt->fetchColumn()) {
+                    return true;
+                }
+            } catch (Throwable $e) {
+                // fall through
+            }
+        }
+    }
+
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    if ($userId > 0 && gc_user_assigned_to_group_code($pdo, $userId, $g)) {
+        return true;
+    }
+
+    $hydrated = gc_session_assigned_group_codes();
+    if ($hydrated !== [] && in_array($g, $hydrated, true)) {
+        return true;
+    }
+
+    return false;
+}
+
 /**
  * Whether the logged-in user may use this group code (group login, owner, or subsidiary access).
  */

@@ -2,7 +2,7 @@
  * Strict split: group ledger (group_only + group_id, NO company_id) vs subsidiary company.
  * Do not mix legacy "group entity" company rows with group scope_type=currency rows.
  */
-import { getLoginIdentifier, isGroupLogin } from "./loginScope.js";
+import { canUseGroupOnlyMode, getLoginIdentifier, isGroupLogin } from "./loginScope.js";
 
 export const LEDGER_GROUP = "group";
 export const LEDGER_COMPANY = "company";
@@ -51,7 +51,7 @@ export function resolvePageLedgerScope({
     (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
     (isGroupLogin(sessionMe) ? getLoginIdentifier(sessionMe) : null);
 
-  if (groupOnly && groupId) {
+  if (groupOnly && groupId && canUseGroupOnlyMode(sessionMe, groupId)) {
     return { ledger: LEDGER_GROUP, groupId, companyId: null };
   }
 

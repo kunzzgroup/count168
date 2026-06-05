@@ -564,6 +564,17 @@ function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): 
         }
     }
 
+    if (
+        !$groupOnly
+        && $requestedId <= 0
+        && $groupCode !== ''
+        && function_exists('gc_session_can_access_group_ledger')
+        && gc_session_can_access_group_ledger($pdo, $groupCode)
+    ) {
+        $forceGroupLedger = true;
+        $groupOnly = true;
+    }
+
     // Subsidiary company pill wins: never map to legacy group-entity company row.
     if ($requestedId > 0 && !$groupOnly) {
         return tenant_resolve_currency_context(

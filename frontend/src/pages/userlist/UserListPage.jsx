@@ -128,8 +128,8 @@ function buildModalGroupOptions(companies, me) {
   return out;
 }
 
-function resolveSelectedGroupCodesFromPicker(modalPickerCompanies, selectedCompanyIds) {
-  const idSet = new Set(selectedCompanyIds.map(Number));
+function resolveSelectedGroupCodesFromPicker(modalPickerCompanies, selectedIds) {
+  const idSet = new Set(selectedIds.map(Number));
   const codes = [];
   for (const row of modalPickerCompanies) {
     if (!idSet.has(Number(row.id))) continue;
@@ -137,6 +137,31 @@ function resolveSelectedGroupCodesFromPicker(modalPickerCompanies, selectedCompa
     if (code && !codes.includes(code)) codes.push(code);
   }
   return codes;
+}
+
+function buildModalSubsidiaryOptions(companies, me, selectedGroup) {
+  const base = isGroupLogin(me)
+    ? filterCompaniesWithDisplayId(companies)
+    : selectedGroup
+      ? companiesInGroupList(companies, selectedGroup)
+      : filterCompaniesWithDisplayId(companies);
+  return buildModalCompanyList(
+    base.filter((c) => {
+      const code = String(c?.company_id || "").trim().toUpperCase();
+      const gid = String(c?.group_id || "").trim().toUpperCase();
+      return code && !companyRowIsGroupEntity(c, gid);
+    })
+  );
+}
+
+function resolveGroupEntityIdsFromCodes(modalGroupCompanies, groupCodes) {
+  const wanted = new Set((groupCodes || []).map((g) => String(g || "").trim().toUpperCase()).filter(Boolean));
+  const ids = [];
+  for (const row of modalGroupCompanies || []) {
+    const code = String(row?.group_id || row?.company_id || "").trim().toUpperCase();
+    if (wanted.has(code)) ids.push(Number(row.id));
+  }
+  return ids.filter((id) => Number.isFinite(id) && id > 0);
 }
 
 function resolveGroupIdFromEntityCompanyId(companies, entityCompanyId) {
@@ -223,6 +248,7 @@ export default function UserListPage() {
   const [permSelected, setPermSelected] = useState(() => new Set());
   const [modalCompanies, setModalCompanies] = useState([]);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
   const [modalAccounts, setModalAccounts] = useState([]);
   const [modalProcesses, setModalProcesses] = useState([]);
   const [modalAccessReadyCompanyId, setModalAccessReadyCompanyId] = useState(null);
@@ -681,10 +707,31 @@ export default function UserListPage() {
     return buildModalCompanyList(base);
   }, [allCompanyButtons, companies, selectedGroup, me, groupOnlyUserList]);
 
+  const useDualTenantUserPicker =
+    currentUserRole === "admin" || currentUserRole === "owner";
+
+  const modalGroupCompanies = useMemo(
+    () => buildModalGroupOptions(companies, me),
+    [companies, me]
+  );
+
+  const modalSubsidiaryCompanies = useMemo(
+    () => buildModalSubsidiaryOptions(companies, me, selectedGroup),
+    [companies, me, selectedGroup]
+  );
+
   const modalPickerCompanies = useMemo(() => {
+    if (useDualTenantUserPicker) return modalSubsidiaryCompanies;
     if (groupOnlyUserList) return buildModalGroupOptions(companies, me);
     return groupScopedModalCompanies;
-  }, [groupOnlyUserList, companies, me, groupScopedModalCompanies]);
+  }, [
+    useDualTenantUserPicker,
+    modalSubsidiaryCompanies,
+    groupOnlyUserList,
+    companies,
+    me,
+    groupScopedModalCompanies,
+  ]);
 
   const aggregateUserList = useMemo(
     () => Boolean((groupsAllMode || groupAllMode) && companyId == null),
@@ -1532,30 +1579,61 @@ export default function UserListPage() {
     try { if (detail.process_permissions != null) pp = typeof detail.process_permissions === "string" ? JSON.parse(detail.process_permissions) : detail.process_permissions; } catch { pp = []; }
     setSelectedAccountIds(ap === null ? new Set(accList.map(a => Number(a.id))) : new Set((Array.isArray(ap) ? ap : []).map(x => Number(x.id || x))));
     setSelectedProcessIds(pp === null ? new Set(procList.map(p => Number(p.id))) : new Set((Array.isArray(pp) ? pp : []).map(x => Number(x.id || x))));
-    if (Array.isArray(detail.company_ids) && (currentUserRole === "admin" || currentUserRole === "owner")) {
-      const allowed = new Set(modalPickerCompanies.map((c) => Number(c.id)));
-      const ids = detail.company_ids.map(Number).filter((id) => allowed.has(id));
-      if (groupOnlyUserList) {
-        const defaultPick = modalPickerCompanies.find(
-          (c) => String(c.group_id || "").toUpperCase() === String(selectedGroup || "").toUpperCase()
-        );
-        setSelectedCompanyIds(
-          ids.length
-            ? ids
-            : defaultPick?.id != null
-              ? [Number(defaultPick.id)]
-              : modalPickerCompanies[0]
-                ? [Number(modalPickerCompanies[0].id)]
-                : []
-        );
+    if (currentUserRole === "admin" || currentUserRole === "owner") {
+      if (useDualTenantUserPicker) {
+        const groupCodes = Array.isArray(detail.group_codes) ? detail.group_codes : [];
+        const groupIds = resolveGroupEntityIdsFromCodes(modalGroupCompanies, groupCodes);
+        setSelectedGroupIds(groupIds);
+        const allowedCompanies = new Set(modalSubsidiaryCompanies.map((c) => Number(c.id)));
+        const companyIds = Array.isArray(detail.company_ids)
+          ? detail.company_ids.map(Number).filter((id) => allowedCompanies.has(id))
+          : [];
+        setSelectedCompanyIds(companyIds);
+      } else if (Array.isArray(detail.company_ids)) {
+        const allowed = new Set(modalPickerCompanies.map((c) => Number(c.id)));
+        const ids = detail.company_ids.map(Number).filter((id) => allowed.has(id));
+        if (groupOnlyUserList) {
+          const defaultPick = modalPickerCompanies.find(
+            (c) => String(c.group_id || "").toUpperCase() === String(selectedGroup || "").toUpperCase()
+          );
+          setSelectedCompanyIds(
+            ids.length
+              ? ids
+              : defaultPick?.id != null
+                ? [Number(defaultPick.id)]
+                : modalPickerCompanies[0]
+                  ? [Number(modalPickerCompanies[0].id)]
+                  : []
+          );
+        } else {
+          setSelectedCompanyIds(ids.length ? ids : modalPickerCompanies.map((c) => Number(c.id)));
+        }
+        setSelectedGroupIds([]);
       } else {
-        setSelectedCompanyIds(ids.length ? ids : modalPickerCompanies.map((c) => Number(c.id)));
+        setSelectedCompanyIds(scopeCompanyId ? [Number(scopeCompanyId)] : []);
+        setSelectedGroupIds([]);
       }
     } else {
       setSelectedCompanyIds(scopeCompanyId ? [Number(scopeCompanyId)] : []);
+      setSelectedGroupIds([]);
     }
-    if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
-  }, [scopeCompanyId, currentUserRole, modalPickerCompanies, groupOnlyUserList, selectedGroup]);
+    if (row.is_owner_shadow) {
+      setPermSelected(new Set(PERMISSION_KEYS));
+      setSelectedAccountIds(new Set(accList.map((a) => Number(a.id))));
+      setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
+      setSelectedCompanyIds([]);
+      setSelectedGroupIds([]);
+    }
+  }, [
+    scopeCompanyId,
+    currentUserRole,
+    modalPickerCompanies,
+    modalGroupCompanies,
+    modalSubsidiaryCompanies,
+    useDualTenantUserPicker,
+    groupOnlyUserList,
+    selectedGroup,
+  ]);
 
   const openAdd = async () => {
     if (userMutationsBlocked) {
@@ -1582,7 +1660,13 @@ export default function UserListPage() {
     if (!cachedAccess && !currentAccess) { setModalAccounts([]); setModalProcesses([]); }
     setSelectedAccountIds(new Set(initialAccess.accounts.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(initialAccess.processes.map((p) => Number(p.id))));
     if (currentUserRole === "admin" || currentUserRole === "owner") {
-      if (groupOnlyUserList) {
+      if (useDualTenantUserPicker) {
+        const defaultGroupIds = selectedGroup
+          ? resolveGroupEntityIdsFromCodes(modalGroupCompanies, [selectedGroup])
+          : [];
+        setSelectedGroupIds(defaultGroupIds);
+        setSelectedCompanyIds(companyId ? [Number(companyId)] : []);
+      } else if (groupOnlyUserList) {
         const defaultGroup =
           selectedGroup && modalPickerCompanies.some((c) => String(c.group_id || "").toUpperCase() === String(selectedGroup).toUpperCase())
             ? selectedGroup
@@ -1591,6 +1675,7 @@ export default function UserListPage() {
           (c) => String(c.group_id || "").toUpperCase() === String(defaultGroup || "").toUpperCase()
         );
         setSelectedCompanyIds(pick?.id != null ? [Number(pick.id)] : []);
+        setSelectedGroupIds([]);
       } else if (isGroupLogin(me) && selectedGroup) {
         // Group login add-user default should stay on group entity (AP/IG),
         // not whichever subsidiary company chip is currently active (e.g. 95).
@@ -1730,6 +1815,15 @@ export default function UserListPage() {
     if (isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only, currentUserId)) return;
     if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
     if (
+      useDualTenantUserPicker &&
+      selectedGroupIds.length === 0 &&
+      selectedCompanyIds.length === 0
+    ) {
+      notify(t("groupCompanySelectionRequired"), "danger");
+      return;
+    }
+    if (
+      !useDualTenantUserPicker &&
       groupOnlyUserList &&
       (currentUserRole === "admin" || currentUserRole === "owner") &&
       selectedCompanyIds.length === 0
@@ -1740,39 +1834,51 @@ export default function UserListPage() {
     const emailCheck = validateEmail(form.email);
     if (!emailCheck.ok) { notify(t("invalidEmailFormat"), "danger"); return; }
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });
-    const shouldSendProcessPermissions = !groupOnlyUserList;
+    const shouldSendProcessPermissions = useDualTenantUserPicker
+      ? selectedCompanyIds.length > 0
+      : !groupOnlyUserList;
     const processPerms = Array.from(selectedProcessIds).map(id => { const p = modalProcesses.find(x => Number(x.id) === Number(id)); return { id: Number(id), process_id: p?.process_id || "", description: p?.description || "" }; });
     let payload = { action: isEditMode ? "update" : "create", id: form.id || undefined, login_id: form.login_id.trim(), name: form.name.trim(), email: emailCheck.normalized, role: form.role, status: form.status };
     let saveGroupId = null;
     let saveCompanyIds = selectedCompanyIds;
-    const inferredGroupIdFromPicker = (() => {
-      const selectedId = selectedCompanyIds[0] != null ? Number(selectedCompanyIds[0]) : Number.NaN;
-      if (!Number.isFinite(selectedId) || selectedId <= 0) return null;
-      const selectedOption = modalPickerCompanies.find((c) => Number(c.id) === selectedId);
-      const gid = String(selectedOption?.group_id || "").trim().toUpperCase();
-      return gid || null;
-    })();
-    const shouldForceGroupScope = groupOnlyUserList && !!(selectedGroup || inferredGroupIdFromPicker);
-    const saveGroupCodes = shouldForceGroupScope
-      ? resolveSelectedGroupCodesFromPicker(modalPickerCompanies, selectedCompanyIds)
-      : [];
-    if (shouldForceGroupScope) {
-      saveGroupId = String(selectedGroup || inferredGroupIdFromPicker || "").trim().toUpperCase();
-      payload.group_id = saveGroupId;
-      payload.group_only = 1;
+    let saveGroupCodes = [];
+    const shouldForceGroupScope = !useDualTenantUserPicker && groupOnlyUserList;
+    if (useDualTenantUserPicker) {
+      saveGroupCodes = resolveSelectedGroupCodesFromPicker(modalGroupCompanies, selectedGroupIds);
+      saveCompanyIds = selectedCompanyIds;
+      payload.mixed_tenant_assign = 1;
       payload.group_codes = saveGroupCodes;
-      // Bind via group_codes; picker ids may be subsidiary anchors, not group-entity rows.
-      saveCompanyIds = [];
-    } else if (companyId != null) {
-      payload.company_id = Number(companyId);
-      const entityPick = pickDefaultCompanyForGroup(companies, saveGroupId, {
-        me,
-        preferredCompanyId: me?.company_id ?? companyId,
-        groupEntityOnly: true,
-      });
-      const entityId = entityPick?.id != null ? Number(entityPick.id) : Number.NaN;
-      // Do not block save here; backend already hard-locks to group entity company by group_id.
-      saveCompanyIds = Number.isFinite(entityId) && entityId > 0 ? [entityId] : [];
+      payload.company_ids = saveCompanyIds;
+      if (selectedGroup) payload.group_id = String(selectedGroup).trim().toUpperCase();
+      if (companyId != null) payload.company_id = Number(companyId);
+    } else {
+      const inferredGroupIdFromPicker = (() => {
+        const selectedId = selectedCompanyIds[0] != null ? Number(selectedCompanyIds[0]) : Number.NaN;
+        if (!Number.isFinite(selectedId) || selectedId <= 0) return null;
+        const selectedOption = modalPickerCompanies.find((c) => Number(c.id) === selectedId);
+        const gid = String(selectedOption?.group_id || "").trim().toUpperCase();
+        return gid || null;
+      })();
+      const forceGroup = shouldForceGroupScope && !!(selectedGroup || inferredGroupIdFromPicker);
+      saveGroupCodes = forceGroup
+        ? resolveSelectedGroupCodesFromPicker(modalPickerCompanies, selectedCompanyIds)
+        : [];
+      if (forceGroup) {
+        saveGroupId = String(selectedGroup || inferredGroupIdFromPicker || "").trim().toUpperCase();
+        payload.group_id = saveGroupId;
+        payload.group_only = 1;
+        payload.group_codes = saveGroupCodes;
+        saveCompanyIds = [];
+      } else if (companyId != null) {
+        payload.company_id = Number(companyId);
+        const entityPick = pickDefaultCompanyForGroup(companies, saveGroupId, {
+          me,
+          preferredCompanyId: me?.company_id ?? companyId,
+          groupEntityOnly: true,
+        });
+        const entityId = entityPick?.id != null ? Number(entityPick.id) : Number.NaN;
+        saveCompanyIds = Number.isFinite(entityId) && entityId > 0 ? [entityId] : [];
+      }
     }
     if (form.password.trim()) payload.password = form.password;
     const allowSecondaryPassword = isC168Company || !!editingRow?.is_owner_shadow;
@@ -1789,7 +1895,14 @@ export default function UserListPage() {
     }
     if (editingRow?.is_owner_shadow) {
       payload.role = "owner";
-    } else if (!isEditMode) { payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole); payload.account_permissions = accountPerms; if (shouldSendProcessPermissions) payload.process_permissions = processPerms; if ((currentUserRole === "admin" || currentUserRole === "owner")) payload.company_ids = saveCompanyIds; } else {
+    } else if (!isEditMode) {
+      payload.permissions = getFinalPermissionsForCreation(form.role, Array.from(permSelected), currentUserRole);
+      payload.account_permissions = accountPerms;
+      if (shouldSendProcessPermissions) payload.process_permissions = processPerms;
+      if ((currentUserRole === "admin" || currentUserRole === "owner") && !useDualTenantUserPicker) {
+        payload.company_ids = saveCompanyIds;
+      }
+    } else {
       const caps = computeRowCapabilities(editingRow, currentUserId, currentUserRole);
       if (caps.isSelf || caps.isHigherLevel || caps.isSameLevel) {
         payload.account_permissions = accountPerms;
@@ -1799,7 +1912,7 @@ export default function UserListPage() {
         payload.account_permissions = accountPerms;
         if (shouldSendProcessPermissions) payload.process_permissions = processPerms;
       }
-      if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company) {
+      if ((currentUserRole === "admin" || currentUserRole === "owner") && !fieldLocks.company && !useDualTenantUserPicker) {
         payload.company_ids = shouldForceGroupScope ? saveCompanyIds : (groupOnlyUserList ? saveCompanyIds : selectedCompanyIds);
         if (shouldForceGroupScope && saveGroupId) {
           payload.group_id = saveGroupId;
@@ -2179,7 +2292,7 @@ export default function UserListPage() {
             document.body
           )
         : null}
-      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} currentUserId={currentUserId} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} groupPickerMode={groupOnlyUserList} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
+      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} currentUserId={currentUserId} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} groupPickerMode={!useDualTenantUserPicker && groupOnlyUserList} dualTenantPicker={useDualTenantUserPicker} modalGroupCompanies={modalGroupCompanies} modalSubsidiaryCompanies={modalSubsidiaryCompanies} selectedGroupIds={selectedGroupIds} setSelectedGroupIds={setSelectedGroupIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
       <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} confirmDisabled={userMutationsBlocked} t={t} />
     </>
   );
