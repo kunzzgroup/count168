@@ -550,15 +550,34 @@ function userlist_fetch_group_only_user_ids(PDO $pdo, string $groupScope): array
         return [];
     }
     userlist_assert_group_id_allowed($g);
+    userlist_ensure_group_row_for_code($pdo, $g);
 
     $groupPk = userlist_resolve_group_pk_by_code($pdo, $g);
     $ids = [];
 
-    if ($groupPk > 0 && userlist_table_exists($pdo, 'user_group_map')) {
-        $stmt = $pdo->prepare('SELECT user_id FROM user_group_map WHERE group_id = ?');
-        $stmt->execute([$groupPk]);
-        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
-            $ids[(int) $uid] = true;
+    if (userlist_table_exists($pdo, 'user_group_map')) {
+        if ($groupPk > 0) {
+            $stmt = $pdo->prepare('SELECT user_id FROM user_group_map WHERE group_id = ?');
+            $stmt->execute([$groupPk]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+                $ids[(int) $uid] = true;
+            }
+        }
+        if (gc_has_groups_table($pdo)) {
+            try {
+                $stmt = $pdo->prepare('
+                    SELECT ugm.user_id
+                    FROM user_group_map ugm
+                    INNER JOIN `groups` grp ON grp.id = ugm.group_id
+                    WHERE UPPER(TRIM(grp.group_code)) = ?
+                ');
+                $stmt->execute([$g]);
+                foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+                    $ids[(int) $uid] = true;
+                }
+            } catch (Throwable $e) {
+                // fall through
+            }
         }
     }
 

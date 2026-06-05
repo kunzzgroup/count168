@@ -1748,11 +1748,14 @@ export default function UserListPage() {
       return gid || null;
     })();
     const shouldForceGroupScope = groupOnlyUserList && !!(selectedGroup || inferredGroupIdFromPicker);
+    const saveGroupCodes = shouldForceGroupScope
+      ? resolveSelectedGroupCodesFromPicker(modalPickerCompanies, selectedCompanyIds)
+      : [];
     if (shouldForceGroupScope) {
       saveGroupId = String(selectedGroup || inferredGroupIdFromPicker || "").trim().toUpperCase();
       payload.group_id = saveGroupId;
       payload.group_only = 1;
-      payload.group_codes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
+      payload.group_codes = saveGroupCodes;
       // Bind via group_codes; picker ids may be subsidiary anchors, not group-entity rows.
       saveCompanyIds = [];
     } else if (companyId != null) {
@@ -1796,7 +1799,7 @@ export default function UserListPage() {
         if (shouldForceGroupScope && saveGroupId) {
           payload.group_id = saveGroupId;
           payload.group_only = 1;
-          payload.group_codes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
+          payload.group_codes = saveGroupCodes;
         }
       }
     }
@@ -1813,6 +1816,13 @@ export default function UserListPage() {
       }
       notifyApi(json.message, "saved", "success");
       closeModal();
+      if (Array.isArray(saveGroupCodes) && saveGroupCodes.length > 0) {
+        for (const code of saveGroupCodes) {
+          userListCacheRef.current.delete(
+            resolveUserListCacheKey(null, true, code, false, false, false),
+          );
+        }
+      }
       if (isEditMode && json.data?.will_lose_access) {
         setUsersRaw((prev) => prev.filter((u) => Number(u.id) !== Number(form.id)));
       } else if (json.data && !groupOnlyUserList) {
