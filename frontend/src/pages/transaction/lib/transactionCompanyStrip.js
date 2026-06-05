@@ -1,10 +1,8 @@
 import {
   companiesForCompanyPicker,
-  companiesForPickerWhenGroupClosed,
   dedupeOwnerCompaniesByCode,
   excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
-  sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
 
 /** Company pills for Transaction GC filter (synced with filterSnapshot.companyStripRows). */
@@ -14,14 +12,6 @@ export function buildTransactionCompanyStripRows(snap, { selectedGroup, companyI
   if (groupsAllMode) {
     return excludeGroupLabelsFromCompanyPicker(
       dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(list), preferredId),
-    );
-  }
-  if (!selectedGroup) {
-    return companiesForPickerWhenGroupClosed(
-      snap?.sessionMe ?? null,
-      list,
-      sortedUniqueGroupIds(list),
-      preferredId
     );
   }
   return dedupeOwnerCompaniesByCode(

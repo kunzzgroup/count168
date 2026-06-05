@@ -1122,53 +1122,6 @@ export function independentCompaniesForPicker(companies, groupIds = null) {
 }
 
 /**
- * Company pills when GroupID is cleared (Transaction Payment behaviour).
- * Ungrouped independents plus, for company login, login / assigned subsidiaries (e.g. C168).
- */
-export function companiesForPickerWhenGroupClosed(
-  me,
-  companies,
-  groupIds = null,
-  preferredCompanyId = null
-) {
-  const list = companies ?? [];
-  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(list);
-  const preferred = preferredCompanyId ?? me?.company_id ?? null;
-  const merged = [...independentCompaniesForPicker(list, gids)];
-  const seen = new Set(
-    merged.map((c) => Number(c.id)).filter((id) => Number.isFinite(id) && id > 0)
-  );
-
-  const append = (row) => {
-    const id = Number(row?.id);
-    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) return;
-    if (!isSubsidiaryCompanyRow(row, gids) || companyDisplayCodeIsGroupLabel(row, gids)) return;
-    seen.add(id);
-    merged.push(row);
-  };
-
-  if (isCompanyLogin(me)) {
-    const tryIds = [];
-    const prefNum = preferred != null ? Number(preferred) : Number.NaN;
-    if (Number.isFinite(prefNum) && prefNum > 0) tryIds.push(prefNum);
-    const loginNum = me?.company_id != null ? Number(me.company_id) : Number.NaN;
-    if (Number.isFinite(loginNum) && loginNum > 0) tryIds.push(loginNum);
-    for (const id of getAssignedCompanyIds(me)) tryIds.push(id);
-    for (const id of tryIds) {
-      append(list.find((c) => Number(c.id) === id));
-    }
-    const ident = getLoginIdentifier(me);
-    if (ident) {
-      append(
-        list.find((c) => String(c.company_id || "").trim().toUpperCase() === ident)
-      );
-    }
-  }
-
-  return dedupeOwnerCompaniesByCode(merged, preferred);
-}
-
-/**
  * All subsidiaries under visible groups (AP, IG, …) for Company picker when GroupID is "All".
  * Excludes independent companies.
  */

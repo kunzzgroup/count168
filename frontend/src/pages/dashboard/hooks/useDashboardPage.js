@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
-import { syncCompanySessionApi } from "../../../utils/company/companySessionSync.js";
 import {
   buildDashboardCacheKey,
   getDashboardCache,
@@ -69,7 +68,6 @@ import {
   resolveCompanyWhenDeselectingGroup,
   resolveCompanyWhenClosingGroup,
   resolveCompanyWhenPickingAllGroups,
-  companiesForPickerWhenGroupClosed,
   independentCompaniesForPicker,
   allGroupedCompaniesForPicker,
   resolveGroupAllMergeCompanyList,
@@ -136,8 +134,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const dateFromRef = useRef(dateFrom);
   const dateToRef = useRef(dateTo);
   const companySwitchGenRef = useRef(0);
-  const bootstrapDoneRef = useRef(false);
-  const companySessionSyncedKeyRef = useRef("");
   const currencyLoadGenRef = useRef(0);
   const skipNextCurrencyClickRef = useRef(false);
   const scopeCurrencyKeyRef = useRef("");
@@ -318,10 +314,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, []);
 
   const bootstrap = useCallback(async (signal) => {
-    bootstrapDoneRef.current = false;
     setLoadError("");
+    if (!sessionReady || !me) return;
     try {
-      if (!sessionReady || !me) return;
       const u = me;
 
       const cjRows = await fetchOwnerCompaniesAll({ signal, throwOnError: true });
@@ -405,8 +400,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (err?.name === "AbortError") return;
       setLoadError(err?.message || i18n.failedToLoadDashboard);
       setLoading(false);
-    } finally {
-      bootstrapDoneRef.current = true;
     }
   }, [sessionReady, me, i18n.failedToLoadDashboard]);
 
@@ -416,10 +409,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     bootstrap(controller.signal);
     return () => controller.abort();
   }, [bootstrap, sessionReady, me]);
-
-  useEffect(() => {
-    companySessionSyncedKeyRef.current = "";
-  }, [me?.user_id, me?.company_id]);
 
   useGroupAnchorSessionSync({
     companies,
@@ -447,9 +436,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         preferredId
       );
     }
-    // Group closed: independents + company-login subsidiaries (e.g. C168).
-    return companiesForPickerWhenGroupClosed(me, companies, groupIds, preferredId);
-  }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me]);
+    // Group closed: show independent companies only (group subsidiaries collapsed).
+    return dedupeOwnerCompaniesByCode(
+      independentCompaniesForPicker(companies, groupIds),
+      preferredId
+    );
+  }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me?.company_id]);
 
   const resolveMergeCompanyList = useCallback(() => {
     if (groupsAllMode) return resolveGroupsAllMergeCompanyList(companies, groupIds);
@@ -490,33 +482,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const syncCompanySession = useCallback(
     async (id, viewGroup = selectedGroup) => {
-      const numId = parseInt(id, 10);
-      if (!Number.isFinite(numId) || numId <= 0) return false;
-
-      const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
-      const key = `${numId}|${vg}`;
-
-      const sessionCid =
-        me?.company_id != null && me?.company_id !== ""
-          ? parseInt(me.company_id, 10)
-          : Number.NaN;
-      if (
-        isCompanyLogin(me) &&
-        Number.isFinite(sessionCid) &&
-        sessionCid === numId
-      ) {
-        companySessionSyncedKeyRef.current = key;
-        setLoadError((prev) => (prev === i18n.couldNotSwitchCompany ? "" : prev));
-        return true;
-      }
-
-      if (companySessionSyncedKeyRef.current === key) {
-        return true;
-      }
-
       try {
-        const j = await syncCompanySessionApi(numId, vg || null);
-        if (!j?.success) {
+        const q = new URLSearchParams({ company_id: String(id) });
+        const vg = viewGroup ? String(viewGroup).trim() : "";
+        if (vg) q.set("view_group", vg);
+        const res = await fetch(
+          buildApiUrl(`api/session/update_company_session_api.php?${q.toString()}`),
+          {
+            credentials: "include",
+          }
+        );
+        const j = await res.json();
+        if (!res.ok || !j.success) {
           const reason = String(j?.data?.reason || "").toLowerCase();
           const msg = String(j?.message || j?.error || "");
           const lower = msg.toLowerCase();
@@ -539,12 +516,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             setCompanyAccessModal({ open: true, message: modalMessage });
             setLoadError(modalMessage);
           } else {
-            setLoadError(msg || i18n.couldNotSwitchCompany);
+            setLoadError(j.message || j.error || i18n.couldNotSwitchCompany);
           }
           return false;
         }
-        companySessionSyncedKeyRef.current = key;
-        setLoadError("");
         if (typeof window.updateSidebarDataCaptureVisibility === "function" && j?.data) {
           window.updateSidebarDataCaptureVisibility(j.data.has_gambling, j.data.has_bank);
         }
@@ -555,7 +530,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return false;
       }
     },
-    [i18n.couldNotSwitchCompany, selectedGroup, me]
+    [i18n.couldNotSwitchCompany, selectedGroup]
   );
 
   const applyCurrencyCodes = useCallback((codes, cid) => {
@@ -2570,7 +2545,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   ]);
 
   useLayoutEffect(() => {
-    if (!bootstrapDoneRef.current || !me || companyId != null || groupAllMode) return;
+    if (!me || companyId != null || groupAllMode) return;
     if (companyLoginRequiresSubsidiaryWithGroup(me)) {
       if (groupsAllMode) setGroupsAllMode(false);
     } else if (groupsAllMode || canUseGroupOnlyMode(me, selectedGroup)) {
@@ -2605,15 +2580,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       notifyDashboardGroupFilterChanged(bootGroup, id, { companyCode: target.company_id });
     }
     applyCompanySelection(id);
-    const sessionCid =
-      me?.company_id != null && me?.company_id !== ""
-        ? parseInt(me.company_id, 10)
-        : Number.NaN;
-    const skipSessionSync =
-      isCompanyLogin(me) && Number.isFinite(sessionCid) && sessionCid === id;
-    if (!skipSessionSync) {
-      void syncCompanySession(id, bootGroup);
-    }
+    void syncCompanySession(id, bootGroup);
   }, [
     me,
     selectedGroup,

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 
 import {
   companiesForCompanyPicker,
-  companiesForPickerWhenGroupClosed,
   dedupeOwnerCompaniesByCode,
   excludeGroupLabelsFromCompanyPicker,
   isDashboardGroupOnlyMode,
@@ -121,15 +120,12 @@ export function useDashboardStyleGcFilter({
   );
 
   const companiesForPicker = useMemo(() => {
-    const preferred = preferredCompanyId ?? companyId;
-    const list = selectedGroup
-      ? companiesForCompanyPicker(companies, selectedGroup, groupIds)
-      : companiesForPickerWhenGroupClosed(me, companies, groupIds, preferred);
+    const list = companiesForCompanyPicker(companies, selectedGroup, groupIds);
     return excludeGroupLabelsFromCompanyPicker(
-      dedupeOwnerCompaniesByCode(list, preferred),
+      dedupeOwnerCompaniesByCode(list, preferredCompanyId ?? companyId),
       groupIds
     );
-  }, [companies, selectedGroup, groupIds, preferredCompanyId, companyId, me]);
+  }, [companies, selectedGroup, groupIds, preferredCompanyId, companyId]);
 
   const handlePickGroup = useCallback(
     async (gid) => {

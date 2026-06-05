@@ -255,7 +255,6 @@ export function useTransactionData({
             snapCompanies: snapRows,
             snapCompaniesAll: rows,
             snapGroupIds: sortedUniqueGroupIds(snapRows),
-            sessionMe: u,
             viewerRole: String(u.role || "").toLowerCase(),
             mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
           };
