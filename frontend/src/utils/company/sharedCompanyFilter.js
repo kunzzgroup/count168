@@ -742,23 +742,28 @@ export function persistDashboardGroupFilter(selectedGroup) {
 }
 
 /** Company login: deselect group pill while keeping company (never group-only). */
-export function clearDashboardGroupFilterKeepCompany(companyId) {
+export function clearDashboardGroupFilterKeepCompany(companyId, companyRow = null) {
   sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
   persistDashboardGroupFilter(null);
   persistDashboardGroupOnlyMode(false);
   persistDashboardFilterState(null, companyId, { allowGroupOnly: false });
-  notifyDashboardGroupFilterChanged(null, companyId);
+  const id = Number(companyId);
+  const row = companyRow ?? findOwnerCompanyById(id);
+  const code = row?.company_id ? String(row.company_id).trim().toUpperCase() : null;
+  const flags = Number.isFinite(id) && id > 0 ? peekCompanySessionFlags(id) : null;
+  notifyDashboardGroupFilterChanged(null, id, {
+    ignoreGroupOnly: true,
+    companyCode: code ?? flags?.company_code ?? null,
+    hasGambling: flags?.has_gambling,
+    hasBank: flags?.has_bank,
+  });
 }
 
 /**
  * Boot-time resolution (matches transaction/maintenance pages): honour session only when it matches current company's group.
  */
 export function resolveInitialSelectedGroupFromSession(companies, currentCompany, loginMe = null) {
-  if (
-    sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1" &&
-    loginMe &&
-    !canUseGroupOnlyMode(loginMe)
-  ) {
+  if (sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1") {
     return null;
   }
   const savedRaw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
