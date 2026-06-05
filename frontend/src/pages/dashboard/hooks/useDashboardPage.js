@@ -36,7 +36,9 @@ import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
 import {
   canUseGroupOnlyMode,
+  companyLoginRequiresSubsidiaryWithGroup,
   isCompanyLogin,
+  resolveCompanyLoginGroupId,
   resolveVisibleGroupIds,
 } from "../../../utils/company/loginScope.js";
 import { sortIds } from "../lib/dashboardEarnings.js";
@@ -179,7 +181,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return !usesGroupLedgerDashboard;
   }, [companyId, selectedGroup, groupsAllMode, groupAllMode, usesGroupLedgerDashboard]);
 
-  const groupsAllGroupLevel = groupsAllMode && companyId == null && !groupAllMode;
+  const requiresSubsidiaryCompany = Boolean(me && companyLoginRequiresSubsidiaryWithGroup(me));
+  const groupsAllGroupLevel =
+    groupsAllMode && companyId == null && !groupAllMode && !requiresSubsidiaryCompany;
   const groupAggregateMode =
     groupAllMode || groupOnlyDashboard || groupsAllGroupLevel || usesGroupLedgerDashboard;
   /** All-currency merge: any scope with 2+ currencies (single company or group aggregate). */
@@ -318,6 +322,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const scopedCompanies = filterCompaniesForLoginScope(cjRows, u);
       setCompanies(scopedCompanies);
       applyLoginScopeToSessionStorageIfNeeded(u, scopedCompanies);
+      if (companyLoginRequiresSubsidiaryWithGroup(u)) {
+        setGroupsAllMode(false);
+      }
 
       const fallbackId =
         scopedCompanies.length === 1
@@ -547,6 +554,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const singleCid =
         cid != null && cid !== "" ? parseInt(cid, 10) : Number.NaN;
       const groupKey = group ? String(group).trim().toUpperCase() : null;
+      if (
+        me &&
+        companyLoginRequiresSubsidiaryWithGroup(me) &&
+        !(Number.isFinite(singleCid) && singleCid > 0)
+      ) {
+        if (scope.clearOnMiss !== false) {
+          setCurrencies([]);
+          setCurrencyCode("");
+        }
+        return false;
+      }
       const explicitScope =
         scope.companyId !== undefined ||
         scope.selectedGroup !== undefined ||
@@ -607,8 +625,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const singleCid = companyId != null ? parseInt(companyId, 10) : null;
     const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
 
-    if (companyId == null && !groupsAllMode) {
-      if (!me || !groupKey || !canUseGroupOnlyMode(me, groupKey)) {
+    if (companyId == null) {
+      const mayLoadWithoutCompany =
+        me &&
+        !companyLoginRequiresSubsidiaryWithGroup(me) &&
+        (groupsAllMode || (groupKey && canUseGroupOnlyMode(me, groupKey)));
+      if (!mayLoadWithoutCompany) {
         setCurrencies([]);
         setCurrencyCode("");
         return;
@@ -1360,6 +1382,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
 
       if (groupsAllMode && !groupAllMode) {
+        if (me && companyLoginRequiresSubsidiaryWithGroup(me)) {
+          throw new Error(i18n.failedToLoadDashboard);
+        }
         const gids = groupIds.filter((g) => String(g || "").trim());
         if (!gids.length) {
           throw new Error(i18n.failedToLoadDashboard);
@@ -2419,6 +2444,30 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const handlePickAllGroups = useCallback(() => {
     if (groupsAllMode) return;
+    if (me && companyLoginRequiresSubsidiaryWithGroup(me)) {
+      const loginGroup = resolveCompanyLoginGroupId(me, companies) || groupIds[0] || null;
+      const pick = loginGroup
+        ? pickDefaultSubsidiaryForGroup(companies, loginGroup, {
+            me,
+            preferredCompanyId: companyId ?? me?.company_id ?? null,
+          })
+        : null;
+      if (pick?.id) {
+        const id = parseInt(pick.id, 10);
+        const g = pick.group_id ? String(pick.group_id).trim().toUpperCase() : loginGroup;
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setMergedSubsetIds(null);
+        setSelectedGroup(g);
+        if (g) sessionStorage.setItem("dashboard_group_filter", g);
+        persistDashboardFilterState(g, id, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, id, { companyCode: pick.company_id });
+        applyCompanySelection(id);
+        primeCurrenciesFromCache({ companyId: id, selectedGroup: g, groupsAllMode: false });
+        void syncCompanySession(id, g);
+      }
+      return;
+    }
     const target = resolveCompanyWhenPickingAllGroups(companies, companyId, groupIds);
     setGroupsAllMode(true);
     setGroupAllMode(false);
@@ -2462,6 +2511,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     companyId,
     companies,
     groupIds,
+    me,
     applyCompanySelection,
     syncCompanySession,
     primeCurrenciesFromCache,
@@ -2493,8 +2543,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   ]);
 
   useLayoutEffect(() => {
-    if (!me || companyId != null || groupsAllMode || groupAllMode) return;
-    if (canUseGroupOnlyMode(me, selectedGroup)) return;
+    if (!me || companyId != null || groupAllMode) return;
+    if (companyLoginRequiresSubsidiaryWithGroup(me)) {
+      if (groupsAllMode) setGroupsAllMode(false);
+    } else if (groupsAllMode || canUseGroupOnlyMode(me, selectedGroup)) {
+      return;
+    }
 
     persistDashboardGroupOnlyMode(false);
 
@@ -2635,6 +2689,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     closeCompanyAccessModal,
     companiesForPicker,
     groupIds,
+    showGroupsAllOption: !requiresSubsidiaryCompany,
     selectedGroup,
     groupsAllMode,
     groupAllMode,

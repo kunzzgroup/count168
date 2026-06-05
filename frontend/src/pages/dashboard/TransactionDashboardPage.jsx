@@ -46,6 +46,7 @@ export default function TransactionDashboardPage() {
             i18n={i18n}
             effectiveDateRangeText={effectiveDateRangeText}
             groupIds={page.groupIds}
+            showGroupsAllOption={page.showGroupsAllOption}
             selectedGroup={page.selectedGroup}
             groupsAllMode={page.groupsAllMode}
             groupAllMode={page.groupAllMode}
