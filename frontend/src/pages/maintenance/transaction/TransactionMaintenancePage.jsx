@@ -972,7 +972,7 @@ export default function TransactionMaintenancePage() {
     try {
       const { redirected } = await runMaintenanceCompanySwitch({
         companyRow: c,
-        viewGroup: newGroup ?? selectedGroup,
+        viewGroup: newGroup ?? null,
         currentPath: location.pathname,
         navigate,
         updateSessionCompany,

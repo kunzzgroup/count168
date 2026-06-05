@@ -618,7 +618,7 @@ export default function PaymentMaintenancePage() {
     try {
       const { redirected } = await runMaintenanceCompanySwitch({
         companyRow: c,
-        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
+        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : null,
         currentPath: location.pathname,
         navigate,
         updateSessionCompany,

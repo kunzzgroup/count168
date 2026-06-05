@@ -26,8 +26,11 @@ import {
   readPersistedDashboardGcFilter,
   readDashboardSelectedCompanyId,
   DASHBOARD_GROUP_FILTER_KEY,
+  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   resolveBootCompanyId,
+  resolveCompanyWhenClosingGroup,
   resolveInitialSelectedGroupFromSession,
+  sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
@@ -249,24 +252,40 @@ export default function CaptureMaintenancePage() {
         setCompanies(rows);
 
         // Set Initial Company
-        const initialCompanyId = resolveBootCompanyId({
+        const groupFilterOptOut =
+          typeof sessionStorage !== "undefined" &&
+          sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+        let initialCompanyId = resolveBootCompanyId({
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
+        const initialUiCompanyId = readInitialMaintenanceCompanyId();
+        if (groupFilterOptOut && initialUiCompanyId != null) {
+          initialCompanyId = initialUiCompanyId;
+        } else if (groupFilterOptOut && initialCompanyId == null) {
+          const pick = resolveCompanyWhenClosingGroup(
+            rows,
+            null,
+            sortedUniqueGroupIds(rows),
+          );
+          if (pick?.id != null) initialCompanyId = Number(pick.id);
+        }
         const currentComp =
           initialCompanyId != null
             ? rows.find((c) => Number(c.id) === initialCompanyId)
             : null;
-        const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
+        const bootGroup = groupFilterOptOut
+          ? null
+          : resolveInitialSelectedGroupFromSession(rows, currentComp, u);
         setSelectedGroup(bootGroup);
         const persistedGc = readPersistedDashboardGcFilter();
-        const initialUiCompanyId = readInitialMaintenanceCompanyId();
         const sessionGroup = readInitialMaintenanceSelectedGroup();
-        const groupOnlyBoot =
-          isDashboardGroupOnlyMode() ||
-          persistedGc.groupOnly ||
-          (bootGroup != null && initialUiCompanyId == null) ||
-          (sessionGroup != null && initialUiCompanyId == null);
+        const groupOnlyBoot = groupFilterOptOut
+          ? false
+          : isDashboardGroupOnlyMode() ||
+            persistedGc.groupOnly ||
+            (bootGroup != null && initialUiCompanyId == null) ||
+            (sessionGroup != null && initialUiCompanyId == null);
         if (groupOnlyBoot) {
           persistDashboardGroupOnlyMode(true);
           persistDashboardSelectedCompany(null);
@@ -543,14 +562,14 @@ export default function CaptureMaintenancePage() {
     try {
       const { redirected } = await runMaintenanceCompanySwitch({
         companyRow: c,
-        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
+        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : null,
         currentPath: location.pathname,
         navigate,
         updateSessionCompany,
         onStay: async () => {
           const switchedScope = resolveCaptureMaintenanceScope({
             companies,
-            selectedGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : selectedGroup,
+            selectedGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : null,
             companyId: Number(c.id),
             groupsAllMode,
             groupAllMode,
