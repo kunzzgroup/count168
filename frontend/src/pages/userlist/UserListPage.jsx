@@ -102,20 +102,27 @@ function buildModalCompanyList(raw) {
   });
 }
 
-/** Group login add/edit user: one row per accessible group (AP, IG), id = group entity company id only. */
+/** Group login add/edit user: one row per accessible group (AP, IG). Prefer group-entity id; fallback to any company in group for checkbox id. */
 function buildModalGroupOptions(companies, me) {
   const gids = resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies);
   const out = [];
+  const seen = new Set();
   for (const gid of gids) {
-    const entities = companiesGroupEntityList(companies, gid);
-    const entity = entities.find((c) => companyRowIsGroupEntity(c, gid)) || entities[0];
-    if (!entity || !companyRowIsGroupEntity(entity, gid)) continue;
+    const g = String(gid || "").trim().toUpperCase();
+    if (!g || seen.has(g)) continue;
+    const entities = companiesGroupEntityList(companies, g);
+    const entity =
+      entities.find((c) => companyRowIsGroupEntity(c, g)) ||
+      pickDefaultCompanyForGroup(companies, g, { me, groupEntityOnly: true }) ||
+      pickDefaultCompanyForGroup(companies, g, { me, nativeOnly: true }) ||
+      pickDefaultCompanyForGroup(companies, g, { me });
     const id = entity?.id != null ? Number(entity.id) : Number.NaN;
     if (!Number.isFinite(id) || id <= 0) continue;
+    seen.add(g);
     out.push({
       id,
-      company_id: gid,
-      group_id: gid,
+      company_id: g,
+      group_id: g,
     });
   }
   return out;
@@ -1435,10 +1442,6 @@ export default function UserListPage() {
   }, [modalPickerCompanies]);
 
   const loadCompaniesForModal = async () => {
-    if (modalPickerCompanies.length) {
-      setModalCompanies(modalPickerCompanies);
-      return modalPickerCompanies;
-    }
     try {
       const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);
       // Group-only mode => choose group list.
@@ -1447,6 +1450,10 @@ export default function UserListPage() {
         const groupOptions = buildModalGroupOptions(rows, me);
         setModalCompanies(groupOptions);
         return groupOptions;
+      }
+      if (modalPickerCompanies.length) {
+        setModalCompanies(modalPickerCompanies);
+        return modalPickerCompanies;
       }
       const base = isGroupLogin(me)
         ? rows
