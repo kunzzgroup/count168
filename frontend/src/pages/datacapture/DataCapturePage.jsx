@@ -25,7 +25,7 @@ import {
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
-import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
+import { canClearCompanySelection, canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 
@@ -961,6 +961,8 @@ export default function DataCapturePage() {
                     pickerCompanyId={companyId}
                     onPickAllInGroup={handlePickAllInGroup}
                     onPickCompany={handlePickCompany}
+                    allowCompanyDeselect={canClearCompanySelection(me, selectedGroup)}
+                    onClearCompanyPill={() => handleClearCompany()}
                   />
                 </div>
               )}

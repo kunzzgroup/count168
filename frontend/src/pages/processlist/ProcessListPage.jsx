@@ -832,10 +832,36 @@ export default function ProcessListPage() {
 
   onSwitchCompanyRef.current = onSwitchCompany;
 
+  const enterGroupOnlyScope = useCallback(
+    (groupId) => {
+      const g = String(groupId || "").trim().toUpperCase();
+      if (!g || !canUseGroupOnlyMode(sessionMe, g)) return false;
+      setGroupFilterKind("follow");
+      setSelectedGroup(g);
+      flushSync(() => {
+        setCompanyId(null);
+        setRows([]);
+      });
+      syncUrl({ companyId: null });
+      persistDashboardGroupFilter(g);
+      persistDashboardFilterState(g, null, { allowGroupOnly: true });
+      resetAnchorSessionRef();
+      notifyDashboardGroupFilterChanged(g, null);
+      return true;
+    },
+    [resetAnchorSessionRef, sessionMe, syncUrl],
+  );
+
   const onPickCompanyPill = useCallback(
     (c) => {
       const nextId = Number(c?.id);
-      if (!nextId || Number(companyId) === nextId) return;
+      if (!nextId) return;
+      if (Number(companyId) === nextId) {
+        const gid =
+          (c.group_id ? String(c.group_id).toUpperCase().trim() : null) || selectedGroupKey;
+        enterGroupOnlyScope(gid);
+        return;
+      }
 
       const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       const nextGroup = gid || null;
@@ -864,15 +890,16 @@ export default function ProcessListPage() {
 
       void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
     },
-    [applyProcessListCache, companyId, syncUrl],
+    [applyProcessListCache, companyId, enterGroupOnlyScope, selectedGroupKey, syncUrl],
   );
 
   const handlePickGroup = useCallback(
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
-        if (!canUseGroupOnlyMode(sessionMe, g)) {
+      if (groupFilterKind === "follow" && g === selectedGroupKey) {
+        if (companyId != null) {
+          if (enterGroupOnlyScope(g)) return;
           setGroupFilterKind("ungrouped");
           setSelectedGroup(null);
           clearDashboardGroupFilterKeepCompany(companyId);
@@ -882,16 +909,7 @@ export default function ProcessListPage() {
       }
 
       if (canUseGroupOnlyMode(sessionMe, g)) {
-        setGroupFilterKind("follow");
-        setSelectedGroup(g);
-        persistDashboardGroupFilter(g);
-        flushSync(() => {
-          setCompanyId(null);
-          setRows([]);
-        });
-        persistDashboardFilterState(g, null, { allowGroupOnly: true });
-        resetAnchorSessionRef();
-        notifyDashboardGroupFilterChanged(g, null);
+        enterGroupOnlyScope(g);
         return;
       }
 
@@ -941,8 +959,8 @@ export default function ProcessListPage() {
       companies,
       companyId,
       debouncedSearch,
+      enterGroupOnlyScope,
       groupFilterKind,
-      resetAnchorSessionRef,
       selectedGroupKey,
       sessionMe,
       showAll,

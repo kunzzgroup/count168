@@ -473,9 +473,7 @@ export default function BankProcessListPage() {
                         className={`user-gc-segment${active ? " is-on" : ""}`}
                         onMouseEnter={() => warmBankProcessListCompanyCache(c.id)}
                         onFocus={() => warmBankProcessListCompanyCache(c.id)}
-                        onClick={() => {
-                          if (!active) onPickCompanyPill(c);
-                        }}
+                        onClick={() => onPickCompanyPill(c)}
                       >
                         {String(c.company_id || "").toUpperCase()}
                       </button>
