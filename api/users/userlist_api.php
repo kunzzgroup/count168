@@ -646,7 +646,32 @@ function userlist_fetch_company_scope_user_ids(PDO $pdo, array $companyIds): arr
         }
     }
 
-    return array_values(array_filter(array_map('intval', array_keys($ids)), static fn (int $id): bool => $id > 0));
+    $out = array_values(array_filter(array_map('intval', array_keys($ids)), static fn (int $id): bool => $id > 0));
+    if ($out === [] || !userlist_table_exists($pdo, 'user_group_map')) {
+        return $out;
+    }
+
+    // Group-ledger users (user_group_map) only appear on company list when explicitly
+    // assigned a subsidiary (scope_type=company). Legacy entity rows must not leak in.
+    $companyIdSet = array_fill_keys($companyIds, true);
+    $filtered = [];
+    foreach ($out as $userId) {
+        $stmt = $pdo->prepare('SELECT 1 FROM user_group_map WHERE user_id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        if (!(bool) $stmt->fetchColumn()) {
+            $filtered[] = $userId;
+            continue;
+        }
+        $subsidiaries = userlist_fetch_user_subsidiary_company_ids($pdo, $userId);
+        foreach ($subsidiaries as $cid) {
+            if (isset($companyIdSet[(int) $cid])) {
+                $filtered[] = $userId;
+                break;
+            }
+        }
+    }
+
+    return $filtered;
 }
 
 function userlist_insert_company_scope_map(PDO $pdo, int $userId, int $companyId): void
