@@ -1,5 +1,8 @@
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import { maintenancePageAllowGroupOnlyPill } from "../../../utils/company/loginScope.js";
+import {
+  canClearCompanySelection,
+  canUseGroupOnlyMode,
+} from "../../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 
 /**
@@ -29,7 +32,7 @@ export function useMaintenanceGroupCompanyFilter({
     preferredCompanyId: companyId,
     me,
     autoPickCompanyWhenEmpty: false,
-    forceAllowGroupOnly: maintenancePageAllowGroupOnlyPill(me),
+    forceAllowGroupOnly: canUseGroupOnlyMode(me),
     clearCompanyOnActiveGroupReselect: false,
     enableGroupAnchorSession,
   });
@@ -43,8 +46,7 @@ export function useMaintenanceGroupCompanyFilter({
     handlePickAllInGroup: gc.handlePickAllInGroup,
     groupsAllMode: gc.groupsAllMode,
     groupAllMode: gc.groupAllMode,
-    /** Maintenance pages: always allow re-clicking active company pill → group-only (AP without C168). */
-    allowClearCompany: true,
+    allowClearCompany: canClearCompanySelection(me, selectedGroup),
     isListScopeReady: gc.isListScopeReady,
   };
 }

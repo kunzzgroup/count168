@@ -39,11 +39,11 @@ import {
 import {
   canClearCompanySelection,
   canUseGroupOnlyMode,
+  companyLoginRequiresSubsidiaryWithGroup,
   isCompanyLogin,
   isGroupLedgerMode,
   isGroupLogin,
   getLoginIdentifier,
-  maintenancePageAllowGroupOnlyPill,
   resolveVisibleGroupIds,
 } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
@@ -706,9 +706,7 @@ export default function UserListPage() {
 
   const groupOnlyUserList = useMemo(() => {
     if (groupsAllMode || groupAllMode) return false;
-    if (isGroupLedgerMode(me, { companyId, selectedGroup })) return true;
-    if (!selectedGroup || companyId != null) return false;
-    return maintenancePageAllowGroupOnlyPill(me) && isDashboardGroupOnlyMode();
+    return isGroupLedgerMode(me, { companyId, selectedGroup });
   }, [selectedGroup, companyId, me, groupsAllMode, groupAllMode]);
 
   const anchorCompanyId = useMemo(() => {
@@ -1081,16 +1079,13 @@ export default function UserListPage() {
     groupAllMode,
   ]);
 
-  /** Company / owner login: never keep group-only — auto-pick a subsidiary when a group is selected. */
+  /** Company login without Admin-assigned group must auto-pick a subsidiary when a group pill is shown. */
   useLayoutEffect(() => {
     if (bootLoading || !me) return;
-    if (
-      (isDashboardGroupOnlyMode() || maintenancePageAllowGroupOnlyPill(me)) &&
-      (isGroupLogin(me) || canUseGroupOnlyMode(me) || maintenancePageAllowGroupOnlyPill(me))
-    ) {
+    if (!selectedGroup || companyId != null) return;
+    if (isGroupLogin(me) || !requiresCompanyWithGroup) {
       return;
     }
-    if (!selectedGroup || companyId != null) return;
     const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
       me,
       preferredCompanyId: me?.company_id ?? companyId,
@@ -1230,8 +1225,7 @@ export default function UserListPage() {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       const current = String(selectedGroup || "").trim().toUpperCase();
-      const allowGroupOnly =
-        isGroupLogin(me) || canUseGroupOnlyMode(me) || maintenancePageAllowGroupOnlyPill(me);
+      const allowGroupOnly = isGroupLogin(me) || canUseGroupOnlyMode(me, g);
 
       if (g === current && companyId == null) {
         if (allowGroupOnly) deselectGroupKeepCompany();
@@ -1307,7 +1301,7 @@ export default function UserListPage() {
   );
 
   /** Company login without group assignment still needs a subsidiary when a group pill is shown. */
-  const requiresCompanyWithGroup = isCompanyLogin(me) && !canUseGroupOnlyMode(me);
+  const requiresCompanyWithGroup = companyLoginRequiresSubsidiaryWithGroup(me);
 
   const syncGcFilterFromSession = useCallback(() => {
     if (bootLoading || !companies.length) return;
@@ -2134,7 +2128,7 @@ export default function UserListPage() {
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={onPickCompanyPill}
               onClearCompanyPill={clearCompanyPillSelection}
-              allowCompanyDeselect={canClearCompanySelection(me)}
+              allowCompanyDeselect={canClearCompanySelection(me, selectedGroup)}
               switchingCompany={false}
               showAllOption={false}
             />

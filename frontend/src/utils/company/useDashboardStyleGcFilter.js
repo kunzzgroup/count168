@@ -59,8 +59,12 @@ export function useDashboardStyleGcFilter({
   /** Current user from AuthSessionContext — enforces group vs company login rules. */
   me = null,
 }) {
-  const allowGroupOnly = canUseGroupOnlyMode(me) || forceAllowGroupOnly;
-  const allowClearCompany = canClearCompanySelection(me) || forceAllowGroupOnly;
+  const activeGroup = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+  const allowGroupOnly =
+    canUseGroupOnlyMode(me, activeGroup) || (forceAllowGroupOnly && canUseGroupOnlyMode(me));
+  const allowClearCompany =
+    canClearCompanySelection(me, activeGroup) ||
+    (forceAllowGroupOnly && canUseGroupOnlyMode(me, activeGroup));
 
   const onSelectCompanyRef = useRef(onSelectCompany);
   const onPrepareCompanySelectRef = useRef(onPrepareCompanySelect);

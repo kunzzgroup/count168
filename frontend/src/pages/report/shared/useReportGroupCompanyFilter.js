@@ -1,5 +1,5 @@
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import { maintenancePageAllowGroupOnlyPill } from "../../../utils/company/loginScope.js";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 
 /**
@@ -35,7 +35,7 @@ export function useReportGroupCompanyFilter({
     autoPickCompanyWhenEmpty,
     enableGroupAnchorSession,
     broadcastFilterToLayout,
-    forceAllowGroupOnly: maintenancePageAllowGroupOnlyPill(me),
+    forceAllowGroupOnly: canUseGroupOnlyMode(me),
     clearCompanyOnActiveGroupReselect: false,
   });
 }

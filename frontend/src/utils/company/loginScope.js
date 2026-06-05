@@ -136,16 +136,27 @@ export function getAssignedCompanyIds(me) {
   return out.sort((a, b) => a - b);
 }
 
+/**
+ * Admin assigned group ledger (user_group_map) — NOT login_scope.
+ * Company-login users only enter group-only UI when this is non-empty.
+ */
+export function userHasAssignedGroupLedger(me) {
+  return getAssignedGroupCodes(me).length > 0;
+}
+
 export function userCanUseGroupLedger(me) {
   if (!me) return false;
-  if (me.can_use_group_ledger === true) return true;
   if (isGroupLogin(me)) return true;
-  return getAssignedGroupCodes(me).length > 0;
+  if (isCompanyLogin(me)) {
+    return userHasAssignedGroupLedger(me);
+  }
+  return Boolean(me.can_use_group_ledger) || userHasAssignedGroupLedger(me);
 }
 
 /**
  * Permission: may this user access group ledger for a specific group code?
- * Group login uses login scope; company login uses admin assignment (and owner via API).
+ * - Group login: login scope + linked groups
+ * - Company login: Admin User modal Groups row only (assigned_group_codes)
  */
 export function canAccessGroupLedgerForGroup(me, groupCode) {
   if (!me || groupCode == null || String(groupCode).trim() === "") return false;
@@ -155,10 +166,16 @@ export function canAccessGroupLedgerForGroup(me, groupCode) {
     if (ident === g) return true;
     return resolveAccessibleGroupIds(me).includes(g);
   }
+  if (isCompanyLogin(me)) {
+    return getAssignedGroupCodes(me).includes(g);
+  }
   return getAssignedGroupCodes(me).includes(g);
 }
 
 /**
+ * Runtime: may user deselect company and view group ledger?
+ * Company login without Admin-assigned Group → false (group pill wraps company only).
+ *
  * @param {object|null|undefined} me
  * @param {string|null|undefined} [groupCode] When set, requires assignment to that specific group.
  */
@@ -168,6 +185,11 @@ export function canUseGroupOnlyMode(me, groupCode = null) {
     return canAccessGroupLedgerForGroup(me, groupCode);
   }
   return userCanUseGroupLedger(me);
+}
+
+/** Company login without group assignment must keep a subsidiary company when a group pill is shown. */
+export function companyLoginRequiresSubsidiaryWithGroup(me) {
+  return isCompanyLogin(me) && !userHasAssignedGroupLedger(me);
 }
 
 /**
@@ -194,9 +216,15 @@ export function shouldClearGroupOnlyOnCompanySelect(me, companyId) {
   return true;
 }
 
-/** User/Account List etc.: allow group-only pill when login or Admin-assigned group ledger access. */
+/**
+ * Maintenance / owner pages: group-only without auto-picking subsidiary.
+ * Company login still requires Admin-assigned group (same as canUseGroupOnlyMode).
+ */
 export function maintenancePageAllowGroupOnlyPill(me) {
-  return !isCompanyLogin(me) || canUseGroupOnlyMode(me);
+  if (isCompanyLogin(me)) {
+    return canUseGroupOnlyMode(me);
+  }
+  return true;
 }
 
 /** Mirrors api/c168/c168_domain_access.php c168DomainPageAllowedRoles */
@@ -226,8 +254,12 @@ export function userRoleAllowsC168AutoRenew(role, userType) {
   return C168_AUTO_RENEW_ROLES.has(r);
 }
 
-export function canClearCompanySelection(me) {
-  return canUseGroupOnlyMode(me);
+/**
+ * May click active company pill again to clear it (enter group-only).
+ * @param {string|null|undefined} [groupCode] Active group pill code (AP/IG).
+ */
+export function canClearCompanySelection(me, groupCode = null) {
+  return canUseGroupOnlyMode(me, groupCode);
 }
 
 /**

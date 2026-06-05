@@ -723,6 +723,6 @@ export function useTransactionData({
     onCompanyButtonClick,
     onPickAllGroups,
     onPickAllInGroup,
-    allowCompanyDeselect: canClearCompanySelection(u),
+    allowCompanyDeselect: canClearCompanySelection(u, filterSnapshot?.selectedGroup),
   };
 }

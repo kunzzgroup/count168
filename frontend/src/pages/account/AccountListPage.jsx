@@ -50,7 +50,6 @@ import {
   isCompanyLogin,
   isGroupLedgerMode,
   isGroupLogin,
-  maintenancePageAllowGroupOnlyPill,
   normalizeCompanyCode,
 } from "../../utils/company/loginScope.js";
 import {
@@ -548,7 +547,7 @@ export default function AccountListPage() {
           Boolean(bootGroup) &&
           (persistedGc.groupOnly ||
             isDashboardGroupOnlyMode() ||
-            maintenancePageAllowGroupOnlyPill(sessionMe));
+            canUseGroupOnlyMode(sessionMe, bootGroup));
         const resolvedCompanyId = groupOnlyBoot ? null : initialCompanyId;
 
         if (bootGroup) {
@@ -807,7 +806,7 @@ export default function AccountListPage() {
     preferredCompanyId: companyId,
     me: sessionMe,
     autoPickCompanyWhenEmpty: false,
-    forceAllowGroupOnly: maintenancePageAllowGroupOnlyPill(sessionMe),
+    forceAllowGroupOnly: canUseGroupOnlyMode(sessionMe),
     broadcastFilterToLayout: false,
   });
 
@@ -1050,7 +1049,7 @@ export default function AccountListPage() {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       const current = String(selectedGroup || "").trim().toUpperCase();
-      const allowGroupOnly = maintenancePageAllowGroupOnlyPill(sessionMe);
+      const allowGroupOnly = isGroupLogin(sessionMe) || canUseGroupOnlyMode(sessionMe, g);
 
       if (!g) return;
 
@@ -2292,7 +2291,7 @@ export default function AccountListPage() {
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={onPickCompanyPill}
               onClearCompanyPill={clearCompanyPillSelection}
-              allowCompanyDeselect={canClearCompanySelection(sessionMe)}
+              allowCompanyDeselect={canClearCompanySelection(sessionMe, selectedGroup)}
               switchingCompany={false}
               showAllOption={false}
             />
