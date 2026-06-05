@@ -1515,7 +1515,18 @@ export default function UserListPage() {
       const allowed = new Set(modalPickerCompanies.map((c) => Number(c.id)));
       const ids = detail.company_ids.map(Number).filter((id) => allowed.has(id));
       if (groupOnlyUserList) {
-        setSelectedCompanyIds(ids.length ? [ids[0]] : modalPickerCompanies[0] ? [Number(modalPickerCompanies[0].id)] : []);
+        const defaultPick = modalPickerCompanies.find(
+          (c) => String(c.group_id || "").toUpperCase() === String(selectedGroup || "").toUpperCase()
+        );
+        setSelectedCompanyIds(
+          ids.length
+            ? ids
+            : defaultPick?.id != null
+              ? [Number(defaultPick.id)]
+              : modalPickerCompanies[0]
+                ? [Number(modalPickerCompanies[0].id)]
+                : []
+        );
       } else {
         setSelectedCompanyIds(ids.length ? ids : modalPickerCompanies.map((c) => Number(c.id)));
       }
@@ -1523,7 +1534,7 @@ export default function UserListPage() {
       setSelectedCompanyIds(scopeCompanyId ? [Number(scopeCompanyId)] : []);
     }
     if (row.is_owner_shadow) { setPermSelected(new Set(PERMISSION_KEYS)); setSelectedAccountIds(new Set(accList.map(a => Number(a.id)))); setSelectedProcessIds(new Set(procList.map(p => Number(p.id)))); setSelectedCompanyIds([]); }
-  }, [scopeCompanyId, currentUserRole, modalPickerCompanies, groupOnlyUserList]);
+  }, [scopeCompanyId, currentUserRole, modalPickerCompanies, groupOnlyUserList, selectedGroup]);
 
   const openAdd = async () => {
     if (userMutationsBlocked) {
@@ -1697,6 +1708,14 @@ export default function UserListPage() {
     }
     if (isUserModalPageReadOnlyLock(isEditMode, editingRow, form.role, form.read_only, currentUserId)) return;
     if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
+    if (
+      groupOnlyUserList &&
+      (currentUserRole === "admin" || currentUserRole === "owner") &&
+      selectedCompanyIds.length === 0
+    ) {
+      notify(t("groupNoneSelected"), "danger");
+      return;
+    }
     const emailCheck = validateEmail(form.email);
     if (!emailCheck.ok) { notify(t("invalidEmailFormat"), "danger"); return; }
     const accountPerms = Array.from(selectedAccountIds).map(id => { const a = modalAccounts.find(x => Number(x.id) === Number(id)); return { id: Number(id), account_id: a?.account_id || "" }; });

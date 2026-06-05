@@ -677,18 +677,16 @@ export default function UserModal({
                   onChange={(e) => setCompanySearchQuery(e.target.value)}
                   autoComplete="off"
                 />
-                {!groupPickerMode ? (
-                  <button
-                    type="button"
-                    className="user-modal-company-picker-select-all"
-                    disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0 || pageReadOnlyLock}
-                    onClick={() => {
-                      setSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
-                    }}
-                  >
-                    {t("selectAll")}
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="user-modal-company-picker-select-all"
+                  disabled={fieldLocks.company || !!editingRow?.is_owner_shadow || modalCompanies.length === 0 || pageReadOnlyLock}
+                  onClick={() => {
+                    setSelectedCompanyIds(modalCompanies.map((c) => Number(c.id)));
+                  }}
+                >
+                  {t("selectAll")}
+                </button>
               </div>
               <ul className="user-modal-company-picker-list">
                 {companyPickerFiltered.map((c) => {
@@ -700,15 +698,10 @@ export default function UserModal({
                     <li key={c.id} className="user-modal-company-picker-row">
                       <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
                         <input
-                          type={groupPickerMode ? "radio" : "checkbox"}
-                          name={groupPickerMode ? "user-modal-group-pick" : undefined}
+                          type="checkbox"
                           checked={checked}
                           disabled={rowDisabled}
                           onChange={() => {
-                            if (groupPickerMode) {
-                              setSelectedCompanyIds([id]);
-                              return;
-                            }
                             setSelectedCompanyIds((prev) => {
                               if (prev.includes(id)) return prev.filter((x) => x !== id);
                               return [...prev, id];
