@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
 require_once __DIR__ . '/../transactions/transaction_scope.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 
 /**
  * Group scope must query the group entity row (company_id = group code), never a subsidiary.
@@ -56,6 +57,199 @@ function formulaMaintenanceSqlSubsidiaryCompanyFilter(string $dctAlias = 'dct'):
     ) ";
 }
 
+/**
+ * @return list<array{id: int, pcode: string, currency_code: string, desc_name: string, currency_scope: string}>
+ */
+function formulaMaintenanceFetchPayrollProcessRows(PDO $pdo, int $companyId): array
+{
+    if ($companyId <= 0) {
+        return [];
+    }
+    $stmt = $pdo->prepare("
+        SELECT p.id,
+               UPPER(TRIM(p.process_id)) AS pcode,
+               UPPER(TRIM(COALESCE(c.code, ''))) AS currency_code,
+               UPPER(TRIM(COALESCE(d.name, ''))) AS desc_name,
+               LOWER(TRIM(COALESCE(c.scope_type, ''))) AS currency_scope
+        FROM process p
+        LEFT JOIN currency c ON c.id = p.currency_id
+        LEFT JOIN description d ON d.id = p.description_id
+        WHERE p.company_id = ?
+          AND UPPER(TRIM(p.process_id)) IN ('SALARY', 'BONUS')
+        ORDER BY p.id ASC
+    ");
+    $stmt->execute([$companyId]);
+    $rows = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $rows[] = [
+            'id' => (int) ($row['id'] ?? 0),
+            'pcode' => (string) ($row['pcode'] ?? ''),
+            'currency_code' => (string) ($row['currency_code'] ?? ''),
+            'desc_name' => (string) ($row['desc_name'] ?? ''),
+            'currency_scope' => (string) ($row['currency_scope'] ?? ''),
+        ];
+    }
+
+    return $rows;
+}
+
+/** Heuristic: group ledger payroll (SALARY) vs subsidiary SALARY (SALARY) on same anchor company. */
+function formulaMaintenanceRowLooksLikeGroupPayroll(array $row): bool
+{
+    if (($row['currency_scope'] ?? '') === 'group') {
+        return true;
+    }
+    $pcode = strtoupper(trim((string) ($row['pcode'] ?? '')));
+    $desc = strtoupper(trim((string) ($row['desc_name'] ?? '')));
+    if ($pcode !== '' && $desc === $pcode) {
+        return true;
+    }
+    $ccy = strtoupper(trim((string) ($row['currency_code'] ?? '')));
+    if ($ccy === 'SGD') {
+        return false;
+    }
+    if ($ccy === 'MYR') {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * @return array{group: list<int>, subsidiary: list<int>}
+ */
+function formulaMaintenanceClassifyPayrollProcessIds(PDO $pdo, int $companyId): array
+{
+    $rows = formulaMaintenanceFetchPayrollProcessRows($pdo, $companyId);
+    $group = [];
+    $subsidiary = [];
+    foreach ($rows as $row) {
+        if ($row['id'] <= 0) {
+            continue;
+        }
+        if (formulaMaintenanceRowLooksLikeGroupPayroll($row)) {
+            $group[] = $row['id'];
+        } else {
+            $subsidiary[] = $row['id'];
+        }
+    }
+    if ($subsidiary === [] && count($rows) >= 2) {
+        $byCode = [];
+        foreach ($rows as $row) {
+            $byCode[$row['pcode']][] = $row;
+        }
+        $group = [];
+        $subsidiary = [];
+        foreach ($byCode as $codeRows) {
+            if (count($codeRows) < 2) {
+                foreach ($codeRows as $row) {
+                    if (formulaMaintenanceRowLooksLikeGroupPayroll($row)) {
+                        $group[] = $row['id'];
+                    } else {
+                        $subsidiary[] = $row['id'];
+                    }
+                }
+                continue;
+            }
+            usort($codeRows, static fn (array $a, array $b): int => $a['id'] <=> $b['id']);
+            $group[] = $codeRows[0]['id'];
+            $subsidiary[] = $codeRows[count($codeRows) - 1]['id'];
+        }
+    }
+    if ($group === [] && $subsidiary === [] && $rows !== []) {
+        $group[] = $rows[0]['id'];
+        if (count($rows) > 1) {
+            $subsidiary[] = $rows[count($rows) - 1]['id'];
+        }
+    }
+
+    return [
+        'group' => array_values(array_unique(array_filter($group, static fn (int $id): bool => $id > 0))),
+        'subsidiary' => array_values(array_unique(array_filter($subsidiary, static fn (int $id): bool => $id > 0))),
+    ];
+}
+
+function formulaMaintenanceSqlProcessIdInList(array $ids, string $processAlias = 'p'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $processAlias) ?: 'p';
+    $safe = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+    if ($safe === []) {
+        return ' AND 1=0 ';
+    }
+
+    return ' AND ' . $a . '.id IN (' . implode(',', $safe) . ') ';
+}
+
+function formulaMaintenanceBuildScopeProcessSql(PDO $pdo, int $companyId, bool $isGroupScope): string
+{
+    $class = formulaMaintenanceClassifyPayrollProcessIds($pdo, $companyId);
+    if ($isGroupScope) {
+        $sql = dcSqlGroupProcessFilter('p');
+        if ($class['group'] !== []) {
+            $sql .= formulaMaintenanceSqlProcessIdInList($class['group'], 'p');
+        }
+
+        return $sql;
+    }
+
+    $sql = " AND (
+        UPPER(TRIM(p.process_id)) NOT IN ('SALARY', 'BONUS')";
+    if ($class['subsidiary'] !== []) {
+        $sql .= ' OR p.id IN (' . implode(',', $class['subsidiary']) . ')';
+    }
+    $sql .= ') ';
+
+    return $sql;
+}
+
+function formulaMaintenanceResolveScopedPayrollProcessId(
+    PDO $pdo,
+    int $companyId,
+    string $processCode,
+    bool $isGroupScope
+): ?int {
+    $code = strtoupper(trim($processCode));
+    if (!in_array($code, ['SALARY', 'BONUS'], true)) {
+        return null;
+    }
+    $class = formulaMaintenanceClassifyPayrollProcessIds($pdo, $companyId);
+    $pool = $isGroupScope ? $class['group'] : $class['subsidiary'];
+    if ($pool === []) {
+        return null;
+    }
+    $stmt = $pdo->prepare("
+        SELECT id FROM process
+        WHERE company_id = ? AND id IN (" . implode(',', $pool) . ")
+          AND UPPER(TRIM(process_id)) = ?
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$companyId, $code]);
+    $id = (int) ($stmt->fetchColumn() ?: 0);
+
+    return $id > 0 ? $id : (int) $pool[0];
+}
+
+/**
+ * Template rows: group ledger vs subsidiary company when scope_type column exists.
+ */
+function formulaMaintenanceSqlTemplateScopeFilter(bool $isGroupScope, int $scopeBindId = 0): string
+{
+    global $pdo;
+    if (!isset($pdo) || !tenant_table_has_scope_columns($pdo, 'data_capture_templates')) {
+        return '';
+    }
+    if ($isGroupScope) {
+        if ($scopeBindId <= 0) {
+            return " AND dct.scope_type = 'group' ";
+        }
+
+        return ' AND dct.scope_type = \'group\' AND dct.scope_id = ' . (int) $scopeBindId . ' ';
+    }
+
+    return " AND (dct.scope_type IS NULL OR TRIM(dct.scope_type) = '' OR dct.scope_type = 'company') ";
+}
+
 function formulaMaintenanceCompanyIsGroupEntity(PDO $pdo, int $companyId): bool
 {
     if ($companyId <= 0) {
@@ -81,84 +275,78 @@ function formulaMaintenanceCompanyIsGroupEntity(PDO $pdo, int $companyId): bool
 function formulaMaintenanceResolveRequestScope(PDO $pdo, array $params): array
 {
     $hasExplicitScope = dcRequestHasExplicitScope($params);
-
     $scopeHint = strtolower(trim((string) ($params['report_scope'] ?? $params['capture_scope'] ?? '')));
-    $groupId = dcNormalizeGroupId($params['group_id'] ?? $params['view_group'] ?? '');
+    $requestedViewGroup = dcNormalizeGroupId($params['view_group'] ?? $params['group_id'] ?? '');
 
     if ($hasExplicitScope) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $params);
-        $companyId = (int) $scopeResolved['company_id'];
-        $isGroupScope = (bool) $scopeResolved['is_group_scope'];
-        if ($groupId === '') {
-            $groupId = dcNormalizeGroupId($scopeResolved['group_id'] ?? '');
-        }
-        // UI report_scope wins over dcIsGroupScopeHint (e.g. subsidiary C168 must not use group SALARY).
         if ($scopeHint === 'company') {
-            $isGroupScope = false;
+            $scopeResolved['is_group_scope'] = false;
         } elseif ($scopeHint === 'group') {
-            $isGroupScope = true;
+            $scopeResolved['is_group_scope'] = true;
         }
-        $viewGroupForAccess = dcNormalizeGroupId(
-            $params['view_group'] ?? $params['group_id'] ?? ''
-        );
-        if ($viewGroupForAccess !== '') {
-            $groupId = $viewGroupForAccess;
+        $finalizeParams = $params;
+        if ($scopeHint === 'group' || !empty($scopeResolved['is_group_scope'])) {
+            unset($finalizeParams['company_id']);
+            if (!isset($finalizeParams['group_aggregate']) || trim((string) $finalizeParams['group_aggregate']) === '') {
+                $finalizeParams['group_aggregate'] = '1';
+            }
+        }
+        $scopeCtx = dcFinalizeCaptureMaintenanceScope($pdo, $scopeResolved, $finalizeParams);
+        $companyId = (int) $scopeCtx['company_id'];
+        $isGroupScope = (bool) $scopeCtx['is_group_scope'];
+        $scopeProcessSql = formulaMaintenanceBuildScopeProcessSql($pdo, $companyId, $isGroupScope);
+        if ((string) ($scopeCtx['scope_company_sql'] ?? '') !== '') {
+            $scopeProcessSql .= dcSqlCaptureOnGroupEntityCompany('dct');
+        }
+        if (!$isGroupScope) {
+            $scopeProcessSql .= dcSqlCaptureOnSubsidiaryCompany('dct');
         }
         dcAssertUserCanAccessCompany(
             $pdo,
             $companyId,
-            $viewGroupForAccess !== '' ? $viewGroupForAccess : null
+            $requestedViewGroup !== '' ? $requestedViewGroup : null
         );
+
+        return [
+            'company_id' => $companyId,
+            'is_group_scope' => $isGroupScope,
+            'scope_process_sql' => $scopeProcessSql,
+        ];
+    }
+
+    if (gc_is_group_login() || isset($params['group_id']) || isset($params['view_group'])) {
+        $companyId = tx_resolve_request_company_id($pdo, $params);
+        $isGroupScope = false;
     } else {
-        if (gc_is_group_login() || isset($params['group_id']) || isset($params['view_group'])) {
-            $companyId = tx_resolve_request_company_id($pdo, $params);
-            $isGroupScope = false;
-        } else {
-            $requested = isset($params['company_id']) ? trim((string) $params['company_id']) : '';
-            if ($requested !== '') {
-                $requested = (int) $requested;
-                $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-                if ($userRole === 'owner') {
-                    $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
-                    $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
-                    $stmt->execute([$requested, $owner_id]);
-                    if ($stmt->fetchColumn()) {
-                        $companyId = $requested;
-                    } else {
-                        throw new Exception('无权访问该公司');
-                    }
-                } elseif (!isset($_SESSION['company_id']) || (int) $_SESSION['company_id'] !== $requested) {
-                    throw new Exception('无权访问该公司');
+        $requested = isset($params['company_id']) ? trim((string) $params['company_id']) : '';
+        if ($requested !== '') {
+            $requested = (int) $requested;
+            $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
+            if ($userRole === 'owner') {
+                $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
+                $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ?');
+                $stmt->execute([$requested, $owner_id]);
+                if ($stmt->fetchColumn()) {
+                    $companyId = $requested;
                 } else {
-                    $companyId = (int) $_SESSION['company_id'];
+                    throw new Exception('无权访问该公司');
                 }
-            } elseif (!isset($_SESSION['company_id'])) {
-                throw new Exception('缺少公司信息');
+            } elseif (!isset($_SESSION['company_id']) || (int) $_SESSION['company_id'] !== $requested) {
+                throw new Exception('无权访问该公司');
             } else {
                 $companyId = (int) $_SESSION['company_id'];
             }
-            $isGroupScope = false;
+        } elseif (!isset($_SESSION['company_id'])) {
+            throw new Exception('缺少公司信息');
+        } else {
+            $companyId = (int) $_SESSION['company_id'];
         }
+        $isGroupScope = false;
     }
 
-    if ($isGroupScope) {
-        $companyId = formulaMaintenanceResolveEntityCompanyId($pdo, $companyId, true, $groupId);
-    }
-
-    // Group: SALARY/BONUS on group-entity templates only.
-    // Company: subsidiary templates only (never AP/IG entity rows).
-    $scopeProcessSql = '';
-    if ($isGroupScope) {
-        $scopeProcessSql = dcSqlGroupProcessFilter('p');
-        if ($companyId > 0 && formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
-            $scopeProcessSql .= formulaMaintenanceSqlGroupEntityCompanyFilter('dct');
-        } elseif ($companyId > 0) {
-            $a = 'dct';
-            $scopeProcessSql .= " AND {$a}.company_id = " . (int) $companyId . ' ';
-        }
-    } else {
-        $scopeProcessSql = formulaMaintenanceSqlSubsidiaryCompanyFilter('dct');
-    }
+    $scopeProcessSql = formulaMaintenanceBuildScopeProcessSql($pdo, $companyId, $isGroupScope)
+        . ($isGroupScope ? '' : dcSqlCaptureOnSubsidiaryCompany('dct'));
 
     return [
         'company_id' => $companyId,
@@ -193,7 +381,7 @@ function formulaMaintenanceAssertProcessIdForScope(
 }
 
 /**
- * Resolve process.id by code for Formula Maintenance (company scope allows subsidiary SALARY).
+ * Resolve process.id by code; group vs subsidiary SALARY/BONUS on the same company_id.
  */
 function formulaMaintenanceResolveProcessIdByCode(
     PDO $pdo,
@@ -205,17 +393,22 @@ function formulaMaintenanceResolveProcessIdByCode(
     if ($code === '') {
         return null;
     }
-    if ($isGroupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
+    if (in_array($code, ['SALARY', 'BONUS'], true)) {
+        return formulaMaintenanceResolveScopedPayrollProcessId($pdo, $companyId, $code, $isGroupScope);
+    }
+    if ($isGroupScope) {
         return null;
     }
-    $sql = 'SELECT id FROM process WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?';
-    if ($isGroupScope) {
-        $sql .= " AND UPPER(TRIM(process_id)) IN ('SALARY', 'BONUS')";
-    }
-    $sql .= ' ORDER BY id ASC LIMIT 1';
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("
+        SELECT id FROM process
+        WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?
+          AND UPPER(TRIM(process_id)) NOT IN ('SALARY', 'BONUS')
+        ORDER BY id ASC
+        LIMIT 1
+    ");
     $stmt->execute([$companyId, $code]);
     $id = (int) ($stmt->fetchColumn() ?: 0);
+
     return $id > 0 ? $id : null;
 }
 
@@ -236,7 +429,24 @@ function formulaMaintenanceResolveProcessFilter(
 
     if (preg_match('/^\d+$/', $processParam)) {
         $processId = (int) $processParam;
+        $stmt = $pdo->prepare(
+            'SELECT UPPER(TRIM(process_id)) FROM process WHERE id = ? AND company_id = ? LIMIT 1'
+        );
+        $stmt->execute([$processId, $companyId]);
+        $code = strtoupper(trim((string) ($stmt->fetchColumn() ?: '')));
+        if ($code === '') {
+            throw new Exception('Process not found for scope');
+        }
+        if (in_array($code, ['SALARY', 'BONUS'], true)) {
+            $mapped = formulaMaintenanceResolveScopedPayrollProcessId($pdo, $companyId, $code, $isGroupScope);
+            if ($mapped === null || $mapped <= 0) {
+                return ['process_id' => null, 'legacy_code' => $code];
+            }
+
+            return ['process_id' => $mapped, 'legacy_code' => null];
+        }
         formulaMaintenanceAssertProcessIdForScope($pdo, $processId, $companyId, $isGroupScope);
+
         return ['process_id' => $processId, 'legacy_code' => null];
     }
 
@@ -300,10 +510,14 @@ function formulaMaintenanceFormatProcessDisplay(
 }
 
 /**
- * SQL JOIN process + template binding; when filtering by process id, never attach SALARY legacy rows to BONUS.
+ * SQL JOIN process + template binding; scope-aware when multiple SALARY rows share one company_id.
  */
-function formulaMaintenanceSqlTemplateProcessJoin(?int $processIdFilter = null): string
-{
+function formulaMaintenanceSqlTemplateProcessJoin(
+    PDO $pdo,
+    int $companyId,
+    ?int $processIdFilter = null,
+    bool $isGroupScope = false
+): string {
     if ($processIdFilter !== null && $processIdFilter > 0) {
         $pid = (int) $processIdFilter;
         return "INNER JOIN process p ON p.company_id = dct.company_id
@@ -317,17 +531,30 @@ function formulaMaintenanceSqlTemplateProcessJoin(?int $processIdFilter = null):
             )";
     }
 
+    $class = formulaMaintenanceClassifyPayrollProcessIds($pdo, $companyId);
+    $pool = $isGroupScope ? $class['group'] : $class['subsidiary'];
+    $poolSql = '1=0';
+    if ($pool !== []) {
+        $poolSql = 'p2.id IN (' . implode(',', array_map('intval', $pool)) . ')';
+    }
+
     return "INNER JOIN process p ON p.company_id = dct.company_id
         AND (
             (dct.process_id REGEXP '^[0-9]+$' AND p.id = CAST(dct.process_id AS UNSIGNED))
             OR (
                 dct.process_id NOT REGEXP '^[0-9]+$'
                 AND UPPER(TRIM(dct.process_id)) = UPPER(TRIM(p.process_id))
-                AND p.id = (
-                    SELECT MIN(p2.id)
-                    FROM process p2
-                    WHERE p2.company_id = dct.company_id
-                      AND UPPER(TRIM(p2.process_id)) = UPPER(TRIM(dct.process_id))
+                AND (
+                    UPPER(TRIM(dct.process_id)) NOT IN ('SALARY', 'BONUS')
+                    OR p.id = (
+                        SELECT p2.id
+                        FROM process p2
+                        WHERE p2.company_id = dct.company_id
+                          AND UPPER(TRIM(p2.process_id)) = UPPER(TRIM(dct.process_id))
+                          AND {$poolSql}
+                        ORDER BY p2.id ASC
+                        LIMIT 1
+                    )
                 )
             )
         )";

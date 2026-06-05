@@ -292,10 +292,10 @@ try {
     }
 
     if ($formula_scope_group) {
-        if ($companyId <= 0 || !formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
-            throw new Exception('集团范围无效或未配置集团实体公司');
+        if ($companyId <= 0) {
+            throw new Exception('集团范围无效或未配置集团公司');
         }
-    } elseif ($companyId > 0 && formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
+    } elseif ($companyId > 0 && dcCompanyIdIsGroupEntity($pdo, $companyId)) {
         throw new Exception('公司范围不能操作集团实体公式');
     }
 

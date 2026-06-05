@@ -96,8 +96,16 @@ export function mapProcessesForMaintenanceSelect(apiList) {
 }
 
 function appendMaintenanceScopeToParams(params, scope) {
-  const { companyId, viewGroup, groupId, reportScope, groupsAll, groupAll } =
-    transactionMaintenanceScopeApiParams(scope);
+  const {
+    companyId,
+    viewGroup,
+    groupId,
+    reportScope,
+    groupsAll,
+    groupAll,
+    groupOnly,
+    groupAggregate,
+  } = transactionMaintenanceScopeApiParams(scope);
   if (companyId) params.append("company_id", String(companyId));
   const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
   if (vg) params.append("view_group", vg);
@@ -108,6 +116,8 @@ function appendMaintenanceScopeToParams(params, scope) {
   if (groupsAll) params.append("groups_all", "1");
   if (groupAll) params.append("group_all", "1");
   if (reportScope) params.append("report_scope", reportScope);
+  if (groupOnly) params.append("group_only", "1");
+  if (groupAggregate) params.append("group_aggregate", "1");
 }
 
 export async function fetchProcesses(companyId, scope = null) {

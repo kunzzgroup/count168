@@ -48,13 +48,18 @@ export function useDashboardStyleGcFilter({
   autoPickCompanyWhenEmpty = true,
   /** Maintenance pages: allow group-only scope even for owner login (no auto-pick subsidiary). */
   forceAllowGroupOnly = false,
+  /**
+   * When false, re-clicking the already-selected group pill does not clear company
+   * (user clears via the active company pill instead).
+   */
+  clearCompanyOnActiveGroupReselect = true,
   /** When false, skip layout broadcast on selectedGroup/companyId changes (page handles manually). */
   broadcastFilterToLayout = true,
   /** Current user from AuthSessionContext — enforces group vs company login rules. */
   me = null,
 }) {
   const allowGroupOnly = canUseGroupOnlyMode(me) || forceAllowGroupOnly;
-  const allowClearCompany = canClearCompanySelection(me);
+  const allowClearCompany = canClearCompanySelection(me) || forceAllowGroupOnly;
 
   const onSelectCompanyRef = useRef(onSelectCompany);
   const onPrepareCompanySelectRef = useRef(onPrepareCompanySelect);
@@ -95,10 +100,12 @@ export function useDashboardStyleGcFilter({
       /** Group login: stay group-only when switching tabs; never auto-pick a subsidiary. */
       if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
         if (g === selectedGroup && companyId != null) {
-          persistDashboardFilterState(g, null, { allowGroupOnly: true });
-          resetAnchorSessionRef();
-          onClearCompany?.(g);
-          notifyDashboardGroupFilterChanged(g, null);
+          if (clearCompanyOnActiveGroupReselect) {
+            persistDashboardFilterState(g, null, { allowGroupOnly: true });
+            resetAnchorSessionRef();
+            onClearCompany?.(g);
+            notifyDashboardGroupFilterChanged(g, null);
+          }
           return;
         }
         persistDashboardGroupFilter(g);
@@ -164,6 +171,7 @@ export function useDashboardStyleGcFilter({
       selectFirstCompanyOnGroupChange,
       resetAnchorSessionRef,
       allowGroupOnly,
+      clearCompanyOnActiveGroupReselect,
       companyId,
       me,
       markAnchorSynced,

@@ -5,6 +5,7 @@ import {
   getCachedOwnerCompanies,
   DASHBOARD_GROUP_FILTER_KEY,
   isDashboardGroupOnlyMode,
+  persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
   readPersistedDashboardGcFilter,
   resolveBootCompanyId,
@@ -12,8 +13,8 @@ import {
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { isGroupLogin, maintenancePageAllowGroupOnlyPill } from "../../../utils/company/loginScope.js";
-import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
+import { isGroupLogin } from "../../../utils/company/loginScope.js";
+import { useReportGroupCompanyFilter } from "../shared/useReportGroupCompanyFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
@@ -189,7 +190,8 @@ export default function DomainReportPage() {
       sessionCompanyId: me.company_id,
       defaultRowId: cached?.[0]?.id,
     });
-    if (effective != null || isDashboardGroupOnlyMode()) setCompanyId(effective);
+    if (isDashboardGroupOnlyMode()) return;
+    if (effective != null) setCompanyId(effective);
   }, [me, companyId]);
 
   useEffect(() => {
@@ -272,17 +274,21 @@ export default function DomainReportPage() {
     }
   }, [companies]);
 
-  const handleClearCompany = useCallback((groupForScope) => {
-    invalidateReportFetch();
-    setCompanyId(null);
-    setError("");
-    setProcessId("");
-    const groupKey = groupForScope ? String(groupForScope).trim().toUpperCase() : "";
-    if (groupKey) {
-      persistDashboardGroupOnlyMode(true);
-    }
-    setCurrencyFilterReady(false);
-  }, [invalidateReportFetch]);
+  const handleClearCompany = useCallback(
+    (groupForScope) => {
+      const groupKey = String(groupForScope || selectedGroup || "")
+        .trim()
+        .toUpperCase();
+      persistDashboardFilterState(groupKey || null, null);
+      invalidateReportFetch();
+      flushSync(() => setCompanyId(null));
+      setError("");
+      setProcessId("");
+      if (reportDataRef.current != null) setReportSyncing(true);
+      setCurrencyFilterReady(false);
+    },
+    [invalidateReportFetch, selectedGroup],
+  );
 
   const onPrepareCompanySelect = useCallback((c) => {
     const nextId = Number(c?.id);
@@ -335,7 +341,7 @@ export default function DomainReportPage() {
     handlePickGroup,
     handlePickCompany,
     allowClearCompany,
-  } = useGcFilterWithAllModes({
+  } = useReportGroupCompanyFilter({
     companies,
     companyId,
     selectedGroup,
@@ -345,8 +351,6 @@ export default function DomainReportPage() {
     onClearCompany: handleClearCompany,
     switchingCompany: false,
     preferredCompanyId: companyId,
-    me,
-    forceAllowGroupOnly: maintenancePageAllowGroupOnlyPill(me),
   });
 
   const reportScope = useMemo(

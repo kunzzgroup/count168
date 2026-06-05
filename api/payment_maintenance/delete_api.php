@@ -40,29 +40,20 @@ try {
         throw new Exception('无效的请求数据');
     }
 
-    $hasExplicitScope = dcRequestHasExplicitScope($payload);
+    $viewGroupForAccess = dcNormalizeGroupId(
+        $payload['view_group'] ?? $payload['group_id'] ?? ''
+    );
 
-    if ($hasExplicitScope) {
-        $scopeResolved = resolveDataCaptureRequestScope($pdo, $payload);
-        $company_id = (int) $scopeResolved['company_id'];
-        $viewGroupForAccess = dcNormalizeGroupId(
-            $payload['view_group'] ?? $payload['group_id'] ?? ''
-        );
+    $listScope = payment_delete_resolve_list_scope($pdo, $payload);
+    $permCompanyId = tx_permission_company_id_for_scope($pdo, $listScope);
+    if ($permCompanyId <= 0 && ($listScope['mode'] ?? '') !== 'group') {
+        throw new Exception('缺少公司或集团信息');
+    }
+    if ($permCompanyId > 0) {
         dcAssertUserCanAccessCompany(
             $pdo,
-            $company_id,
+            $permCompanyId,
             $viewGroupForAccess !== '' ? $viewGroupForAccess : null
-        );
-    } else {
-        if (!isset($_SESSION['company_id'])) {
-            throw new Exception('缺少公司信息');
-        }
-        $company_id = (int) $_SESSION['company_id'];
-        require_once __DIR__ . '/../../includes/group_company_access.php';
-        gc_assert_api_company_access(
-            $pdo,
-            $company_id,
-            gc_is_group_login() ? gc_session_login_identifier() : null
         );
     }
 
@@ -71,7 +62,15 @@ try {
         throw new Exception('请选择要删除的交易记录');
     }
 
-    $result = payment_delete_transactions_by_ids($pdo, $company_id, $ids, $_SESSION);
+    $result = payment_delete_transactions_by_ids(
+        $pdo,
+        $permCompanyId,
+        $ids,
+        $_SESSION,
+        '/api/payment_maintenance/delete_api.php',
+        true,
+        $listScope
+    );
     $deleted = (int) ($result['deleted'] ?? 0);
 
     jsonResponse(true, "已删除 {$deleted} 条记录", ['deleted' => $deleted]);

@@ -33,6 +33,52 @@ function jsonResponse($success, $message, $data = null, $httpCode = null) {
 /**
  * 解析并校验当前请求的公司 ID（GET company_id 或 session）
  */
+/**
+ * Group ledger vs subsidiary company (aligned with history_api / transaction search).
+ *
+ * @return array<string, mixed>
+ */
+function paymentMaintenanceResolveListScope(PDO $pdo, array $params): array
+{
+    $listParams = $params;
+    $scopeHint = strtolower(trim((string) ($params['report_scope'] ?? $params['capture_scope'] ?? '')));
+    if ($scopeHint === 'group') {
+        unset($listParams['company_id']);
+        if (!isset($listParams['group_aggregate']) || trim((string) $listParams['group_aggregate']) === '') {
+            $listParams['group_aggregate'] = '1';
+        }
+    }
+
+    return tx_resolve_transaction_list_scope($pdo, $listParams);
+}
+
+/**
+ * @return array{sql: string, bind: int, is_group: bool}
+ */
+function paymentMaintenanceScopeFilter(PDO $pdo, array $listScope, string $alias, string $table = 'transactions'): array
+{
+    $isGroup = (($listScope['mode'] ?? '') === 'group');
+    if (tx_table_has_scope_column($pdo, $table)) {
+        $sql = tx_sql_transaction_scope_where($listScope, $alias);
+        if (!$isGroup) {
+            $sql .= tx_sql_transaction_company_ledger_only($alias);
+        }
+
+        return [
+            'sql' => $sql,
+            'bind' => tx_bind_transaction_scope_id($listScope),
+            'is_group' => $isGroup,
+        ];
+    }
+    $permId = tx_permission_company_id_for_scope($pdo, $listScope);
+
+    return [
+        'sql' => "{$alias}.company_id = ?",
+        'bind' => $permId,
+        'is_group' => $isGroup,
+    ];
+}
+
 function resolveCompanyId(PDO $pdo) {
     $params = $_GET;
     if (isset($params['group_id']) || isset($params['view_group']) || gc_is_group_login()) {
@@ -160,7 +206,8 @@ function paymentMaintenanceAccountMetaSelectSql(array $schema): string
  * 查询主表 transactions（非 RATE）及可选 transactions_deleted
  * $exclude_bank_process_rows：为 true 时排除由 Bank Process 入账的行（source_bank_process_id），仅保留 Transaction Payment 等手工流水
  */
-function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema, $exclude_bank_process_rows = false) {
+function fetchMainTransactions(PDO $pdo, array $listScope, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema, $exclude_bank_process_rows = false) {
+    $scopeFilter = paymentMaintenanceScopeFilter($pdo, $listScope, 't');
     $accMeta = paymentMaintenanceAccountMetaSelectSql($schema);
     $sql = "SELECT
                 t.id,
@@ -180,8 +227,8 @@ function fetchMainTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db
             {$schema['currencyJoinSql']}
             LEFT JOIN user u ON t.created_by = u.id
             LEFT JOIN owner o ON t.created_by_owner = o.id
-            WHERE t.company_id = ? AND t.transaction_date BETWEEN ? AND ?";
-    $params = [$company_id, $date_from_db, $date_to_db];
+            WHERE {$scopeFilter['sql']} AND t.transaction_date BETWEEN ? AND ?";
+    $params = [$scopeFilter['bind'], $date_from_db, $date_to_db];
     if ($exclude_bank_process_rows) {
         $sql .= " AND (t.source_bank_process_id IS NULL OR t.source_bank_process_id = 0)";
     }
@@ -418,15 +465,16 @@ function paymentMaintenanceSortTimestamp(array $item): int {
     return 0;
 }
 
-function resolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, string $dateToDb): string
+function resolveDomainSubmitter(PDO $pdo, array $listScope, string $dateFromDb, string $dateToDb): string
 {
+    $scopeFilter = paymentMaintenanceScopeFilter($pdo, $listScope, 't');
     try {
         $st = $pdo->prepare("
             SELECT COALESCE(u.login_id, o.owner_code, '-') AS submitter
             FROM transactions t
             LEFT JOIN user u ON t.created_by = u.id
             LEFT JOIN owner o ON t.created_by_owner = o.id
-            WHERE t.company_id = ?
+            WHERE {$scopeFilter['sql']}
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
               AND (
@@ -438,7 +486,7 @@ function resolveDomainSubmitter(PDO $pdo, int $companyId, string $dateFromDb, st
             ORDER BY t.created_at DESC, t.id DESC
             LIMIT 1
         ");
-        $st->execute([$companyId, $dateFromDb, $dateToDb]);
+        $st->execute([$scopeFilter['bind'], $dateFromDb, $dateToDb]);
         $v = $st->fetchColumn();
         if ($v !== false && $v !== null && trim((string)$v) !== '' && strtolower(trim((string)$v)) !== 'null') {
             return trim((string)$v);
@@ -544,12 +592,13 @@ function paymentMaintenanceFormatRowDtsCreated(?string $dbDatetime): string
 function appendVirtualDomainNetProfitItem(
     PDO $pdo,
     array &$data,
-    int $companyId,
+    array $listScope,
     string $dateFromDb,
     string $dateToDb,
     array $currencyFilters,
     string $ownerCode
 ): void {
+    $permCompanyId = tx_permission_company_id_for_scope($pdo, $listScope);
     foreach ($data as $item) {
         $desc = strtoupper(trim((string)($item['description'] ?? '')));
         $remark = strtoupper(trim((string)($item['remark'] ?? '')));
@@ -558,9 +607,10 @@ function appendVirtualDomainNetProfitItem(
         }
     }
 
-    $profitCode = resolveProfitDisplayCode($pdo, $companyId);
-    $fallbackSubmitter = resolveDomainSubmitter($pdo, $companyId, $dateFromDb, $dateToDb);
+    $profitCode = resolveProfitDisplayCode($pdo, $permCompanyId);
+    $fallbackSubmitter = resolveDomainSubmitter($pdo, $listScope, $dateFromDb, $dateToDb);
     $ownerCodeU = strtoupper(trim($ownerCode));
+    $scopeFilter = paymentMaintenanceScopeFilter($pdo, $listScope, 't');
 
     // 与 Payment History rollup 一致：展示元数据取自「同源 List Fee 入账」中按业务时间最早的一笔（fee_tx 口径）
     $sql = "SELECT t.sms, t.description, t.amount, t.transaction_date, t.created_at,
@@ -570,7 +620,7 @@ function appendVirtualDomainNetProfitItem(
             LEFT JOIN currency c ON t.currency_id = c.id
             LEFT JOIN user u ON t.created_by = u.id
             LEFT JOIN owner o ON t.created_by_owner = o.id
-            WHERE t.company_id = ?
+            WHERE {$scopeFilter['sql']}
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
               AND (
@@ -582,7 +632,7 @@ function appendVirtualDomainNetProfitItem(
               )
             ORDER BY t.transaction_date ASC, t.created_at ASC, t.id ASC";
     $st = $pdo->prepare($sql);
-    $st->execute([$companyId, $dateFromDb, $dateToDb]);
+    $st->execute([$scopeFilter['bind'], $dateFromDb, $dateToDb]);
     // [src][currency] => fee, comm, fee_ref（首笔 List Fee 元数据，供日期/创建人/创建时间展示）
     $agg = [];
     while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
@@ -662,13 +712,15 @@ function appendVirtualDomainNetProfitItem(
 /**
  * 查询 RATE 类型交易（transaction_entry）并返回输出项数组
  */
-function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_to_db, array $currency_filters, string $ownerCode = '', string $profitCode = 'PROFIT') {
+function fetchRateTransactionItems(PDO $pdo, array $listScope, $date_from_db, $date_to_db, array $currency_filters, string $ownerCode = '', string $profitCode = 'PROFIT') {
+    $permCompanyId = tx_permission_company_id_for_scope($pdo, $listScope);
+    $hFilter = paymentMaintenanceScopeFilter($pdo, $listScope, 'h');
     $rateCurrencyFilter = '';
-    $rateParams = [$company_id, $company_id, $date_from_db, $date_to_db];
+    $rateParams = [$hFilter['bind'], $permCompanyId, $date_from_db, $date_to_db];
     if (!empty($currency_filters)) {
         $currencyPlaceholders = implode(',', array_fill(0, count($currency_filters), '?'));
         $currencyIdStmt = $pdo->prepare("SELECT id FROM currency WHERE code IN ($currencyPlaceholders) AND company_id = ?");
-        $currencyIdStmt->execute(array_merge(array_map('strtoupper', $currency_filters), [$company_id]));
+        $currencyIdStmt->execute(array_merge(array_map('strtoupper', $currency_filters), [$permCompanyId]));
         $currencyIds = $currencyIdStmt->fetchAll(PDO::FETCH_COLUMN);
         if (!empty($currencyIds)) {
             $rateCurrencyFilter = " AND e.currency_id IN (" . implode(',', array_fill(0, count($currencyIds), '?')) . ")";
@@ -688,7 +740,7 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
                 INNER JOIN account_company ac ON ac.account_id = acc.id
                 LEFT JOIN currency c ON e.currency_id = c.id
                 LEFT JOIN user u ON h.created_by = u.id LEFT JOIN owner o ON h.created_by_owner = o.id
-                WHERE h.company_id = ? AND ac.company_id = ? AND h.transaction_type = 'RATE'
+                WHERE {$hFilter['sql']} AND ac.company_id = ? AND h.transaction_type = 'RATE'
                 AND e.entry_type IN ('RATE_FIRST_TO', 'RATE_TRANSFER_TO') AND h.transaction_date BETWEEN ? AND ?
                 $rateCurrencyFilter
                 ORDER BY h.created_at DESC, e.id DESC";
@@ -781,7 +833,8 @@ function fetchRateTransactionItems(PDO $pdo, $company_id, $date_from_db, $date_t
 /**
  * 查询 transactions_deleted 表
  */
-function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema, $exclude_bank_process_rows = false, $deleted_has_source_bank_process = false) {
+function fetchDeletedTransactions(PDO $pdo, array $listScope, $date_from_db, $date_to_db, $transaction_type, array $currency_filters, array $schema, $exclude_bank_process_rows = false, $deleted_has_source_bank_process = false) {
+    $scopeFilter = paymentMaintenanceScopeFilter($pdo, $listScope, 'td', 'transactions_deleted');
     $accMeta = paymentMaintenanceAccountMetaSelectSql($schema);
     $sql = "SELECT td.transaction_id AS id,
                 DATE_FORMAT(td.transaction_date, '%d/%m/%Y') AS transaction_date,
@@ -800,8 +853,8 @@ function fetchDeletedTransactions(PDO $pdo, $company_id, $date_from_db, $date_to
             {$schema['deletedCurrencyJoinSql']}
             LEFT JOIN user u ON td.created_by = u.id LEFT JOIN owner o ON td.created_by_owner = o.id
             LEFT JOIN user du ON td.deleted_by_user_id = du.id LEFT JOIN owner do ON td.deleted_by_owner_id = do.id
-            WHERE td.company_id = ? AND td.transaction_date BETWEEN ? AND ?";
-    $params = [$company_id, $date_from_db, $date_to_db];
+            WHERE {$scopeFilter['sql']} AND td.transaction_date BETWEEN ? AND ?";
+    $params = [$scopeFilter['bind'], $date_from_db, $date_to_db];
     if ($exclude_bank_process_rows && $deleted_has_source_bank_process) {
         $sql .= " AND (td.source_bank_process_id IS NULL OR td.source_bank_process_id = 0)";
     }
@@ -837,24 +890,25 @@ try {
 
     $scopeParams = $_GET;
     $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
+    $viewGroupForAccess = dcNormalizeGroupId(
+        $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+    );
 
-    if ($hasExplicitScope) {
-        $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
-        $company_id = (int) $scopeResolved['company_id'];
-        $viewGroupForAccess = dcNormalizeGroupId(
-            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
-        );
+    $listScope = paymentMaintenanceResolveListScope($pdo, $scopeParams);
+    $permCompanyId = tx_permission_company_id_for_scope($pdo, $listScope);
+    if ($permCompanyId <= 0 && ($listScope['mode'] ?? '') !== 'group') {
+        throw new Exception('缺少公司或集团信息');
+    }
+    if ($permCompanyId > 0) {
         dcAssertUserCanAccessCompany(
             $pdo,
-            $company_id,
+            $permCompanyId,
             $viewGroupForAccess !== '' ? $viewGroupForAccess : null
         );
-    } else {
-        $company_id = resolveCompanyId($pdo);
     }
 
-    $companyOwnerCode = resolveCompanyOwnerCode($pdo, (int)$company_id);
-    $profitDisplayCode = resolveProfitDisplayCode($pdo, (int)$company_id);
+    $companyOwnerCode = resolveCompanyOwnerCode($pdo, $permCompanyId);
+    $profitDisplayCode = resolveProfitDisplayCode($pdo, $permCompanyId);
 
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
@@ -901,16 +955,16 @@ try {
     }
 
     $data = [];
-    $mainRows = fetchMainTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema, $exclude_bank_process_rows);
+    $mainRows = fetchMainTransactions($pdo, $listScope, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema, $exclude_bank_process_rows);
     foreach ($mainRows as $row) {
         $data[] = rowToItem($row, 0, $companyOwnerCode, $profitDisplayCode);
     }
     if (empty($transaction_type) || $transaction_type === 'PAYMENT') {
-        appendVirtualDomainNetProfitItem($pdo, $data, $company_id, $date_from_db, $date_to_db, $currency_filters, $companyOwnerCode);
+        appendVirtualDomainNetProfitItem($pdo, $data, $listScope, $date_from_db, $date_to_db, $currency_filters, $companyOwnerCode);
     }
 
     if (empty($transaction_type) || $transaction_type === 'RATE') {
-        $rateItems = fetchRateTransactionItems($pdo, $company_id, $date_from_db, $date_to_db, $currency_filters, $companyOwnerCode, $profitDisplayCode);
+        $rateItems = fetchRateTransactionItems($pdo, $listScope, $date_from_db, $date_to_db, $currency_filters, $companyOwnerCode, $profitDisplayCode);
         $data = array_merge($data, $rateItems);
     }
 
@@ -918,7 +972,7 @@ try {
         if (!empty($currency_filters) && $schema['deletedCurrencyFilterField'] === null) {
             throw new Exception('系统缺少货币信息，无法按货币筛选，请联系管理员');
         }
-        $deletedRows = fetchDeletedTransactions($pdo, $company_id, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema, $exclude_bank_process_rows, $deleted_has_source_bank_process);
+        $deletedRows = fetchDeletedTransactions($pdo, $listScope, $date_from_db, $date_to_db, $transaction_type, $currency_filters, $schema, $exclude_bank_process_rows, $deleted_has_source_bank_process);
         foreach ($deletedRows as $row) {
             $data[] = rowToItem($row, 1, $companyOwnerCode, $profitDisplayCode);
         }

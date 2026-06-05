@@ -21,6 +21,8 @@ export default function PaymentMaintenanceFilters({
   selectedGroup,
   onGroupClick,
   onPickCompany,
+  onClearCompany,
+  allowClearCompany = true,
   onPickAllGroups,
   onPickAllInGroup,
   groupsAllMode = false,
@@ -111,6 +113,8 @@ export default function PaymentMaintenanceFilters({
             companyId={companyId}
             highlightCompanyId={companyId}
             onSwitchCompany={onPickCompany}
+            onClearCompany={onClearCompany}
+            allowClearCompany={allowClearCompany}
             currencyList={currencies}
             showAllCurrencies={!selectedCurrency}
             selectedCurrencies={selectedCurrency ? [selectedCurrency] : []}

@@ -221,9 +221,10 @@ try {
         $capture_scope_group = (bool) $scopeCtx['is_group_scope'];
         $scopeProcessFilter = (string) $scopeCtx['scope_process_sql'];
         $scopeCompanySql = (string) $scopeCtx['scope_company_sql'];
-        $scopeCompanySqlDeleted = $capture_scope_group
-            ? dcSqlCaptureOnGroupEntityCompany('dcd')
-            : dcSqlCaptureOnSubsidiaryCompany('dcd');
+        $scopeCompanySqlDeleted = (string) ($scopeCtx['scope_company_sql_deleted'] ?? '');
+        if ($scopeCompanySqlDeleted === '' && !$capture_scope_group) {
+            $scopeCompanySqlDeleted = dcSqlCaptureOnSubsidiaryCompany('dcd');
+        }
         dcAssertUserCanAccessCompany(
             $pdo,
             $company_id,
@@ -238,7 +239,7 @@ try {
     }
 
     if ($capture_scope_group) {
-        if ($company_id <= 0 || !dcCompanyIdIsGroupEntity($pdo, $company_id)) {
+        if ($company_id <= 0) {
             jsonResponse(true, 'OK', []);
             return;
         }

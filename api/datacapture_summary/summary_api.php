@@ -2035,8 +2035,9 @@ $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
 try {
     if ($hasExplicitScope) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
-        $company_id = (int) $scopeResolved['company_id'];
-        $capture_scope_group = (bool) $scopeResolved['is_group_scope'];
+        $scopeCtx = dcFinalizeCaptureMaintenanceScope($pdo, $scopeResolved, $scopeParams);
+        $company_id = (int) $scopeCtx['company_id'];
+        $capture_scope_group = (bool) $scopeCtx['is_group_scope'];
     } else {
         $company_id = null;
         if (isset($scopeParams['company_id']) && $scopeParams['company_id'] !== '') {
@@ -2553,9 +2554,6 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $immediateAckMode = false;
     $queueJobId = null;
     try {
-        // 使用全局的 $company_id（已经过验证）
-        $companyId = $company_id;
-        
         // Check PHP configuration limits first
         $postMaxSize = ini_get('post_max_size');
         $postMaxSizeBytes = return_bytes($postMaxSize);
@@ -2660,6 +2658,37 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('No summary rows to submit');
         }
 
+        $groupCodeSubmit = dcNormalizeGroupId(
+            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ($groupIdForAccess ?? '')
+        );
+        if (!empty($data['groupOnlyCapture']) && !empty($data['captureSelectedGroup'])) {
+            $capture_scope_group = true;
+            $groupCodeSubmit = dcNormalizeGroupId((string) $data['captureSelectedGroup']);
+        }
+
+        if ($capture_scope_group) {
+            if ($groupCodeSubmit === '') {
+                $groupCodeSubmit = dcNormalizeGroupId(
+                    $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ($groupIdForAccess ?? '')
+                );
+            }
+            if ($groupCodeSubmit !== '') {
+                $resolvedGroupCompanyId = dcResolveGroupCaptureCompanyId($pdo, $groupCodeSubmit);
+                if ($resolvedGroupCompanyId > 0) {
+                    $company_id = $resolvedGroupCompanyId;
+                }
+            }
+        }
+
+        $companyId = (int) $company_id;
+
+        dcAssertProcessIdInCaptureScope(
+            $pdo,
+            (int) $data['processId'],
+            (int) $company_id,
+            (bool) $capture_scope_group
+        );
+
         // 可选：前端要求“立即回成功”，后端继续处理
         $immediateAckMode = !empty($data['immediateAck']);
         if ($immediateAckMode) {
@@ -2691,14 +2720,20 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        $resolvedCurrencyId = resolveCompanyCurrencyId(
+        $resolvedCurrencyId = dcResolveCaptureCurrencyId(
             $pdo,
-            $companyId,
+            (bool) $capture_scope_group,
+            (int) $company_id,
+            $groupCodeSubmit,
             $data['currencyId'] ?? null,
             $data['currencyCode'] ?? ($data['currencyName'] ?? null)
         );
         if ($resolvedCurrencyId === null) {
-            throw new Exception('所选币别不属于当前公司，请重新选择正确的币别后再提交');
+            throw new Exception(
+                !empty($capture_scope_group)
+                    ? '所选币别不属于当前集团范围，请重新选择后再提交'
+                    : '所选币别不属于当前公司，请重新选择正确的币别后再提交'
+            );
         }
         $data['currencyId'] = $resolvedCurrencyId;
         
@@ -2901,6 +2936,14 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!isset($row['accountId'])) {
                     throw new Exception('Missing required row data: accountId');
                 }
+
+                dcAssertAccountIdInCaptureScope(
+                    $pdo,
+                    (int) $row['accountId'],
+                    (bool) $capture_scope_group,
+                    (int) $company_id,
+                    $groupCodeSubmit
+                );
                 
                 // Validate that at least one of main or sub is provided
                 if (empty($row['idProductMain']) && empty($row['idProductSub'])) {
@@ -2944,15 +2987,21 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 // - 只有在追加批次（$isBatchAppend === true，带 captureId 再次提交）时，
                 //   才根据 product/account/currency/formula_variant 判断是否更新已有记录，避免重复。
                 $existingRecord = false;
-                $rowCurrencyId = resolveCompanyCurrencyId(
+                $rowCurrencyId = dcResolveCaptureCurrencyId(
                     $pdo,
-                    $companyId,
+                    (bool) $capture_scope_group,
+                    (int) $company_id,
+                    $groupCodeSubmit,
                     $row['currencyId'] ?? null,
                     $row['currencyCode'] ?? null
                 );
                 if ($rowCurrencyId === null) {
                     $rowCurrencyId = $data['currencyId'];
-                    error_log('Row currency_id 不属于当前公司，已自动回退为主币别。account_id=' . ($row['accountId'] ?? ''));
+                    error_log(
+                        'Row currency_id fallback to capture currency. account_id='
+                        . ($row['accountId'] ?? '')
+                        . ' scope=' . (!empty($capture_scope_group) ? 'group' : 'company')
+                    );
                 }
 
                 // Get formula_variant from row data
@@ -3201,40 +3250,35 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
 } else {
-    // Default action: Load currencies and accounts
+    // Default action: Load currencies and accounts (group ledger vs subsidiary company)
     try {
-        // 使用全局的 $company_id（已经过验证）
-        
-        // 获取货币列表 - 根据 company_id 过滤
-        $stmt = $pdo->prepare("SELECT id, code FROM currency WHERE company_id = ? ORDER BY code");
-        $stmt->execute([$company_id]);
-        $currencies = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // 获取账户列表 - 获取 id, account_id, role, name，只包括活跃状态的账户，根据 account_company 表过滤
-        $stmt = $pdo->prepare("
-            SELECT DISTINCT a.id, a.account_id, a.role, a.name
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE ac.company_id = ? 
-            AND a.status = 'active'
-            ORDER BY a.account_id
-        ");
-        $stmt->execute([$company_id]);
-        $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // 调试信息
-        error_log("API called - Found " . count($accounts) . " accounts and " . count($currencies) . " currencies for company_id: " . $company_id);
-        
+        $groupCodeForCatalog = dcNormalizeGroupId(
+            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ($groupIdForAccess ?? '')
+        );
+        $isGroupCatalog = !empty($capture_scope_group);
+        $currencies = dcSummaryLoadFormCurrencies($pdo, $isGroupCatalog, (int) $company_id, $groupCodeForCatalog);
+        $accounts = dcSummaryLoadFormAccounts($pdo, $isGroupCatalog, (int) $company_id, $groupCodeForCatalog);
+
+        error_log(
+            'Summary form catalog - scope='
+            . ($isGroupCatalog ? 'group' : 'company')
+            . ' group=' . $groupCodeForCatalog
+            . ' accounts=' . count($accounts)
+            . ' currencies=' . count($currencies)
+            . ' company_id=' . (int) $company_id
+        );
+
         echo json_encode([
             'success' => true,
             'currencies' => $currencies,
             'accounts' => $accounts,
-            'scope' => !empty($capture_scope_group) ? 'group' : 'company',
+            'scope' => $isGroupCatalog ? 'group' : 'company',
             'debug' => [
                 'accounts_count' => count($accounts),
                 'currencies_count' => count($currencies),
                 'company_id' => $company_id,
-                'capture_scope_group' => !empty($capture_scope_group),
+                'capture_scope_group' => $isGroupCatalog,
+                'group_code' => $groupCodeForCatalog,
             ]
         ]);
         

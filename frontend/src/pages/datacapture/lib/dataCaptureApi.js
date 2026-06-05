@@ -32,7 +32,7 @@ export function buildDateOptions() {
 }
 
 export function appendDataCaptureScopeParams(params, scope) {
-  const { companyId, viewGroup, groupId, reportScope, groupsAll, groupAll } =
+  const { companyId, viewGroup, groupId, reportScope, groupsAll, groupAll, groupOnly } =
     dataCaptureScopeApiParams(scope);
   if (companyId) params.set("company_id", String(companyId));
   const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
@@ -42,6 +42,7 @@ export function appendDataCaptureScopeParams(params, scope) {
   if (groupsAll) params.set("groups_all", "1");
   if (groupAll) params.set("group_all", "1");
   if (reportScope) params.set("report_scope", reportScope);
+  if (groupOnly) params.set("group_only", "1");
 }
 
 function withScope(url, scope) {
@@ -75,17 +76,21 @@ export async function fetchAddProcessFormData(scopeOrCompanyId) {
 }
 
 /**
- * Group Data Capture: currencies from the group entity only (same as Account / report group scope).
- * Do not pass subsidiary company_id — backend resolves entity via group_id.
+ * Group Data Capture: currencies from group ledger scope only (same as Dashboard group-only filter).
+ * Uses account_currency on group KPI accounts — not subsidiary company currency rows.
  */
 export async function fetchGroupCaptureCurrencies(viewGroup) {
   const gid = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
   if (!gid) return [];
-  const params = new URLSearchParams({ group_id: gid, view_group: gid });
+  const params = new URLSearchParams({
+    group_id: gid,
+    view_group: gid,
+    group_aggregate: "1",
+  });
   try {
     const response = await fetch(
       buildApiUrl(
-        `api/transactions/get_company_currencies_api.php?${params.toString()}`,
+        `api/transactions/get_scope_account_currencies_api.php?${params.toString()}`,
       ),
       { credentials: "include" },
     );

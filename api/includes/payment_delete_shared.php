@@ -6,6 +6,46 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
+require_once __DIR__ . '/../transactions/transaction_scope.php';
+
+/**
+ * Align with payment_maintenance/search_api.php list scope resolution.
+ *
+ * @param array<string, mixed> $params
+ * @return array<string, mixed>
+ */
+function payment_delete_resolve_list_scope(PDO $pdo, array $params): array
+{
+    $listParams = $params;
+    $scopeHint = strtolower(trim((string) ($params['report_scope'] ?? $params['capture_scope'] ?? '')));
+    if ($scopeHint === 'group') {
+        unset($listParams['company_id']);
+        if (!isset($listParams['group_aggregate']) || trim((string) $listParams['group_aggregate']) === '') {
+            $listParams['group_aggregate'] = '1';
+        }
+    }
+
+    return tx_resolve_transaction_list_scope($pdo, $listParams);
+}
+
+/**
+ * @return array{sql: string, bind: int}
+ */
+function payment_delete_transaction_scope_filter(PDO $pdo, array $listScope, string $alias = 't'): array
+{
+    $isGroup = (($listScope['mode'] ?? '') === 'group');
+    if (tx_table_has_scope_column($pdo, 'transactions')) {
+        $sql = tx_sql_transaction_scope_where($listScope, $alias);
+        if (!$isGroup) {
+            $sql .= tx_sql_transaction_company_ledger_only($alias);
+        }
+
+        return ['sql' => $sql, 'bind' => tx_bind_transaction_scope_id($listScope)];
+    }
+    $permId = tx_permission_company_id_for_scope($pdo, $listScope);
+
+    return ['sql' => "{$alias}.company_id = ?", 'bind' => $permId];
+}
 
 function payment_delete_ensure_transactions_deleted_table(PDO $pdo): void
 {
@@ -50,30 +90,63 @@ function payment_delete_ensure_transactions_deleted_table(PDO $pdo): void
         }
     } catch (PDOException $e) {
     }
+
+    try {
+        if ($pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'scope_type'")->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE transactions_deleted ADD COLUMN scope_type ENUM('company','group') NOT NULL DEFAULT 'company' AFTER company_id");
+        }
+        if ($pdo->query("SHOW COLUMNS FROM transactions_deleted LIKE 'scope_id'")->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE transactions_deleted ADD COLUMN scope_id BIGINT UNSIGNED NULL AFTER scope_type");
+        }
+    } catch (PDOException $e) {
+    }
 }
 
-function payment_delete_backup_transactions(PDO $pdo, array $ids, int $companyId, ?int $deletedByUserId, ?int $deletedByOwnerId): void
-{
+function payment_delete_backup_transactions(
+    PDO $pdo,
+    array $ids,
+    int $companyId,
+    ?int $deletedByUserId,
+    ?int $deletedByOwnerId,
+    ?array $listScope = null
+): void {
     if (empty($ids)) {
         return;
     }
+    if ($listScope === null) {
+        $listScope = [
+            'mode' => 'company',
+            'company_id' => $companyId,
+            'group_scope_id' => 0,
+        ];
+    }
+
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $scopeFilter = payment_delete_transaction_scope_filter($pdo, $listScope, 't');
+    $hasDeletedScope = tx_table_has_scope_column($pdo, 'transactions_deleted')
+        && tx_table_has_scope_column($pdo, 'transactions');
+
+    $scopeCols = $hasDeletedScope
+        ? ', scope_type, scope_id'
+        : '';
+    $scopeSelect = $hasDeletedScope
+        ? ", COALESCE(NULLIF(TRIM(t.scope_type), ''), 'company') AS scope_type, t.scope_id"
+        : '';
+
     $sql = "
         INSERT INTO transactions_deleted (
-            transaction_id, company_id, transaction_type, account_id, from_account_id,
+            transaction_id, company_id{$scopeCols}, transaction_type, account_id, from_account_id,
             amount, currency_id, transaction_date, description, sms, created_by, created_by_owner, created_at,
             deleted_by_user_id, deleted_by_owner_id, deleted_at
         )
         SELECT
-            t.id AS transaction_id, ? AS company_id, t.transaction_type, t.account_id, t.from_account_id,
+            t.id AS transaction_id, t.company_id{$scopeSelect}, t.transaction_type, t.account_id, t.from_account_id,
             t.amount, t.currency_id, t.transaction_date, t.description, t.sms, t.created_by, t.created_by_owner, t.created_at,
             ?, ?, NOW()
         FROM transactions t
-        INNER JOIN account a ON t.account_id = a.id
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE t.id IN ($placeholders) AND ac.company_id = ?
+        WHERE t.id IN ($placeholders) AND {$scopeFilter['sql']}
     ";
-    $params = array_merge([$companyId, $deletedByUserId, $deletedByOwnerId], $ids, [$companyId]);
+    $params = array_merge([$deletedByUserId, $deletedByOwnerId], $ids, [$scopeFilter['bind']]);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
 }
@@ -89,20 +162,26 @@ function payment_delete_transaction_entries(PDO $pdo, array $ids): void
     $stmt->execute($ids);
 }
 
-function payment_delete_transactions(PDO $pdo, array $ids, int $companyId): int
+function payment_delete_transactions(PDO $pdo, array $ids, int $companyId, ?array $listScope = null): int
 {
     if (empty($ids)) {
         return 0;
     }
+    if ($listScope === null) {
+        $listScope = [
+            'mode' => 'company',
+            'company_id' => $companyId,
+            'group_scope_id' => 0,
+        ];
+    }
+
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $sql = "DELETE t
-            FROM transactions t
-            INNER JOIN account a ON t.account_id = a.id
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE t.id IN ($placeholders) AND ac.company_id = ?";
-    $params = array_merge($ids, [$companyId]);
+    $scopeFilter = payment_delete_transaction_scope_filter($pdo, $listScope, 't');
+    $sql = "DELETE t FROM transactions t WHERE t.id IN ($placeholders) AND {$scopeFilter['sql']}";
+    $params = array_merge($ids, [$scopeFilter['bind']]);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+
     return (int) $stmt->rowCount();
 }
 
@@ -180,7 +259,8 @@ function payment_delete_transactions_by_ids(
     array $ids,
     array $session,
     string $pageTag = '/api/payment_maintenance/delete_api.php',
-    bool $manageTransaction = true
+    bool $manageTransaction = true,
+    ?array $listScope = null
 ): array {
     $ids = array_values(array_filter(array_map('intval', $ids), static fn ($id) => $id > 0));
     if (empty($ids)) {
@@ -217,10 +297,18 @@ function payment_delete_transactions_by_ids(
             deletedLog($pdo, $userTag, $pageTag, 'transactions', (string) $tid);
         }
 
+        if ($listScope === null) {
+            $listScope = [
+                'mode' => 'company',
+                'company_id' => $companyId,
+                'group_scope_id' => 0,
+            ];
+        }
+
         bmp_recordResendPendingForTransactionIds($pdo, $companyId, $ids);
-        payment_delete_backup_transactions($pdo, $ids, $companyId, $deletedByUserId, $deletedByOwnerId);
+        payment_delete_backup_transactions($pdo, $ids, $companyId, $deletedByUserId, $deletedByOwnerId, $listScope);
         payment_delete_transaction_entries($pdo, $ids);
-        $deleted = payment_delete_transactions($pdo, $ids, $companyId);
+        $deleted = payment_delete_transactions($pdo, $ids, $companyId, $listScope);
         if ($manageTransaction) {
             $pdo->commit();
             payment_delete_clear_tx_search_cache();

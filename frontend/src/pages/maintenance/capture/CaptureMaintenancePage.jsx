@@ -24,6 +24,8 @@ import {
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
   readPersistedDashboardGcFilter,
+  readDashboardSelectedCompanyId,
+  DASHBOARD_GROUP_FILTER_KEY,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -49,6 +51,24 @@ import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pag
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 
+function readInitialMaintenanceSelectedGroup() {
+  try {
+    const saved = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+    return saved ? String(saved).trim().toUpperCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+function readInitialMaintenanceCompanyId() {
+  const persisted = readPersistedDashboardGcFilter();
+  if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
+  const saved = readDashboardSelectedCompanyId();
+  if (saved != null) return saved;
+  if (persisted.selectedGroup) return null;
+  return null;
+}
+
 // Componentss
 import CaptureMaintenanceFilters from "./components/CaptureMaintenanceFilters.jsx";
 import CaptureMaintenanceTable from "./components/CaptureMaintenanceTable.jsx";
@@ -68,7 +88,7 @@ export default function CaptureMaintenancePage() {
   const [permissions, setPermissions] = useState([]);
 
   // -- Filter State --
-  const [companyId, setCompanyId] = useState(null);
+  const [companyId, setCompanyId] = useState(readInitialMaintenanceCompanyId);
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedProcess, setSelectedProcess] = useState("");
@@ -240,9 +260,13 @@ export default function CaptureMaintenancePage() {
         const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
         setSelectedGroup(bootGroup);
         const persistedGc = readPersistedDashboardGcFilter();
+        const initialUiCompanyId = readInitialMaintenanceCompanyId();
+        const sessionGroup = readInitialMaintenanceSelectedGroup();
         const groupOnlyBoot =
           isDashboardGroupOnlyMode() ||
-          persistedGc.groupOnly;
+          persistedGc.groupOnly ||
+          (bootGroup != null && initialUiCompanyId == null) ||
+          (sessionGroup != null && initialUiCompanyId == null);
         if (groupOnlyBoot) {
           persistDashboardGroupOnlyMode(true);
           persistDashboardSelectedCompany(null);
@@ -466,13 +490,25 @@ export default function CaptureMaintenancePage() {
   const handleClearCompany = useCallback(
     (groupForPersist) => {
       const g = groupForPersist ?? selectedGroup;
+      const nextScope = resolveCaptureMaintenanceScope({
+        companies,
+        selectedGroup: g,
+        companyId: null,
+        groupsAllMode,
+        groupAllMode,
+      });
+      suppressNextSearchEffectRef.current = true;
       setCompanyId(null);
       setCompanyCode("");
       setSelectedProcess("");
       setSelectedIds([]);
       persistDashboardFilterState(g, null);
+      persistDashboardGroupOnlyMode(true);
+      if (captureMaintenanceScopeIsReady(nextScope)) {
+        void performSearch({ scope: nextScope, selectedGroup: g, companyId: null });
+      }
     },
-    [selectedGroup],
+    [companies, selectedGroup, groupsAllMode, groupAllMode, performSearch],
   );
 
   const onPrepareCompanySelect = useCallback(
@@ -646,6 +682,8 @@ export default function CaptureMaintenancePage() {
           selectedGroup={selectedGroup}
           onGroupClick={handleGroupClick}
           onPickCompany={handlePickCompany}
+          onClearCompany={handleClearCompany}
+          allowClearCompany={allowClearCompany}
           onPickAllGroups={handlePickAllGroups}
           onPickAllInGroup={handlePickAllInGroup}
           groupsAllMode={groupsAllMode}

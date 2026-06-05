@@ -38,13 +38,16 @@ export function mapProcessesForMaintenanceSelect(apiList, { groupPayrollShort = 
 }
 
 function appendFormulaScopeToParams(params, scope) {
-  const { companyId, viewGroup, groupId, reportScope } = formulaMaintenanceScopeApiParams(scope);
+  const { companyId, viewGroup, groupId, reportScope, groupOnly, groupAggregate } =
+    formulaMaintenanceScopeApiParams(scope);
   if (companyId) params.append("company_id", String(companyId));
   const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
   if (vg) params.append("view_group", vg);
   const gid = groupId ? String(groupId).trim().toUpperCase() : "";
   if (gid) params.append("group_id", gid);
   if (reportScope) params.append("report_scope", reportScope);
+  if (groupOnly) params.append("group_only", "1");
+  if (groupAggregate) params.append("group_aggregate", "1");
 }
 
 function appendFormulaScopeToPayload(payload, scope, fallbackCompanyId = null) {
@@ -52,23 +55,20 @@ function appendFormulaScopeToPayload(payload, scope, fallbackCompanyId = null) {
   if (payload.company_id != null && Number(payload.company_id) <= 0) {
     delete payload.company_id;
   }
-  const { companyId, viewGroup, groupId, reportScope } = formulaMaintenanceScopeApiParams(scope);
-  const groupScope = reportScope === "group";
-  if (groupScope) {
-    if (companyId != null && Number(companyId) > 0) {
-      payload.company_id = Number(companyId);
-    } else {
-      delete payload.company_id;
-    }
-  } else {
+  const { companyId, viewGroup, groupId, reportScope, groupOnly, groupAggregate } =
+    formulaMaintenanceScopeApiParams(scope);
+  if (companyId) payload.company_id = companyId;
+  else if (reportScope === "group") delete payload.company_id;
+  else {
     const resolved =
-      (companyId != null && Number(companyId) > 0 ? Number(companyId) : null) ??
-      (fallbackCompanyId != null && Number(fallbackCompanyId) > 0 ? Number(fallbackCompanyId) : null);
+      fallbackCompanyId != null && Number(fallbackCompanyId) > 0 ? Number(fallbackCompanyId) : null;
     if (resolved) payload.company_id = resolved;
   }
   if (viewGroup) payload.view_group = viewGroup;
   if (groupId) payload.group_id = groupId;
   if (reportScope) payload.report_scope = reportScope;
+  if (groupOnly) payload.group_only = "1";
+  if (groupAggregate) payload.group_aggregate = "1";
 }
 
 export async function fetchCompanyPermissionsRaw(companyCode) {

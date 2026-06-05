@@ -64,6 +64,7 @@ function appendSummaryCaptureScopeParams(params) {
     }
     if (mode === 'group') {
         params.set('report_scope', 'group');
+        params.set('group_only', '1');
         const gid = scope.groupId || scope.viewGroup || '';
         if (gid) {
             params.set('group_id', String(gid).trim().toUpperCase());

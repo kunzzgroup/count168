@@ -80,6 +80,36 @@ export function resolveDataCaptureScope({
   return null;
 }
 
+/**
+ * Strict group ledger scope for APIs (no subsidiary company_id leakage).
+ * Used by Summary submit and boot when groupOnlyCapture is set.
+ */
+export function normalizeGroupCaptureScope(scope, processMeta = null) {
+  const isGroup =
+    scope?.mode === "group" ||
+    processMeta?.groupOnlyCapture === true ||
+    processMeta?.captureScopeMode === "group";
+  if (!isGroup) return scope;
+
+  const groupKey = String(
+    scope?.groupId ||
+      scope?.viewGroup ||
+      processMeta?.captureSelectedGroup ||
+      "",
+  )
+    .trim()
+    .toUpperCase();
+
+  return {
+    mode: "group",
+    scopeCompanyId: 0,
+    uiCompanyId: null,
+    groupId: groupKey || scope?.groupId || null,
+    viewGroup: groupKey || scope?.viewGroup || null,
+    resolveCompanyViaGroupId: true,
+  };
+}
+
 export function dataCaptureScopeIsReady(scope) {
   if (!scope) return false;
   if (scope.mode === "aggregate") {
@@ -111,12 +141,28 @@ export function dataCaptureScopeApiParams(scope) {
     scope.resolveCompanyViaGroupId ||
     (scope.mode === "group" && Number(scope.scopeCompanyId) <= 0)
   ) {
-    return { companyId: undefined, viewGroup, groupId, reportScope: "group" };
+    return {
+      companyId: undefined,
+      viewGroup,
+      groupId,
+      reportScope: "group",
+      groupOnly: true,
+    };
+  }
+  if (scope.mode === "group") {
+    return {
+      companyId:
+        Number(scope.scopeCompanyId) > 0 ? scope.scopeCompanyId : undefined,
+      viewGroup,
+      groupId,
+      reportScope: "group",
+      groupOnly: true,
+    };
   }
   return {
     companyId: scope.scopeCompanyId,
     viewGroup,
-    groupId: scope.mode === "group" ? groupId : scope.groupId || undefined,
+    groupId: scope.groupId || undefined,
     reportScope: scope.mode,
   };
 }

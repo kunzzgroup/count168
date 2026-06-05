@@ -10,10 +10,11 @@ import {
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
   readPersistedDashboardGcFilter,
+  persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { isGroupLogin } from "../../../utils/company/loginScope.js";
-import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
+import { useReportGroupCompanyFilter } from "../shared/useReportGroupCompanyFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
@@ -174,6 +175,7 @@ export default function CustomerReportPage() {
 
   useEffect(() => {
     if (!me || companyId != null) return;
+    if (isDashboardGroupOnlyMode()) return;
     const cached = getCachedOwnerCompanies();
     const url = new URL(window.location.href);
     const queryCompany = url.searchParams.get("company_id");
@@ -182,7 +184,7 @@ export default function CustomerReportPage() {
       sessionCompanyId: me.company_id,
       defaultRowId: cached?.[0]?.id,
     });
-    if (effective != null || isDashboardGroupOnlyMode()) setCompanyId(effective);
+    if (effective != null) setCompanyId(effective);
   }, [me, companyId]);
 
   useEffect(() => {
@@ -265,17 +267,21 @@ export default function CustomerReportPage() {
     }
   }, [companies]);
 
-  const handleClearCompany = useCallback((groupForScope) => {
-    invalidateReportFetch();
-    setCompanyId(null);
-    setError("");
-    setAccountId("");
-    const groupKey = groupForScope ? String(groupForScope).trim().toUpperCase() : "";
-    if (groupKey) {
-      persistDashboardGroupOnlyMode(true);
-    }
-    setCurrencyFilterReady(false);
-  }, [invalidateReportFetch]);
+  const handleClearCompany = useCallback(
+    (groupForScope) => {
+      const groupKey = String(groupForScope || selectedGroup || "")
+        .trim()
+        .toUpperCase();
+      persistDashboardFilterState(groupKey || null, null);
+      invalidateReportFetch();
+      flushSync(() => setCompanyId(null));
+      setError("");
+      setAccountId("");
+      if (reportDataRef.current != null) setReportSyncing(true);
+      setCurrencyFilterReady(false);
+    },
+    [invalidateReportFetch, selectedGroup],
+  );
 
   const onPrepareCompanySelect = useCallback((c) => {
     const nextId = Number(c?.id);
@@ -328,7 +334,7 @@ export default function CustomerReportPage() {
     handlePickGroup,
     handlePickCompany,
     allowClearCompany,
-  } = useGcFilterWithAllModes({
+  } = useReportGroupCompanyFilter({
     companies,
     companyId,
     selectedGroup,
@@ -338,7 +344,6 @@ export default function CustomerReportPage() {
     onClearCompany: handleClearCompany,
     switchingCompany: false,
     preferredCompanyId: companyId,
-    me,
   });
 
   const reportScope = useMemo(
@@ -606,6 +611,8 @@ export default function CustomerReportPage() {
         <CustomerReportFilters
           companyId={companyId}
           onSwitchCompany={handlePickCompany}
+          onClearCompany={handleClearCompany}
+          allowClearCompany={allowClearCompany}
           groupIds={groupIds}
           selectedGroup={selectedGroup}
           onPickGroup={handlePickGroup}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
@@ -8,6 +9,7 @@ import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScroll
 import {
   companiesInGroupList,
   isDashboardGroupOnlyMode,
+  notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -29,6 +31,7 @@ import "../../../../public/css/payment_maintenance.css";
 import {
   fetchCompanyPermissions,
   fetchCompanyCurrencies,
+  pickPaymentMaintenanceCurrency,
   searchPaymentData,
   deletePaymentRecords,
   updateSessionCompany,
@@ -147,7 +150,7 @@ export default function PaymentMaintenancePage() {
   const listQueryEnabled =
     !bootLoading && paymentMaintenanceScopeIsReady(paymentScope) && Boolean(dateFrom) && Boolean(dateTo);
 
-  useGroupAnchorSessionSync({
+  const { resetAnchorSessionRef } = useGroupAnchorSessionSync({
     companies,
     selectedGroup,
     companyId,
@@ -209,6 +212,8 @@ export default function PaymentMaintenancePage() {
     const handleSwitch = (e) => {
       const data = e?.detail;
       if (!data || typeof data !== "object") return;
+      // Group-only filter (AP without subsidiary pill): anchor session may still sync C168 — do not re-select company in UI.
+      if (isDashboardGroupOnlyMode()) return;
       const nextId = Number(data.company_id ?? data.companyId);
       if (!Number.isFinite(nextId) || nextId <= 0) return;
       if (nextId === Number(companyIdRef.current)) return;
@@ -272,9 +277,7 @@ export default function PaymentMaintenancePage() {
           const scopeCompanyId = bootScope?.scopeCompanyId;
           const [companyPerms, currList] = await Promise.all([
             code ? fetchCompanyPermissions(code) : Promise.resolve([]),
-            scopeCompanyId
-              ? fetchCompanyCurrencies(scopeCompanyId, bootScope)
-              : Promise.resolve([]),
+            fetchCompanyCurrencies(null, bootScope),
           ]);
           if (cancelled) return;
           setPermissions(companyPerms);
@@ -287,8 +290,7 @@ export default function PaymentMaintenancePage() {
                 ? companyPerms[0]
                 : "",
           );
-          const hasMYR = currList.some((c) => c.code === "MYR");
-          setSelectedCurrency(hasMYR ? "MYR" : currList[0]?.code || null);
+          setSelectedCurrency(pickPaymentMaintenanceCurrency(currList, bootScope));
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           skipMetaAfterBootRef.current = true;
           return;
@@ -308,7 +310,7 @@ export default function PaymentMaintenancePage() {
 
           const [companyPerms, currList] = await Promise.all([
             fetchCompanyPermissions(code),
-            fetchCompanyCurrencies(initialCompanyId, bootScope),
+            fetchCompanyCurrencies(null, bootScope),
           ]);
           setPermissions(companyPerms);
           setCurrencies(currList);
@@ -317,8 +319,7 @@ export default function PaymentMaintenancePage() {
           const initialActive = savedPerm && companyPerms.includes(savedPerm) ? savedPerm : (companyPerms.length > 0 ? companyPerms[0] : "");
           setActivePermission(initialActive);
 
-          const hasMYR = currList.some(c => c.code === "MYR");
-          setSelectedCurrency(hasMYR ? "MYR" : (currList[0]?.code || null));
+          setSelectedCurrency(pickPaymentMaintenanceCurrency(currList, bootScope));
 
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           skipMetaAfterBootRef.current = true;
@@ -382,15 +383,11 @@ export default function PaymentMaintenancePage() {
         ? companiesInGroupList(companies, selectedGroup)[0]?.company_id
         : "") ||
       "";
-    const currencyCompanyId = scope?.scopeCompanyId ?? companyId;
-
     (async () => {
       try {
         const [permList, currList] = await Promise.all([
           permCode ? fetchCompanyPermissions(permCode) : Promise.resolve([]),
-          currencyCompanyId
-            ? fetchCompanyCurrencies(currencyCompanyId, scope)
-            : Promise.resolve([]),
+          fetchCompanyCurrencies(null, scope),
         ]);
         if (cancelled) return;
         setPermissions(permList);
@@ -404,8 +401,7 @@ export default function PaymentMaintenancePage() {
           setActivePermission(permList[0]);
         }
 
-        const hasMYR = currList.some((c) => c.code === "MYR");
-        setSelectedCurrency(hasMYR ? "MYR" : currList[0]?.code || null);
+        setSelectedCurrency(pickPaymentMaintenanceCurrency(currList, scope));
       } catch (err) {
         if (cancelled) return;
         console.error("Meta data load error:", err);
@@ -450,7 +446,7 @@ export default function PaymentMaintenancePage() {
           dateTo,
           transactionType,
           companyId: effectiveScope.scopeCompanyId,
-          currency: selectedCurrency,
+          currency: overrides.currency ?? selectedCurrency,
           scope: effectiveScope,
           signal: controller.signal,
         });
@@ -517,13 +513,47 @@ export default function PaymentMaintenancePage() {
   );
 
   // -- Handlers --
+  const reloadScopeMeta = useCallback(async (scope, permCodeHint = "") => {
+    const permCode =
+      permCodeHint ||
+      companyCode ||
+      (scope?.selectedGroup
+        ? companiesInGroupList(companies, scope.selectedGroup)[0]?.company_id
+        : "") ||
+      "";
+    const [permList, currList] = await Promise.all([
+      permCode ? fetchCompanyPermissions(String(permCode)) : Promise.resolve([]),
+      fetchCompanyCurrencies(null, scope),
+    ]);
+    setPermissions(permList);
+    setCurrencies(currList);
+    const savedPerm = permCode ? localStorage.getItem(`selectedPermission_${permCode}`) : null;
+    setActivePermission(
+      savedPerm && permList.includes(savedPerm)
+        ? savedPerm
+        : permList.length > 0
+          ? permList[0]
+          : "",
+    );
+    const nextCurrency = pickPaymentMaintenanceCurrency(currList, scope);
+    setSelectedCurrency(nextCurrency);
+    return nextCurrency;
+  }, [companies, companyCode]);
+
   const handleClearCompany = useCallback(
     (groupForPersist) => {
       const g = groupForPersist ?? selectedGroup;
+      suppressNextSearchEffectRef.current = true;
+      persistDashboardFilterState(g, null, { allowGroupOnly: true });
+      resetAnchorSessionRef();
       companyIdRef.current = null;
-      setCompanyId(null);
-      setCompanyCode("");
+      flushSync(() => {
+        setCompanyId(null);
+        setCompanyCode("");
+      });
       setSelectedIds([]);
+      setPaymentData([]);
+      notifyDashboardGroupFilterChanged(g, null);
       void (async () => {
         try {
           const scope = resolvePaymentMaintenanceScope({
@@ -531,33 +561,19 @@ export default function PaymentMaintenancePage() {
             selectedGroup: g,
             companyId: null,
           });
-          const anchor = g ? companiesInGroupList(companies, g)[0] : null;
-          const code = anchor?.company_id ? String(anchor.company_id) : "";
-          const scopeCompanyId = scope?.scopeCompanyId;
-          const [permList, currList] = await Promise.all([
-            code ? fetchCompanyPermissions(code) : Promise.resolve([]),
-            scopeCompanyId
-              ? fetchCompanyCurrencies(scopeCompanyId, scope)
-              : Promise.resolve([]),
-          ]);
-          setPermissions(permList);
-          setCurrencies(currList);
-          const savedPerm = code ? localStorage.getItem(`selectedPermission_${code}`) : null;
-          setActivePermission(
-            savedPerm && permList.includes(savedPerm)
-              ? savedPerm
-              : permList.length > 0
-                ? permList[0]
-                : "",
-          );
-          const hasMYR = currList.some((c) => c.code === "MYR");
-          setSelectedCurrency(hasMYR ? "MYR" : currList[0]?.code || null);
+          const nextCurrency = await reloadScopeMeta(scope);
+          await performSearch({
+            selectedGroup: g,
+            companyId: null,
+            scope,
+            currency: nextCurrency,
+          });
         } catch (err) {
           console.error("Meta bootstrap after clear company:", err);
         }
       })();
     },
-    [companies, selectedGroup],
+    [companies, selectedGroup, reloadScopeMeta, performSearch, resetAnchorSessionRef],
   );
 
   const onPrepareCompanySelect = useCallback((c) => {
@@ -572,8 +588,26 @@ export default function PaymentMaintenancePage() {
     setSelectedGroup(newGroup);
     persistDashboardFilterState(newGroup, nextId);
     followGroupRef.current();
-    void performSearch({ companyId: nextId, selectedGroup: newGroup });
-  }, [performSearch]);
+    void (async () => {
+      const nextScope = resolvePaymentMaintenanceScope({
+        companies,
+        selectedGroup: newGroup,
+        companyId: nextId,
+      });
+      try {
+        const nextCurrency = await reloadScopeMeta(nextScope, nextCode);
+        await performSearch({
+          companyId: nextId,
+          selectedGroup: newGroup,
+          scope: nextScope,
+          currency: nextCurrency,
+        });
+      } catch (err) {
+        console.error("Company select meta/search:", err);
+        notify(err.message || t("failedLoadCompanyMetadata"), "error");
+      }
+    })();
+  }, [companies, reloadScopeMeta, performSearch, notify, t]);
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
 
@@ -694,6 +728,8 @@ export default function PaymentMaintenancePage() {
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
         onPickCompany={handlePickCompany}
+        onClearCompany={handleClearCompany}
+        allowClearCompany={allowClearCompany}
         onPickAllGroups={handlePickAllGroups}
         onPickAllInGroup={handlePickAllInGroup}
         groupsAllMode={groupsAllMode}

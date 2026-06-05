@@ -236,6 +236,24 @@ export default function FormulaMaintenancePage() {
     resetSelection();
   }, [resetSelection]);
 
+  useEffect(() => {
+    const handleSwitch = (e) => {
+      const data = e?.detail;
+      if (!data || typeof data !== "object") return;
+      if (isDashboardGroupOnlyMode()) return;
+      const nextId = Number(data.company_id ?? data.companyId);
+      if (!Number.isFinite(nextId) || nextId <= 0) return;
+      if (nextId === Number(companyIdRef.current)) return;
+      const nextCode = String(data.company_code ?? data.companyCode ?? "").trim();
+      companyIdRef.current = nextId;
+      setCompanyId(nextId);
+      if (nextCode) setCompanyCode(nextCode);
+      clearFormulaList();
+    };
+    window.addEventListener("eazycount:company-session-updated", handleSwitch);
+    return () => window.removeEventListener("eazycount:company-session-updated", handleSwitch);
+  }, [clearFormulaList]);
+
   /** 先展示前 N 行，其余用 rAF 分批追加，避免一次性渲染卡住 UI */
   const hydrateFormulaList = useCallback(
     (fullList, options = {}) => {
@@ -853,6 +871,8 @@ export default function FormulaMaintenancePage() {
         selectedGroup={selectedGroup}
         onGroupClick={handleGroupClick}
         onPickCompany={handlePickCompany}
+        onClearCompany={handleClearCompany}
+        allowClearCompany={allowClearCompany}
         onPickAllGroups={handlePickAllGroups}
         onPickAllInGroup={handlePickAllInGroup}
         groupsAllMode={groupsAllMode}

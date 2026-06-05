@@ -1,4 +1,8 @@
-import { loadActiveCaptureSession, CAPTURE_SCOPE_POINTER_KEY } from "../../datacapture/lib/dataCaptureStorage.js";
+import {
+  captureSessionMatchesScope,
+  loadActiveCaptureSession,
+  CAPTURE_SCOPE_POINTER_KEY,
+} from "../../datacapture/lib/dataCaptureStorage.js";
 import { dataCaptureScopeCacheCompanyKey } from "../../datacapture/lib/dataCaptureScope.js";
 export const SUMMARY_CAPTURE_STORAGE_KEYS = [
   "capturedTableData",
@@ -80,9 +84,12 @@ export function stripSummarySuccessParamFromUrl() {
   }
 }
 
-export function readCaptureSessionFromStorage() {
+export function readCaptureSessionFromStorage(expectedScope = null) {
   const session = loadActiveCaptureSession();
   if (!session) return null;
+  if (expectedScope && !captureSessionMatchesScope(session, expectedScope)) {
+    return null;
+  }
   return {
     tableData: session.tableData,
     processData: session.processData,

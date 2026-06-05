@@ -26,13 +26,16 @@ export function mapProcessesForMaintenanceSelect(apiList) {
 }
 
 function appendScopeToParams(params, scope) {
-  const { companyId, viewGroup, groupId, reportScope } = captureMaintenanceScopeApiParams(scope);
+  const { companyId, viewGroup, groupId, reportScope, groupOnly, groupAggregate } =
+    captureMaintenanceScopeApiParams(scope);
   if (companyId) params.append("company_id", String(companyId));
   const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
   if (vg) params.append("view_group", vg);
   const gid = groupId ? String(groupId).trim().toUpperCase() : "";
   if (gid) params.append("group_id", gid);
   if (reportScope) params.append("report_scope", reportScope);
+  if (groupOnly) params.append("group_only", "1");
+  if (groupAggregate) params.append("group_aggregate", "1");
 }
 
 export async function fetchCompanyPermissions(companyCode) {
@@ -106,11 +109,14 @@ export async function deleteCaptureItems({ items, dateFrom, dateTo, scope }) {
     date_to: dateTo,
     items,
   };
-  const { companyId, viewGroup, groupId, reportScope } = captureMaintenanceScopeApiParams(scope);
+  const { companyId, viewGroup, groupId, reportScope, groupOnly, groupAggregate } =
+    captureMaintenanceScopeApiParams(scope);
   if (companyId) payload.company_id = companyId;
   if (viewGroup) payload.view_group = viewGroup;
   if (groupId) payload.group_id = groupId;
   if (reportScope) payload.report_scope = reportScope;
+  if (groupOnly) payload.group_only = "1";
+  if (groupAggregate) payload.group_aggregate = "1";
 
   const response = await fetch(buildApiUrl("api/capture_maintenance/delete_api.php"), {
     method: "POST",

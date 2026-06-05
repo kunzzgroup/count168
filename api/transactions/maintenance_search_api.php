@@ -52,61 +52,14 @@ function maintenanceResolveRequestedCompanyId(PDO $pdo, int $requestedCompanyId,
     return $requestedCompanyId;
 }
 
-/** 是否走旧版 PHP 子公司查询（不按 group scope 过滤 SALARY/BONUS）。 */
-function maintenanceUseLegacyCompanyQuery(array $params): bool
-{
-    $companyRaw = $params['company_id'] ?? '';
-    if ($companyRaw === '' || $companyRaw === null) {
-        return false;
-    }
-    $scopeHint = strtolower(trim((string) ($params['report_scope'] ?? $params['capture_scope'] ?? '')));
-    return $scopeHint === '' || $scopeHint === 'company';
-}
-
-/**
- * Transaction Maintenance 专用：company scope 允许 SALARY/BONUS（与 Formula Maintenance 对齐）。
- * 其它页面仍沿用 data_capture_scope_common 的严格规则。
- */
 function maintenanceResolveProcessIdByCode(PDO $pdo, int $companyId, string $processCode, bool $isGroupScope): ?int
 {
-    $code = strtoupper(trim($processCode));
-    if ($code === '') {
-        return null;
-    }
-    if ($isGroupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
-        return null;
-    }
-
-    $sql = 'SELECT id FROM process WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?';
-    if ($isGroupScope) {
-        $sql .= " AND UPPER(TRIM(process_id)) IN ('SALARY', 'BONUS')";
-    }
-    $sql .= ' LIMIT 1';
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$companyId, $code]);
-    $id = (int) ($stmt->fetchColumn() ?: 0);
-
-    return $id > 0 ? $id : null;
+    return dcResolveProcessIdByCode($pdo, $companyId, $processCode, $isGroupScope);
 }
 
-/**
- * Transaction Maintenance 专用：company scope 下允许 SALARY/BONUS 的 process.id。
- */
 function maintenanceAssertProcessIdForScope(PDO $pdo, int $processId, int $companyId, bool $isGroupScope): void
 {
-    if ($processId <= 0 || $companyId <= 0) {
-        throw new Exception('Invalid process for scope');
-    }
-    $stmt = $pdo->prepare('SELECT UPPER(TRIM(process_id)) FROM process WHERE id = ? AND company_id = ? LIMIT 1');
-    $stmt->execute([$processId, $companyId]);
-    $code = strtoupper(trim((string) ($stmt->fetchColumn() ?: '')));
-    if ($code === '') {
-        throw new Exception('Process not found for scope');
-    }
-    if ($isGroupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
-        throw new Exception('Invalid process for group scope');
-    }
+    dcAssertProcessIdInCaptureScope($pdo, $processId, $companyId, $isGroupScope);
 }
 
 /**
@@ -372,7 +325,8 @@ function maintenanceBuildCaptureUnionBranch(
     string $date_from_db,
     string $date_to_db,
     ?string $process,
-    string $scopeProcessFilter = ''
+    string $scopeProcessFilter = '',
+    string $scopeCompanySql = ''
 ): array {
     $captureWhere = [
         "dc.company_id = ?",
@@ -426,7 +380,7 @@ function maintenanceBuildCaptureUnionBranch(
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
         LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
-        $captureWhereSql $scopeProcessFilter
+        $captureWhereSql $scopeProcessFilter $scopeCompanySql
     ";
 
     return ['sql' => $sql, 'params' => $captureParams];
@@ -512,7 +466,8 @@ function maintenanceBuildCaptureFastBranch(
     string $date_from_db,
     string $date_to_db,
     ?string $process,
-    string $scopeProcessFilter = ''
+    string $scopeProcessFilter = '',
+    string $scopeCompanySql = ''
 ): array {
     $captureWhere = [
         "dc.company_id = ?",
@@ -566,7 +521,7 @@ function maintenanceBuildCaptureFastBranch(
         LEFT JOIN description d ON p.description_id = d.id
         LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
         LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
-        $captureWhereSql $scopeProcessFilter
+        $captureWhereSql $scopeProcessFilter $scopeCompanySql
     ";
 
     return ['sql' => $sql, 'params' => $captureParams];
@@ -842,7 +797,8 @@ function maintenanceSearchPaginatedFast(
     int $page_size,
     ?string $cursor_raw = null,
     bool $maintenance_scope_group = false,
-    string $scopeProcessFilter = ''
+    string $scopeProcessFilter = '',
+    string $scopeCompanySql = ''
 ): void {
     $has_source_bank_col = maintenanceHasSourceBankCol($pdo);
     $unionParts = [];
@@ -868,7 +824,8 @@ function maintenanceSearchPaginatedFast(
                 $date_from_db,
                 $date_to_db,
                 $process,
-                $scopeProcessFilter
+                $scopeProcessFilter,
+                $scopeCompanySql
             );
             $unionParts[] = '(' . $cap['sql'] . ')';
             $params = array_merge($params, $cap['params']);
@@ -959,33 +916,29 @@ try {
 
     $scopeParams = $_GET;
     $maintenance_scope_group = false;
-    $useLegacyCompanyQuery = maintenanceUseLegacyCompanyQuery($scopeParams);
-    $hasExplicitScope = !$useLegacyCompanyQuery && dcRequestHasExplicitScope($scopeParams);
+    $scopeProcessFilter = '';
+    $scopeCompanySql = '';
+    $scopeCompanySqlDeleted = '';
+    $hasExplicitScope = dcRequestHasExplicitScope($scopeParams);
+    $requestedViewGroup = dcNormalizeGroupId(
+        $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
+    );
 
-    if ($useLegacyCompanyQuery) {
-        $company_id = maintenanceResolveRequestedCompanyId(
-            $pdo,
-            (int) $scopeParams['company_id'],
-            $scopeParams
-        );
-        $maintenance_scope_group = false;
-    } elseif ($hasExplicitScope) {
+    if ($hasExplicitScope) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $scopeParams);
-        $company_id = (int) $scopeResolved['company_id'];
-        $maintenance_scope_group = (bool) $scopeResolved['is_group_scope'];
-        $scopeHint = strtolower(trim((string) ($scopeParams['report_scope'] ?? $scopeParams['capture_scope'] ?? '')));
-        if ($scopeHint === 'company') {
-            $maintenance_scope_group = false;
-        } elseif ($scopeHint === 'group') {
-            $maintenance_scope_group = true;
+        $scopeCtx = dcFinalizeCaptureMaintenanceScope($pdo, $scopeResolved, $scopeParams);
+        $company_id = (int) $scopeCtx['company_id'];
+        $maintenance_scope_group = (bool) $scopeCtx['is_group_scope'];
+        $scopeProcessFilter = (string) $scopeCtx['scope_process_sql'];
+        $scopeCompanySql = (string) $scopeCtx['scope_company_sql'];
+        $scopeCompanySqlDeleted = (string) ($scopeCtx['scope_company_sql_deleted'] ?? '');
+        if ($scopeCompanySqlDeleted === '' && !$maintenance_scope_group) {
+            $scopeCompanySqlDeleted = dcSqlCaptureOnSubsidiaryCompany('dcd');
         }
-        $viewGroupForAccess = dcNormalizeGroupId(
-            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
-        );
         dcAssertUserCanAccessCompany(
             $pdo,
             $company_id,
-            $viewGroupForAccess !== '' ? $viewGroupForAccess : null
+            $requestedViewGroup !== '' ? $requestedViewGroup : null
         );
     } else {
         $company_id = null;
@@ -1037,12 +990,50 @@ try {
             'group_id' => dcNormalizeGroupId($scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''),
             'report_scope_hint' => '',
         ]);
+        $scopeProcessFilter = $maintenance_scope_group
+            ? dcSqlGroupProcessFilter('p')
+            : dcSqlCompanyProcessFilter('p');
+        $scopeCompanySql = $maintenance_scope_group
+            ? ''
+            : dcSqlCaptureOnSubsidiaryCompany('dc');
+        $scopeCompanySqlDeleted = $maintenance_scope_group
+            ? ''
+            : dcSqlCaptureOnSubsidiaryCompany('dcd');
+        if ($maintenance_scope_group && $company_id > 0 && dcCompanyIdIsGroupEntity($pdo, $company_id)) {
+            $scopeCompanySql = dcSqlCaptureOnGroupEntityCompany('dc');
+            $scopeCompanySqlDeleted = dcSqlCaptureOnGroupEntityCompany('dcd');
+        }
     }
 
-    $scopeProcessFilter = $maintenance_scope_group
-        ? dcSqlGroupProcessFilter('p')
-        : '';
-    
+    if ($maintenance_scope_group && (int) $company_id <= 0) {
+        echo json_encode([
+            'success' => true,
+            'data' => [],
+            'pagination' => [
+                'page' => isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1,
+                'page_size' => isset($_GET['page_size']) ? (int) $_GET['page_size'] : 0,
+                'total' => 0,
+                'has_more' => false,
+                'next_cursor' => null,
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+        return;
+    }
+    if (!$maintenance_scope_group && (int) $company_id > 0 && dcCompanyIdIsGroupEntity($pdo, (int) $company_id)) {
+        echo json_encode([
+            'success' => true,
+            'data' => [],
+            'pagination' => [
+                'page' => isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1,
+                'page_size' => isset($_GET['page_size']) ? (int) $_GET['page_size'] : 0,
+                'total' => 0,
+                'has_more' => false,
+                'next_cursor' => null,
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+        return;
+    }
+
     // 参数
     $date_from = $_GET['date_from'] ?? null;
     $date_to   = $_GET['date_to']   ?? null;
@@ -1124,53 +1115,9 @@ try {
         }
     }
 
-    // Strict split (no data bleed):
-    // - Payroll process (SALARY/BONUS) under a selected Group always queries the group-entity company.
-    // - Non-payroll processes remain company-scoped.
-    $requestedViewGroup = dcNormalizeGroupId(
-        $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
-    );
-    $payrollCode = strtoupper(trim((string) ($process ?? '')));
-    $isPayrollProcess = in_array($payrollCode, ['SALARY', 'BONUS'], true);
-    $capture_company_id = $company_id;
-    $capture_scope_group = $maintenance_scope_group;
-    if (!$capture_scope_group && $isPayrollProcess && $requestedViewGroup !== '') {
-        $entityCompanyId = (int) tx_resolve_group_entity_company_id($pdo, $requestedViewGroup);
-        if ($entityCompanyId > 0) {
-            // Re-check access against the resolved entity company in the same group scope.
-            dcAssertUserCanAccessCompany($pdo, $entityCompanyId, $requestedViewGroup);
-            $capture_company_id = $entityCompanyId;
-            $capture_scope_group = true;
-        }
-    }
-    $captureScopeProcessFilter = $capture_scope_group
-        ? dcSqlGroupProcessFilter('p')
-        : '';
-
-    // Rule #1 (Transaction Maintenance):
-    // SALARY/BONUS should always follow group-entity scope when a group context is present,
-    // even if UI currently shows a subsidiary company (e.g. AP + C168).
-    if ($process !== null && $process !== '') {
-        $normalizedProcessCode = strtoupper(trim((string) $process));
-        $requestedViewGroup = dcNormalizeGroupId(
-            $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ''
-        );
-        if (
-            in_array($normalizedProcessCode, ['SALARY', 'BONUS'], true) &&
-            $requestedViewGroup !== ''
-        ) {
-            $entityCompanyId = (int) tx_resolve_group_entity_company_id($pdo, $requestedViewGroup);
-            if ($entityCompanyId > 0) {
-                $company_id = $entityCompanyId;
-                $maintenance_scope_group = true;
-            }
-        }
-    }
-
-    // Recompute scope filter after potential process/scope override above.
-    $scopeProcessFilter = $maintenance_scope_group
-        ? dcSqlGroupProcessFilter('p')
-        : '';
+    $capture_company_id = (int) $company_id;
+    $capture_scope_group = (bool) $maintenance_scope_group;
+    $captureScopeProcessFilter = $scopeProcessFilter;
 
     if (!$date_from || !$date_to) {
         throw new Exception('日期范围是必填项');
@@ -1224,7 +1171,8 @@ try {
                 $page_size,
                 $cursor_raw !== '' ? $cursor_raw : null,
                 (bool) $capture_scope_group,
-                $captureScopeProcessFilter
+                $captureScopeProcessFilter,
+                $scopeCompanySql
             );
             return;
         } catch (Throwable $fastErr) {
@@ -1359,7 +1307,7 @@ try {
             $captureParams[] = $process;
         }
 
-        $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere) . $captureScopeProcessFilter;
+        $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere) . $captureScopeProcessFilter . $scopeCompanySql;
 
         $captureSql = "
             SELECT
@@ -1561,7 +1509,7 @@ try {
                 $deletedCaptureParams[] = $process;
             }
             
-            $deletedCaptureWhereSql = 'WHERE ' . implode(' AND ', $deletedCaptureWhere) . $captureScopeProcessFilter;
+            $deletedCaptureWhereSql = 'WHERE ' . implode(' AND ', $deletedCaptureWhere) . $captureScopeProcessFilter . $scopeCompanySqlDeleted;
             
             $deletedCaptureSql = "
                 SELECT
