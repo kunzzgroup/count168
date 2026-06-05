@@ -124,9 +124,15 @@ export default function TransactionHistoryModal({
                       <td className="transaction-history-col-rate">
                         {r.rate && r.rate !== "-" ? formatRateForHistoryDisplay(r.rate) : "-"}
                       </td>
-                      <td className="transaction-history-col-winloss"><TransactionWinLossCell value={r.win_loss} /></td>
-                      <td className="transaction-history-col-crdr">{histMoney(r.cr_dr)}</td>
-                      <td className="transaction-history-col-balance">{histMoney(r.balance)}</td>
+                      <td className="transaction-history-col-winloss">
+                        <TransactionWinLossCell value={r.win_loss} formatMoney={histMoney} />
+                      </td>
+                      <td className="transaction-history-col-crdr">
+                        <TransactionWinLossCell value={r.cr_dr} formatMoney={histMoney} />
+                      </td>
+                      <td className="transaction-history-col-balance">
+                        <TransactionWinLossCell value={r.balance} formatMoney={histMoney} />
+                      </td>
                       {showDescriptionColumn ? (
                         <td className="transaction-history-col-description text-uppercase">{toUpperDisplay(r.description)}</td>
                       ) : null}

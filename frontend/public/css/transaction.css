@@ -1501,6 +1501,17 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     color: #b91c1c;
 }
 
+/* Payment History modal (portaled to body): same signed amount colors as main grid */
+body.transaction-page #historyModal .transaction-amount--pos,
+.transaction-page #historyModal .transaction-amount--pos {
+    color: #0b2557;
+}
+
+body.transaction-page #historyModal .transaction-amount--neg,
+.transaction-page #historyModal .transaction-amount--neg {
+    color: #b91c1c;
+}
+
 .transaction-page .transaction-table tbody .transaction-table-row.transaction-alert-row .transaction-amount {
     color: white !important;
 }

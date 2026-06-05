@@ -8,9 +8,9 @@ function parseMoneyNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Win/Loss column: positive #0b2557, negative #b91c1c (aligned with member-amount). */
-export default function TransactionWinLossCell({ value }) {
-  const display = formatPaymentHistoryMoneyHalfUp(value);
+/** Money column: positive #0b2557, negative #b91c1c (aligned with member-amount). */
+export default function TransactionWinLossCell({ value, formatMoney = formatPaymentHistoryMoneyHalfUp }) {
+  const display = formatMoney(value);
   const n = parseMoneyNumber(value);
   if (n === null || n === 0) return display;
 
