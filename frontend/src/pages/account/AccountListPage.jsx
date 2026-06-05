@@ -1471,14 +1471,13 @@ export default function AccountListPage() {
   const appendCurrencyScopeParams = appendAccountScopeParams;
 
   const appendModalCurrencyScopeParams = useCallback(
-    (params, scopeOverride = null) => {
-      const modalScope = scopeOverride
-        ? resolveModalLedgerScope(pageLedgerScope, scopeOverride)
-        : resolveModalLedgerScope(
-            pageLedgerScope,
-            modalLedgerScopeRef.current ?? modalLedgerScope,
-          );
-      applyTenantLedgerToParams(params, modalScope);
+    (params, scopeOverride = undefined) => {
+      const modalScope =
+        scopeOverride !== undefined
+          ? scopeOverride
+          : modalLedgerScopeRef.current ?? modalLedgerScope;
+      const effective = resolveModalLedgerScope(pageLedgerScope, modalScope);
+      applyTenantLedgerToParams(params, effective);
     },
     [pageLedgerScope, modalLedgerScope],
   );
@@ -1488,12 +1487,24 @@ export default function AccountListPage() {
     return resolveModalLedgerScope(pageLedgerScope, modal);
   }, [pageLedgerScope, modalLedgerScope]);
 
-  const loadSelectionMeta = async (id, isEdit, { selectCode = null, ledgerScope = null } = {}) => {
-    const scopeForRequest = ledgerScope ?? modalLedgerScopeRef.current ?? modalLedgerScope;
+  const loadSelectionMeta = async (
+    id,
+    isEdit,
+    { selectCode = null, ledgerScope = undefined, forcePageLedgerScope = false } = {},
+  ) => {
+    const scopeForRequest = forcePageLedgerScope
+      ? undefined
+      : ledgerScope !== undefined
+        ? ledgerScope
+        : modalLedgerScopeRef.current ?? modalLedgerScope;
     try {
       const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
       if (id) currencyParams.set("account_id", String(id));
-      appendModalCurrencyScopeParams(currencyParams, scopeForRequest);
+      if (forcePageLedgerScope) {
+        applyTenantLedgerToParams(currencyParams, pageLedgerScope);
+      } else {
+        appendModalCurrencyScopeParams(currencyParams, scopeForRequest);
+      }
       const [curRes, compRes] = await Promise.all([
         fetch(buildApiUrl(`api/accounts/account_currency_api.php?${currencyParams.toString()}`), { credentials: "include" }),
         fetch(buildApiUrl(`api/accounts/account_company_api.php?action=get_available_companies${id ? `&account_id=${id}` : ""}`), { credentials: "include" }),
@@ -1557,8 +1568,9 @@ export default function AccountListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
+    syncModalLedgerScope(null);
     setCurrencySettingOpen(true);
-    void loadSelectionMeta(null, false);
+    void loadSelectionMeta(null, false, { forcePageLedgerScope: true });
     if (settingCurrencyId) void loadCurrencyLinks(settingCurrencyId);
   };
 
@@ -1737,7 +1749,7 @@ export default function AccountListPage() {
       return;
     }
     try {
-      const modalScope = resolveActiveModalLedgerScope();
+      const modalScope = currencySettingOpen ? pageLedgerScope : resolveActiveModalLedgerScope();
       const payload = { code };
       if (modalScope.groupId) payload.group_id = modalScope.groupId;
       if (modalScope.ledger === "group") {
@@ -1757,7 +1769,8 @@ export default function AccountListPage() {
         if (/already exists/i.test(msg)) {
           await loadSelectionMeta(isEditMode && form.id ? form.id : null, isEditMode, {
             selectCode: code,
-            ledgerScope: modalLedgerScopeRef.current ?? modalLedgerScope,
+            ledgerScope: currencySettingOpen ? undefined : modalLedgerScopeRef.current ?? modalLedgerScope,
+            forcePageLedgerScope: currencySettingOpen,
           });
           setCurrencyInput("");
           return;

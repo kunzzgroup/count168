@@ -154,7 +154,123 @@ function tenant_load_group_tenant_currency_map(PDO $pdo, string $groupCode): arr
         }
     }
 
+    if (tenant_table_has_scope_columns($pdo, 'currency')) {
+        $anchorId = gc_resolve_group_anchor_company_id($pdo, $g);
+        $legacyCtx = [
+            'mode' => 'group',
+            'group_pk' => $pk,
+            'company_id' => $anchorId,
+            'group_code' => $g,
+        ];
+        foreach (tenant_fetch_legacy_group_setting_currency_rows($pdo, $legacyCtx) as $row) {
+            $id = (int) ($row['id'] ?? 0);
+            $legacyCode = strtoupper(trim((string) ($row['code'] ?? '')));
+            if ($id > 0 && $legacyCode !== '' && !isset($map[$id])) {
+                $map[$id] = $legacyCode;
+            }
+        }
+    }
+
     return $map;
+}
+
+/**
+ * Company.id rows that may hold pre-migration group Currency Setting rows.
+ *
+ * @return int[]
+ */
+function tenant_group_currency_legacy_company_ids(PDO $pdo, array $ctx): array
+{
+    $ids = [];
+    $anchor = (int) ($ctx['company_id'] ?? 0);
+    if ($anchor > 0) {
+        $ids[$anchor] = true;
+    }
+    $groupCode = gc_normalize_group_code((string) ($ctx['group_code'] ?? ''));
+    if ($groupCode !== '') {
+        $legacyEntity = gc_resolve_legacy_group_entity_company_id($pdo, $groupCode);
+        if ($legacyEntity > 0) {
+            $ids[$legacyEntity] = true;
+        }
+    }
+
+    return array_values(array_keys($ids));
+}
+
+/**
+ * Legacy currencies (no scope_type) on group anchor / entity — shown until promoted to scope_type=group.
+ *
+ * @return array<int, array{id: int, code: string}>
+ */
+function tenant_fetch_legacy_group_setting_currency_rows(PDO $pdo, array $ctx): array
+{
+    if (($ctx['mode'] ?? '') !== 'group' || !tenant_table_has_scope_columns($pdo, 'currency')) {
+        return [];
+    }
+
+    $companyIds = tenant_group_currency_legacy_company_ids($pdo, $ctx);
+    if ($companyIds === []) {
+        return [];
+    }
+
+    $ph = implode(',', array_fill(0, count($companyIds), '?'));
+    $stmt = $pdo->prepare("
+        SELECT id, code FROM currency
+        WHERE company_id IN ({$ph})
+          AND (scope_type IS NULL OR TRIM(scope_type) = '')
+        ORDER BY code ASC
+    ");
+    $stmt->execute($companyIds);
+
+    $rows = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $code = strtoupper(trim((string) ($row['code'] ?? '')));
+        if ($code === '') {
+            continue;
+        }
+        $rows[] = [
+            'id' => (int) $row['id'],
+            'code' => $code,
+        ];
+    }
+
+    return $rows;
+}
+
+/**
+ * Promote a legacy anchor currency row to group ledger (scope_type=group).
+ */
+function tenant_promote_currency_to_group_scope(PDO $pdo, int $currencyId, array $ctx): bool
+{
+    $groupPk = (int) ($ctx['group_pk'] ?? 0);
+    if ($groupPk <= 0 || $currencyId <= 0) {
+        return false;
+    }
+
+    $allowedCompanies = tenant_group_currency_legacy_company_ids($pdo, $ctx);
+    if ($allowedCompanies === []) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare('SELECT company_id FROM currency WHERE id = ? LIMIT 1');
+    $stmt->execute([$currencyId]);
+    $rowCompanyId = (int) ($stmt->fetchColumn() ?: 0);
+    if ($rowCompanyId <= 0 || !in_array($rowCompanyId, $allowedCompanies, true)) {
+        return false;
+    }
+
+    $anchorId = (int) ($ctx['company_id'] ?? 0);
+    $companyId = $anchorId > 0 ? $anchorId : $rowCompanyId;
+
+    $stmt = $pdo->prepare("
+        UPDATE currency
+        SET scope_type = 'group', scope_id = ?, company_id = ?
+        WHERE id = ?
+          AND (scope_type IS NULL OR TRIM(scope_type) = '')
+    ");
+    $stmt->execute([$groupPk, $companyId, $currencyId]);
+
+    return $stmt->rowCount() > 0;
 }
 
 /**
@@ -185,8 +301,19 @@ function tenant_create_currency(PDO $pdo, string $code, array $ctx): array
         $stmt->execute([$groupPk, $code]);
         $existing = (int) ($stmt->fetchColumn() ?: 0);
         if ($existing > 0) {
-            throw new Exception('Currency ' . $code . ' already exists');
+            return ['id' => $existing, 'code' => $code];
         }
+
+        foreach (tenant_fetch_legacy_group_setting_currency_rows($pdo, $ctx) as $legacyRow) {
+            if (strtoupper(trim((string) ($legacyRow['code'] ?? ''))) !== $code) {
+                continue;
+            }
+            $legacyId = (int) ($legacyRow['id'] ?? 0);
+            if ($legacyId > 0 && tenant_promote_currency_to_group_scope($pdo, $legacyId, $ctx)) {
+                return ['id' => $legacyId, 'code' => $code];
+            }
+        }
+
         try {
             $stmt = $pdo->prepare("
                 INSERT INTO currency (code, company_id, scope_type, scope_id)
@@ -195,7 +322,29 @@ function tenant_create_currency(PDO $pdo, string $code, array $ctx): array
             $stmt->execute([$code, $companyId, $groupPk]);
         } catch (PDOException $e) {
             if ((string) $e->getCode() === '23000') {
-                throw new Exception('Currency ' . $code . ' already exists for this group');
+                $findStmt = $pdo->prepare("
+                    SELECT id FROM currency
+                    WHERE scope_type = 'group' AND scope_id = ? AND UPPER(TRIM(code)) = ?
+                    LIMIT 1
+                ");
+                $findStmt->execute([$groupPk, $code]);
+                $existing = (int) ($findStmt->fetchColumn() ?: 0);
+                if ($existing > 0) {
+                    return ['id' => $existing, 'code' => $code];
+                }
+                foreach (tenant_fetch_legacy_group_setting_currency_rows($pdo, $ctx) as $legacyRow) {
+                    if (strtoupper(trim((string) ($legacyRow['code'] ?? ''))) !== $code) {
+                        continue;
+                    }
+                    $legacyId = (int) ($legacyRow['id'] ?? 0);
+                    if ($legacyId > 0 && tenant_promote_currency_to_group_scope($pdo, $legacyId, $ctx)) {
+                        return ['id' => $legacyId, 'code' => $code];
+                    }
+                }
+                throw new Exception(
+                    'Currency ' . $code . ' already exists for this group. '
+                    . 'If creation still fails, run database/migrations/20260604_currency_scope_unique.sql on the server.'
+                );
             }
             throw $e;
         }
@@ -355,11 +504,31 @@ function tenant_fetch_currencies(PDO $pdo, array $ctx): array
     }
 
     $rows = [];
+    $seenCodes = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $code = strtoupper(trim((string) ($row['code'] ?? '')));
+        if ($code === '') {
+            continue;
+        }
+        $seenCodes[$code] = true;
         $rows[] = [
             'id' => (int) $row['id'],
-            'code' => strtoupper(trim((string) ($row['code'] ?? ''))),
+            'code' => $code,
         ];
+    }
+
+    if (($ctx['mode'] ?? '') === 'group' && tenant_table_has_scope_columns($pdo, 'currency')) {
+        foreach (tenant_fetch_legacy_group_setting_currency_rows($pdo, $ctx) as $legacyRow) {
+            $code = strtoupper(trim((string) ($legacyRow['code'] ?? '')));
+            if ($code === '' || isset($seenCodes[$code])) {
+                continue;
+            }
+            $seenCodes[$code] = true;
+            $rows[] = $legacyRow;
+        }
+        usort($rows, static function (array $a, array $b): int {
+            return strcmp((string) ($a['code'] ?? ''), (string) ($b['code'] ?? ''));
+        });
     }
 
     return $rows;
@@ -449,8 +618,25 @@ function tenant_currency_belongs_to_context(PDO $pdo, int $currencyId, array $ct
             LIMIT 1
         ");
         $stmt->execute([$currencyId, (int) ($ctx['group_pk'] ?? 0)]);
+        if ($stmt->fetchColumn()) {
+            return true;
+        }
 
-        return (bool) $stmt->fetchColumn();
+        $allowedCompanies = tenant_group_currency_legacy_company_ids($pdo, $ctx);
+        if ($allowedCompanies === []) {
+            return false;
+        }
+        $ph = implode(',', array_fill(0, count($allowedCompanies), '?'));
+        $legacyStmt = $pdo->prepare("
+            SELECT id FROM currency
+            WHERE id = ?
+              AND company_id IN ({$ph})
+              AND (scope_type IS NULL OR TRIM(scope_type) = '')
+            LIMIT 1
+        ");
+        $legacyStmt->execute(array_merge([$currencyId], $allowedCompanies));
+
+        return (bool) $legacyStmt->fetchColumn();
     }
     $companyId = (int) ($ctx['company_id'] ?? 0);
     if ($companyId <= 0) {
