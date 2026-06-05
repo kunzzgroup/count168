@@ -138,17 +138,30 @@ export function getAssignedCompanyIds(me) {
 
 /**
  * Admin assigned group ledger (user_group_map) — NOT login_scope.
- * Company-login users only enter group-only UI when this is non-empty.
  */
 export function userHasAssignedGroupLedger(me) {
   return getAssignedGroupCodes(me).length > 0;
+}
+
+/** Company login: owner / admin may enter group-only without user_group_map (manage all groups they can see). */
+export function companyLoginHasGroupLedgerPrivilege(me) {
+  if (!isCompanyLogin(me)) return false;
+  const role = String(me?.role || "").trim().toLowerCase();
+  const userType = String(me?.user_type || "").trim().toLowerCase();
+  return role === "admin" || role === "owner" || userType === "owner";
+}
+
+function resolveCompanyLoginAccessibleGroupSet(me, companies = []) {
+  const set = new Set(resolveAccessibleGroupIds(me, companies));
+  for (const g of getAssignedGroupCodes(me)) set.add(g);
+  return set;
 }
 
 export function userCanUseGroupLedger(me) {
   if (!me) return false;
   if (isGroupLogin(me)) return true;
   if (isCompanyLogin(me)) {
-    return userHasAssignedGroupLedger(me);
+    return companyLoginHasGroupLedgerPrivilege(me) || userHasAssignedGroupLedger(me);
   }
   return Boolean(me.can_use_group_ledger) || userHasAssignedGroupLedger(me);
 }
@@ -156,17 +169,21 @@ export function userCanUseGroupLedger(me) {
 /**
  * Permission: may this user access group ledger for a specific group code?
  * - Group login: login scope + linked groups
- * - Company login: Admin User modal Groups row only (assigned_group_codes)
+ * - Company login owner/admin: any accessible group pill (session accessible_group_ids)
+ * - Company login others: Admin User modal Groups row (assigned_group_codes)
  */
-export function canAccessGroupLedgerForGroup(me, groupCode) {
+export function canAccessGroupLedgerForGroup(me, groupCode, companies = []) {
   if (!me || groupCode == null || String(groupCode).trim() === "") return false;
   const g = String(groupCode).trim().toUpperCase();
   if (isGroupLogin(me)) {
     const ident = getLoginIdentifier(me);
     if (ident === g) return true;
-    return resolveAccessibleGroupIds(me).includes(g);
+    return resolveAccessibleGroupIds(me, companies).includes(g);
   }
   if (isCompanyLogin(me)) {
+    if (companyLoginHasGroupLedgerPrivilege(me)) {
+      return resolveCompanyLoginAccessibleGroupSet(me, companies).has(g);
+    }
     return getAssignedGroupCodes(me).includes(g);
   }
   return getAssignedGroupCodes(me).includes(g);
@@ -174,10 +191,10 @@ export function canAccessGroupLedgerForGroup(me, groupCode) {
 
 /**
  * Runtime: may user deselect company and view group ledger?
- * Company login without Admin-assigned Group → false (group pill wraps company only).
+ * Company login manager/etc. without Admin-assigned Group → false (group pill wraps company only).
  *
  * @param {object|null|undefined} me
- * @param {string|null|undefined} [groupCode] When set, requires assignment to that specific group.
+ * @param {string|null|undefined} [groupCode] When set, requires access to that specific group.
  */
 export function canUseGroupOnlyMode(me, groupCode = null) {
   if (!me) return false;
@@ -187,9 +204,13 @@ export function canUseGroupOnlyMode(me, groupCode = null) {
   return userCanUseGroupLedger(me);
 }
 
-/** Company login without group assignment must keep a subsidiary company when a group pill is shown. */
+/** Company login without privilege or assignment must keep a subsidiary when a group pill is shown. */
 export function companyLoginRequiresSubsidiaryWithGroup(me) {
-  return isCompanyLogin(me) && !userHasAssignedGroupLedger(me);
+  return (
+    isCompanyLogin(me) &&
+    !companyLoginHasGroupLedgerPrivilege(me) &&
+    !userHasAssignedGroupLedger(me)
+  );
 }
 
 /**
@@ -217,8 +238,8 @@ export function shouldClearGroupOnlyOnCompanySelect(me, companyId) {
 }
 
 /**
- * Maintenance / owner pages: group-only without auto-picking subsidiary.
- * Company login still requires Admin-assigned group (same as canUseGroupOnlyMode).
+ * Maintenance pages: group-only without auto-picking subsidiary.
+ * Company login: owner/admin or Admin-assigned group ledger.
  */
 export function maintenancePageAllowGroupOnlyPill(me) {
   if (isCompanyLogin(me)) {

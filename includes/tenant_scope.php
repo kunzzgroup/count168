@@ -66,12 +66,19 @@ function tenant_request_is_group_only(array $params): bool
     $groupCode = function_exists('gc_normalize_group_code')
         ? gc_normalize_group_code((string) ($params['group_id'] ?? $params['view_group'] ?? ''))
         : strtoupper(trim((string) ($params['group_id'] ?? $params['view_group'] ?? '')));
-    if (
-        $groupCode !== ''
-        && function_exists('gc_session_assigned_group_codes')
-        && in_array($groupCode, gc_session_assigned_group_codes(), true)
-    ) {
-        return true;
+    if ($groupCode !== '') {
+        if (
+            function_exists('gc_session_company_login_has_group_ledger_privilege')
+            && gc_session_company_login_has_group_ledger_privilege()
+        ) {
+            return true;
+        }
+        if (
+            function_exists('gc_session_assigned_group_codes')
+            && in_array($groupCode, gc_session_assigned_group_codes(), true)
+        ) {
+            return true;
+        }
     }
 
     return false;

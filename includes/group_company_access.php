@@ -401,16 +401,31 @@ function gc_assert_api_company_access(PDO $pdo, int $companyId, ?string $viewGro
     throw new RuntimeException('无权限访问该公司');
 }
 
-/** Block company-login callers from group-only APIs unless admin assigned group ledger access. */
+/** Block company-login callers from group-only APIs unless owner/admin or admin-assigned group ledger. */
 function gc_assert_group_only_operation_allowed(): void
 {
     if (gc_is_group_login()) {
+        return;
+    }
+    if (gc_session_company_login_has_group_ledger_privilege()) {
         return;
     }
     if (gc_session_assigned_group_codes() !== []) {
         return;
     }
     throw new RuntimeException('Group-only operation is not allowed for company login');
+}
+
+/** Company login: owner / admin may use group ledger without user_group_map. */
+function gc_session_company_login_has_group_ledger_privilege(): bool
+{
+    if (!gc_is_company_login()) {
+        return false;
+    }
+    $role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
+    $userType = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
+
+    return $role === 'admin' || $role === 'owner' || $userType === 'owner';
 }
 
 /** Numeric company ids allowed for aggregation under current scope. */
@@ -589,6 +604,10 @@ function gc_session_can_access_group_ledger(PDO $pdo, string $groupCode): bool
         }
     }
 
+    if (gc_session_company_login_has_group_ledger_privilege() && gc_session_can_access_group_code($pdo, $g)) {
+        return true;
+    }
+
     $userId = (int) ($_SESSION['user_id'] ?? 0);
     if ($userId > 0 && gc_user_assigned_to_group_code($pdo, $userId, $g)) {
         return true;
@@ -612,10 +631,14 @@ function gc_assert_group_ledger_access(PDO $pdo, string $groupCode): void
     }
 }
 
-/** Whether session may enter group ledger at all (group login or admin-assigned groups). */
+/** Whether session may enter group ledger at all (group login, owner/admin, or admin-assigned groups). */
 function gc_session_can_use_group_ledger(): bool
 {
     if (gc_is_group_login()) {
+        return true;
+    }
+
+    if (gc_session_company_login_has_group_ledger_privilege()) {
         return true;
     }
 
