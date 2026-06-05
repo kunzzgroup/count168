@@ -45,7 +45,8 @@ body.datacapture-summary-page .container,
 body.ec-auth-shell.domain-page .container,
 body.ec-auth-shell.ownership-page .own-container,
 body.announcement-page .container.announcement-page-container,
-body.member-winloss-page .transaction-container {
+body.member-winloss-page .transaction-container,
+body.ec-auth-shell.datacapture-page .container {
   padding-top: var(--layout-page-top-gap);
 }
 

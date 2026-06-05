@@ -23,6 +23,9 @@ body.datacapture-page {
     --dc-accent-soft: #eff6ff;
     --dc-border: #e2e8f0;
     --dc-text-muted: #64748b;
+    --dc-layout-gap: clamp(12px, 1.15vw, 18px);
+    --dc-top-col-left: minmax(0, 1.8fr);
+    --dc-top-col-right: minmax(0, 1fr);
 }
 
 body.datacapture-page {
@@ -57,7 +60,7 @@ body.datacapture-page #root {
 body.datacapture-page .container {
     max-width: none;
     margin: 0;
-    padding: 0 clamp(24px, 2.2vw, 36px) 12px var(--layout-main-offset);
+    padding: var(--layout-page-top-gap, 10px) clamp(24px, 2.2vw, 36px) 12px var(--layout-main-offset);
     width: 100%;
     height: 100vh;
     height: 100dvh;
@@ -66,6 +69,7 @@ body.datacapture-page .container {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    gap: var(--dc-layout-gap);
     min-height: 0;
     overflow: hidden;
 }
@@ -137,40 +141,21 @@ body.datacapture-page .dc-page-toolbar {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin: 0 0 10px;
+    margin: 0;
     min-width: 0;
 }
 
-.top-section {
-    display: flex;
-    gap: clamp(18px, 2.2vw, 32px);
-    margin-top: 0;
-    margin-bottom: clamp(8px, 0.85vw, 14px);
-    align-items: stretch;
-    flex-shrink: 0;
-    min-width: 0;
-}
-
-@media (max-width: 900px) {
-    .top-section {
-        flex-direction: column;
-    }
-
-    .form-column,
-    .submitted-column {
-        max-width: 100%;
-    }
-}
-
-/* Equal columns: form shows all fields; submitted list scrolls inside matched card height */
+/* Top band: form + submitted cards share one grid row (equal height via stretch) */
 body.datacapture-page .top-section {
     display: grid;
-    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+    grid-template-columns: var(--dc-top-col-left) var(--dc-top-col-right);
     align-items: stretch;
-    column-gap: clamp(18px, 2.2vw, 32px);
+    column-gap: var(--dc-layout-gap);
     grid-template-rows: auto;
     flex: 0 0 auto;
     flex-shrink: 0;
+    margin: 0;
+    min-width: 0;
     max-height: none;
     overflow: visible;
 }
@@ -180,29 +165,27 @@ body.datacapture-page .top-section .submitted-column {
     max-width: none;
     width: 100%;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-}
-
-body.datacapture-page .top-section .form-column {
-    min-height: auto;
-}
-
-/* Card height synced to .form-container via --dc-form-band-height (useDataCaptureSubmittedPanelHeight) */
-body.datacapture-page .top-section .submitted-column {
-    min-height: var(--dc-form-band-height, auto);
-    height: var(--dc-form-band-height, auto);
-    max-height: var(--dc-form-band-height, none);
     align-self: stretch;
-    overflow: hidden;
+}
+
+body.datacapture-page .top-section .form-column > .form-container,
+body.datacapture-page .top-section .submitted-column > .submitted-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    margin: 0;
+    box-sizing: border-box;
 }
 
 body.datacapture-page .top-section .form-column > .form-container {
-    margin-top: 10px;
-    flex: 1 1 auto;
-    min-height: 100%;
-    height: auto;
     overflow: visible;
+}
+
+body.datacapture-page .top-section .submitted-column > .submitted-container {
+    overflow: hidden;
 }
 
 body.datacapture-page .form-container .process-form {
@@ -210,15 +193,6 @@ body.datacapture-page .form-container .process-form {
     overflow-y: visible;
     flex: 0 0 auto;
     min-height: auto;
-}
-
-body.datacapture-page .top-section .submitted-column > .submitted-container {
-    flex: 1 1 0;
-    min-height: 100%;
-    height: 100%;
-    max-height: 100%;
-    overflow: hidden;
-    box-sizing: border-box;
 }
 
 body.datacapture-page .submitted-list {
@@ -232,11 +206,12 @@ body.datacapture-page .submitted-list {
 @media (max-width: 900px) {
     body.datacapture-page .top-section {
         grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
     }
 
-    body.datacapture-page .top-section .submitted-column {
+    body.datacapture-page .top-section .form-column > .form-container,
+    body.datacapture-page .top-section .submitted-column > .submitted-container {
         height: auto;
-        max-height: none;
     }
 
     body.datacapture-page .submitted-list {
@@ -245,9 +220,10 @@ body.datacapture-page .submitted-list {
 }
 
 body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-panel {
-    padding: 0 0 6px;
-    margin: 0 0 4px;
+    padding: 0 0 clamp(8px, 0.7vw, 12px);
+    margin: 0 0 clamp(10px, 0.85vw, 14px);
     border-top: none;
+    border-bottom: 1px solid var(--dc-border, #e2e8f0);
     row-gap: var(--user-gc-inline-row-gap, 4px);
 }
 
@@ -447,10 +423,10 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
 .bottom-section {
     flex: 1 1 auto;
     min-height: 0;
-    margin-top: 0;
+    margin: 0;
     display: flex;
     flex-direction: column;
-    gap: clamp(6px, 0.65vw, 12px);
+    gap: var(--dc-layout-gap);
     overflow: hidden;
 }
 
