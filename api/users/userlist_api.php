@@ -698,12 +698,23 @@ function userlist_insert_company_scope_map(PDO $pdo, int $userId, int $companyId
     }
     if (userlist_ucm_has_scope_columns($pdo)) {
         $stmt = $pdo->prepare('
-            SELECT id FROM user_company_map
-            WHERE user_id = ? AND company_id = ? AND scope_type = ? AND scope_id = ?
+            SELECT id, scope_type FROM user_company_map
+            WHERE user_id = ? AND company_id = ?
             LIMIT 1
         ');
-        $stmt->execute([$userId, $companyId, 'company', $companyId]);
-        if ((int) $stmt->fetchColumn() > 0) {
+        $stmt->execute([$userId, $companyId]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            if (strtolower((string) ($existing['scope_type'] ?? '')) === 'company') {
+                return;
+            }
+            $upd = $pdo->prepare('
+                UPDATE user_company_map
+                SET scope_type = ?, scope_id = ?
+                WHERE id = ?
+            ');
+            $upd->execute(['company', $companyId, (int) $existing['id']]);
+
             return;
         }
         $ins = $pdo->prepare('
@@ -967,6 +978,14 @@ function userlist_sync_user_subsidiary_companies(PDO $pdo, int $userId, array $c
     }
 
     foreach ($companyIds as $companyId) {
+        if (userlist_ucm_has_scope_columns($pdo)) {
+            // Same company_id may already hold a legacy scope_type=group row (AP entity = C168).
+            $del = $pdo->prepare("
+                DELETE FROM user_company_map
+                WHERE user_id = ? AND company_id = ? AND scope_type = 'group'
+            ");
+            $del->execute([$userId, $companyId]);
+        }
         userlist_insert_company_scope_map($pdo, $userId, $companyId);
     }
 }
@@ -1197,6 +1216,9 @@ function userlist_bind_user_to_group_tenant(PDO $pdo, int $userId, string $group
             INSERT IGNORE INTO user_group_map (user_id, group_id) VALUES (?, ?)
         ');
         $stmt->execute([$userId, $groupPk]);
+        // Group ledger is tracked in user_group_map; avoid a second ucm row on the same
+        // company_id (uniq_user_company is user_id+company_id only).
+        return $entityCompanyId;
     }
 
     if (userlist_ucm_has_scope_columns($pdo)) {
