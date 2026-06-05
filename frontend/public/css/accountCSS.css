@@ -2422,7 +2422,7 @@ body.account-page #confirmDeleteModal .confirm-delete {
 .account-role-badge {
     display: inline-flex;
     align-items: center;
-    padding: clamp(0px, 0.1vw, 2px) clamp(4px, 0.42vw, 8px);
+    padding: clamp(0px, 0vw, 2px) clamp(4px, 0.42vw, 8px);
     border-radius: 20px;
     font-size: var(--text-tiny);
     font-weight: bold;
