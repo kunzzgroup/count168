@@ -494,8 +494,18 @@ export default function FormulaMaintenancePage() {
   /** 首次整表 Loading；之后（切换公司等）listSyncing 保留旧表直至新数据返回 */
   const [scrollRestoreRowId, setScrollRestoreRowId] = useState(null);
 
+  const removeFormulaRowsLocally = useCallback(
+    (idsToRemove) => {
+      const idSet = new Set((Array.isArray(idsToRemove) ? idsToRemove : []).map((id) => Number(id)));
+      if (idSet.size === 0) return;
+      const remaining = formulaDataFullRef.current.filter((row) => !idSet.has(Number(row.id)));
+      hydrateFormulaList(remaining);
+    },
+    [hydrateFormulaList],
+  );
+
   const performSearch = useCallback(async (overrides = {}) => {
-    const { scrollRestoreRowId: restoreRowId = null } = overrides;
+    const { scrollRestoreRowId: restoreRowId = null, skipStaleGuard = false } = overrides;
     const effectiveScope =
       overrides.scope ??
       resolveFormulaMaintenanceScope({
@@ -532,8 +542,8 @@ export default function FormulaMaintenancePage() {
         process: selectedProcess === "" ? undefined : selectedProcess,
         scope: effectiveScope,
       });
-      if (seq !== searchSeqRef.current) return;
-      if (searchScopeKey !== scopeKeyRef.current) return;
+      if (!skipStaleGuard && seq !== searchSeqRef.current) return;
+      if (!skipStaleGuard && searchScopeKey !== scopeKeyRef.current) return;
 
       setConfirmDelete(false);
       setFormulaDataSourceCompanyId(formulaMaintenanceScopeCacheCompanyKey(effectiveScope));
@@ -547,8 +557,8 @@ export default function FormulaMaintenancePage() {
         }
       }
     } catch (err) {
-      if (seq !== searchSeqRef.current) return;
-      if (searchScopeKey !== scopeKeyRef.current) return;
+      if (!skipStaleGuard && seq !== searchSeqRef.current) return;
+      if (!skipStaleGuard && searchScopeKey !== scopeKeyRef.current) return;
       notify(err.message, "error");
       formulaDataFullRef.current = [];
       setTotalRowCount(0);
@@ -792,11 +802,14 @@ export default function FormulaMaintenancePage() {
     if (guardWrite()) return;
     setIsDeleteModalOpen(false);
     const idsToDelete = resolveSelectedIds();
+    if (idsToDelete.length === 0) return;
     try {
       const effectiveCompanyId = formulaMaintenanceEffectiveCompanyId(formulaScope, companyId);
       await deleteFormulaTemplates(effectiveCompanyId, idsToDelete, formulaScope);
+      removeFormulaRowsLocally(idsToDelete);
+      setConfirmDelete(false);
       notify(t("successfullyDeletedN", { n: idsToDelete.length }), "success");
-      performSearch({ scope: formulaScope });
+      void performSearch({ scope: formulaScope, skipStaleGuard: true });
     } catch (err) {
       notify(err.message || t("deleteFailed"), "error");
     }
