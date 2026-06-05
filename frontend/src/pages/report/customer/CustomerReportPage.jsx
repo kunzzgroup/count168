@@ -223,6 +223,8 @@ export default function CustomerReportPage() {
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
+          me: u,
+          companies: rows,
         });
         let bootGroup =
           persistedGc.selectedGroup ||

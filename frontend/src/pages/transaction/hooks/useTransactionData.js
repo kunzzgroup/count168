@@ -176,6 +176,8 @@ export function useTransactionData({
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
+          me: u,
+          companies: rows,
         });
         let effective = bootGc.companyId;
         const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);

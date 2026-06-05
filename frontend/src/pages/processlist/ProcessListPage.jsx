@@ -872,7 +872,7 @@ export default function ProcessListPage() {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
-        if (!canUseGroupOnlyMode(sessionMe)) {
+        if (!canUseGroupOnlyMode(sessionMe, g)) {
           setGroupFilterKind("ungrouped");
           setSelectedGroup(null);
           clearDashboardGroupFilterKeepCompany(companyId);
@@ -881,7 +881,7 @@ export default function ProcessListPage() {
         return;
       }
 
-      if (canUseGroupOnlyMode(sessionMe)) {
+      if (canUseGroupOnlyMode(sessionMe, g)) {
         setGroupFilterKind("follow");
         setSelectedGroup(g);
         persistDashboardGroupFilter(g);
@@ -917,7 +917,7 @@ export default function ProcessListPage() {
         return;
       }
 
-      if (!canUseGroupOnlyMode(sessionMe) && companyId != null) {
+      if (!canUseGroupOnlyMode(sessionMe, g) && companyId != null) {
         persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
         const row = findOwnerCompanyById(companyId);
         notifyDashboardGroupFilterChanged(g, companyId, {
@@ -926,13 +926,15 @@ export default function ProcessListPage() {
         return;
       }
 
-      flushSync(() => {
-        setCompanyId(null);
-        setRows([]);
-      });
-      persistDashboardFilterState(g, null);
-      resetAnchorSessionRef();
-      notifyDashboardGroupFilterChanged(g, null);
+      if (companyId != null) {
+        persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
+        const row = findOwnerCompanyById(companyId);
+        notifyDashboardGroupFilterChanged(g, companyId, {
+          companyCode: row?.company_id,
+        });
+        return;
+      }
+      return;
     },
     [
       applyProcessListCache,

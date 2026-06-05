@@ -102,8 +102,10 @@ export function useDashboardStyleGcFilter({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
 
-      /** Group login: stay group-only when switching tabs; never auto-pick a subsidiary. */
-      if (allowGroupOnly && !selectFirstCompanyOnGroupChange) {
+      const groupLedgerPick = canUseGroupOnlyMode(me, g);
+
+      /** Group ledger: clear company when switching tabs (requires assignment or owner/admin). */
+      if (groupLedgerPick && !selectFirstCompanyOnGroupChange) {
         if (g === selectedGroup && companyId != null) {
           if (clearCompanyOnActiveGroupReselect) {
             persistDashboardFilterState(g, null, { allowGroupOnly: true });
@@ -123,7 +125,7 @@ export function useDashboardStyleGcFilter({
       }
 
       if (g === selectedGroup) {
-        if (!canUseGroupOnlyMode(me)) {
+        if (!canUseGroupOnlyMode(me, g)) {
           const target = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
           persistDashboardGroupFilter(null);
           setSelectedGroup(null);
@@ -213,8 +215,18 @@ export function useDashboardStyleGcFilter({
   );
 
   useLayoutEffect(() => {
-    if (allowGroupOnly || !autoPickCompanyWhenEmpty || !selectedGroup || companyId != null) return;
-    const pick = pickDefaultCompanyForGroup(companies, selectedGroup, { me, preferredCompanyId: companyId });
+    if (
+      (selectedGroup && canUseGroupOnlyMode(me, selectedGroup)) ||
+      !autoPickCompanyWhenEmpty ||
+      !selectedGroup ||
+      companyId != null
+    ) {
+      return;
+    }
+    persistDashboardGroupOnlyMode(false);
+    const pick =
+      pickDefaultSubsidiaryForGroup(companies, selectedGroup, { me, preferredCompanyId: companyId }) ??
+      pickDefaultCompanyForGroup(companies, selectedGroup, { me, preferredCompanyId: companyId });
     if (!pick) return;
     persistDashboardFilterState(selectedGroup, pick.id, { allowGroupOnly: false });
     markAnchorSynced(selectedGroup, pick.id);
@@ -222,7 +234,6 @@ export function useDashboardStyleGcFilter({
     const select = onSelectCompanyRef.current;
     if (select) void select(pick);
   }, [
-    allowGroupOnly,
     autoPickCompanyWhenEmpty,
     selectedGroup,
     companyId,

@@ -1969,7 +1969,7 @@ export function useBankProcessListPage() {
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
         setGroupFilterKind("ungrouped");
         setSelectedGroup(null);
-        if (companyId != null && !canUseGroupOnlyMode(authMe)) {
+        if (companyId != null && !canUseGroupOnlyMode(authMe, g)) {
           clearDashboardGroupFilterKeepCompany(companyId);
         } else {
           persistDashboardGroupFilter(null);
@@ -1977,7 +1977,7 @@ export function useBankProcessListPage() {
         return;
       }
       if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
-        if (!canUseGroupOnlyMode(authMe)) {
+        if (!canUseGroupOnlyMode(authMe, g)) {
           setGroupFilterKind("ungrouped");
           setSelectedGroup(null);
           clearDashboardGroupFilterKeepCompany(companyId);
@@ -1985,7 +1985,7 @@ export function useBankProcessListPage() {
         return;
       }
 
-      if (canUseGroupOnlyMode(authMe)) {
+      if (canUseGroupOnlyMode(authMe, g)) {
         setGroupFilterKind("follow");
         setSelectedGroup(g);
         persistDashboardGroupFilter(g);
@@ -2033,13 +2033,14 @@ export function useBankProcessListPage() {
         return;
       }
 
-      if (!canUseGroupOnlyMode(authMe) && companyId != null) {
+      if (!canUseGroupOnlyMode(authMe, g) && companyId != null) {
         persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
         notifyDashboardGroupFilterChanged(g, companyId);
       }
     },
     [
       applyBankProcessListCache,
+      authMe,
       companies,
       companyId,
       groupFilterKind,

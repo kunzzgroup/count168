@@ -337,7 +337,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
 
-      if (isDashboardGroupOnlyMode() && !canUseGroupOnlyMode(u)) {
+      if (isDashboardGroupOnlyMode() && !canUseGroupOnlyMode(u, group)) {
+        persistDashboardGroupOnlyMode(false);
         persistDashboardFilterState(group, cid, { allowGroupOnly: false });
       }
 
@@ -647,6 +648,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     } else if (singleCid) {
       companyIds = [singleCid];
     } else if (groupKey && !singleCid) {
+      if (me && !canUseGroupOnlyMode(me, groupKey)) {
+        commitCurrencyList([]);
+        return;
+      }
       groupOnlyCurrencyScope = true;
       const anchor = pickGroupAnchorCompany(companies, groupKey);
       const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
@@ -2202,7 +2207,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (companyId != null) return;
       }
 
-      if (canUseGroupOnlyMode(me)) {
+      if (canUseGroupOnlyMode(me, g)) {
         setGroupsAllMode(false);
         setSelectedGroup(g);
         sessionStorage.setItem("dashboard_group_filter", g);
@@ -2217,9 +2222,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         preferredCompanyId: companyId,
       });
       if (!pick?.id) {
-        clearCompanySelection(g);
-        primeCurrenciesFromCache({ companyId: null, selectedGroup: g, groupsAllMode: false });
-        notifyDashboardGroupFilterChanged(g, null);
+        if (companyId != null) {
+          persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
+          notifyDashboardGroupFilterChanged(g, companyId);
+          return;
+        }
         return;
       }
 
@@ -2438,13 +2445,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useLayoutEffect(() => {
     if (
       !me ||
-      canUseGroupOnlyMode(me) ||
+      canUseGroupOnlyMode(me, selectedGroup) ||
       !selectedGroup ||
       companyId != null ||
       groupsAllMode ||
       groupAllMode
     )
       return;
+    persistDashboardGroupOnlyMode(false);
     const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
       me,
       preferredCompanyId: companyId,

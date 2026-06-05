@@ -20,6 +20,7 @@ import {
   resolveInitialSelectedGroupFromSession,
   fetchOwnerCompaniesAll,
   DASHBOARD_GROUP_FILTER_KEY,
+  coerceGroupWrappedCompanyState,
   pickDefaultSubsidiaryForGroup,
   pickGroupAnchorCompany,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -609,11 +610,17 @@ export default function TransactionMaintenancePage() {
         const persistedGc = readPersistedDashboardGcFilter();
         const initialUiCompanyId = readInitialMaintenanceCompanyId();
         const sessionGroup = readInitialMaintenanceSelectedGroup();
-        const groupOnlyBoot =
+        const wantsGroupOnly =
           isDashboardGroupOnlyMode() ||
           persistedGc.groupOnly ||
           (bootGroup != null && initialUiCompanyId == null) ||
           (sessionGroup != null && initialUiCompanyId == null);
+        const coerced = coerceGroupWrappedCompanyState(u, filtered, {
+          selectedGroup: bootGroup ?? sessionGroup,
+          companyId: initialUiCompanyId ?? initialCompanyId,
+          groupOnly: wantsGroupOnly,
+        });
+        const groupOnlyBoot = coerced.groupOnly;
 
         const runGroupOnlyBoot = async () => {
           persistDashboardGroupOnlyMode(true);
@@ -678,8 +685,15 @@ export default function TransactionMaintenancePage() {
           return;
         }
 
-        if (initialCompanyId != null) {
-          setCompanyId(initialCompanyId);
+        const bootCompanyId = coerced.companyId ?? initialCompanyId;
+        if (bootCompanyId != null) {
+          setCompanyId(bootCompanyId);
+        } else if (bootGroup) {
+          const pick = pickDefaultSubsidiaryForGroup(filtered, bootGroup, {
+            me: u,
+            preferredCompanyId: u.company_id,
+          });
+          if (pick?.id) setCompanyId(Number(pick.id));
         }
 
         if (currentComp) {

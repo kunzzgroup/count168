@@ -330,6 +330,8 @@ export function resolveGcFilterBootCompanyId({
   urlCompanyId = null,
   sessionCompanyId = null,
   defaultRowId = null,
+  me = null,
+  companies = null,
 } = {}) {
   const persisted = readPersistedDashboardGcFilter();
 
@@ -344,6 +346,26 @@ export function resolveGcFilterBootCompanyId({
   }
 
   if (persisted.groupOnly) {
+    const g = persisted.selectedGroup;
+    if (me && g && !canUseGroupOnlyMode(me, g)) {
+      persistDashboardGroupOnlyMode(false);
+      let cid = readDashboardSelectedCompanyId();
+      if ((cid == null || cid <= 0) && Array.isArray(companies) && companies.length) {
+        const pick = pickDefaultSubsidiaryForGroup(companies, g, {
+          me,
+          preferredCompanyId: sessionCompanyId ?? defaultRowId ?? null,
+        });
+        if (pick?.id) cid = Number(pick.id);
+      }
+      if (cid != null && cid > 0 && g) {
+        persistDashboardFilterState(g, cid, { allowGroupOnly: false });
+      }
+      return {
+        companyId: cid != null && cid > 0 ? cid : null,
+        selectedGroup: g,
+        groupOnly: false,
+      };
+    }
     return {
       companyId: null,
       selectedGroup: persisted.selectedGroup,
@@ -365,11 +387,55 @@ export function resolveGcFilterBootCompanyId({
     defaultRowId,
   });
 
+  const groupOnlyFallback =
+    fallback == null &&
+    isDashboardGroupOnlyMode() &&
+    (!me ||
+      !persisted.selectedGroup ||
+      canUseGroupOnlyMode(me, persisted.selectedGroup));
+
   return {
     companyId: fallback,
     selectedGroup: persisted.selectedGroup,
-    groupOnly: fallback == null && isDashboardGroupOnlyMode(),
+    groupOnly: groupOnlyFallback,
   };
+}
+
+/**
+ * Company login without group ledger: coerce group-only → subsidiary under the group tab.
+ */
+export function coerceGroupWrappedCompanyState(me, companies, state = {}) {
+  const g = state.selectedGroup ? String(state.selectedGroup).trim().toUpperCase() : null;
+  const wantsGroupOnly =
+    Boolean(state.groupOnly) ||
+    (state.companyId == null && g != null && isDashboardGroupOnlyMode());
+
+  if (wantsGroupOnly && g && me && canUseGroupOnlyMode(me, g)) {
+    return { selectedGroup: g, companyId: null, groupOnly: true };
+  }
+
+  let cid =
+    state.companyId != null && Number(state.companyId) > 0 ? Number(state.companyId) : null;
+  if (cid == null) {
+    const saved = readDashboardSelectedCompanyId();
+    if (saved != null && Number(saved) > 0) cid = Number(saved);
+  }
+  if (cid == null && g && Array.isArray(companies) && companies.length) {
+    const pick = pickDefaultSubsidiaryForGroup(companies, g, {
+      me,
+      preferredCompanyId: me?.company_id ?? null,
+    });
+    if (pick?.id) cid = Number(pick.id);
+  }
+
+  if (wantsGroupOnly && g && me && !canUseGroupOnlyMode(me, g)) {
+    persistDashboardGroupOnlyMode(false);
+    if (cid != null) {
+      persistDashboardFilterState(g, cid, { allowGroupOnly: false });
+    }
+  }
+
+  return { selectedGroup: g, companyId: cid, groupOnly: false };
 }
 
 /** Boot helper: explicit URL company wins; otherwise honour group-only + saved id. */
@@ -689,7 +755,10 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
   }
 
   if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
-    return savedGroup;
+    if (!loginMe || canUseGroupOnlyMode(loginMe, savedGroup)) {
+      return savedGroup;
+    }
+    sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
   }
 
   if (

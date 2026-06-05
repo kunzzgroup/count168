@@ -26,6 +26,8 @@ import {
   readPersistedDashboardGcFilter,
   readDashboardSelectedCompanyId,
   DASHBOARD_GROUP_FILTER_KEY,
+  coerceGroupWrappedCompanyState,
+  pickDefaultSubsidiaryForGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -262,11 +264,17 @@ export default function CaptureMaintenancePage() {
         const persistedGc = readPersistedDashboardGcFilter();
         const initialUiCompanyId = readInitialMaintenanceCompanyId();
         const sessionGroup = readInitialMaintenanceSelectedGroup();
-        const groupOnlyBoot =
+        const wantsGroupOnly =
           isDashboardGroupOnlyMode() ||
           persistedGc.groupOnly ||
           (bootGroup != null && initialUiCompanyId == null) ||
           (sessionGroup != null && initialUiCompanyId == null);
+        const coerced = coerceGroupWrappedCompanyState(u, rows, {
+          selectedGroup: bootGroup ?? sessionGroup,
+          companyId: initialUiCompanyId ?? initialCompanyId,
+          groupOnly: wantsGroupOnly,
+        });
+        const groupOnlyBoot = coerced.groupOnly;
         if (groupOnlyBoot) {
           persistDashboardGroupOnlyMode(true);
           persistDashboardSelectedCompany(null);
@@ -291,21 +299,26 @@ export default function CaptureMaintenancePage() {
           if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
           return;
         }
-        setCompanyId(initialCompanyId);
+        const bootCompanyId = coerced.companyId ?? initialCompanyId;
+        setCompanyId(bootCompanyId);
+        const bootRow =
+          bootCompanyId != null
+            ? rows.find((c) => Number(c.id) === Number(bootCompanyId)) || currentComp
+            : currentComp;
 
-        if (currentComp) {
-          const code = currentComp.company_id || "";
+        if (bootRow) {
+          const code = bootRow.company_id || "";
           setCompanyCode(code);
 
           const bootScope = resolveCaptureMaintenanceScope({
             companies: rows,
             selectedGroup: bootGroup,
-            companyId: initialCompanyId,
+            companyId: bootCompanyId,
           });
 
           // Fetch initial metadata here to ensure the first query starts with the correct activePermission
           const [procList, companyPerms] = await Promise.all([
-            fetchProcesses(initialCompanyId, bootScope),
+            fetchProcesses(bootCompanyId, bootScope),
             fetchCompanyPermissions(code),
           ]);
           if (cancelled) return;
