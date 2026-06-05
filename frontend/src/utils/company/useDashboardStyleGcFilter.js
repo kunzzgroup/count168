@@ -12,6 +12,7 @@ import {
   pickDefaultCompanyForGroup,
   pickDefaultSubsidiaryForGroup,
   resolveCompanyPickWhenSwitchingGroup,
+  resolveCompanyWhenClosingGroup,
   sortedUniqueGroupIds,
 } from "./sharedCompanyFilter.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
@@ -117,14 +118,42 @@ export function useDashboardStyleGcFilter({
         return;
       }
 
-      if (g === selectedGroup && companyId != null) {
+      if (g === selectedGroup) {
         if (!canUseGroupOnlyMode(me)) {
-          clearDashboardGroupFilterKeepCompany(companyId);
+          const target = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
+          persistDashboardGroupFilter(null);
           setSelectedGroup(null);
-          onDeselectGroup?.(companyId);
+          if (target?.id && Number(target.id) !== Number(companyId)) {
+            persistDashboardFilterState(null, target.id, { allowGroupOnly: false });
+            markAnchorSynced(null, target.id);
+            const prepare = onPrepareCompanySelectRef.current;
+            if (prepare) prepare(target);
+            else setSelectedGroup(null);
+            notifyDashboardGroupFilterChanged(null, target.id, {
+              companyCode: target.company_id,
+              ignoreGroupOnly: true,
+              ...(() => {
+                const cached = peekCompanySessionFlags(Number(target.id));
+                return cached
+                  ? {
+                      hasGambling: Boolean(cached.has_gambling),
+                      hasBank: Boolean(cached.has_bank),
+                    }
+                  : {};
+              })(),
+            });
+            const select = onSelectCompanyRef.current;
+            if (select) void select(target);
+          } else if (companyId != null) {
+            clearDashboardGroupFilterKeepCompany(companyId);
+            onDeselectGroup?.(companyId);
+          } else {
+            persistDashboardFilterState(null, null, { allowGroupOnly: false });
+            notifyDashboardGroupFilterChanged(null, null);
+          }
           return;
         }
-        return;
+        if (companyId != null) return;
       }
 
       const pick =
@@ -163,6 +192,7 @@ export function useDashboardStyleGcFilter({
       switchingCompany,
       selectedGroup,
       companies,
+      groupIds,
       setSelectedGroup,
       onPrepareCompanySelect,
       onSelectCompany,

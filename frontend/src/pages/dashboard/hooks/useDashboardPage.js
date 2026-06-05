@@ -4,8 +4,6 @@ import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
   buildDashboardCacheKey,
-  clearDashboardCache,
-  clearDashboardPayloadCache,
   getDashboardCache,
   getDashboardPayloadCache,
   patchDashboardCache,
@@ -44,7 +42,6 @@ import {
   companiesForCompanyPicker,
   companyRowIsGroupEntity,
   dedupeOwnerCompaniesByCode,
-  excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
   pickDefaultCompanyForGroup,
   pickGroupAnchorCompany,
@@ -62,6 +59,15 @@ import {
   isVirtualGroupLinkCompanyRow,
   fetchOwnerCompaniesAll,
   pickDefaultSubsidiaryForGroup,
+  resolveCompanyWhenClosingGroup,
+  resolveCompanyWhenPickingAllGroups,
+  independentCompaniesForPicker,
+  allGroupedCompaniesForPicker,
+  resolveGroupAllMergeCompanyList,
+  resolveGroupsAllMergeCompanyList,
+  isSubsidiaryCompanyRow,
+  companyRowIsIndependent,
+  normalizeNativeCompanyGroupId,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
@@ -174,52 +180,121 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const conversionBaseCurrency =
     (currencyCode && currencies.includes(currencyCode) ? currencyCode : currencies[0]) || "";
 
-  const dashboardScopeKey = useMemo(() => {
-    let scopeCompanyKey = companyId ?? null;
-    if (subsidiaryDashboardScope && scopeCompanyKey != null) {
-      scopeCompanyKey = `sub:${scopeCompanyKey}`;
-    }
-    if (scopeCompanyKey == null && usesGroupLedgerDashboard && selectedGroup) {
-      scopeCompanyKey = `group:${selectedGroup}`;
-    }
-    if (scopeCompanyKey == null && groupsAllMode) {
-      scopeCompanyKey = "groups:all";
-    }
-    if (scopeCompanyKey == null && groupAllMode && selectedGroup) {
-      scopeCompanyKey = `groupAll:${selectedGroup}`;
-    }
-    if (scopeCompanyKey == null && mergedSubsetIds?.length > 1) {
-      scopeCompanyKey = `subset:${mergedSubsetIds.join(",")}`;
-    }
-    if (!scopeCompanyKey) return "";
-    const allCurrenciesActive = showAllCurrencies && canShowAllCurrencies;
-    return buildDashboardCacheKey({
-      companyId: scopeCompanyKey,
-      dateFrom,
-      dateTo,
-      currencyCode,
+  const resolveDashboardScopeKey = useCallback(
+    (overrides = {}) => {
+      const cid = overrides.companyId !== undefined ? overrides.companyId : companyId;
+      const selGroup =
+        overrides.selectedGroup !== undefined ? overrides.selectedGroup : selectedGroup;
+      const gAll = overrides.groupsAllMode !== undefined ? overrides.groupsAllMode : groupsAllMode;
+      const gaMode = overrides.groupAllMode !== undefined ? overrides.groupAllMode : groupAllMode;
+      const subset =
+        overrides.mergedSubsetIds !== undefined ? overrides.mergedSubsetIds : mergedSubsetIds;
+      const cur = overrides.currencyCode !== undefined ? overrides.currencyCode : currencyCode;
+      const from = overrides.dateFrom ?? dateFrom;
+      const to = overrides.dateTo ?? dateTo;
+      const showAll =
+        overrides.showAllCurrencies !== undefined ? overrides.showAllCurrencies : showAllCurrencies;
+      const allCurActive = showAll && canShowAllCurrencies;
+      const convBase = overrides.conversionBaseCurrency ?? conversionBaseCurrency;
+
+      let scopeCompanyKey = cid ?? null;
+      const usesLedger = (() => {
+        if (gAll && !gaMode) return false;
+        if (gaMode) return false;
+        if (!selGroup) return false;
+        if (cid == null) return true;
+        const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
+        return companyRowIsGroupEntity(row, selGroup);
+      })();
+      const subScope = cid != null && !gAll && !gaMode && selGroup && !usesLedger;
+
+      if (subScope && scopeCompanyKey != null) {
+        scopeCompanyKey = `sub:${scopeCompanyKey}`;
+      }
+      if (scopeCompanyKey == null && usesLedger && selGroup) {
+        scopeCompanyKey = `group:${selGroup}`;
+      }
+      if (scopeCompanyKey == null && gAll) {
+        scopeCompanyKey = "groups:all";
+      }
+      if (scopeCompanyKey == null && gaMode && selGroup) {
+        scopeCompanyKey = `groupAll:${selGroup}`;
+      }
+      if (scopeCompanyKey == null && subset?.length > 1) {
+        scopeCompanyKey = `subset:${subset.join(",")}`;
+      }
+      if (!scopeCompanyKey) return "";
+
+      return buildDashboardCacheKey({
+        companyId: scopeCompanyKey,
+        dateFrom: from,
+        dateTo: to,
+        currencyCode: cur,
+        selectedGroup: selGroup,
+        groupsAllMode: gAll,
+        groupAllMode: gaMode,
+        mergedSubsetIds: subset,
+        showAllCurrencies: allCurActive,
+        conversionBaseCurrency: convBase,
+      });
+    },
+    [
+      companyId,
       selectedGroup,
       groupsAllMode,
       groupAllMode,
       mergedSubsetIds,
-      showAllCurrencies: allCurrenciesActive,
+      dateFrom,
+      dateTo,
+      currencyCode,
+      showAllCurrencies,
+      canShowAllCurrencies,
       conversionBaseCurrency,
-    });
-  }, [
-    companyId,
-    subsidiaryDashboardScope,
-    usesGroupLedgerDashboard,
-    selectedGroup,
-    groupsAllMode,
-    dateFrom,
-    dateTo,
-    currencyCode,
-    groupAllMode,
-    mergedSubsetIds,
-    showAllCurrencies,
-    canShowAllCurrencies,
-    conversionBaseCurrency,
-  ]);
+      companies,
+    ]
+  );
+
+  const dashboardScopeKey = useMemo(() => resolveDashboardScopeKey(), [resolveDashboardScopeKey]);
+
+  const primeDashboardFromCache = useCallback(
+    (overrides = {}) => {
+      const key = resolveDashboardScopeKey(overrides);
+      if (!key) {
+        setDisplayScopeKey("");
+        setDashboardData(null);
+        setDashboardDataPrev(null);
+        setLoading(true);
+        return false;
+      }
+      const cached = getDashboardCache(key);
+      if (!cached?.current) {
+        setDisplayScopeKey("");
+        setDashboardData(null);
+        setDashboardDataPrev(null);
+        setLoading(true);
+        return false;
+      }
+      setDashboardData(cached.current);
+      setDashboardDataPrev(cached.previous ?? null);
+      setDisplayScopeKey(key);
+      setLoading(false);
+      if (cached.multiCurrencyKpi) setMultiCurrencyKpi(cached.multiCurrencyKpi);
+      else setMultiCurrencyKpi(null);
+      if (cached.multiCurrencyKpiPrev) setMultiCurrencyKpiPrev(cached.multiCurrencyKpiPrev);
+      else setMultiCurrencyKpiPrev(null);
+      if (cached.earnings?.length) {
+        setEarningsByCurrency(cached.earnings);
+        setEarningsByCurrencyPrev([]);
+        setEarningsByCurrencyLoading(false);
+      } else {
+        setEarningsByCurrency([]);
+        setEarningsByCurrencyPrev([]);
+        setEarningsByCurrencyLoading(currencies.length > 1);
+      }
+      return true;
+    },
+    [resolveDashboardScopeKey, currencies.length]
+  );
 
   useLayoutEffect(() => {
     document.body.classList.add("transaction-page");
@@ -303,22 +378,29 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const companiesForPicker = useMemo(() => {
     const preferredId = companyId ?? me?.company_id ?? null;
     if (groupsAllMode) {
-      return excludeGroupLabelsFromCompanyPicker(
-        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), preferredId),
-        groupIds
+      return dedupeOwnerCompaniesByCode(
+        allGroupedCompaniesForPicker(companies, groupIds),
+        preferredId
       );
     }
+    if (selectedGroup) {
+      return dedupeOwnerCompaniesByCode(
+        companiesForCompanyPicker(companies, selectedGroup, groupIds),
+        preferredId
+      );
+    }
+    // Group closed: show independent companies only (group subsidiaries collapsed).
     return dedupeOwnerCompaniesByCode(
-      companiesForCompanyPicker(companies, selectedGroup, groupIds),
+      independentCompaniesForPicker(companies, groupIds),
       preferredId
     );
   }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me?.company_id]);
 
   const resolveMergeCompanyList = useCallback(() => {
-    if (groupsAllMode) return filterCompaniesWithDisplayId(companies).filter((c) => !isVirtualGroupLinkCompanyRow(c));
-    if (selectedGroup) return companiesNativeInGroupList(companies, selectedGroup);
+    if (groupsAllMode) return resolveGroupsAllMergeCompanyList(companies, groupIds);
+    if (selectedGroup) return resolveGroupAllMergeCompanyList(companies, selectedGroup, groupIds);
     return [];
-  }, [companies, selectedGroup, groupsAllMode]);
+  }, [companies, selectedGroup, groupsAllMode, groupIds]);
 
   const applyCompanySelection = useCallback((id, options = {}) => {
     const clearSubset = options.clearSubset !== false;
@@ -422,6 +504,60 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (cid != null && codes.length) currenciesByCompanyRef.current.set(cid, codes);
   }, [companyId, selectedGroup]);
 
+  /** Instant currency pills when switching group/company — uses in-memory cache from prior visits. */
+  const primeCurrenciesFromCache = useCallback(
+    (scope = {}) => {
+      const cid = scope.companyId !== undefined ? scope.companyId : companyId;
+      const group = scope.selectedGroup !== undefined ? scope.selectedGroup : selectedGroup;
+      const gAll = scope.groupsAllMode !== undefined ? scope.groupsAllMode : groupsAllMode;
+      const singleCid =
+        cid != null && cid !== "" ? parseInt(cid, 10) : Number.NaN;
+      const groupKey = group ? String(group).trim().toUpperCase() : null;
+      const explicitScope =
+        scope.companyId !== undefined ||
+        scope.selectedGroup !== undefined ||
+        scope.groupsAllMode !== undefined;
+      const clearOnMiss =
+        scope.clearOnMiss !== undefined ? scope.clearOnMiss : explicitScope;
+
+      let cached = null;
+      if (Number.isFinite(singleCid) && singleCid > 0) {
+        cached = currenciesByCompanyRef.current.get(singleCid) ?? null;
+      }
+      if (!cached?.length && groupKey) {
+        cached = currenciesByGroupRef.current.get(groupKey) ?? null;
+      }
+      if (!cached?.length && gAll) {
+        cached = currenciesByGroupRef.current.get("GROUPS:ALL") ?? null;
+      }
+      if (!cached?.length) {
+        if (clearOnMiss) {
+          setCurrencies([]);
+          setCurrencyCode("");
+        }
+        return false;
+      }
+
+      const list = [...cached];
+      setCurrencies(list);
+      const scopeKey = buildDashboardCurrencyScopeKey({
+        companyId: Number.isFinite(singleCid) && singleCid > 0 ? singleCid : null,
+        selectedGroup: groupKey,
+      });
+      const persisted = resolveCrossPageCurrencyPreference({
+        scopeKey,
+        availableCodes: list,
+      });
+      setCurrencyCode((prev) => {
+        if (persisted && list.includes(persisted)) return persisted;
+        if (prev && list.includes(prev)) return prev;
+        return list[0] || "";
+      });
+      return true;
+    },
+    [companyId, selectedGroup, groupsAllMode]
+  );
+
   const orderCurrencyCodes = useCallback((codes, order) => {
     if (!Array.isArray(order) || !order.length) return codes;
     const set = new Set(codes);
@@ -436,7 +572,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const gen = ++currencyLoadGenRef.current;
     const singleCid = companyId != null ? parseInt(companyId, 10) : null;
     const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
-    const useGroupAccCurrency = Boolean(groupKey) || groupsAllMode;
+    const singleCompanyScope =
+      Number.isFinite(singleCid) &&
+      singleCid > 0 &&
+      !groupKey &&
+      !groupsAllMode &&
+      !groupAllMode &&
+      !(mergedSubsetIds && mergedSubsetIds.length > 1);
+    const useGroupAccCurrency = Boolean(groupKey) || groupsAllMode || singleCompanyScope;
 
     const commitCurrencyList = (codes) => {
       if (gen !== currencyLoadGenRef.current) return;
@@ -475,7 +618,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           if (anchorId) companyIds = [anchorId];
           else groupLedgerOnly = true;
         } else {
-          companyIds = filterCompaniesWithDisplayId(companies)
+          // GroupID=All + Company=All: currencies should reflect AP+IG subsidiaries only (exclude independents).
+          companyIds = resolveGroupsAllMergeCompanyList(companies, groupIds)
             .map((c) => parseInt(c.id, 10))
             .filter((id) => Number.isFinite(id));
         }
@@ -521,15 +665,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return;
     }
 
-    if (!useGroupAccCurrency) {
-      if (singleCid) {
-        const cached = currenciesByCompanyRef.current.get(singleCid);
-        if (cached?.length) applyCurrencyCodes(cached, singleCid);
-      } else if (groupKey) {
-        const cached = currenciesByGroupRef.current.get(groupKey);
-        if (cached?.length) applyCurrencyCodes(cached, null);
-      }
-    }
+    primeCurrenciesFromCache({ clearOnMiss: true });
 
     try {
       let codes = [];
@@ -553,10 +689,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           if (groupOnlyCurrencyScope) q.set("group_aggregate", "1");
           if (groupPlusCompanyCurrency) q.set("subsidiary_accounts_only", "1");
         }
-        const curRes = await fetch(
-          buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
-          { credentials: "include" }
-        );
+        const orderCompanyId =
+          groupOnlyCurrencyScope && groupKey
+            ? pickGroupAnchorCompany(companies, groupKey)?.id
+            : singleCid ?? companyIds[0];
+        const ordParams = new URLSearchParams({ _t: String(Date.now()) });
+        if (orderCompanyId) ordParams.set("company_id", String(orderCompanyId));
+
+        const [curRes, ordRes] = await Promise.all([
+          fetch(
+            buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
+            { credentials: "include" }
+          ),
+          orderCompanyId
+            ? fetch(
+                buildApiUrl(`api/transactions/user_currency_order_api.php?${ordParams.toString()}`),
+                { credentials: "include" }
+              ).catch(() => null)
+            : Promise.resolve(null),
+        ]);
         const curJson = await curRes.json();
         if (curRes.ok && curJson.success && Array.isArray(curJson.data)) {
           codes = curJson.data.map((r) => String(r.code).toUpperCase());
@@ -570,16 +721,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         }
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
 
-        const orderCompanyId =
-          groupOnlyCurrencyScope && groupKey
-            ? pickGroupAnchorCompany(companies, groupKey)?.id
-            : singleCid ?? companyIds[0];
-        const ordParams = new URLSearchParams({ _t: String(Date.now()) });
-        if (orderCompanyId) ordParams.set("company_id", String(orderCompanyId));
-        const ordRes = await fetch(
-          buildApiUrl(`api/transactions/user_currency_order_api.php?${ordParams.toString()}`),
-          { credentials: "include" }
-        ).catch(() => null);
         if (ordRes) {
           const ordJson = await ordRes.json();
           codes = orderCurrencyCodes(codes, ordJson?.data?.order);
@@ -657,12 +798,74 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     mergedSubsetIds,
     buildScopeCurrencyKey,
     applyCurrencyCodes,
+    primeCurrenciesFromCache,
     orderCurrencyCodes,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     loadCurrencies();
   }, [loadCurrencies]);
+
+  /** Warm currency cache per group/default company so AP↔IG switches feel instant. */
+  useEffect(() => {
+    const independentRows = independentCompaniesForPicker(companies, groupIds);
+    if (!companies.length || (!groupIds.length && !independentRows.length)) return undefined;
+    let cancelled = false;
+
+    const prefetchCompanyCurrencies = async (cid, viewGroup) => {
+      const id = parseInt(cid, 10);
+      if (!Number.isFinite(id) || id <= 0 || currenciesByCompanyRef.current.has(id)) return;
+      const row = companies.find((c) => parseInt(c.id, 10) === id);
+      const isIndependent = row && companyRowIsIndependent(row, groupIds);
+      const q = new URLSearchParams({ company_id: String(id) });
+      const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+      if (vg) {
+        q.set("view_group", vg);
+        q.set("group_id", vg);
+        q.set("subsidiary_accounts_only", "1");
+      } else if (!isIndependent) {
+        q.set("subsidiary_accounts_only", "1");
+      }
+      try {
+        const res = await fetch(
+          buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
+          { credentials: "include" }
+        );
+        const json = await res.json();
+        if (cancelled || !res.ok || !json.success || !Array.isArray(json.data)) return;
+        const codes = json.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
+        if (codes.length) currenciesByCompanyRef.current.set(id, codes);
+      } catch {
+        /* Best-effort prefetch. */
+      }
+    };
+
+    const run = () => {
+      if (cancelled) return;
+      for (const gid of groupIds) {
+        for (const row of companiesForCompanyPicker(companies, gid, groupIds)) {
+          if (!isSubsidiaryCompanyRow(row, groupIds)) continue;
+          if (row?.id) void prefetchCompanyCurrencies(row.id, gid);
+        }
+      }
+      for (const row of independentRows) {
+        if (row?.id) void prefetchCompanyCurrencies(row.id, null);
+      }
+    };
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(run, { timeout: 2500 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+      };
+    }
+    const timerId = window.setTimeout(run, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
+    };
+  }, [companies, groupIds, me]);
 
   useEffect(() => {
     if (!canShowAllCurrencies && showAllCurrencies) {
@@ -804,17 +1007,132 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const earningsRowsFromBootstrapEntries = useCallback(
-    (entries) =>
-      (entries || []).map(({ code, payload }) => ({
+    (entries, cidOverride = null, groupOverride = undefined) => {
+      const cid = cidOverride ?? companyId;
+      const grp = groupOverride !== undefined ? groupOverride : selectedGroup;
+      return (entries || []).map(({ code, payload }) => ({
         code,
         earnings: payload
           ? computeKpiMetrics(
-              applyDashboardPayloadAdjustments(payload, companyId, selectedGroup),
-              selectedGroup
+              applyDashboardPayloadAdjustments(payload, cid, grp),
+              grp
             )?.earnings ?? 0
           : 0,
-      })),
+      }));
+    },
     [applyDashboardPayloadAdjustments, companyId, selectedGroup]
+  );
+
+  const seedDashboardPayloadCacheForCompany = useCallback(
+    (cid, viewGroup, rangeFrom, rangeTo, currencyOverride, data) => {
+      if (!data || cid == null) return;
+      const cur = currencyOverride ?? currencyCodeRef.current;
+      const q = new URLSearchParams({
+        date_from: rangeFrom,
+        date_to: rangeTo,
+        company_id: String(cid),
+      });
+      if (cur) q.append("currency", cur);
+      const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+      if (vg) {
+        const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
+        const subsidiaryOnly = row && !companyRowIsGroupEntity(row, vg);
+        if (subsidiaryOnly) {
+          q.append("subsidiary_accounts_only", "1");
+        } else {
+          q.append("view_group", vg);
+        }
+      }
+      setDashboardPayloadCache(q.toString(), data);
+    },
+    [companies]
+  );
+
+  const prefetchDashboardCompany = useCallback(
+    async (targetRow, viewGroup) => {
+      const id = parseInt(targetRow?.id, 10);
+      if (!Number.isFinite(id) || id <= 0) return;
+      const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+      const cur = currencyCodeRef.current;
+      const scopeKey = resolveDashboardScopeKey({
+        companyId: id,
+        selectedGroup: vg || null,
+        groupsAllMode: false,
+        groupAllMode: false,
+        mergedSubsetIds: null,
+        currencyCode: cur,
+      });
+      if (!scopeKey || getDashboardCache(scopeKey)?.current) return;
+
+      const usesLedger = vg && companyRowIsGroupEntity(targetRow, vg);
+      const subScope = Boolean(vg && !usesLedger);
+      const rangeFrom = dateFromRef.current;
+      const rangeTo = dateToRef.current;
+
+      const q = new URLSearchParams({
+        date_from: rangeFrom,
+        date_to: rangeTo,
+        bootstrap_scope: "full",
+      });
+      if (usesLedger && vg) {
+        q.set("view_group", vg);
+        q.set("group_id", vg);
+      } else {
+        q.set("company_id", String(id));
+        if (subScope) q.set("subsidiary_accounts_only", "1");
+        else if (vg) q.set("view_group", vg);
+      }
+      if (cur) q.set("currency", cur);
+      const codes = currenciesByCompanyRef.current.get(id);
+      if (codes?.length > 1) q.set("currencies", codes.join(","));
+
+      try {
+        const res = await fetch(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${q}`), {
+          credentials: "include",
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success || !json.data?.current) return;
+
+        const current = applyDashboardPayloadAdjustments(json.data.current, id, vg || null);
+        const previous = json.data.previous
+          ? applyDashboardPayloadAdjustments(json.data.previous, id, vg || null)
+          : null;
+        const earningsCurrent = earningsRowsFromBootstrapEntries(
+          json.data.earnings?.current,
+          id,
+          vg || null
+        );
+
+        if (current) {
+          seedDashboardPayloadCacheForCompany(id, vg || null, rangeFrom, rangeTo, cur, current);
+        }
+        if (previous) {
+          const prevRange = previousMonthEquivalentRange(rangeFrom, rangeTo);
+          seedDashboardPayloadCacheForCompany(
+            id,
+            vg || null,
+            prevRange.from,
+            prevRange.to,
+            cur,
+            previous
+          );
+        }
+
+        setDashboardCache(scopeKey, {
+          current,
+          previous,
+          earnings: earningsCurrent.length > 1 ? earningsCurrent : undefined,
+        });
+      } catch {
+        /* Best-effort prefetch. */
+      }
+    },
+    [
+      resolveDashboardScopeKey,
+      applyDashboardPayloadAdjustments,
+      earningsRowsFromBootstrapEntries,
+      seedDashboardPayloadCacheForCompany,
+    ]
   );
 
   const loadDashboardViaBootstrap = useCallback(
@@ -949,7 +1267,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (!companyList.length) {
           throw new Error(i18n.failedToLoadDashboard);
         }
-        const results = await Promise.all(
+        const settled = await Promise.allSettled(
           companyList.map((c) => {
             const cid = parseInt(c.id, 10);
             return fetchDashboardPayload(
@@ -961,18 +1279,24 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             );
           })
         );
+        const results = settled
+          .filter((entry) => entry.status === "fulfilled" && entry.value)
+          .map((entry) => entry.value);
+        if (!results.length) {
+          const rejected = settled.find((entry) => entry.status === "rejected");
+          throw rejected?.reason ?? new Error(i18n.failedToLoadDashboard);
+        }
         return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
       };
 
       if (groupAllMode) {
         if (groupsAllMode) {
-          const list = filterCompaniesWithDisplayId(companies).filter(
-            (c) => !isVirtualGroupLinkCompanyRow(c)
-          );
-          return fetchMergedCompanyDashboards(list);
+          return fetchMergedCompanyDashboards(resolveGroupsAllMergeCompanyList(companies, groupIds));
         }
         if (selectedGroup) {
-          return fetchMergedCompanyDashboards(companiesNativeInGroupList(companies, selectedGroup));
+          return fetchMergedCompanyDashboards(
+            resolveGroupAllMergeCompanyList(companies, selectedGroup, groupIds)
+          );
         }
       }
 
@@ -1152,11 +1476,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setEarningsByCurrencyLoading(false);
       return;
     }
+    const cached = getDashboardCache(dashboardScopeKey);
+    if (cached?.earnings?.length === currencies.length) {
+      setEarningsByCurrency(cached.earnings);
+      setEarningsByCurrencyPrev([]);
+      setEarningsByCurrencyLoading(false);
+      return;
+    }
     setEarningsByCurrency(currencies.map((code) => ({ code, earnings: null })));
     setEarningsByCurrencyPrev([]);
     setEarningsByCurrencyLoading(true);
-    clearDashboardPayloadCache();
-  }, [dateFrom, dateTo, companyId, selectedGroup, currencies]);
+  }, [dateFrom, dateTo, companyId, selectedGroup, currencies, dashboardScopeKey]);
 
   useEffect(() => {
     const rateBase =
@@ -1266,12 +1596,41 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       setLoading(false);
     } else {
-      setLoading(true);
-      setDashboardData(null);
-      setDashboardDataPrev(null);
-      setDisplayScopeKey("");
-      setMultiCurrencyKpi(null);
-      setMultiCurrencyKpiPrev(null);
+      let hydratedFromPayload = false;
+      if (
+        companyId != null &&
+        !allCurrenciesActive &&
+        !groupAllMode &&
+        !(mergedSubsetIds && mergedSubsetIds.length > 1)
+      ) {
+        const q = new URLSearchParams({
+          date_from: dateFrom,
+          date_to: dateTo,
+          company_id: String(companyId),
+        });
+        if (currencyCode) q.append("currency", currencyCode);
+        if (subsidiaryDashboardScope) {
+          q.append("subsidiary_accounts_only", "1");
+        } else if (selectedGroup) {
+          q.append("view_group", String(selectedGroup).trim().toUpperCase());
+        }
+        const payload = getDashboardPayloadCache(q.toString());
+        if (payload) {
+          const adjusted = applyDashboardPayloadAdjustments(payload, companyId, selectedGroup);
+          setDashboardData(adjusted);
+          setDisplayScopeKey(cacheKey);
+          setLoading(false);
+          hydratedFromPayload = true;
+        }
+      }
+      if (!hydratedFromPayload) {
+        setLoading(true);
+        setDashboardData(null);
+        setDashboardDataPrev(null);
+        setDisplayScopeKey("");
+        setMultiCurrencyKpi(null);
+        setMultiCurrencyKpiPrev(null);
+      }
     }
     if (!cached?.earnings?.length) {
       setEarningsByCurrency([]);
@@ -1429,6 +1788,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     loadMergedDashboard,
     loadAllCurrenciesDashboard,
     loadDashboardViaBootstrap,
+    applyDashboardPayloadAdjustments,
+    subsidiaryDashboardScope,
     i18n,
     dashboardScopeKey,
     showAllCurrencies,
@@ -1443,6 +1804,44 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  /** Prefetch sibling companies so AP/IG company switches can show cached KPIs immediately. */
+  useEffect(() => {
+    if (!companies.length || !dateFrom || !dateTo || groupAllMode) return undefined;
+    let cancelled = false;
+    const activeId = companyId != null ? parseInt(companyId, 10) : null;
+
+    const run = () => {
+      if (cancelled) return;
+      if (selectedGroup) {
+        for (const row of resolveGroupAllMergeCompanyList(companies, selectedGroup, groupIds)) {
+          const rid = parseInt(row.id, 10);
+          if (!Number.isFinite(rid) || rid === activeId) continue;
+          void prefetchDashboardCompany(row, selectedGroup);
+        }
+      } else if (activeId != null) {
+        for (const row of independentCompaniesForPicker(companies, groupIds)) {
+          const rid = parseInt(row.id, 10);
+          if (!Number.isFinite(rid) || rid === activeId) continue;
+          void prefetchDashboardCompany(row, null);
+        }
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    companies,
+    dateFrom,
+    dateTo,
+    companyId,
+    selectedGroup,
+    groupAllMode,
+    groupIds,
+    prefetchDashboardCompany,
+  ]);
 
   useEffect(() => {
     if (loading || !dashboardData || currencies.length <= 1) return undefined;
@@ -1767,17 +2166,40 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
-      if (g === selectedGroup && companyId != null && !groupsAllMode) {
+      if (g === selectedGroup && !groupsAllMode) {
         if (!canUseGroupOnlyMode(me)) {
+          const target = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
           setGroupsAllMode(false);
           setGroupAllMode(false);
           setMergedSubsetIds(null);
           setSelectedGroup(null);
-          clearDashboardGroupFilterKeepCompany(companyId);
-          void syncCompanySession(companyId, null);
+          if (typeof sessionStorage !== "undefined") {
+            sessionStorage.removeItem("dashboard_group_filter");
+          }
+          if (target?.id) {
+            const id = parseInt(target.id, 10);
+            persistDashboardFilterState(null, id, { allowGroupOnly: false });
+            notifyDashboardGroupFilterChanged(null, id, { companyCode: target.company_id });
+            applyCompanySelection(id);
+            primeCurrenciesFromCache({ companyId: id, selectedGroup: null, groupsAllMode: false });
+            primeDashboardFromCache({
+              companyId: id,
+              selectedGroup: null,
+              groupsAllMode: false,
+              groupAllMode: false,
+              mergedSubsetIds: null,
+            });
+            void syncCompanySession(id, null);
+          } else if (companyId != null) {
+            clearDashboardGroupFilterKeepCompany(companyId);
+            void syncCompanySession(companyId, null);
+          } else {
+            persistDashboardFilterState(null, null, { allowGroupOnly: false });
+            notifyDashboardGroupFilterChanged(null, null);
+          }
           return;
         }
-        return;
+        if (companyId != null) return;
       }
 
       if (canUseGroupOnlyMode(me)) {
@@ -1785,6 +2207,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setSelectedGroup(g);
         sessionStorage.setItem("dashboard_group_filter", g);
         clearCompanySelection(g);
+        primeCurrenciesFromCache({ companyId: null, selectedGroup: g, groupsAllMode: false });
         notifyDashboardGroupFilterChanged(g, null);
         return;
       }
@@ -1795,6 +2218,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       });
       if (!pick?.id) {
         clearCompanySelection(g);
+        primeCurrenciesFromCache({ companyId: null, selectedGroup: g, groupsAllMode: false });
         notifyDashboardGroupFilterChanged(g, null);
         return;
       }
@@ -1810,6 +2234,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setSelectedGroup(g);
       sessionStorage.setItem("dashboard_group_filter", g);
       applyCompanySelection(id);
+      primeCurrenciesFromCache({ companyId: id, selectedGroup: g, groupsAllMode: false });
+      primeDashboardFromCache({
+        companyId: id,
+        selectedGroup: g,
+        groupsAllMode: false,
+        groupAllMode: false,
+        mergedSubsetIds: null,
+      });
       void syncCompanySession(id, g);
     },
     [
@@ -1818,16 +2250,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       companyId,
       me,
       companies,
+      groupIds,
       clearCompanySelection,
       applyCompanySelection,
       syncCompanySession,
+      primeCurrenciesFromCache,
+      primeDashboardFromCache,
     ]
   );
 
   const handlePickCompany = useCallback(
     (c) => {
       const id = parseInt(c.id, 10);
-      const gid = c.group_id ? String(c.group_id).toUpperCase() : null;
+      const nativeGid = normalizeNativeCompanyGroupId(c);
+      const gid = nativeGid ? String(nativeGid).toUpperCase() : null;
       const isActive =
         !groupAllMode &&
         !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
@@ -1857,19 +2293,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         companyCode: c.company_id,
         ignoreGroupOnly: true,
       });
-      clearDashboardPayloadCache();
-      clearDashboardCache();
-      setDashboardData(null);
-      setDashboardDataPrev(null);
-      setDisplayScopeKey("");
-      setEarningsByCurrency([]);
-      setEarningsByCurrencyPrev([]);
-      setEarningsByCurrencyLoading(false);
-      setMultiCurrencyKpi(null);
-      setMultiCurrencyKpiPrev(null);
-      setCurrencies([]);
-      setCurrencyCode("");
       applyCompanySelection(id);
+      primeCurrenciesFromCache({
+        companyId: id,
+        selectedGroup: groupsAllMode ? null : gid,
+        groupsAllMode: false,
+      });
+      primeDashboardFromCache({
+        companyId: id,
+        selectedGroup: groupsAllMode ? null : gid,
+        groupsAllMode: false,
+        groupAllMode: false,
+        mergedSubsetIds: null,
+      });
       void syncCompanySession(id, groupsAllMode ? null : gid || selectedGroup).then((ok) => {
         if (switchGen !== companySwitchGenRef.current) return;
         if (!ok && prevId != null) {
@@ -1892,6 +2328,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       applyCompanySelection,
       syncCompanySession,
       clearCompanySelection,
+      primeCurrenciesFromCache,
+      primeDashboardFromCache,
       me,
     ]
   );
@@ -1908,11 +2346,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     setCompanyId(null);
     const groupForPersist = groupsAllMode ? null : selectedGroup;
     persistDashboardFilterState(groupForPersist, null, { allowGroupOnly: false });
+    primeCurrenciesFromCache({
+      companyId: null,
+      selectedGroup: groupForPersist,
+      groupsAllMode,
+    });
     notifyDashboardGroupFilterChanged(groupForPersist, null);
-  }, [resolveMergeCompanyList, handlePickCompany, groupsAllMode, selectedGroup]);
+  }, [
+    resolveMergeCompanyList,
+    handlePickCompany,
+    groupsAllMode,
+    selectedGroup,
+    primeCurrenciesFromCache,
+  ]);
 
   const handlePickAllGroups = useCallback(() => {
     if (groupsAllMode) return;
+    const target = resolveCompanyWhenPickingAllGroups(companies, companyId, groupIds);
     setGroupsAllMode(true);
     setGroupAllMode(false);
     setMergedSubsetIds(null);
@@ -1920,9 +2370,70 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (typeof sessionStorage !== "undefined") {
       sessionStorage.removeItem("dashboard_group_filter");
     }
+    if (target?.id && Number(target.id) !== Number(companyId)) {
+      const id = parseInt(target.id, 10);
+      persistDashboardFilterState(null, id, { allowGroupOnly: false });
+      notifyDashboardGroupFilterChanged(null, id, { companyCode: target.company_id });
+      applyCompanySelection(id);
+      primeCurrenciesFromCache({ companyId: id, selectedGroup: null, groupsAllMode: true });
+      primeDashboardFromCache({
+        companyId: id,
+        selectedGroup: null,
+        groupsAllMode: true,
+        groupAllMode: false,
+        mergedSubsetIds: null,
+      });
+      void syncCompanySession(id, null);
+      return;
+    }
     persistDashboardFilterState(null, companyId, { allowGroupOnly: false });
+    primeCurrenciesFromCache({
+      companyId,
+      selectedGroup: null,
+      groupsAllMode: true,
+    });
+    primeDashboardFromCache({
+      companyId,
+      selectedGroup: null,
+      groupsAllMode: true,
+      groupAllMode: false,
+      mergedSubsetIds: null,
+    });
     notifyDashboardGroupFilterChanged(null, companyId);
-  }, [groupsAllMode, companyId]);
+  }, [
+    groupsAllMode,
+    companyId,
+    companies,
+    groupIds,
+    applyCompanySelection,
+    syncCompanySession,
+    primeCurrenciesFromCache,
+    primeDashboardFromCache,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!groupsAllMode || groupAllMode || !companiesForPicker.length) return;
+    const cid = companyId != null ? parseInt(companyId, 10) : Number.NaN;
+    const inPicker =
+      Number.isFinite(cid) &&
+      cid > 0 &&
+      companiesForPicker.some((c) => parseInt(c.id, 10) === cid);
+    if (inPicker) return;
+    const target = resolveCompanyWhenPickingAllGroups(companies, companyId, groupIds);
+    if (!target?.id) return;
+    const id = parseInt(target.id, 10);
+    applyCompanySelection(id);
+    persistDashboardFilterState(null, id, { allowGroupOnly: false });
+    notifyDashboardGroupFilterChanged(null, id, { companyCode: target.company_id });
+  }, [
+    groupsAllMode,
+    groupAllMode,
+    companyId,
+    companiesForPicker,
+    companies,
+    groupIds,
+    applyCompanySelection,
+  ]);
 
   useLayoutEffect(() => {
     if (

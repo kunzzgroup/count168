@@ -532,10 +532,13 @@ export function normalizeOwnerCompanyRow(row) {
   if (!row || typeof row !== "object") return row;
   const company_id = row.company_id ?? row.companyId ?? row.code ?? "";
   const group_id = row.group_id ?? row.groupId ?? row.group ?? null;
+  const native_group_id =
+    row.native_group_id ?? row.nativeGroupId ?? group_id ?? null;
   return {
     ...row,
     company_id,
     group_id,
+    native_group_id,
   };
 }
 
@@ -587,6 +590,31 @@ export function dedupeOwnerCompaniesByCode(companies, preferredCompanyId) {
 
 export function normalizeCompanyGroupId(comp) {
   return String(comp?.group_id ?? "").trim().toUpperCase();
+}
+
+/** Database/native group_id (not ownership-coalesced dashboard group_id). */
+export function normalizeNativeCompanyGroupId(comp) {
+  if (!comp) return "";
+  if (isVirtualGroupLinkCompanyRow(comp)) {
+    const link = comp.link_source_group
+      ? String(comp.link_source_group).trim().toUpperCase()
+      : "";
+    if (link) return link;
+  }
+  const native = comp.native_group_id ?? comp.nativeGroupId;
+  if (native !== undefined && native !== null) {
+    return String(native).trim().toUpperCase();
+  }
+  return normalizeCompanyGroupId(comp);
+}
+
+/** Domain-selected company with no native group (e.g. ABC under BOSS, not AP/IG). */
+export function companyRowIsIndependent(companyRow, groupIds = null) {
+  if (!companyRow || isVirtualGroupLinkCompanyRow(companyRow)) return false;
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds([companyRow]);
+  if (companyDisplayCodeIsGroupLabel(companyRow, gids)) return false;
+  if (companyRowIsGroupEntityAnyShape(companyRow)) return false;
+  return !normalizeNativeCompanyGroupId(companyRow);
 }
 
 /** True when the company row belongs to the selected group (or no group filter is active). */
@@ -783,15 +811,16 @@ export function companiesInGroupList(companies, gid) {
  * Excludes virtual link rows — not for group-only entity scope (use companiesGroupEntityList).
  */
 export function companiesNativeInGroupList(companies, gid) {
+  const gids = sortedUniqueGroupIds(companies);
   if (!gid) {
-    return filterCompaniesWithDisplayId(companies).filter(
-      (c) => !normalizeCompanyGroupId(c) && !isVirtualGroupLinkCompanyRow(c),
+    return filterCompaniesWithDisplayId(companies).filter((c) =>
+      companyRowIsIndependent(c, gids),
     );
   }
   const g = String(gid).trim().toUpperCase();
   return filterCompaniesWithDisplayId(companies).filter((c) => {
     if (isVirtualGroupLinkCompanyRow(c)) return false;
-    return normalizeCompanyGroupId(c) === g;
+    return normalizeNativeCompanyGroupId(c) === g;
   });
 }
 
@@ -980,6 +1009,97 @@ export function resolveSubsidiaryBootCompanyId(
   return id != null && Number.isFinite(id) && id > 0 ? id : null;
 }
 
+/** Independent (ungrouped) companies for the Company picker when GroupID is cleared. */
+export function independentCompaniesForPicker(companies, groupIds = null) {
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  return excludeGroupLabelsFromCompanyPicker(companiesNativeInGroupList(companies, null), gids);
+}
+
+/**
+ * All subsidiaries under visible groups (AP, IG, …) for Company picker when GroupID is "All".
+ * Excludes independent companies.
+ */
+export function allGroupedCompaniesForPicker(companies, groupIds = null) {
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  const seen = new Set();
+  const merged = [];
+  for (const gid of gids) {
+    for (const row of companiesNativeInGroupList(companies, gid)) {
+      const id = Number(row?.id);
+      if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      merged.push(row);
+    }
+  }
+  return excludeGroupLabelsFromCompanyPicker(merged, gids);
+}
+
+function isExcludedFromGroupAggregate(companyRow, groupIds = null, options = {}) {
+  if (!companyRow) return true;
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds([companyRow]);
+  const { allowC168 = false } = options || {};
+  if (!isSubsidiaryCompanyRow(companyRow, gids)) return true;
+  const code = String(companyRow.company_id ?? companyRow.companyId ?? "")
+    .trim()
+    .toUpperCase();
+  if (!allowC168 && code === "C168") return true;
+  if (companyRowIsIndependent(companyRow, gids)) return true;
+  return false;
+}
+
+/** Subsidiaries to merge when Company row "All" is active under a group tab (IG/AP). */
+export function resolveGroupAllMergeCompanyList(companies, selectedGroup, groupIds = null) {
+  const g = String(selectedGroup || "").trim().toUpperCase();
+  if (!g) return [];
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  return companiesForCompanyPicker(companies, g, gids).filter(
+    (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168: false }),
+  );
+}
+
+/** Subsidiaries to merge when GroupID "All" + Company "All" aggregate every visible group. */
+export function resolveGroupsAllMergeCompanyList(companies, groupIds = null) {
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  return allGroupedCompaniesForPicker(companies, gids).filter(
+    (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168: true }),
+  );
+}
+
+/**
+ * When GroupID "All" is selected: keep current company if it belongs to a group,
+ * otherwise activate the first grouped company in picker order.
+ */
+export function resolveCompanyWhenPickingAllGroups(companies, currentCompanyId, groupIds = null) {
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  const grouped = allGroupedCompaniesForPicker(companies, gids);
+  if (!grouped.length) return null;
+  const cid = currentCompanyId != null ? Number(currentCompanyId) : Number.NaN;
+  if (Number.isFinite(cid) && cid > 0) {
+    const inPicker = grouped.find((c) => Number(c.id) === cid);
+    if (inPicker) return inPicker;
+  }
+  return grouped[0] ?? null;
+}
+
+/**
+ * When closing an active GroupID pill: keep the current company if it is independent,
+ * otherwise activate the first independent company in picker order.
+ */
+export function resolveCompanyWhenClosingGroup(companies, currentCompanyId, groupIds = null) {
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  const independents = independentCompaniesForPicker(companies, gids);
+  if (!independents.length) return null;
+  const cid = currentCompanyId != null ? Number(currentCompanyId) : Number.NaN;
+  if (Number.isFinite(cid) && cid > 0) {
+    const currentRow = (companies || []).find((c) => Number(c.id) === cid);
+    if (currentRow && companyRowIsIndependent(currentRow, gids)) {
+      const inPicker = independents.find((c) => Number(c.id) === cid);
+      if (inPicker) return inPicker;
+    }
+  }
+  return independents[0] ?? null;
+}
+
 /**
  * Legacy group-button click: toggle off → independent companies + first independent active;
  * select group → first company in that group active.
@@ -987,16 +1107,15 @@ export function resolveSubsidiaryBootCompanyId(
  */
 export function applySharedGroupButtonClick({ clickedGroupId, currentSelectedGroup, companies }) {
   const gid = String(clickedGroupId || "").trim().toUpperCase();
-  const list = filterCompaniesWithDisplayId(companies);
+  const groupIds = sortedUniqueGroupIds(companies);
 
   if (currentSelectedGroup === gid) {
-    const independents = list.filter((c) => !normalizeCompanyGroupId(c));
-    const first = independents[0] ?? null;
+    const first = resolveCompanyWhenClosingGroup(companies, null, groupIds);
     return { selectedGroup: null, companyToActivate: first };
   }
 
-  const inGroup = list.filter((c) => normalizeCompanyGroupId(c) === gid);
-  const first = inGroup[0] ?? null;
+  const inGroup = companiesNativeInGroupList(companies, gid);
+  const first = excludeGroupLabelsFromCompanyPicker(inGroup, groupIds)[0] ?? inGroup[0] ?? null;
   return { selectedGroup: gid, companyToActivate: first };
 }
 

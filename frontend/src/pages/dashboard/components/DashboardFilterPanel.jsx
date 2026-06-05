@@ -18,6 +18,7 @@ export function DashboardFilterPanel({
   onCurrencyDropOn,
 }) {
   const showCompanyAll = companiesForPicker.length > 1;
+  const showCompanyRow = groupIds.length > 0 || companiesForPicker.length > 0;
   const showPanel =
     groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0;
 
@@ -76,7 +77,7 @@ export function DashboardFilterPanel({
               </div>
             </div>
           )}
-          {companiesForPicker.length > 0 && (
+          {showCompanyRow && (
             <div className="user-gc-inline-row">
               <span className="user-gc-inline-label">{i18n.company}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
