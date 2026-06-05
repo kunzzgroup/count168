@@ -234,6 +234,46 @@ function userlist_ensure_group_entity_company_id(PDO $pdo, string $groupScope): 
 }
 
 /**
+ * Ensure `groups` row exists for group_code (AP/IG) before user_group_map bind/list.
+ */
+function userlist_ensure_group_row_for_code(PDO $pdo, string $groupCode): void
+{
+    $g = userlist_normalize_group_id($groupCode);
+    if ($g === null || !gc_has_groups_table($pdo)) {
+        return;
+    }
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO `groups` (`group_code`, `group_name`, `owner_id`)
+            SELECT DISTINCT
+                UPPER(TRIM(c.group_id)),
+                UPPER(TRIM(c.group_id)),
+                c.owner_id
+            FROM company c
+            WHERE UPPER(TRIM(c.group_id)) = ?
+              AND TRIM(COALESCE(c.group_id, '')) <> ''
+            LIMIT 1
+            ON DUPLICATE KEY UPDATE
+                `owner_id` = COALESCE(`groups`.`owner_id`, VALUES(`owner_id`))
+        ");
+        $stmt->execute([$g]);
+    } catch (Throwable $e) {
+        error_log('userlist_ensure_group_row_for_code(' . $g . '): ' . $e->getMessage());
+    }
+}
+
+function userlist_resolve_group_pk_by_code(PDO $pdo, string $groupCode): int
+{
+    $g = userlist_normalize_group_id($groupCode);
+    if ($g === null) {
+        return 0;
+    }
+    userlist_ensure_group_row_for_code($pdo, $g);
+
+    return gc_resolve_group_pk_by_code($pdo, $g);
+}
+
+/**
  * Group view company ids: group entity rows only (AP/IG).
  * Prevents subsidiary users (e.g. 95) from bleeding into group view.
  *
@@ -509,7 +549,7 @@ function userlist_fetch_group_only_user_ids(PDO $pdo, string $groupScope): array
     }
     userlist_assert_group_id_allowed($g);
 
-    $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+    $groupPk = userlist_resolve_group_pk_by_code($pdo, $g);
     $ids = [];
 
     if ($groupPk > 0 && userlist_table_exists($pdo, 'user_group_map')) {
@@ -729,7 +769,7 @@ function userlist_login_id_exists_in_group_tenant(
     if ($g === null) {
         return false;
     }
-    $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+    $groupPk = userlist_resolve_group_pk_by_code($pdo, $g);
     $excludeSql = $excludeUserId > 0 ? ' AND u.id != ?' : '';
 
     if ($groupPk > 0 && userlist_table_exists($pdo, 'user_group_map')) {
@@ -779,7 +819,7 @@ function userlist_email_exists_in_group_tenant(
     if ($g === null) {
         return false;
     }
-    $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+    $groupPk = userlist_resolve_group_pk_by_code($pdo, $g);
     $excludeSql = $excludeUserId > 0 ? ' AND u.id != ?' : '';
 
     if ($groupPk > 0 && userlist_table_exists($pdo, 'user_group_map')) {
@@ -850,7 +890,7 @@ function userlist_bind_user_to_group_tenant(PDO $pdo, int $userId, string $group
         return 0;
     }
     userlist_assert_group_id_allowed($g);
-    $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+    $groupPk = userlist_resolve_group_pk_by_code($pdo, $g);
     if ($groupPk <= 0) {
         sendResponse(false, 'Invalid group_id');
     }
@@ -1261,14 +1301,14 @@ function userlist_sync_user_group_tenants(PDO $pdo, int $userId, array $groupSco
         if ($g === null) {
             continue;
         }
-        $pk = gc_resolve_group_pk_by_code($pdo, $g);
+        $pk = userlist_resolve_group_pk_by_code($pdo, $g);
         if ($pk > 0) {
             $accessiblePks[$pk] = true;
         }
     }
     $selectedPks = [];
     foreach ($groupScopes as $g) {
-        $pk = gc_resolve_group_pk_by_code($pdo, $g);
+        $pk = userlist_resolve_group_pk_by_code($pdo, $g);
         if ($pk > 0) {
             $selectedPks[$pk] = true;
             $accessiblePks[$pk] = true;
@@ -1297,6 +1337,43 @@ function userlist_sync_user_group_tenants(PDO $pdo, int $userId, array $groupSco
     }
 
     return $primaryEntityId;
+}
+
+/**
+ * @param array<string, mixed> $input
+ */
+function userlist_should_sync_group_tenants(array $input, bool $groupTenantWrite, ?string $groupScope): bool
+{
+    if (!$groupTenantWrite || $groupScope === null) {
+        return false;
+    }
+    $explicitCodes = userlist_normalize_group_code_list($input['group_codes'] ?? []);
+    if ($explicitCodes !== []) {
+        return true;
+    }
+    $rawIds = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
+
+    return count($rawIds) > 0;
+}
+
+/**
+ * @param array<string, mixed> $input
+ * @return list<string>
+ */
+function userlist_resolve_sync_bind_group_scopes(PDO $pdo, array $input, ?string $groupScope): array
+{
+    $groupScopeNorm = userlist_normalize_group_id($groupScope);
+    if ($groupScopeNorm === null) {
+        return [];
+    }
+    $explicitCodes = userlist_normalize_group_code_list($input['group_codes'] ?? []);
+    $rawIds = isset($input['company_ids']) && is_array($input['company_ids']) ? $input['company_ids'] : [];
+    $companyIdsForBind = [];
+    if ($rawIds !== []) {
+        $companyIdsForBind = userlist_resolve_company_ids_for_group_scope($pdo, $groupScopeNorm, $rawIds, true);
+    }
+
+    return userlist_resolve_bind_group_scopes($pdo, $companyIdsForBind, $groupScopeNorm, $explicitCodes);
 }
 
 /**
@@ -1953,15 +2030,7 @@ try {
                         $will_lose_access = true;
                     }
                     
-                    if ($groupTenantWrite && $groupScope !== null) {
-                        $bindGroupScopes = userlist_resolve_bind_group_scopes(
-                            $pdo,
-                            $input['company_ids'],
-                            $groupScope,
-                            userlist_normalize_group_code_list($input['group_codes'] ?? [])
-                        );
-                        userlist_sync_user_group_tenants($pdo, (int) $input['id'], $bindGroupScopes);
-                    } else {
+                    if (!$groupTenantWrite) {
                         if (userlist_ucm_has_scope_columns($pdo)) {
                             $stmt = $pdo->prepare("DELETE FROM user_company_map WHERE user_id = ? AND scope_type = 'company'");
                             $stmt->execute([$input['id']]);
@@ -1973,9 +2042,11 @@ try {
                             userlist_insert_company_scope_map($pdo, (int) $input['id'], (int) $company_id);
                         }
                     }
-                } else {
-                    // 如果没有提供 company_ids，保持原有的关联不变
-                    // 但需要确保用户至少属于当前公司（如果原本属于的话）
+                }
+
+                if (userlist_should_sync_group_tenants($input, $groupTenantWrite, $groupScope)) {
+                    $bindGroupScopes = userlist_resolve_sync_bind_group_scopes($pdo, $input, $groupScope);
+                    userlist_sync_user_group_tenants($pdo, (int) $input['id'], $bindGroupScopes);
                 }
                 
                 // 保存 Account 和 Process 权限到 user_company_permissions 表（按当前公司）

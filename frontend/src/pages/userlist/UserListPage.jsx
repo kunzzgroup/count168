@@ -1745,8 +1745,7 @@ export default function UserListPage() {
       saveGroupId = String(selectedGroup || inferredGroupIdFromPicker || "").trim().toUpperCase();
       payload.group_id = saveGroupId;
       payload.group_only = 1;
-      const groupCodes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
-      if (groupCodes.length) payload.group_codes = groupCodes;
+      payload.group_codes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
     } else if (companyId != null) {
       payload.company_id = Number(companyId);
       const entityPick = pickDefaultCompanyForGroup(companies, saveGroupId, {
@@ -1788,8 +1787,7 @@ export default function UserListPage() {
         if (shouldForceGroupScope && saveGroupId) {
           payload.group_id = saveGroupId;
           payload.group_only = 1;
-          const groupCodes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
-          if (groupCodes.length) payload.group_codes = groupCodes;
+          payload.group_codes = resolveSelectedGroupCodesFromPicker(modalPickerCompanies, saveCompanyIds);
         }
       }
     }
@@ -1804,10 +1802,22 @@ export default function UserListPage() {
           return next;
         });
       }
-      notifyApi(json.message, "saved", "success"); closeModal();
-      if (isEditMode && json.data?.will_lose_access) { setUsersRaw((prev) => prev.filter((u) => Number(u.id) !== Number(form.id))); }
-      else if (json.data) { setUsersRaw((prev) => isEditMode ? prev.map((u) => (Number(u.id) === Number(json.data.id) ? { ...u, ...json.data, is_owner_shadow: u.is_owner_shadow } : u)) : [...prev, { ...json.data, is_owner_shadow: false }]); }
-      else { void fetchUsers(); }
+      notifyApi(json.message, "saved", "success");
+      closeModal();
+      if (isEditMode && json.data?.will_lose_access) {
+        setUsersRaw((prev) => prev.filter((u) => Number(u.id) !== Number(form.id)));
+      } else if (json.data && !groupOnlyUserList) {
+        setUsersRaw((prev) =>
+          isEditMode
+            ? prev.map((u) =>
+                Number(u.id) === Number(json.data.id)
+                  ? { ...u, ...json.data, is_owner_shadow: u.is_owner_shadow }
+                  : u
+              )
+            : [...prev, { ...json.data, is_owner_shadow: false }]
+        );
+      }
+      void fetchUsers();
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
