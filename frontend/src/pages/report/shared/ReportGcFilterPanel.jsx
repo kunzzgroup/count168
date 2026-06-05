@@ -58,7 +58,22 @@ export default function ReportGcFilterPanel({
             onPickAllInGroup={onPickAllInGroup}
             onPickCompany={onSwitchCompany}
             allowCompanyDeselect={allowClearCompany}
-            onClearCompanyPill={() => onClearCompany?.()}
+            onClearCompanyPill={
+              allowClearCompany
+                ? (c) => {
+                    if (onClearCompany) {
+                      const g =
+                        (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
+                        (c?.group_id
+                          ? String(c.group_id).trim().toUpperCase()
+                          : "");
+                      onClearCompany(g);
+                      return;
+                    }
+                    if (onSwitchCompany) void onSwitchCompany(c);
+                  }
+                : null
+            }
           />
         )}
         {hasCurrency ? (

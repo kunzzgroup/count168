@@ -36,6 +36,7 @@ export function useGcFilterWithAllModes({
   autoPickCompanyWhenEmpty = true,
   forceAllowGroupOnly = false,
   broadcastFilterToLayout = true,
+  clearCompanyOnActiveGroupReselect = undefined,
 }) {
   const [groupsAllMode, setGroupsAllMode] = useState(false);
   const [groupAllMode, setGroupAllMode] = useState(false);
@@ -57,6 +58,8 @@ export function useGcFilterWithAllModes({
     autoPickCompanyWhenEmpty,
     forceAllowGroupOnly,
     broadcastFilterToLayout,
+    clearCompanyOnActiveGroupReselect:
+      clearCompanyOnActiveGroupReselect ?? !forceAllowGroupOnly,
   });
 
   const groupIds = base.groupIds;

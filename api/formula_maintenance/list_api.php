@@ -45,7 +45,8 @@ function fetchFormulaListRaw(
     int $companyId,
     string $search,
     ?int $processIdFilter,
-    string $scopeProcessSql = ''
+    string $scopeProcessSql = '',
+    bool $isGroupScope = false
 ) {
     $sql = "SELECT 
                 dct.id,
@@ -74,7 +75,7 @@ function fetchFormulaListRaw(
                 a.name AS account_name,
                 c.code AS currency_code
             FROM data_capture_templates dct
-            " . formulaMaintenanceSqlTemplateProcessJoin($processIdFilter) . "
+            " . formulaMaintenanceSqlTemplateProcessJoin($pdo, $companyId, $processIdFilter, $isGroupScope) . "
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN account a ON dct.account_id = a.id
             LEFT JOIN currency c ON dct.currency_id = c.id
@@ -215,11 +216,11 @@ try {
     $scopeProcessSql = (string) $scopeCtx['scope_process_sql'];
 
     if ($formula_scope_group) {
-        if ($companyId <= 0 || !formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
+        if ($companyId <= 0) {
             jsonResponse(true, 'success', ['list' => [], 'total' => 0]);
             exit;
         }
-    } elseif ($companyId > 0 && formulaMaintenanceCompanyIsGroupEntity($pdo, $companyId)) {
+    } elseif ($companyId > 0 && dcCompanyIdIsGroupEntity($pdo, $companyId)) {
         jsonResponse(true, 'success', ['list' => [], 'total' => 0]);
         exit;
     }
@@ -253,7 +254,7 @@ try {
     if ($processIdFilter !== null && $processIdFilter > 0) {
         dcFixGroupPayrollProcessDescription($pdo, $processIdFilter);
     }
-    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processIdFilter, $scopeProcessSql);
+    $rows = fetchFormulaListRaw($pdo, $companyId, $search, $processIdFilter, $scopeProcessSql, $formula_scope_group);
     $list = mapRowsToDisplay($rows, $formula_scope_group);
     jsonResponse(true, 'success', ['list' => $list, 'total' => count($list)]);
 } catch (PDOException $e) {

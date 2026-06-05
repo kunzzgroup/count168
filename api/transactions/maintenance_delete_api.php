@@ -30,8 +30,9 @@ try {
 
     if ($hasExplicitScope) {
         $scopeResolved = resolveDataCaptureRequestScope($pdo, $payload);
-        $company_id = (int) $scopeResolved['company_id'];
-        $maintenance_scope_group = (bool) $scopeResolved['is_group_scope'];
+        $scopeCtx = dcFinalizeCaptureMaintenanceScope($pdo, $scopeResolved, $payload);
+        $company_id = (int) $scopeCtx['company_id'];
+        $maintenance_scope_group = (bool) $scopeCtx['is_group_scope'];
         $viewGroupForAccess = dcNormalizeGroupId(
             $payload['view_group'] ?? $payload['group_id'] ?? ''
         );

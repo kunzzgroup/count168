@@ -22,8 +22,13 @@ export function transactionMaintenanceUsesGroupProcesses(scope) {
 export function transactionMaintenanceScopeApiParams(scope) {
   if (!scope) return {};
   const base = customerReportScopeApiParams(scope);
-  return {
+  const out = {
     ...base,
     reportScope: scope.mode,
   };
+  if (scope.mode === "group") {
+    out.groupOnly = true;
+    out.groupAggregate = true;
+  }
+  return out;
 }

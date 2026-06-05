@@ -7,6 +7,8 @@ const QUICK_RANGE_KEYS = ["today", "yesterday", "thisWeek", "lastWeek", "thisMon
 export default function CustomerReportFilters({
   companyId,
   onSwitchCompany,
+  onClearCompany,
+  allowClearCompany = true,
   groupIds,
   selectedGroup,
   onPickGroup,
@@ -185,6 +187,8 @@ export default function CustomerReportFilters({
         companyId={companyId}
         highlightCompanyId={highlightCompanyId}
         onSwitchCompany={onSwitchCompany}
+        onClearCompany={onClearCompany}
+        allowClearCompany={allowClearCompany}
         currencyList={currencyList}
         showAllCurrencies={showAllCurrencies}
         selectedCurrencies={selectedCurrencies}

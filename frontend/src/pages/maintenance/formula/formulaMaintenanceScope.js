@@ -22,8 +22,15 @@ export function formulaMaintenanceUsesGroupProcesses(scope) {
 export function formulaMaintenanceScopeApiParams(scope) {
   if (!scope) return {};
   const base = customerReportScopeApiParams(scope);
-  const params = { ...base, reportScope: scope.mode };
-  return params;
+  const out = {
+    ...base,
+    reportScope: scope.mode,
+  };
+  if (scope.mode === "group") {
+    out.groupOnly = true;
+    out.groupAggregate = true;
+  }
+  return out;
 }
 
 /** Numeric company id for API body/query; omit when group resolves via group_id only. */

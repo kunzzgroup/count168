@@ -144,8 +144,8 @@ try {
     }
 
     if ($capture_scope_group) {
-        if ($company_id <= 0 || !dcCompanyIdIsGroupEntity($pdo, $company_id)) {
-            throw new Exception('集团范围无效或未配置集团实体公司');
+        if ($company_id <= 0) {
+            throw new Exception('集团范围无效或未配置集团公司');
         }
     } elseif ($company_id > 0 && dcCompanyIdIsGroupEntity($pdo, $company_id)) {
         throw new Exception('公司范围不能操作集团实体抓数记录');
