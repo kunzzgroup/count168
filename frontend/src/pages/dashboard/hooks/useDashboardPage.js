@@ -141,6 +141,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       canUseGroupOnlyMode(me)
   );
 
+  /** Subsidiary drill-down under a group tab (e.g. C168 under AP) — isolate from group-ledger data. */
+  const subsidiaryDashboardScope = useMemo(() => {
+    if (companyId == null || groupsAllMode || groupAllMode) return false;
+    if (!selectedGroup) return false;
+    const row = companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
+    if (!row) return false;
+    return !companyRowIsGroupEntity(row, selectedGroup);
+  }, [companyId, selectedGroup, companies, groupsAllMode, groupAllMode]);
+
   /**
    * Group-level KPI (AP/IG): group ledger API or group-entity row only — never merge subsidiaries (e.g. C168).
    * Company "All" (groupAllMode) aggregates subsidiaries via merge, not group ledger.
@@ -659,7 +668,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const viewGroup =
         viewGroupOverride ??
         (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
-      if (viewGroup) q.append("view_group", viewGroup);
+      const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
+      const subsidiaryOnly =
+        Boolean(viewGroup) && row != null && !companyRowIsGroupEntity(row, viewGroup);
+      if (subsidiaryOnly) {
+        q.append("subsidiary_accounts_only", "1");
+      } else if (viewGroup) {
+        q.append("view_group", viewGroup);
+      }
       const cacheKey = q.toString();
       const cachedPayload = getDashboardPayloadCache(cacheKey);
       if (cachedPayload != null) {
@@ -748,10 +764,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const viewGroup =
         viewGroupOverride ??
         (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
-      if (viewGroup) q.append("view_group", viewGroup);
+      if (subsidiaryDashboardScope) {
+        q.append("subsidiary_accounts_only", "1");
+      } else if (viewGroup) {
+        q.append("view_group", viewGroup);
+      }
       setDashboardPayloadCache(q.toString(), data);
     },
-    [companyId, usesGroupLedgerDashboard, selectedGroup]
+    [companyId, usesGroupLedgerDashboard, selectedGroup, subsidiaryDashboardScope]
   );
 
   const earningsRowsFromBootstrapEntries = useCallback(
@@ -781,8 +801,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         q.set("group_id", vg);
       } else if (companyId != null) {
         q.set("company_id", String(companyId));
-        const vg = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-        if (vg) q.set("view_group", vg);
+        if (subsidiaryDashboardScope) {
+          q.set("subsidiary_accounts_only", "1");
+        } else {
+          const vg = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+          if (vg) q.set("view_group", vg);
+        }
       } else {
         throw new Error(i18n.failedToLoadDashboard);
       }
@@ -838,6 +862,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       usesGroupLedgerDashboard,
       selectedGroup,
       companyId,
+      subsidiaryDashboardScope,
       currencyCode,
       currencies,
       applyDashboardPayloadAdjustments,
@@ -1797,7 +1822,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       persistDashboardFilterState(persistGroup, id);
       notifyDashboardGroupFilterChanged(persistGroup, id, {
         companyCode: c.company_id,
+        ignoreGroupOnly: true,
       });
+      clearDashboardPayloadCache();
+      setDashboardData(null);
+      setDashboardDataPrev(null);
+      setDisplayScopeKey("");
+      setEarningsByCurrency([]);
+      setEarningsByCurrencyPrev([]);
+      setEarningsByCurrencyLoading(false);
+      setMultiCurrencyKpi(null);
+      setMultiCurrencyKpiPrev(null);
       applyCompanySelection(id);
       void syncCompanySession(id, groupsAllMode ? null : gid || selectedGroup).then((ok) => {
         if (switchGen !== companySwitchGenRef.current) return;

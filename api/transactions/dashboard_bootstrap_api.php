@@ -86,10 +86,16 @@ function dashboard_bootstrap_base_params(): array
         : '';
     $viewGroup = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : '';
 
+    $subsidiaryOnly = isset($_GET['subsidiary_accounts_only'])
+        && (string) $_GET['subsidiary_accounts_only'] === '1';
+
     if ($companyId !== '') {
         $params['company_id'] = $companyId;
-        if ($viewGroup !== '') {
+        if ($viewGroup !== '' && !$subsidiaryOnly) {
             $params['view_group'] = $viewGroup;
+        }
+        if ($subsidiaryOnly) {
+            $params['subsidiary_accounts_only'] = '1';
         }
     } elseif ($viewGroup !== '') {
         $params['view_group'] = $viewGroup;

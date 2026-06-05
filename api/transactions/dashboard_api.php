@@ -617,7 +617,8 @@ function dashboardCollectScopeAccountIds(
     PDO $pdo,
     int $companyId,
     ?string $viewGroup,
-    int $groupScopeId = 0
+    int $groupScopeId = 0,
+    bool $subsidiaryOnly = false
 ): array {
     $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
     $ids = [];
@@ -643,7 +644,7 @@ function dashboardCollectScopeAccountIds(
 
     foreach ($roles as $role) {
         $scopeCompanyIds = $companyId > 0
-            ? dashboardResolveRoleScopeCompanyIds($pdo, $companyId, $role, $viewGroup)
+            ? dashboardResolveRoleScopeCompanyIds($pdo, $companyId, $role, $viewGroup, $subsidiaryOnly)
             : [];
         foreach ($scopeCompanyIds as $scopeCompanyId) {
             list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
@@ -960,9 +961,10 @@ function dashboardResolveFilterCurrencyMap(
     PDO $pdo,
     int $companyId,
     ?string $viewGroup,
-    int $groupScopeId = 0
+    int $groupScopeId = 0,
+    bool $subsidiaryOnly = false
 ): array {
-    $viewGroupNorm = reportNormalizeGroupId($viewGroup ?? '');
+    $viewGroupNorm = $subsidiaryOnly ? '' : reportNormalizeGroupId($viewGroup ?? '');
     $companyIds = [];
 
     if ($groupScopeId > 0) {
@@ -980,11 +982,12 @@ function dashboardResolveFilterCurrencyMap(
         $pdo,
         $companyId,
         $viewGroupNorm !== '' ? $viewGroupNorm : null,
-        0
+        0,
+        $subsidiaryOnly
     );
     if ($companyId > 0) {
         $companyIds[] = $companyId;
-        if ($viewGroupNorm !== '') {
+        if ($viewGroupNorm !== '' && !$subsidiaryOnly) {
             $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroupNorm);
             if ($entityId > 0) {
                 $companyIds[] = $entityId;
@@ -1003,10 +1006,15 @@ function dashboardResolveFilterCurrencyMap(
  *
  * @return int[]
  */
-function dashboardResolveRoleScopeCompanyIds(PDO $pdo, int $companyId, string $role, ?string $viewGroup): array
-{
+function dashboardResolveRoleScopeCompanyIds(
+    PDO $pdo,
+    int $companyId,
+    string $role,
+    ?string $viewGroup,
+    bool $subsidiaryOnly = false
+): array {
     $scopes = [$companyId];
-    if ($role !== 'EXPENSES') {
+    if ($subsidiaryOnly || $role !== 'EXPENSES') {
         return $scopes;
     }
 
@@ -1696,6 +1704,8 @@ try {
     $requestedCompanyId = isset($_GET['company_id']) && $_GET['company_id'] !== ''
         ? (int) $_GET['company_id']
         : 0;
+    $subsidiaryAccountsOnly = isset($_GET['subsidiary_accounts_only'])
+        && (string) $_GET['subsidiary_accounts_only'] === '1';
 
     $viewGroupForAccess = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : null;
 
@@ -1855,14 +1865,22 @@ try {
     }
 
     // Group tab: currencies from account_currency on scoped accounts (not full company currency list).
-    $currency_map = $viewGroupCodeForScope !== ''
-        ? dashboardResolveFilterCurrencyMap(
+    // Subsidiary drill-down (e.g. C168 under AP): never merge group-entity / group-ledger scope.
+    if ($subsidiaryAccountsOnly) {
+        $currency_map = dashboardResolveFilterCurrencyMap($pdo, $company_id, null, 0, true);
+    } elseif ($viewGroupCodeForScope !== '') {
+        $currency_map = dashboardResolveFilterCurrencyMap(
             $pdo,
             $company_id,
             $viewGroupCodeForScope,
-            0
-        )
-        : dashboardLoadCurrencyMap($pdo, $company_id);
+            0,
+            false
+        );
+    } else {
+        $currency_map = dashboardLoadCurrencyMap($pdo, $company_id);
+    }
+
+    $scopeViewGroup = $subsidiaryAccountsOnly ? null : $viewGroupCodeForScope;
 
     // 定义要查询的角色
     $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
@@ -1870,7 +1888,13 @@ try {
 
     foreach ($roles as $role) {
         $excludeClear = dashboardShouldExcludeClearForRole($role);
-        $scopeCompanyIds = dashboardResolveRoleScopeCompanyIds($pdo, $company_id, $role, $viewGroupCodeForScope);
+        $scopeCompanyIds = dashboardResolveRoleScopeCompanyIds(
+            $pdo,
+            $company_id,
+            $role,
+            $scopeViewGroup,
+            $subsidiaryAccountsOnly
+        );
 
         $total_balance = dashboardMoneyZero();
         $total_bf = dashboardMoneyZero();
