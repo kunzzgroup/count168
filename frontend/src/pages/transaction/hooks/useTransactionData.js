@@ -14,6 +14,7 @@ import {
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
   pickDefaultCompanyForGroup,
+  pickDefaultSubsidiaryForGroup,
   readPersistedDashboardGcFilter,
   resolveGcFilterBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -177,12 +178,6 @@ export function useTransactionData({
           defaultRowId: rows[0]?.id,
         });
         let effective = bootGc.companyId;
-        if (effective == null && bootGc.groupOnly) {
-          persistDashboardGroupOnlyMode(true);
-        } else if (effective != null) {
-          persistDashboardGroupOnlyMode(false);
-        }
-
         const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);
 
         if (
@@ -205,8 +200,24 @@ export function useTransactionData({
           persisted.selectedGroup ||
           resolveInitialSelectedGroupFromSession(snapRows, current);
 
+        const allowBootGroupOnly = canUseGroupOnlyMode(u, selGroup);
+        let bootGroupOnly = (bootGc.groupOnly || effective == null) && allowBootGroupOnly;
+        if (!bootGroupOnly && effective == null && selGroup) {
+          const pick = pickDefaultSubsidiaryForGroup(snapRows, selGroup, {
+            me: u,
+            preferredCompanyId: u?.company_id ?? null,
+          });
+          if (pick?.id) {
+            effective = Number(pick.id);
+          }
+        }
+        if (bootGroupOnly) {
+          persistDashboardGroupOnlyMode(true);
+        } else {
+          persistDashboardGroupOnlyMode(false);
+        }
+
         if (!cancelled && !filterSnapshotRef.current) {
-          const bootGroupOnly = bootGc.groupOnly || effective == null;
           const bootSnap = {
             companyId: bootGroupOnly ? null : effective,
             groupOnlyLedger: bootGroupOnly,
@@ -263,6 +274,15 @@ export function useTransactionData({
 
   useEffect(() => {
     if (loading || forbidden || !transactionScope) return;
+    if (
+      transactionScope.mode === "group" &&
+      !canUseGroupOnlyMode(u, transactionScope.selectedGroup)
+    ) {
+      setAccountOptions([]);
+      setCurrencyOptions([]);
+      setCurrencyScopeBundle({ scopeKey: scopeCacheKey, rows: [] });
+      return;
+    }
     const fetchScopeKey = scopeCacheKey;
     let cancelled = false;
     const scopeApi = transactionScopeApiParams(transactionScope);
@@ -408,7 +428,7 @@ export function useTransactionData({
     return () => {
       cancelled = true;
     };
-  }, [loading, forbidden, scopeCacheKey, todayDmy, queryClient, transactionScope]);
+  }, [loading, forbidden, scopeCacheKey, todayDmy, queryClient, transactionScope, u]);
 
   useEffect(() => {
     if (!filterSnapshot) return;
@@ -643,15 +663,23 @@ export function useTransactionData({
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
 
-      // Group pill = group ledger list (no auto-pick subsidiary). Click again to leave group-only.
+      const allowGroupOnly = canUseGroupOnlyMode(u, g);
+
+      // Re-click active group: enter group-only only when permitted.
       if (g === snap.selectedGroup && !snap.groupsAllMode) {
+        if (!allowGroupOnly) return;
         if (snap.companyId == null || Number(snap.companyId) <= 0) return;
         await applyGroupOnlySelection(snap, g);
         return;
       }
-      await applyGroupOnlySelection(snap, g);
+
+      if (allowGroupOnly) {
+        await applyGroupOnlySelection(snap, g);
+      } else {
+        await applyCompanyGroupSelection(snap, g);
+      }
     },
-    [applyGroupOnlySelection],
+    [applyGroupOnlySelection, applyCompanyGroupSelection, u],
   );
 
   const onPickAllGroups = useCallback(() => {

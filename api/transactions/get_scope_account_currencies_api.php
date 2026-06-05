@@ -53,6 +53,10 @@ try {
         || ($viewGroup !== '' && $primaryCompanyId <= 0 && !$subsidiaryAccountsOnly && $companyIdsRaw === '');
 
     if ($strictGroupCurrency && $viewGroup !== '') {
+        if (!gc_session_can_access_group_ledger($pdo, $viewGroup)) {
+            api_error('无权访问该 Group Ledger', 403);
+            exit;
+        }
         $map = dashboardResolveGroupScopeCurrencyMap($pdo, $viewGroup);
         $rows = [];
         foreach ($map as $id => $code) {
@@ -75,6 +79,10 @@ try {
     $accountIds = [];
 
     if ($viewGroup !== '' && !$subsidiaryAccountsOnly) {
+        if (!gc_session_can_access_group_ledger($pdo, $viewGroup)) {
+            api_error('无权访问该 Group Ledger', 403);
+            exit;
+        }
         $entityId = tx_resolve_group_entity_company_id($pdo, $viewGroup);
         if ($entityId > 0) {
             $currencyCompanyIds = [$entityId];
@@ -92,7 +100,7 @@ try {
         $accountIds = array_values(array_unique(array_filter($accountIds)));
     } elseif ($groupCode !== '' && $primaryCompanyId <= 0 && $companyIds === []) {
         if (!gc_session_can_access_group_ledger($pdo, $groupCode)) {
-            api_error('无效的集团', 400);
+            api_error('无权访问该 Group Ledger', 403);
             exit;
         }
         $map = dashboardResolveGroupScopeCurrencyMap($pdo, $groupCode);
