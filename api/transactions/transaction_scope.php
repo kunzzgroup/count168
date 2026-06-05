@@ -71,9 +71,7 @@ function tx_resolve_transaction_list_scope(PDO $pdo, array $params): array
         if ($groupCode === '') {
             throw new Exception('缺少 group_id');
         }
-        if (!gc_session_can_access_group_ledger($pdo, $groupCode)) {
-            throw new Exception('无权访问该集团');
-        }
+        gc_assert_group_ledger_access($pdo, $groupCode);
         $groupScopeId = gc_resolve_group_pk_by_code($pdo, $groupCode);
         if ($groupScopeId > 0) {
             return [

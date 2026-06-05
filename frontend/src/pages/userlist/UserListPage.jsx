@@ -36,8 +36,10 @@ import {
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import {
+  canClearCompanySelection,
   canUseGroupOnlyMode,
   isCompanyLogin,
+  isGroupLedgerMode,
   isGroupLogin,
   getLoginIdentifier,
   maintenancePageAllowGroupOnlyPill,
@@ -398,14 +400,19 @@ export default function UserListPage() {
         setModalCompanies(modalCompanyList);
         const url = new URL(window.location.href);
         const urlCompanyId = url.searchParams.get("company_id");
-        if (isCompanyLogin(me) && isDashboardGroupOnlyMode()) {
+        if (isCompanyLogin(me) && isDashboardGroupOnlyMode() && !canUseGroupOnlyMode(me)) {
           persistDashboardGroupOnlyMode(false);
         }
 
         const persistedGc = readPersistedDashboardGcFilter();
         const savedCompanyId = readDashboardSelectedCompanyId();
         let effectiveNum = persistedGc.groupOnly ? null : (persistedGc.companyId ?? savedCompanyId);
-        if (effectiveNum == null && !isDashboardGroupOnlyMode() && !isGroupLogin(me)) {
+        if (
+          effectiveNum == null &&
+          !isDashboardGroupOnlyMode() &&
+          !isGroupLogin(me) &&
+          !canUseGroupOnlyMode(me)
+        ) {
           effectiveNum = resolveBootCompanyId({
             urlCompanyId,
             sessionCompanyId: me.company_id,
@@ -451,8 +458,10 @@ export default function UserListPage() {
             persistDashboardGroupFilter(gid);
           }
         }
-        const groupOnlyBoot = isGroupLogin(me) && isDashboardGroupOnlyMode();
-        if (!groupOnlyBoot && !isGroupLogin(me)) {
+        const groupOnlyBoot =
+          (isGroupLogin(me) || canUseGroupOnlyMode(me)) &&
+          (isDashboardGroupOnlyMode() || persistedGc.groupOnly);
+        if (!groupOnlyBoot && isCompanyLogin(me) && !canUseGroupOnlyMode(me)) {
           if (
             !bootGroup &&
             !groupFilterOptOut &&
@@ -497,7 +506,44 @@ export default function UserListPage() {
           }
         }
 
-        if (isCompanyLogin(me)) {
+        if (isCompanyLogin(me) && canUseGroupOnlyMode(me)) {
+          if (groupOnlyBoot) {
+            effectiveNum = null;
+            persistDashboardGroupOnlyMode(true);
+          } else {
+            const groupIds = sortedUniqueGroupIds(rows);
+            if (effectiveNum != null && Number.isFinite(Number(effectiveNum))) {
+              const bootRow = rows.find((c) => Number(c.id) === Number(effectiveNum));
+              if (!isSubsidiaryCompanyRow(bootRow, groupIds)) {
+                const pick = pickDefaultSubsidiaryForGroup(rows, bootGroup || bootRow?.group_id, {
+                  me,
+                  preferredCompanyId: me.company_id,
+                });
+                effectiveNum = pick?.id != null ? Number(pick.id) : null;
+              }
+            }
+            if (effectiveNum == null || !Number.isFinite(Number(effectiveNum))) {
+              const pick = pickDefaultSubsidiaryForGroup(rows, bootGroup, {
+                me,
+                preferredCompanyId: me.company_id,
+              });
+              if (pick?.id != null) effectiveNum = Number(pick.id);
+              else if (me.company_id != null) effectiveNum = Number(me.company_id);
+            }
+            persistDashboardGroupOnlyMode(false);
+          }
+          const groupFilterOptOutBoot =
+            typeof sessionStorage !== "undefined" &&
+            sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+          if (!groupOnlyBoot && bootGroup && (effectiveNum == null || !Number.isFinite(Number(effectiveNum)))) {
+            bootGroup = null;
+          } else if (!groupFilterOptOutBoot && bootGroup == null && effectiveNum != null) {
+            const bootRow = rows.find((c) => Number(c.id) === Number(effectiveNum));
+            bootGroup = normalizeCompanyGroupId(bootRow) || bootGroup;
+          } else if (groupFilterOptOutBoot) {
+            bootGroup = null;
+          }
+        } else if (isCompanyLogin(me)) {
           const groupIds = sortedUniqueGroupIds(rows);
           if (effectiveNum != null && Number.isFinite(Number(effectiveNum))) {
             const bootRow = rows.find((c) => Number(c.id) === Number(effectiveNum));
@@ -535,9 +581,7 @@ export default function UserListPage() {
           bootGroup = null;
         }
 
-        setCompanyId(
-          isGroupLogin(me) && (isDashboardGroupOnlyMode() || effectiveNum == null) ? null : effectiveNum,
-        );
+        setCompanyId(groupOnlyBoot ? null : effectiveNum);
         setSelectedGroup(bootGroup);
         setSearch(String(url.searchParams.get("search") || ""));
         setShowAll(url.searchParams.get("showAll") === "1");
@@ -651,13 +695,10 @@ export default function UserListPage() {
   ]);
 
   const groupOnlyUserList = useMemo(() => {
-    if (!selectedGroup || companyId != null) return false;
     if (groupsAllMode || groupAllMode) return false;
-    if (isCompanyLogin(me)) return false;
-    // Group ledger list: IG/AP pill with no subsidiary company selected.
-    if (isGroupLogin(me)) return true;
-    if (maintenancePageAllowGroupOnlyPill(me)) return true;
-    return isDashboardGroupOnlyMode();
+    if (isGroupLedgerMode(me, { companyId, selectedGroup })) return true;
+    if (!selectedGroup || companyId != null) return false;
+    return maintenancePageAllowGroupOnlyPill(me) && isDashboardGroupOnlyMode();
   }, [selectedGroup, companyId, me, groupsAllMode, groupAllMode]);
 
   const anchorCompanyId = useMemo(() => {
@@ -1045,7 +1086,7 @@ export default function UserListPage() {
       preferredCompanyId: me?.company_id ?? companyId,
     });
     if (!pick?.id) {
-      if (isCompanyLogin(me)) {
+      if (isCompanyLogin(me) && !canUseGroupOnlyMode(me, selectedGroup)) {
         setSelectedGroup(null);
         persistDashboardGroupFilter(null);
         persistDashboardGroupOnlyMode(false);
@@ -1243,8 +1284,8 @@ export default function UserListPage() {
     ],
   );
 
-  /** Company / owner login: group pill requires a subsidiary company (never group-only). */
-  const requiresCompanyWithGroup = !isGroupLogin(me);
+  /** Company login without group assignment still needs a subsidiary when a group pill is shown. */
+  const requiresCompanyWithGroup = isCompanyLogin(me) && !canUseGroupOnlyMode(me);
 
   const syncGcFilterFromSession = useCallback(() => {
     if (bootLoading || !companies.length) return;
@@ -1347,11 +1388,11 @@ export default function UserListPage() {
 
   const clearCompanyPillSelection = useCallback(
     (c) => {
-      if (isCompanyLogin(me)) return;
       const gid = c?.group_id ? String(c.group_id).toUpperCase().trim() : null;
       const sel = String(selectedGroup || "").trim().toUpperCase();
       const g = sel || gid;
       if (!g) return;
+      if (!canUseGroupOnlyMode(me, g)) return;
 
       skipCompanyFetchEffectRef.current = true;
       flushSync(() => {
@@ -2071,7 +2112,7 @@ export default function UserListPage() {
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={onPickCompanyPill}
               onClearCompanyPill={clearCompanyPillSelection}
-              allowCompanyDeselect={!isCompanyLogin(me)}
+              allowCompanyDeselect={canClearCompanySelection(me)}
               switchingCompany={false}
               showAllOption={false}
             />

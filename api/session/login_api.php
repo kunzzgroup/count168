@@ -30,6 +30,7 @@ try {
     require_once __DIR__ . '/../../includes/config.php';
     require_once __DIR__ . '/../../includes/session_user_payload_cache.php';
     require_once __DIR__ . '/../../includes/login_scope.php';
+    require_once __DIR__ . '/../../includes/group_company_access.php';
     require_once __DIR__ . '/../../includes/company_expiration.php';
 } catch (Throwable $e) {
     ob_clean();
@@ -242,6 +243,9 @@ try {
         }
 
         persist_login_filter_scope($pdo, $company_id);
+        if (function_exists('gc_hydrate_session_assigned_tenants')) {
+            gc_hydrate_session_assigned_tenants($pdo);
+        }
         $loginFilter = resolve_login_identifier_scope($pdo, $company_id);
 
         if ($needs_secondary_password) {

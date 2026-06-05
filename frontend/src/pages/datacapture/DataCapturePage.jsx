@@ -473,7 +473,8 @@ export default function DataCapturePage() {
             (submittedFromUrl && queryGroupOnly) ||
             isDashboardGroupOnlyMode() ||
             persistedGc.groupOnly ||
-            (isGroupLogin(u) && savedCompanyId == null));
+            (canUseGroupOnlyMode(u) &&
+              (isDashboardGroupOnlyMode() || persistedGc.groupOnly || savedCompanyId == null)));
 
         if (cancelled) return;
 

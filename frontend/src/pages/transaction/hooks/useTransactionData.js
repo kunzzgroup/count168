@@ -20,7 +20,11 @@ import {
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { canUseGroupOnlyMode, isCompanyLogin } from "../../../utils/company/loginScope.js";
+import {
+  canClearCompanySelection,
+  canUseGroupOnlyMode,
+  isCompanyLogin,
+} from "../../../utils/company/loginScope.js";
 import { syncCompanySessionApi } from "../../../utils/company/companySessionSync.js";
 import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 import {
@@ -553,8 +557,8 @@ export function useTransactionData({
       const snap = filterSnapshotRef.current;
       if (!snap) return;
       if (Number(cid) === Number(snap.companyId)) {
-        if (isCompanyLogin(u)) return;
         const gid = comp.group_id ? String(comp.group_id).toUpperCase().trim() : snap.selectedGroup;
+        if (!canUseGroupOnlyMode(u, gid || snap.selectedGroup)) return;
         void applyGroupOnlySelection(snap, gid || snap.selectedGroup);
         return;
       }
@@ -719,6 +723,6 @@ export function useTransactionData({
     onCompanyButtonClick,
     onPickAllGroups,
     onPickAllInGroup,
-    allowCompanyDeselect: !isCompanyLogin(u),
+    allowCompanyDeselect: canClearCompanySelection(u),
   };
 }

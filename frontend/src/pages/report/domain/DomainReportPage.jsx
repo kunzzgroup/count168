@@ -53,6 +53,7 @@ import {
   resolveDomainReportScope,
 } from "./domainReportScope.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 
 const REPORT_PAGE_KEY = "domain";
@@ -201,9 +202,13 @@ export default function DomainReportPage() {
           persistedGc.selectedGroup ||
           bootGc.selectedGroup ||
           resolveInitialSelectedGroupFromSession(rows, null, u);
+        const groupOnlyBoot =
+          bootGc.groupOnly ||
+          persistedGc.groupOnly ||
+          (bootGroup && isDashboardGroupOnlyMode() && canUseGroupOnlyMode(u, bootGroup));
         let nextCompanyId =
-          companyId != null ? companyId : bootGc.groupOnly ? null : bootGc.companyId;
-        if (nextCompanyId == null && savedCompanyId != null && bootGroup) {
+          companyId != null ? companyId : groupOnlyBoot ? null : bootGc.companyId;
+        if (nextCompanyId == null && savedCompanyId != null && bootGroup && !groupOnlyBoot) {
           const inGroup = companiesInGroupList(rows, bootGroup).some(
             (c) => Number(c.id) === Number(savedCompanyId),
           );
@@ -214,7 +219,7 @@ export default function DomainReportPage() {
           if (bootGroup) {
             persistDashboardFilterState(bootGroup, nextCompanyId, { allowGroupOnly: false });
           }
-        } else if (bootGc.groupOnly || (bootGroup && isDashboardGroupOnlyMode())) {
+        } else if (groupOnlyBoot) {
           persistDashboardGroupOnlyMode(true);
         }
         const row =

@@ -43,9 +43,11 @@ import {
 } from "../../utils/company/sharedCompanyFilter.js";
 import { resolveAccountListRouteCache } from "./accountRoutePrefetch.js";
 import {
+  canClearCompanySelection,
   canUseGroupOnlyMode,
   getLoginIdentifier,
   isCompanyLogin,
+  isGroupLedgerMode,
   isGroupLogin,
   maintenancePageAllowGroupOnlyPill,
   normalizeCompanyCode,
@@ -490,9 +492,16 @@ export default function AccountListPage() {
         const persistedGc = readPersistedDashboardGcFilter();
         const savedCompanyId = readDashboardSelectedCompanyId();
         let initialCompanyId = persistedGc.groupOnly ? null : (persistedGc.companyId ?? savedCompanyId);
-        if (savedCompanyId != null && !persistedGc.groupOnly) {
+        if (
+          savedCompanyId != null &&
+          !persistedGc.groupOnly &&
+          !(canUseGroupOnlyMode(sessionMe) && isDashboardGroupOnlyMode())
+        ) {
           persistDashboardGroupOnlyMode(false);
-        } else if (isDashboardGroupOnlyMode() || (isGroupLogin(sessionMe) && persistedGc.groupOnly)) {
+        } else if (
+          isDashboardGroupOnlyMode() ||
+          (persistedGc.groupOnly && (isGroupLogin(sessionMe) || canUseGroupOnlyMode(sessionMe)))
+        ) {
           initialCompanyId = null;
           stripCompanyIdFromUrl();
         } else if (initialCompanyId == null && !isGroupLogin(sessionMe)) {
@@ -502,7 +511,11 @@ export default function AccountListPage() {
             defaultRowId: rows[0]?.id,
           });
         }
-        if (isGroupLogin(sessionMe) && initialCompanyId == null) {
+        if (
+          initialCompanyId == null &&
+          (isGroupLogin(sessionMe) ||
+            (canUseGroupOnlyMode(sessionMe) && (persistedGc.groupOnly || isDashboardGroupOnlyMode())))
+        ) {
           persistDashboardGroupOnlyMode(true);
         }
 
@@ -833,11 +846,11 @@ export default function AccountListPage() {
 
   const clearCompanyPillSelection = useCallback(
     (c) => {
-      if (isCompanyLogin(sessionMe)) return;
       const gid = c?.group_id ? String(c.group_id).toUpperCase().trim() : null;
       const sel = String(selectedGroup || "").trim().toUpperCase();
       const g = sel || gid;
       if (!g) return;
+      if (!canUseGroupOnlyMode(sessionMe, g)) return;
 
       const gcScope = {
         companyId: null,
@@ -890,16 +903,12 @@ export default function AccountListPage() {
     ],
   );
 
-  /** Company login only: group without company must auto-pick a subsidiary (never group-only). */
+  /** Company login without group assignment: auto-pick subsidiary when group pill has no company. */
   useLayoutEffect(() => {
     if (bootLoading || !sessionMe) return;
+    if (isGroupLedgerMode(sessionMe, { companyId, selectedGroup })) return;
+    if (canUseGroupOnlyMode(sessionMe, selectedGroup) && isDashboardGroupOnlyMode()) return;
     if (!isCompanyLogin(sessionMe)) return;
-    if (
-      isDashboardGroupOnlyMode() &&
-      (isGroupLogin(sessionMe) || canUseGroupOnlyMode(sessionMe))
-    ) {
-      return;
-    }
     if (!selectedGroup || companyId != null) return;
 
     const pick = pickDefaultSubsidiaryForGroup(companies, selectedGroup, {
@@ -2270,7 +2279,7 @@ export default function AccountListPage() {
               onPickAllInGroup={handlePickAllInGroup}
               onPickCompany={onPickCompanyPill}
               onClearCompanyPill={clearCompanyPillSelection}
-              allowCompanyDeselect={!isCompanyLogin(sessionMe)}
+              allowCompanyDeselect={canClearCompanySelection(sessionMe)}
               switchingCompany={false}
               showAllOption={false}
             />

@@ -239,11 +239,13 @@ $sessionName = (string) ($_SESSION['name'] ?? '');
 $sessionLoginId = (string) ($_SESSION['login_id'] ?? '');
 
 $assignedGroupCodes = [];
+$assignedCompanyIds = [];
 if ($pdo instanceof PDO && $userType !== 'member') {
     $sessionUserId = (int) ($_SESSION['user_id'] ?? 0);
     if ($sessionUserId > 0) {
-        gc_hydrate_session_assigned_group_codes($pdo);
+        gc_hydrate_session_assigned_tenants($pdo);
         $assignedGroupCodes = gc_session_assigned_group_codes();
+        $assignedCompanyIds = gc_session_assigned_company_ids();
     }
 }
 
@@ -280,7 +282,10 @@ $payload = [
         : null,
     'accessible_group_ids' => gc_session_accessible_group_ids(),
     'assigned_group_codes' => $assignedGroupCodes,
-    'can_use_group_ledger' => gc_is_group_login() || $assignedGroupCodes !== [],
+    'assigned_company_ids' => $assignedCompanyIds,
+    'can_use_group_ledger' => function_exists('gc_session_can_use_group_ledger')
+        ? gc_session_can_use_group_ledger()
+        : (gc_is_group_login() || $assignedGroupCodes !== []),
     'needs_owner_secondary' => $needsOwnerSecondary,
     'needs_user_secondary' => $needsUserSecondary,
     'expiration_date' => $companyExpirationDateRaw,

@@ -664,7 +664,11 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
     return savedGroup;
   }
 
-  if (savedGroup && groups.includes(savedGroup) && !isCompanyLogin(loginMe)) {
+  if (
+    savedGroup &&
+    groups.includes(savedGroup) &&
+    (!isCompanyLogin(loginMe) || canUseGroupOnlyMode(loginMe))
+  ) {
     return savedGroup;
   }
 

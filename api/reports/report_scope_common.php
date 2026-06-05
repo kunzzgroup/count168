@@ -133,9 +133,7 @@ function resolveReportRequestCompanyScope(PDO $pdo, array $get, string $category
     $groupForAccess = $groupId !== '' ? $groupId : ($viewGroup !== '' ? $viewGroup : null);
 
     if (($listScope['mode'] ?? '') === 'group' && $groupId !== '') {
-        if (!gc_session_can_access_group_ledger($pdo, $groupId)) {
-            throw new Exception('无权访问该集团');
-        }
+        gc_assert_group_ledger_access($pdo, $groupId);
     }
 
     $hasAccess = $categoryAccess === 'maintenance'

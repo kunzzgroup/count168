@@ -51,8 +51,30 @@ function tenant_request_is_group_only(array $params): bool
         return true;
     }
 
-    return function_exists('gc_is_group_login') && gc_is_group_login()
-        && empty($params['company_id']);
+    $companyRaw = $params['company_id'] ?? null;
+    $hasCompany = $companyRaw !== null
+        && trim((string) $companyRaw) !== ''
+        && (int) $companyRaw > 0;
+    if ($hasCompany) {
+        return false;
+    }
+
+    if (function_exists('gc_is_group_login') && gc_is_group_login()) {
+        return true;
+    }
+
+    $groupCode = function_exists('gc_normalize_group_code')
+        ? gc_normalize_group_code((string) ($params['group_id'] ?? $params['view_group'] ?? ''))
+        : strtoupper(trim((string) ($params['group_id'] ?? $params['view_group'] ?? '')));
+    if (
+        $groupCode !== ''
+        && function_exists('gc_session_assigned_group_codes')
+        && in_array($groupCode, gc_session_assigned_group_codes(), true)
+    ) {
+        return true;
+    }
+
+    return false;
 }
 
 /**
@@ -602,10 +624,22 @@ function tenant_resolve_currency_context_from_request(PDO $pdo, array $params): 
     return tenant_resolve_currency_context($pdo, $sessionId, null, false);
 }
 
-/** Group-login Account page: always group ledger, never subsidiary company scope. */
+/** Force group ledger for group login or explicit group_only with ledger permission. */
 function tenant_account_api_force_group_ledger(): bool
 {
-    return function_exists('gc_is_group_login') && gc_is_group_login();
+    if (function_exists('gc_is_group_login') && gc_is_group_login()) {
+        return true;
+    }
+
+    if (
+        !empty($_GET['group_only'])
+        && filter_var($_GET['group_only'], FILTER_VALIDATE_BOOLEAN)
+        && function_exists('gc_session_can_use_group_ledger')
+    ) {
+        return gc_session_can_use_group_ledger();
+    }
+
+    return false;
 }
 
 /** SQL AND: subsidiary currency rows only (exclude group ledger rows sharing anchor company_id). */

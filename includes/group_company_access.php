@@ -596,6 +596,135 @@ function gc_session_can_access_group_ledger(PDO $pdo, string $groupCode): bool
 }
 
 /**
+ * Assert caller may use group ledger for the given group code (throws on deny).
+ */
+function gc_assert_group_ledger_access(PDO $pdo, string $groupCode): void
+{
+    if (!gc_session_can_access_group_ledger($pdo, $groupCode)) {
+        throw new RuntimeException('无权访问该 Group Ledger');
+    }
+}
+
+/** Whether session may enter group ledger at all (group login or admin-assigned groups). */
+function gc_session_can_use_group_ledger(): bool
+{
+    if (gc_is_group_login()) {
+        return true;
+    }
+
+    return gc_session_assigned_group_codes() !== [];
+}
+
+/**
+ * Admin-assigned subsidiary company ids (user_company_map scope_type=company).
+ *
+ * @return list<int>
+ */
+function gc_fetch_user_assigned_company_ids(PDO $pdo, int $userId): array
+{
+    if ($userId <= 0) {
+        return [];
+    }
+
+    $ids = [];
+
+    try {
+        if ($pdo->query("SHOW COLUMNS FROM user_company_map LIKE 'scope_type'")->rowCount() > 0) {
+            $stmt = $pdo->prepare("
+                SELECT company_id
+                FROM user_company_map
+                WHERE user_id = ?
+                  AND scope_type = 'company'
+                ORDER BY company_id ASC
+            ");
+            $stmt->execute([$userId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $cid) {
+                $id = (int) $cid;
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+
+            return array_values(array_unique($ids));
+        }
+    } catch (Throwable $e) {
+        // fall through
+    }
+
+    try {
+        $hasUgm = $pdo->query("SHOW TABLES LIKE 'user_group_map'")->rowCount() > 0;
+        if (!$hasUgm) {
+            $stmt = $pdo->prepare('SELECT company_id FROM user_company_map WHERE user_id = ? ORDER BY company_id ASC');
+            $stmt->execute([$userId]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $cid) {
+                $id = (int) $cid;
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+
+            return array_values(array_unique($ids));
+        }
+
+        $stmt = $pdo->prepare('
+            SELECT ucm.company_id
+            FROM user_company_map ucm
+            WHERE ucm.user_id = ?
+              AND NOT EXISTS (
+                  SELECT 1 FROM user_group_map ugm WHERE ugm.user_id = ucm.user_id
+              )
+            ORDER BY ucm.company_id ASC
+        ');
+        $stmt->execute([$userId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $cid) {
+            $id = (int) $cid;
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+    } catch (Throwable $e) {
+        return [];
+    }
+
+    return array_values(array_unique($ids));
+}
+
+function gc_hydrate_session_assigned_company_ids(PDO $pdo): void
+{
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    $_SESSION['assigned_company_ids'] = $userId > 0
+        ? gc_fetch_user_assigned_company_ids($pdo, $userId)
+        : [];
+}
+
+/**
+ * @return list<int>
+ */
+function gc_session_assigned_company_ids(): array
+{
+    if (!isset($_SESSION['assigned_company_ids']) || !is_array($_SESSION['assigned_company_ids'])) {
+        return [];
+    }
+    $out = [];
+    foreach ($_SESSION['assigned_company_ids'] as $id) {
+        $n = (int) $id;
+        if ($n > 0) {
+            $out[] = $n;
+        }
+    }
+    sort($out);
+
+    return array_values(array_unique($out));
+}
+
+/** Hydrate both admin-assigned group codes and subsidiary company ids into session. */
+function gc_hydrate_session_assigned_tenants(PDO $pdo): void
+{
+    gc_hydrate_session_assigned_group_codes($pdo);
+    gc_hydrate_session_assigned_company_ids($pdo);
+}
+
+/**
  * Whether the logged-in user may use this group code (group login, owner, or subsidiary access).
  */
 function gc_session_can_access_group_code(PDO $pdo, string $groupCode): bool

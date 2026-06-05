@@ -116,6 +116,21 @@ export function getAssignedGroupCodes(me) {
   return out.sort();
 }
 
+/** Admin-assigned subsidiary company ids (user_company_map scope_type=company). */
+export function getAssignedCompanyIds(me) {
+  const raw = me?.assigned_company_ids;
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const id of raw) {
+    const n = Number(id);
+    if (!Number.isFinite(n) || n <= 0 || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out.sort((a, b) => a - b);
+}
+
 export function userCanUseGroupLedger(me) {
   if (!me) return false;
   if (me.can_use_group_ledger === true) return true;
@@ -124,22 +139,59 @@ export function userCanUseGroupLedger(me) {
 }
 
 /**
+ * Permission: may this user access group ledger for a specific group code?
+ * Group login uses login scope; company login uses admin assignment (and owner via API).
+ */
+export function canAccessGroupLedgerForGroup(me, groupCode) {
+  if (!me || groupCode == null || String(groupCode).trim() === "") return false;
+  const g = String(groupCode).trim().toUpperCase();
+  if (isGroupLogin(me)) {
+    const ident = getLoginIdentifier(me);
+    if (ident === g) return true;
+    return resolveAccessibleGroupIds(me).includes(g);
+  }
+  return getAssignedGroupCodes(me).includes(g);
+}
+
+/**
  * @param {object|null|undefined} me
  * @param {string|null|undefined} [groupCode] When set, requires assignment to that specific group.
  */
 export function canUseGroupOnlyMode(me, groupCode = null) {
   if (!me) return false;
-  if (isGroupLogin(me)) return true;
-  const assigned = getAssignedGroupCodes(me);
-  if (!assigned.length) return false;
-  if (groupCode == null || String(groupCode).trim() === "") return true;
-  const g = String(groupCode).trim().toUpperCase();
-  return assigned.includes(g);
+  if (groupCode != null && String(groupCode).trim() !== "") {
+    return canAccessGroupLedgerForGroup(me, groupCode);
+  }
+  return userCanUseGroupLedger(me);
 }
 
-/** User/Account List etc.: owner/admin pick a group without auto-selecting first subsidiary. */
+/**
+ * Runtime UI state: viewing group ledger (no subsidiary company selected).
+ * @param {object|null|undefined} me
+ * @param {{ companyId?: number|null, selectedGroup?: string|null, groupOnly?: boolean }} ctx
+ */
+export function isGroupLedgerMode(me, ctx = {}) {
+  const companyId = ctx.companyId ?? null;
+  if (companyId != null && Number.isFinite(Number(companyId))) return false;
+  const selectedGroup = ctx.selectedGroup
+    ? String(ctx.selectedGroup).trim().toUpperCase()
+    : null;
+  if (!selectedGroup) return false;
+  const groupOnly =
+    ctx.groupOnly != null ? Boolean(ctx.groupOnly) : isDashboardGroupOnlyMode();
+  if (!groupOnly) return false;
+  return canAccessGroupLedgerForGroup(me, selectedGroup);
+}
+
+/** When selecting a company pill, clear group-only unless user stays in group ledger. */
+export function shouldClearGroupOnlyOnCompanySelect(me, companyId) {
+  if (companyId == null || !Number.isFinite(Number(companyId))) return false;
+  return true;
+}
+
+/** User/Account List etc.: allow group-only pill when login or Admin-assigned group ledger access. */
 export function maintenancePageAllowGroupOnlyPill(me) {
-  return isGroupLogin(me) || !isCompanyLogin(me);
+  return !isCompanyLogin(me) || canUseGroupOnlyMode(me);
 }
 
 /** Mirrors api/c168/c168_domain_access.php c168DomainPageAllowedRoles */
@@ -310,7 +362,7 @@ export function isActiveCompanyContextC168(me) {
  */
 export function canAccessC168DomainPages(me) {
   if (!me) return false;
-  if (isGroupLogin(me) && isDashboardGroupOnlyMode()) return false;
+  if (isGroupLedgerMode(me, { companyId: null, groupOnly: isDashboardGroupOnlyMode() })) return false;
   if (!isActiveCompanyContextC168(me)) return false;
   return userRoleAllowsC168Domain(me.role) || Boolean(me.has_c168_domain_page_access);
 }
@@ -318,7 +370,7 @@ export function canAccessC168DomainPages(me) {
 /** Auto Renew — same rules as Domain / Announcement. */
 export function canAccessC168AutoRenew(me) {
   if (!me) return false;
-  if (isGroupLogin(me) && isDashboardGroupOnlyMode()) return false;
+  if (isGroupLedgerMode(me, { companyId: null, groupOnly: isDashboardGroupOnlyMode() })) return false;
   if (!isActiveCompanyContextC168(me)) return false;
   return userRoleAllowsC168AutoRenew(me.role, me.user_type) || Boolean(me.has_c168_auto_renew_access);
 }
