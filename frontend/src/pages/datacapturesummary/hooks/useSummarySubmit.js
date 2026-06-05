@@ -39,7 +39,7 @@ export function useSummarySubmit({ captureScope, companyId, scriptsReady, onSucc
         return;
       }
 
-      const session = readCaptureSessionFromStorage();
+      const session = readCaptureSessionFromStorage(captureScope);
       if (!session?.processData) {
         pushSummaryNotification(
           "Error",

@@ -6,9 +6,18 @@ import {
 } from "../../datacapture/lib/dataCaptureCompanyAccess.js";
 import {
   dataCaptureScopeIsReady,
+  normalizeGroupCaptureScope,
   resolveDataCaptureScopeFromSessionMeta,
 } from "../../datacapture/lib/dataCaptureScope.js";
-import { loadActiveCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
+import {
+  loadActiveCaptureSession,
+  readCaptureSessionMeta,
+} from "../../datacapture/lib/dataCaptureStorage.js";
+import {
+  isDashboardGroupOnlyMode,
+  readPersistedDashboardGcFilter,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { consumeSummaryFreshNavigation } from "../lib/summaryStorage.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { usePartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
@@ -23,21 +32,62 @@ export function useSummaryBoot() {
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
 
   const captureScope = useMemo(() => {
+    if (!sessionReady) return null;
+
     const session = loadActiveCaptureSession();
     const processData = session?.processData ?? null;
     const groupOnly = processData?.groupOnlyCapture === true;
-    const fromSession = resolveDataCaptureScopeFromSessionMeta(processData);
-    if (fromSession) {
-      if (Number(fromSession.scopeCompanyId) > 0) return fromSession;
-      if (groupOnly && fromSession.mode === "group" && fromSession.groupId) {
-        return fromSession;
+
+    if (processData) {
+      const fromSession = resolveDataCaptureScopeFromSessionMeta(processData);
+      if (fromSession) {
+        return normalizeGroupCaptureScope(fromSession, processData);
       }
     }
-    if (groupOnly) {
-      return fromSession;
+
+    const pointerMeta = readCaptureSessionMeta();
+    if (pointerMeta?.groupOnlyCapture) {
+      const fromPointer = resolveDataCaptureScopeFromSessionMeta({
+        groupOnlyCapture: true,
+        captureSelectedGroup: pointerMeta.captureSelectedGroup,
+        scopeCompanyId: pointerMeta.scopeCompanyId,
+        captureScopeMode: pointerMeta.captureScopeMode,
+      });
+      if (fromPointer) {
+        return normalizeGroupCaptureScope(fromPointer, {
+          groupOnlyCapture: true,
+          captureSelectedGroup: pointerMeta.captureSelectedGroup,
+        });
+      }
     }
+
+    if (isDashboardGroupOnlyMode() && canUseGroupOnlyMode(me)) {
+      const persisted = readPersistedDashboardGcFilter();
+      const groupKey = persisted.selectedGroup
+        ? String(persisted.selectedGroup).trim().toUpperCase()
+        : "";
+      if (groupKey) {
+        const fromDashboard = resolveDataCaptureScopeFromSessionMeta({
+          groupOnlyCapture: true,
+          captureSelectedGroup: groupKey,
+        });
+        if (fromDashboard) {
+          return normalizeGroupCaptureScope(fromDashboard, {
+            groupOnlyCapture: true,
+            captureSelectedGroup: groupKey,
+          });
+        }
+      }
+    }
+
+    if (groupOnly) {
+      return null;
+    }
+
     const sessionCompanyId =
-      me?.company_id != null && Number.isFinite(Number(me.company_id)) ? Number(me.company_id) : null;
+      me?.company_id != null && Number.isFinite(Number(me.company_id))
+        ? Number(me.company_id)
+        : null;
     if (sessionCompanyId) {
       return {
         mode: "company",
@@ -47,8 +97,8 @@ export function useSummaryBoot() {
         viewGroup: null,
       };
     }
-    return fromSession;
-  }, [me?.company_id, sessionReady]);
+    return null;
+  }, [me, sessionReady]);
 
   const companyId =
     captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0

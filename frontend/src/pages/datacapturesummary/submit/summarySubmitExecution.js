@@ -1,6 +1,6 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
-import { appendDataCaptureScopeParams } from "../../datacapture/lib/dataCaptureApi.js";
-import { fetchGroupProcessIdByCode } from "../../datacapture/lib/dataCaptureApi.js";
+import { appendDataCaptureScopeParams, fetchGroupProcessIdByCode } from "../../datacapture/lib/dataCaptureApi.js";
+import { normalizeGroupCaptureScope } from "../../datacapture/lib/dataCaptureScope.js";
 import { submitSummaryPayload } from "../lib/summaryApi.js";
 import { SUMMARY_SUBMIT_MAX_ROWS_PER_BATCH } from "./summarySubmitConstants.js";
 import { buildSummarySubmitPayload } from "./summarySubmitPayload.js";
@@ -12,30 +12,6 @@ const BATCH_SUCCESS_REDIRECT_MS = 2000;
 
 function notify(title, message, type = "success") {
   pushSummaryNotification(title, message, type);
-}
-
-function normalizeGroupSubmitScope(captureScope, parsedProcessData) {
-  const isGroup =
-    captureScope?.mode === "group" || parsedProcessData?.groupOnlyCapture === true;
-  if (!isGroup) return captureScope;
-
-  const groupKey = String(
-    captureScope?.groupId ||
-      captureScope?.viewGroup ||
-      parsedProcessData?.captureSelectedGroup ||
-      "",
-  )
-    .trim()
-    .toUpperCase();
-
-  return {
-    mode: "group",
-    scopeCompanyId: 0,
-    uiCompanyId: null,
-    groupId: groupKey || null,
-    viewGroup: groupKey || null,
-    resolveCompanyViaGroupId: true,
-  };
 }
 
 async function ensureGroupSubmitProcessId(effectiveScope, parsedProcessData, baseData) {
@@ -69,13 +45,12 @@ async function ensureGroupSubmitProcessId(effectiveScope, parsedProcessData, bas
 }
 
 async function postSubmitBatch(captureScope, batchData, options = {}) {
+  const isGroup =
+    captureScope?.mode === "group" || batchData?.groupOnlyCapture === true;
   const payload = {
     ...batchData,
     immediateAck: options.immediateAck ? 1 : 0,
-    company_id:
-      captureScope?.mode === "group"
-        ? null
-        : (captureScope?.scopeCompanyId ?? null),
+    company_id: isGroup ? null : (captureScope?.scopeCompanyId ?? null),
   };
   if (options.captureId != null) {
     payload.captureId = options.captureId;
@@ -142,7 +117,7 @@ export async function executeSummarySubmit({
   onProgress,
   onSuccess,
 }) {
-  const effectiveScope = normalizeGroupSubmitScope(captureScope, parsedProcessData);
+  const effectiveScope = normalizeGroupCaptureScope(captureScope, parsedProcessData);
   const baseDataRaw = buildSummarySubmitPayload(parsedProcessData, summaryRows);
   const baseData = await ensureGroupSubmitProcessId(
     effectiveScope,

@@ -810,6 +810,24 @@ function dcAssertProcessIdInCaptureScope(PDO $pdo, int $processId, int $companyI
     }
 }
 
+/**
+ * Numeric company.id used for group capture / maintenance when SALARY/BONUS apply.
+ * Prefer legacy entity row (company_id = group code); else first subsidiary anchor (e.g. C168 under AP).
+ */
+function dcResolveGroupCaptureCompanyId(PDO $pdo, string $groupCode): int
+{
+    $g = dcNormalizeGroupId($groupCode);
+    if ($g === '') {
+        return 0;
+    }
+    $entityId = tx_resolve_group_entity_company_id($pdo, $g);
+    if ($entityId > 0) {
+        return $entityId;
+    }
+
+    return gc_resolve_group_anchor_company_id($pdo, $g);
+}
+
 /** True when numeric company row is a group entity (AP/IG). */
 function dcCompanyIdIsGroupEntity(PDO $pdo, int $companyId): bool
 {
@@ -881,16 +899,25 @@ function dcFinalizeCaptureMaintenanceScope(PDO $pdo, array $scopeResolved, array
 
     if ($isGroupScope) {
         if ($groupId !== '') {
-            $entityId = tx_resolve_group_entity_company_id($pdo, $groupId);
-            if ($entityId > 0) {
-                $companyId = $entityId;
+            $resolvedGroupCompanyId = dcResolveGroupCaptureCompanyId($pdo, $groupId);
+            if ($resolvedGroupCompanyId > 0) {
+                $companyId = $resolvedGroupCompanyId;
             }
         }
+        $scopeCompanySql = '';
+        if ($companyId > 0 && dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+            $scopeCompanySql = dcSqlCaptureOnGroupEntityCompany('dc');
+        }
+        $scopeCompanySqlDeleted = $scopeCompanySql === ''
+            ? ''
+            : dcSqlCaptureOnGroupEntityCompany('dcd');
+
         return [
             'company_id' => $companyId,
             'is_group_scope' => true,
             'scope_process_sql' => dcSqlGroupProcessFilter('p'),
-            'scope_company_sql' => dcSqlCaptureOnGroupEntityCompany('dc'),
+            'scope_company_sql' => $scopeCompanySql,
+            'scope_company_sql_deleted' => $scopeCompanySqlDeleted,
         ];
     }
 
@@ -899,5 +926,345 @@ function dcFinalizeCaptureMaintenanceScope(PDO $pdo, array $scopeResolved, array
         'is_group_scope' => false,
         'scope_process_sql' => dcSqlCompanyProcessFilter('p'),
         'scope_company_sql' => dcSqlCaptureOnSubsidiaryCompany('dc'),
+        'scope_company_sql_deleted' => dcSqlCaptureOnSubsidiaryCompany('dcd'),
     ];
+}
+
+/** SQL: subsidiary company ledger only (exclude group-scope account_company rows). */
+function dcSqlAccountCompanySubsidiaryOnly(string $acAlias = 'ac'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $acAlias) ?: 'ac';
+    global $pdo;
+    if (!isset($pdo)) {
+        return '';
+    }
+    try {
+        if ($pdo->query("SHOW COLUMNS FROM account_company LIKE 'scope_type'")->rowCount() > 0) {
+            return " AND (COALESCE({$a}.scope_type, '') = '' OR {$a}.scope_type = 'company')";
+        }
+    } catch (Throwable $e) {
+        /* ignore */
+    }
+    return '';
+}
+
+/** SQL: company subsidiary currencies only (exclude scope_type=group rows). */
+function dcSqlCurrencyCompanyLedgerOnly(string $cAlias = 'c'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $cAlias) ?: 'c';
+    global $pdo;
+    if (!isset($pdo)) {
+        return '';
+    }
+    try {
+        if ($pdo->query("SHOW COLUMNS FROM currency LIKE 'scope_type'")->rowCount() > 0) {
+            return " AND (COALESCE({$a}.scope_type, '') = '' OR {$a}.scope_type = 'company')";
+        }
+    } catch (Throwable $e) {
+        /* ignore */
+    }
+    return '';
+}
+
+/**
+ * Summary Edit Formula: active accounts for group ledger (scope_type=group).
+ *
+ * @return list<array<string, mixed>>
+ */
+function dcSummaryLoadAccountsForGroup(PDO $pdo, string $groupCode): array
+{
+    $g = dcNormalizeGroupId($groupCode);
+    if ($g === '') {
+        return [];
+    }
+    require_once __DIR__ . '/../../includes/group_company_access.php';
+
+    $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+    if ($groupPk <= 0) {
+        return [];
+    }
+
+    $accountIds = [];
+    try {
+        $hasScopeCol = $pdo->query("SHOW COLUMNS FROM account_company LIKE 'scope_type'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasScopeCol = false;
+    }
+    if ($hasScopeCol) {
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT ac.account_id
+            FROM account_company ac
+            WHERE ac.scope_type = 'group' AND ac.scope_id = ?
+        ");
+        $stmt->execute([$groupPk]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $aid = (int) $id;
+            if ($aid > 0) {
+                $accountIds[$aid] = true;
+            }
+        }
+    }
+    try {
+        $hasMap = $pdo->query("SHOW TABLES LIKE 'account_group_map'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $hasMap = false;
+    }
+    if ($hasMap) {
+        $stmt = $pdo->prepare('SELECT DISTINCT account_id FROM account_group_map WHERE group_id = ?');
+        $stmt->execute([$groupPk]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            $aid = (int) $id;
+            if ($aid > 0) {
+                $accountIds[$aid] = true;
+            }
+        }
+    }
+
+    $ids = array_values(array_keys($accountIds));
+    if ($ids === []) {
+        return [];
+    }
+
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT a.id, a.account_id, a.role, a.name
+        FROM account a
+        WHERE a.id IN ($ph)
+          AND a.status = 'active'
+        ORDER BY a.account_id
+    ");
+    $stmt->execute($ids);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Summary Edit Formula: active accounts for subsidiary company scope.
+ *
+ * @return list<array<string, mixed>>
+ */
+function dcSummaryLoadAccountsForCompany(PDO $pdo, int $companyId): array
+{
+    if ($companyId <= 0) {
+        return [];
+    }
+    $scopeSql = dcSqlAccountCompanySubsidiaryOnly('ac');
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT a.id, a.account_id, a.role, a.name
+        FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ?
+        {$scopeSql}
+          AND a.status = 'active'
+        ORDER BY a.account_id
+    ");
+    $stmt->execute([$companyId]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Summary form catalog accounts (group ledger vs subsidiary company).
+ *
+ * @return list<array<string, mixed>>
+ */
+function dcSummaryLoadFormAccounts(PDO $pdo, bool $isGroupScope, int $companyId, string $groupCode): array
+{
+    if ($isGroupScope) {
+        $code = dcNormalizeGroupId($groupCode);
+        if ($code === '') {
+            $code = dcCompanyGroupId($pdo, $companyId);
+        }
+        return dcSummaryLoadAccountsForGroup($pdo, $code);
+    }
+
+    return dcSummaryLoadAccountsForCompany($pdo, $companyId);
+}
+
+/**
+ * Summary form catalog currencies for group scope (group Currency Setting / ledger).
+ *
+ * @return list<array{id: int, code: string}>
+ */
+function dcSummaryLoadCurrenciesForGroup(PDO $pdo, string $groupCode): array
+{
+    $g = dcNormalizeGroupId($groupCode);
+    if ($g === '') {
+        return [];
+    }
+    if (!defined('DASHBOARD_API_SKIP_MAIN')) {
+        define('DASHBOARD_API_SKIP_MAIN', true);
+    }
+    require_once __DIR__ . '/../transactions/transaction_scope.php';
+    require_once __DIR__ . '/../transactions/dashboard_api.php';
+
+    $map = dashboardResolveGroupScopeCurrencyMap($pdo, $g);
+    $rows = [];
+    foreach ($map as $id => $code) {
+        $rows[] = ['id' => (int) $id, 'code' => strtoupper(trim((string) $code))];
+    }
+    usort($rows, static fn (array $a, array $b): int => $a['id'] <=> $b['id']);
+
+    return $rows;
+}
+
+/**
+ * Summary form catalog currencies for company scope.
+ *
+ * @return list<array{id: int, code: string}>
+ */
+function dcSummaryLoadCurrenciesForCompany(PDO $pdo, int $companyId): array
+{
+    if ($companyId <= 0) {
+        return [];
+    }
+    $scopeSql = dcSqlCurrencyCompanyLedgerOnly('c');
+    $stmt = $pdo->prepare("
+        SELECT id, code
+        FROM currency c
+        WHERE c.company_id = ?
+        {$scopeSql}
+        ORDER BY c.code
+    ");
+    $stmt->execute([$companyId]);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * @return list<array{id: int, code: string}>
+ */
+function dcSummaryLoadFormCurrencies(PDO $pdo, bool $isGroupScope, int $companyId, string $groupCode): array
+{
+    if ($isGroupScope) {
+        $code = dcNormalizeGroupId($groupCode);
+        if ($code === '') {
+            $code = dcCompanyGroupId($pdo, $companyId);
+        }
+        return dcSummaryLoadCurrenciesForGroup($pdo, $code);
+    }
+
+    return dcSummaryLoadCurrenciesForCompany($pdo, $companyId);
+}
+
+/**
+ * Resolve currency id for Summary submit (group ledger vs subsidiary company).
+ */
+function dcResolveCaptureCurrencyId(
+    PDO $pdo,
+    bool $isGroupScope,
+    int $companyId,
+    string $groupCode,
+    $currencyId = null,
+    ?string $currencyCode = null
+): ?int {
+    if ($isGroupScope) {
+        $g = dcNormalizeGroupId($groupCode);
+        if ($g === '' && $companyId > 0) {
+            $g = dcCompanyGroupId($pdo, $companyId);
+        }
+        $cid = $currencyId !== null && $currencyId !== '' ? (int) $currencyId : 0;
+        if ($cid > 0 && dcValidatePreferredCurrencyId($pdo, $cid, $companyId, $g)) {
+            return $cid;
+        }
+        if ($currencyCode) {
+            require_once __DIR__ . '/../transactions/transaction_scope.php';
+            $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+            if ($groupPk > 0) {
+                try {
+                    $scope = [
+                        'mode' => 'group',
+                        'company_id' => 0,
+                        'group_scope_id' => $groupPk,
+                        'group_code' => $g,
+                    ];
+                    return tx_resolve_currency_id_for_scope($pdo, (string) $currencyCode, $scope);
+                } catch (Throwable $e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    return resolveCompanyCurrencyId($pdo, $companyId, $currencyId, $currencyCode);
+}
+
+/** Whether account_id is valid for the active capture scope. */
+function dcAccountBelongsToCaptureScope(
+    PDO $pdo,
+    int $accountId,
+    bool $isGroupScope,
+    int $companyId,
+    string $groupCode
+): bool {
+    if ($accountId <= 0) {
+        return false;
+    }
+    if ($isGroupScope) {
+        $g = dcNormalizeGroupId($groupCode);
+        if ($g === '') {
+            $g = dcCompanyGroupId($pdo, $companyId);
+        }
+        require_once __DIR__ . '/../../includes/group_company_access.php';
+        $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+        if ($groupPk <= 0) {
+            return false;
+        }
+        try {
+            if ($pdo->query("SHOW COLUMNS FROM account_company LIKE 'scope_type'")->rowCount() > 0) {
+                $stmt = $pdo->prepare("
+                    SELECT 1 FROM account_company
+                    WHERE account_id = ? AND scope_type = 'group' AND scope_id = ?
+                    LIMIT 1
+                ");
+                $stmt->execute([$accountId, $groupPk]);
+                if ($stmt->fetchColumn()) {
+                    return true;
+                }
+            }
+            if ($pdo->query("SHOW TABLES LIKE 'account_group_map'")->rowCount() > 0) {
+                $stmt = $pdo->prepare("
+                    SELECT 1 FROM account_group_map
+                    WHERE account_id = ? AND group_id = ?
+                    LIMIT 1
+                ");
+                $stmt->execute([$accountId, $groupPk]);
+                if ($stmt->fetchColumn()) {
+                    return true;
+                }
+            }
+        } catch (Throwable $e) {
+            return false;
+        }
+        return false;
+    }
+
+    if ($companyId <= 0) {
+        return false;
+    }
+    $scopeSql = dcSqlAccountCompanySubsidiaryOnly('ac');
+    $stmt = $pdo->prepare("
+        SELECT 1 FROM account_company ac
+        WHERE ac.account_id = ? AND ac.company_id = ?
+        {$scopeSql}
+        LIMIT 1
+    ");
+    $stmt->execute([$accountId, $companyId]);
+
+    return (bool) $stmt->fetchColumn();
+}
+
+function dcAssertAccountIdInCaptureScope(
+    PDO $pdo,
+    int $accountId,
+    bool $isGroupScope,
+    int $companyId,
+    string $groupCode
+): void {
+    if (!dcAccountBelongsToCaptureScope($pdo, $accountId, $isGroupScope, $companyId, $groupCode)) {
+        throw new Exception($isGroupScope
+            ? 'Account not valid for group capture scope'
+            : 'Account not valid for company capture scope');
+    }
 }

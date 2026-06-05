@@ -38,6 +38,7 @@ import { readCaptureSessionMeta } from "./lib/dataCaptureStorage.js";
 import {
   dataCaptureScopeCacheKey,
   dataCaptureScopeIsReady,
+  normalizeGroupCaptureScope,
   resolveDataCaptureScope,
 } from "./lib/dataCaptureScope.js";
 import { resolveGroupEntityRowFromSnap } from "../transaction/lib/transactionScope.js";
@@ -250,25 +251,30 @@ export default function DataCapturePage() {
     me,
   });
 
-  const captureScope = useMemo(
-    () =>
-      resolveDataCaptureScope({
-        companies: companiesNormalized,
-        selectedGroup,
-        companyId,
-        groupOnlyMode: groupOnlyTable,
-        groupsAllMode,
-        groupAllMode,
-      }),
-    [
-      companiesNormalized,
+  const captureScope = useMemo(() => {
+    const resolved = resolveDataCaptureScope({
+      companies: companiesNormalized,
       selectedGroup,
       companyId,
-      groupOnlyTable,
+      groupOnlyMode: groupOnlyTable,
       groupsAllMode,
       groupAllMode,
-    ],
-  );
+    });
+    if (groupOnlyTable && resolved?.mode === "group") {
+      return normalizeGroupCaptureScope(resolved, {
+        groupOnlyCapture: true,
+        captureSelectedGroup: selectedGroup,
+      });
+    }
+    return resolved;
+  }, [
+    companiesNormalized,
+    selectedGroup,
+    companyId,
+    groupOnlyTable,
+    groupsAllMode,
+    groupAllMode,
+  ]);
 
   const scopeCompanyId =
     captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
