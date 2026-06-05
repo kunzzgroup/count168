@@ -664,11 +664,7 @@ export function clearDashboardGroupFilterKeepCompany(companyId) {
  * Boot-time resolution (matches transaction/maintenance pages): honour session only when it matches current company's group.
  */
 export function resolveInitialSelectedGroupFromSession(companies, currentCompany, loginMe = null) {
-  if (
-    sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1" &&
-    loginMe &&
-    !canUseGroupOnlyMode(loginMe)
-  ) {
+  if (sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1") {
     return null;
   }
   const savedRaw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);

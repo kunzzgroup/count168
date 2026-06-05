@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
@@ -135,6 +136,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const currencyLoadGenRef = useRef(0);
   const skipNextCurrencyClickRef = useRef(false);
   const scopeCurrencyKeyRef = useRef("");
+  const bootstrapGcOnceRef = useRef(false);
+  const [groupFilterOptOutTick, setGroupFilterOptOutTick] = useState(0);
   /** @type {React.MutableRefObject<Map<number, string[]>>} */
   const currenciesByCompanyRef = useRef(new Map());
   /** @type {React.MutableRefObject<Map<string, string[]>>} */
@@ -331,32 +334,45 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         cid = resolveBootCompanyId({ defaultRowId: parseInt(scopedCompanies[0].id, 10) });
       }
 
+      if (bootstrapGcOnceRef.current) return;
+
+      const groupFilterOptOut =
+        typeof sessionStorage !== "undefined" &&
+        sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
       const current =
         cid != null ? scopedCompanies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10)) : null;
-      const group = resolveInitialSelectedGroupFromSession(scopedCompanies, current, u);
+      const group = groupFilterOptOut
+        ? null
+        : resolveInitialSelectedGroupFromSession(scopedCompanies, current, u);
       setSelectedGroup(group);
 
-      if (isDashboardGroupOnlyMode() && canUseGroupOnlyMode(u)) {
+      if (!groupFilterOptOut && isDashboardGroupOnlyMode() && canUseGroupOnlyMode(u)) {
         setCompanyId(null);
         setDashboardData(null);
         setDashboardDataPrev(null);
         setDisplayScopeKey("");
         setLoading(false);
+        bootstrapGcOnceRef.current = true;
         return;
       }
 
-      if (isDashboardGroupOnlyMode() && !canUseGroupOnlyMode(u)) {
+      if (!groupFilterOptOut && isDashboardGroupOnlyMode() && !canUseGroupOnlyMode(u)) {
         persistDashboardFilterState(group, cid, { allowGroupOnly: false });
       }
 
       let bootCid = cid != null ? parseInt(cid, 10) : null;
-      if (bootCid == null && group) {
+      if (groupFilterOptOut && bootCid == null) {
+        const pick = resolveCompanyWhenClosingGroup(scopedCompanies, null, sortedUniqueGroupIds(scopedCompanies));
+        if (pick?.id) bootCid = parseInt(pick.id, 10);
+      }
+      if (!groupFilterOptOut && bootCid == null && group) {
         const pick = pickDefaultCompanyForGroup(scopedCompanies, group, { me: u });
         if (pick?.id) bootCid = parseInt(pick.id, 10);
       }
       setCompanyId(bootCid);
       if (bootCid != null) persistDashboardFilterState(group, bootCid, { allowGroupOnly: false });
       if (bootCid == null) setLoading(false);
+      bootstrapGcOnceRef.current = true;
     } catch (err) {
       if (err?.name === "AbortError") return;
       setLoadError(err?.message || i18n.failedToLoadDashboard);
@@ -385,13 +401,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const companiesForPicker = useMemo(() => {
     const preferredId = companyId ?? me?.company_id ?? null;
+    const groupFilterOptOut =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
     if (groupsAllMode) {
       return dedupeOwnerCompaniesByCode(
         allGroupedCompaniesForPicker(companies, groupIds),
         preferredId
       );
     }
-    if (selectedGroup) {
+    if (selectedGroup && !groupFilterOptOut) {
       return dedupeOwnerCompaniesByCode(
         companiesForCompanyPicker(companies, selectedGroup, groupIds),
         preferredId
@@ -402,7 +421,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       independentCompaniesForPicker(companies, groupIds),
       preferredId
     );
-  }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me?.company_id]);
+  }, [companies, selectedGroup, groupsAllMode, groupIds, companyId, me?.company_id, groupFilterOptOutTick]);
 
   const resolveMergeCompanyList = useCallback(() => {
     if (groupsAllMode) return resolveGroupsAllMergeCompanyList(companies, groupIds);
@@ -2170,21 +2189,35 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         (useConvertedEarnings && convertedEarningsTotal == null)));
   const kpiLoading = scopeDataPending || (loading && !dashboardData);
 
+  useLayoutEffect(() => {
+    if (
+      typeof sessionStorage === "undefined" ||
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) !== "1"
+    ) {
+      return;
+    }
+    if (selectedGroup == null) return;
+    setSelectedGroup(null);
+  }, [selectedGroup, groupFilterOptOutTick]);
+
   const handlePickGroup = useCallback(
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (g === selectedGroup && !groupsAllMode) {
         const target = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
-        setGroupsAllMode(false);
-        setGroupAllMode(false);
-        setMergedSubsetIds(null);
-        setSelectedGroup(null);
 
         if (target?.id) {
           const id = parseInt(target.id, 10);
-          applyCompanySelection(id);
-          clearDashboardGroupFilterKeepCompany(id, target);
+          flushSync(() => {
+            setGroupsAllMode(false);
+            setGroupAllMode(false);
+            setMergedSubsetIds(null);
+            setSelectedGroup(null);
+            applyCompanySelection(id);
+          });
+          clearDashboardGroupFilterKeepCompany(id);
+          setGroupFilterOptOutTick((n) => n + 1);
           primeCurrenciesFromCache({ companyId: id, selectedGroup: null, groupsAllMode: false });
           primeDashboardFromCache({
             companyId: id,
@@ -2195,19 +2228,38 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           });
           void syncCompanySession(id, null);
         } else if (companyId != null) {
+          flushSync(() => {
+            setGroupsAllMode(false);
+            setGroupAllMode(false);
+            setMergedSubsetIds(null);
+            setSelectedGroup(null);
+          });
           clearDashboardGroupFilterKeepCompany(companyId);
+          setGroupFilterOptOutTick((n) => n + 1);
           void syncCompanySession(companyId, null);
         } else {
+          flushSync(() => {
+            setGroupsAllMode(false);
+            setGroupAllMode(false);
+            setMergedSubsetIds(null);
+            setSelectedGroup(null);
+          });
           if (typeof sessionStorage !== "undefined") {
             sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
             sessionStorage.removeItem("dashboard_group_filter");
           }
+          setGroupFilterOptOutTick((n) => n + 1);
           persistDashboardGroupOnlyMode(false);
           persistDashboardFilterState(null, null, { allowGroupOnly: false });
           notifyDashboardGroupFilterChanged(null, null);
         }
         return;
       }
+
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+      }
+      setGroupFilterOptOutTick((n) => n + 1);
 
       if (canUseGroupOnlyMode(me)) {
         setGroupsAllMode(false);
