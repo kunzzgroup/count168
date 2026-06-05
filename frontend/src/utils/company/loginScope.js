@@ -3,6 +3,7 @@
  */
 import {
   isDashboardGroupOnlyMode,
+  normalizeNativeCompanyGroupId,
   readAccessibleGroupIds,
 } from "./sharedCompanyFilter.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
@@ -84,10 +85,14 @@ export function companyMatchesLoginScope(company, me, companies = []) {
 
   if (scope === LOGIN_SCOPE_COMPANY) return true;
 
-  const gid = String(company.group_id || "").trim().toUpperCase();
   const linkSrc = company.link_source_group
     ? String(company.link_source_group).trim().toUpperCase()
     : "";
+  if (!linkSrc && !normalizeNativeCompanyGroupId(company)) {
+    return true;
+  }
+
+  const gid = String(company.group_id || "").trim().toUpperCase();
   const accessible = resolveAccessibleGroupIds(me, companies);
   if (accessible.length) {
     return accessible.some((g) => g === gid || g === linkSrc);

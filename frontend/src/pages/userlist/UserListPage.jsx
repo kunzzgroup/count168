@@ -29,6 +29,7 @@ import {
   notifyDashboardGroupFilterChanged,
   pickDefaultCompanyForGroup,
   pickDefaultSubsidiaryForGroup,
+  resolveCompanyWhenClosingGroup,
   resolveCompanyPickWhenSwitchingGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -667,6 +668,15 @@ export default function UserListPage() {
   const inlineCompaniesForPicker = useMemo(() => {
     if (companiesForPicker.length > 0) return companiesForPicker;
 
+    // When Group is cleared, the dashboard-style picker intentionally only lists independent companies.
+    // If none exist, keep the Company row empty (do not fall back to first group).
+    if (!selectedGroup) {
+      return excludeGroupLabelsFromCompanyPicker(
+        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), companyId),
+        groupIds,
+      ).filter((c) => !normalizeCompanyGroupId(c));
+    }
+
     const effectiveGroup =
       (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null) ||
       (companyId != null
@@ -1168,12 +1178,14 @@ export default function UserListPage() {
     suppressGcSyncRef.current = true;
     persistDashboardGroupOnlyMode(false);
 
-    if (companyId != null) {
-      clearDashboardGroupFilterKeepCompany(companyId);
-      const row = companies.find((c) => Number(c.id) === Number(companyId));
+    const pickIndependent = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
+    const nextCompanyId = pickIndependent?.id != null ? Number(pickIndependent.id) : null;
+
+    if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
+      clearDashboardGroupFilterKeepCompany(nextCompanyId);
       void (async () => {
         try {
-          if (row) await onSwitchCompanyRef.current?.(row, { viewGroup: null });
+          await onSwitchCompanyRef.current?.(pickIndependent, { viewGroup: null });
         } finally {
           suppressGcSyncRef.current = false;
         }
@@ -1191,14 +1203,24 @@ export default function UserListPage() {
       setGroupsAllMode(false);
       setGroupAllMode(false);
       setSelectedGroup(null);
-      if (companyId != null) applyUserListCache(companyId);
+      setCompanyId(nextCompanyId);
+      if (nextCompanyId != null) applyUserListCache(nextCompanyId, { groupOnly: false });
       else setUsersRaw([]);
     });
 
-    if (companyId != null) {
-      void fetchUsers(companyId, { silent: true, groupOnly: false });
+    if (nextCompanyId != null) {
+      void fetchUsers(nextCompanyId, { silent: true, groupOnly: false });
     }
-  }, [applyUserListCache, companies, companyId, fetchUsers, setGroupAllMode, setGroupsAllMode]);
+  }, [
+    applyUserListCache,
+    companies,
+    companyId,
+    fetchUsers,
+    groupIds,
+    setCompanyId,
+    setGroupAllMode,
+    setGroupsAllMode,
+  ]);
 
   deselectGroupKeepCompanyRef.current = deselectGroupKeepCompany;
 

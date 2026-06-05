@@ -7,11 +7,6 @@ $dbname = 'u857194726_c168site';
 $dbuser = 'admin';
 $dbpass = 'C168_site';
 
-$localConfig = __DIR__ . '/config.local.php';
-if (is_file($localConfig)) {
-    require $localConfig;
-}
-
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
@@ -20,7 +15,6 @@ date_default_timezone_set('Asia/Kuala_Lumpur');
 
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
-
 
 $pdo = null;
 

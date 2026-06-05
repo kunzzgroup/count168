@@ -33,6 +33,7 @@ import {
   persistDashboardSelectedCompany,
   pickDefaultCompanyForGroup,
   pickDefaultSubsidiaryForGroup,
+  resolveCompanyWhenClosingGroup,
   resolveCompanyPickWhenSwitchingGroup,
   readDashboardSelectedCompanyId,
   resolveBootCompanyId,
@@ -824,6 +825,14 @@ export default function AccountListPage() {
   const inlineCompaniesForPicker = useMemo(() => {
     if (companiesForPicker.length > 0) return companiesForPicker;
 
+    // When Group is cleared, only list independent companies; keep Company empty if none exist.
+    if (!selectedGroup) {
+      return excludeGroupLabelsFromCompanyPicker(
+        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), companyId),
+        groupIds,
+      ).filter((c) => !normalizeCompanyGroupId(c));
+    }
+
     const effectiveGroup =
       (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null) ||
       (companyId != null
@@ -951,18 +960,20 @@ export default function AccountListPage() {
     applyCacheOrClearAccounts,
   ]);
 
-  /** Company / owner login: toggle off active group pill (keep company when one is selected). */
+  /** Company / owner login: toggle off active group pill (auto-pick independent company). */
   const deselectGroupKeepCompany = useCallback(() => {
     skipCompanyFetchEffectRef.current = true;
     suppressGcSyncRef.current = true;
     persistDashboardGroupOnlyMode(false);
 
-    if (companyId != null) {
-      clearDashboardGroupFilterKeepCompany(companyId);
-      const row = companies.find((c) => Number(c.id) === Number(companyId));
+    const pickIndependent = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
+    const nextCompanyId = pickIndependent?.id != null ? Number(pickIndependent.id) : null;
+
+    if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
+      clearDashboardGroupFilterKeepCompany(nextCompanyId);
       void (async () => {
         try {
-          if (row) await onSwitchCompanyRef.current?.(row, { viewGroup: null });
+          await onSwitchCompanyRef.current?.(pickIndependent, { viewGroup: null });
         } finally {
           suppressGcSyncRef.current = false;
         }
@@ -980,9 +991,10 @@ export default function AccountListPage() {
       setGroupsAllMode(false);
       setGroupAllMode(false);
       setSelectedGroup(null);
-      if (companyId != null) {
+      setCompanyId(nextCompanyId);
+      if (nextCompanyId != null) {
         applyCacheOrClearAccounts({
-          companyId,
+          companyId: nextCompanyId,
           selectedGroup: null,
           groupsAllMode: false,
           groupAllMode: false,
@@ -995,9 +1007,9 @@ export default function AccountListPage() {
       }
     });
 
-    if (companyId != null) {
+    if (nextCompanyId != null) {
       const cacheKey = resolveAccountListCacheKey(
-        `company:${Number(companyId)}`,
+        `company:${Number(nextCompanyId)}`,
         searchTerm,
         showInactive,
         showAll,
@@ -1006,7 +1018,7 @@ export default function AccountListPage() {
         startTransition(() => {
           void fetchAccounts(
             {
-              companyId,
+              companyId: nextCompanyId,
               selectedGroup: null,
               groupsAllMode: false,
               groupAllMode: false,
@@ -1029,6 +1041,7 @@ export default function AccountListPage() {
     searchTerm,
     showAll,
     showInactive,
+    setCompanyId,
     setGroupAllMode,
     setGroupsAllMode,
   ]);

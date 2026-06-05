@@ -98,8 +98,15 @@ function gc_company_row_matches_login_scope(array $companyRow): bool
         return true;
     }
 
-    $gid = strtoupper(trim((string) ($companyRow['group_id'] ?? '')));
     $linkSrc = strtoupper(trim((string) ($companyRow['link_source_group'] ?? '')));
+    if ($linkSrc === '') {
+        $nativeGid = strtoupper(trim((string) ($companyRow['native_group_id'] ?? $companyRow['group_id'] ?? '')));
+        if ($nativeGid === '') {
+            return true;
+        }
+    }
+
+    $gid = strtoupper(trim((string) ($companyRow['group_id'] ?? '')));
 
     $accessible = gc_session_accessible_group_ids();
     if (!empty($accessible)) {
