@@ -785,21 +785,39 @@ export default function AccountListPage() {
     },
     onDeselectGroup: (cid) => {
       const scope = gcScopeRef.current;
+      const nextScope = {
+        companyId: cid,
+        selectedGroup: null,
+        groupsAllMode: false,
+        groupAllMode: false,
+        mergeCompanyIds: scope?.mergeCompanyIds ?? [],
+        groupIds: scope?.groupIds ?? [],
+        isListScopeReady: true,
+      };
       skipCompanyFetchEffectRef.current = true;
       flushSync(() => {
-        applyCacheOrClearAccounts(
-          {
-            companyId: cid,
-            selectedGroup: null,
-            groupsAllMode: false,
-            groupAllMode: false,
-            mergeCompanyIds: scope?.mergeCompanyIds ?? [],
-            groupIds: scope?.groupIds ?? [],
-            isListScopeReady: true,
-          },
-          { groupOnly: false },
-        );
+        if (cid != null) {
+          const cacheHit = applyCacheOrClearAccounts(nextScope, { groupOnly: false });
+          if (!cacheHit) {
+            setAccounts([]);
+            setSelectedDeleteIds(new Set());
+            setCurrentPage(1);
+          }
+        } else {
+          setAccounts([]);
+          setSelectedDeleteIds(new Set());
+        }
       });
+      if (cid != null) {
+        const scopeKey = `company:${Number(cid)}`;
+        lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
+          scopeKey,
+          searchTerm,
+          showInactive,
+          showAll,
+        );
+        void fetchAccounts(nextScope, { silent: true });
+      }
     },
     onClearCompany: handleClearCompany,
     switchingCompany: false,
@@ -967,23 +985,24 @@ export default function AccountListPage() {
 
     const pickIndependent = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
     const nextCompanyId = pickIndependent?.id != null ? Number(pickIndependent.id) : null;
+    const nextScope = {
+      companyId: nextCompanyId,
+      selectedGroup: null,
+      groupsAllMode: false,
+      groupAllMode: false,
+      mergeCompanyIds,
+      groupIds,
+      isListScopeReady: true,
+    };
 
     if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
       clearDashboardGroupFilterKeepCompany(nextCompanyId);
-      void (async () => {
-        try {
-          await onSwitchCompanyRef.current?.(pickIndependent, { viewGroup: null });
-        } finally {
-          suppressGcSyncRef.current = false;
-        }
-      })();
     } else {
       sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
       persistDashboardGroupFilter(null);
       persistDashboardFilterState(null, null, { allowGroupOnly: false });
       notifyDashboardGroupFilterChanged(null, null);
       stripCompanyIdFromUrl();
-      suppressGcSyncRef.current = false;
     }
 
     flushSync(() => {
@@ -992,43 +1011,39 @@ export default function AccountListPage() {
       setSelectedGroup(null);
       setCompanyId(nextCompanyId);
       if (nextCompanyId != null) {
-        applyCacheOrClearAccounts({
-          companyId: nextCompanyId,
-          selectedGroup: null,
-          groupsAllMode: false,
-          groupAllMode: false,
-          mergeCompanyIds,
-          groupIds,
-          isListScopeReady: true,
-        });
+        const cacheHit = applyCacheOrClearAccounts(nextScope);
+        if (!cacheHit) {
+          setAccounts([]);
+          setSelectedDeleteIds(new Set());
+          setCurrentPage(1);
+        }
       } else {
         setAccounts([]);
+        setSelectedDeleteIds(new Set());
       }
     });
 
     if (nextCompanyId != null) {
-      const cacheKey = resolveAccountListCacheKey(
-        `company:${Number(nextCompanyId)}`,
+      const scopeKey = `company:${Number(nextCompanyId)}`;
+      lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
+        scopeKey,
         searchTerm,
         showInactive,
         showAll,
       );
-      if (!accountListCacheRef.current.has(cacheKey)) {
-        startTransition(() => {
-          void fetchAccounts(
-            {
-              companyId: nextCompanyId,
-              selectedGroup: null,
-              groupsAllMode: false,
-              groupAllMode: false,
-              mergeCompanyIds,
-              groupIds,
-              isListScopeReady: true,
-            },
-            { silent: true },
-          );
-        });
-      }
+      void fetchAccounts(nextScope, { silent: true });
+      void (async () => {
+        try {
+          await onSwitchCompanyRef.current?.(pickIndependent, {
+            viewGroup: null,
+            fetchList: false,
+          });
+        } finally {
+          suppressGcSyncRef.current = false;
+        }
+      })();
+    } else {
+      suppressGcSyncRef.current = false;
     }
   }, [
     applyCacheOrClearAccounts,

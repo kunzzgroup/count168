@@ -37,6 +37,10 @@ export function useGcFilterWithAllModes({
   forceAllowGroupOnly = false,
   broadcastFilterToLayout = true,
   clearCompanyOnActiveGroupReselect = undefined,
+  allowActiveGroupDeselect = false,
+  requireCompanyWithGroup = false,
+  resolveCompanyOnGroupClose = null,
+  allowClearCompany: allowClearCompanyOverride = undefined,
 }) {
   const [groupsAllMode, setGroupsAllMode] = useState(false);
   const [groupAllMode, setGroupAllMode] = useState(false);
@@ -60,6 +64,10 @@ export function useGcFilterWithAllModes({
     broadcastFilterToLayout,
     clearCompanyOnActiveGroupReselect:
       clearCompanyOnActiveGroupReselect ?? !forceAllowGroupOnly,
+    allowActiveGroupDeselect,
+    requireCompanyWithGroup,
+    resolveCompanyOnGroupClose,
+    allowClearCompany: allowClearCompanyOverride,
   });
 
   const groupIds = base.groupIds;

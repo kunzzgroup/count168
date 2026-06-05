@@ -14,6 +14,7 @@ import {
   resolveCompanyPickWhenSwitchingGroup,
   resolveCompanyWhenClosingGroup,
   sortedUniqueGroupIds,
+  persistDashboardGroupOnlyMode,
 } from "./sharedCompanyFilter.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
 import {
@@ -54,6 +55,19 @@ export function useDashboardStyleGcFilter({
    * (user clears via the active company pill instead).
    */
   clearCompanyOnActiveGroupReselect = true,
+  /**
+   * When true, re-clicking the already-selected group pill will close the group scope
+   * even if group-only mode is available (keeps current company, switches to independent company scope).
+   */
+  allowActiveGroupDeselect = false,
+  /**
+   * Report (company login): group pill is a view filter only — always keep a subsidiary selected.
+   */
+  requireCompanyWithGroup = false,
+  /** Override company pick when re-clicking active group (Report → login company). */
+  resolveCompanyOnGroupClose = null,
+  /** Override allowClearCompany (e.g. report company login disallows clearing company to group-only). */
+  allowClearCompany: allowClearCompanyOverride = undefined,
   /** When false, skip layout broadcast on selectedGroup/companyId changes (page handles manually). */
   broadcastFilterToLayout = true,
   /** Current user from AuthSessionContext — enforces group vs company login rules. */
@@ -61,10 +75,13 @@ export function useDashboardStyleGcFilter({
 }) {
   const activeGroup = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
   const allowGroupOnly =
-    canUseGroupOnlyMode(me, activeGroup) || (forceAllowGroupOnly && canUseGroupOnlyMode(me));
+    !requireCompanyWithGroup &&
+    (canUseGroupOnlyMode(me, activeGroup) || (forceAllowGroupOnly && canUseGroupOnlyMode(me)));
   const allowClearCompany =
-    canClearCompanySelection(me, activeGroup) ||
-    (forceAllowGroupOnly && canUseGroupOnlyMode(me, activeGroup));
+    allowClearCompanyOverride ??
+    (!requireCompanyWithGroup &&
+      (canClearCompanySelection(me, activeGroup) ||
+        (forceAllowGroupOnly && canUseGroupOnlyMode(me, activeGroup))));
 
   const onSelectCompanyRef = useRef(onSelectCompany);
   const onPrepareCompanySelectRef = useRef(onPrepareCompanySelect);
@@ -101,6 +118,37 @@ export function useDashboardStyleGcFilter({
       if (switchingCompany) return;
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
+
+      /** Re-click active group: cancel group scope and switch to independent company (Report). */
+      if (g === selectedGroup && allowActiveGroupDeselect) {
+        const target = resolveCompanyOnGroupClose
+          ? resolveCompanyOnGroupClose(companies, companyId, groupIds)
+          : pickDefaultCompanyForGroup(companies, null, { me, preferredCompanyId: companyId }) ??
+            resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
+        setSelectedGroup(null);
+        resetAnchorSessionRef();
+        if (target?.id) {
+          clearDashboardGroupFilterKeepCompany(target.id, target);
+          markAnchorSynced(null, target.id);
+          const select = onSelectCompanyRef.current;
+          if (select) await select(target);
+          const prepare = onPrepareCompanySelectRef.current;
+          if (prepare) prepare(target);
+          onDeselectGroup?.(target.id);
+        } else if (companyId != null) {
+          clearDashboardGroupFilterKeepCompany(companyId);
+          markAnchorSynced(null, companyId);
+          onDeselectGroup?.(companyId);
+        } else {
+          persistDashboardGroupFilter(null);
+          persistDashboardGroupOnlyMode(false);
+          persistDashboardFilterState(null, null, { allowGroupOnly: false });
+          notifyDashboardGroupFilterChanged(null, null);
+          onClearCompany?.(null);
+          onDeselectGroup?.(null);
+        }
+        return;
+      }
 
       const groupLedgerPick = canUseGroupOnlyMode(me, g);
 
@@ -150,6 +198,12 @@ export function useDashboardStyleGcFilter({
             });
             const select = onSelectCompanyRef.current;
             if (select) void select(target);
+          } else if (companyId != null) {
+            persistDashboardFilterState(null, companyId, { allowGroupOnly: false });
+            markAnchorSynced(null, companyId);
+            clearDashboardGroupFilterKeepCompany(companyId);
+            notifyDashboardGroupFilterChanged(null, companyId, { ignoreGroupOnly: true });
+            onDeselectGroup?.(companyId);
           } else if (companyId != null) {
             clearDashboardGroupFilterKeepCompany(companyId);
             onDeselectGroup?.(companyId);
@@ -211,6 +265,8 @@ export function useDashboardStyleGcFilter({
       companyId,
       me,
       markAnchorSynced,
+      resolveCompanyOnGroupClose,
+      allowActiveGroupDeselect,
     ]
   );
 
@@ -230,6 +286,8 @@ export function useDashboardStyleGcFilter({
     if (!pick) return;
     persistDashboardFilterState(selectedGroup, pick.id, { allowGroupOnly: false });
     markAnchorSynced(selectedGroup, pick.id);
+    const prepare = onPrepareCompanySelectRef.current;
+    if (prepare) prepare(pick);
     notifyDashboardGroupFilterChanged(selectedGroup, pick.id);
     const select = onSelectCompanyRef.current;
     if (select) void select(pick);
