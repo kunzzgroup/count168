@@ -120,15 +120,15 @@ try {
             }
             $accountIds = dashboardCollectGroupOnlyAccountIds($pdo, $viewGroup);
         } elseif ($subsidiaryAccountsOnly && $primaryCompanyId > 0) {
-            // Subsidiary drill-down: that company's Currency Setting only — never merge group entity currencies.
-            $currencyCompanyIds = [$primaryCompanyId];
-            $accountIds = dashboardCollectScopeAccountIds(
-                $pdo,
-                $primaryCompanyId,
-                null,
-                0,
-                true
-            );
+            // Subsidiary drill-down: Currency Setting table only (exclude group SGD on shared anchor FK).
+            $map = dashboardLoadCurrencyMap($pdo, $primaryCompanyId, true);
+            $rows = [];
+            foreach ($map as $id => $code) {
+                $rows[] = ['id' => (int) $id, 'code' => $code];
+            }
+            usort($rows, static fn(array $a, array $b): int => $a['id'] <=> $b['id']);
+            api_success($rows);
+            exit;
         } else {
             foreach ($companyIds as $cid) {
                 $currencyCompanyIds[] = (int) $cid;

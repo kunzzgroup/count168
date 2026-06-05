@@ -26,6 +26,42 @@ require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../reports/report_scope_common.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
 
+function dashboard_ensure_tenant_scope_loaded(): void
+{
+    if (!function_exists('tenant_sql_currency_subsidiary_only')) {
+        require_once __DIR__ . '/../../includes/tenant_scope.php';
+    }
+}
+
+/** SQL AND: subsidiary currency rows only (exclude group ledger on shared anchor company_id). */
+function dashboard_sql_currency_subsidiary_only(PDO $pdo, string $alias = 'c'): string
+{
+    dashboard_ensure_tenant_scope_loaded();
+
+    return tenant_sql_currency_subsidiary_only($pdo, $alias);
+}
+
+/** SQL AND: subsidiary account_company rows only. */
+function dashboard_sql_account_company_subsidiary_only(PDO $pdo, string $alias = 'ac'): string
+{
+    dashboard_ensure_tenant_scope_loaded();
+
+    return tenant_sql_account_company_subsidiary_only($pdo, $alias);
+}
+
+/** SQL AND: subsidiary transaction ledger only (reads DASHBOARD_SUBSIDIARY_LEDGER global). */
+function dashboard_sql_txn_subsidiary_only(PDO $pdo, string $alias = 't'): string
+{
+    if (empty($GLOBALS['DASHBOARD_SUBSIDIARY_LEDGER'])) {
+        return '';
+    }
+    if (!tx_table_has_scope_column($pdo, 'transactions')) {
+        return '';
+    }
+
+    return tx_sql_transaction_company_ledger_only($alias);
+}
+
 /**
  * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
  */
@@ -569,10 +605,11 @@ function dashboardTxnCurrencyFilter(string $accountColumn): string
 }
 
 /** @return array<int, string> */
-function dashboardLoadCurrencyMap(PDO $pdo, int $companyId): array
+function dashboardLoadCurrencyMap(PDO $pdo, int $companyId, bool $subsidiaryOnly = false): array
 {
     $currency_map = [];
-    $currency_stmt = $pdo->prepare('SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?');
+    $scopeSql = $subsidiaryOnly ? dashboard_sql_currency_subsidiary_only($pdo, 'c') : '';
+    $currency_stmt = $pdo->prepare("SELECT id, UPPER(code) AS code FROM currency c WHERE c.company_id = ?{$scopeSql}");
     $currency_stmt->execute([$companyId]);
     foreach ($currency_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $currency_map[$row['id']] = strtoupper($row['code']);
@@ -648,11 +685,13 @@ function dashboardCollectScopeAccountIds(
             : [];
         foreach ($scopeCompanyIds as $scopeCompanyId) {
             list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
+            $acSubSql = $subsidiaryOnly ? dashboard_sql_account_company_subsidiary_only($pdo, 'ac') : '';
             $accStmt = $pdo->prepare("
                 SELECT DISTINCT a.id
                 FROM account a
                 INNER JOIN account_company ac ON ac.account_id = a.id
                 WHERE ac.company_id = ?
+                  {$acSubSql}
                   AND {$roleFilterSql}
             ");
             $accStmt->execute(array_merge([$scopeCompanyId], $roleFilterParams));
@@ -704,11 +743,11 @@ function dashboardCollectGroupOnlyAccountIds(PDO $pdo, string $viewGroup): array
  * @param int[] $companyIds
  * @return array<string, true> uppercase code => true
  */
-function dashboardAllowedCurrencyCodesForCompanies(PDO $pdo, array $companyIds): array
+function dashboardAllowedCurrencyCodesForCompanies(PDO $pdo, array $companyIds, bool $subsidiaryOnly = false): array
 {
     $allowed = [];
     foreach ($companyIds as $companyId) {
-        foreach (dashboardLoadCurrencyMap($pdo, (int) $companyId) as $code) {
+        foreach (dashboardLoadCurrencyMap($pdo, (int) $companyId, $subsidiaryOnly) as $code) {
             $allowed[strtoupper((string) $code)] = true;
         }
     }
@@ -820,12 +859,16 @@ function dashboardResolveGroupScopeCurrencyMap(PDO $pdo, string $viewGroup): arr
  * @param array<int, string> $map
  * @return array<int, string>
  */
-function dashboardIntersectAccountCurrencyWithCompanyTable(PDO $pdo, array $map, array $companyIds): array
-{
+function dashboardIntersectAccountCurrencyWithCompanyTable(
+    PDO $pdo,
+    array $map,
+    array $companyIds,
+    bool $subsidiaryOnly = false
+): array {
     if ($map === []) {
         return [];
     }
-    $allowed = dashboardAllowedCurrencyCodesForCompanies($pdo, $companyIds);
+    $allowed = dashboardAllowedCurrencyCodesForCompanies($pdo, $companyIds, $subsidiaryOnly);
     if ($allowed === []) {
         return $map;
     }
@@ -851,7 +894,8 @@ function dashboardLoadAccountCurrencyMap(
     PDO $pdo,
     array $accountIds,
     array $companyIds,
-    bool $accountCurrencyOnly = false
+    bool $accountCurrencyOnly = false,
+    bool $subsidiaryOnly = false
 ): array {
     $accountIds = array_values(array_unique(array_map('intval', $accountIds)));
     $companyIds = array_values(array_unique(array_map('intval', $companyIds)));
@@ -861,6 +905,7 @@ function dashboardLoadAccountCurrencyMap(
     }
 
     $map = [];
+    $currencyScopeSql = $subsidiaryOnly ? dashboard_sql_currency_subsidiary_only($pdo, 'c') : '';
     if (dashboardHasAccountCurrencyTable($pdo)) {
         $ph = implode(',', array_fill(0, count($accountIds), '?'));
         if ($accountCurrencyOnly) {
@@ -868,7 +913,7 @@ function dashboardLoadAccountCurrencyMap(
                 SELECT DISTINCT c.id, UPPER(c.code) AS code
                 FROM account_currency ac
                 INNER JOIN currency c ON c.id = ac.currency_id
-                WHERE ac.account_id IN ($ph)
+                WHERE ac.account_id IN ($ph){$currencyScopeSql}
             ");
             $stmt->execute($accountIds);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -879,7 +924,7 @@ function dashboardLoadAccountCurrencyMap(
                 $stmt = $pdo->prepare("
                     SELECT DISTINCT c.id, UPPER(c.code) AS code
                     FROM account_currency ac
-                    INNER JOIN currency c ON c.id = ac.currency_id AND c.company_id = ?
+                    INNER JOIN currency c ON c.id = ac.currency_id AND c.company_id = ?{$currencyScopeSql}
                     WHERE ac.account_id IN ($ph)
                 ");
                 $stmt->execute(array_merge([$companyId], $accountIds));
@@ -898,7 +943,7 @@ function dashboardLoadAccountCurrencyMap(
                 FROM account a
                 INNER JOIN currency c ON c.id = a.currency_id
                 WHERE a.id IN ($ph)
-                  AND a.currency_id IS NOT NULL
+                  AND a.currency_id IS NOT NULL{$currencyScopeSql}
             ");
             $stmt->execute($accountIds);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -909,7 +954,7 @@ function dashboardLoadAccountCurrencyMap(
                 $stmt = $pdo->prepare("
                     SELECT DISTINCT c.id, UPPER(c.code) AS code
                     FROM account a
-                    INNER JOIN currency c ON c.id = a.currency_id AND c.company_id = ?
+                    INNER JOIN currency c ON c.id = a.currency_id AND c.company_id = ?{$currencyScopeSql}
                     WHERE a.id IN ($ph)
                       AND a.currency_id IS NOT NULL
                 ");
@@ -925,7 +970,7 @@ function dashboardLoadAccountCurrencyMap(
         return $map;
     }
 
-    return dashboardIntersectAccountCurrencyWithCompanyTable($pdo, $map, $companyIds);
+    return dashboardIntersectAccountCurrencyWithCompanyTable($pdo, $map, $companyIds, $subsidiaryOnly);
 }
 
 /**
@@ -1205,17 +1250,24 @@ function dashboardDiscoverExpenseAccounts(
     PDO $pdo,
     int $scopeCompanyId,
     int $ledgerCompanyId,
-    ?string $dateToDb = null
+    ?string $dateToDb = null,
+    bool $subsidiaryOnly = false
 ): array {
     $byId = [];
     $roleExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.role, '')))");
     $acctCodeExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.account_id, '')))");
     $nameExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.name, '')))");
+    $acSubSql = $subsidiaryOnly ? dashboard_sql_account_company_subsidiary_only($pdo, 'ac') : '';
+    $txnSubSql = $subsidiaryOnly ? dashboard_sql_txn_subsidiary_only($pdo, 't') : '';
+    if ($subsidiaryOnly && $txnSubSql === '' && tx_table_has_scope_column($pdo, 'transactions')) {
+        $txnSubSql = tx_sql_transaction_company_ledger_only('t');
+    }
 
     $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
             WHERE ac.company_id = ?
+              {$acSubSql}
               AND (
                 {$roleExpr} IN ('EXPENSES', 'EXPENSE')
                 OR {$roleExpr} LIKE 'EXPENSE%'
@@ -1242,14 +1294,14 @@ function dashboardDiscoverExpenseAccounts(
                      AND t.from_account_id IS NOT NULL
                      AND t.transaction_date <= ?
                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE', 'ADJUSTMENT')
-                     $contra
+                     $contra{$txnSubSql}
                    UNION
                    SELECT DISTINCT t.account_id
                    FROM transactions t
                    WHERE t.company_id = ?
                      AND t.transaction_date <= ?
                      AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM', 'WIN', 'LOSE', 'ADJUSTMENT')
-                     $contra
+                     $contra{$txnSubSql}
                  )
                ORDER BY a.account_id";
     $txnStmt = $pdo->prepare($txnSql);
@@ -1274,6 +1326,7 @@ function dashboardDiscoverExpenseAccounts(
               AND ({$dcdIdMatch} OR {$dcdCodeMatch})
             INNER JOIN data_captures dc ON dc.id = dcd.capture_id AND dc.company_id = ?
             WHERE ac.company_id = ?
+              {$acSubSql}
             ORDER BY a.account_id
             LIMIT 50";
     $stmt = $pdo->prepare($sql);
@@ -1489,7 +1542,7 @@ function dashboardExpensesBuildWinLossBundle(
                   AND t.transaction_date BETWEEN ? AND ?
                   AND t.transaction_type IN ('WIN', 'LOSE')
                   AND (t.description LIKE 'Process: %' OR t.description LIKE 'Inactive Compensation %' OR t.description LIKE 'Compensation %')
-                  {$contra}
+                  {$contra}" . dashboard_sql_txn_subsidiary_only($pdo, 't') . "
                 GROUP BY DATE(t.transaction_date)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$companyId, $accountId, $currencyId, $dateFromDb, $dateToDb]);
@@ -1510,7 +1563,7 @@ function dashboardExpensesBuildWinLossBundle(
                   AND t.transaction_date BETWEEN ? AND ?
                   AND t.transaction_type IN ('WIN', 'LOSE', 'ADJUSTMENT')
                   AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL)
-                  {$contra}
+                  {$contra}" . dashboard_sql_txn_subsidiary_only($pdo, 't') . "
                 GROUP BY DATE(t.transaction_date)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$companyId, $accountId, $currencyId, $dateFromDb, $dateToDb]);
@@ -1529,7 +1582,7 @@ function dashboardExpensesBuildWinLossBundle(
                   AND t.transaction_date BETWEEN ? AND ?
                   AND t.transaction_type IN ('WIN', 'LOSE')
                   AND ((t.description NOT LIKE 'Process: %' AND t.description NOT LIKE 'Inactive Compensation %' AND t.description NOT LIKE 'Compensation %') OR t.description IS NULL)
-                  {$contra}
+                  {$contra}" . dashboard_sql_txn_subsidiary_only($pdo, 't') . "
                 GROUP BY DATE(t.transaction_date)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$companyId, $accountId, $currencyId, $dateFromDb, $dateToDb]);
@@ -1545,7 +1598,7 @@ function dashboardExpensesBuildWinLossBundle(
                     WHERE h.company_id = ? AND e.company_id = ?
                       AND e.account_id = ? AND e.currency_id = ?
                       AND e.entry_type = 'RATE_MIDDLEMAN'
-                      AND h.transaction_date BETWEEN ? AND ?
+                      AND h.transaction_date BETWEEN ? AND ?" . dashboard_sql_txn_subsidiary_only($pdo, 'h') . "
                     GROUP BY DATE(h.transaction_date)";
             $stmt = $pdo->prepare($sql);
             $stmt->execute([$companyId, $companyId, $accountId, $currencyId, $dateFromDb, $dateToDb]);
@@ -1612,7 +1665,7 @@ function dashboardExpensesBuildCrDrBundle(
                 AND t.transaction_date BETWEEN ? AND ?
                 AND t.transaction_type IN $crDrTypes
                 AND t.currency_id = ?"
-        . $clearFilter . $contra . '
+        . $clearFilter . $contra . dashboard_sql_txn_subsidiary_only($pdo, 't') . '
               GROUP BY DATE(t.transaction_date)';
     $toStmt = $pdo->prepare($toSql);
     $toStmt->execute(array_merge([$companyId], $accountIds, [$dateFromDb, $dateToDb, $currencyId]));
@@ -1636,7 +1689,7 @@ function dashboardExpensesBuildCrDrBundle(
                   AND t.transaction_date BETWEEN ? AND ?
                   AND t.transaction_type IN $crDrTypes
                   AND t.currency_id = ?"
-        . $clearFilter . $contra . '
+        . $clearFilter . $contra . dashboard_sql_txn_subsidiary_only($pdo, 't') . '
                 GROUP BY DATE(t.transaction_date)';
     $fromStmt = $pdo->prepare($fromSql);
     $fromStmt->execute(array_merge([$companyId], $accountIds, [$dateFromDb, $dateToDb, $currencyId]));
@@ -1660,7 +1713,7 @@ function dashboardExpensesBuildCrDrBundle(
                           AND e.currency_id = ?
                           AND h.transaction_type = 'RATE'
                           AND h.transaction_date BETWEEN ? AND ?
-                          AND e.entry_type <> 'RATE_MIDDLEMAN'
+                          AND e.entry_type <> 'RATE_MIDDLEMAN'" . dashboard_sql_txn_subsidiary_only($pdo, 'h') . "
                         GROUP BY DATE(h.transaction_date)";
             $rateStmt = $pdo->prepare($rateSql);
             $rateStmt->execute(array_merge(
@@ -1865,9 +1918,10 @@ try {
     }
 
     // Group tab: currencies from account_currency on scoped accounts (not full company currency list).
-    // Subsidiary drill-down (e.g. C168 under AP): never merge group-entity / group-ledger scope.
+    // Subsidiary drill-down (e.g. C168 under AP): company Currency Setting only — never group SGD.
+    $GLOBALS['DASHBOARD_SUBSIDIARY_LEDGER'] = $subsidiaryAccountsOnly;
     if ($subsidiaryAccountsOnly) {
-        $currency_map = dashboardResolveFilterCurrencyMap($pdo, $company_id, null, 0, true);
+        $currency_map = dashboardLoadCurrencyMap($pdo, $company_id, true);
     } elseif ($viewGroupCodeForScope !== '') {
         $currency_map = dashboardResolveFilterCurrencyMap(
             $pdo,
@@ -1881,6 +1935,9 @@ try {
     }
 
     $scopeViewGroup = $subsidiaryAccountsOnly ? null : $viewGroupCodeForScope;
+    $dashAcSubSql = $subsidiaryAccountsOnly ? dashboard_sql_account_company_subsidiary_only($pdo, 'ac') : '';
+    $dashTxnSubSql = dashboard_sql_txn_subsidiary_only($pdo, 't');
+    $dashTxnSubSqlH = dashboard_sql_txn_subsidiary_only($pdo, 'h');
 
     // 定义要查询的角色
     $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
@@ -1910,7 +1967,7 @@ try {
         $seenExpenseAccountIds = [];
 
         if ($isExpensesRole) {
-            foreach (dashboardDiscoverExpenseAccounts($pdo, $company_id, $company_id, $date_to_db) as $accRow) {
+            foreach (dashboardDiscoverExpenseAccounts($pdo, $company_id, $company_id, $date_to_db, $subsidiaryAccountsOnly) as $accRow) {
                 $aid = (int) ($accRow['id'] ?? 0);
                 if ($aid > 0) {
                     $expenseAccountRowsById[$aid] = $accRow;
@@ -1922,7 +1979,7 @@ try {
             list($roleFilterSql, $roleFilterParams) = dashboardRoleFilterSql($role, 'a');
 
             if ($role === 'EXPENSES') {
-                $accounts = dashboardDiscoverExpenseAccounts($pdo, $scopeCompanyId, $company_id, $date_to_db);
+                $accounts = dashboardDiscoverExpenseAccounts($pdo, $scopeCompanyId, $company_id, $date_to_db, $subsidiaryAccountsOnly);
             } else {
                 // 获取该角色的所有账户
                 // 与 Transaction List 一致：含 inactive 账户（期内仍可能有 WIN/LOSE / PAYMENT）
@@ -1930,6 +1987,7 @@ try {
                         FROM account a
                         INNER JOIN account_company ac ON a.id = ac.account_id
                         WHERE ac.company_id = ?
+                          {$dashAcSubSql}
                           AND {$roleFilterSql}";
 
                 $params = [];
@@ -2051,7 +2109,7 @@ try {
                     WHERE t.company_id = ?
                       AND t.account_id IN ($ids_placeholder)
                       AND t.transaction_date < ?
-                      AND t.transaction_type IN $bfTxnTypes" . $currency_filter_t_to . $clearFilter . $contraApproval;
+                      AND t.transaction_type IN $bfTxnTypes" . $currency_filter_t_to . $clearFilter . $contraApproval . $dashTxnSubSql;
             $bf_stmt = $pdo->prepare($sql);
             $bf_stmt->execute(array_merge([$ledgerCompanyId], $account_ids, [$date_from_db], $currency_params_t_to));
             $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
@@ -2071,7 +2129,7 @@ try {
                     WHERE t.company_id = ?
                       AND t.from_account_id IN ($ids_placeholder)
                       AND t.transaction_date < ?
-                      AND t.transaction_type IN $bfTxnTypes" . $currency_filter_t_from . $clearFilter . $fromDomainFilter . $contraApproval;
+                      AND t.transaction_type IN $bfTxnTypes" . $currency_filter_t_from . $clearFilter . $fromDomainFilter . $contraApproval . $dashTxnSubSql;
             $bf_stmt = $pdo->prepare($sql);
             $bf_stmt->execute(array_merge([$ledgerCompanyId], $account_ids, [$date_from_db], $currency_params_t_from));
             $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
@@ -2090,7 +2148,7 @@ try {
                             WHERE h.company_id = ?
                               AND e.company_id = ?
                               AND e.account_id IN ($ids_placeholder)
-                              AND h.transaction_date < ?" . $currency_filter_e;
+                              AND h.transaction_date < ?" . $currency_filter_e . $dashTxnSubSqlH;
                     $bf_stmt = $pdo->prepare($sql);
                     $bf_stmt->execute(array_merge([$ledgerCompanyId, $ledgerCompanyId], $account_ids, [$date_from_db], $currency_params_e));
                     $total_bf = dashboardMoneyAdd($total_bf, $bf_stmt->fetchColumn());
@@ -2155,7 +2213,7 @@ try {
                       AND t.account_id IN ($ids_placeholder)
                       AND t.transaction_date BETWEEN ? AND ?
                       AND t.transaction_type IN $dailyTxnTypes"
-                . $currency_filter_t_to . $clearFilter . $contraApproval . "
+                . $currency_filter_t_to . $clearFilter . $contraApproval . $dashTxnSubSql . "
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
             $daily_stmt = $pdo->prepare($sql);
@@ -2182,7 +2240,7 @@ try {
                       AND t.from_account_id IN ($ids_placeholder)
                       AND t.transaction_date BETWEEN ? AND ?
                       AND t.transaction_type IN $dailyFromTxnTypes"
-                . $currency_filter_t_from . $clearFilter . $fromDomainFilter . $contraApproval . "
+                . $currency_filter_t_from . $clearFilter . $fromDomainFilter . $contraApproval . $dashTxnSubSql . "
                     GROUP BY DATE(t.transaction_date)
                     ORDER BY DATE(t.transaction_date)";
             $daily_stmt = $pdo->prepare($sql);
@@ -2208,7 +2266,7 @@ try {
                             WHERE h.company_id = ?
                               AND e.company_id = ?
                               AND e.account_id IN ($ids_placeholder)
-                              AND h.transaction_date BETWEEN ? AND ?" . $currency_filter_e . "
+                              AND h.transaction_date BETWEEN ? AND ?" . $currency_filter_e . $dashTxnSubSqlH . "
                             GROUP BY DATE(h.transaction_date)";
                     $daily_stmt = $pdo->prepare($sql);
                     $daily_stmt->execute(array_merge([$ledgerCompanyId, $ledgerCompanyId], $account_ids, [$date_from_db, $date_to_db], $currency_params_e));
@@ -2271,7 +2329,7 @@ try {
                            AND t.transaction_type = 'PAYMENT'
                            AND t.from_account_id IN ($profitIdsPlaceholder)
                            AND t.transaction_date < ?
-                           AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter;
+                           AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . $dashTxnSubSql;
             $adjBfStmt = $pdo->prepare($adjBfSql);
             $adjBfStmt->execute(array_merge([$company_id], $primaryAccountIds, [$date_from_db], $profitAdjCurrencyParams));
             $adjBf = $adjBfStmt->fetchColumn();
@@ -2286,7 +2344,7 @@ try {
                               AND t.transaction_type = 'PAYMENT'
                               AND t.from_account_id IN ($profitIdsPlaceholder)
                               AND t.transaction_date BETWEEN ? AND ?
-                              AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . "
+                              AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . $dashTxnSubSql . "
                             GROUP BY DATE(t.transaction_date)
                             ORDER BY DATE(t.transaction_date)";
             $adjDailyStmt = $pdo->prepare($adjDailySql);
@@ -2340,7 +2398,7 @@ try {
                 WHERE h.company_id = ?
                   AND e.company_id = ?
                   AND e.entry_type = 'RATE_MIDDLEMAN'
-                  AND h.transaction_date BETWEEN ? AND ?
+                  AND h.transaction_date BETWEEN ? AND ?{$dashTxnSubSqlH}
             ";
             $rateMMParams = [$company_id, $company_id, $date_from_db, $date_to_db];
             $skipRateMM = false;
@@ -2638,6 +2696,16 @@ function calculateProfitPaymentDailyFlow(
     bool $hasContraApproval
 ): array {
     $rows = [];
+    $txnSubSql = dashboard_sql_txn_subsidiary_only($pdo, 't');
+    $currSubSql = !empty($GLOBALS['DASHBOARD_SUBSIDIARY_LEDGER'])
+        ? dashboard_sql_currency_subsidiary_only($pdo, 'c')
+        : '';
+    $toAcSubSql = !empty($GLOBALS['DASHBOARD_SUBSIDIARY_LEDGER'])
+        ? dashboard_sql_account_company_subsidiary_only($pdo, 'to_ac')
+        : '';
+    $fromAcSubSql = !empty($GLOBALS['DASHBOARD_SUBSIDIARY_LEDGER'])
+        ? dashboard_sql_account_company_subsidiary_only($pdo, 'from_ac')
+        : '';
 
     if ($hasTransactionCurrency && $filter_currency_code !== null) {
         $sql = "
@@ -2655,21 +2723,21 @@ function calculateProfitPaymentDailyFlow(
              AND UPPER(to_acc.role) = 'PROFIT'
             LEFT JOIN account_company to_ac
               ON to_ac.account_id = to_acc.id
-             AND to_ac.company_id = t.company_id
+             AND to_ac.company_id = t.company_id{$toAcSubSql}
             LEFT JOIN account from_acc
               ON from_acc.id = t.from_account_id
              AND UPPER(from_acc.role) = 'PROFIT'
             LEFT JOIN account_company from_ac
               ON from_ac.account_id = from_acc.id
-             AND from_ac.company_id = t.company_id
+             AND from_ac.company_id = t.company_id{$fromAcSubSql}
             INNER JOIN currency c
               ON c.id = t.currency_id
-             AND c.company_id = t.company_id
+             AND c.company_id = t.company_id{$currSubSql}
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
               AND UPPER(c.code) = ?
-              " . ($hasContraApproval ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
+              " . ($hasContraApproval ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "{$txnSubSql}
               AND (to_ac.account_id IS NOT NULL OR from_ac.account_id IS NOT NULL)
             GROUP BY DATE(t.transaction_date)
             ORDER BY DATE(t.transaction_date)
@@ -2693,17 +2761,17 @@ function calculateProfitPaymentDailyFlow(
              AND UPPER(to_acc.role) = 'PROFIT'
             LEFT JOIN account_company to_ac
               ON to_ac.account_id = to_acc.id
-             AND to_ac.company_id = t.company_id
+             AND to_ac.company_id = t.company_id{$toAcSubSql}
             LEFT JOIN account from_acc
               ON from_acc.id = t.from_account_id
              AND UPPER(from_acc.role) = 'PROFIT'
             LEFT JOIN account_company from_ac
               ON from_ac.account_id = from_acc.id
-             AND from_ac.company_id = t.company_id
+             AND from_ac.company_id = t.company_id{$fromAcSubSql}
             WHERE t.company_id = ?
               AND t.transaction_type = 'PAYMENT'
               AND t.transaction_date BETWEEN ? AND ?
-              " . ($hasContraApproval ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
+              " . ($hasContraApproval ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "{$txnSubSql}
               AND (to_ac.account_id IS NOT NULL OR from_ac.account_id IS NOT NULL)
             GROUP BY DATE(t.transaction_date)
             ORDER BY DATE(t.transaction_date)
