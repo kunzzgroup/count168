@@ -525,7 +525,8 @@ export async function loadOwnerCompaniesCached(fetcher) {
 
 /** Shared GET owner companies — one HTTP request per session (Layout prefetch + page boot). */
 export async function fetchOwnerCompaniesAll(options = {}) {
-  const { signal, throwOnError = false } = options;
+  const { signal, throwOnError = false, forceRefresh = false } = options;
+  if (forceRefresh) clearOwnerCompaniesCache();
   return loadOwnerCompaniesCached(async () => {
     const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
       credentials: "include",
@@ -621,12 +622,16 @@ export function isExplicitCompanySelection(companyId, companyRow, selectedGroup)
   return companyBelongsToGroup(companyRow, selectedGroup);
 }
 
-/** Sorted unique non-empty group ids from company rows. */
+/** Sorted unique non-empty group ids from company rows (native + link_source_group). */
 export function sortedUniqueGroupIds(companies) {
   const set = new Set();
   for (const c of companies || []) {
     const g = normalizeCompanyGroupId(c);
     if (g) set.add(g);
+    const link = c?.link_source_group
+      ? String(c.link_source_group).trim().toUpperCase()
+      : "";
+    if (link) set.add(link);
   }
   return [...set].sort();
 }
@@ -964,6 +969,17 @@ export function resolveReportGroupCompanyBootId(
   if (saved != null) {
     const fromSaved = acceptRawId(saved);
     if (fromSaved != null) return fromSaved;
+    // Persisted subsidiary may sit under another native group_id but still be valid
+    // (picker previously showed it via preferredCompanyId injection).
+    const savedRow = list.find((c) => Number(c.id) === Number(saved));
+    if (
+      savedRow &&
+      filterCompaniesWithDisplayId([savedRow]).length &&
+      !companyRowIsGroupEntityAnyShape(savedRow)
+    ) {
+      const savedId = Number(savedRow.id);
+      if (Number.isFinite(savedId) && savedId !== 0) return savedId;
+    }
   }
 
   const fromSubsidiary = resolveSubsidiaryBootCompanyId(list, {

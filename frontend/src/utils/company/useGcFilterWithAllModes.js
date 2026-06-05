@@ -72,18 +72,21 @@ export function useGcFilterWithAllModes({
   }, [groupsAllMode, selectedGroup, me]);
 
   const companiesForPicker = useMemo(() => {
-    const preferredId = preferredCompanyId ?? companyId ?? null;
+    const preferredId = preferredCompanyId ?? companyId ?? me?.company_id ?? null;
     if (groupsAllMode) {
       return excludeGroupLabelsFromCompanyPicker(
         dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), preferredId),
         groupIds
       );
     }
-    return dedupeOwnerCompaniesByCode(
-      companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds, {
-        preferredCompanyId: preferredId,
-      }),
-      preferredId
+    return excludeGroupLabelsFromCompanyPicker(
+      dedupeOwnerCompaniesByCode(
+        companiesForCompanyPicker(companies, effectiveGroupForCompanies, groupIds, {
+          preferredCompanyId: preferredId,
+        }),
+        preferredId
+      ),
+      groupIds
     );
   }, [
     companies,
@@ -92,6 +95,7 @@ export function useGcFilterWithAllModes({
     groupIds,
     preferredCompanyId,
     companyId,
+    me?.company_id,
   ]);
 
   const resolveMergeCompanyList = useCallback(() => {

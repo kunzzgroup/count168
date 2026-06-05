@@ -8,9 +8,12 @@ import {
   readPersistedDashboardGcFilter,
   resolveInitialSelectedGroupFromSession,
   resolveReportGroupCompanyBootId,
+  resolveViewGroupForCompany,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
   clearOwnerCompaniesCache,
+  filterCompaniesForLoginScope,
+  readDashboardSelectedCompanyId,
   resolveGcFilterBootCompanyId,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
@@ -213,11 +216,26 @@ export default function CustomerReportPage() {
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
         const persisted = readPersistedDashboardGcFilter();
+        const savedCompanyId = readDashboardSelectedCompanyId();
 
-        let rows = await fetchOwnerCompaniesAll();
+        if (savedCompanyId != null) {
+          persistDashboardGroupOnlyMode(false);
+        }
+
+        clearOwnerCompaniesCache();
+        let rows = filterCompaniesForLoginScope(
+          await fetchOwnerCompaniesAll({ forceRefresh: true }),
+          u,
+        );
         if (cancelled) return;
 
-        const bootGroup = resolveInitialSelectedGroupFromSession(rows, null, u);
+        const savedRow =
+          savedCompanyId != null
+            ? rows.find((c) => Number(c.id) === Number(savedCompanyId)) || null
+            : null;
+        const bootGroup =
+          resolveInitialSelectedGroupFromSession(rows, savedRow, u) ??
+          persisted.selectedGroup;
         const activeGroup = bootGroup ?? persisted.selectedGroup;
 
         let effectiveCompany = resolveReportGroupCompanyBootId(rows, {
@@ -228,27 +246,36 @@ export default function CustomerReportPage() {
           loginMe: u,
         });
 
+        const syncTargetId = effectiveCompany ?? savedCompanyId;
         if (
-          effectiveCompany != null &&
-          Number(effectiveCompany) !== Number(u.company_id)
+          syncTargetId != null &&
+          Number(syncTargetId) !== Number(u.company_id)
         ) {
+          const syncRow =
+            rows.find((c) => Number(c.id) === Number(syncTargetId)) || savedRow;
+          const syncGroup = resolveViewGroupForCompany(syncRow, activeGroup) ?? activeGroup;
           try {
-            const syncJson = await syncCompanySessionApi(effectiveCompany, activeGroup);
+            const syncJson = await syncCompanySessionApi(syncTargetId, syncGroup);
             if (!syncJson?.success) {
-              effectiveCompany = resolveReportGroupCompanyBootId(rows, {
-                urlCompanyId: queryCompany,
-                sessionCompanyId: u.company_id,
-                sessionCompanyCode: u.company_code,
-                selectedGroup: activeGroup,
-                loginMe: u,
-              });
+              if (effectiveCompany != null) {
+                effectiveCompany = resolveReportGroupCompanyBootId(rows, {
+                  urlCompanyId: queryCompany,
+                  sessionCompanyId: u.company_id,
+                  sessionCompanyCode: u.company_code,
+                  selectedGroup: activeGroup,
+                  loginMe: u,
+                });
+              }
             } else {
               clearOwnerCompaniesCache();
-              rows = await fetchOwnerCompaniesAll();
+              rows = filterCompaniesForLoginScope(
+                await fetchOwnerCompaniesAll({ forceRefresh: true }),
+                u,
+              );
               if (cancelled) return;
               effectiveCompany = resolveReportGroupCompanyBootId(rows, {
                 urlCompanyId: queryCompany,
-                sessionCompanyId: effectiveCompany,
+                sessionCompanyId: syncTargetId,
                 sessionCompanyCode: syncJson?.data?.company_code ?? u.company_code,
                 selectedGroup: activeGroup,
                 loginMe: u,
@@ -266,7 +293,10 @@ export default function CustomerReportPage() {
           effectiveCompany != null
             ? rows.find((c) => Number(c.id) === Number(effectiveCompany)) || null
             : null;
-        const bootSelectedGroup = resolveInitialSelectedGroupFromSession(rows, row, u) ?? activeGroup;
+        const bootSelectedGroup =
+          (row ? resolveViewGroupForCompany(row, activeGroup) : null) ??
+          resolveInitialSelectedGroupFromSession(rows, row, u) ??
+          activeGroup;
 
         if (effectiveCompany != null) {
           persistDashboardGroupOnlyMode(false);
@@ -419,7 +449,7 @@ export default function CustomerReportPage() {
     onSelectCompany: onSwitchCompany,
     onClearCompany: handleClearCompany,
     switchingCompany: false,
-    preferredCompanyId: companyId,
+    preferredCompanyId: companyId ?? me?.company_id ?? null,
   });
 
   const reportScope = useMemo(
