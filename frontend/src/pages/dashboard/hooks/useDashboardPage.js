@@ -325,8 +325,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           : u.company_id
             ? parseInt(u.company_id, 10)
             : null;
-      if (isDashboardGroupOnlyMode() && !canUseGroupOnlyMode(u)) {
-        persistDashboardGroupOnlyMode(false);
+      if (isDashboardGroupOnlyMode()) {
+        const persistedGroup = sessionStorage.getItem("dashboard_group_filter");
+        const pg = persistedGroup ? String(persistedGroup).trim().toUpperCase() : null;
+        if (!pg || !canUseGroupOnlyMode(u, pg)) {
+          persistDashboardGroupOnlyMode(false);
+        }
       }
 
       let cid = resolveBootCompanyId({
@@ -603,15 +607,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const singleCid = companyId != null ? parseInt(companyId, 10) : null;
     const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
 
-    if (
-      me &&
-      companyId == null &&
-      !groupsAllMode &&
-      (!groupKey || !canUseGroupOnlyMode(me, groupKey))
-    ) {
-      setCurrencies([]);
-      setCurrencyCode("");
-      return;
+    if (companyId == null && !groupsAllMode) {
+      if (!me || !groupKey || !canUseGroupOnlyMode(me, groupKey)) {
+        setCurrencies([]);
+        setCurrencyCode("");
+        return;
+      }
     }
     const singleCompanyScope =
       Number.isFinite(singleCid) &&
@@ -688,7 +689,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     } else if (singleCid) {
       companyIds = [singleCid];
     } else if (groupKey && !singleCid) {
-      if (me && !canUseGroupOnlyMode(me, groupKey)) {
+      if (!me || !canUseGroupOnlyMode(me, groupKey)) {
         commitCurrencyList([]);
         return;
       }
@@ -760,7 +761,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (!codes.length && singleCid) {
           const cached = currenciesByCompanyRef.current.get(singleCid);
           if (cached?.length) codes = [...cached];
-        } else if (!codes.length && groupKey && !subsidiaryDashboardScope) {
+        } else if (
+          !codes.length &&
+          groupKey &&
+          !subsidiaryDashboardScope &&
+          me &&
+          canUseGroupOnlyMode(me, groupKey)
+        ) {
           const cached = currenciesByGroupRef.current.get(groupKey);
           if (cached?.length) codes = [...cached];
         }
