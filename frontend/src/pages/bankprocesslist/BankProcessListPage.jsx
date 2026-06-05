@@ -166,6 +166,7 @@ export default function BankProcessListPage() {
     setCurrencyListOrdered,
     currencyFilterCode,
     setCurrencyFilterCode,
+    handlePickCurrency,
     currencyPillDisplayOrder,
     setCurrencyPillDisplayOrder,
     skipNextCurrencyPillClickRef,
@@ -513,7 +514,7 @@ export default function BankProcessListPage() {
                             skipNextCurrencyPillClickRef.current = false;
                             return;
                           }
-                          setCurrencyFilterCode(code);
+                          handlePickCurrency(code);
                         }}
                       >
                         {code}

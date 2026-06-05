@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 import { readTransactionCurrencyFilterState } from "../lib/transactionPaymentLogic.js";
 import {
   buildDashboardCurrencyScopeKey,
-  readDashboardSelectedCurrency,
+  resolveCrossPageCurrencyPreference,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   transactionScopeCacheCompanyKey,
@@ -97,12 +97,13 @@ export function useTransactionInitialization({
     const rows = currencyScopeBundle.rows;
     const codes = rows.map((x) => String(x.code || x.currency || "").toUpperCase().trim()).filter(Boolean);
 
-    let preferredDefault = readDashboardSelectedCurrency(
-      buildDashboardCurrencyScopeKey({
+    let preferredDefault = resolveCrossPageCurrencyPreference({
+      scopeKey: buildDashboardCurrencyScopeKey({
         companyId: transactionScope?.scopeCompanyId > 0 ? transactionScope.scopeCompanyId : cid,
         selectedGroup: transactionScope?.selectedGroup ?? filterSnapshot?.selectedGroup,
       }),
-    );
+      availableCodes: codes,
+    });
     if (!preferredDefault) {
       try {
         preferredDefault =

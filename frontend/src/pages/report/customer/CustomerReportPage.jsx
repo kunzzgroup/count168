@@ -12,10 +12,11 @@ import {
   resolveGcFilterBootCompanyId,
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
+  notifyDashboardCurrencyFilterChanged,
+  resolveCrossPageCurrencyPreference,
   buildDashboardCurrencyScopeKey,
-  persistDashboardSelectedCurrency,
-  readDashboardSelectedCurrency,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import { useReportGroupCompanyFilter } from "../shared/useReportGroupCompanyFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
@@ -359,6 +360,25 @@ export default function CustomerReportPage() {
     [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
   );
 
+  const reportCurrencyCodes = useMemo(
+    () => currencyList.map((c) => c.code).filter(Boolean),
+    [currencyList],
+  );
+
+  const applyCrossPageCurrency = useCallback((code) => {
+    setShowAllCurrencies(false);
+    setSelectedCurrencies([code]);
+  }, []);
+
+  const { persistSelection: persistCrossPageCurrency } = useCrossPageCurrencySync({
+    enabled: currencyFilterReady && reportCurrencyCodes.length > 0,
+    companyId: reportScope?.scopeCompanyId > 0 ? reportScope.scopeCompanyId : companyId,
+    selectedGroup: reportScope?.viewGroup ?? selectedGroup,
+    availableCodes: reportCurrencyCodes,
+    currentCode: selectedCurrencies.length === 1 ? selectedCurrencies[0] : "",
+    onApplyCode: applyCrossPageCurrency,
+  });
+
   const reportParams = useMemo(
     () => ({
       accountId,
@@ -419,13 +439,13 @@ export default function CustomerReportPage() {
       selectedCurrencies: currencies,
       showAllCurrencies: showAll,
     };
-    if (!showAll && currencies?.length === 1) {
-      persistDashboardSelectedCurrency(
+    if (!showAll && currencies?.length >= 1) {
+      notifyDashboardCurrencyFilterChanged(
+        currencies[currencies.length - 1],
         buildDashboardCurrencyScopeKey({
           companyId: scope?.scopeCompanyId > 0 ? scope.scopeCompanyId : null,
           selectedGroup: scope?.viewGroup ?? selectedGroup,
         }) || String(key),
-        currencies[0],
       );
     }
   }, [selectedGroup]);
@@ -483,12 +503,13 @@ export default function CustomerReportPage() {
       }
 
       if (curs.length > 0) {
-        const persistedCur = readDashboardSelectedCurrency(
-          buildDashboardCurrencyScopeKey({
+        const persistedCur = resolveCrossPageCurrencyPreference({
+          scopeKey: buildDashboardCurrencyScopeKey({
             companyId: reportScope?.scopeCompanyId > 0 ? reportScope.scopeCompanyId : null,
             selectedGroup: reportScope?.viewGroup ?? selectedGroup,
           }),
-        );
+          availableCodes: curs.map((c) => c.code),
+        });
         const fromPersisted = persistedCur
           ? curs.find((c) => c.code === persistedCur)
           : null;
@@ -609,6 +630,7 @@ export default function CustomerReportPage() {
     setSelectedCurrencies((prev) => {
       const next = prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code];
       persistCurrencyPrefs(reportScope, next, false);
+      if (next.includes(code)) persistCrossPageCurrency(code);
       return next;
     });
   };

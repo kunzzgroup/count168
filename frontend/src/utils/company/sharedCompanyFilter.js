@@ -40,6 +40,7 @@ export const DASHBOARD_LOGIN_FILTER_APPLIED_KEY = "dashboard_login_filter_applie
 /** Linked group ids (AP+IG) from get_owner_companies_api for company login filter pills. */
 export const DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY = "dashboard_accessible_group_ids";
 export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-changed";
+export const DASHBOARD_CURRENCY_FILTER_EVENT = "eazycount:dashboard-currency-filter-changed";
 
 export function clearDashboardFilterSession() {
   clearCompanySessionFlagsCache();
@@ -60,28 +61,87 @@ export function buildDashboardCurrencyScopeKey({ companyId, selectedGroup } = {}
   return g ? `group:${g}` : null;
 }
 
+export function readLastDashboardSelectedCurrency() {
+  try {
+    const cur = sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_KEY);
+    return cur ? String(cur).trim().toUpperCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeCurrencyCodeList(availableCodes) {
+  if (!Array.isArray(availableCodes)) return null;
+  const codes = availableCodes.map((c) => String(c).trim().toUpperCase()).filter(Boolean);
+  return codes.length ? codes : null;
+}
+
+function pickCurrencyIfAllowed(code, allowedCodes) {
+  const cur = code ? String(code).trim().toUpperCase() : "";
+  if (!cur) return null;
+  if (allowedCodes?.length && !allowedCodes.includes(cur)) return null;
+  return cur;
+}
+
 export function persistDashboardSelectedCurrency(scopeKey, code) {
   const key = scopeKey ? String(scopeKey).trim() : "";
   const cur = code ? String(code).trim().toUpperCase() : "";
-  if (!key || !cur) return;
+  if (!cur) return;
   try {
-    sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY, key);
+    if (key) sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY, key);
     sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_KEY, cur);
   } catch {
     /* ignore */
   }
 }
 
-export function readDashboardSelectedCurrency(scopeKey) {
+/** Last cross-page currency (global; not scoped to a single company). */
+export function readDashboardSelectedCurrency(scopeKey, options = {}) {
+  const allowed = normalizeCurrencyCodeList(options.availableCodes);
+  const last = pickCurrencyIfAllowed(readLastDashboardSelectedCurrency(), allowed);
+  if (last) return last;
   const key = scopeKey ? String(scopeKey).trim() : "";
   if (!key) return null;
   try {
     if (sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY) !== key) return null;
-    const cur = sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_KEY);
-    return cur ? String(cur).trim().toUpperCase() : null;
+    return pickCurrencyIfAllowed(sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_KEY), allowed);
   } catch {
     return null;
   }
+}
+
+/** Persist + broadcast so every currency-filter page stays in sync. */
+export function notifyDashboardCurrencyFilterChanged(currencyCode, scopeKey = null) {
+  const code = String(currencyCode || "").trim().toUpperCase();
+  if (!code) return;
+  const scope =
+    scopeKey != null && String(scopeKey).trim()
+      ? String(scopeKey).trim()
+      : buildDashboardCurrencyScopeKey({});
+  persistDashboardSelectedCurrency(scope, code);
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(DASHBOARD_CURRENCY_FILTER_EVENT, {
+      detail: { currencyCode: code, scopeKey: scope },
+    }),
+  );
+}
+
+/** Boot / navigation: global last currency wins over stale URL params. */
+export function resolveCrossPageCurrencyPreference({
+  scopeKey = null,
+  availableCodes = [],
+  urlCurrency = "",
+} = {}) {
+  const allowed = normalizeCurrencyCodeList(availableCodes) ?? [];
+  const url = String(urlCurrency || "").trim().toUpperCase();
+  return (
+    pickCurrencyIfAllowed(readLastDashboardSelectedCurrency(), allowed.length ? allowed : null) ||
+    readDashboardSelectedCurrency(scopeKey, { availableCodes: allowed }) ||
+    pickCurrencyIfAllowed(url, allowed.length ? allowed : null) ||
+    allowed[0] ||
+    ""
+  );
 }
 
 /** Store linked group ids from companies API (company login: AP+IG). */

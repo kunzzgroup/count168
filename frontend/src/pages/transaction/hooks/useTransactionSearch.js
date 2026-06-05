@@ -24,9 +24,10 @@ import {
 import { clearTxSearchCache, getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
 import {
   buildDashboardCurrencyScopeKey,
-  persistDashboardSelectedCurrency,
-  readDashboardSelectedCurrency,
+  notifyDashboardCurrencyFilterChanged,
+  resolveCrossPageCurrencyPreference,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import {
   transactionScopeApiParams,
   transactionScopeCacheCompanyKey,
@@ -97,14 +98,13 @@ export function useTransactionSearch({
         TRANSACTION_CURRENCY_FILTER_KEY_PREFIX + companyId,
         JSON.stringify({ showAll: !!showAll, currencies: [...(sel || [])] }),
       );
-      if (!showAll && sel?.length === 1) {
-        persistDashboardSelectedCurrency(
+      if (!showAll && sel?.length >= 1) {
+        const scopeKey =
           buildDashboardCurrencyScopeKey({
             companyId: /^\d+$/.test(String(companyId)) ? Number(companyId) : null,
             selectedGroup: scopeGroup,
-          }) || String(companyId),
-          sel[0],
-        );
+          }) || String(companyId);
+        notifyDashboardCurrencyFilterChanged(sel[sel.length - 1], scopeKey);
       }
     } catch {
       /* ignore */
@@ -160,6 +160,48 @@ export function useTransactionSearch({
     scheduleAutoSearch();
   }, [showAllCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch, transactionScope?.selectedGroup]);
 
+  const txCurrencyCodes = useMemo(
+    () =>
+      (currencyRowsOrdered || [])
+        .map((r) => String(r.code || "").toUpperCase().trim())
+        .filter(Boolean),
+    [currencyRowsOrdered],
+  );
+
+  const applyCrossPageCurrency = useCallback(
+    (code) => {
+      const c = String(code || "").toUpperCase().trim();
+      if (!c) return;
+      setShowAllCurrencies(false);
+      setSelectedCurrencies([c]);
+      persistCurrencyFilter(
+        scopeCacheCompanyKey,
+        false,
+        [c],
+        transactionScope?.selectedGroup,
+      );
+      scheduleAutoSearch();
+    },
+    [
+      scopeCacheCompanyKey,
+      persistCurrencyFilter,
+      scheduleAutoSearch,
+      transactionScope?.selectedGroup,
+    ],
+  );
+
+  useCrossPageCurrencySync({
+    enabled: txCurrencyCodes.length > 0 && scopeReady,
+    companyId:
+      transactionScope?.scopeCompanyId > 0
+        ? transactionScope.scopeCompanyId
+        : null,
+    selectedGroup: transactionScope?.selectedGroup ?? scopeViewGroup,
+    availableCodes: txCurrencyCodes,
+    currentCode: selectedCurrencies.length === 1 ? selectedCurrencies[0] : "",
+    onApplyCode: applyCrossPageCurrency,
+  });
+
   const toggleCurrencyBtn = useCallback(
     (code) => {
       const nextShowAll = false;
@@ -178,9 +220,28 @@ export function useTransactionSearch({
       setShowAllCurrencies(nextShowAll);
       setSelectedCurrencies(nextSel);
       persistCurrencyFilter(scopeCacheCompanyKey, nextShowAll, nextSel, transactionScope?.selectedGroup);
+      if (nextSel.includes(c)) {
+        const scopeKey =
+          buildDashboardCurrencyScopeKey({
+            companyId:
+              transactionScope?.scopeCompanyId > 0
+                ? transactionScope.scopeCompanyId
+                : null,
+            selectedGroup: transactionScope?.selectedGroup ?? scopeViewGroup,
+          }) || String(scopeCacheCompanyKey);
+        notifyDashboardCurrencyFilterChanged(c, scopeKey);
+      }
       scheduleAutoSearch();
     },
-    [selectedCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch, transactionScope?.selectedGroup],
+    [
+      selectedCurrencies,
+      scopeCacheCompanyKey,
+      persistCurrencyFilter,
+      scheduleAutoSearch,
+      transactionScope?.selectedGroup,
+      transactionScope?.scopeCompanyId,
+      scopeViewGroup,
+    ],
   );
 
   const onCurrencyDragStart = useCallback((code) => {

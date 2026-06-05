@@ -52,9 +52,8 @@ import {
   clearDashboardGroupFilterKeepCompany,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  resolveCrossPageCurrencyPreference,
   buildDashboardCurrencyScopeKey,
-  persistDashboardSelectedCurrency,
-  readDashboardSelectedCurrency,
   applyLoginScopeToSessionStorageIfNeeded,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -65,6 +64,7 @@ import {
   pickDefaultSubsidiaryForGroup,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
+import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import { saveUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
 
 /** Per-company view_group for API access (linked companies under AP/IG, etc.). */
@@ -411,7 +411,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       companyId: cid ?? companyId,
       selectedGroup,
     });
-    const persisted = readDashboardSelectedCurrency(scopeKey);
+    const persisted = resolveCrossPageCurrencyPreference({
+      scopeKey,
+      availableCodes: codes,
+    });
     setCurrencyCode((prev) => {
       if (persisted && codes.includes(persisted)) return persisted;
       return prev && codes.includes(prev) ? prev : codes[0] || "";
@@ -440,9 +443,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (scopeCurrencyKeyRef.current !== scopeKey) return;
       const list = [...new Set(codes.map((c) => String(c).toUpperCase()).filter(Boolean))];
       setCurrencies(list);
-      const persisted = readDashboardSelectedCurrency(
-        buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
-      );
+      const persisted = resolveCrossPageCurrencyPreference({
+        scopeKey: buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
+        availableCodes: list,
+      });
       setCurrencyCode((prev) => {
         if (persisted && list.includes(persisted)) return persisted;
         return prev && list.includes(prev) ? prev : list[0] || "";
@@ -1985,18 +1989,32 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return Number.isFinite(firstN) && firstN > 0 ? firstN : null;
   }, [companyId, selectedGroup, companies, me?.company_id, companiesForPicker]);
 
-  const handleCurrencyChange = useCallback((code) => {
-    if (skipNextCurrencyClickRef.current) {
-      skipNextCurrencyClickRef.current = false;
-      return;
-    }
+  const applyCrossPageCurrency = useCallback((code) => {
     setShowAllCurrencies(false);
     setCurrencyCode(code);
-    persistDashboardSelectedCurrency(
-      buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
-      code,
-    );
-  }, [companyId, selectedGroup]);
+  }, []);
+
+  const { persistSelection: persistCrossPageCurrency } = useCrossPageCurrencySync({
+    enabled: currencies.length > 0,
+    companyId,
+    selectedGroup,
+    availableCodes: currencies,
+    currentCode: currencyCode,
+    onApplyCode: applyCrossPageCurrency,
+  });
+
+  const handleCurrencyChange = useCallback(
+    (code) => {
+      if (skipNextCurrencyClickRef.current) {
+        skipNextCurrencyClickRef.current = false;
+        return;
+      }
+      setShowAllCurrencies(false);
+      setCurrencyCode(code);
+      persistCrossPageCurrency(code);
+    },
+    [persistCrossPageCurrency],
+  );
 
   const handleCurrencyDropOn = useCallback(
     async (e, targetCode) => {

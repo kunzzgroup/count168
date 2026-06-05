@@ -12,9 +12,13 @@ import {
   pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
+  buildDashboardCurrencyScopeKey,
+  notifyDashboardCurrencyFilterChanged,
+  resolveCrossPageCurrencyPreference,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
+import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
@@ -662,7 +666,25 @@ export function useBankProcessListPage() {
             setGroupFilterKind(pfGfk === "all" || pfGfk === "ungrouped" ? pfGfk : "follow");
           }
           setSearch(currentUrl.searchParams.get("search") || "");
-          setCurrencyFilterCode(String(currentUrl.searchParams.get("currency") || "").trim().toUpperCase());
+          const prefetchedRowEarly = prefetchedCompanies.find(
+            (c) => Number(c.id) === prefetchCompanyId,
+          );
+          const prefBootGroupEarly = resolveInitialSelectedGroupFromSession(
+            prefetchedCompanies,
+            prefetchedRowEarly,
+          );
+          setCurrencyFilterCode(
+            resolveCrossPageCurrencyPreference({
+              scopeKey: buildDashboardCurrencyScopeKey({
+                companyId: prefetchCompanyId,
+                selectedGroup: prefBootGroupEarly,
+              }),
+              availableCodes: Array.isArray(routePrefetch.currencyCodes)
+                ? routePrefetch.currencyCodes
+                : [],
+              urlCurrency: currentUrl.searchParams.get("currency") || "",
+            }),
+          );
           setDateFrom(currentUrl.searchParams.get("date_from") || "");
           setDateTo(currentUrl.searchParams.get("date_to") || "");
           setShowAll(currentUrl.searchParams.get("showAll") === "1");
@@ -754,7 +776,15 @@ export function useBankProcessListPage() {
           persistDashboardFilterState(bootGroup, effectiveNum, { allowGroupOnly: false });
         }
         setSearch(url.searchParams.get("search") || "");
-        setCurrencyFilterCode(String(url.searchParams.get("currency") || "").trim().toUpperCase());
+        setCurrencyFilterCode(
+          resolveCrossPageCurrencyPreference({
+            scopeKey: buildDashboardCurrencyScopeKey({
+              companyId: effectiveNum,
+              selectedGroup: bootGroup,
+            }),
+            urlCurrency: url.searchParams.get("currency") || "",
+          }),
+        );
         setDateFrom(url.searchParams.get("date_from") || "");
         setDateTo(url.searchParams.get("date_to") || "");
         setShowAll(url.searchParams.get("showAll") === "1");
@@ -1027,13 +1057,17 @@ export function useBankProcessListPage() {
       if (Array.isArray(cached.currencyCodes) && cached.currencyCodes.length) {
         setCurrencyListOrdered(cached.currencyCodes);
         setCurrencyPillDisplayOrder(null);
-        setCurrencyFilterCode((prev) =>
-          prev && cached.currencyCodes.includes(prev) ? prev : "",
-        );
+        setCurrencyFilterCode((prev) => {
+          if (prev && cached.currencyCodes.includes(prev)) return prev;
+          return resolveCrossPageCurrencyPreference({
+            scopeKey: buildDashboardCurrencyScopeKey({ companyId: id, selectedGroup }),
+            availableCodes: cached.currencyCodes,
+          });
+        });
       }
       return true;
     },
-    [search],
+    [search, selectedGroup],
   );
 
   const warmBankProcessListCompanyCache = useCallback(
@@ -1101,9 +1135,13 @@ export function useBankProcessListPage() {
         if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
           setCurrencyListOrdered(slice.currencyCodes);
           setCurrencyPillDisplayOrder(null);
-          setCurrencyFilterCode((prev) =>
-            prev && slice.currencyCodes.includes(prev) ? prev : "",
-          );
+          setCurrencyFilterCode((prev) => {
+            if (prev && slice.currencyCodes.includes(prev)) return prev;
+            return resolveCrossPageCurrencyPreference({
+              scopeKey: buildDashboardCurrencyScopeKey({ companyId: cid, selectedGroup }),
+              availableCodes: slice.currencyCodes,
+            });
+          });
         }
         if (!preserveSelection) setSelectedIds(new Set());
         if (!preservePage) setCurrentPage(1);
@@ -1115,7 +1153,7 @@ export function useBankProcessListPage() {
         if (!ac.signal.aborted && !silent) setTableLoading(false);
       }
     },
-    [companyId, search, notify, syncUrl, t],
+    [companyId, selectedGroup, search, notify, syncUrl, t],
   );
 
   useEffect(() => {
@@ -2048,6 +2086,29 @@ export function useBankProcessListPage() {
     [currencyPillDisplayOrder, baseCurrencyPills]
   );
 
+  const handlePickCurrency = useCallback(
+    (code) => {
+      const cur = String(code || "").trim().toUpperCase();
+      setCurrencyFilterCode(cur);
+      if (cur) {
+        notifyDashboardCurrencyFilterChanged(
+          cur,
+          buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
+        );
+      }
+    },
+    [companyId, selectedGroup],
+  );
+
+  useCrossPageCurrencySync({
+    enabled: !loading && !!companyId && currencyPillCodes.length > 0,
+    companyId,
+    selectedGroup,
+    availableCodes: currencyPillCodes,
+    currentCode: currencyFilterCode,
+    onApplyCode: (code) => setCurrencyFilterCode(code),
+  });
+
   useEffect(() => {
     setCurrencyPillDisplayOrder((prev) => {
       if (!prev) return null;
@@ -2343,6 +2404,7 @@ export function useBankProcessListPage() {
     currencyPillCodes,
     persistOrderedCompanyCurrencies,
     onCurrencyPillDrop,
+    handlePickCurrency,
     visibleRows,
     totalPages,
     pageRows,
