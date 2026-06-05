@@ -9,6 +9,9 @@ import {
   persistDashboardGroupOnlyMode,
   resolveBootCompanyId,
   resolveGcFilterBootCompanyId,
+  readPersistedDashboardGcFilter,
+  readDashboardSelectedCompanyId,
+  companiesInGroupList,
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
@@ -187,24 +190,40 @@ export default function DomainReportPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
+        const persistedGc = readPersistedDashboardGcFilter();
+        const savedCompanyId = readDashboardSelectedCompanyId();
         const bootGc = resolveGcFilterBootCompanyId({
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
-        if (bootGc.groupOnly) {
-          persistDashboardGroupOnlyMode(true);
-        } else if (bootGc.companyId != null) {
-          persistDashboardGroupOnlyMode(false);
-        }
-        const nextCompanyId =
+        let bootGroup =
+          persistedGc.selectedGroup ||
+          bootGc.selectedGroup ||
+          resolveInitialSelectedGroupFromSession(rows, null, u);
+        let nextCompanyId =
           companyId != null ? companyId : bootGc.groupOnly ? null : bootGc.companyId;
+        if (nextCompanyId == null && savedCompanyId != null && bootGroup) {
+          const inGroup = companiesInGroupList(rows, bootGroup).some(
+            (c) => Number(c.id) === Number(savedCompanyId),
+          );
+          if (inGroup) nextCompanyId = savedCompanyId;
+        }
+        if (nextCompanyId != null) {
+          persistDashboardGroupOnlyMode(false);
+          if (bootGroup) {
+            persistDashboardFilterState(bootGroup, nextCompanyId, { allowGroupOnly: false });
+          }
+        } else if (bootGc.groupOnly || (bootGroup && isDashboardGroupOnlyMode())) {
+          persistDashboardGroupOnlyMode(true);
+        }
         const row =
           nextCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
             : null;
+        bootGroup = resolveInitialSelectedGroupFromSession(rows, row, u) || bootGroup;
         setCompanyId((prev) => (prev != null ? prev : nextCompanyId));
-        setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
+        setSelectedGroup(bootGroup);
         if (nextCompanyId != null) void checkBankOnly(nextCompanyId);
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -262,6 +281,11 @@ export default function DomainReportPage() {
   const onPrepareCompanySelect = useCallback((c) => {
     const nextId = Number(c?.id);
     if (!nextId) return;
+    const groupForPersist =
+      (c?.group_id ? String(c.group_id).trim().toUpperCase() : "") ||
+      (selectedGroup ? String(selectedGroup).trim().toUpperCase() : "") ||
+      null;
+    persistDashboardFilterState(groupForPersist, nextId, { allowGroupOnly: false });
     persistDashboardGroupOnlyMode(false);
     flushSync(() => setCompanyId(nextId));
     if (reportDataRef.current != null) setReportSyncing(true);
@@ -269,7 +293,7 @@ export default function DomainReportPage() {
       setProcessId("");
       setMetaReady(false);
     });
-  }, []);
+  }, [selectedGroup]);
 
   const onSwitchCompany = useCallback(
     async (c) => {
