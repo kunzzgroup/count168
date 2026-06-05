@@ -58,7 +58,7 @@ function ensureDeletedLogTable(PDO $pdo) {
  */
 function validateCaptureIds(
     PDO $pdo,
-    int $company_id,
+    array $scopeCtx,
     array $captureIds,
     string $date_from_db,
     string $date_to_db,
@@ -67,16 +67,18 @@ function validateCaptureIds(
     if (empty($captureIds)) {
         return [];
     }
+    $ledgerDc = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dc', 'data_captures');
+    $processCompanyId = dcCaptureProcessCompanyId($scopeCtx);
     $placeholders = str_repeat('?,', count($captureIds) - 1) . '?';
     $sql = "SELECT dc.id
             FROM data_captures dc
             INNER JOIN process p ON dc.process_id = p.id
-            WHERE dc.company_id = ?
+            WHERE 1=1 {$ledgerDc['sql']}
               AND dc.id IN ($placeholders)
               AND dc.capture_date BETWEEN ? AND ?
               AND p.company_id = ?
               $scopeProcessFilter";
-    $params = array_merge([$company_id], $captureIds, [$date_from_db, $date_to_db, $company_id]);
+    $params = array_merge([$ledgerDc['bind']], $captureIds, [$date_from_db, $date_to_db, $processCompanyId]);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -140,6 +142,13 @@ try {
         }
         $company_id = (int) $_SESSION['company_id'];
         $capture_scope_group = false;
+        $scopeCtx = [
+            'company_id' => $company_id,
+            'anchor_company_id' => $company_id,
+            'is_group_scope' => false,
+            'dual_tenant' => tenant_table_has_scope_columns($pdo, 'data_captures'),
+            'submitted_dual_tenant' => dcSubmittedProcessesDualTenantEnabled($pdo),
+        ];
         $scopeProcessFilter = dcSqlCompanyProcessFilter('p');
     }
 
@@ -194,7 +203,7 @@ try {
 
     $validCaptureIds = validateCaptureIds(
         $pdo,
-        $company_id,
+        $scopeCtx,
         $captureIds,
         $date_from_db,
         $date_to_db,
@@ -224,45 +233,87 @@ try {
     // 确保当某个 Data Capture 被维护页删除后，Data Capture 页面右侧的 Submitted Processes 也不再显示这条记录。
     // 只按 company + process + capture_date 精准删除，不影响其他功能或历史记录。
     $placeholders = str_repeat('?,', count($validCaptureIds) - 1) . '?';
+    $ledgerDc = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'dc', 'data_captures');
+    $processCompanyId = dcCaptureProcessCompanyId($scopeCtx);
     $captureMetaSql = "
         SELECT dc.id AS capture_id, dc.process_id, dc.capture_date
         FROM data_captures dc
         INNER JOIN process p ON dc.process_id = p.id
-        WHERE dc.company_id = ? AND p.company_id = ? AND dc.id IN ($placeholders)
+        WHERE 1=1 {$ledgerDc['sql']} AND p.company_id = ? AND dc.id IN ($placeholders)
     ";
-    $captureMetaParams = array_merge([$company_id, $company_id], $validCaptureIds);
+    $captureMetaParams = array_merge([$ledgerDc['bind'], $processCompanyId], $validCaptureIds);
     $captureMetaStmt = $pdo->prepare($captureMetaSql);
     $captureMetaStmt->execute($captureMetaParams);
     $captureMetaRows = $captureMetaStmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (!empty($captureMetaRows)) {
-        $deleteSubmittedStmt = $pdo->prepare("
-            DELETE FROM submitted_processes
-            WHERE company_id = ?
-              AND process_id = ?
-              AND (
-                    (DATE(capture_date) = ?)
-                 OR (capture_date IS NULL AND DATE(date_submitted) = ?)
-              )
-        ");
+        $ledgerSp = dcBuildCaptureLedgerFilter($pdo, $scopeCtx, 'sp', 'submitted_processes');
+        $useSpScope = !empty($scopeCtx['submitted_dual_tenant']);
+        if ($useSpScope) {
+            $deleteSubmittedStmt = $pdo->prepare("
+                DELETE FROM submitted_processes
+                WHERE scope_type = ?
+                  AND scope_id = ?
+                  AND process_id = ?
+                  AND (
+                        (DATE(capture_date) = ?)
+                     OR (capture_date IS NULL AND DATE(date_submitted) = ?)
+                  )
+            ");
+        } else {
+            $deleteSubmittedStmt = $pdo->prepare("
+                DELETE FROM submitted_processes
+                WHERE company_id = ?
+                  AND process_id = ?
+                  AND (
+                        (DATE(capture_date) = ?)
+                     OR (capture_date IS NULL AND DATE(date_submitted) = ?)
+                  )
+            ");
+        }
+        $scopeInsert = dcCaptureScopeInsertValues($scopeCtx);
         foreach ($captureMetaRows as $metaRow) {
             $procId = isset($metaRow['process_id']) ? (int)$metaRow['process_id'] : 0;
             $capDate = $metaRow['capture_date'] ?? null;
             if ($procId > 0 && $capDate) {
-                $findSp = $pdo->prepare(
-                    'SELECT id FROM submitted_processes WHERE company_id = ? AND process_id = ?
-                     AND ((DATE(capture_date) = ?) OR (capture_date IS NULL AND DATE(date_submitted) = ?))'
-                );
-                $findSp->execute([$company_id, $procId, $capDate, $capDate]);
+                if ($useSpScope) {
+                    $findSp = $pdo->prepare(
+                        'SELECT id FROM submitted_processes WHERE scope_type = ? AND scope_id = ? AND process_id = ?
+                         AND ((DATE(capture_date) = ?) OR (capture_date IS NULL AND DATE(date_submitted) = ?))'
+                    );
+                    $findSp->execute([
+                        $scopeInsert['scope_type'],
+                        $scopeInsert['scope_id'],
+                        $procId,
+                        $capDate,
+                        $capDate,
+                    ]);
+                } else {
+                    $findSp = $pdo->prepare(
+                        'SELECT id FROM submitted_processes WHERE company_id = ? AND process_id = ?
+                         AND ((DATE(capture_date) = ?) OR (capture_date IS NULL AND DATE(date_submitted) = ?))'
+                    );
+                    $findSp->execute([$company_id, $procId, $capDate, $capDate]);
+                }
                 while ($sid = $findSp->fetchColumn()) {
                     deletedLog($pdo, $userTagCap, $pageTagCap, 'submitted_processes', (string) $sid);
                 }
-                $deleteSubmittedStmt->execute([
-                    $company_id,
-                    $procId,
-                    $capDate,
-                    $capDate
-                ]);
+                if ($useSpScope) {
+                    $deleteSubmittedStmt->execute([
+                        $scopeInsert['scope_type'],
+                        $scopeInsert['scope_id'],
+                        $procId,
+                        $capDate,
+                        $capDate,
+                    ]);
+                } else {
+                    $deleteSubmittedStmt->execute([
+                        $company_id,
+                        $procId,
+                        $capDate,
+                        $capDate,
+                    ]);
+                }
             }
         }
     }

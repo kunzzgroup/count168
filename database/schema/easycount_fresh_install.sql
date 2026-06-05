@@ -1148,6 +1148,8 @@ CREATE TABLE `process_accounting_posted` (
 CREATE TABLE `submitted_processes` (
   `id` int(11) NOT NULL,
   `company_id` int(10) UNSIGNED NOT NULL,
+  `scope_type` enum('company','group') NOT NULL DEFAULT 'company' COMMENT 'Tenant scope: company or group ledger',
+  `scope_id` bigint UNSIGNED DEFAULT NULL COMMENT 'Numeric scope: company.id or groups.id',
   `user_id` int(11) NOT NULL,
   `user_type` enum('user','owner') NOT NULL DEFAULT 'user',
   `process_id` int(11) NOT NULL,
@@ -1894,7 +1896,8 @@ ALTER TABLE `submitted_processes`
   ADD KEY `idx_process` (`process_id`),
   ADD KEY `idx_user_type_id` (`user_type`,`user_id`),
   ADD KEY `idx_company_id` (`company_id`),
-  ADD KEY `idx_capture_date` (`capture_date`);
+  ADD KEY `idx_capture_date` (`capture_date`),
+  ADD KEY `idx_sp_scope_date` (`scope_type`,`scope_id`,`capture_date`);
 --
 -- Indexes for table `submitted_processes_backup`
 --

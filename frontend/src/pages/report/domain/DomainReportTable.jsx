@@ -6,7 +6,13 @@ function rowKey(item, idx) {
   return `${p}|${d}|${idx}`;
 }
 
-export default function DomainReportTable({ reportData, reportSyncing = false, error, t }) {
+export default function DomainReportTable({
+  reportData,
+  reportSyncing = false,
+  error,
+  isGroupScope = false,
+  t,
+}) {
   const tableHeader = (
     <div className="domain-report-table-header">
       <div>{t("colProcess")}</div>
@@ -71,7 +77,10 @@ export default function DomainReportTable({ reportData, reportSyncing = false, e
 
       <div className="domain-report-cards">
         {data.map((item, idx) => {
-          const label = item.description ? `${item.process} (${item.description})` : item.process;
+          const label =
+            !isGroupScope && item.description
+              ? `${item.process} (${item.description})`
+              : item.process;
           const wl = parseFloat(item.win_lose || 0);
           const winLoseClass = wl > 0 ? "domain-report-win-lose-positive" : (wl < 0 ? "domain-report-win-lose-negative" : "");
 

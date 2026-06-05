@@ -1217,8 +1217,9 @@ export default function DataCapturePage() {
                     <div className="submitted-details">
                       <div className="detail-row">
                         <strong>
-                          {process.process_code}
-                          {process.description_name ? ` (${process.description_name})` : ""}
+                          {captureScope?.mode === "group"
+                            ? process.process_code
+                            : `${process.process_code}${process.description_name ? ` (${process.description_name})` : ""}`}
                         </strong>
                         <div className="submitted-meta">
                           <span className="submitted-by">{process.submitted_by}</span>

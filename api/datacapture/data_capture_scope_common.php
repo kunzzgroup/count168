@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../reports/report_scope_common.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 
 function dcNormalizeGroupId(?string $groupId): string
 {
@@ -53,6 +54,24 @@ function dcSqlCompanyProcessFilter(string $processAlias = 'p'): string
 }
 
 /**
+ * Data Capture / submitted-process picker: subsidiaries may use SALARY/BONUS defined on that company.
+ * Group-entity rows (AP/IG) still exclude them from company-scope picker (use group-only mode).
+ */
+function dcSqlDataCaptureCompanyProcessFilter(PDO $pdo, int $companyId, string $processAlias = 'p'): string
+{
+    if ($companyId > 0 && !dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+        return '';
+    }
+    return dcSqlCompanyProcessFilter($processAlias);
+}
+
+/** Subsidiary company scope may capture SALARY/BONUS; group-entity company scope may not. */
+function dcCompanyScopeAllowsSalaryBonusProcess(PDO $pdo, int $companyId): bool
+{
+    return $companyId > 0 && !dcCompanyIdIsGroupEntity($pdo, $companyId);
+}
+
+/**
  * @param array<string, mixed> $params GET/POST merged params
  * @return array{company_id: int, group_id: string, report_scope_hint: string, is_group_scope: bool, request_params: array<string, mixed>}
  */
@@ -71,13 +90,311 @@ function resolveDataCaptureRequestScope(PDO $pdo, array $params): array
     } elseif (($resolved['report_scope_hint'] ?? '') !== 'group' && $isGroupScope) {
         $resolved['report_scope_hint'] = 'group';
     }
+
+    $companyId = (int) $resolved['company_id'];
+    $groupId = dcNormalizeGroupId(
+        $params['view_group'] ?? $params['group_id'] ?? ($resolved['group_id'] ?? '')
+    );
+    // Legacy only: dual-tenant capture resolves group ledger in dcFinalizeDualTenantCaptureScope.
+    if (
+        $isGroupScope
+        && $groupId !== ''
+        && !tenant_table_has_scope_columns($pdo, 'data_captures')
+    ) {
+        $entityCompanyId = dcResolveGroupCaptureCompanyId($pdo, $groupId);
+        if ($entityCompanyId > 0) {
+            $companyId = $entityCompanyId;
+        }
+    }
+
     return [
-        'company_id' => (int) $resolved['company_id'],
+        'company_id' => $companyId,
         'group_id' => (string) ($resolved['group_id'] ?? ''),
         'report_scope_hint' => (string) ($resolved['report_scope_hint'] ?? ''),
         'is_group_scope' => $isGroupScope,
         'request_params' => $resolved['request_params'] ?? $params,
     ];
+}
+
+/**
+ * Dual-tenant capture scope (align with Transaction: group → groups.id, company → company.id).
+ *
+ * @param array<string, mixed> $params
+ * @return array{
+ *   company_id: int,
+ *   anchor_company_id: int,
+ *   is_group_scope: bool,
+ *   scope_type: string,
+ *   scope_id: int,
+ *   group_id: string,
+ *   group_scope_id: int,
+ *   scope_process_sql: string,
+ *   scope_company_sql: string,
+ *   scope_company_sql_deleted: string,
+ *   dual_tenant: bool,
+ *   submitted_dual_tenant: bool
+ * }
+ */
+function dcFinalizeDualTenantCaptureScope(PDO $pdo, array $scopeResolved, array $params): array
+{
+    $isGroupScope = (bool) ($scopeResolved['is_group_scope'] ?? false);
+    $groupId = dcNormalizeGroupId(
+        $params['view_group'] ?? $params['group_id'] ?? ($scopeResolved['group_id'] ?? '')
+    );
+    $dualTenant = tenant_table_has_scope_columns($pdo, 'data_captures');
+    $submittedDualTenant = dcSubmittedProcessesDualTenantEnabled($pdo);
+    $companyId = (int) ($scopeResolved['company_id'] ?? 0);
+
+    if ($isGroupScope) {
+        if ($groupId === '') {
+            throw new Exception('缺少 group_id');
+        }
+        $groupPk = gc_resolve_group_pk_by_code($pdo, $groupId);
+        $anchorId = gc_resolve_group_anchor_company_id($pdo, $groupId);
+
+        if ($dualTenant) {
+            if ($groupPk <= 0) {
+                throw new Exception('无效的 group_id');
+            }
+            if ($anchorId <= 0) {
+                throw new Exception('缺少公司信息');
+            }
+
+            return [
+                'company_id' => $anchorId,
+                'anchor_company_id' => $anchorId,
+                'is_group_scope' => true,
+                'scope_type' => 'group',
+                'scope_id' => $groupPk,
+                'group_id' => $groupId,
+                'group_scope_id' => $groupPk,
+                'scope_process_sql' => dcSqlGroupProcessFilter('p'),
+                'scope_company_sql' => '',
+                'scope_company_sql_deleted' => '',
+                'dual_tenant' => true,
+                'submitted_dual_tenant' => $submittedDualTenant,
+            ];
+        }
+
+        if ($anchorId > 0) {
+            $companyId = $anchorId;
+        } else {
+            $entityId = dcResolveGroupCaptureCompanyId($pdo, $groupId);
+            if ($entityId > 0) {
+                $companyId = $entityId;
+            }
+        }
+        $scopeCompanySql = '';
+        if ($companyId > 0 && dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+            $scopeCompanySql = dcSqlCaptureOnGroupEntityCompany('dc');
+        }
+
+        return [
+            'company_id' => $companyId,
+            'anchor_company_id' => $companyId,
+            'is_group_scope' => true,
+            'scope_type' => 'group',
+            'scope_id' => $groupPk,
+            'group_id' => $groupId,
+            'group_scope_id' => $groupPk,
+            'scope_process_sql' => dcSqlGroupProcessFilter('p'),
+            'scope_company_sql' => $scopeCompanySql,
+            'scope_company_sql_deleted' => $scopeCompanySql === ''
+                ? ''
+                : dcSqlCaptureOnGroupEntityCompany('dcd'),
+            'dual_tenant' => false,
+            'submitted_dual_tenant' => false,
+        ];
+    }
+
+    if ($dualTenant) {
+        return [
+            'company_id' => $companyId,
+            'anchor_company_id' => $companyId,
+            'is_group_scope' => false,
+            'scope_type' => 'company',
+            'scope_id' => $companyId,
+            'group_id' => $groupId,
+            'group_scope_id' => $groupId !== '' ? gc_resolve_group_pk_by_code($pdo, $groupId) : 0,
+            'scope_process_sql' => dcSqlDataCaptureCompanyProcessFilter($pdo, $companyId, 'p'),
+            'scope_company_sql' => '',
+            'scope_company_sql_deleted' => '',
+            'dual_tenant' => true,
+            'submitted_dual_tenant' => $submittedDualTenant,
+        ];
+    }
+
+    return [
+        'company_id' => $companyId,
+        'anchor_company_id' => $companyId,
+        'is_group_scope' => false,
+        'scope_type' => 'company',
+        'scope_id' => $companyId,
+        'group_id' => $groupId,
+        'group_scope_id' => $groupId !== '' ? gc_resolve_group_pk_by_code($pdo, $groupId) : 0,
+        'scope_process_sql' => dcSqlCompanyProcessFilter('p'),
+        'scope_company_sql' => dcSqlCaptureOnSubsidiaryCompany('dc'),
+        'scope_company_sql_deleted' => dcSqlCaptureOnSubsidiaryCompany('dcd'),
+        'dual_tenant' => false,
+        'submitted_dual_tenant' => false,
+    ];
+}
+
+/** Process.company_id for joins (anchor under group ledger). */
+function dcCaptureProcessCompanyId(array $scopeCtx): int
+{
+    return (int) ($scopeCtx['anchor_company_id'] ?? $scopeCtx['company_id'] ?? 0);
+}
+
+/** Bind value for ledger scope filter on a table alias. */
+function dcCaptureLedgerBindId(array $scopeCtx): int
+{
+    if (!empty($scopeCtx['is_group_scope']) && !empty($scopeCtx['dual_tenant'])) {
+        return (int) ($scopeCtx['group_scope_id'] ?? $scopeCtx['scope_id'] ?? 0);
+    }
+
+    return (int) ($scopeCtx['company_id'] ?? 0);
+}
+
+/**
+ * SQL fragment + metadata for data_captures / submitted_processes ledger isolation.
+ *
+ * @return array{sql: string, bind: int, uses_dual_tenant: bool}
+ */
+function dcBuildCaptureLedgerFilter(PDO $pdo, array $scopeCtx, string $alias, string $table = 'data_captures'): array
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $alias) ?: 'dc';
+    $tableName = preg_replace('/[^a-zA-Z0-9_]/', '', $table) ?: 'data_captures';
+    $hasScope = tenant_table_has_scope_columns($pdo, $tableName);
+
+    if (($scopeCtx['dual_tenant'] ?? false) && $hasScope) {
+        if (!empty($scopeCtx['is_group_scope'])) {
+            return [
+                'sql' => " AND {$a}.scope_type = 'group' AND {$a}.scope_id = ? ",
+                'bind' => (int) ($scopeCtx['group_scope_id'] ?? $scopeCtx['scope_id'] ?? 0),
+                'uses_dual_tenant' => true,
+            ];
+        }
+
+        $companyId = (int) ($scopeCtx['company_id'] ?? 0);
+
+        return [
+            'sql' => " AND {$a}.company_id = ? AND (COALESCE({$a}.scope_type, '') = '' OR {$a}.scope_type = 'company') ",
+            'bind' => $companyId,
+            'uses_dual_tenant' => true,
+        ];
+    }
+
+    if (!empty($scopeCtx['is_group_scope'])) {
+        $legacySql = (string) ($scopeCtx['scope_company_sql'] ?? '');
+        if ($legacySql === '' && $tableName === 'data_captures') {
+            $companyId = (int) ($scopeCtx['company_id'] ?? 0);
+            if ($companyId > 0 && dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+                $legacySql = dcSqlCaptureOnGroupEntityCompany($a);
+            }
+        }
+
+        return [
+            'sql' => " AND {$a}.company_id = ? {$legacySql} ",
+            'bind' => (int) ($scopeCtx['company_id'] ?? 0),
+            'uses_dual_tenant' => false,
+        ];
+    }
+
+    $legacySql = (string) ($scopeCtx['scope_company_sql'] ?? '');
+    if ($legacySql === '' && $tableName === 'data_captures') {
+        $legacySql = dcSqlCaptureOnSubsidiaryCompany($a);
+    }
+
+    return [
+        'sql' => " AND {$a}.company_id = ? {$legacySql} ",
+        'bind' => (int) ($scopeCtx['company_id'] ?? 0),
+        'uses_dual_tenant' => false,
+    ];
+}
+
+/** Whether submitted_processes supports scope_type / scope_id (live check, not cached). */
+function dcSubmittedProcessesDualTenantEnabled(PDO $pdo): bool
+{
+    dcEnsureSubmittedProcessesScopeColumns($pdo);
+    try {
+        return $pdo->query("SHOW COLUMNS FROM submitted_processes LIKE 'scope_type'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** Ensure submitted_processes has dual-tenant scope columns (idempotent). */
+function dcEnsureSubmittedProcessesScopeColumns(PDO $pdo): void
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+    try {
+        if ($pdo->query("SHOW COLUMNS FROM submitted_processes LIKE 'scope_type'")->rowCount() > 0) {
+            $ensured = true;
+            return;
+        }
+        $pdo->exec("
+            ALTER TABLE submitted_processes
+              ADD COLUMN scope_type ENUM('company','group') NOT NULL DEFAULT 'company' AFTER company_id,
+              ADD COLUMN scope_id BIGINT UNSIGNED NULL AFTER scope_type,
+              ADD KEY idx_sp_scope_date (scope_type, scope_id, capture_date)
+        ");
+        $pdo->exec("
+            UPDATE submitted_processes
+            SET scope_type = 'company', scope_id = company_id
+            WHERE scope_id IS NULL AND company_id IS NOT NULL
+        ");
+    } catch (Throwable $e) {
+        error_log('dcEnsureSubmittedProcessesScopeColumns: ' . $e->getMessage());
+        return;
+    }
+    $ensured = true;
+}
+
+/** Values for INSERT into scope-aware capture / submitted tables. */
+function dcCaptureScopeInsertValues(array $scopeCtx): array
+{
+    $companyId = (int) ($scopeCtx['company_id'] ?? 0);
+    if (!empty($scopeCtx['dual_tenant'])) {
+        if (!empty($scopeCtx['is_group_scope'])) {
+            return [
+                'company_id' => $companyId,
+                'scope_type' => 'group',
+                'scope_id' => (int) ($scopeCtx['group_scope_id'] ?? $scopeCtx['scope_id'] ?? 0),
+            ];
+        }
+
+        return [
+            'company_id' => $companyId,
+            'scope_type' => 'company',
+            'scope_id' => $companyId,
+        ];
+    }
+
+    return [
+        'company_id' => $companyId,
+        'scope_type' => null,
+        'scope_id' => null,
+    ];
+}
+
+/** Submitted-process / picker queries: isolate group-entity vs subsidiary capture rows. */
+function dcSqlSubmittedCaptureScopeCompany(
+    PDO $pdo,
+    bool $isGroupScope,
+    int $companyId,
+    string $alias = 'sp'
+): string {
+    if ($isGroupScope) {
+        if ($companyId > 0 && dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+            return dcSqlCaptureOnGroupEntityCompany($alias);
+        }
+        return '';
+    }
+    return dcSqlCaptureOnSubsidiaryCompany($alias);
 }
 
 function dcRequestHasExplicitScope(array $params): bool
@@ -108,13 +425,17 @@ function dcResolveProcessIdByCode(PDO $pdo, int $companyId, string $processCode,
     if ($groupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
         return null;
     }
-    if (!$groupScope && in_array($code, ['SALARY', 'BONUS'], true)) {
+    if (
+        !$groupScope
+        && in_array($code, ['SALARY', 'BONUS'], true)
+        && !dcCompanyScopeAllowsSalaryBonusProcess($pdo, $companyId)
+    ) {
         return null;
     }
     $sql = 'SELECT id FROM process WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?';
     if ($groupScope) {
         $sql .= " AND UPPER(TRIM(process_id)) IN ('SALARY', 'BONUS')";
-    } else {
+    } elseif (!dcCompanyScopeAllowsSalaryBonusProcess($pdo, $companyId)) {
         $sql .= " AND UPPER(TRIM(process_id)) NOT IN ('SALARY', 'BONUS')";
     }
     $sql .= ' LIMIT 1';
@@ -805,7 +1126,11 @@ function dcAssertProcessIdInCaptureScope(PDO $pdo, int $processId, int $companyI
     if ($groupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
         throw new Exception('Invalid process for group scope');
     }
-    if (!$groupScope && in_array($code, ['SALARY', 'BONUS'], true)) {
+    if (
+        !$groupScope
+        && in_array($code, ['SALARY', 'BONUS'], true)
+        && !dcCompanyScopeAllowsSalaryBonusProcess($pdo, $companyId)
+    ) {
         throw new Exception('Invalid process for company scope');
     }
 }
@@ -891,43 +1216,7 @@ function dcSqlCaptureOnSubsidiaryCompany(string $dcAlias = 'dc'): string
  */
 function dcFinalizeCaptureMaintenanceScope(PDO $pdo, array $scopeResolved, array $params): array
 {
-    $isGroupScope = (bool) ($scopeResolved['is_group_scope'] ?? false);
-    $companyId = (int) ($scopeResolved['company_id'] ?? 0);
-    $groupId = dcNormalizeGroupId(
-        $params['view_group'] ?? $params['group_id'] ?? ($scopeResolved['group_id'] ?? '')
-    );
-
-    if ($isGroupScope) {
-        if ($groupId !== '') {
-            $resolvedGroupCompanyId = dcResolveGroupCaptureCompanyId($pdo, $groupId);
-            if ($resolvedGroupCompanyId > 0) {
-                $companyId = $resolvedGroupCompanyId;
-            }
-        }
-        $scopeCompanySql = '';
-        if ($companyId > 0 && dcCompanyIdIsGroupEntity($pdo, $companyId)) {
-            $scopeCompanySql = dcSqlCaptureOnGroupEntityCompany('dc');
-        }
-        $scopeCompanySqlDeleted = $scopeCompanySql === ''
-            ? ''
-            : dcSqlCaptureOnGroupEntityCompany('dcd');
-
-        return [
-            'company_id' => $companyId,
-            'is_group_scope' => true,
-            'scope_process_sql' => dcSqlGroupProcessFilter('p'),
-            'scope_company_sql' => $scopeCompanySql,
-            'scope_company_sql_deleted' => $scopeCompanySqlDeleted,
-        ];
-    }
-
-    return [
-        'company_id' => $companyId,
-        'is_group_scope' => false,
-        'scope_process_sql' => dcSqlCompanyProcessFilter('p'),
-        'scope_company_sql' => dcSqlCaptureOnSubsidiaryCompany('dc'),
-        'scope_company_sql_deleted' => dcSqlCaptureOnSubsidiaryCompany('dcd'),
-    ];
+    return dcFinalizeDualTenantCaptureScope($pdo, $scopeResolved, $params);
 }
 
 /** SQL: subsidiary company ledger only (exclude group-scope account_company rows). */

@@ -502,6 +502,7 @@ export default function DomainReportPage() {
             reportData={reportData}
             reportSyncing={reportSyncing}
             error={error}
+            isGroupScope={isGroupScope}
             t={t}
           />
         </div>
