@@ -752,6 +752,8 @@ export function useTransactionSearch({
         suppressBlockingOverlayOnceRef.current = true;
         prevCaptureDateRangeKeyRef.current = null;
         prevServerSideFiltersRef.current = null;
+        setRawSearchData(null);
+        setSearchLoading(false);
         clearTxSearchCache();
         lastCompletedSearchKeyRef.current = "";
         try {
@@ -769,6 +771,8 @@ export function useTransactionSearch({
       suppressBlockingOverlayOnceRef.current = true;
       prevCaptureDateRangeKeyRef.current = null;
       prevServerSideFiltersRef.current = null;
+      setRawSearchData(null);
+      setSearchLoading(false);
       clearTxSearchCache();
       lastCompletedSearchKeyRef.current = "";
       try {
