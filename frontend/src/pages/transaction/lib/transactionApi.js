@@ -157,12 +157,17 @@ export async function getUserCurrencyOrder({ companyId, signal } = {}) {
 }
 
 /** Same contract as legacy JS: POST JSON `{ order: string[] }` (see api/transactions/user_currency_order_api.php). */
-export async function saveUserCurrencyOrder(order) {
+export async function saveUserCurrencyOrder(order, { companyId } = {}) {
   const codes = Array.isArray(order) ? order.map((c) => String(c || "").trim()).filter(Boolean) : [];
+  const body = { order: codes };
+  const cid = companyId != null && companyId !== "" ? Number(companyId) : 0;
+  if (Number.isFinite(cid) && cid > 0) {
+    body.company_id = cid;
+  }
   const res = await fetch(buildApiUrl("api/transactions/user_currency_order_api.php"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ order: codes }),
+    body: JSON.stringify(body),
     credentials: "include",
   });
   return safeJson(res);

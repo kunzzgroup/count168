@@ -819,11 +819,13 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 
 /* Currency 拖动（与 Transaction List / Member Win/Loss 一致） */
-#currency-buttons-container .transaction-company-btn.transaction-currency-dragging {
+#currency-buttons-container .transaction-company-btn.transaction-currency-dragging,
+#currency-buttons-container .user-gc-segment.transaction-currency-dragging {
     opacity: 0.6;
 }
 
-#currency-buttons-container .transaction-company-btn.transaction-currency-drag-over {
+#currency-buttons-container .transaction-company-btn.transaction-currency-drag-over,
+#currency-buttons-container .user-gc-segment.transaction-currency-drag-over {
     outline: 2px dashed var(--scd-primary);
     outline-offset: 2px;
 }

@@ -15,7 +15,9 @@ export function DashboardFilterPanel({
   onPickCompany,
   onPickAllInGroup,
   onCurrencyChange,
+  onCurrencyDropOn,
 }) {
+  const showCompanyAll = companiesForPicker.length > 1;
   const showPanel =
     groupIds.length > 0 || companiesForPicker.length > 0 || currencies.length > 0;
 
@@ -79,13 +81,15 @@ export function DashboardFilterPanel({
               <span className="user-gc-inline-label">{i18n.company}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={i18n.company}>
-                  <button
-                    type="button"
-                    className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
-                    onClick={() => void onPickAllInGroup()}
-                  >
-                    {i18n.all}
-                  </button>
+                  {showCompanyAll && (
+                    <button
+                      type="button"
+                      className={`user-gc-segment${groupAllMode ? " is-on" : ""}`}
+                      onClick={() => void onPickAllInGroup()}
+                    >
+                      {i18n.all}
+                    </button>
+                  )}
                   {companiesForPicker.map((c) => {
                     const id = parseInt(c.id, 10);
                     const active = groupAllMode
@@ -112,12 +116,28 @@ export function DashboardFilterPanel({
             <div className="user-gc-inline-row">
               <span className="user-gc-inline-label">{i18n.currency}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                <div className="user-gc-segment-group" role="group" aria-label={i18n.currency}>
+                <div
+                  id="currency-buttons-container"
+                  className="user-gc-segment-group"
+                  role="group"
+                  aria-label={i18n.currency}
+                >
                   {currencies.map((code) => (
                     <button
                       key={code}
                       type="button"
-                      className={`user-gc-segment${currencyCode === code ? " is-on" : ""}`}
+                      draggable
+                      title={i18n.currencyDragHint}
+                      className={`user-gc-segment user-gc-segment--draggable-pill${currencyCode === code ? " is-on" : ""}`}
+                      data-currency-code={code}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/plain", code);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        void onCurrencyDropOn?.(e, code);
+                      }}
                       onClick={() => onCurrencyChange(code)}
                     >
                       {code}

@@ -62,6 +62,7 @@ import {
   pickDefaultSubsidiaryForGroup,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
+import { saveUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
 
 /** Per-company view_group for API access (linked companies under AP/IG, etc.). */
 function resolveViewGroupForCompany(companyRow, fallbackGroup = null) {
@@ -115,6 +116,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const dateToRef = useRef(dateTo);
   const companySwitchGenRef = useRef(0);
   const currencyLoadGenRef = useRef(0);
+  const skipNextCurrencyClickRef = useRef(false);
   const scopeCurrencyKeyRef = useRef("");
   /** @type {React.MutableRefObject<Map<number, string[]>>} */
   const currenciesByCompanyRef = useRef(new Map());
@@ -1950,10 +1952,60 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     setShowAllCurrencies((prev) => !prev);
   }, [currencies.length]);
 
+  const resolveCurrencyOrderCompanyId = useCallback(() => {
+    const singleCid = companyId != null ? parseInt(companyId, 10) : null;
+    if (Number.isFinite(singleCid) && singleCid > 0) return singleCid;
+    const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+    if (groupKey) {
+      const anchorId = pickGroupAnchorCompany(companies, groupKey)?.id;
+      const n = anchorId != null ? parseInt(anchorId, 10) : NaN;
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    const sessionCid = me?.company_id != null ? parseInt(me.company_id, 10) : NaN;
+    if (Number.isFinite(sessionCid) && sessionCid > 0) return sessionCid;
+    const first = companiesForPicker[0]?.id;
+    const firstN = first != null ? parseInt(first, 10) : NaN;
+    return Number.isFinite(firstN) && firstN > 0 ? firstN : null;
+  }, [companyId, selectedGroup, companies, me?.company_id, companiesForPicker]);
+
   const handleCurrencyChange = useCallback((code) => {
+    if (skipNextCurrencyClickRef.current) {
+      skipNextCurrencyClickRef.current = false;
+      return;
+    }
     setShowAllCurrencies(false);
     setCurrencyCode(code);
   }, []);
+
+  const handleCurrencyDropOn = useCallback(
+    async (e, targetCode) => {
+      e.preventDefault();
+      const dragged = e.dataTransfer?.getData("text/plain");
+      if (!dragged || !targetCode || dragged === targetCode) return;
+      const list = [...currencies];
+      const fromI = list.indexOf(dragged);
+      const toI = list.indexOf(targetCode);
+      if (fromI < 0 || toI < 0 || fromI === toI) return;
+      skipNextCurrencyClickRef.current = true;
+      const next = [...list];
+      const [moved] = next.splice(fromI, 1);
+      next.splice(toI, 0, moved);
+      setCurrencies(next);
+      const orderCompanyId = resolveCurrencyOrderCompanyId();
+      if (orderCompanyId != null) {
+        currenciesByCompanyRef.current.set(orderCompanyId, next);
+      }
+      if (selectedGroup) {
+        currenciesByGroupRef.current.set(String(selectedGroup).trim().toUpperCase(), next);
+      }
+      try {
+        await saveUserCurrencyOrder(next, { companyId: orderCompanyId ?? undefined });
+      } catch {
+        /* Keep local order even if save fails. */
+      }
+    },
+    [currencies, resolveCurrencyOrderCompanyId, selectedGroup]
+  );
 
   return {
     me,
@@ -1973,6 +2025,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     canShowAllCurrencies,
     handleToggleAllCurrencies,
     handleCurrencyChange,
+    handleCurrencyDropOn,
     loading: kpiLoading,
     dashboardData,
     kpi,

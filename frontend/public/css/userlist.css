@@ -527,13 +527,15 @@ body.dashboard-page .user-gc-segment:disabled {
 
 body.process-page .user-gc-segment--draggable-pill:not(:disabled),
 body.report-page .user-gc-segment--draggable-pill:not(:disabled),
-body.member-winloss-page .user-gc-segment--draggable-pill:not(:disabled) {
+body.member-winloss-page .user-gc-segment--draggable-pill:not(:disabled),
+body.dashboard-page .user-gc-segment--draggable-pill:not(:disabled) {
     cursor: grab;
 }
 
 body.process-page .user-gc-segment--draggable-pill:not(:disabled):active,
 body.report-page .user-gc-segment--draggable-pill:not(:disabled):active,
-body.member-winloss-page .user-gc-segment--draggable-pill:not(:disabled):active {
+body.member-winloss-page .user-gc-segment--draggable-pill:not(:disabled):active,
+body.dashboard-page .user-gc-segment--draggable-pill:not(:disabled):active {
     cursor: grabbing;
 }
 
