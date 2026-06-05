@@ -1389,38 +1389,10 @@ export function useBankProcessListPage() {
 
   onSwitchCompanyRef.current = onSwitchCompany;
 
-  const enterGroupOnlyScope = useCallback(
-    (groupId) => {
-      const g = String(groupId || "").trim().toUpperCase();
-      if (!g || !canUseGroupOnlyMode(authMe, g)) return false;
-      setGroupFilterKind("follow");
-      setSelectedGroup(g);
-      flushSync(() => {
-        setCompanyId(null);
-        setRows([]);
-        setCurrencyFilterCode("");
-        setCurrencyListOrdered([]);
-        setCurrencyPillDisplayOrder(null);
-      });
-      persistDashboardGroupFilter(g);
-      persistDashboardFilterState(g, null, { allowGroupOnly: true });
-      resetAnchorSessionRef();
-      notifyDashboardGroupFilterChanged(g, null);
-      return true;
-    },
-    [authMe, resetAnchorSessionRef],
-  );
-
   const onPickCompanyPill = useCallback(
     (c) => {
       const nextId = Number(c?.id);
-      if (!nextId) return;
-      if (Number(companyId) === nextId) {
-        const gid =
-          (c.group_id ? String(c.group_id).toUpperCase().trim() : null) || selectedGroupKey;
-        enterGroupOnlyScope(gid);
-        return;
-      }
+      if (!nextId || Number(companyId) === nextId) return;
 
       const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       const nextGroup = gid || null;
@@ -1452,7 +1424,7 @@ export function useBankProcessListPage() {
 
       void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
     },
-    [applyBankProcessListCache, companyId, enterGroupOnlyScope, search, selectedGroupKey],
+    [applyBankProcessListCache, companyId, search],
   );
 
   const openAdd = () => {
@@ -1995,18 +1967,37 @@ export function useBankProcessListPage() {
       const g = String(gid || "").trim().toUpperCase();
       if (!g) return;
       if (groupFilterKind === "follow" && g === selectedGroupKey) {
-        if (companyId != null) {
-          if (enterGroupOnlyScope(g)) return;
+        setGroupFilterKind("ungrouped");
+        setSelectedGroup(null);
+        if (companyId != null && !canUseGroupOnlyMode(authMe)) {
+          clearDashboardGroupFilterKeepCompany(companyId);
+        } else {
+          persistDashboardGroupFilter(null);
+        }
+        return;
+      }
+      if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
+        if (!canUseGroupOnlyMode(authMe)) {
           setGroupFilterKind("ungrouped");
           setSelectedGroup(null);
           clearDashboardGroupFilterKeepCompany(companyId);
-          return;
         }
         return;
       }
 
-      if (canUseGroupOnlyMode(authMe, g)) {
-        enterGroupOnlyScope(g);
+      if (canUseGroupOnlyMode(authMe)) {
+        setGroupFilterKind("follow");
+        setSelectedGroup(g);
+        persistDashboardGroupFilter(g);
+        flushSync(() => {
+          setCompanyId(null);
+          setRows([]);
+          setCurrencyFilterCode("");
+          setCurrencyListOrdered([]);
+          setCurrencyPillDisplayOrder(null);
+        });
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        notifyDashboardGroupFilterChanged(g, null);
         return;
       }
 
@@ -2042,17 +2033,15 @@ export function useBankProcessListPage() {
         return;
       }
 
-      if (!canUseGroupOnlyMode(authMe, g) && companyId != null) {
+      if (!canUseGroupOnlyMode(authMe) && companyId != null) {
         persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
         notifyDashboardGroupFilterChanged(g, companyId);
       }
     },
     [
       applyBankProcessListCache,
-      authMe,
       companies,
       companyId,
-      enterGroupOnlyScope,
       groupFilterKind,
       search,
       selectedGroupKey,

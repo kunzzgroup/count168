@@ -2,7 +2,6 @@ export function DashboardFilterPanel({
   i18n,
   effectiveDateRangeText,
   groupIds,
-  showGroupsAllOption = true,
   selectedGroup,
   groupsAllMode,
   groupAllMode,
@@ -57,15 +56,13 @@ export function DashboardFilterPanel({
               <span className="user-gc-inline-label">{i18n.groupId}</span>
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={i18n.groupId}>
-                  {showGroupsAllOption ? (
-                    <button
-                      type="button"
-                      className={`user-gc-segment${groupsAllMode ? " is-on" : ""}`}
-                      onClick={() => void onPickAllGroups?.()}
-                    >
-                      {i18n.all}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className={`user-gc-segment${groupsAllMode ? " is-on" : ""}`}
+                    onClick={() => void onPickAllGroups?.()}
+                  >
+                    {i18n.all}
+                  </button>
                   {groupIds.map((gid) => (
                     <button
                       key={gid}

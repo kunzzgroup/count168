@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import {
   getCachedOwnerCompanies,
   DASHBOARD_GROUP_FILTER_KEY,
-  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
@@ -18,10 +17,6 @@ import {
   fetchOwnerCompaniesAll,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useReportGroupCompanyFilter } from "../shared/useReportGroupCompanyFilter.js";
-import {
-  resolveReportBootCompanyForGroup,
-  resolveReportGroupOnlyBoot,
-} from "../shared/reportGcBoot.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/transaction.css";
@@ -58,8 +53,8 @@ import {
   resolveDomainReportScope,
 } from "./domainReportScope.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import { fetchUpdateCompanySession } from "../../../utils/company/companySessionSwitchCore.js";
-import { applySidebarForCompanySwitch } from "../../../utils/company/sidebarCompanySwitch.js";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
+import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 
 const REPORT_PAGE_KEY = "domain";
 const REPORT_FETCH_DEBOUNCE_MS = 150;
@@ -202,14 +197,15 @@ export default function DomainReportPage() {
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
-          me: u,
-          companies: rows,
         });
         let bootGroup =
           persistedGc.selectedGroup ||
           bootGc.selectedGroup ||
           resolveInitialSelectedGroupFromSession(rows, null, u);
-        const groupOnlyBoot = resolveReportGroupOnlyBoot(u, bootGc, persistedGc, bootGroup);
+        const groupOnlyBoot =
+          bootGc.groupOnly ||
+          persistedGc.groupOnly ||
+          (bootGroup && isDashboardGroupOnlyMode() && canUseGroupOnlyMode(u, bootGroup));
         let nextCompanyId =
           companyId != null ? companyId : groupOnlyBoot ? null : bootGc.companyId;
         if (nextCompanyId == null && savedCompanyId != null && bootGroup && !groupOnlyBoot) {
@@ -217,15 +213,6 @@ export default function DomainReportPage() {
             (c) => Number(c.id) === Number(savedCompanyId),
           );
           if (inGroup) nextCompanyId = savedCompanyId;
-        }
-        if (nextCompanyId == null && bootGroup) {
-          const autoPickId = resolveReportBootCompanyForGroup(
-            u,
-            rows,
-            bootGroup,
-            savedCompanyId ?? bootGc.companyId ?? u.company_id,
-          );
-          if (autoPickId != null) nextCompanyId = autoPickId;
         }
         if (nextCompanyId != null) {
           persistDashboardGroupOnlyMode(false);
@@ -259,16 +246,13 @@ export default function DomainReportPage() {
         ? companies.find((c) => Number(c.id) === Number(companyId)) || null
         : null;
     setSelectedGroup((prev) => {
-      const resolved = resolveInitialSelectedGroupFromSession(companies, row, me);
+      const resolved = resolveInitialSelectedGroupFromSession(companies, row);
       if (resolved) return resolved;
-      if (sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1") {
-        return null;
-      }
       const g = prev ? String(prev).trim().toUpperCase() : "";
       if (g && sortedUniqueGroupIds(companies).includes(g)) return g;
       return prev;
     });
-  }, [companies, companyId, me]);
+  }, [companies, companyId]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
@@ -282,21 +266,6 @@ export default function DomainReportPage() {
       console.error("Bank only check error:", err);
     }
   }, [companies]);
-
-  const onDeselectGroup = useCallback(
-    (cid) => {
-      flushSync(() => {
-        setSelectedGroup(null);
-        if (cid == null) setCompanyId(null);
-      });
-      invalidateReportFetch();
-      setError("");
-      setProcessId("");
-      if (reportDataRef.current != null) setReportSyncing(true);
-      setMetaReady(false);
-    },
-    [invalidateReportFetch],
-  );
 
   const handleClearCompany = useCallback(
     (groupForScope) => {
@@ -317,13 +286,10 @@ export default function DomainReportPage() {
   const onPrepareCompanySelect = useCallback((c) => {
     const nextId = Number(c?.id);
     if (!nextId) return;
-    const groupOptOut =
-      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
-    const groupForPersist = groupOptOut
-      ? null
-      : (c?.group_id ? String(c.group_id).trim().toUpperCase() : "") ||
-        (selectedGroup ? String(selectedGroup).trim().toUpperCase() : "") ||
-        null;
+    const groupForPersist =
+      (c?.group_id ? String(c.group_id).trim().toUpperCase() : "") ||
+      (selectedGroup ? String(selectedGroup).trim().toUpperCase() : "") ||
+      null;
     persistDashboardFilterState(groupForPersist, nextId, { allowGroupOnly: false });
     persistDashboardGroupOnlyMode(false);
     flushSync(() => setCompanyId(nextId));
@@ -345,32 +311,20 @@ export default function DomainReportPage() {
       const ac = new AbortController();
       companySessionAbortRef.current = ac;
 
-      const sessionId =
-        me?.company_id != null && me.company_id !== "" ? Number(me.company_id) : null;
-      if (sessionId === nextId) {
-        applySidebarForCompanySwitch(null, c, null);
-        return;
-      }
-
-      try {
-        const { ok, json } = await fetchUpdateCompanySession(nextId, { signal: ac.signal });
-        if (!ok || !json?.success) {
+      const ok = await syncCompanySessionInBackground({
+        companyId: nextId,
+        sessionCompanyId: me?.company_id,
+        signal: ac.signal,
+        layoutSilent: true,
+        onFailure: () => {
           if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
             flushSync(() => setCompanyId(previousCompanyId));
           }
           setReportSyncing(false);
           notify(t("switchFailed"), "danger");
-          return;
-        }
-        applySidebarForCompanySwitch(null, c, json.data ?? null);
-      } catch (err) {
-        if (err?.name === "AbortError") return;
-        if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
-          flushSync(() => setCompanyId(previousCompanyId));
-        }
-        setReportSyncing(false);
-        notify(t("switchFailed"), "danger");
-      }
+        },
+      });
+      if (!ok) return;
     },
     [checkBankOnly, companyId, me?.company_id, notify, t],
   );
@@ -393,7 +347,6 @@ export default function DomainReportPage() {
     onPrepareCompanySelect,
     onSelectCompany: onSwitchCompany,
     onClearCompany: handleClearCompany,
-    onDeselectGroup,
     switchingCompany: false,
     preferredCompanyId: companyId,
   });

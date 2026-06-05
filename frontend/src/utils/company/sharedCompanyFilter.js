@@ -9,7 +9,6 @@ import { clearCompanySessionFlagsCache, peekCompanySessionFlags } from "./compan
 import {
   canUseGroupOnlyMode,
   filterCompaniesForLoginScope,
-  getAssignedCompanyIds,
   getLoginIdentifier,
   getLoginScope,
   isCompanyLogin,
@@ -331,8 +330,6 @@ export function resolveGcFilterBootCompanyId({
   urlCompanyId = null,
   sessionCompanyId = null,
   defaultRowId = null,
-  me = null,
-  companies = null,
 } = {}) {
   const persisted = readPersistedDashboardGcFilter();
 
@@ -347,26 +344,6 @@ export function resolveGcFilterBootCompanyId({
   }
 
   if (persisted.groupOnly) {
-    const g = persisted.selectedGroup;
-    if (me && g && !canUseGroupOnlyMode(me, g)) {
-      persistDashboardGroupOnlyMode(false);
-      let cid = readDashboardSelectedCompanyId();
-      if ((cid == null || cid <= 0) && Array.isArray(companies) && companies.length) {
-        const pick = pickDefaultSubsidiaryForGroup(companies, g, {
-          me,
-          preferredCompanyId: sessionCompanyId ?? defaultRowId ?? null,
-        });
-        if (pick?.id) cid = Number(pick.id);
-      }
-      if (cid != null && cid > 0 && g) {
-        persistDashboardFilterState(g, cid, { allowGroupOnly: false });
-      }
-      return {
-        companyId: cid != null && cid > 0 ? cid : null,
-        selectedGroup: g,
-        groupOnly: false,
-      };
-    }
     return {
       companyId: null,
       selectedGroup: persisted.selectedGroup,
@@ -388,69 +365,15 @@ export function resolveGcFilterBootCompanyId({
     defaultRowId,
   });
 
-  const groupOnlyFallback =
-    fallback == null &&
-    isDashboardGroupOnlyMode() &&
-    (!me ||
-      !persisted.selectedGroup ||
-      canUseGroupOnlyMode(me, persisted.selectedGroup));
-
   return {
     companyId: fallback,
     selectedGroup: persisted.selectedGroup,
-    groupOnly: groupOnlyFallback,
+    groupOnly: fallback == null && isDashboardGroupOnlyMode(),
   };
 }
 
-/**
- * Company login without group ledger: coerce group-only → subsidiary under the group tab.
- */
-export function coerceGroupWrappedCompanyState(me, companies, state = {}) {
-  const g = state.selectedGroup ? String(state.selectedGroup).trim().toUpperCase() : null;
-  const wantsGroupOnly =
-    Boolean(state.groupOnly) ||
-    (state.companyId == null && g != null && isDashboardGroupOnlyMode());
-
-  if (wantsGroupOnly && g && me && canUseGroupOnlyMode(me, g)) {
-    return { selectedGroup: g, companyId: null, groupOnly: true };
-  }
-
-  let cid =
-    state.companyId != null && Number(state.companyId) > 0 ? Number(state.companyId) : null;
-  if (cid == null) {
-    const saved = readDashboardSelectedCompanyId();
-    if (saved != null && Number(saved) > 0) cid = Number(saved);
-  }
-  if (cid == null && g && Array.isArray(companies) && companies.length) {
-    const pick = pickDefaultSubsidiaryForGroup(companies, g, {
-      me,
-      preferredCompanyId: me?.company_id ?? null,
-    });
-    if (pick?.id) cid = Number(pick.id);
-  }
-
-  if (wantsGroupOnly && g && me && !canUseGroupOnlyMode(me, g)) {
-    persistDashboardGroupOnlyMode(false);
-    if (cid != null) {
-      persistDashboardFilterState(g, cid, { allowGroupOnly: false });
-    }
-  }
-
-  return { selectedGroup: g, companyId: cid, groupOnly: false };
-}
-
-function readPersistedGroupFilterCode() {
-  const raw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
-  return raw ? String(raw).trim().toUpperCase() : null;
-}
-
 /** Boot helper: explicit URL company wins; otherwise honour group-only + saved id. */
-export function resolveBootCompanyId({
-  urlCompanyId = null,
-  sessionCompanyId = null,
-  defaultRowId = null,
-  me = null,
-} = {}) {
+export function resolveBootCompanyId({ urlCompanyId, sessionCompanyId, defaultRowId } = {}) {
   const urlNum =
     urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
   if (Number.isFinite(urlNum) && urlNum > 0) return urlNum;
@@ -459,15 +382,8 @@ export function resolveBootCompanyId({
     persistDashboardGroupOnlyMode(false);
     return saved;
   }
-  if (isDashboardGroupOnlyMode()) {
-    const g = readPersistedGroupFilterCode();
-    if (me && !canUseGroupOnlyMode(me, g)) {
-      persistDashboardGroupOnlyMode(false);
-      return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null, me);
-    }
-    return null;
-  }
-  return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null, me);
+  if (isDashboardGroupOnlyMode()) return null;
+  return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null);
 }
 
 /** @deprecated Use {@link persistDashboardFilterState} */
@@ -476,17 +392,10 @@ export function syncDashboardGroupOnlyFromFilter(selectedGroup, companyId) {
 }
 
 /** Company id for page boot: group-only → null; else saved id, then PHP/fallback. */
-export function resolveInitialCompanyId(fallbackCompanyId, me = null) {
+export function resolveInitialCompanyId(fallbackCompanyId) {
   const saved = readDashboardSelectedCompanyId();
   if (saved != null) return saved;
-  if (isDashboardGroupOnlyMode()) {
-    const g = readPersistedGroupFilterCode();
-    if (me && !canUseGroupOnlyMode(me, g)) {
-      persistDashboardGroupOnlyMode(false);
-    } else {
-      return null;
-    }
-  }
+  if (isDashboardGroupOnlyMode()) return null;
   if (fallbackCompanyId == null || fallbackCompanyId === "") return null;
   const id = Number(fallbackCompanyId);
   return Number.isFinite(id) ? id : null;
@@ -743,28 +652,23 @@ export function persistDashboardGroupFilter(selectedGroup) {
 }
 
 /** Company login: deselect group pill while keeping company (never group-only). */
-export function clearDashboardGroupFilterKeepCompany(companyId, companyRow = null) {
+export function clearDashboardGroupFilterKeepCompany(companyId) {
   sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
   persistDashboardGroupFilter(null);
   persistDashboardGroupOnlyMode(false);
   persistDashboardFilterState(null, companyId, { allowGroupOnly: false });
-  const id = Number(companyId);
-  const row = companyRow ?? findOwnerCompanyById(id);
-  const code = row?.company_id ? String(row.company_id).trim().toUpperCase() : null;
-  const flags = Number.isFinite(id) && id > 0 ? peekCompanySessionFlags(id) : null;
-  notifyDashboardGroupFilterChanged(null, id, {
-    ignoreGroupOnly: true,
-    companyCode: code ?? flags?.company_code ?? null,
-    hasGambling: flags?.has_gambling,
-    hasBank: flags?.has_bank,
-  });
+  notifyDashboardGroupFilterChanged(null, companyId);
 }
 
 /**
  * Boot-time resolution (matches transaction/maintenance pages): honour session only when it matches current company's group.
  */
 export function resolveInitialSelectedGroupFromSession(companies, currentCompany, loginMe = null) {
-  if (sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1") {
+  if (
+    sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1" &&
+    loginMe &&
+    !canUseGroupOnlyMode(loginMe)
+  ) {
     return null;
   }
   const savedRaw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
@@ -785,16 +689,13 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
   }
 
   if (isDashboardGroupOnlyMode() && savedGroup && groups.includes(savedGroup)) {
-    if (!loginMe || canUseGroupOnlyMode(loginMe, savedGroup)) {
-      return savedGroup;
-    }
-    sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
+    return savedGroup;
   }
 
   if (
     savedGroup &&
     groups.includes(savedGroup) &&
-    (!isCompanyLogin(loginMe) || canUseGroupOnlyMode(loginMe, savedGroup))
+    (!isCompanyLogin(loginMe) || canUseGroupOnlyMode(loginMe))
   ) {
     return savedGroup;
   }
@@ -811,14 +712,7 @@ export function resolveInitialSelectedGroupFromSession(companies, currentCompany
     sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
     sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
   }
-  if (
-    !selGroup &&
-    currentCompany?.group_id?.trim() &&
-    !(
-      isCompanyLogin(loginMe) &&
-      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1"
-    )
-  ) {
+  if (!selGroup && currentCompany?.group_id?.trim()) {
     selGroup = normalizeCompanyGroupId(currentCompany);
     sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, selGroup);
   }
@@ -1204,43 +1098,6 @@ export function resolveCompanyWhenClosingGroup(companies, currentCompanyId, grou
     }
   }
   return independents[0] ?? null;
-}
-
-/**
- * Transaction-aligned: company login closing Group → login / assigned subsidiary (e.g. C168).
- * Group login / owner paths fall back to independent companies.
- */
-export function resolveCompanyWhenDeselectingGroup(me, companies, currentCompanyId, groupIds = null) {
-  const list = companies ?? [];
-  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(list);
-
-  if (isCompanyLogin(me)) {
-    const tryId = (raw) => {
-      const id = Number(raw);
-      if (!Number.isFinite(id) || id <= 0) return null;
-      return list.find((c) => Number(c.id) === id) ?? null;
-    };
-    const cur = currentCompanyId != null ? Number(currentCompanyId) : Number.NaN;
-    if (Number.isFinite(cur) && cur > 0) {
-      const row = tryId(cur);
-      if (row) return row;
-    }
-    const loginRow = tryId(me?.company_id);
-    if (loginRow) return loginRow;
-    const ident = getLoginIdentifier(me);
-    if (ident) {
-      const byCode = list.find(
-        (c) => String(c.company_id || "").trim().toUpperCase() === ident
-      );
-      if (byCode) return byCode;
-    }
-    for (const id of getAssignedCompanyIds(me)) {
-      const row = tryId(id);
-      if (row) return row;
-    }
-  }
-
-  return resolveCompanyWhenClosingGroup(list, currentCompanyId, gids);
 }
 
 /**

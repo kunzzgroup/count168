@@ -204,17 +204,6 @@ export function canUseGroupOnlyMode(me, groupCode = null) {
   return userCanUseGroupLedger(me);
 }
 
-/**
- * May restore / boot into group-only session (no subsidiary company pill).
- */
-export function shouldBootGroupOnlyLedger(me, selectedGroup, options = {}) {
-  const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
-  if (!g || !me) return false;
-  if (!canUseGroupOnlyMode(me, g)) return false;
-  const { persistedGroupOnly = false, urlGroupOnly = false } = options;
-  return persistedGroupOnly || urlGroupOnly || isDashboardGroupOnlyMode();
-}
-
 /** Company login without privilege or assignment must keep a subsidiary when a group pill is shown. */
 export function companyLoginRequiresSubsidiaryWithGroup(me) {
   return (
