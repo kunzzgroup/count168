@@ -9,11 +9,13 @@ import {
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
-  readPersistedDashboardGcFilter,
+  resolveGcFilterBootCompanyId,
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
+  buildDashboardCurrencyScopeKey,
+  persistDashboardSelectedCurrency,
+  readDashboardSelectedCurrency,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { isGroupLogin } from "../../../utils/company/loginScope.js";
 import { useReportGroupCompanyFilter } from "../shared/useReportGroupCompanyFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import "../../../../public/css/accountCSS.css";
@@ -210,19 +212,18 @@ export default function CustomerReportPage() {
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        const persisted = readPersistedDashboardGcFilter();
-        let effective = resolveBootCompanyId({
+        const bootGc = resolveGcFilterBootCompanyId({
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
-        if (persisted.groupOnly || (isGroupLogin(u) && !queryCompany)) {
-          effective = null;
+        if (bootGc.groupOnly) {
           persistDashboardGroupOnlyMode(true);
+        } else if (bootGc.companyId != null) {
+          persistDashboardGroupOnlyMode(false);
         }
-        const bootGroupOnly = persisted.groupOnly || (isGroupLogin(u) && effective == null);
         const nextCompanyId =
-          companyId != null ? companyId : bootGroupOnly ? null : effective;
+          companyId != null ? companyId : bootGc.groupOnly ? null : bootGc.companyId;
         const row =
           nextCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
@@ -418,7 +419,16 @@ export default function CustomerReportPage() {
       selectedCurrencies: currencies,
       showAllCurrencies: showAll,
     };
-  }, []);
+    if (!showAll && currencies?.length === 1) {
+      persistDashboardSelectedCurrency(
+        buildDashboardCurrencyScopeKey({
+          companyId: scope?.scopeCompanyId > 0 ? scope.scopeCompanyId : null,
+          selectedGroup: scope?.viewGroup ?? selectedGroup,
+        }) || String(key),
+        currencies[0],
+      );
+    }
+  }, [selectedGroup]);
 
   const applySavedCurrencyPrefs = useCallback((scope, curs) => {
     const key = customerReportScopeCacheCompanyKey(scope);
@@ -473,8 +483,17 @@ export default function CustomerReportPage() {
       }
 
       if (curs.length > 0) {
+        const persistedCur = readDashboardSelectedCurrency(
+          buildDashboardCurrencyScopeKey({
+            companyId: reportScope?.scopeCompanyId > 0 ? reportScope.scopeCompanyId : null,
+            selectedGroup: reportScope?.viewGroup ?? selectedGroup,
+          }),
+        );
+        const fromPersisted = persistedCur
+          ? curs.find((c) => c.code === persistedCur)
+          : null;
         const myr = curs.find((c) => c.code === "MYR");
-        const def = myr || curs[0];
+        const def = fromPersisted || myr || curs[0];
         const codes = [def.code];
         setSelectedCurrencies(codes);
         setShowAllCurrencies(false);

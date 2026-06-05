@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import {
@@ -168,6 +168,7 @@ function resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedG
 
 export default function UserListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { me, sessionReady } = useAuthSession();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const langRef = useRef(lang);
@@ -390,16 +391,14 @@ export default function UserListPage() {
           urlCompanyId !== "" &&
           Number.isFinite(Number(urlCompanyId)) &&
           Number(urlCompanyId) > 0;
-        if (
-          persistedGc.groupOnly ||
-          isDashboardGroupOnlyMode() ||
-          (isGroupLogin(me) && !urlHasCompany)
-        ) {
+        if (persistedGc.groupOnly || isDashboardGroupOnlyMode()) {
           effectiveNum = null;
           stripCompanyIdFromUrl();
         }
-        if (isGroupLogin(me) && effectiveNum == null) {
+        if (effectiveNum == null && (persistedGc.groupOnly || isDashboardGroupOnlyMode())) {
           persistDashboardGroupOnlyMode(true);
+        } else if (effectiveNum != null) {
+          persistDashboardGroupOnlyMode(false);
         }
 
         const visibleGroups = resolveVisibleGroupIds(sortedUniqueGroupIds(rows), me, rows);
@@ -1292,6 +1291,12 @@ export default function UserListPage() {
     window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChanged);
     return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChanged);
   }, [bootLoading, syncGcFilterFromSession]);
+
+  useEffect(() => {
+    if (bootLoading) return;
+    if (location.pathname !== "/userlist") return;
+    syncGcFilterFromSession();
+  }, [bootLoading, location.pathname, syncGcFilterFromSession]);
 
   const clearCompanyPillSelection = useCallback(
     (c) => {

@@ -32,6 +32,9 @@ export const DASHBOARD_GROUP_FILTER_OPT_OUT_KEY = "dashboard_group_filter_opt_ou
 export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
 /** Last explicitly selected company id (SPA navigation; overrides stale PHP session when set). */
 export const DASHBOARD_SELECTED_COMPANY_KEY = "dashboard_selected_company_id";
+/** Cross-page currency pill / dropdown selection (scoped by company or group). */
+export const DASHBOARD_SELECTED_CURRENCY_KEY = "dashboard_selected_currency_code";
+export const DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY = "dashboard_selected_currency_scope";
 /** Prevents re-applying login defaults on refresh while the same login session is active. */
 export const DASHBOARD_LOGIN_FILTER_APPLIED_KEY = "dashboard_login_filter_applied";
 /** Linked group ids (AP+IG) from get_owner_companies_api for company login filter pills. */
@@ -44,8 +47,41 @@ export function clearDashboardFilterSession() {
   sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
   sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
+  sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
+  sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
   sessionStorage.removeItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY);
   sessionStorage.removeItem(DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY);
+}
+
+export function buildDashboardCurrencyScopeKey({ companyId, selectedGroup } = {}) {
+  const cid = companyId != null && companyId !== "" ? Number(companyId) : Number.NaN;
+  if (Number.isFinite(cid) && cid > 0) return `company:${cid}`;
+  const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+  return g ? `group:${g}` : null;
+}
+
+export function persistDashboardSelectedCurrency(scopeKey, code) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  const cur = code ? String(code).trim().toUpperCase() : "";
+  if (!key || !cur) return;
+  try {
+    sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY, key);
+    sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_KEY, cur);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readDashboardSelectedCurrency(scopeKey) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  if (!key) return null;
+  try {
+    if (sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY) !== key) return null;
+    const cur = sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_KEY);
+    return cur ? String(cur).trim().toUpperCase() : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Store linked group ids from companies API (company login: AP+IG). */
@@ -224,6 +260,56 @@ export function persistDashboardFilterState(selectedGroup, companyId, options = 
 
   persistDashboardGroupOnlyMode(false);
   persistDashboardSelectedCompany(companyId);
+}
+
+/**
+ * Standard SPA boot: URL company → persisted subsidiary (group login may have one) → session/default.
+ * Group-only applies only when session flag is set and no saved company id exists.
+ */
+export function resolveGcFilterBootCompanyId({
+  urlCompanyId = null,
+  sessionCompanyId = null,
+  defaultRowId = null,
+} = {}) {
+  const persisted = readPersistedDashboardGcFilter();
+
+  const urlNum =
+    urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
+  if (Number.isFinite(urlNum) && urlNum > 0) {
+    return {
+      companyId: urlNum,
+      selectedGroup: persisted.selectedGroup,
+      groupOnly: false,
+    };
+  }
+
+  if (persisted.groupOnly) {
+    return {
+      companyId: null,
+      selectedGroup: persisted.selectedGroup,
+      groupOnly: true,
+    };
+  }
+
+  if (persisted.companyId != null) {
+    return {
+      companyId: persisted.companyId,
+      selectedGroup: persisted.selectedGroup,
+      groupOnly: false,
+    };
+  }
+
+  const fallback = resolveBootCompanyId({
+    urlCompanyId: null,
+    sessionCompanyId,
+    defaultRowId,
+  });
+
+  return {
+    companyId: fallback,
+    selectedGroup: persisted.selectedGroup,
+    groupOnly: fallback == null && isDashboardGroupOnlyMode(),
+  };
 }
 
 /** Boot helper: explicit URL company wins; otherwise honour group-only + saved id. */

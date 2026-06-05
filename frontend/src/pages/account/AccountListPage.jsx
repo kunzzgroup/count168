@@ -530,10 +530,11 @@ export default function AccountListPage() {
         }
 
         const groupOnlyBoot =
-          isGroupLogin(sessionMe) ||
-          (initialCompanyId == null &&
-            Boolean(bootGroup) &&
-            (isDashboardGroupOnlyMode() || maintenancePageAllowGroupOnlyPill(sessionMe)));
+          initialCompanyId == null &&
+          Boolean(bootGroup) &&
+          (persistedGc.groupOnly ||
+            isDashboardGroupOnlyMode() ||
+            maintenancePageAllowGroupOnlyPill(sessionMe));
         const resolvedCompanyId = groupOnlyBoot ? null : initialCompanyId;
 
         if (bootGroup) {

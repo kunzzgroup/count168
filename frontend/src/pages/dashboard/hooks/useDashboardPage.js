@@ -52,6 +52,9 @@ import {
   clearDashboardGroupFilterKeepCompany,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  buildDashboardCurrencyScopeKey,
+  persistDashboardSelectedCurrency,
+  readDashboardSelectedCurrency,
   applyLoginScopeToSessionStorageIfNeeded,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -404,9 +407,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const applyCurrencyCodes = useCallback((codes, cid) => {
     if (!codes.length) return;
     setCurrencies(codes);
-    setCurrencyCode((prev) => (prev && codes.includes(prev) ? prev : codes[0] || ""));
+    const scopeKey = buildDashboardCurrencyScopeKey({
+      companyId: cid ?? companyId,
+      selectedGroup,
+    });
+    const persisted = readDashboardSelectedCurrency(scopeKey);
+    setCurrencyCode((prev) => {
+      if (persisted && codes.includes(persisted)) return persisted;
+      return prev && codes.includes(prev) ? prev : codes[0] || "";
+    });
     if (cid != null && codes.length) currenciesByCompanyRef.current.set(cid, codes);
-  }, []);
+  }, [companyId, selectedGroup]);
 
   const orderCurrencyCodes = useCallback((codes, order) => {
     if (!Array.isArray(order) || !order.length) return codes;
@@ -429,7 +440,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (scopeCurrencyKeyRef.current !== scopeKey) return;
       const list = [...new Set(codes.map((c) => String(c).toUpperCase()).filter(Boolean))];
       setCurrencies(list);
-      setCurrencyCode((prev) => (prev && list.includes(prev) ? prev : list[0] || ""));
+      const persisted = readDashboardSelectedCurrency(
+        buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
+      );
+      setCurrencyCode((prev) => {
+        if (persisted && list.includes(persisted)) return persisted;
+        return prev && list.includes(prev) ? prev : list[0] || "";
+      });
       if (singleCid && list.length) {
         currenciesByCompanyRef.current.set(singleCid, list);
       } else if (groupKey && list.length) {
@@ -1975,7 +1992,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
     setShowAllCurrencies(false);
     setCurrencyCode(code);
-  }, []);
+    persistDashboardSelectedCurrency(
+      buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
+      code,
+    );
+  }, [companyId, selectedGroup]);
 
   const handleCurrencyDropOn = useCallback(
     async (e, targetCode) => {

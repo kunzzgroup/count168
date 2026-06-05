@@ -8,6 +8,9 @@ import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
+  buildDashboardCurrencyScopeKey,
+  persistDashboardSelectedCurrency,
+  readDashboardSelectedCurrency,
   pickDefaultSubsidiaryForGroup,
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
@@ -381,6 +384,13 @@ export default function ProcessListPage() {
         setShowInactive(showInactiveChecked);
 
         const urlCurrency = String(url.searchParams.get("currency") || "").trim().toUpperCase();
+        const persistedCurrency = readDashboardSelectedCurrency(
+          buildDashboardCurrencyScopeKey({
+            companyId: effectiveCompany,
+            selectedGroup: bootGroup,
+          }),
+        );
+        const preferredCurrency = urlCurrency || persistedCurrency || "";
 
         void loadFormMeta(effectiveCompany);
 
@@ -405,14 +415,14 @@ export default function ProcessListPage() {
             setCurrencyListOrdered(slice.currencyCodes);
             setCurrencyPillDisplayOrder(null);
             setCurrencyFilterCode(
-              resolveProcessCurrencyFilter(urlCurrency, slice.rows, slice.currencyCodes),
+              resolveProcessCurrencyFilter(preferredCurrency, slice.rows, slice.currencyCodes),
             );
           } else {
-            setCurrencyFilterCode(urlCurrency);
+            setCurrencyFilterCode(preferredCurrency);
           }
           skipNextFetchRef.current = true;
         } else {
-          setCurrencyFilterCode(urlCurrency);
+          setCurrencyFilterCode(preferredCurrency);
         }
 
         processListInitDoneRef.current = true;
@@ -1515,6 +1525,10 @@ export default function ProcessListPage() {
                         onClick={() => {
                           if (currencyFilterCode === code) return;
                           setCurrencyFilterCode(code);
+                          persistDashboardSelectedCurrency(
+                            buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
+                            code,
+                          );
                           setCurrentPage(1);
                         }}
                       >

@@ -23,6 +23,11 @@ import {
 } from "../lib/transactionApi.js";
 import { clearTxSearchCache, getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
 import {
+  buildDashboardCurrencyScopeKey,
+  persistDashboardSelectedCurrency,
+  readDashboardSelectedCurrency,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import {
   transactionScopeApiParams,
   transactionScopeCacheCompanyKey,
   transactionScopeCacheKey,
@@ -85,13 +90,22 @@ export function useTransactionSearch({
   const scopeApi = useMemo(() => transactionScopeApiParams(transactionScope), [transactionScope]);
   const scopeCacheCompanyKey = transactionScopeCacheCompanyKey(transactionScope);
 
-  const persistCurrencyFilter = useCallback((companyId, showAll, sel) => {
+  const persistCurrencyFilter = useCallback((companyId, showAll, sel, scopeGroup = null) => {
     if (!companyId) return;
     try {
       localStorage.setItem(
         TRANSACTION_CURRENCY_FILTER_KEY_PREFIX + companyId,
         JSON.stringify({ showAll: !!showAll, currencies: [...(sel || [])] }),
       );
+      if (!showAll && sel?.length === 1) {
+        persistDashboardSelectedCurrency(
+          buildDashboardCurrencyScopeKey({
+            companyId: /^\d+$/.test(String(companyId)) ? Number(companyId) : null,
+            selectedGroup: scopeGroup,
+          }) || String(companyId),
+          sel[0],
+        );
+      }
     } catch {
       /* ignore */
     }
@@ -141,10 +155,10 @@ export function useTransactionSearch({
     setShowAllCurrencies(next);
     const nextSel = [];
     setSelectedCurrencies(nextSel);
-    persistCurrencyFilter(scopeCacheCompanyKey, next, nextSel);
+    persistCurrencyFilter(scopeCacheCompanyKey, next, nextSel, transactionScope?.selectedGroup);
     // Currency is not wired through categoryChangedByUserRef; schedule search after state flush.
     scheduleAutoSearch();
-  }, [showAllCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch]);
+  }, [showAllCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch, transactionScope?.selectedGroup]);
 
   const toggleCurrencyBtn = useCallback(
     (code) => {
@@ -163,10 +177,10 @@ export function useTransactionSearch({
 
       setShowAllCurrencies(nextShowAll);
       setSelectedCurrencies(nextSel);
-      persistCurrencyFilter(scopeCacheCompanyKey, nextShowAll, nextSel);
+      persistCurrencyFilter(scopeCacheCompanyKey, nextShowAll, nextSel, transactionScope?.selectedGroup);
       scheduleAutoSearch();
     },
-    [selectedCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch],
+    [selectedCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch, transactionScope?.selectedGroup],
   );
 
   const onCurrencyDragStart = useCallback((code) => {

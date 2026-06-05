@@ -15,11 +15,12 @@ import {
   persistDashboardGroupOnlyMode,
   pickDefaultCompanyForGroup,
   readPersistedDashboardGcFilter,
+  resolveGcFilterBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import { canUseGroupOnlyMode, isCompanyLogin, isGroupLogin } from "../../../utils/company/loginScope.js";
+import { canUseGroupOnlyMode, isCompanyLogin } from "../../../utils/company/loginScope.js";
 import { syncCompanySessionApi } from "../../../utils/company/companySessionSync.js";
 import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 import {
@@ -166,19 +167,16 @@ export function useTransactionData({
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
         const persisted = readPersistedDashboardGcFilter();
-        let effective = resolveBootCompanyId({
+        const bootGc = resolveGcFilterBootCompanyId({
           urlCompanyId: queryCompany,
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
-        const groupLoginBoot = isGroupLogin(u);
-        if (persisted.groupOnly || (groupLoginBoot && !queryCompany)) {
-          effective = null;
-        } else if (persisted.companyId != null) {
-          effective = persisted.companyId;
-        }
-        if (effective == null && groupLoginBoot) {
+        let effective = bootGc.companyId;
+        if (effective == null && bootGc.groupOnly) {
           persistDashboardGroupOnlyMode(true);
+        } else if (effective != null) {
+          persistDashboardGroupOnlyMode(false);
         }
 
         const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);
@@ -199,12 +197,12 @@ export function useTransactionData({
         const current =
           effective != null ? snapRows.find((c) => Number(c.id) === Number(effective)) : null;
         const selGroup =
+          bootGc.selectedGroup ||
           persisted.selectedGroup ||
           resolveInitialSelectedGroupFromSession(snapRows, current);
 
         if (!cancelled && !filterSnapshotRef.current) {
-          const bootGroupOnly =
-            persisted.groupOnly || (groupLoginBoot && effective == null);
+          const bootGroupOnly = bootGc.groupOnly || effective == null;
           const bootSnap = {
             companyId: bootGroupOnly ? null : effective,
             groupOnlyLedger: bootGroupOnly,

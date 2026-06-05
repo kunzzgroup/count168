@@ -1,6 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
 import { readTransactionCurrencyFilterState } from "../lib/transactionPaymentLogic.js";
 import {
+  buildDashboardCurrencyScopeKey,
+  readDashboardSelectedCurrency,
+} from "../../../utils/company/sharedCompanyFilter.js";
+import {
   transactionScopeCacheCompanyKey,
   transactionScopeCacheKey,
 } from "../lib/transactionScope.js";
@@ -93,14 +97,21 @@ export function useTransactionInitialization({
     const rows = currencyScopeBundle.rows;
     const codes = rows.map((x) => String(x.code || x.currency || "").toUpperCase().trim()).filter(Boolean);
 
-    let preferredDefault = null;
-    try {
-      preferredDefault =
-        String(localStorage.getItem(`transaction_default_currency_${cid || 0}`))
-          .trim()
-          .toUpperCase() || null;
-    } catch {
-      preferredDefault = null;
+    let preferredDefault = readDashboardSelectedCurrency(
+      buildDashboardCurrencyScopeKey({
+        companyId: transactionScope?.scopeCompanyId > 0 ? transactionScope.scopeCompanyId : cid,
+        selectedGroup: transactionScope?.selectedGroup ?? filterSnapshot?.selectedGroup,
+      }),
+    );
+    if (!preferredDefault) {
+      try {
+        preferredDefault =
+          String(localStorage.getItem(`transaction_default_currency_${cid || 0}`))
+            .trim()
+            .toUpperCase() || null;
+      } catch {
+        preferredDefault = null;
+      }
     }
 
     const pickDefault =
