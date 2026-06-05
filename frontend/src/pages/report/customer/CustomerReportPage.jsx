@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   getCachedOwnerCompanies,
   DASHBOARD_GROUP_FILTER_KEY,
+  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   isDashboardGroupOnlyMode,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -19,6 +20,10 @@ import {
   resolveCrossPageCurrencyPreference,
   buildDashboardCurrencyScopeKey,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import {
+  resolveReportCompanyWhenClosingGroup,
+  resolveReportGroupOnlyBoot,
+} from "../shared/reportGcBoot.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import { useReportGroupCompanyFilter } from "../shared/useReportGroupCompanyFilter.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
@@ -224,16 +229,28 @@ export default function CustomerReportPage() {
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
-        let bootGroup =
-          persistedGc.selectedGroup ||
-          bootGc.selectedGroup ||
-          resolveInitialSelectedGroupFromSession(rows, null, u);
-        const groupOnlyBoot =
-          bootGc.groupOnly ||
-          persistedGc.groupOnly ||
-          (bootGroup && isDashboardGroupOnlyMode() && canUseGroupOnlyMode(u, bootGroup));
+        const groupFilterOptOut =
+          typeof sessionStorage !== "undefined" &&
+          sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+        let bootGroup = groupFilterOptOut
+          ? null
+          : persistedGc.selectedGroup ||
+            bootGc.selectedGroup ||
+            resolveInitialSelectedGroupFromSession(rows, null, u);
+        const groupOnlyBoot = groupFilterOptOut
+          ? false
+          : resolveReportGroupOnlyBoot(u, bootGc, persistedGc, bootGroup);
         let nextCompanyId =
           companyId != null ? companyId : groupOnlyBoot ? null : bootGc.companyId;
+        if (groupFilterOptOut && nextCompanyId == null) {
+          const pick = resolveReportCompanyWhenClosingGroup(
+            u,
+            rows,
+            null,
+            sortedUniqueGroupIds(rows),
+          );
+          if (pick?.id != null) nextCompanyId = Number(pick.id);
+        }
         if (nextCompanyId == null && savedCompanyId != null && bootGroup && !groupOnlyBoot) {
           const inGroup = companiesInGroupList(rows, bootGroup).some(
             (c) => Number(c.id) === Number(savedCompanyId),
@@ -252,9 +269,11 @@ export default function CustomerReportPage() {
           nextCompanyId != null
             ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
             : null;
-        bootGroup = resolveInitialSelectedGroupFromSession(rows, row, u) || bootGroup;
+        if (!groupFilterOptOut) {
+          bootGroup = resolveInitialSelectedGroupFromSession(rows, row, u) || bootGroup;
+        }
         setCompanyId((prev) => (prev != null ? prev : nextCompanyId));
-        setSelectedGroup(bootGroup);
+        setSelectedGroup(groupFilterOptOut ? null : bootGroup);
         if (nextCompanyId != null) void checkBankOnly(nextCompanyId);
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
@@ -267,18 +286,25 @@ export default function CustomerReportPage() {
 
   useEffect(() => {
     if (!companies.length) return;
+    const groupFilterOptOut =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+    if (groupFilterOptOut) {
+      setSelectedGroup((prev) => (prev == null ? prev : null));
+      return;
+    }
     const row =
       companyId != null
         ? companies.find((c) => Number(c.id) === Number(companyId)) || null
         : null;
     setSelectedGroup((prev) => {
-      const resolved = resolveInitialSelectedGroupFromSession(companies, row);
+      const resolved = resolveInitialSelectedGroupFromSession(companies, row, me);
       if (resolved) return resolved;
       const g = prev ? String(prev).trim().toUpperCase() : "";
       if (g && sortedUniqueGroupIds(companies).includes(g)) return g;
       return prev;
     });
-  }, [companies, companyId]);
+  }, [companies, companyId, me]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
@@ -312,10 +338,7 @@ export default function CustomerReportPage() {
   const onPrepareCompanySelect = useCallback((c) => {
     const nextId = Number(c?.id);
     if (!nextId) return;
-    const groupForPersist =
-      (c?.group_id ? String(c.group_id).trim().toUpperCase() : "") ||
-      (selectedGroup ? String(selectedGroup).trim().toUpperCase() : "") ||
-      null;
+    const groupForPersist = c?.group_id ? String(c.group_id).trim().toUpperCase() : null;
     persistDashboardFilterState(groupForPersist, nextId, { allowGroupOnly: false });
     persistDashboardGroupOnlyMode(false);
     flushSync(() => setCompanyId(nextId));
@@ -324,7 +347,7 @@ export default function CustomerReportPage() {
       setAccountId("");
       setCurrencyFilterReady(false);
     });
-  }, [selectedGroup]);
+  }, []);
 
   const onSwitchCompany = useCallback(
     async (c) => {
