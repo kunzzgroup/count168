@@ -377,8 +377,6 @@ export function resolveBootCompanyId({ urlCompanyId, sessionCompanyId, defaultRo
   const urlNum =
     urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
   if (Number.isFinite(urlNum) && urlNum > 0) return urlNum;
-  const saved = readDashboardSelectedCompanyId();
-  if (saved != null) return saved;
   if (isDashboardGroupOnlyMode()) return null;
   return resolveInitialCompanyId(sessionCompanyId ?? defaultRowId ?? null);
 }
@@ -390,32 +388,12 @@ export function syncDashboardGroupOnlyFromFilter(selectedGroup, companyId) {
 
 /** Company id for page boot: group-only → null; else saved id, then PHP/fallback. */
 export function resolveInitialCompanyId(fallbackCompanyId) {
+  if (isDashboardGroupOnlyMode()) return null;
   const saved = readDashboardSelectedCompanyId();
   if (saved != null) return saved;
-  if (isDashboardGroupOnlyMode()) return null;
   if (fallbackCompanyId == null || fallbackCompanyId === "") return null;
   const id = Number(fallbackCompanyId);
   return Number.isFinite(id) ? id : null;
-}
-
-/**
- * SPA page initial company id (report / maintenance): persisted subsidiary wins over group-only flag.
- */
-export function readInitialGcFilterCompanyId({ sessionCompanyId = null, defaultRowId = null } = {}) {
-  let queryCompany = null;
-  if (typeof window !== "undefined") {
-    try {
-      queryCompany = new URL(window.location.href).searchParams.get("company_id");
-    } catch {
-      /* ignore */
-    }
-  }
-  const bootGc = resolveGcFilterBootCompanyId({
-    urlCompanyId: queryCompany,
-    sessionCompanyId,
-    defaultRowId,
-  });
-  return bootGc.groupOnly ? null : bootGc.companyId ?? null;
 }
 
 /**
@@ -525,8 +503,7 @@ export async function loadOwnerCompaniesCached(fetcher) {
 
 /** Shared GET owner companies — one HTTP request per session (Layout prefetch + page boot). */
 export async function fetchOwnerCompaniesAll(options = {}) {
-  const { signal, throwOnError = false, forceRefresh = false } = options;
-  if (forceRefresh) clearOwnerCompaniesCache();
+  const { signal, throwOnError = false } = options;
   return loadOwnerCompaniesCached(async () => {
     const res = await fetch(buildApiUrl("api/transactions/get_owner_companies_api.php?all=1"), {
       credentials: "include",
@@ -622,16 +599,12 @@ export function isExplicitCompanySelection(companyId, companyRow, selectedGroup)
   return companyBelongsToGroup(companyRow, selectedGroup);
 }
 
-/** Sorted unique non-empty group ids from company rows (native + link_source_group). */
+/** Sorted unique non-empty group ids from company rows. */
 export function sortedUniqueGroupIds(companies) {
   const set = new Set();
   for (const c of companies || []) {
     const g = normalizeCompanyGroupId(c);
     if (g) set.add(g);
-    const link = c?.link_source_group
-      ? String(c.link_source_group).trim().toUpperCase()
-      : "";
-    if (link) set.add(link);
   }
   return [...set].sort();
 }
@@ -657,12 +630,7 @@ export function clearDashboardGroupFilterKeepCompany(companyId) {
 /**
  * Boot-time resolution (matches transaction/maintenance pages): honour session only when it matches current company's group.
  */
-export function resolveInitialSelectedGroupFromSession(
-  companies,
-  currentCompany,
-  loginMe = null,
-  options = {},
-) {
+export function resolveInitialSelectedGroupFromSession(companies, currentCompany, loginMe = null) {
   if (
     sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1" &&
     loginMe &&
@@ -702,7 +670,7 @@ export function resolveInitialSelectedGroupFromSession(
     normalizeCompanyGroupId(currentCompany) === savedGroup
   ) {
     selGroup = savedGroup;
-  } else if (savedGroup && !groups.includes(savedGroup) && options.allowStaleGroupPurge === true) {
+  } else if (savedGroup && !groups.includes(savedGroup)) {
     sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
     sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
     sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
@@ -872,19 +840,11 @@ export function excludeGroupLabelsFromCompanyPicker(companies, groupIds = null) 
 }
 
 /** Companies shown in the Company row when a GroupID is selected (Dashboard-aligned). */
-export function companiesForCompanyPicker(companies, selectedGroup, groupIds = null, options = {}) {
-  const preferredId = options.preferredCompanyId ?? null;
-  let list = selectedGroup
-    ? companiesInGroupList(companies, selectedGroup)
-    : companiesInGroupList(companies, null);
-  list = excludeGroupLabelsFromCompanyPicker(list, groupIds);
-  if (preferredId != null) {
-    const row = (companies || []).find((c) => Number(c.id) === Number(preferredId));
-    if (row && !list.some((c) => Number(c.id) === Number(row.id))) {
-      list = [...list, row];
-    }
-  }
-  return list;
+export function companiesForCompanyPicker(companies, selectedGroup, groupIds = null) {
+  const list = selectedGroup
+    ? companiesNativeInGroupList(companies, selectedGroup)
+    : companiesNativeInGroupList(companies, null);
+  return excludeGroupLabelsFromCompanyPicker(list, groupIds);
 }
 
 /** Subsidiary company row (Process / Account pills) — not group entity or group-id label. */
@@ -905,108 +865,8 @@ export function pickDefaultSubsidiaryForGroup(companies, groupId, options = {}) 
   const gids = sortedUniqueGroupIds(companies);
   const pick = pickDefaultCompanyForGroup(companies, g, { ...options, nativeOnly: true });
   if (pick && isSubsidiaryCompanyRow(pick, gids)) return pick;
-  const list = excludeGroupLabelsFromCompanyPicker(companiesInGroupList(companies, g), gids);
+  const list = excludeGroupLabelsFromCompanyPicker(companiesNativeInGroupList(companies, g), gids);
   return list[0] ?? null;
-}
-
-/** Match subsidiary in active group tab by company code (e.g. session company_code C168). */
-export function resolveCompanyIdInGroupByCode(companies, groupId, companyCode) {
-  const code = String(companyCode || "").trim().toUpperCase();
-  const g = String(groupId || "").trim().toUpperCase();
-  if (!code || !g) return null;
-  const row = companiesInGroupList(companies, g).find(
-    (c) => String(c.company_id || "").trim().toUpperCase() === code,
-  );
-  const id = row?.id != null ? Number(row.id) : Number.NaN;
-  return Number.isFinite(id) && id !== 0 ? id : null;
-}
-
-/**
- * Report / maintenance boot: restore explicit subsidiary in group (incl. linked rows).
- * Less strict than {@link resolveSubsidiaryBootCompanyId} — keeps saved id when row exists in group.
- */
-export function resolveReportGroupCompanyBootId(
-  companies,
-  { urlCompanyId, sessionCompanyId, sessionCompanyCode, selectedGroup, loginMe = null } = {},
-) {
-  const list = companies || [];
-  const groupKey =
-    (selectedGroup ? String(selectedGroup).trim().toUpperCase() : "") ||
-    (loginMe?.login_scope === "group" && loginMe?.login_identifier
-      ? String(loginMe.login_identifier).trim().toUpperCase()
-      : "");
-
-  const rowInGroup = (row) => {
-    if (!row || !groupKey) return true;
-    const native = normalizeCompanyGroupId(row);
-    const link = row.link_source_group
-      ? String(row.link_source_group).trim().toUpperCase()
-      : "";
-    return native === groupKey || link === groupKey;
-  };
-
-  const acceptRowId = (row) => {
-    if (!row || !filterCompaniesWithDisplayId([row]).length) return null;
-    if (companyRowIsGroupEntityAnyShape(row)) return null;
-    if (!rowInGroup(row)) return null;
-    const id = Number(row.id);
-    return Number.isFinite(id) && id !== 0 ? id : null;
-  };
-
-  const acceptRawId = (rawId) => {
-    const row = list.find((c) => Number(c.id) === Number(rawId));
-    return acceptRowId(row);
-  };
-
-  const urlNum =
-    urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
-  if (Number.isFinite(urlNum) && urlNum !== 0) {
-    const fromUrl = acceptRawId(urlNum);
-    if (fromUrl != null) return fromUrl;
-  }
-
-  const saved = readDashboardSelectedCompanyId();
-  if (saved != null) {
-    const fromSaved = acceptRawId(saved);
-    if (fromSaved != null) return fromSaved;
-    // Persisted subsidiary may sit under another native group_id but still be valid
-    // (picker previously showed it via preferredCompanyId injection).
-    const savedRow = list.find((c) => Number(c.id) === Number(saved));
-    if (
-      savedRow &&
-      filterCompaniesWithDisplayId([savedRow]).length &&
-      !companyRowIsGroupEntityAnyShape(savedRow)
-    ) {
-      const savedId = Number(savedRow.id);
-      if (Number.isFinite(savedId) && savedId !== 0) return savedId;
-    }
-  }
-
-  const fromSubsidiary = resolveSubsidiaryBootCompanyId(list, {
-    urlCompanyId: null,
-    sessionCompanyId,
-    selectedGroup: groupKey,
-    loginMe,
-  });
-  if (fromSubsidiary != null) return fromSubsidiary;
-
-  if (groupKey && sessionCompanyCode) {
-    const fromCode = resolveCompanyIdInGroupByCode(list, groupKey, sessionCompanyCode);
-    if (fromCode != null) return fromCode;
-  }
-
-  const anchor = resolvePreferredCompanyIdForGroupAnchor(list, groupKey, sessionCompanyId);
-  if (anchor != null) {
-    const fromAnchor = acceptRawId(anchor);
-    if (fromAnchor != null) return fromAnchor;
-  }
-
-  if (!isDashboardGroupOnlyMode() && groupKey) {
-    const pick = pickDefaultSubsidiaryForGroup(list, groupKey, { me: loginMe });
-    if (pick?.id != null) return Number(pick.id);
-  }
-
-  return null;
 }
 
 /** Only use PHP session company as anchor preference when it belongs to the active group tab. */
@@ -1091,7 +951,7 @@ export function resolveSubsidiaryBootCompanyId(
     }),
   );
   if (id == null) id = acceptId(sessionCompanyId);
-  if (id == null) {
+  if (id == null && !isDashboardGroupOnlyMode()) {
     id = acceptId(readDashboardSelectedCompanyId());
   }
 

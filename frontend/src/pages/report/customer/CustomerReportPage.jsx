@@ -4,18 +4,12 @@ import { useNavigate } from "react-router-dom";
 import {
   getCachedOwnerCompanies,
   DASHBOARD_GROUP_FILTER_KEY,
-  readInitialGcFilterCompanyId,
-  readPersistedDashboardGcFilter,
+  isDashboardGroupOnlyMode,
+  resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
-  resolveReportGroupCompanyBootId,
-  resolveViewGroupForCompany,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
-  clearOwnerCompaniesCache,
-  filterCompaniesForLoginScope,
-  readDashboardSelectedCompanyId,
   resolveGcFilterBootCompanyId,
-  isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
   notifyDashboardCurrencyFilterChanged,
@@ -57,10 +51,6 @@ import {
   resolveCustomerReportScope,
 } from "../shared/reportScope.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import {
-  ensureCrossPageCompanySelection,
-  syncCompanySessionApi,
-} from "../../../utils/company/companySessionSync.js";
 import { syncCompanySessionInBackground } from "../../../utils/company/companySessionSwitchCore.js";
 
 const REPORT_PAGE_KEY = "customer";
@@ -75,7 +65,12 @@ function sameCodeList(a = [], b = []) {
 
 function resolveReportBootCompanyId() {
   const cached = getCachedOwnerCompanies();
-  return readInitialGcFilterCompanyId({ defaultRowId: cached?.[0]?.id });
+  const url = new URL(window.location.href);
+  const queryCompany = url.searchParams.get("company_id");
+  return resolveBootCompanyId({
+    urlCompanyId: queryCompany,
+    defaultRowId: cached?.[0]?.id,
+  });
 }
 
 export default function CustomerReportPage() {
@@ -118,7 +113,6 @@ export default function CustomerReportPage() {
   const { begin: beginMetaFetch, invalidate: invalidateMetaFetch, isCurrent: isMetaFetchCurrent } =
     useReportAbortSeq();
   const pageBootOnceRef = useRef(false);
-  const [companiesBootstrapped, setCompaniesBootstrapped] = useState(false);
   const prevCompanyIdRef = useRef(null);
   const prevScopeKeyRef = useRef(null);
   /** Per-company / per-group currency filter prefs */
@@ -184,16 +178,16 @@ export default function CustomerReportPage() {
 
   useEffect(() => {
     if (!me || companyId != null) return;
+    if (isDashboardGroupOnlyMode()) return;
     const cached = getCachedOwnerCompanies();
     const url = new URL(window.location.href);
     const queryCompany = url.searchParams.get("company_id");
-    const bootGc = resolveGcFilterBootCompanyId({
+    const effective = resolveBootCompanyId({
       urlCompanyId: queryCompany,
       sessionCompanyId: me.company_id,
       defaultRowId: cached?.[0]?.id,
     });
-    if (bootGc.groupOnly) return;
-    if (bootGc.companyId != null) setCompanyId(bootGc.companyId);
+    if (effective != null) setCompanyId(effective);
   }, [me, companyId]);
 
   useEffect(() => {
@@ -213,114 +207,31 @@ export default function CustomerReportPage() {
     let cancelled = false;
     (async () => {
       try {
-        const url = new URL(window.location.href);
-        const queryCompany = url.searchParams.get("company_id");
-        const persisted = readPersistedDashboardGcFilter();
-        const savedCompanyId = readDashboardSelectedCompanyId();
-
-        if (savedCompanyId != null) {
-          persistDashboardGroupOnlyMode(false);
-        }
-
-        clearOwnerCompaniesCache();
-        let rows = filterCompaniesForLoginScope(
-          await fetchOwnerCompaniesAll({ forceRefresh: true }),
-          u,
-        );
-        if (cancelled) return;
-
-        const savedRow =
-          savedCompanyId != null
-            ? rows.find((c) => Number(c.id) === Number(savedCompanyId)) || null
-            : null;
-        const bootGroup =
-          resolveInitialSelectedGroupFromSession(rows, savedRow, u) ??
-          persisted.selectedGroup;
-        const activeGroup = bootGroup ?? persisted.selectedGroup;
-
-        let effectiveCompany = resolveReportGroupCompanyBootId(rows, {
-          urlCompanyId: queryCompany,
-          sessionCompanyId: u.company_id,
-          sessionCompanyCode: u.company_code,
-          selectedGroup: activeGroup,
-          loginMe: u,
-        });
-
-        const syncTargetId = effectiveCompany ?? savedCompanyId;
-        if (
-          syncTargetId != null &&
-          Number(syncTargetId) !== Number(u.company_id)
-        ) {
-          const syncRow =
-            rows.find((c) => Number(c.id) === Number(syncTargetId)) || savedRow;
-          const syncGroup = resolveViewGroupForCompany(syncRow, activeGroup) ?? activeGroup;
-          try {
-            const syncJson = await syncCompanySessionApi(syncTargetId, syncGroup);
-            if (!syncJson?.success) {
-              if (effectiveCompany != null) {
-                effectiveCompany = resolveReportGroupCompanyBootId(rows, {
-                  urlCompanyId: queryCompany,
-                  sessionCompanyId: u.company_id,
-                  sessionCompanyCode: u.company_code,
-                  selectedGroup: activeGroup,
-                  loginMe: u,
-                });
-              }
-            } else {
-              clearOwnerCompaniesCache();
-              rows = filterCompaniesForLoginScope(
-                await fetchOwnerCompaniesAll({ forceRefresh: true }),
-                u,
-              );
-              if (cancelled) return;
-              effectiveCompany = resolveReportGroupCompanyBootId(rows, {
-                urlCompanyId: queryCompany,
-                sessionCompanyId: syncTargetId,
-                sessionCompanyCode: syncJson?.data?.company_code ?? u.company_code,
-                selectedGroup: activeGroup,
-                loginMe: u,
-              });
-            }
-          } catch {
-            /* keep pre-sync resolution */
-          }
-        }
-
+        const rows = await fetchOwnerCompaniesAll();
         if (cancelled) return;
         setCompanies(rows);
 
-        const row =
-          effectiveCompany != null
-            ? rows.find((c) => Number(c.id) === Number(effectiveCompany)) || null
-            : null;
-        const bootSelectedGroup =
-          (row ? resolveViewGroupForCompany(row, activeGroup) : null) ??
-          resolveInitialSelectedGroupFromSession(rows, row, u) ??
-          activeGroup;
-
-        if (effectiveCompany != null) {
+        const url = new URL(window.location.href);
+        const queryCompany = url.searchParams.get("company_id");
+        const bootGc = resolveGcFilterBootCompanyId({
+          urlCompanyId: queryCompany,
+          sessionCompanyId: u.company_id,
+          defaultRowId: rows[0]?.id,
+        });
+        if (bootGc.groupOnly) {
+          persistDashboardGroupOnlyMode(true);
+        } else if (bootGc.companyId != null) {
           persistDashboardGroupOnlyMode(false);
-          persistDashboardFilterState(bootSelectedGroup, effectiveCompany, {
-            allowGroupOnly: false,
-          });
-          setCompanyId(effectiveCompany);
-          setSelectedGroup(bootSelectedGroup);
-          setCompaniesBootstrapped(true);
-          void checkBankOnly(effectiveCompany);
-          await ensureCrossPageCompanySelection(effectiveCompany, {
-            companies: rows,
-            selectedGroup: bootSelectedGroup,
-            companyRow: row,
-            sessionCompanyId: u.company_id,
-          });
-        } else {
-          if (persisted.groupOnly || isDashboardGroupOnlyMode()) {
-            persistDashboardGroupOnlyMode(true);
-          }
-          setCompanyId(null);
-          setSelectedGroup(bootSelectedGroup);
-          setCompaniesBootstrapped(true);
         }
+        const nextCompanyId =
+          companyId != null ? companyId : bootGc.groupOnly ? null : bootGc.companyId;
+        const row =
+          nextCompanyId != null
+            ? rows.find((c) => Number(c.id) === Number(nextCompanyId)) || null
+            : null;
+        setCompanyId((prev) => (prev != null ? prev : nextCompanyId));
+        setSelectedGroup(resolveInitialSelectedGroupFromSession(rows, row));
+        if (nextCompanyId != null) void checkBankOnly(nextCompanyId);
       } catch {
         if (!cancelled) navigate("/login", { replace: true });
       }
@@ -328,33 +239,22 @@ export default function CustomerReportPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, me, navigate]);
+  }, [sessionReady, me, navigate, companyId]);
 
   useEffect(() => {
-    if (!companies.length || !companiesBootstrapped) return;
+    if (!companies.length) return;
     const row =
       companyId != null
         ? companies.find((c) => Number(c.id) === Number(companyId)) || null
         : null;
     setSelectedGroup((prev) => {
-      const resolved = resolveInitialSelectedGroupFromSession(companies, row, me);
+      const resolved = resolveInitialSelectedGroupFromSession(companies, row);
       if (resolved) return resolved;
       const g = prev ? String(prev).trim().toUpperCase() : "";
       if (g && sortedUniqueGroupIds(companies).includes(g)) return g;
       return prev;
     });
-  }, [companies, companyId, me, companiesBootstrapped]);
-
-  useEffect(() => {
-    if (!companiesBootstrapped || !companies.length || companyId == null) return;
-    const row = companies.find((c) => Number(c.id) === Number(companyId)) || null;
-    void ensureCrossPageCompanySelection(companyId, {
-      companies,
-      selectedGroup,
-      companyRow: row,
-      sessionCompanyId: me?.company_id,
-    });
-  }, [companies, companyId, selectedGroup, me?.company_id, companiesBootstrapped]);
+  }, [companies, companyId]);
 
   const checkBankOnly = useCallback(async (compId) => {
     if (!compId) return;
@@ -388,18 +288,14 @@ export default function CustomerReportPage() {
   const onPrepareCompanySelect = useCallback((c) => {
     const nextId = Number(c?.id);
     if (!nextId) return;
-    const gid =
-      (c?.group_id && String(c.group_id).trim().toUpperCase()) ||
-      (selectedGroup && String(selectedGroup).trim().toUpperCase()) ||
-      null;
-    persistDashboardFilterState(gid, nextId, { allowGroupOnly: false });
+    persistDashboardGroupOnlyMode(false);
     flushSync(() => setCompanyId(nextId));
     if (reportDataRef.current != null) setReportSyncing(true);
     startTransition(() => {
       setAccountId("");
       setCurrencyFilterReady(false);
     });
-  }, [selectedGroup]);
+  }, []);
 
   const onSwitchCompany = useCallback(
     async (c) => {
@@ -449,7 +345,7 @@ export default function CustomerReportPage() {
     onSelectCompany: onSwitchCompany,
     onClearCompany: handleClearCompany,
     switchingCompany: false,
-    preferredCompanyId: companyId ?? me?.company_id ?? null,
+    preferredCompanyId: companyId,
   });
 
   const reportScope = useMemo(
