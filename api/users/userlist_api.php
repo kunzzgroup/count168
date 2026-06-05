@@ -346,12 +346,7 @@ function userlist_assert_group_id_allowed(string $groupId): void
     if ($g === null) {
         sendResponse(false, 'Invalid group');
     }
-    if (!gc_is_group_login()) {
-        $role = isset($_SESSION['role']) ? strtolower(trim((string) $_SESSION['role'])) : '';
-        if ($role !== 'owner') {
-            sendResponse(false, 'Group filter is not allowed for company login');
-        }
-    }
+
     $pdo = $GLOBALS['pdo'] ?? null;
     if ($pdo instanceof PDO) {
         try {
@@ -362,15 +357,37 @@ function userlist_assert_group_id_allowed(string $groupId): void
         if (gc_session_can_access_group_code($pdo, $g)) {
             return;
         }
+        if (function_exists('gc_session_can_access_group_ledger') && gc_session_can_access_group_ledger($pdo, $g)) {
+            return;
+        }
     }
-    $accessible = gc_session_accessible_group_ids();
-    if ($accessible !== [] && !in_array($g, $accessible, true)) {
-        sendResponse(false, 'Group not accessible');
+
+    if (function_exists('gc_session_assigned_group_codes') && in_array($g, gc_session_assigned_group_codes(), true)) {
+        return;
     }
-    $ident = gc_session_login_identifier();
-    if ($accessible === [] && $ident !== null && $ident !== $g) {
-        sendResponse(false, 'Group not accessible');
+
+    if (gc_is_group_login()) {
+        $accessible = gc_session_accessible_group_ids();
+        if ($accessible !== [] && !in_array($g, $accessible, true)) {
+            sendResponse(false, 'Group not accessible');
+        }
+        $ident = gc_session_login_identifier();
+        if ($accessible === [] && $ident !== null && $ident !== $g) {
+            sendResponse(false, 'Group not accessible');
+        }
+
+        return;
     }
+
+    $role = isset($_SESSION['role']) ? strtolower(trim((string) $_SESSION['role'])) : '';
+    if ($role === 'owner' || $role === 'admin') {
+        $accessible = gc_session_accessible_group_ids();
+        if ($accessible === [] || in_array($g, $accessible, true)) {
+            return;
+        }
+    }
+
+    sendResponse(false, 'Group filter is not allowed for company login');
 }
 
 function userlistFriendlyDbError(Throwable $e): string
