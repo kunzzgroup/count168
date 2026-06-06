@@ -108,6 +108,22 @@ function resolveAccountScopeKey({ companyId: cid, selectedGroup: sg, groupOnly =
   return "none";
 }
 
+/** Active list scope key — must stay in sync with accountsListFetchScopeKey useMemo. */
+function resolveAccountsListFetchScopeKey({
+  companyId: cid,
+  selectedGroup: sg,
+  groupsAllMode: gAll = false,
+  groupAllMode: cAll = false,
+  isListScopeReady: ready = true,
+} = {}) {
+  if (!ready) return "";
+  if (gAll) return cAll ? "groups-all:companies-all" : "groups-all";
+  if (cAll) return `group-all:${sg || ""}`;
+  if (cid != null) return `company:${cid}`;
+  if (sg) return `group:${sg}`;
+  return "";
+}
+
 function accountRowsFingerprint(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return "0";
   return rows.map((a) => Number(a.id)).join(",");
@@ -203,6 +219,7 @@ export default function AccountListPage() {
   const bootInitializedRef = useRef(false);
   const accountListCacheRef = useRef(new Map());
   const listFetchAbortRef = useRef(null);
+  const listFetchGenRef = useRef(0);
   const companySwitchGenRef = useRef(0);
   const skipCompanyFetchEffectRef = useRef(false);
   const suppressGcSyncRef = useRef(false);
@@ -303,10 +320,17 @@ export default function AccountListPage() {
         groupOnly: useGroupOnly,
       });
       const cacheKey = resolveAccountListCacheKey(scopeKey, searchTerm, showInactive, showAll);
+      const requestScopeKey = resolveAccountsListFetchScopeKey(scope);
 
       listFetchAbortRef.current?.abort();
       const ac = new AbortController();
       listFetchAbortRef.current = ac;
+      const fetchGen = ++listFetchGenRef.current;
+
+      const isStaleResponse = () =>
+        ac.signal.aborted ||
+        fetchGen !== listFetchGenRef.current ||
+        requestScopeKey !== resolveAccountsListFetchScopeKey(gcScopeRef.current);
 
       try {
         let nextAccounts = [];
@@ -316,7 +340,7 @@ export default function AccountListPage() {
             signal: ac.signal,
           });
           const json = await res.json();
-          if (ac.signal.aborted) return;
+          if (isStaleResponse()) return;
           if (!json.success) {
             if (!silent) notifyApi(json.message, "failedToLoadAccounts", "danger");
             return;
@@ -328,8 +352,9 @@ export default function AccountListPage() {
             searchTerm,
             showInactive,
             showAll,
+            signal: ac.signal,
           });
-          if (ac.signal.aborted) return;
+          if (isStaleResponse()) return;
           if (!merged.success) {
             if (!silent) notifyApi(merged.message, "failedToLoadAccounts", "danger");
             return;
@@ -341,8 +366,9 @@ export default function AccountListPage() {
             searchTerm,
             showInactive,
             showAll,
+            signal: ac.signal,
           });
-          if (ac.signal.aborted) return;
+          if (isStaleResponse()) return;
           if (!merged.success) {
             if (!silent) notifyApi(merged.message, "failedToLoadAccounts", "danger");
             return;
@@ -354,7 +380,7 @@ export default function AccountListPage() {
             { credentials: "include", signal: ac.signal },
           );
           const json = await res.json();
-          if (ac.signal.aborted) return;
+          if (isStaleResponse()) return;
           if (!json.success) {
             if (!silent) notifyApi(json.message, "failedToLoadAccounts", "danger");
             return;
@@ -363,6 +389,8 @@ export default function AccountListPage() {
         } else {
           return;
         }
+
+        if (isStaleResponse()) return;
 
         accountListCacheRef.current.set(cacheKey, nextAccounts);
         setAccounts((prev) => {
@@ -377,7 +405,7 @@ export default function AccountListPage() {
         }
         syncUrl();
       } catch (e) {
-        if (ac.signal.aborted) return;
+        if (isStaleResponse()) return;
         if (!silent) notifyApi(null, "networkError", "danger");
       }
     },
@@ -1355,14 +1383,19 @@ export default function AccountListPage() {
     setGroupAllMode(false);
   }, [bootLoading, selectedGroup, setGroupsAllMode, setGroupAllMode]);
 
-  const accountsListFetchScopeKey = useMemo(() => {
-    if (bootLoading || !isListScopeReady) return "";
-    if (groupsAllMode) return groupAllMode ? "groups-all:companies-all" : "groups-all";
-    if (groupAllMode) return `group-all:${selectedGroup || ""}`;
-    if (companyId != null) return `company:${companyId}`;
-    if (selectedGroup) return `group:${selectedGroup}`;
-    return "";
-  }, [bootLoading, isListScopeReady, groupsAllMode, groupAllMode, companyId, selectedGroup]);
+  const accountsListFetchScopeKey = useMemo(
+    () =>
+      bootLoading
+        ? ""
+        : resolveAccountsListFetchScopeKey({
+            companyId,
+            selectedGroup,
+            groupsAllMode,
+            groupAllMode,
+            isListScopeReady,
+          }),
+    [bootLoading, isListScopeReady, groupsAllMode, groupAllMode, companyId, selectedGroup],
+  );
 
   useEffect(() => {
     if (!accountsListFetchScopeKey) return;
