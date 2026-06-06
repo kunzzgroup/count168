@@ -26,6 +26,7 @@ import {
   DASHBOARD_GROUP_FILTER_EVENT,
   dashboardFilterEventMatchesPersisted,
   dashboardGcFiltersEqual,
+  buildDashboardFilterEventDetailFromPersisted,
   isDashboardGroupOnlyMode,
   readPersistedDashboardGcFilter,
   shouldApplySessionToSidebar,
@@ -386,13 +387,13 @@ export default function AuthenticatedLayout() {
   }, []);
 
   const applySidebarFromFilterDetail = useCallback(
-    (detail) => {
+    (detail, options = {}) => {
       if (!detail) {
         applySidebarPatch(null);
         scheduleRefreshSession();
         return;
       }
-      if (!dashboardFilterEventMatchesPersisted(detail)) return;
+      if (!options.force && !dashboardFilterEventMatchesPersisted(detail)) return;
       const cid = detail.companyId;
       if (cid == null) {
         const patch = { companyId: null, companyCode: detail.companyCode ?? "" };
@@ -504,33 +505,20 @@ export default function AuthenticatedLayout() {
     };
   }, [applySidebarPatch, scheduleRefreshSession]);
 
-  /** Login / refresh: layout may mount after login filter seed — patch sidebar for group-only AP/IG. */
+  const syncSidebarFromPersistedFilter = useCallback(
+    (options = {}) => {
+      const detail = buildDashboardFilterEventDetailFromPersisted();
+      if (!detail.selectedGroup && detail.companyId == null) return;
+      applySidebarFromFilterDetail(detail, { force: options.force === true });
+    },
+    [applySidebarFromFilterDetail],
+  );
+
+  /** Login / refresh: replay persisted filter before dashboard bootstrap (login notify may be missed). */
   useLayoutEffect(() => {
     if (loading || !me) return;
-    const filter = readPersistedDashboardGcFilter();
-    if (!filter.groupOnly || !filter.selectedGroup) return;
-    const code = String(me.company_code || "").trim().toUpperCase();
-    const staleCompanyContext =
-      me.company_id != null ||
-      me.is_current_company_c168 ||
-      me.has_c168_domain_page_access ||
-      me.has_c168_auto_renew_access ||
-      (code && code !== filter.selectedGroup);
-    if (!staleCompanyContext) return;
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup);
-    const expirationDate = resolveSidebarExpirationForFilter({
-      selectedGroup: filter.selectedGroup,
-      companyId: null,
-    });
-    applySidebarPatch({
-      companyId: null,
-      companyCode: "",
-      ...(groupFlags
-        ? { hasGambling: groupFlags.hasGambling, hasBank: groupFlags.hasBank }
-        : {}),
-      ...(expirationDate !== undefined ? { expirationDate } : {}),
-    });
-  }, [loading, me, applySidebarPatch]);
+    syncSidebarFromPersistedFilter({ force: true });
+  }, [loading, me, syncSidebarFromPersistedFilter]);
 
   useEffect(() => {
     const onOwnerGroupsLoaded = () => {
@@ -554,11 +542,12 @@ export default function AuthenticatedLayout() {
     return () => window.removeEventListener("eazycount:owner-groups-loaded", onOwnerGroupsLoaded);
   }, [applySidebarPatch]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onFilterChange = (e) => applySidebarFromFilterDetail(e?.detail ?? null);
     window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
+    syncSidebarFromPersistedFilter({ force: true });
     return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-  }, [applySidebarFromFilterDetail]);
+  }, [applySidebarFromFilterDetail, syncSidebarFromPersistedFilter]);
 
   useEffect(() => {
     setHoverSection(null);

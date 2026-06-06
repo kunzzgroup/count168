@@ -762,6 +762,76 @@ export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, ex
   return opts;
 }
 
+/** Build sidebar event detail from sessionStorage (same shape as {@link notifyDashboardGroupFilterChanged}). */
+export function buildDashboardFilterEventDetailFromPersisted() {
+  const filter = readPersistedDashboardGcFilter();
+  const selectedGroup = filter.selectedGroup;
+  const groupOnly = filter.groupOnly;
+  const cid =
+    groupOnly || filter.companyId == null
+      ? null
+      : Number.isFinite(Number(filter.companyId))
+        ? Number(filter.companyId)
+        : null;
+  const row = cid != null ? findOwnerCompanyById(cid) : null;
+  const notifyOpts = groupOnly
+    ? buildDashboardSidebarNotifyOptions(null, selectedGroup)
+    : {
+        ...buildDashboardSidebarNotifyOptions(row, selectedGroup),
+        ignoreGroupOnly: true,
+      };
+  const value = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+  const effectiveCid =
+    notifyOpts.ignoreGroupOnly === true
+      ? cid
+      : groupOnly
+        ? null
+        : cid;
+  let companyCode = notifyOpts.companyCode
+    ? String(notifyOpts.companyCode).trim().toUpperCase()
+    : null;
+  if (!companyCode && effectiveCid != null) {
+    const fromRow = row?.company_id ? String(row.company_id).trim().toUpperCase() : "";
+    if (fromRow) companyCode = fromRow;
+  }
+  const cachedFlags = effectiveCid != null ? peekCompanySessionFlags(effectiveCid) : null;
+  const expirationDate = resolveSidebarExpirationForFilter({
+    selectedGroup: value,
+    companyId: effectiveCid,
+    expirationDate: notifyOpts.expirationDate,
+  });
+  let hasGambling = notifyOpts.hasGambling ?? cachedFlags?.has_gambling;
+  let hasBank = notifyOpts.hasBank ?? cachedFlags?.has_bank;
+  if (groupOnly && value) {
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(value);
+    if (groupFlags) {
+      if (hasGambling == null) hasGambling = groupFlags.hasGambling;
+      if (hasBank == null) hasBank = groupFlags.hasBank;
+    }
+  }
+  return {
+    selectedGroup: value,
+    companyId: effectiveCid,
+    companyCode: companyCode ?? cachedFlags?.company_code ?? null,
+    ...(hasGambling != null ? { hasGambling: Boolean(hasGambling) } : {}),
+    ...(hasBank != null ? { hasBank: Boolean(hasBank) } : {}),
+    expirationDate: expirationDate !== undefined ? expirationDate : null,
+  };
+}
+
+/** Replay persisted Group / Company filter to sidebar (login notify may fire before layout mounts). */
+export function replayPersistedDashboardFilterToSidebar() {
+  const detail = buildDashboardFilterEventDetailFromPersisted();
+  if (!detail.selectedGroup && detail.companyId == null) return;
+  notifyDashboardGroupFilterChanged(detail.selectedGroup, detail.companyId, {
+    ignoreGroupOnly: detail.companyId != null,
+    companyCode: detail.companyCode ?? undefined,
+    hasGambling: detail.hasGambling,
+    hasBank: detail.hasBank,
+    expirationDate: detail.expirationDate,
+  });
+}
+
 /**
  * Sidebar Process: hidden while a group is selected with no company (group-only), except on process routes.
  * Group login with a subsidiary company selected (e.g. C168) keeps Process visible.

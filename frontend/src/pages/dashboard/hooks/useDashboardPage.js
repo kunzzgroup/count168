@@ -202,6 +202,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const skipNextCurrencyClickRef = useRef(false);
   const scopeCurrencyKeyRef = useRef("");
   const bootstrapGcOnceRef = useRef(false);
+  const [gcBootstrapReady, setGcBootstrapReady] = useState(false);
   const [groupFilterOptOutTick, setGroupFilterOptOutTick] = useState(0);
   /** @type {React.MutableRefObject<Map<number, string[]>>} */
   const currenciesByCompanyRef = useRef(new Map());
@@ -389,6 +390,28 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setCompanies(scopedCompanies);
       applyLoginScopeToSessionStorageIfNeeded(u, scopedCompanies);
 
+      if (bootstrapGcOnceRef.current) return;
+
+      const groupFilterOptOut =
+        typeof sessionStorage !== "undefined" &&
+        sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+      const groupOnlyBoot = !groupFilterOptOut && isDashboardGroupOnlyMode();
+
+      if (groupOnlyBoot && canUseGroupOnlyMode(u)) {
+        const group = groupFilterOptOut
+          ? null
+          : resolveInitialSelectedGroupFromSession(scopedCompanies, null, u);
+        setSelectedGroup(group);
+        setCompanyId(null);
+        setDashboardData(null);
+        setDashboardDataPrev(null);
+        setDisplayScopeKey("");
+        setLoading(false);
+        bootstrapGcOnceRef.current = true;
+        setGcBootstrapReady(true);
+        return;
+      }
+
       const fallbackId =
         scopedCompanies.length === 1
           ? parseInt(scopedCompanies[0].id, 10)
@@ -400,27 +423,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         cid = resolveBootCompanyId({ defaultRowId: parseInt(scopedCompanies[0].id, 10) });
       }
 
-      if (bootstrapGcOnceRef.current) return;
-
-      const groupFilterOptOut =
-        typeof sessionStorage !== "undefined" &&
-        sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
       const current =
         cid != null ? scopedCompanies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10)) : null;
       const group = groupFilterOptOut
         ? null
         : resolveInitialSelectedGroupFromSession(scopedCompanies, current, u);
       setSelectedGroup(group);
-
-      if (!groupFilterOptOut && isDashboardGroupOnlyMode() && canUseGroupOnlyMode(u)) {
-        setCompanyId(null);
-        setDashboardData(null);
-        setDashboardDataPrev(null);
-        setDisplayScopeKey("");
-        setLoading(false);
-        bootstrapGcOnceRef.current = true;
-        return;
-      }
 
       if (
         !groupFilterOptOut &&
@@ -443,6 +451,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setDisplayScopeKey("");
         setLoading(false);
         bootstrapGcOnceRef.current = true;
+        setGcBootstrapReady(true);
         return;
       }
 
@@ -463,10 +472,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (bootCid != null) persistDashboardFilterState(group, bootCid, { allowGroupOnly: false });
       if (bootCid == null) setLoading(false);
       bootstrapGcOnceRef.current = true;
+      setGcBootstrapReady(true);
     } catch (err) {
       if (err?.name === "AbortError") return;
       setLoadError(err?.message || i18n.failedToLoadDashboard);
       setLoading(false);
+      bootstrapGcOnceRef.current = true;
+      setGcBootstrapReady(true);
     }
   }, [sessionReady, me, i18n.failedToLoadDashboard]);
 
@@ -486,7 +498,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /** Keep sidebar (menu, expiry, flags) in sync when dashboard Group / Company filter changes. */
   useLayoutEffect(() => {
-    if (!sessionReady || !bootstrapGcOnceRef.current) return;
+    if (!sessionReady || !gcBootstrapReady) return;
     const groupOnly = isDashboardGroupOnlyMode();
     const cid = groupOnly ? null : companyId;
     const row =
@@ -500,7 +512,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           ignoreGroupOnly: true,
         };
     notifyDashboardGroupFilterChanged(selectedGroup, cid, notifyOpts);
-  }, [selectedGroup, companyId, companies, sessionReady, groupFilterOptOutTick, groupsAllMode]);
+  }, [selectedGroup, companyId, companies, sessionReady, gcBootstrapReady, groupFilterOptOutTick, groupsAllMode]);
 
   const groupIds = useMemo(
     () => resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies),
