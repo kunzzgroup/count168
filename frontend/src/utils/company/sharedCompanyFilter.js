@@ -319,6 +319,16 @@ export function readPersistedDashboardGcFilter() {
   };
 }
 
+/** UserList / Dashboard share group pills — clear opt-out when a group is persisted. */
+export function reconcileDashboardGroupFilterOptOutFromPersisted() {
+  if (typeof sessionStorage === "undefined") return false;
+  const { selectedGroup } = readPersistedDashboardGcFilter();
+  if (!selectedGroup) return false;
+  const hadOptOut = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+  if (hadOptOut) sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+  return hadOptOut;
+}
+
 export function dashboardGcFiltersEqual(a, b) {
   if (!a || !b) return false;
   const ga = a.selectedGroup ? String(a.selectedGroup).trim().toUpperCase() : null;

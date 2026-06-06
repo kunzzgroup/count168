@@ -24,6 +24,7 @@ import {
   persistDashboardSelectedCompany,
   readDashboardSelectedCompanyId,
   readPersistedDashboardGcFilter,
+  reconcileDashboardGroupFilterOptOutFromPersisted,
   applyLoginScopeToSessionStorageIfNeeded,
   stripCompanyIdFromUrl,
   notifyDashboardGroupFilterChanged,
@@ -1293,6 +1294,8 @@ export default function UserListPage() {
   const syncGcFilterFromSession = useCallback(() => {
     if (bootLoading || !companies.length) return;
     if (suppressGcSyncRef.current) return;
+
+    reconcileDashboardGroupFilterOptOutFromPersisted();
 
     const { selectedGroup: nextGroup, companyId: nextCompanyId } = readPersistedDashboardGcFilter();
     const optOut =
