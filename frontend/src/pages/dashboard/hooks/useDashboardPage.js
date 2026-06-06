@@ -480,14 +480,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
 
       let bootCid = cid != null ? parseInt(cid, 10) : null;
-      if (groupFilterOptOut && bootCid == null) {
+      const bootGroupAllMode = Boolean(boot.groupAllMode);
+      if (bootGroupAllMode) {
+        bootCid = null;
+      } else if (groupFilterOptOut && bootCid == null) {
         const pick = resolveCompanyWhenClosingGroup(scopedCompanies, null, sortedUniqueGroupIds(scopedCompanies));
         if (pick?.id) bootCid = parseInt(pick.id, 10);
-      }
-      if (!groupFilterOptOut && bootCid == null && group) {
+      } else if (!groupFilterOptOut && bootCid == null && group) {
         const pick = pickDefaultCompanyForGroup(scopedCompanies, group, { me: u });
         if (pick?.id) bootCid = parseInt(pick.id, 10);
       }
+      setGroupAllMode(bootGroupAllMode);
       setCompanyId(bootCid);
       if (bootCid != null) persistDashboardFilterState(group, bootCid, { allowGroupOnly: false });
       if (bootCid == null) setLoading(false);
@@ -568,17 +571,24 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (!persisted.selectedGroup) return;
 
     const targetGroup = String(persisted.selectedGroup).trim().toUpperCase();
-    const targetCompanyId = persisted.groupOnly ? null : persisted.companyId;
+    const targetCompanyId = persisted.groupOnly || persisted.groupAllMode ? null : persisted.companyId;
+    const targetGroupAllMode = Boolean(persisted.groupAllMode);
     const groupSame = String(selectedGroup || "").trim().toUpperCase() === targetGroup;
-    const companySame =
-      (targetCompanyId == null && companyId == null) ||
-      (targetCompanyId != null &&
+    let companySame;
+    if (targetCompanyId != null) {
+      companySame =
         companyId != null &&
-        Number(companyId) === Number(targetCompanyId));
+        Number(companyId) === Number(targetCompanyId) &&
+        !groupAllMode;
+    } else if (targetGroupAllMode) {
+      companySame = companyId == null && groupAllMode;
+    } else {
+      companySame = companyId == null && !groupAllMode;
+    }
     if (groupSame && companySame) return;
 
     setGroupsAllMode(false);
-    setGroupAllMode(false);
+    setGroupAllMode(targetGroupAllMode);
     setSelectedGroup(targetGroup);
     setCompanyId(targetCompanyId);
     if (targetCompanyId != null) {
@@ -602,6 +612,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     me,
     selectedGroup,
     companyId,
+    groupAllMode,
   ]);
 
   useEffect(() => {
@@ -2740,21 +2751,29 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const handlePickAllInGroup = useCallback(() => {
+    if (groupAllMode && companyId == null) return;
     const list = resolveMergeCompanyList();
     if (!list.length) return;
-    if (list.length === 1) {
-      handlePickCompany(list[0]);
-      return;
-    }
     setGroupAllMode(true);
     setMergedSubsetIds(null);
     setCompanyId(null);
     const groupForPersist = groupsAllMode ? null : selectedGroup;
-    persistDashboardFilterState(groupForPersist, null, { allowGroupOnly: false });
+    persistDashboardFilterState(groupForPersist, null, {
+      allowGroupOnly: false,
+      companyAllMode: true,
+    });
     primeCurrenciesFromCache({
       companyId: null,
       selectedGroup: groupForPersist,
       groupsAllMode,
+      groupAllMode: true,
+    });
+    primeDashboardFromCache({
+      companyId: null,
+      selectedGroup: groupForPersist,
+      groupsAllMode,
+      groupAllMode: true,
+      mergedSubsetIds: null,
     });
     notifyDashboardGroupFilterChanged(
       groupForPersist,
@@ -2762,11 +2781,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       buildDashboardSidebarNotifyOptions(null, groupForPersist),
     );
   }, [
+    groupAllMode,
+    companyId,
     resolveMergeCompanyList,
-    handlePickCompany,
     groupsAllMode,
     selectedGroup,
     primeCurrenciesFromCache,
+    primeDashboardFromCache,
   ]);
 
   const handlePickAllGroups = useCallback(() => {

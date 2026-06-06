@@ -39,6 +39,8 @@ export const DASHBOARD_GROUP_FILTER_KEY = "dashboard_group_filter";
 export const DASHBOARD_GROUP_FILTER_OPT_OUT_KEY = "dashboard_group_filter_opt_out";
 /** Set to "1" when user cleared company but kept a group (group-only mode across pages). */
 export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
+/** Set to "1" when Company row "All" aggregates subsidiaries in the current group scope. */
+export const DASHBOARD_GROUP_ALL_MODE_KEY = "dashboard_group_all_mode";
 /** Last explicitly selected company id (SPA navigation; overrides stale PHP session when set). */
 export const DASHBOARD_SELECTED_COMPANY_KEY = "dashboard_selected_company_id";
 /** Cross-page currency pill / dropdown selection (scoped by company or group). */
@@ -291,6 +293,15 @@ export function persistDashboardGroupOnlyMode(groupOnly) {
   else sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
 }
 
+export function isDashboardGroupAllMode() {
+  return sessionStorage.getItem(DASHBOARD_GROUP_ALL_MODE_KEY) === "1";
+}
+
+export function persistDashboardGroupAllMode(groupAll) {
+  if (groupAll) sessionStorage.setItem(DASHBOARD_GROUP_ALL_MODE_KEY, "1");
+  else sessionStorage.removeItem(DASHBOARD_GROUP_ALL_MODE_KEY);
+}
+
 export function persistDashboardSelectedCompany(companyId) {
   if (companyId == null || companyId === "" || !Number.isFinite(Number(companyId))) {
     sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
@@ -312,10 +323,12 @@ export function readPersistedDashboardGcFilter() {
   const selectedGroup = selectedGroupRaw ? String(selectedGroupRaw).trim().toUpperCase() : null;
   const savedCompanyId = readDashboardSelectedCompanyId();
   const groupOnly = isDashboardGroupOnlyMode() && savedCompanyId == null;
+  const groupAllMode = isDashboardGroupAllMode() && savedCompanyId == null && !groupOnly;
   return {
     selectedGroup,
-    companyId: groupOnly ? null : savedCompanyId,
+    companyId: groupOnly || groupAllMode ? null : savedCompanyId,
     groupOnly,
+    groupAllMode,
   };
 }
 
@@ -335,7 +348,12 @@ export function dashboardGcFiltersEqual(a, b) {
   const gb = b.selectedGroup ? String(b.selectedGroup).trim().toUpperCase() : null;
   const ca = a.companyId != null && a.companyId !== "" ? Number(a.companyId) : null;
   const cb = b.companyId != null && b.companyId !== "" ? Number(b.companyId) : null;
-  return ga === gb && ca === cb && Boolean(a.groupOnly) === Boolean(b.groupOnly);
+  return (
+    ga === gb &&
+    ca === cb &&
+    Boolean(a.groupOnly) === Boolean(b.groupOnly) &&
+    Boolean(a.groupAllMode) === Boolean(b.groupAllMode)
+  );
 }
 
 /** Stable key for deduping sidebar applies (group / company / group-only / category flags). */
@@ -443,11 +461,20 @@ export function stripCompanyIdFromUrl() {
 export function persistDashboardFilterState(selectedGroup, companyId, options = {}) {
   const noCompany = companyId == null || companyId === "";
   const allowGroupOnly = options.allowGroupOnly !== false;
+  const companyAllMode = options.companyAllMode === true;
 
   if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
 
   if (noCompany) {
+    if (companyAllMode) {
+      persistDashboardGroupOnlyMode(false);
+      persistDashboardGroupAllMode(true);
+      persistDashboardSelectedCompany(null);
+      stripCompanyIdFromUrl();
+      return;
+    }
     if (!allowGroupOnly) return;
+    persistDashboardGroupAllMode(false);
     persistDashboardGroupOnlyMode(true);
     persistDashboardSelectedCompany(null);
     stripCompanyIdFromUrl();
@@ -455,6 +482,7 @@ export function persistDashboardFilterState(selectedGroup, companyId, options = 
   }
 
   persistDashboardGroupOnlyMode(false);
+  persistDashboardGroupAllMode(false);
   persistDashboardSelectedCompany(companyId);
 }
 
@@ -484,6 +512,16 @@ export function resolveGcFilterBootCompanyId({
       companyId: null,
       selectedGroup: persisted.selectedGroup,
       groupOnly: true,
+      groupAllMode: false,
+    };
+  }
+
+  if (persisted.groupAllMode) {
+    return {
+      companyId: null,
+      selectedGroup: persisted.selectedGroup,
+      groupOnly: false,
+      groupAllMode: true,
     };
   }
 
@@ -492,6 +530,7 @@ export function resolveGcFilterBootCompanyId({
       companyId: persisted.companyId,
       selectedGroup: persisted.selectedGroup,
       groupOnly: false,
+      groupAllMode: false,
     };
   }
 
