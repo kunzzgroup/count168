@@ -882,6 +882,7 @@ export default function AccountListPage() {
       persistDashboardGroupOnlyMode(true);
       persistDashboardSelectedCompany(null);
       stripCompanyIdFromUrl();
+      notifyDashboardGroupFilterChanged(g, null);
 
       skipCompanyFetchEffectRef.current = true;
       suppressGcSyncRef.current = true;
