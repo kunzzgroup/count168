@@ -504,6 +504,34 @@ export default function AuthenticatedLayout() {
     };
   }, [applySidebarPatch, scheduleRefreshSession]);
 
+  /** Login / refresh: layout may mount after login filter seed — patch sidebar for group-only AP/IG. */
+  useLayoutEffect(() => {
+    if (loading || !me) return;
+    const filter = readPersistedDashboardGcFilter();
+    if (!filter.groupOnly || !filter.selectedGroup) return;
+    const code = String(me.company_code || "").trim().toUpperCase();
+    const staleCompanyContext =
+      me.company_id != null ||
+      me.is_current_company_c168 ||
+      me.has_c168_domain_page_access ||
+      me.has_c168_auto_renew_access ||
+      (code && code !== filter.selectedGroup);
+    if (!staleCompanyContext) return;
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup);
+    const expirationDate = resolveSidebarExpirationForFilter({
+      selectedGroup: filter.selectedGroup,
+      companyId: null,
+    });
+    applySidebarPatch({
+      companyId: null,
+      companyCode: "",
+      ...(groupFlags
+        ? { hasGambling: groupFlags.hasGambling, hasBank: groupFlags.hasBank }
+        : {}),
+      ...(expirationDate !== undefined ? { expirationDate } : {}),
+    });
+  }, [loading, me, applySidebarPatch]);
+
   useEffect(() => {
     const onOwnerGroupsLoaded = () => {
       const filter = readPersistedDashboardGcFilter();

@@ -38,6 +38,8 @@ import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
 import {
   canUseGroupOnlyMode,
   companyLoginRequiresSubsidiaryWithGroup,
+  getLoginIdentifier,
+  isGroupLogin,
   resolveVisibleGroupIds,
 } from "../../../utils/company/loginScope.js";
 import { sortIds } from "../lib/dashboardEarnings.js";
@@ -80,6 +82,7 @@ import {
   normalizeNativeCompanyGroupId,
   normalizeCompanyGroupId,
   persistDashboardGroupOnlyMode,
+  readDashboardSelectedCompanyId,
   DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   persistDashboardGroupFilter,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -410,6 +413,30 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setSelectedGroup(group);
 
       if (!groupFilterOptOut && isDashboardGroupOnlyMode() && canUseGroupOnlyMode(u)) {
+        setCompanyId(null);
+        setDashboardData(null);
+        setDashboardDataPrev(null);
+        setDisplayScopeKey("");
+        setLoading(false);
+        bootstrapGcOnceRef.current = true;
+        return;
+      }
+
+      if (
+        !groupFilterOptOut &&
+        isGroupLogin(u) &&
+        isDashboardGroupOnlyMode() &&
+        readDashboardSelectedCompanyId() == null
+      ) {
+        const ident = getLoginIdentifier(u);
+        const bootGroup =
+          ident ||
+          resolveInitialSelectedGroupFromSession(scopedCompanies, null, u);
+        if (bootGroup) {
+          setSelectedGroup(bootGroup);
+          persistDashboardGroupFilter(bootGroup);
+          persistDashboardGroupOnlyMode(true);
+        }
         setCompanyId(null);
         setDashboardData(null);
         setDashboardDataPrev(null);

@@ -2,6 +2,7 @@
  * Group vs Company login scope — mirrors {@link includes/group_company_access.php}.
  */
 import {
+  DASHBOARD_GROUP_FILTER_KEY,
   isDashboardGroupOnlyMode,
   normalizeNativeCompanyGroupId,
   readAccessibleGroupIds,
@@ -227,9 +228,13 @@ export function companyLoginRequiresSubsidiaryWithGroup(me) {
 export function isGroupLedgerMode(me, ctx = {}) {
   const companyId = ctx.companyId ?? null;
   if (companyId != null && Number.isFinite(Number(companyId))) return false;
-  const selectedGroup = ctx.selectedGroup
+  let selectedGroup = ctx.selectedGroup
     ? String(ctx.selectedGroup).trim().toUpperCase()
     : null;
+  if (!selectedGroup && typeof sessionStorage !== "undefined") {
+    const raw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+    selectedGroup = raw ? String(raw).trim().toUpperCase() : null;
+  }
   if (!selectedGroup) return false;
   const groupOnly =
     ctx.groupOnly != null ? Boolean(ctx.groupOnly) : isDashboardGroupOnlyMode();
@@ -425,6 +430,7 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
 /** Session / current_user reflects active company (after dashboard company pick + session sync). */
 export function isActiveCompanyContextC168(me) {
   if (!me) return false;
+  if (isDashboardGroupOnlyMode()) return false;
   if (me.is_current_company_c168) return true;
   return String(me.company_code || "")
     .trim()
@@ -437,7 +443,8 @@ export function isActiveCompanyContextC168(me) {
  */
 export function canAccessC168DomainPages(me) {
   if (!me) return false;
-  if (isGroupLedgerMode(me, { companyId: null, groupOnly: isDashboardGroupOnlyMode() })) return false;
+  if (isDashboardGroupOnlyMode()) return false;
+  if (isGroupLedgerMode(me, { companyId: null })) return false;
   if (!isActiveCompanyContextC168(me)) return false;
   return userRoleAllowsC168Domain(me.role) || Boolean(me.has_c168_domain_page_access);
 }
@@ -445,7 +452,8 @@ export function canAccessC168DomainPages(me) {
 /** Auto Renew — same rules as Domain / Announcement. */
 export function canAccessC168AutoRenew(me) {
   if (!me) return false;
-  if (isGroupLedgerMode(me, { companyId: null, groupOnly: isDashboardGroupOnlyMode() })) return false;
+  if (isDashboardGroupOnlyMode()) return false;
+  if (isGroupLedgerMode(me, { companyId: null })) return false;
   if (!isActiveCompanyContextC168(me)) return false;
   return userRoleAllowsC168AutoRenew(me.role, me.user_type) || Boolean(me.has_c168_auto_renew_access);
 }
