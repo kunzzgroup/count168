@@ -717,10 +717,39 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
         companyCode: companyCode ?? cachedFlags?.company_code ?? null,
         ...(hasGambling != null ? { hasGambling: Boolean(hasGambling) } : {}),
         ...(hasBank != null ? { hasBank: Boolean(hasBank) } : {}),
-        ...(expirationDate !== undefined ? { expirationDate } : {}),
+        expirationDate: expirationDate !== undefined ? expirationDate : null,
       },
     })
   );
+}
+
+/** Notify options for sidebar sync when dashboard Group / Company filter changes. */
+export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, extra = {}) {
+  const opts = { ...extra };
+  if (companyRow) {
+    if (companyRow.company_id) opts.companyCode = companyRow.company_id;
+    opts.expirationDate = companyRow.expiration_date ?? null;
+    const id = Number(companyRow.id);
+    if (Number.isFinite(id) && id > 0) {
+      const cached = peekCompanySessionFlags(id);
+      if (cached) {
+        opts.hasGambling = Boolean(cached.has_gambling);
+        opts.hasBank = Boolean(cached.has_bank);
+      }
+    }
+    return opts;
+  }
+  const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+  if (g) {
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(g);
+    if (groupFlags) {
+      opts.hasGambling = groupFlags.hasGambling;
+      opts.hasBank = groupFlags.hasBank;
+    }
+    opts.expirationDate =
+      resolveSidebarExpirationForFilter({ selectedGroup: g, companyId: null }) ?? null;
+  }
+  return opts;
 }
 
 /**

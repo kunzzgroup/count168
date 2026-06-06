@@ -430,7 +430,7 @@ export default function AuthenticatedLayout() {
               hasBank: Boolean(flags.hasBank),
             }
           : {}),
-        ...(expirationDate !== undefined ? { expirationDate } : {}),
+        expirationDate: expirationDate !== undefined ? expirationDate : null,
       });
       scheduleRefreshSession();
     },

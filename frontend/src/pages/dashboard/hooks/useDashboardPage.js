@@ -51,6 +51,7 @@ import {
   pickDefaultCompanyForGroup,
   pickGroupAnchorCompany,
   notifyDashboardGroupFilterChanged,
+  buildDashboardSidebarNotifyOptions,
   clearDashboardGroupFilterKeepCompany,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
@@ -425,16 +426,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       cid != null
         ? companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10))
         : null;
-    const notifyOpts = groupOnly ? {} : { ignoreGroupOnly: true };
-    if (row?.company_id) notifyOpts.companyCode = row.company_id;
-    if (row) notifyOpts.expirationDate = row.expiration_date ?? null;
-    if (cid != null) {
-      const cached = peekCompanySessionFlags(Number(cid));
-      if (cached) {
-        notifyOpts.hasGambling = Boolean(cached.has_gambling);
-        notifyOpts.hasBank = Boolean(cached.has_bank);
-      }
-    }
+    const notifyOpts = groupOnly
+      ? buildDashboardSidebarNotifyOptions(null, selectedGroup)
+      : {
+          ...buildDashboardSidebarNotifyOptions(row, selectedGroup),
+          ignoreGroupOnly: true,
+        };
     notifyDashboardGroupFilterChanged(selectedGroup, cid, notifyOpts);
   }, [selectedGroup, companyId, companies, sessionReady, groupFilterOptOutTick, groupsAllMode]);
 
@@ -502,6 +499,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     setMultiCurrencyKpiPrev(null);
     setLoading(false);
     setLoadError("");
+    notifyDashboardGroupFilterChanged(
+      g ? String(g).trim().toUpperCase() : null,
+      null,
+      buildDashboardSidebarNotifyOptions(null, g),
+    );
   }, [selectedGroup]);
 
   const syncCompanySession = useCallback(
@@ -2365,7 +2367,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         resetAnchorSessionRef();
         clearCompanySelection(g);
         primeCurrenciesFromCache({ companyId: null, selectedGroup: g, groupsAllMode: false });
-        notifyDashboardGroupFilterChanged(g, null);
         return;
       }
 
@@ -2376,20 +2377,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         resetAnchorSessionRef();
         clearCompanySelection(g);
         primeCurrenciesFromCache({ companyId: null, selectedGroup: g, groupsAllMode: false });
-        notifyDashboardGroupFilterChanged(g, null);
         return;
       }
 
       const id = parseInt(pick.id, 10);
       setGroupsAllMode(false);
       persistDashboardFilterState(g, id, { allowGroupOnly: false });
-      const notifyOpts = { companyCode: pick.company_id, ignoreGroupOnly: true };
-      const cachedFlags = peekCompanySessionFlags(id);
-      if (cachedFlags) {
-        notifyOpts.hasGambling = Boolean(cachedFlags.has_gambling);
-        notifyOpts.hasBank = Boolean(cachedFlags.has_bank);
-      }
-      notifyDashboardGroupFilterChanged(g, id, notifyOpts);
+      notifyDashboardGroupFilterChanged(
+        g,
+        id,
+        buildDashboardSidebarNotifyOptions(pick, g, { ignoreGroupOnly: true }),
+      );
       setGroupAllMode(false);
       setMergedSubsetIds(null);
       setSelectedGroup(g);
@@ -2450,13 +2448,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         }
       }
       persistDashboardFilterState(persistGroup, id);
-      const notifyOpts = { companyCode: c.company_id, ignoreGroupOnly: true, expirationDate: c.expiration_date ?? null };
-      const cachedFlags = peekCompanySessionFlags(id);
-      if (cachedFlags) {
-        notifyOpts.hasGambling = Boolean(cachedFlags.has_gambling);
-        notifyOpts.hasBank = Boolean(cachedFlags.has_bank);
-      }
-      notifyDashboardGroupFilterChanged(persistGroup, id, notifyOpts);
+      notifyDashboardGroupFilterChanged(
+        persistGroup,
+        id,
+        buildDashboardSidebarNotifyOptions(c, persistGroup, { ignoreGroupOnly: true }),
+      );
       applyCompanySelection(id);
       primeCurrenciesFromCache({
         companyId: id,
@@ -2517,7 +2513,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       selectedGroup: groupForPersist,
       groupsAllMode,
     });
-    notifyDashboardGroupFilterChanged(groupForPersist, null);
+    notifyDashboardGroupFilterChanged(
+      groupForPersist,
+      null,
+      buildDashboardSidebarNotifyOptions(null, groupForPersist),
+    );
   }, [
     resolveMergeCompanyList,
     handlePickCompany,
@@ -2539,7 +2539,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (target?.id && Number(target.id) !== Number(companyId)) {
       const id = parseInt(target.id, 10);
       persistDashboardFilterState(null, id, { allowGroupOnly: false });
-      notifyDashboardGroupFilterChanged(null, id, { companyCode: target.company_id });
+      notifyDashboardGroupFilterChanged(
+        null,
+        id,
+        buildDashboardSidebarNotifyOptions(target, null, { ignoreGroupOnly: true }),
+      );
       applyCompanySelection(id);
       primeCurrenciesFromCache({ companyId: id, selectedGroup: null, groupsAllMode: true });
       primeDashboardFromCache({
@@ -2565,7 +2569,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       groupAllMode: false,
       mergedSubsetIds: null,
     });
-    notifyDashboardGroupFilterChanged(null, companyId);
+    const row =
+      companyId != null
+        ? companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10))
+        : null;
+    notifyDashboardGroupFilterChanged(
+      null,
+      companyId,
+      buildDashboardSidebarNotifyOptions(row, null, { ignoreGroupOnly: true }),
+    );
   }, [
     groupsAllMode,
     companyId,
@@ -2590,7 +2602,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const id = parseInt(target.id, 10);
     applyCompanySelection(id);
     persistDashboardFilterState(null, id, { allowGroupOnly: false });
-    notifyDashboardGroupFilterChanged(null, id, { companyCode: target.company_id });
+    notifyDashboardGroupFilterChanged(
+      null,
+      id,
+      buildDashboardSidebarNotifyOptions(target, null, { ignoreGroupOnly: true }),
+    );
   }, [
     groupsAllMode,
     groupAllMode,
