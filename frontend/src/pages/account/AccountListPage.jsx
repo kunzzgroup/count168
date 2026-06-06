@@ -133,12 +133,16 @@ function readAccountListBootGc() {
   if (typeof sessionStorage === "undefined") {
     return { selectedGroup: null, companyId: null };
   }
+  const optOut = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
   const { selectedGroup, companyId, groupOnly } = readPersistedDashboardGcFilter();
   if (groupOnly || isDashboardGroupOnlyMode()) {
-    return { selectedGroup, companyId: null };
+    return { selectedGroup: optOut ? null : selectedGroup, companyId: null };
   }
   const saved = readDashboardSelectedCompanyId();
-  return { selectedGroup, companyId: saved ?? companyId };
+  return {
+    selectedGroup: optOut ? null : selectedGroup,
+    companyId: saved ?? companyId,
+  };
 }
 
 function readInitialCachedCompanies() {
@@ -320,7 +324,6 @@ export default function AccountListPage() {
         groupOnly: useGroupOnly,
       });
       const cacheKey = resolveAccountListCacheKey(scopeKey, searchTerm, showInactive, showAll);
-      const requestScopeKey = resolveAccountsListFetchScopeKey(scope);
 
       listFetchAbortRef.current?.abort();
       const ac = new AbortController();
@@ -328,9 +331,7 @@ export default function AccountListPage() {
       const fetchGen = ++listFetchGenRef.current;
 
       const isStaleResponse = () =>
-        ac.signal.aborted ||
-        fetchGen !== listFetchGenRef.current ||
-        requestScopeKey !== resolveAccountsListFetchScopeKey(gcScopeRef.current);
+        ac.signal.aborted || fetchGen !== listFetchGenRef.current;
 
       try {
         let nextAccounts = [];
@@ -440,8 +441,9 @@ export default function AccountListPage() {
   const applyCacheOrClearAccounts = useCallback(
     (gcScope, options = {}) => {
       const hit = applyAccountListCache(gcScope, options);
-      // Static switch UX: keep current rows while background request fetches next scope.
-      // Avoid empty/loading flash when cache is cold.
+      if (!hit && options.clearOnMiss) {
+        setAccounts([]);
+      }
       return hit;
     },
     [applyAccountListCache],
@@ -601,8 +603,27 @@ export default function AccountListPage() {
         setShowInactive(initialShowInactive);
         setShowAll(initialShowAll);
         skipInitialGcSyncRef.current = true;
-        setBootLoading(false);
         void loadRoles({ companyId: resolvedCompanyId, groupId: bootGroup });
+
+        const syncCompanyId =
+          resolvedCompanyId != null && Number.isFinite(Number(resolvedCompanyId))
+            ? Number(resolvedCompanyId)
+            : null;
+        const sessionViewGroup = groupFilterOptOut ? null : bootGroup;
+        if (syncCompanyId != null) {
+          try {
+            const forceSessionSync =
+              syncCompanyId !== Number(sessionMe.company_id) || groupFilterOptOut;
+            const syncJson = await syncCompanySessionApi(syncCompanyId, sessionViewGroup, {
+              force: forceSessionSync,
+            });
+            if (syncJson?.success) notifyCompanySessionUpdated();
+          } catch {
+            /* boot session sync is best-effort */
+          }
+        }
+
+        if (cancelled) return;
 
         const scopeKey = resolvedCompanyId
           ? `company:${Number(resolvedCompanyId)}`
@@ -643,28 +664,11 @@ export default function AccountListPage() {
             groupIds: [],
             isListScopeReady: true,
           };
-          startTransition(() => {
-            void fetchAccounts(bootScope, { silent: true, groupOnly: groupOnlyBoot });
-          });
+          await fetchAccounts(bootScope, { silent: true, groupOnly: groupOnlyBoot });
         }
 
-        const syncCompanyId =
-          initialCompanyId != null && Number.isFinite(Number(initialCompanyId))
-            ? Number(initialCompanyId)
-            : null;
-        if (syncCompanyId != null && syncCompanyId !== Number(sessionMe.company_id)) {
-          void (async () => {
-            try {
-              const switchUrl = new URL(buildApiUrl("api/session/update_company_session_api.php"));
-              switchUrl.searchParams.set("company_id", String(syncCompanyId));
-              const res = await fetch(switchUrl.toString(), { credentials: "include" });
-              const json = await res.json();
-              if (json.success) notifyCompanySessionUpdated();
-            } catch {
-              /* boot session sync is best-effort */
-            }
-          })();
-        }
+        if (cancelled) return;
+        setBootLoading(false);
       } catch {
         if (!cancelled) navigate("/login");
       }
@@ -709,6 +713,26 @@ export default function AccountListPage() {
       const forceSessionSync =
         uiCompanyId !== nextCompanyId ||
         normalizeCompanyCode(sessionMe?.company_code) !== resolveRowCompanyCode(c, null);
+
+      const prefetchScope = {
+        companyId: nextCompanyId,
+        selectedGroup: vg,
+        groupsAllMode: false,
+        groupAllMode: false,
+        mergeCompanyIds: gcScopeRef.current?.mergeCompanyIds ?? [],
+        groupIds: gcScopeRef.current?.groupIds ?? [],
+        isListScopeReady: true,
+      };
+      if (fetchList) {
+        skipCompanyFetchEffectRef.current = true;
+        lastAccountsFetchKeyRef.current = buildAccountsFetchKey(
+          `company:${nextCompanyId}`,
+          searchTerm,
+          showInactive,
+          showAll,
+        );
+        void fetchAccounts(prefetchScope, { silent: true });
+      }
 
       const switchGen = ++companySwitchGenRef.current;
       try {
@@ -1032,7 +1056,7 @@ export default function AccountListPage() {
       setSelectedGroup(null);
       setCompanyId(nextCompanyId);
       if (nextCompanyId != null) {
-        applyCacheOrClearAccounts(independentScope, { groupOnly: false });
+        applyCacheOrClearAccounts(independentScope, { groupOnly: false, clearOnMiss: true });
       } else {
         setAccounts([]);
       }
@@ -1041,7 +1065,6 @@ export default function AccountListPage() {
     if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
       clearDashboardGroupFilterKeepCompany(nextCompanyId);
       lastAccountsFetchKeyRef.current = "";
-      void fetchAccounts(independentScope, { silent: true });
       void (async () => {
         try {
           await onSwitchCompanyRef.current?.(pickIndependent, { viewGroup: null });
@@ -1061,7 +1084,6 @@ export default function AccountListPage() {
     applyCacheOrClearAccounts,
     companies,
     companyId,
-    fetchAccounts,
     groupIds,
     invalidateAccountListCacheForScope,
     mergeCompanyIds,
@@ -1427,7 +1449,7 @@ export default function AccountListPage() {
     }
     if (lastAccountsFetchKeyRef.current === fetchKey) return;
     lastAccountsFetchKeyRef.current = fetchKey;
-    void fetchAccounts(gcScopeRef.current);
+    void fetchAccounts(gcScopeRef.current, { silent: true });
   }, [accountsListFetchScopeKey, searchTerm, showInactive, showAll, fetchAccounts]);
 
   // -- Computed --
