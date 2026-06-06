@@ -28,6 +28,7 @@ import {
   dashboardGcFiltersEqual,
   buildDashboardFilterEventDetailFromPersisted,
   DASHBOARD_GC_BOOTSTRAP_READY_EVENT,
+  dashboardSidebarFilterSignature,
   isDashboardGroupOnlyMode,
   readPersistedDashboardGcFilter,
   shouldApplySessionToSidebar,
@@ -387,6 +388,8 @@ export default function AuthenticatedLayout() {
     });
   }, []);
 
+  const lastSidebarFilterSigRef = useRef("");
+
   const applySidebarFromFilterDetail = useCallback(
     (detail, options = {}) => {
       if (!detail) {
@@ -395,18 +398,24 @@ export default function AuthenticatedLayout() {
         return;
       }
       if (!options.force && !dashboardFilterEventMatchesPersisted(detail)) return;
-      const cid = detail.companyId;
+
+      const resolved = buildDashboardFilterEventDetailFromPersisted();
+      const sig = dashboardSidebarFilterSignature(resolved);
+      if (!options.force && sig === lastSidebarFilterSigRef.current) return;
+      lastSidebarFilterSigRef.current = sig;
+
+      const cid = resolved.companyId;
       const skipRefresh = options.skipSessionRefresh === true;
       if (cid == null) {
-        const patch = { companyId: null, companyCode: detail.companyCode ?? "" };
-        const groupFlags = detail.selectedGroup
-          ? resolveGroupCategoryFlagsForSidebar(detail.selectedGroup)
+        const patch = { companyId: null, companyCode: resolved.companyCode ?? "" };
+        const groupFlags = resolved.selectedGroup
+          ? resolveGroupCategoryFlagsForSidebar(resolved.selectedGroup)
           : null;
-        if (detail.hasGambling != null) patch.hasGambling = Boolean(detail.hasGambling);
+        if (resolved.hasGambling != null) patch.hasGambling = Boolean(resolved.hasGambling);
         else if (groupFlags) patch.hasGambling = groupFlags.hasGambling;
-        if (detail.hasBank != null) patch.hasBank = Boolean(detail.hasBank);
+        if (resolved.hasBank != null) patch.hasBank = Boolean(resolved.hasBank);
         else if (groupFlags) patch.hasBank = groupFlags.hasBank;
-        const expirationDate = resolveSidebarExpirationForFilter(detail);
+        const expirationDate = resolveSidebarExpirationForFilter(resolved);
         patch.expirationDate = expirationDate !== undefined ? expirationDate : null;
         applySidebarPatch(patch);
         if (!skipRefresh) scheduleRefreshSession();
@@ -414,16 +423,16 @@ export default function AuthenticatedLayout() {
       }
       const row = findOwnerCompanyById(cid);
       const companyCode =
-        detail.companyCode ??
+        resolved.companyCode ??
         (row?.company_id ? String(row.company_id).trim().toUpperCase() : null);
       const flags =
-        detail.hasGambling != null || detail.hasBank != null
+        resolved.hasGambling != null || resolved.hasBank != null
           ? {
-              hasGambling: Boolean(detail.hasGambling),
-              hasBank: Boolean(detail.hasBank),
+              hasGambling: Boolean(resolved.hasGambling),
+              hasBank: Boolean(resolved.hasBank),
             }
           : categoryFlagsFromSession(null, cid);
-      const expirationDate = resolveSidebarExpirationForFilter(detail);
+      const expirationDate = resolveSidebarExpirationForFilter(resolved);
       applySidebarPatch({
         companyId: cid,
         companyCode,
@@ -438,6 +447,32 @@ export default function AuthenticatedLayout() {
       if (!skipRefresh) scheduleRefreshSession();
     },
     [applySidebarPatch, scheduleRefreshSession],
+  );
+
+  const sidebarFilterApplyRafRef = useRef(null);
+  const sidebarFilterApplyPendingRef = useRef(null);
+
+  const queueSidebarApplyFromFilterDetail = useCallback(
+    (detail, options = {}) => {
+      sidebarFilterApplyPendingRef.current = { detail, options };
+      if (sidebarFilterApplyRafRef.current != null) return;
+      sidebarFilterApplyRafRef.current = requestAnimationFrame(() => {
+        sidebarFilterApplyRafRef.current = null;
+        const pending = sidebarFilterApplyPendingRef.current;
+        sidebarFilterApplyPendingRef.current = null;
+        if (pending) applySidebarFromFilterDetail(pending.detail, pending.options);
+      });
+    },
+    [applySidebarFromFilterDetail],
+  );
+
+  useEffect(
+    () => () => {
+      if (sidebarFilterApplyRafRef.current != null) {
+        cancelAnimationFrame(sidebarFilterApplyRafRef.current);
+      }
+    },
+    [],
   );
 
   useEffect(() => {
@@ -559,10 +594,10 @@ export default function AuthenticatedLayout() {
   }, [applySidebarPatch]);
 
   useLayoutEffect(() => {
-    const onFilterChange = (e) => applySidebarFromFilterDetail(e?.detail ?? null);
+    const onFilterChange = (e) => queueSidebarApplyFromFilterDetail(e?.detail ?? null);
     window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
     return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-  }, [applySidebarFromFilterDetail]);
+  }, [queueSidebarApplyFromFilterDetail]);
 
   useEffect(() => {
     setHoverSection(null);

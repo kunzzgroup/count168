@@ -488,24 +488,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     notifyDashboardGcBootstrapReady();
   }, [gcBootstrapReady]);
 
-  /** Keep sidebar (menu, expiry, flags) in sync when dashboard Group / Company filter changes. */
-  useLayoutEffect(() => {
-    if (!sessionReady || !gcBootstrapReady) return;
-    const groupOnly = isDashboardGroupOnlyMode();
-    const cid = groupOnly ? null : companyId;
-    const row =
-      cid != null
-        ? companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10))
-        : null;
-    const notifyOpts = groupOnly
-      ? buildDashboardSidebarNotifyOptions(null, selectedGroup)
-      : {
-          ...buildDashboardSidebarNotifyOptions(row, selectedGroup),
-          ignoreGroupOnly: true,
-        };
-    notifyDashboardGroupFilterChanged(selectedGroup, cid, notifyOpts);
-  }, [selectedGroup, companyId, companies, sessionReady, gcBootstrapReady, groupFilterOptOutTick, groupsAllMode]);
-
   const groupIds = useMemo(
     () => resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies),
     [companies, me]
@@ -2747,11 +2729,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     ) {
       return;
     }
-    if (
-      isGroupLogin(me) &&
-      isDashboardGroupOnlyMode() &&
-      readDashboardSelectedCompanyId() == null
-    ) {
+    // Intentional group-only (company pill cleared): never re-pick C168 from stale PHP session.
+    if (isDashboardGroupOnlyMode() && readDashboardSelectedCompanyId() == null) {
       return;
     }
     if (companyLoginRequiresSubsidiaryWithGroup(me)) {

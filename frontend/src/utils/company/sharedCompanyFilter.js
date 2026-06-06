@@ -319,6 +319,16 @@ export function dashboardGcFiltersEqual(a, b) {
   return ga === gb && ca === cb && Boolean(a.groupOnly) === Boolean(b.groupOnly);
 }
 
+/** Stable key for deduping sidebar applies (group / company / group-only). */
+export function dashboardSidebarFilterSignature(filter) {
+  if (!filter || typeof filter !== "object") return "";
+  const g = filter.selectedGroup ? String(filter.selectedGroup).trim().toUpperCase() : "";
+  const cid =
+    filter.companyId != null && filter.companyId !== "" ? Number(filter.companyId) : null;
+  const groupOnly = Boolean(filter.groupOnly);
+  return `${g}|${cid ?? ""}|${groupOnly ? 1 : 0}`;
+}
+
 /** Drop stale layout broadcasts when the user has already changed Group / Company again. */
 export function dashboardFilterEventMatchesPersisted(detail) {
   if (!detail || typeof detail !== "object") return true;
@@ -328,7 +338,12 @@ export function dashboardFilterEventMatchesPersisted(detail) {
   const ecid =
     detail.companyId != null && detail.companyId !== "" ? Number(detail.companyId) : null;
   const pcid = p.companyId != null && p.companyId !== "" ? Number(p.companyId) : null;
-  return ecid === pcid;
+  if (ecid !== pcid) return false;
+  const eventGroupOnly =
+    detail.groupOnly != null
+      ? Boolean(detail.groupOnly)
+      : ecid == null && isDashboardGroupOnlyMode();
+  return eventGroupOnly === Boolean(p.groupOnly);
 }
 
 /**
@@ -733,11 +748,13 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
       if (hasBank == null) hasBank = groupFlags.hasBank;
     }
   }
+  const persistedGroupOnly = isDashboardGroupOnlyMode() && readDashboardSelectedCompanyId() == null;
   window.dispatchEvent(
     new CustomEvent(DASHBOARD_GROUP_FILTER_EVENT, {
       detail: {
         selectedGroup: value,
         companyId: cid,
+        groupOnly: persistedGroupOnly,
         companyCode: companyCode ?? cachedFlags?.company_code ?? null,
         ...(hasGambling != null ? { hasGambling: Boolean(hasGambling) } : {}),
         ...(hasBank != null ? { hasBank: Boolean(hasBank) } : {}),
@@ -826,6 +843,7 @@ export function buildDashboardFilterEventDetailFromPersisted() {
   return {
     selectedGroup: value,
     companyId: effectiveCid,
+    groupOnly,
     companyCode: companyCode ?? cachedFlags?.company_code ?? null,
     ...(hasGambling != null ? { hasGambling: Boolean(hasGambling) } : {}),
     ...(hasBank != null ? { hasBank: Boolean(hasBank) } : {}),
