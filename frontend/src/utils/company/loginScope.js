@@ -7,6 +7,7 @@ import {
   readAccessibleGroupIds,
 } from "./sharedCompanyFilter.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
+import { buildSidebarExpirationFields } from "../expiration/expirationReminder.js";
 
 export const LOGIN_SCOPE_GROUP = "group";
 export const LOGIN_SCOPE_COMPANY = "company";
@@ -182,7 +183,11 @@ export function canAccessGroupLedgerForGroup(me, groupCode, companies = []) {
   }
   if (isCompanyLogin(me)) {
     if (companyLoginHasGroupLedgerPrivilege(me)) {
-      return resolveCompanyLoginAccessibleGroupSet(me, companies).has(g);
+      const set = resolveCompanyLoginAccessibleGroupSet(me, companies);
+      if (set.has(g)) return true;
+      // Owner/admin: allow group-only while companies list is still loading.
+      if (!companies?.length) return true;
+      return false;
     }
     return getAssignedGroupCodes(me).includes(g);
   }
@@ -195,11 +200,12 @@ export function canAccessGroupLedgerForGroup(me, groupCode, companies = []) {
  *
  * @param {object|null|undefined} me
  * @param {string|null|undefined} [groupCode] When set, requires access to that specific group.
+ * @param {object[]} [companies] Owner company rows — refines group access when groupCode is set.
  */
-export function canUseGroupOnlyMode(me, groupCode = null) {
+export function canUseGroupOnlyMode(me, groupCode = null, companies = null) {
   if (!me) return false;
   if (groupCode != null && String(groupCode).trim() !== "") {
-    return canAccessGroupLedgerForGroup(me, groupCode);
+    return canAccessGroupLedgerForGroup(me, groupCode, companies ?? []);
   }
   return userCanUseGroupLedger(me);
 }
@@ -352,6 +358,7 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
   if (rawId == null || rawId === "" || !Number.isFinite(Number(rawId)) || Number(rawId) <= 0) {
     const next = {
       ...me,
+      company_id: null,
       is_current_company_c168: false,
       has_c168_domain_page_access: false,
       has_c168_auto_renew_access: false,
@@ -364,6 +371,9 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
     }
     if (ctx.hasBank != null) {
       next.company_has_bank = Boolean(ctx.hasBank);
+    }
+    if (ctx.expirationDate !== undefined) {
+      Object.assign(next, buildSidebarExpirationFields(ctx.expirationDate));
     }
     return next;
   }
@@ -394,13 +404,20 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
     next.company_has_gambling = Boolean(ctx.hasGambling);
   } else if (companyChanged) {
     const cached = peekCompanySessionFlags(id);
-    next.company_has_gambling = cached ? Boolean(cached.has_gambling) : false;
+    if (cached) {
+      next.company_has_gambling = Boolean(cached.has_gambling);
+    }
   }
   if (ctx.hasBank != null) {
     next.company_has_bank = Boolean(ctx.hasBank);
   } else if (companyChanged) {
     const cached = peekCompanySessionFlags(id);
-    next.company_has_bank = cached ? Boolean(cached.has_bank) : false;
+    if (cached) {
+      next.company_has_bank = Boolean(cached.has_bank);
+    }
+  }
+  if (ctx.expirationDate !== undefined) {
+    Object.assign(next, buildSidebarExpirationFields(ctx.expirationDate));
   }
   return next;
 }

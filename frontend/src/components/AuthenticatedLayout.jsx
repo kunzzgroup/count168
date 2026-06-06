@@ -24,11 +24,18 @@ import {
   clearDashboardFilterSession,
   clearOwnerCompaniesCache,
   DASHBOARD_GROUP_FILTER_EVENT,
+  dashboardFilterEventMatchesPersisted,
+  dashboardGcFiltersEqual,
   isDashboardGroupOnlyMode,
   readPersistedDashboardGcFilter,
+  shouldApplySessionToSidebar,
+  shouldRefreshExpiryFromSession,
   shouldHideSidebarProcess,
   fetchOwnerCompaniesAll,
+  fetchOwnerGroupsAll,
   findOwnerCompanyById,
+  resolveSidebarExpirationForFilter,
+  resolveGroupCategoryFlagsForSidebar,
 } from "../utils/company/sharedCompanyFilter.js";
 import { rememberCompanySessionFlags } from "../utils/company/companySessionFlagsCache.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
@@ -310,11 +317,17 @@ export default function AuthenticatedLayout() {
     };
   }, [navigate]);
 
+  const refreshSessionDebouncedRef = useRef(null);
+
   const refreshSession = useCallback(async () => {
+    const filterAtStart = readPersistedDashboardGcFilter();
     try {
       const res = await fetch(buildApiUrl("api/session/current_user_api.php"), { credentials: "include" });
       const json = await res.json();
       if (res.ok && json.success && json.data) {
+        const filterNow = readPersistedDashboardGcFilter();
+        if (!dashboardGcFiltersEqual(filterAtStart, filterNow)) return null;
+        if (!shouldRefreshExpiryFromSession(json.data, filterNow)) return null;
         applyLoginScopeToSessionStorageIfNeeded(json.data);
         rememberCompanySessionFlags({
           company_id: json.data.company_id,
@@ -322,7 +335,20 @@ export default function AuthenticatedLayout() {
           has_gambling: json.data.company_has_gambling,
           has_bank: json.data.company_has_bank,
         });
-        setMe(json.data);
+        setMe((prev) => {
+          if (!prev) return json.data;
+          if (shouldApplySessionToSidebar(json.data, filterNow)) {
+            return json.data;
+          }
+          return {
+            ...prev,
+            expiration_hint: json.data.expiration_hint,
+            expiration_status: json.data.expiration_status,
+            expiration_date: json.data.expiration_date,
+            days_until_expiration: json.data.days_until_expiration,
+          };
+        });
+        setSidebarGcTick((n) => n + 1);
         return json.data;
       }
     } catch {
@@ -330,6 +356,25 @@ export default function AuthenticatedLayout() {
     }
     return null;
   }, []);
+
+  const scheduleRefreshSession = useCallback(() => {
+    if (refreshSessionDebouncedRef.current) {
+      window.clearTimeout(refreshSessionDebouncedRef.current);
+    }
+    refreshSessionDebouncedRef.current = window.setTimeout(() => {
+      refreshSessionDebouncedRef.current = null;
+      void refreshSession();
+    }, 0);
+  }, [refreshSession]);
+
+  useEffect(
+    () => () => {
+      if (refreshSessionDebouncedRef.current) {
+        window.clearTimeout(refreshSessionDebouncedRef.current);
+      }
+    },
+    [],
+  );
 
   const applySidebarPatch = useCallback((patch) => {
     setSidebarGcTick((n) => n + 1);
@@ -344,14 +389,24 @@ export default function AuthenticatedLayout() {
     (detail) => {
       if (!detail) {
         applySidebarPatch(null);
+        scheduleRefreshSession();
         return;
       }
+      if (!dashboardFilterEventMatchesPersisted(detail)) return;
       const cid = detail.companyId;
       if (cid == null) {
         const patch = { companyId: null, companyCode: detail.companyCode ?? "" };
+        const groupFlags = detail.selectedGroup
+          ? resolveGroupCategoryFlagsForSidebar(detail.selectedGroup)
+          : null;
         if (detail.hasGambling != null) patch.hasGambling = Boolean(detail.hasGambling);
+        else if (groupFlags) patch.hasGambling = groupFlags.hasGambling;
         if (detail.hasBank != null) patch.hasBank = Boolean(detail.hasBank);
+        else if (groupFlags) patch.hasBank = groupFlags.hasBank;
+        const expirationDate = resolveSidebarExpirationForFilter(detail);
+        patch.expirationDate = expirationDate !== undefined ? expirationDate : null;
         applySidebarPatch(patch);
+        scheduleRefreshSession();
         return;
       }
       const row = findOwnerCompanyById(cid);
@@ -365,6 +420,7 @@ export default function AuthenticatedLayout() {
               hasBank: Boolean(detail.hasBank),
             }
           : categoryFlagsFromSession(null, cid);
+      const expirationDate = resolveSidebarExpirationForFilter(detail);
       applySidebarPatch({
         companyId: cid,
         companyCode,
@@ -374,27 +430,71 @@ export default function AuthenticatedLayout() {
               hasBank: Boolean(flags.hasBank),
             }
           : {}),
+        ...(expirationDate !== undefined ? { expirationDate } : {}),
       });
+      scheduleRefreshSession();
     },
-    [applySidebarPatch],
+    [applySidebarPatch, scheduleRefreshSession],
   );
 
   useEffect(() => {
     const onCompanySession = (e) => {
       const data = e?.detail;
-      if (data && typeof data === "object") {
-        applySidebarPatch({
-          companyId: data.company_id,
-          companyCode: data.company_code,
-          hasGambling: data.has_gambling,
-          hasBank: data.has_bank,
+      const filter = readPersistedDashboardGcFilter();
+
+      if (filter.groupOnly && filter.selectedGroup) {
+        const groupOnlyExp = resolveSidebarExpirationForFilter({
+          selectedGroup: filter.selectedGroup,
+          companyId: null,
         });
+        const groupFlags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup);
+        if (data && typeof data === "object" && shouldApplySessionToSidebar(data, filter)) {
+          applySidebarPatch({
+            companyId: null,
+            companyCode: filter.selectedGroup,
+            hasGambling: data.has_gambling,
+            hasBank: data.has_bank,
+            ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
+          });
+        } else {
+          applySidebarPatch({
+            companyId: null,
+            ...(groupFlags
+              ? { hasGambling: groupFlags.hasGambling, hasBank: groupFlags.hasBank }
+              : {}),
+            ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
+          });
+        }
+        scheduleRefreshSession();
+        return;
       }
-      // Always re-fetch current_user so expiration_hint / expiration_status stay in sync.
-      void refreshSession();
+
+      if (data && typeof data === "object") {
+        const sid = Number(data.company_id);
+        const row = Number.isFinite(sid) && sid > 0 ? findOwnerCompanyById(sid) : null;
+        const expirationDate = row ? row.expiration_date ?? null : undefined;
+        if (shouldApplySessionToSidebar(data, filter)) {
+          applySidebarPatch({
+            companyId: data.company_id,
+            companyCode: data.company_code,
+            hasGambling: data.has_gambling,
+            hasBank: data.has_bank,
+            ...(expirationDate !== undefined ? { expirationDate } : {}),
+          });
+        } else if (expirationDate !== undefined) {
+          const expectedId =
+            filter.companyId != null && filter.companyId !== ""
+              ? Number(filter.companyId)
+              : null;
+          if (expectedId === sid) {
+            applySidebarPatch({ companyId: sid, expirationDate });
+          }
+        }
+      }
+      scheduleRefreshSession();
     };
     const onSessionRefresh = () => {
-      void refreshSession();
+      scheduleRefreshSession();
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
     window.addEventListener("eazycount:session-refresh-requested", onSessionRefresh);
@@ -402,7 +502,29 @@ export default function AuthenticatedLayout() {
       window.removeEventListener("eazycount:company-session-updated", onCompanySession);
       window.removeEventListener("eazycount:session-refresh-requested", onSessionRefresh);
     };
-  }, [applySidebarPatch, refreshSession]);
+  }, [applySidebarPatch, scheduleRefreshSession]);
+
+  useEffect(() => {
+    const onOwnerGroupsLoaded = () => {
+      const filter = readPersistedDashboardGcFilter();
+      if (!filter.groupOnly || !filter.selectedGroup) return;
+      const expirationDate = resolveSidebarExpirationForFilter({
+        selectedGroup: filter.selectedGroup,
+        companyId: null,
+      });
+      const groupFlags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup);
+      applySidebarPatch({
+        companyId: null,
+        ...(groupFlags
+          ? { hasGambling: groupFlags.hasGambling, hasBank: groupFlags.hasBank }
+          : {}),
+        ...(expirationDate !== undefined ? { expirationDate } : {}),
+      });
+      setSidebarGcTick((n) => n + 1);
+    };
+    window.addEventListener("eazycount:owner-groups-loaded", onOwnerGroupsLoaded);
+    return () => window.removeEventListener("eazycount:owner-groups-loaded", onOwnerGroupsLoaded);
+  }, [applySidebarPatch]);
 
   useEffect(() => {
     const onFilterChange = (e) => applySidebarFromFilterDetail(e?.detail ?? null);
@@ -424,6 +546,7 @@ export default function AuthenticatedLayout() {
 
     const runCompanies = () => {
       void fetchOwnerCompaniesAll();
+      void fetchOwnerGroupsAll(me);
     };
 
     const runAccountListWarm = () => {
