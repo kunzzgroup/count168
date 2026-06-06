@@ -41,6 +41,8 @@ export const DASHBOARD_LOGIN_FILTER_APPLIED_KEY = "dashboard_login_filter_applie
 export const DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY = "dashboard_accessible_group_ids";
 export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-changed";
 export const DASHBOARD_CURRENCY_FILTER_EVENT = "eazycount:dashboard-currency-filter-changed";
+/** Dashboard Group/Company bootstrap finished — layout replays sidebar sync (login may miss events). */
+export const DASHBOARD_GC_BOOTSTRAP_READY_EVENT = "eazycount:dashboard-gc-bootstrap-ready";
 
 export function clearDashboardFilterSession() {
   clearCompanySessionFlagsCache();
@@ -246,6 +248,18 @@ export function seedDashboardFilterFromLogin({
 export function applyLoginScopeToSessionStorageIfNeeded(me, companies = []) {
   const key = buildLoginFilterAppliedKey(me);
   if (!key || sessionStorage.getItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY) === key) {
+    return false;
+  }
+  const existing = readPersistedDashboardGcFilter();
+  const scope = String(me?.login_scope || "").trim().toLowerCase();
+  const ident = String(me?.login_identifier || "").trim().toUpperCase();
+  if (
+    existing.groupOnly &&
+    existing.selectedGroup &&
+    scope === "group" &&
+    ident === existing.selectedGroup
+  ) {
+    sessionStorage.setItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY, key);
     return false;
   }
   seedDashboardFilterFromLogin({
@@ -830,6 +844,11 @@ export function replayPersistedDashboardFilterToSidebar() {
     hasBank: detail.hasBank,
     expirationDate: detail.expirationDate,
   });
+}
+
+export function notifyDashboardGcBootstrapReady() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(DASHBOARD_GC_BOOTSTRAP_READY_EVENT));
 }
 
 /**

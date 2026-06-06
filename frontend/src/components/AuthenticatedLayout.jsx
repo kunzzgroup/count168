@@ -27,6 +27,7 @@ import {
   dashboardFilterEventMatchesPersisted,
   dashboardGcFiltersEqual,
   buildDashboardFilterEventDetailFromPersisted,
+  DASHBOARD_GC_BOOTSTRAP_READY_EVENT,
   isDashboardGroupOnlyMode,
   readPersistedDashboardGcFilter,
   shouldApplySessionToSidebar,
@@ -395,6 +396,7 @@ export default function AuthenticatedLayout() {
       }
       if (!options.force && !dashboardFilterEventMatchesPersisted(detail)) return;
       const cid = detail.companyId;
+      const skipRefresh = options.skipSessionRefresh === true;
       if (cid == null) {
         const patch = { companyId: null, companyCode: detail.companyCode ?? "" };
         const groupFlags = detail.selectedGroup
@@ -407,7 +409,7 @@ export default function AuthenticatedLayout() {
         const expirationDate = resolveSidebarExpirationForFilter(detail);
         patch.expirationDate = expirationDate !== undefined ? expirationDate : null;
         applySidebarPatch(patch);
-        scheduleRefreshSession();
+        if (!skipRefresh) scheduleRefreshSession();
         return;
       }
       const row = findOwnerCompanyById(cid);
@@ -433,7 +435,7 @@ export default function AuthenticatedLayout() {
           : {}),
         expirationDate: expirationDate !== undefined ? expirationDate : null,
       });
-      scheduleRefreshSession();
+      if (!skipRefresh) scheduleRefreshSession();
     },
     [applySidebarPatch, scheduleRefreshSession],
   );
@@ -509,19 +511,30 @@ export default function AuthenticatedLayout() {
     (options = {}) => {
       const detail = buildDashboardFilterEventDetailFromPersisted();
       if (!detail.selectedGroup && detail.companyId == null) return;
-      applySidebarFromFilterDetail(detail, { force: options.force === true });
+      applySidebarFromFilterDetail(detail, {
+        force: options.force === true,
+        skipSessionRefresh: options.skipSessionRefresh === true,
+      });
     },
     [applySidebarFromFilterDetail],
   );
 
   const initialSidebarSyncRef = useRef(false);
 
-  /** Login / refresh: replay persisted filter once (login notify may fire before layout mounts). */
+  /** Login: replay persisted filter once session `me` is available. */
   useLayoutEffect(() => {
     if (loading || !me || initialSidebarSyncRef.current) return;
     initialSidebarSyncRef.current = true;
-    syncSidebarFromPersistedFilter({ force: true });
+    syncSidebarFromPersistedFilter({ force: true, skipSessionRefresh: true });
   }, [loading, me, syncSidebarFromPersistedFilter]);
+
+  useEffect(() => {
+    const onBootstrapReady = () => {
+      syncSidebarFromPersistedFilter({ force: true, skipSessionRefresh: true });
+    };
+    window.addEventListener(DASHBOARD_GC_BOOTSTRAP_READY_EVENT, onBootstrapReady);
+    return () => window.removeEventListener(DASHBOARD_GC_BOOTSTRAP_READY_EVENT, onBootstrapReady);
+  }, [syncSidebarFromPersistedFilter]);
 
   useEffect(() => {
     const onOwnerGroupsLoaded = () => {

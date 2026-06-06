@@ -83,6 +83,8 @@ import {
   normalizeCompanyGroupId,
   persistDashboardGroupOnlyMode,
   readDashboardSelectedCompanyId,
+  persistDashboardSelectedCompany,
+  notifyDashboardGcBootstrapReady,
   DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   persistDashboardGroupFilter,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -396,12 +398,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         typeof sessionStorage !== "undefined" &&
         sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
       const groupOnlyBoot = !groupFilterOptOut && isDashboardGroupOnlyMode();
+      const groupLoginBoot =
+        !groupFilterOptOut &&
+        isGroupLogin(u) &&
+        readDashboardSelectedCompanyId() == null;
 
-      if (groupOnlyBoot && canUseGroupOnlyMode(u)) {
-        const group = groupFilterOptOut
-          ? null
-          : resolveInitialSelectedGroupFromSession(scopedCompanies, null, u);
-        setSelectedGroup(group);
+      if ((groupOnlyBoot || groupLoginBoot) && canUseGroupOnlyMode(u)) {
+        const ident = getLoginIdentifier(u);
+        const group =
+          ident ||
+          resolveInitialSelectedGroupFromSession(scopedCompanies, null, u);
+        if (group) {
+          setSelectedGroup(group);
+          persistDashboardGroupFilter(group);
+          persistDashboardGroupOnlyMode(true);
+          persistDashboardSelectedCompany(null);
+        }
         setCompanyId(null);
         setDashboardData(null);
         setDashboardDataPrev(null);
@@ -429,31 +441,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         ? null
         : resolveInitialSelectedGroupFromSession(scopedCompanies, current, u);
       setSelectedGroup(group);
-
-      if (
-        !groupFilterOptOut &&
-        isGroupLogin(u) &&
-        isDashboardGroupOnlyMode() &&
-        readDashboardSelectedCompanyId() == null
-      ) {
-        const ident = getLoginIdentifier(u);
-        const bootGroup =
-          ident ||
-          resolveInitialSelectedGroupFromSession(scopedCompanies, null, u);
-        if (bootGroup) {
-          setSelectedGroup(bootGroup);
-          persistDashboardGroupFilter(bootGroup);
-          persistDashboardGroupOnlyMode(true);
-        }
-        setCompanyId(null);
-        setDashboardData(null);
-        setDashboardDataPrev(null);
-        setDisplayScopeKey("");
-        setLoading(false);
-        bootstrapGcOnceRef.current = true;
-        setGcBootstrapReady(true);
-        return;
-      }
 
       if (!groupFilterOptOut && isDashboardGroupOnlyMode() && !canUseGroupOnlyMode(u)) {
         persistDashboardFilterState(group, cid, { allowGroupOnly: false });
@@ -495,6 +482,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     companyId,
     sessionCompanyId: me?.company_id,
   });
+
+  useEffect(() => {
+    if (!gcBootstrapReady) return;
+    notifyDashboardGcBootstrapReady();
+  }, [gcBootstrapReady]);
 
   /** Keep sidebar (menu, expiry, flags) in sync when dashboard Group / Company filter changes. */
   useLayoutEffect(() => {
@@ -2747,10 +2739,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   ]);
 
   useLayoutEffect(() => {
+    if (!gcBootstrapReady) return;
     if (!me || companyId != null || groupAllMode) return;
     if (
       typeof sessionStorage !== "undefined" &&
       sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1"
+    ) {
+      return;
+    }
+    if (
+      isGroupLogin(me) &&
+      isDashboardGroupOnlyMode() &&
+      readDashboardSelectedCompanyId() == null
     ) {
       return;
     }
@@ -2802,6 +2802,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     groupAllMode,
     companies,
     groupIds,
+    gcBootstrapReady,
     applyCompanySelection,
     syncCompanySession,
   ]);
