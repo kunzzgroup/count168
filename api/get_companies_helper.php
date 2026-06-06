@@ -16,7 +16,7 @@ if (!function_exists('getCompaniesByUser')) {
     function getCompaniesByUser(PDO $pdo, int $userId, bool $fetchAll = false, bool $includeGroupLinkVirtualRows = false): array {
         if ($fetchAll) {
             $stmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id, c.group_id AS native_group_id, c.group_id, c.expiration_date
+                SELECT DISTINCT c.id, c.company_id, c.group_id AS native_group_id, c.group_id, c.expiration_date, c.permissions
                 FROM company c
                 INNER JOIN user_company_map ucm ON c.id = ucm.company_id
                 WHERE ucm.user_id = ? AND c.company_id != ''
@@ -28,7 +28,7 @@ if (!function_exists('getCompaniesByUser')) {
             // Domain "Selected Companies" (e.g. independent ABC) live under the same owner_id
             // as mapped group subsidiaries — include the full owner portfolio for dashboard pills.
             $ownerScopeStmt = $pdo->prepare("
-                SELECT DISTINCT c.id, c.company_id, c.group_id AS native_group_id, c.group_id, c.expiration_date
+                SELECT DISTINCT c.id, c.company_id, c.group_id AS native_group_id, c.group_id, c.expiration_date, c.permissions
                 FROM company c
                 WHERE c.company_id != ''
                   AND c.owner_id IN (

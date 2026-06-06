@@ -5,7 +5,16 @@
  * Login scope rules: see `loginScope.js` and `includes/group_company_access.php`.
  */
 import { buildApiUrl } from "../core/apiUrl.js";
-import { clearCompanySessionFlagsCache, peekCompanySessionFlags } from "./companySessionFlagsCache.js";
+import {
+  clearCompanySessionFlagsCache,
+  peekCompanySessionFlags,
+  rememberCompanySessionFlags,
+} from "./companySessionFlagsCache.js";
+import {
+  permissionsIncludeBank,
+  permissionsIncludeGames,
+  resolveCompanyCategoryFlagsFromRow,
+} from "./companyCategoryFlags.js";
 import {
   canUseGroupOnlyMode,
   filterCompaniesForLoginScope,
@@ -319,14 +328,16 @@ export function dashboardGcFiltersEqual(a, b) {
   return ga === gb && ca === cb && Boolean(a.groupOnly) === Boolean(b.groupOnly);
 }
 
-/** Stable key for deduping sidebar applies (group / company / group-only). */
+/** Stable key for deduping sidebar applies (group / company / group-only / category flags). */
 export function dashboardSidebarFilterSignature(filter) {
   if (!filter || typeof filter !== "object") return "";
   const g = filter.selectedGroup ? String(filter.selectedGroup).trim().toUpperCase() : "";
   const cid =
     filter.companyId != null && filter.companyId !== "" ? Number(filter.companyId) : null;
   const groupOnly = Boolean(filter.groupOnly);
-  return `${g}|${cid ?? ""}|${groupOnly ? 1 : 0}`;
+  const hg = filter.hasGambling != null ? (filter.hasGambling ? 1 : 0) : "-";
+  const hb = filter.hasBank != null ? (filter.hasBank ? 1 : 0) : "-";
+  return `${g}|${cid ?? ""}|${groupOnly ? 1 : 0}|${hg}|${hb}`;
 }
 
 /** Drop stale layout broadcasts when the user has already changed Group / Company again. */
@@ -630,17 +641,21 @@ export function resolveGroupExpirationDate(groupCode) {
   return undefined;
 }
 
-function permissionsIncludeGames(permissions) {
-  if (!Array.isArray(permissions)) return false;
-  return permissions.some((p) => {
-    const s = String(p).trim();
-    return s === "Games" || s === "Gambling";
-  });
-}
-
-function permissionsIncludeBank(permissions) {
-  if (!Array.isArray(permissions)) return false;
-  return permissions.some((p) => String(p).trim() === "Bank");
+function seedCompanySessionFlagsFromOwnerRows(rows) {
+  if (!Array.isArray(rows)) return;
+  for (const row of rows) {
+    const id = Number(row?.id);
+    if (!Number.isFinite(id) || id <= 0) continue;
+    if (peekCompanySessionFlags(id)) continue;
+    const flags = resolveCompanyCategoryFlagsFromRow(row);
+    if (!flags) continue;
+    rememberCompanySessionFlags({
+      company_id: id,
+      company_code: row.company_id,
+      has_gambling: flags.hasGambling,
+      has_bank: flags.hasBank,
+    });
+  }
 }
 
 /**
@@ -685,9 +700,16 @@ export function resolveGroupCategoryFlagsForSidebar(groupCode) {
     if (cached) {
       hasGambling = hasGambling || Boolean(cached.has_gambling);
       hasBank = hasBank || Boolean(cached.has_bank);
+      continue;
+    }
+    const fromRow = resolveCompanyCategoryFlagsFromRow(row);
+    if (fromRow) {
+      hasGambling = hasGambling || fromRow.hasGambling;
+      hasBank = hasBank || fromRow.hasBank;
     }
   }
 
+  if (hasGambling || hasBank) return { hasGambling, hasBank };
   return { hasGambling, hasBank };
 }
 
@@ -773,9 +795,13 @@ export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, ex
     const id = Number(companyRow.id);
     if (Number.isFinite(id) && id > 0) {
       const cached = peekCompanySessionFlags(id);
+      const fromRow = resolveCompanyCategoryFlagsFromRow(companyRow);
       if (cached) {
         opts.hasGambling = Boolean(cached.has_gambling);
         opts.hasBank = Boolean(cached.has_bank);
+      } else if (fromRow) {
+        opts.hasGambling = fromRow.hasGambling;
+        opts.hasBank = fromRow.hasBank;
       }
     }
     return opts;
@@ -919,6 +945,7 @@ export function setCachedOwnerCompanies(rows) {
   }
   const normalized = rows.map(normalizeOwnerCompanyRow).filter(Boolean);
   ownerCompaniesCache = normalized.length > 0 ? normalized : null;
+  seedCompanySessionFlagsFromOwnerRows(ownerCompaniesCache);
 }
 
 /** @param {() => Promise<object[]>} fetcher */
@@ -930,6 +957,7 @@ export async function loadOwnerCompaniesCached(fetcher) {
         const list = Array.isArray(rows) ? rows : [];
         const normalized = list.map(normalizeOwnerCompanyRow).filter(Boolean);
         ownerCompaniesCache = normalized.length > 0 ? normalized : null;
+        seedCompanySessionFlagsFromOwnerRows(ownerCompaniesCache);
         ownerCompaniesInflight = null;
         return ownerCompaniesCache || [];
       })

@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { syncCompanySessionApi } from "../../../utils/company/companySessionSync.js";
 import {
   buildDashboardCacheKey,
   getDashboardCache,
@@ -421,6 +422,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setLoading(false);
         bootstrapGcOnceRef.current = true;
         setGcBootstrapReady(true);
+        if (group) {
+          notifyDashboardGroupFilterChanged(
+            group,
+            null,
+            buildDashboardSidebarNotifyOptions(null, group),
+          );
+        }
         return;
       }
 
@@ -460,6 +468,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (bootCid == null) setLoading(false);
       bootstrapGcOnceRef.current = true;
       setGcBootstrapReady(true);
+      if (bootCid != null) {
+        const bootRow = scopedCompanies.find((c) => parseInt(c.id, 10) === parseInt(bootCid, 10));
+        const notifyOpts = buildDashboardSidebarNotifyOptions(bootRow, group, {
+          ignoreGroupOnly: true,
+        });
+        notifyDashboardGroupFilterChanged(group, bootCid, notifyOpts);
+        void syncCompanySessionApi(bootCid, group).then((json) => {
+          if (!json?.success || !json?.data) return;
+          notifyCompanySessionUpdated(json.data);
+          notifyDashboardGroupFilterChanged(group, bootCid, {
+            ...notifyOpts,
+            hasGambling: json.data.has_gambling,
+            hasBank: json.data.has_bank,
+          });
+        });
+      }
     } catch (err) {
       if (err?.name === "AbortError") return;
       setLoadError(err?.message || i18n.failedToLoadDashboard);
