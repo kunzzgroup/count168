@@ -21,6 +21,9 @@ export function useCrossPageCurrencySync({
   suppressRef = null,
 }) {
   const scopeKey = buildDashboardCurrencyScopeKey({ companyId, selectedGroup });
+  const groupOnlyScope =
+    Boolean(selectedGroup && String(selectedGroup).trim()) &&
+    (companyId == null || companyId === "");
   const codesKey = (availableCodes || [])
     .map((c) => String(c).trim().toUpperCase())
     .filter(Boolean)
@@ -33,10 +36,11 @@ export function useCrossPageCurrencySync({
     const pref = resolveCrossPageCurrencyPreference({
       scopeKey,
       availableCodes: codesKey.split("|"),
+      scopeOnly: groupOnlyScope,
     });
     const current = String(currentCode || "").trim().toUpperCase();
     if (pref && pref !== current) onApplyCode(pref);
-  }, [enabled, scopeKey, codesKey, currentCode, onApplyCode, suppressRef]);
+  }, [enabled, scopeKey, codesKey, currentCode, onApplyCode, suppressRef, groupOnlyScope]);
 
   useEffect(() => {
     if (!enabled || typeof onApplyCode !== "function") return undefined;

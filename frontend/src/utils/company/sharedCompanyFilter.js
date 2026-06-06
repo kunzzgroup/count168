@@ -98,8 +98,11 @@ export function persistDashboardSelectedCurrency(scopeKey, code) {
 /** Last cross-page currency (global; not scoped to a single company). */
 export function readDashboardSelectedCurrency(scopeKey, options = {}) {
   const allowed = normalizeCurrencyCodeList(options.availableCodes);
-  const last = pickCurrencyIfAllowed(readLastDashboardSelectedCurrency(), allowed);
-  if (last) return last;
+  const scopeOnly = options.scopeOnly === true;
+  if (!scopeOnly) {
+    const last = pickCurrencyIfAllowed(readLastDashboardSelectedCurrency(), allowed);
+    if (last) return last;
+  }
   const key = scopeKey ? String(scopeKey).trim() : "";
   if (!key) return null;
   try {
@@ -132,12 +135,19 @@ export function resolveCrossPageCurrencyPreference({
   scopeKey = null,
   availableCodes = [],
   urlCurrency = "",
+  scopeOnly = false,
 } = {}) {
   const allowed = normalizeCurrencyCodeList(availableCodes) ?? [];
   const url = String(urlCurrency || "").trim().toUpperCase();
+  if (!scopeOnly) {
+    const global = pickCurrencyIfAllowed(
+      readLastDashboardSelectedCurrency(),
+      allowed.length ? allowed : null,
+    );
+    if (global) return global;
+  }
   return (
-    pickCurrencyIfAllowed(readLastDashboardSelectedCurrency(), allowed.length ? allowed : null) ||
-    readDashboardSelectedCurrency(scopeKey, { availableCodes: allowed }) ||
+    readDashboardSelectedCurrency(scopeKey, { availableCodes: allowed, scopeOnly: true }) ||
     pickCurrencyIfAllowed(url, allowed.length ? allowed : null) ||
     allowed[0] ||
     ""

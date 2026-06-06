@@ -52,11 +52,13 @@ import {
   pickGroupAnchorCompany,
   notifyDashboardGroupFilterChanged,
   buildDashboardSidebarNotifyOptions,
+  notifyDashboardCurrencyFilterChanged,
   clearDashboardGroupFilterKeepCompany,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
   resolveCrossPageCurrencyPreference,
   buildDashboardCurrencyScopeKey,
+  readDashboardSelectedCurrency,
   applyLoginScopeToSessionStorageIfNeeded,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
@@ -118,6 +120,44 @@ function buildGroupOnlyScopeCurrencyQuery(companies, groupKey) {
     q.set("view_group", g);
   }
   return q;
+}
+
+/** Group ledger view: group selected, no subsidiary company pill active. */
+function isDashboardGroupOnlyCurrencyScope({
+  companyId,
+  selectedGroup,
+  groupsAllMode,
+  groupAllMode,
+  mergedSubsetIds,
+}) {
+  if (groupsAllMode || groupAllMode) return false;
+  if (mergedSubsetIds?.length > 1) return false;
+  const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+  if (!groupKey) return false;
+  const singleCid = companyId != null ? parseInt(companyId, 10) : Number.NaN;
+  return !(Number.isFinite(singleCid) && singleCid > 0);
+}
+
+function resolveDashboardActiveCurrency({
+  codes,
+  scopeKey,
+  isCompanyOnlyScope,
+  isGroupOnlyScope,
+  prev,
+}) {
+  if (!codes.length) return "";
+  if (isGroupOnlyScope) {
+    return (
+      readDashboardSelectedCurrency(scopeKey, { availableCodes: codes, scopeOnly: true }) ||
+      codes[0] ||
+      ""
+    );
+  }
+  const persisted = resolveCrossPageCurrencyPreference({ scopeKey, availableCodes: codes });
+  if (persisted && codes.includes(persisted)) return persisted;
+  if (isCompanyOnlyScope) return codes[0] || "";
+  if (prev && codes.includes(prev)) return prev;
+  return codes[0] || "";
 }
 
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
@@ -567,21 +607,35 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const applyCurrencyCodes = useCallback((codes, cid) => {
     if (!codes.length) return;
     setCurrencies(codes);
+    const effectiveCompanyId = cid ?? companyId;
     const scopeKey = buildDashboardCurrencyScopeKey({
-      companyId: cid ?? companyId,
+      companyId: effectiveCompanyId,
       selectedGroup,
     });
-    const persisted = resolveCrossPageCurrencyPreference({
-      scopeKey,
-      availableCodes: codes,
+    const isGroupOnlyScope = isDashboardGroupOnlyCurrencyScope({
+      companyId: effectiveCompanyId,
+      selectedGroup,
+      groupsAllMode,
+      groupAllMode,
+      mergedSubsetIds,
     });
-    setCurrencyCode((prev) => {
-      if (persisted && codes.includes(persisted)) return persisted;
-      if (cid != null && !selectedGroup) return codes[0] || "";
-      return prev && codes.includes(prev) ? prev : codes[0] || "";
-    });
+    const isCompanyOnlyScope =
+      effectiveCompanyId != null &&
+      parseInt(effectiveCompanyId, 10) > 0 &&
+      !selectedGroup &&
+      !groupsAllMode &&
+      !groupAllMode;
+    setCurrencyCode((prev) =>
+      resolveDashboardActiveCurrency({
+        codes,
+        scopeKey,
+        isCompanyOnlyScope,
+        isGroupOnlyScope,
+        prev,
+      })
+    );
     if (cid != null && codes.length) currenciesByCompanyRef.current.set(cid, codes);
-  }, [companyId, selectedGroup]);
+  }, [companyId, selectedGroup, groupsAllMode, groupAllMode, mergedSubsetIds]);
 
   /** Instant currency pills when switching group/company — uses in-memory cache from prior visits. */
   const primeCurrenciesFromCache = useCallback(
@@ -598,8 +652,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         !groupKey &&
         !gAll &&
         !(scope.groupAllMode ?? groupAllMode);
+      const isGroupOnlyScope =
+        Boolean(groupKey) &&
+        !(Number.isFinite(singleCid) && singleCid > 0) &&
+        !(scope.groupAllMode ?? groupAllMode) &&
+        !gAll;
       const clearOnMiss =
-        scope.clearOnMiss !== undefined ? scope.clearOnMiss : isCompanyOnlyScope;
+        scope.clearOnMiss !== undefined
+          ? scope.clearOnMiss
+          : isCompanyOnlyScope || isGroupOnlyScope;
 
       let cached = null;
       if (Number.isFinite(singleCid) && singleCid > 0) {
@@ -608,7 +669,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!cached?.length && groupKey && !isCompanyOnlyScope) {
         cached = currenciesByGroupRef.current.get(groupKey) ?? null;
       }
-      if (!cached?.length && groupKey && !isCompanyOnlyScope && companies?.length) {
+      if (
+        !cached?.length &&
+        groupKey &&
+        !isCompanyOnlyScope &&
+        !isGroupOnlyScope &&
+        companies?.length
+      ) {
         const merged = new Set();
         for (const row of companiesNativeInGroupList(companies, groupKey)) {
           const rowCid = parseInt(row.id, 10);
@@ -635,16 +702,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         companyId: Number.isFinite(singleCid) && singleCid > 0 ? singleCid : null,
         selectedGroup: groupKey,
       });
-      const persisted = resolveCrossPageCurrencyPreference({
+      const nextCode = resolveDashboardActiveCurrency({
+        codes: list,
         scopeKey,
-        availableCodes: list,
+        isCompanyOnlyScope,
+        isGroupOnlyScope,
+        prev: currencyCodeRef.current,
       });
-      setCurrencyCode((prev) => {
-        if (persisted && list.includes(persisted)) return persisted;
-        if (isCompanyOnlyScope) return list[0] || "";
-        if (prev && list.includes(prev)) return prev;
-        return list[0] || "";
-      });
+      setCurrencyCode(nextCode);
+      if (isGroupOnlyScope && nextCode) {
+        notifyDashboardCurrencyFilterChanged(nextCode, scopeKey);
+      }
       return true;
     },
     [companyId, selectedGroup, groupsAllMode, groupAllMode, companies]
@@ -678,21 +746,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (scopeCurrencyKeyRef.current !== scopeKey) return;
       const list = [...new Set(codes.map((c) => String(c).toUpperCase()).filter(Boolean))];
       setCurrencies(list);
-      const persisted = resolveCrossPageCurrencyPreference({
-        scopeKey: buildDashboardCurrencyScopeKey({ companyId, selectedGroup }),
-        availableCodes: list,
+      const currencyScopeKey = buildDashboardCurrencyScopeKey({ companyId, selectedGroup });
+      const isGroupOnlyScope = groupOnlyCurrencyScope;
+      const isCompanyOnlyScope =
+        singleCompanyScope &&
+        !groupKey &&
+        !groupsAllMode &&
+        !groupAllMode &&
+        !(mergedSubsetIds && mergedSubsetIds.length > 1);
+      const nextCode = resolveDashboardActiveCurrency({
+        codes: list,
+        scopeKey: currencyScopeKey,
+        isCompanyOnlyScope,
+        isGroupOnlyScope,
+        prev: currencyCodeRef.current,
       });
-      setCurrencyCode((prev) => {
-        if (persisted && list.includes(persisted)) return persisted;
-        const companyOnly =
-          singleCid &&
-          !groupKey &&
-          !groupsAllMode &&
-          !groupAllMode &&
-          !(mergedSubsetIds && mergedSubsetIds.length > 1);
-        if (companyOnly) return list[0] || "";
-        return prev && list.includes(prev) ? prev : list[0] || "";
-      });
+      setCurrencyCode(nextCode);
+      if (isGroupOnlyScope && nextCode) {
+        notifyDashboardCurrencyFilterChanged(nextCode, currencyScopeKey);
+      }
       if (singleCid && list.length) {
         currenciesByCompanyRef.current.set(singleCid, list);
       } else if (groupKey && list.length) {
@@ -2366,7 +2438,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         persistDashboardGroupFilter(g);
         resetAnchorSessionRef();
         clearCompanySelection(g);
-        primeCurrenciesFromCache({ companyId: null, selectedGroup: g, groupsAllMode: false });
+        primeCurrenciesFromCache({
+          companyId: null,
+          selectedGroup: g,
+          groupsAllMode: false,
+          clearOnMiss: true,
+        });
         return;
       }
 
@@ -2376,7 +2453,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!pick?.id) {
         resetAnchorSessionRef();
         clearCompanySelection(g);
-        primeCurrenciesFromCache({ companyId: null, selectedGroup: g, groupsAllMode: false });
+        primeCurrenciesFromCache({
+          companyId: null,
+          selectedGroup: g,
+          groupsAllMode: false,
+          clearOnMiss: true,
+        });
         return;
       }
 
@@ -2431,7 +2513,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         (groupsAllMode || !gid || gid === selectedGroup);
       if (isActive) {
         if (!canUseGroupOnlyMode(me)) return;
-        clearCompanySelection();
+        const g = selectedGroup;
+        clearCompanySelection(g);
+        primeCurrenciesFromCache({
+          companyId: null,
+          selectedGroup: g,
+          groupsAllMode: false,
+          groupAllMode: false,
+          clearOnMiss: true,
+        });
         return;
       }
 
