@@ -514,9 +514,12 @@ export default function AuthenticatedLayout() {
     [applySidebarFromFilterDetail],
   );
 
-  /** Login / refresh: replay persisted filter before dashboard bootstrap (login notify may be missed). */
+  const initialSidebarSyncRef = useRef(false);
+
+  /** Login / refresh: replay persisted filter once (login notify may fire before layout mounts). */
   useLayoutEffect(() => {
-    if (loading || !me) return;
+    if (loading || !me || initialSidebarSyncRef.current) return;
+    initialSidebarSyncRef.current = true;
     syncSidebarFromPersistedFilter({ force: true });
   }, [loading, me, syncSidebarFromPersistedFilter]);
 
@@ -545,9 +548,8 @@ export default function AuthenticatedLayout() {
   useLayoutEffect(() => {
     const onFilterChange = (e) => applySidebarFromFilterDetail(e?.detail ?? null);
     window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-    syncSidebarFromPersistedFilter({ force: true });
     return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChange);
-  }, [applySidebarFromFilterDetail, syncSidebarFromPersistedFilter]);
+  }, [applySidebarFromFilterDetail]);
 
   useEffect(() => {
     setHoverSection(null);
