@@ -687,13 +687,15 @@ export default function AccountListPage() {
   }, []);
 
   const onSwitchCompany = useCallback(
-    async (c, { viewGroup = null, fetchList = true } = {}) => {
+    async (c, { viewGroup = undefined, fetchList = true } = {}) => {
       const nextCompanyId = Number(c?.id);
       if (!nextCompanyId) return false;
 
       const vg =
-        viewGroup != null && String(viewGroup).trim() !== ""
-          ? String(viewGroup).trim().toUpperCase()
+        viewGroup !== undefined
+          ? viewGroup != null && String(viewGroup).trim() !== ""
+            ? String(viewGroup).trim().toUpperCase()
+            : null
           : String(gcScopeRef.current?.selectedGroup ?? selectedGroup ?? "").trim() || null;
 
       const previousCompanyId =
@@ -1010,9 +1012,36 @@ export default function AccountListPage() {
 
     const pickIndependent = resolveCompanyWhenClosingGroup(companies, companyId, groupIds);
     const nextCompanyId = pickIndependent?.id != null ? Number(pickIndependent.id) : null;
+    const independentScope = {
+      companyId: nextCompanyId,
+      selectedGroup: null,
+      groupsAllMode: false,
+      groupAllMode: false,
+      mergeCompanyIds,
+      groupIds,
+      isListScopeReady: true,
+    };
+
+    if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
+      invalidateAccountListCacheForScope(independentScope, { groupOnly: false });
+    }
+
+    flushSync(() => {
+      setGroupsAllMode(false);
+      setGroupAllMode(false);
+      setSelectedGroup(null);
+      setCompanyId(nextCompanyId);
+      if (nextCompanyId != null) {
+        applyCacheOrClearAccounts(independentScope, { groupOnly: false });
+      } else {
+        setAccounts([]);
+      }
+    });
 
     if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
       clearDashboardGroupFilterKeepCompany(nextCompanyId);
+      lastAccountsFetchKeyRef.current = "";
+      void fetchAccounts(independentScope, { silent: true });
       void (async () => {
         try {
           await onSwitchCompanyRef.current?.(pickIndependent, { viewGroup: null });
@@ -1028,61 +1057,14 @@ export default function AccountListPage() {
       stripCompanyIdFromUrl();
       suppressGcSyncRef.current = false;
     }
-
-    flushSync(() => {
-      setGroupsAllMode(false);
-      setGroupAllMode(false);
-      setSelectedGroup(null);
-      setCompanyId(nextCompanyId);
-      if (nextCompanyId != null) {
-        applyCacheOrClearAccounts({
-          companyId: nextCompanyId,
-          selectedGroup: null,
-          groupsAllMode: false,
-          groupAllMode: false,
-          mergeCompanyIds,
-          groupIds,
-          isListScopeReady: true,
-        });
-      } else {
-        setAccounts([]);
-      }
-    });
-
-    if (nextCompanyId != null) {
-      const cacheKey = resolveAccountListCacheKey(
-        `company:${Number(nextCompanyId)}`,
-        searchTerm,
-        showInactive,
-        showAll,
-      );
-      if (!accountListCacheRef.current.has(cacheKey)) {
-        startTransition(() => {
-          void fetchAccounts(
-            {
-              companyId: nextCompanyId,
-              selectedGroup: null,
-              groupsAllMode: false,
-              groupAllMode: false,
-              mergeCompanyIds,
-              groupIds,
-              isListScopeReady: true,
-            },
-            { silent: true },
-          );
-        });
-      }
-    }
   }, [
     applyCacheOrClearAccounts,
     companies,
     companyId,
     fetchAccounts,
     groupIds,
+    invalidateAccountListCacheForScope,
     mergeCompanyIds,
-    searchTerm,
-    showAll,
-    showInactive,
     setCompanyId,
     setGroupAllMode,
     setGroupsAllMode,
@@ -1279,6 +1261,31 @@ export default function AccountListPage() {
           });
         }
       });
+      if (targetCompanyId != null) {
+        lastAccountsFetchKeyRef.current = "";
+        invalidateAccountListCacheForScope(
+          {
+            companyId: targetCompanyId,
+            selectedGroup: null,
+            groupsAllMode: false,
+            groupAllMode: false,
+            isListScopeReady: true,
+          },
+          { groupOnly: false },
+        );
+        void fetchAccounts(
+          {
+            companyId: targetCompanyId,
+            selectedGroup: null,
+            groupsAllMode: false,
+            groupAllMode: false,
+            mergeCompanyIds,
+            groupIds,
+            isListScopeReady: true,
+          },
+          { silent: true },
+        );
+      }
       return;
     }
 
@@ -1350,6 +1357,9 @@ export default function AccountListPage() {
     companies,
     companyId,
     fetchAccounts,
+    groupIds,
+    invalidateAccountListCacheForScope,
+    mergeCompanyIds,
     searchTerm,
     selectedGroup,
     setGroupAllMode,
