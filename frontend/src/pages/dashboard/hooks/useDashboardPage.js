@@ -830,14 +830,34 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (Number.isFinite(singleCid) && singleCid > 0) {
         cached = currenciesByCompanyRef.current.get(singleCid) ?? null;
       }
-      if (!cached?.length && groupKey && !isCompanyOnlyScope) {
+      const gaMode = scope.groupAllMode ?? groupAllMode;
+      if (!cached?.length && groupKey && gaMode) {
+        cached = currenciesByGroupRef.current.get(`${groupKey}:ALL`) ?? null;
+      }
+      if (!cached?.length && groupKey && !isCompanyOnlyScope && !gaMode) {
         cached = currenciesByGroupRef.current.get(groupKey) ?? null;
+      }
+      if (!cached?.length && gaMode && companies?.length) {
+        const mergeRows = gAll
+          ? resolveGroupsAllMergeCompanyList(companies, groupIds)
+          : groupKey
+            ? resolveGroupAllMergeCompanyList(companies, groupKey, groupIds)
+            : [];
+        const merged = new Set();
+        for (const row of mergeRows) {
+          const rowCid = parseInt(row.id, 10);
+          if (!Number.isFinite(rowCid) || rowCid <= 0) continue;
+          const cc = currenciesByCompanyRef.current.get(rowCid);
+          if (cc?.length) cc.forEach((c) => merged.add(c));
+        }
+        if (merged.size) cached = [...merged];
       }
       if (
         !cached?.length &&
         groupKey &&
         !isCompanyOnlyScope &&
         !isGroupOnlyScope &&
+        !gaMode &&
         companies?.length
       ) {
         const merged = new Set();
@@ -879,7 +899,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       return true;
     },
-    [companyId, selectedGroup, groupsAllMode, groupAllMode, companies]
+    [companyId, selectedGroup, groupsAllMode, groupAllMode, companies, groupIds]
   );
 
   const orderCurrencyCodes = useCallback((codes, order) => {
@@ -931,12 +951,91 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       if (singleCid && list.length) {
         currenciesByCompanyRef.current.set(singleCid, list);
+      } else if (groupKey && list.length && groupAllMode) {
+        currenciesByGroupRef.current.set(`${groupKey}:ALL`, list);
       } else if (groupKey && list.length) {
         currenciesByGroupRef.current.set(groupKey, list);
       } else if (groupsAllMode && list.length) {
         currenciesByGroupRef.current.set("GROUPS:ALL", list);
       }
     };
+
+    /** Company "All": union currencies from every merged subsidiary (deduped). */
+    if (groupAllMode && !(Number.isFinite(singleCid) && singleCid > 0)) {
+      const mergeRows = resolveMergeCompanyList();
+      const mergeCompanyIds = mergeRows
+        .map((c) => parseInt(c.id, 10))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      if (!mergeCompanyIds.length) {
+        commitCurrencyList([]);
+        return;
+      }
+
+      try {
+        const orderCompanyId =
+          (groupKey && pickGroupAnchorCompany(companies, groupKey)?.id) ?? mergeCompanyIds[0];
+        const ordParams = new URLSearchParams({ _t: String(Date.now()) });
+        if (orderCompanyId) ordParams.set("company_id", String(orderCompanyId));
+
+        const [currencyResults, ordRes] = await Promise.all([
+          Promise.all(
+            mergeCompanyIds.map(async (cid) => {
+              const row = companies.find((c) => parseInt(c.id, 10) === cid);
+              const vg = groupsAllMode
+                ? resolveViewGroupForCompany(row, selectedGroup)
+                : groupKey;
+              const q = new URLSearchParams({ company_id: String(cid) });
+              if (vg) {
+                q.set("view_group", vg);
+                q.set("group_id", vg);
+                q.set("subsidiary_accounts_only", "1");
+              } else if (row && !companyRowIsIndependent(row, groupIds)) {
+                q.set("subsidiary_accounts_only", "1");
+              }
+              try {
+                const curRes = await fetch(
+                  buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
+                  { credentials: "include" }
+                );
+                const curJson = await curRes.json();
+                if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
+                  return currenciesByCompanyRef.current.get(cid) ?? [];
+                }
+                const rowCodes = curJson.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
+                if (rowCodes.length) currenciesByCompanyRef.current.set(cid, rowCodes);
+                return rowCodes;
+              } catch {
+                return currenciesByCompanyRef.current.get(cid) ?? [];
+              }
+            })
+          ),
+          orderCompanyId
+            ? fetch(
+                buildApiUrl(`api/transactions/user_currency_order_api.php?${ordParams.toString()}`),
+                { credentials: "include" }
+              ).catch(() => null)
+            : Promise.resolve(null),
+        ]);
+
+        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
+
+        let codes = [...new Set(currencyResults.flat())];
+        if (ordRes) {
+          const ordJson = await ordRes.json();
+          codes = orderCurrencyCodes(codes, ordJson?.data?.order);
+        }
+        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
+
+        const mergedCacheKey = groupKey ? `${groupKey}:ALL` : "GROUPS:ALL";
+        if (codes.length) currenciesByGroupRef.current.set(mergedCacheKey, codes);
+
+        commitCurrencyList(codes);
+      } catch {
+        /* Keep previous currency pills on transient errors. */
+      }
+      return;
+    }
 
     let companyIds = [];
     let groupLedgerOnly = false;
@@ -946,18 +1045,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (singleCid) {
         companyIds = [singleCid];
       } else if (groupAllMode) {
-        if (selectedGroup) {
-          groupOnlyCurrencyScope = true;
-          const anchor = pickGroupAnchorCompany(companies, selectedGroup);
-          const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
-          if (anchorId) companyIds = [anchorId];
-          else groupLedgerOnly = true;
-        } else {
-          // GroupID=All + Company=All: currencies should reflect AP+IG subsidiaries only (exclude independents).
-          companyIds = resolveGroupsAllMergeCompanyList(companies, groupIds)
-            .map((c) => parseInt(c.id, 10))
-            .filter((id) => Number.isFinite(id));
-        }
+        companyIds = resolveGroupsAllMergeCompanyList(companies, groupIds)
+          .map((c) => parseInt(c.id, 10))
+          .filter((id) => Number.isFinite(id));
       } else {
         const ids = new Set();
         for (const gid of groupIds) {
@@ -967,15 +1057,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           }
         }
         companyIds = [...ids];
-      }
-    } else if (groupAllMode && groupKey) {
-      groupOnlyCurrencyScope = true;
-      const anchor = pickGroupAnchorCompany(companies, groupKey);
-      const anchorId = anchor?.id != null ? parseInt(anchor.id, 10) : null;
-      if (anchorId) {
-        companyIds = [anchorId];
-      } else {
-        groupLedgerOnly = true;
       }
     } else if (mergedSubsetIds && mergedSubsetIds.length > 1) {
       companyIds = mergedSubsetIds.filter((id) => Number.isFinite(id));
@@ -1133,6 +1214,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     applyCurrencyCodes,
     primeCurrenciesFromCache,
     orderCurrencyCodes,
+    resolveMergeCompanyList,
   ]);
 
   useLayoutEffect(() => {
