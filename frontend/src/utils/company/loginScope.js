@@ -361,6 +361,28 @@ export function normalizeCompanyCode(value) {
   return code || null;
 }
 
+const SIDEBAR_PATCH_FIELD_KEYS = [
+  "company_id",
+  "company_code",
+  "is_current_company_c168",
+  "has_c168_domain_page_access",
+  "has_c168_auto_renew_access",
+  "company_has_gambling",
+  "company_has_bank",
+  "expiration_date",
+  "expiration_hint",
+  "expiration_status",
+  "days_until_expiration",
+];
+
+function meSidebarPatchEqual(a, b) {
+  if (a === b) return true;
+  for (const key of SIDEBAR_PATCH_FIELD_KEYS) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
 /**
  * Optimistic sidebar `me` patch when group/company filter changes (before current_user_api returns).
  * When `companyCode` is supplied in ctx, never fall back to stale `me.company_code` (fixes 95→C168 sidebar).
@@ -389,7 +411,7 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
     if (ctx.expirationDate !== undefined) {
       Object.assign(next, buildSidebarExpirationFields(ctx.expirationDate));
     }
-    return next;
+    return meSidebarPatchEqual(me, next) ? me : next;
   }
   const id = Number(rawId);
   const companyChanged = Number(me.company_id) !== id;
@@ -433,7 +455,7 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
   if (ctx.expirationDate !== undefined) {
     Object.assign(next, buildSidebarExpirationFields(ctx.expirationDate));
   }
-  return next;
+  return meSidebarPatchEqual(me, next) ? me : next;
 }
 
 /** Session / current_user reflects active company (after dashboard company pick + session sync). */

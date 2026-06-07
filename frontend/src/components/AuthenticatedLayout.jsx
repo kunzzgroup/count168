@@ -396,7 +396,6 @@ export default function AuthenticatedLayout() {
   );
 
   const applySidebarPatch = useCallback((patch) => {
-    setSidebarGcTick((n) => n + 1);
     if (!patch) return;
     setMe((prev) => {
       if (!prev) return prev;
@@ -417,7 +416,7 @@ export default function AuthenticatedLayout() {
 
       const resolved = buildDashboardFilterEventDetailFromPersisted();
       const sig = dashboardSidebarFilterSignature(resolved);
-      if (!options.force && sig === lastSidebarFilterSigRef.current) return;
+      if (sig === lastSidebarFilterSigRef.current) return;
       lastSidebarFilterSigRef.current = sig;
 
       const cid = resolved.companyId;
@@ -587,11 +586,21 @@ export default function AuthenticatedLayout() {
     syncSidebarFromPersistedFilter({ force: true, skipSessionRefresh: true });
   }, [loading, me, syncSidebarFromPersistedFilter]);
 
+  const dashboardSidebarSyncRef = useRef({ path: "", sig: "" });
+
   /** Re-sync sidebar when entering dashboard so group-only bankprocess rules apply immediately. */
   useLayoutEffect(() => {
-    if (loading || !me || path !== "/dashboard") return;
+    if (path !== "/dashboard") {
+      dashboardSidebarSyncRef.current = { path: "", sig: "" };
+      return;
+    }
+    if (loading || !me) return;
+    const detail = buildDashboardFilterEventDetailFromPersisted();
+    const sig = dashboardSidebarFilterSignature(detail);
+    const prev = dashboardSidebarSyncRef.current;
+    if (prev.path === path && prev.sig === sig) return;
+    dashboardSidebarSyncRef.current = { path, sig };
     syncSidebarFromPersistedFilter({ force: true, skipSessionRefresh: true });
-    setSidebarGcTick((n) => n + 1);
   }, [loading, me, path, syncSidebarFromPersistedFilter]);
 
   useEffect(() => {
