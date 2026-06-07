@@ -1196,6 +1196,22 @@ export function sortedUniqueGroupIds(companies) {
   return [...set].sort();
 }
 
+/**
+ * Dashboard GroupID pills: company.group_id + Domain `groups` table (owner portfolio).
+ */
+export function resolveOwnerDashboardGroupIds(companies, me = null) {
+  const set = new Set(sortedUniqueGroupIds(companies));
+  const role = String(me?.role || me?.user_type || "")
+    .trim()
+    .toLowerCase();
+  if (role === "owner" && ownerGroupsCache instanceof Map) {
+    for (const code of ownerGroupsCache.keys()) {
+      if (code) set.add(String(code).trim().toUpperCase());
+    }
+  }
+  return [...set].sort();
+}
+
 export function persistDashboardGroupFilter(selectedGroup) {
   if (selectedGroup) {
     sessionStorage.setItem(DASHBOARD_GROUP_FILTER_KEY, selectedGroup);

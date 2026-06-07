@@ -427,11 +427,8 @@ function dashboardAssertGroupLedgerAccess(PDO $pdo, string $groupCode, int $grou
         throw new Exception('无效的集团');
     }
 
+    // Dual-tenant group ledger (groups.id scope): skip legacy company_id=AP/IG entity checks.
     if ($groupScopeId > 0 && gc_session_can_access_group_ledger($pdo, $g)) {
-        $entityId = tx_resolve_group_entity_company_id($pdo, $g);
-        if ($entityId > 0) {
-            assertGroupEntityAccess($pdo, $g, $entityId);
-        }
         return;
     }
 

@@ -68,6 +68,7 @@ import {
   resolveInitialSelectedGroupFromSession,
   filterCompaniesForLoginScope,
   sortedUniqueGroupIds,
+  resolveOwnerDashboardGroupIds,
   isVirtualGroupLinkCompanyRow,
   fetchOwnerCompaniesAll,
   fetchOwnerGroupsAll,
@@ -93,6 +94,7 @@ import {
   readPersistedDashboardGcFilter,
   resolveGcFilterBootCompanyId,
   reconcileDashboardGroupFilterOptOutFromPersisted,
+  dashboardFilterEventMatchesPersisted,
   excludeGroupLabelsFromCompanyPicker,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
@@ -274,8 +276,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const skipNextCurrencyClickRef = useRef(false);
   const scopeCurrencyKeyRef = useRef("");
   const bootstrapGcOnceRef = useRef(false);
+  /** Prevents synchronous DASHBOARD_GROUP_FILTER_EVENT ↔ sync re-entry stack overflow. */
+  const syncGcFilterInFlightRef = useRef(false);
   const [gcBootstrapReady, setGcBootstrapReady] = useState(false);
   const [groupFilterOptOutTick, setGroupFilterOptOutTick] = useState(0);
+  const [ownerGroupsTick, setOwnerGroupsTick] = useState(0);
   /** @type {React.MutableRefObject<Map<number, string[]>>} */
   const currenciesByCompanyRef = useRef(new Map());
   /** @type {React.MutableRefObject<Map<string, string[]>>} */
@@ -607,68 +612,63 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** Re-apply UserList / AccountList persisted Group+Company when returning to Dashboard. */
   const syncGcFilterFromPersisted = useCallback(() => {
     if (!gcBootstrapReady || !companies.length) return;
+    if (syncGcFilterInFlightRef.current) return;
+    syncGcFilterInFlightRef.current = true;
+    try {
+      const clearedOptOut = reconcileDashboardGroupFilterOptOutFromPersisted();
+      if (clearedOptOut) setGroupFilterOptOutTick((n) => n + 1);
 
-    const clearedOptOut = reconcileDashboardGroupFilterOptOutFromPersisted();
-    if (clearedOptOut) setGroupFilterOptOutTick((n) => n + 1);
+      const persisted = readPersistedDashboardGcFilter();
+      const optOut =
+        typeof sessionStorage !== "undefined" &&
+        sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
 
-    const persisted = readPersistedDashboardGcFilter();
-    const optOut =
-      typeof sessionStorage !== "undefined" &&
-      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
-
-    if (!persisted.selectedGroup && (optOut || companyLoginRequiresSubsidiaryWithGroup(me))) {
-      const targetCompanyId =
-        persisted.companyId != null && Number.isFinite(Number(persisted.companyId))
-          ? Number(persisted.companyId)
-          : companyId;
-      if (selectedGroup == null && (targetCompanyId == null || companyId === targetCompanyId)) {
+      if (!persisted.selectedGroup && (optOut || companyLoginRequiresSubsidiaryWithGroup(me))) {
+        const targetCompanyId =
+          persisted.companyId != null && Number.isFinite(Number(persisted.companyId))
+            ? Number(persisted.companyId)
+            : companyId;
+        if (selectedGroup == null && (targetCompanyId == null || companyId === targetCompanyId)) {
+          return;
+        }
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(null);
+        if (targetCompanyId != null) setCompanyId(targetCompanyId);
+        else setCompanyId(null);
         return;
       }
+
+      if (!persisted.selectedGroup) return;
+
+      const targetGroup = String(persisted.selectedGroup).trim().toUpperCase();
+      const targetCompanyId = persisted.groupOnly || persisted.groupAllMode ? null : persisted.companyId;
+      const targetGroupAllMode = Boolean(persisted.groupAllMode);
+      const groupSame = String(selectedGroup || "").trim().toUpperCase() === targetGroup;
+      let companySame;
+      if (targetCompanyId != null) {
+        companySame =
+          companyId != null &&
+          Number(companyId) === Number(targetCompanyId) &&
+          !groupAllMode;
+      } else if (targetGroupAllMode) {
+        companySame = companyId == null && groupAllMode;
+      } else {
+        companySame = companyId == null && !groupAllMode;
+      }
+      if (groupSame && companySame) return;
+
       setGroupsAllMode(false);
-      setGroupAllMode(false);
-      setSelectedGroup(null);
-      if (targetCompanyId != null) setCompanyId(targetCompanyId);
-      else setCompanyId(null);
-      return;
-    }
-
-    if (!persisted.selectedGroup) return;
-
-    const targetGroup = String(persisted.selectedGroup).trim().toUpperCase();
-    const targetCompanyId = persisted.groupOnly || persisted.groupAllMode ? null : persisted.companyId;
-    const targetGroupAllMode = Boolean(persisted.groupAllMode);
-    const groupSame = String(selectedGroup || "").trim().toUpperCase() === targetGroup;
-    let companySame;
-    if (targetCompanyId != null) {
-      companySame =
-        companyId != null &&
-        Number(companyId) === Number(targetCompanyId) &&
-        !groupAllMode;
-    } else if (targetGroupAllMode) {
-      companySame = companyId == null && groupAllMode;
-    } else {
-      companySame = companyId == null && !groupAllMode;
-    }
-    if (groupSame && companySame) return;
-
-    setGroupsAllMode(false);
-    setGroupAllMode(targetGroupAllMode);
-    setSelectedGroup(targetGroup);
-    setCompanyId(targetCompanyId);
-    if (targetCompanyId != null) {
-      persistDashboardGroupOnlyMode(false);
-      const row = companies.find((c) => Number(c.id) === Number(targetCompanyId));
-      notifyDashboardGroupFilterChanged(
-        targetGroup,
-        targetCompanyId,
-        buildDashboardSidebarNotifyOptions(row, targetGroup, { ignoreGroupOnly: true }),
-      );
-    } else if (persisted.groupOnly) {
-      notifyDashboardGroupFilterChanged(
-        targetGroup,
-        null,
-        buildDashboardSidebarNotifyOptions(null, targetGroup),
-      );
+      setGroupAllMode(targetGroupAllMode);
+      setSelectedGroup(targetGroup);
+      setCompanyId(targetCompanyId);
+      if (targetCompanyId != null) {
+        persistDashboardGroupOnlyMode(false);
+      }
+      // Sidebar is updated by whoever persisted the filter (UserList, pick handlers, bootstrap).
+      // Re-dispatching here during the same synchronous event stack caused infinite recursion.
+    } finally {
+      syncGcFilterInFlightRef.current = false;
     }
   }, [
     gcBootstrapReady,
@@ -685,14 +685,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [location.pathname, syncGcFilterFromPersisted]);
 
   useEffect(() => {
-    const onFilterChanged = () => syncGcFilterFromPersisted();
+    const onFilterChanged = (e) => {
+      if (e?.detail && !dashboardFilterEventMatchesPersisted(e.detail)) return;
+      syncGcFilterFromPersisted();
+    };
     window.addEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChanged);
     return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChanged);
   }, [syncGcFilterFromPersisted]);
 
+  useEffect(() => {
+    const onOwnerGroupsLoaded = () => setOwnerGroupsTick((n) => n + 1);
+    window.addEventListener("eazycount:owner-groups-loaded", onOwnerGroupsLoaded);
+    return () => window.removeEventListener("eazycount:owner-groups-loaded", onOwnerGroupsLoaded);
+  }, []);
+
   const groupIds = useMemo(
-    () => resolveVisibleGroupIds(sortedUniqueGroupIds(companies), me, companies),
-    [companies, me]
+    () => resolveVisibleGroupIds(resolveOwnerDashboardGroupIds(companies, me), me, companies),
+    [companies, me, ownerGroupsTick],
   );
 
   const companiesForPicker = useMemo(() => {

@@ -4,6 +4,8 @@
  * Prevents code duplication and ensures consistent filtering.
  */
 
+require_once __DIR__ . '/../includes/group_scope_resolve.php';
+
 if (!function_exists('getCompaniesByUser')) {
     /**
      * @param bool $includeGroupLinkVirtualRows
@@ -365,6 +367,8 @@ if (!function_exists('getCompaniesByOwner')) {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $rows = gc_enrich_owner_company_rows_with_group_map($pdo, $ownerId, $rows);
 
             if ($includeGroupLinkVirtualRows) {
                 // Real-owner session — only their own group-links produce virtual rows.
