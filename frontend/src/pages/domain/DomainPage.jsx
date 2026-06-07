@@ -10,9 +10,8 @@ import {
   MAX_VISIBLE_CHIPS,
   hasProtectedCompany,
   forceSearchValue,
-  formatDomainPeriodPricesInlineSummary,
-  formatDomainFeeSettingsInlineSummary,
   normalizeDomainFeeSettingsFromApi,
+  formatDomainFeeToolbarChip,
 } from "./domainHelpers.js";
 
 // Sub-components
@@ -78,9 +77,16 @@ export default function DomainPage() {
   const [feeModal, setFeeModal] = useState(false);
   const [expModal, setExpModal] = useState(null);       // companies array
 
-  // ── Domain fee price (for share calc) ─────────────────────────────────────
+  // ── Domain fee price (for share calc + toolbar chips) ─────────────────────
   const [domainPeriodPrices, setDomainPeriodPrices] = useState(null);
-  const [feeInlineSummary, setFeeInlineSummary] = useState("");
+  const feeChipCompany = useMemo(
+    () => (domainPeriodPrices ? formatDomainFeeToolbarChip(domainPeriodPrices.company) : ""),
+    [domainPeriodPrices]
+  );
+  const feeChipGroup = useMemo(
+    () => (domainPeriodPrices ? formatDomainFeeToolbarChip(domainPeriodPrices.group) : ""),
+    [domainPeriodPrices]
+  );
 
   // ── Initial data load (session from AuthenticatedLayout) ─────────────────────
   useEffect(() => {
@@ -126,9 +132,7 @@ export default function DomainPage() {
       .then((r) => r.json())
       .then((res) => {
         if (res.success && res.data) {
-          const prices = normalizeDomainFeeSettingsFromApi(res.data);
-          setDomainPeriodPrices(prices);
-          setFeeInlineSummary(formatDomainFeeSettingsInlineSummary(prices, t));
+          setDomainPeriodPrices(normalizeDomainFeeSettingsFromApi(res.data));
         }
       })
       .catch(() => {});
@@ -296,9 +300,26 @@ export default function DomainPage() {
             >
               {t("price")}
             </button>
-            <span id="domainFeeInlineSummary" className="domain-fee-inline-summary" aria-live="polite">
-              {feeInlineSummary}
-            </span>
+            {domainPeriodPrices && (
+              <div className="domain-fee-price-chips" aria-label={t("displayPrices")}>
+                <button
+                  type="button"
+                  className="domain-fee-price-chip domain-fee-price-chip--company"
+                  title={t("feeChipCompanyAria")}
+                  onClick={() => setFeeModal(true)}
+                >
+                  C {feeChipCompany}
+                </button>
+                <button
+                  type="button"
+                  className="domain-fee-price-chip domain-fee-price-chip--group"
+                  title={t("feeChipGroupAria")}
+                  onClick={() => setFeeModal(true)}
+                >
+                  G {feeChipGroup}
+                </button>
+              </div>
+            )}
           </div>
           <div className="domain-toolbar-right">
             <button
@@ -469,9 +490,7 @@ export default function DomainPage() {
           lang={lang}
           onClose={() => setFeeModal(false)}
           onFeeSaved={(data) => {
-            const prices = normalizeDomainFeeSettingsFromApi(data);
-            setDomainPeriodPrices(prices);
-            setFeeInlineSummary(formatDomainFeeSettingsInlineSummary(prices, t));
+            setDomainPeriodPrices(normalizeDomainFeeSettingsFromApi(data));
           }}
         />
       )}

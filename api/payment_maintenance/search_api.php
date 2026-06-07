@@ -528,14 +528,25 @@ function resolveDomainSubmitter(PDO $pdo, array $listScope, string $dateFromDb, 
 function paymentMaintenanceParseDomainSourceCodeFromSms(string $sms): string
 {
     $t = trim($sms);
+    if (preg_match('/^\[DOMAIN_NET_PROFIT\|GROUP\|([^\]|]+)/i', $t, $m)) {
+        return strtoupper(trim((string) $m[1]));
+    }
     if (preg_match('/^\[DOMAIN_NET_PROFIT\|([^\]|]+)/i', $t, $m)) {
         return strtoupper(trim((string) $m[1]));
     }
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|GROUP\|([^\]|]+)/i', $t, $m)) {
+        return strtoupper(trim((string) $m[1]));
+    }
     if (preg_match('/^\[DOMAIN_LIST_FEE\|([^\]|]+)/i', $t, $m)) {
+        $v = strtoupper(trim((string) $m[1]));
+        return $v !== 'GROUP' ? $v : '';
+    }
+    if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|GROUP\|([^\]|]+)/i', $t, $m)) {
         return strtoupper(trim((string) $m[1]));
     }
     if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^\]|]+)/i', $t, $m)) {
-        return strtoupper(trim((string) $m[1]));
+        $v = strtoupper(trim((string) $m[1]));
+        return $v !== 'GROUP' ? $v : '';
     }
     return '';
 }

@@ -3,6 +3,7 @@ session_start();
 // session_write_close() 将在 session 写入（回填 company_code）完成后调用
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/email_validation.php';
+require_once __DIR__ . '/../../includes/tenant_scope.php';
 require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/domain_groups_helpers.php';
@@ -615,6 +616,57 @@ function resolveShareProfitTargetAccountId(PDO $pdo, string $sourceCompanyCode):
     return null;
 }
 
+function resolveShareProfitTargetAccountIdForGroup(PDO $pdo, string $groupCode): ?int
+{
+    $src = strtoupper(trim($groupCode));
+    if ($src === '' || !domainApiHasGroupsTable($pdo)) {
+        return null;
+    }
+    $c168Pk = getC168CompanyPk($pdo);
+    if (!$c168Pk) {
+        return null;
+    }
+    try {
+        $st = $pdo->prepare('SELECT fee_share_allocations FROM `groups` WHERE UPPER(TRIM(group_code)) = ? LIMIT 1');
+        $st->execute([$src]);
+        $allocRaw = $st->fetchColumn();
+        $normalized = normalizeFeeShareAllocationsInput($allocRaw);
+        $profitRows = $normalized['profit'] ?? [];
+        if (!is_array($profitRows)) {
+            return null;
+        }
+        foreach ($profitRows as $row) {
+            $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
+            if ($aid <= 0) {
+                continue;
+            }
+            $chk = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM account a
+                INNER JOIN account_company ac ON ac.account_id = a.id
+                WHERE a.id = ?
+                  AND ac.company_id = ?
+                  AND LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+            ");
+            $chk->execute([$aid, $c168Pk]);
+            if ((int) $chk->fetchColumn() > 0) {
+                return $aid;
+            }
+        }
+    } catch (PDOException $e) {
+        return null;
+    }
+    return null;
+}
+
+function resolveShareProfitTargetAccountIdForTenant(PDO $pdo, string $sourceCode, string $tenantKind = 'company'): ?int
+{
+    if ($tenantKind === 'group') {
+        return resolveShareProfitTargetAccountIdForGroup($pdo, $sourceCode);
+    }
+    return resolveShareProfitTargetAccountId($pdo, $sourceCode);
+}
+
 function collectUniqueAccountIdsFromFeeShare(array $normalized): array {
     $ids = [];
     foreach (['profit', 'sales', 'cs', 'it'] as $role) {
@@ -656,18 +708,52 @@ function getCompanyPkByCode(PDO $pdo, string $companyCode): ?int {
 }
 
 /**
- * Share % 下拉数据：始终仅列出 C168 旗下的 Account（与当前编辑的公司无关），且 role 只能是 staff/agent。
+ * Share % 账户排除：Group 账本 / domain 自动建账 / MEMBER，仅保留 C168 公司本体账户。
+ */
+function domainApiFeeShareExcludeNonC168CompanyAccountsSql(PDO $pdo, string $accountAlias = 'a'): string
+{
+    $sql = " AND LOWER(TRIM(COALESCE({$accountAlias}.role, ''))) <> 'member'";
+    if (domainApiHasAccountCreatedSourceColumn($pdo)) {
+        $sql .= " AND ({$accountAlias}.created_source IS NULL OR TRIM({$accountAlias}.created_source) = ''"
+            . " OR LOWER(TRIM({$accountAlias}.created_source)) <> 'domain_auto')";
+    }
+    try {
+        if ($pdo->query("SHOW TABLES LIKE 'account_group_map'")->rowCount() > 0) {
+            $sql .= " AND NOT EXISTS (SELECT 1 FROM account_group_map agm WHERE agm.account_id = {$accountAlias}.id)";
+        }
+    } catch (PDOException $e) {
+        // ignore
+    }
+    return $sql;
+}
+
+function domainApiResolveFeeShareC168CompanyPk(PDO $pdo): ?int
+{
+    $target = resolveC168TargetCompanyId($pdo);
+    if ($target !== null && $target > 0) {
+        return $target;
+    }
+    return getC168CompanyPk($pdo);
+}
+
+/**
+ * Share % 下拉数据：始终仅列出 C168 公司本体 Account（排除 Group 账本账户），role 只能是 staff/agent。
  */
 function fetchFeeSharePickerAccounts(PDO $pdo): array {
     $rows = [];
-    $c168Pk = getC168CompanyPk($pdo);
+    $c168Pk = domainApiResolveFeeShareC168CompanyPk($pdo);
     if ($c168Pk) {
+        $subsidiaryOnly = tenant_sql_account_company_subsidiary_only($pdo, 'ac');
+        $excludeNonC168 = domainApiFeeShareExcludeNonC168CompanyAccountsSql($pdo, 'a');
         $accStmt = $pdo->prepare("
             SELECT DISTINCT a.id, a.account_id, a.name
             FROM account a
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.company_id = ?
+              {$subsidiaryOnly}
               AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
+              {$excludeNonC168}
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
             ORDER BY a.account_id ASC
         ");
         $accStmt->execute([$c168Pk]);
@@ -684,18 +770,23 @@ function fetchFeeSharePickerAccounts(PDO $pdo): array {
 }
 
 /**
- * Share % Profit 池下拉：C168 旗下且 role 为 profit 的 Account（与 staff/agent 列表分离）。
+ * Share % Profit 池下拉：C168 公司本体且 role 为 profit（排除 Group 账本账户）。
  */
 function fetchFeeShareProfitPickerAccounts(PDO $pdo): array {
     $rows = [];
-    $c168Pk = getC168CompanyPk($pdo);
+    $c168Pk = domainApiResolveFeeShareC168CompanyPk($pdo);
     if ($c168Pk) {
+        $subsidiaryOnly = tenant_sql_account_company_subsidiary_only($pdo, 'ac');
+        $excludeNonC168 = domainApiFeeShareExcludeNonC168CompanyAccountsSql($pdo, 'a');
         $accStmt = $pdo->prepare("
             SELECT DISTINCT a.id, a.account_id, a.name
             FROM account a
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.company_id = ?
+              {$subsidiaryOnly}
               AND LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
+              {$excludeNonC168}
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
             ORDER BY a.account_id ASC
         ");
         $accStmt->execute([$c168Pk]);
@@ -715,7 +806,9 @@ function fetchFeeShareProfitPickerAccounts(PDO $pdo): array {
  * 校验：C168 旗下；Profit 池仅 profit role；Sales/CS/IT 仅 staff/agent。
  */
 function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
-    $c168Pk = getC168CompanyPk($pdo);
+    $c168Pk = domainApiResolveFeeShareC168CompanyPk($pdo);
+    $subsidiaryOnly = tenant_sql_account_company_subsidiary_only($pdo, 'ac');
+    $excludeNonC168 = domainApiFeeShareExcludeNonC168CompanyAccountsSql($pdo, 'a');
 
     $profitIds = [];
     foreach (($normalized['profit'] ?? []) as $row) {
@@ -753,6 +846,8 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
             FROM account a
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.company_id = ?
+              {$subsidiaryOnly}
+              {$excludeNonC168}
               AND a.id IN ($placeholders)
               AND LOWER(TRIM(COALESCE(a.role, ''))) = 'profit'
         ";
@@ -773,6 +868,8 @@ function feeShareAllocationsTargetsValid(PDO $pdo, array $normalized): bool {
             FROM account a
             INNER JOIN account_company ac ON ac.account_id = a.id
             WHERE ac.company_id = ?
+              {$subsidiaryOnly}
+              {$excludeNonC168}
               AND a.id IN ($placeholders)
               AND LOWER(TRIM(COALESCE(a.role, ''))) IN ('staff', 'agent')
         ";
@@ -831,6 +928,38 @@ function getDomainFeePrice(PDO $pdo): ?string
         return null;
     }
     return money_normalize($legacy);
+}
+
+function getGroupDomainFeePrice(PDO $pdo): ?string
+{
+    $row = fetchDomainListFeeSettingsRow($pdo);
+    $group = $row['group_price'] ?? null;
+    if ($group !== null && $group !== '') {
+        return money_normalize($group);
+    }
+    return null;
+}
+
+function getDomainFeePriceForTenant(PDO $pdo, string $tenantKind = 'company'): ?string
+{
+    return $tenantKind === 'group'
+        ? getGroupDomainFeePrice($pdo)
+        : getDomainFeePrice($pdo);
+}
+
+/** SMS 标记：Group 用 GROUP| 前缀，与 Company 付款去重/报表隔离 */
+function domainFeeSmsMarker(string $markerType, string $sourceCode, string $tenantKind = 'company'): string
+{
+    $codeU = strtoupper(trim($sourceCode));
+    if ($tenantKind === 'group') {
+        return '[' . $markerType . '|GROUP|' . $codeU . ']';
+    }
+    return '[' . $markerType . '|' . $codeU . ']';
+}
+
+function domainFeeSmsLikePattern(string $markerType, string $sourceCode, string $tenantKind = 'company'): string
+{
+    return domainFeeSmsMarker($markerType, $sourceCode, $tenantKind) . '%';
 }
 
 function domainApiClearTransactionSearchCache(): void
@@ -1013,7 +1142,8 @@ function createDomainNetProfitPayment(
     string $commissionTotal,
     ?int $fromPoolAccountId,
     ?int $createdByUser,
-    ?int $createdByOwner
+    ?int $createdByOwner,
+    string $tenantKind = 'company'
 ): array {
     $out = [
         'created' => false,
@@ -1032,9 +1162,10 @@ function createDomainNetProfitPayment(
         return $out;
     }
 
+    $tenantKind = $tenantKind === 'group' ? 'group' : 'company';
     $today = date('Y-m-d');
     $srcU = strtoupper(trim($sourceCompanyCode));
-    $smsMarker = '[DOMAIN_NET_PROFIT|' . $srcU . ']';
+    $smsMarker = domainFeeSmsMarker('DOMAIN_NET_PROFIT', $srcU, $tenantKind);
     $dupStmt = $pdo->prepare("
         SELECT id FROM transactions
         WHERE company_id = ? AND transaction_type = 'PAYMENT'
@@ -1051,7 +1182,7 @@ function createDomainNetProfitPayment(
     }
 
     // 目标优先使用来源公司 Share% 里配置的 Profit 账号（必须为 C168 且 role=profit）
-    $profitAccId = resolveShareProfitTargetAccountId($pdo, $srcU);
+    $profitAccId = resolveShareProfitTargetAccountIdForTenant($pdo, $srcU, $tenantKind);
     if (!$profitAccId || $profitAccId <= 0) {
         $profitAccId = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
     }
@@ -1169,24 +1300,33 @@ function resolveC168DomainFeeReceiverAccountId(PDO $pdo, int $c168Pk, int $exclu
  */
 function resolveC168DomainProvisionedMemberByCompanyCode(PDO $pdo, int $c168Pk, string $customerCompanyCode, int $excludeAccountId = 0): ?int
 {
-    $src = strtoupper(trim($customerCompanyCode));
+    return resolveC168DomainProvisionedMemberByTenantCode($pdo, $c168Pk, $customerCompanyCode, $excludeAccountId, 'company');
+}
+
+function resolveC168DomainProvisionedMemberByTenantCode(PDO $pdo, int $c168Pk, string $tenantCode, int $excludeAccountId, string $tenantKind): ?int
+{
+    $src = strtoupper(trim($tenantCode));
     if ($c168Pk <= 0 || $src === '') {
         return null;
     }
     $ownerUpper = '';
-    try {
-        $st = $pdo->prepare("
-            SELECT UPPER(TRIM(COALESCE(o.owner_code, ''))) AS oc
-            FROM company c
-            INNER JOIN owner o ON o.id = c.owner_id
-            WHERE UPPER(TRIM(c.company_id)) = ?
-            ORDER BY c.id ASC
-            LIMIT 1
-        ");
-        $st->execute([$src]);
-        $ownerUpper = strtoupper(trim((string) ($st->fetchColumn() ?: '')));
-    } catch (PDOException $e) {
-        return null;
+    if ($tenantKind === 'group') {
+        $ownerUpper = domainApiGetGroupOwnerCodeByGroupCode($pdo, $src);
+    } else {
+        try {
+            $st = $pdo->prepare("
+                SELECT UPPER(TRIM(COALESCE(o.owner_code, ''))) AS oc
+                FROM company c
+                INNER JOIN owner o ON o.id = c.owner_id
+                WHERE UPPER(TRIM(c.company_id)) = ?
+                ORDER BY c.id ASC
+                LIMIT 1
+            ");
+            $st->execute([$src]);
+            $ownerUpper = strtoupper(trim((string) ($st->fetchColumn() ?: '')));
+        } catch (PDOException $e) {
+            return null;
+        }
     }
     if ($ownerUpper === '') {
         return null;
@@ -1223,7 +1363,7 @@ function resolveC168DomainProvisionedMemberByCompanyCode(PDO $pdo, int $c168Pk, 
     }
 }
 
-function resolveDomainFeeSourceAccountId(PDO $pdo, int $c168Pk, string $customerCompanyCode, int $excludeAccountId = 0): ?int
+function resolveDomainFeeSourceAccountId(PDO $pdo, int $c168Pk, string $customerCompanyCode, int $excludeAccountId = 0, string $tenantKind = 'company'): ?int
 {
     $srcCode = strtoupper(trim($customerCompanyCode));
     if ($srcCode === '') {
@@ -1235,7 +1375,7 @@ function resolveDomainFeeSourceAccountId(PDO $pdo, int $c168Pk, string $customer
         return $fromC168CompanyCode;
     }
 
-    $fromProvisioned = resolveC168DomainProvisionedMemberByCompanyCode($pdo, $c168Pk, $srcCode, $excludeAccountId);
+    $fromProvisioned = resolveC168DomainProvisionedMemberByTenantCode($pdo, $c168Pk, $srcCode, $excludeAccountId, $tenantKind);
     if ($fromProvisioned && $fromProvisioned > 0) {
         return $fromProvisioned;
     }
@@ -1375,7 +1515,8 @@ function createDomainListFeePayment(
     PDO $pdo,
     string $customerCompanyCode,
     ?int $createdByUser,
-    ?int $createdByOwner
+    ?int $createdByOwner,
+    string $tenantKind = 'company'
 ): array {
     $out = [
         'created' => false,
@@ -1387,24 +1528,32 @@ function createDomainListFeePayment(
         'amount' => '0',
         'pool_account_id' => null,
     ];
-    $feePrice = getDomainFeePrice($pdo);
+    $tenantKind = $tenantKind === 'group' ? 'group' : 'company';
+    $feePrice = getDomainFeePriceForTenant($pdo, $tenantKind);
     if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
         $out['skipped_no_price'] = true;
         return $out;
     }
     $out['amount'] = money_normalize($feePrice, 2);
-    $customerPk = getCompanyPkByCode($pdo, $customerCompanyCode);
-    if (!$customerPk) {
-        $out['skipped_no_customer'] = true;
-        return $out;
+    $custCodeU = strtoupper(trim($customerCompanyCode));
+    if ($tenantKind === 'group') {
+        if (!domainApiGroupExistsByCode($pdo, $custCodeU)) {
+            $out['skipped_no_customer'] = true;
+            return $out;
+        }
+    } else {
+        $customerPk = getCompanyPkByCode($pdo, $customerCompanyCode);
+        if (!$customerPk) {
+            $out['skipped_no_customer'] = true;
+            return $out;
+        }
     }
     $c168Pk = getC168CompanyPk($pdo);
     if (!$c168Pk) {
         $out['skipped_no_c168'] = true;
         return $out;
     }
-    $custCodeU = strtoupper(trim($customerCompanyCode));
-    $poolEarly = resolveShareProfitTargetAccountId($pdo, $custCodeU);
+    $poolEarly = resolveShareProfitTargetAccountIdForTenant($pdo, $custCodeU, $tenantKind);
     if (!$poolEarly || $poolEarly <= 0) {
         $poolEarly = resolveC168ProfitRoleAccountId($pdo, $c168Pk, 0);
     }
@@ -1412,7 +1561,7 @@ function createDomainListFeePayment(
         $out['pool_account_id'] = (int) $poolEarly;
     }
     $today = date('Y-m-d');
-    $feeSms = '[DOMAIN_LIST_FEE|' . $custCodeU . ']';
+    $feeSms = domainFeeSmsMarker('DOMAIN_LIST_FEE', $custCodeU, $tenantKind);
     $dupStmt = $pdo->prepare("
         SELECT id FROM transactions
         WHERE company_id = ? AND transaction_type = 'PAYMENT'
@@ -1433,7 +1582,7 @@ function createDomainListFeePayment(
         $out['skipped_no_accounts'] = true;
         return $out;
     }
-    $fromCustomer = resolveDomainFeeSourceAccountId($pdo, $c168Pk, $customerCompanyCode, (int)$toC168Pool);
+    $fromCustomer = resolveDomainFeeSourceAccountId($pdo, $c168Pk, $customerCompanyCode, (int)$toC168Pool, $tenantKind);
     if (!$fromCustomer || $fromCustomer === $toC168Pool) {
         $out['skipped_no_accounts'] = true;
         return $out;
@@ -1442,7 +1591,7 @@ function createDomainListFeePayment(
     if ($c168OwnerCode === '') {
         $c168OwnerCode = 'C168';
     }
-    $desc = 'Pay Domain Fee';
+    $desc = $tenantKind === 'group' ? 'Pay Domain Fee (Group)' : 'Pay Domain Fee';
 
     $now = date('Y-m-d H:i:s');
     $hasCurrencyId = tableHasColumn($pdo, 'transactions', 'currency_id');
@@ -1502,7 +1651,8 @@ function createDomainShareCommissionPayments(
     array $normalizedAllocations,
     ?int $c168SourceAccountId,
     ?int $createdByUser,
-    ?int $createdByOwner
+    ?int $createdByOwner,
+    string $tenantKind = 'company'
 ): array {
     $result = [
         'created_count' => 0,
@@ -1513,7 +1663,8 @@ function createDomainShareCommissionPayments(
         'commission_total' => '0',
     ];
 
-    $feePrice = getDomainFeePrice($pdo);
+    $tenantKind = $tenantKind === 'group' ? 'group' : 'company';
+    $feePrice = getDomainFeePriceForTenant($pdo, $tenantKind);
     if ($feePrice === null || money_cmp($feePrice, '0') <= 0) {
         return $result;
     }
@@ -1592,7 +1743,8 @@ function createDomainShareCommissionPayments(
                 continue;
             }
 
-            $smsMarker = '[DOMAIN_SHARE_COMMISSION|' . $srcU . '|ROLE:' . strtoupper($role) . '|AID:' . $aid . ']';
+            $smsMarker = rtrim(domainFeeSmsMarker('DOMAIN_SHARE_COMMISSION', $srcU, $tenantKind), ']')
+                . '|ROLE:' . strtoupper($role) . '|AID:' . $aid . ']';
             $dupStmt = $pdo->prepare("
                 SELECT id
                 FROM transactions
@@ -1661,7 +1813,7 @@ function createDomainShareCommissionPayments(
     return $result;
 }
 
-function hasDomainNetProfitTransactionExecuted(PDO $pdo, string $sourceCompanyCode): bool
+function hasDomainNetProfitTransactionExecuted(PDO $pdo, string $sourceCompanyCode, string $tenantKind = 'company'): bool
 {
     $srcU = strtoupper(trim($sourceCompanyCode));
     if ($srcU === '') {
@@ -1671,6 +1823,7 @@ function hasDomainNetProfitTransactionExecuted(PDO $pdo, string $sourceCompanyCo
     if (!$c168Pk) {
         return false;
     }
+    $tenantKind = $tenantKind === 'group' ? 'group' : 'company';
     try {
         $st = $pdo->prepare("
             SELECT 1
@@ -1680,7 +1833,7 @@ function hasDomainNetProfitTransactionExecuted(PDO $pdo, string $sourceCompanyCo
               AND t.sms LIKE ?
             LIMIT 1
         ");
-        $st->execute([$c168Pk, '[DOMAIN_NET_PROFIT|' . $srcU . '%']);
+        $st->execute([$c168Pk, domainFeeSmsLikePattern('DOMAIN_NET_PROFIT', $srcU, $tenantKind)]);
         return $st->fetchColumn() !== false;
     } catch (PDOException $e) {
         return false;
@@ -1918,6 +2071,98 @@ function domainApiApplyDomainListFeePaymentsFromPayload(PDO $pdo, $companies, bo
     if ($any) {
         domainApiClearTransactionSearchCache();
     }
+}
+
+/**
+ * EDIT DOMAIN Confirm：對 groups 中標記 apply_commission_payments_on_domain_save 的 Group
+ * 寫入 domain list fee / Share% 佣金 / 淨利潤（與 Company 流程一致，SMS 含 GROUP| 前綴隔離）。
+ */
+function domainApiApplyGroupDomainListFeePaymentsFromPayload(PDO $pdo, $groups, bool $hasC168Context, bool $domainActorAllowed): void {
+    if (!$hasC168Context || !$domainActorAllowed || !isset($_SESSION['user_id'])) {
+        return;
+    }
+    $rows = domainApiNormalizeGroupsPayload($groups);
+    $createdByUser = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner'
+        ? null
+        : (int) ($_SESSION['user_id'] ?? 0);
+    $createdByOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner'
+        ? (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0)
+        : null;
+    $u = $createdByUser > 0 ? $createdByUser : null;
+    $o = $createdByOwner > 0 ? $createdByOwner : null;
+    $any = false;
+    foreach ($rows as $row) {
+        $gid = strtoupper(trim((string) ($row['group_code'] ?? '')));
+        if ($gid === '' || $gid === 'C168') {
+            continue;
+        }
+        $apply = filter_var($row['apply_commission_payments_on_domain_save'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (!$apply) {
+            continue;
+        }
+        $normalized = normalizeFeeShareAllocationsInput($row['fee_share_allocations'] ?? null);
+        if (domainApiHasGroupsTable($pdo)) {
+            try {
+                $stAlloc = $pdo->prepare('SELECT fee_share_allocations FROM `groups` WHERE UPPER(TRIM(group_code)) = ? LIMIT 1');
+                $stAlloc->execute([$gid]);
+                $dbAllocRaw = $stAlloc->fetchColumn();
+                $dbNormalized = normalizeFeeShareAllocationsInput($dbAllocRaw);
+                $dbHasAny = !empty($dbNormalized['profit']) || !empty($dbNormalized['sales']) || !empty($dbNormalized['cs']) || !empty($dbNormalized['it']);
+                if ($dbHasAny) {
+                    $normalized = $dbNormalized;
+                }
+            } catch (Exception $e) {
+                // keep payload normalization
+            }
+        }
+        $feeResult = createDomainListFeePayment($pdo, $gid, $u, $o, 'group');
+        $poolId = isset($feeResult['pool_account_id']) ? (int) $feeResult['pool_account_id'] : null;
+        if ($poolId <= 0) {
+            $poolId = null;
+        }
+        $commissionResult = createDomainShareCommissionPayments($pdo, $gid, $normalized, $poolId, $u, $o, 'group');
+        $profitResult = createDomainNetProfitPayment(
+            $pdo,
+            $gid,
+            (string) ($feeResult['amount'] ?? '0'),
+            (string) ($commissionResult['commission_total'] ?? '0'),
+            $poolId,
+            $u,
+            $o,
+            'group'
+        );
+        if (
+            !empty($feeResult['created'])
+            || (($commissionResult['created_count'] ?? 0) > 0)
+            || !empty($profitResult['created'])
+        ) {
+            $any = true;
+        }
+    }
+    if ($any) {
+        domainApiClearTransactionSearchCache();
+    }
+}
+
+/**
+ * 在 C168 下为 Domain 表单中的 company / group 代码幂等创建 MEMBER 账号。
+ */
+function domainApiProvisionC168MemberAccountsForTenantCodes(
+    PDO $pdo,
+    bool $hasC168Context,
+    bool $domainActorAllowed,
+    string $ownerDisplayName,
+    string $ownerCodeUpper,
+    array $tenantCodes
+): void {
+    if (empty($tenantCodes) || !domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $domainActorAllowed)) {
+        return;
+    }
+    $targetC168 = resolveC168TargetCompanyId($pdo);
+    if ($targetC168 === null) {
+        return;
+    }
+    domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $ownerDisplayName, $tenantCodes, $ownerCodeUpper);
 }
 
 function isC168Company(PDO $pdo, $company_id): bool {
@@ -2812,14 +3057,26 @@ try {
 
                 // 复用已标准化的 companies 数组，避免原始 JSON 字符串格式差异导致只提取到部分 company
                 $provisionCompanyIds = domainApiExtractProvisionCompanyIds($companies_data);
-                if (!empty($provisionCompanyIds) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $canUseC168DomainActions)) {
-                    $targetC168 = resolveC168TargetCompanyId($pdo);
-                    if ($targetC168 !== null) {
-                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionCompanyIds, $owner_code);
-                    }
-                }
+                domainApiProvisionC168MemberAccountsForTenantCodes(
+                    $pdo,
+                    (bool) $hasC168Context,
+                    (bool) $canUseC168DomainActions,
+                    $name,
+                    $owner_code,
+                    $provisionCompanyIds
+                );
+                $provisionGroupIds = domainApiExtractProvisionGroupIds($groups_data);
+                domainApiProvisionC168MemberAccountsForTenantCodes(
+                    $pdo,
+                    (bool) $hasC168Context,
+                    (bool) $canUseC168DomainActions,
+                    $name,
+                    $owner_code,
+                    $provisionGroupIds
+                );
 
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
+                domainApiApplyGroupDomainListFeePaymentsFromPayload($pdo, $groups, $hasC168Context, $canUseC168DomainActions);
 
                 $pdo->commit();
 
@@ -3143,15 +3400,26 @@ try {
                 // 对该 domain 表单中所有带 company_id 的公司同步 C168 下 MEMBER（幂等；便于历史数据补建）
                 // 统一使用已标准化后的数组，确保批量公司都能触发自动建账
                 $provisionFromUpdate = domainApiExtractProvisionCompanyIds($new_companies_data);
-                if (!empty($provisionFromUpdate) && isset($hasC168Context) && domainApiMayProvisionC168MemberAccounts($pdo, $hasC168Context, $canUseC168DomainActions)) {
-                    $targetC168 = resolveC168TargetCompanyId($pdo);
-                    if ($targetC168 !== null) {
-                        $ocStmt = $pdo->prepare('SELECT UPPER(TRIM(owner_code)) FROM owner WHERE id = ? LIMIT 1');
-                        $ocStmt->execute([$id]);
-                        $updateOwnerCode = (string) ($ocStmt->fetchColumn() ?: '');
-                        domainApiAutoCreateMemberAccountsUnderC168Company($pdo, $targetC168, $name, $provisionFromUpdate, $updateOwnerCode);
-                    }
-                }
+                $ocStmt = $pdo->prepare('SELECT UPPER(TRIM(owner_code)) FROM owner WHERE id = ? LIMIT 1');
+                $ocStmt->execute([$id]);
+                $updateOwnerCode = (string) ($ocStmt->fetchColumn() ?: '');
+                domainApiProvisionC168MemberAccountsForTenantCodes(
+                    $pdo,
+                    (bool) $hasC168Context,
+                    (bool) $canUseC168DomainActions,
+                    $name,
+                    $updateOwnerCode,
+                    $provisionFromUpdate
+                );
+                $provisionGroupFromUpdate = domainApiExtractProvisionGroupIds($groups_data);
+                domainApiProvisionC168MemberAccountsForTenantCodes(
+                    $pdo,
+                    (bool) $hasC168Context,
+                    (bool) $canUseC168DomainActions,
+                    $name,
+                    $updateOwnerCode,
+                    $provisionGroupFromUpdate
+                );
                 
                 foreach ($new_companies_data as $new_company) {
                     if (in_array($new_company['key'], $existing_company_keys, true)) {
@@ -3172,6 +3440,7 @@ try {
                 domainApiDeleteGroupOnlyCompanyRows($pdo, (int) $id);
 
                 domainApiApplyDomainListFeePaymentsFromPayload($pdo, $companies, $hasC168Context, $canUseC168DomainActions);
+                domainApiApplyGroupDomainListFeePaymentsFromPayload($pdo, $groups, $hasC168Context, $canUseC168DomainActions);
                 
                 $pdo->commit();
                 domain_api_clear_session_user_cache();

@@ -270,8 +270,13 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
 /** @return string|null 客户公司代码，如 LGA */
 function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
 {
-    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^|\]]+)/i', trim($sms), $m)) {
+    $t = trim($sms);
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|GROUP\|([^|\]]+)/i', $t, $m)) {
         return strtoupper(trim($m[1]));
+    }
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^|\]]+)/i', $t, $m)) {
+        $v = strtoupper(trim($m[1]));
+        return $v !== 'GROUP' ? $v : null;
     }
     return null;
 }
