@@ -2226,6 +2226,11 @@ body.process-page .calendar-popup.calendar-popup--transaction-range[style*="disp
     display: grid !important;
 }
 
+/* Above Add/Edit Bank Process + Resend modals (ProcessModalPortal backdrop z-index 10050). */
+.calendar-popup.calendar-popup--bank-process-modal {
+    z-index: 10150 !important;
+}
+
 body.process-page .transaction-calendar-panel {
     padding: 12px 14px 14px;
     background: #ffffff;
