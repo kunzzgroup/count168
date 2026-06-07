@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import {
   DASHBOARD_CURRENCY_FILTER_EVENT,
@@ -28,10 +28,26 @@ export function useCrossPageCurrencySync({
     .map((c) => String(c).trim().toUpperCase())
     .filter(Boolean)
     .join("|");
+  const applyingRef = useRef(false);
+
+  const applyCodeSafely = useCallback(
+    (code) => {
+      if (typeof onApplyCode !== "function") return;
+      const upper = String(code || "").trim().toUpperCase();
+      if (!upper || applyingRef.current) return;
+      applyingRef.current = true;
+      try {
+        onApplyCode(upper);
+      } finally {
+        applyingRef.current = false;
+      }
+    },
+    [onApplyCode],
+  );
 
   const applyPersisted = useCallback(() => {
     if (!enabled || typeof onApplyCode !== "function") return;
-    if (suppressRef?.current) return;
+    if (suppressRef?.current || applyingRef.current) return;
     if (!codesKey) return;
     const pref = resolveCrossPageCurrencyPreference({
       scopeKey,
@@ -39,24 +55,24 @@ export function useCrossPageCurrencySync({
       scopeOnly: groupOnlyScope,
     });
     const current = String(currentCode || "").trim().toUpperCase();
-    if (pref && pref !== current) onApplyCode(pref);
-  }, [enabled, scopeKey, codesKey, currentCode, onApplyCode, suppressRef, groupOnlyScope]);
+    if (pref && pref !== current) applyCodeSafely(pref);
+  }, [enabled, scopeKey, codesKey, currentCode, onApplyCode, suppressRef, groupOnlyScope, applyCodeSafely]);
 
   useEffect(() => {
     if (!enabled || typeof onApplyCode !== "function") return undefined;
     const onChange = (e) => {
-      if (suppressRef?.current) return;
+      if (suppressRef?.current || applyingRef.current) return;
       const code = e?.detail?.currencyCode;
       if (!code) return;
       const upper = String(code).trim().toUpperCase();
       const allowed = codesKey ? codesKey.split("|") : [];
       if (allowed.length && !allowed.includes(upper)) return;
       const current = String(currentCode || "").trim().toUpperCase();
-      if (upper !== current) onApplyCode(upper);
+      if (upper !== current) applyCodeSafely(upper);
     };
     window.addEventListener(DASHBOARD_CURRENCY_FILTER_EVENT, onChange);
     return () => window.removeEventListener(DASHBOARD_CURRENCY_FILTER_EVENT, onChange);
-  }, [enabled, codesKey, currentCode, onApplyCode, suppressRef]);
+  }, [enabled, codesKey, currentCode, onApplyCode, suppressRef, applyCodeSafely]);
 
   useEffect(() => {
     if (!enabled) return;

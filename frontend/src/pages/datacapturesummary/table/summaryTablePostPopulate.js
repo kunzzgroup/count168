@@ -15,7 +15,23 @@ function resolveSummaryProcessId() {
   return null;
 }
 
-/** Wait until React rows, captured reference table, process id, and company id are ready. */
+/** Group-only capture has no subsidiary company_id; scope globals are enough. */
+function isSummaryTenantScopeReady() {
+  const companyId = window.DATACAPTURESUMMARY_COMPANY_ID;
+  if (companyId != null && String(companyId).trim() !== "") return true;
+
+  const scope = window.DATACAPTURESUMMARY_CAPTURE_SCOPE;
+  if (!scope || typeof scope !== "object") return false;
+
+  const groupKey = String(scope.groupId || scope.viewGroup || "")
+    .trim()
+    .toUpperCase();
+  if (scope.mode === "group" && groupKey) return true;
+  if (scope.resolveCompanyViaGroupId && groupKey) return true;
+  return false;
+}
+
+/** Wait until React rows, captured reference table, process id, and tenant scope are ready. */
 export async function waitForSummaryPrePopulateReady() {
   const deadline = Date.now() + PREPOPULATE_READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -24,9 +40,8 @@ export async function waitForSummaryPrePopulateReady() {
     const hasRows = !!summaryBody?.querySelector("tr");
     const hasCaptured = !!capturedBody?.querySelector("tr");
     const processId = resolveSummaryProcessId();
-    const companyId = window.DATACAPTURESUMMARY_COMPANY_ID;
 
-    if (hasRows && hasCaptured && processId != null && companyId != null) {
+    if (hasRows && hasCaptured && processId != null && isSummaryTenantScopeReady()) {
       return true;
     }
     await new Promise((resolve) => window.setTimeout(resolve, PREPOPULATE_POLL_MS));
@@ -36,6 +51,7 @@ export async function waitForSummaryPrePopulateReady() {
     captured: document.getElementById("capturedTableBody")?.querySelectorAll("tr").length ?? 0,
     processId: resolveSummaryProcessId(),
     companyId: window.DATACAPTURESUMMARY_COMPANY_ID ?? null,
+    captureScope: window.DATACAPTURESUMMARY_CAPTURE_SCOPE ?? null,
   });
   return false;
 }

@@ -311,6 +311,7 @@ export default function DataCapturePage() {
   const form = useDataCaptureFormEngine(captureScope, {
     applyCompanyOnlyFields: isCompanySelected,
     selectedGroup,
+    scriptsReady,
   });
 
   const groupOnlyProcessOptions = useMemo(() => getGroupOnlyProcessOptions(t), [t]);
