@@ -517,6 +517,7 @@ try {
                 exit;
             }
             $useGroupLedgerOnly = $explicitGroupOnly
+                || gc_is_group_login()
                 || (function_exists('tenant_dual_tenant_enabled') && tenant_dual_tenant_enabled($pdo));
             if ($useGroupLedgerOnly) {
                 $groupOnlyLedger = true;

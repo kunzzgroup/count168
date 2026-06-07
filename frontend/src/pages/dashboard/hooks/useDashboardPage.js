@@ -1444,15 +1444,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     const run = () => {
       if (cancelled) return;
+      // Group-only tab (e.g. IG, no Company pill): warm group ledger currencies only.
+      const skipSubsidiaryCompanyPrefetch =
+        companyId == null && selectedGroup && !groupsAllMode && !groupAllMode;
+
       for (const gid of groupIds) {
         void prefetchGroupOnlyCurrencies(gid);
+        if (skipSubsidiaryCompanyPrefetch) continue;
         for (const row of companiesForCompanyPicker(companies, gid, groupIds)) {
           if (!isSubsidiaryCompanyRow(row, groupIds)) continue;
           if (row?.id) void prefetchCompanyCurrencies(row.id, gid);
         }
       }
-      for (const row of independentRows) {
-        if (row?.id) void prefetchCompanyCurrencies(row.id, null);
+      if (!skipSubsidiaryCompanyPrefetch) {
+        for (const row of independentRows) {
+          if (row?.id) void prefetchCompanyCurrencies(row.id, null);
+        }
       }
     };
 
@@ -1460,7 +1467,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return () => {
       cancelled = true;
     };
-  }, [companies, groupIds, me, selectedGroup, companyId, groupsAllMode, primeCurrenciesFromCache]);
+  }, [
+    companies,
+    groupIds,
+    me,
+    selectedGroup,
+    companyId,
+    groupsAllMode,
+    groupAllMode,
+    primeCurrenciesFromCache,
+  ]);
 
   useEffect(() => {
     if (!canShowAllCurrencies && showAllCurrencies) {
@@ -2403,6 +2419,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** Prefetch sibling companies so AP/IG company switches can show cached KPIs immediately. */
   useEffect(() => {
     if (!companies.length || !dateFrom || !dateTo || groupAllMode) return undefined;
+    // Group-only tab: active scope is group ledger — per-company bootstrap causes spurious 403s.
+    if (companyId == null && selectedGroup && !groupsAllMode) return undefined;
     let cancelled = false;
     const activeId = companyId != null ? parseInt(companyId, 10) : null;
 
@@ -2433,6 +2451,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     dateTo,
     companyId,
     selectedGroup,
+    groupsAllMode,
     groupAllMode,
     groupIds,
     prefetchDashboardCompany,
