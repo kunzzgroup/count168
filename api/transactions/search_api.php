@@ -2039,7 +2039,7 @@ try {
         // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪：否则与前端「展示零余额」冲突，
         // 典型如 RATE 轧差后 cr_dr/has_crdr 均为 0 的组合行会被误删。
         if ($hide_zero_balance && $show_capture_only && !$show_inactive) {
-            if (!$has_win_loss_transactions) {
+            if (!$has_win_loss_transactions && !$has_period_id_product_rows) {
                 $bf_near = trunc2($bf);
                 $cr_near = trunc2($cr_dr);
                 $wl_full_chk = $wlPack['win_loss_full'] ?? '0';

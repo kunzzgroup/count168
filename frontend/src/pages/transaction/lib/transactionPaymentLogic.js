@@ -250,21 +250,29 @@ export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly,
     }
   };
 
+  const winLossAmountNonZero = (row) => {
+    const probeFull =
+      row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
+        ? String(row.win_loss_full).replace(/,/g, "").trim()
+        : null;
+    const probes = probeFull != null ? [probeFull, row.win_loss] : [row.win_loss];
+    for (const candidate of probes) {
+      const wl = parseBalanceValue(candidate);
+      if (wl === null) continue;
+      try {
+        if (MoneyDecimal.toDecimal(wl, 0).abs().gt(eps)) return true;
+      } catch {
+        if (Math.abs(wl) > 1e-5) return true;
+      }
+    }
+    return false;
+  };
+
   const hasWinLoss = (row) => {
     if (flagToBool(row.has_win_loss_transactions) || flagToBool(row.has_period_id_product_rows)) {
       return true;
     }
-    const rawWinLoss =
-      row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
-        ? String(row.win_loss_full).replace(/,/g, "").trim()
-        : row.win_loss;
-    const wl = parseBalanceValue(rawWinLoss);
-    if (wl === null) return false;
-    try {
-      return MoneyDecimal.toDecimal(wl, 0).abs().gt(eps);
-    } catch {
-      return Math.abs(wl) > 1e-5;
-    }
+    return winLossAmountNonZero(row);
   };
 
   let shouldShow = () => true;

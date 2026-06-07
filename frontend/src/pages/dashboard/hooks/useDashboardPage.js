@@ -136,6 +136,16 @@ function buildGroupOnlyScopeCurrencyQuery(companies, groupKey) {
   return q;
 }
 
+/** Stable signature so identical company lists do not retrigger prefetch/bootstrap effects. */
+function companiesListSignature(rows) {
+  return (rows || [])
+    .map((c) =>
+      [c.id, c.company_id ?? "", c.group_id ?? "", c.link_source_group ?? ""].join(":")
+    )
+    .sort()
+    .join("|");
+}
+
 /** Group ledger view: group selected, no subsidiary company pill active. */
 function isDashboardGroupOnlyCurrencyScope({
   companyId,
@@ -277,6 +287,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const skipNextCurrencyClickRef = useRef(false);
   const scopeCurrencyKeyRef = useRef("");
   const bootstrapGcOnceRef = useRef(false);
+  const meRef = useRef(me);
+  meRef.current = me;
+  const currenciesRef = useRef(currencies);
+  currenciesRef.current = currencies;
+  const currencyPrefetchFailedRef = useRef(new Set());
+  const dashboardPrefetchFailedRef = useRef(new Set());
   /** Prevents synchronous DASHBOARD_GROUP_FILTER_EVENT ↔ sync re-entry stack overflow. */
   const syncGcFilterInFlightRef = useRef(false);
   const [gcBootstrapReady, setGcBootstrapReady] = useState(false);
@@ -459,14 +475,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const bootstrap = useCallback(async (signal) => {
     setLoadError("");
-    if (!sessionReady || !me) return;
+    const u = meRef.current;
+    if (!sessionReady || !u) return;
     try {
-      const u = me;
-
       const cjRows = await fetchOwnerCompaniesAll({ signal, throwOnError: true });
       await fetchOwnerGroupsAll(u, { signal });
       const scopedCompanies = filterCompaniesForLoginScope(cjRows, u);
-      setCompanies(scopedCompanies);
+      setCompanies((prev) =>
+        companiesListSignature(prev) === companiesListSignature(scopedCompanies)
+          ? prev
+          : scopedCompanies
+      );
       applyLoginScopeToSessionStorageIfNeeded(u, scopedCompanies);
 
       if (bootstrapGcOnceRef.current) return;
@@ -588,14 +607,24 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       bootstrapGcOnceRef.current = true;
       setGcBootstrapReady(true);
     }
-  }, [sessionReady, me, i18n.failedToLoadDashboard]);
+  }, [sessionReady, i18n.failedToLoadDashboard]);
+
+  const bootstrapSessionKey = useMemo(
+    () =>
+      [
+        me?.user_id ?? me?.id ?? "",
+        me?.login_scope ?? "",
+        me?.login_identifier ?? "",
+      ].join("|"),
+    [me?.user_id, me?.id, me?.login_scope, me?.login_identifier]
+  );
 
   useEffect(() => {
-    if (!sessionReady || !me) return undefined;
+    if (!sessionReady || !bootstrapSessionKey) return undefined;
     const controller = new AbortController();
     bootstrap(controller.signal);
     return () => controller.abort();
-  }, [bootstrap, sessionReady, me]);
+  }, [bootstrap, sessionReady, bootstrapSessionKey]);
 
   const { resetAnchorSessionRef } = useGroupAnchorSessionSync({
     companies,
@@ -623,7 +652,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         typeof sessionStorage !== "undefined" &&
         sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
 
-      if (!persisted.selectedGroup && (optOut || companyLoginRequiresSubsidiaryWithGroup(me))) {
+      if (!persisted.selectedGroup && (optOut || companyLoginRequiresSubsidiaryWithGroup(meRef.current))) {
         const targetCompanyId =
           persisted.companyId != null && Number.isFinite(Number(persisted.companyId))
             ? Number(persisted.companyId)
@@ -672,8 +701,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
   }, [
     gcBootstrapReady,
-    companies,
-    me,
+    companiesSig,
+    me?.user_id,
+    me?.id,
+    me?.login_scope,
     selectedGroup,
     companyId,
     groupAllMode,
@@ -1384,6 +1415,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     void loadCurrenciesRef.current?.();
   }, [buildScopeCurrencyKey, groupIds.length, companies.length]);
 
+  const companiesSig = useMemo(() => companiesListSignature(companies), [companies]);
+
+  useEffect(() => {
+    currencyPrefetchFailedRef.current.clear();
+    dashboardPrefetchFailedRef.current.clear();
+  }, [companiesSig]);
+
   /** Warm currency cache per group/default company so AP↔IG switches feel instant. */
   useEffect(() => {
     const independentRows = independentCompaniesForPicker(companies, groupIds);
@@ -1394,13 +1432,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const g = String(gid).trim().toUpperCase();
       if (currenciesByGroupRef.current.has(g)) return;
       const q = buildGroupOnlyScopeCurrencyQuery(companies, g);
+      const cacheKey = q.toString();
+      if (currencyPrefetchFailedRef.current.has(cacheKey)) return;
       try {
         const res = await fetch(
           buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
           { credentials: "include" }
         );
         const json = await res.json();
-        if (cancelled || !res.ok || !json.success || !Array.isArray(json.data)) return;
+        if (!res.ok || !json.success || !Array.isArray(json.data)) {
+          if (!res.ok) currencyPrefetchFailedRef.current.add(cacheKey);
+          return;
+        }
+        if (cancelled) return;
         const codes = json.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
         if (codes.length) {
           currenciesByGroupRef.current.set(g, codes);
@@ -1433,13 +1477,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       } else if (!isIndependent) {
         q.set("subsidiary_accounts_only", "1");
       }
+      const cacheKey = q.toString();
+      if (currencyPrefetchFailedRef.current.has(cacheKey)) return;
       try {
         const res = await fetch(
           buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
           { credentials: "include" }
         );
         const json = await res.json();
-        if (cancelled || !res.ok || !json.success || !Array.isArray(json.data)) return;
+        if (!res.ok || !json.success || !Array.isArray(json.data)) {
+          if (!res.ok) currencyPrefetchFailedRef.current.add(cacheKey);
+          return;
+        }
+        if (cancelled) return;
         const codes = json.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
         if (codes.length) currenciesByCompanyRef.current.set(id, codes);
       } catch {
@@ -1473,9 +1523,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       cancelled = true;
     };
   }, [
-    companies,
+    companiesSig,
     groupIds,
-    me,
+    me?.user_id,
+    me?.id,
     selectedGroup,
     companyId,
     groupsAllMode,
@@ -1701,13 +1752,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (cur) q.set("currency", cur);
       const codes = currenciesByCompanyRef.current.get(id);
       if (codes?.length > 1) q.set("currencies", codes.join(","));
+      const requestKey = q.toString();
+      if (dashboardPrefetchFailedRef.current.has(requestKey)) return;
 
       try {
         const res = await fetch(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${q}`), {
           credentials: "include",
         });
         const json = await res.json();
-        if (!res.ok || !json.success || !json.data?.current) return;
+        if (!res.ok || !json.success || !json.data?.current) {
+          if (!res.ok) dashboardPrefetchFailedRef.current.add(requestKey);
+          return;
+        }
 
         const current = applyDashboardPayloadAdjustments(json.data.current, id, vg || null);
         const previous = json.data.previous
@@ -1778,13 +1834,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const codesForBootstrap =
         currencyCodesOverride ??
         (subsidiaryDashboardScope && companyId != null
-          ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currencies
-          : selectedGroup && currencies.length > 0 && !subsidiaryDashboardScope
-            ? currencies
+          ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currenciesRef.current
+          : selectedGroup && currenciesRef.current.length > 0 && !subsidiaryDashboardScope
+            ? currenciesRef.current
             : companyId != null
               ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
               : null) ??
-        (currencies.length > 1 ? currencies : null);
+        (currenciesRef.current.length > 1 ? currenciesRef.current : null);
       if (Array.isArray(codesForBootstrap) && codesForBootstrap.length > 1) {
         q.set("currencies", codesForBootstrap.join(","));
       }
@@ -1829,7 +1885,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       companyId,
       subsidiaryDashboardScope,
       currencyCode,
-      currencies,
       applyDashboardPayloadAdjustments,
       seedDashboardPayloadCache,
       earningsRowsFromBootstrapEntries,
@@ -2193,8 +2248,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setMultiCurrencyKpiPrev(null);
       return;
     }
-    const gen = ++dashboardFetchGenRef.current;
     const cacheKey = dashboardScopeKey;
+    const gen = ++dashboardFetchGenRef.current;
     const cached = getDashboardCache(cacheKey);
     const allCurrenciesActive = showAllCurrencies && canShowAllCurrencies;
     setLoadError("");
@@ -2286,13 +2341,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
           const codesForEarnings =
             (subsidiaryDashboardScope && companyId != null
-              ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currencies
-              : selectedGroup && currencies.length > 0 && !subsidiaryDashboardScope
-                ? currencies
+              ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currenciesRef.current
+              : selectedGroup && currenciesRef.current.length > 0 && !subsidiaryDashboardScope
+                ? currenciesRef.current
                 : companyId != null
                   ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
                   : null) ??
-            (currencies.length > 1 ? currencies : null);
+            (currenciesRef.current.length > 1 ? currenciesRef.current : null);
           if (Array.isArray(codesForEarnings) && codesForEarnings.length > 1) {
             setEarningsByCurrencyLoading(true);
             setEarningsByCurrency(codesForEarnings.map((code) => ({ code, earnings: null })));
@@ -2451,7 +2506,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       cancelled = true;
     };
   }, [
-    companies,
+    companiesSig,
     dateFrom,
     dateTo,
     companyId,
@@ -3150,6 +3205,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     applyCompanySelection,
   ]);
 
+  const autoPickCompanySigRef = useRef("");
+
   useLayoutEffect(() => {
     if (!gcBootstrapReady) return;
     if (!me || companyId != null || groupAllMode) return;
@@ -3198,20 +3255,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     if (!Number.isFinite(id) || id <= 0) return;
 
+    const pickSig = `${bootGroup || ""}|${id}`;
+    if (autoPickCompanySigRef.current === pickSig) return;
+    autoPickCompanySigRef.current = pickSig;
+
     setGroupAllMode(false);
     persistDashboardFilterState(bootGroup, id, { allowGroupOnly: false });
     applyCompanySelection(id);
     notifyDashboardGroupFilterChanged(bootGroup, id);
     void syncCompanySession(id, bootGroup);
   }, [
-    me,
+    gcBootstrapReady,
+    companiesSig,
+    me?.user_id,
+    me?.id,
     selectedGroup,
     companyId,
     groupsAllMode,
     groupAllMode,
-    companies,
     groupIds,
-    gcBootstrapReady,
     applyCompanySelection,
     syncCompanySession,
   ]);
