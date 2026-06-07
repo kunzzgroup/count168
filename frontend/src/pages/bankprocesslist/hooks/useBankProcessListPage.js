@@ -19,7 +19,10 @@ import {
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
-import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
+import {
+  closeMaintenanceCalendarPopup,
+  ensureMaintenanceDateRangePicker,
+} from "../../../utils/date/dateRangePicker.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
 import { saveUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
@@ -619,6 +622,11 @@ export function useBankProcessListPage() {
     window.MaintenanceDateRangePicker?.bindPickers?.();
   }, [modalOpen, resendModalOpen]);
 
+  useEffect(() => {
+    if (modalOpen || resendModalOpen) return;
+    closeMaintenanceCalendarPopup();
+  }, [modalOpen, resendModalOpen]);
+
   /* Keep date-range chip wording in sync when login/UI language changes (picker caches placeholder internally). */
   useEffect(() => {
     if (loading || !cssReady || !bankDatePickerInitRef.current || !window.MaintenanceDateRangePicker?.setLocaleStrings) return;
@@ -945,13 +953,14 @@ export function useBankProcessListPage() {
     });
   }, [modalOpen, form.cost, form.price, form.profit_sharing]);
 
-  // Contract / Day start / Frequency 变化时自动填 Day end；用户手动改 Day end 不会被覆盖（不监听 day_end）
+  // Contract / Day start / Frequency 变化时自动填 Day end；Monthly 不自动填；用户手动改 Day end 不会被覆盖（不监听 day_end）
   useEffect(() => {
     if (!modalOpen) {
       contractSyncKeysRef.current = { day_start: "", contract: "", frequency: "" };
       return;
     }
-    if (bankProcessFrequencyNormalized(form.day_start_frequency) === "once") return;
+    const frequencyNorm = bankProcessFrequencyNormalized(form.day_start_frequency);
+    if (frequencyNorm === "once" || frequencyNorm === "monthly") return;
 
     const start = String(form.day_start || "").trim();
     const contract = String(form.contract || "").trim();

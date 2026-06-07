@@ -41,3 +41,6 @@ WHERE `id` = 1
   AND `price` IS NOT NULL;
 
 COMMIT;
+
+
+-- bankprocess delete funct prob in db 'skipped' less a letter 'd' 
