@@ -1426,6 +1426,11 @@ function formatCurrency(value) {
     return MoneyDecimal.formatThousands(value || '0', 2);
 }
 
+function getDashboardCurrencyLabel() {
+    const code = String(window.dashboardCurrency || 'MYR').trim().toUpperCase();
+    return code === 'MYR' ? 'RM' : code;
+}
+
 function formatDateForDisplay(dateString) {
     const date = new Date(dateString);
     const year = date.getFullYear();
@@ -2066,7 +2071,7 @@ function createChart(canvas, chartData) {
                             label: function (context) {
                                 const label = context.dataset.label || '';
                                 const value = context.parsed.y;
-                                return label + ': RM ' + formatCurrency(value);
+                                return label + ': ' + getDashboardCurrencyLabel() + ' ' + formatCurrency(value);
                             },
                             afterBody: function (context) {
                                 if (context.length > 0) {
@@ -2080,13 +2085,14 @@ function createChart(canvas, chartData) {
                                                 const e = chartMetadata.expensesData[dataIndex] || 0;
                                                 const np = chartMetadata.netProfitData[dataIndex] || 0;
                                                 const er = chartMetadata.earningsData[dataIndex] || 0;
+                                                const cur = getDashboardCurrencyLabel();
                                                 return [
                                                     '',
                                                     '--- Summary ---',
-                                                    `Profit: RM ${formatCurrency(p)}`,
-                                                    `Expenses: RM ${formatCurrency(e)}`,
-                                                    `NET PROFIT: RM ${formatCurrency(np)}`,
-                                                    `Earnings: RM ${formatCurrency(er)}`
+                                                    `Profit: ${cur} ${formatCurrency(p)}`,
+                                                    `Expenses: ${cur} ${formatCurrency(e)}`,
+                                                    `NET PROFIT: ${cur} ${formatCurrency(np)}`,
+                                                    `Earnings: ${cur} ${formatCurrency(er)}`
                                                 ];
                                             }
                                         } catch (e) {
