@@ -1430,8 +1430,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     const prefetchGroupOnlyCurrencies = async (gid) => {
       const g = String(gid).trim().toUpperCase();
+      if (!g) return;
       if (currenciesByGroupRef.current.has(g)) return;
       const q = buildGroupOnlyScopeCurrencyQuery(companies, g);
+      if (!q.get("company_id") && !q.get("group_id") && !q.get("view_group")) return;
       const cacheKey = q.toString();
       if (currencyPrefetchFailedRef.current.has(cacheKey)) return;
       try {
@@ -1739,7 +1741,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const q = new URLSearchParams({
         date_from: rangeFrom,
         date_to: rangeTo,
-        bootstrap_scope: "full",
+        bootstrap_scope: "kpi",
+        prefetch: "1",
       });
       if (usesLedger && vg) {
         q.set("view_group", vg);
@@ -2488,8 +2491,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (cancelled) return;
       if (selectedGroup) {
         for (const row of resolveGroupAllMergeCompanyList(companies, selectedGroup, groupIds)) {
+          if (isVirtualGroupLinkCompanyRow(row)) continue;
+          if (companyRowIsGroupEntity(row, selectedGroup)) continue;
           const rid = parseInt(row.id, 10);
-          if (!Number.isFinite(rid) || rid === activeId) continue;
+          if (!Number.isFinite(rid) || rid <= 0 || rid === activeId) continue;
           void prefetchDashboardCompany(row, selectedGroup);
         }
       } else if (activeId != null) {

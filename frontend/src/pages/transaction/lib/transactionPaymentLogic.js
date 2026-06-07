@@ -292,7 +292,16 @@ export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly,
   };
 }
 
-export function applyZeroBalanceFilter(filteredLeft, filteredRight, showZeroBalance) {
+export function applyZeroBalanceFilter(
+  filteredLeft,
+  filteredRight,
+  showZeroBalance,
+  { showCaptureOnly = false, showPaymentOnly = false } = {},
+) {
+  // Show Win/Loss Only（未勾 Show 0 balance）：已通过 W/L 筛选的行不再因 Balance=0 二次隐藏（与 PHP transaction.php 一致）。
+  if (showCaptureOnly && !showPaymentOnly && !showZeroBalance) {
+    return { left: filteredLeft, right: filteredRight };
+  }
   const fn = (row) => rowPassesHideZeroBalanceFilter(showZeroBalance, row);
   return {
     left: filteredLeft.filter(fn),
@@ -511,7 +520,10 @@ export function countDisplayedRows(rawSearchData, searchState, txType) {
     showCaptureOnly: searchState.showCaptureOnly,
     showZeroBalance: searchState.showZeroBalance,
   });
-  const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
+  const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance, {
+    showCaptureOnly: searchState.showCaptureOnly,
+    showPaymentOnly: searchState.showPaymentOnly,
+  });
   const norm = normalizeRateRowsByCrDr(z.left, z.right, txType === "RATE");
   return (norm.leftRows?.length || 0) + (norm.rightRows?.length || 0);
 }

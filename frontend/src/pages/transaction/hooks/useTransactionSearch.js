@@ -657,7 +657,10 @@ export function useTransactionSearch({
       showCaptureOnly: searchState.showCaptureOnly,
       showZeroBalance: searchState.showZeroBalance,
     });
-    const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
+    const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance, {
+      showCaptureOnly: searchState.showCaptureOnly,
+      showPaymentOnly: searchState.showPaymentOnly,
+    });
     const sortedLeft = z.left;
     const sortedRight = z.right;
     const totalsLeft = calculateTotals(sortedLeft);

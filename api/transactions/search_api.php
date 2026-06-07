@@ -2024,7 +2024,8 @@ try {
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
         $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
         $win_loss = $wlPack['win_loss'];
-        $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions']);
+        $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions'])
+            || !empty($wlPack['has_period_id_product_rows']);
         $has_win_loss_history = !empty($wlPack['has_win_loss_history']);
         $has_period_id_product_rows = !empty($wlPack['has_period_id_product_rows']);
 
@@ -3040,7 +3041,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
         $has_rate_mm = ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
         $has_rate_mm_up_to = ($bulk['entry'][$account_id][$currency_id]['wl_mm_up_to_count'] ?? 0) > 0;
-        $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm;
+        $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm || $id_product_rows_period > 0;
         $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
         $win_loss_full = money_normalize($win_loss, 8);
         return [
@@ -3201,7 +3202,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         'win_loss' => searchMoneyHalfUp2($win_loss_full),
         'win_loss_full' => $win_loss_full,
         'has_rate_middleman' => $has_rate_middleman,
-        'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman),
+        'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman || $has_period_id_product_rows),
         'has_win_loss_history' => ($wl_row_count > 0 || $has_rate_middleman),
         'has_period_id_product_rows' => $has_period_id_product_rows,
     ];
