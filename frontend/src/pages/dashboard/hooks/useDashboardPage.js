@@ -638,6 +638,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     notifyDashboardGcBootstrapReady();
   }, [gcBootstrapReady]);
 
+  const companiesSig = useMemo(() => companiesListSignature(companies), [companies]);
+
   /** Re-apply UserList / AccountList persisted Group+Company when returning to Dashboard. */
   const syncGcFilterFromPersisted = useCallback(() => {
     if (!gcBootstrapReady || !companies.length) return;
@@ -1414,8 +1416,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useLayoutEffect(() => {
     void loadCurrenciesRef.current?.();
   }, [buildScopeCurrencyKey, groupIds.length, companies.length]);
-
-  const companiesSig = useMemo(() => companiesListSignature(companies), [companies]);
 
   useEffect(() => {
     currencyPrefetchFailedRef.current.clear();
