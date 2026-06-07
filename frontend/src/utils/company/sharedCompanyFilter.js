@@ -988,6 +988,20 @@ export function shouldHideSidebarProcess(pathname) {
   return Boolean(String(g || "").trim()) && isDashboardGroupOnlyMode();
 }
 
+/**
+ * Bankprocess maintenance is company-scoped — hidden in group-only dashboard filter (e.g. IG, no company).
+ * Under group "Company All", show when any company in the group has bank permission.
+ */
+export function shouldShowBankprocessMaintenanceInSidebar(me) {
+  const filter = readPersistedDashboardGcFilter();
+  if (filter.groupOnly && filter.selectedGroup) return false;
+  if (filter.groupAllMode && filter.selectedGroup) {
+    const flags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup, { includeBank: true });
+    return Boolean(flags?.hasBank);
+  }
+  return Boolean(me?.company_has_bank);
+}
+
 /** In-memory cache so report/maintenance remounts do not re-block on companies API. */
 let ownerCompaniesCache = null;
 let ownerCompaniesInflight = null;

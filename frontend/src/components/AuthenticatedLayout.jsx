@@ -34,6 +34,7 @@ import {
   shouldApplySessionToSidebar,
   shouldRefreshExpiryFromSession,
   shouldHideSidebarProcess,
+  shouldShowBankprocessMaintenanceInSidebar,
   fetchOwnerCompaniesAll,
   fetchOwnerGroupsAll,
   findOwnerCompanyById,
@@ -341,6 +342,21 @@ export default function AuthenticatedLayout() {
         setMe((prev) => {
           if (!prev) return json.data;
           if (shouldApplySessionToSidebar(json.data, filterNow)) {
+            if (filterNow.groupOnly && filterNow.selectedGroup) {
+              const groupFlags = resolveGroupCategoryFlagsForSidebar(filterNow.selectedGroup, {
+                includeBank: false,
+              });
+              return patchMeFromCompanyContext(json.data, {
+                companyId: null,
+                companyCode: filterNow.selectedGroup,
+                hasGambling: groupFlags?.hasGambling ?? json.data.company_has_gambling,
+                hasBank: false,
+                expirationDate: resolveSidebarExpirationForFilter({
+                  selectedGroup: filterNow.selectedGroup,
+                  companyId: null,
+                }),
+              });
+            }
             return json.data;
           }
           return {
@@ -497,14 +513,14 @@ export default function AuthenticatedLayout() {
             companyId: null,
             companyCode: filter.selectedGroup,
             hasGambling: data.has_gambling,
-            hasBank: data.has_bank,
+            hasBank: false,
             ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
           });
         } else {
           applySidebarPatch({
             companyId: null,
             ...(groupFlags
-              ? { hasGambling: groupFlags.hasGambling, hasBank: groupFlags.hasBank }
+              ? { hasGambling: groupFlags.hasGambling, hasBank: false }
               : {}),
             ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
           });
@@ -562,12 +578,21 @@ export default function AuthenticatedLayout() {
 
   const initialSidebarSyncRef = useRef(false);
 
-  /** Login: replay persisted filter once session `me` is available. */
+  /** Login: seed filter from login scope, then replay persisted filter once session `me` is available. */
   useLayoutEffect(() => {
-    if (loading || !me || initialSidebarSyncRef.current) return;
+    if (loading || !me) return;
+    applyLoginScopeToSessionStorageIfNeeded(me);
+    if (initialSidebarSyncRef.current) return;
     initialSidebarSyncRef.current = true;
     syncSidebarFromPersistedFilter({ force: true, skipSessionRefresh: true });
   }, [loading, me, syncSidebarFromPersistedFilter]);
+
+  /** Re-sync sidebar when entering dashboard so group-only bankprocess rules apply immediately. */
+  useLayoutEffect(() => {
+    if (loading || !me || path !== "/dashboard") return;
+    syncSidebarFromPersistedFilter({ force: true, skipSessionRefresh: true });
+    setSidebarGcTick((n) => n + 1);
+  }, [loading, me, path, syncSidebarFromPersistedFilter]);
 
   useEffect(() => {
     const onBootstrapReady = () => {
@@ -741,6 +766,10 @@ export default function AuthenticatedLayout() {
   const showFullMaintenanceMenu = canAccessFullMaintenance(me);
   const showLimitedMaintenanceMenu = canAccessLimitedMaintenance(me);
   const showMaintenanceMenu = showMaintenanceInSidebar(me);
+  const showBankprocessMaintenance = useMemo(() => {
+    void sidebarGcTick;
+    return shouldShowBankprocessMaintenanceInSidebar(me);
+  }, [me, sidebarGcTick]);
   
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
@@ -1164,7 +1193,7 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarFormula}</span>
                       </a>
                     )}
-                    {showFullMaintenanceMenu && me?.company_has_bank && (
+                    {showFullMaintenanceMenu && showBankprocessMaintenance && (
                       <a
                         href={webHref("/bankprocess-maintenance")}
                         className={`submenu-item ${path === "/bankprocess-maintenance" ? "current-page" : ""}`}
