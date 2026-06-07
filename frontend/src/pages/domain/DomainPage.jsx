@@ -11,7 +11,8 @@ import {
   hasProtectedCompany,
   forceSearchValue,
   formatDomainPeriodPricesInlineSummary,
-  normalizeDomainPeriodPricesFromApi,
+  formatDomainFeeSettingsInlineSummary,
+  normalizeDomainFeeSettingsFromApi,
 } from "./domainHelpers.js";
 
 // Sub-components
@@ -125,9 +126,9 @@ export default function DomainPage() {
       .then((r) => r.json())
       .then((res) => {
         if (res.success && res.data) {
-          const prices = normalizeDomainPeriodPricesFromApi(res.data);
+          const prices = normalizeDomainFeeSettingsFromApi(res.data);
           setDomainPeriodPrices(prices);
-          setFeeInlineSummary(formatDomainPeriodPricesInlineSummary(prices, t));
+          setFeeInlineSummary(formatDomainFeeSettingsInlineSummary(prices, t));
         }
       })
       .catch(() => {});
@@ -468,9 +469,9 @@ export default function DomainPage() {
           lang={lang}
           onClose={() => setFeeModal(false)}
           onFeeSaved={(data) => {
-            const prices = normalizeDomainPeriodPricesFromApi(data);
+            const prices = normalizeDomainFeeSettingsFromApi(data);
             setDomainPeriodPrices(prices);
-            setFeeInlineSummary(formatDomainPeriodPricesInlineSummary(prices, t));
+            setFeeInlineSummary(formatDomainFeeSettingsInlineSummary(prices, t));
           }}
         />
       )}

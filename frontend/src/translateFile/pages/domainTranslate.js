@@ -178,9 +178,10 @@ export const DOMAIN_I18N = {
     saved: "Saved",
     saveFailed: "Save failed",
     priceDescription: "Set default amounts for each period (saved for C168 admin use).",
+    priceDescriptionDual:
+      "Set separate default amounts for Company and Group. Company prices apply in Company Settings; Group prices apply in Group Settings.",
     displayPrices: "Display prices",
-    editPeriodHint:
-      "Edit each period below (up to 2 decimal places). Display above updates as you type.",
+    editPeriodHint: "Enter amounts for each period (up to 2 decimal places).",
     editFieldHint: "Edit fields below support up to 2 decimal places.",
     editWord: "edit",
     pricePlaceholder: "0.00",
@@ -369,8 +370,10 @@ export const DOMAIN_I18N = {
     saved: "已保存",
     saveFailed: "保存失败",
     priceDescription: "为各周期设置默认金额（供 C168 管理员使用）。",
+    priceDescriptionDual:
+      "分别为 Company 与 Group 设置默认金额。Company 价格用于 Company Settings；Group 价格用于 Group Settings。",
     displayPrices: "展示价格",
-    editPeriodHint: "在下方编辑各周期（最多 2 位小数），上方展示会随输入实时更新。",
+    editPeriodHint: "在下方为各周期输入金额（最多 2 位小数）。",
     editFieldHint: "下方编辑字段最多支持 2 位小数。",
     editWord: "编辑",
     pricePlaceholder: "请输入价格",
