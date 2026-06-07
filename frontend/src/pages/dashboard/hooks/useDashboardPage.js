@@ -273,6 +273,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const dateToRef = useRef(dateTo);
   const companySwitchGenRef = useRef(0);
   const currencyLoadGenRef = useRef(0);
+  const loadCurrenciesRef = useRef(null);
   const skipNextCurrencyClickRef = useRef(false);
   const scopeCurrencyKeyRef = useRef("");
   const bootstrapGcOnceRef = useRef(false);
@@ -280,7 +281,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const syncGcFilterInFlightRef = useRef(false);
   const [gcBootstrapReady, setGcBootstrapReady] = useState(false);
   const [groupFilterOptOutTick, setGroupFilterOptOutTick] = useState(0);
-  const [ownerGroupsTick, setOwnerGroupsTick] = useState(0);
   /** @type {React.MutableRefObject<Map<number, string[]>>} */
   const currenciesByCompanyRef = useRef(new Map());
   /** @type {React.MutableRefObject<Map<string, string[]>>} */
@@ -464,7 +464,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const u = me;
 
       const cjRows = await fetchOwnerCompaniesAll({ signal, throwOnError: true });
-      void fetchOwnerGroupsAll(u, { signal });
+      await fetchOwnerGroupsAll(u, { signal });
       const scopedCompanies = filterCompaniesForLoginScope(cjRows, u);
       setCompanies(scopedCompanies);
       applyLoginScopeToSessionStorageIfNeeded(u, scopedCompanies);
@@ -693,15 +693,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return () => window.removeEventListener(DASHBOARD_GROUP_FILTER_EVENT, onFilterChanged);
   }, [syncGcFilterFromPersisted]);
 
-  useEffect(() => {
-    const onOwnerGroupsLoaded = () => setOwnerGroupsTick((n) => n + 1);
-    window.addEventListener("eazycount:owner-groups-loaded", onOwnerGroupsLoaded);
-    return () => window.removeEventListener("eazycount:owner-groups-loaded", onOwnerGroupsLoaded);
-  }, []);
-
   const groupIds = useMemo(
     () => resolveVisibleGroupIds(resolveOwnerDashboardGroupIds(companies, me), me, companies),
-    [companies, me, ownerGroupsTick],
+    [companies, me],
   );
 
   const companiesForPicker = useMemo(() => {
@@ -1384,9 +1378,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     companiesForPicker,
   ]);
 
+  loadCurrenciesRef.current = loadCurrencies;
+
   useLayoutEffect(() => {
-    loadCurrencies();
-  }, [loadCurrencies]);
+    void loadCurrenciesRef.current?.();
+  }, [buildScopeCurrencyKey, groupIds.length, companies.length]);
 
   /** Warm currency cache per group/default company so AP↔IG switches feel instant. */
   useEffect(() => {
@@ -2793,6 +2789,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return;
     }
     if (selectedGroup == null) return;
+    const persisted = readPersistedDashboardGcFilter();
+    if (persisted.selectedGroup) {
+      sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+      return;
+    }
     setSelectedGroup(null);
   }, [selectedGroup, groupFilterOptOutTick]);
 

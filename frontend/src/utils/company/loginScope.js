@@ -192,6 +192,15 @@ export function canAccessGroupLedgerForGroup(me, groupCode, companies = []) {
     }
     return getAssignedGroupCodes(me).includes(g);
   }
+
+  const role = String(me?.role || me?.user_type || "").trim().toLowerCase();
+  if (role === "owner") {
+    for (const c of companies || []) {
+      if (normalizeNativeCompanyGroupId(c) === g) return true;
+    }
+    return userCanUseGroupLedger(me);
+  }
+
   return getAssignedGroupCodes(me).includes(g);
 }
 
