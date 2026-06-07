@@ -22,14 +22,16 @@ $role = $_SESSION['role'] ?? '';
 
 require_once 'config.php';
 require_once __DIR__ . '/includes/c168_domain_access.php';
+require_once __DIR__ . '/permissions.php';
 $permissions = [];
+$isLegacySidebarFullAccess = false;
 
 // 获取用户权限（仅针对 member 用户）
 if (!$isMember) {
     $stmt = $pdo->prepare("SELECT permissions FROM user WHERE id = ?");
     $stmt->execute([$user_id]);
     $userPermissions = $stmt->fetchColumn();
-    $permissions = $userPermissions ? json_decode($userPermissions, true) : [];
+    [$permissions, $isLegacySidebarFullAccess] = parseUserSidebarPermissions($userPermissions);
 }
 
 $companyId = $_SESSION['company_id'] ?? null;  // company 的数字主键
@@ -314,7 +316,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             </div>
         <?php else: ?>
             <!-- Home Section -->
-            <?php if (empty($permissions) || in_array('home', $permissions)): ?>
+            <?php if (userHasSidebarMenuPermission('home', $permissions, $isLegacySidebarFullAccess)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="dashboard.php"
                         onclick="window.location.href='dashboard.php'">
@@ -365,7 +367,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             </div> -->
 
             <!-- Admin Section -->
-            <?php if (empty($permissions) || in_array('admin', $permissions)): ?>
+            <?php if (userHasSidebarMenuPermission('admin', $permissions, $isLegacySidebarFullAccess)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="userlist.php"
                         onclick="window.location.href='userlist.php'">
@@ -399,7 +401,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Account Section -->
-            <?php if (empty($permissions) || in_array('account', $permissions)): ?>
+            <?php if (userHasSidebarMenuPermission('account', $permissions, $isLegacySidebarFullAccess)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="account-list.php"
                         onclick="window.location.href='account-list.php'">
@@ -413,7 +415,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Ownership：仅由 ownership 权限控制显示 -->
-            <?php if (empty($permissions) || in_array('ownership', $permissions)): ?>
+            <?php if (userHasSidebarMenuPermission('ownership', $permissions, $isLegacySidebarFullAccess)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title account-direct" data-page="ownership.php"
                         onclick="window.location.href='ownership.php'">
@@ -427,7 +429,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Process Section -->
-            <?php if (empty($permissions) || in_array('process', $permissions)): ?>
+            <?php if (userHasSidebarMenuPermission('process', $permissions, $isLegacySidebarFullAccess)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="processlist.php"
                         onclick="window.location.href='processlist.php'">
@@ -440,7 +442,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
-            <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
+            <?php if (userHasSidebarMenuPermission('datacapture', $permissions, $isLegacySidebarFullAccess)): ?>
                 <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                     <div class="informationmenu-section-title" data-page="datacapture.php"
                         onclick="window.location.href='datacapture.php'">
@@ -454,7 +456,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Transaction Payment Section -->
-            <?php if (empty($permissions) || in_array('payment', $permissions)): ?>
+            <?php if (userHasSidebarMenuPermission('payment', $permissions, $isLegacySidebarFullAccess)): ?>
                 <div class="informationmenu-section">
                     <div class="informationmenu-section-title" data-page="transaction.php"
                         onclick="window.location.href='transaction.php'">
@@ -468,7 +470,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             <?php endif; ?>
 
             <!-- Report Section（仅当前公司有 Games 权限时显示） -->
-            <?php if (empty($permissions) || in_array('report', $permissions)): ?>
+            <?php if (userHasSidebarMenuPermission('report', $permissions, $isLegacySidebarFullAccess)): ?>
                 <div class="informationmenu-section" id="sidebar-report-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
                     <div class="menu-item-wrapper">
                         <div class="informationmenu-section-title" data-section="report">
@@ -495,7 +497,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
 
             <!-- Maintenance Section：主项始终显示；子项按用户是否勾选 maintenance + 公司 category 控制 -->
             <?php
-            $hasMaintenance = (empty($permissions) || in_array('maintenance', $permissions));
+            $hasMaintenance = userHasSidebarMenuPermission('maintenance', $permissions, $isLegacySidebarFullAccess);
             $rolesWithImplicitGamesMaintenance = ['supervisor', 'accountant', 'audit', 'customer service'];
             $roleLower = strtolower((string) $role);
             $hasImplicitGamesMaintenance = in_array($roleLower, $rolesWithImplicitGamesMaintenance, true);

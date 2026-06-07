@@ -582,8 +582,10 @@ try {
             }
 
             // 添加权限字段到更新列表（系统级权限仍然存储在 user 表）
-            $updateFields[] = "permissions = ?";
-            $updateValues[] = isset($input['permissions']) ? json_encode($input['permissions']) : null;
+            if (isset($input['permissions'])) {
+                $updateFields[] = "permissions = ?";
+                $updateValues[] = json_encode($input['permissions']);
+            }
             
             // Account 和 Process 权限不再更新到 user 表，而是更新到 user_company_permissions 表
             // 这些字段保留在 $input 中，稍后在事务中处理

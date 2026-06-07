@@ -98,32 +98,20 @@ $name = $_SESSION['name'];
 $role = $_SESSION['role'];
 
 // 获取用户权限
+require_once __DIR__ . '/permissions.php';
 $stmt = $pdo->prepare("SELECT permissions FROM user WHERE id = ?");
 $stmt->execute([$user_id]);
 $userPermissions = $stmt->fetchColumn();
-$permissions = $userPermissions ? json_decode($userPermissions, true) : [];
+[$permissions, $isLegacySidebarFullAccess] = parseUserSidebarPermissions($userPermissions);
 
 // 没有 home 权限的普通 user 直接访问 dashboard.php 时，重定向到 sidebar 第一个有权限的页面
-// 仅当 permissions 显式非空（排除 owner / 旧账号 fallback）且不含 'home' 时生效
 $_userTypeForHomeGuard = isset($_SESSION['user_type']) ? strtolower((string) $_SESSION['user_type']) : 'user';
 if ($_userTypeForHomeGuard === 'user'
-    && is_array($permissions) && !empty($permissions)
-    && !in_array('home', $permissions, true)) {
-    $_permRedirectMap = [
-        'admin' => 'userlist.php',
-        'account' => 'account-list.php',
-        'ownership' => 'ownership.php',
-        'process' => 'processlist.php',
-        'datacapture' => 'datacapture.php',
-        'payment' => 'transaction.php',
-        'report' => 'customer_report.php',
-        'maintenance' => 'transaction_maintenance.php',
-    ];
-    foreach ($_permRedirectMap as $_perm => $_page) {
-        if (in_array($_perm, $permissions, true)) {
-            header("Location: $_page");
-            exit();
-        }
+    && !userHasSidebarMenuPermission('home', $permissions, $isLegacySidebarFullAccess)) {
+    $_firstPage = getFirstSidebarPermittedPage($permissions, $isLegacySidebarFullAccess);
+    if ($_firstPage && $_firstPage !== 'dashboard.php') {
+        header("Location: $_firstPage");
+        exit();
     }
 }
 
