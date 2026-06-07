@@ -408,13 +408,19 @@ export default function AuthenticatedLayout() {
       const skipRefresh = options.skipSessionRefresh === true;
       if (cid == null) {
         const patch = { companyId: null, companyCode: resolved.companyCode ?? "" };
+        const includeBank = Boolean(resolved.groupAllMode) && !resolved.groupOnly;
         const groupFlags = resolved.selectedGroup
-          ? resolveGroupCategoryFlagsForSidebar(resolved.selectedGroup)
+          ? resolveGroupCategoryFlagsForSidebar(resolved.selectedGroup, { includeBank })
           : null;
         if (resolved.hasGambling != null) patch.hasGambling = Boolean(resolved.hasGambling);
         else if (groupFlags) patch.hasGambling = groupFlags.hasGambling;
-        if (resolved.hasBank != null) patch.hasBank = Boolean(resolved.hasBank);
-        else if (groupFlags) patch.hasBank = groupFlags.hasBank;
+        if (resolved.groupOnly) {
+          patch.hasBank = false;
+        } else if (resolved.hasBank != null) {
+          patch.hasBank = Boolean(resolved.hasBank);
+        } else if (groupFlags) {
+          patch.hasBank = groupFlags.hasBank;
+        }
         const expirationDate = resolveSidebarExpirationForFilter(resolved);
         patch.expirationDate = expirationDate !== undefined ? expirationDate : null;
         applySidebarPatch(patch);
@@ -579,11 +585,13 @@ export default function AuthenticatedLayout() {
         selectedGroup: filter.selectedGroup,
         companyId: null,
       });
-      const groupFlags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup);
+      const groupFlags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup, {
+        includeBank: false,
+      });
       applySidebarPatch({
         companyId: null,
         ...(groupFlags
-          ? { hasGambling: groupFlags.hasGambling, hasBank: groupFlags.hasBank }
+          ? { hasGambling: groupFlags.hasGambling, hasBank: false }
           : {}),
         ...(expirationDate !== undefined ? { expirationDate } : {}),
       });

@@ -708,10 +708,14 @@ function seedCompanySessionFlagsFromOwnerRows(rows) {
 }
 
 /**
- * Group-only sidebar category flags — aggregate group permissions / subsidiaries (mirrors PHP group entity).
- * Ensures Data Capture stays visible for IG even after viewing bank-only CX.
+ * Sidebar Games/Bank flags for a group tab.
+ * Aggregates gambling from group row / subsidiaries so Data Capture stays visible on IG.
+ * Bank (bankprocess maintenance) is company-scoped — omit unless `includeBank` (Company "All").
+ *
+ * @param {{ includeBank?: boolean }} [options]
  */
-export function resolveGroupCategoryFlagsForSidebar(groupCode) {
+export function resolveGroupCategoryFlagsForSidebar(groupCode, options = {}) {
+  const includeBank = options.includeBank === true;
   const g = String(groupCode ?? "")
     .trim()
     .toUpperCase();
@@ -720,10 +724,11 @@ export function resolveGroupCategoryFlagsForSidebar(groupCode) {
   if (ownerGroupsCache instanceof Map) {
     const groupRow = ownerGroupsCache.get(g);
     if (groupRow && Array.isArray(groupRow.permissions) && groupRow.permissions.length) {
-      return {
-        hasGambling: permissionsIncludeGames(groupRow.permissions),
-        hasBank: permissionsIncludeBank(groupRow.permissions),
-      };
+      const hasGambling = permissionsIncludeGames(groupRow.permissions);
+      const hasBank = includeBank && permissionsIncludeBank(groupRow.permissions);
+      if (hasGambling || hasBank) {
+        return { hasGambling, hasBank };
+      }
     }
   }
 
@@ -738,7 +743,9 @@ export function resolveGroupCategoryFlagsForSidebar(groupCode) {
     const anchorFlags = peekCompanySessionFlags(Number(anchor.id));
     if (anchorFlags) {
       hasGambling = hasGambling || Boolean(anchorFlags.has_gambling);
-      hasBank = hasBank || Boolean(anchorFlags.has_bank);
+      if (includeBank) {
+        hasBank = hasBank || Boolean(anchorFlags.has_bank);
+      }
     }
   }
 
@@ -748,18 +755,21 @@ export function resolveGroupCategoryFlagsForSidebar(groupCode) {
     const cached = peekCompanySessionFlags(cid);
     if (cached) {
       hasGambling = hasGambling || Boolean(cached.has_gambling);
-      hasBank = hasBank || Boolean(cached.has_bank);
+      if (includeBank) {
+        hasBank = hasBank || Boolean(cached.has_bank);
+      }
       continue;
     }
     const fromRow = resolveCompanyCategoryFlagsFromRow(row);
     if (fromRow) {
       hasGambling = hasGambling || fromRow.hasGambling;
-      hasBank = hasBank || fromRow.hasBank;
+      if (includeBank) {
+        hasBank = hasBank || fromRow.hasBank;
+      }
     }
   }
 
-  if (hasGambling || hasBank) return { hasGambling, hasBank };
-  return { hasGambling, hasBank };
+  return { hasGambling, hasBank: includeBank ? hasBank : false };
 }
 
 /**
@@ -812,8 +822,17 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
   });
   let hasGambling = options.hasGambling ?? cachedFlags?.has_gambling;
   let hasBank = options.hasBank ?? cachedFlags?.has_bank;
+  const persistedFilter = readPersistedDashboardGcFilter();
+  const groupAllMode =
+    Boolean(persistedFilter.groupAllMode) && cid == null && !groupOnly;
   if (groupOnly && value) {
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(value);
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: false });
+    if (groupFlags) {
+      if (hasGambling == null) hasGambling = groupFlags.hasGambling;
+      hasBank = false;
+    }
+  } else if (groupAllMode && value) {
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: true });
     if (groupFlags) {
       if (hasGambling == null) hasGambling = groupFlags.hasGambling;
       if (hasBank == null) hasBank = groupFlags.hasBank;
@@ -857,7 +876,9 @@ export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, ex
   }
   const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
   if (g) {
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(g);
+    const persisted = readPersistedDashboardGcFilter();
+    const includeBank = Boolean(persisted.groupAllMode) && !persisted.groupOnly;
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(g, { includeBank });
     if (groupFlags) {
       opts.hasGambling = groupFlags.hasGambling;
       opts.hasBank = groupFlags.hasBank;
@@ -908,17 +929,24 @@ export function buildDashboardFilterEventDetailFromPersisted() {
   });
   let hasGambling = notifyOpts.hasGambling ?? cachedFlags?.has_gambling;
   let hasBank = notifyOpts.hasBank ?? cachedFlags?.has_bank;
-  if (groupOnly && value) {
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(value);
+  const groupAllMode = isDashboardGroupAllMode() && effectiveCid == null && !groupOnly;
+  if ((groupOnly || groupAllMode) && value) {
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, {
+      includeBank: groupAllMode,
+    });
     if (groupFlags) {
       if (hasGambling == null) hasGambling = groupFlags.hasGambling;
       if (hasBank == null) hasBank = groupFlags.hasBank;
     }
   }
+  if (groupOnly) {
+    hasBank = false;
+  }
   return {
     selectedGroup: value,
     companyId: effectiveCid,
     groupOnly,
+    groupAllMode,
     companyCode: companyCode ?? cachedFlags?.company_code ?? null,
     ...(hasGambling != null ? { hasGambling: Boolean(hasGambling) } : {}),
     ...(hasBank != null ? { hasBank: Boolean(hasBank) } : {}),
