@@ -215,7 +215,12 @@ export function summaryTableNeedsTemplatePopulate() {
     }
   });
 
-  return dataRows > 0 && populatedRows === 0;
+  if (dataRows > 0 && populatedRows === 0) {
+    // No Maintenance templates for this process — empty account/formula is expected.
+    if (window.currentProcessHadTemplates === false) return false;
+    return true;
+  }
+  return false;
 }
 
 export async function waitForSummaryPopulateIdle(timeoutMs = 5000) {
