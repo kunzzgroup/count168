@@ -184,7 +184,7 @@ try {
     }
 
     //$today = date('Y-m-d');
-    $today = '2026-07-01';
+    $today = '2026-07-08';
 
     $inserted = 0;
     $processIdsForPrune = [];
