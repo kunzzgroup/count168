@@ -75,10 +75,12 @@
   white-space: pre-line;
 }
 
-.confirm-delete-modal-actions {
+.confirm-delete-modal-actions,
+.confirm-delete-modal-content .confirm-actions,
+.domain-confirm-modal-content .confirm-actions {
   margin-top: clamp(18px, 1.67vw, 32px);
   padding: clamp(24px, 2.6vw, 40px) 0;
-  background: transparent;
+  background: transparent !important;
 }
 
 /* Non-delete confirm (e.g. Reject) — slate action button */
