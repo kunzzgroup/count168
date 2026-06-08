@@ -41,6 +41,8 @@ export const DASHBOARD_GROUP_FILTER_OPT_OUT_KEY = "dashboard_group_filter_opt_ou
 export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
 /** Set to "1" when Company row "All" aggregates subsidiaries in the current group scope. */
 export const DASHBOARD_GROUP_ALL_MODE_KEY = "dashboard_group_all_mode";
+/** Set to "1" when Group row "All" is active (every group — never sent as group_id). */
+export const DASHBOARD_GROUPS_ALL_MODE_KEY = "dashboard_groups_all_mode";
 /** Last explicitly selected company id (SPA navigation; overrides stale PHP session when set). */
 export const DASHBOARD_SELECTED_COMPANY_KEY = "dashboard_selected_company_id";
 /** Cross-page currency pill / dropdown selection (scoped by company or group). */
@@ -60,6 +62,8 @@ export function clearDashboardFilterSession() {
   sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
   sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
   sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
+  sessionStorage.removeItem(DASHBOARD_GROUP_ALL_MODE_KEY);
+  sessionStorage.removeItem(DASHBOARD_GROUPS_ALL_MODE_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
@@ -312,6 +316,15 @@ export function persistDashboardGroupAllMode(groupAll) {
   else sessionStorage.removeItem(DASHBOARD_GROUP_ALL_MODE_KEY);
 }
 
+export function isDashboardGroupsAllMode() {
+  return sessionStorage.getItem(DASHBOARD_GROUPS_ALL_MODE_KEY) === "1";
+}
+
+export function persistDashboardGroupsAllMode(groupsAll) {
+  if (groupsAll) sessionStorage.setItem(DASHBOARD_GROUPS_ALL_MODE_KEY, "1");
+  else sessionStorage.removeItem(DASHBOARD_GROUPS_ALL_MODE_KEY);
+}
+
 export function persistDashboardSelectedCompany(companyId) {
   if (companyId == null || companyId === "" || !Number.isFinite(Number(companyId))) {
     sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
@@ -334,11 +347,13 @@ export function readPersistedDashboardGcFilter() {
   const savedCompanyId = readDashboardSelectedCompanyId();
   const groupOnly = isDashboardGroupOnlyMode() && savedCompanyId == null;
   const groupAllMode = isDashboardGroupAllMode() && savedCompanyId == null && !groupOnly;
+  const groupsAllMode = isDashboardGroupsAllMode() && !groupOnly;
   return {
-    selectedGroup,
+    selectedGroup: groupsAllMode ? null : selectedGroup,
     companyId: groupOnly || groupAllMode ? null : savedCompanyId,
     groupOnly,
     groupAllMode,
+    groupsAllMode,
   };
 }
 
@@ -473,7 +488,10 @@ export function persistDashboardFilterState(selectedGroup, companyId, options = 
   const allowGroupOnly = options.allowGroupOnly !== false;
   const companyAllMode = options.companyAllMode === true;
 
-  if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
+  if (selectedGroup) {
+    persistDashboardGroupFilter(selectedGroup);
+    persistDashboardGroupsAllMode(false);
+  }
 
   if (noCompany) {
     if (companyAllMode) {
@@ -493,6 +511,11 @@ export function persistDashboardFilterState(selectedGroup, companyId, options = 
 
   persistDashboardGroupOnlyMode(false);
   persistDashboardGroupAllMode(false);
+  if (options.groupsAllMode === true) {
+    persistDashboardGroupsAllMode(true);
+  } else if (options.groupsAllMode === false || selectedGroup) {
+    persistDashboardGroupsAllMode(false);
+  }
   persistDashboardSelectedCompany(companyId);
 }
 
