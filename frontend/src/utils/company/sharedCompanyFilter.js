@@ -859,11 +859,8 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
   const groupAllMode =
     Boolean(persistedFilter.groupAllMode) && cid == null && !groupOnly;
   if (groupOnly && value) {
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: false });
-    if (groupFlags) {
-      if (hasGambling == null) hasGambling = groupFlags.hasGambling;
-      hasBank = false;
-    }
+    // Group-only: keep login-scope gambling flags on sidebar; only bank is cleared.
+    hasBank = false;
   } else if (groupAllMode && value) {
     const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: true });
     if (groupFlags) {
@@ -911,10 +908,12 @@ export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, ex
   if (g) {
     const persisted = readPersistedDashboardGcFilter();
     const includeBank = Boolean(persisted.groupAllMode) && !persisted.groupOnly;
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(g, { includeBank });
-    if (groupFlags) {
-      opts.hasGambling = groupFlags.hasGambling;
-      opts.hasBank = groupFlags.hasBank;
+    if (!persisted.groupOnly) {
+      const groupFlags = resolveGroupCategoryFlagsForSidebar(g, { includeBank });
+      if (groupFlags) {
+        opts.hasGambling = groupFlags.hasGambling;
+        opts.hasBank = groupFlags.hasBank;
+      }
     }
     opts.expirationDate =
       resolveSidebarExpirationForFilter({ selectedGroup: g, companyId: null }) ?? null;
@@ -963,10 +962,8 @@ export function buildDashboardFilterEventDetailFromPersisted() {
   let hasGambling = notifyOpts.hasGambling ?? cachedFlags?.has_gambling;
   let hasBank = notifyOpts.hasBank ?? cachedFlags?.has_bank;
   const groupAllMode = isDashboardGroupAllMode() && effectiveCid == null && !groupOnly;
-  if ((groupOnly || groupAllMode) && value) {
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, {
-      includeBank: groupAllMode,
-    });
+  if (groupAllMode && value) {
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: true });
     if (groupFlags) {
       if (hasGambling == null) hasGambling = groupFlags.hasGambling;
       if (hasBank == null) hasBank = groupFlags.hasBank;

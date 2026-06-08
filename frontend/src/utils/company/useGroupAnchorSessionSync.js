@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { syncCompanySessionApi } from "./companySessionSync.js";
 import {
+  buildDashboardSidebarNotifyOptions,
   companyRowIsGroupEntity,
   dashboardGcFiltersEqual,
   notifyDashboardGroupFilterChanged,
@@ -129,10 +130,11 @@ export function useGroupAnchorSessionSync({
       if (json?.success) {
         ref.current = { group: g, companyId: anchorId };
         const data = json.data ?? {};
-        notifyDashboardGroupFilterChanged(g, null, {
-          hasGambling: data.has_gambling,
-          hasBank: data.has_bank,
-        });
+        notifyDashboardGroupFilterChanged(
+          g,
+          null,
+          buildDashboardSidebarNotifyOptions(null, g),
+        );
         if (notifyOnSync) {
           notifyCompanySessionUpdated(data);
         }

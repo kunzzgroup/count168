@@ -6432,7 +6432,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 #confirmBankResendModal .bank-resend-control {
     width: 100%;
     box-sizing: border-box;
-    min-height: 56px;
+    min-height: 48px;
     padding: 13px 16px;
     font-size: 1.4125rem;
     font-family: inherit;
@@ -6494,7 +6494,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
     font-size: clamp(1.25rem, 2.4vw, 1.65rem) !important;
     padding: 0.85rem 1.5rem !important;
-    min-height: 45px !important;
+    min-height: 35px !important;
 }
 
 /* Scrollbars: app-wide — dashboard-scrollbar.css */
