@@ -588,7 +588,7 @@ export default function DomainFormModal({
               <section className="dfm-section-block">
                 <div className="dfm-section-heading">{t("domainInformation")}</div>
                 <div className="dfm-section-divider h-[2.5px] w-full bg-blue-900" />
-                <div className="dfm-domain-grid">
+                <div className={`dfm-domain-grid${showSecondaryPwd ? "" : " dfm-domain-grid--no-secondary"}`}>
                     <div className="dfm-field dfm-field--owner-code">
                       <label htmlFor="df_owner_code">{t("ownerCode")} *</label>
                       <input
@@ -606,16 +606,7 @@ export default function DomainFormModal({
                         onChange={(e) => setName(forceUppercaseValue(e.target.value))}
                       />
                     </div>
-                    <div className="dfm-field dfm-field--password">
-                      <label htmlFor="df_password">{t("password")} {!isEditMode && "*"}</label>
-                      <input
-                        type="password" id="df_password" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                        required={!isEditMode}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </div>
-                    <div className={`dfm-field dfm-field--email${showSecondaryPwd ? "" : " dfm-field--email-full"}`}>
+                    <div className="dfm-field dfm-field--email">
                       <label htmlFor="df_email">{t("email")} *</label>
                       <input
                         type="text"
@@ -627,6 +618,15 @@ export default function DomainFormModal({
                         className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
                         value={email}
                         onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
+                      />
+                    </div>
+                    <div className="dfm-field dfm-field--password">
+                      <label htmlFor="df_password">{t("password")} {!isEditMode && "*"}</label>
+                      <input
+                        type="password" id="df_password" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                        required={!isEditMode}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                       />
                     </div>
                     {showSecondaryPwd && (
