@@ -2203,49 +2203,50 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     max-width: min(1120px, 96vw);
 }
 
+/* 与 EDIT DOMAIN dfm-header 一致：整行背景含关闭按钮，勿用 .modal-content h2 单独铺底 */
+.company-settings-react-modal .company-settings-modal-header {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
+    background-color: var(--color-surface-subtle);
+    border-bottom: 1px solid var(--color-border-slate);
+}
+
+.company-settings-react-modal .company-settings-modal-header h2 {
+    margin: 0;
+    padding: 0;
+    width: auto;
+    background: transparent;
+    border: none;
+    font-size: var(--domain-fluid-14-125-24);
+    font-weight: bold;
+    color: var(--color-ink-muted);
+}
+
 .company-settings-modal-body {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    padding: clamp(8px, 0.78vw, 14px) clamp(16px, 1.35vw, 28px) clamp(12px, 1vw, 20px);
+    padding: 0 clamp(16px, 1.35vw, 28px) clamp(12px, 1vw, 20px);
     gap: 0;
     min-height: 0;
-}
-
-.company-settings-react-modal .company-settings-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 0 !important;
-    padding: 12px clamp(16px, 1.35vw, 28px) !important;
-    background-color: var(--color-surface) !important;
-    border-bottom: 1px solid var(--color-border-slate) !important;
-}
-
-.company-settings-react-modal .company-settings-modal-header h2 {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-family: var(--font-heading-page) !important;
-    font-size: var(--text-medium) !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.04em !important;
-    line-height: 1.35 !important;
-    color: var(--color-body-strong) !important;
-    text-transform: uppercase !important;
 }
 
 .company-settings-split {
     display: flex;
     flex-direction: row;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 0;
-    min-height: min(48vh, 400px);
+    min-height: 0;
 }
 
 .company-settings-split-left {
     flex: 1 1 46%;
     min-width: 0;
     padding-right: clamp(14px, 1.25vw, 22px);
+    display: flex;
+    flex-direction: column;
 }
 
 .company-settings-split-right {
@@ -2256,7 +2257,37 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     flex-direction: column;
 }
 
-.company-settings-empty-hint {
+.company-settings-split-panel {
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(10px, 0.94vw, 14px);
+    border: 1px solid var(--color-border-slate);
+    border-radius: 12px;
+    background-color: var(--color-surface-muted);
+}
+
+.company-settings-split-panel--general {
+    flex: 0 1 auto;
+    align-self: flex-start;
+    width: 100%;
+}
+
+.company-settings-split-panel--share {
+    min-height: min(48vh, 400px);
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.company-settings-split-panel--share .company-share-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+
+.company-settings-split-panel-empty-hint {
     display: block;
     margin-top: 8px;
     color: var(--color-text-caption);
@@ -2739,6 +2770,10 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     color: var(--color-text-placeholder);
 }
 
+.company-settings-react-modal .company-settings-permissions-block {
+    margin-top: clamp(10px, 0.94vw, 14px);
+}
+
 .company-settings-react-modal .company-settings-start-hint {
     display: block;
     margin: 4px 0 0 0;
@@ -2831,6 +2866,10 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     max-height: min(58vh, 520px);
 }
 
+.company-settings-split-right .company-settings-split-panel--share .company-share-scroll {
+    max-height: none;
+}
+
 @media (max-width: 800px) {
     .company-settings-split {
         flex-direction: column;
@@ -2852,7 +2891,19 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
         background: linear-gradient(90deg, transparent 0%, var(--account-select-card-border) 8%, var(--color-text-placeholder) 50%, var(--account-select-card-border) 92%, transparent 100%);
     }
 
+    .company-settings-split-panel--general {
+        align-self: stretch;
+    }
+
     .company-settings-split-right .company-share-scroll {
+        max-height: min(45vh, 380px);
+    }
+
+    .company-settings-split-panel {
+        min-height: 0;
+    }
+
+    .company-settings-split-right .company-settings-split-panel--share .company-share-scroll {
         max-height: min(45vh, 380px);
     }
 }
