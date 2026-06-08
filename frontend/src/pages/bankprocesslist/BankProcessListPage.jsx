@@ -168,6 +168,7 @@ export default function BankProcessListPage() {
     currencyFilterCode,
     setCurrencyFilterCode,
     handlePickCurrency,
+    handlePickAllCurrencies,
     currencyPillDisplayOrder,
     setCurrencyPillDisplayOrder,
     skipNextCurrencyPillClickRef,
@@ -520,7 +521,7 @@ export default function BankProcessListPage() {
                     <button
                       type="button"
                       className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
-                      onClick={() => setCurrencyFilterCode("")}
+                      onClick={handlePickAllCurrencies}
                     >
                       {t("groupFilterAll")}
                     </button>

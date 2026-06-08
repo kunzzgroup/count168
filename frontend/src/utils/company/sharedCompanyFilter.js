@@ -108,6 +108,16 @@ export function persistDashboardSelectedCurrency(scopeKey, code) {
   }
 }
 
+/** Clear cross-page currency pill selection (e.g. user picked ALL currencies). */
+export function clearDashboardSelectedCurrency() {
+  try {
+    sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
+    sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Last cross-page currency (global; not scoped to a single company). */
 export function readDashboardSelectedCurrency(scopeKey, options = {}) {
   const allowed = normalizeCurrencyCodeList(options.availableCodes);

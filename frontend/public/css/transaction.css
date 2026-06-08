@@ -1494,7 +1494,7 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
 }
 
 .transaction-page .transaction-amount--pos {
-    color: #1e4a9e;
+    color: #172a9f;
 }
 
 .transaction-page .transaction-amount--neg {
@@ -1504,7 +1504,7 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
 /* Payment History modal (portaled to body): same signed amount colors as main grid */
 body.transaction-page #historyModal .transaction-amount--pos,
 .transaction-page #historyModal .transaction-amount--pos {
-    color: #1e4a9e;
+    color: #172a9f;
 }
 
 body.transaction-page #historyModal .transaction-amount--neg,
