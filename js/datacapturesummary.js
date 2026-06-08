@@ -3567,11 +3567,24 @@ function getOrderedRoles(includeStaff = true) {
         normalizedMap.set('STAFF', 'STAFF');
     }
 
+    // 确保 PARTNER 始终作为一个可选项，即使数据库中目前没有这个角色的账户
+    if (!normalizedMap.has('PARTNER')) {
+        normalizedMap.set('PARTNER', 'PARTNER');
+    }
+
+    if (!normalizedMap.has('DEBTOR')) {
+        normalizedMap.set('DEBTOR', 'DEBTOR');
+    }
+
     const orderedRoles = [];
     ROLE_PRIORITY.forEach(role => {
         if (normalizedMap.has(role)) {
             orderedRoles.push(normalizedMap.get(role));
             normalizedMap.delete(role);
+        } else if (role === 'SUPPLIER' && normalizedMap.has('UPLINE')) {
+            // 兼容性映射：将数据库里的 UPLINE 数据放入 SUPPLIER 的排序位置
+            orderedRoles.push(normalizedMap.get('UPLINE'));
+            normalizedMap.delete('UPLINE');
         }
     });
 
@@ -3588,7 +3601,8 @@ function populateRoleSelect(selectElement, selectedRole = '', includeStaff = tru
     orderedRoles.forEach(role => {
         const option = document.createElement('option');
         option.value = role;
-        option.textContent = role;
+        // 将 UPLINE 显示为 SUPPLIER
+        option.textContent = (role.toUpperCase() === 'UPLINE') ? 'SUPPLIER' : role;
         if (selectedUpper && role.toUpperCase() === selectedUpper) {
             option.selected = true;
         }
@@ -3598,7 +3612,8 @@ function populateRoleSelect(selectElement, selectedRole = '', includeStaff = tru
     if (selectedUpper && !orderedRoles.some(role => role.toUpperCase() === selectedUpper)) {
         const fallbackOption = document.createElement('option');
         fallbackOption.value = selectedRole;
-        fallbackOption.textContent = selectedRole;
+        // 将 UPLINE 显示为 SUPPLIER
+        fallbackOption.textContent = (selectedRole.toUpperCase() === 'UPLINE') ? 'SUPPLIER' : selectedRole;
         fallbackOption.selected = true;
         selectElement.appendChild(fallbackOption);
     }
