@@ -1955,7 +1955,7 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
-                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? AND ABS($crdrToPeriodInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_txn_count
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
                 FROM transactions t
                 WHERE {$search_txn_where}
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
@@ -1995,7 +1995,7 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
-                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? AND ABS($crdrFromPeriodInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_txn_count
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
                 FROM transactions t
                 WHERE {$search_txn_where} AND t.from_account_id IS NOT NULL
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
@@ -3328,13 +3328,13 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
 
         $entry = $bulk['entry'][$account_id][$currency_id] ?? ['cr_dr' => '0', 'cr_dr_count' => 0, 'cr_dr_rows_period' => 0];
         $cr_dr = money_add($cr_dr, $entry['cr_dr'], 8); // RATE 分录金额仍纳入 cr_dr 计算（影响 Cr/Dr 列显示）
-        // Show Payment Only：本期若有换汇 Cr/Dr 分录（RATE_*，不含 RATE_MIDDLEMAN），含金额为 0 仍视为有流水。
+        // Show Payment Only：本期若有 PAYMENT/RECEIVE/… 或换汇 Cr/Dr 分录（RATE_*），金额为 0 仍视为有流水。
 
         $cr_dr_disp = trunc2($cr_dr);
         $rateCrDrRows = (int) ($entry['cr_dr_rows_period'] ?? 0);
         return [
             'value' => $cr_dr_disp,
-            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr_disp) || $rateCrDrRows > 0,
+            'has_transactions' => $payment_txn_count > 0 || $rateCrDrRows > 0 || searchMoneyNonZero($cr_dr_disp),
         ];
     }
 

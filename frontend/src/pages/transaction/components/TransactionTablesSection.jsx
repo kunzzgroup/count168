@@ -1,4 +1,4 @@
-import { formatTransactionGridMoneyHalfUp, toUpperDisplay } from "../lib/transactionFormat.js";
+import { toUpperDisplay } from "../lib/transactionFormat.js";
 import TransactionWinLossCell from "./TransactionWinLossCell.jsx";
 
 export default function TransactionTablesSection({
@@ -65,7 +65,7 @@ export default function TransactionTablesSection({
                         <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
                         <td><TransactionWinLossCell value={row.bf} /></td>
                         <td><TransactionWinLossCell value={row.win_loss} /></td>
-                        <td>{formatTransactionGridMoneyHalfUp(row.cr_dr)}</td>
+                        <td><TransactionWinLossCell value={row.cr_dr} /></td>
                         <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, "left")}><TransactionWinLossCell value={row.balance} /></td>
                       </tr>
                     );
@@ -77,7 +77,7 @@ export default function TransactionTablesSection({
                     <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
                     <td id="left_total_bf"><TransactionWinLossCell value={tp.totalsLeft?.bf ?? "0"} /></td>
                     <td id="left_total_winloss"><TransactionWinLossCell value={tp.totalsLeft?.win_loss ?? "0"} /></td>
-                    <td id="left_total_crdr">{formatTransactionGridMoneyHalfUp(tp.totalsLeft?.cr_dr ?? "0")}</td>
+                    <td id="left_total_crdr"><TransactionWinLossCell value={tp.totalsLeft?.cr_dr ?? "0"} /></td>
                     <td id="left_total_balance"><TransactionWinLossCell value={tp.totalsLeft?.balance ?? "0"} /></td>
                   </tr>
                 </tfoot>
@@ -102,7 +102,7 @@ export default function TransactionTablesSection({
                         <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
                         <td><TransactionWinLossCell value={row.bf} /></td>
                         <td><TransactionWinLossCell value={row.win_loss} /></td>
-                        <td>{formatTransactionGridMoneyHalfUp(row.cr_dr)}</td>
+                        <td><TransactionWinLossCell value={row.cr_dr} /></td>
                         <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, "right")}><TransactionWinLossCell value={row.balance} /></td>
                       </tr>
                     );
@@ -114,7 +114,7 @@ export default function TransactionTablesSection({
                     <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
                     <td id="right_total_bf"><TransactionWinLossCell value={tp.totalsRight?.bf ?? "0"} /></td>
                     <td id="right_total_winloss"><TransactionWinLossCell value={tp.totalsRight?.win_loss ?? "0"} /></td>
-                    <td id="right_total_crdr">{formatTransactionGridMoneyHalfUp(tp.totalsRight?.cr_dr ?? "0")}</td>
+                    <td id="right_total_crdr"><TransactionWinLossCell value={tp.totalsRight?.cr_dr ?? "0"} /></td>
                     <td id="right_total_balance"><TransactionWinLossCell value={tp.totalsRight?.balance ?? "0"} /></td>
                   </tr>
                 </tfoot>
@@ -160,7 +160,7 @@ export default function TransactionTablesSection({
                               <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }}>{toUpperDisplay(row.account_name)}</td>
                               <td><TransactionWinLossCell value={row.bf} /></td>
                               <td><TransactionWinLossCell value={row.win_loss} /></td>
-                              <td>{formatTransactionGridMoneyHalfUp(row.cr_dr)}</td>
+                              <td><TransactionWinLossCell value={row.cr_dr} /></td>
                               <td className="transaction-balance-cell" style={{ cursor: "pointer" }} onClick={() => handleBalanceCellClick(row, side.isLeft ? "left" : "right")}><TransactionWinLossCell value={row.balance} /></td>
                             </tr>
                           );
@@ -172,7 +172,7 @@ export default function TransactionTablesSection({
                           <td className="transaction-name-column" style={{ display: searchState.showName ? "" : "none" }} />
                           <td><TransactionWinLossCell value={side.totals?.bf ?? "0"} /></td>
                           <td><TransactionWinLossCell value={side.totals?.win_loss ?? "0"} /></td>
-                          <td>{formatTransactionGridMoneyHalfUp(side.totals?.cr_dr ?? "0")}</td>
+                          <td><TransactionWinLossCell value={side.totals?.cr_dr ?? "0"} /></td>
                           <td><TransactionWinLossCell value={side.totals?.balance ?? "0"} /></td>
                         </tr>
                       </tfoot>
@@ -186,7 +186,7 @@ export default function TransactionTablesSection({
                   <tbody>
                     <tr className="transaction-table-row"><td className="transaction-summary-label">{m.bfTable}</td><td><TransactionWinLossCell value={g.totalsSummary?.bf ?? "0"} /></td></tr>
                     <tr className="transaction-table-row"><td className="transaction-summary-label">{m.winLossTable}</td><td><TransactionWinLossCell value={g.totalsSummary?.win_loss ?? "0"} /></td></tr>
-                    <tr className="transaction-table-row"><td className="transaction-summary-label">{m.crDrTable}</td><td>{formatTransactionGridMoneyHalfUp(g.totalsSummary?.cr_dr ?? "0")}</td></tr>
+                    <tr className="transaction-table-row"><td className="transaction-summary-label">{m.crDrTable}</td><td><TransactionWinLossCell value={g.totalsSummary?.cr_dr ?? "0"} /></td></tr>
                     <tr className="transaction-table-row"><td className="transaction-summary-label">{m.balanceTable}</td><td><TransactionWinLossCell value={g.totalsSummary?.balance ?? "0"} /></td></tr>
                   </tbody>
                 </table>
@@ -201,7 +201,7 @@ export default function TransactionTablesSection({
           <tbody>
             <tr className="transaction-table-row"><td className="transaction-summary-label">{m.bfTable}</td><td id="sum_total_bf"><TransactionWinLossCell value={tp.totalsSummary?.bf ?? "0"} /></td></tr>
             <tr className="transaction-table-row"><td className="transaction-summary-label">{m.winLossTable}</td><td id="sum_total_winloss"><TransactionWinLossCell value={tp.totalsSummary?.win_loss ?? "0"} /></td></tr>
-            <tr className="transaction-table-row"><td className="transaction-summary-label">{m.crDrTable}</td><td id="sum_total_crdr">{formatTransactionGridMoneyHalfUp(tp.totalsSummary?.cr_dr ?? "0")}</td></tr>
+            <tr className="transaction-table-row"><td className="transaction-summary-label">{m.crDrTable}</td><td id="sum_total_crdr"><TransactionWinLossCell value={tp.totalsSummary?.cr_dr ?? "0"} /></td></tr>
             <tr className="transaction-table-row"><td className="transaction-summary-label">{m.balanceTable}</td><td id="sum_total_balance"><TransactionWinLossCell value={tp.totalsSummary?.balance ?? "0"} /></td></tr>
           </tbody>
         </table>
