@@ -339,17 +339,15 @@ export default function AuthenticatedLayout() {
           has_gambling: json.data.company_has_gambling,
           has_bank: json.data.company_has_bank,
         });
+        let appliedSessionToSidebar = false;
         setMe((prev) => {
           if (!prev) return json.data;
           if (shouldApplySessionToSidebar(json.data, filterNow)) {
+            appliedSessionToSidebar = true;
             if (filterNow.groupOnly && filterNow.selectedGroup) {
-              const groupFlags = resolveGroupCategoryFlagsForSidebar(filterNow.selectedGroup, {
-                includeBank: false,
-              });
               return patchMeFromCompanyContext(json.data, {
                 companyId: null,
                 companyCode: filterNow.selectedGroup,
-                hasGambling: groupFlags?.hasGambling ?? json.data.company_has_gambling,
                 hasBank: false,
                 expirationDate: resolveSidebarExpirationForFilter({
                   selectedGroup: filterNow.selectedGroup,
@@ -367,7 +365,9 @@ export default function AuthenticatedLayout() {
             days_until_expiration: json.data.days_until_expiration,
           };
         });
-        setSidebarGcTick((n) => n + 1);
+        if (appliedSessionToSidebar) {
+          setSidebarGcTick((n) => n + 1);
+        }
         return json.data;
       }
     } catch {
@@ -421,21 +421,20 @@ export default function AuthenticatedLayout() {
       lastSidebarFilterSigRef.current = sig;
 
       const cid = resolved.companyId;
-      const skipRefresh = options.skipSessionRefresh === true;
+      const skipRefresh = options.skipSessionRefresh === true || resolved.groupOnly;
       if (cid == null) {
         const patch = { companyId: null, companyCode: resolved.companyCode ?? "" };
         const includeBank = Boolean(resolved.groupAllMode) && !resolved.groupOnly;
         const groupFlags = resolved.selectedGroup
           ? resolveGroupCategoryFlagsForSidebar(resolved.selectedGroup, { includeBank })
           : null;
-        if (resolved.hasGambling != null) patch.hasGambling = Boolean(resolved.hasGambling);
-        else if (groupFlags) patch.hasGambling = groupFlags.hasGambling;
         if (resolved.groupOnly) {
           patch.hasBank = false;
-        } else if (resolved.hasBank != null) {
-          patch.hasBank = Boolean(resolved.hasBank);
-        } else if (groupFlags) {
-          patch.hasBank = groupFlags.hasBank;
+        } else {
+          if (resolved.hasGambling != null) patch.hasGambling = Boolean(resolved.hasGambling);
+          else if (groupFlags) patch.hasGambling = groupFlags.hasGambling;
+          if (resolved.hasBank != null) patch.hasBank = Boolean(resolved.hasBank);
+          else if (groupFlags) patch.hasBank = groupFlags.hasBank;
         }
         const expirationDate = resolveSidebarExpirationForFilter(resolved);
         patch.expirationDate = expirationDate !== undefined ? expirationDate : null;
@@ -505,29 +504,18 @@ export default function AuthenticatedLayout() {
       const filter = readPersistedDashboardGcFilter();
 
       if (filter.groupOnly && filter.selectedGroup) {
-        const groupOnlyExp = resolveSidebarExpirationForFilter({
-          selectedGroup: filter.selectedGroup,
-          companyId: null,
-        });
-        const groupFlags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup);
         if (data && typeof data === "object" && shouldApplySessionToSidebar(data, filter)) {
+          const groupOnlyExp = resolveSidebarExpirationForFilter({
+            selectedGroup: filter.selectedGroup,
+            companyId: null,
+          });
           applySidebarPatch({
             companyId: null,
             companyCode: filter.selectedGroup,
-            hasGambling: data.has_gambling,
             hasBank: false,
             ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
           });
-        } else {
-          applySidebarPatch({
-            companyId: null,
-            ...(groupFlags
-              ? { hasGambling: groupFlags.hasGambling, hasBank: false }
-              : {}),
-            ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
-          });
         }
-        scheduleRefreshSession();
         return;
       }
 
