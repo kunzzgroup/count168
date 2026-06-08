@@ -10,6 +10,8 @@
   --confirm-delete-btn-font-size: clamp(10px, 0.83vw, 16px);
   --confirm-delete-btn-radius: 6px;
   --confirm-delete-actions-gap: 12px;
+  --confirm-delete-actions-padding: 24px clamp(25px, 2.08vw, 40px);
+  --confirm-delete-actions-margin-top: clamp(12px, 1.67vw, 18px);
 }
 
 .confirm-delete-modal-overlay {
@@ -77,9 +79,10 @@
 
 .confirm-delete-modal-actions,
 .confirm-delete-modal-content .confirm-actions,
-.domain-confirm-modal-content .confirm-actions {
-  margin-top: clamp(18px, 1.67vw, 32px);
-  padding: clamp(24px, 2.6vw, 40px) 0;
+.domain-confirm-modal-content .confirm-actions,
+#confirmDeleteModal .confirm-actions {
+  margin-top: var(--confirm-delete-actions-margin-top) !important;
+  padding: var(--confirm-delete-actions-padding) !important;
   background: transparent !important;
 }
 

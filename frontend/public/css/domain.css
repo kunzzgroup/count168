@@ -4766,10 +4766,10 @@ body.domain-page .domain-confirm-modal-content .confirm-message {
 }
 
 body.domain-page .domain-confirm-modal-content .confirm-actions {
-    margin-top: clamp(18px, 1.67vw, 32px)!important;
+    margin-top: clamp(12px, 1.67vw, 18px) !important;
     display: flex !important;
     justify-content: center !important;
-    padding: 39.93px 0 !important;
+    padding: 24px clamp(25px, 2.08vw, 40px) !important;
     background: transparent !important;
 }
 
