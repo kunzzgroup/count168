@@ -401,7 +401,7 @@ function gc_assert_api_company_access(PDO $pdo, int $companyId, ?string $viewGro
     throw new RuntimeException('无权限访问该公司');
 }
 
-/** Block company-login callers from group-only APIs unless owner/admin or admin-assigned group ledger. */
+/** Block company-login callers from group-only APIs unless owner or user_group_map assignment. */
 function gc_assert_group_only_operation_allowed(): void
 {
     if (gc_is_group_login()) {
@@ -416,7 +416,7 @@ function gc_assert_group_only_operation_allowed(): void
     throw new RuntimeException('Group-only operation is not allowed for company login');
 }
 
-/** Company login: owner / admin may use group ledger without user_group_map. */
+/** Company login: owner may use group ledger without user_group_map. */
 function gc_session_company_login_has_group_ledger_privilege(): bool
 {
     if (!gc_is_company_login()) {
@@ -425,7 +425,7 @@ function gc_session_company_login_has_group_ledger_privilege(): bool
     $role = strtolower(trim((string) ($_SESSION['role'] ?? '')));
     $userType = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
 
-    return $role === 'admin' || $role === 'owner' || $userType === 'owner';
+    return $role === 'owner' || $userType === 'owner';
 }
 
 /** Numeric company ids allowed for aggregation under current scope. */
@@ -568,7 +568,7 @@ function gc_user_assigned_to_group_code(PDO $pdo, int $userId, string $groupCode
 }
 
 /**
- * Group ledger (group_only APIs): group login, owner, or admin-assigned group tenant.
+ * Group ledger (group_only APIs): group login, owner, or user_group_map assignment.
  */
 function gc_session_can_access_group_ledger(PDO $pdo, string $groupCode): bool
 {
@@ -642,7 +642,7 @@ function gc_assert_group_ledger_access(PDO $pdo, string $groupCode): void
     }
 }
 
-/** Whether session may enter group ledger at all (group login, owner/admin, or admin-assigned groups). */
+/** Whether session may enter group ledger at all (group login, owner, or user_group_map assignment). */
 function gc_session_can_use_group_ledger(): bool
 {
     if (gc_is_group_login()) {

@@ -203,12 +203,12 @@ export function userHasAssignedGroupLedger(me) {
   return getAssignedGroupCodes(me).length > 0;
 }
 
-/** Company login: owner / admin may enter group-only without user_group_map (manage all groups they can see). */
+/** Company login: owner may enter group-only without user_group_map (manage all groups they can see). */
 export function companyLoginHasGroupLedgerPrivilege(me) {
   if (!isCompanyLogin(me)) return false;
   const role = String(me?.role || "").trim().toLowerCase();
   const userType = String(me?.user_type || "").trim().toLowerCase();
-  return role === "admin" || role === "owner" || userType === "owner";
+  return role === "owner" || userType === "owner";
 }
 
 function resolveCompanyLoginAccessibleGroupSet(me, companies = []) {
@@ -229,8 +229,8 @@ export function userCanUseGroupLedger(me) {
 /**
  * Permission: may this user access group ledger for a specific group code?
  * - Group login: login scope + linked groups
- * - Company login owner/admin: any accessible group pill (session accessible_group_ids)
- * - Company login others: Admin User modal Groups row (assigned_group_codes)
+ * - Company login owner: any accessible group pill (session accessible_group_ids)
+ * - Company login admin/others: Admin User modal Groups row (assigned_group_codes)
  */
 export function canAccessGroupLedgerForGroup(me, groupCode, companies = []) {
   if (!me || groupCode == null || String(groupCode).trim() === "") return false;

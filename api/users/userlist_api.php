@@ -380,7 +380,7 @@ function userlist_assert_group_id_allowed(string $groupId): void
     }
 
     $role = isset($_SESSION['role']) ? strtolower(trim((string) $_SESSION['role'])) : '';
-    if ($role === 'owner' || $role === 'admin') {
+    if ($role === 'owner') {
         $accessible = gc_session_accessible_group_ids();
         if ($accessible === [] || in_array($g, $accessible, true)) {
             return;
