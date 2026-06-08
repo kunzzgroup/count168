@@ -100,6 +100,58 @@ export function useGroupEarnings(shell) {
     };
   }, [activeTab, selectedMonth, isHistoricalView, geGroups, lang, setHistoryBanner, showToast]);
 
+  const loadGroupState = useCallback(
+    async (gid, { force = false } = {}) => {
+      if (!force) {
+        let cached = null;
+        setGeStates((prev) => {
+          if (prev[gid]) cached = prev[gid];
+          return prev;
+        });
+        if (cached) return cached;
+      }
+
+      setGeLoadingGid(gid);
+      try {
+        const ownersUrl = isHistoricalView
+          ? `api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(gid)}&month=${encodeURIComponent(selectedMonth)}`
+          : `api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(gid)}`;
+        const [aRes, oRes] = await Promise.all([
+          fetch(
+            buildApiUrl(
+              `api/ownership/get_group_available_accounts_api.php?group_id=${encodeURIComponent(gid)}`,
+            ),
+            { credentials: "include" },
+          ).then((r) => r.json()),
+          fetch(buildApiUrl(ownersUrl), { credentials: "include" }).then((r) => r.json()),
+        ]);
+        const meta = oRes.meta || {};
+        if (isHistoricalView) {
+          setHistoryBanner({
+            empty: meta.has_snapshot === false,
+            savedAt: formatOwnershipSavedAt(meta.saved_at, lang),
+          });
+        } else {
+          setHistoryBanner(null);
+        }
+        const rows = mapOwnerApiRows(oRes.status === "success" ? oRes.data : []);
+        const stateAccounts = isHistoricalView ? accountsFromOwnerRows(rows) : (aRes.status === "success" ? aRes.data : []);
+        const nextState = { accounts: stateAccounts, rows };
+        setGeStates((prev) => ({
+          ...prev,
+          [gid]: nextState,
+        }));
+        return nextState;
+      } catch {
+        showToast("Error loading group data", "error");
+        return null;
+      } finally {
+        setGeLoadingGid(null);
+      }
+    },
+    [isHistoricalView, selectedMonth, setHistoryBanner, lang, showToast],
+  );
+
   const geToggle = useCallback(
     async (gid) => {
       if (geExpanded === gid) {
@@ -108,47 +160,9 @@ export function useGroupEarnings(shell) {
         return;
       }
       setGeExpanded(gid);
-      if (!geStates[gid]) {
-        setGeLoadingGid(gid);
-        try {
-          const ownersUrl = isHistoricalView
-            ? `api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(gid)}&month=${encodeURIComponent(selectedMonth)}`
-            : `api/ownership/get_group_owners_api.php?group_id=${encodeURIComponent(gid)}`;
-          const [aRes, oRes] = await Promise.all([
-            fetch(
-              buildApiUrl(
-                `api/ownership/get_group_available_accounts_api.php?group_id=${encodeURIComponent(gid)}`,
-              ),
-              { credentials: "include" },
-            ).then((r) => r.json()),
-            fetch(buildApiUrl(ownersUrl), { credentials: "include" }).then((r) => r.json()),
-          ]);
-          const meta = oRes.meta || {};
-          if (isHistoricalView) {
-            setHistoryBanner({
-              empty: meta.has_snapshot === false,
-              savedAt: formatOwnershipSavedAt(meta.saved_at, lang),
-            });
-          } else {
-            setHistoryBanner(null);
-          }
-          const rows = mapOwnerApiRows(oRes.status === "success" ? oRes.data : []);
-          const stateAccounts = isHistoricalView ? accountsFromOwnerRows(rows) : (aRes.status === "success" ? aRes.data : []);
-          setGeStates((prev) => ({
-            ...prev,
-            [gid]: {
-              accounts: stateAccounts,
-              rows,
-            },
-          }));
-        } catch {
-          showToast("Error loading group data", "error");
-        } finally {
-          setGeLoadingGid(null);
-        }
-      }
+      await loadGroupState(gid);
     },
-    [geExpanded, geStates, showToast, isHistoricalView, selectedMonth, setHistoryBanner, lang],
+    [geExpanded, loadGroupState, setHistoryBanner],
   );
 
   const geUpdateRow = useCallback((gid, idx, field, val) => {
@@ -254,11 +268,7 @@ export function useGroupEarnings(shell) {
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(getApiMessage(json, "Partner linked successfully"), "success");
-          setGeExpanded(null);
-          window.setTimeout(() => {
-            setGeExpanded(groupId);
-            void geToggle(groupId);
-          }, 300);
+          await loadGroupState(groupId, { force: true });
           return true;
         }
         if (isApiConflict(json)) {
@@ -272,7 +282,7 @@ export function useGroupEarnings(shell) {
         return false;
       }
     },
-    [geToggle, viewOnlyMode, showToast],
+    [loadGroupState, viewOnlyMode, showToast],
   );
 
   return {
