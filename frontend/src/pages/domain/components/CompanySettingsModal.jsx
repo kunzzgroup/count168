@@ -535,7 +535,6 @@ export default function CompanySettingsModal({
               <h3 className="company-settings-column-title">
                 {isGroup ? t("groupSettingsLower") : t("companySettingsLower")}
               </h3>
-              <div className="company-settings-split-panel company-settings-split-panel--general">
               <div className="mb-[clamp(6px,0.625vw,12px)]">
                 <label htmlFor="entityCodeRename" className="cs-company-field-label">
                   {isGroup ? t("groupIdLabel") : t("companyIdLabel")}
@@ -593,7 +592,7 @@ export default function CompanySettingsModal({
                 </div>
               </div>
               {/* Expiration Date display */}
-              <div className="company-settings-exp-block">
+              <div className="mb-2.5">
                 <label className="cs-company-field-label">{t("expirationDate")}</label>
                 <div id="expDateDisplay" className={`company-settings-exp-display${expDisplay === t("notSet") ? " is-muted" : ""}`}>
                   {expDisplay}
@@ -626,7 +625,6 @@ export default function CompanySettingsModal({
                 <p className="company-settings-permissions-hint">{t("permissionsHintLine")}</p>
               </div>
               )}
-              </div>
             </div>
 
             <div className="company-settings-split-divider" role="separator" aria-orientation="vertical" aria-hidden="true" />
@@ -662,7 +660,6 @@ export default function CompanySettingsModal({
                 <span>{totals.grand.toFixed(2)}%</span>
               </div>
 
-              <div className="company-settings-split-panel company-settings-split-panel--share">
               <div className="company-share-scroll">
                 {SHARE_ROLES.map((role) => {
                   const isProfit = role === "profit";
@@ -799,11 +796,10 @@ export default function CompanySettingsModal({
               </div>
 
               {shareAccounts.length === 0 && shareAccountsProfit.length === 0 && (
-                <div className="company-settings-split-panel-empty-hint">
+                <div className="company-settings-empty-hint">
                   {t("noLinkedAccounts")}
                 </div>
               )}
-              </div>
             </div>
           </div>
 
