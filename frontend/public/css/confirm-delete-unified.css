@@ -114,7 +114,7 @@
   opacity: 0.9 !important;
 }
 
-/* Approve confirm — blue primary (Auto Renew Approve / Add Process) */
+/* Approve confirm — 与 Add Process / btn-add 同款蓝渐变 */
 .confirm-delete-modal-content .confirm-approve,
 .domain-confirm-modal-content .confirm-approve {
   background: var(--btn-add-gradient) !important;
