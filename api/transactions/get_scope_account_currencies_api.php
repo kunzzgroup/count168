@@ -116,7 +116,8 @@ try {
             $primaryCompanyId = (int) $companyIds[0];
         }
         if ($primaryCompanyId <= 0) {
-            api_error('缺少 company_id 或 group_id', 400);
+            // Prefetch / warm-cache callers may race before scope is ready; avoid noisy 400.
+            api_success([]);
             exit;
         }
 

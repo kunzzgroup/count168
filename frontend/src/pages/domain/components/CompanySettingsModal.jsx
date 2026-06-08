@@ -135,6 +135,8 @@ export default function CompanySettingsModal({
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [addAccountRole, setAddAccountRole] = useState("");
 
+  const sharePickerCompanyCode = "C168";
+
   const loadAccounts = useCallback(() => {
     fetch(buildApiUrl("api/domain/domain_api.php"), {
       cache: "no-cache",
@@ -142,7 +144,8 @@ export default function CompanySettingsModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "get_company_share_settings",
-        company_id: isGroup ? (sessionCompanyCode || "C168") : company.company_id,
+        // 账户下拉始终来自 C168；Group 不传 group_code，避免误用集团账本账户列表
+        company_id: isGroup ? sharePickerCompanyCode : company.company_id,
       }),
     })
       .then((r) => r.json())
@@ -155,7 +158,7 @@ export default function CompanySettingsModal({
         }
       })
       .catch(() => { setShareAccounts([]); setShareAccountsProfit([]); });
-  }, [company.company_id, fsa, isGroup, sessionCompanyCode]);
+  }, [company.company_id, fsa, isGroup]);
 
   // Load share accounts from API
   useEffect(() => {
@@ -690,8 +693,8 @@ export default function CompanySettingsModal({
         {showAddAccount && (
           <AddAccountModal
             lang={lang}
-            companyId={company.id || sessionCompanyId}
-            companyCode={company.company_id || sessionCompanyCode}
+            companyId={sessionCompanyId}
+            companyCode={sharePickerCompanyCode}
             preferredRole={addAccountRole}
             onClose={() => setShowAddAccount(false)}
             onSuccess={() => {

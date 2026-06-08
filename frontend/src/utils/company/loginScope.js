@@ -2,11 +2,13 @@
  * Group vs Company login scope — mirrors {@link includes/group_company_access.php}.
  */
 import {
+  DASHBOARD_GROUP_FILTER_KEY,
   isDashboardGroupOnlyMode,
   normalizeNativeCompanyGroupId,
   readAccessibleGroupIds,
 } from "./sharedCompanyFilter.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
+import { buildSidebarExpirationFields } from "../expiration/expirationReminder.js";
 
 export const LOGIN_SCOPE_GROUP = "group";
 export const LOGIN_SCOPE_COMPANY = "company";
@@ -182,10 +184,23 @@ export function canAccessGroupLedgerForGroup(me, groupCode, companies = []) {
   }
   if (isCompanyLogin(me)) {
     if (companyLoginHasGroupLedgerPrivilege(me)) {
-      return resolveCompanyLoginAccessibleGroupSet(me, companies).has(g);
+      const set = resolveCompanyLoginAccessibleGroupSet(me, companies);
+      if (set.has(g)) return true;
+      // Owner/admin: allow group-only while companies list is still loading.
+      if (!companies?.length) return true;
+      return false;
     }
     return getAssignedGroupCodes(me).includes(g);
   }
+
+  const role = String(me?.role || me?.user_type || "").trim().toLowerCase();
+  if (role === "owner") {
+    for (const c of companies || []) {
+      if (normalizeNativeCompanyGroupId(c) === g) return true;
+    }
+    return userCanUseGroupLedger(me);
+  }
+
   return getAssignedGroupCodes(me).includes(g);
 }
 
@@ -195,11 +210,12 @@ export function canAccessGroupLedgerForGroup(me, groupCode, companies = []) {
  *
  * @param {object|null|undefined} me
  * @param {string|null|undefined} [groupCode] When set, requires access to that specific group.
+ * @param {object[]} [companies] Owner company rows — refines group access when groupCode is set.
  */
-export function canUseGroupOnlyMode(me, groupCode = null) {
+export function canUseGroupOnlyMode(me, groupCode = null, companies = null) {
   if (!me) return false;
   if (groupCode != null && String(groupCode).trim() !== "") {
-    return canAccessGroupLedgerForGroup(me, groupCode);
+    return canAccessGroupLedgerForGroup(me, groupCode, companies ?? []);
   }
   return userCanUseGroupLedger(me);
 }
@@ -221,9 +237,13 @@ export function companyLoginRequiresSubsidiaryWithGroup(me) {
 export function isGroupLedgerMode(me, ctx = {}) {
   const companyId = ctx.companyId ?? null;
   if (companyId != null && Number.isFinite(Number(companyId))) return false;
-  const selectedGroup = ctx.selectedGroup
+  let selectedGroup = ctx.selectedGroup
     ? String(ctx.selectedGroup).trim().toUpperCase()
     : null;
+  if (!selectedGroup && typeof sessionStorage !== "undefined") {
+    const raw = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+    selectedGroup = raw ? String(raw).trim().toUpperCase() : null;
+  }
   if (!selectedGroup) return false;
   const groupOnly =
     ctx.groupOnly != null ? Boolean(ctx.groupOnly) : isDashboardGroupOnlyMode();
@@ -341,6 +361,28 @@ export function normalizeCompanyCode(value) {
   return code || null;
 }
 
+const SIDEBAR_PATCH_FIELD_KEYS = [
+  "company_id",
+  "company_code",
+  "is_current_company_c168",
+  "has_c168_domain_page_access",
+  "has_c168_auto_renew_access",
+  "company_has_gambling",
+  "company_has_bank",
+  "expiration_date",
+  "expiration_hint",
+  "expiration_status",
+  "days_until_expiration",
+];
+
+function meSidebarPatchEqual(a, b) {
+  if (a === b) return true;
+  for (const key of SIDEBAR_PATCH_FIELD_KEYS) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
 /**
  * Optimistic sidebar `me` patch when group/company filter changes (before current_user_api returns).
  * When `companyCode` is supplied in ctx, never fall back to stale `me.company_code` (fixes 95→C168 sidebar).
@@ -352,6 +394,7 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
   if (rawId == null || rawId === "" || !Number.isFinite(Number(rawId)) || Number(rawId) <= 0) {
     const next = {
       ...me,
+      company_id: null,
       is_current_company_c168: false,
       has_c168_domain_page_access: false,
       has_c168_auto_renew_access: false,
@@ -365,7 +408,10 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
     if (ctx.hasBank != null) {
       next.company_has_bank = Boolean(ctx.hasBank);
     }
-    return next;
+    if (ctx.expirationDate !== undefined) {
+      Object.assign(next, buildSidebarExpirationFields(ctx.expirationDate));
+    }
+    return meSidebarPatchEqual(me, next) ? me : next;
   }
   const id = Number(rawId);
   const companyChanged = Number(me.company_id) !== id;
@@ -394,20 +440,28 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
     next.company_has_gambling = Boolean(ctx.hasGambling);
   } else if (companyChanged) {
     const cached = peekCompanySessionFlags(id);
-    next.company_has_gambling = cached ? Boolean(cached.has_gambling) : false;
+    if (cached) {
+      next.company_has_gambling = Boolean(cached.has_gambling);
+    }
   }
   if (ctx.hasBank != null) {
     next.company_has_bank = Boolean(ctx.hasBank);
   } else if (companyChanged) {
     const cached = peekCompanySessionFlags(id);
-    next.company_has_bank = cached ? Boolean(cached.has_bank) : false;
+    if (cached) {
+      next.company_has_bank = Boolean(cached.has_bank);
+    }
   }
-  return next;
+  if (ctx.expirationDate !== undefined) {
+    Object.assign(next, buildSidebarExpirationFields(ctx.expirationDate));
+  }
+  return meSidebarPatchEqual(me, next) ? me : next;
 }
 
 /** Session / current_user reflects active company (after dashboard company pick + session sync). */
 export function isActiveCompanyContextC168(me) {
   if (!me) return false;
+  if (isDashboardGroupOnlyMode()) return false;
   if (me.is_current_company_c168) return true;
   return String(me.company_code || "")
     .trim()
@@ -420,7 +474,8 @@ export function isActiveCompanyContextC168(me) {
  */
 export function canAccessC168DomainPages(me) {
   if (!me) return false;
-  if (isGroupLedgerMode(me, { companyId: null, groupOnly: isDashboardGroupOnlyMode() })) return false;
+  if (isDashboardGroupOnlyMode()) return false;
+  if (isGroupLedgerMode(me, { companyId: null })) return false;
   if (!isActiveCompanyContextC168(me)) return false;
   return userRoleAllowsC168Domain(me.role) || Boolean(me.has_c168_domain_page_access);
 }
@@ -428,7 +483,8 @@ export function canAccessC168DomainPages(me) {
 /** Auto Renew — same rules as Domain / Announcement. */
 export function canAccessC168AutoRenew(me) {
   if (!me) return false;
-  if (isGroupLedgerMode(me, { companyId: null, groupOnly: isDashboardGroupOnlyMode() })) return false;
+  if (isDashboardGroupOnlyMode()) return false;
+  if (isGroupLedgerMode(me, { companyId: null })) return false;
   if (!isActiveCompanyContextC168(me)) return false;
   return userRoleAllowsC168AutoRenew(me.role, me.user_type) || Boolean(me.has_c168_auto_renew_access);
 }

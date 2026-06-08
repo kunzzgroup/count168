@@ -18641,8 +18641,21 @@ function reorderSummaryRowsByRowIndex() {
             })
             .map(data => data.row);
 
-        // 按新顺序重新挂载行（React 表由 state 重排，避免 appendChild 破坏协调导致 removeChild 报错）
-        if (!applySummaryRowOrderViaReact(orderedRows) && !isSummaryReactManagedTable()) {
+        // React SPA owns tbody: setRowOrder re-mounts empty row shells and wipes legacy template DOM writes.
+        if (isSummaryReactManagedTable()) {
+            console.log(
+                'Skipped post-template DOM reorder (React-managed); initial row order matches Data Capture.',
+                'Total rows:', orderedRows.length,
+                'reactManaged:', true
+            );
+            if (typeof updateProcessedAmountTotal === 'function') {
+                updateProcessedAmountTotal();
+            }
+            return;
+        }
+
+        // 按新顺序重新挂载行（legacy DOM table）
+        if (!applySummaryRowOrderViaReact(orderedRows)) {
             orderedRows.forEach(row => summaryTableBody.appendChild(row));
         }
 

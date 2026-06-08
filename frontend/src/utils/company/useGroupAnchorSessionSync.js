@@ -4,8 +4,10 @@ import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { syncCompanySessionApi } from "./companySessionSync.js";
 import {
   companyRowIsGroupEntity,
+  dashboardGcFiltersEqual,
   notifyDashboardGroupFilterChanged,
   pickGroupAnchorCompany,
+  readPersistedDashboardGcFilter,
 } from "./sharedCompanyFilter.js";
 
 function isGroupOnlyFilterUi(selectedGroup, companyId) {
@@ -107,6 +109,7 @@ export function useGroupAnchorSessionSync({
     }
 
     let cancelled = false;
+    const filterAtStart = readPersistedDashboardGcFilter();
     setAnchorSessionReady(false);
     (async () => {
       const json = await syncCompanySessionApi(anchorId, g);
@@ -114,17 +117,25 @@ export function useGroupAnchorSessionSync({
         applyReadyFromRef(g, anchorId);
         return;
       }
+      const filterNow = readPersistedDashboardGcFilter();
+      if (
+        !filterNow.groupOnly ||
+        filterNow.selectedGroup !== g ||
+        !dashboardGcFiltersEqual(filterAtStart, filterNow)
+      ) {
+        setAnchorSessionReady(true);
+        return;
+      }
       if (json?.success) {
         ref.current = { group: g, companyId: anchorId };
         const data = json.data ?? {};
-        const row = (companies || []).find((c) => Number(c.id) === anchorId);
-        notifyDashboardGroupFilterChanged(g, anchorId, {
-          ignoreGroupOnly: true,
-          companyCode: data.company_code ?? row?.company_id,
+        notifyDashboardGroupFilterChanged(g, null, {
           hasGambling: data.has_gambling,
           hasBank: data.has_bank,
         });
-        if (notifyOnSync) notifyCompanySessionUpdated(data);
+        if (notifyOnSync) {
+          notifyCompanySessionUpdated(data);
+        }
       }
       setAnchorSessionReady(true);
     })();

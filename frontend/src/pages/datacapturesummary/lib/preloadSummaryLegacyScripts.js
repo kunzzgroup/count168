@@ -78,7 +78,7 @@ export function areSummaryLegacyScriptsLoaded() {
 }
 
 /** Bump when js/datacapturesummary.js changes so browsers fetch the latest legacy bundle. */
-const SUMMARY_LEGACY_SCRIPT_VERSION = "20260603-summary-init-guard";
+const SUMMARY_LEGACY_SCRIPT_VERSION = "20260608-react-reorder-guard";
 
 /** Load decimal + money + summary legacy bundle (parallel). */
 export async function ensureSummaryLegacyScriptsLoaded() {

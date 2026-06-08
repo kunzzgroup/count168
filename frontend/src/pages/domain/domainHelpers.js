@@ -313,48 +313,124 @@ export function defaultDomainPeriodPrices() {
   };
 }
 
-/** @param {Record<string, unknown>|null|undefined} raw */
-export function normalizeDomainPeriodPricesFromApi(raw) {
-  const out = defaultDomainPeriodPrices();
+export function emptyDomainPeriodPrices() {
+  return {
+    "7days": "",
+    "1month": "",
+    "3months": "",
+    "6months": "",
+    "1year": "",
+  };
+}
+
+/** @returns {{ company: Record<string, string>, group: Record<string, string> }} */
+export function defaultDomainFeeSettings() {
+  return {
+    company: defaultDomainPeriodPrices(),
+    group: emptyDomainPeriodPrices(),
+  };
+}
+
+/**
+ * @param {Record<string, unknown>|null|undefined} raw
+ * @param {'company'|'group'} kind
+ */
+function normalizeSinglePeriodPricesFromApi(raw, kind) {
+  const out = emptyDomainPeriodPrices();
   if (!raw || typeof raw !== "object") return out;
-  const source =
-    raw.period_prices && typeof raw.period_prices === "object"
-      ? raw.period_prices
-      : raw;
-  DOMAIN_FEE_PERIOD_KEYS.forEach((key) => {
-    if (Object.prototype.hasOwnProperty.call(source, key)) {
-      const formatted = formatDomainFeeEdit2(source[key]);
-      out[key] = formatted !== "" ? formatted : "";
+
+  let source = null;
+  if (kind === "company") {
+    if (raw.company_period_prices && typeof raw.company_period_prices === "object") {
+      source = raw.company_period_prices;
+    } else if (raw.period_prices && typeof raw.period_prices === "object") {
+      if (raw.period_prices.company && typeof raw.period_prices.company === "object") {
+        source = raw.period_prices.company;
+      } else {
+        source = raw.period_prices;
+      }
     }
-  });
-  const hasAny = DOMAIN_FEE_PERIOD_KEYS.some((k) => out[k] !== "" && out[k] != null);
-  if (!hasAny) {
-    const legacy = formatDomainFeeEdit2(raw.company_price ?? raw.price);
-    if (legacy !== "") {
-      out["6months"] = legacy;
-    }
+  } else if (raw.group_period_prices && typeof raw.group_period_prices === "object") {
+    source = raw.group_period_prices;
+  } else if (raw.period_prices?.group && typeof raw.period_prices.group === "object") {
+    source = raw.period_prices.group;
+  }
+
+  if (source) {
+    DOMAIN_FEE_PERIOD_KEYS.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        const formatted = formatDomainFeeEdit2(source[key]);
+        out[key] = formatted !== "" ? formatted : "";
+      }
+    });
+    return out;
+  }
+
+  const legacyRaw =
+    kind === "group"
+      ? raw.group_price
+      : raw.company_price ?? raw.price;
+  const legacy = formatDomainFeeEdit2(legacyRaw);
+  if (legacy !== "") {
+    out["6months"] = legacy;
   }
   return out;
 }
 
+/** @param {Record<string, unknown>|null|undefined} raw */
+export function normalizeDomainFeeSettingsFromApi(raw) {
+  return {
+    company: normalizeSinglePeriodPricesFromApi(raw, "company"),
+    group: normalizeSinglePeriodPricesFromApi(raw, "group"),
+  };
+}
+
+/** @deprecated Use normalizeDomainFeeSettingsFromApi — returns company period prices only. */
+export function normalizeDomainPeriodPricesFromApi(raw) {
+  return normalizeDomainFeeSettingsFromApi(raw).company;
+}
+
 /**
  * 按所选周期取 Domain Price（Settings 弹窗中分成基数）
- * @param {Record<string, string>|null|undefined} periodPrices
+ * @param {{ company?: Record<string, string>, group?: Record<string, string> }|Record<string, string>|null|undefined} feeSettings
  * @param {string} period
  * @param {'company'|'group'} [feeKind]
  */
-export function resolveDomainFeePriceForPeriod(periodPrices, period, feeKind = "company") {
+export function resolveDomainFeePriceForPeriod(feeSettings, period, feeKind = "company") {
   if (!period) return 0;
+
+  let periodPrices = feeSettings;
+  if (feeSettings && (feeSettings.company || feeSettings.group)) {
+    periodPrices = feeSettings[feeKind] ?? feeSettings.company ?? {};
+  }
+
   if (periodPrices && periodPrices[period] !== undefined && periodPrices[period] !== "") {
     const n = Number(periodPrices[period]);
     if (isFinite(n)) return n;
   }
+
+  if (!feeSettings || feeSettings.company || feeSettings.group) {
+    return 0;
+  }
+
   const flatKey = feeKind === "group" ? "group_price" : "company_price";
-  if (periodPrices && periodPrices[flatKey] !== undefined && periodPrices[flatKey] !== "") {
-    const flat = Number(periodPrices[flatKey]);
+  if (feeSettings[flatKey] !== undefined && feeSettings[flatKey] !== "") {
+    const flat = Number(feeSettings[flatKey]);
     if (isFinite(flat)) return flat;
   }
   return 0;
+}
+
+/** 工具栏紧凑标签：仅 6 个月 / 1 年，如 6M/1Y: 1200/2400 */
+export function formatDomainFeeToolbarChip(periodPrices) {
+  if (!periodPrices || typeof periodPrices !== "object") {
+    return "6M/1Y: 0.00/0.00";
+  }
+  const six = formatDomainFeeDisplay2(periodPrices["6months"]);
+  const one = formatDomainFeeDisplay2(periodPrices["1year"]);
+  const sixDisp = six === "—" ? "0.00" : six;
+  const oneDisp = one === "—" ? "0.00" : one;
+  return `6M/1Y: ${sixDisp}/${oneDisp}`;
 }
 
 /** 工具栏摘要：列出已配置的非零周期价 */
@@ -373,6 +449,18 @@ export function formatDomainPeriodPricesInlineSummary(periodPrices, t) {
     if (disp !== "—") parts.push(`${labels[key]} ${disp}`);
   });
   return parts.join(" · ");
+}
+
+/** @param {{ company?: Record<string, string>, group?: Record<string, string> }|null|undefined} feeSettings */
+export function formatDomainFeeSettingsInlineSummary(feeSettings, t) {
+  const groupPart = formatDomainPeriodPricesInlineSummary(feeSettings?.group, t);
+  const companyPart = formatDomainPeriodPricesInlineSummary(feeSettings?.company, t);
+  if (groupPart && companyPart) {
+    return t("feeInlineSummary", { group: groupPart, company: companyPart });
+  }
+  if (companyPart) return companyPart;
+  if (groupPart) return groupPart;
+  return "";
 }
 
 /** 固定两位小数展示 */

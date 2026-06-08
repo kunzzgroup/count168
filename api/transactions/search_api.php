@@ -270,8 +270,13 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
 /** @return string|null 客户公司代码，如 LGA */
 function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
 {
-    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^|\]]+)/i', trim($sms), $m)) {
+    $t = trim($sms);
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|GROUP\|([^|\]]+)/i', $t, $m)) {
         return strtoupper(trim($m[1]));
+    }
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^|\]]+)/i', $t, $m)) {
+        $v = strtoupper(trim($m[1]));
+        return $v !== 'GROUP' ? $v : null;
     }
     return null;
 }
@@ -2019,7 +2024,8 @@ try {
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
         $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
         $win_loss = $wlPack['win_loss'];
-        $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions']);
+        $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions'])
+            || !empty($wlPack['has_period_id_product_rows']);
         $has_win_loss_history = !empty($wlPack['has_win_loss_history']);
         $has_period_id_product_rows = !empty($wlPack['has_period_id_product_rows']);
 
@@ -2034,7 +2040,7 @@ try {
         // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪：否则与前端「展示零余额」冲突，
         // 典型如 RATE 轧差后 cr_dr/has_crdr 均为 0 的组合行会被误删。
         if ($hide_zero_balance && $show_capture_only && !$show_inactive) {
-            if (!$has_win_loss_transactions) {
+            if (!$has_win_loss_transactions && !$has_period_id_product_rows) {
                 $bf_near = trunc2($bf);
                 $cr_near = trunc2($cr_dr);
                 $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
@@ -3035,7 +3041,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
         $has_rate_mm = ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
         $has_rate_mm_up_to = ($bulk['entry'][$account_id][$currency_id]['wl_mm_up_to_count'] ?? 0) > 0;
-        $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm;
+        $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm || $id_product_rows_period > 0;
         $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
         $win_loss_full = money_normalize($win_loss, 8);
         return [
@@ -3196,7 +3202,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         'win_loss' => searchMoneyHalfUp2($win_loss_full),
         'win_loss_full' => $win_loss_full,
         'has_rate_middleman' => $has_rate_middleman,
-        'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman),
+        'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman || $has_period_id_product_rows),
         'has_win_loss_history' => ($wl_row_count > 0 || $has_rate_middleman),
         'has_period_id_product_rows' => $has_period_id_product_rows,
     ];

@@ -30,6 +30,73 @@ export function getDaysUntilExpiration(expirationDate) {
   return Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
 }
 
+function expirationStatusFromDaysLeft(daysLeft) {
+  if (daysLeft == null || Number.isNaN(daysLeft)) return "normal";
+  if (daysLeft < 0) return "expired";
+  if (daysLeft <= 7) return "exp-critical";
+  if (daysLeft <= 15) return "exp-orange";
+  if (daysLeft <= 30) return "exp-yellow";
+  return "normal";
+}
+
+/** Mirror `current_user_api.php` sidebar expiry fields for optimistic UI updates. */
+export function buildSidebarExpirationFields(expirationDate) {
+  if (!expirationDate) {
+    return {
+      expiration_date: null,
+      expiration_hint: "No expiration date",
+      expiration_status: "normal",
+      days_until_expiration: null,
+    };
+  }
+  const expDateStr = String(expirationDate).split(" ")[0];
+  const daysLeft = getDaysUntilExpiration(expirationDate);
+  if (daysLeft == null) {
+    return {
+      expiration_date: expDateStr,
+      expiration_hint: "No expiration date",
+      expiration_status: "normal",
+      days_until_expiration: null,
+    };
+  }
+  if (daysLeft < 0) {
+    return {
+      expiration_date: expDateStr,
+      expiration_hint: "Expired",
+      expiration_status: "expired",
+      days_until_expiration: daysLeft,
+    };
+  }
+  if (daysLeft === 0) {
+    return {
+      expiration_date: expDateStr,
+      expiration_hint: "Expires today",
+      expiration_status: "exp-critical",
+      days_until_expiration: 0,
+    };
+  }
+  if (daysLeft <= 30) {
+    return {
+      expiration_date: expDateStr,
+      expiration_hint: `${daysLeft} day${daysLeft > 1 ? "s" : ""} left`,
+      expiration_status: expirationStatusFromDaysLeft(daysLeft),
+      days_until_expiration: daysLeft,
+    };
+  }
+  const months = Math.floor(daysLeft / 30);
+  const days = daysLeft % 30;
+  const hint =
+    days === 0
+      ? `${months} month${months > 1 ? "s" : ""} left`
+      : `${months}m ${days}d left`;
+  return {
+    expiration_date: expDateStr,
+    expiration_hint: hint,
+    expiration_status: "normal",
+    days_until_expiration: daysLeft,
+  };
+}
+
 function getLocalDateKey(date = new Date()) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");

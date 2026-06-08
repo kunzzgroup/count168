@@ -21,20 +21,37 @@ function assertGroupEntityAccess(PDO $pdo, string $groupId, int $entityCompanyId
     }
 
     if (gc_is_group_login()) {
-        if (!gc_session_can_access_company_id($pdo, $entityCompanyId, $g)) {
-            throw new Exception('无权访问该集团');
+        if (gc_session_can_access_company_id($pdo, $entityCompanyId, $g)) {
+            return;
         }
-        return;
+        $subs = gc_company_numeric_ids_for_group_code($pdo, $g);
+        if (in_array($entityCompanyId, $subs, true)) {
+            return;
+        }
+        if (gc_session_can_access_group_ledger($pdo, $g)) {
+            return;
+        }
+        throw new Exception('无权访问该集团');
     }
 
     $role = strtolower($_SESSION['role'] ?? '');
     if ($role === 'owner') {
-        $ownerId = (int) ($_SESSION['owner_id'] ?? $_SESSION['user_id']);
+        $ownerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
         $stmt = $pdo->prepare('SELECT id FROM company WHERE id = ? AND owner_id = ? LIMIT 1');
         $stmt->execute([$entityCompanyId, $ownerId]);
         if ($stmt->fetchColumn()) {
             return;
         }
+
+        $subs = gc_company_numeric_ids_for_group_code($pdo, $g);
+        if (in_array($entityCompanyId, $subs, true)) {
+            return;
+        }
+
+        if (gc_has_groups_table($pdo) && $ownerId > 0 && gc_session_can_access_group_ledger($pdo, $g)) {
+            return;
+        }
+
         throw new Exception('无权访问该集团');
     }
 

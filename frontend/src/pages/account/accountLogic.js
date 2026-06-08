@@ -118,12 +118,14 @@ export async function fetchMergedAccounts({
   searchTerm = "",
   showInactive = false,
   showAll = false,
+  signal = undefined,
 }) {
   const tasks = [];
   for (const cid of companyIds) {
     tasks.push(
       fetch(buildAccountsUrl(cid, searchTerm, showInactive, showAll).toString(), {
         credentials: "include",
+        signal,
       }).then((r) => r.json()),
     );
   }
@@ -131,6 +133,7 @@ export async function fetchMergedAccounts({
     tasks.push(
       fetch(buildGroupAccountsUrl(gid, searchTerm, showInactive, showAll).toString(), {
         credentials: "include",
+        signal,
       }).then((r) => r.json()),
     );
   }

@@ -108,7 +108,7 @@ export function getCurrentUserRolePermissions(currentUserRole) {
     admin: ["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     manager: ["admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     supervisor: ["admin", "account", "process", "datacapture", "payment", "report"],
-    accountant: ["payment", "report", "maintenance"],
+    accountant: ["account", "process", "payment", "report"],
     audit: ["payment", "report", "maintenance"],
     "customer service": ["account", "process", "datacapture", "payment", "report"],
   };
@@ -122,7 +122,7 @@ export function getRoleTemplateSidebarList(role) {
     admin: ["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     manager: ["admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     supervisor: ["admin", "account", "process", "datacapture", "payment", "report"],
-    accountant: ["payment", "report", "maintenance"],
+    accountant: ["account", "process", "payment", "report"],
     audit: ["payment", "report", "maintenance"],
     "customer service": ["account", "process", "datacapture", "payment", "report"],
   };
@@ -157,7 +157,7 @@ export function getFinalPermissionsForCreation(selectedRole, manuallySelected, c
     admin: ["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     manager: ["admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     supervisor: ["admin", "account", "process", "datacapture", "payment", "report"],
-    accountant: ["payment", "report", "maintenance"],
+    accountant: ["account", "process", "payment", "report"],
     audit: ["payment", "report", "maintenance"],
     "customer service": ["account", "process", "datacapture", "payment", "report"],
   };

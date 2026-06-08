@@ -297,7 +297,7 @@ export function useTransactionSearch({
     scheduleAutoSearch,
   ]);
 
-  // Show 0 balance 需重搜（后端 account×currency 范围变化）；Payment/Win-Loss 勾选时前端即时过滤，取消勾选时再拉全量。
+  // Show 0 balance 需重搜（后端 account×currency 范围变化）；Win/Loss / Payment 勾选仅前端即时过滤（取消 Payment/Win-Loss 时再拉全量）。
   useEffect(() => {
     if (!initialSearchDoneRef.current) return;
     if (!scopeReady) return;
@@ -404,8 +404,10 @@ export function useTransactionSearch({
 
       const showInactiveForQuery =
         searchState.showZeroBalance && searchState.showPaymentOnly ? false : searchState.showPaymentOnly;
-      const showCaptureOnlyForQuery =
-        searchState.showZeroBalance && searchState.showCaptureOnly ? false : searchState.showCaptureOnly;
+      // Win/Loss Only 始终在前端 applyPaymentWinLossFilters 过滤。
+      // 后端 show_capture_only=1 + hide_zero_balance=1 的 Layer 2 会误删「当日有 W/L 动账但 Balance=0」的组合行
+      //（与 PHP transaction.php 勾选后仍显示此类账号的行为不一致）。
+      const showCaptureOnlyForQuery = false;
 
       const requestKey = JSON.stringify({
         dateFrom: effectiveDateFrom,
@@ -655,7 +657,10 @@ export function useTransactionSearch({
       showCaptureOnly: searchState.showCaptureOnly,
       showZeroBalance: searchState.showZeroBalance,
     });
-    const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
+    const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance, {
+      showCaptureOnly: searchState.showCaptureOnly,
+      showPaymentOnly: searchState.showPaymentOnly,
+    });
     const sortedLeft = z.left;
     const sortedRight = z.right;
     const totalsLeft = calculateTotals(sortedLeft);

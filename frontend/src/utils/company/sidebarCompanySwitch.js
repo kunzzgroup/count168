@@ -2,6 +2,9 @@ import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
 import { normalizeCompanyCode } from "./loginScope.js";
 import { notifyDashboardGroupFilterChanged } from "./sharedCompanyFilter.js";
+import { resolveCompanyCategoryFlagsFromRow } from "./companyCategoryFlags.js";
+
+export { resolveCompanyCategoryFlagsFromRow } from "./companyCategoryFlags.js";
 
 export function resolveRowCompanyCode(companyRow, apiData = null) {
   const fromApi = normalizeCompanyCode(apiData?.company_code);

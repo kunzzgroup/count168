@@ -458,19 +458,68 @@ function historyResolveProfitDisplayCode(PDO $pdo, int $companyId): string
     return 'PROFIT';
 }
 
-/** sms 形如 [DOMAIN_NET_PROFIT|QA] */
+/** Domain fee 类 sms 是否 Group 租户（含 GROUP| 段） */
+function historyIsDomainFeeGroupTenant(string $sms): bool
+{
+    return (bool) preg_match('/^\[DOMAIN_(?:LIST_FEE|SHARE_COMMISSION|NET_PROFIT)\|GROUP\|/i', trim($sms));
+}
+
+/**
+ * Payment History 描述：Group 付 Domain Fee 时追加 (Group)，Company 不变。
+ */
+function historyAppendDomainGroupLabel(string $description, string $sms = '', ?PDO $pdo = null, int $companyId = 0, string $srcCode = '', string $dateFromDb = '', string $dateToDb = ''): string
+{
+    if (historyIsDomainFeeGroupTenant($sms)) {
+        if (stripos($description, '(Group)') !== false) {
+            return $description;
+        }
+        return $description . ' (Group)';
+    }
+    $srcU = strtoupper(trim($srcCode));
+    if ($pdo !== null && $companyId > 0 && $srcU !== '' && $dateFromDb !== '' && $dateToDb !== '') {
+        try {
+            $st = $pdo->prepare("
+                SELECT 1 FROM transactions
+                WHERE company_id = ? AND transaction_type = 'PAYMENT'
+                  AND sms LIKE ?
+                  AND DATE(transaction_date) BETWEEN ? AND ?
+                LIMIT 1
+            ");
+            $st->execute([$companyId, '[DOMAIN_LIST_FEE|GROUP|' . $srcU . '%', $dateFromDb, $dateToDb]);
+            if ($st->fetchColumn() !== false) {
+                if (stripos($description, '(Group)') !== false) {
+                    return $description;
+                }
+                return $description . ' (Group)';
+            }
+        } catch (PDOException $e) {
+            // ignore
+        }
+    }
+    return $description;
+}
+
+/** sms 形如 [DOMAIN_NET_PROFIT|QA] 或 [DOMAIN_NET_PROFIT|GROUP|AP] */
 function historyParseDomainNetProfitSourceCompany(string $sms): string
 {
-    if (preg_match('/^\[DOMAIN_NET_PROFIT\|([^\]|]+)/i', trim($sms), $m)) {
+    $t = trim($sms);
+    if (preg_match('/^\[DOMAIN_NET_PROFIT\|GROUP\|([^\]|]+)/i', $t, $m)) {
+        return strtoupper(trim($m[1]));
+    }
+    if (preg_match('/^\[DOMAIN_NET_PROFIT\|([^\]|]+)/i', $t, $m)) {
         return strtoupper(trim($m[1]));
     }
     return '';
 }
 
-/** sms 形如 [DOMAIN_LIST_FEE|QA] */
+/** sms 形如 [DOMAIN_LIST_FEE|QA] 或 [DOMAIN_LIST_FEE|GROUP|AP] */
 function historyParseDomainListFeeSourceCompany(string $sms): string
 {
-    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^\]|]+)/i', trim($sms), $m)) {
+    $t = trim($sms);
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|GROUP\|([^\]|]+)/i', $t, $m)) {
+        return strtoupper(trim((string) ($m[1] ?? '')));
+    }
+    if (preg_match('/^\[DOMAIN_LIST_FEE\|([^\]|]+)/i', $t, $m)) {
         return strtoupper(trim((string) ($m[1] ?? '')));
     }
     return '';
@@ -623,9 +672,13 @@ function historyParseDomainShareCommissionSourceCompanyCode(string $sms): ?strin
     $s = trim($sms);
     if ($s === '')
         return null;
-    if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^|\]]+)/i', $s, $m)) {
+    if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|GROUP\|([^|\]]+)/i', $s, $m)) {
         $v = strtoupper(trim((string) $m[1]));
         return $v !== '' ? $v : null;
+    }
+    if (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^|\]]+)/i', $s, $m)) {
+        $v = strtoupper(trim((string) $m[1]));
+        return $v !== '' && $v !== 'GROUP' ? $v : null;
     }
     return null;
 }
@@ -697,7 +750,7 @@ function buildVirtualDomainListFeeHistory(
         $dateFromDb,
         $dateToDb,
         "[DOMAIN_LIST_FEE|{$src}]%",
-        "[DOMAIN_LIST_FEE|{$src}|%",
+        "[DOMAIN_LIST_FEE|GROUP|{$src}]%",
         "DOMAIN LIST FEE FROM {$src}",
         "DOMAIN LIST FEE FROM %({$src})"
     ];
@@ -759,7 +812,10 @@ function buildVirtualDomainListFeeHistory(
             'win_loss' => historyFormat2(0),
             'cr_dr' => historyFormat2($cr),
             'balance' => historyFormat2($running),
-            'description' => $src . ' Pay For ' . $ownerCode,
+            'description' => historyAppendDomainGroupLabel(
+                $src . ' Pay For ' . $ownerCode,
+                (string) ($r['sms'] ?? '')
+            ),
             'sms' => '-',
             'remark' => '-',
             'created_by' => '-',
@@ -871,7 +927,15 @@ function buildVirtualDomainNetProfitHistory(
                 'amount' => $net,
                 'currency_id' => $cid,
                 'transaction_date' => $dateToDb,
-                'description' => 'Net Profit From ' . $dynSrc,
+                'description' => historyAppendDomainGroupLabel(
+                    'Net Profit From ' . $dynSrc,
+                    '',
+                    $pdo,
+                    $companyId,
+                    $dynSrc,
+                    $dateFromDb,
+                    $dateToDb
+                ),
                 'sms' => '[DOMAIN_NET_PROFIT|DYNAMIC]',
                 'created_by' => $fallbackSubmitter
             ];
@@ -920,7 +984,15 @@ function buildVirtualDomainNetProfitHistory(
         if ($srcFromRow === '' || strtoupper($srcFromRow) === 'DYNAMIC') {
             $srcFromRow = $srcCompanyParam !== '' ? $srcCompanyParam : $owner;
         }
-        $descNet = 'Net Profit From ' . $srcFromRow;
+        $descNet = historyAppendDomainGroupLabel(
+            'Net Profit From ' . $srcFromRow,
+            (string) ($r['sms'] ?? ''),
+            $pdo,
+            $companyId,
+            $srcFromRow,
+            $dateFromDb,
+            $dateToDb
+        );
         $history[] = [
             'date' => date('d/m/Y', strtotime((string) $r['transaction_date'])),
             'product' => 'PROFIT',
@@ -2131,15 +2203,21 @@ try {
             }
             $roleLabel = historyResolveDomainShareRoleLabel((string) $description, $smsText);
             if ($roleLabel === 'PROFIT') {
-                $description = 'Profit From ' . strtoupper($srcCompany);
+                $description = historyAppendDomainGroupLabel('Profit From ' . strtoupper($srcCompany), $smsText);
                 $domainShareProductKind = 'Profit';
             } else {
-                $description = $roleLabel . ' Commission From ' . strtoupper($srcCompany);
+                $description = historyAppendDomainGroupLabel(
+                    $roleLabel . ' Commission From ' . strtoupper($srcCompany),
+                    $smsText
+                );
                 $domainShareProductKind = 'Commission';
             }
         }
         if ($isDomainListFee) {
-            $description = 'Pay Domain Fee';
+            $description = historyAppendDomainGroupLabel(
+                stripos($descText, 'Pay Domain Fee') === 0 ? trim($descText) : 'Pay Domain Fee',
+                $smsText
+            );
         }
         $productLabel = $isManualProfit ? 'PROFIT' : ($domainShareProductKind !== null ? $domainShareProductKind : ($isDomainShareCommission ? 'Commission' : $t['transaction_type']));
 
@@ -2208,7 +2286,10 @@ try {
             'currency' => $transactionCurrencyRb,
             'percent' => '-',
             'rate' => '-',
-            'description' => 'Net Profit From ' . $srcU,
+            'description' => historyAppendDomainGroupLabel(
+                'Net Profit From ' . $srcU,
+                (string) ($ft['sms'] ?? '')
+            ),
             'sms' => '-',
             'created_by' => $transactionCreatedByRb,
         ];

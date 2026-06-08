@@ -583,7 +583,18 @@ function gc_session_can_access_group_ledger(PDO $pdo, string $groupCode): bool
             return true;
         }
 
-        return in_array($g, gc_session_accessible_group_ids(), true);
+        if (in_array($g, gc_session_accessible_group_ids(), true)) {
+            return true;
+        }
+
+        // Linked group tab (e.g. AP login → IG): allow ledger when user can access subsidiaries under G.
+        foreach (gc_company_numeric_ids_for_group_code($pdo, $g) as $cid) {
+            if (gc_session_can_access_company_id($pdo, (int) $cid, $g)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     $role = strtolower((string) ($_SESSION['role'] ?? ''));

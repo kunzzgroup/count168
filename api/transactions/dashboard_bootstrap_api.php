@@ -152,6 +152,7 @@ try {
     if (!in_array($bootstrapScope, ['full', 'kpi', 'earnings'], true)) {
         $bootstrapScope = 'full';
     }
+    $isPrefetch = isset($_GET['prefetch']) && (string) $_GET['prefetch'] === '1';
 
     $currentJson = null;
     $previousData = null;
@@ -163,7 +164,17 @@ try {
         }
         $currentJson = dashboard_api_capture($currentParams);
         if (empty($currentJson['success']) || !is_array($currentJson['data'])) {
-            throw new Exception($currentJson['message'] ?? $currentJson['error'] ?? 'Failed to load dashboard');
+            $failMsg = $currentJson['message'] ?? $currentJson['error'] ?? 'Failed to load dashboard';
+            if ($isPrefetch) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => $failMsg,
+                    'data' => null,
+                    'error' => $failMsg,
+                ], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            throw new Exception($failMsg);
         }
 
         $prevParams = $baseParams;

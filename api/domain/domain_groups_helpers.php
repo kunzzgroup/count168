@@ -404,6 +404,59 @@ function domainApiFilterRealCompaniesPayload(array $rows): array
 /**
  * @return string[]
  */
+function domainApiGroupExistsByCode(PDO $pdo, string $groupCode): bool
+{
+    $code = strtoupper(trim($groupCode));
+    if ($code === '' || !domainApiHasGroupsTable($pdo)) {
+        return false;
+    }
+    try {
+        $st = $pdo->prepare('SELECT 1 FROM `groups` WHERE UPPER(TRIM(group_code)) = ? LIMIT 1');
+        $st->execute([$code]);
+        return $st->fetchColumn() !== false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+function domainApiGetGroupOwnerCodeByGroupCode(PDO $pdo, string $groupCode): string
+{
+    $code = strtoupper(trim($groupCode));
+    if ($code === '' || !domainApiHasGroupsTable($pdo)) {
+        return '';
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT UPPER(TRIM(COALESCE(o.owner_code, ''))) AS oc
+            FROM `groups` g
+            INNER JOIN owner o ON o.id = g.owner_id
+            WHERE UPPER(TRIM(g.group_code)) = ?
+            ORDER BY g.id ASC
+            LIMIT 1
+        ");
+        $st->execute([$code]);
+        return strtoupper(trim((string) ($st->fetchColumn() ?: '')));
+    } catch (PDOException $e) {
+        return '';
+    }
+}
+
+/**
+ * @param mixed $groups
+ * @return string[]
+ */
+function domainApiExtractProvisionGroupIds($groups): array
+{
+    $ids = [];
+    foreach (domainApiNormalizeGroupsPayload($groups) as $row) {
+        $c = strtoupper(trim((string) ($row['group_code'] ?? '')));
+        if ($c !== '' && $c !== 'C168') {
+            $ids[] = $c;
+        }
+    }
+    return array_values(array_unique($ids));
+}
+
 function domainApiOwnerGroupIdsForList(PDO $pdo, int $ownerId): array
 {
     $codes = domainApiLoadOwnerGroupCodes($pdo, $ownerId);

@@ -66,7 +66,7 @@ export default function BankProcessFormModal({
   };
 
   let dayEndMin = dayStart || undefined;
-  if (!isOnce && dayStart && contract) {
+  if (!isOnce && frequency !== "monthly" && dayStart && contract) {
     const term = parseBankContractRentalMonthsForDayEnd(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(dayStart, term, frequency) : null;
     if (calculated) {

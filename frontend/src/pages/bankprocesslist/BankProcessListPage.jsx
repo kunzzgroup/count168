@@ -19,6 +19,7 @@ import ProfitSharingModal from "./components/ProfitSharingModal.jsx";
 import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModals.jsx";
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
+import MaintenanceCalendarPopup from "../../components/MaintenanceCalendarPopup.jsx";
 import { bankProcessFrequencyNormalized, normalizeBankProcessStatus } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 
@@ -755,35 +756,17 @@ export default function BankProcessListPage() {
         onClose={closeAccountModal}
         t={tAccount}
       />
-      <div className="calendar-popup calendar-popup--transaction-range calendar-popup--no-presets" id="calendar-popup" style={{ display: "none" }}>
-        <div className="transaction-calendar-panel">
-          <div className="calendar-header">
-            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(-1); }}><i className="fas fa-chevron-left" /></button>
-            <div className="calendar-month-year" onClick={(e) => e.stopPropagation()} role="presentation">
-              <button type="button" id="calendar-month-select" className="calendar-month-trigger" aria-label="Month">
-                {bpLocale.monthsShort[new Date().getMonth()]}
-              </button>
-              <button type="button" id="calendar-year-select" className="calendar-year-trigger" aria-label="Year">
-                {String(new Date().getFullYear())}
-              </button>
-            </div>
-            <button type="button" className="calendar-nav-btn" onClick={(e) => { e.stopPropagation(); window.changeMonth?.(1); }}><i className="fas fa-chevron-right" /></button>
-          </div>
-          <div className="calendar-weekdays">
-            {bpLocale.weekdaysShort.map((d) => (
-              <div key={d} className="calendar-weekday">
-                {d}
-              </div>
-            ))}
-          </div>
-          <div className="calendar-days" id="calendar-days" />
-          <div className="calendar-popup-clear-wrap" id="calendar-popup-clear-wrap" style={{ display: "none" }} aria-hidden="true">
-            <button type="button" className="calendar-popup-clear-btn" id="calendar-popup-clear-btn">
-              {t("clearDate")}
-            </button>
-          </div>
-        </div>
-      </div>
+      {typeof document !== "undefined"
+        ? createPortal(
+            <MaintenanceCalendarPopup
+              className="calendar-popup--bank-process-modal"
+              monthLabels={bpLocale.monthsShort}
+              weekdaysShort={bpLocale.weekdaysShort}
+              clearLabel={t("clearDate")}
+            />,
+            document.body
+          )
+        : null}
       {toast && typeof document !== "undefined" && document.body
         ? createPortal(
             <div

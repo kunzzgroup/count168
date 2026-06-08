@@ -400,6 +400,26 @@ function dashboardResolveGroupCodeFromScopeId(PDO $pdo, int $groupScopeId): stri
     }
 }
 
+/**
+ * Group login and explicit group_only must use groups.id ledger — never legacy company_id=AP/IG rows.
+ */
+function dashboard_should_force_pure_group_ledger(PDO $pdo): bool
+{
+    dashboard_ensure_tenant_scope_loaded();
+
+    if (function_exists('gc_is_group_login') && gc_is_group_login()) {
+        return true;
+    }
+
+    $explicitGroupOnly = !empty($_GET['group_only'])
+        && filter_var($_GET['group_only'], FILTER_VALIDATE_BOOLEAN);
+    if ($explicitGroupOnly) {
+        return true;
+    }
+
+    return function_exists('tenant_dual_tenant_enabled') && tenant_dual_tenant_enabled($pdo);
+}
+
 function dashboardAssertGroupLedgerAccess(PDO $pdo, string $groupCode, int $groupScopeId): void
 {
     $g = reportNormalizeGroupId($groupCode);
@@ -407,11 +427,8 @@ function dashboardAssertGroupLedgerAccess(PDO $pdo, string $groupCode, int $grou
         throw new Exception('无效的集团');
     }
 
+    // Dual-tenant group ledger (groups.id scope): skip legacy company_id=AP/IG entity checks.
     if ($groupScopeId > 0 && gc_session_can_access_group_ledger($pdo, $g)) {
-        $entityId = tx_resolve_group_entity_company_id($pdo, $g);
-        if ($entityId > 0) {
-            assertGroupEntityAccess($pdo, $g, $entityId);
-        }
         return;
     }
 
@@ -1834,13 +1851,16 @@ try {
     $groupScopeId = 0;
 
     if ($useGroupLedger) {
-        // Prefer group-entity company row (company_id = AP) — works even when groups.id lookup fails.
-        $groupEntityCompanyId = tx_resolve_group_entity_company_id($pdo, $groupLedgerCode);
-        if ($groupEntityCompanyId > 0) {
-            assertGroupEntityAccess($pdo, $groupLedgerCode, $groupEntityCompanyId);
-            $company_id = $groupEntityCompanyId;
-            $useGroupLedger = false;
-        } else {
+        // Company login may still use legacy group-entity row; group login always uses group ledger.
+        if (!dashboard_should_force_pure_group_ledger($pdo)) {
+            $groupEntityCompanyId = tx_resolve_group_entity_company_id($pdo, $groupLedgerCode);
+            if ($groupEntityCompanyId > 0) {
+                assertGroupEntityAccess($pdo, $groupLedgerCode, $groupEntityCompanyId);
+                $company_id = $groupEntityCompanyId;
+                $useGroupLedger = false;
+            }
+        }
+        if ($useGroupLedger) {
             $groupScopeId = dashboardResolveGroupScopeId($pdo, $groupLedgerCode);
             if ($groupScopeId <= 0) {
                 $dbName = '';

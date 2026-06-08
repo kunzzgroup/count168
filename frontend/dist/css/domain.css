@@ -966,6 +966,54 @@ body.domain-page .domain-react-page .domain-fee-inline-summary {
     align-self: center;
 }
 
+body.domain-page .domain-react-page .domain-fee-price-chips {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.5vw, 10px);
+    flex-shrink: 0;
+}
+
+body.domain-page .domain-react-page .domain-fee-price-chip {
+    font-family: var(--font-heading-page);
+    font-size: clamp(11px, 0.78vw, 13px);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    white-space: nowrap;
+    padding: clamp(5px, 0.35vw, 7px) clamp(8px, 0.55vw, 12px);
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--color-text-toolbar-meta);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+body.domain-page .domain-react-page .domain-fee-price-chip:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+body.domain-page .domain-react-page .domain-fee-price-chip--company {
+    border-color: rgba(37, 99, 235, 0.22);
+    color: #1e40af;
+}
+
+body.domain-page .domain-react-page .domain-fee-price-chip--company:hover {
+    border-color: rgba(37, 99, 235, 0.4);
+    background: rgba(239, 246, 255, 0.95);
+}
+
+body.domain-page .domain-react-page .domain-fee-price-chip--group {
+    border-color: rgba(13, 148, 136, 0.22);
+    color: #0f766e;
+}
+
+body.domain-page .domain-react-page .domain-fee-price-chip--group:hover {
+    border-color: rgba(13, 148, 136, 0.4);
+    background: rgba(240, 253, 250, 0.95);
+}
+
 /* Price modal (Domain fee settings): match measured legacy layout */
 .domain-fee-react-modal {
     position: relative;
@@ -1216,6 +1264,175 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--periods.modal-c
 
 .domain-fee-react-modal .btn-cancel:hover {
     background: var(--gradient-domain-muted-action-hover) !important;
+}
+
+/* Price modal — Company / Group split layout */
+.domain-fee-react-overlay--dual {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2vh 16px 4vh;
+    overflow-y: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+body.domain-page .domain-fee-react-modal.domain-fee-react-modal--split.modal-content,
+.domain-fee-react-modal.domain-fee-react-modal--split {
+    width: min(920px, 96vw) !important;
+    max-width: 920px !important;
+}
+
+.domain-fee-react-modal--split {
+    display: flex;
+    flex-direction: column;
+    width: min(920px, 96vw);
+    max-height: min(92vh, 900px);
+    height: auto;
+    margin: 0;
+}
+
+.domain-fee-modal-header--split h2 {
+    font-size: var(--text-h2, 1.25rem);
+}
+
+.domain-fee-react-modal--split .domain-fee-modal-scroll.modal-body {
+    flex: 0 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+    max-height: calc(92vh - 140px);
+    padding-bottom: 8px;
+}
+
+.domain-fee-info-banner {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    font-size: var(--text-base, 0.9375rem);
+    line-height: 1.45;
+}
+
+.domain-fee-info-banner__icon {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+    font-weight: 700;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.domain-fee-edit-hint--split {
+    margin-bottom: 14px;
+    font-size: var(--text-base, 0.9375rem);
+}
+
+.domain-fee-split-panel {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: stretch;
+}
+
+.domain-fee-split-divider {
+    width: 1px;
+    background: rgba(0, 0, 0, 0.08);
+    margin: 0 16px;
+}
+
+.domain-fee-split-col-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: var(--text-base, 0.9375rem);
+}
+
+.domain-fee-col-icon {
+    width: 22px;
+    height: 22px;
+}
+
+.domain-fee-col-icon--company {
+    color: #2563eb;
+}
+
+.domain-fee-col-icon--group {
+    color: #059669;
+}
+
+.domain-fee-split-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.domain-fee-split-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.domain-fee-split-label {
+    font-size: var(--text-base, 0.9375rem);
+    color: var(--color-text-secondary, #64748b);
+}
+
+.domain-fee-split-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    font-size: var(--text-base, 0.9375rem);
+}
+
+.domain-fee-split-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.domain-fee-modal-footer--split {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center !important;
+    align-items: center;
+    gap: 12px;
+    margin-top: 0 !important;
+    padding: 14px 32px 18px !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.domain-fee-react-modal--split .domain-fee-modal-footer--split.form-actions {
+    justify-content: center !important;
+    margin-top: 0 !important;
+    padding: 14px 32px 18px !important;
+}
+
+@media (max-width: 720px) {
+    .domain-fee-split-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .domain-fee-split-divider {
+        width: 100%;
+        height: 1px;
+        margin: 16px 0;
+    }
 }
 
 /* Company expiration status modal (read-only list from +N / company chips) */

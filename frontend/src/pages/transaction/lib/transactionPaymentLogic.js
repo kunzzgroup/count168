@@ -250,21 +250,29 @@ export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly,
     }
   };
 
+  const winLossAmountNonZero = (row) => {
+    const probeFull =
+      row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
+        ? String(row.win_loss_full).replace(/,/g, "").trim()
+        : null;
+    const probes = probeFull != null ? [probeFull, row.win_loss] : [row.win_loss];
+    for (const candidate of probes) {
+      const wl = parseBalanceValue(candidate);
+      if (wl === null) continue;
+      try {
+        if (MoneyDecimal.toDecimal(wl, 0).abs().gt(eps)) return true;
+      } catch {
+        if (Math.abs(wl) > 1e-5) return true;
+      }
+    }
+    return false;
+  };
+
   const hasWinLoss = (row) => {
     if (flagToBool(row.has_win_loss_transactions) || flagToBool(row.has_period_id_product_rows)) {
       return true;
     }
-    const rawWinLoss =
-      row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
-        ? String(row.win_loss_full).replace(/,/g, "").trim()
-        : row.win_loss;
-    const wl = parseBalanceValue(rawWinLoss);
-    if (wl === null) return false;
-    try {
-      return MoneyDecimal.toDecimal(wl, 0).abs().gt(eps);
-    } catch {
-      return Math.abs(wl) > 1e-5;
-    }
+    return winLossAmountNonZero(row);
   };
 
   let shouldShow = () => true;
@@ -284,7 +292,16 @@ export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly,
   };
 }
 
-export function applyZeroBalanceFilter(filteredLeft, filteredRight, showZeroBalance) {
+export function applyZeroBalanceFilter(
+  filteredLeft,
+  filteredRight,
+  showZeroBalance,
+  { showCaptureOnly = false, showPaymentOnly = false } = {},
+) {
+  // Show Win/Loss Only（未勾 Show 0 balance）：已通过 W/L 筛选的行不再因 Balance=0 二次隐藏（与 PHP transaction.php 一致）。
+  if (showCaptureOnly && !showPaymentOnly && !showZeroBalance) {
+    return { left: filteredLeft, right: filteredRight };
+  }
   const fn = (row) => rowPassesHideZeroBalanceFilter(showZeroBalance, row);
   return {
     left: filteredLeft.filter(fn),
@@ -503,7 +520,10 @@ export function countDisplayedRows(rawSearchData, searchState, txType) {
     showCaptureOnly: searchState.showCaptureOnly,
     showZeroBalance: searchState.showZeroBalance,
   });
-  const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance);
+  const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance, {
+    showCaptureOnly: searchState.showCaptureOnly,
+    showPaymentOnly: searchState.showPaymentOnly,
+  });
   const norm = normalizeRateRowsByCrDr(z.left, z.right, txType === "RATE");
   return (norm.leftRows?.length || 0) + (norm.rightRows?.length || 0);
 }

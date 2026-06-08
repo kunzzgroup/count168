@@ -14,8 +14,9 @@ import {
   selectedProcessFromGroupOnlyPrefs,
 } from "../lib/dataCaptureGroupOnlyProcessPersistence.js";
 import { selectedProcessFromGroupOnlySession } from "../lib/dataCaptureGroupOnlyProcesses.js";
-import { restoreGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
+import { restoreGroupOnlyTableDraft, saveGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
+import { captureTableDataFromDom } from "../lib/dataCaptureTableSnapshot.js";
 
 const PROCESS_PLACEHOLDER = "Select Process";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
@@ -108,7 +109,7 @@ function readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData) {
 
 export function useDataCaptureFormEngine(
   captureScope,
-  { applyCompanyOnlyFields = true, selectedGroup = null } = {},
+  { applyCompanyOnlyFields = true, selectedGroup = null, scriptsReady = false } = {},
 ) {
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
@@ -162,6 +163,8 @@ export function useDataCaptureFormEngine(
 
   const selectedGroupRef = useRef(selectedGroup);
   selectedGroupRef.current = selectedGroup;
+  const selectedProcessRef = useRef(selectedProcess);
+  selectedProcessRef.current = selectedProcess;
   const companyId = captureScope?.scopeCompanyId ?? null;
 
   const companyIdRef = useRef(companyId);
@@ -313,6 +316,17 @@ export function useDataCaptureFormEngine(
       process_id: option.process_id || String(option.id).toUpperCase(),
       description_name: null,
     };
+    const prev = selectedProcessRef.current;
+    if (prev?.id && prev.id !== next.id) {
+      const activeCaptureType =
+        typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
+          ? window.__DC_GET_CAPTURE_TYPE__() || "1.Text"
+          : "1.Text";
+      saveGroupOnlyTableDraft(selectedGroupRef.current, prev.id, {
+        tableData: captureTableDataFromDom(activeCaptureType),
+        captureType: activeCaptureType,
+      });
+    }
     setSelectedProcess(next);
     saveGroupOnlyProcessPrefs(selectedGroupRef.current, {
       process: next.id,
@@ -548,6 +562,25 @@ export function useDataCaptureFormEngine(
     if (window.__DC_IS_RESTORING__) return;
     persistGroupOnlyFormPrefs();
   }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, currencyId, captureDate, persistGroupOnlyFormPrefs]);
+
+  /** Restore saved group-only table draft when process is pre-selected or grid becomes ready. */
+  useEffect(() => {
+    if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
+    if (!scriptsReady) return;
+    if (typeof window.__DC_RESTORE_CAPTURE_TABLE__ !== "function") return;
+    if (window.__DC_IS_RESTORING__) return;
+    try {
+      if (new URLSearchParams(window.location.search).get("restore") === "1") return;
+    } catch {
+      /* ignore */
+    }
+    void restoreGroupOnlyTableDraft(selectedGroup, selectedProcess.id);
+  }, [
+    applyCompanyOnlyFields,
+    selectedGroup,
+    selectedProcess?.id,
+    scriptsReady,
+  ]);
 
   const applyGroupOnlyPrefsForGroupRef = useRef(applyGroupOnlyPrefsForGroup);
   applyGroupOnlyPrefsForGroupRef.current = applyGroupOnlyPrefsForGroup;

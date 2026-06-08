@@ -159,3 +159,63 @@ function gc_resolve_group_anchor_company_id(PDO $pdo, string $groupCode): int
     return 0;
 }
 
+/**
+ * Fill native group_id on owner company rows from group_company_map when company.group_id is empty.
+ *
+ * @param array<int, array<string, mixed>> $rows
+ * @return array<int, array<string, mixed>>
+ */
+function gc_enrich_owner_company_rows_with_group_map(PDO $pdo, int $ownerId, array $rows): array
+{
+    if ($ownerId <= 0 || $rows === [] || !gc_has_groups_table($pdo)) {
+        return $rows;
+    }
+
+    try {
+        $pdo->query('SELECT 1 FROM group_company_map LIMIT 1');
+    } catch (Throwable $e) {
+        return $rows;
+    }
+
+    try {
+        $stmt = $pdo->prepare("
+            SELECT c.id AS company_pk, UPPER(TRIM(g.group_code)) AS group_code
+            FROM group_company_map gcm
+            INNER JOIN `groups` g ON g.id = gcm.group_id AND g.owner_id = ?
+            INNER JOIN company c ON c.id = gcm.company_id AND c.owner_id = ?
+        ");
+        $stmt->execute([$ownerId, $ownerId]);
+        $mapByCompany = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
+            $pk = (int) ($m['company_pk'] ?? 0);
+            $code = gc_normalize_group_code((string) ($m['group_code'] ?? ''));
+            if ($pk > 0 && $code !== '') {
+                $mapByCompany[$pk] = $code;
+            }
+        }
+        if ($mapByCompany === []) {
+            return $rows;
+        }
+
+        foreach ($rows as &$r) {
+            $pk = (int) ($r['id'] ?? 0);
+            if ($pk <= 0 || !isset($mapByCompany[$pk])) {
+                continue;
+            }
+            $native = gc_normalize_group_code((string) ($r['native_group_id'] ?? $r['group_id'] ?? ''));
+            if ($native === '') {
+                $r['native_group_id'] = $mapByCompany[$pk];
+                $coalesced = gc_normalize_group_code((string) ($r['group_id'] ?? ''));
+                if ($coalesced === '') {
+                    $r['group_id'] = $mapByCompany[$pk];
+                }
+            }
+        }
+        unset($r);
+    } catch (Throwable $e) {
+        // ignore
+    }
+
+    return $rows;
+}
+
