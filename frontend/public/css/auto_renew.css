@@ -256,6 +256,12 @@ body.auto-renew-page-body .auto-renew-col-control > .auto-renew-cell-readonly {
 
 body.auto-renew-page-body .auto-renew-col-control--status {
   justify-content: flex-start;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+body.auto-renew-page-body .auto-renew-col-control--status > .auto-renew-action-btns {
+  overflow: visible;
 }
 
 body.auto-renew-page-body .auto-renew-col-control--status > .auto-renew-action-btns,
@@ -565,11 +571,11 @@ body.auto-renew-page-body .auto-renew-btn {
 }
 
 body.auto-renew-page-body .auto-renew-btn--sm {
-  height: var(--auto-renew-control-height);
   min-height: var(--auto-renew-control-height);
-  min-width: 0;
-  padding: 0 10px;
-  font-size: var(--text-medium);
+  height: auto;
+  padding: 5px 10px;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 body.auto-renew-page-body .auto-renew-btn:not(:disabled):active {
@@ -584,7 +590,6 @@ body.auto-renew-page-body .auto-renew-btn-primary {
 
 body.auto-renew-page-body .auto-renew-btn-primary:not(:disabled):hover {
   background: var(--btn-add-gradient-hover);
-  transform: translateY(-1px);
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary:disabled {
@@ -600,7 +605,6 @@ body.auto-renew-page-body .auto-renew-btn-secondary {
 
 body.auto-renew-page-body .auto-renew-btn-secondary:not(:disabled):hover {
   background: var(--gradient-domain-muted-action-hover, linear-gradient(180deg, #585858 0%, #bcbcbc 100%));
-  transform: translateY(-1px);
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary:disabled {
