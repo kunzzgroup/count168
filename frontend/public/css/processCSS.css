@@ -1515,10 +1515,10 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     flex-shrink: 0;
 }
 
-/* Bank Process 顶栏日期：未选/已选药丸同宽（--bank-toolbar-date-pill-width 由 JS 按已选状态测量） */
+/* Bank Process 顶栏日期：未选/已选药丸同宽（--bank-toolbar-date-pill-width 由 JS 按内容测量） */
 body.process-page.process-page--bank {
     --bank-toolbar-calendar-min: 280px;
-    --bank-toolbar-date-pill-width: 252px;
+    --bank-toolbar-date-pill-width: 240px;
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group,
@@ -1527,6 +1527,13 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     min-width: var(--bank-toolbar-date-pill-width) !important;
     max-width: var(--bank-toolbar-date-pill-width) !important;
     flex: 0 0 auto;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group.bank-toolbar-date-pill-measuring,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group.bank-toolbar-date-pill-measuring {
+    width: max-content !important;
+    min-width: max-content !important;
+    max-width: none !important;
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker,
@@ -1539,9 +1546,16 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     box-sizing: border-box;
 }
 
+body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.bank-toolbar-date-pill-measuring .date-range-picker,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.bank-toolbar-date-pill-measuring .date-range-picker {
+    width: max-content !important;
+    min-width: max-content !important;
+    max-width: none !important;
+}
+
 body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1549,6 +1563,14 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     font-weight: 700;
     padding-right: 0;
     color: #94a3b8;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.bank-toolbar-date-pill-measuring #date-range-display,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.bank-toolbar-date-pill-measuring #date-range-display {
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker.has-selected-range #date-range-display,
