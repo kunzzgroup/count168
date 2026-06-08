@@ -454,10 +454,13 @@ export function dedupeCurrencyRowsByCode(rows) {
 /**
  * Apply saved API/global/local order to currency rows from get_company_currencies_api.
  */
-export function orderCurrencyRows(orderedData, orderData) {
+export function orderCurrencyRows(orderedData, orderData, explicitCompanyId = null) {
   let ordered = dedupeCurrencyRowsByCode(orderedData);
   try {
-    const companyId = orderData?.data?.company_id;
+    const companyId =
+      explicitCompanyId != null && explicitCompanyId !== ""
+        ? Number(explicitCompanyId)
+        : orderData?.data?.company_id;
     const savedOrder = resolveSavedCurrencyOrder(
       companyId,
       orderData?.success ? orderData?.data?.order : null,

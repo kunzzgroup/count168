@@ -40,10 +40,12 @@ import {
 } from "../lib/transactionApi.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
 import { orderCurrencyRows } from "../lib/transactionPaymentLogic.js";
+import { persistCurrencyDisplayOrder } from "../../../utils/company/currencyDisplayOrder.js";
 import {
   resolveTransactionScope,
   transactionScopeApiParams,
   transactionScopeCacheKey,
+  resolveTransactionCurrencyOrderCompanyId,
 } from "../lib/transactionScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { buildTransactionCompanyStripRows } from "../lib/transactionCompanyStrip.js";
@@ -295,10 +297,11 @@ export function useTransactionData({
     const fetchScopeKey = scopeCacheKey;
     let cancelled = false;
     const scopeApi = transactionScopeApiParams(transactionScope);
-    const orderCompanyId =
-      transactionScope?.mode === "company" && transactionScope.scopeCompanyId > 0
-        ? transactionScope.scopeCompanyId
-        : undefined;
+    const snapCompanies =
+      filterSnapshotRef.current?.snapCompaniesAll ||
+      filterSnapshotRef.current?.snapCompanies ||
+      [];
+    const orderCompanyId = resolveTransactionCurrencyOrderCompanyId(transactionScope, snapCompanies);
     (async () => {
       try {
         const c = await queryClient.fetchQuery({
@@ -314,12 +317,14 @@ export function useTransactionData({
       }
 
       try {
-        const ord = await queryClient.fetchQuery({
-          queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId ?? ""],
-          queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
-          staleTime: 60_000,
-          gcTime: 10 * 60_000,
-        });
+        const ord = orderCompanyId
+          ? await queryClient.fetchQuery({
+              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
+              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
+              staleTime: 60_000,
+              gcTime: 10 * 60_000,
+            })
+          : { success: true, data: { order: null, company_id: null } };
 
         let accData = [];
         let curRows = [];
@@ -421,8 +426,11 @@ export function useTransactionData({
           curRows = Array.isArray(cur?.data) ? cur.data : [];
         }
         if (cancelled || fetchScopeKey !== scopeCacheKeyRef.current) return;
-        const ordered = orderCurrencyRows(curRows, ord);
+        const ordered = orderCurrencyRows(curRows, ord, orderCompanyId);
         const codes = ordered.map((x) => String(x.code || x.currency || "").toUpperCase().trim()).filter(Boolean);
+        if (orderCompanyId && codes.length) {
+          persistCurrencyDisplayOrder(orderCompanyId, codes);
+        }
         setAccountOptions(accData);
         setCurrencyScopeBundle({ scopeKey: fetchScopeKey, rows: ordered });
         setCurrencyOptions([...new Set(codes)]);
@@ -530,10 +538,10 @@ export function useTransactionData({
         viewGroup,
         subsidiaryAccountsOnly: true,
       };
-      const orderCompanyId =
-        nextScope?.mode === "company" && nextScope.scopeCompanyId > 0
-          ? nextScope.scopeCompanyId
-          : undefined;
+      const orderCompanyId = resolveTransactionCurrencyOrderCompanyId(
+        nextScope,
+        nextSnap.snapCompaniesAll || nextSnap.snapCompanies,
+      );
 
       const url = new URL(window.location.href);
       url.searchParams.set("company_id", String(numericCid));
@@ -553,11 +561,13 @@ export function useTransactionData({
           queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
           staleTime: 60_000,
         }),
-        queryClient.prefetchQuery({
-          queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId ?? ""],
-          queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
-          staleTime: 60_000,
-        }),
+        orderCompanyId
+          ? queryClient.prefetchQuery({
+              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
+              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
+              staleTime: 60_000,
+            })
+          : Promise.resolve(),
       ]);
 
       void syncPickerCompanySession(numericCid, seq);
@@ -616,10 +626,10 @@ export function useTransactionData({
         viewGroup,
         subsidiaryAccountsOnly: true,
       };
-      const orderCompanyId =
-        nextScope?.mode === "company" && nextScope.scopeCompanyId > 0
-          ? nextScope.scopeCompanyId
-          : undefined;
+      const orderCompanyId = resolveTransactionCurrencyOrderCompanyId(
+        nextScope,
+        nextSnap.snapCompaniesAll || nextSnap.snapCompanies,
+      );
 
       const url = new URL(window.location.href);
       url.searchParams.set("company_id", String(cid));
@@ -640,11 +650,13 @@ export function useTransactionData({
           queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
           staleTime: 60_000,
         }),
-        queryClient.prefetchQuery({
-          queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId ?? ""],
-          queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
-          staleTime: 60_000,
-        }),
+        orderCompanyId
+          ? queryClient.prefetchQuery({
+              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
+              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
+              staleTime: 60_000,
+            })
+          : Promise.resolve(),
       ]);
 
       void syncPickerCompanySession(cid, seq);
@@ -666,10 +678,10 @@ export function useTransactionData({
         viewGroup,
         subsidiaryAccountsOnly: true,
       };
-      const orderCompanyId =
-        nextScope?.mode === "company" && nextScope.scopeCompanyId > 0
-          ? nextScope.scopeCompanyId
-          : undefined;
+      const orderCompanyId = resolveTransactionCurrencyOrderCompanyId(
+        nextScope,
+        nextSnap.snapCompaniesAll || nextSnap.snapCompanies,
+      );
 
       void Promise.all([
         queryClient.prefetchQuery({
@@ -682,11 +694,13 @@ export function useTransactionData({
           queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
           staleTime: 60_000,
         }),
-        queryClient.prefetchQuery({
-          queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId ?? ""],
-          queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
-          staleTime: 60_000,
-        }),
+        orderCompanyId
+          ? queryClient.prefetchQuery({
+              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
+              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
+              staleTime: 60_000,
+            })
+          : Promise.resolve(),
       ]);
     },
     [queryClient],

@@ -34,6 +34,7 @@ import {
   transactionScopeCacheCompanyKey,
   transactionScopeCacheKey,
   transactionScopeIsReady,
+  resolveTransactionCurrencyOrderCompanyId,
 } from "../lib/transactionScope.js";
 
 export function useTransactionSearch({
@@ -91,10 +92,14 @@ export function useTransactionSearch({
   const scopeReady = transactionScopeIsReady(transactionScope);
   const scopeApi = useMemo(() => transactionScopeApiParams(transactionScope), [transactionScope]);
   const scopeCacheCompanyKey = transactionScopeCacheCompanyKey(transactionScope);
-  const orderCompanyId = useMemo(() => {
-    const cid = Number(transactionScope?.scopeCompanyId);
-    return transactionScope?.mode === "company" && Number.isFinite(cid) && cid > 0 ? cid : null;
-  }, [transactionScope?.mode, transactionScope?.scopeCompanyId]);
+  const orderCompanyId = useMemo(
+    () =>
+      resolveTransactionCurrencyOrderCompanyId(
+        transactionScope,
+        filterSnapshot?.snapCompaniesAll || filterSnapshot?.snapCompanies,
+      ),
+    [transactionScope, filterSnapshot?.snapCompanies, filterSnapshot?.snapCompaniesAll],
+  );
 
   const persistCurrencyFilter = useCallback((companyId, showAll, sel, scopeGroup = null) => {
     if (!companyId) return;
@@ -268,14 +273,24 @@ export function useTransactionSearch({
       list.splice(tIdx, 0, moved);
 
       setCurrencyRowsOrdered(list);
+      const codes = list.map((x) => String(x.code || x.currency || "").trim().toUpperCase()).filter(Boolean);
       if (orderCompanyId != null) {
-        persistCurrencyDisplayOrder(orderCompanyId, list.map((x) => x.code));
+        persistCurrencyDisplayOrder(orderCompanyId, codes);
       }
-      await saveUserCurrencyOrder(list.map((x) => x.code), {
-        companyId: orderCompanyId ?? undefined,
-      });
+      try {
+        await saveUserCurrencyOrder(codes, {
+          companyId: orderCompanyId ?? undefined,
+        });
+        if (orderCompanyId != null) {
+          await queryClient.invalidateQueries({
+            queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
+          });
+        }
+      } catch {
+        /* localStorage already updated */
+      }
     },
-    [currencyRowsOrdered, setCurrencyRowsOrdered, orderCompanyId],
+    [currencyRowsOrdered, setCurrencyRowsOrdered, orderCompanyId, queryClient],
   );
 
   useEffect(() => {

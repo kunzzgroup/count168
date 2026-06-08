@@ -4,6 +4,7 @@ import {
   filterCompaniesWithDisplayId,
   isDashboardGroupOnlyMode,
   isVirtualGroupLinkCompanyRow,
+  pickGroupAnchorCompany,
   resolveViewGroupForCompany,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { groupIdsForGroupsAllAggregate } from "../../../utils/company/useGcFilterWithAllModes.js";
@@ -214,4 +215,24 @@ export function transactionScopeCacheKey(scope) {
   if (!scope) return "";
   const companyKey = transactionScopeCacheCompanyKey(scope) ?? "";
   return `${companyKey}:${scope.viewGroup || ""}:${scope.mode}:${scope.uiCompanyId ?? ""}`;
+}
+
+/** company_id for user_currency_order_api (per subsidiary / group anchor). */
+export function resolveTransactionCurrencyOrderCompanyId(scope, snapCompanies = []) {
+  if (!scope) return null;
+  const ui = Number(scope.uiCompanyId);
+  if (Number.isFinite(ui) && ui > 0) return ui;
+  const scopeCid = Number(scope.scopeCompanyId);
+  if (Number.isFinite(scopeCid) && scopeCid > 0) return scopeCid;
+  const g = scope.selectedGroup ? String(scope.selectedGroup).trim().toUpperCase() : "";
+  if (g && snapCompanies?.length) {
+    const anchor = pickGroupAnchorCompany(snapCompanies, g);
+    const aid = Number(anchor?.id);
+    if (Number.isFinite(aid) && aid > 0) return aid;
+  }
+  if (scope.mergeCompanyIds?.length) {
+    const first = Number(scope.mergeCompanyIds[0]);
+    if (Number.isFinite(first) && first > 0) return first;
+  }
+  return null;
 }

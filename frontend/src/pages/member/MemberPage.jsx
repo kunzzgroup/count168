@@ -72,7 +72,7 @@ export default function MemberPage() {
     linkedCurrenciesLoaded,
     isAllSelected,
     selectedCurrencies,
-    currencyFilterBands,
+    availableCurrencies,
     miniGridDisplayCurrencies,
     miniGridShell,
     miniGridLoading,

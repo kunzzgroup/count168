@@ -44,11 +44,15 @@ export function readCurrencyDisplayOrder(companyId) {
   }
 }
 
-/** Prefer API order; fall back to localStorage from last drag on this browser. */
+/**
+ * Saved pill order for this company.
+ * localStorage wins when present (last drag on this browser); otherwise use API (other devices).
+ */
 export function resolveSavedCurrencyOrder(companyId, apiOrder) {
+  const fromLs = readCurrencyDisplayOrder(companyId);
+  if (fromLs?.length) return fromLs;
   const fromApi = Array.isArray(apiOrder)
     ? apiOrder.map((c) => String(c).trim().toUpperCase()).filter(Boolean)
     : [];
-  if (fromApi.length) return fromApi;
-  return readCurrencyDisplayOrder(companyId) || null;
+  return fromApi.length ? fromApi : null;
 }
