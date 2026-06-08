@@ -139,8 +139,8 @@ function evaluateMaintenanceNumericFragment($value) {
         return null;
     }
     if (preg_match('/[+\-*\/]/', $valueStr)) {
-        $result = @eval('return (' . $valueStr . ');');
-        if (!is_numeric($result)) {
+        $result = safeEvalMaintenanceNumericExpression($valueStr);
+        if ($result === null) {
             return null;
         }
         return (float) $result;
@@ -149,6 +149,16 @@ function evaluateMaintenanceNumericFragment($value) {
         return null;
     }
     return (float) $valueStr;
+}
+
+/** eval 表达式求值；括号不匹配等语法错误时返回 null，避免整页 500 */
+function safeEvalMaintenanceNumericExpression($valueStr) {
+    try {
+        $result = eval('return (' . $valueStr . ');');
+        return is_numeric($result) ? (float) $result : null;
+    } catch (Throwable $e) {
+        return null;
+    }
 }
 
 /** 占成系数误存为 Source 的典型区间（如 0.9），非真实 Source（0.1、0.14） */
@@ -564,8 +574,8 @@ function formatSourcePercentForMaintenanceList($value) {
         if (!preg_match('/^[0-9.+\-*\/()\s]+$/', $valueStr)) {
             return $valueStr;
         }
-        $result = @eval('return (' . $valueStr . ');');
-        if (!is_numeric($result)) {
+        $result = safeEvalMaintenanceNumericExpression($valueStr);
+        if ($result === null) {
             return $valueStr;
         }
         $num = (float) $result;

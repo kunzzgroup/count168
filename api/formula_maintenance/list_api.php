@@ -61,13 +61,14 @@ function getCompanyIdForRequest(PDO $pdo) {
  * 在 Process = Select All 时导致 IG 等大组公司内存/超时（HTTP 500）。
  */
 function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter) {
-    $processMatchSql = "
-        p2.company_id = dct.company_id
-        AND (
-            (dct.process_id REGEXP '^[0-9]+$' AND p2.id = CAST(dct.process_id AS UNSIGNED))
-            OR (p2.process_id = dct.process_id)
-        )";
-    $sql = "SELECT 
+    // 用单引号 PHP 字符串，避免 "^[0-9]+$" 里的 $ 在双引号中被误解析
+    $numericProcessPattern = '^[0-9]+$';
+    $processJoinOn = 'p2.company_id = dct_inner.company_id AND (
+                    (dct_inner.process_id REGEXP \'' . $numericProcessPattern . '\' AND p2.id = CAST(dct_inner.process_id AS UNSIGNED))
+                    OR (p2.process_id = dct_inner.process_id)
+                )';
+
+    $sql = 'SELECT 
                 dct.id,
                 dct.process_id,
                 dct.id_product,
@@ -93,24 +94,29 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
                 a.name AS account_name,
                 c.code AS currency_code
             FROM data_capture_templates dct
-            INNER JOIN process p ON p.id = (
-                SELECT p2.id
-                FROM process p2
-                WHERE {$processMatchSql}
-                ORDER BY
-                    CASE
-                        WHEN dct.process_id REGEXP '^[0-9]+$'
-                             AND p2.id = CAST(dct.process_id AS UNSIGNED) THEN 0
-                        ELSE 1
-                    END,
-                    p2.id ASC
-                LIMIT 1
-            )
+            INNER JOIN (
+                SELECT
+                    dct_inner.id AS template_id,
+                    COALESCE(
+                        MIN(CASE
+                            WHEN dct_inner.process_id REGEXP \'' . $numericProcessPattern . '\'
+                                 AND p2.id = CAST(dct_inner.process_id AS UNSIGNED)
+                            THEN p2.id
+                            ELSE NULL
+                        END),
+                        MIN(p2.id)
+                    ) AS picked_process_id
+                FROM data_capture_templates dct_inner
+                INNER JOIN process p2 ON ' . $processJoinOn . '
+                WHERE dct_inner.company_id = ?
+                GROUP BY dct_inner.id
+            ) tpl_proc ON tpl_proc.template_id = dct.id
+            INNER JOIN process p ON p.id = tpl_proc.picked_process_id
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN account a ON dct.account_id = a.id
             LEFT JOIN currency c ON dct.currency_id = c.id
-            WHERE dct.company_id = ?";
-    $params = [$companyId];
+            WHERE dct.company_id = ?';
+    $params = [$companyId, $companyId];
     if ($processFilter !== '') {
         $sql .= " AND p.process_id = ?";
         $params[] = $processFilter;
