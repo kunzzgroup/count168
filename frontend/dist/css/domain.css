@@ -2312,6 +2312,18 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     line-height: 1.3;
 }
 
+.company-settings-react-modal .company-settings-rename-input {
+    box-sizing: border-box;
+    width: 100%;
+    text-transform: uppercase;
+}
+
+.company-settings-react-modal .company-settings-rename-input:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    background: var(--color-surface-slate-100);
+}
+
 .company-settings-react-modal .cs-company-field-label {
     display: block;
     margin: 0 0 8px 0;
