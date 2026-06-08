@@ -1309,12 +1309,12 @@ body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
 
 body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
     margin-left: 0;
-    /* 与全站 user-gc-inline-pills 一致：横向排列 + 换行；多段时纵向叠放由内部 segment 处理 */
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
+    /* 多段 Currency：纵向叠放 segment 白底条（与 Account 一致），每段内 8 列网格对齐 */
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
     align-self: stretch;
-    overflow-x: auto;
+    overflow-x: visible;
     overflow-y: visible;
     gap: var(--user-gc-inline-pills-gap, 4px);
     width: 100%;
@@ -1352,14 +1352,19 @@ body.member-winloss-page #member_currency_buttons .member-winloss-currency-segme
     margin-inline-start: 0;
     align-self: flex-start;
     max-width: 100%;
-    display: grid;
     width: auto;
     align-items: stretch;
     min-width: 0;
     box-sizing: border-box;
     row-gap: 0;
     column-gap: 0;
+}
+
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments--full {
+    display: grid;
+    width: 100%;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment,
@@ -1395,12 +1400,21 @@ body.member-winloss-page #member_currency_buttons .member-winloss-currency-segme
     padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
     box-sizing: border-box;
     min-height: clamp(28px, 1.85vw, 32px);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
     font-size: var(--text-medium) !important;
     line-height: 1.25;
     align-items: center;
+}
+
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments:not(.member-winloss-currency-segments--full) .user-gc-segment {
+    min-width: max-content;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments--full .user-gc-segment {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Account：每行最右一格（满 7 列换行）右上/右下圆角，与整条白底条圆角一致；行尾去掉右边框以免直角竖线 */
@@ -1921,11 +1935,19 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 }
 
 .member-winloss-page .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll) {
-    flex: 0 0 auto;
-    width: max-content;
+    flex: 1 1 auto;
+    width: 100%;
     max-width: 100%;
-    align-self: flex-start;
+    min-width: 0;
+    align-self: stretch;
     margin-inline-start: 0;
+}
+
+.member-winloss-page .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll) {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    align-self: stretch;
 }
 
 .member-dash-rail-matrix {
@@ -3080,17 +3102,39 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
         padding: 10px 12px;
         margin: 8px 0 12px;
         min-height: 0;
-    }
-
-    .member-currency-table-wrapper {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-gutter: stable;
+        overflow-x: visible;
         max-width: 100%;
     }
 
+    .member-currency-tables {
+        min-width: 0;
+        max-width: 100%;
+        overflow: visible;
+    }
+
+    .member-currency-table-wrapper {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
+    }
+
+    .member-winloss-table.member-winloss-table--by-currency {
+        overflow: visible;
+    }
+
     .member-winloss-table .transaction-table {
-        min-width: min(100%, 920px);
+        table-layout: fixed;
+        width: 980px;
+        min-width: 980px;
+        max-width: none;
+    }
+
+    .member-winloss-table .transaction-history-col-remark {
+        min-width: 5.5rem;
     }
 
     .member-winloss-page .member-winloss-grid-account-filter .user-gc-inline-label {

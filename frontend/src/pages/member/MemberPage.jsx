@@ -400,19 +400,27 @@ export default function MemberPage() {
               <div className="user-gc-inline-row" id="member_currency_filter">
                 <span className="user-gc-inline-label">{t("currency")}</span>
                 <div
-                  className="user-gc-inline-pills member-winloss-currency-pills"
+                  className="user-gc-inline-pills user-gc-inline-pills--segment-scroll member-winloss-currency-pills"
                   id="member_currency_buttons"
                   role="group"
                   aria-label={t("ariaCurrency")}
                 >
-                  {currencyFilterBands.map((band, segIdx) => (
+                  {currencyFilterBands.map((band, segIdx) => {
+                    const useBandGrid =
+                      band.length >= WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS ||
+                      currencyFilterBands.length > 1;
+                    return (
                     <div
                       key={`member-ccy-band-${segIdx}`}
-                      className="user-gc-segment-group member-winloss-currency-segments"
-                      style={{
-                        width: `${(band.length / WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) * 100}%`,
-                        gridTemplateColumns: `repeat(${band.length}, minmax(0, 1fr))`,
-                      }}
+                      className={`user-gc-segment-group member-winloss-currency-segments${useBandGrid ? " member-winloss-currency-segments--full" : ""}`}
+                      style={
+                        useBandGrid
+                          ? {
+                              width: "100%",
+                              gridTemplateColumns: `repeat(${WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS}, minmax(0, 1fr))`,
+                            }
+                          : undefined
+                      }
                     >
                       {band.map((cell) =>
                         cell.type === "all" ? (
@@ -430,7 +438,7 @@ export default function MemberPage() {
                             type="button"
                             draggable
                             data-currency={cell.code}
-                            className={`user-gc-segment user-gc-segment--draggable-pill${selectedCurrencies.includes(cell.code) ? " is-on" : ""}`}
+                            className={`user-gc-segment user-gc-segment--draggable-pill${isAllSelected || selectedCurrencies.includes(cell.code) ? " is-on" : ""}`}
                             onDragStart={(e) => {
                               e.dataTransfer.setData("text/plain", cell.code);
                               e.dataTransfer.effectAllowed = "move";
@@ -444,7 +452,8 @@ export default function MemberPage() {
                         )
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

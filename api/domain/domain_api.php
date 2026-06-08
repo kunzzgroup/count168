@@ -3533,7 +3533,8 @@ try {
             $newGroupRows = domainApiFilterGroupsToNewCodes($pdo, (int) $id, $groups_data);
             $newCodeRows = domainApiFilterRowsToNewCompanyGroupCodes($pdo, (int) $id, $companies_data);
             if ($newGroupRows !== [] || $newCodeRows !== []) {
-                $crossOwnerErr = domainApiValidateCrossOwnerCodesIncludingGroups($pdo, $newGroupRows, $newCodeRows, null);
+                // 排除当前 owner 已有 company/groups 行，避免重命名 Group 时关联公司的既有 company_id 误判为跨 domain 冲突
+                $crossOwnerErr = domainApiValidateCrossOwnerCodesIncludingGroups($pdo, $newGroupRows, $newCodeRows, (int) $id);
                 if ($crossOwnerErr !== null) {
                     echo json_encode(['success' => false, 'message' => $crossOwnerErr, 'data' => null]);
                     exit;
