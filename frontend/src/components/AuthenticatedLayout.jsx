@@ -409,6 +409,7 @@ export default function AuthenticatedLayout() {
     (detail, options = {}) => {
       if (!detail) {
         applySidebarPatch(null);
+        setSidebarGcTick((n) => n + 1);
         scheduleRefreshSession();
         return;
       }
@@ -439,6 +440,7 @@ export default function AuthenticatedLayout() {
         const expirationDate = resolveSidebarExpirationForFilter(resolved);
         patch.expirationDate = expirationDate !== undefined ? expirationDate : null;
         applySidebarPatch(patch);
+        setSidebarGcTick((n) => n + 1);
         if (!skipRefresh) scheduleRefreshSession();
         return;
       }
@@ -465,6 +467,7 @@ export default function AuthenticatedLayout() {
           : {}),
         expirationDate: expirationDate !== undefined ? expirationDate : null,
       });
+      setSidebarGcTick((n) => n + 1);
       if (!skipRefresh) scheduleRefreshSession();
     },
     [applySidebarPatch, scheduleRefreshSession],
