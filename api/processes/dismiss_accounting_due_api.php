@@ -183,9 +183,8 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-06-20';
-
+    $today = date('Y-m-d');
+    
     $inserted = 0;
     $processIdsForPrune = [];
     bmp_ensureMaintenanceResendPendingTable($pdo);
