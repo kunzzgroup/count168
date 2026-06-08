@@ -627,13 +627,9 @@ export function ensureMaintenanceDateRangePicker() {
           : bankListDateAnchor;
         rect = anchorEl.getBoundingClientRect();
         barWidth = rect.width;
-        const floorPx = Math.min(
-          360,
-          Math.max(1, Math.round(window.innerWidth - 24)),
-        );
         document.body.style.setProperty(
           "--bank-toolbar-date-width",
-          `${Math.max(floorPx, Math.round(barWidth))}px`,
+          `${Math.max(1, Math.round(barWidth))}px`,
         );
       } else if (shell) {
         rect = shell.getBoundingClientRect();
