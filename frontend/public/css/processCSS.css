@@ -129,13 +129,13 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
 
 /* Bank Process 列表日期：对齐 Transaction Payment 药丸框（无 Period 侧栏） */
 .process-page .process-list-date-filter.transaction-date-range-group {
-    min-width: clamp(180px, 15vw, 235px);
+    min-width: clamp(300px, 20vw, 336px);
 }
 
 .process-page .transaction-date-range-group .date-range-picker {
     position: relative;
-    min-width: clamp(180px, 15vw, 250px);
-    width: clamp(180px, 15vw, 250px);
+    min-width: clamp(300px, 20vw, 336px);
+    width: clamp(300px, 20vw, 336px);
     min-height: clamp(32px, 2.45vw, 38px);
     gap: clamp(6px, 0.5vw, 10px);
     padding: 0 clamp(28px, 2.2vw, 36px) 0 0;
@@ -1607,9 +1607,9 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
         pointer-events: none;
     }
 
-    /* 顶栏日期：紧凑宽度，与下方日历 match-anchor 对齐 */
+    /* 顶栏日期：需完整显示 DD/MM/YYYY - DD/MM/YYYY，与下方日历 match-anchor 对齐 */
     body.process-page.process-page--bank {
-        --bank-toolbar-date-width: min(248px, calc(100vw - 24px));
+        --bank-toolbar-date-width: min(320px, calc(100vw - 24px));
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group,
@@ -1847,10 +1847,15 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
         transform: none;
     }
 
+    body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group {
+        min-width: clamp(300px, 20vw, 336px);
+        flex: 0 0 auto;
+    }
+
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
-        min-width: 220px;
-        width: clamp(220px, 12vw, 280px);
-        max-width: 280px;
+        min-width: clamp(300px, 20vw, 336px);
+        width: clamp(300px, 20vw, 336px);
+        max-width: 336px;
         /* 仅缩小高度，宽度保持不变 */
         min-height: 34px;
         padding-top: 0;
