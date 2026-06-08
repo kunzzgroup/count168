@@ -4149,18 +4149,8 @@ body.domain-page .domain-confirm-modal-content .confirm-actions {
     margin-top: clamp(18px, 1.67vw, 32px)!important;
     display: flex !important;
     justify-content: center !important;
-    gap: 12px !important;
     padding: 39.93px 0 !important;
     background: transparent !important;
-}
-
-body.domain-page .domain-confirm-modal-content .btn-cancel-confirm,
-body.domain-page .domain-confirm-modal-content .confirmDeleteBtn {
-    width: 120px !important;
-    min-height: 35.5px !important;
-    padding: 8px 20px !important;
-    font-size: var(--domain-text-legacy-15936) !important;
-    line-height: 1 !important;
 }
 
 @media (max-width: 1024px) {

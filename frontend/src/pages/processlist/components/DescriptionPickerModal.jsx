@@ -170,10 +170,10 @@ export default function DescriptionPickerModal({
             <h2 className="process-confirm-title">{t("deleteDescriptionTitle")}</h2>
             <p className="process-confirm-message">{t("deleteDescriptionConfirm")}</p>
             <div className="process-confirm-actions">
-              <button type="button" className="process-btn process-btn-cancel" onClick={() => setDeleteConfirmId(null)}>
+              <button type="button" className="process-btn process-btn-cancel confirm-cancel" onClick={() => setDeleteConfirmId(null)}>
                 {t("cancel")}
               </button>
-              <button type="button" className="process-btn process-btn-delete" disabled={ro} onClick={() => !ro && void runDelete()}>
+              <button type="button" className="process-btn process-btn-delete confirm-delete" disabled={ro} onClick={() => !ro && void runDelete()}>
                 {t("delete")}
               </button>
             </div>

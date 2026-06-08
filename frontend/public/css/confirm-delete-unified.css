@@ -1,0 +1,268 @@
+/**
+ * Unified Confirm Delete modal footer buttons — User List / Account reference.
+ * Loaded globally via main.jsx so all pages share size, gradient, and hover.
+ */
+
+:root {
+  --confirm-delete-btn-min-width: clamp(90px, 7vw, 120px);
+  --confirm-delete-btn-padding-y: clamp(6px, 0.42vw, 8px);
+  --confirm-delete-btn-padding-x: 20px;
+  --confirm-delete-btn-font-size: clamp(10px, 0.83vw, 16px);
+  --confirm-delete-btn-radius: 6px;
+  --confirm-delete-actions-gap: 12px;
+}
+
+/* Footer layout — consistent gap & alignment */
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: var(--confirm-delete-actions-gap) !important;
+}
+
+/* Shared button base */
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) :is(
+  .confirm-cancel,
+  .confirm-delete,
+  .btn-cancel-confirm,
+  .confirmDeleteBtn,
+  .process-btn-cancel,
+  .process-btn-delete,
+  .edit-modal-btn-cancel,
+  .edit-modal-btn-save.confirm-delete
+) {
+  box-sizing: border-box !important;
+  flex: 0 0 auto !important;
+  max-width: none !important;
+  min-width: var(--confirm-delete-btn-min-width) !important;
+  width: auto !important;
+  min-height: unset !important;
+  margin: 0 !important;
+  padding: var(--confirm-delete-btn-padding-y) var(--confirm-delete-btn-padding-x) !important;
+  border: none !important;
+  border-radius: var(--confirm-delete-btn-radius) !important;
+  font-family: var(--font-heading-page), -apple-system, sans-serif !important;
+  font-size: var(--confirm-delete-btn-font-size) !important;
+  font-weight: var(--font-weight-semibold, 600) !important;
+  line-height: 1.2 !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease !important;
+}
+
+/* Cancel */
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) :is(
+  .confirm-cancel,
+  .btn-cancel.confirm-cancel,
+  .btn-cancel-confirm,
+  .process-btn-cancel,
+  .edit-modal-btn-cancel
+) {
+  background: var(--gradient-domain-muted-action, linear-gradient(180deg, #bcbcbc 0%, #585858 100%)) !important;
+  box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3) !important;
+}
+
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) :is(
+  .confirm-cancel,
+  .btn-cancel.confirm-cancel,
+  .btn-cancel-confirm,
+  .process-btn-cancel,
+  .edit-modal-btn-cancel
+):hover:not(:disabled) {
+  background: var(--gradient-domain-muted-action-hover, linear-gradient(180deg, #585858 0%, #bcbcbc 100%)) !important;
+  box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) :is(
+  .confirm-cancel,
+  .btn-cancel.confirm-cancel,
+  .btn-cancel-confirm,
+  .process-btn-cancel,
+  .edit-modal-btn-cancel
+):active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+/* Delete */
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) :is(
+  .confirm-delete,
+  .btn-delete.confirm-delete,
+  .confirmDeleteBtn,
+  .process-btn-delete,
+  .edit-modal-btn-save.confirm-delete
+) {
+  background: var(--btn-delete-gradient, linear-gradient(180deg, #f30e12 0%, #a91215 100%)) !important;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3) !important;
+}
+
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) :is(
+  .confirm-delete,
+  .btn-delete.confirm-delete,
+  .confirmDeleteBtn,
+  .process-btn-delete,
+  .edit-modal-btn-save.confirm-delete
+):hover:not(:disabled) {
+  background: var(--btn-delete-gradient-hover, linear-gradient(180deg, #a91215 0%, #f30e12 100%)) !important;
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) :is(
+  .confirm-delete,
+  .btn-delete.confirm-delete,
+  .confirmDeleteBtn,
+  .process-btn-delete,
+  .edit-modal-btn-save.confirm-delete
+):active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+/* Disabled delete */
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content
+) :is(
+  .confirm-delete,
+  .btn-delete.confirm-delete,
+  .confirmDeleteBtn,
+  .process-btn-delete
+):disabled,
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content
+) :is(
+  .confirm-delete,
+  .btn-delete.confirm-delete,
+  .confirmDeleteBtn,
+  .process-btn-delete
+):disabled:hover {
+  background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+  color: #f8fafc !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.9 !important;
+}
+
+/* Process delete sweep animation — keep but don't affect layout */
+:is(#confirmDeleteModal, #confirmModal) .process-btn-delete::after {
+  pointer-events: none;
+}

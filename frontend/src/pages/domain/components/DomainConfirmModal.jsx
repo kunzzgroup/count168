@@ -16,11 +16,11 @@ export default function DomainConfirmModal({ message, onConfirm, onClose, lang =
           </div>
           <h2 className="confirm-title" style={{ margin: 0, marginBottom: "24px", textAlign: "center", fontFamily: "var(--font-heading-page)", fontSize: "40px", fontWeight: 700, letterSpacing: "-0.02em", color: "#1f2937", lineHeight: 1 }}>{t("confirmDeleteTitle")}</h2>
           <p id="confirmMessage" className="confirm-message" style={{ margin: 0, minHeight: "91px", maxHeight: 300, overflowY: "auto", whiteSpace: "pre-line", padding: "0 39.6px", textAlign: "center", fontSize: "18px", fontWeight: 500, lineHeight: 1.4, color: "#475569" }}>{message}</p>
-          <div className="confirm-actions" style={{ marginTop: "52px", display: "flex", justifyContent: "center", gap: 4, background: "#f8fafc", padding: "39.93px 0" }}>
-            <button type="button" className="btn-cancel-confirm" style={{ cursor: "pointer", width: "120px", minHeight: "35.5px", borderRadius: 6, border: 0, background: "linear-gradient(180deg,#bcbcbc 0%,#585858 100%)", padding: "8px 20px", fontFamily: "var(--font-heading-page)", fontSize: "15.93px", color: "#fff", boxShadow: "0 2px 4px rgba(88,88,88,0.3)" }} onClick={onClose}>
+          <div className="confirm-actions" style={{ marginTop: "52px", background: "#f8fafc", padding: "39.93px 0" }}>
+            <button type="button" className="btn btn-cancel confirm-cancel" onClick={onClose}>
               {t("cancel")}
             </button>
-            <button type="button" className="confirmDeleteBtn" style={{ cursor: "pointer", width: "120px", minHeight: "35.5px", borderRadius: 6, border: 0, background: "linear-gradient(180deg,#F30E12 0%,#A91215 100%)", padding: "8px 20px", fontFamily: "var(--font-heading-page)", fontSize: "15.93px", color: "#fff", boxShadow: "0 2px 4px rgba(220,53,69,0.3)" }} onClick={onConfirm}>
+            <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
               {t("delete")}
             </button>
           </div>
