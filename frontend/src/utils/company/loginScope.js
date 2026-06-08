@@ -139,6 +139,64 @@ export function getAssignedCompanyIds(me) {
 }
 
 /**
+ * May the session call transaction scope APIs for this company_id?
+ * Mirrors tx_resolve_request_company_id / gc_session_can_access_company_id (frontend-safe).
+ *
+ * @param {string|null|undefined} [viewGroup] AP/IG when querying a subsidiary under a group tab.
+ */
+export function canPrefetchCompanyScope(me, companyId, companies = [], viewGroup = null) {
+  const id = Number(companyId);
+  if (!Number.isFinite(id) || id <= 0 || !me) return false;
+
+  const list = Array.isArray(companies) ? companies : [];
+  const row = list.find((c) => Number(c.id) === id) ?? null;
+  const vg =
+    viewGroup != null && String(viewGroup).trim() !== ""
+      ? String(viewGroup).trim().toUpperCase()
+      : null;
+
+  if (isGroupLogin(me)) {
+    if (!row || !companyMatchesLoginScope(row, me, list)) return false;
+    if (vg) {
+      const native = normalizeNativeCompanyGroupId(row);
+      const link = row.link_source_group
+        ? String(row.link_source_group).trim().toUpperCase()
+        : "";
+      return native === vg || link === vg || canAccessGroupLedgerForGroup(me, vg, list);
+    }
+    return true;
+  }
+
+  const role = String(me.role || "").trim().toLowerCase();
+  const userType = String(me.user_type || "").trim().toLowerCase();
+
+  if (role === "owner") {
+    return row != null;
+  }
+
+  if (userType === "member") {
+    return Number(me.company_id) === id;
+  }
+
+  if (Number(me.company_id) === id) return true;
+
+  const assignedIds = getAssignedCompanyIds(me);
+  if (assignedIds.includes(id)) return true;
+
+  if (vg) {
+    if (!canAccessGroupLedgerForGroup(me, vg, list)) return false;
+    if (!row) return false;
+    if (companyLoginHasGroupLedgerPrivilege(me)) return true;
+    if (userHasAssignedGroupLedger(me) && getAssignedGroupCodes(me).includes(vg)) {
+      return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+/**
  * Admin assigned group ledger (user_group_map) — NOT login_scope.
  */
 export function userHasAssignedGroupLedger(me) {
