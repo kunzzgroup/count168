@@ -1,10 +1,29 @@
 <?php
 session_start();
 require_once 'config.php';
+require_once __DIR__ . '/permissions.php';
 
-// 如果已经登录，直接跳转到dashboard
+function resolveLoggedInRedirect(PDO $pdo, $userId, $userType) {
+    if (isset($userType) && strtolower((string) $userType) === 'member') {
+        return 'member.php';
+    }
+    if (isset($userType) && strtolower((string) $userType) === 'owner') {
+        return 'dashboard.php';
+    }
+    $stmt = $pdo->prepare('SELECT permissions FROM user WHERE id = ?');
+    $stmt->execute([$userId]);
+    [$permissions, $isLegacyFullAccess] = parseUserSidebarPermissions($stmt->fetchColumn());
+    return getFirstSidebarPermittedPage($permissions, $isLegacyFullAccess) ?: 'dashboard.php';
+}
+
+// 如果已经登录，按权限跳转到对应首页
 if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
+    $redirect = resolveLoggedInRedirect(
+        $pdo,
+        $_SESSION['user_id'],
+        $_SESSION['user_type'] ?? 'user'
+    );
+    header('Location: ' . $redirect);
     exit();
 }
 
@@ -54,8 +73,8 @@ if (isset($_COOKIE['remember_token'])) {
         $stmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
         $stmt->execute([$user['id']]);
         
-        // 跳转到dashboard
-        header("Location: dashboard.php");
+        // 跳转到对应首页
+        header('Location: ' . resolveLoggedInRedirect($pdo, $user['id'], 'user'));
         exit();
     } else {
         // Token无效或过期，清除cookie

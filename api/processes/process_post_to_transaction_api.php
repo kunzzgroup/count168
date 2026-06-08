@@ -3,7 +3,7 @@
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
  * 支持 period_types[]：partial_first_month = 首月按比例（day_start 到月底），monthly = 按 frequency=monthly 的「对日对月」服务区间比例（与 Inbox 一致）；frequency=1st_of_every_month 的 monthly 且 day_end_monthly_cap_enabled=ON 时，若 day_end 落在该账单自然月内则该期按「月初～day_end」比例（与 Inbox 一致）。day_end_tail = 尾段 prorateInclusiveDateRange（1st+cap 列 ON 时为 max(exclusiveEnd, day_end 月首)～day_end；否则 exclusiveEnd～day_end 且需 day_end≥exclusiveEnd；1st+cap OFF 不入账尾段），
- * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
+ * resend_consolidated_range = 仅 Resend 弹窗同时填 day_start+day_end 时：frequency=monthly 按对日对月整期累加，否则按自然月切段 [day_start, day_end] 合并为一笔（与 Inbox 一致）。
  * 入账请求仅针对当前公司下选中的 Bank Process；Frequency=once 且 period_type=once_one_off 入账成功后，将该 process 的 status 置为 inactive（Accounting Due 的 Dismiss 不写 status）。
  */
 
@@ -179,6 +179,13 @@ function txnFormat2($value): string
 function txnDescriptionAmount($value): string
 {
     return money_out($value, 2);
+}
+
+/** Process bank 描述尾缀：| {Bank} */
+function txnProcessBankDescriptionTail(array $processRow): string
+{
+    $bank = trim((string) ($processRow['bank'] ?? ''));
+    return $bank === '' ? '' : (' | ' . $bank);
 }
 
 /** Pro-rated cost/price/profit for partial first month (day_start to end of that month) */
@@ -487,16 +494,10 @@ function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYm
     return $dueYmd;
 }
 
-/** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / monthly_skipped */
+/** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / 合法 monthly_skipped */
 function hasMonthlyPostedOrSkippedInCalendarMonthForTxn(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
 {
-    try {
-        $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '') LIMIT 1");
-        $stmt->execute([$companyId, $processId, $year, $month]);
-        return (bool) $stmt->fetch();
-    } catch (Throwable $e) {
-        return false;
-    }
+    return bmp_monthlyBillingCalendarMonthIsHandled($pdo, $companyId, $processId, $year, $month);
 }
 
 /** 与 process_accounting_inbox_api 的 isWithinRecurringBillingWindow 一致 */
@@ -525,10 +526,9 @@ function isWithinRecurringBillingWindowForTxn(string $todayYmd, ?string $dayStar
         }
     }
 
-    $dayEndInc = null;
-    if ($dayEndYmd !== null && $dayEndYmd !== '' && strtotime($dayEndYmd) !== false) {
-        $dayEndInc = date('Y-m-d', strtotime($dayEndYmd));
-    }
+    $dayEndInc = function_exists('bmp_bankProcessDateFieldToYmd')
+        ? bmp_bankProcessDateFieldToYmd($dayEndYmd)
+        : null;
 
     if ($contractLastInclusive === null && $dayEndInc === null) {
         return true;
@@ -786,6 +786,20 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $byId = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+        // 与 process_accounting_inbox_api 一致：Accounting Due 入账用库内真实 day_start/day_end/frequency，勿用 Resend 暂存覆盖。
+        $merged['day_start'] = $row['day_start'] ?? null;
+        $merged['day_end'] = $row['day_end'] ?? null;
+        if ($hasFrequency) {
+            $merged['day_start_frequency'] = $row['day_start_frequency'] ?? '1st_of_every_month';
+        }
+        $merged['accounting_resend_relax_created_floor'] = 0;
+        unset(
+            $merged['accounting_resend_consolidated_range'],
+            $merged['accounting_resend_single_period_from_schedule'],
+            $merged['accounting_resend_schedule_day_start'],
+            $merged['accounting_resend_schedule_day_end'],
+            $merged['accounting_resend_schedule_frequency']
+        );
         $byId[(int) $merged['id']] = $merged;
     }
     return $byId;
@@ -1121,7 +1135,10 @@ try {
             if ($endYmdRc === null || $endYmdRc === '' || $dayStartYmd > $endYmdRc) {
                 continue;
             }
-            $totRc = prorateInclusiveDateRange($dayStartYmd, $endYmdRc, $cost, $price, $profit);
+            $rcFreq = strtolower(trim((string) ($p['day_start_frequency'] ?? '1st_of_every_month')));
+            $totRc = ($rcFreq === 'monthly')
+                ? sumMonthlyAnniversaryInclusiveRangeAmounts($dayStartYmd, $endYmdRc, $dayStartYmd, $cost, $price, $profit)
+                : prorateInclusiveDateRange($dayStartYmd, $endYmdRc, $cost, $price, $profit);
             $cost = $totRc['cost'];
             $price = $totRc['price'];
             $profit = $totRc['profit'];
@@ -1148,15 +1165,12 @@ try {
             $price = $partial['price'];
             $profit = $partial['profit'];
         } elseif ($periodType === 'day_end_tail' && $dayStartYmd) {
-            if ($has_day_end_tail_switch_col && $frequency === '1st_of_every_month') {
-                $raw = $p['day_end_monthly_cap_enabled'] ?? null;
-                $tailOn = in_array((string) $raw, ['1', 'true', 'TRUE'], true) || $raw === 1 || $raw === true;
-                if (!$tailOn) {
-                    continue;
-                }
-            }
+            // Accounting Due 已筛过可入账尾段；此处不再因 cap OFF 静默跳过（否则会出现「成功但 0 条」且 Due 仍在）。
             $dayEndRaw = $p['day_end'] ?? null;
-            if ($dayEndRaw === null || trim((string) $dayEndRaw) === '' || strtotime((string) $dayEndRaw) === false) {
+            $dayEndInc = function_exists('bmp_bankProcessDateFieldToYmd')
+                ? bmp_bankProcessDateFieldToYmd($dayEndRaw)
+                : null;
+            if ($dayEndInc === null) {
                 continue;
             }
             $term = getBillingTermMonthsFromContract($p['contract'] ?? null);
@@ -1164,7 +1178,6 @@ try {
                 continue;
             }
             $exclusiveEnd = contractExclusiveEndYmdForFrequency($dayStartYmd, $p['contract'] ?? null, $frequency);
-            $dayEndInc = date('Y-m-d', strtotime((string) $dayEndRaw));
             if ($exclusiveEnd === null) {
                 continue;
             }
@@ -1175,7 +1188,21 @@ try {
                 } catch (Throwable $e) {
                     continue;
                 }
-                $tailFrom = max($exclusiveEnd, $monthFirst);
+                if ($dayEndInc >= $monthFirst && $dayEndInc < $exclusiveEnd) {
+                    $tailFrom = $monthFirst;
+                } else {
+                    $contractLast = null;
+                    try {
+                        $contractLast = (new DateTimeImmutable($exclusiveEnd))->modify('-1 day')->format('Y-m-d');
+                    } catch (Throwable $e) {
+                        $contractLast = null;
+                    }
+                    if ($contractLast !== null && $dayEndInc > $contractLast) {
+                        $tailFrom = $monthFirst;
+                    } else {
+                        $tailFrom = max($exclusiveEnd, $monthFirst);
+                    }
+                }
                 if ($tailFrom > $dayEndInc) {
                     continue;
                 }
@@ -1415,6 +1442,7 @@ try {
         }
 
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ($periodType === 'once_one_off' ? ' (once)' : '')));
+        $processTail = txnProcessBankDescriptionTail($p);
         $resendEndMarker = '';
         if ($periodType === 'resend_consolidated_range') {
             $endRawForMarker = $p['day_end'] ?? null;
@@ -1433,8 +1461,8 @@ try {
             $txn['account_id'] = (int) $p['card_merchant_id'];
             $txn['amount'] = txnTrunc2($cost);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($cost))
-                : ("Process: Buy Price for $processLabel" . $suffix . $resendEndMarker);
+                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($cost) . $processTail)
+                : ("Process: Buy Price for $processLabel" . $suffix . $resendEndMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1445,8 +1473,8 @@ try {
             $txn['account_id'] = (int) $p['customer_id'];
             $txn['amount'] = txnTrunc2($price);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($price))
-                : ("Process: Sell Price for $processLabel" . $suffix . $resendEndMarker);
+                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($price) . $processTail)
+                : ("Process: Sell Price for $processLabel" . $suffix . $resendEndMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1495,8 +1523,8 @@ try {
             $txn['account_id'] = (int) $p['profit_account_id'];
             $txn['amount'] = txnTrunc2($companyProfit);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($profit))
-                : ("Process: Profit for $processLabel" . $suffix . $resendEndMarker);
+                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($profit) . $processTail)
+                : ("Process: Profit for $processLabel" . $suffix . $resendEndMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1505,8 +1533,8 @@ try {
             $txn['account_id'] = (int) $ps['account_id'];
             $txn['amount'] = txnTrunc2($ps['amount']);
             $txn['description'] = $isManualInactiveCompensation
-                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($ps['amount']))
-                : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . money_out($ps['amount'], 2) . ')' . $suffix . $resendEndMarker);
+                ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($ps['amount']) . $processTail)
+                : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . money_out($ps['amount'], 2) . ')' . $suffix . $resendEndMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1600,6 +1628,7 @@ try {
             }
             $clr->execute([(int) $p['id'], $companyId]);
             $p['accounting_resend_relax_created_floor'] = 0;
+            bmp_purgeStaleMonthlySkippedRows($pdo, $companyId, (int) $p['id']);
         }
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
@@ -1625,6 +1654,13 @@ try {
         jsonResponse(true, "未到应付日，暂不生成交易记录（Resend 除外）。", [
             'created_count' => 0,
             'skipped_future_monthly_due_count' => $skippedFutureMonthlyDueCount
+        ]);
+        exit;
+    }
+
+    if ($createdCount === 0) {
+        jsonResponse(false, '未生成任何交易记录：请确认该 Process 的 Supplier/Customer/Company、Frequency 与 Day end 设置，并刷新 Accounting Due 后重试。', [
+            'created_count' => 0,
         ]);
         exit;
     }

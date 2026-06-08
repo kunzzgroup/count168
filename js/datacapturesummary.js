@@ -275,6 +275,53 @@ function normalizeIdProductForKey(idProduct) {
     return s;
 }
 
+/**
+ * 判断 candidate 是否属于本次 Capture 的 id_product。
+ * 完整一致 OK；紧贴括号变体 OK（ALLBET95MS ↔ ALLBET95MS(SV)MYR）。
+ * 「空格+(」变体视为不同产品（[G1930]AURITH68 ≠ [G1930]AURITH68 (SETUP)）。
+ */
+function summaryIdProductMatchesCapture(capturedId, candidateId) {
+    const cap = (capturedId || '').trim();
+    const cand = (candidateId || '').trim();
+    if (!cap || !cand) return false;
+    const capL = cap.toLowerCase();
+    const candL = cand.toLowerCase();
+    if (capL === candL) return true;
+    if (candL.startsWith(capL) && candL.length > capL.length && candL[capL.length] === '(') return true;
+    if (capL.startsWith(candL) && capL.length > candL.length && capL[candL.length] === '(') return true;
+    return false;
+}
+
+function summaryIdMatchesAnyCapture(candidateId, capturedIds) {
+    const list = Array.isArray(capturedIds) ? capturedIds : [];
+    return list.some((cid) => summaryIdProductMatchesCapture(cid, candidateId));
+}
+
+function summaryCapturedParentIsExact(parentId, capturedIds) {
+    const parent = (parentId || '').trim();
+    if (!parent) return false;
+    const parentL = parent.toLowerCase();
+    return (Array.isArray(capturedIds) ? capturedIds : []).some(
+        (cid) => (cid || '').trim().toLowerCase() === parentL
+    );
+}
+
+/** sub 模板：parent 精确在 Capture 中；sub.id_product 须在 Capture 中或与 parent 相同 */
+function summarySubTemplateAllowedForCapture(sub, capturedIds, parentId) {
+    const captured = Array.isArray(capturedIds)
+        ? capturedIds
+        : (window.__SUMMARY_CAPTURED_ID_PRODUCTS__ || []);
+    const parent = (sub?.parent_id_product || parentId || '').trim();
+    const subId = (sub?.id_product || '').trim();
+    if (!parent || !summaryCapturedParentIsExact(parent, captured)) return false;
+    if (!subId || subId.toLowerCase() === parent.toLowerCase()) return true;
+    return summaryIdMatchesAnyCapture(subId, captured);
+}
+
+function summaryGetCapturedIdProducts() {
+    return window.__SUMMARY_CAPTURED_ID_PRODUCTS__ || [];
+}
+
 // 用「Id Product(去描述) + data-row-index + 原始 Description + Account + Currency + Formula + Source + Rate Value」生成内容 key，
 // 确保同一基础 Id（如 M99M06）下，B/D 等不同 Data Capture 行不会互相覆盖（用于保存公式/Rate 等内容）
 function getSummaryRowKey(row) {
@@ -3520,11 +3567,24 @@ function getOrderedRoles(includeStaff = true) {
         normalizedMap.set('STAFF', 'STAFF');
     }
 
+    // 确保 PARTNER 始终作为一个可选项，即使数据库中目前没有这个角色的账户
+    if (!normalizedMap.has('PARTNER')) {
+        normalizedMap.set('PARTNER', 'PARTNER');
+    }
+
+    if (!normalizedMap.has('DEBTOR')) {
+        normalizedMap.set('DEBTOR', 'DEBTOR');
+    }
+
     const orderedRoles = [];
     ROLE_PRIORITY.forEach(role => {
         if (normalizedMap.has(role)) {
             orderedRoles.push(normalizedMap.get(role));
             normalizedMap.delete(role);
+        } else if (role === 'SUPPLIER' && normalizedMap.has('UPLINE')) {
+            // 兼容性映射：将数据库里的 UPLINE 数据放入 SUPPLIER 的排序位置
+            orderedRoles.push(normalizedMap.get('UPLINE'));
+            normalizedMap.delete('UPLINE');
         }
     });
 
@@ -3541,7 +3601,8 @@ function populateRoleSelect(selectElement, selectedRole = '', includeStaff = tru
     orderedRoles.forEach(role => {
         const option = document.createElement('option');
         option.value = role;
-        option.textContent = role;
+        // 将 UPLINE 显示为 SUPPLIER
+        option.textContent = (role.toUpperCase() === 'UPLINE') ? 'SUPPLIER' : role;
         if (selectedUpper && role.toUpperCase() === selectedUpper) {
             option.selected = true;
         }
@@ -3551,7 +3612,8 @@ function populateRoleSelect(selectElement, selectedRole = '', includeStaff = tru
     if (selectedUpper && !orderedRoles.some(role => role.toUpperCase() === selectedUpper)) {
         const fallbackOption = document.createElement('option');
         fallbackOption.value = selectedRole;
-        fallbackOption.textContent = selectedRole;
+        // 将 UPLINE 显示为 SUPPLIER
+        fallbackOption.textContent = (selectedRole.toUpperCase() === 'UPLINE') ? 'SUPPLIER' : selectedRole;
         fallbackOption.selected = true;
         selectElement.appendChild(fallbackOption);
     }
@@ -5538,28 +5600,26 @@ function updateFormulaDisplay(formulaValue, processValue) {
                         console.log('updateFormulaDisplay: Using bracket format [', idProduct, ',', displayColumnIndex, '], value:', columnValue);
                     }
                 } else {
-                    // 当前row格式 $数字：从引用中按顺序获取（parseIdProductColumnRef 保留完整 id_product）
-                    if (refIndex < refs.length) {
-                        const ref = refs[refIndex];
-                        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(ref) : null;
-                        if (parsed) {
-                            const refIdProduct = parsed.idProduct;
-                            const refDataColumnIndex = parsed.dataColumnIndex;
-                            const refRowLabel = parsed.rowLabel;
-                            const refCapIdx = parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null;
-                            const isCurrentRowRef = currentIdProduct && (
-                                (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
-                                    ? (refIdProduct.trim() === (currentIdProduct || '').trim())
-                                    : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
-                            );
-                            if (isCurrentRowRef) {
-                                const displayColumnIndex = refDataColumnIndex + 1;
-                                if (displayColumnIndex === match.columnNumber) {
-                                    columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel, refCapIdx);
-                                    refIndex++;
-                                }
-                            }
-                        }
+                    // 当前row格式 $数字：按列号在 refs 中查找（支持 $2*($3/$2) 等同列多次出现）
+                    const dataColumnIndex = match.columnNumber - 1;
+                    for (let j = refIndex; j < refs.length; j++) {
+                        const parsed = typeof parseIdProductColumnRef === 'function' ? parseIdProductColumnRef(refs[j]) : null;
+                        if (!parsed || parsed.dataColumnIndex !== dataColumnIndex) continue;
+                        const refIdProduct = parsed.idProduct;
+                        const isCurrentRowRef = currentIdProduct && (
+                            (typeof isFullIdProduct === 'function' && isFullIdProduct(refIdProduct))
+                                ? (refIdProduct.trim() === (currentIdProduct || '').trim())
+                                : (normalizeIdProductText(refIdProduct) === normalizeIdProductText(currentIdProduct))
+                        );
+                        if (!isCurrentRowRef) continue;
+                        columnValue = getCellValueByIdProductAndColumn(
+                            refIdProduct,
+                            parsed.dataColumnIndex,
+                            parsed.rowLabel,
+                            parsed.captureRowIndex != null && parsed.captureRowIndex !== undefined ? parsed.captureRowIndex : null
+                        );
+                        refIndex = j + 1;
+                        break;
                     }
 
                     // 如果从引用中找不到值，使用当前编辑的id_product
@@ -9373,8 +9433,8 @@ function parseReferenceFormula(formula, processValueOverride = null, clickedCell
             // Reset regex lastIndex
             dollarPattern.lastIndex = 0;
 
-            // Collect all matches
-            while ((match = dollarPattern.exec(formula)) !== null) {
+            // Collect all matches（在 parsedFormula 上扫描，避免 [id,n] 替换后下标错位）
+            while ((match = dollarPattern.exec(parsedFormula)) !== null) {
                 const fullMatch = match[0]; // e.g., "$2"
                 const columnNumber = parseInt(match[1]); // e.g., 2
                 const matchIndex = match.index;
@@ -10150,23 +10210,7 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
         if (formula !== parsedFormula) {
             console.log('createFormulaDisplayFromExpression: Parsed references:', formula, '->', parsedFormula);
         }
-        // IMPORTANT: 仅在 Source≠1 且启用 Source % 时剥「与 Source 同值」的尾段乘子，避免与 Source 列叠乘；
-        // Source≈1 时不剥，以免误删公式内手写的 *0.2。
-        let shouldStripDuplicateOfSource = false
-        let sourceDecimalForStrip = 1
-        if (enableSourcePercent && sourcePercentValue && sourcePercentValue.trim() !== '') {
-            try {
-                const sanitizedForStrip = removeThousandsSeparators(sourcePercentValue.trim())
-                const sp = MoneyDecimal.toDecimal(evaluateExpression(sanitizedForStrip), 0)
-                if (sp.minus(1).abs().gte('0.0001')) {
-                    shouldStripDuplicateOfSource = true
-                    sourceDecimalForStrip = sp.toString()
-                }
-            } catch (e) { /* ignore */ }
-        }
-        parsedFormula = stripTrailingEmbeddedCommissionFactors(parsedFormula.trim(), sourceDecimalForStrip, { stripDuplicateOfSource: shouldStripDuplicateOfSource })
-
-        // 剥掉展示用尾部 Source（*(0.1) 等），避免换 Source 时在旧串后无限叠乘
+        // 展示：完整解析顾客公式，不剥、不补公式内乘子
         const baseWithoutDisplaySource = removeTrailingSourcePercentExpression(parsedFormula.trim()) || parsedFormula.trim();
 
         // If source percent is disabled, return parsed formula as-is (without stripping)
@@ -10247,6 +10291,29 @@ function createFormulaDisplayFromExpression(formula, sourcePercentValue, enableS
     }
 }
 
+/** 末尾是否为展示用 Source 后缀 *(1)、*(0.5/2)；非公式乘子如 *($3/$2-0.0025)、*(2255/521-0.0025) */
+function isAppendedSourcePercentSuffix(afterStar) {
+    const m = String(afterStar || '').match(/^\*\s*\(([\s\S]+)\)\s*$/);
+    if (!m) return false;
+    const inner = m[1].trim();
+    if (!inner) return false;
+    if (/[$\[\]]/.test(inner)) return false;
+    if (!/^[0-9.\s+\-*/()]+$/u.test(inner)) return false;
+    // 公式内乘子：除法后再加减（如 2255/521-0.0025）
+    if (/\/[0-9.]+\s*[-+]/.test(inner)) return false;
+    const divParts = inner.split('/');
+    if (divParts.length === 2) {
+        const left = divParts[0].trim();
+        const right = divParts[1].trim().split(/[-+]/)[0].trim();
+        const a = parseFloat(left);
+        const b = parseFloat(right);
+        if (!isNaN(a) && !isNaN(b) && (Math.abs(a) > 10 || Math.abs(b) > 10)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Remove the trailing "*(...)" source percent that is appended for display
 // while keeping the user's original formula body intact
 function removeTrailingSourcePercentExpression(formulaText) {
@@ -10268,8 +10335,7 @@ function removeTrailingSourcePercentExpression(formulaText) {
         // Only strip when the last * is not inside parentheses and looks like the appended source percent
         // Appended source percent 一定是 "*(" 开头、")" 结尾，例如 "*(1)"、"*(0.5/2)"
         // 像 "*0.9" 这种是正常公式的一部分（例如 4+3*0.9），不能被当成 Source % 删掉
-        const trailingPattern = /^\*\s*\(([0-9.\+\-*/\s]+)\)\s*$/;
-        if (!isStarInsideParens && trailingPattern.test(afterStar)) {
+        if (!isStarInsideParens && isAppendedSourcePercentSuffix(afterStar)) {
             result = beforeStar.trim();
             continue;
         }
@@ -10280,48 +10346,42 @@ function removeTrailingSourcePercentExpression(formulaText) {
     return result;
 }
 
+/** formula_operators 使用 $n 或 [id,n] 引用时，禁止从数值公式自动拼尾段（避免 *425.92*2153 等） */
+function formulaOperatorsUsesCellReferences(body) {
+    const s = String(body || '').trim();
+    if (!s) return false;
+    return /\$\d+/.test(s) || /\[[^\]]+[,:\s]\d+\]/.test(s);
+}
+
 /**
- * 用已解析的公式（last_source_value / formula_display）补全 formula_operators 缺失的末尾 row 系数（如 *0.90）。
- * 与 Maintenance formula_fields_helper.mergeFormulaBaseWithDisplayTail 对齐。
+ * 顾客公式为准：不从 formula_display / last_source_value 自动拼任何尾段乘数。
+ * formulaResolved 参数保留兼容旧调用，一律忽略。
  */
 function mergeFormulaOperatorsWithResolvedTail(operatorsBase, formulaResolved) {
     const ops = removeTrailingSourcePercentExpression(String(operatorsBase || '').trim());
-    const fd = removeTrailingSourcePercentExpression(String(formulaResolved || '').trim());
-    if (!ops) {
-        return fd;
-    }
-    if (!fd) {
+    if (ops) {
         return ops;
     }
-    const m = fd.match(/^(.*)(\*(?:\([^)]+\)|[0-9.]+))\s*$/);
-    if (!m) {
-        return ops;
-    }
-    const fdTail = m[2].trim();
-    const opsNorm = ops.replace(/\s+/g, '');
-    const tailNorm = fdTail.replace(/\s+/g, '');
-    if (!tailNorm || opsNorm.endsWith(tailNorm)) {
-        return ops;
-    }
-    return ops + fdTail;
+    return removeTrailingSourcePercentExpression(String(formulaResolved || '').trim());
 }
 
-/** 套用模板或保存前：reference 本体 + 从 display/last_source 补 row 尾段 */
+/** 套用模板：只使用已保存的 formula_operators，不自动补数字 */
 function resolveFormulaOperatorsForTemplateRow(formulaOperatorsValue, savedSourceValue, formulaDisplay, resolvedSourceExpression) {
     let body = removeTrailingSourcePercentExpression(String(formulaOperatorsValue || '').trim());
-    if (!body && resolvedSourceExpression) {
-        body = removeTrailingSourcePercentExpression(resolvedSourceExpression);
+    if (body) {
+        return body;
     }
-    [savedSourceValue, formulaDisplay, resolvedSourceExpression].forEach((candidate) => {
-        const c = candidate == null ? '' : String(candidate).trim();
+    const fallback = [savedSourceValue, formulaDisplay, resolvedSourceExpression];
+    for (let i = 0; i < fallback.length; i++) {
+        const c = fallback[i] == null ? '' : String(fallback[i]).trim();
         if (c !== '' && c !== 'Source') {
-            body = mergeFormulaOperatorsWithResolvedTail(body, c);
+            return removeTrailingSourcePercentExpression(c);
         }
-    });
-    return body;
+    }
+    return '';
 }
 
-/** 写入 DB 的 formula_operators：reference 本体（含 row 系数），不含 Source 列 *(...) */
+/** 写入 DB 的 formula_operators = 顾客在 Formula 框输入的内容（仅去掉误贴的展示用 Source 后缀） */
 function resolveFormulaOperatorsBodyForSave(row, formData) {
     formData = formData || {};
     const templateOps = (row.getAttribute('data-template-formula-operators') || '').trim();
@@ -10334,16 +10394,7 @@ function resolveFormulaOperatorsBodyForSave(row, formData) {
     } else {
         body = opsAttr;
     }
-    body = removeTrailingSourcePercentExpression(body);
-    const lastResolved = (row.getAttribute('data-last-source-value') || '').trim();
-    const formulaDisplay = (formData.formulaDisplay || '').trim();
-    if (lastResolved && lastResolved !== 'Source') {
-        body = mergeFormulaOperatorsWithResolvedTail(body, lastResolved);
-    }
-    if (formulaDisplay && formulaDisplay !== 'Formula') {
-        body = mergeFormulaOperatorsWithResolvedTail(body, formulaDisplay);
-    }
-    return body;
+    return removeTrailingSourcePercentExpression(body);
 }
 
 /** 写入 DB 的 last_source_value：Data Capture 解析后的数值公式（含 *0.90），不含 Source *(...) */
@@ -10375,41 +10426,18 @@ function calculateFormulaResultFromExpression(formula, sourcePercentValue, input
             return 0;
         }
 
-        // 先解析 $/[id:n]；仅当尾段与 Source 同值时才剥，避免与 Source 叠乘，且不剥用户手写的 *0.2（Source≈1 时）
+        // 先解析 $/[id:n]，再按顾客写的整段公式求值（不剥、不补式子内乘数）
         const afterRefs = parseReferenceFormula(String(formula).trim(), processValueForRefs, clickedCellRefsOverride, rowIndexOverride)
+        const strippedBody = afterRefs.trim();
+        const formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
-        let shouldStripDuplicateOfSource = false
-        let sourceDecimalForStrip = 1
-        if (enableSourcePercent && sourcePercentValue && sourcePercentValue.trim() !== '') {
-            try {
-                const sanitizedForStrip = removeThousandsSeparators(sourcePercentValue.trim())
-                const sp = MoneyDecimal.toDecimal(evaluateExpression(sanitizedForStrip), 0)
-                if (sp.minus(1).abs().gte('0.0001')) {
-                    shouldStripDuplicateOfSource = true
-                    sourceDecimalForStrip = sp.toString()
-                }
-            } catch (e) { /* ignore */ }
-        }
-
-        // IMPORTANT: 只在启用 Source % 时才剥末尾乘子，避免 1000*0.18*(0.14) 再乘 Source 叠三层
-        // 当 Source % 未启用时，公式末尾的 *(0.12) 等是用户手写的公式结构（先乘除后加减），
-        // 不能剥掉，否则会破坏运算符优先级（例如 a+b*c*(0.12) 被错误计算为 (a+b*c)*0.12）
-        let strippedBody, formulaResult;
         if (!enableSourcePercent) {
-            // Source % 未启用：直接对完整公式求值，保留所有乘子，确保运算优先级正确
-            strippedBody = afterRefs.trim();
-            formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
-            // Apply input method transformation if enabled
             let result = formulaResult;
             if (enableInputMethod && inputMethod) {
                 result = applyInputMethodTransformation(result, inputMethod);
             }
-            console.log('Formula result calculated from expression (source percent disabled, no strip):', result);
             return result;
         }
-        // Source % 启用时才剥与 Source 同值的末尾乘子，防止与 Source % 重复叠乘
-        strippedBody = stripTrailingEmbeddedCommissionFactors(afterRefs.trim(), sourceDecimalForStrip, { stripDuplicateOfSource: shouldStripDuplicateOfSource })
-        formulaResult = evaluateFormulaExpression(strippedBody, processValueForRefs, clickedCellRefsOverride, rowIndexOverride);
 
         // If enableSourcePercent is true but sourcePercentValue is empty, treat as 1 (100%)
         // IMPORTANT: Empty sourcePercentValue should be treated as 1 (100%), not 0, to avoid incorrect 0 results
@@ -15828,12 +15856,15 @@ function summaryFindMainRowForSubTemplate(parentIdProduct, subTemplate) {
     return sortedMains[0].row;
 }
 
-function applySubsForIdProductGroup(idProduct, subTemplates) {
+function applySubsForIdProductGroup(idProduct, subTemplates, capturedIds) {
     if (!Array.isArray(subTemplates) || subTemplates.length === 0) return false;
+    const captured = capturedIds || summaryGetCapturedIdProducts();
     const parentExact = (idProduct || '').trim();
+    if (!summaryCapturedParentIsExact(parentExact, captured)) return false;
     const scopedSubs = subTemplates.filter((sub) => {
         const subParentRaw = (sub?.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
-        return Boolean(parentExact && subParentRaw && subParentRaw === parentExact);
+        if (!parentExact || !subParentRaw || subParentRaw !== parentExact) return false;
+        return summarySubTemplateAllowedForCapture(sub, captured, parentExact);
     });
     if (scopedSubs.length === 0) return false;
     if (!window.__SUMMARY_GLOBAL_APPLIED_TEMPLATE_IDS__) {
@@ -15883,6 +15914,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         // 用完整 id_product 列表请求，不按「括号前」合并，保证 GAMS(SV)HKD 与 GAMS(SV)MYR 分开
         const uniqueIds = [...new Set(idProducts.map(v => (v || '').trim()).filter(Boolean))];
+        window.__SUMMARY_CAPTURED_ID_PRODUCTS__ = uniqueIds.slice();
 
         if (uniqueIds.length === 0) {
             return;
@@ -16043,6 +16075,10 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             const template = templates[templateKey];
             const originalIdProduct = templateKey;
             const normalizedIdProduct = normalizeIdProductText(templateKey);
+            if (!summaryIdMatchesAnyCapture(templateKey, uniqueIds)
+                && !summaryCapturedParentIsExact(templateKey, uniqueIds)) {
+                return;
+            }
             if (template) {
                 // Check if there are multiple main templates for the same id_product (different accounts)
                 if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
@@ -16097,7 +16133,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         let anySubsApplied = false;
                         let allSubs = template.subs && Array.isArray(template.subs) ? template.subs : [];
                         if (allSubs.length > 0 && typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
-                            anySubsApplied = window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(originalIdProduct, allSubs);
+                            anySubsApplied = window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(originalIdProduct, allSubs, uniqueIds);
                         }
                         if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
                             const firstRow = findSummaryRowByIdProduct(originalIdProduct, { productType: 'main' });
@@ -16109,7 +16145,8 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                                 if (rowIsExactParent) {
                                     const subsToApply = template.subs.filter(sub => {
                                         const subParentRaw = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
-                                        return subParentRaw === (originalIdProduct || '').trim();
+                                        if (subParentRaw !== (originalIdProduct || '').trim()) return false;
+                                        return summarySubTemplateAllowedForCapture(sub, uniqueIds, originalIdProduct);
                                     });
                                     if (subsToApply.length > 0) {
                                         applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
@@ -16129,9 +16166,10 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         // 按精确 parent_id_product 一次性套用所有 sub（API 已去重，每 parent 每 account 仅一条）
         if (subsByParentFromApi && typeof window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__ === 'function') {
             Object.keys(subsByParentFromApi).forEach((parentIdProduct) => {
+                if (!summaryCapturedParentIsExact(parentIdProduct, uniqueIds)) return;
                 const subsForParent = subsByParentFromApi[parentIdProduct];
                 if (Array.isArray(subsForParent) && subsForParent.length > 0) {
-                    window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(parentIdProduct, subsForParent);
+                    window.__SUMMARY_APPLY_SUBS_FOR_ID_PRODUCT_GROUP__(parentIdProduct, subsForParent, uniqueIds);
                 }
             });
         }
@@ -16150,10 +16188,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 let hasTemplate = !!templates[mainId];
                 if (!hasTemplate) {
                     for (const templateKey of Object.keys(templates)) {
-                        const templateKeyNormalized = normalizeIdProductText(templateKey);
-                        const normalizedMatch = mainIdNormalized && templateKeyNormalized && templateKeyNormalized === mainIdNormalized;
-                        const prefixMatch = templateKey === mainId || mainId.startsWith(templateKey + ' ') || mainId.startsWith(templateKey + '(');
-                        if (normalizedMatch || prefixMatch) {
+                        if (summaryIdProductMatchesCapture(mainId, templateKey)) {
                             hasTemplate = true;
                             break;
                         }
@@ -17109,10 +17144,10 @@ function applyMainTemplateToRow(idProduct, mainTemplate, accountOrderIndex) {
             return;
         }
 
-        // 保持与 Data Capture Table 一致：Id Product 以表格 A 列为准，不替换为模板的 id_product
+        // 保持与 Data Capture Table 一致：Id Product 以 data-main-product 为准（避免 textContent 含其它变体后缀）
         const idCell = targetRow.querySelector('td:first-child');
         if (idCell) {
-            const fromTable = (idCell.textContent || '').trim() || (idCell.getAttribute('data-main-product') || '').trim();
+            const fromTable = (idCell.getAttribute('data-main-product') || '').trim() || (idCell.textContent || '').trim();
             const displayId = fromTable || (mainTemplate.id_product && mainTemplate.id_product.trim()) || (idProduct && idProduct.trim()) || '';
             if (displayId) {
                 idCell.setAttribute('data-main-product', displayId);
@@ -18259,8 +18294,13 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         ? Number(mainRowIndexAttr)
         : null;
 
+    const capturedIds = summaryGetCapturedIdProducts();
+
     // Filter out empty sub templates (those with no meaningful data)
     const validSubTemplates = subTemplates.filter(template => {
+        if (!summarySubTemplateAllowedForCapture(template, capturedIds, idProduct)) {
+            return false;
+        }
         const sourceColumns = template.source_columns || '';
         const formulaOperators = template.formula_operators || '';
         const formulaDisplay = template.formula_display || '';

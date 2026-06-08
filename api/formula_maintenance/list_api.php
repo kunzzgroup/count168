@@ -53,12 +53,22 @@ function getCompanyIdForRequest(PDO $pdo) {
 }
 
 /**
- * 获取公式列表（含搜索、process 筛选），返回原始行
- * 直接 JOIN process 表，避免 GROUP BY 导致同一 process 代码下多条 process 行时只匹配 MIN(id)、
- * 其余模板在 Maintenance 不显示却在 Data Capture Summary 仍显示的问题。
+ * 获取公式列表（含搜索、process 筛选），返回原始行。
+ *
+ * 每条 template 只关联一条 process 行：优先 numeric process_id → process.id 精确匹配，
+ * 否则按 process.process_id 匹配并取 MIN(process.id)。
+ * 避免同一 process 代码存在多条 process 行时 INNER JOIN 产生笛卡尔积，
+ * 在 Process = Select All 时导致 IG 等大组公司内存/超时（HTTP 500）。
  */
 function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter) {
-    $sql = "SELECT 
+    // 用单引号 PHP 字符串，避免 "^[0-9]+$" 里的 $ 在双引号中被误解析
+    $numericProcessPattern = '^[0-9]+$';
+    $processJoinOn = 'p2.company_id = dct_inner.company_id AND (
+                    (dct_inner.process_id REGEXP \'' . $numericProcessPattern . '\' AND p2.id = CAST(dct_inner.process_id AS UNSIGNED))
+                    OR (p2.process_id = dct_inner.process_id)
+                )';
+
+    $sql = 'SELECT 
                 dct.id,
                 dct.process_id,
                 dct.id_product,
@@ -84,16 +94,29 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
                 a.name AS account_name,
                 c.code AS currency_code
             FROM data_capture_templates dct
-            INNER JOIN process p ON p.company_id = dct.company_id
-                AND (
-                    (dct.process_id REGEXP '^[0-9]+$' AND p.id = CAST(dct.process_id AS UNSIGNED))
-                    OR (dct.process_id = p.process_id)
-                )
+            INNER JOIN (
+                SELECT
+                    dct_inner.id AS template_id,
+                    COALESCE(
+                        MIN(CASE
+                            WHEN dct_inner.process_id REGEXP \'' . $numericProcessPattern . '\'
+                                 AND p2.id = CAST(dct_inner.process_id AS UNSIGNED)
+                            THEN p2.id
+                            ELSE NULL
+                        END),
+                        MIN(p2.id)
+                    ) AS picked_process_id
+                FROM data_capture_templates dct_inner
+                INNER JOIN process p2 ON ' . $processJoinOn . '
+                WHERE dct_inner.company_id = ?
+                GROUP BY dct_inner.id
+            ) tpl_proc ON tpl_proc.template_id = dct.id
+            INNER JOIN process p ON p.id = tpl_proc.picked_process_id
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN account a ON dct.account_id = a.id
             LEFT JOIN currency c ON dct.currency_id = c.id
-            WHERE dct.company_id = ?";
-    $params = [$companyId];
+            WHERE dct.company_id = ?';
+    $params = [$companyId, $companyId];
     if ($processFilter !== '') {
         $sql .= " AND p.process_id = ?";
         $params[] = $processFilter;
@@ -242,7 +265,11 @@ try {
     $list = mapRowsToDisplay($rows);
     jsonResponse(true, 'success', ['list' => $list, 'total' => count($list)]);
 } catch (PDOException $e) {
+    error_log('Formula list API PDO error: ' . $e->getMessage());
     jsonResponse(false, '数据库错误: ' . $e->getMessage(), null, 500);
 } catch (Exception $e) {
     jsonResponse(false, $e->getMessage(), null, 400);
+} catch (Throwable $e) {
+    error_log('Formula list API error: ' . $e->getMessage());
+    jsonResponse(false, $e->getMessage(), null, 500);
 }

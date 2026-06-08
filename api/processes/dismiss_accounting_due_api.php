@@ -203,15 +203,7 @@ try {
         if (!$stmt->fetch()) {
             continue;
         }
-        if (in_array($periodType, ['monthly', 'day_end_tail', 'partial_first_month'], true)) {
-            try {
-                if (isProcessInResendConsolidatedMode($pdo, $companyId, $processId)) {
-                    $periodType = 'resend_consolidated_range';
-                }
-            } catch (Throwable $e) {
-                // ignore fallback detection failure, keep original period type
-            }
-        }
+        // 强制按前端当前账期类型删除（正常出账模式）：不再自动改写为 resend_consolidated_range。
         $skippedType = toSkippedPeriodType($periodType);
         $postDate = $today;
         if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($p['billing_month'] ?? '') !== '') {
@@ -314,6 +306,8 @@ try {
         }
         if ($periodType === 'resend_consolidated_range') {
             upsertAccountingDueDismissed($pdo, $companyId, $processId, 'resend_consolidated_range', $postDate);
+        } elseif ($periodType === 'monthly' || $periodType === 'day_end_tail') {
+            upsertAccountingDueDismissed($pdo, $companyId, $processId, $periodType, $postDate);
         }
         if ($papId > 0) {
             $ptNorm = bmp_normalizePeriodType($periodType);

@@ -2047,11 +2047,14 @@ function syncBankResendModalOnceDayEndUi() {
     const freq = document.getElementById('bank_resend_frequency');
     if (!dayEnd || !freq) return;
     const isOnce = freq.value === 'once';
-    if (isOnce) {
+    const isMonthly = freq.value === 'monthly';
+    if (isOnce || isMonthly) {
         dayEnd.value = '';
         dayEnd.disabled = true;
         dayEnd.style.opacity = '0.55';
-        dayEnd.title = 'Not used when Frequency is Once';
+        dayEnd.title = isMonthly
+            ? 'Not used when Frequency is Monthly'
+            : 'Not used when Frequency is Once';
     } else {
         dayEnd.disabled = false;
         dayEnd.style.opacity = '';
@@ -2067,27 +2070,22 @@ function bindBankResendModalFrequencySyncOnce() {
     const freq = document.getElementById('bank_resend_frequency');
     if (!dayEnd || !freq) return;
     function syncResendFreq() {
-        if (freq.value === 'once') {
-            const monthlyOptOnce = freq.querySelector('option[value="monthly"]');
-            if (monthlyOptOnce) monthlyOptOnce.disabled = false;
-            return;
-        }
         const monthlyOpt = freq.querySelector('option[value="monthly"]');
-        const hasEnd = !!(dayEnd.value && String(dayEnd.value).trim());
-        if (hasEnd) {
-            freq.value = '1st_of_every_month';
-            if (monthlyOpt) monthlyOpt.disabled = true;
-        } else if (monthlyOpt) {
-            monthlyOpt.disabled = false;
-        }
+        if (monthlyOpt) monthlyOpt.disabled = false;
     }
     function onDayEndOrFreqChange() {
         syncBankResendModalOnceDayEndUi();
         syncResendFreq();
+        void refreshBankResendConfirmButtonState();
     }
+    const dayStart = document.getElementById('bank_resend_day_start');
     dayEnd.addEventListener('change', onDayEndOrFreqChange);
     dayEnd.addEventListener('input', onDayEndOrFreqChange);
     freq.addEventListener('change', onDayEndOrFreqChange);
+    if (dayStart) {
+        dayStart.addEventListener('change', onDayEndOrFreqChange);
+        dayStart.addEventListener('input', onDayEndOrFreqChange);
+    }
 }
 
 function bindBankResendDayStartClearInlineErrorOnce() {
@@ -2116,6 +2114,65 @@ function normalizeResendDayStartToYmd(value) {
         return yy + '-' + mm + '-' + dd;
     }
     return '';
+}
+
+const BANK_RESEND_MONTHLY_INCOMPLETE_PERIOD_MSG = 'Monthly：Day end 必须是完整的月账期结束日';
+
+/** 与 PHP billingMonthlyAnniversaryPeriodEndFromAnchor 一致（anchor+1月-1日）。 */
+function bankResendMonthlyPeriodEndFromAnchorYmd(anchorYmd) {
+    const head = normalizeResendDayStartToYmd(anchorYmd);
+    if (!head) return null;
+    const p = head.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    if (isNaN(d.getTime())) return null;
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function bankResendAddOneDayFromYmd(ymd) {
+    const head = normalizeResendDayStartToYmd(ymd);
+    if (!head) return null;
+    const p = head.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function isBankResendMonthlyCompletePeriodRange(dayStartYmd, dayEndYmd) {
+    if (!dayStartYmd || !dayEndYmd || dayEndYmd < dayStartYmd) return false;
+    let anchor = dayStartYmd;
+    for (let i = 0; i < 600; i++) {
+        const periodEnd = bankResendMonthlyPeriodEndFromAnchorYmd(anchor);
+        if (!periodEnd) return false;
+        if (dayEndYmd === periodEnd) return true;
+        if (dayEndYmd < periodEnd) return false;
+        anchor = bankResendAddOneDayFromYmd(periodEnd);
+        if (!anchor) return false;
+    }
+    return false;
+}
+
+function getBankResendMonthlyPeriodValidationError(dayStartRaw, dayEndRaw, frequencyRaw) {
+    if (String(frequencyRaw || '').trim() !== 'monthly') return null;
+    const dayEndYmd = normalizeResendDayStartToYmd(dayEndRaw);
+    if (!dayEndYmd) return null;
+    const dayStartYmd = normalizeResendDayStartToYmd(dayStartRaw);
+    if (!dayStartYmd) return null;
+    if (isBankResendMonthlyCompletePeriodRange(dayStartYmd, dayEndYmd)) return null;
+    return BANK_RESEND_MONTHLY_INCOMPLETE_PERIOD_MSG;
+}
+
+function applyBankResendConfirmButtonMonthlyPeriodGate(confirmBtn, dayStartRaw, dayEndRaw, frequencyRaw) {
+    if (!confirmBtn) return false;
+    const monthlyErr = getBankResendMonthlyPeriodValidationError(dayStartRaw, dayEndRaw, frequencyRaw);
+    if (monthlyErr) {
+        confirmBtn.disabled = true;
+        confirmBtn.title = monthlyErr;
+        return true;
+    }
+    return false;
 }
 
 function isSelectedDayStartResendLockedToday(proc, selectedDayStartRaw) {
@@ -2158,16 +2215,26 @@ async function checkBankResendDayStartLockFromBackend(processId, selectedDayStar
 async function refreshBankResendConfirmButtonState() {
     const confirmBtn = document.getElementById('confirmBankResendBtn');
     const dsEl = document.getElementById('bank_resend_day_start');
+    const deEl = document.getElementById('bank_resend_day_end');
+    const fqEl = document.getElementById('bank_resend_frequency');
     const id = pendingBankResendProcessId;
     if (!confirmBtn || !dsEl || !id) return;
     const proc = Array.isArray(processes) ? processes.find(function (p) { return p.id === id; }) : null;
     const rawDayStart = dsEl.value;
+    const rawDayEnd = deEl ? deEl.value : '';
+    const rawFreq = fqEl ? fqEl.value : '';
     const quickLocked = isSelectedDayStartResendLockedToday(proc, rawDayStart);
     const requestSeq = ++bankResendLockCheckSeq;
     if (!normalizeResendDayStartToYmd(rawDayStart)) {
-        confirmBtn.disabled = false;
+        if (!applyBankResendConfirmButtonMonthlyPeriodGate(confirmBtn, rawDayStart, rawDayEnd, rawFreq)) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Resend';
+            confirmBtn.title = '';
+        }
+        return;
+    }
+    if (applyBankResendConfirmButtonMonthlyPeriodGate(confirmBtn, rawDayStart, rawDayEnd, rawFreq)) {
         confirmBtn.textContent = 'Resend';
-        confirmBtn.title = '';
         return;
     }
     confirmBtn.disabled = true;
@@ -2182,6 +2249,10 @@ async function refreshBankResendConfirmButtonState() {
             confirmBtn.title = 'Today for this Day start has already been resent and related maintenance data still exists. Please choose another date.';
             return;
         }
+        if (applyBankResendConfirmButtonMonthlyPeriodGate(confirmBtn, rawDayStart, rawDayEnd, rawFreq)) {
+            confirmBtn.textContent = 'Resend';
+            return;
+        }
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Resend';
         confirmBtn.title = '';
@@ -2192,6 +2263,8 @@ async function refreshBankResendConfirmButtonState() {
             confirmBtn.disabled = true;
             confirmBtn.textContent = 'Resend';
             confirmBtn.title = 'Today for this Day start has already been resent. Please choose another date.';
+        } else if (applyBankResendConfirmButtonMonthlyPeriodGate(confirmBtn, rawDayStart, rawDayEnd, rawFreq)) {
+            confirmBtn.textContent = 'Resend';
         } else {
             confirmBtn.disabled = false;
             confirmBtn.textContent = 'Resend';
@@ -2272,21 +2345,10 @@ function showConfirmBankResendModal(processId) {
     if (fqEl) {
         fqEl.value = bankResendModalFrequencyFromStored(scheduleSeed.day_start_frequency);
     }
-    const dayEndSync = document.getElementById('bank_resend_day_end');
     const freqSync = document.getElementById('bank_resend_frequency');
-    if (dayEndSync && freqSync) {
+    if (freqSync) {
         const monthlyOpt = freqSync.querySelector('option[value="monthly"]');
-        if (freqSync.value === 'once') {
-            if (monthlyOpt) monthlyOpt.disabled = false;
-        } else {
-            const hasEnd = !!(dayEndSync.value && String(dayEndSync.value).trim());
-            if (hasEnd) {
-                freqSync.value = '1st_of_every_month';
-                if (monthlyOpt) monthlyOpt.disabled = true;
-            } else if (monthlyOpt) {
-                monthlyOpt.disabled = false;
-            }
-        }
+        if (monthlyOpt) monthlyOpt.disabled = false;
     }
     syncBankResendModalOnceDayEndUi();
     const confirmBtn = document.getElementById('confirmBankResendBtn');
@@ -2349,7 +2411,7 @@ async function confirmBankResendFromModal() {
     const fqEl = document.getElementById('bank_resend_frequency');
     const scheduleOpts = (dsEl && deEl && fqEl) ? {
         day_start: (dsEl.value || '').trim(),
-        day_end: fqEl.value === 'once' ? '' : (deEl.value || '').trim(),
+        day_end: (fqEl.value === 'once' || fqEl.value === 'monthly') ? '' : (deEl.value || '').trim(),
         day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : (fqEl.value === 'once' ? 'once' : '1st_of_every_month')
     } : null;
     const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
@@ -2377,6 +2439,18 @@ async function confirmBankResendFromModal() {
         } else if (typeof showNotification === 'function') {
             showNotification(forbidMsg, 'danger', { durationMs: 14500, prominent: true });
         }
+        return;
+    }
+    const monthlyErr = getBankResendMonthlyPeriodValidationError(
+        scheduleOpts ? scheduleOpts.day_start : '',
+        scheduleOpts ? scheduleOpts.day_end : '',
+        scheduleOpts ? scheduleOpts.day_start_frequency : ''
+    );
+    if (monthlyErr) {
+        if (typeof showNotification === 'function') {
+            showNotification(monthlyErr, 'danger', { durationMs: 14500, prominent: true });
+        }
+        void refreshBankResendConfirmButtonState();
         return;
     }
     if (confirmBtn) {
@@ -3601,7 +3675,7 @@ if (addProcessForm) {
             } else {
                 let errorMessage = result.error || result.message || 'Unknown error occurred';
                 if (result.data && result.data.duplicate) {
-                    errorMessage = result.error || result.message || 'Process ID already exists';
+                    errorMessage = result.error || result.message || 'Process ID and Description combination already exists';
                 }
                 showNotification(errorMessage, 'danger');
             }

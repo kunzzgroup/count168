@@ -1,5 +1,52 @@
 <?php
 // permissions.php
+
+/**
+ * 解析 user.permissions 原始 JSON。
+ * NULL/空字符串/无记录 → 旧账号全权限；非空 JSON（含 []）→ 按数组逐项校验。
+ *
+ * @return array{0: array, 1: bool} [permissions, isLegacyFullAccess]
+ */
+function parseUserSidebarPermissions($permissionsRaw) {
+    $isLegacyFullAccess = ($permissionsRaw === null || $permissionsRaw === false || $permissionsRaw === '');
+    $permissions = [];
+    if (!$isLegacyFullAccess) {
+        $decoded = json_decode((string) $permissionsRaw, true);
+        $permissions = is_array($decoded) ? $decoded : [];
+    }
+    return [$permissions, $isLegacyFullAccess];
+}
+
+function userHasSidebarMenuPermission($permission, $permissions, $isLegacyFullAccess) {
+    if ($isLegacyFullAccess) {
+        return true;
+    }
+    return in_array($permission, $permissions, true);
+}
+
+/** @return string|null 第一个有 sidebar 权限的页面，无则 null */
+function getFirstSidebarPermittedPage($permissions, $isLegacyFullAccess) {
+    if ($isLegacyFullAccess || userHasSidebarMenuPermission('home', $permissions, $isLegacyFullAccess)) {
+        return 'dashboard.php';
+    }
+    $permRedirectMap = [
+        'admin' => 'userlist.php',
+        'account' => 'account-list.php',
+        'ownership' => 'ownership.php',
+        'process' => 'processlist.php',
+        'datacapture' => 'datacapture.php',
+        'payment' => 'transaction.php',
+        'report' => 'customer_report.php',
+        'maintenance' => 'transaction_maintenance.php',
+    ];
+    foreach ($permRedirectMap as $perm => $page) {
+        if (userHasSidebarMenuPermission($perm, $permissions, $isLegacyFullAccess)) {
+            return $page;
+        }
+    }
+    return null;
+}
+
 function getCurrentUserAccountPermissions($pdo) {
     if (session_status() === PHP_SESSION_NONE) {
         session_start();

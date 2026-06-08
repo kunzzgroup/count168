@@ -1379,9 +1379,9 @@ function getCurrentUserRolePermissions() {
         'admin': ['home', 'admin', 'account','process', 'datacapture', 'payment', 'report', 'maintenance'],
         'manager': ['admin', 'account',  'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'supervisor': ['admin', 'account',  'process', 'datacapture', 'payment', 'report'],
-        'accountant': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
-        'audit': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
-        'customer service': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'], 'partnership': []
+        'accountant': ['account', 'process', 'payment', 'report'],
+        'audit': ['payment', 'report', 'maintenance'],
+        'customer service': ['account', 'process', 'datacapture', 'payment', 'report'], 'partnership': []
     };
 
     return rolePermissions[currentUserRole] || [];
@@ -1448,9 +1448,9 @@ function getRoleTemplateSidebarList(role) {
         'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'manager': ['admin', 'account',  'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'supervisor': ['admin', 'account','process', 'datacapture', 'payment', 'report'],
-        'accountant': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
-        'audit': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
-        'customer service': ['admin', 'account', 'process', 'datacapture', 'payment', 'report']
+        'accountant': ['account', 'process', 'payment', 'report'],
+        'audit': ['payment', 'report', 'maintenance'],
+        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
     };
 
     return rolePermissions[role.toLowerCase()] || [];
@@ -1525,9 +1525,9 @@ function getFinalPermissionsForCreation(selectedRole) {
         'admin': ['home', 'admin', 'account',  'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'manager': ['admin', 'account',  'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'supervisor': ['admin', 'account',  'process', 'datacapture', 'payment', 'report'],
-        'accountant': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
-        'audit': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
-        'customer service': ['admin', 'account', 'process', 'datacapture', 'payment', 'report']
+        'accountant': ['account', 'process', 'payment', 'report'],
+        'audit': ['payment', 'report', 'maintenance'],
+        'customer service': ['account', 'process', 'datacapture', 'payment', 'report']
     };
     const defaultPermissions = rolePermissions[selectedRole.toLowerCase()] || [];
 

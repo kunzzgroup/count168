@@ -120,11 +120,12 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
         if ($hadScheduleEnd) {
             $row['day_end'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $de, $m) ? $m[1] : $de;
         }
-        // Resend 弹窗同时填 day_start + day_end：按自然月切段合并为一笔（仅 relax 期间；不入库为独立列）
-        if ($hadScheduleStart && $hadScheduleEnd) {
+        $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
+        // Resend 弹窗同时填 day_start + day_end：按自然月切段合并为一笔（仅 relax 期间；不入库为独立列）。
+        // 但 Frequency=monthly 时只允许按 day_start 单期 reopen，不走 consolidated。
+        if ($hadScheduleStart && $hadScheduleEnd && $fq !== 'monthly') {
             $row['accounting_resend_consolidated_range'] = 1;
         }
-        $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
         if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'once') {
             $row['day_start_frequency'] = $fq;
         }
@@ -235,6 +236,205 @@ if (!function_exists('bmp_inboxEffectiveCreatedYmd')) {
             return $createdYmd;
         }
         return min($createdYmd, $dayStartYmd);
+    }
+}
+
+/** 自然月 [monthFirst, monthLast] 是否与 inclusive 日期区间 [fromYmd, toYmd] 相交 */
+if (!function_exists('bmp_calendarMonthWithinInclusiveYmdRange')) {
+    function bmp_calendarMonthWithinInclusiveYmdRange(int $year, int $month, string $fromYmd, string $toYmd): bool
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $toYmd)) {
+            return false;
+        }
+        if ($fromYmd > $toYmd) {
+            return false;
+        }
+        $monthFirst = sprintf('%04d-%02d-01', $year, $month);
+        $monthLast = date('Y-m-t', mktime(0, 0, 0, $month, 1, $year));
+        return $monthLast >= $fromYmd && $monthFirst <= $toYmd;
+    }
+}
+
+/**
+ * 已入账 resend_consolidated_range 的自然月覆盖区间（from=合并锚点日，to=流水 [RESEND_END=…] 或锚点日）。
+ *
+ * @return list<array{from: string, to: string}>
+ */
+if (!function_exists('bmp_fetchPostedConsolidatedCoverageRanges')) {
+    function bmp_fetchPostedConsolidatedCoverageRanges(PDO $pdo, int $companyId, int $processId): array
+    {
+        if (!bmp_resend_tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
+            return [];
+        }
+        $stmt = $pdo->prepare(
+            "SELECT posted_date FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ? AND period_type = 'resend_consolidated_range'
+             ORDER BY posted_date ASC, id ASC"
+        );
+        $stmt->execute([$companyId, $processId]);
+        $anchors = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($anchors)) {
+            return [];
+        }
+        $hasTxBp = bmp_resend_tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
+        $ranges = [];
+        foreach ($anchors as $anchorRaw) {
+            $from = bmp_bankProcessDateFieldToYmd($anchorRaw);
+            if ($from === null) {
+                continue;
+            }
+            $to = $from;
+            if ($hasTxBp) {
+                try {
+                    $stmtTx = $pdo->prepare(
+                        "SELECT description FROM transactions
+                         WHERE company_id = ? AND source_bank_process_id = ? AND transaction_date = ?
+                         AND description LIKE '%[RESEND_END=%' LIMIT 1"
+                    );
+                    $stmtTx->execute([$companyId, $processId, $from]);
+                    $desc = $stmtTx->fetchColumn();
+                    if (is_string($desc) && preg_match('/\[RESEND_END=(\d{4}-\d{2}-\d{2})\]/', $desc, $mEnd)) {
+                        $to = $mEnd[1];
+                    }
+                } catch (Throwable $e) {
+                    // keep $to = $from
+                }
+            }
+            if ($from > $to) {
+                $to = $from;
+            }
+            $ranges[] = ['from' => $from, 'to' => $to];
+        }
+        return $ranges;
+    }
+}
+
+if (!function_exists('bmp_hasAccountingDueDismissedAnchor')) {
+    function bmp_hasAccountingDueDismissedAnchor(
+        PDO $pdo,
+        int $companyId,
+        int $processId,
+        string $periodType,
+        string $anchorYmd
+    ): bool {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+            return false;
+        }
+        try {
+            $stmtCh = $pdo->query("SHOW TABLES LIKE 'process_accounting_due_dismissed'");
+            if (!$stmtCh || $stmtCh->rowCount() === 0) {
+                return false;
+            }
+            $stmt = $pdo->prepare(
+                "SELECT 1 FROM process_accounting_due_dismissed
+                 WHERE company_id = ? AND process_id = ? AND period_type = ? AND anchor_date = ? LIMIT 1"
+            );
+            $stmt->execute([$companyId, $processId, $periodType, $anchorYmd]);
+            return (bool) $stmt->fetch();
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+/**
+ * 某账单自然月是否已处理：monthly 入账；monthly_skipped 仅在合并区间覆盖或用户显式 Delete 后视为已处理。
+ * Resend 期间误删未来月产生的 monthly_skipped 不应永久挡住正常 regular monthly。
+ */
+if (!function_exists('bmp_monthlyBillingCalendarMonthIsHandled')) {
+    function bmp_monthlyBillingCalendarMonthIsHandled(
+        PDO $pdo,
+        int $companyId,
+        int $processId,
+        int $year,
+        int $month
+    ): bool {
+        if (!bmp_resend_tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
+            try {
+                $stmt = $pdo->prepare(
+                    "SELECT 1 FROM process_accounting_posted
+                     WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ? LIMIT 1"
+                );
+                $stmt->execute([$companyId, $processId, $year, $month]);
+                return (bool) $stmt->fetch();
+            } catch (Throwable $e) {
+                return false;
+            }
+        }
+        try {
+            $stmtMonthly = $pdo->prepare(
+                "SELECT 1 FROM process_accounting_posted
+                 WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ?
+                 AND (period_type = 'monthly' OR period_type IS NULL OR period_type = '') LIMIT 1"
+            );
+            $stmtMonthly->execute([$companyId, $processId, $year, $month]);
+            if ((bool) $stmtMonthly->fetch()) {
+                return true;
+            }
+            $stmtSkipped = $pdo->prepare(
+                "SELECT 1 FROM process_accounting_posted
+                 WHERE company_id = ? AND process_id = ? AND YEAR(posted_date) = ? AND MONTH(posted_date) = ?
+                 AND period_type = 'monthly_skipped' LIMIT 1"
+            );
+            $stmtSkipped->execute([$companyId, $processId, $year, $month]);
+            if (!(bool) $stmtSkipped->fetch()) {
+                return false;
+            }
+            foreach (bmp_fetchPostedConsolidatedCoverageRanges($pdo, $companyId, $processId) as $range) {
+                if (bmp_calendarMonthWithinInclusiveYmdRange($year, $month, $range['from'], $range['to'])) {
+                    return true;
+                }
+            }
+            $anchor = sprintf('%04d-%02d-01', $year, $month);
+            return bmp_hasAccountingDueDismissedAnchor($pdo, $companyId, $processId, 'monthly', $anchor);
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+/** Resend 结束后清理：删除不在 consolidated 覆盖内、且非用户显式 Delete 的 stale monthly_skipped。 */
+if (!function_exists('bmp_purgeStaleMonthlySkippedRows')) {
+    function bmp_purgeStaleMonthlySkippedRows(PDO $pdo, int $companyId, int $processId): void
+    {
+        if (!bmp_resend_tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
+            return;
+        }
+        try {
+            $ranges = bmp_fetchPostedConsolidatedCoverageRanges($pdo, $companyId, $processId);
+            $stmt = $pdo->prepare(
+                "SELECT id, posted_date FROM process_accounting_posted
+                 WHERE company_id = ? AND process_id = ? AND period_type = 'monthly_skipped'"
+            );
+            $stmt->execute([$companyId, $processId]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $del = $pdo->prepare('DELETE FROM process_accounting_posted WHERE id = ? AND company_id = ? LIMIT 1');
+            foreach ($rows as $row) {
+                $ymd = bmp_bankProcessDateFieldToYmd($row['posted_date'] ?? null);
+                if ($ymd === null || !preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $ymd, $m)) {
+                    continue;
+                }
+                $y = (int) $m[1];
+                $mo = (int) $m[2];
+                $inConsolidated = false;
+                foreach ($ranges as $range) {
+                    if (bmp_calendarMonthWithinInclusiveYmdRange($y, $mo, $range['from'], $range['to'])) {
+                        $inConsolidated = true;
+                        break;
+                    }
+                }
+                if ($inConsolidated) {
+                    continue;
+                }
+                $anchor = sprintf('%04d-%02d-01', $y, $mo);
+                if (bmp_hasAccountingDueDismissedAnchor($pdo, $companyId, $processId, 'monthly', $anchor)) {
+                    continue;
+                }
+                $del->execute([(int) $row['id'], $companyId]);
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
     }
 }
 

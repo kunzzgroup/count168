@@ -8,8 +8,40 @@
  */
 
 /**
+ * 与 datacapturesummary.js isAppendedSourcePercentSuffix 一致
+ */
+function isAppendedSourcePercentSuffix($afterStar) {
+    if (!preg_match('/^\*\s*\((.+)\)\s*$/us', (string) $afterStar, $m)) {
+        return false;
+    }
+    $inner = trim($m[1]);
+    if ($inner === '' || preg_match('/[$\[\]]/u', $inner)) {
+        return false;
+    }
+    if (!preg_match('/^[0-9.\s+\-*\/()]+$/u', $inner)) {
+        return false;
+    }
+    if (preg_match('/\/[0-9.]+\s*[-+]/u', $inner)) {
+        return false;
+    }
+    $divParts = explode('/', $inner, 2);
+    if (count($divParts) === 2) {
+        $left = trim($divParts[0]);
+        $rightPart = trim($divParts[1]);
+        if (preg_match('/^([0-9.]+)/u', $rightPart, $rm)) {
+            $a = (float) $left;
+            $b = (float) $rm[1];
+            if ((abs($a) > 10 || abs($b) > 10)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/**
  * 与 datacapturesummary.js removeTrailingSourcePercentExpression 一致：
- * 只移除末尾展示用 Source 后缀 *(...)；*0.9 等公式内乘数一律保留。
+ * 只移除末尾展示用 Source 后缀 *(...)；*0.9、*($3/$2) 等公式内乘数一律保留。
  */
 function removeTrailingSourcePercentSuffix($formulaText) {
     $result = trim((string) $formulaText);
@@ -28,7 +60,7 @@ function removeTrailingSourcePercentSuffix($formulaText) {
         $openParens = substr_count($beforeStar, '(');
         $closeParens = substr_count($beforeStar, ')');
         $isStarInsideParens = $openParens > $closeParens;
-        if (!$isStarInsideParens && preg_match('/^\*\s*\(([0-9.+\-*\/()\s]+)\)\s*$/u', $afterStar)) {
+        if (!$isStarInsideParens && isAppendedSourcePercentSuffix($afterStar)) {
             $result = trim($beforeStar);
             continue;
         }
@@ -107,8 +139,8 @@ function evaluateMaintenanceNumericFragment($value) {
         return null;
     }
     if (preg_match('/[+\-*\/]/', $valueStr)) {
-        $result = @eval('return (' . $valueStr . ');');
-        if (!is_numeric($result)) {
+        $result = safeEvalMaintenanceNumericExpression($valueStr);
+        if ($result === null) {
             return null;
         }
         return (float) $result;
@@ -117,6 +149,16 @@ function evaluateMaintenanceNumericFragment($value) {
         return null;
     }
     return (float) $valueStr;
+}
+
+/** eval 表达式求值；括号不匹配等语法错误时返回 null，避免整页 500 */
+function safeEvalMaintenanceNumericExpression($valueStr) {
+    try {
+        $result = eval('return (' . $valueStr . ');');
+        return is_numeric($result) ? (float) $result : null;
+    } catch (Throwable $e) {
+        return null;
+    }
 }
 
 /** 占成系数误存为 Source 的典型区间（如 0.9），非真实 Source（0.1、0.14） */
@@ -237,29 +279,24 @@ function scoreTemplateRowForMaintenanceDedup(array $row) {
     return $score;
 }
 
+/** formula_operators 含 $n 或 [id,n] 时，不从数值公式自动拼尾段 */
+function formulaOperatorsUsesCellReferences($body) {
+    $s = trim((string) $body);
+    if ($s === '') {
+        return false;
+    }
+    return preg_match('/\$\d+/u', $s) || preg_match('/\[[^\]]+[,:\s]\d+\]/u', $s);
+}
+
 /**
- * 用 formula_display 补全 formula_operators 中缺失的末尾占成系数（如 *0.90），
- * 仅当 display 比 operators 多出尾段乘数时追加，不硬编码具体数值。
+ * 顾客公式为准：不自动从 formula_display 拼尾段；formula_display 参数仅作 ops 为空时的回退。
  */
 function mergeFormulaBaseWithDisplayTail($operatorsBase, $formulaDisplay) {
-    $ops = trim((string) $operatorsBase);
-    $fd = removeTrailingSourcePercentSuffix(trim((string) $formulaDisplay));
-    if ($ops === '' || $fd === '') {
-        return $ops !== '' ? $ops : $fd;
-    }
-    if (!preg_match('/^(.*)(\*(?:\([^)]+\)|[0-9.]+))\s*$/u', $fd, $m)) {
+    $ops = removeTrailingSourcePercentSuffix(trim((string) $operatorsBase));
+    if ($ops !== '') {
         return $ops;
     }
-    $fdTail = trim($m[2]);
-    if ($fdTail === '') {
-        return $ops;
-    }
-    $opsNorm = preg_replace('/\s+/', '', $ops);
-    $tailNorm = preg_replace('/\s+/', '', $fdTail);
-    if ($tailNorm === '' || substr($opsNorm, -strlen($tailNorm)) === $tailNorm) {
-        return $ops;
-    }
-    return $ops . $fdTail;
+    return removeTrailingSourcePercentSuffix(trim((string) $formulaDisplay));
 }
 
 /** 公式去掉 Source 后缀与末尾 row 占成（*0.90 等）后的核心段，用于同 Process 同行互相推断 */
@@ -380,16 +417,13 @@ function maintenanceRowEligibleForPeerRowCoefficient(array $row) {
     return !isLikelyMisplacedCommissionValue($formatted);
 }
 
-/** 尽可能从 last_source_value / formula_display / 误存 Source 等补全 row 占成尾段 */
+/** 只返回 formula_operators 本体，不从 display/lsv 自动拼乘数 */
 function mergeFormulaBaseFromAllCandidates($base, array $row) {
-    $result = removeTrailingSourcePercentSuffix(trim((string) $base));
-    if (!maintenanceRowShouldMergeRowCoefficientCandidates($row)) {
-        return $result;
+    $ops = isset($row['formula_operators']) ? trim((string) $row['formula_operators']) : '';
+    if ($ops !== '') {
+        return removeTrailingSourcePercentSuffix($ops);
     }
-    foreach (collectFormulaMergeCandidates($row) as $candidate) {
-        $result = mergeFormulaBaseWithDisplayTail($result, $candidate);
-    }
-    return $result;
+    return removeTrailingSourcePercentSuffix(trim((string) $base));
 }
 
 /**
@@ -540,8 +574,8 @@ function formatSourcePercentForMaintenanceList($value) {
         if (!preg_match('/^[0-9.+\-*\/()\s]+$/', $valueStr)) {
             return $valueStr;
         }
-        $result = @eval('return (' . $valueStr . ');');
-        if (!is_numeric($result)) {
+        $result = safeEvalMaintenanceNumericExpression($valueStr);
+        if ($result === null) {
             return $valueStr;
         }
         $num = (float) $result;

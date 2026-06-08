@@ -148,3 +148,144 @@ function prorateMonthlyAnniversaryPeriodLinear(
         'ratio' => $r,
     ];
 }
+
+/**
+ * Monthly 对日对月：在整期 [p0,p1] 内仅对 [from,to]（与区间求交）占整期比例缩放。
+ *
+ * @return array{cost:string,price:string,profit:string,ratio:?string}
+ */
+function prorateMonthlyAnniversaryPeriodLinearBounded(
+    string $p0,
+    string $p1,
+    string $from,
+    string $to,
+    string $cost,
+    string $price,
+    string $profit
+): array {
+    if ($from > $to || $to < $p0 || $from > $p1) {
+        return ['cost' => '0.00000000', 'price' => '0.00000000', 'profit' => '0.00000000', 'ratio' => null];
+    }
+    $adjFrom = $from < $p0 ? $p0 : $from;
+    $adjTo = $to > $p1 ? $p1 : $to;
+    if ($adjFrom > $adjTo) {
+        return ['cost' => '0.00000000', 'price' => '0.00000000', 'profit' => '0.00000000', 'ratio' => null];
+    }
+    $fullD = billingInclusiveDaysBetween($p0, $p1);
+    $useD = billingInclusiveDaysBetween($adjFrom, $adjTo);
+    if ($fullD <= 0 || $useD <= 0) {
+        return ['cost' => '0.00000000', 'price' => '0.00000000', 'profit' => '0.00000000', 'ratio' => null];
+    }
+    $r = money_div((string) $useD, (string) $fullD, MONEY_CALC_SCALE);
+
+    return [
+        'cost' => money_mul($cost, $r, 2),
+        'price' => money_mul($price, $r, 2),
+        'profit' => money_mul($profit, $r, 2),
+        'ratio' => $r,
+    ];
+}
+
+/**
+ * Resend consolidated / 任意闭区间：按 day_start 锚点逐期 [anchor, anchor+1月-1日] 累加；整期=整月价，尾段不足一期再比例。
+ *
+ * @return array{cost:string,price:string,profit:string}
+ */
+function sumMonthlyAnniversaryInclusiveRangeAmounts(
+    string $rangeFromYmd,
+    string $rangeToYmd,
+    string $contractStartYmd,
+    string $cost,
+    string $price,
+    string $profit
+): array {
+    $zero = ['cost' => '0.00000000', 'price' => '0.00000000', 'profit' => '0.00000000'];
+    if ($rangeFromYmd > $rangeToYmd || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $contractStartYmd)) {
+        return $zero;
+    }
+    try {
+        $anchor = new DateTimeImmutable($contractStartYmd);
+    } catch (Throwable $e) {
+        return $zero;
+    }
+    $tc = '0.00000000';
+    $tp = '0.00000000';
+    $tf = '0.00000000';
+    for ($i = 0; $i < 600; $i++) {
+        $p0 = $anchor->format('Y-m-d');
+        $p1 = $anchor->modify('+1 month')->modify('-1 day')->format('Y-m-d');
+        if ($p1 < $rangeFromYmd) {
+            $anchor = (new DateTimeImmutable($p1))->modify('+1 day');
+            continue;
+        }
+        if ($p0 > $rangeToYmd) {
+            break;
+        }
+        $chunk = prorateMonthlyAnniversaryPeriodLinearBounded(
+            $p0,
+            $p1,
+            $rangeFromYmd,
+            $rangeToYmd,
+            $cost,
+            $price,
+            $profit
+        );
+        $tc = money_add($tc, $chunk['cost'], MONEY_CALC_SCALE);
+        $tp = money_add($tp, $chunk['price'], MONEY_CALC_SCALE);
+        $tf = money_add($tf, $chunk['profit'], MONEY_CALC_SCALE);
+        if ($p1 >= $rangeToYmd) {
+            break;
+        }
+        $anchor = (new DateTimeImmutable($p1))->modify('+1 day');
+    }
+
+    return [
+        'cost' => money_normalize($tc, 2),
+        'price' => money_normalize($tp, 2),
+        'profit' => money_normalize($tf, 2),
+    ];
+}
+
+/** Monthly 对日对月：从锚点 day_start 起一期的 inclusive 结束日（anchor+1月-1日）。 */
+function billingMonthlyAnniversaryPeriodEndFromAnchor(string $anchorYmd): ?string
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+        return null;
+    }
+    try {
+        return (new DateTimeImmutable($anchorYmd))->modify('+1 month')->modify('-1 day')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** Resend Monthly + day_start/day_end：day_end 须为从 day_start 起第 1/2/3… 期的标准结束日。 */
+function billingMonthlyResendRangeComplete(string $dayStartYmd, string $dayEndYmd): bool
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStartYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayEndYmd)) {
+        return false;
+    }
+    if ($dayEndYmd < $dayStartYmd) {
+        return false;
+    }
+    try {
+        $anchor = new DateTimeImmutable($dayStartYmd);
+    } catch (Throwable $e) {
+        return false;
+    }
+    for ($i = 0; $i < 600; $i++) {
+        $periodEnd = billingMonthlyAnniversaryPeriodEndFromAnchor($anchor->format('Y-m-d'));
+        if ($periodEnd === null) {
+            return false;
+        }
+        if ($dayEndYmd === $periodEnd) {
+            return true;
+        }
+        if ($dayEndYmd < $periodEnd) {
+            return false;
+        }
+        $anchor = (new DateTimeImmutable($periodEnd))->modify('+1 day');
+    }
+
+    return false;
+}

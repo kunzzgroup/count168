@@ -651,11 +651,20 @@ function loadDataCaptureList() {
             'Cache-Control': 'no-cache'
         }
     })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        .then(async response => {
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText || 'Server error'}`);
+                }
+                throw parseError;
             }
-            return response.json();
+            if (!response.ok) {
+                throw new Error(data.message || data.error || `HTTP ${response.status}: ${response.statusText || 'Server error'}`);
+            }
+            return data;
         })
         .then(data => {
             if (data.success) {

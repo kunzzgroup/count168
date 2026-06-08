@@ -10,6 +10,8 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/maintenance_accounting_resend_lib.php';
+require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../processes/contract_billing_addon.php';
 
 /** 与 processlist / 前端 isBankInactiveLike：Official、E-INVOICE、Block 不可 Resend（这些在 DB 里常为 status=active） */
 
@@ -200,6 +202,10 @@ try {
         }
         if ($newDayStart !== null && $newDayEnd !== null && $newDayEnd < $newDayStart) {
             throw new Exception('Day end 不能早于 Day start');
+        }
+        if ($newFrequency === 'monthly' && $newDayStart !== null && $newDayEnd !== null
+            && !billingMonthlyResendRangeComplete($newDayStart, $newDayEnd)) {
+            throw new Exception('Monthly：Day end 必须是完整的月账期结束日');
         }
         // Resend 弹窗允许与 Edit 不同的组合（仅本次入账/Inbox），不再把「有 day_end + monthly」强制改为 1st。
     }

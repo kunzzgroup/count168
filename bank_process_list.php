@@ -186,7 +186,7 @@ if (!function_exists('renderBankProcessModals')) {
                                 <tr>
                                     <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
                                     <th>No</th>
-                                    <th>Start Date</th>
+                                    <th>Due Date</th>
                                     <th>Card Owner</th>
                                     <th>Bank</th>
                                     <th>Contract</th>

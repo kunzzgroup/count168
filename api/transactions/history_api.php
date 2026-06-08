@@ -264,6 +264,25 @@ function stripTrailingRateSuffix(string $description): string
     return preg_replace('/\s*\((?:Rate|RATE):\s*[^)]*\)\s*$/i', '', $description) ?? $description;
 }
 
+/** Process bank 描述尾缀：| {Bank} */
+function historyBankProcessDescriptionTail(array $tx): string
+{
+    $bank = trim((string) ($tx['bank_name'] ?? ''));
+    return $bank === '' ? '' : (' | ' . $bank);
+}
+
+function historyAppendBankProcessTail(string $description, array $tx): string
+{
+    $tail = historyBankProcessDescriptionTail($tx);
+    if ($tail === '') {
+        return $description;
+    }
+    if (substr($description, -strlen($tail)) === $tail) {
+        return $description;
+    }
+    return $description . $tail;
+}
+
 /**
  * 将旧版 RATE 描述改为：
  * EXCH RATE {rate} {from} > {to} | TO/FROM {account}
@@ -1482,13 +1501,6 @@ try {
         }
     }
     $bfDescription = 'Opening Balance';
-    $ph_bf = implode(',', array_fill(0, count($account_ids), '?'));
-    $stmt = $pdo->prepare("SELECT bp.bank FROM bank_process bp WHERE bp.card_merchant_id IN ($ph_bf) AND bp.company_id = ? AND bp.bank IS NOT NULL AND bp.bank != '' LIMIT 1");
-    $stmt->execute(array_merge($account_ids, [$company_id]));
-    $bfBankName = $stmt->fetchColumn();
-    if ($bfBankName) {
-        $bfDescription = 'Opening Balance (' . trim($bfBankName) . ')';
-    }
     if (is_array($bf_per_currency) && count($bf_per_currency) > 0) {
         foreach ($bf_per_currency as $code => $bfAmt) {
             $history[] = [
@@ -2015,6 +2027,9 @@ try {
         // 追加审批标记（只对未批准 CONTRA；CLEAR 没有审批流程，只沿用金额逻辑）
         if ($t['transaction_type'] === 'CONTRA' && $approvalStatus && strtoupper((string) $approvalStatus) === 'PENDING') {
             $description = '[PENDING APPROVAL] ' . $description;
+        }
+        if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
+            $description = historyAppendBankProcessTail((string) $description, $t);
         }
 
         $displayDateYmd = $t['transaction_date'];
