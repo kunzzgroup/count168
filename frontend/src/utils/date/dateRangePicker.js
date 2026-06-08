@@ -76,6 +76,8 @@ export function ensureMaintenanceDateRangePicker() {
   let calendarStartDate = null;
   let calendarEndDate = null;
   let isSelectingRange = false;
+  /** Bank Process：打开日历 / 重选过程中暂存已提交范围，防止 display 被清空 */
+  let stashedCommittedRange = null;
   let calendarCurrentDate = new Date();
   let calendarViewMode = "days";
   let monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -143,6 +145,29 @@ export function ensureMaintenanceDateRangePicker() {
     return `${fromText} - ${toText}`;
   }
 
+  function stashCommittedRangeFromHidden(binding) {
+    const b = binding || activeRangeBinding;
+    const fv = document.getElementById(b.dateFromId)?.value?.trim();
+    const tv = document.getElementById(b.dateToId)?.value?.trim();
+    stashedCommittedRange = fv && tv ? { from: fv, to: tv } : null;
+  }
+
+  function paintStashedCommittedRange(binding) {
+    if (!stashedCommittedRange?.from || !stashedCommittedRange?.to) return false;
+    const b = binding || activeRangeBinding;
+    const display = document.getElementById(b.displayId);
+    if (!display) return false;
+    const fd = parseDmy(stashedCommittedRange.from);
+    const td = parseDmy(stashedCommittedRange.to);
+    if (!fd || !td) return false;
+    const collapse = collapseSingleDisplayForBinding(b);
+    const a = formatDateDisplay(fd);
+    const c = formatDateDisplay(td);
+    display.textContent =
+      collapse && stashedCommittedRange.from === stashedCommittedRange.to ? a : formatRangeDisplayText(a, c);
+    return true;
+  }
+
   function hasCommittedRangeInHidden(binding) {
     const b = binding || activeRangeBinding;
     const fv = document.getElementById(b.dateFromId)?.value?.trim();
@@ -168,7 +193,12 @@ export function ensureMaintenanceDateRangePicker() {
 
     if (config.preserveDisplayUntilCommit) {
       if (hasCommittedRangeInHidden()) {
+        stashCommittedRangeFromHidden(activeRangeBinding);
         paintDisplayFromDomHiddens(activeRangeBinding);
+        syncPickerSelectedRangeClass(displayIdOverride);
+        return;
+      }
+      if (paintStashedCommittedRange(activeRangeBinding)) {
         syncPickerSelectedRangeClass(displayIdOverride);
         return;
       }
@@ -595,6 +625,9 @@ export function ensureMaintenanceDateRangePicker() {
 
   function selectDate(date) {
     if (!calendarStartDate || (calendarStartDate && calendarEndDate)) {
+      if (config.preserveDisplayUntilCommit) {
+        stashCommittedRangeFromHidden(activeRangeBinding);
+      }
       calendarStartDate = new Date(date);
       calendarEndDate = null;
       isSelectingRange = true;
@@ -622,6 +655,7 @@ export function ensureMaintenanceDateRangePicker() {
       updateDateRangeDisplay();
       updateQuickPresetActive(detectMatchingQuickRange());
       runOnChange();
+      stashedCommittedRange = null;
       closeMaintenanceCalendarPopup();
     }
     renderCalendar();
@@ -646,6 +680,9 @@ export function ensureMaintenanceDateRangePicker() {
     }
 
     if (!isMaintenanceCalendarOpen()) {
+      if (config.preserveDisplayUntilCommit) {
+        stashCommittedRangeFromHidden(activeRangeBinding);
+      }
       syncRangeStateFromHiddenInputs();
       let rect = picker.getBoundingClientRect();
       let barWidth = rect.width;
@@ -724,7 +761,14 @@ export function ensureMaintenanceDateRangePicker() {
       initCalendar();
       renderCalendar();
       updateCalendarClearFooter();
+      if (config.preserveDisplayUntilCommit) {
+        paintDisplayFromDomHiddens(activeRangeBinding);
+      }
     } else {
+      if (config.preserveDisplayUntilCommit) {
+        syncRangeStateFromHiddenInputs();
+        paintDisplayFromDomHiddens(activeRangeBinding);
+      }
       closeMaintenanceCalendarPopup();
     }
   }
@@ -757,6 +801,7 @@ export function ensureMaintenanceDateRangePicker() {
     calendarStartDate = null;
     calendarEndDate = null;
     isSelectingRange = false;
+    stashedCommittedRange = null;
     syncToHiddenInputs();
     updateDateRangeDisplay();
     updateQuickPresetActive("");

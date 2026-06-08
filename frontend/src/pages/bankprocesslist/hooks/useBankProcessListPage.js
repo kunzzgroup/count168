@@ -640,6 +640,12 @@ export function useBankProcessListPage() {
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
 
+  /* React state 为 date range 唯一来源；hidden input 受控同步，避免再次打开日历时丢失已选范围 */
+  useEffect(() => {
+    if (loading || !cssReady || !bankDatePickerInitRef.current) return;
+    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
+  }, [dateFrom, dateTo, loading, cssReady, lang]);
+
   useEffect(() => {
     if (loading || !companyId || groupFilterKind !== "follow") return;
     if (suppressCrossPageSyncRef.current) return;
