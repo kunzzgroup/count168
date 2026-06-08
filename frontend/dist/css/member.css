@@ -1026,7 +1026,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 .member-winloss-page .member-dash-columns--two-col .member-dash-col-matrix,
 .member-winloss-page .member-dash-columns--three-col .member-dash-col-matrix {
     flex: 1 1 auto;
-    align-items: flex-end;
+    align-items: flex-start;
     align-self: flex-start;
     min-width: 0;
     width: auto;
@@ -1050,7 +1050,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 .member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap {
     flex: 0 0 auto;
     align-items: flex-start;
-    align-self: flex-end;
+    align-self: flex-start;
     margin-inline-start: 0;
     width: max-content;
     max-width: 100%;
@@ -1065,7 +1065,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     max-width: 100%;
     min-width: 0;
     height: auto;
-    align-self: flex-end;
+    align-self: flex-start;
     margin-inline-start: 0;
     box-sizing: border-box;
 }
@@ -1910,7 +1910,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     min-width: 0;
     min-height: 0;
     height: auto;
-    align-self: flex-end;
+    align-self: flex-start;
     border-radius: 0;
     transition: box-shadow 0.35s ease;
     display: flex;
@@ -1923,7 +1923,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    align-self: flex-end;
+    align-self: stretch;
     margin-inline-start: 0;
 }
 
@@ -1931,7 +1931,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    align-self: flex-end;
+    align-self: stretch;
 }
 
 .member-dash-rail-matrix {
@@ -2497,7 +2497,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     width: max-content !important;
     max-width: 100%;
     flex: 0 0 auto !important;
-    align-self: flex-end;
+    align-self: flex-start;
 }
 
 /* 最右列由外框描边，去掉列内右边线避免双线+白缝 */
