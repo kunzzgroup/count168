@@ -1571,7 +1571,7 @@ function restoreAllPermissionsCheckboxes() {
 function getRoleTemplateSidebarList(role) {
     if (!role) return [];
     const rolePermissions = {
-        'partnership': [],
+        'partnership': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
@@ -1648,6 +1648,7 @@ function getFinalPermissionsForCreation(selectedRole) {
 
     // 获取新账号 role 的完整默认权限
     const rolePermissions = {
+        'partnership': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'manager': ['admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'supervisor': ['admin', 'account', 'process', 'datacapture', 'payment', 'report'],
@@ -2273,8 +2274,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (roleSelect) {
         roleSelect.addEventListener('change', function () {
             const selectedRole = this.value;
-            // 显示/隐藏 Read Only toggle（只在 Partnership 角色时显示）
+            // 显示/隐藏 Read Only toggle（Partnership / Audit）
             updateReadOnlyToggleVisibility(selectedRole);
+            if (!isEditMode && selectedRole && selectedRole.toLowerCase() === 'partnership') {
+                const readOnlyToggle = document.getElementById('readOnlyToggle');
+                if (readOnlyToggle) readOnlyToggle.checked = true;
+            }
             if (selectedRole) {
                 // 用户主动改 Role：始终按角色模板套用；编辑模式下再按当前登录者限制可勾选项
                 setDefaultPermissionsByRole(selectedRole, { force: true });
