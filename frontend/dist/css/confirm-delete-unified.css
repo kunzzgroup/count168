@@ -112,6 +112,37 @@
   opacity: 0.9 !important;
 }
 
+/* Approve confirm — blue primary (Auto Renew Approve button) */
+.confirm-delete-modal-content .confirm-approve,
+.domain-confirm-modal-content .confirm-approve {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28) !important;
+}
+
+.confirm-delete-modal-content .confirm-approve:hover:not(:disabled),
+.domain-confirm-modal-content .confirm-approve:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+.confirm-delete-modal-content .confirm-approve:active:not(:disabled),
+.domain-confirm-modal-content .confirm-approve:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+.confirm-delete-modal-content .confirm-approve:disabled,
+.confirm-delete-modal-content .confirm-approve:disabled:hover,
+.domain-confirm-modal-content .confirm-approve:disabled,
+.domain-confirm-modal-content .confirm-approve:disabled:hover {
+  background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+  color: #f8fafc !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.9 !important;
+}
+
 /* Footer layout — consistent gap & alignment */
 :is(
   #confirmModal,
@@ -155,6 +186,7 @@
   .confirm-cancel,
   .confirm-delete,
   .confirm-action,
+  .confirm-approve,
   .btn-cancel-confirm,
   .confirmDeleteBtn,
   .process-btn-cancel,

@@ -137,6 +137,7 @@ export default function AutoRenewPage() {
   const [toasts, setToasts] = useState([]);
   const [deleteConfirmRow, setDeleteConfirmRow] = useState(null);
   const [rejectConfirmRow, setRejectConfirmRow] = useState(null);
+  const [approveConfirmRow, setApproveConfirmRow] = useState(null);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -244,13 +245,19 @@ export default function AutoRenewPage() {
     }));
   }, []);
 
-  const handleApprove = useCallback(async (row) => {
+  const handleApprove = useCallback((row) => {
     if (!canEditGlobal || busyRequestId) return;
-    const { period, fromAccountId, toAccountId } = getRowDraftValues(row, rowDrafts);
+    if (!canApproveRow(row, rowDrafts)) return;
+    setApproveConfirmRow(row);
+  }, [busyRequestId, canEditGlobal, rowDrafts]);
+
+  const confirmApproveRow = useCallback(async () => {
+    const row = approveConfirmRow;
+    if (!row || !canEditGlobal || busyRequestId) return;
     if (!canApproveRow(row, rowDrafts)) return;
 
-    if (!window.confirm(t("confirmApprove", { company: row.company_code }))) return;
-
+    const { period, fromAccountId, toAccountId } = getRowDraftValues(row, rowDrafts);
+    setApproveConfirmRow(null);
     setBusyRequestId(row.request_id);
     try {
       await approveAutoRenew({
@@ -266,7 +273,7 @@ export default function AutoRenewPage() {
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, fetchList, notify, rowDrafts, t]);
+  }, [approveConfirmRow, busyRequestId, canEditGlobal, fetchList, notify, rowDrafts, t]);
 
   const handleReject = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || row.is_payment_deleted) return;
@@ -680,6 +687,20 @@ export default function AutoRenewPage() {
           confirmDisabled={Boolean(busyRequestId)}
           onConfirm={() => void confirmRejectRow()}
           onClose={() => !busyRequestId && setRejectConfirmRow(null)}
+        />
+      ) : null}
+
+      {approveConfirmRow ? (
+        <ConfirmDeleteModal
+          open
+          title={t("confirmApproveTitle")}
+          message={t("confirmApprove", { company: approveConfirmRow.company_code })}
+          cancelLabel={t("cancel")}
+          confirmLabel={t("approve")}
+          confirmClassName="btn confirm-approve"
+          confirmDisabled={Boolean(busyRequestId)}
+          onConfirm={() => void confirmApproveRow()}
+          onClose={() => !busyRequestId && setApproveConfirmRow(null)}
         />
       ) : null}
     </>
