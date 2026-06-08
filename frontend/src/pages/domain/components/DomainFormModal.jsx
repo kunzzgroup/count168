@@ -26,6 +26,27 @@ function normalizeDomainCode(value) {
   return String(value ?? "").trim().toUpperCase();
 }
 
+function PasswordVisibilityIcon({ hidden }) {
+  if (hidden) {
+    return (
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+        <path
+          fill="currentColor"
+          d="M12 5c-5.5 0-9.5 4.7-10.8 7 1.3 2.3 5.3 7 10.8 7s9.5-4.7 10.8-7C21.5 9.7 17.5 5 12 5zm0 11.5A4.5 4.5 0 1 1 16.5 12 4.5 4.5 0 0 1 12 16.5zm0-7A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5z"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        d="M3.3 2.6 2 4l3 3.1C3.5 8.4 2.2 10 1.2 12c1.3 2.3 5.3 7 10.8 7 2 0 3.8-.6 5.4-1.5l2.8 2.8 1.3-1.4-17-17.1zM12 17.5c-4.2 0-7.6-3.2-9-5.5.7-1.2 1.8-2.7 3.2-4l1.8 1.8A4.48 4.48 0 0 0 12 16.5c.6 0 1.2-.1 1.7-.4l1.6 1.6c-.9.2-1.9.3-2.9.3zm9.8-5.5c-.5-.9-1.2-1.9-2-2.8l-1.5 1.5c.7.8 1.3 1.6 1.8 2.3-1.3 2.3-5.3 7-10.8 7-.8 0-1.5-.1-2.2-.2l-1.8 1.8c1.2.4 2.5.7 4 .7 5.5 0 9.5-4.7 10.8-7 .4-.7.7-1.4.9-2.1l2.8 2.8 1.3-1.4-4.3-4.3z"
+      />
+    </svg>
+  );
+}
+
 /** @returns {string|null} conflicting code if a non–group-entity company id equals a group id */
 function findGroupCompanyCodeOverlap(tempGroups, tempCompanies) {
   const groupSet = new Set(tempGroups.map((g) => tempGroupCode(g)).filter(Boolean));
@@ -63,6 +84,8 @@ export default function DomainFormModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secondaryPassword, setSecondaryPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showSecondaryPassword, setShowSecondaryPassword] = useState(false);
 
   // Company / Group management
   const [tempCompanies, setTempCompanies] = useState([]);
@@ -576,7 +599,7 @@ export default function DomainFormModal({
           WebkitBackdropFilter: "blur(4px)",
         }}
       >
-        <div className="domain-form-modal-panel relative mx-auto my-[1vh] flex w-[96%] max-w-[1180px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
+        <div className="domain-form-modal-panel relative mx-auto my-[1vh] flex w-[98%] max-w-[1400px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="dfm-header flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
             <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
             <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
@@ -622,27 +645,54 @@ export default function DomainFormModal({
                     </div>
                     <div className="dfm-field dfm-field--password">
                       <label htmlFor="df_password">{t("password")} {!isEditMode && "*"}</label>
-                      <input
-                        type="password" id="df_password" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                        required={!isEditMode}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
+                      <div className="dfm-password-wrap">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          id="df_password"
+                          className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          required={!isEditMode}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          className="dfm-password-toggle"
+                          aria-label={showPassword ? t("hidePassword") : t("showPassword")}
+                          onClick={() => setShowPassword((v) => !v)}
+                        >
+                          <PasswordVisibilityIcon hidden={!showPassword} />
+                        </button>
+                      </div>
                     </div>
                     {showSecondaryPwd && (
                       <div className="dfm-field dfm-field--secondary-pwd">
                         <label htmlFor="df_secondary_pwd">
                           {t("secondaryPassword")} {!isEditMode && "*"}
                         </label>
-                        <input
-                          type="password" id="df_secondary_pwd" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                          maxLength={6}
-                          pattern="[0-9]{6}"
-                          placeholder={isEditMode ? t("leaveEmptyKeepCurrentPassword") : t("sixDigitsOnly")}
-                          required={!isEditMode}
-                          value={secondaryPassword}
-                          onChange={(e) => setSecondaryPassword(forceNumericValue(e.target.value))}
-                        />
+                        <div className="dfm-password-wrap">
+                          <input
+                            type={showSecondaryPassword ? "text" : "password"}
+                            id="df_secondary_pwd"
+                            className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                            maxLength={6}
+                            pattern="[0-9]{6}"
+                            placeholder={isEditMode ? t("leaveEmptyKeepCurrentPassword") : t("sixDigitsOnly")}
+                            required={!isEditMode}
+                            value={secondaryPassword}
+                            onChange={(e) => setSecondaryPassword(forceNumericValue(e.target.value))}
+                            autoComplete="off"
+                            inputMode="numeric"
+                          />
+                          <button
+                            type="button"
+                            className="dfm-password-toggle"
+                            aria-label={showSecondaryPassword ? t("hidePassword") : t("showPassword")}
+                            onClick={() => setShowSecondaryPassword((v) => !v)}
+                          >
+                            <PasswordVisibilityIcon hidden={!showSecondaryPassword} />
+                          </button>
+                        </div>
                         <small className="dfm-helper-text">{t("secondaryPwdRequirement")}</small>
                       </div>
                     )}
