@@ -15,6 +15,10 @@ export const DOMAIN_I18N = {
     groupAdded: 'Group "{gid}" added!',
     confirmDeleteGroupWithCount: 'Are you sure you want to delete group "{gid}"?\n\n{count} company(ies) in this group will become ungrouped.',
     confirmDeleteGroup: 'Are you sure you want to delete group "{gid}"?',
+    confirmDeleteCompany:
+      'Remove company "{cid}" from this domain?\n\nIf it has accounts or Transaction Payment data, it will be detached only — all ledger data stays in the database.\nUnused companies with no data are removed permanently.',
+    companyRemovedFromForm: 'Company "{cid}" removed from the form. Confirm to detach (keeps ledger) or delete if unused.',
+    cannotRemoveC168Company: "Company C168 cannot be removed.",
     groupRemoved: 'Group "{gid}" removed',
     pleaseSelectGroupFirst: "Please select a Group first",
     invalidEmailFormat: "Please enter a valid email address",
@@ -214,6 +218,10 @@ export const DOMAIN_I18N = {
     groupAdded: '集团 "{gid}" 已添加！',
     confirmDeleteGroupWithCount: '确定删除集团 "{gid}" 吗？\n\n此集团内 {count} 家公司将被取消集团。',
     confirmDeleteGroup: '确定删除集团 "{gid}" 吗？',
+    confirmDeleteCompany:
+      '从该 Domain 移除公司 "{cid}" 吗？\n\n若已有账户或 Transaction Payment 数据，将仅解除 Domain 关联，账务数据全部保留。\n从未使用的空公司会被永久删除。',
+    companyRemovedFromForm: '已从表单移除公司 "{cid}"，确认后将解除关联（保留账务）或删除空公司。',
+    cannotRemoveC168Company: "不能移除公司 C168。",
     groupRemoved: '集团 "{gid}" 已删除',
     pleaseSelectGroupFirst: "请先选择集团",
     invalidEmailFormat: "请输入有效的邮箱地址",

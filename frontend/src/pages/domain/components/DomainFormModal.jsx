@@ -200,7 +200,15 @@ export default function DomainFormModal({
   }
 
   function removeCompany(cid) {
-    setTempCompanies((prev) => prev.filter((c) => c.company_id !== cid));
+    const code = normalizeDomainCode(cid);
+    if (code === "C168") {
+      toastDanger(t("cannotRemoveC168Company"));
+      return;
+    }
+    const msg = t("confirmDeleteCompany", { cid: code });
+    if (!confirm(msg)) return;
+    setTempCompanies((prev) => prev.filter((c) => normalizeDomainCode(c.company_id) !== code));
+    showDomainAlert(t("companyRemovedFromForm", { cid: code }));
   }
 
   async function addGroup() {
@@ -582,71 +590,73 @@ export default function DomainFormModal({
               </div>
               <div className="dfm-section-divider h-[2.5px] w-full bg-blue-900" />
               <div className="dfm-grid-two">
-                {/* Left: Domain info */}
+                {/* Left: Domain info — row1: owner / name / password; row2: email / secondary password */}
                 <div className="dfm-col-left min-w-0">
-                  <div className="dfm-field">
-                    <label htmlFor="df_owner_code">{t("ownerCode")} *</label>
-                    <input
-                      type="text" id="df_owner_code" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                      value={ownerCode}
-                      disabled={isEditMode}
-                      onChange={(e) => setOwnerCode(forceUppercaseValue(e.target.value))}
-                    />
-                  </div>
-                  <div className="dfm-field">
-                    <label htmlFor="df_name">{t("name")} *</label>
-                    <input
-                      type="text" id="df_name" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                      value={name}
-                      onChange={(e) => setName(forceUppercaseValue(e.target.value))}
-                    />
-                  </div>
-                  <div className="dfm-field">
-                    <label htmlFor="df_email">{t("email")} *</label>
-                    <input
-                      type="text"
-                      id="df_email"
-                      inputMode="email"
-                      autoComplete="email"
-                      spellCheck={false}
-                      required
-                      className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                      value={email}
-                      onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
-                    />
-                  </div>
-                  <div className="dfm-field">
-                    <label htmlFor="df_password">{t("password")} {!isEditMode && "*"}</label>
-                    <input
-                      type="password" id="df_password" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                      required={!isEditMode}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-                  {showSecondaryPwd && (
-                    <div className="dfm-field">
-                      <label htmlFor="df_secondary_pwd">
-                        {t("secondaryPassword")} {!isEditMode && "*"}
-                      </label>
+                  <div className="dfm-domain-grid">
+                    <div className="dfm-field dfm-field--owner-code">
+                      <label htmlFor="df_owner_code">{t("ownerCode")} *</label>
                       <input
-                        type="password" id="df_secondary_pwd" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
-                        maxLength={6}
-                        pattern="[0-9]{6}"
-                        placeholder={isEditMode ? t("leaveEmptyKeepCurrentPassword") : t("sixDigitsOnly")}
-                        required={!isEditMode}
-                        value={secondaryPassword}
-                        onChange={(e) => setSecondaryPassword(forceNumericValue(e.target.value))}
+                        type="text" id="df_owner_code" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                        value={ownerCode}
+                        disabled={isEditMode}
+                        onChange={(e) => setOwnerCode(forceUppercaseValue(e.target.value))}
                       />
-                      <small className="dfm-helper-text">{t("secondaryPwdRequirement")}</small>
                     </div>
-                  )}
+                    <div className="dfm-field dfm-field--name">
+                      <label htmlFor="df_name">{t("name")} *</label>
+                      <input
+                        type="text" id="df_name" required className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                        value={name}
+                        onChange={(e) => setName(forceUppercaseValue(e.target.value))}
+                      />
+                    </div>
+                    <div className="dfm-field dfm-field--password">
+                      <label htmlFor="df_password">{t("password")} {!isEditMode && "*"}</label>
+                      <input
+                        type="password" id="df_password" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                        required={!isEditMode}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className={`dfm-field dfm-field--email${showSecondaryPwd ? "" : " dfm-field--email-full"}`}>
+                      <label htmlFor="df_email">{t("email")} *</label>
+                      <input
+                        type="text"
+                        id="df_email"
+                        inputMode="email"
+                        autoComplete="email"
+                        spellCheck={false}
+                        required
+                        className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                        value={email}
+                        onChange={(e) => setEmail(sanitizeEmailInput(e.target.value))}
+                      />
+                    </div>
+                    {showSecondaryPwd && (
+                      <div className="dfm-field dfm-field--secondary-pwd">
+                        <label htmlFor="df_secondary_pwd">
+                          {t("secondaryPassword")} {!isEditMode && "*"}
+                        </label>
+                        <input
+                          type="password" id="df_secondary_pwd" className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          maxLength={6}
+                          pattern="[0-9]{6}"
+                          placeholder={isEditMode ? t("leaveEmptyKeepCurrentPassword") : t("sixDigitsOnly")}
+                          required={!isEditMode}
+                          value={secondaryPassword}
+                          onChange={(e) => setSecondaryPassword(forceNumericValue(e.target.value))}
+                        />
+                        <small className="dfm-helper-text">{t("secondaryPwdRequirement")}</small>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Right: Company info */}
+                {/* Right: Company info — row1: group id / company id / group pills; row2: selected groups / companies */}
                 <div className="dfm-col-right flex min-w-0 flex-col">
-                  <div className="dfm-company-inputs-row mb-1 flex flex-wrap">
-                    <div className="dfm-field min-w-0 flex-1">
+                  <div className="dfm-company-grid-row1">
+                    <div className="dfm-field dfm-field--group-input">
                       <label htmlFor="df_group_input">{t("groupIdLabel")}</label>
                       <div className="dfm-input-with-btn flex min-w-0">
                         <input
@@ -661,7 +671,7 @@ export default function DomainFormModal({
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addGroup}>{t("add")}</button>
                       </div>
                     </div>
-                    <div className="dfm-field min-w-0 flex-1">
+                    <div className="dfm-field dfm-field--company-input">
                       <label htmlFor="df_company_input">{t("companyIdLabel")}</label>
                       <div className="dfm-input-with-btn flex min-w-0">
                         <input
@@ -676,75 +686,76 @@ export default function DomainFormModal({
                         <button type="button" className="dfm-adjoin-btn rounded-r-lg border-0 bg-[linear-gradient(180deg,#63C4FF_0%,#0D60FF_100%)] px-4 text-[15px] font-semibold text-white transition-all hover:bg-[linear-gradient(180deg,#0D60FF_0%,#63C4FF_100%)] sm:px-5" onClick={addCompany}>{t("add")}</button>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="dfm-field" id="groupPillsSection">
-                    <label>{t("groupLabel")}</label>
-                    <div className="group-pills">
-                      {tempGroups.length === 0
-                        ? <span className="dfm-empty-hint">{t("noGroupsCreated")}</span>
-                        : tempGroups.map((g) => {
-                          const code = tempGroupCode(g);
-                          const count = tempCompanies.filter((c) => c.group_id === code).length;
-                          return (
-                            <span
-                              key={code}
-                              role="button"
-                              tabIndex={0}
-                              className={`group-pill ${selectedGroupId === code ? "active" : ""}`}
-                              onClick={() => selectGroup(code)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  selectGroup(code);
-                                }
-                              }}
-                            >
-                              {code} ({count})
+                    <div className="dfm-field dfm-field--group-pills" id="groupPillsSection">
+                      <label>{t("groupLabel")}</label>
+                      <div className="group-pills">
+                        {tempGroups.length === 0
+                          ? <span className="dfm-empty-hint">{t("noGroupsCreated")}</span>
+                          : tempGroups.map((g) => {
+                            const code = tempGroupCode(g);
+                            const count = tempCompanies.filter((c) => c.group_id === code).length;
+                            return (
                               <span
-                                className="remove-x"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeGroup(code);
+                                key={code}
+                                role="button"
+                                tabIndex={0}
+                                className={`group-pill ${selectedGroupId === code ? "active" : ""}`}
+                                onClick={() => selectGroup(code)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    selectGroup(code);
+                                  }
                                 }}
                               >
-                                &times;
+                                {code} ({count})
+                                <span
+                                  className="remove-x"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeGroup(code);
+                                  }}
+                                >
+                                  &times;
+                                </span>
                               </span>
-                            </span>
-                          );
-                        })
-                      }
-                    </div>
-                  </div>
-
-                  <div className="dfm-field">
-                    <span className="dfm-selected-companies-label">{t("selectedGroups")}</span>
-                    <div className="dfm-selected-list dfm-selected-list--groups mt-1 max-h-[140px]">
-                      {renderSelectedGroupsList()}
-                    </div>
-                  </div>
-
-                  <div className="dfm-field dfm-field--stretch flex flex-1 flex-col">
-                    {!showMcAssignPanel && (
-                      <div className="dfm-selected-companies-row mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
-                        {multiChoiceToggle}
+                            );
+                          })
+                        }
                       </div>
-                    )}
-                    <div
-                      className={`dfm-selected-list${showMcAssignPanel ? " dfm-selected-list--mc-mode" : ""}`}
-                    >
-                      {showMcAssignPanel && (
-                        <div className="dfm-mc-panel-head">
+                    </div>
+                  </div>
+
+                  <div className="dfm-company-grid-row2">
+                    <div className="dfm-field dfm-field--selected-groups flex flex-col">
+                      <span className="dfm-selected-companies-label">{t("selectedGroups")}</span>
+                      <div className="dfm-selected-list dfm-selected-list--groups">
+                        {renderSelectedGroupsList()}
+                      </div>
+                    </div>
+
+                    <div className="dfm-field dfm-field--stretch dfm-field--selected-companies flex flex-1 flex-col">
+                      {!showMcAssignPanel && (
+                        <div className="dfm-selected-companies-row mb-2 flex flex-wrap items-center justify-between gap-2">
                           <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
                           {multiChoiceToggle}
                         </div>
                       )}
-                      {tempCompanies.length === 0 ? (
-                        <span className="dfm-empty-hint">{t("noCompaniesAddedYet")}</span>
-                      ) : (
-                        renderCompanyList()
-                      )}
+                      <div
+                        className={`dfm-selected-list${showMcAssignPanel ? " dfm-selected-list--mc-mode" : ""}`}
+                      >
+                        {showMcAssignPanel && (
+                          <div className="dfm-mc-panel-head">
+                            <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
+                            {multiChoiceToggle}
+                          </div>
+                        )}
+                        {tempCompanies.length === 0 ? (
+                          <span className="dfm-empty-hint">{t("noCompaniesAddedYet")}</span>
+                        ) : (
+                          renderCompanyList()
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
