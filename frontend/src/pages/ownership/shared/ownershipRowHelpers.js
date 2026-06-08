@@ -19,25 +19,72 @@ export function rowsToSavePayload(rows) {
 }
 
 export function mapOwnerApiRows(data) {
-  return (Array.isArray(data) ? data : []).map((o) => ({
-    account_id: o.account_id,
-    account_label: o.account_name || o.name || String(o.account_id ?? ""),
-    percentage: parseFloat(o.percentage),
-    role: o.role || "",
-    user_raw_id: o.user_raw_id || null,
-    ownership_id: o.ownership_id || null,
-    is_external_partner: parseInt(o.is_external_partner, 10) === 1,
-    read_only: o.read_only !== null ? parseInt(o.read_only, 10) : 1,
-  }));
+  return (Array.isArray(data) ? data : []).map((o) => {
+    const role = String(o.role || "").toUpperCase();
+    const accountName = o.account_name || "";
+    const name = o.name || "";
+    let account_label = accountName || name || String(o.account_id ?? "");
+    if (role === "OWNER" && accountName && name && accountName !== name) {
+      account_label = `${accountName} (${name})`;
+    } else if (role === "GROUP" && accountName) {
+      account_label = accountName;
+    }
+    return {
+      account_id: o.account_id,
+      account_label,
+      account_name: accountName,
+      display_name: name,
+      percentage: parseFloat(o.percentage),
+      role: o.role || "",
+      user_raw_id: o.user_raw_id || null,
+      ownership_id: o.ownership_id || null,
+      is_external_partner: parseInt(o.is_external_partner, 10) === 1,
+      read_only: o.read_only !== null ? parseInt(o.read_only, 10) : 1,
+    };
+  });
 }
 
 export function accountsFromOwnerRows(rows) {
-  return rows.map((r) => ({
+  return (rows || []).map((r) => ({
     id: r.account_id,
-    account_name: r.account_label || String(r.account_id),
-    name: r.account_label || String(r.account_id),
+    account_name: r.account_name || r.account_label || String(r.account_id),
+    name: r.display_name || r.account_label || String(r.account_id),
     role: r.role || "",
+    type: String(r.account_id || "").startsWith("G_") ? "group" : r.role || "",
+    is_external_partner: isExternalPartnerRow(r),
+    is_main_owner: 0,
   }));
+}
+
+/** Merge picker accounts with persisted row accounts so linked partners display correctly. */
+export function mergeEditorAccounts(pickerAccounts, rows) {
+  const map = new Map();
+  for (const a of pickerAccounts || []) {
+    map.set(String(a.id), { ...a, is_external_partner: false });
+  }
+  for (const r of accountsFromOwnerRows(rows || [])) {
+    const id = String(r.id);
+    if (!id || id === "undefined") continue;
+    if (!map.has(id)) {
+      map.set(id, r);
+    }
+  }
+  return [...map.values()].sort((a, b) =>
+    String(a.account_name || "").localeCompare(String(b.account_name || "")),
+  );
+}
+
+/** Dropdown options: hide external partners unless already selected on this row. */
+export function accountsForRowPicker(accounts, currentAccountId = "") {
+  const current = String(currentAccountId || "");
+  return (accounts || []).filter((a) => {
+    if (String(a.id) === current) return true;
+    if (a.is_external_partner) return false;
+    if (String(a.type || "").toLowerCase() === "owner" && parseInt(a.is_main_owner, 10) === 0) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export function calcOwnershipTotal(rows) {

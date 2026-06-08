@@ -11,6 +11,7 @@ import {
   validateOwnershipRowsForSave,
   mapOwnerApiRows,
   accountsFromOwnerRows,
+  mergeEditorAccounts,
   rowsToSavePayload,
   allocationRowsForSave,
 } from "../shared/ownershipRowHelpers.js";
@@ -158,7 +159,7 @@ export function useCompanyOwnership(shell) {
           });
         }
         const rows = mapOwnerApiRows(oRes.status === "success" ? oRes.data : []);
-        const stateAccounts = isHistoricalView ? accountsFromOwnerRows(rows) : accounts;
+        const stateAccounts = mergeEditorAccounts(accounts, rows);
         const meta = oRes.meta || {};
         if (isHistoricalView) {
           setHistoryBanner({

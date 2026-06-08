@@ -10,6 +10,7 @@ import {
   validateOwnershipRowsForSave,
   mapOwnerApiRows,
   accountsFromOwnerRows,
+  mergeEditorAccounts,
   rowsToSavePayload,
   allocationRowsForSave,
 } from "../shared/ownershipRowHelpers.js";
@@ -137,7 +138,8 @@ export function useGroupEarnings(shell) {
           setHistoryBanner(null);
         }
         const rows = mapOwnerApiRows(oRes.status === "success" ? oRes.data : []);
-        const stateAccounts = isHistoricalView ? accountsFromOwnerRows(rows) : (aRes.status === "success" ? aRes.data : []);
+        const pickerAccounts = aRes.status === "success" ? aRes.data : [];
+        const stateAccounts = mergeEditorAccounts(pickerAccounts, rows);
         const nextState = { accounts: stateAccounts, rows };
         setGeStates((prev) => ({
           ...prev,
