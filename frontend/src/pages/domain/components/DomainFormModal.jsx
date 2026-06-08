@@ -280,16 +280,35 @@ export default function DomainFormModal({
   }
 
   function handleGroupSettingsSaved(updatedGroup) {
-    const code = tempGroupCode(updatedGroup);
+    const prevCode = tempGroupCode(updatedGroup.previous_group_code ?? gsModalGroupCode);
+    const newCode = tempGroupCode(updatedGroup);
     setTempGroups((prev) =>
-      prev.map((g) => (tempGroupCode(g) === code ? { ...g, ...updatedGroup, group_code: code } : g))
+      prev.map((g) =>
+        tempGroupCode(g) === prevCode
+          ? { ...g, ...updatedGroup, group_code: newCode }
+          : g
+      )
     );
+    if (prevCode && newCode && prevCode !== newCode) {
+      setTempCompanies((prev) =>
+        prev.map((c) => (c.group_id === prevCode ? { ...c, group_id: newCode } : c))
+      );
+      if (selectedGroupId === prevCode) {
+        setSelectedGroupId(newCode);
+      }
+    }
     setGsModalGroupCode(null);
   }
 
   function handleCompanySettingsSaved(updatedCo) {
+    const prevId = normalizeDomainCode(updatedCo.previous_company_id ?? csModalCompanyId);
+    const newId = normalizeDomainCode(updatedCo.company_id);
     setTempCompanies((prev) =>
-      prev.map((c) => c.company_id === updatedCo.company_id ? { ...c, ...updatedCo } : c)
+      prev.map((c) =>
+        normalizeDomainCode(c.company_id) === prevId
+          ? { ...c, ...updatedCo, company_id: newId }
+          : c
+      )
     );
     setCsModalCompanyId(null);
   }
@@ -747,6 +766,11 @@ export default function DomainFormModal({
           domainPeriodPrices={domainPeriodPrices}
           sessionCompanyId={sessionCompanyId}
           sessionCompanyCode={sessionCompanyCode}
+          excludeOwnerId={isEditMode ? editingDomain?.id : null}
+          siblingGroupCodes={tempGroups.map(tempGroupCode)}
+          siblingCompanyCodes={tempCompanies
+            .filter((c) => normalizeDomainCode(c.company_id) !== normalizeDomainCode(csModalCompanyId))
+            .map((c) => normalizeDomainCode(c.company_id))}
           onSave={handleCompanySettingsSaved}
           onClose={() => setCsModalCompanyId(null)}
         />
@@ -758,6 +782,11 @@ export default function DomainFormModal({
           domainPeriodPrices={domainPeriodPrices}
           sessionCompanyId={sessionCompanyId}
           sessionCompanyCode={sessionCompanyCode}
+          excludeOwnerId={isEditMode ? editingDomain?.id : null}
+          siblingGroupCodes={tempGroups
+            .filter((g) => tempGroupCode(g) !== gsModalGroupCode)
+            .map(tempGroupCode)}
+          siblingCompanyCodes={tempCompanies.map((c) => normalizeDomainCode(c.company_id))}
           onSave={handleGroupSettingsSaved}
           onClose={() => setGsModalGroupCode(null)}
         />

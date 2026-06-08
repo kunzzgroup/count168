@@ -2195,6 +2195,96 @@ function getMasterC168CompanyNumericId(PDO $pdo): ?int {
 }
 
 /**
+ * Rename domain-provisioned MEMBER account on C168 when company/group code changes.
+ */
+function domainApiRenameC168MemberAccountCode(PDO $pdo, string $oldCode, string $newCode): void
+{
+    $oldCode = strtoupper(trim($oldCode));
+    $newCode = strtoupper(trim($newCode));
+    if ($oldCode === '' || $newCode === '' || $oldCode === $newCode || $oldCode === 'C168' || $newCode === 'C168') {
+        return;
+    }
+
+    $c168Pk = resolveC168TargetCompanyId($pdo) ?? getMasterC168CompanyNumericId($pdo);
+    if (!$c168Pk || (int) $c168Pk <= 0) {
+        return;
+    }
+    $c168Pk = (int) $c168Pk;
+
+    $findStmt = $pdo->prepare("
+        SELECT a.id
+        FROM account a
+        INNER JOIN account_company ac ON ac.account_id = a.id
+        WHERE ac.company_id = ?
+          AND UPPER(TRIM(a.account_id)) = ?
+        LIMIT 1
+    ");
+    $findStmt->execute([$c168Pk, $oldCode]);
+    $accId = (int) ($findStmt->fetchColumn() ?: 0);
+    if ($accId <= 0 || !domainApiAccountLooksLikeDomainProvisionedMember($pdo, $accId)) {
+        return;
+    }
+
+    $conflictStmt = $pdo->prepare("
+        SELECT a.id
+        FROM account a
+        INNER JOIN account_company ac ON ac.account_id = a.id
+        WHERE ac.company_id = ?
+          AND UPPER(TRIM(a.account_id)) = ?
+          AND a.id <> ?
+        LIMIT 1
+    ");
+    $conflictStmt->execute([$c168Pk, $newCode, $accId]);
+    if ($conflictStmt->fetchColumn() !== false) {
+        return;
+    }
+
+    $pdo->prepare('UPDATE account SET account_id = ? WHERE id = ?')->execute([$newCode, $accId]);
+}
+
+/**
+ * Apply company_id renames before add/delete sync on domain update.
+ *
+ * @param array<int, array<string, mixed>> $newCompaniesData
+ * @param array<int, array<string, mixed>> $existingCompanies
+ * @param string[] $existingCompanyKeys
+ */
+function domainApiApplyCompanyRenamesFromPayload(
+    PDO $pdo,
+    array $newCompaniesData,
+    array &$existingCompanies,
+    array &$existingCompanyKeys
+): void {
+    foreach ($newCompaniesData as $newCompany) {
+        $prev = strtoupper(trim((string) ($newCompany['previous_company_id'] ?? '')));
+        $next = strtoupper(trim((string) ($newCompany['company_id'] ?? $newCompany['key'] ?? '')));
+        if ($prev === '' || $next === '' || $prev === $next) {
+            continue;
+        }
+
+        foreach ($existingCompanies as &$existing) {
+            $existingKey = strtoupper(trim((string) ($existing['company_id'] ?? '')));
+            if ($existingKey !== $prev) {
+                continue;
+            }
+            $companyPk = (int) ($existing['id'] ?? 0);
+            if ($companyPk <= 0) {
+                break;
+            }
+            $pdo->prepare('UPDATE company SET company_id = ? WHERE id = ?')->execute([$next, $companyPk]);
+            domainApiRenameC168MemberAccountCode($pdo, $prev, $next);
+            $existing['company_id'] = $next;
+            $idx = array_search($prev, $existingCompanyKeys, true);
+            if ($idx !== false) {
+                $existingCompanyKeys[$idx] = $next;
+            }
+            break;
+        }
+        unset($existing);
+    }
+}
+
+/**
  * 写入 Account List 时使用的 C168 公司主键：优先当前 session 已选中的 C168 行，否则按库中 company_id / group_id 解析
  */
 function resolveC168TargetCompanyId(PDO $pdo): ?int {
@@ -3226,12 +3316,16 @@ try {
                     $new_companies_data[] = [
                         'key' => $company_id,
                         'company_id' => $company_id,
+                        'previous_company_id' => strtoupper(trim((string) ($company['previous_company_id'] ?? ''))),
                         'expiration_date' => !empty($company['expiration_date']) ? $company['expiration_date'] : null,
                         'permissions' => (isset($company['permissions']) && is_array($company['permissions'])) ? $company['permissions'] : [],
                         'group_id' => $group_id,
                         'fee_share_allocations' => $company['fee_share_allocations'] ?? null,
                     ];
                 }
+                $new_company_keys = array_column($new_companies_data, 'key');
+
+                domainApiApplyCompanyRenamesFromPayload($pdo, $new_companies_data, $existing_companies, $existing_company_keys);
                 $new_company_keys = array_column($new_companies_data, 'key');
                 
                 $companies_to_delete = [];
