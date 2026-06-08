@@ -95,6 +95,8 @@ try {
         exit();
     }
 
+    ownership_history_ensure_tables($pdo);
+
     $pdo->beginTransaction();
 
     // Preserve existing partner_group_id + read_only for owner-type rows

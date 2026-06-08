@@ -86,6 +86,8 @@ try {
     // Drop legacy UNIQUE (company_id, account_id) key that blocks multi-group rows
     try { $pdo->exec("ALTER TABLE company_ownership DROP INDEX unique_company_account"); } catch (Exception $e) {}
 
+    ownership_history_ensure_tables($pdo);
+
     $pdo->beginTransaction();
 
     // Preserve existing partner_group_id and read_only for owner-type rows

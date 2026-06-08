@@ -11,40 +11,61 @@
 
 function ownership_history_ensure_tables(PDO $pdo): void
 {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS company_ownership_history (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            company_id INT NOT NULL,
-            effective_month DATE NOT NULL,
-            account_id INT NOT NULL,
-            owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account',
-            percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
-            partner_group_id VARCHAR(50) DEFAULT NULL,
-            read_only TINYINT(1) NOT NULL DEFAULT 1,
-            saved_by INT DEFAULT NULL,
-            saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_co_hist_month_account (company_id, effective_month, account_id, owner_type),
-            KEY idx_co_hist_company_month (company_id, effective_month)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
 
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS group_ownership_history (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            group_id VARCHAR(50) NOT NULL,
-            owner_id INT NOT NULL DEFAULT 0,
-            effective_month DATE NOT NULL,
-            account_id INT NOT NULL,
-            owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner',
-            percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
-            partner_group_id VARCHAR(50) DEFAULT NULL,
-            read_only TINYINT(1) NOT NULL DEFAULT 1,
-            saved_by INT DEFAULT NULL,
-            saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_go_hist_month_account (group_id, effective_month, account_id, owner_type),
-            KEY idx_go_hist_group_month (group_id, effective_month)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
+    // MySQL/MariaDB: CREATE TABLE implicitly commits and ends any active transaction.
+    // Skip DDL when tables already exist (same pattern as domain_api ensureDomainListFeeSettingsTable).
+    $companyExists = $pdo->query("SHOW TABLES LIKE 'company_ownership_history'")->rowCount() > 0;
+    $groupExists = $pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0;
+
+    if ($companyExists && $groupExists) {
+        $ensured = true;
+        return;
+    }
+
+    if (!$companyExists) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS company_ownership_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                company_id INT NOT NULL,
+                effective_month DATE NOT NULL,
+                account_id INT NOT NULL,
+                owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account',
+                percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+                partner_group_id VARCHAR(50) DEFAULT NULL,
+                read_only TINYINT(1) NOT NULL DEFAULT 1,
+                saved_by INT DEFAULT NULL,
+                saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_co_hist_month_account (company_id, effective_month, account_id, owner_type),
+                KEY idx_co_hist_company_month (company_id, effective_month)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    }
+
+    if (!$groupExists) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS group_ownership_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                group_id VARCHAR(50) NOT NULL,
+                owner_id INT NOT NULL DEFAULT 0,
+                effective_month DATE NOT NULL,
+                account_id INT NOT NULL,
+                owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner',
+                percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+                partner_group_id VARCHAR(50) DEFAULT NULL,
+                read_only TINYINT(1) NOT NULL DEFAULT 1,
+                saved_by INT DEFAULT NULL,
+                saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_go_hist_month_account (group_id, effective_month, account_id, owner_type),
+                KEY idx_go_hist_group_month (group_id, effective_month)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    }
+
+    $ensured = true;
 }
 
 function ownership_history_effective_month_from_now(): string
