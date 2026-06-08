@@ -1515,10 +1515,10 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     flex-shrink: 0;
 }
 
-/* Bank Process 顶栏日期：未选/已选药丸同宽（--bank-toolbar-date-pill-width 由 JS 按已选状态测量） */
+/* Bank Process 顶栏日期：药丸与日历 dropdown 同宽（--bank-toolbar-date-pill-width = 280px） */
 body.process-page.process-page--bank {
     --bank-toolbar-calendar-min: 280px;
-    --bank-toolbar-date-pill-width: 252px;
+    --bank-toolbar-date-pill-width: var(--bank-toolbar-calendar-min);
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group,
@@ -1597,14 +1597,14 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     transform: none;
 }
 
-/* Bank Process 顶栏日历弹层：宽不小于 280px（输入框可更窄），左对齐药丸 */
+/* Bank Process 顶栏日历弹层：与药丸同宽、左对齐 */
 body.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor,
 body.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor,
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets {
-    width: var(--bank-toolbar-date-width, var(--bank-toolbar-calendar-min)) !important;
-    min-width: max(var(--bank-toolbar-calendar-min), var(--bank-toolbar-date-width, var(--bank-toolbar-calendar-min))) !important;
-    max-width: min(calc(100vw - 24px), var(--bank-toolbar-date-width, var(--bank-toolbar-calendar-min))) !important;
+    width: var(--bank-toolbar-date-pill-width, var(--bank-toolbar-calendar-min)) !important;
+    min-width: var(--bank-toolbar-date-pill-width, var(--bank-toolbar-calendar-min)) !important;
+    max-width: min(calc(100vw - 24px), var(--bank-toolbar-date-pill-width, var(--bank-toolbar-calendar-min))) !important;
     box-sizing: border-box;
     overflow: hidden;
     border-radius: 10px;
