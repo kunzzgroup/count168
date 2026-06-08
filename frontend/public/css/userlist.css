@@ -2954,6 +2954,36 @@ body.process-page.process-page--bank .userlist-filter-chips--bank-process .user-
     min-width: 6.25rem;
 }
 
+/* Bank Process 窄屏下拉：纵向全宽选项，避免工具栏横向 overflow */
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip {
+    width: 100%;
+    min-width: 0 !important;
+    max-width: none;
+    flex-shrink: 0;
+    justify-content: flex-start;
+    padding: 8px 10px 8px 8px;
+    border-radius: 8px;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:hover {
+    background: #f1f5f9;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip.is-selected {
+    background: #eff6ff;
+    border-color: rgba(37, 99, 235, 0.35);
+}
+
 @media (min-width: 1700px) {
     body.process-page.process-page--bank .userlist-filter-chips--bank-process .user-filter-chip {
         padding: 4px 14px 4px 4px;

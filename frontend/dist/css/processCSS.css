@@ -81,21 +81,21 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
 .process-page .process-list-date-filter {
     display: inline-flex;
     align-items: center;
-    min-width: clamp(180px, 15vw, 250px);
+    min-width: clamp(300px, 20vw, 360px);
 }
 
 .process-page .process-list-date-filter .date-range-picker {
-    min-width: clamp(180px, 15vw, 250px);
-    width: clamp(180px, 15vw, 250px);
+    min-width: clamp(300px, 20vw, 360px);
+    width: clamp(300px, 20vw, 360px);
     justify-content: flex-start;
-    padding-right: clamp(30px, 2vw, 38px);
+    padding-right: clamp(36px, 2.5vw, 44px);
 }
 
 .process-page .process-list-date-filter .date-range-picker span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding-right: 4px;
+    padding-right: 2px;
 }
 
 .process-page .process-list-date-filter .date-range-picker {
@@ -129,13 +129,13 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
 
 /* Bank Process 列表日期：对齐 Transaction Payment 药丸框（无 Period 侧栏） */
 .process-page .process-list-date-filter.transaction-date-range-group {
-    min-width: clamp(300px, 20vw, 336px);
+    min-width: clamp(300px, 20vw, 360px);
 }
 
 .process-page .transaction-date-range-group .date-range-picker {
     position: relative;
-    min-width: clamp(300px, 20vw, 336px);
-    width: clamp(300px, 20vw, 336px);
+    min-width: clamp(300px, 20vw, 360px);
+    width: clamp(300px, 20vw, 360px);
     min-height: clamp(32px, 2.45vw, 38px);
     gap: clamp(6px, 0.5vw, 10px);
     padding: 0 clamp(28px, 2.2vw, 36px) 0 0;
@@ -496,12 +496,12 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
 
 @media (max-width: 1200px) {
     .process-page .process-list-date-filter {
-        min-width: 180px;
+        min-width: min(360px, calc(100vw - 24px));
     }
 
     .process-page .process-list-date-filter .date-range-picker {
-        width: min(250px, 48vw);
-        min-width: min(250px, 48vw);
+        width: min(360px, calc(100vw - 24px));
+        min-width: min(360px, calc(100vw - 24px));
     }
 }
 
@@ -1495,7 +1495,7 @@ body.process-page.process-page--bank .bank-process-filter-panel {
     transition: grid-template-columns 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-body.process-page.process-page--bank .bank-process-filter-panel > .userlist-filter-chips--bank-process {
+body.process-page.process-page--bank .bank-process-filter-panel:not(.bank-process-filter-panel--dropdown) > .bank-process-filter-dropdown > .userlist-filter-chips--bank-process {
     min-width: 0;
     overflow: hidden;
     opacity: 0;
@@ -1505,12 +1505,12 @@ body.process-page.process-page--bank .bank-process-filter-panel > .userlist-filt
         transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-body.process-page.process-page--bank .bank-process-filter-panel.is-open {
+body.process-page.process-page--bank .bank-process-filter-panel:not(.bank-process-filter-panel--dropdown).is-open {
     grid-template-columns: 1fr;
     pointer-events: auto;
 }
 
-body.process-page.process-page--bank .bank-process-filter-panel.is-open > .userlist-filter-chips--bank-process {
+body.process-page.process-page--bank .bank-process-filter-panel:not(.bank-process-filter-panel--dropdown).is-open > .bank-process-filter-dropdown > .userlist-filter-chips--bank-process {
     opacity: 1;
     transform: translateX(0);
 }
@@ -1533,6 +1533,35 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     width: clamp(200px, 18vw, 280px) !important;
     max-width: clamp(200px, 18vw, 280px) !important;
     flex-shrink: 0;
+}
+
+/* Bank Process 顶栏日期：完整显示 DD/MM/YYYY - DD/MM/YYYY
+   max(..., floor) 防止打开日历时 JS 把 --bank-toolbar-date-width 锁成偏窄测量值 */
+body.process-page.process-page--bank {
+    --bank-toolbar-date-floor: min(360px, calc(100vw - 24px));
+    --bank-toolbar-date-width: var(--bank-toolbar-date-floor);
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group {
+    width: max(var(--bank-toolbar-date-width), var(--bank-toolbar-date-floor)) !important;
+    min-width: max(var(--bank-toolbar-date-width), var(--bank-toolbar-date-floor)) !important;
+    max-width: max(var(--bank-toolbar-date-width), var(--bank-toolbar-date-floor)) !important;
+    flex: 0 0 auto;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    padding-right: clamp(36px, 2.5vw, 44px) !important;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display {
+    font-size: clamp(10px, 0.72vw, 12px);
+    font-weight: 700;
 }
 
 /* Bank Process 窄屏（<1700px）：日期加长、Search/Filter 图标药丸，filter 收进按钮 */
@@ -1607,28 +1636,7 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
         pointer-events: none;
     }
 
-    /* 顶栏日期：需完整显示 DD/MM/YYYY - DD/MM/YYYY，与下方日历 match-anchor 对齐 */
-    body.process-page.process-page--bank {
-        --bank-toolbar-date-width: min(320px, calc(100vw - 24px));
-    }
-
-    body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group {
-        width: var(--bank-toolbar-date-width);
-        min-width: var(--bank-toolbar-date-width);
-        max-width: var(--bank-toolbar-date-width);
-        flex: 0 0 auto;
-    }
-
-    body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        min-height: clamp(28px, 2.1vw, 34px);
-        padding: 0 clamp(22px, 1.8vw, 28px) 0 0;
-        gap: clamp(4px, 0.4vw, 6px);
-    }
+    /* 顶栏日期宽度见上方全局 --bank-toolbar-date-floor / max(...) 规则 */
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker i.fa-calendar-alt,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
@@ -1637,9 +1645,10 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
         font-size: clamp(10px, 0.72vw, 12px);
     }
 
-    body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display {
-        font-size: clamp(10px, 0.72vw, 12px);
+    body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
+        min-height: clamp(28px, 2.1vw, 34px);
+        gap: clamp(4px, 0.4vw, 6px);
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .transaction-date-range-chevron,
@@ -1651,9 +1660,9 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     /* 日历弹层：强制与 date range 输入框同宽（覆盖全局 292px） */
     body.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
     body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets {
-        width: var(--bank-toolbar-date-width) !important;
-        min-width: var(--bank-toolbar-date-width) !important;
-        max-width: var(--bank-toolbar-date-width) !important;
+        width: max(var(--bank-toolbar-date-width), var(--bank-toolbar-date-floor)) !important;
+        min-width: max(var(--bank-toolbar-date-width), var(--bank-toolbar-date-floor)) !important;
+        max-width: max(var(--bank-toolbar-date-width), var(--bank-toolbar-date-floor)) !important;
         box-sizing: border-box;
         overflow: hidden;
         border-radius: 10px;
@@ -1784,21 +1793,89 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     }
 
     body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
-        flex: 1 1 auto;
+        position: relative;
+        flex: 0 0 auto;
         align-items: center;
         min-width: 0;
-        max-width: 100%;
-        gap: clamp(6px, 0.5vw, 8px);
+        gap: 0;
     }
 
-    body.process-page.process-page--bank .bank-process-filter-panel.is-open {
-        max-width: 100%;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel.is-open > .userlist-filter-chips--bank-process {
-        flex: 1 1 auto;
+    /* 窄屏：下拉浮层，避免横向 chip 撑破工具栏 */
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        left: auto;
+        z-index: 140;
+        display: block;
+        grid-template-columns: unset;
+        flex: none;
+        width: max-content;
         min-width: 0;
-        max-width: 100%;
+        max-width: min(288px, calc(100vw - 24px));
+        overflow: visible;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-6px) scale(0.98);
+        transform-origin: top right;
+        transition:
+            opacity 0.16s ease,
+            transform 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+            visibility 0.16s ease;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown.is-open {
+        pointer-events: auto;
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow:
+            0 12px 32px rgba(15, 23, 42, 0.12),
+            0 2px 8px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+        min-width: 220px;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear {
+        display: block;
+        width: 100%;
+        margin: 0;
+        padding: 9px 12px;
+        border: none;
+        border-top: 1px solid #f1f5f9;
+        background: #f8fafc;
+        color: #2563eb;
+        font-family: inherit;
+        font-size: clamp(11px, 0.72vw, 12px);
+        font-weight: 600;
+        line-height: 1.2;
+        text-align: center;
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear:hover {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear:focus-visible {
+        outline: 2px solid #6366f1;
+        outline-offset: -2px;
+    }
+
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown > .bank-process-filter-dropdown,
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown > .bank-process-filter-dropdown > .userlist-filter-chips--bank-process {
+        opacity: 1;
+        transform: none;
+        overflow: visible;
     }
 }
 
@@ -1837,26 +1914,23 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
         display: contents;
     }
 
+    body.process-page.process-page--bank .bank-process-filter-dropdown {
+        display: contents;
+    }
+
     /* 宽屏：filter chips 常驻展示（不依赖 is-open），避免被窄屏动画规则隐藏 */
     body.process-page.process-page--bank .bank-process-filter-panel {
         pointer-events: auto;
     }
 
+    body.process-page.process-page--bank .bank-process-filter-panel > .bank-process-filter-dropdown > .userlist-filter-chips--bank-process,
     body.process-page.process-page--bank .bank-process-filter-panel > .userlist-filter-chips--bank-process {
         opacity: 1;
         transform: none;
     }
 
-    body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group {
-        min-width: clamp(300px, 20vw, 336px);
-        flex: 0 0 auto;
-    }
-
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
-        min-width: clamp(300px, 20vw, 336px);
-        width: clamp(300px, 20vw, 336px);
-        max-width: 336px;
-        /* 仅缩小高度，宽度保持不变 */
+        /* 宽度由全局 --bank-toolbar-date-floor 控制；此处仅缩小高度 */
         min-height: 34px;
         padding-top: 0;
         padding-bottom: 0;

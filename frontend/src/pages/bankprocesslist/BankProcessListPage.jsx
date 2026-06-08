@@ -254,7 +254,10 @@ export default function BankProcessListPage() {
     const mq = window.matchMedia("(max-width: 1699px)");
     const onChange = () => {
       setIsNarrowToolbar(mq.matches);
-      if (!mq.matches) setSearchExpanded(false);
+      if (!mq.matches) {
+        setSearchExpanded(false);
+        setFilterPanelOpen(false);
+      }
     };
     onChange();
     mq.addEventListener("change", onChange);
@@ -268,14 +271,21 @@ export default function BankProcessListPage() {
   }, [searchExpanded, isNarrowToolbar]);
 
   useEffect(() => {
-    if (!filterPanelOpen) return undefined;
+    if (!filterPanelOpen || !isNarrowToolbar) return undefined;
     const onDoc = (e) => {
       if (filterToolbarRef.current?.contains(e.target)) return;
       setFilterPanelOpen(false);
     };
+    const onKey = (e) => {
+      if (e.key === "Escape") setFilterPanelOpen(false);
+    };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [filterPanelOpen]);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [filterPanelOpen, isNarrowToolbar]);
 
   const handleFilterToggleClick = (e) => {
     if (e.detail > 1) return;
@@ -417,21 +427,40 @@ export default function BankProcessListPage() {
                     </button>
                     <div
                       id="bank-process-filter-panel"
-                      className={`bank-process-filter-panel${filterPanelOpen ? " is-open" : ""}`}
+                      className={[
+                        "bank-process-filter-panel",
+                        filterPanelOpen ? "is-open" : "",
+                        isNarrowToolbar ? "bank-process-filter-panel--dropdown" : "",
+                      ].filter(Boolean).join(" ")}
                     >
-                      <BankProcessFilterChips
-                        t={t}
-                        showInactive={showInactive}
-                        setShowInactive={setShowInactive}
-                        showAll={showAll}
-                        setShowAll={setShowAll}
-                        showOfficial={showOfficial}
-                        setShowOfficial={setShowOfficial}
-                        showEInvoice={showEInvoice}
-                        setShowEInvoice={setShowEInvoice}
-                        showBlock={showBlock}
-                        setShowBlock={setShowBlock}
-                      />
+                      <div className="bank-process-filter-dropdown">
+                        <BankProcessFilterChips
+                          t={t}
+                          layout={isNarrowToolbar ? "dropdown" : "inline"}
+                          showInactive={showInactive}
+                          setShowInactive={setShowInactive}
+                          showAll={showAll}
+                          setShowAll={setShowAll}
+                          showOfficial={showOfficial}
+                          setShowOfficial={setShowOfficial}
+                          showEInvoice={showEInvoice}
+                          setShowEInvoice={setShowEInvoice}
+                          showBlock={showBlock}
+                          setShowBlock={setShowBlock}
+                        />
+                        {isNarrowToolbar && hasActiveFilters ? (
+                          <button
+                            type="button"
+                            className="bank-process-filter-dropdown__clear"
+                            onClick={() => {
+                              clearBankProcessFilters();
+                              setFilterPanelOpen(false);
+                            }}
+                          >
+                            {t("filterClearAll")}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
