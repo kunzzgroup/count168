@@ -82,6 +82,48 @@ function searchApiDcdCompanyId(): int
     return searchApiTxnWhereBind() > 0 ? searchApiTxnWhereBind() : (int) ($GLOBALS['SEARCH_API_PERM_COMPANY_ID'] ?? 0);
 }
 
+/**
+ * Bulk DCD 查询的 ledger 隔离（与 history_api / dcBuildCaptureLedgerFilter 对齐）。
+ * Group ledger 使用 anchor company_id；dual-tenant 再按 scope_type/scope_id 过滤。
+ *
+ * @param array<string, mixed> $listScope
+ * @return array{sql: string, params: array<int|string>}
+ */
+function searchApiDcdBulkLedgerWhere(PDO $pdo, bool $isGroupLedger, array $listScope): array
+{
+    $companyId = searchApiDcdCompanyId();
+    $sql = 'dcd.company_id = ? AND dc.company_id = ?';
+    $params = [$companyId, $companyId];
+
+    if (tenant_table_has_scope_columns($pdo, 'data_captures')) {
+        if ($isGroupLedger) {
+            $groupScopeId = (int) ($listScope['group_scope_id'] ?? 0);
+            if ($groupScopeId > 0) {
+                $sql .= ' AND dc.scope_type = ? AND dc.scope_id = ?'
+                     . ' AND dcd.scope_type = ? AND dcd.scope_id = ?';
+                $params[] = 'group';
+                $params[] = $groupScopeId;
+                $params[] = 'group';
+                $params[] = $groupScopeId;
+            }
+        } else {
+            $sql .= " AND (COALESCE(dc.scope_type, '') = '' OR dc.scope_type = 'company')"
+                 . " AND (COALESCE(dcd.scope_type, '') = '' OR dcd.scope_type = 'company')";
+        }
+
+        return ['sql' => $sql, 'params' => $params];
+    }
+
+    if ($isGroupLedger && $companyId > 0) {
+        require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
+        if (dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+            $sql .= dcSqlCaptureOnGroupEntityCompany('dc');
+        }
+    }
+
+    return ['sql' => $sql, 'params' => $params];
+}
+
 function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
 {
     if (!hasContraApprovalColumns($pdo)) {
@@ -923,6 +965,13 @@ try {
     if ($search_is_group_ledger) {
         $company_id = 0;
     }
+    $search_dcd_process_join = '';
+    $search_dcd_process_filter = '';
+    if ($search_is_group_ledger) {
+        require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
+        $search_dcd_process_join = ' INNER JOIN process p ON dc.process_id = p.id ';
+        $search_dcd_process_filter = dcSqlGroupProcessFilter('p');
+    }
 
     // Member：target_account_id 仅可为当前会话账号在同公司的关联闭包内 id，防止越权查询他人余额
     if ($isMemberUser && !empty($target_account_ids)) {
@@ -1479,7 +1528,8 @@ try {
     if (!empty($accounts)) {
         $all_ids = array_column($accounts, 'id');
         $all_ph = implode(',', array_fill(0, count($all_ids), '?'));
-        $bulk_cur_company_id = (int) ($search_txn_filter['perm_company_id'] ?? 0);
+        $bulk_cur_company_id = searchApiDcdCompanyId();
+        $dcd_ledger_where = searchApiDcdBulkLedgerWhere($pdo, $search_is_group_ledger, $search_list_scope);
         $bulk_txn_scope_sql = $search_txn_where;
         $bulk_txn_scope_bind = $search_txn_bind;
 
@@ -1568,13 +1618,14 @@ try {
                 SELECT DISTINCT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str,
                        dcd.currency_id, UPPER(c.code) AS currency_code
                 FROM data_capture_details dcd
-                INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+                INNER JOIN data_captures dc ON dcd.capture_id = dc.id{$search_dcd_process_join}
                 INNER JOIN currency c ON dcd.currency_id = c.id
-                WHERE dcd.company_id = ? AND dc.company_id = ? AND c.company_id = ?
+                WHERE {$dcd_ledger_where['sql']}
+                  AND c.company_id = ?
                   AND dc.capture_date <= ?
-                  AND dcd.currency_id IS NOT NULL
+                  AND dcd.currency_id IS NOT NULL{$search_dcd_process_filter}
             ");
-            $st->execute([$bulk_cur_company_id, $bulk_cur_company_id, $bulk_cur_company_id, $date_to_db]);
+            $st->execute(array_merge($dcd_ledger_where['params'], [$bulk_cur_company_id, $date_to_db]));
             while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
                 $bulk_dcd_cur[$r['acc_str']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
             }
@@ -1611,6 +1662,16 @@ try {
             if (searchApiTxnHasCurrencyId($pdo)) {
                 foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
+                // 补充：仅有 Data Capture（如 Group SALARY/BONUS）而无交易的币别
+                foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
+                $acc_code_str = trim((string) ($account['account_id'] ?? ''));
+                if ($acc_code_str !== '' && $acc_code_str !== $acc_str) {
+                    foreach ($bulk_dcd_cur[$acc_code_str] ?? [] as $cid => $code) {
+                        addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                    }
                 }
             } elseif (!empty($filter_currency_codes)) {
                 // 旧环境：从 DCD 本期数据补充
@@ -1718,11 +1779,15 @@ try {
                                 THEN 1 ELSE 0 END) AS id_product_rows_period,
                        SUM(CASE WHEN ABS({$dcdQ}) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_count
                 FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ? AND dc.company_id = ? AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL
+                JOIN data_captures dc ON dcd.capture_id = dc.id{$search_dcd_process_join}
+                WHERE {$dcd_ledger_where['sql']} AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL{$search_dcd_process_filter}
                 GROUP BY TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')), dcd.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
+        $stmt_bulk->execute(array_merge(
+            [$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db],
+            $dcd_ledger_where['params'],
+            [$date_to_db]
+        ));
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
                 'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
