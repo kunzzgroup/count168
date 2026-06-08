@@ -21,6 +21,7 @@ import {
 import { sanitizeEmailInput, validateEmail } from "../../../utils/input/emailValidation.js";
 import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
+import ConfirmDeleteModal, { CONFIRM_DELETE_NESTED_Z_INDEX } from "../../../components/ConfirmDeleteModal.jsx";
 
 function normalizeDomainCode(value) {
   return String(value ?? "").trim().toUpperCase();
@@ -97,6 +98,7 @@ export default function DomainFormModal({
 
   const [csModalCompanyId, setCsModalCompanyId] = useState(null);
   const [gsModalGroupCode, setGsModalGroupCode] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   function toastDanger(message) {
     showDomainAlert(message, "danger");
@@ -229,9 +231,13 @@ export default function DomainFormModal({
       return;
     }
     const msg = t("confirmDeleteCompany", { cid: code });
-    if (!confirm(msg)) return;
-    setTempCompanies((prev) => prev.filter((c) => normalizeDomainCode(c.company_id) !== code));
-    showDomainAlert(t("companyRemovedFromForm", { cid: code }));
+    setDeleteConfirm({
+      message: msg,
+      onConfirm: () => {
+        setTempCompanies((prev) => prev.filter((c) => normalizeDomainCode(c.company_id) !== code));
+        showDomainAlert(t("companyRemovedFromForm", { cid: code }));
+      },
+    });
   }
 
   async function addGroup() {
@@ -257,11 +263,15 @@ export default function DomainFormModal({
     const msg = count > 0
       ? t("confirmDeleteGroupWithCount", { gid: code, count })
       : t("confirmDeleteGroup", { gid: code });
-    if (!confirm(msg)) return;
-    setTempCompanies((prev) => prev.map((c) => c.group_id === code ? { ...c, group_id: null } : c));
-    setTempGroups((prev) => prev.filter((g) => tempGroupCode(g) !== code));
-    if (selectedGroupId === code) { setSelectedGroupId(null); setIsMultipleChoiceMode(false); }
-    showDomainAlert(t("groupRemoved", { gid: code }));
+    setDeleteConfirm({
+      message: msg,
+      onConfirm: () => {
+        setTempCompanies((prev) => prev.map((c) => c.group_id === code ? { ...c, group_id: null } : c));
+        setTempGroups((prev) => prev.filter((g) => tempGroupCode(g) !== code));
+        if (selectedGroupId === code) { setSelectedGroupId(null); setIsMultipleChoiceMode(false); }
+        showDomainAlert(t("groupRemoved", { gid: code }));
+      },
+    });
   }
 
   function selectGroup(gid) {
@@ -850,6 +860,21 @@ export default function DomainFormModal({
           siblingCompanyCodes={tempCompanies.map((c) => normalizeDomainCode(c.company_id))}
           onSave={handleGroupSettingsSaved}
           onClose={() => setGsModalGroupCode(null)}
+        />
+      )}
+      {deleteConfirm && (
+        <ConfirmDeleteModal
+          open
+          title={t("confirmDeleteTitle")}
+          message={deleteConfirm.message}
+          cancelLabel={t("cancel")}
+          confirmLabel={t("delete")}
+          zIndex={CONFIRM_DELETE_NESTED_Z_INDEX}
+          onConfirm={() => {
+            deleteConfirm.onConfirm?.();
+            setDeleteConfirm(null);
+          }}
+          onClose={() => setDeleteConfirm(null)}
         />
       )}
     </DomainModalPortal>

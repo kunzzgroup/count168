@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
+import ConfirmDeleteModal, { CONFIRM_DELETE_NESTED_Z_INDEX } from "../../../components/ConfirmDeleteModal.jsx";
 import { fetchDescriptionCatalog, postAddDescription, postDeleteDescription } from "../lib/dataCaptureApi.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
@@ -20,6 +21,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
   const [pendingNames, setPendingNames] = useState([]);
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const notify = useCallback(
     (message, type = "danger") => {
@@ -113,12 +115,9 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
     [companyId, newName, loadCatalog, notify],
   );
 
-  const handleDelete = useCallback(
+  const performDelete = useCallback(
     async (id, name) => {
       if (!id) return;
-      if (!window.confirm(t("deleteDescriptionConfirm", { name }))) {
-        return;
-      }
       try {
         const result = await postDeleteDescription(id);
         if (!result.success) {
@@ -142,7 +141,15 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         notify("Failed to delete description");
       }
     },
-    [t, notify],
+    [notify],
+  );
+
+  const handleDelete = useCallback(
+    (id, name) => {
+      if (!id) return;
+      setDeleteTarget({ id, name });
+    },
+    [],
   );
 
   const handleConfirm = useCallback(() => {
@@ -246,7 +253,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                         className="description-delete-btn"
                         title={t("deleteDescription")}
                         aria-label={t("deleteDescription")}
-                        onClick={() => void handleDelete(d.id, d.name)}
+                        onClick={() => handleDelete(d.id, d.name)}
                       >
                         &times;
                       </button>
@@ -267,6 +274,22 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         </div>
       </div>
     </div>
+    {deleteTarget ? (
+      <ConfirmDeleteModal
+        open
+        title={t("confirmDeleteTitle")}
+        message={t("deleteDescriptionConfirm", { name: deleteTarget.name })}
+        cancelLabel={t("cancel")}
+        confirmLabel={t("delete")}
+        zIndex={CONFIRM_DELETE_NESTED_Z_INDEX}
+        onConfirm={() => {
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          void performDelete(target.id, target.name);
+        }}
+        onClose={() => setDeleteTarget(null)}
+      />
+    ) : null}
     </ProcessModalPortal>
   );
 }

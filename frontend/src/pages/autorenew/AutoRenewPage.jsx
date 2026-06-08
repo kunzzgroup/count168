@@ -7,6 +7,7 @@ import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.j
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
 import { formatDate, formatDomainFeeDisplay2 } from "../domain/domainHelpers.js";
 import { DashboardCalendarPopup } from "../dashboard/components/DashboardCalendarPopup.jsx";
+import ConfirmDeleteModal from "../../components/ConfirmDeleteModal.jsx";
 import {
   approveAutoRenew,
   AUTO_RENEW_PERIODS,
@@ -134,6 +135,7 @@ export default function AutoRenewPage() {
   const [rowDrafts, setRowDrafts] = useState({});
   const [busyRequestId, setBusyRequestId] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [deleteConfirmRow, setDeleteConfirmRow] = useState(null);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -286,9 +288,15 @@ export default function AutoRenewPage() {
     }
   }, [busyRequestId, canEditGlobal, fetchList, notify, t]);
 
-  const handleDelete = useCallback(async (row) => {
+  const handleDelete = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || !row.can_delete) return;
-    if (!window.confirm(t("confirmDelete", { company: row.company_code }))) return;
+    setDeleteConfirmRow(row);
+  }, [busyRequestId, canEditGlobal]);
+
+  const confirmDeleteRow = useCallback(async () => {
+    const row = deleteConfirmRow;
+    if (!row || !canEditGlobal || busyRequestId || !row.can_delete) return;
+    setDeleteConfirmRow(null);
 
     setBusyRequestId(row.request_id);
     try {
@@ -301,7 +309,7 @@ export default function AutoRenewPage() {
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, fetchList, notify, t]);
+  }, [busyRequestId, canEditGlobal, deleteConfirmRow, fetchList, notify, t]);
 
   const handleSort = useCallback(
     (column) => {
@@ -639,6 +647,19 @@ export default function AutoRenewPage() {
 
       {canAccessC168AutoRenew(me) ? (
         <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
+      ) : null}
+
+      {deleteConfirmRow ? (
+        <ConfirmDeleteModal
+          open
+          title={t("confirmDeleteTitle")}
+          message={t("confirmDelete", { company: deleteConfirmRow.company_code })}
+          cancelLabel={t("cancel")}
+          confirmLabel={t("delete")}
+          confirmDisabled={Boolean(busyRequestId)}
+          onConfirm={() => void confirmDeleteRow()}
+          onClose={() => !busyRequestId && setDeleteConfirmRow(null)}
+        />
       ) : null}
     </>
   );
