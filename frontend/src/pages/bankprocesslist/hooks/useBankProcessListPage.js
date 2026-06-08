@@ -291,6 +291,33 @@ export function useBankProcessListPage() {
     [form.card_merchant_id, form.customer_id, form.profit_account_id, profitShareRows]
   );
 
+  const isPickableAccountId = useCallback((id, pickList = accounts) => {
+    const num = Number(id);
+    if (!Number.isFinite(num) || num <= 0) return false;
+    return pickList.some((a) => Number(a.id) === num);
+  }, [accounts]);
+
+  const clearFormFieldForPlusTarget = useCallback((target) => {
+    if (target === "card_merchant_id") {
+      setForm((f) => ({ ...f, card_merchant_id: "" }));
+      return;
+    }
+    if (target === "customer_id") {
+      setForm((f) => ({ ...f, customer_id: "" }));
+      return;
+    }
+    if (target === "profit_account_id") {
+      setForm((f) => ({ ...f, profit_account_id: "" }));
+      return;
+    }
+    if (target && typeof target === "object" && target.type === "profitRow") {
+      const idx = target.index;
+      setProfitShareRows((rows) =>
+        rows.map((r, i) => (i === idx ? { ...r, accountId: "", accountLabel: "" } : r)),
+      );
+    }
+  }, []);
+
   const mergeAccountModalCurrency = useCallback((currencyRow) => {
     if (!currencyRow?.id || !currencyRow?.code) return;
     const id = Number(currencyRow.id);
@@ -382,7 +409,7 @@ export function useBankProcessListPage() {
 
   const fetchAccountDetailJson = useCallback(async (accountId) => {
     const url = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
-    url.searchParams.set("account_id", String(accountId));
+    url.searchParams.set("id", String(accountId));
     if (companyId) url.searchParams.set("company_id", String(companyId));
     url.searchParams.set("_", String(Date.now()));
     const res = await fetch(url.toString(), {
@@ -1626,12 +1653,26 @@ export function useBankProcessListPage() {
     const listJson = await listRes.json();
     const list = filterBankPickAccounts(Array.isArray(listJson?.data?.accounts) ? listJson.data.accounts : []);
     setAccounts(list);
-    if (newId && accountPlusTarget === "card_merchant_id") setForm((f) => ({ ...f, card_merchant_id: newId }));
-    if (newId && accountPlusTarget === "customer_id") setForm((f) => ({ ...f, customer_id: newId }));
-    if (newId && accountPlusTarget === "profit_account_id") setForm((f) => ({ ...f, profit_account_id: newId }));
-    if (newId && accountPlusTarget && typeof accountPlusTarget === "object" && accountPlusTarget.type === "profitRow") {
+    const pickable = newId && list.some((a) => Number(a.id) === Number(newId));
+    if (pickable && accountPlusTarget === "card_merchant_id") {
+      setForm((f) => ({ ...f, card_merchant_id: newId }));
+    }
+    if (pickable && accountPlusTarget === "customer_id") {
+      setForm((f) => ({ ...f, customer_id: newId }));
+    }
+    if (pickable && accountPlusTarget === "profit_account_id") {
+      setForm((f) => ({ ...f, profit_account_id: newId }));
+    }
+    if (
+      pickable &&
+      accountPlusTarget &&
+      typeof accountPlusTarget === "object" &&
+      accountPlusTarget.type === "profitRow"
+    ) {
       const idx = accountPlusTarget.index;
-      setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, accountId: newId, accountLabel: newAccountId } : r)));
+      setProfitShareRows((rows) =>
+        rows.map((r, i) => (i === idx ? { ...r, accountId: newId, accountLabel: newAccountId } : r)),
+      );
     }
     notifyTransactionDataChanged("bank-process-list-react");
     closeAccountModal();
@@ -1642,13 +1683,14 @@ export function useBankProcessListPage() {
     if (!companyId) return notify(t("missingCompanyContext"), "danger");
 
     const existingId = getAccountIdForPlusTarget(target);
+    const existingPickable = existingId && isPickableAccountId(existingId);
 
     try {
       const editRes = await fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" });
       const editJson = await editRes.json();
       setRolesList(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
-      if (existingId) {
+      if (existingPickable) {
         const accJson = await fetchAccountDetailJson(existingId);
         if (!accJson.success || !accJson.data) {
           notify(accJson.error || accJson.message || tAccount("failedToLoadAccount"), "danger");
@@ -1671,6 +1713,7 @@ export function useBankProcessListPage() {
         setAccountModalCurrencyInput("");
         await loadAccountModalSelectionMeta(existingId, true);
       } else {
+        if (existingId) clearFormFieldForPlusTarget(target);
         resetAccountModalToAdd();
         await loadAccountModalSelectionMeta(null, false);
       }
