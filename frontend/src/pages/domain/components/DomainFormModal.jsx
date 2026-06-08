@@ -734,7 +734,7 @@ export default function DomainFormModal({
                       {!showMcAssignPanel && multiChoiceToggle}
                     </div>
 
-                    <div className="dfm-field dfm-field--selected-groups flex flex-col">
+                    <div className="dfm-field dfm-field--selected-groups flex flex-1 flex-col">
                       <div className="dfm-selected-list dfm-selected-list--groups">
                         {renderSelectedGroupsList()}
                       </div>
