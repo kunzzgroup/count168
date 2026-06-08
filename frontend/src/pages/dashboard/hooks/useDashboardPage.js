@@ -104,6 +104,12 @@ import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchor
 import { peekCompanySessionFlags } from "../../../utils/company/companySessionFlagsCache.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import { saveUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
+import {
+  mergeCurrencyCodesWithSavedOrder,
+  persistCurrencyDisplayOrder,
+  readCurrencyDisplayOrder,
+  resolveSavedCurrencyOrder,
+} from "../../../utils/company/currencyDisplayOrder.js";
 
 /** Per-company view_group for API access (linked companies under AP/IG, etc.). */
 function resolveViewGroupForCompany(companyRow, fallbackGroup = null) {
@@ -207,9 +213,20 @@ function persistDashboardCurrencyDisplayOrder(displayOrderRef, orderCompanyId, o
 
 function applyDashboardCurrencyDisplayOrder(codes, orderCompanyId, displayOrderRef) {
   if (orderCompanyId == null || !Array.isArray(codes) || !codes.length) return codes;
-  const saved = displayOrderRef.current.get(orderCompanyId);
+  const saved =
+    displayOrderRef.current.get(orderCompanyId) || readCurrencyDisplayOrder(orderCompanyId);
   if (!saved?.length) return codes;
   return orderDashboardCurrencyCodes(codes, saved);
+}
+
+function applyResolvedCurrencyOrder(codes, orderCompanyId, apiOrder, displayOrderRef) {
+  const savedOrder = resolveSavedCurrencyOrder(orderCompanyId, apiOrder);
+  const merged = mergeCurrencyCodesWithSavedOrder(codes, savedOrder);
+  if (orderCompanyId != null && merged.length) {
+    persistCurrencyDisplayOrder(orderCompanyId, merged);
+    persistDashboardCurrencyDisplayOrder(displayOrderRef, orderCompanyId, merged);
+  }
+  return merged;
 }
 
 function writeDashboardGroupCurrencyCaches(groupRef, { groupKey, groupsAllMode, groupAllMode, codes }) {
@@ -1248,14 +1265,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         let codes = [...new Set(currencyResults.flat())];
         if (ordRes) {
           const ordJson = await ordRes.json();
-          if (ordJson?.data?.order?.length) {
-            persistDashboardCurrencyDisplayOrder(
-              currencyDisplayOrderByCompanyRef,
-              orderCompanyId,
-              ordJson.data.order
-            );
-          }
-          codes = orderCurrencyCodes(codes, ordJson?.data?.order);
+          codes = applyResolvedCurrencyOrder(
+            codes,
+            orderCompanyId,
+            ordJson?.data?.order,
+            currencyDisplayOrderByCompanyRef,
+          );
         } else {
           codes = applyDashboardCurrencyDisplayOrder(
             codes,
@@ -1387,14 +1402,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
         if (ordRes) {
           const ordJson = await ordRes.json();
-          if (ordJson?.data?.order?.length) {
-            persistDashboardCurrencyDisplayOrder(
-              currencyDisplayOrderByCompanyRef,
-              orderCompanyId,
-              ordJson.data.order
-            );
-          }
-          codes = orderCurrencyCodes(codes, ordJson?.data?.order);
+          codes = applyResolvedCurrencyOrder(
+            codes,
+            orderCompanyId,
+            ordJson?.data?.order,
+            currencyDisplayOrderByCompanyRef,
+          );
         } else {
           codes = applyDashboardCurrencyDisplayOrder(
             codes,
@@ -1403,7 +1416,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           );
         }
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
-        persistDashboardCurrencyDisplayOrder(currencyDisplayOrderByCompanyRef, orderCompanyId, codes);
         commitCurrencyList(codes);
         return;
       }
@@ -1447,14 +1459,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       codes = [...new Set(codes)];
       if (ordRes) {
         const ordJson = await ordRes.json();
-        if (ordJson?.data?.order?.length) {
-          persistDashboardCurrencyDisplayOrder(
-            currencyDisplayOrderByCompanyRef,
-            orderCompanyId,
-            ordJson.data.order
-          );
-        }
-        codes = orderCurrencyCodes(codes, ordJson?.data?.order);
+        codes = applyResolvedCurrencyOrder(
+          codes,
+          orderCompanyId,
+          ordJson?.data?.order,
+          currencyDisplayOrderByCompanyRef,
+        );
       } else {
         codes = applyDashboardCurrencyDisplayOrder(
           codes,
@@ -1463,7 +1473,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         );
       }
       if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
-      persistDashboardCurrencyDisplayOrder(currencyDisplayOrderByCompanyRef, orderCompanyId, codes);
 
       if (!codes.length) {
         if (singleCid) {
@@ -1618,7 +1627,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (q) {
           const codes = await fetchScopeCurrenciesDeduped(q);
           if (!cancelled && codes?.length) {
-            currenciesByCompanyRef.current.set(activeId, codes);
+            const ordered = mergeCurrencyCodesWithSavedOrder(
+              codes,
+              resolveSavedCurrencyOrder(activeId, null),
+            );
+            currenciesByCompanyRef.current.set(activeId, ordered);
           }
         }
       }
@@ -1667,7 +1680,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const q = buildCompanyCurrencyQuery(cid, viewGroup);
       if (!q) return;
       const codes = await fetchScopeCurrenciesDeduped(q);
-      if (!cancelled && codes?.length) currenciesByCompanyRef.current.set(id, codes);
+      if (!cancelled && codes?.length) {
+        const ordered = mergeCurrencyCodesWithSavedOrder(
+          codes,
+          resolveSavedCurrencyOrder(id, null),
+        );
+        currenciesByCompanyRef.current.set(id, ordered);
+      }
     };
 
     const timer = window.setTimeout(() => {
@@ -4831,6 +4850,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setCurrencies(next);
       const orderCompanyId = resolveCurrencyOrderCompanyId();
       if (orderCompanyId != null) {
+        persistCurrencyDisplayOrder(orderCompanyId, next);
         persistDashboardCurrencyDisplayOrder(currencyDisplayOrderByCompanyRef, orderCompanyId, next);
         if (Number.isFinite(parseInt(companyId, 10)) && parseInt(companyId, 10) === orderCompanyId) {
           currenciesByCompanyRef.current.set(orderCompanyId, next);
@@ -4843,9 +4863,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         codes: next,
       });
       try {
-        await saveUserCurrencyOrder(next, { companyId: orderCompanyId ?? undefined });
+        const json = await saveUserCurrencyOrder(next, { companyId: orderCompanyId ?? undefined });
+        if (json?.success && orderCompanyId != null) {
+          persistCurrencyDisplayOrder(orderCompanyId, next);
+        }
       } catch {
-        /* Keep local order even if save fails. */
+        /* localStorage already updated on drag */
       }
     },
     [

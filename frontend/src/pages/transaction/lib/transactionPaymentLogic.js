@@ -1,5 +1,6 @@
 import { parseBalanceValue } from "./transactionFormat.js";
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
+import { resolveSavedCurrencyOrder } from "../../../utils/company/currencyDisplayOrder.js";
 
 export const TRANSACTION_CURRENCY_FILTER_KEY_PREFIX = "transaction_currency_filter_v1_";
 export const TX_LIST_SESSION_PREFIX = "count168_txlist_v1_";
@@ -456,17 +457,15 @@ export function dedupeCurrencyRowsByCode(rows) {
 export function orderCurrencyRows(orderedData, orderData) {
   let ordered = dedupeCurrencyRowsByCode(orderedData);
   try {
-    let saved = null;
-    if (orderData && orderData.success && Array.isArray(orderData.data?.order) && orderData.data.order.length > 0) {
-      saved = JSON.stringify(orderData.data.order);
-    }
-    if (!saved) return ordered;
-
-    const order = JSON.parse(saved);
-    if (!Array.isArray(order) || order.length === 0) return ordered;
+    const companyId = orderData?.data?.company_id;
+    const savedOrder = resolveSavedCurrencyOrder(
+      companyId,
+      orderData?.success ? orderData?.data?.order : null,
+    );
+    if (!savedOrder?.length) return ordered;
 
     const normalized = [];
-    order.forEach((code) => {
+    savedOrder.forEach((code) => {
       const upper = String(code || "")
         .trim()
         .toUpperCase();

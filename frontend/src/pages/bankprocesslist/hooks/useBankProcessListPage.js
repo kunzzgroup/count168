@@ -25,7 +25,11 @@ import {
 } from "../../../utils/date/dateRangePicker.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
-import { mergeCurrencyCodesWithSavedOrder } from "../../../utils/company/currencyDisplayOrder.js";
+import {
+  mergeCurrencyCodesWithSavedOrder,
+  persistCurrencyDisplayOrder,
+  resolveSavedCurrencyOrder,
+} from "../../../utils/company/currencyDisplayOrder.js";
 import { saveUserCurrencyOrder, getUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
 import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../../account/accountLogic.js";
 import { getAccountText } from "../../../translateFile/pages/accountTranslate.js";
@@ -838,7 +842,9 @@ export function useBankProcessListPage() {
         return;
       }
       const codes = curJson.data.map((r) => String(r.code).toUpperCase());
-      const ordered = mergeCurrencyCodesWithSavedOrder(codes, ordJson?.data?.order);
+      const savedOrder = resolveSavedCurrencyOrder(cid, ordJson?.data?.order);
+      const ordered = mergeCurrencyCodesWithSavedOrder(codes, savedOrder);
+      persistCurrencyDisplayOrder(cid, ordered);
       setCurrencyListOrdered(ordered);
       setCurrencyPillDisplayOrder(null);
     } catch {
@@ -1056,13 +1062,17 @@ export function useBankProcessListPage() {
         bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
       if (Array.isArray(cached.currencyCodes) && cached.currencyCodes.length) {
-        setCurrencyListOrdered(cached.currencyCodes);
+        const ordered = mergeCurrencyCodesWithSavedOrder(
+          cached.currencyCodes,
+          resolveSavedCurrencyOrder(id, null),
+        );
+        setCurrencyListOrdered(ordered);
         setCurrencyPillDisplayOrder(null);
         setCurrencyFilterCode((prev) => {
-          if (prev && cached.currencyCodes.includes(prev)) return prev;
+          if (prev && ordered.includes(prev)) return prev;
           return resolveCrossPageCurrencyPreference({
             scopeKey: buildDashboardCurrencyScopeKey({ companyId: id, selectedGroup }),
-            availableCodes: cached.currencyCodes,
+            availableCodes: ordered,
           });
         });
       }
@@ -1134,13 +1144,17 @@ export function useBankProcessListPage() {
           return nextRows;
         });
         if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
-          setCurrencyListOrdered(slice.currencyCodes);
+          const ordered = mergeCurrencyCodesWithSavedOrder(
+            slice.currencyCodes,
+            resolveSavedCurrencyOrder(cid, null),
+          );
+          setCurrencyListOrdered(ordered);
           setCurrencyPillDisplayOrder(null);
           setCurrencyFilterCode((prev) => {
-            if (prev && slice.currencyCodes.includes(prev)) return prev;
+            if (prev && ordered.includes(prev)) return prev;
             return resolveCrossPageCurrencyPreference({
               scopeKey: buildDashboardCurrencyScopeKey({ companyId: cid, selectedGroup }),
-              availableCodes: slice.currencyCodes,
+              availableCodes: ordered,
             });
           });
         }
@@ -2131,6 +2145,7 @@ export function useBankProcessListPage() {
       if (apiOrder.length === 0) return;
       const json = await saveUserCurrencyOrder(apiOrder, { companyId: cid });
       if (!json?.success) return;
+      persistCurrencyDisplayOrder(cid, [...apiOrder, ...currencyListOrdered.filter((c) => !apiOrder.includes(c))]);
       const tail = currencyListOrdered.filter((c) => !apiOrder.includes(c));
       setCurrencyListOrdered([...apiOrder, ...tail]);
     },
@@ -2151,9 +2166,13 @@ export function useBankProcessListPage() {
       const [moved] = next.splice(fromI, 1);
       next.splice(toI, 0, moved);
       setCurrencyPillDisplayOrder(next);
+      const cid = Number(companyId);
+      if (Number.isFinite(cid) && cid > 0) {
+        persistCurrencyDisplayOrder(cid, next);
+      }
       await persistOrderedCompanyCurrencies(next);
     },
-    [currencyPillCodes, persistOrderedCompanyCurrencies]
+    [currencyPillCodes, persistOrderedCompanyCurrencies, companyId],
   );
 
   useEffect(() => {

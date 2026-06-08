@@ -27,6 +27,7 @@ import {
   notifyDashboardCurrencyFilterChanged,
   resolveCrossPageCurrencyPreference,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import { persistCurrencyDisplayOrder } from "../../../utils/company/currencyDisplayOrder.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
 import {
   transactionScopeApiParams,
@@ -267,6 +268,9 @@ export function useTransactionSearch({
       list.splice(tIdx, 0, moved);
 
       setCurrencyRowsOrdered(list);
+      if (orderCompanyId != null) {
+        persistCurrencyDisplayOrder(orderCompanyId, list.map((x) => x.code));
+      }
       await saveUserCurrencyOrder(list.map((x) => x.code), {
         companyId: orderCompanyId ?? undefined,
       });
