@@ -10,6 +10,7 @@ import {
   getMemberMiniGridCurrencies,
   getOrderedMiniGridAccounts,
   groupHistoryForDisplay,
+  getWlGridIncludedAccountIds,
   normalizeNumber,
   saveWLGridSelection,
   sanitizeCurrencySelection,
@@ -326,41 +327,42 @@ export function useMemberWinLoss({ showNotification, lang }) {
 
   const refreshMiniGrid = useCallback(
     async (seq, gridCurrencies, fromDate, toDate, viewId, compId) => {
-      if (!gridAccountPool.length || !fromDate || !toDate || !viewId || !compId) {
-        setMiniGridBalances(new Map());
-        setMiniGridTotals(new Map());
-        setMiniGridHint("");
-        return;
-      }
-      const orderUpper = (gridCurrencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
-      if (!orderUpper.length) {
-        setMiniGridBalances(new Map());
-        setMiniGridTotals(new Map());
-        setMiniGridHint("");
-        return;
-      }
-      const orderedAccounts = getOrderedMiniGridAccounts(
-        gridAccountPool,
-        wlGridSelectedIds,
-        orderUpper,
-        linkedAccountCurrenciesMap,
-        linkedCurrenciesLoaded,
-      );
-      if (linkedCurrenciesLoaded && !orderedAccounts.length) {
-        setMiniGridBalances(new Map());
-        setMiniGridTotals(new Map());
-        setMiniGridHint(
-          orderUpper.length > 1
-            ? t("noAccountsHoldCurrencies")
-            : t("noAccountsHoldCurrency", { currency: orderUpper[0] }),
-        );
-        return;
-      }
-      setMiniGridHint("");
-      if (gridAbortRef.current) gridAbortRef.current.abort();
-      gridAbortRef.current = new AbortController();
-      const signal = gridAbortRef.current.signal;
+      if (seq === searchSeqRef.current) setMiniGridLoading(true);
       try {
+        if (!gridAccountPool.length || !fromDate || !toDate || !viewId || !compId) {
+          setMiniGridBalances(new Map());
+          setMiniGridTotals(new Map());
+          setMiniGridHint("");
+          return;
+        }
+        const orderUpper = (gridCurrencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
+        if (!orderUpper.length) {
+          setMiniGridBalances(new Map());
+          setMiniGridTotals(new Map());
+          setMiniGridHint("");
+          return;
+        }
+        const orderedAccounts = getOrderedMiniGridAccounts(
+          gridAccountPool,
+          wlGridSelectedIds,
+          orderUpper,
+          linkedAccountCurrenciesMap,
+          linkedCurrenciesLoaded,
+        );
+        if (linkedCurrenciesLoaded && !orderedAccounts.length) {
+          setMiniGridBalances(new Map());
+          setMiniGridTotals(new Map());
+          setMiniGridHint(
+            orderUpper.length > 1
+              ? t("noAccountsHoldCurrencies")
+              : t("noAccountsHoldCurrency", { currency: orderUpper[0] }),
+          );
+          return;
+        }
+        setMiniGridHint("");
+        if (gridAbortRef.current) gridAbortRef.current.abort();
+        gridAbortRef.current = new AbortController();
+        const signal = gridAbortRef.current.signal;
         const tasks = [];
         for (const acc of orderedAccounts) {
           const id = Number(acc.id);
@@ -406,6 +408,13 @@ export function useMemberWinLoss({ showNotification, lang }) {
     [gridAccountPool, wlGridSelectedIds, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, lang, t],
   );
 
+  const finishHistoryFetch = useCallback(
+    (seq) => {
+      if (seq === searchSeqRef.current) setLoadingTable(false);
+    },
+    [],
+  );
+
   const fetchMemberHistory = useCallback(
     async (seq = searchSeqRef.current, selectionOverride = null) => {
       if (!viewAccountId || !companyId || !dateFrom || !dateTo) return;
@@ -438,18 +447,21 @@ export function useMemberWinLoss({ showNotification, lang }) {
           if (!json?.success) {
             setHistoryRows([]);
             notifyApi(json?.error, "info", "noDataInRange");
+            finishHistoryFetch(seq);
             return;
           }
           setHistoryRows(Array.isArray(json.data?.history) ? json.data.history : []);
+          finishHistoryFetch(seq);
           showNotification(t("queryCompleted"), "success");
         } catch (e) {
           if (e?.name === "AbortError") return;
           if (seq !== searchSeqRef.current) return;
           setHistoryRows([]);
           notifyApi(e?.message, "info", "noDataInRange");
+          finishHistoryFetch(seq);
         }
         const gridCur = getMemberMiniGridCurrencies(availableCurrencies, useAll, useSelected);
-        await refreshMiniGrid(seq, gridCur, dateFrom, dateTo, viewAccountId, companyId);
+        void refreshMiniGrid(seq, gridCur, dateFrom, dateTo, viewAccountId, companyId);
         return;
       }
 
@@ -473,15 +485,17 @@ export function useMemberWinLoss({ showNotification, lang }) {
         if (!json?.success) throw new Error(json?.error || t("queryFailed"));
         const history = json.data?.history || [];
         setHistoryRows(history);
+        finishHistoryFetch(seq);
         showNotification(t("queryCompleted"), "success");
       } catch (e) {
         if (e?.name === "AbortError") return;
         if (seq !== searchSeqRef.current) return;
         setHistoryRows([]);
         notifyApi(e?.message, "error", "queryFailed");
+        finishHistoryFetch(seq);
       }
       const gridCur = getMemberMiniGridCurrencies(availableCurrencies, useAll, useSelected);
-      await refreshMiniGrid(seq, gridCur, dateFrom, dateTo, viewAccountId, companyId);
+      void refreshMiniGrid(seq, gridCur, dateFrom, dateTo, viewAccountId, companyId);
     },
     [
       viewAccountId,
@@ -492,11 +506,31 @@ export function useMemberWinLoss({ showNotification, lang }) {
       selectedCurrencies,
       availableCurrencies,
       refreshMiniGrid,
+      finishHistoryFetch,
       showNotification,
       notifyApi,
       t,
     ],
   );
+
+  const hasFallbackCurrencySources = useCallback(() => {
+    if (ownedCurrencies.length > 0) return true;
+    if (!linkedCurrenciesLoaded) return false;
+    const pool = gridAccountPool.length ? gridAccountPool : linkedAccounts;
+    const included = getWlGridIncludedAccountIds(pool, wlGridSelectedIds);
+    for (const accountId of included) {
+      const codes = linkedAccountCurrenciesMap.get(Number(accountId));
+      if (codes?.size) return true;
+    }
+    return false;
+  }, [
+    ownedCurrencies,
+    linkedCurrenciesLoaded,
+    linkedAccountCurrenciesMap,
+    gridAccountPool,
+    linkedAccounts,
+    wlGridSelectedIds,
+  ]);
 
   const fetchMemberSummary = useCallback(
     async (seq = searchSeqRef.current) => {
@@ -546,11 +580,13 @@ export function useMemberWinLoss({ showNotification, lang }) {
         if (seq !== searchSeqRef.current) return false;
         setCurrencySummary([]);
         currencySortOrderRef.current = {};
-        notifyApi(e?.message, "error", "failedLoadCurrencyData");
+        if (!hasFallbackCurrencySources()) {
+          notifyApi(e?.message, "error", "failedLoadCurrencyData");
+        }
         return false;
       }
     },
-    [viewAccountId, companyId, dateFrom, dateTo, notifyApi, t],
+    [viewAccountId, companyId, dateFrom, dateTo, hasFallbackCurrencySources, notifyApi, t],
   );
 
   const performMemberSearch = useCallback(async () => {
@@ -572,7 +608,6 @@ export function useMemberWinLoss({ showNotification, lang }) {
     } finally {
       if (seq === searchSeqRef.current) {
         setLoadingTable(false);
-        setMiniGridLoading(false);
       }
     }
   }, [viewAccountId, companyId, dateFrom, dateTo, fetchMemberSummary, fetchMemberHistory, loadCurrencyOrder]);

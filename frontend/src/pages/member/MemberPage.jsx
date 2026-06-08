@@ -226,7 +226,7 @@ export default function MemberPage() {
     }
     const filtersEl = wlFiltersColRef.current;
     const matrixEl = wlMatrixColRef.current;
-    const mq = window.matchMedia("(min-width: 1181px)");
+    const mq = window.matchMedia("(min-width: 1025px)");
     const update = () => {
       if (!showMiniRail || !mq.matches || !wlFiltersColRef.current) {
         setWlFiltersSyncPx(null);

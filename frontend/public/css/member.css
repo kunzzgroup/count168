@@ -1111,7 +1111,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     align-items: stretch;
 }
 
-@media (min-width: 1181px) {
+@media (min-width: 1025px) {
     .member-winloss-page .member-dash-columns--two-col.member-dash-columns--wl-sync-h > .member-dash-col-matrix,
     .member-winloss-page .member-dash-columns--three-col.member-dash-columns--wl-sync-h > .member-dash-col-matrix {
         max-height: none;
@@ -1176,8 +1176,8 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     box-sizing: border-box;
 }
 
-/* 宽屏：竖线独立绘制，随矩阵增高；左栏内容区间距不变 */
-@media (min-width: 1181px) {
+/* 宽屏 / 笔记本：竖线独立绘制，随矩阵增高；左栏内容区间距不变 */
+@media (min-width: 1025px) {
     .member-winloss-page .member-dash-columns--two-col.member-dash-columns--wl-sync-h::before,
     .member-winloss-page .member-dash-columns--three-col.member-dash-columns--wl-sync-h::before {
         content: "";
@@ -2887,36 +2887,128 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     border-top: 1px solid #e2e8f0;
 }
 
-@media (max-width: 1180px) {
-    .member-dash-columns {
-        grid-template-columns: minmax(0, 1fr);
+/* =============================================================================
+   Member Win/Loss responsive — Desktop ≥1367 | Laptop 1025–1366 | Tablet ≤1024
+   ============================================================================= */
+
+/* --- Desktop (≥1367)：宽屏双栏，略增筛选区上限 --- */
+@media (min-width: 1367px) {
+    .member-winloss-page .member-dash-columns--two-col,
+    .member-winloss-page .member-dash-columns--three-col {
+        --member-wl-filters-col-w: clamp(280px, 30%, 520px);
+    }
+}
+
+/* --- Laptop (1025–1366)：双栏紧凑，与 dashboard / global-13inch 对齐 --- */
+@media (min-width: 1025px) and (max-width: 1366px) {
+    body.transaction-page.member-winloss-page .transaction-container {
+        padding-right: clamp(12px, 1.5vw, 24px) !important;
+    }
+
+    body.transaction-page.member-winloss-page .transaction-main-content.member-winloss-dash {
+        gap: 16px;
+    }
+
+    .member-winloss-page .member-dash-unified-bar {
+        padding: 6px 8px;
+    }
+
+    .member-winloss-page .member-dash-columns--two-col,
+    .member-winloss-page .member-dash-columns--three-col {
+        --member-wl-filters-col-w: clamp(212px, 26vw, 340px);
+        --member-wl-matrix-hdr-h: 34px;
+        --member-wl-matrix-row-h: 34px;
+        --member-winloss-label-w: 5.5rem;
+        --member-winloss-matrix-inline-gutter: 8px;
+    }
+
+    body.lang-zh.member-winloss-page .member-dash-columns--two-col,
+    body.lang-zh.member-winloss-page .member-dash-columns--three-col {
+        --member-winloss-label-w: 4.25rem;
+    }
+
+    body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-winloss-gc-panel {
+        --member-winloss-filter-pill-cell-min: 4.5rem;
+        --member-winloss-account-pill-min: 4.5rem;
+        padding-top: 10px;
+    }
+
+    body.member-winloss-page .member-dash-col-filters .user-gc-segment {
+        font-size: 11px;
+        padding: 5px 8px;
+        min-height: 28px;
+    }
+
+    .member-winloss-page .member-dash-col-filters {
+        gap: 10px;
+    }
+
+    .member-currency-section {
+        padding: 12px;
+        margin: 12px 0 16px;
+        gap: 12px;
+    }
+
+    .member-winloss-table .transaction-table-header th,
+    .member-winloss-table .transaction-table-row td {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+}
+
+/* --- Tablet (≤1024)：筛选与矩阵纵向堆叠，表格可横滑 --- */
+@media (max-width: 1024px) {
+    body.transaction-page.member-winloss-page .transaction-container {
+        padding-left: var(--layout-main-offset) !important;
+        padding-right: clamp(10px, 1.2vw, 16px) !important;
+        padding-top: var(--layout-page-top-gap);
+        padding-bottom: 16px;
+    }
+
+    body.transaction-page.member-winloss-page .transaction-main-content.member-winloss-dash {
+        gap: 12px;
+    }
+
+    .member-winloss-page .member-dash-unified-bar {
+        min-height: 0;
+        padding: 8px 10px;
     }
 
     .member-winloss-page .member-dash-columns,
     .member-winloss-page .member-dash-columns--two-col,
     .member-winloss-page .member-dash-columns--three-col {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto auto;
-    }
-
-    body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-dash-columns--two-col,
-    body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-dash-columns--three-col {
-        grid-template-rows: auto auto;
-        align-items: start;
-    }
-
-    .member-winloss-page .member-dash-unified-bar {
+        display: flex !important;
+        flex-direction: column !important;
+        flex-wrap: nowrap;
+        align-items: stretch;
         min-height: 0;
+        width: 100%;
     }
 
-    .member-winloss-page .member-dash-columns {
-        min-height: 0;
-        align-items: start;
+    .member-winloss-page .member-dash-columns--two-col .member-dash-col-filters,
+    .member-winloss-page .member-dash-columns--three-col .member-dash-col-filters {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        align-self: stretch;
+    }
+
+    .member-winloss-page .member-dash-columns--two-col .member-dash-col-matrix,
+    .member-winloss-page .member-dash-columns--three-col .member-dash-col-matrix {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        align-self: stretch;
+    }
+
+    .member-winloss-page .member-dash-columns--two-col::before,
+    .member-winloss-page .member-dash-columns--three-col::before {
+        display: none;
     }
 
     .member-winloss-page .member-dash-col-filters {
-        grid-column: 1;
-        grid-row: 1;
         min-height: 0;
         flex-direction: column;
         gap: 8px;
@@ -2932,8 +3024,6 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     }
 
     .member-winloss-page .member-dash-col-matrix {
-        grid-column: 1;
-        grid-row: 2;
         min-height: 0;
         padding: 10px var(--member-winloss-matrix-inline-gutter, 10px);
         border-right: none;
@@ -2949,6 +3039,9 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 
     .member-winloss-page .member-dash-matrix-center-wrap {
         flex: 0 1 auto;
+        min-height: 0;
+        width: 100%;
+        max-width: 100%;
         padding: 0;
     }
 
@@ -2964,19 +3057,44 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
         flex-direction: column;
     }
 
-    .member-winloss-page .member-dash-matrix-center-wrap {
-        flex: 1 1 auto;
-        min-height: 0;
-        width: 100%;
-        max-width: 100%;
-    }
-
     .member-winloss-page .member-dash-matrix-scroll:not(.member-dash-matrix-scroll--ccy-fits) {
         flex: 0 0 auto;
         max-width: 100%;
         overflow-x: auto;
         overflow-y: visible;
         -webkit-overflow-scrolling: touch;
+    }
+
+    body.member-winloss-page .member-dash-col-filters .user-gc-inline-panel.member-winloss-gc-panel {
+        --member-winloss-filter-pill-cell-min: 4.25rem;
+        --member-winloss-account-pill-min: 4.25rem;
+    }
+
+    body.member-winloss-page #member_account_buttons.member-winloss-account-pills,
+    body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .member-currency-section {
+        padding: 10px 12px;
+        margin: 8px 0 12px;
+        min-height: 0;
+    }
+
+    .member-currency-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
+        max-width: 100%;
+    }
+
+    .member-winloss-table .transaction-table {
+        min-width: min(100%, 920px);
+    }
+
+    .member-winloss-page .member-winloss-grid-account-filter .user-gc-inline-label {
+        min-width: 4.5rem;
     }
 }
 
