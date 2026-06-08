@@ -69,6 +69,18 @@ export function EditMaintenanceModal({ t, open, draft, setDraft, onClose, onSave
         </div>
         <form id="editMaintenanceForm" onSubmit={(e) => { e.preventDefault(); onSave(); }}>
           <div className="form-group">
+            <label htmlFor="editMaintenancePrefix">{t("prefixRequired")}</label>
+            <input
+              id="editMaintenancePrefix"
+              type="text"
+              required
+              maxLength={100}
+              placeholder={t("enterMaintenancePrefix")}
+              value={draft.prefix}
+              onChange={(e) => setDraft((p) => ({ ...p, prefix: e.target.value }))}
+            />
+          </div>
+          <div className="form-group">
             <label htmlFor="editMaintenanceContent">{t("contentRequired")}</label>
             <textarea
               id="editMaintenanceContent"

@@ -27,7 +27,7 @@ export default function AnnouncementPage() {
   // Modals
   const [editAnnouncement, setEditAnnouncement] = useState({ id: "", title: "", content: "" });
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
-  const [editMaintenance, setEditMaintenance] = useState({ id: "", content: "" });
+  const [editMaintenance, setEditMaintenance] = useState({ id: "", prefix: "", content: "" });
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
 
@@ -142,7 +142,7 @@ export default function AnnouncementPage() {
 
   function handleMaintenanceEdit(item) {
     if (!item) { loadMaintenance(); showNotice(t("maintenancePublishedSuccess")); return; }
-    setEditMaintenance({ id: item.id, content: item.content || "" });
+    setEditMaintenance({ id: item.id, prefix: item.prefix || "", content: item.content || "" });
     setMaintenanceModalOpen(true);
   }
 
@@ -165,7 +165,9 @@ export default function AnnouncementPage() {
   async function saveEditedMaintenance() {
     try {
       const fd = new FormData();
-      fd.append("id", editMaintenance.id); fd.append("content", editMaintenance.content.trim());
+      fd.append("id", editMaintenance.id);
+      fd.append("prefix", editMaintenance.prefix.trim());
+      fd.append("content", editMaintenance.content.trim());
       const res = await fetch(buildApiUrl("api/maintenance/update_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
       if (json.success) { showNotice(t("maintenanceUpdatedSuccess")); setMaintenanceModalOpen(false); loadMaintenance(); }

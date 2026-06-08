@@ -351,7 +351,7 @@ export default function LoginPage() {
               {[...maintenanceList, ...maintenanceList].map((item, index) => (
                 <div className="sc-login-maintenance-item" key={`${item.id}-${index}`}>
                   <span className="sc-login-maintenance-dot" />
-                  <span className="sc-login-maintenance-label">{i18n.maintenanceLabel}</span>
+                  <span className="sc-login-maintenance-label">{item.prefix || i18n.maintenanceLabel}</span>
                   <span dangerouslySetInnerHTML={{ __html: escapeHtml(item.content) }} />
                 </div>
               ))}
