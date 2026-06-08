@@ -88,10 +88,24 @@ body.domain-page .domain-react-page .table-container {
  * DomainFormModal（portal 挂在 body）：抵消 global-13inch 对 input 的 font-size/padding !important，
  * 并重置 label 为块级（Tailwind preflight 关闭时 label 默认为 inline，易与输入框挤在同一行/重叠）。
  */
+body.ec-auth-shell .domain-form-modal-backdrop {
+    --dfm-selected-item-height: 40px;
+    --dfm-selected-item-gap: 6px;
+    --dfm-selected-visible-rows: 6;
+    --dfm-selected-list-inset-y: 16px;
+    --dfm-selected-list-cap-height: calc(
+        var(--dfm-selected-list-inset-y)
+        + var(--dfm-selected-item-height) * var(--dfm-selected-visible-rows)
+        + var(--dfm-selected-item-gap) * (var(--dfm-selected-visible-rows) - 1)
+    );
+}
+
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel {
     box-sizing: border-box;
     background-color: var(--color-surface);
     font-family: var(--font-ui);
+    min-height: min(86vh, 900px);
+    max-height: 92vh;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-header h2 {
@@ -102,6 +116,8 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-header h2 {
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-form {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     background-color: var(--color-surface);
 }
 
@@ -112,6 +128,10 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-header {
 
 /* 图二：内容与按钮栏之间留白；整段白底 */
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 20px 36px !important;
     background-color: var(--color-surface);
 }
@@ -145,8 +165,12 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-divider {
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-section {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
     width: 100%;
     min-width: 0;
+    min-height: 0;
 }
 
 /* DOMAIN INFORMATION — 单行：owner / name / email / password / secondary password */
@@ -204,6 +228,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 {
     gap: 8px 12px;
     margin-bottom: 6px !important;
     align-items: end;
+    flex-shrink: 0;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field--group-input .dfm-input-with-btn,
@@ -253,13 +278,15 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 {
     display: grid;
     width: 100%;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto;
     grid-template-areas:
         "headGroups headCompanies"
         "selectedGroups selectedCompanies";
     gap: 4px 12px;
-    flex: 1 1 auto;
-    align-items: stretch;
+    flex: 0 0 auto;
+    margin-top: auto;
+    align-items: start;
+    align-content: start;
     min-height: 0;
 }
 
@@ -294,12 +321,15 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list {
-    min-height: 120px;
-    max-height: 200px;
-    flex: 1 1 auto;
-    width: 100%;
-    margin-top: 0 !important;
     box-sizing: border-box;
+    width: 100%;
+    height: var(--dfm-selected-list-cap-height);
+    min-height: var(--dfm-selected-list-cap-height);
+    max-height: var(--dfm-selected-list-cap-height);
+    flex: 0 0 auto;
+    margin-top: 0 !important;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-groups,
@@ -308,15 +338,20 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field
     flex-direction: column !important;
     min-height: 0;
     align-self: stretch;
-    height: 100%;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-groups .dfm-selected-list,
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-companies .dfm-selected-list {
-    flex: 1 1 auto;
-    min-height: 120px;
-    height: 100%;
+    flex: 0 0 auto;
+    height: var(--dfm-selected-list-cap-height);
+    min-height: var(--dfm-selected-list-cap-height);
+    max-height: var(--dfm-selected-list-cap-height);
     padding: 8px 10px !important;
+    overflow-y: auto !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list--mc-mode {
+    overflow-y: auto !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list > .company-item {
