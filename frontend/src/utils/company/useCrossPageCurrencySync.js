@@ -19,6 +19,8 @@ export function useCrossPageCurrencySync({
   currentCode = "",
   onApplyCode,
   suppressRef = null,
+  /** When `.current` is true and `currentCode` is empty, skip re-applying a persisted/default currency. */
+  respectEmptyRef = null,
 }) {
   const scopeKey = buildDashboardCurrencyScopeKey({ companyId, selectedGroup });
   const groupOnlyScope =
@@ -49,14 +51,25 @@ export function useCrossPageCurrencySync({
     if (!enabled || typeof onApplyCode !== "function") return;
     if (suppressRef?.current || applyingRef.current) return;
     if (!codesKey) return;
+    const current = String(currentCode || "").trim().toUpperCase();
+    if (!current && respectEmptyRef?.current) return;
     const pref = resolveCrossPageCurrencyPreference({
       scopeKey,
       availableCodes: codesKey.split("|"),
       scopeOnly: groupOnlyScope,
     });
-    const current = String(currentCode || "").trim().toUpperCase();
     if (pref && pref !== current) applyCodeSafely(pref);
-  }, [enabled, scopeKey, codesKey, currentCode, onApplyCode, suppressRef, groupOnlyScope, applyCodeSafely]);
+  }, [
+    enabled,
+    scopeKey,
+    codesKey,
+    currentCode,
+    onApplyCode,
+    suppressRef,
+    respectEmptyRef,
+    groupOnlyScope,
+    applyCodeSafely,
+  ]);
 
   useEffect(() => {
     if (!enabled || typeof onApplyCode !== "function") return undefined;

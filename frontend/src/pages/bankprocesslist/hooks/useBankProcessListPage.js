@@ -13,6 +13,7 @@ import {
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
   buildDashboardCurrencyScopeKey,
+  clearDashboardSelectedCurrency,
   notifyDashboardCurrencyFilterChanged,
   resolveCrossPageCurrencyPreference,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -241,6 +242,7 @@ export function useBankProcessListPage() {
   const [currencyFilterCode, setCurrencyFilterCode] = useState("");
   const [currencyPillDisplayOrder, setCurrencyPillDisplayOrder] = useState(null);
   const skipNextCurrencyPillClickRef = useRef(false);
+  const userSelectedAllCurrenciesRef = useRef(false);
 
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
@@ -1069,6 +1071,7 @@ export function useBankProcessListPage() {
         setCurrencyListOrdered(ordered);
         setCurrencyPillDisplayOrder(null);
         setCurrencyFilterCode((prev) => {
+          if (userSelectedAllCurrenciesRef.current && !prev) return "";
           if (prev && ordered.includes(prev)) return prev;
           return resolveCrossPageCurrencyPreference({
             scopeKey: buildDashboardCurrencyScopeKey({ companyId: id, selectedGroup }),
@@ -1151,6 +1154,7 @@ export function useBankProcessListPage() {
           setCurrencyListOrdered(ordered);
           setCurrencyPillDisplayOrder(null);
           setCurrencyFilterCode((prev) => {
+            if (userSelectedAllCurrenciesRef.current && !prev) return "";
             if (prev && ordered.includes(prev)) return prev;
             return resolveCrossPageCurrencyPreference({
               scopeKey: buildDashboardCurrencyScopeKey({ companyId: cid, selectedGroup }),
@@ -1417,6 +1421,7 @@ export function useBankProcessListPage() {
 
       skipCompanyFetchEffectRef.current = hadCache;
       suppressCrossPageSyncRef.current = true;
+      userSelectedAllCurrenciesRef.current = false;
       listAbortRef.current?.abort();
       flushSync(() => {
         setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
@@ -2102,8 +2107,15 @@ export function useBankProcessListPage() {
     [currencyPillDisplayOrder, baseCurrencyPills]
   );
 
+  const handlePickAllCurrencies = useCallback(() => {
+    userSelectedAllCurrenciesRef.current = true;
+    clearDashboardSelectedCurrency();
+    setCurrencyFilterCode("");
+  }, []);
+
   const handlePickCurrency = useCallback(
     (code) => {
+      userSelectedAllCurrenciesRef.current = false;
       const cur = String(code || "").trim().toUpperCase();
       setCurrencyFilterCode(cur);
       if (cur) {
@@ -2122,7 +2134,11 @@ export function useBankProcessListPage() {
     selectedGroup,
     availableCodes: currencyPillCodes,
     currentCode: currencyFilterCode,
-    onApplyCode: (code) => setCurrencyFilterCode(code),
+    onApplyCode: (code) => {
+      userSelectedAllCurrenciesRef.current = false;
+      setCurrencyFilterCode(code);
+    },
+    respectEmptyRef: userSelectedAllCurrenciesRef,
   });
 
   useEffect(() => {
@@ -2428,6 +2444,7 @@ export function useBankProcessListPage() {
     persistOrderedCompanyCurrencies,
     onCurrencyPillDrop,
     handlePickCurrency,
+    handlePickAllCurrencies,
     visibleRows,
     totalPages,
     pageRows,
