@@ -554,7 +554,9 @@ export default function BankProcessListPage() {
               setResendDayStart(String(row.day_start || row.date || "").slice(0, 10));
               const seedFq = bankProcessFrequencyNormalized(row.day_start_frequency);
               setResendFrequency(seedFq);
-              setResendDayEnd(seedFq === "once" ? "" : String(row.day_end || "").slice(0, 10));
+              setResendDayEnd(
+                seedFq === "once" || seedFq === "monthly" ? "" : String(row.day_end || "").slice(0, 10),
+              );
               setResendModalOpen(true);
             }}
             sortColumn={sortColumn}

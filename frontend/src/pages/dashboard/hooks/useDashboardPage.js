@@ -40,6 +40,7 @@ import {
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics } from "../lib/dashboardKpi.js";
 import {
+  canPrefetchCompanyScope,
   canUseGroupOnlyMode,
   companyLoginRequiresSubsidiaryWithGroup,
   getLoginIdentifier,
@@ -334,6 +335,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const currenciesRef = useRef(currencies);
   currenciesRef.current = currencies;
   const currencyPrefetchFailedRef = useRef(new Set());
+  const currencyPrefetchDeniedCompanyRef = useRef(new Set());
   const dashboardPrefetchFailedRef = useRef(new Set());
   const bootstrapInflightRef = useRef(new Map());
   const currencyPrefetchInflightRef = useRef(new Map());
@@ -1522,12 +1524,27 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   useEffect(() => {
     currencyPrefetchFailedRef.current.clear();
+    currencyPrefetchDeniedCompanyRef.current.clear();
     dashboardPrefetchFailedRef.current.clear();
   }, [companiesSig]);
+
+  const shouldPrefetchCompanyScope = useCallback(
+    (cid, viewGroup) => {
+      const id = parseInt(cid, 10);
+      if (!Number.isFinite(id) || id <= 0) return false;
+      if (currencyPrefetchDeniedCompanyRef.current.has(id)) return false;
+      return canPrefetchCompanyScope(meRef.current, id, companies, viewGroup);
+    },
+    [companies]
+  );
 
   const fetchScopeCurrenciesDeduped = useCallback(async (queryString) => {
     if (!queryString) return null;
     if (currencyPrefetchFailedRef.current.has(queryString)) return null;
+    const deniedId = Number(new URLSearchParams(queryString).get("company_id"));
+    if (Number.isFinite(deniedId) && deniedId > 0 && currencyPrefetchDeniedCompanyRef.current.has(deniedId)) {
+      return null;
+    }
     return fetchBootstrapDeduped(currencyPrefetchInflightRef.current, queryString, async () => {
       const res = await fetch(
         buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${queryString}`),
@@ -1535,7 +1552,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       );
       const json = await res.json();
       if (!res.ok || !json.success || !Array.isArray(json.data)) {
-        if (!res.ok) currencyPrefetchFailedRef.current.add(queryString);
+        const msg = String(json?.message || json?.error || "");
+        const denied = !res.ok || msg.includes("无权访问");
+        if (denied) {
+          currencyPrefetchFailedRef.current.add(queryString);
+          if (Number.isFinite(deniedId) && deniedId > 0) {
+            currencyPrefetchDeniedCompanyRef.current.add(deniedId);
+          }
+        }
         return null;
       }
       return json.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
@@ -1546,6 +1570,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (cid, viewGroup) => {
       const id = parseInt(cid, 10);
       if (!Number.isFinite(id) || id <= 0) return null;
+      if (!shouldPrefetchCompanyScope(id, viewGroup)) return null;
       const row = companies.find((c) => parseInt(c.id, 10) === id);
       if (!row || isVirtualGroupLinkCompanyRow(row)) return null;
       const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
@@ -1560,7 +1585,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       return q.toString();
     },
-    [companies, groupIds]
+    [companies, groupIds, shouldPrefetchCompanyScope]
   );
 
   /** Warm currencies for the active group/company first (fast path for first paint). */
@@ -2213,6 +2238,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     async (targetRow, viewGroup) => {
       const id = parseInt(targetRow?.id, 10);
       if (!Number.isFinite(id) || id <= 0) return;
+      if (!shouldPrefetchCompanyScope(id, viewGroup)) return;
       const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
       const cur = currencyCodeRef.current;
       const scopeKey = resolveDashboardScopeKey({
@@ -2313,6 +2339,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       earningsRowsFromBootstrapEntries,
       seedDashboardPayloadCacheForCompany,
       applyPrefetchCacheToActiveScope,
+      shouldPrefetchCompanyScope,
     ]
   );
 

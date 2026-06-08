@@ -997,10 +997,11 @@ export function useBankProcessListPage() {
 
   useEffect(() => {
     if (!resendModalOpen) return;
-    if (bankProcessFrequencyNormalized(resendFrequency) !== "once") return;
+    const fq = bankProcessFrequencyNormalized(resendFrequency);
+    if (fq !== "once" && fq !== "monthly") return;
     if (!String(resendDayEnd || "").trim()) return;
     setResendDayEnd("");
-  }, [resendModalOpen, resendFrequency]);
+  }, [resendModalOpen, resendFrequency, resendDayEnd]);
 
   const refreshResendConfirmLock = useCallback(async () => {
     const id = resendTarget?.id;
@@ -1851,14 +1852,16 @@ export function useBankProcessListPage() {
     const dayStart = String(resendDayStart || "").trim();
     const dayEnd = String(resendDayEnd || "").trim();
     const fqEarly = bankProcessFrequencyNormalized(resendFrequency);
-    if (fqEarly !== "once" && dayStart && dayEnd && dayEnd < dayStart) {
+    const resendOmitsDayEnd = fqEarly === "once" || fqEarly === "monthly";
+    if (!resendOmitsDayEnd && dayStart && dayEnd && dayEnd < dayStart) {
       const msg = t("dayEndEarlierThanStart");
       setResendInlineError(msg);
       notify(msg, "danger");
       return;
     }
     const fq = bankProcessFrequencyNormalized(resendFrequency);
-    const dayEndTrim = fq === "once" ? "" : String(resendDayEnd || "").trim();
+    const omitDayEnd = fq === "once" || fq === "monthly";
+    const dayEndTrim = omitDayEnd ? "" : String(resendDayEnd || "").trim();
     const normalizedResendFrequency =
       fq === "once" ? "once" : (fq === "monthly" ? "monthly" : "1st_of_every_month");
     try {
@@ -1867,7 +1870,7 @@ export function useBankProcessListPage() {
         body: JSON.stringify({
           bank_process_id: Number(resendTarget.id),
           day_start: resendDayStart || null,
-          day_end: fq === "once" ? null : (dayEndTrim || null),
+          day_end: omitDayEnd ? null : (dayEndTrim || null),
           day_start_frequency: normalizedResendFrequency,
         }),
       });

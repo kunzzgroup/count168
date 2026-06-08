@@ -1,5 +1,6 @@
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
-import { normalizeRows, processListCacheHasRows } from "./processListHelpers.js";
+import { normalizeRows as normalizeGamesProcessRows, processListCacheHasRows } from "./processListHelpers.js";
+import { normalizeRows as normalizeBankProcessRows } from "../bankprocesslist/lib/bankProcessHelpers.js";
 
 const processListRouteWarmCache = new Map();
 const processListRouteWarmInflight = new Map();
@@ -87,7 +88,9 @@ export async function fetchGamesProcessListSlice(
     const curJson = await curRes.json();
 
     const rows =
-      listRes.ok && listJson?.success && Array.isArray(listJson.data) ? normalizeRows(listJson.data) : null;
+      listRes.ok && listJson?.success && Array.isArray(listJson.data)
+        ? normalizeGamesProcessRows(listJson.data)
+        : null;
 
     let currencyCodes = null;
     if (curRes.ok && curJson?.success && Array.isArray(curJson.data)) {
@@ -139,7 +142,9 @@ export async function prefetchBankProcessListPayload(companyId, { search = "" } 
     const curJson = await curRes.json();
 
     const rows =
-      listRes.ok && listJson?.success && Array.isArray(listJson.data) ? normalizeRows(listJson.data) : null;
+      listRes.ok && listJson?.success && Array.isArray(listJson.data)
+        ? normalizeBankProcessRows(listJson.data)
+        : null;
 
     let currencyCodes = null;
     if (curRes.ok && curJson?.success && Array.isArray(curJson.data)) {
