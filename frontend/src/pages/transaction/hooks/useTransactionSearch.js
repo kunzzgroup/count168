@@ -90,6 +90,10 @@ export function useTransactionSearch({
   const scopeReady = transactionScopeIsReady(transactionScope);
   const scopeApi = useMemo(() => transactionScopeApiParams(transactionScope), [transactionScope]);
   const scopeCacheCompanyKey = transactionScopeCacheCompanyKey(transactionScope);
+  const orderCompanyId = useMemo(() => {
+    const cid = Number(transactionScope?.scopeCompanyId);
+    return transactionScope?.mode === "company" && Number.isFinite(cid) && cid > 0 ? cid : null;
+  }, [transactionScope?.mode, transactionScope?.scopeCompanyId]);
 
   const persistCurrencyFilter = useCallback((companyId, showAll, sel, scopeGroup = null) => {
     if (!companyId) return;
@@ -263,9 +267,11 @@ export function useTransactionSearch({
       list.splice(tIdx, 0, moved);
 
       setCurrencyRowsOrdered(list);
-      await saveUserCurrencyOrder(list.map((x) => x.code));
+      await saveUserCurrencyOrder(list.map((x) => x.code), {
+        companyId: orderCompanyId ?? undefined,
+      });
     },
-    [currencyRowsOrdered, setCurrencyRowsOrdered],
+    [currencyRowsOrdered, setCurrencyRowsOrdered, orderCompanyId],
   );
 
   useEffect(() => {

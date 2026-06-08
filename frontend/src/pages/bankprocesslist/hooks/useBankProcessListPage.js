@@ -25,7 +25,8 @@ import {
 } from "../../../utils/date/dateRangePicker.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
-import { saveUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
+import { mergeCurrencyCodesWithSavedOrder } from "../../../utils/company/currencyDisplayOrder.js";
+import { saveUserCurrencyOrder, getUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
 import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../../account/accountLogic.js";
 import { getAccountText } from "../../../translateFile/pages/accountTranslate.js";
 import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessage } from "../../../translateFile/pages/bankProcessTranslate.js";
@@ -821,44 +822,34 @@ export function useBankProcessListPage() {
     })();
   }, [companyId, loading]);
 
-  const loadCurrencyMeta = useCallback(async () => {
-    if (!companyId) return;
+  const loadCurrencyMeta = useCallback(async (targetCompanyId) => {
+    const cid = Number(targetCompanyId ?? companyId);
+    if (!Number.isFinite(cid) || cid <= 0) return;
     try {
-      const [curRes, ordRes] = await Promise.all([
-        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${companyId}`), { credentials: "include" }),
-        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), { credentials: "include" }).catch(() => null),
+      const [curRes, ordJson] = await Promise.all([
+        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`), {
+          credentials: "include",
+        }),
+        getUserCurrencyOrder({ companyId: cid }).catch(() => null),
       ]);
       const curJson = await curRes.json();
       if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
-        setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : []));
+        setCurrencyListOrdered([]);
         return;
       }
-      let codes = curJson.data.map((r) => String(r.code).toUpperCase());
-      if (ordRes) {
-        const ordJson = await ordRes.json();
-        const order = ordJson?.data?.order;
-        if (Array.isArray(order) && order.length) {
-          const set = new Set(codes);
-          const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
-          const rest = codes.filter((c) => !ordered.includes(c));
-          codes = [...ordered, ...rest];
-        }
-      }
-      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : codes));
+      const codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      const ordered = mergeCurrencyCodesWithSavedOrder(codes, ordJson?.data?.order);
+      setCurrencyListOrdered(ordered);
+      setCurrencyPillDisplayOrder(null);
     } catch {
-      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : []));
+      setCurrencyListOrdered([]);
     }
   }, [companyId]);
 
   useEffect(() => {
     if (!companyId || loading) return;
-    if (currencyListOrdered.length > 0) return;
-    void loadCurrencyMeta();
-  }, [companyId, loading, loadCurrencyMeta, currencyListOrdered.length]);
-
-  useEffect(() => {
-    setCurrencyPillDisplayOrder(null);
-  }, [companyId]);
+    void loadCurrencyMeta(companyId);
+  }, [companyId, loading, loadCurrencyMeta]);
 
   useEffect(() => {
     if (showAll) document.body.classList.add("process-page--bank-show-all");
@@ -1422,7 +1413,6 @@ export function useBankProcessListPage() {
         } else {
           setRows([]);
           setTableLoading(true);
-          setCurrencyFilterCode("");
           setCurrencyListOrdered([]);
           setCurrencyPillDisplayOrder(null);
         }
@@ -2134,15 +2124,17 @@ export function useBankProcessListPage() {
 
   const persistOrderedCompanyCurrencies = useCallback(
     async (orderedPills) => {
+      const cid = Number(companyId);
+      if (!Number.isFinite(cid) || cid <= 0) return;
       const companySet = new Set(currencyListOrdered);
       const apiOrder = orderedPills.filter((c) => companySet.has(c));
       if (apiOrder.length === 0) return;
-      const json = await saveUserCurrencyOrder(apiOrder);
+      const json = await saveUserCurrencyOrder(apiOrder, { companyId: cid });
       if (!json?.success) return;
       const tail = currencyListOrdered.filter((c) => !apiOrder.includes(c));
       setCurrencyListOrdered([...apiOrder, ...tail]);
     },
-    [currencyListOrdered]
+    [companyId, currencyListOrdered],
   );
 
   const onCurrencyPillDrop = useCallback(

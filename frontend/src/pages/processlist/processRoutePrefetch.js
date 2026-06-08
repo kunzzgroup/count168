@@ -1,4 +1,5 @@
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import { mergeCurrencyCodesWithSavedOrder } from "../../utils/company/currencyDisplayOrder.js";
 import { normalizeRows as normalizeGamesProcessRows, processListCacheHasRows } from "./processListHelpers.js";
 import { normalizeRows as normalizeBankProcessRows } from "../bankprocesslist/lib/bankProcessHelpers.js";
 
@@ -75,7 +76,9 @@ export async function fetchGamesProcessListSlice(
   if (showAll) listUrl.searchParams.set("showAll", "1");
 
   const curUrl = buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`);
-  const ordUrl = buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`);
+  const ordUrl = buildApiUrl(
+    `api/transactions/user_currency_order_api.php?company_id=${cid}&_t=${Date.now()}`,
+  );
 
   try {
     const fetchOpts = { credentials: "include", signal };
@@ -94,22 +97,17 @@ export async function fetchGamesProcessListSlice(
 
     let currencyCodes = null;
     if (curRes.ok && curJson?.success && Array.isArray(curJson.data)) {
-      let codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      const codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      let savedOrder = null;
       if (ordRes) {
         try {
           const ordJson = await ordRes.json();
-          const order = ordJson?.data?.order;
-          if (Array.isArray(order) && order.length) {
-            const set = new Set(codes);
-            const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
-            const rest = codes.filter((c) => !ordered.includes(c));
-            codes = [...ordered, ...rest];
-          }
+          savedOrder = ordJson?.data?.order;
         } catch {
           /* optional order */
         }
       }
-      currencyCodes = codes;
+      currencyCodes = mergeCurrencyCodesWithSavedOrder(codes, savedOrder);
     }
 
     return { rows, currencyCodes };
@@ -132,11 +130,15 @@ export async function prefetchBankProcessListPayload(companyId, { search = "" } 
   if (q) listUrl.searchParams.set("search", q);
 
   const curUrl = buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`);
+  const ordUrl = buildApiUrl(
+    `api/transactions/user_currency_order_api.php?company_id=${cid}&_t=${Date.now()}`,
+  );
 
   try {
-    const [listRes, curRes] = await Promise.all([
+    const [listRes, curRes, ordRes] = await Promise.all([
       fetch(listUrl.toString(), { credentials: "include" }),
       fetch(curUrl, { credentials: "include" }),
+      fetch(ordUrl, { credentials: "include" }).catch(() => null),
     ]);
     const listJson = await listRes.json();
     const curJson = await curRes.json();
@@ -148,7 +150,17 @@ export async function prefetchBankProcessListPayload(companyId, { search = "" } 
 
     let currencyCodes = null;
     if (curRes.ok && curJson?.success && Array.isArray(curJson.data)) {
-      currencyCodes = curJson.data.map((r) => String(r.code).toUpperCase());
+      const codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      let savedOrder = null;
+      if (ordRes) {
+        try {
+          const ordJson = await ordRes.json();
+          savedOrder = ordJson?.data?.order;
+        } catch {
+          /* optional order */
+        }
+      }
+      currencyCodes = mergeCurrencyCodesWithSavedOrder(codes, savedOrder);
     }
 
     return { rows, currencyCodes };
