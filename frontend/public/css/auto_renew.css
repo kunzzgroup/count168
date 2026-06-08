@@ -561,7 +561,7 @@ body.auto-renew-page-body .auto-renew-btn {
   cursor: pointer;
   border: none;
   white-space: nowrap;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  transition: transform 0.12s ease, background 0.12s ease, opacity 0.12s ease;
 }
 
 body.auto-renew-page-body .auto-renew-btn--sm {
@@ -579,30 +579,28 @@ body.auto-renew-page-body .auto-renew-btn:not(:disabled):active {
 body.auto-renew-page-body .auto-renew-btn-primary {
   background: var(--btn-add-gradient);
   color: #fff;
-  box-shadow: var(--shadow-btn-add-page);
+  box-shadow: none;
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary:not(:disabled):hover {
   background: var(--btn-add-gradient-hover);
-  box-shadow: var(--shadow-btn-add-page-hover);
   transform: translateY(-1px);
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary {
-  background: #fff;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: var(--gradient-domain-muted-action, linear-gradient(180deg, #bcbcbc 0%, #585858 100%));
+  color: #fff;
+  border: none;
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary:not(:disabled):hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: var(--gradient-domain-muted-action-hover, linear-gradient(180deg, #585858 0%, #bcbcbc 100%));
+  transform: translateY(-1px);
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary:disabled {
