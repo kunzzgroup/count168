@@ -1232,6 +1232,7 @@ try {
         $params[] = $search_txn_bind;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
+        $params[] = $search_txn_bind;
         if (!$search_is_group_ledger) {
             $params[] = $company_id;
         }
