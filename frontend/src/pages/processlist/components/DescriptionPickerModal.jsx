@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import ConfirmDeleteModal, { CONFIRM_DELETE_NESTED_Z_INDEX } from "../../../components/ConfirmDeleteModal.jsx";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { normalizeDescriptionName } from "../processListHelpers.js";
 
@@ -164,22 +165,17 @@ export default function DescriptionPickerModal({
         </div>
       </div>
 
-      {deleteConfirmId != null && (
-        <div className="process-modal" style={{ display: "block", zIndex: 10060 }} role="dialog" aria-modal="true">
-          <div className="process-confirm-modal-content" style={{ maxWidth: 420 }}>
-            <h2 className="process-confirm-title">{t("deleteDescriptionTitle")}</h2>
-            <p className="process-confirm-message">{t("deleteDescriptionConfirm")}</p>
-            <div className="process-confirm-actions">
-              <button type="button" className="process-btn process-btn-cancel confirm-cancel" onClick={() => setDeleteConfirmId(null)}>
-                {t("cancel")}
-              </button>
-              <button type="button" className="process-btn process-btn-delete confirm-delete" disabled={ro} onClick={() => !ro && void runDelete()}>
-                {t("delete")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        open={deleteConfirmId != null}
+        title={t("deleteDescriptionTitle")}
+        message={t("deleteDescriptionConfirm")}
+        cancelLabel={t("cancel")}
+        confirmLabel={t("delete")}
+        zIndex={CONFIRM_DELETE_NESTED_Z_INDEX}
+        confirmDisabled={ro}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={() => void runDelete()}
+      />
     </div>
     </ProcessModalPortal>
   );
