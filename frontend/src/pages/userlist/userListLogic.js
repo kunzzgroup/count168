@@ -119,7 +119,7 @@ export function getRoleTemplateSidebarList(role) {
   if (!role) return [];
   const adminDefault = ["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"];
   const rolePermissions = {
-    partnership: adminDefault,
+    partnership: PERMISSION_KEYS,
     admin: adminDefault,
     manager: ["admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     supervisor: ["admin", "account", "process", "datacapture", "payment", "report"],
@@ -155,7 +155,7 @@ export function getFinalPermissionsForCreation(selectedRole, manuallySelected, c
   const cur = normRole(currentUserRole);
   const currentUserPermissions = getCurrentUserRolePermissions(cur);
   const rolePerms = {
-    partnership: ["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
+    partnership: PERMISSION_KEYS,
     admin: ["home", "admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     manager: ["admin", "account", "process", "datacapture", "payment", "report", "maintenance"],
     supervisor: ["admin", "account", "process", "datacapture", "payment", "report"],
