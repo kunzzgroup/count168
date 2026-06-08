@@ -632,6 +632,9 @@ export function useBankProcessListPage() {
         monthLabels: bpLocale.monthsShort,
         onChange: handleDatePickerChange,
       });
+      requestAnimationFrame(() => {
+        window.MaintenanceDateRangePicker?.syncBankToolbarDatePillWidth?.();
+      });
       const clearBtn = document.getElementById("processListDateClearBtn");
       if (clearBtn) {
         clearBtn.addEventListener("click", (e) => {

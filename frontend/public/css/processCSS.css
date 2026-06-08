@@ -1515,24 +1515,25 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     flex-shrink: 0;
 }
 
-/* Bank Process 顶栏日期：宽度随内容（完整显示 DD/MM/YYYY - DD/MM/YYYY，无多余空白） */
+/* Bank Process 顶栏日期：未选/已选药丸同宽（--bank-toolbar-date-pill-width 由 JS 按已选状态测量） */
 body.process-page.process-page--bank {
     --bank-toolbar-calendar-min: 280px;
+    --bank-toolbar-date-pill-width: 252px;
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .process-list-date-filter.transaction-date-range-group {
-    width: fit-content !important;
-    min-width: 0 !important;
-    max-width: min(calc(100vw - 24px), max-content) !important;
+    width: var(--bank-toolbar-date-pill-width) !important;
+    min-width: var(--bank-toolbar-date-pill-width) !important;
+    max-width: var(--bank-toolbar-date-pill-width) !important;
     flex: 0 0 auto;
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
-    width: fit-content !important;
-    min-width: fit-content !important;
-    max-width: min(calc(100vw - 24px), max-content) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     padding-right: clamp(6px, 0.5vw, 10px) !important;
     gap: clamp(3px, 0.3vw, 5px);
     box-sizing: border-box;
@@ -1540,10 +1541,10 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display {
-    flex: 0 0 auto;
-    min-width: max-content;
-    overflow: visible;
-    text-overflow: clip;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: clamp(10px, 0.72vw, 12px);
     font-weight: 700;
     padding-right: 0;

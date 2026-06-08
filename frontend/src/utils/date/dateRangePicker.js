@@ -3,8 +3,10 @@
  * `window.changeMonth`, `window.selectQuickRange`, `window.toggleQuickSelectDropdown` for DOM markup (#date-range-picker, #calendar-popup, …).
  */
 const CALENDAR_POPUP_ID = "calendar-popup";
-/** Bank Process 顶栏：日历弹层最小宽（输入框 fit-content 可更窄，但日历需完整显示 7 列） */
+/** Bank Process 顶栏：日历弹层最小宽（输入框可更窄，但日历需完整显示 7 列） */
 const BANK_TOOLBAR_CALENDAR_MIN_PX = 280;
+/** 测量已选药丸宽度用的最长日期文本（DD/MM/YYYY - DD/MM/YYYY） */
+const BANK_TOOLBAR_DATE_MEASURE_TEXT = "31/12/2026 - 31/12/2026";
 
 export function isMaintenanceCalendarOpen() {
   const popup = document.getElementById(CALENDAR_POPUP_ID);
@@ -185,6 +187,68 @@ export function ensureMaintenanceDateRangePicker() {
     if (!picker || !display) return;
     const placeholder = config.placeholder || "Select date range";
     picker.classList.toggle("has-selected-range", display.textContent.trim() !== placeholder);
+  }
+
+  /** Bank Process 顶栏：锁定药丸宽度 = 已选完整日期范围时的宽度（未选/已选一致） */
+  function syncBankToolbarDatePillWidth() {
+    const picker = document.querySelector(
+      ".bank-process-toolbar-primary .transaction-date-range-group .date-range-picker",
+    );
+    if (!picker) return;
+
+    const display = picker.querySelector("#date-range-display");
+    const group = picker.closest(".process-list-date-filter");
+    if (!display) return;
+
+    const saved = {
+      text: display.textContent,
+      hasSelected: picker.classList.contains("has-selected-range"),
+      pickerWidth: picker.style.width,
+      pickerMinWidth: picker.style.minWidth,
+      pickerMaxWidth: picker.style.maxWidth,
+      groupWidth: group?.style.width ?? "",
+      groupMinWidth: group?.style.minWidth ?? "",
+      groupMaxWidth: group?.style.maxWidth ?? "",
+    };
+
+    picker.classList.add("has-selected-range");
+    display.textContent = BANK_TOOLBAR_DATE_MEASURE_TEXT;
+    picker.style.width = "fit-content";
+    picker.style.minWidth = "fit-content";
+    picker.style.maxWidth = "none";
+    if (group) {
+      group.style.width = "fit-content";
+      group.style.minWidth = "fit-content";
+      group.style.maxWidth = "none";
+    }
+
+    const width = Math.ceil(picker.getBoundingClientRect().width);
+
+    display.textContent = saved.text;
+    picker.classList.toggle("has-selected-range", saved.hasSelected);
+    picker.style.width = saved.pickerWidth;
+    picker.style.minWidth = saved.pickerMinWidth;
+    picker.style.maxWidth = saved.pickerMaxWidth;
+    if (group) {
+      group.style.width = saved.groupWidth;
+      group.style.minWidth = saved.groupMinWidth;
+      group.style.maxWidth = saved.groupMaxWidth;
+    }
+
+    document.documentElement.style.setProperty("--bank-toolbar-date-pill-width", `${width}px`);
+  }
+
+  let bankToolbarDatePillResizeBound = false;
+  function bindBankToolbarDatePillResize() {
+    if (bankToolbarDatePillResizeBound || typeof window === "undefined") return;
+    bankToolbarDatePillResizeBound = true;
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      if (resizeTimer) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        syncBankToolbarDatePillWidth();
+      }, 120);
+    });
   }
 
   function updateDateRangeDisplay(displayIdOverride) {
@@ -865,6 +929,7 @@ export function ensureMaintenanceDateRangePicker() {
     refreshInputsDisplay(binding) {
       paintDisplayFromDomHiddens(binding || activeRangeBinding);
     },
+    syncBankToolbarDatePillWidth,
     init(options) {
       if (options) {
         config = { ...config, ...options };
@@ -900,6 +965,10 @@ export function ensureMaintenanceDateRangePicker() {
       updateDateRangeDisplay();
 
       bindDateRangePickers();
+      bindBankToolbarDatePillResize();
+      requestAnimationFrame(() => {
+        syncBankToolbarDatePillWidth();
+      });
       const monthSelect = document.getElementById("calendar-month-select");
       const yearSelect = document.getElementById("calendar-year-select");
       if (monthSelect) {
