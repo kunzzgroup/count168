@@ -189,7 +189,7 @@ export function ensureMaintenanceDateRangePicker() {
     picker.classList.toggle("has-selected-range", display.textContent.trim() !== placeholder);
   }
 
-  /** Bank Process 顶栏：锁定药丸宽度 = max(已选日期, placeholder)，紧凑且无多余空白 */
+  /** Bank Process 顶栏：锁定药丸宽度 = 已选完整日期范围时的宽度（未选/已选一致） */
   function syncBankToolbarDatePillWidth() {
     const picker = document.querySelector(
       ".bank-process-toolbar-primary .transaction-date-range-group .date-range-picker",
@@ -203,25 +203,38 @@ export function ensureMaintenanceDateRangePicker() {
     const saved = {
       text: display.textContent,
       hasSelected: picker.classList.contains("has-selected-range"),
+      pickerWidth: picker.style.width,
+      pickerMinWidth: picker.style.minWidth,
+      pickerMaxWidth: picker.style.maxWidth,
+      groupWidth: group?.style.width ?? "",
+      groupMinWidth: group?.style.minWidth ?? "",
+      groupMaxWidth: group?.style.maxWidth ?? "",
     };
 
-    const measureWith = (text, withClear) => {
-      picker.classList.toggle("has-selected-range", withClear);
-      display.textContent = text;
-      group?.classList.add("bank-toolbar-date-pill-measuring");
-      void picker.offsetWidth;
-      return Math.ceil(picker.getBoundingClientRect().width);
-    };
+    picker.classList.add("has-selected-range");
+    display.textContent = BANK_TOOLBAR_DATE_MEASURE_TEXT;
+    picker.style.width = "fit-content";
+    picker.style.minWidth = "fit-content";
+    picker.style.maxWidth = "none";
+    if (group) {
+      group.style.width = "fit-content";
+      group.style.minWidth = "fit-content";
+      group.style.maxWidth = "none";
+    }
 
-    const placeholder = config.placeholder || "Select date range";
-    const selectedWidth = measureWith(BANK_TOOLBAR_DATE_MEASURE_TEXT, true);
-    const placeholderWidth = measureWith(placeholder, false);
-    group?.classList.remove("bank-toolbar-date-pill-measuring");
+    const width = Math.ceil(picker.getBoundingClientRect().width);
 
     display.textContent = saved.text;
     picker.classList.toggle("has-selected-range", saved.hasSelected);
+    picker.style.width = saved.pickerWidth;
+    picker.style.minWidth = saved.pickerMinWidth;
+    picker.style.maxWidth = saved.pickerMaxWidth;
+    if (group) {
+      group.style.width = saved.groupWidth;
+      group.style.minWidth = saved.groupMinWidth;
+      group.style.maxWidth = saved.groupMaxWidth;
+    }
 
-    const width = Math.max(selectedWidth, placeholderWidth);
     document.documentElement.style.setProperty("--bank-toolbar-date-pill-width", `${width}px`);
   }
 
@@ -908,9 +921,6 @@ export function ensureMaintenanceDateRangePicker() {
         if (btn) btn.textContent = partial.clearDateLabel;
       }
       updateCalendarClearFooter();
-      if (partial.placeholder) {
-        requestAnimationFrame(() => syncBankToolbarDatePillWidth());
-      }
     },
     getActiveRangeBinding() {
       return { ...activeRangeBinding };
