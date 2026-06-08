@@ -3,6 +3,8 @@
  * `window.changeMonth`, `window.selectQuickRange`, `window.toggleQuickSelectDropdown` for DOM markup (#date-range-picker, #calendar-popup, …).
  */
 const CALENDAR_POPUP_ID = "calendar-popup";
+/** Bank Process 顶栏：日历弹层最小宽（输入框 fit-content 可更窄，但日历需完整显示 7 列） */
+const BANK_TOOLBAR_CALENDAR_MIN_PX = 280;
 
 export function isMaintenanceCalendarOpen() {
   const popup = document.getElementById(CALENDAR_POPUP_ID);
@@ -628,10 +630,13 @@ export function ensureMaintenanceDateRangePicker() {
           : bankListDateAnchor;
         rect = anchorEl.getBoundingClientRect();
         barWidth = rect.width;
-        document.body.style.setProperty(
-          "--bank-toolbar-date-width",
-          `${Math.max(1, Math.round(barWidth))}px`,
+        const anchorWidth = Math.max(1, Math.round(barWidth));
+        const popupWidth = Math.min(
+          Math.max(anchorWidth, BANK_TOOLBAR_CALENDAR_MIN_PX),
+          Math.max(BANK_TOOLBAR_CALENDAR_MIN_PX, window.innerWidth - 24),
         );
+        document.body.style.setProperty("--bank-toolbar-date-width", `${popupWidth}px`);
+        barWidth = popupWidth;
       } else if (shell) {
         rect = shell.getBoundingClientRect();
         barWidth = rect.width;
@@ -653,7 +658,10 @@ export function ensureMaintenanceDateRangePicker() {
         if (bankWrap || matchToolbarDateAnchor) {
           const anchorWidth = Math.max(1, Math.round(barWidth));
           popup.classList.add("calendar-popup--match-anchor");
-          popup.style.left = `${rect.left}px`;
+          const popupLeft = matchToolbarDateAnchor
+            ? Math.max(12, Math.min(rect.left, window.innerWidth - anchorWidth - 12))
+            : rect.left;
+          popup.style.left = `${popupLeft}px`;
           popup.style.width = `${anchorWidth}px`;
           popup.style.minWidth = `${anchorWidth}px`;
           popup.style.maxWidth = `${anchorWidth}px`;
