@@ -53,11 +53,20 @@ function getCompanyIdForRequest(PDO $pdo) {
 }
 
 /**
- * 获取公式列表（含搜索、process 筛选），返回原始行
- * 直接 JOIN process 表，避免 GROUP BY 导致同一 process 代码下多条 process 行时只匹配 MIN(id)、
- * 其余模板在 Maintenance 不显示却在 Data Capture Summary 仍显示的问题。
+ * 获取公式列表（含搜索、process 筛选），返回原始行。
+ *
+ * 每条 template 只关联一条 process 行：优先 numeric process_id → process.id 精确匹配，
+ * 否则按 process.process_id 匹配并取 MIN(process.id)。
+ * 避免同一 process 代码存在多条 process 行时 INNER JOIN 产生笛卡尔积，
+ * 在 Process = Select All 时导致 IG 等大组公司内存/超时（HTTP 500）。
  */
 function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $processFilter) {
+    $processMatchSql = "
+        p2.company_id = dct.company_id
+        AND (
+            (dct.process_id REGEXP '^[0-9]+$' AND p2.id = CAST(dct.process_id AS UNSIGNED))
+            OR (p2.process_id = dct.process_id)
+        )";
     $sql = "SELECT 
                 dct.id,
                 dct.process_id,
@@ -84,11 +93,19 @@ function fetchFormulaListRaw(PDO $pdo, int $companyId, string $search, string $p
                 a.name AS account_name,
                 c.code AS currency_code
             FROM data_capture_templates dct
-            INNER JOIN process p ON p.company_id = dct.company_id
-                AND (
-                    (dct.process_id REGEXP '^[0-9]+$' AND p.id = CAST(dct.process_id AS UNSIGNED))
-                    OR (dct.process_id = p.process_id)
-                )
+            INNER JOIN process p ON p.id = (
+                SELECT p2.id
+                FROM process p2
+                WHERE {$processMatchSql}
+                ORDER BY
+                    CASE
+                        WHEN dct.process_id REGEXP '^[0-9]+$'
+                             AND p2.id = CAST(dct.process_id AS UNSIGNED) THEN 0
+                        ELSE 1
+                    END,
+                    p2.id ASC
+                LIMIT 1
+            )
             LEFT JOIN description d ON p.description_id = d.id
             LEFT JOIN account a ON dct.account_id = a.id
             LEFT JOIN currency c ON dct.currency_id = c.id
@@ -242,7 +259,11 @@ try {
     $list = mapRowsToDisplay($rows);
     jsonResponse(true, 'success', ['list' => $list, 'total' => count($list)]);
 } catch (PDOException $e) {
+    error_log('Formula list API PDO error: ' . $e->getMessage());
     jsonResponse(false, '数据库错误: ' . $e->getMessage(), null, 500);
 } catch (Exception $e) {
     jsonResponse(false, $e->getMessage(), null, 400);
+} catch (Throwable $e) {
+    error_log('Formula list API error: ' . $e->getMessage());
+    jsonResponse(false, $e->getMessage(), null, 500);
 }
