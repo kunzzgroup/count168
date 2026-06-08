@@ -814,7 +814,7 @@ body.datacapture-summary-page .btn-add {
     font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
     display: flex;
@@ -837,7 +837,7 @@ body.datacapture-summary-page .btn-add {
 body.datacapture-page .btn-add:hover,
 body.datacapture-summary-page .btn-add:hover {
     background: var(--btn-add-gradient-hover);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    box-shadow: var(--shadow-btn-add-page-hover);
     transform: translateY(-1px);
 }
 
@@ -2504,7 +2504,7 @@ body.datacapture-summary-page .btn-save {
     font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
     display: flex;
@@ -2518,7 +2518,7 @@ body.datacapture-summary-page .btn-save {
 body.datacapture-page .btn-save:hover,
 body.datacapture-summary-page .btn-save:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%) !important;
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    box-shadow: var(--shadow-btn-add-page-hover);
     transform: translateY(-1px);
 }
 
@@ -3450,7 +3450,7 @@ body.user-page .pagination-container {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
 }
 
 /* Account and Process item hover styles */

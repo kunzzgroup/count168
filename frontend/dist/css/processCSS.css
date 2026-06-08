@@ -322,7 +322,7 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
 }
 
 /* Buttons - mirror user list styles */
@@ -350,7 +350,7 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
     display: flex;
@@ -369,7 +369,7 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
 
 .process-page .content .btn-add:hover {
     background: var(--btn-add-gradient-hover);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    box-shadow: var(--shadow-btn-add-page-hover);
     transform: translateY(-1px);
 }
 
@@ -3599,7 +3599,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
     white-space: nowrap;
@@ -3613,7 +3613,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 .process-page .btn-save:hover {
     background: var(--btn-add-gradient-hover);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    box-shadow: var(--shadow-btn-add-page-hover);
 }
 
 .process-page .btn-save:active {
@@ -4645,7 +4645,7 @@ body.process-page > .process-modal {
     border: 1px solid transparent;
     background: var(--btn-add-gradient);
     color: var(--color-surface, #fff);
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.28);
+    box-shadow: var(--shadow-btn-add-page);
 }
 
 .process-page .btn-multi-process-toggle:hover:not(:disabled),
@@ -4663,7 +4663,7 @@ body.process-page > .process-modal {
     border-color: transparent;
     background: var(--btn-add-gradient-hover);
     color: var(--color-surface, #fff);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.35);
+    box-shadow: var(--shadow-btn-add-page-hover);
     transform: translateY(-1px);
 }
 
@@ -4934,7 +4934,7 @@ body.process-page > .process-modal {
     border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.4) !important;
     background: var(--btn-add-gradient) !important;
     color: var(--color-surface, #fff) !important;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+    box-shadow: var(--shadow-btn-add-page) !important;
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
@@ -4948,7 +4948,7 @@ body.process-page > .process-modal {
 .process-form-modal .btn-multi-use-confirm:hover:not(:disabled),
 #addModal .btn-multi-use-confirm:hover:not(:disabled) {
     background: var(--btn-add-gradient-hover) !important;
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
+    box-shadow: var(--shadow-btn-add-page-hover) !important;
     transform: translateY(-1px);
 }
 
@@ -5329,7 +5329,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     padding: 0 calc(var(--space-gap, 0.75rem) * 0.65);
     background: var(--btn-add-gradient);
     color: var(--color-surface);
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
 }
 
 .modal-content.description-selection-modal .add-description-input-group .btn:hover:not(:disabled),
@@ -6624,7 +6624,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 #editModal .add-actions .btn-save {
     background: var(--btn-add-gradient) !important;
     color: #ffffff !important;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+    box-shadow: var(--shadow-btn-add-page) !important;
 }
 
 #addModal .add-actions .btn-save:hover,
@@ -6632,7 +6632,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     background: var(--btn-add-gradient-hover) !important;
     color: #ffffff !important;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
+    box-shadow: var(--shadow-btn-add-page-hover) !important;
 }
 
 #addModal .add-actions .btn-save:active,
@@ -7378,7 +7378,7 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     height: clamp(2rem, 2.2vw, 2.35rem);
     font-size: var(--text-h3);
     background: var(--btn-add-gradient);
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.25);
+    box-shadow: var(--shadow-btn-add-page);
 }
 
 .process-form-modal .add-icon:hover:not(:disabled),
@@ -7426,7 +7426,7 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
 #editModal .modal-content.process-form-modal .process-form-modal-footer .btn-save {
     background: var(--btn-add-gradient) !important;
     color: var(--color-surface, #fff) !important;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+    box-shadow: var(--shadow-btn-add-page) !important;
 }
 
 .process-form-modal .process-form-modal-footer .btn-save:hover:not(:disabled),

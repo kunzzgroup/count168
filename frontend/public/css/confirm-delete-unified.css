@@ -114,17 +114,17 @@
   opacity: 0.9 !important;
 }
 
-/* Approve confirm — blue primary (Auto Renew Approve button) */
+/* Approve confirm — blue primary (Auto Renew Approve / Add Process) */
 .confirm-delete-modal-content .confirm-approve,
 .domain-confirm-modal-content .confirm-approve {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28) !important;
+  background: var(--btn-add-gradient) !important;
+  box-shadow: var(--shadow-btn-add-page) !important;
 }
 
 .confirm-delete-modal-content .confirm-approve:hover:not(:disabled),
 .domain-confirm-modal-content .confirm-approve:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+  background: var(--btn-add-gradient-hover) !important;
+  box-shadow: var(--shadow-btn-add-page-hover) !important;
   transform: translateY(-1px) !important;
 }
 

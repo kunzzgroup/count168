@@ -94,9 +94,9 @@
   --color-danger: #ef4444;
   --color-success: #22c55e;
 
-  /* --- 按钮渐变色（Add / Delete 共用，含 hover）--- */
-  --btn-add-gradient: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
-  --btn-add-gradient-hover: linear-gradient(180deg, #0d60ff 0%, #63c4ff 100%);
+  /* --- 按钮渐变色（Add / 主操作蓝，含 hover；与 Auto Renew Approve 一致）--- */
+  --btn-add-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  --btn-add-gradient-hover: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   --btn-delete-gradient: linear-gradient(180deg, #f30e12 0%, #a91215 100%);
   --btn-delete-gradient-hover: linear-gradient(180deg, #a91215 0%, #f30e12 100%);
 
@@ -302,9 +302,9 @@
   --color-control-accent-border: #5b21b6;
   --color-text-inverse: #ffffff;
   --color-text-inverse-soft: rgba(255, 255, 255, 0.85);
-  --shadow-btn-primary: 0 2px 8px rgba(13, 96, 255, 0.28);
-  --shadow-btn-primary-soft: 0 2px 8px rgba(13, 96, 255, 0.26);
-  --shadow-group-pill-active: 0 2px 6px rgba(0, 123, 255, 0.3);
+  --shadow-btn-primary: 0 2px 8px rgba(37, 99, 235, 0.28);
+  --shadow-btn-primary-soft: 0 2px 8px rgba(37, 99, 235, 0.26);
+  --shadow-group-pill-active: 0 2px 6px rgba(37, 99, 235, 0.3);
   --shadow-row-surface: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-footer-muted: 0 2px 8px rgba(71, 85, 105, 0.22);
   --shadow-input-focus: 0 0 0 2px rgba(99, 102, 241, 0.12);
@@ -312,8 +312,8 @@
   --gradient-btn-secondary-footer: linear-gradient(180deg, #94a3b8 0%, #575c66 100%);
   --gradient-btn-fee-toolbar: linear-gradient(180deg, #aab8c2 0%, #657786 100%);
   --gradient-btn-fee-toolbar-hover: linear-gradient(180deg, #9ca9b4 0%, #5a6a78 100%);
-  --shadow-btn-add-page: 0 2px 4px rgba(0, 123, 255, 0.3);
-  --shadow-btn-add-page-hover: 0 4px 8px rgba(0, 123, 255, 0.4);
+  --shadow-btn-add-page: 0 2px 8px rgba(37, 99, 235, 0.28);
+  --shadow-btn-add-page-hover: 0 4px 12px rgba(37, 99, 235, 0.35);
   --shadow-btn-fee: 0 2px 4px rgba(101, 119, 134, 0.2);
   --shadow-btn-fee-hover: 0 4px 8px rgba(101, 119, 134, 0.3);
   --color-surface-warn-tint: #fffbeb;

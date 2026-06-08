@@ -1622,13 +1622,13 @@
 .process-page #addBankModal .bank-actions .btn-save {
     background: var(--btn-add-gradient);
     color: #ffffff;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
 }
 
 .process-page #addBankModal .bank-actions .btn-save:hover {
     background: var(--btn-add-gradient-hover);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    box-shadow: var(--shadow-btn-add-page-hover);
 }
 
 .process-page #addBankModal .bank-actions .btn-save:active {
@@ -1796,14 +1796,14 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
     text-align: center;
     background: var(--btn-add-gradient);
     color: #ffffff;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
     --sweep-color: rgba(255, 255, 255, 0.2);
 }
 
 .process-page #addBankModal .bank-remark-actions .bank-note-open-btn:hover {
     background: var(--btn-add-gradient-hover);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    box-shadow: var(--shadow-btn-add-page-hover);
 }
 
 .process-page #addBankModal .bank-remark-actions .bank-note-open-btn:active {

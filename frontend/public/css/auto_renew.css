@@ -577,13 +577,15 @@ body.auto-renew-page-body .auto-renew-btn:not(:disabled):active {
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--btn-add-gradient);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+  box-shadow: var(--shadow-btn-add-page);
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary:not(:disabled):hover {
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  background: var(--btn-add-gradient-hover);
+  box-shadow: var(--shadow-btn-add-page-hover);
+  transform: translateY(-1px);
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary:disabled {
