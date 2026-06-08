@@ -1776,7 +1776,12 @@ export default function UserListPage() {
 
   const applyPermTemplate = (role, force) => {
     if (isEditMode && !force) return;
-    const next = new Set(); getRoleTemplateSidebarList(role).forEach((k) => next.add(k)); setPermSelected(next);
+    const next = new Set();
+    getRoleTemplateSidebarList(role).forEach((k) => next.add(k));
+    setPermSelected(next);
+    if (roleHasReadOnlyToggle(role)) {
+      setForm((f) => ({ ...f, read_only: true }));
+    }
   };
 
   const openEdit = async (row) => {
