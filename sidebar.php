@@ -679,6 +679,9 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                     // 报表 / Maintenance 筛选区
                     if (el.closest && el.closest('.maintenance-search-section')) return true;
                     if (el.closest && el.closest('.customer-report-filter-container')) return true;
+                    // Ownership：Tab 切换、Manage 展开查阅（写入由 ownership.js 拦截）
+                    if (el.closest && el.closest('.own-tab-bar')) return true;
+                    if (el.closest && el.closest('.own-card-header-right')) return true;
                     // Ownership 分组筛选（不含 Select 编辑按钮）
                     if (el.closest && el.closest('.own-gfb-buttons')) return true;
                     // Data Capture 分类筛选
