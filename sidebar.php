@@ -669,6 +669,20 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                     if (el.closest && el.closest('.shared-company-wrapper')) return true;
                     if (el.closest && el.closest('.shared-group-wrapper')) return true;
                     if (el.closest && el.closest('[data-readonly-filter-area="1"]')) return true;
+                    // Dashboard：日期/快捷区间/图表图例开关
+                    if (el.closest && el.closest('.dashboard-card--filters')) return true;
+                    if (el.closest && el.closest('.dashboard-date-controls')) return true;
+                    if (el.closest && el.closest('.dashboard-chart-buttons')) return true;
+                    if (el.classList && el.classList.contains('chart-toggle-btn')) return true;
+                    if (el.closest && el.closest('.date-range-picker')) return true;
+                    if (el.closest && el.closest('.enhanced-date-picker')) return true;
+                    // 报表 / Maintenance 筛选区
+                    if (el.closest && el.closest('.maintenance-search-section')) return true;
+                    if (el.closest && el.closest('.customer-report-filter-container')) return true;
+                    // Ownership 分组筛选（不含 Select 编辑按钮）
+                    if (el.closest && el.closest('.own-gfb-buttons')) return true;
+                    // Data Capture 分类筛选
+                    if (el.closest && el.closest('.data-capture-permission-filter-header')) return true;
                     // 仅查看收件箱：保留打开/刷新；禁止 Approve/Reject
                     if (el.closest && el.closest('#contraInboxWrap')) {
                         if (el.classList && (el.classList.contains('contra-inbox-approve') || el.classList.contains('contra-inbox-reject'))) {
