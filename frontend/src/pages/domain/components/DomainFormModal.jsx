@@ -584,15 +584,11 @@ export default function DomainFormModal({
           <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={handleSubmit}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
             <div className="domain-form-modal-body px-9 py-6">
-              <div className="dfm-grid-two dfm-section-row">
+              {/* DOMAIN INFORMATION — 全宽上下布局（对齐设计图） */}
+              <section className="dfm-section-block">
                 <div className="dfm-section-heading">{t("domainInformation")}</div>
-                <div className="dfm-section-heading">{t("companyInformation")}</div>
-              </div>
-              <div className="dfm-section-divider h-[2.5px] w-full bg-blue-900" />
-              <div className="dfm-grid-two">
-                {/* Left: Domain info — row1: owner / name / password; row2: email / secondary password */}
-                <div className="dfm-col-left min-w-0">
-                  <div className="dfm-domain-grid">
+                <div className="dfm-section-divider h-[2.5px] w-full bg-blue-900" />
+                <div className="dfm-domain-grid">
                     <div className="dfm-field dfm-field--owner-code">
                       <label htmlFor="df_owner_code">{t("ownerCode")} *</label>
                       <input
@@ -650,11 +646,14 @@ export default function DomainFormModal({
                         <small className="dfm-helper-text">{t("secondaryPwdRequirement")}</small>
                       </div>
                     )}
-                  </div>
                 </div>
+              </section>
 
-                {/* Right: Company info — row1: group id / company id / group pills; row2: selected groups / companies */}
-                <div className="dfm-col-right flex min-w-0 flex-col">
+              {/* COMPANY INFORMATION — 全宽，位于 Domain 下方 */}
+              <section className="dfm-section-block dfm-section-block--company">
+                <div className="dfm-section-heading">{t("companyInformation")}</div>
+                <div className="dfm-section-divider h-[2.5px] w-full bg-blue-900" />
+                <div className="dfm-company-section">
                   <div className="dfm-company-grid-row1">
                     <div className="dfm-field dfm-field--group-input">
                       <label htmlFor="df_group_input">{t("groupIdLabel")}</label>
@@ -761,7 +760,7 @@ export default function DomainFormModal({
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
             <div className="dfm-footer-actions flex flex-wrap items-center justify-center border-t-[2.5px] border-blue-900 bg-white px-9 py-[18px]">
               <button type="submit" className="dfm-footer-btn dfm-footer-btn--primary">{t("confirm")}</button>

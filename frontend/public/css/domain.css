@@ -124,18 +124,18 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
     background-color: var(--color-surface) !important;
 }
 
-/* 两栏同高拉伸，避免左列较矮时中部露出「灰底」视感 */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-grid-two {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 48px;
-    align-items: stretch;
+/* 设计图：DOMAIN / COMPANY 上下全宽堆叠，非左右分栏 */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-block {
+    width: 100%;
+    background-color: var(--color-surface);
 }
 
-/* 图二：标题行位置与横线间距 */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-row {
-    margin: 6px 0 12px 0 !important;
-    align-items: end;
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-block--company {
+    margin-top: 28px !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-block .dfm-section-heading {
+    margin: 0 0 12px 0 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-divider {
@@ -144,11 +144,9 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-divider {
     background-color: var(--color-domain-section-rule) !important;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-col-left,
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-col-right {
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-section {
+    width: 100%;
     min-width: 0;
-    min-height: 100%;
-    background-color: var(--color-surface);
 }
 
 /* DOMAIN INFORMATION — row1: owner / name / password; row2: email (span 2) / secondary password（与 password 同列对齐） */
@@ -279,44 +277,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field
     margin-top: 0 !important;
 }
 
-/* 并排列表：单行「名称｜日期｜Set｜Remove」，与参考图一致 */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list > .company-item {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) auto auto !important;
-    grid-template-rows: auto !important;
-    padding: 8px 10px !important;
-    column-gap: 8px !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item-left {
-    grid-column: 1 !important;
-    grid-row: 1 !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .exp-date-display {
-    grid-column: 2 !important;
-    grid-row: 1 !important;
-    justify-self: center !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .company-reset-btn {
-    grid-column: 3 !important;
-    grid-row: 1 !important;
-    padding: 4px 10px !important;
-    min-width: 40px !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .company-remove-btn {
-    grid-column: 4 !important;
-    grid-row: 1 !important;
-    padding: 4px 8px !important;
-    min-width: 52px !important;
-}
-
 @media (max-width: 760px) {
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-grid-two {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
     body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid,
     body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1,
     body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 {
