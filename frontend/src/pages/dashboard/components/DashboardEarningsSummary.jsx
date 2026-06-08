@@ -314,9 +314,7 @@ export function DashboardEarningsSummary({
                       : earningsBreakdownShowsRate
                         ? unitRateLabel && unitRateLabel !== "—"
                           ? unitRateLabel
-                          : exchangeRatesLoading
-                            ? "…"
-                            : "—"
+                          : "—"
                         : `${sharePct.toFixed(1)}%`}
                   </span>
                 </div>

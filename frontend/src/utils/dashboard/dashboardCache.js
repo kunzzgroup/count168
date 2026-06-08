@@ -58,6 +58,19 @@ export function patchDashboardCache(key, patch) {
   setDashboardCache(key, { ...prev, ...patch });
 }
 
+/** Earnings rows are identical across display-currency scopes — reuse from a sibling cache entry. */
+export function findSharedDashboardEarnings(scopeKeys, expectedCount) {
+  const keys = Array.isArray(scopeKeys) ? scopeKeys : [scopeKeys];
+  for (const key of keys) {
+    if (!key) continue;
+    const earnings = store.get(key)?.earnings;
+    if (!Array.isArray(earnings) || !earnings.length) continue;
+    if (expectedCount > 0 && earnings.length !== expectedCount) continue;
+    return earnings;
+  }
+  return null;
+}
+
 export function getDashboardPayloadCache(queryString) {
   return payloadStore.get(queryString) ?? null;
 }
