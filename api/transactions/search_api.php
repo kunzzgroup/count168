@@ -1769,12 +1769,12 @@ try {
         $contra_where_t = contraApprovedWhere($pdo, 't');
 
         $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
-        // wl_count / up_to_count 只统计「量化后金额非 0」的明细行，避免空占位 DCD 让 has_win_loss_* 虚高，
-        // 进而在未勾选 Show 0 balance 时仍被前端 rowPassesHideZeroBalanceFilter 保留。
+        // wl_count：本期所有 Data Capture 明细行（含金额为 0 的账单，供 Show Win/Loss Only 展示）。
+        // up_to_count 仍只计金额非 0 的历史行。
         $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
                        SUM(CASE WHEN dc.capture_date < ? THEN {$dcdQ} ELSE 0 END) AS bf_total,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN {$dcdQ} ELSE 0 END) AS wl_total,
-                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? AND ABS({$dcdQ}) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? 
                                 AND (TRIM(COALESCE(dcd.id_product_main,'')) <> '' OR TRIM(COALESCE(dcd.id_product_sub,'')) <> '')
                                 THEN 1 ELSE 0 END) AS id_product_rows_period,
@@ -1826,7 +1826,7 @@ try {
             }
         }
 
-        // 与 SUM(wl_total) 同行口径：笔数只计「该行对 Win/Loss 的贡献非 0」，避免 0 金额 WIN/LOSE 仍令 has_win_loss_* 为真（Payment History 无实质行但列表仍显示）。
+        // wl_count：本期所有 WIN/LOSE/ADJUSTMENT 笔数（含金额为 0，供 Show Win/Loss Only）。
         // 与 DCD 一致：每笔 transaction 金额先 quant2 再 SUM（dcd_processed_amount_sql_quant2）。
         $txnWlRowContributionSql = '(CASE 
                         WHEN t.transaction_type = \'WIN\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
@@ -1845,7 +1845,7 @@ try {
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
                     $txnWlRowContributionSql
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlRowWinLoseAdj) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
                  SUM(CASE WHEN $wlDateExpr <= ? THEN 
                     CASE WHEN ABS((CASE 
                       WHEN $wlDateExpr < ? THEN $txnWlRowWinLoseAdj
@@ -1882,7 +1882,7 @@ try {
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
                     $txnWlFromInner
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlFromInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
                  SUM(CASE WHEN $wlDateExpr <= ? THEN 
                     CASE WHEN ABS((CASE 
                       WHEN $wlDateExpr < ? THEN $txnWlFromInner
@@ -2033,7 +2033,7 @@ try {
                     END
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN $rateMmAmtQuant2 ELSE 0 END) AS wl_rate_mm,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS($rateMmAmtQuant2) > 0.0000001 THEN 1 ELSE 0 END) AS wl_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS($rateMmAmtQuant2) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN (
                     CASE
@@ -3107,6 +3107,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
         $has_rate_mm = ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
         $has_rate_mm_up_to = ($bulk['entry'][$account_id][$currency_id]['wl_mm_up_to_count'] ?? 0) > 0;
+        // Show Win/Loss Only：本期有 W/L 账单即可（含金额为 0 的 Data Capture / WIN/LOSE / RATE_MIDDLEMAN）。
         $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm || $id_product_rows_period > 0;
         $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
         $win_loss_full = money_normalize($win_loss, 8);
@@ -3152,7 +3153,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
     $dcdQwl = dcd_processed_amount_sql_quant2('dcd.processed_amount');
     $sql = "SELECT COALESCE(SUM({$dcdQwl}), 0) as total,
-                   SUM(CASE WHEN ABS({$dcdQwl}) > 0.0000001 THEN 1 ELSE 0 END) AS cnt
+                   COUNT(*) AS cnt
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
