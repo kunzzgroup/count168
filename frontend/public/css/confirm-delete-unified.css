@@ -81,6 +81,32 @@
   background: var(--color-surface-subtle, #f8fafc);
 }
 
+/* Non-delete confirm (e.g. Reject) — slate action button */
+.confirm-action {
+  background: linear-gradient(180deg, #64748b 0%, #475569 100%) !important;
+  box-shadow: 0 2px 4px rgba(71, 85, 105, 0.3) !important;
+}
+
+.confirm-action:hover:not(:disabled) {
+  background: linear-gradient(180deg, #475569 0%, #64748b 100%) !important;
+  box-shadow: 0 4px 8px rgba(71, 85, 105, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+.confirm-action:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+.confirm-action:disabled,
+.confirm-action:disabled:hover {
+  background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+  color: #f8fafc !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.9 !important;
+}
+
 /* Footer layout — consistent gap & alignment */
 :is(
   #confirmModal,
@@ -123,6 +149,7 @@
 ) :is(
   .confirm-cancel,
   .confirm-delete,
+  .confirm-action,
   .btn-cancel-confirm,
   .confirmDeleteBtn,
   .process-btn-cancel,
@@ -254,6 +281,7 @@
   .edit-modal-actions
 ) :is(
   .confirm-delete,
+  .confirm-action,
   .btn-delete.confirm-delete,
   .confirmDeleteBtn,
   .process-btn-delete,
@@ -280,6 +308,7 @@
   .edit-modal-actions
 ) :is(
   .confirm-delete,
+  .confirm-action,
   .btn-delete.confirm-delete,
   .confirmDeleteBtn,
   .process-btn-delete,
@@ -307,6 +336,7 @@
   .edit-modal-actions
 ) :is(
   .confirm-delete,
+  .confirm-action,
   .btn-delete.confirm-delete,
   .confirmDeleteBtn,
   .process-btn-delete,
@@ -323,6 +353,7 @@
   .process-confirm-modal-content
 ) :is(
   .confirm-delete,
+  .confirm-action,
   .btn-delete.confirm-delete,
   .confirmDeleteBtn,
   .process-btn-delete
@@ -334,6 +365,7 @@
   .process-confirm-modal-content
 ) :is(
   .confirm-delete,
+  .confirm-action,
   .btn-delete.confirm-delete,
   .confirmDeleteBtn,
   .process-btn-delete

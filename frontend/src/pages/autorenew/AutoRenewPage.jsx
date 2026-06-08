@@ -136,6 +136,7 @@ export default function AutoRenewPage() {
   const [busyRequestId, setBusyRequestId] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [deleteConfirmRow, setDeleteConfirmRow] = useState(null);
+  const [rejectConfirmRow, setRejectConfirmRow] = useState(null);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -267,9 +268,15 @@ export default function AutoRenewPage() {
     }
   }, [busyRequestId, canEditGlobal, fetchList, notify, rowDrafts, t]);
 
-  const handleReject = useCallback(async (row) => {
+  const handleReject = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || row.is_payment_deleted) return;
-    if (!window.confirm(t("confirmReject", { company: row.company_code }))) return;
+    setRejectConfirmRow(row);
+  }, [busyRequestId, canEditGlobal]);
+
+  const confirmRejectRow = useCallback(async () => {
+    const row = rejectConfirmRow;
+    if (!row || !canEditGlobal || busyRequestId || row.is_payment_deleted) return;
+    setRejectConfirmRow(null);
 
     setBusyRequestId(row.request_id);
     try {
@@ -286,7 +293,7 @@ export default function AutoRenewPage() {
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, fetchList, notify, t]);
+  }, [busyRequestId, canEditGlobal, fetchList, notify, rejectConfirmRow, t]);
 
   const handleDelete = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || !row.can_delete) return;
@@ -659,6 +666,20 @@ export default function AutoRenewPage() {
           confirmDisabled={Boolean(busyRequestId)}
           onConfirm={() => void confirmDeleteRow()}
           onClose={() => !busyRequestId && setDeleteConfirmRow(null)}
+        />
+      ) : null}
+
+      {rejectConfirmRow ? (
+        <ConfirmDeleteModal
+          open
+          title={t("confirmRejectTitle")}
+          message={t("confirmReject", { company: rejectConfirmRow.company_code })}
+          cancelLabel={t("cancel")}
+          confirmLabel={t("reject")}
+          confirmClassName="btn confirm-action"
+          confirmDisabled={Boolean(busyRequestId)}
+          onConfirm={() => void confirmRejectRow()}
+          onClose={() => !busyRequestId && setRejectConfirmRow(null)}
         />
       ) : null}
     </>

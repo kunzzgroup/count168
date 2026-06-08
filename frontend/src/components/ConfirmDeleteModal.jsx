@@ -26,6 +26,7 @@ export default function ConfirmDeleteModal({
   message,
   cancelLabel = "Cancel",
   confirmLabel = "Delete",
+  confirmClassName = "btn btn-delete confirm-delete",
   onConfirm,
   onClose,
   zIndex = CONFIRM_DELETE_Z_INDEX,
@@ -59,7 +60,7 @@ export default function ConfirmDeleteModal({
           </button>
           <button
             type="button"
-            className="btn btn-delete confirm-delete"
+            className={confirmClassName}
             disabled={confirmDisabled}
             onClick={onConfirm}
           >
