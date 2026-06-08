@@ -144,12 +144,9 @@ function resolveSelectedGroupCodesFromPicker(modalPickerCompanies, selectedIds) 
   return codes;
 }
 
-function buildModalSubsidiaryOptions(companies, me, selectedGroup) {
-  const base = isGroupLogin(me)
-    ? filterCompaniesWithDisplayId(companies)
-    : selectedGroup
-      ? companiesInGroupList(companies, selectedGroup)
-      : filterCompaniesWithDisplayId(companies);
+/** Admin/owner dual picker: every assignable subsidiary + independent company (not the active Group pill). */
+function buildModalSubsidiaryOptions(companies) {
+  const base = filterCompaniesWithDisplayId(companies);
   return buildModalCompanyList(
     base.filter((c) => {
       const code = String(c?.company_id || "").trim().toUpperCase();
@@ -758,8 +755,8 @@ export default function UserListPage() {
   );
 
   const modalSubsidiaryCompanies = useMemo(
-    () => buildModalSubsidiaryOptions(companies, me, selectedGroup),
-    [companies, me, selectedGroup]
+    () => buildModalSubsidiaryOptions(companies),
+    [companies]
   );
 
   const modalPickerCompanies = useMemo(() => {
@@ -1580,11 +1577,12 @@ export default function UserListPage() {
         setModalCompanies(modalPickerCompanies);
         return modalPickerCompanies;
       }
-      const base = isGroupLogin(me)
-        ? rows
-        : selectedGroup
-          ? companiesInGroupList(rows, selectedGroup)
-          : rows;
+      const base =
+        useDualTenantUserPicker || isGroupLogin(me)
+          ? rows
+          : selectedGroup
+            ? companiesInGroupList(rows, selectedGroup)
+            : rows;
       const list = buildModalCompanyList(base);
       setModalCompanies(list);
       return list;
