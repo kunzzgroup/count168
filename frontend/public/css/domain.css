@@ -89,8 +89,10 @@ body.domain-page .domain-react-page .table-container {
  * 并重置 label 为块级（Tailwind preflight 关闭时 label 默认为 inline，易与输入框挤在同一行/重叠）。
  */
 body.ec-auth-shell .domain-form-modal-backdrop {
-    --dfm-selected-item-height: 40px;
-    --dfm-selected-item-gap: 6px;
+    --dfm-selected-item-height: 34px;
+    --dfm-selected-item-gap: 5px;
+    --dfm-selected-action-height: 22px;
+    --dfm-row1-control-height: 34px;
     --dfm-selected-visible-rows: 6;
     --dfm-selected-list-inset-y: 16px;
     --dfm-selected-list-cap-height: calc(
@@ -261,8 +263,8 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field--group-pills .group-pills {
-    min-height: 43px !important;
-    height: 43px !important;
+    min-height: var(--dfm-row1-control-height) !important;
+    height: var(--dfm-row1-control-height) !important;
     padding: 0 !important;
     gap: 6px !important;
     align-items: center !important;
@@ -270,10 +272,27 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .group-pill {
-    min-height: 43px !important;
-    height: 43px !important;
-    padding: 0 12px !important;
+    min-height: var(--dfm-row1-control-height) !important;
+    height: var(--dfm-row1-control-height) !important;
+    padding: 0 10px !important;
     box-sizing: border-box !important;
+    font-size: var(--text-small) !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-input-with-btn input[type="text"] {
+    min-height: var(--dfm-row1-control-height) !important;
+    height: var(--dfm-row1-control-height) !important;
+    padding: 0 10px !important;
+    font-size: var(--text-small) !important;
+    line-height: 1.2 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-adjoin-btn {
+    min-height: var(--dfm-row1-control-height) !important;
+    height: var(--dfm-row1-control-height) !important;
+    padding: 0 10px !important;
+    font-size: var(--text-small) !important;
+    line-height: 1 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 {
@@ -357,10 +376,33 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list > .company-item {
-    min-height: 40px !important;
-    margin: 0 0 6px 0 !important;
-    padding: 6px 10px !important;
-    column-gap: 10px !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    margin: 0 0 5px 0 !important;
+    padding: 0 8px !important;
+    column-gap: 8px !important;
+    border-radius: 6px !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item-left > span {
+    font-size: var(--text-small) !important;
+    line-height: 1.2 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .exp-date-display {
+    font-size: var(--text-tiny) !important;
+    line-height: 1.2 !important;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .company-reset-btn,
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .company-remove-btn {
+    height: var(--dfm-selected-action-height) !important;
+    min-height: var(--dfm-selected-action-height) !important;
+    padding: 0 10px !important;
+    min-width: 42px !important;
+    border-radius: 4px !important;
+    font-size: var(--text-tiny) !important;
+    line-height: 1 !important;
 }
 
 @media (max-width: 760px) {
@@ -2165,7 +2207,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    padding: clamp(8px, 0.78vw, 14px) clamp(16px, 1.35vw, 28px) clamp(12px, 1vw, 20px);
+    padding: 0 clamp(16px, 1.35vw, 28px) clamp(12px, 1vw, 20px);
     gap: 0;
     min-height: 0;
 }
@@ -2173,15 +2215,17 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
 .company-settings-split {
     display: flex;
     flex-direction: row;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 0;
-    min-height: min(52vh, 420px);
+    min-height: 0;
 }
 
 .company-settings-split-left {
     flex: 1 1 46%;
     min-width: 0;
     padding-right: clamp(14px, 1.25vw, 22px);
+    display: flex;
+    flex-direction: column;
 }
 
 .company-settings-split-right {
@@ -2192,19 +2236,56 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     flex-direction: column;
 }
 
+.company-settings-split-panel {
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(10px, 0.94vw, 14px);
+    border: 1px solid var(--color-border-slate);
+    border-radius: 12px;
+    background-color: var(--color-surface-muted);
+}
+
+.company-settings-split-panel--general {
+    flex: 0 1 auto;
+    align-self: flex-start;
+    width: 100%;
+}
+
+.company-settings-split-panel--share {
+    min-height: min(48vh, 400px);
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.company-settings-split-panel--share .company-share-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+
+.company-settings-split-panel-empty-hint {
+    display: block;
+    margin-top: 8px;
+    color: var(--color-text-caption);
+    font-size: var(--text-tiny);
+    line-height: 1.45;
+}
+
 .company-settings-split-divider {
     flex: 0 0 1px;
     width: 1px;
-    min-height: 100%;
     align-self: stretch;
     background: linear-gradient(180deg, transparent 0%, var(--account-select-card-border) 8%, var(--color-text-placeholder) 50%, var(--account-select-card-border) 92%, transparent 100%);
-    margin: 4px 0;
+    margin: 0;
     border-radius: 1px;
 }
 
 .company-settings-column-title {
-    margin: 0 0 12px 0;
-    padding-bottom: 8px;
+    margin: 0 0 8px 0;
+    padding-bottom: 6px;
     border-bottom: 2px solid var(--color-border-slate);
     font-size: var(--domain-fluid-13-1-16);
     font-weight: 700;
@@ -2217,8 +2298,8 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin: 0 0 12px 0;
-    padding-bottom: 8px;
+    margin: 0 0 8px 0;
+    padding-bottom: 6px;
     border-bottom: 2px solid var(--color-border-slate);
 }
 
@@ -2308,8 +2389,8 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     align-items: center;
     justify-content: flex-end;
     gap: 12px;
-    margin-top: clamp(10px, 1.46vw, 28px);
-    padding-top: 20px;
+    margin-top: 0;
+    padding-top: 12px;
     border-top: 1px solid var(--color-border-slate);
 }
 
@@ -2671,8 +2752,8 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
 .company-settings-react-modal .company-settings-start-hint {
     display: block;
     margin: 4px 0 0 0;
-    font-size: var(--domain-text-10);
-    line-height: 1.35;
+    font-size: var(--text-tiny);
+    line-height: 1.45;
     color: var(--color-text-caption);
 }
 
@@ -2681,8 +2762,8 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
 }
 
 .company-settings-react-modal .company-settings-permissions-hint {
-    margin: 8px 0 0 0;
-    font-size: var(--domain-text-12);
+    margin: 6px 0 0 0;
+    font-size: var(--text-tiny);
     line-height: 1.45;
     color: var(--color-primary-strong);
 }
@@ -2760,6 +2841,10 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     max-height: min(58vh, 520px);
 }
 
+.company-settings-split-right .company-settings-split-panel--share .company-share-scroll {
+    max-height: none;
+}
+
 @media (max-width: 800px) {
     .company-settings-split {
         flex-direction: column;
@@ -2777,11 +2862,23 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
         width: 100%;
         height: 1px;
         min-height: 0;
-        margin: 16px 0;
+        margin: 10px 0;
         background: linear-gradient(90deg, transparent 0%, var(--account-select-card-border) 8%, var(--color-text-placeholder) 50%, var(--account-select-card-border) 92%, transparent 100%);
     }
 
+    .company-settings-split-panel--general {
+        align-self: stretch;
+    }
+
     .company-settings-split-right .company-share-scroll {
+        max-height: min(45vh, 380px);
+    }
+
+    .company-settings-split-panel {
+        min-height: 0;
+    }
+
+    .company-settings-split-right .company-settings-split-panel--share .company-share-scroll {
         max-height: min(45vh, 380px);
     }
 }

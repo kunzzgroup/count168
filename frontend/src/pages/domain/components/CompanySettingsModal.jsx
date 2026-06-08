@@ -91,7 +91,9 @@ export default function CompanySettingsModal({
     return ymd || new Date().toISOString().split("T")[0];
   });
   const [expDisplay, setExpDisplay] = useState(initCompany.expiration_date ? formatDate(initCompany.expiration_date) : t("notSet"));
-  const [permissions, setPermissions] = useState(Array.isArray(initCompany.permissions) ? initCompany.permissions : []);
+  const [permissions, setPermissions] = useState(
+    isGroup ? [] : (Array.isArray(initCompany.permissions) ? initCompany.permissions : [])
+  );
   const [chargeOnSave, setChargeOnSave] = useState(!!initCompany.apply_commission_payments_on_domain_save);
   const startDateHandlerRef = useRef(null);
 
@@ -317,7 +319,9 @@ export default function CompanySettingsModal({
     setFsa(defaultFeeShareAllocations());
     setChargeOnSave(false);
     setExpandedCards({});
-    if (SINGLE_CATEGORY_MODE) {
+    if (isGroup) {
+      setPermissions([]);
+    } else if (SINGLE_CATEGORY_MODE) {
       setPermissions(["Games"]);
     } else {
       setPermissions(["Games", "Bank", "Loan", "Rate", "Money"]);
@@ -325,8 +329,8 @@ export default function CompanySettingsModal({
   }
 
   async function handleSave() {
-    // Validate permissions
-    if (SINGLE_CATEGORY_MODE) {
+    // Validate permissions (company only — groups do not use Process List / Data Capture categories)
+    if (!isGroup && SINGLE_CATEGORY_MODE) {
       if (permissions.length === 0) { showDomainAlert(t("pleaseSelectOneCategory"), "danger"); return; }
       if (permissions.length > 1)  { showDomainAlert(t("onlyOneCategoryAtTime"), "danger"); return; }
     }
@@ -355,7 +359,7 @@ export default function CompanySettingsModal({
         startDate,
         isExtending: company.isExtending,
         originalExpirationDate: company.originalExpirationDate,
-        permissions: [...permissions],
+        permissions: [],
         fee_share_allocations: cleanFsa,
         apply_commission_payments_on_domain_save: chargeOnSave,
       };
@@ -531,6 +535,7 @@ export default function CompanySettingsModal({
               <h3 className="company-settings-column-title">
                 {isGroup ? t("groupSettingsLower") : t("companySettingsLower")}
               </h3>
+              <div className="company-settings-split-panel company-settings-split-panel--general">
               <div className="mb-[clamp(6px,0.625vw,12px)]">
                 <label htmlFor="entityCodeRename" className="cs-company-field-label">
                   {isGroup ? t("groupIdLabel") : t("companyIdLabel")}
@@ -594,7 +599,8 @@ export default function CompanySettingsModal({
                   {expDisplay}
                 </div>
               </div>
-              {/* Permissions */}
+              {/* Permissions — company only */}
+              {!isGroup && (
               <div className="mb-2">
                 <label className="cs-company-field-label company-settings-permissions-label">{t("permissionsLabel")}</label>
                 <div className="permission-toggle-row">
@@ -618,6 +624,8 @@ export default function CompanySettingsModal({
                   ))}
                 </div>
                 <p className="company-settings-permissions-hint">{t("permissionsHintLine")}</p>
+              </div>
+              )}
               </div>
             </div>
 
@@ -654,6 +662,7 @@ export default function CompanySettingsModal({
                 <span>{totals.grand.toFixed(2)}%</span>
               </div>
 
+              <div className="company-settings-split-panel company-settings-split-panel--share">
               <div className="company-share-scroll">
                 {SHARE_ROLES.map((role) => {
                   const isProfit = role === "profit";
@@ -790,10 +799,11 @@ export default function CompanySettingsModal({
               </div>
 
               {shareAccounts.length === 0 && shareAccountsProfit.length === 0 && (
-                <div style={{ display: "block", color: "#64748b", fontSize: 12, marginTop: 8 }}>
+                <div className="company-settings-split-panel-empty-hint">
                   {t("noLinkedAccounts")}
                 </div>
               )}
+              </div>
             </div>
           </div>
 
