@@ -517,8 +517,8 @@ export default function CompanySettingsModal({
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div className="company-settings-react-modal modal-content company-settings-modal-content--split relative mx-auto mt-[2%] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
-        <div className="modal-header company-settings-modal-header border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)]">
-          <h2 className="m-0 text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">
+        <div className="modal-header company-settings-modal-header">
+          <h2>
             {isGroup ? t("groupSettings") : t("companySettings")}
           </h2>
           <button
@@ -535,7 +535,6 @@ export default function CompanySettingsModal({
               <h3 className="company-settings-column-title">
                 {isGroup ? t("groupSettingsLower") : t("companySettingsLower")}
               </h3>
-              <div className="company-settings-split-panel company-settings-split-panel--general">
               <div className="mb-[clamp(6px,0.625vw,12px)]">
                 <label htmlFor="entityCodeRename" className="cs-company-field-label">
                   {isGroup ? t("groupIdLabel") : t("companyIdLabel")}
@@ -626,7 +625,6 @@ export default function CompanySettingsModal({
                 <p className="company-settings-permissions-hint">{t("permissionsHintLine")}</p>
               </div>
               )}
-              </div>
             </div>
 
             <div className="company-settings-split-divider" role="separator" aria-orientation="vertical" aria-hidden="true" />
@@ -662,7 +660,6 @@ export default function CompanySettingsModal({
                 <span>{totals.grand.toFixed(2)}%</span>
               </div>
 
-              <div className="company-settings-split-panel company-settings-split-panel--share">
               <div className="company-share-scroll">
                 {SHARE_ROLES.map((role) => {
                   const isProfit = role === "profit";
@@ -799,11 +796,10 @@ export default function CompanySettingsModal({
               </div>
 
               {shareAccounts.length === 0 && shareAccountsProfit.length === 0 && (
-                <div className="company-settings-split-panel-empty-hint">
+                <div className="company-settings-empty-hint">
                   {t("noLinkedAccounts")}
                 </div>
               )}
-              </div>
             </div>
           </div>
 
