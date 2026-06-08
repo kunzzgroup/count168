@@ -10,6 +10,8 @@ import {
   validateOwnershipRowsForSave,
   mapOwnerApiRows,
   accountsFromOwnerRows,
+  rowsToSavePayload,
+  allocationRowsForSave,
 } from "../shared/ownershipRowHelpers.js";
 
 export function useGroupEarnings(shell) {
@@ -191,17 +193,39 @@ export function useGroupEarnings(shell) {
   );
 
   const geRemoveRow = useCallback(
-    (gid, idx) => {
+    async (gid, idx) => {
       if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      const st = geStates[gid];
+      if (!st) return;
+      const row = st.rows[idx];
+      if (row?.ownership_id) {
+        try {
+          const body = new FormData();
+          body.append("ownership_id", String(row.ownership_id));
+          const res = await fetch(buildApiUrl("api/ownership/remove_owner_api.php"), {
+            method: "POST",
+            credentials: "include",
+            body,
+          });
+          const json = await res.json();
+          if (!isApiSuccess(json)) {
+            showToast(getApiMessage(json, "Remove failed"), "error");
+            return;
+          }
+        } catch {
+          showToast("Server error", "error");
+          return;
+        }
+      }
       setGeStates((prev) => {
-        const st = prev[gid];
-        if (!st) return prev;
-        const rows = [...st.rows];
+        const cur = prev[gid];
+        if (!cur) return prev;
+        const rows = [...cur.rows];
         rows.splice(idx, 1);
-        return { ...prev, [gid]: { ...st, rows } };
+        return { ...prev, [gid]: { ...cur, rows } };
       });
     },
-    [viewOnlyMode, showToast],
+    [geStates, viewOnlyMode, showToast],
   );
 
   const geConfirm = useCallback(
@@ -219,7 +243,7 @@ export function useGroupEarnings(shell) {
         showToast(err, "error");
         return;
       }
-      const total = calcOwnershipTotal(rows);
+      const total = calcOwnershipTotal(allocationRowsForSave(rows));
       setGeSavingGid(groupId);
       try {
         const res = await fetch(buildApiUrl("api/ownership/batch_save_group_owners_api.php"), {
@@ -228,11 +252,7 @@ export function useGroupEarnings(shell) {
           credentials: "include",
           body: JSON.stringify({
             group_id: groupId,
-            owners: rows.map((r) => ({
-              account_id: r.account_id,
-              percentage: r.percentage,
-              read_only: r.read_only,
-            })),
+            owners: rowsToSavePayload(rows),
           }),
         });
         const json = await res.json();
@@ -241,6 +261,7 @@ export function useGroupEarnings(shell) {
           setGeGroups((g) =>
             g.map((x) => (x.group_id === groupId ? { ...x, allocated_percentage: total } : x)),
           );
+          await loadGroupState(groupId, { force: true });
           setGeExpanded(null);
         } else showToast(getApiMessage(json, "Save failed"), "error");
       } catch {
@@ -249,7 +270,7 @@ export function useGroupEarnings(shell) {
         setGeSavingGid(null);
       }
     },
-    [geStates, viewOnlyMode, showToast],
+    [geStates, viewOnlyMode, showToast, loadGroupState],
   );
 
   const geLinkPartner = useCallback(

@@ -3,6 +3,7 @@ require_once '../../includes/session_check.php';
 require_once '../../includes/config.php';
 require_once '../includes/money_decimal.php';
 require_once '../includes/ownership_history.php';
+require_once '../includes/ownership_schema.php';
 
 header('Content-Type: application/json');
 
@@ -95,7 +96,7 @@ try {
             LEFT JOIN user u ON coh.account_id = u.id AND coh.owner_type = 'user'
             LEFT JOIN company comp ON comp.id = coh.company_id
             WHERE coh.company_id = ? AND coh.effective_month = ? AND coh.owner_type != 'account'
-            ORDER BY coh.percentage DESC
+            ORDER BY coh.id ASC
         ");
         $stmt->execute([$company_id, $effectiveMonth]);
         $owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -123,6 +124,7 @@ try {
             $pdo->exec("ALTER TABLE company_ownership ADD COLUMN read_only TINYINT(1) NOT NULL DEFAULT 1");
         } catch (Exception $e) {
         }
+        ownership_ensure_sort_order_column($pdo, 'company_ownership');
 
         $stmt = $pdo->prepare("
             SELECT co.id as ownership_id, co.percentage, co.owner_type,
@@ -168,7 +170,7 @@ try {
             LEFT JOIN user u ON co.account_id = u.id AND co.owner_type = 'user'
             LEFT JOIN company comp ON comp.id = co.company_id
             WHERE co.company_id = ? AND co.owner_type != 'account'
-            ORDER BY co.percentage DESC
+            ORDER BY co.sort_order ASC, co.id ASC
         ");
     } else {
         $stmt = $pdo->prepare("

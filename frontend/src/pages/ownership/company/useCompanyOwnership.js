@@ -11,6 +11,8 @@ import {
   validateOwnershipRowsForSave,
   mapOwnerApiRows,
   accountsFromOwnerRows,
+  rowsToSavePayload,
+  allocationRowsForSave,
 } from "../shared/ownershipRowHelpers.js";
 
 export function useCompanyOwnership(shell) {
@@ -221,17 +223,39 @@ export function useCompanyOwnership(shell) {
   );
 
   const removeRow = useCallback(
-    (cid, idx) => {
+    async (cid, idx) => {
       if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      const st = companyStates[cid];
+      if (!st) return;
+      const row = st.rows[idx];
+      if (row?.ownership_id) {
+        try {
+          const body = new FormData();
+          body.append("ownership_id", String(row.ownership_id));
+          const res = await fetch(buildApiUrl("api/ownership/remove_owner_api.php"), {
+            method: "POST",
+            credentials: "include",
+            body,
+          });
+          const json = await res.json();
+          if (!isApiSuccess(json)) {
+            showToast(getApiMessage(json, "Remove failed"), "error");
+            return;
+          }
+        } catch {
+          showToast("Server error", "error");
+          return;
+        }
+      }
       setCompanyStates((prev) => {
-        const st = prev[cid];
-        if (!st) return prev;
-        const rows = [...st.rows];
+        const cur = prev[cid];
+        if (!cur) return prev;
+        const rows = [...cur.rows];
         rows.splice(idx, 1);
-        return { ...prev, [cid]: { ...st, rows } };
+        return { ...prev, [cid]: { ...cur, rows } };
       });
     },
-    [viewOnlyMode, showToast],
+    [companyStates, viewOnlyMode, showToast],
   );
 
   const reorderRows = useCallback((cid, from, to, insertAfter) => {
@@ -290,7 +314,7 @@ export function useCompanyOwnership(shell) {
         showToast(err, "error");
         return;
       }
-      const total = calcOwnershipTotal(rows);
+      const total = calcOwnershipTotal(allocationRowsForSave(rows));
       setSavingCompanyId(cid);
       try {
         const res = await fetch(buildApiUrl("api/ownership/batch_save_owners_api.php"), {
@@ -299,11 +323,7 @@ export function useCompanyOwnership(shell) {
           credentials: "include",
           body: JSON.stringify({
             company_id: cid,
-            owners: rows.map((r) => ({
-              account_id: r.account_id,
-              percentage: r.percentage,
-              read_only: r.read_only,
-            })),
+            owners: rowsToSavePayload(rows),
           }),
         });
         const json = await res.json();
@@ -312,6 +332,7 @@ export function useCompanyOwnership(shell) {
           setAllCompanies((prev) =>
             prev.map((c) => (Number(c.id) === cid ? { ...c, allocated_percentage: total } : c)),
           );
+          await loadCompanyState(cid, { force: true });
           setExpandedCompanyId(null);
         } else showToast(getApiMessage(json, "Save failed"), "error");
       } catch {
@@ -320,7 +341,7 @@ export function useCompanyOwnership(shell) {
         setSavingCompanyId(null);
       }
     },
-    [companyStates, viewOnlyMode, setAllCompanies, showToast],
+    [companyStates, viewOnlyMode, setAllCompanies, showToast, loadCompanyState],
   );
 
   const joinGroup = useCallback(

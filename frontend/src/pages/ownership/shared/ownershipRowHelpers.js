@@ -1,5 +1,23 @@
 /** Shared ownership row edit / validate helpers (company + group tabs). */
 
+export function isExternalPartnerRow(row) {
+  return row?.is_external_partner === true;
+}
+
+export function allocationRowsForSave(rows) {
+  return (rows || []).filter((r) => !isExternalPartnerRow(r));
+}
+
+export function rowsToSavePayload(rows) {
+  return (rows || []).map((r, sort_order) => ({
+    account_id: r.account_id,
+    percentage: r.percentage,
+    read_only: r.read_only,
+    is_external_partner: isExternalPartnerRow(r),
+    sort_order,
+  }));
+}
+
 export function mapOwnerApiRows(data) {
   return (Array.isArray(data) ? data : []).map((o) => ({
     account_id: o.account_id,
@@ -46,9 +64,13 @@ export function applyOwnershipRowFieldUpdate(row, field, val, accounts) {
       r.role = (acc.role || "").toLowerCase();
       r.user_raw_id = String(val).startsWith("U_") ? parseInt(String(val).replace("U_", ""), 10) : null;
       r.read_only = 1;
+      r.is_external_partner = false;
+      r.ownership_id = null;
     } else {
       r.role = "";
       r.user_raw_id = null;
+      r.is_external_partner = false;
+      r.ownership_id = null;
     }
   } else if (field === "percent_input") {
     let p = parseFloat(String(val).replace("%", ""));
@@ -76,9 +98,10 @@ export function reorderOwnershipRows(rows, from, to, insertAfter) {
  * @returns {string|null} Error message, or null if valid.
  */
 export function validateOwnershipRowsForSave(rows, messages) {
-  if (rows.some((r) => !r.account_id)) return messages.emptyAccount;
-  if (calcOwnershipTotal(rows) > 100) return messages.over100;
-  const ids = rows.map((r) => r.account_id);
+  const alloc = allocationRowsForSave(rows);
+  if (alloc.some((r) => !r.account_id)) return messages.emptyAccount;
+  if (calcOwnershipTotal(alloc) > 100) return messages.over100;
+  const ids = alloc.map((r) => r.account_id);
   if (new Set(ids).size !== ids.length) return messages.duplicate;
   return null;
 }
