@@ -22,50 +22,77 @@ function ownership_history_ensure_tables(PDO $pdo): void
     $groupExists = $pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0;
 
     if ($companyExists && $groupExists) {
-        $ensured = true;
-        return;
+        // Tables exist — still run index upgrade below (may have old 4-column unique key).
+    } else {
+        if (!$companyExists) {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS company_ownership_history (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    company_id INT NOT NULL,
+                    effective_month DATE NOT NULL,
+                    account_id INT NOT NULL,
+                    owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account',
+                    percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+                    partner_group_id VARCHAR(50) DEFAULT NULL,
+                    read_only TINYINT(1) NOT NULL DEFAULT 1,
+                    saved_by INT DEFAULT NULL,
+                    saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_co_hist_month_account (company_id, effective_month, account_id, owner_type, partner_group_id),
+                    KEY idx_co_hist_company_month (company_id, effective_month)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ");
+        }
+
+        if (!$groupExists) {
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS group_ownership_history (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    group_id VARCHAR(50) NOT NULL,
+                    owner_id INT NOT NULL DEFAULT 0,
+                    effective_month DATE NOT NULL,
+                    account_id INT NOT NULL,
+                    owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner',
+                    percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+                    partner_group_id VARCHAR(50) DEFAULT NULL,
+                    read_only TINYINT(1) NOT NULL DEFAULT 1,
+                    saved_by INT DEFAULT NULL,
+                    saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uq_go_hist_month_account (group_id, effective_month, account_id, owner_type, partner_group_id),
+                    KEY idx_go_hist_group_month (group_id, effective_month)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            ");
+        }
     }
 
-    if (!$companyExists) {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS company_ownership_history (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                company_id INT NOT NULL,
-                effective_month DATE NOT NULL,
-                account_id INT NOT NULL,
-                owner_type ENUM('account','owner','user','group') NOT NULL DEFAULT 'account',
-                percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
-                partner_group_id VARCHAR(50) DEFAULT NULL,
-                read_only TINYINT(1) NOT NULL DEFAULT 1,
-                saved_by INT DEFAULT NULL,
-                saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_co_hist_month_account (company_id, effective_month, account_id, owner_type),
-                KEY idx_co_hist_company_month (company_id, effective_month)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        ");
-    }
-
-    if (!$groupExists) {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS group_ownership_history (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                group_id VARCHAR(50) NOT NULL,
-                owner_id INT NOT NULL DEFAULT 0,
-                effective_month DATE NOT NULL,
-                account_id INT NOT NULL,
-                owner_type ENUM('owner','user','group') NOT NULL DEFAULT 'owner',
-                percentage DECIMAL(6,2) NOT NULL DEFAULT 0.00,
-                partner_group_id VARCHAR(50) DEFAULT NULL,
-                read_only TINYINT(1) NOT NULL DEFAULT 1,
-                saved_by INT DEFAULT NULL,
-                saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_go_hist_month_account (group_id, effective_month, account_id, owner_type),
-                KEY idx_go_hist_group_month (group_id, effective_month)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        ");
-    }
+    ownership_history_upgrade_unique_indexes($pdo);
 
     $ensured = true;
+}
+
+/** Rebuild history unique keys to include partner_group_id (idempotent). */
+function ownership_history_upgrade_unique_indexes(PDO $pdo): void
+{
+    if ($pdo->query("SHOW TABLES LIKE 'company_ownership_history'")->rowCount() > 0) {
+        try {
+            $pdo->exec('ALTER TABLE company_ownership_history DROP INDEX uq_co_hist_month_account');
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE company_ownership_history ADD UNIQUE KEY uq_co_hist_month_account (company_id, effective_month, account_id, owner_type, partner_group_id)');
+        } catch (Exception $e) {
+        }
+    }
+
+    if ($pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0) {
+        try {
+            $pdo->exec('ALTER TABLE group_ownership_history DROP INDEX uq_go_hist_month_account');
+        } catch (Exception $e) {
+        }
+        try {
+            $pdo->exec('ALTER TABLE group_ownership_history ADD UNIQUE KEY uq_go_hist_month_account (group_id, effective_month, account_id, owner_type, partner_group_id)');
+        } catch (Exception $e) {
+        }
+    }
 }
 
 function ownership_history_effective_month_from_now(): string
@@ -152,6 +179,16 @@ function ownership_history_snapshot_company_from_live(PDO $pdo, int $companyId, 
     );
 }
 
+/** Best-effort snapshot; never throws (link/remove must not fail when history write fails). */
+function ownership_history_snapshot_company_from_live_safe(PDO $pdo, int $companyId, ?int $savedBy): void
+{
+    try {
+        ownership_history_snapshot_company_from_live($pdo, $companyId, $savedBy);
+    } catch (Throwable $e) {
+        error_log('ownership history snapshot company ' . $companyId . ': ' . $e->getMessage());
+    }
+}
+
 /** @return list<array{account_id:int,owner_type:string,percentage:string,partner_group_id:?string,read_only:int}> */
 function ownership_history_collect_group_rows_from_live(PDO $pdo, string $groupId): array
 {
@@ -209,6 +246,16 @@ function ownership_history_snapshot_group_from_live(PDO $pdo, string $groupId, ?
         ownership_history_collect_group_rows_from_live($pdo, $groupId),
         $savedBy
     );
+}
+
+/** Best-effort snapshot; never throws (link/remove must not fail when history write fails). */
+function ownership_history_snapshot_group_from_live_safe(PDO $pdo, string $groupId, ?int $savedBy): void
+{
+    try {
+        ownership_history_snapshot_group_from_live($pdo, $groupId, $savedBy);
+    } catch (Throwable $e) {
+        error_log('ownership history snapshot group ' . $groupId . ': ' . $e->getMessage());
+    }
 }
 
 /**

@@ -187,7 +187,7 @@ try {
     }
 
     $savedBy = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
-    ownership_history_snapshot_company_from_live($pdo, (int) $company_id, $savedBy);
+    ownership_history_snapshot_company_from_live_safe($pdo, (int) $company_id, $savedBy);
 
     echo json_encode([
         'status' => 'success',
@@ -196,7 +196,6 @@ try {
             : "Partner '{$partner['name']}' linked successfully"
     ]);
 
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
 }
-?>
