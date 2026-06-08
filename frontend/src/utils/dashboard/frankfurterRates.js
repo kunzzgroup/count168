@@ -74,14 +74,57 @@ export async function fetchFrankfurterRates(base, quoteCodes, dateYmd = null) {
   return { rates, date, unsupported };
 }
 
-/** Return cached Frankfurter rates synchronously, or null if missing/expired. */
-export function peekFrankfurterRatesCache(base, quoteCodes, dateYmd = null) {
-  const baseCode = String(base || "").trim().toUpperCase();
-  const quotes = [...new Set(
+function normalizeFrankfurterQuotes(baseCode, quoteCodes) {
+  return [...new Set(
     (quoteCodes || [])
       .map((c) => String(c || "").trim().toUpperCase())
       .filter((c) => c && c !== baseCode)
   )];
+}
+
+/** Re-base Frankfurter multipliers (1 sourceBase = rate[quote] quote). */
+export function deriveFrankfurterRates(newBase, sourceRates, sourceBase, quoteCodes) {
+  const targetBase = String(newBase || "").trim().toUpperCase();
+  const fromBase = String(sourceBase || "").trim().toUpperCase();
+  const quotes = normalizeFrankfurterQuotes(targetBase, quoteCodes);
+  if (!targetBase || !fromBase || !sourceRates) return null;
+
+  if (targetBase === fromBase) {
+    const rates = { [targetBase]: 1 };
+    for (const quote of quotes) {
+      const rate = sourceRates[quote];
+      if (rate && rate > 0) rates[quote] = rate;
+    }
+    return { rates, unsupported: quotes.filter((q) => !rates[q]) };
+  }
+
+  const pivotRate = sourceRates[targetBase];
+  if (!pivotRate || pivotRate <= 0) return null;
+
+  const rates = { [targetBase]: 1 };
+  for (const quote of quotes) {
+    const sourceRate = sourceRates[quote];
+    if (sourceRate && sourceRate > 0) {
+      rates[quote] = sourceRate / pivotRate;
+    }
+  }
+  return { rates, unsupported: quotes.filter((q) => !rates[q]) };
+}
+
+function storeFrankfurterRatesCache(baseCode, quotes, dateYmd, payload) {
+  const key = cacheKey(baseCode, quotes, dateYmd);
+  rateCache.set(key, {
+    expires: Date.now() + CACHE_TTL_MS,
+    rates: payload.rates,
+    date: payload.date,
+    unsupported: payload.unsupported || [],
+  });
+}
+
+/** Return cached Frankfurter rates synchronously, or null if missing/expired. */
+export function peekFrankfurterRatesCache(base, quoteCodes, dateYmd = null) {
+  const baseCode = String(base || "").trim().toUpperCase();
+  const quotes = normalizeFrankfurterQuotes(baseCode, quoteCodes);
   if (!baseCode) return null;
   if (!quotes.length) {
     return { rates: { [baseCode]: 1 }, date: dateYmd, unsupported: [] };
@@ -94,6 +137,57 @@ export function peekFrankfurterRatesCache(base, quoteCodes, dateYmd = null) {
     date: cached.date,
     unsupported: cached.unsupported || [],
   };
+}
+
+/**
+ * Return cached rates for `base`, or derive them from another cached base for the same date.
+ * Stores derived rates in cache so later reads are instant.
+ */
+export function peekFrankfurterRatesCacheOrDerived(base, quoteCodes, dateYmd = null) {
+  const direct = peekFrankfurterRatesCache(base, quoteCodes, dateYmd);
+  if (direct) return direct;
+
+  const baseCode = String(base || "").trim().toUpperCase();
+  const quotes = normalizeFrankfurterQuotes(baseCode, quoteCodes);
+  if (!baseCode) return null;
+  if (!quotes.length) {
+    return { rates: { [baseCode]: 1 }, date: dateYmd, unsupported: [] };
+  }
+
+  const dateToken = dateYmd || "latest";
+  for (const [key, cached] of rateCache.entries()) {
+    if (!cached || cached.expires <= Date.now()) continue;
+    const parts = key.split("|");
+    if (parts.length < 3 || parts[parts.length - 1] !== dateToken) continue;
+    const sourceBase = parts[0];
+    if (!sourceBase || sourceBase === baseCode) continue;
+    const derived = deriveFrankfurterRates(baseCode, cached.rates, sourceBase, [
+      baseCode,
+      ...quotes,
+    ]);
+    if (!derived || !Object.keys(derived.rates).length) continue;
+    const payload = {
+      rates: derived.rates,
+      date: cached.date,
+      unsupported: derived.unsupported || [],
+    };
+    storeFrankfurterRatesCache(baseCode, quotes, dateYmd, payload);
+    return payload;
+  }
+
+  return null;
+}
+
+/** Warm Frankfurter cache for every currency base in the list (best-effort). */
+export function warmFrankfurterRatesForCurrencies(currencies, dateYmd = null) {
+  const codes = [...new Set(
+    (currencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean)
+  )];
+  if (codes.length <= 1) return;
+  for (const base of codes) {
+    if (peekFrankfurterRatesCacheOrDerived(base, codes, dateYmd)) continue;
+    void fetchFrankfurterRates(base, codes, dateYmd).catch(() => {});
+  }
 }
 
 /**
