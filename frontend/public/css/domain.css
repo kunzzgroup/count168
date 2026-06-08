@@ -4497,7 +4497,7 @@ body.domain-page .domain-react-page .domain-card {
     display: none;
     grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
     gap: 15px;
-    padding: clamp(4px, 0.52vw, 10px) 22px;
+    padding: clamp(4px, 0.52vw, 6px) 22px;
     background: white;
     border: 1px solid var(--color-border);
     border-radius: 22px;

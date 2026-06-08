@@ -15,7 +15,6 @@ import {
   buildDashboardCurrencyScopeKey,
   clearDashboardSelectedCurrency,
   notifyDashboardCurrencyFilterChanged,
-  resolveCrossPageCurrencyPreference,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
@@ -81,6 +80,16 @@ function resolveBankProcessListCacheKey(companyId, search) {
 function bankProcessRowsFingerprint(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return "0";
   return rows.map((r) => Number(r.id)).join(",");
+}
+
+function resolveBankProcessBootCurrency() {
+  return "";
+}
+
+function resolveBankProcessListCurrencyAfterFetch(prev, ordered, userSelectedAllRef) {
+  if (userSelectedAllRef.current && !prev) return "";
+  if (prev && ordered.includes(prev)) return prev;
+  return "";
 }
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
@@ -713,18 +722,10 @@ export function useBankProcessListPage() {
             prefetchedCompanies,
             prefetchedRowEarly,
           );
-          setCurrencyFilterCode(
-            resolveCrossPageCurrencyPreference({
-              scopeKey: buildDashboardCurrencyScopeKey({
-                companyId: prefetchCompanyId,
-                selectedGroup: prefBootGroupEarly,
-              }),
-              availableCodes: Array.isArray(routePrefetch.currencyCodes)
-                ? routePrefetch.currencyCodes
-                : [],
-              urlCurrency: currentUrl.searchParams.get("currency") || "",
-            }),
-          );
+          {
+            userSelectedAllCurrenciesRef.current = true;
+            setCurrencyFilterCode(resolveBankProcessBootCurrency());
+          }
           setDateFrom(currentUrl.searchParams.get("date_from") || "");
           setDateTo(currentUrl.searchParams.get("date_to") || "");
           setShowAll(currentUrl.searchParams.get("showAll") === "1");
@@ -816,15 +817,10 @@ export function useBankProcessListPage() {
           persistDashboardFilterState(bootGroup, effectiveNum, { allowGroupOnly: false });
         }
         setSearch(url.searchParams.get("search") || "");
-        setCurrencyFilterCode(
-          resolveCrossPageCurrencyPreference({
-            scopeKey: buildDashboardCurrencyScopeKey({
-              companyId: effectiveNum,
-              selectedGroup: bootGroup,
-            }),
-            urlCurrency: url.searchParams.get("currency") || "",
-          }),
-        );
+        {
+          userSelectedAllCurrenciesRef.current = true;
+          setCurrencyFilterCode(resolveBankProcessBootCurrency());
+        }
         setDateFrom(url.searchParams.get("date_from") || "");
         setDateTo(url.searchParams.get("date_to") || "");
         setShowAll(url.searchParams.get("showAll") === "1");
@@ -1095,14 +1091,9 @@ export function useBankProcessListPage() {
         );
         setCurrencyListOrdered(ordered);
         setCurrencyPillDisplayOrder(null);
-        setCurrencyFilterCode((prev) => {
-          if (userSelectedAllCurrenciesRef.current && !prev) return "";
-          if (prev && ordered.includes(prev)) return prev;
-          return resolveCrossPageCurrencyPreference({
-            scopeKey: buildDashboardCurrencyScopeKey({ companyId: id, selectedGroup }),
-            availableCodes: ordered,
-          });
-        });
+        setCurrencyFilterCode((prev) =>
+          resolveBankProcessListCurrencyAfterFetch(prev, ordered, userSelectedAllCurrenciesRef),
+        );
       }
       return true;
     },
@@ -1178,14 +1169,9 @@ export function useBankProcessListPage() {
           );
           setCurrencyListOrdered(ordered);
           setCurrencyPillDisplayOrder(null);
-          setCurrencyFilterCode((prev) => {
-            if (userSelectedAllCurrenciesRef.current && !prev) return "";
-            if (prev && ordered.includes(prev)) return prev;
-            return resolveCrossPageCurrencyPreference({
-              scopeKey: buildDashboardCurrencyScopeKey({ companyId: cid, selectedGroup }),
-              availableCodes: ordered,
-            });
-          });
+          setCurrencyFilterCode((prev) =>
+            resolveBankProcessListCurrencyAfterFetch(prev, ordered, userSelectedAllCurrenciesRef),
+          );
         }
         if (!preserveSelection) setSelectedIds(new Set());
         if (!preservePage) setCurrentPage(1);

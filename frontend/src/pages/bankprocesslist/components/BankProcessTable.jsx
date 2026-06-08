@@ -138,7 +138,7 @@ export default function BankProcessTable({
   };
 
   const bankHeaderDefs = [
-    { key: "no", labelText: t("no"), sortable: true },
+    { key: "no", labelText: t("no"), sortable: false },
     { key: "supplier", labelText: t("supplier"), sortable: true },
     { key: "ccy", labelText: t("country"), sortable: true },
     { key: "bank", labelText: t("bank"), sortable: true },
