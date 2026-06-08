@@ -620,8 +620,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
     $isPartnershipRo = ($sidebarRole === 'partnership' && $sidebarRoLocked);
     $isAuditRo = ($sidebarRole === 'audit' && $sidebarRoLocked);
     $isGlobalReadOnlyUi = $isExtSession || $isPartnershipRo || $isAuditRo;
-    // Partnership / 外部视图：沿用旧逻辑隐藏部分侧栏；Audit 只读不隐藏侧栏（按权限进入各页），仅全站控件只读
-    $applySidebarHide = $isExtSession || $isPartnershipRo;
+    // 外部视图：隐藏部分侧栏；Partnership / Audit 只读按 permissions 显示侧栏，仅全站控件只读
+    $applySidebarHide = $isExtSession;
     ?>
     // Partnership read_only、Audit read_only、外部视图：全站只读（与旧脚本兼容）
     window.isExternalView = <?php echo $isGlobalReadOnlyUi ? 'true' : 'false'; ?>;

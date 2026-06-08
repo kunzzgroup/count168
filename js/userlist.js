@@ -1029,11 +1029,14 @@ function editUser(id, isOwnerShadow = false) {
                     } catch (e) {
                         permissions = [];
                     }
-                    setUserPermissions(permissions);
-
                     const apiRole = (data.data.role || '').toLowerCase().trim();
-                    if (apiRole) {
-                        applyRoleTemplateChecks(apiRole);
+                    if (apiRole === 'partnership') {
+                        setDefaultPermissionsByRole(apiRole, { force: true });
+                    } else {
+                        setUserPermissions(permissions);
+                        if (apiRole) {
+                            applyRoleTemplateChecks(apiRole);
+                        }
                     }
 
                     // 加载 Account 和 Process 权限
@@ -2276,7 +2279,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const selectedRole = this.value;
             // 显示/隐藏 Read Only toggle（Partnership / Audit）
             updateReadOnlyToggleVisibility(selectedRole);
-            if (!isEditMode && selectedRole && selectedRole.toLowerCase() === 'partnership') {
+            if (selectedRole && selectedRole.toLowerCase() === 'partnership') {
                 const readOnlyToggle = document.getElementById('readOnlyToggle');
                 if (readOnlyToggle) readOnlyToggle.checked = true;
             }
@@ -2394,7 +2397,10 @@ document.getElementById('userForm').addEventListener('submit', function (e) {
                 data.process_permissions = selectedProcesses;
             } else if (isUpperLevel) {
                 // 上级编辑下级：发送所有权限和字段
-                data.permissions = getSelectedPermissions();
+                const saveRole = (document.getElementById('role').value || editingUserRole || '').toLowerCase();
+                data.permissions = saveRole === 'partnership'
+                    ? getRoleTemplateSidebarList('partnership')
+                    : getSelectedPermissions();
                 data.account_permissions = selectedAccounts;
                 data.process_permissions = selectedProcesses;
             } else if (isSameLevel || isLowerLevel) {
