@@ -726,22 +726,21 @@ export default function DomainFormModal({
                   </div>
 
                   <div className="dfm-company-grid-row2">
+                    <div className="dfm-row2-head dfm-row2-head--groups">
+                      <span className="dfm-selected-companies-label">{t("selectedGroups")}</span>
+                    </div>
+                    <div className="dfm-row2-head dfm-row2-head--companies">
+                      <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
+                      {!showMcAssignPanel && multiChoiceToggle}
+                    </div>
+
                     <div className="dfm-field dfm-field--selected-groups flex flex-col">
-                      <div className="dfm-selected-companies-row mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <span className="dfm-selected-companies-label">{t("selectedGroups")}</span>
-                      </div>
                       <div className="dfm-selected-list dfm-selected-list--groups">
                         {renderSelectedGroupsList()}
                       </div>
                     </div>
 
                     <div className="dfm-field dfm-field--stretch dfm-field--selected-companies flex flex-1 flex-col">
-                      {!showMcAssignPanel && (
-                        <div className="dfm-selected-companies-row mb-2 flex flex-wrap items-center justify-between gap-2">
-                          <span className="dfm-selected-companies-label">{t("selectedCompanies")}</span>
-                          {multiChoiceToggle}
-                        </div>
-                      )}
                       <div
                         className={`dfm-selected-list${showMcAssignPanel ? " dfm-selected-list--mc-mode" : ""}`}
                       >
