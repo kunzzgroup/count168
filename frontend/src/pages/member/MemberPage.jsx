@@ -30,6 +30,7 @@ import {
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS,
   WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW,
   WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ,
+  WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS,
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 import { useMemberPageShell } from "./useMemberPageShell.js";
@@ -156,9 +157,22 @@ export default function MemberPage() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  /** Currency：与 Dashboard 一致 — 单条 segment 组，超出时在左栏内横向滚动 */
-  const showCurrencyAllBtn =
-    availableCurrencies.length === 0 || availableCurrencies.length > 1;
+  /** Currency 多段：每段最多 8 格（含 All），满一行自动换到下一排 segment 白底条 */
+  const currencyFilterBands = useMemo(() => {
+    const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
+    const showAllBtn = codes.length === 0 || codes.length > 1;
+    const maxPerBand = WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
+
+    const cells = [];
+    if (showAllBtn) cells.push({ type: "all" });
+    codes.forEach((c) => cells.push({ type: "code", code: c }));
+
+    const bands = [];
+    for (let i = 0; i < cells.length; i += maxPerBand) {
+      bands.push(cells.slice(i, i + maxPerBand));
+    }
+    return bands;
+  }, [availableCurrencies]);
 
   const handleWinLossCurrencyCodeDrop = useCallback(
     (e) => {
@@ -239,6 +253,7 @@ export default function MemberPage() {
     companies,
     linkedAccounts,
     availableCurrencies,
+    currencyFilterBands,
     dateFrom,
     dateTo,
     companyId,
@@ -386,38 +401,51 @@ export default function MemberPage() {
               <div className="user-gc-inline-row" id="member_currency_filter">
                 <span className="user-gc-inline-label">{t("currency")}</span>
                 <div
-                  className="user-gc-inline-pills user-gc-inline-pills--segment-scroll"
+                  className="user-gc-inline-pills member-winloss-currency-pills"
                   id="member_currency_buttons"
+                  role="group"
+                  aria-label={t("ariaCurrency")}
                 >
-                  <div className="user-gc-segment-group" role="group" aria-label={t("ariaCurrency")}>
-                    {showCurrencyAllBtn && (
-                      <button
-                        type="button"
-                        className={`user-gc-segment${isAllSelected ? " is-on" : ""}`}
-                        onClick={onCurrencyAll}
-                      >
-                        {t("all")}
-                      </button>
-                    )}
-                    {availableCurrencies.map((code) => (
-                      <button
-                        key={code}
-                        type="button"
-                        draggable
-                        data-currency={code}
-                        className={`user-gc-segment user-gc-segment--draggable-pill${isAllSelected || selectedCurrencies.includes(code) ? " is-on" : ""}`}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData("text/plain", code);
-                          e.dataTransfer.effectAllowed = "move";
-                        }}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={handleWinLossCurrencyCodeDrop}
-                        onClick={() => onCurrencyToggle(code)}
-                      >
-                        {code}
-                      </button>
-                    ))}
-                  </div>
+                  {currencyFilterBands.map((band, segIdx) => (
+                    <div
+                      key={`member-ccy-band-${segIdx}`}
+                      className="user-gc-segment-group member-winloss-currency-segments"
+                      style={{
+                        width: `${(band.length / WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) * 100}%`,
+                        gridTemplateColumns: `repeat(${band.length}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {band.map((cell) =>
+                        cell.type === "all" ? (
+                          <button
+                            key="member-ccy-all"
+                            type="button"
+                            className={`user-gc-segment${isAllSelected ? " is-on" : ""}`}
+                            onClick={onCurrencyAll}
+                          >
+                            {t("all")}
+                          </button>
+                        ) : (
+                          <button
+                            key={cell.code}
+                            type="button"
+                            draggable
+                            data-currency={cell.code}
+                            className={`user-gc-segment user-gc-segment--draggable-pill${isAllSelected || selectedCurrencies.includes(cell.code) ? " is-on" : ""}`}
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", cell.code);
+                              e.dataTransfer.effectAllowed = "move";
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={handleWinLossCurrencyCodeDrop}
+                            onClick={() => onCurrencyToggle(cell.code)}
+                          >
+                            {cell.code}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

@@ -386,33 +386,21 @@ export default function MemberMiniGrid({
         grid.style.width = `${totalW}px`;
         grid.style.maxWidth = "none";
 
-        const containerW = scroll.clientWidth || matrixColEl?.clientWidth || 0;
-        const fits = containerW > 0 && totalW <= containerW - 2;
+        const availableW = matrixColEl?.clientWidth || 0;
+        const fits = availableW > 0 && totalW <= availableW - 2;
         scroll.classList.toggle("member-dash-matrix-scroll--ccy-fits", fits);
         grid.classList.toggle("member-balance-mini-matrix--ccy-fits", fits);
 
-        if (fits) {
-          const boxW = `${totalW}px`;
-          scroll.style.width = boxW;
-          if (rail) {
-            rail.style.width = boxW;
-            rail.style.maxWidth = "100%";
-          }
-          if (wrap) {
-            wrap.style.width = boxW;
-            wrap.style.maxWidth = "100%";
-          }
-        } else {
-          scroll.style.width = "100%";
-          scroll.style.maxWidth = "100%";
-          if (rail) {
-            rail.style.width = "100%";
-            rail.style.maxWidth = "100%";
-          }
-          if (wrap) {
-            wrap.style.width = "100%";
-            wrap.style.maxWidth = "100%";
-          }
+        const boxW = fits || availableW <= 0 ? `${totalW}px` : `${availableW}px`;
+        scroll.style.width = boxW;
+        scroll.style.maxWidth = "100%";
+        if (rail) {
+          rail.style.width = boxW;
+          rail.style.maxWidth = "100%";
+        }
+        if (wrap) {
+          wrap.style.width = boxW;
+          wrap.style.maxWidth = "100%";
         }
       };
 

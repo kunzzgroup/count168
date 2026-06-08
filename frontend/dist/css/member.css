@@ -1026,7 +1026,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 .member-winloss-page .member-dash-columns--two-col .member-dash-col-matrix,
 .member-winloss-page .member-dash-columns--three-col .member-dash-col-matrix {
     flex: 1 1 auto;
-    align-items: flex-start;
+    align-items: flex-end;
     align-self: flex-start;
     min-width: 0;
     width: auto;
@@ -1050,7 +1050,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 .member-winloss-page .member-dash-columns--three-col .member-dash-matrix-center-wrap {
     flex: 0 0 auto;
     align-items: flex-start;
-    align-self: flex-start;
+    align-self: flex-end;
     margin-inline-start: 0;
     width: max-content;
     max-width: 100%;
@@ -1065,7 +1065,7 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
     max-width: 100%;
     min-width: 0;
     height: auto;
-    align-self: flex-start;
+    align-self: flex-end;
     margin-inline-start: 0;
     box-sizing: border-box;
 }
@@ -1310,13 +1310,39 @@ body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
     box-sizing: border-box;
 }
 
-body.member-winloss-page #member_currency_filter .user-gc-inline-pills {
-    min-width: 0;
-    max-width: 100%;
+body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
+    margin-left: 0;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    align-self: stretch;
+    overflow-x: hidden;
+    overflow-y: visible;
+    gap: var(--user-gc-inline-pills-gap, 4px);
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-right: var(--member-winloss-filters-divider-gap, 4px);
+    padding-bottom: 0;
+    box-sizing: border-box;
 }
 
-body.member-winloss-page #member_currency_filter .user-gc-segment-group {
+body.member-winloss-page #member_account_buttons .member-winloss-account-segments,
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments {
+    margin-inline-start: 0;
+    align-self: flex-start;
+    max-width: 100%;
+}
+
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments {
+    display: grid;
+    width: auto;
+    align-items: stretch;
+    min-width: 0;
+    box-sizing: border-box;
+    row-gap: 0;
+    column-gap: 0;
+    overflow: hidden;
     flex-shrink: 0;
 }
 
@@ -1336,8 +1362,20 @@ body.member-winloss-page #member_account_buttons .member-winloss-account-segment
 }
 
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment,
-body.member-winloss-page #member_currency_filter .user-gc-segment-group .user-gc-segment {
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment {
     font-weight: var(--font-weight-semibold) !important;
+}
+
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment {
+    padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
+    box-sizing: border-box;
+    min-height: clamp(28px, 1.85vw, 32px);
+    font-size: var(--text-medium) !important;
+    line-height: 1.25;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment {
@@ -1372,6 +1410,18 @@ body.member-winloss-page #member_account_buttons .member-winloss-account-segment
 }
 
 body.member-winloss-page #member_account_buttons .member-winloss-account-segments .user-gc-segment:last-child {
+    border-right: none;
+    border-top-right-radius: clamp(8px, 0.7vw, 10px);
+    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
+}
+
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment:nth-child(8n) {
+    border-right: none;
+    border-top-right-radius: clamp(8px, 0.7vw, 10px);
+    border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
+}
+
+body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment:last-child {
     border-right: none;
     border-top-right-radius: clamp(8px, 0.7vw, 10px);
     border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
@@ -1868,20 +1918,20 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     max-height: none;
 }
 
-.member-winloss-page .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll) {
-    flex: 1 1 auto;
+.member-winloss-page .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll):not(:has(.member-dash-matrix-scroll--ccy-fits)) {
+    flex: 0 0 auto;
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    align-self: stretch;
+    align-self: flex-end;
     margin-inline-start: 0;
 }
 
-.member-winloss-page .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll) {
+.member-winloss-page .member-dash-matrix-center-wrap:has(.member-balance-mini-matrix--ccy-scroll):not(:has(.member-dash-matrix-scroll--ccy-fits)) {
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    align-self: stretch;
+    align-self: flex-end;
 }
 
 .member-dash-rail-matrix {
@@ -2446,7 +2496,8 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 .member-winloss-page .member-dash-rail-matrix:has(.member-balance-mini-matrix--ccy-scroll):has(.member-dash-matrix-scroll--ccy-fits) {
     width: max-content !important;
     max-width: 100%;
-    align-self: flex-start;
+    flex: 0 0 auto !important;
+    align-self: flex-end;
 }
 
 /* 最右列由外框描边，去掉列内右边线避免双线+白缝 */
@@ -3026,10 +3077,14 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
         --member-winloss-account-pill-min: 4.25rem;
     }
 
-    body.member-winloss-page #member_account_buttons.member-winloss-account-pills,
-    body.member-winloss-page #member_currency_filter .user-gc-inline-pills {
+    body.member-winloss-page #member_account_buttons.member-winloss-account-pills {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+
+    body.member-winloss-page #member_currency_buttons.member-winloss-currency-pills {
+        overflow-x: hidden;
+        overflow-y: visible;
     }
 
     .member-currency-section {
