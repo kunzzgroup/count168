@@ -8,7 +8,7 @@ function parseMoneyNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Money column: positive #0b2557, negative #b91c1c (aligned with member-amount). */
+/** Money column: positive #1e4a9e, negative #b91c1c. */
 export default function TransactionWinLossCell({ value, formatMoney = formatPaymentHistoryMoneyHalfUp }) {
   const display = formatMoney(value);
   const n = parseMoneyNumber(value);
