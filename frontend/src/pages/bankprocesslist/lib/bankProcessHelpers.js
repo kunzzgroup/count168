@@ -114,7 +114,7 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
  * 全列 minmax(0, fr)：铺满容器、无横向滚动。
  */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "minmax(0,0.34fr) minmax(0,0.62fr) minmax(0,0.44fr) minmax(0,1.52fr) minmax(0,1.31fr) minmax(0,0.68fr) minmax(0,0.58fr) minmax(0,0.52fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.62fr) minmax(0,0.58fr) minmax(0,0.54fr)";
+  "minmax(0,0.34fr) minmax(0,0.62fr) minmax(0,0.44fr) minmax(max-content,1.08fr) minmax(0,1.35fr) minmax(0,0.68fr) minmax(0,0.58fr) minmax(0,0.52fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.62fr) minmax(0,0.58fr) minmax(0,0.54fr)";
 
 /** Bank Process 列表：BANK (TYPE)，如 RHB (BUSINESS) */
 export function formatBankWithTypeDisplay(bank, type) {

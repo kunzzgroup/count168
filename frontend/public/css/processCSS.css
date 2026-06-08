@@ -995,13 +995,13 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     /* Country / Insurance / Customer 列设最小像素宽，保证表头英文标题+排序角标完整显示 */
     --bank-virtual-grid-columns:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
-        minmax(0, 1.52fr) minmax(0, 1.31fr)
+        minmax(max-content, 1.08fr) minmax(0, 1.35fr)
         minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
         minmax(0, 0.6fr) minmax(0, 0.56fr) max-content;
     --bank-virtual-grid-columns-with-select:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
-        minmax(0, 1.52fr) minmax(0, 1.31fr)
+        minmax(max-content, 1.08fr) minmax(0, 1.35fr)
         minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
         minmax(0, 0.6fr) minmax(0, 0.56fr) max-content max-content;
@@ -2426,7 +2426,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-col-ccy.ba
 body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-cell {
     padding-left: clamp(6px, 0.45vw, 10px);
-    padding-right: clamp(10px, 0.55vw, 14px);
+    padding-right: clamp(4px, 0.32vw, 8px);
     white-space: nowrap;
     word-break: normal;
     overflow-wrap: normal;
@@ -2439,7 +2439,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.b
 /* Card Owner：桌面列宽略窄于 Bank；<1700px 由 media query 加宽以完整显示 */
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
-    padding-left: clamp(6px, 0.42vw, 9px);
+    padding-left: clamp(3px, 0.24vw, 5px);
     padding-right: clamp(2px, 0.12vw, 3px);
     min-width: 0;
 }
@@ -3354,12 +3354,12 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-th,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-bank.bank-virtual-cell {
-        padding-right: clamp(10px, 0.55vw, 14px) !important;
+        padding-right: clamp(4px, 0.32vw, 8px) !important;
     }
 
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
-        padding-left: clamp(6px, 0.42vw, 9px) !important;
+        padding-left: clamp(3px, 0.24vw, 5px) !important;
         padding-right: clamp(2px, 0.12vw, 3px) !important;
     }
 }
