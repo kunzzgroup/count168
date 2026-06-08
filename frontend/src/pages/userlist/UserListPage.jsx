@@ -821,15 +821,16 @@ export default function UserListPage() {
     [isUserListScopeKeyActive],
   );
 
-  const loadUsersListFromApi = useCallback(async (activeCompanyId, signal, { groupOnly = null } = {}) => {
+  const loadUsersListFromApi = useCallback(async (activeCompanyId, signal, { groupOnly = null, selectedGroup: groupOverride = null } = {}) => {
     const useGroupOnly = groupOnly ?? groupOnlyUserList;
+    const activeGroup = groupOverride ?? selectedGroup;
     const body = { action: "get" };
     if (aggregateUserList) {
       if (groupsAllMode) body.groups_all = 1;
       if (groupAllMode || groupsAllMode) body.group_all = 1;
-      if (selectedGroup && !groupsAllMode) body.group_id = selectedGroup;
-    } else if (useGroupOnly && selectedGroup) {
-      body.group_id = selectedGroup;
+      if (activeGroup && !groupsAllMode) body.group_id = activeGroup;
+    } else if (useGroupOnly && activeGroup) {
+      body.group_id = activeGroup;
       body.group_only = 1;
       body.group_aggregate = 1;
     } else if (activeCompanyId != null) {
@@ -868,12 +869,13 @@ export default function UserListPage() {
     return list;
   }, [aggregateUserList, groupOnlyUserList, groupsAllMode, groupAllMode, me, selectedGroup]);
 
-  const applyUserListCache = useCallback((activeCompanyId, { groupOnly = null } = {}) => {
+  const applyUserListCache = useCallback((activeCompanyId, { groupOnly = null, selectedGroup: groupOverride = null } = {}) => {
     const useGroupOnly = groupOnly ?? groupOnlyUserList;
+    const activeGroup = groupOverride ?? selectedGroup;
     const cacheKey = resolveUserListCacheKey(
       activeCompanyId,
       useGroupOnly,
-      selectedGroup,
+      activeGroup,
       aggregateUserList,
       groupsAllMode,
       groupAllMode,
@@ -886,19 +888,20 @@ export default function UserListPage() {
     return true;
   }, [groupOnlyUserList, selectedGroup, aggregateUserList, groupsAllMode, groupAllMode]);
 
-  const fetchUsers = useCallback(async (companyIdOverride = null, { silent = false, groupOnly = null } = {}) => {
+  const fetchUsers = useCallback(async (companyIdOverride = null, { silent = false, groupOnly = null, selectedGroup: groupOverride = null } = {}) => {
     if (!me) return;
     const useGroupOnly = groupOnly ?? groupOnlyUserList;
+    const activeGroup = groupOverride ?? selectedGroup;
     const activeCompanyId = companyIdOverride ?? companyId;
     if (!aggregateUserList && useGroupOnly) {
-      if (!selectedGroup) return;
+      if (!activeGroup) return;
     } else if (!aggregateUserList && activeCompanyId == null) {
       return;
     }
     const cacheKey = resolveUserListCacheKey(
       activeCompanyId,
       useGroupOnly,
-      selectedGroup,
+      activeGroup,
       aggregateUserList,
       groupsAllMode,
       groupAllMode,
@@ -923,7 +926,10 @@ export default function UserListPage() {
     listFetchAbortRef.current = ac;
     const fetchGen = ++listFetchGenRef.current;
 
-    const loadPromise = loadUsersListFromApi(activeCompanyId, ac.signal, { groupOnly: useGroupOnly });
+    const loadPromise = loadUsersListFromApi(activeCompanyId, ac.signal, {
+      groupOnly: useGroupOnly,
+      selectedGroup: activeGroup,
+    });
     userListFetchPendingRef.current.set(cacheKey, loadPromise);
 
     try {
@@ -963,13 +969,17 @@ export default function UserListPage() {
     const listCacheKey = resolveUserListCacheKey(
       nextCompanyId,
       false,
-      selectedGroup,
+      vg ?? selectedGroup,
       aggregateUserList,
       groupsAllMode,
       groupAllMode,
     );
     bootFetchedUsersKeyRef.current = listCacheKey;
-    void fetchUsers(nextCompanyId, { silent: true, groupOnly: false });
+    void fetchUsers(nextCompanyId, {
+      silent: true,
+      groupOnly: false,
+      selectedGroup: vg ?? selectedGroup,
+    });
 
     const sessionCompanyId = me?.company_id != null ? Number(me.company_id) : null;
     if (sessionCompanyId === nextCompanyId) return;
@@ -1102,7 +1112,7 @@ export default function UserListPage() {
     persistDashboardGroupOnlyMode(false);
     flushSync(() => {
       setCompanyId(nextId);
-      applyUserListCache(nextId, { groupOnly: false });
+      applyUserListCache(nextId, { groupOnly: false, selectedGroup });
     });
     persistDashboardFilterState(selectedGroup, nextId, { allowGroupOnly: false });
     notifyDashboardGroupFilterChanged(selectedGroup, nextId);
@@ -1142,7 +1152,7 @@ export default function UserListPage() {
         setGroupsAllMode(false);
         setGroupAllMode(false);
         setSelectedGroup(group);
-        if (!applyUserListCache(null, { groupOnly: true })) {
+        if (!applyUserListCache(null, { groupOnly: true, selectedGroup: group })) {
           setUsersRaw([]);
         }
       });
@@ -1153,7 +1163,7 @@ export default function UserListPage() {
       suppressGcSyncRef.current = false;
 
       if (!hadCache) {
-        void fetchUsers(null, { silent: false, groupOnly: true });
+        void fetchUsers(null, { silent: false, groupOnly: true, selectedGroup: group });
       }
     },
     [
@@ -1254,7 +1264,7 @@ export default function UserListPage() {
         setGroupAllMode(false);
         setSelectedGroup(g);
         setCompanyId(nextCompanyId);
-        applyUserListCache(nextCompanyId, { groupOnly: false });
+        applyUserListCache(nextCompanyId, { groupOnly: false, selectedGroup: g });
       });
       persistDashboardGroupFilter(g);
       persistDashboardGroupOnlyMode(false);
@@ -1265,7 +1275,7 @@ export default function UserListPage() {
 
       const listCacheKey = resolveUserListCacheKey(nextCompanyId, false, g, false, false, false);
       bootFetchedUsersKeyRef.current = listCacheKey;
-      void fetchUsers(nextCompanyId, { silent: true, groupOnly: false });
+      void fetchUsers(nextCompanyId, { silent: true, groupOnly: false, selectedGroup: g });
       void (async () => {
         try {
           await onSwitchCompanyRef.current?.(pick, { viewGroup: g });
@@ -1347,8 +1357,11 @@ export default function UserListPage() {
       setGroupAllMode(false);
       setSelectedGroup(targetGroup);
       setCompanyId(nextCompanyId);
-      if (nextCompanyId != null) applyUserListCache(nextCompanyId, { groupOnly: false });
-      else applyUserListCache(null, { groupOnly: groupOnlySync });
+      if (nextCompanyId != null) {
+        applyUserListCache(nextCompanyId, { groupOnly: false, selectedGroup: targetGroup });
+      } else {
+        applyUserListCache(null, { groupOnly: groupOnlySync, selectedGroup: targetGroup });
+      }
     });
 
     if (nextCompanyId != null) {
@@ -1373,12 +1386,12 @@ export default function UserListPage() {
           false,
         );
         bootFetchedUsersKeyRef.current = cacheKey;
-        void fetchUsers(nextCompanyId, { silent: true, groupOnly: false });
+        void fetchUsers(nextCompanyId, { silent: true, groupOnly: false, selectedGroup: targetGroup });
       }
     } else if (groupOnlySync && targetGroup) {
       const groupCacheKey = resolveUserListCacheKey(null, true, targetGroup, false, false, false);
       bootFetchedUsersKeyRef.current = groupCacheKey;
-      void fetchUsers(null, { silent: true, groupOnly: true });
+      void fetchUsers(null, { silent: true, groupOnly: true, selectedGroup: targetGroup });
     }
   }, [
     applyUserListCache,
@@ -1416,7 +1429,7 @@ export default function UserListPage() {
       skipCompanyFetchEffectRef.current = true;
       flushSync(() => {
         setCompanyId(null);
-        applyUserListCache(null, { groupOnly: true });
+        applyUserListCache(null, { groupOnly: true, selectedGroup: g });
       });
 
       persistDashboardGroupFilter(g);
@@ -1428,7 +1441,7 @@ export default function UserListPage() {
       const groupCacheKey = resolveUserListCacheKey(null, true, g, false, false, false);
       if (!userListCacheRef.current.has(groupCacheKey)) {
         bootFetchedUsersKeyRef.current = groupCacheKey;
-        void fetchUsers(null, { silent: true, groupOnly: true });
+        void fetchUsers(null, { silent: true, groupOnly: true, selectedGroup: g });
       }
     },
     [applyUserListCache, fetchUsers, me, selectedGroup],
@@ -1467,7 +1480,7 @@ export default function UserListPage() {
           groupsAllMode: false,
           groupAllMode: false,
         };
-        applyUserListCache(nextCompanyId, { groupOnly: false });
+        applyUserListCache(nextCompanyId, { groupOnly: false, selectedGroup: effectiveGroup });
       });
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
