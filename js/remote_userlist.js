@@ -1444,7 +1444,7 @@ function restoreAllPermissionsCheckboxes() {
 function getRoleTemplateSidebarList(role) {
     if (!role) return [];
     const rolePermissions = {
-        'partnership': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'partnership': ['home', 'admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'admin': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'manager': ['admin', 'account',  'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'supervisor': ['admin', 'account','process', 'datacapture', 'payment', 'report'],
@@ -1521,7 +1521,7 @@ function getFinalPermissionsForCreation(selectedRole) {
 
     // 获取新账号 role 的完整默认权限
     const rolePermissions = {
-        'partnership': ['home', 'admin', 'account', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
+        'partnership': ['home', 'admin', 'account', 'ownership', 'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'admin': ['home', 'admin', 'account',  'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'manager': ['admin', 'account',  'process', 'datacapture', 'payment', 'report', 'maintenance'],
         'supervisor': ['admin', 'account',  'process', 'datacapture', 'payment', 'report'],
