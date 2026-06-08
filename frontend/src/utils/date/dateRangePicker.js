@@ -143,9 +143,42 @@ export function ensureMaintenanceDateRangePicker() {
     return `${fromText} - ${toText}`;
   }
 
+  function hasCommittedRangeInHidden(binding) {
+    const b = binding || activeRangeBinding;
+    const fv = document.getElementById(b.dateFromId)?.value?.trim();
+    const tv = document.getElementById(b.dateToId)?.value?.trim();
+    return !!(fv && tv);
+  }
+
+  function syncPickerSelectedRangeClass(displayIdOverride) {
+    const display = document.getElementById(displayIdOverride || activeRangeBinding.displayId);
+    const picker =
+      display?.closest?.(".date-range-picker") ||
+      document.querySelector(
+        `.date-range-picker[data-drp-display="${activeRangeBinding.displayId}"]`,
+      );
+    if (!picker || !display) return;
+    const placeholder = config.placeholder || "Select date range";
+    picker.classList.toggle("has-selected-range", display.textContent.trim() !== placeholder);
+  }
+
   function updateDateRangeDisplay(displayIdOverride) {
     const display = document.getElementById(displayIdOverride || activeRangeBinding.displayId);
     if (!display) return;
+
+    if (config.preserveDisplayUntilCommit) {
+      if (hasCommittedRangeInHidden()) {
+        paintDisplayFromDomHiddens(activeRangeBinding);
+        syncPickerSelectedRangeClass(displayIdOverride);
+        return;
+      }
+      if (isSelectingRange || (calendarStartDate && !calendarEndDate)) {
+        display.textContent = config.placeholder || "Select date range";
+        syncPickerSelectedRangeClass(displayIdOverride);
+        return;
+      }
+    }
+
     if (calendarStartDate && calendarEndDate) {
       const a = formatDateDisplay(calendarStartDate);
       const b = formatDateDisplay(calendarEndDate);
@@ -157,6 +190,7 @@ export function ensureMaintenanceDateRangePicker() {
     } else {
       display.textContent = config.placeholder || "Select date range";
     }
+    syncPickerSelectedRangeClass(displayIdOverride);
   }
 
   function setWeekdaysVisible(visible) {
@@ -215,6 +249,7 @@ export function ensureMaintenanceDateRangePicker() {
     } else {
       display.textContent = config.placeholder || "Select date range";
     }
+    syncPickerSelectedRangeClass(b.displayId);
   }
 
   function syncToHiddenInputs() {

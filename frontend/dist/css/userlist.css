@@ -2954,12 +2954,12 @@ body.process-page.process-page--bank .userlist-filter-chips--bank-process .user-
     min-width: 6.25rem;
 }
 
-/* Bank Process 窄屏下拉：横列 chip，仅 chip 间距，无额外内边距 */
+/* Bank Process 窄屏下拉：横列 chip 浮条，chip 之间留间距 */
 body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown {
     flex-direction: row;
     align-items: center;
     flex-wrap: wrap;
-    gap: clamp(3px, 0.35vw, 6px);
+    gap: 6px;
     padding: 0;
     margin: 0;
     width: auto;
@@ -2973,8 +2973,47 @@ body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdo
     max-width: none;
     flex-shrink: 0;
     justify-content: flex-start;
-    padding: 4px 10px 4px 4px;
+    gap: 7px;
+    padding: 5px 12px 5px 6px;
     border-radius: 999px;
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: none;
+    font-size: clamp(11px, 0.72vw, 12px);
+    font-weight: 600;
+    color: #475569;
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        color 0.15s ease,
+        transform 0.12s ease;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:hover {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    transform: translateY(-1px);
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip.is-selected {
+    background: #ffffff;
+    border-color: rgba(37, 99, 235, 0.42);
+    color: #1d4ed8;
+    box-shadow:
+        0 2px 10px rgba(37, 99, 235, 0.14),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip__dot {
+    width: 16px;
+    height: 16px;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip__check {
+    width: 10px;
+    height: 10px;
 }
 
 body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:nth-child(1),

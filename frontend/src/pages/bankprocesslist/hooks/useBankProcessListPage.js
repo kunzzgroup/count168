@@ -145,12 +145,6 @@ export function useBankProcessListPage() {
     const toDmy = document.getElementById(b.dateToId)?.value?.trim() || "";
     setDateFrom(dmyToIso(fromDmy));
     setDateTo(dmyToIso(toDmy));
-    const clearBtn = document.getElementById("processListDateClearBtn");
-    if (clearBtn) {
-      const nextFrom = dmyToIso(fromDmy);
-      const nextTo = dmyToIso(toDmy);
-      clearBtn.style.display = nextFrom || nextTo ? "inline-flex" : "none";
-    }
   }, []);
   const [cssReady, setCssReady] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -604,6 +598,7 @@ export function useBankProcessListPage() {
       if (toH) toH.value = dtIso && /^\d{4}-\d{2}-\d{2}$/.test(dtIso) ? isoToDmy(dtIso) : "";
       window.MaintenanceDateRangePicker.init({
         allowEmpty: true,
+        preserveDisplayUntilCommit: true,
         placeholder: t("selectDateRange"),
         selectEndDateHint: t("selectEndDate"),
         clearDateLabel: t("clearDate"),
@@ -644,12 +639,6 @@ export function useBankProcessListPage() {
       monthLabels: bpLocale.monthsShort,
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
-
-  useEffect(() => {
-    const clearBtn = document.getElementById("processListDateClearBtn");
-    if (!clearBtn) return;
-    clearBtn.style.display = dateFrom || dateTo ? "inline-flex" : "none";
-  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     if (loading || !companyId || groupFilterKind !== "follow") return;

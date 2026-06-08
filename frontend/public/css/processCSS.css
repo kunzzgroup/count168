@@ -1547,6 +1547,23 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     font-size: clamp(10px, 0.72vw, 12px);
     font-weight: 700;
     padding-right: 0;
+    color: #94a3b8;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker.has-selected-range #date-range-display,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker.has-selected-range #date-range-display {
+    color: #64748b;
+}
+
+/* 仅有完整日期范围时显示 ×；重新点选日历过程中保持图一样式 */
+body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .process-list-date-clear,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .process-list-date-clear {
+    display: none !important;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker.has-selected-range .process-list-date-clear,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker.has-selected-range .process-list-date-clear {
+    display: inline-flex !important;
 }
 
 /* 顶栏日期：× 与下拉箭头参与 flex 排版，避免 absolute 与文字贴在一起 */
@@ -1828,10 +1845,10 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
         gap: 0;
     }
 
-    /* 窄屏：自 filter 按钮向左锚点，向右下横向展开（不挤占顶栏、不遮挡左侧日期/搜索） */
+    /* 窄屏：自 filter 按钮向左锚点，向右下横向浮层展开 */
     body.process-page.process-page--bank .bank-process-filter-panel--dropdown {
         position: absolute;
-        top: calc(100% + 4px);
+        top: calc(100% + 6px);
         left: 0;
         right: auto;
         z-index: 140;
@@ -1845,35 +1862,37 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
-        transform: translate(-4px, -4px) scale(0.98);
+        transform: translateY(-4px);
         transform-origin: top left;
         transition:
-            opacity 0.16s ease,
-            transform 0.16s cubic-bezier(0.4, 0, 0.2, 1),
-            visibility 0.16s ease;
+            opacity 0.18s ease,
+            transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1),
+            visibility 0.18s ease;
     }
 
     body.process-page.process-page--bank .bank-process-filter-panel--dropdown.is-open {
         pointer-events: auto;
         opacity: 1;
         visibility: visible;
-        transform: translate(0, 0) scale(1);
+        transform: translateY(0);
     }
 
     body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown {
+        position: relative;
         display: inline-flex;
         flex-direction: row;
         flex-wrap: wrap;
         align-items: center;
-        gap: 0;
-        padding: 0;
+        gap: 6px;
+        padding: 6px;
         margin: 0;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid rgba(203, 213, 225, 0.85);
+        border-radius: 14px;
         box-shadow:
-            0 10px 28px rgba(15, 23, 42, 0.1),
-            0 2px 6px rgba(15, 23, 42, 0.05);
+            0 14px 36px rgba(15, 23, 42, 0.11),
+            0 4px 10px rgba(15, 23, 42, 0.05),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
         overflow: visible;
         width: max-content;
         max-width: min(calc(100vw - 16px), 720px);
@@ -1881,34 +1900,52 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
         box-sizing: border-box;
     }
 
+    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown::before {
+        content: "";
+        position: absolute;
+        top: -5px;
+        left: 14px;
+        width: 10px;
+        height: 10px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-top: 1px solid rgba(203, 213, 225, 0.85);
+        border-left: 1px solid rgba(203, 213, 225, 0.85);
+        transform: rotate(45deg);
+        box-shadow: -2px -2px 4px rgba(15, 23, 42, 0.03);
+        pointer-events: none;
+    }
+
     body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear {
         display: inline-flex;
         align-items: center;
+        align-self: stretch;
         flex-shrink: 0;
-        margin: 0 0 0 clamp(3px, 0.35vw, 6px);
-        padding: 4px 10px 4px 4px;
-        border: 1px solid #e2e8f0;
-        border-radius: 999px;
-        background: #f8fafc;
-        color: #2563eb;
+        margin: 0;
+        padding: 0 10px 0 12px;
+        border: none;
+        border-left: 1px solid #dbe3ec;
+        border-radius: 0;
+        background: transparent;
+        color: #64748b;
         font-family: inherit;
-        font-size: clamp(11px, 0.72vw, 12px);
+        font-size: clamp(10px, 0.68vw, 11px);
         font-weight: 600;
         line-height: 1.2;
+        letter-spacing: 0.01em;
         white-space: nowrap;
         cursor: pointer;
-        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        transition: color 0.15s ease, background-color 0.15s ease;
     }
 
     body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear:hover {
-        background: #eff6ff;
-        border-color: rgba(37, 99, 235, 0.35);
-        color: #1d4ed8;
+        background: rgba(239, 246, 255, 0.65);
+        color: #2563eb;
     }
 
     body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear:focus-visible {
         outline: 2px solid #6366f1;
         outline-offset: 2px;
+        border-radius: 6px;
     }
 
     body.process-page.process-page--bank .bank-process-filter-panel--dropdown > .bank-process-filter-dropdown,

@@ -353,7 +353,7 @@ export default function BankProcessListPage() {
                       <i className="fas fa-calendar-alt" aria-hidden="true" />
                       {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
                       <span id="date-range-display" aria-live="polite" />
-                      <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
+                      <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")}>&times;</button>
                       <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                     </div>
                     <input type="hidden" id="date_from" defaultValue="" />
