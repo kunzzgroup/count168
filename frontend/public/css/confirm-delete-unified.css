@@ -77,10 +77,22 @@
   white-space: pre-line;
 }
 
-.confirm-delete-modal-actions,
-.confirm-delete-modal-content .confirm-actions,
-.domain-confirm-modal-content .confirm-actions,
-#confirmDeleteModal .confirm-actions {
+:is(
+  #confirmModal,
+  #confirmDeleteModal,
+  .confirm-delete-modal-content,
+  .domain-confirm-modal-content,
+  .process-confirm-modal-content,
+  .edit-modal-content--confirm-delete
+) :is(
+  .confirm-actions,
+  .confirm-delete-modal-actions,
+  .account-confirm-actions,
+  .maintenance-confirm-actions,
+  .process-confirm-actions:not(.bank-resend-modal-actions),
+  .summary-confirm-actions,
+  .edit-modal-actions
+) {
   margin-top: var(--confirm-delete-actions-margin-top) !important;
   padding: var(--confirm-delete-actions-padding) !important;
   background: transparent !important;
