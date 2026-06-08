@@ -1575,6 +1575,92 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     transform: none;
 }
 
+/* Bank Process 顶栏日历弹层：全视口与 date range 药丸同宽（覆盖 processlist 292px 固定宽） */
+body.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor,
+body.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets {
+    width: var(--bank-toolbar-date-width) !important;
+    min-width: var(--bank-toolbar-date-width) !important;
+    max-width: min(calc(100vw - 24px), var(--bank-toolbar-date-width)) !important;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+    padding: 0;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--match-anchor .transaction-calendar-panel,
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .transaction-calendar-panel,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--match-anchor .transaction-calendar-panel,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .transaction-calendar-panel {
+    padding: 6px 8px 8px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-header,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    max-width: none !important;
+    width: 100%;
+    margin: 0 0 6px;
+    padding: 0;
+    column-gap: 2px;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-month-year,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-month-year {
+    min-height: 26px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-month-trigger,
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-year-trigger,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-month-trigger,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-year-trigger {
+    min-width: 0 !important;
+    min-height: 24px;
+    padding: 3px 4px;
+    font-size: clamp(9px, 0.65vw, 11px);
+    flex: 1 1 0;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-nav-btn,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-nav-btn {
+    width: clamp(22px, 1.6vw, 26px);
+    height: clamp(22px, 1.6vw, 26px);
+    flex-shrink: 0;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekday,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekday {
+    font-size: clamp(8px, 0.58vw, 10px);
+    padding: 2px 0;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day {
+    min-height: 20px;
+    font-size: clamp(8px, 0.58vw, 10px);
+    border-radius: 4px;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekdays,
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-days,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekdays,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-days {
+    gap: 2px;
+    width: 100%;
+    max-width: 100%;
+}
+
 /* Bank Process 窄屏（<1700px）：日期加长、Search/Filter 图标药丸，filter 收进按钮 */
 @media (max-width: 1699px) {
     body.process-page.process-page--bank .bank-process-filter-toggle,
@@ -1664,80 +1750,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .transaction-date-range-chevron,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .transaction-date-range-chevron {
-        right: clamp(6px, 0.55vw, 10px);
         font-size: clamp(9px, 0.62vw, 11px) !important;
-    }
-
-    /* 日历弹层：与 date range 输入框同宽（宽度由 JS 打开时同步测量） */
-    body.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets,
-    body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets {
-        width: var(--bank-toolbar-date-width, auto) !important;
-        min-width: var(--bank-toolbar-date-width, auto) !important;
-        max-width: var(--bank-toolbar-date-width, auto) !important;
-        box-sizing: border-box;
-        overflow: hidden;
-        border-radius: 10px;
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
-    }
-
-    body.process-page.process-page--bank #calendar-popup.calendar-popup--match-anchor .transaction-calendar-panel,
-    body.process-page.process-page--bank #calendar-popup .transaction-calendar-panel {
-        padding: 6px 8px 8px;
-        box-sizing: border-box;
-        width: 100%;
-        max-width: 100%;
-    }
-
-    body.process-page.process-page--bank #calendar-popup .calendar-header {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        align-items: center;
-        max-width: none !important;
-        width: 100%;
-        margin: 0 0 6px;
-        padding: 0;
-        column-gap: 2px;
-    }
-
-    body.process-page.process-page--bank #calendar-popup .calendar-month-year {
-        min-height: 26px;
-        min-width: 0;
-        width: 100%;
-        max-width: 100%;
-        overflow: hidden;
-    }
-
-    body.process-page.process-page--bank #calendar-popup .calendar-month-trigger,
-    body.process-page.process-page--bank #calendar-popup .calendar-year-trigger {
-        min-width: 0 !important;
-        min-height: 24px;
-        padding: 3px 4px;
-        font-size: clamp(9px, 0.65vw, 11px);
-        flex: 1 1 0;
-    }
-
-    body.process-page.process-page--bank #calendar-popup .calendar-nav-btn {
-        width: clamp(22px, 1.6vw, 26px);
-        height: clamp(22px, 1.6vw, 26px);
-        flex-shrink: 0;
-    }
-
-    body.process-page.process-page--bank #calendar-popup .calendar-weekday {
-        font-size: clamp(8px, 0.58vw, 10px);
-        padding: 2px 0;
-    }
-
-    body.process-page.process-page--bank #calendar-popup .calendar-day {
-        min-height: 20px;
-        font-size: clamp(8px, 0.58vw, 10px);
-        border-radius: 4px;
-    }
-
-    body.process-page.process-page--bank #calendar-popup .calendar-weekdays,
-    body.process-page.process-page--bank #calendar-popup .calendar-days {
-        gap: 2px;
-        width: 100%;
-        max-width: 100%;
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar,

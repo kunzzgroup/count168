@@ -16,6 +16,7 @@ export function closeMaintenanceCalendarPopup() {
   popup.setAttribute("aria-hidden", "true");
   popup.classList.remove("calendar-popup--match-anchor");
   popup.style.display = "none";
+  document.body.style.removeProperty("--bank-toolbar-date-width");
   const bankFooter = document.getElementById("calendar-popup-bank-footer");
   if (bankFooter) bankFooter.style.display = "none";
 }

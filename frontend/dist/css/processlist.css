@@ -2222,6 +2222,14 @@ body.process-page .calendar-popup.calendar-popup--transaction-range {
     box-shadow: 0 16px 38px rgba(15, 23, 42, 0.16);
 }
 
+/* Bank Process 顶栏：宽度由 JS 测量药丸后写入 --bank-toolbar-date-width */
+body.process-page.process-page--bank .calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor,
+body.process-page.process-page--bank .calendar-popup.calendar-popup--transaction-range.calendar-popup--no-presets {
+    width: auto;
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+}
+
 body.process-page .calendar-popup.calendar-popup--transaction-range[style*="display: block"] {
     display: grid !important;
 }
