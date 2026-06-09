@@ -16,7 +16,12 @@ export default function SidebarMenuTooltip({
   children,
 }) {
   return (
-    <PortalTooltip content={label} enabled={enabled} placement={placement}>
+    <PortalTooltip
+      content={label}
+      enabled={enabled}
+      placement={placement}
+      showOnFocus={false}
+    >
       {children}
     </PortalTooltip>
   );
