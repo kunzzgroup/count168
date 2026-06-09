@@ -73,6 +73,12 @@ function dashboard_api_kpi_only(): bool
     return isset($_GET['kpi_only']) && (string) $_GET['kpi_only'] === '1';
 }
 
+/** Multi-currency earnings panel: skip CAPITAL + ownership (frontend merges from primary KPI). */
+function dashboard_api_earnings_only(): bool
+{
+    return isset($_GET['earnings_only']) && (string) $_GET['earnings_only'] === '1';
+}
+
 /** SQL AND: subsidiary currency rows only (exclude group ledger on shared anchor company_id). */
 function dashboard_sql_currency_subsidiary_only(PDO $pdo, string $alias = 'c'): string
 {
@@ -2518,7 +2524,9 @@ try {
         $filter_currency_code = strtoupper(trim((string) $_GET['currency']));
     }
     $kpiOnly = dashboard_api_kpi_only();
+    $earningsOnly = dashboard_api_earnings_only();
     $GLOBALS['DASHBOARD_KPI_ONLY'] = $kpiOnly;
+    $GLOBALS['DASHBOARD_EARNINGS_ONLY'] = $earningsOnly;
 
     // No company_id: group ledger only (scope_type=group). Distinct from company_id-scoped rows.
     $groupLedgerCode = reportNormalizeGroupId($_GET['view_group'] ?? '');
@@ -2640,8 +2648,8 @@ try {
     $dashTxnSubSql = dashboard_sql_txn_subsidiary_only($pdo, 't');
     $dashTxnSubSqlH = dashboard_sql_txn_subsidiary_only($pdo, 'h');
 
-    // 定义要查询的角色
-    $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
+    // 定义要查询的角色（earnings_only 只需 EXPENSES + PROFIT）
+    $roles = $earningsOnly ? ['EXPENSES', 'PROFIT'] : ['CAPITAL', 'EXPENSES', 'PROFIT'];
     $result = [];
 
     foreach ($roles as $role) {
@@ -3189,6 +3197,20 @@ try {
         ];
     }
 
+    if ($earningsOnly) {
+        foreach (['capital', 'expenses', 'profit'] as $roleKey) {
+            if (!isset($result[$roleKey])) {
+                $result[$roleKey] = [
+                    'role' => strtoupper($roleKey),
+                    'total_balance' => '0',
+                    'initial_balance' => '0',
+                    'period_total' => '0',
+                    'daily_data' => [],
+                ];
+            }
+        }
+    }
+
     // ── RATE_MIDDLEMAN 手续费同步至 Profit ──────────────────────────────────
     // RATE 账户（role='RATE'）的 Win/Loss 来自 RATE_MIDDLEMAN 分录，
     // 不属于 PROFIT role 账户，被上方 roles 循环跳过，导致 Dashboard 显示 0。
@@ -3285,12 +3307,13 @@ try {
             dashboardHasContraApprovalColumns($pdo)
         );
 
-    // 获取当前账户的 ownership_percentage
+    // 获取当前账户的 ownership_percentage（earnings_only 由前端从主币种 KPI 合并，此处跳过）
     $ownership_percentage = 0;
     $has_ownership_setup = false;
     $group_equity_percentage = 0;
     $group_account_percentage = 0;
     $has_group_ownership = false;
+    if (!$earningsOnly) {
     try {
         $ownershipSchema = dashboardCompanyOwnershipSchema($pdo); // static 缓存
         $hasCompanyOwnership = $ownershipSchema['table'];
@@ -3424,6 +3447,7 @@ try {
         }
     } catch (Throwable $e) {
         // ignore
+    }
     }
 
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和

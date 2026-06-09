@@ -26,6 +26,7 @@ export function DashboardEarningsSummary({
   exchangeRates,
   exchangeRatesError,
   exchangeRatesLoading,
+  exchangeRateScopeKey = "",
   rateFootnoteText,
   convertedEarningsTotal,
 }) {
@@ -72,7 +73,7 @@ export function DashboardEarningsSummary({
 
   const summaryPieReady = earningsPieSlices.length > 0 && !summaryEarningsLoading;
 
-  const isRowEarningsLoading = useCallback(
+  const isRowAmountLoading = useCallback(
     (code) => {
       if (currencies.length <= 1) return summaryEarningsLoading;
       const row = earningsCurrencyRows.find((r) => r.code === code);
@@ -80,6 +81,14 @@ export function DashboardEarningsSummary({
     },
     [currencies.length, earningsCurrencyRows, summaryEarningsLoading]
   );
+
+  const isRowRateLoading = useCallback(() => {
+    if (currencies.length <= 1) return false;
+    return (
+      exchangeRatesLoading ||
+      (exchangeRateScopeKey && exchangeRates.scopeKey !== exchangeRateScopeKey)
+    );
+  }, [currencies.length, exchangeRatesLoading, exchangeRates.scopeKey, exchangeRateScopeKey]);
 
   useEffect(() => {
     setHoveredPieSector(null);
@@ -255,7 +264,8 @@ export function DashboardEarningsSummary({
           </div>
           <div className="dashboard-summary-currency-list-body" role="list">
             {earningsCurrencyRows.map((row, index) => {
-              const rowLoading = isRowEarningsLoading(row.code);
+              const rowAmountLoading = isRowAmountLoading(row.code);
+              const rowRateLoading = isRowRateLoading();
               const sharePct = computeCurrencySharePct(row, earningsShareTotal, useConvertedEarnings);
               const unitRateLabel = earningsBreakdownShowsRate
                 ? formatFrankfurterUnitRate(row.code, currencyCode, exchangeRates.rates)
@@ -294,10 +304,10 @@ export function DashboardEarningsSummary({
                   </div>
                   <div className="dashboard-summary-currency-amount-col">
                     <span className="dashboard-summary-currency-amount">
-                      {rowLoading ? "…" : formatCurrency(row.earnings ?? 0)}
+                      {rowAmountLoading ? "…" : formatCurrency(row.earnings ?? 0)}
                     </span>
                     {useConvertedEarnings &&
-                      !rowLoading &&
+                      !rowAmountLoading &&
                       row.earningsConverted != null &&
                       String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
                         <span className="dashboard-summary-currency-converted">
@@ -309,13 +319,15 @@ export function DashboardEarningsSummary({
                       )}
                   </div>
                   <span className="dashboard-summary-currency-rate" title={unitRateTitle}>
-                    {rowLoading
+                    {rowRateLoading
                       ? "…"
                       : earningsBreakdownShowsRate
                         ? unitRateLabel && unitRateLabel !== "—"
                           ? unitRateLabel
                           : "—"
-                        : `${sharePct.toFixed(1)}%`}
+                        : rowAmountLoading
+                          ? "…"
+                          : `${sharePct.toFixed(1)}%`}
                   </span>
                 </div>
               );

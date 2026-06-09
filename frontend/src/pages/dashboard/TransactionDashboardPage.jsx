@@ -95,6 +95,7 @@ export default function TransactionDashboardPage() {
               exchangeRates={page.exchangeRates}
               exchangeRatesError={page.exchangeRatesError}
               exchangeRatesLoading={page.exchangeRatesLoading}
+              exchangeRateScopeKey={page.exchangeRateScopeKey}
               rateFootnoteText={page.rateFootnoteText}
               convertedEarningsTotal={page.convertedEarningsTotal}
             />

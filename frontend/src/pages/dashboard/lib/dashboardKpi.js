@@ -46,6 +46,20 @@ export function resolveEffectiveOwnershipPct(dashboardData, selectedGroup) {
   return directPct === 0 && inGroupView ? 1 : 0;
 }
 
+/** Copy ownership fields from primary-currency KPI into per-currency earnings payloads. */
+export function mergeDashboardOwnershipFields(payload, ownershipSource) {
+  if (!payload || !ownershipSource) return payload;
+  return {
+    ...payload,
+    ownership_percentage: ownershipSource.ownership_percentage,
+    has_ownership_setup: ownershipSource.has_ownership_setup,
+    group_equity_percentage: ownershipSource.group_equity_percentage,
+    group_account_percentage: ownershipSource.group_account_percentage,
+    has_group_ownership: ownershipSource.has_group_ownership,
+    _link_multiplier: ownershipSource._link_multiplier,
+  };
+}
+
 /**
  * True when per-currency earnings should be refetched.
  * KPI-only fallback may fill the active currency while other rows stay 0 — not bootstrap-complete.
