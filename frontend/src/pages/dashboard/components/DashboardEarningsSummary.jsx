@@ -3,11 +3,11 @@ import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { formatFrankfurterUnitRate } from "../../../utils/dashboard/frankfurterRates.js";
 import {
   buildEarningsPieSlices,
+  buildEarningsShareByCode,
   computeCurrencySharePct,
   computePieCenterMetrics,
   computeSectorTooltipPosition,
   getCurrencyColor,
-  resolveEarningsShareDenominator,
 } from "../lib/dashboardEarnings.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { EarningsPieSectorTooltip } from "./EarningsPieSectorTooltip.jsx";
@@ -29,7 +29,6 @@ export function DashboardEarningsSummary({
   exchangeRatesLoading,
   exchangeRateScopeKey = "",
   rateFootnoteText,
-  convertedEarningsTotal,
 }) {
   const pieAreaRef = useRef(null);
   const pieShellRef = useRef(null);
@@ -46,22 +45,20 @@ export function DashboardEarningsSummary({
     [earningsCurrencyRows, useConvertedEarnings]
   );
 
-  const earningsShareTotal = useMemo(
+  const earningsShareByCode = useMemo(
     () =>
-      resolveEarningsShareDenominator(earningsCurrencyRows, {
+      buildEarningsShareByCode(earningsCurrencyRows, currencyCode, {
         useConverted: useConvertedEarnings,
-        convertedTotal: convertedEarningsTotal,
       }),
-    [useConvertedEarnings, convertedEarningsTotal, earningsCurrencyRows]
+    [earningsCurrencyRows, currencyCode, useConvertedEarnings]
   );
 
   const pieCenterMetrics = useMemo(
     () =>
       computePieCenterMetrics(earningsCurrencyRows, currencyCode, {
         useConverted: useConvertedEarnings,
-        shareTotal: earningsShareTotal,
       }),
-    [earningsCurrencyRows, currencyCode, useConvertedEarnings, earningsShareTotal]
+    [earningsCurrencyRows, currencyCode, useConvertedEarnings]
   );
 
   const currencyPieFillByCode = useMemo(() => {
@@ -165,10 +162,7 @@ export function DashboardEarningsSummary({
     const row = earningsCurrencyRows.find(
       (r) => String(r.code).toUpperCase() === String(slice?.code || "").toUpperCase()
     );
-    const sharePct =
-      row && earningsShareTotal
-        ? computeCurrencySharePct(row, earningsShareTotal, useConvertedEarnings)
-        : null;
+    const sharePct = row ? computeCurrencySharePct(row, earningsShareByCode) : null;
     return {
       slice,
       sharePct,
@@ -181,8 +175,7 @@ export function DashboardEarningsSummary({
     hoveredPieSector,
     earningsPieSlices,
     earningsCurrencyRows,
-    earningsShareTotal,
-    useConvertedEarnings,
+    earningsShareByCode,
     pieShellLayout,
   ]);
 
@@ -298,7 +291,7 @@ export function DashboardEarningsSummary({
             {earningsCurrencyRows.map((row, index) => {
               const rowAmountLoading = isRowAmountLoading(row.code);
               const rowRateLoading = isRowRateLoading();
-              const sharePct = computeCurrencySharePct(row, earningsShareTotal, useConvertedEarnings);
+              const sharePct = computeCurrencySharePct(row, earningsShareByCode);
               const unitRateLabel = earningsBreakdownShowsRate
                 ? formatFrankfurterUnitRate(row.code, currencyCode, exchangeRates.rates)
                 : null;
