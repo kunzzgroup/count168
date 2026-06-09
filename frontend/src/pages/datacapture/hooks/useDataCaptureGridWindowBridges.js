@@ -65,7 +65,6 @@ export function useDataCaptureGridWindowBridges() {
     const api = {
       attachColumnHeader: attachColumnHeaderListeners,
       attachRowHeader: attachRowHeaderListeners,
-      fixCitibetAmounts: () => {},
       clearAllSelections,
       registerSelectedCell,
       getSelectedCells,

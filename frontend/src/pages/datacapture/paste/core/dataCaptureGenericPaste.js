@@ -17,7 +17,7 @@ import { parsePastedData } from "./dataCaptureParsePastedData.js";
 
 
 import { applyParsedMatrixToGrid, parseGenericHtmlTable } from "./dataCapturePasteApply.js";
-import { notifyPasteUser, recomputeSubmitStateAfterPaste, runConvertTableOnSubmit, runFixCitibetAmounts } from "../../lib/dataCaptureBridge.js";
+import { notifyPasteUser, recomputeSubmitStateAfterPaste, runConvertTableOnSubmit } from "../../lib/dataCaptureBridge.js";
 
 /** @returns {boolean} */
 export function handleGenericPaste(e, pastedData) {
@@ -123,7 +123,6 @@ export function handleGenericPaste(e, pastedData) {
         if (successCount > 0) {
             setTimeout(() => {
                 runConvertTableOnSubmit();
-                runFixCitibetAmounts();
             }, 100);
         }
 

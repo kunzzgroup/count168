@@ -1,7 +1,13 @@
 /**
  * Grid multi-selection state and clipboard actions.
  */
-import { gridHandleCellPaste, gridRecomputeSubmitState, notifyPasteUser } from "../lib/dataCaptureBridge.js";
+import {
+  clearBridgeCells,
+  getBridgeCellValue,
+  gridHandleCellPaste,
+  gridRecomputeSubmitState,
+  notifyPasteUser,
+} from "../lib/dataCaptureBridge.js";
 import { hideContextMenu } from "../lib/dataCaptureContextMenu.js";
 
 export const selectedCells = new Set();
@@ -47,16 +53,30 @@ function recomputeSubmitState() {
   gridRecomputeSubmitState();
 }
 
+function cellPosition(cell) {
+  if (!cell?.parentNode?.parentNode) return null;
+  const row = cell.parentNode;
+  const table = row.parentNode;
+  const rowIndex = Array.from(table.children).indexOf(row);
+  const colIndex = Number.parseInt(cell.dataset.col, 10);
+  if (rowIndex < 0 || !Number.isFinite(colIndex)) return null;
+  return { rowIndex, colIndex };
+}
+
 export function copySelectedCells() {
   if (getSelectedCellCount() === 0) return;
 
-  const cellPositions = getSelectedCells().map((cell) => {
-    const row = cell.parentNode;
-    const table = row.parentNode;
-    const rowIndex = Array.from(table.children).indexOf(row);
-    const colIndex = parseInt(cell.dataset.col, 10);
-    return { row: rowIndex, col: colIndex, value: cell.textContent };
-  });
+  const cellPositions = getSelectedCells()
+    .map((cell) => {
+      const pos = cellPosition(cell);
+      if (!pos) return null;
+      return {
+        row: pos.rowIndex,
+        col: pos.colIndex,
+        value: getBridgeCellValue(pos.rowIndex, pos.colIndex),
+      };
+    })
+    .filter(Boolean);
 
   const rows = cellPositions.map((pos) => pos.row);
   const cols = cellPositions.map((pos) => pos.col);
@@ -102,13 +122,14 @@ export function pasteToSelectedCells() {
 }
 
 export function clearSelectedCells() {
-  const cellsToClear = getSelectedCells().filter(
-    (cell) => cell && cell.contentEditable === "true" && cell.closest("#dataTable"),
-  );
+  const positions = getSelectedCells()
+    .filter((cell) => cell && cell.contentEditable === "true" && cell.closest("#dataTable"))
+    .map((cell) => cellPosition(cell))
+    .filter(Boolean);
 
-  cellsToClear.forEach((cell) => {
-    cell.textContent = "";
-  });
+  if (positions.length) {
+    clearBridgeCells(positions);
+  }
 
   hideContextMenu();
   recomputeSubmitState();

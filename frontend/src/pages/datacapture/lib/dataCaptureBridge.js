@@ -45,21 +45,6 @@ export function toggleBridgeFormatDisplay() {
 /** @alias toggleBridgeFormatDisplay */
 export const toggleFormatDisplay = toggleBridgeFormatDisplay;
 
-export function syncBridgeGridFromDom() {
-  callDataCaptureRuntime("syncGridFromDom");
-}
-
-export function runBridgeFixCitibetAmounts() {
-  callDataCaptureRuntime("fixCitibetAmounts");
-}
-
-/** @alias runBridgeFixCitibetAmounts */
-export const runFixCitibetAmounts = runBridgeFixCitibetAmounts;
-
-export function selectBridgeColumn(colIndex) {
-  callDataCaptureRuntime("selectColumn", colIndex);
-}
-
 export function onFormatGridReady(ready) {
   callDataCaptureRuntime("onFormatGridReady", ready);
 }
@@ -73,6 +58,21 @@ export function parseHtmlFormat(html, options) {
 }
 
 // --- Grid model (paste pipeline) ---
+
+export function updateBridgeCell(rowIndex, colIndex, patch) {
+  callDataCaptureRuntime("updateCell", rowIndex, colIndex, patch);
+}
+
+/** @param {Array<{ row: number, col: number }>} positions */
+export function clearBridgeCells(positions) {
+  callDataCaptureRuntime("clearCellsAt", positions);
+}
+
+export function getBridgeCellValue(rowIndex, colIndex) {
+  const grid = getPasteGridModel();
+  if (!grid) return "";
+  return String(grid.cells?.[rowIndex]?.[colIndex]?.value ?? "");
+}
 
 export function getPasteGridModel() {
   const fn = getDataCaptureRuntime().getGridModel;
@@ -89,14 +89,6 @@ export function ensurePasteTableInitialized(rows, cols) {
 
 export function getFirstSelectedGridCell() {
   return callDataCaptureRuntime("getSelectedCells")?.[0] ?? null;
-}
-
-export function markPasteModelApplied() {
-  getDataCaptureState().pasteModelApplied = true;
-}
-
-export function clearPasteModelAppliedFlag() {
-  getDataCaptureState().pasteModelApplied = false;
 }
 
 export function recordPasteHistory(changes) {
@@ -123,14 +115,6 @@ export function notifyPasteUser(message, level = "success") {
 
 export function setTableActiveForPaste() {
   setBridgeTableActive(true);
-}
-
-export function afterPasteApply() {
-  if (getDataCaptureState().pasteModelApplied) {
-    clearPasteModelAppliedFlag();
-    return;
-  }
-  syncBridgeGridFromDom();
 }
 
 // --- Grid interaction (used by grid/*.js) ---
@@ -203,14 +187,6 @@ export function gridSetContextMenuRow(index) {
   callDataCaptureRuntime("setContextMenuRow", index);
 }
 
-export function gridAttachColumnHeader(header) {
-  callDataCaptureRuntime("attachColumnHeader", header);
-}
-
-export function gridUpdateContextMenuPosition() {
-  callDataCaptureRuntime("updateContextMenuPosition");
-}
-
 export function gridCopySelectedCells() {
   callDataCaptureRuntime("copySelectedCells");
 }
@@ -227,70 +203,6 @@ export function gridSelectAllCells(e) {
   callDataCaptureRuntime("selectAllCells", e);
 }
 
-export function gridClearAllSelectionsBridge() {
-  callDataCaptureRuntime("clearAllSelections");
-}
-
-export function gridRegisterSelectedCellBridge(cell) {
-  callDataCaptureRuntime("registerSelectedCell", cell);
-}
-
-export function gridGetSelectedCellsBridge() {
-  return callDataCaptureRuntime("getSelectedCells") ?? [];
-}
-
-export function gridGetSelectedCellCountBridge() {
-  return callDataCaptureRuntime("getSelectedCellCount") ?? 0;
-}
-
-export function gridSetActiveCellCore(cell) {
-  callDataCaptureRuntime("setActiveCellCore", cell);
-}
-
 export function gridMoveCaretToClickPosition(cell, clickEvent) {
   callDataCaptureRuntime("moveCaretToClickPosition", cell, clickEvent);
-}
-
-export function gridHandleCellClick(e, cellEl) {
-  callDataCaptureRuntime("handleCellClick", e, cellEl);
-}
-
-export function gridHandleCellKeydown(e) {
-  callDataCaptureRuntime("handleCellKeydown", e);
-}
-
-export function gridInsertColumnLeft() {
-  callDataCaptureRuntime("insertColumnLeft");
-}
-
-export function gridInsertColumnRight() {
-  callDataCaptureRuntime("insertColumnRight");
-}
-
-export function gridDeleteColumn() {
-  callDataCaptureRuntime("deleteColumn");
-}
-
-export function gridClearColumn() {
-  callDataCaptureRuntime("clearColumn");
-}
-
-export function gridInsertRowAbove() {
-  callDataCaptureRuntime("insertRowAbove");
-}
-
-export function gridInsertRowBelow() {
-  callDataCaptureRuntime("insertRowBelow");
-}
-
-export function gridDeleteRow() {
-  callDataCaptureRuntime("deleteRow");
-}
-
-export function gridClearRow() {
-  callDataCaptureRuntime("clearRow");
-}
-
-export function gridShowDeleteDialog() {
-  callDataCaptureRuntime("showDeleteDialog");
 }

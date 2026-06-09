@@ -3,15 +3,6 @@ import { saveGroupOnlyProcessPrefsFromProcessData } from "../../datacapture/lib/
 import { saveGroupOnlyTableDraftFromCaptureSession } from "../../datacapture/lib/dataCaptureGroupOnlyTableDraft.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
-/** Persist formula/source/rate draft caches before refresh or leaving (not final Submit). */
-export function saveSummaryRefreshState(options = {}) {
-  const includeRateValue = options.includeRateValue !== false;
-  if (includeRateValue) {
-    window.saveRateValuesForRefresh?.();
-  }
-  window.saveFormulaSourceForRefresh?.({ includeRateValue });
-}
-
 export function buildSummaryRestoreCapturePath(companyId, options = {}) {
   const groupOnly = options.groupOnly === true;
   const params = new URLSearchParams({ restore: "1" });
@@ -34,7 +25,7 @@ export function buildSummarySubmittedCapturePath(companyId, options = {}) {
   return `/datacapture?${params.toString()}`;
 }
 
-/** Clear capture session after successful summary submit (legacy parity). */
+/** Clear capture session after successful summary submit. */
 export function clearSummarySessionAfterSubmit(options = {}) {
   window.isNavigatingAwayByBackOrSubmit = true;
   if (options.groupOnly === true) {
@@ -53,24 +44,4 @@ export function clearSummarySessionAfterSubmit(options = {}) {
     /* ignore */
   }
   clearSummaryCaptureRoundStorage();
-}
-
-export function runLegacyRateBatchSubmit() {
-  window.submitRateValues?.();
-}
-
-export function runLegacyRateSelectAll(buttonEl) {
-  window.toggleAllRate?.(buttonEl);
-}
-
-export function runLegacyDeleteSelectedRows() {
-  window.deleteSelectedRows?.();
-}
-
-export function runLegacySubmitSummary() {
-  window.submitSummaryData?.();
-}
-
-export function runLegacyHideNotification() {
-  window.hideNotification?.();
 }

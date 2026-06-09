@@ -11,7 +11,24 @@ import {
   gridRecomputeSubmitState,
   gridUndoLastPaste,
   setBridgeTableActive,
+  updateBridgeCell,
 } from "../lib/dataCaptureBridge.js";
+
+function cellPosition(cell) {
+  if (!cell?.parentNode?.parentNode) return null;
+  const row = cell.parentNode;
+  const table = row.parentNode;
+  const rowIndex = Array.from(table.children).indexOf(row);
+  const colIndex = Number.parseInt(cell.dataset.col, 10);
+  if (rowIndex < 0 || !Number.isFinite(colIndex)) return null;
+  return { rowIndex, colIndex };
+}
+
+function clearCellModel(cell) {
+  const pos = cellPosition(cell);
+  if (!pos) return;
+  updateBridgeCell(pos.rowIndex, pos.colIndex, { value: "" });
+}
 
 function clearAllSelections() {
   gridClearAllSelections();
@@ -99,6 +116,75 @@ export function moveCaretToEnd(cell) {
     selection.addRange(range);
   } catch (err) {
     console.error("Failed to move caret to end:", err);
+  }
+}
+
+export function getCaretCharacterOffsetWithin(element) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return String(element.textContent ?? "").length;
+  }
+
+  const range = selection.getRangeAt(0);
+  if (!element.contains(range.endContainer)) {
+    return String(element.textContent ?? "").length;
+  }
+
+  const preCaretRange = range.cloneRange();
+  preCaretRange.selectNodeContents(element);
+  preCaretRange.setEnd(range.endContainer, range.endOffset);
+  return preCaretRange.toString().length;
+}
+
+export function setCaretCharacterOffsetWithin(element, offset) {
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  const textLength = String(element.textContent ?? "").length;
+  const safeOffset = Math.max(0, Math.min(offset, textLength));
+  const range = document.createRange();
+  let charCount = 0;
+  let found = false;
+
+  const walk = (node) => {
+    if (found) return;
+    if (node.nodeType === Node.TEXT_NODE) {
+      const nextCount = charCount + node.length;
+      if (safeOffset <= nextCount) {
+        range.setStart(node, safeOffset - charCount);
+        range.collapse(true);
+        found = true;
+        return;
+      }
+      charCount = nextCount;
+      return;
+    }
+    for (const child of node.childNodes) {
+      walk(child);
+      if (found) return;
+    }
+  };
+
+  walk(element);
+  if (!found) {
+    range.selectNodeContents(element);
+    range.collapse(false);
+  }
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+/** Rewrite cell text without jumping the caret to the start (e.g. after toUpperCase). */
+export function replaceTextContentPreservingCaret(element, nextText) {
+  const current = String(element.textContent ?? "");
+  const next = String(nextText ?? "");
+  if (current === next) return;
+
+  const caretOffset = getCaretCharacterOffsetWithin(element);
+  element.textContent = next;
+  if (document.activeElement === element) {
+    setCaretCharacterOffsetWithin(element, caretOffset);
   }
 }
 
@@ -275,7 +361,7 @@ export function handleCellKeydown(e) {
 
     if (e.key === "Delete" && (isSelected || hasFocusForDelete)) {
       e.preventDefault();
-      cell.textContent = "";
+      clearCellModel(cell);
       recomputeSubmitState();
       return;
     }
@@ -302,14 +388,14 @@ export function handleCellKeydown(e) {
 
     if (!hasFocusForDelete && (cell.classList.contains("selected") || getSelectedCells().includes(cell))) {
       e.preventDefault();
-      cell.textContent = "";
+      clearCellModel(cell);
       recomputeSubmitState();
       return;
     }
 
     if (hasFocusForDelete && e.key === "Backspace" && (cursorAtStart || !hasContent)) {
       e.preventDefault();
-      cell.textContent = "";
+      clearCellModel(cell);
       recomputeSubmitState();
     }
     return;

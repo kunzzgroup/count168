@@ -17,7 +17,7 @@ import {
   handleRowHeaderMouseover,
 } from "../grid/dataCaptureGridMouseSelection.js";
 import { clearAllSelections } from "../grid/dataCaptureGridSelection.js";
-import { readGridFromDom } from "../grid/gridDomAdapter.js";
+import { undoLastPaste as undoPasteFromHistory } from "../grid/dataCaptureGridPasteHistory.js";
 import {
   appendColumnInGrid,
   appendRowInGrid,
@@ -28,7 +28,6 @@ import {
   insertColumnInGrid,
   insertRowInGrid,
 } from "../grid/gridRowColumnModel.js";
-import { undoLastPaste as undoLastPasteLegacy } from "../grid/dataCaptureGridPasteHistory.js";
 import {
   getContextMenuColumnIndex,
   getContextMenuRowIndex,
@@ -107,12 +106,6 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
   const { gridRef, replaceGrid } = useDataCaptureContext();
   const apiRef = useRef({ gridRef, replaceGrid });
   apiRef.current = { gridRef, replaceGrid };
-
-  const syncGridFromDom = useCallback(() => {
-    const current = apiRef.current.gridRef.current;
-    if (!current) return;
-    apiRef.current.replaceGrid(readGridFromDom(current.rows, current.cols));
-  }, []);
 
   useLayoutEffect(() => {
     const getGrid = () => apiRef.current.gridRef.current;
@@ -227,14 +220,10 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       return next.cols - 1;
     };
 
-    const undoLastPaste = () => {
-      undoLastPasteLegacy();
-      syncGridFromDom();
+    const handleUndoLastPaste = () => {
+      undoPasteFromHistory();
       recomputeSubmitState();
     };
-
-    const getGridModel = () => apiRef.current.gridRef.current;
-    const replaceGrid = (grid) => apiRef.current.replaceGrid(grid);
 
     const api = {
       insertColumnLeft,
@@ -247,16 +236,12 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       clearRow,
       addNewRow: appendGridRow,
       addNewColumn: appendGridColumn,
-      undoLastPaste,
-      getGridModel,
-      replaceGrid,
-      syncGridFromDom,
-      afterPasteApply: syncGridFromDom,
+      undoLastPaste: handleUndoLastPaste,
     };
 
     registerDataCaptureRuntime(api);
     return () => unregisterDataCaptureRuntime(Object.keys(api));
-  }, [syncGridFromDom]);
+  }, []);
 
   useEffect(() => {
     if (!engineReady) return undefined;
@@ -342,7 +327,6 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       onRowHeaderMouseOver,
       onRowHeaderClick,
       onRowHeaderContextMenu,
-      syncGridFromDom,
     }),
     [
       onCellMouseDown,
@@ -358,7 +342,6 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       onRowHeaderMouseOver,
       onRowHeaderClick,
       onRowHeaderContextMenu,
-      syncGridFromDom,
     ],
   );
 }

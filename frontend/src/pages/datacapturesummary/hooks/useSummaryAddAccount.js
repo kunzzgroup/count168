@@ -25,12 +25,8 @@ function isVirtualGroupLinkCompanyRow(c) {
   return ls != null && String(ls).trim() !== "";
 }
 
-/** Remove legacy #addModal (company pill UI). SPA uses shared #account-addModal only. */
-export function purgeLegacySummaryAddAccountModal() {
-  if (typeof window.purgeLegacySummaryAddAccountModalDom === "function") {
-    window.purgeLegacySummaryAddAccountModalDom();
-    return;
-  }
+/** Remove stale #addModal if present from an older page shell. */
+function purgeLegacySummaryAddAccountModal() {
   const legacy = document.getElementById("addModal");
   if (legacy?.classList?.contains("account-modal")) {
     legacy.remove();
@@ -39,23 +35,8 @@ export function purgeLegacySummaryAddAccountModal() {
   }
 }
 
-function bindSummaryAddAccountWindowApi(showFn, closeFn) {
-  window.__SUMMARY_REACT_SHOW_ADD_ACCOUNT__ = () => {
-    void showFn();
-  };
-  window.__SUMMARY_REACT_CLOSE_ADD_ACCOUNT__ = () => {
-    closeFn();
-  };
-  // datacapturesummary.js loads async and defines global showAddAccountModal — re-bind after each load.
-  window.showAddAccountModal = () => {
-    void showFn();
-  };
-}
-
-/**
- * Summary Add Account — same shared AccountModal as Account List / Bank Process.
- */
-export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
+/** Summary Add Account — same shared AccountModal as Account List / Bank Process. */
+export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
   const lang = useLoginLang();
   const t = useCallback((key, params) => getAccountText(lang, key, params), [lang]);
   const apiMsg = useCallback(
@@ -170,27 +151,9 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
     }
   }, [loadSelectionMeta, resetToAdd, t]);
 
-  const showAddAccountRef = useRef(showAddAccount);
-  showAddAccountRef.current = showAddAccount;
-  const closeAddAccountRef = useRef(closeAddAccount);
-  closeAddAccountRef.current = closeAddAccount;
-
   useLayoutEffect(() => {
     purgeLegacySummaryAddAccountModal();
-    bindSummaryAddAccountWindowApi(
-      () => showAddAccountRef.current(),
-      () => closeAddAccountRef.current()
-    );
   }, []);
-
-  useLayoutEffect(() => {
-    if (!scriptsReady) return undefined;
-    bindSummaryAddAccountWindowApi(
-      () => showAddAccountRef.current(),
-      () => closeAddAccountRef.current()
-    );
-    return undefined;
-  }, [scriptsReady]);
 
   const createCurrency = useCallback(
     async (e) => {
@@ -308,17 +271,17 @@ export function useSummaryAddAccount({ companyId, scriptsReady, notify }) {
           );
         }
 
-        closeAddAccountRef.current();
+        closeAddAccount();
         notifyRef.current?.(t("accountSavedSuccessfully"), "", "success");
 
-        if (scriptsReady && typeof window.refreshAccountList === "function") {
-          await window.refreshAccountList(newAccountId);
+        if (typeof onAccountCreated === "function") {
+          await onAccountCreated(newAccountId);
         }
       } catch {
         notifyRef.current?.(t("saveFailed"), "", "danger");
       }
     },
-    [apiMsg, form, scriptsReady, selectedCompanyIds, selectedCurrencyIds, t]
+    [apiMsg, closeAddAccount, form, onAccountCreated, selectedCompanyIds, selectedCurrencyIds, t]
   );
 
   return {

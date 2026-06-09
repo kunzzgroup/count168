@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { createEmptyGrid } from "../grid/gridModel.js";
+import { createEmptyGrid, setCell } from "../grid/gridModel.js";
 
 const DataCaptureContext = createContext(null);
 
@@ -51,6 +51,13 @@ export function DataCaptureProvider({ children }) {
     });
   }, []);
 
+  const updateCell = useCallback((rowIndex, colIndex, patch) => {
+    setGridState((prev) => {
+      if (!prev) return prev;
+      return setCell(prev, rowIndex, colIndex, patch);
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       selectedDescriptions,
@@ -61,6 +68,7 @@ export function DataCaptureProvider({ children }) {
       gridRef,
       gridVersion,
       setGrid,
+      updateCell,
       replaceGrid,
       bumpGridVersion,
     }),
@@ -72,6 +80,7 @@ export function DataCaptureProvider({ children }) {
       grid,
       gridVersion,
       setGrid,
+      updateCell,
       replaceGrid,
       bumpGridVersion,
     ],

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DATA_CAPTURE_HOME_PATH,
@@ -9,16 +9,13 @@ import {
   normalizeGroupCaptureScope,
   resolveDataCaptureScopeFromSessionMeta,
 } from "../../datacapture/lib/dataCaptureScope.js";
-import {
-  loadActiveCaptureSession,
-  readCaptureSessionMeta,
-} from "../../datacapture/lib/dataCaptureStorage.js";
+import { readCaptureSessionMeta } from "../../datacapture/lib/dataCaptureStorage.js";
 import {
   isDashboardGroupOnlyMode,
   readPersistedDashboardGcFilter,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
-import { consumeSummaryFreshNavigation } from "../lib/summaryStorage.js";
+import { consumeSummaryFreshNavigation, loadSummaryCaptureSession } from "../lib/summaryStorage.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { usePartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
 
@@ -34,7 +31,7 @@ export function useSummaryBoot() {
   const captureScope = useMemo(() => {
     if (!sessionReady) return null;
 
-    const session = loadActiveCaptureSession();
+    const session = loadSummaryCaptureSession();
     const processData = session?.processData ?? null;
     const groupOnly = processData?.groupOnlyCapture === true;
 
@@ -81,6 +78,26 @@ export function useSummaryBoot() {
     }
 
     if (groupOnly) {
+      const groupKey = processData?.captureSelectedGroup
+        ? String(processData.captureSelectedGroup).trim().toUpperCase()
+        : "";
+      if (groupKey) {
+        return normalizeGroupCaptureScope(
+          {
+            mode: "group",
+            groupId: groupKey,
+            viewGroup: groupKey,
+            scopeCompanyId:
+              processData.scopeCompanyId != null && Number(processData.scopeCompanyId) > 0
+                ? Number(processData.scopeCompanyId)
+                : 0,
+            resolveCompanyViaGroupId: !(
+              processData.scopeCompanyId != null && Number(processData.scopeCompanyId) > 0
+            ),
+          },
+          processData,
+        );
+      }
       return null;
     }
 
@@ -148,16 +165,13 @@ export function useSummaryBoot() {
     };
   }, [me, companyId, captureScope, sessionReady, navigate]);
 
-  useLayoutEffect(() => {
-    window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
-    window.DATACAPTURESUMMARY_CAPTURE_SCOPE = captureScope;
-    return () => {
-      window.DATACAPTURESUMMARY_COMPANY_ID = null;
-      window.DATACAPTURESUMMARY_CAPTURE_SCOPE = null;
-    };
-  }, [companyId, captureScope]);
+  const hasStoredCaptureSession = useMemo(() => {
+    if (!sessionReady) return false;
+    const session = loadSummaryCaptureSession(captureScope);
+    return Boolean(session?.tableData && session?.processData);
+  }, [sessionReady, captureScope]);
 
-  const scopeReady = dataCaptureScopeIsReady(captureScope);
+  const scopeReady = dataCaptureScopeIsReady(captureScope) || hasStoredCaptureSession;
 
   return {
     me,

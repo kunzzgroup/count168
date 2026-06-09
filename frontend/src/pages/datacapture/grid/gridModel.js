@@ -185,7 +185,7 @@ export function appendGridColumn(grid) {
 }
 
 /**
- * Convert grid model to the snapshot shape used by `saveCaptureSession` / `captureTableDataFromDom`.
+ * Convert grid model to the snapshot shape used by `saveCaptureSession`.
  */
 export function gridToSnapshot(grid, captureType = "1.Text") {
   const tableData = {
@@ -249,7 +249,7 @@ export function gridToSnapshot(grid, captureType = "1.Text") {
   return tableData;
 }
 
-/** Restore grid model from a `captureTableDataFromDom` / session snapshot. */
+/** Restore grid model from a session snapshot. */
 export function snapshotToGrid(snapshot, fallbackRows = 26, fallbackCols = 20) {
   const rows = snapshot?.rowCount || snapshot?.rows?.length || fallbackRows;
   const cols = Math.max(1, (snapshot?.colCount || fallbackCols + 1) - 1);
@@ -289,6 +289,35 @@ export function gridModelHasEditableData(grid) {
   return grid.cells.some((row) =>
     row.some((cell) => String(cell?.value || "").trim() !== ""),
   );
+}
+
+export function getGridCellValue(grid, rowIndex, colIndex) {
+  return String(grid?.cells?.[rowIndex]?.[colIndex]?.value ?? "");
+}
+
+export function gridRowHasEditableData(grid, rowIndex) {
+  const row = grid?.cells?.[rowIndex];
+  if (!row) return false;
+  return row.some((cell) => String(cell?.value || "").trim() !== "");
+}
+
+/** Last row index (inclusive) with any non-empty cell value. */
+export function findLastFilledGridRowIndex(grid) {
+  if (!grid?.cells?.length) return -1;
+  for (let rowIndex = grid.rows - 1; rowIndex >= 0; rowIndex -= 1) {
+    if (gridRowHasEditableData(grid, rowIndex)) return rowIndex;
+  }
+  return -1;
+}
+
+/** @param {Array<{ row: number, col: number }>} positions */
+export function clearCellsInGrid(grid, positions) {
+  if (!grid || !positions?.length) return grid;
+  let next = grid;
+  positions.forEach(({ row, col }) => {
+    next = setCell(next, row, col, { value: "", html: undefined, style: undefined, styleCssText: undefined, className: undefined });
+  });
+  return next;
 }
 
 export function clearGridCells(grid) {

@@ -88,9 +88,7 @@ export function useDataCaptureSubmitReset({
 
   const recomputeSubmitState = useCallback(() => {
     const activeCaptureType = captureTypeRef.current;
-    const tableData = captureTableSnapshot(activeCaptureType, gridRef.current, {
-      commitModel: false,
-    });
+    const tableData = captureTableSnapshot(activeCaptureType, gridRef.current);
 
     if (
       activeCaptureType === "2.Format" &&
@@ -121,27 +119,6 @@ export function useDataCaptureSubmitReset({
     recomputeSubmitState();
   }, [gridVersion, recomputeSubmitState]);
 
-  useEffect(() => {
-    let debounceId;
-    const schedule = () => {
-      clearTimeout(debounceId);
-      debounceId = setTimeout(() => recomputeSubmitState(), 80);
-    };
-
-    const tableBody = document.getElementById("tableBody");
-    if (!tableBody) return undefined;
-
-    tableBody.addEventListener("input", schedule, true);
-    tableBody.addEventListener("focusin", schedule, true);
-    schedule();
-
-    return () => {
-      clearTimeout(debounceId);
-      tableBody.removeEventListener("input", schedule, true);
-      tableBody.removeEventListener("focusin", schedule, true);
-    };
-  }, [recomputeSubmitState]);
-
   const submit = useCallback(async () => {
     if (mutationsBlocked) {
       pushDataCaptureNotification(t("readOnlyBlocked"), "danger");
@@ -150,9 +127,7 @@ export function useDataCaptureSubmitReset({
 
     const activeCaptureType = captureTypeRef.current;
 
-    const tableData = captureTableSnapshot(activeCaptureType, gridRef.current, {
-      commitModel: true,
-    });
+    const tableData = captureTableSnapshot(activeCaptureType, gridRef.current);
     const validation = validateDataCaptureForm({
       selectedProcess: form.selectedProcess,
       descriptions: selectedDescriptions,
@@ -171,9 +146,7 @@ export function useDataCaptureSubmitReset({
       prepareFormatSubmitSnapshot(activeCaptureType);
     }
 
-    const preConvertSnapshot = captureTableSnapshot(activeCaptureType, gridRef.current, {
-      commitModel: true,
-    });
+    const preConvertSnapshot = captureTableSnapshot(activeCaptureType, gridRef.current);
     const formatSnapshotBeforeConvert =
       activeCaptureType === "2.Format" ? trimSnapshotToFilledRows(preConvertSnapshot) : null;
 

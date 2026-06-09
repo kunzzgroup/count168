@@ -243,7 +243,6 @@ export async function executeSummarySubmit({
     return { ok: false, message: "Submission did not return a capture ID." };
   }
 
-  window.DATACAPTURESUMMARY_CAPTURE_ID = finalCaptureId;
   try {
     localStorage.setItem("capturedCaptureId", String(finalCaptureId));
   } catch {
@@ -263,8 +262,6 @@ export async function executeSummarySubmit({
   } catch {
     /* ignore */
   }
-  window.DATACAPTURESUMMARY_CAPTURE_ID = null;
-
   await new Promise((resolve) => window.setTimeout(resolve, BATCH_SUCCESS_REDIRECT_MS));
   onSuccess?.({ mode: "batched", captureId: finalCaptureId, failedProblemRows });
   return { ok: true, mode: "batched", captureId: finalCaptureId, failedProblemRows };
