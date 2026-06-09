@@ -1809,7 +1809,9 @@ export function useBankProcessListPage() {
       if (!res.ok || !json.success) return notify(apiMsg(json, "saveFailed"), "danger");
       notify(editMode ? t("bankProcessUpdated") : t("bankProcessAdded"));
       notifyTransactionDataChanged("bank-process-list-react");
-      setModalOpen(false); fetchRows();
+      setModalOpen(false);
+      void fetchRows();
+      void loadAccountingInbox({ silent: true });
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
