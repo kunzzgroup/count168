@@ -46,10 +46,20 @@ export function resolveEffectiveOwnershipPct(dashboardData, selectedGroup) {
   return directPct === 0 && inGroupView ? 1 : 0;
 }
 
-/** True when cached per-currency earnings disagree with the active KPI card (e.g. all zeros). */
-export function dashboardEarningsRowsLookStale(rows, kpiEarnings, activeCurrencyCode) {
-  if (!Array.isArray(rows) || !rows.length) return false;
+/**
+ * True when per-currency earnings should be refetched.
+ * KPI-only fallback may fill the active currency while other rows stay 0 — not bootstrap-complete.
+ */
+export function dashboardEarningsRowsLookStale(
+  rows,
+  kpiEarnings,
+  activeCurrencyCode,
+  bootstrapComplete = false
+) {
+  if (!Array.isArray(rows) || !rows.length) return true;
   if (rows.some((row) => row.earnings == null)) return false;
+  if (rows.length > 1 && !bootstrapComplete) return true;
+
   const kpi = parseFloat(kpiEarnings);
   if (!Number.isFinite(kpi) || Math.abs(kpi) < 0.0001) return false;
 
