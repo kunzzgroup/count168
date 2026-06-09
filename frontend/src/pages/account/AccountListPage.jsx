@@ -236,7 +236,6 @@ export default function AccountListPage() {
   const toastTimerRef = useRef(null);
   const bootFetchedAccountsKeyRef = useRef(null);
   const postBootEmptyRetryRef = useRef(false);
-  const bootInitializedRef = useRef(false);
   const accountListCacheRef = useRef(new Map());
   const listFetchAbortRef = useRef(null);
   const listFetchGenRef = useRef(0);
@@ -368,7 +367,10 @@ export default function AccountListPage() {
       try {
         let nextAccounts = [];
         if (cid) {
-          const res = await fetch(buildAccountsUrl(cid, searchTerm, showInactive, showAll).toString(), {
+          const listUrl = buildAccountsUrl(cid, searchTerm, showInactive, showAll, {
+            groupId: sg || null,
+          });
+          const res = await fetch(listUrl.toString(), {
             credentials: "include",
             signal: ac.signal,
           });
@@ -538,9 +540,8 @@ export default function AccountListPage() {
   // -- Boot: show Group/Company filters as soon as companies resolve; list loads in background --
   useEffect(() => {
     if (!sessionReady || !sessionMe) return;
-    if (bootInitializedRef.current) return;
-    bootInitializedRef.current = true;
     let cancelled = false;
+    setBootLoading(true);
 
     (async () => {
       try {
@@ -670,12 +671,10 @@ export default function AccountListPage() {
         const sessionViewGroup = groupFilterOptOut ? null : bootGroup;
         if (syncCompanyId != null) {
           try {
-            const forceSessionSync =
-              syncCompanyId !== Number(sessionMe.company_id) || groupFilterOptOut;
             const syncJson = await syncCompanySessionApi(syncCompanyId, sessionViewGroup, {
-              force: forceSessionSync,
+              force: true,
             });
-            if (syncJson?.success) notifyCompanySessionUpdated();
+            if (!cancelled && syncJson?.success) notifyCompanySessionUpdated();
           } catch {
             /* boot session sync is best-effort */
           }
@@ -741,9 +740,12 @@ export default function AccountListPage() {
           urlNow.searchParams.set("company_id", String(resolvedCompanyId));
           window.history.replaceState({}, document.title, urlNow.toString());
         }
-        setBootLoading(false);
+        if (!cancelled) setBootLoading(false);
       } catch {
-        if (!cancelled) navigate("/login");
+        if (!cancelled) {
+          setBootLoading(false);
+          navigate("/login");
+        }
       }
     })();
 

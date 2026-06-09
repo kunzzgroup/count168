@@ -79,9 +79,11 @@ export function buildAccountsFetchKey(companyId, searchTerm, showInactive, showA
   return `${companyId || ""}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
 }
 
-export function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
+export function buildAccountsUrl(companyId, searchTerm, showInactive, showAll, { groupId = null } = {}) {
   const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
   url.searchParams.set("company_id", String(companyId));
+  const gid = groupId ? String(groupId).trim().toUpperCase() : "";
+  if (gid) url.searchParams.set("group_id", gid);
   if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
   if (showInactive) url.searchParams.set("showInactive", "1");
   if (showAll) url.searchParams.set("showAll", "1");
