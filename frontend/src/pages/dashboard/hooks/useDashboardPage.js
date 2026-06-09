@@ -317,6 +317,17 @@ function mirrorDashboardEarningsAcrossCurrencies(earnings, currencies, resolveSc
   }
 }
 
+/** True when trend chart still needs a deferred chart bootstrap fetch. */
+function dashboardPayloadNeedsChartDaily(data) {
+  const daily = data?.daily_data;
+  if (!daily) return true;
+  return !(
+    Object.keys(daily.capital || {}).length > 0 ||
+    Object.keys(daily.expenses || {}).length > 0 ||
+    Object.keys(daily.profit || {}).length > 0
+  );
+}
+
 function isBenignFetchError(err) {
   if (!err) return true;
   if (err.name === "AbortError") return true;
@@ -479,6 +490,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const chartDailyInFlightRef = useRef("");
   const loadDashboardTriggerKeyRef = useRef("");
   const loadDashboardStructuralKeyRef = useRef("");
+  const ensureDeferredDashboardLoadsRef = useRef(null);
   /** Prevents synchronous DASHBOARD_GROUP_FILTER_EVENT ↔ sync re-entry stack overflow. */
   const syncGcFilterInFlightRef = useRef(false);
   const [gcBootstrapReady, setGcBootstrapReady] = useState(false);
@@ -2356,6 +2368,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     (key, cached, { codes = currencies } = {}) => {
       if (!key || !cached?.current) return false;
       setDashboardData(cached.current);
+      dashboardDataRef.current = cached.current;
       setDashboardDataPrev(cached.previous ?? null);
       setDisplayScopeKey(key);
       setLoading(false);
@@ -2374,12 +2387,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           setEarningsByCurrency(readyEarnings);
           setEarningsByCurrencyPrev([]);
           setEarningsByCurrencyLoading(false);
+          ensureDeferredDashboardLoadsRef.current?.(key, cached, codes);
           return true;
         }
         setEarningsByCurrency([]);
         setEarningsByCurrencyPrev([]);
         setEarningsByCurrencyLoading(codes.length > 1);
       }
+      ensureDeferredDashboardLoadsRef.current?.(key, cached, codes);
       return true;
     },
     [currencies, resolveScopeDashboardEarnings, getCompleteCachedEarnings]
@@ -3156,14 +3171,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!cacheKey || cacheKey !== resolveDashboardScopeKey()) return;
       if (chartDailyInFlightRef.current === cacheKey) return;
 
-      const current = dashboardDataRef.current;
-      const daily = current?.daily_data;
-      const hasChartSeries =
-        daily &&
-        (Object.keys(daily.capital || {}).length > 0 ||
-          Object.keys(daily.expenses || {}).length > 0 ||
-          Object.keys(daily.profit || {}).length > 0);
-      if (hasChartSeries) return;
+      const cachedEntry = getDashboardCache(cacheKey);
+      const current = cachedEntry?.current ?? dashboardDataRef.current;
+      if (!current || !dashboardPayloadNeedsChartDaily(current)) return;
 
       const canUseBootstrap =
         !(showAllCurrencies && canShowAllCurrencies) &&
@@ -3179,12 +3189,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         const boot = await loadDashboardViaBootstrap({ scope: "chart" });
         if (gen !== chartDailyFetchGenRef.current) return;
         if (resolveDashboardScopeKey() !== cacheKey || !boot.current?.daily_data) return;
+        const latestCurrent = getDashboardCache(cacheKey)?.current ?? current;
         const merged = applyDashboardPayloadAdjustments(
-          { ...current, daily_data: boot.current.daily_data },
+          { ...latestCurrent, daily_data: boot.current.daily_data },
           companyId,
           selectedGroup
         );
         setDashboardData(merged);
+        dashboardDataRef.current = merged;
         patchDashboardCache(cacheKey, { current: merged });
       } catch {
         /* Background chart — non-blocking. */
@@ -3818,6 +3830,36 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     resolveDashboardScopeKey,
   ]);
 
+  const ensureDeferredDashboardLoads = useCallback(
+    (cacheKey, cached, multiCurrencyCodes) => {
+      if (!cacheKey || cacheKey !== resolveDashboardScopeKey() || !cached?.current) return;
+
+      if (!cached.previous) {
+        void loadDashboardPreviousPeriod(cacheKey);
+      }
+      if (dashboardPayloadNeedsChartDaily(cached.current)) {
+        void loadDashboardChartDaily(cacheKey);
+      }
+
+      const needsMultiCurrencyEarnings =
+        Array.isArray(multiCurrencyCodes) && multiCurrencyCodes.length > 1;
+      if (
+        needsMultiCurrencyEarnings &&
+        !cacheEntryHasFullEarnings(cached, multiCurrencyCodes)
+      ) {
+        void upgradeActiveScopeEarnings();
+      }
+    },
+    [
+      resolveDashboardScopeKey,
+      loadDashboardPreviousPeriod,
+      loadDashboardChartDaily,
+      cacheEntryHasFullEarnings,
+      upgradeActiveScopeEarnings,
+    ]
+  );
+  ensureDeferredDashboardLoadsRef.current = ensureDeferredDashboardLoads;
+
   const loadDashboard = useCallback(async () => {
     if (!dashboardScopeKey) {
       setLoading(false);
@@ -3876,6 +3918,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     if (cached?.current) {
       setDashboardData(cached.current);
+      dashboardDataRef.current = cached.current;
       setDashboardDataPrev(cached.previous ?? null);
       setDisplayScopeKey(cacheKey);
       const readyEarnings = getCompleteCachedEarnings(cached, multiCurrencyCodes);
@@ -3893,9 +3936,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setLoading(false);
 
       if (!needsMultiCurrencyEarnings || cacheEntryHasFullEarnings(cached, multiCurrencyCodes)) {
-        if (!cached.previous) {
-          void loadDashboardPreviousPeriod(cacheKey);
-        }
+        ensureDeferredDashboardLoads(cacheKey, cached, multiCurrencyCodes);
         return;
       }
       setEarningsByCurrencyLoading(true);
@@ -4018,6 +4059,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       (!needsMultiCurrencyEarnings ||
         cacheEntryHasFullEarnings(warmedGroupAll, multiCurrencyCodes))
     ) {
+      ensureDeferredDashboardLoads(cacheKey, warmedGroupAll, multiCurrencyCodes);
       return;
     }
 
@@ -4105,7 +4147,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           if (bootstrapScope === "kpi" && !boot.previous) {
             void loadDashboardPreviousPeriod(cacheKey);
           }
-          if (bootstrapScope === "kpi" && !boot.current?.daily_data?.profit) {
+          if (bootstrapScope === "kpi" && dashboardPayloadNeedsChartDaily(boot.current)) {
             void loadDashboardChartDaily(cacheKey);
           }
           return;
@@ -4270,6 +4312,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     fetchGroupAllMergedDashboard,
     loadDashboardPreviousPeriod,
     loadDashboardChartDaily,
+    ensureDeferredDashboardLoads,
   ]);
 
   const loadDashboardTriggerKey = useMemo(
