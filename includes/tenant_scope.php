@@ -833,14 +833,14 @@ function tenant_account_belongs_to_context(PDO $pdo, int $accountId, array $ctx)
     if ($companyId <= 0) {
         return false;
     }
+    $acWhere = tenant_account_company_subsidiary_where($pdo, $companyId, 'ac');
     $stmt = $pdo->prepare('
         SELECT a.id FROM account a
         INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE a.id = ? AND ac.company_id = ?'
-        . tenant_sql_account_company_subsidiary_only($pdo, 'ac')
-        . ' LIMIT 1
+        WHERE a.id = ? AND ' . $acWhere['sql'] . '
+        LIMIT 1
     ');
-    $stmt->execute([$accountId, $companyId]);
+    $stmt->execute(array_merge([$accountId], $acWhere['params']));
 
     return (bool) $stmt->fetchColumn();
 }
@@ -855,6 +855,33 @@ function tenant_sql_account_company_subsidiary_only(PDO $pdo, string $alias = 'a
     }
 
     return " AND ({$alias}.scope_type IS NULL OR TRIM({$alias}.scope_type) = '' OR {$alias}.scope_type = 'company')";
+}
+
+/**
+ * WHERE fragment + bind params: account_company row belongs to one subsidiary (dual-tenant safe).
+ *
+ * @return array{sql: string, params: array<int>}
+ */
+function tenant_account_company_subsidiary_where(PDO $pdo, int $companyId, string $alias = 'ac'): array
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $alias) ?: 'ac';
+    if ($companyId <= 0) {
+        return ['sql' => '1=0', 'params' => []];
+    }
+    $subOnly = tenant_sql_account_company_subsidiary_only($pdo, $a);
+    if (tenant_table_has_scope_columns($pdo, 'account_company')) {
+        return [
+            'sql' => "(({$a}.scope_type = 'company' AND {$a}.scope_id = ?)"
+                . " OR ({$a}.company_id = ? AND (COALESCE({$a}.scope_id, 0) = 0 OR {$a}.scope_id = {$a}.company_id)))"
+                . $subOnly,
+            'params' => [$companyId, $companyId],
+        ];
+    }
+
+    return [
+        'sql' => "{$a}.company_id = ?{$subOnly}",
+        'params' => [$companyId],
+    ];
 }
 
 function tenant_link_account_group_scope(PDO $pdo, int $accountId, int $groupPk, int $anchorCompanyId): void

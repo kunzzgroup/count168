@@ -1020,6 +1020,8 @@ try {
             'user_type' => strtolower((string) ($_SESSION['user_type'] ?? '')),
             'role' => strtolower((string) ($_SESSION['role'] ?? '')),
             'company_id' => (int) $company_id,
+            'scope_mode' => $search_is_group_ledger ? 'group' : 'company',
+            'scope_bind' => $search_txn_bind,
             'date_from' => $date_from_db,
             'date_to' => $date_to_db,
             'show_inactive' => (int) $show_inactive,
@@ -1066,8 +1068,9 @@ try {
             $params = array_merge($params, $groupAccountIds);
         }
     } else {
-        $where_conditions[] = 'ac.company_id = ?';
-        $params[] = $company_id;
+        $acSubsidiaryWhere = tenant_account_company_subsidiary_where($pdo, $company_id, 'ac');
+        $where_conditions[] = $acSubsidiaryWhere['sql'];
+        $params = array_merge($params, $acSubsidiaryWhere['params']);
     }
 
     if (!empty($target_account_ids)) {
@@ -1344,9 +1347,9 @@ try {
         }
     }
 
-    // 付方（from_account）若未加入本公司的 account_company，原列表不会包含该账户，导致 CONTRA/PAYMENT 等只在「对方公司」建档的付方不出现在左侧。
-    // 合并：在本公司 transactions 中作为 from_account 出现、且落在查询日期与币别范围内的账户（member 限定单账户时不合并，避免泄露他人）。
-    if (empty($target_account_ids)) {
+    // Group ledger only: merge from_account rows not linked via account_company (e.g. contra counterparty on anchor FK).
+    // Subsidiary drill-down (company 95, C168, …) must NOT merge other companies' accounts — that leaks cross-company bills.
+    if (empty($target_account_ids) && $search_is_group_ledger) {
         $existingAccountIds = [];
         foreach ($accounts as $accRow) {
             $existingAccountIds[(int) $accRow['id']] = true;
