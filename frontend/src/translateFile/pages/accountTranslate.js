@@ -178,7 +178,7 @@ export const ACCOUNT_I18N = {
       "Cannot delete currency — historical records still reference it ({detail}). Remove related Data Capture / Transaction records first.",
     forceDeleteCurrency: "Force delete",
     forceDeleteCurrencyConfirm:
-      "Currency {code} is still referenced by historical records ({detail}). Force delete will remove the currency definition; old Data Capture / Transaction rows may keep a stale currency reference. Continue?",
+      "Currency {code} is still referenced by historical records ({detail}). Force delete will remove the currency and reassign Process / Data Capture rows to another currency in this company. Continue?",
     currencyInUseTitle: "Cannot delete currency",
     currencyInUseMessage: "Currency {code} is still used by the following account(s):",
     ok: "OK",
@@ -360,7 +360,7 @@ export const ACCOUNT_I18N = {
       "无法删除货币，仍有历史业务数据引用（{detail}）。请先在 Data Capture / Transaction 中清理相关记录。",
     forceDeleteCurrency: "强制删除",
     forceDeleteCurrencyConfirm:
-      "货币 {code} 仍被历史业务数据引用（{detail}）。强制删除会移除该货币定义，旧的 Data Capture / Transaction 记录可能保留失效的货币引用。是否继续？",
+      "货币 {code} 仍被历史业务数据引用（{detail}）。强制删除会移除该货币，并将 Process / Data Capture 等记录改绑到本公司其他货币。是否继续？",
     currencyInUseTitle: "无法删除货币",
     currencyInUseMessage: "货币 {code} 仍被以下账号使用：",
     ok: "确定",
@@ -540,6 +540,7 @@ function translateCurrencyUsageDetail(lang, detail) {
     .replace(/\brate transaction detail\(s\)/gi, "汇率交易明细")
     .replace(/\brate transaction\(s\)/gi, "汇率交易")
     .replace(/\btransaction\(s\)/gi, "交易")
+    .replace(/\bprocess\(es\)/gi, "流程")
     .replace(/\baccount\(s\)/gi, "账号");
 }
 

@@ -235,6 +235,7 @@ export default function AccountListPage() {
 
   const toastTimerRef = useRef(null);
   const bootFetchedAccountsKeyRef = useRef(null);
+  const postBootEmptyRetryRef = useRef(false);
   const bootInitializedRef = useRef(false);
   const accountListCacheRef = useRef(new Map());
   const listFetchAbortRef = useRef(null);
@@ -319,7 +320,7 @@ export default function AccountListPage() {
   }, []);
 
   const fetchAccounts = useCallback(
-    async (gcScope, { silent = false, groupOnly = null } = {}) => {
+    async (gcScope, { silent = false, groupOnly = null, trustRequestScope = false } = {}) => {
       const scope = gcScope || {};
       const {
         companyId: cid,
@@ -422,7 +423,7 @@ export default function AccountListPage() {
           return;
         }
 
-        if (isStaleResponse() || !matchesLiveListScope()) return;
+        if (isStaleResponse() || (!trustRequestScope && !matchesLiveListScope())) return;
 
         accountListCacheRef.current.set(cacheKey, nextAccounts);
         setAccounts((prev) => {
@@ -547,7 +548,15 @@ export default function AccountListPage() {
         if (cancelled) return;
 
         setCompanies(rows);
+        const urlCompanySnapshot = readUrlCompanyId();
         applyLoginScopeToSessionStorageIfNeeded(sessionMe, rows);
+        if (urlCompanySnapshot != null) {
+          const restored = new URL(window.location.href);
+          if (restored.searchParams.get("company_id") !== String(urlCompanySnapshot)) {
+            restored.searchParams.set("company_id", String(urlCompanySnapshot));
+            window.history.replaceState({}, document.title, restored.toString());
+          }
+        }
 
         const url = new URL(window.location.href);
         const urlCompanyId = url.searchParams.get("company_id");
@@ -642,6 +651,9 @@ export default function AccountListPage() {
             persistDashboardGroupOnlyMode(true);
           }
         }
+        if (!groupOnlyBoot && resolvedCompanyId != null) {
+          persistDashboardFilterState(bootGroup, resolvedCompanyId, { allowGroupOnly: false });
+        }
 
         setCompanyId(resolvedCompanyId);
         setSelectedGroup(bootGroup);
@@ -716,7 +728,11 @@ export default function AccountListPage() {
           bootFetchedAccountsKeyRef.current = fetchKey;
         } else if (scopeKey && fetchKey) {
           bootFetchedAccountsKeyRef.current = fetchKey;
-          await fetchAccounts(bootScopeBase, { silent: true, groupOnly: groupOnlyBoot });
+          await fetchAccounts(bootScopeBase, {
+            silent: true,
+            groupOnly: groupOnlyBoot,
+            trustRequestScope: true,
+          });
         }
 
         if (cancelled) return;
@@ -1292,6 +1308,7 @@ export default function AccountListPage() {
   const syncGcFilterFromSession = useCallback(() => {
     if (bootLoading || !companies.length) return;
     if (suppressGcSyncRef.current) return;
+    if (readUrlCompanyId() != null) return;
 
     const { selectedGroup: nextGroup, companyId: nextCompanyId } = readPersistedDashboardGcFilter();
     const optOut =
@@ -1484,6 +1501,19 @@ export default function AccountListPage() {
     lastAccountsFetchKeyRef.current = fetchKey;
     void fetchAccounts(gcScopeRef.current, { silent: true });
   }, [accountsListFetchScopeKey, searchTerm, showInactive, showAll, fetchAccounts]);
+
+  useEffect(() => {
+    if (bootLoading) {
+      postBootEmptyRetryRef.current = false;
+      return;
+    }
+    if (postBootEmptyRetryRef.current || !companyId || accounts.length > 0) return;
+    const scope = gcScopeRef.current;
+    if (!scope?.isListScopeReady || Number(scope.companyId) !== Number(companyId)) return;
+    postBootEmptyRetryRef.current = true;
+    lastAccountsFetchKeyRef.current = "";
+    void fetchAccounts(scope, { silent: true, trustRequestScope: true });
+  }, [bootLoading, companyId, accounts.length, fetchAccounts]);
 
   // -- Computed --
   const sortedAccounts = useMemo(() => {
