@@ -470,6 +470,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** Scope key while a full bootstrap (KPI + earnings) is in flight for the active view. */
   const dashboardBootstrapInFlightRef = useRef("");
   const dashboardFetchInFlightScopeRef = useRef("");
+  const previousPeriodFetchGenRef = useRef(0);
+  const previousPeriodInFlightRef = useRef("");
   const chartDailyFetchGenRef = useRef(0);
   const chartDailyInFlightRef = useRef("");
   const loadDashboardTriggerKeyRef = useRef("");
