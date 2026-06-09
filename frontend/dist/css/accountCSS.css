@@ -1352,6 +1352,7 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 
 /* Confirm Delete Modal — match userlist #confirmModal (flex center, compact card) */
 #confirmDeleteModal.account-modal,
+#forceDeleteCurrencyModal.account-modal,
 #accountAlertModal.account-modal {
     display: flex;
     align-items: center;
@@ -3261,6 +3262,7 @@ body > #userModal.modal {
 
 body > #confirmModal.modal,
 body > #confirmDeleteModal.account-modal,
+body > #forceDeleteCurrencyModal.account-modal,
 body > #accountAlertModal.account-modal {
     z-index: 20100;
 }

@@ -525,6 +525,11 @@ export default function AccountListPage() {
     }
   }, [companyId, selectedGroup, sessionMe]);
 
+  const fetchAccountsRef = useRef(fetchAccounts);
+  fetchAccountsRef.current = fetchAccounts;
+  const loadRolesRef = useRef(loadRoles);
+  loadRolesRef.current = loadRoles;
+
   /** Refetch list after add/edit/delete — must pass gc scope (bare fetchAccounts() is a no-op). */
   const refreshAccountList = useCallback(
     (options = {}) => {
@@ -548,7 +553,15 @@ export default function AccountListPage() {
         const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);
         if (cancelled) return;
 
-        setCompanies(rows);
+        setCompanies((prev) => {
+          if (
+            prev.length === rows.length &&
+            prev.every((c, i) => Number(c.id) === Number(rows[i]?.id))
+          ) {
+            return prev;
+          }
+          return rows;
+        });
         const urlCompanySnapshot = readUrlCompanyId();
         applyLoginScopeToSessionStorageIfNeeded(sessionMe, rows);
         if (urlCompanySnapshot != null) {
@@ -662,7 +675,7 @@ export default function AccountListPage() {
         setShowInactive(initialShowInactive);
         setShowAll(initialShowAll);
         skipInitialGcSyncRef.current = true;
-        void loadRoles({ companyId: resolvedCompanyId, groupId: bootGroup });
+        void loadRolesRef.current({ companyId: resolvedCompanyId, groupId: bootGroup });
 
         const syncCompanyId =
           resolvedCompanyId != null && Number.isFinite(Number(resolvedCompanyId))
@@ -727,7 +740,7 @@ export default function AccountListPage() {
           bootFetchedAccountsKeyRef.current = fetchKey;
         } else if (scopeKey && fetchKey) {
           bootFetchedAccountsKeyRef.current = fetchKey;
-          await fetchAccounts(bootScopeBase, {
+          await fetchAccountsRef.current(bootScopeBase, {
             silent: true,
             groupOnly: groupOnlyBoot,
             trustRequestScope: true,
@@ -740,19 +753,17 @@ export default function AccountListPage() {
           urlNow.searchParams.set("company_id", String(resolvedCompanyId));
           window.history.replaceState({}, document.title, urlNow.toString());
         }
-        if (!cancelled) setBootLoading(false);
       } catch {
-        if (!cancelled) {
-          setBootLoading(false);
-          navigate("/login");
-        }
+        if (!cancelled) navigate("/login");
+      } finally {
+        if (!cancelled) setBootLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, sessionMe, navigate, fetchAccounts, loadRoles]);
+  }, [sessionReady, sessionMe, navigate]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
@@ -2613,6 +2624,7 @@ export default function AccountListPage() {
       />
       <AccountConfirmModal open={confirmDeleteOpen} message={t("deleteConfirmMessage", { count: selectedDeleteIds.size })} onConfirm={confirmDelete} onClose={() => setConfirmDeleteOpen(false)} t={t} />
       <AccountConfirmModal
+        modalId="forceDeleteCurrencyModal"
         open={Boolean(forceCurrencyDeletePrompt)}
         title={t("currencyInUseTitle")}
         message={
