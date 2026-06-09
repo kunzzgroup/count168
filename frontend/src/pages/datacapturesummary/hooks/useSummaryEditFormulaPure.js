@@ -25,7 +25,7 @@ async function fetchAccountCurrencies(accountId, companyId) {
   if (!accountId) return [];
   const params = new URLSearchParams({ action: "get_available_currencies" });
   params.set("account_id", String(accountId));
-  if (companyId != null) params.set("company_id", String(companyId));
+  if (companyId != null && Number(companyId) > 0) params.set("company_id", String(companyId));
   const response = await fetch(
     buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`),
     { credentials: "include" }

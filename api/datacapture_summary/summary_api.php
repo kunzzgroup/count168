@@ -1406,6 +1406,60 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
 }
 
 /**
+ * Apply account display labels from group ledger accounts (not subsidiary company).
+ */
+function resolveAccountDisplayInTemplatesForGroup(PDO $pdo, string $groupCode, array &$templates): void
+{
+    $accounts = dcSummaryLoadAccountsForGroup($pdo, $groupCode);
+    if ($accounts === []) {
+        return;
+    }
+    $map = [];
+    foreach ($accounts as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id <= 0) {
+            continue;
+        }
+        $code = isset($row['account_id']) ? trim((string) $row['account_id']) : '';
+        $name = isset($row['name']) ? trim((string) $row['name']) : '';
+        $label = ($code !== '' && $name !== '') ? ($code . ' [' . $name . ']') : ($code !== '' ? $code : (string) $id);
+        $map[$id] = $map[(string) $id] = $label;
+    }
+    foreach ($templates as $key => &$group) {
+        if (!empty($group['main']['account_id'])) {
+            $aid = $group['main']['account_id'];
+            $sid = is_numeric($aid) ? (int) $aid : $aid;
+            if (isset($map[$sid]) || isset($map[(string) $aid])) {
+                $group['main']['account_display'] = $map[$sid] ?? $map[(string) $aid];
+            }
+        }
+        if (!empty($group['allMains']) && is_array($group['allMains'])) {
+            foreach ($group['allMains'] as $i => $m) {
+                if (!empty($m['account_id'])) {
+                    $aid = $m['account_id'];
+                    $sid = is_numeric($aid) ? (int) $aid : $aid;
+                    if (isset($map[$sid]) || isset($map[(string) $aid])) {
+                        $templates[$key]['allMains'][$i]['account_display'] = $map[$sid] ?? $map[(string) $aid];
+                    }
+                }
+            }
+        }
+        if (!empty($group['subs']) && is_array($group['subs'])) {
+            foreach ($group['subs'] as $i => $s) {
+                if (!empty($s['account_id'])) {
+                    $aid = $s['account_id'];
+                    $sid = is_numeric($aid) ? (int) $aid : $aid;
+                    if (isset($map[$sid]) || isset($map[(string) $aid])) {
+                        $templates[$key]['subs'][$i]['account_display'] = $map[$sid] ?? $map[(string) $aid];
+                    }
+                }
+            }
+        }
+    }
+    unset($group);
+}
+
+/**
  * 用 account 表解析模板中的 account_display，与 Maintenance - Formula 的 Account 列一致，避免 Summary 显示错误。
  */
 function resolveAccountDisplayInTemplates(PDO $pdo, int $companyId, array &$templates) {
@@ -1787,6 +1841,8 @@ function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates
 }
 
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null, ?array &$rawSubRowsOut = null) {
+    global $company_id, $capture_scope_group, $capture_scope_ctx, $scopeParams;
+
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
     }
@@ -1809,79 +1865,100 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null, ?array &$r
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $lowerIds = array_map('strtolower', $ids);
 
-    // 获取 company_id（从全局变量或函数参数）
-    $companyId = $company_id ?? null;
-    if (!$companyId) {
-        // 如果函数被调用时没有传入 company_id，尝试从 session 获取
-        if (isset($_SESSION['company_id'])) {
-            $companyId = $_SESSION['company_id'];
-        } else {
+    $ledgerSql = ' AND dct.company_id = ? ';
+    $ledgerParams = [];
+
+    if (!empty($capture_scope_ctx) && is_array($capture_scope_ctx)) {
+        require_once __DIR__ . '/../formula_maintenance/formula_maintenance_scope.php';
+        $ledger = formulaMaintenanceBuildTemplateLedgerFilter($pdo, $capture_scope_ctx, 'dct');
+        $ledgerSql = $ledger['sql'];
+        $ledgerParams = $ledger['params'];
+    } elseif (!empty($capture_scope_group)) {
+        $groupCode = dcNormalizeGroupId($scopeParams['view_group'] ?? $scopeParams['group_id'] ?? '');
+        $templateCompanyId = $groupCode !== '' ? dcResolveGroupCaptureCompanyId($pdo, $groupCode) : 0;
+        if ($templateCompanyId <= 0) {
+            $templateCompanyId = (int) ($company_id ?? 0);
+        }
+        if ($templateCompanyId <= 0) {
             throw new Exception('缺少公司信息');
         }
+        $ledgerSql = ' AND dct.company_id = ? ' . dcSqlCaptureOnGroupEntityCompany('dct');
+        $ledgerParams = [$templateCompanyId];
+    } else {
+        $companyId = (int) ($company_id ?? 0);
+        if ($companyId <= 0) {
+            if (isset($_SESSION['company_id'])) {
+                $companyId = (int) $_SESSION['company_id'];
+            } else {
+                throw new Exception('缺少公司信息');
+            }
+        }
+        $ledgerSql = ' AND dct.company_id = ? ' . dcSqlCaptureOnSubsidiaryCompany('dct');
+        $ledgerParams = [$companyId];
     }
-    
+
     // 前端传的是 normalize 后的 id（如 ALLBET95MS、MY EARNINGS），库里有完整 id（如 ALLBET95MS(SV)MYR、MY EARNINGS : (RINGGIT...)），
     // 需同时按「前缀」匹配；括号前带 " : " 的 id 再按「去掉尾部空格和冒号」匹配，与前端一致。
     $stmt = $pdo->prepare("
         SELECT
-            id,
-            id_product,
-            product_type,
-            parent_id_product,
-            template_key,
-            description,
-            account_id,
-            account_display,
-            currency_id,
-            currency_display,
-            source_columns,
-            formula_operators,
-            source_percent,
-            enable_source_percent,
-            input_method,
-            enable_input_method,
-            batch_selection,
-            columns_display,
-            formula_display,
-            last_source_value,
-            last_processed_amount,
-            process_id,
-            data_capture_id,
-            row_index,
-            sub_order,
-            formula_variant,
-            updated_at
-        FROM data_capture_templates
-        WHERE company_id = ?
-          AND process_id = ?
+            dct.id,
+            dct.id_product,
+            dct.product_type,
+            dct.parent_id_product,
+            dct.template_key,
+            dct.description,
+            dct.account_id,
+            dct.account_display,
+            dct.currency_id,
+            dct.currency_display,
+            dct.source_columns,
+            dct.formula_operators,
+            dct.source_percent,
+            dct.enable_source_percent,
+            dct.input_method,
+            dct.enable_input_method,
+            dct.batch_selection,
+            dct.columns_display,
+            dct.formula_display,
+            dct.last_source_value,
+            dct.last_processed_amount,
+            dct.process_id,
+            dct.data_capture_id,
+            dct.row_index,
+            dct.sub_order,
+            dct.formula_variant,
+            dct.updated_at
+        FROM data_capture_templates dct
+        WHERE dct.process_id = ?
+          {$ledgerSql}
           AND (
-            (product_type = 'main' AND (
-                LOWER(id_product) IN ($placeholders)
-                OR LOWER(TRIM(SUBSTRING(id_product, 1, IF(LOCATE('(', id_product) > 0, LOCATE('(', id_product) - 1, LENGTH(id_product))))) IN ($placeholders)
-                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(id_product, 1, IF(LOCATE('(', id_product) > 0, LOCATE('(', id_product) - 1, LENGTH(id_product))))))) IN ($placeholders)
+            (dct.product_type = 'main' AND (
+                LOWER(dct.id_product) IN ($placeholders)
+                OR LOWER(TRIM(SUBSTRING(dct.id_product, 1, IF(LOCATE('(', dct.id_product) > 0, LOCATE('(', dct.id_product) - 1, LENGTH(dct.id_product))))) IN ($placeholders)
+                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(dct.id_product, 1, IF(LOCATE('(', dct.id_product) > 0, LOCATE('(', dct.id_product) - 1, LENGTH(dct.id_product))))))) IN ($placeholders)
             ))
-            OR (product_type = 'sub' AND (
-                LOWER(parent_id_product) IN ($placeholders)
-                OR LOWER(TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))) IN ($placeholders)
-                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))))) IN ($placeholders)
+            OR (dct.product_type = 'sub' AND (
+                LOWER(dct.parent_id_product) IN ($placeholders)
+                OR LOWER(TRIM(SUBSTRING(dct.parent_id_product, 1, IF(LOCATE('(', dct.parent_id_product) > 0, LOCATE('(', dct.parent_id_product) - 1, LENGTH(dct.parent_id_product))))) IN ($placeholders)
+                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(dct.parent_id_product, 1, IF(LOCATE('(', dct.parent_id_product) > 0, LOCATE('(', dct.parent_id_product) - 1, LENGTH(dct.parent_id_product))))))) IN ($placeholders)
             ))
           )
-        ORDER BY CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
-                 row_index ASC,
-                 process_id DESC,
+        ORDER BY CASE WHEN dct.row_index IS NULL THEN 1 ELSE 0 END,
+                 dct.row_index ASC,
+                 dct.process_id DESC,
                  CASE 
-                     WHEN product_type = 'main' THEN COALESCE(id_product, '')
-                     WHEN product_type = 'sub' THEN COALESCE(parent_id_product, '')
-                     ELSE COALESCE(id_product, '')
+                     WHEN dct.product_type = 'main' THEN COALESCE(dct.id_product, '')
+                     WHEN dct.product_type = 'sub' THEN COALESCE(dct.parent_id_product, '')
+                     ELSE COALESCE(dct.id_product, '')
                  END ASC,
-                 product_type ASC,
-                 CASE WHEN sub_order IS NULL THEN 1 ELSE 0 END,
-                 sub_order ASC,
-                 formula_variant ASC,
-                 id ASC
+                 dct.product_type ASC,
+                 CASE WHEN dct.sub_order IS NULL THEN 1 ELSE 0 END,
+                 dct.sub_order ASC,
+                 dct.formula_variant ASC,
+                 dct.id ASC
     ");
 
-    $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds);
+    $params = array_merge([$processId], $ledgerParams, $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds);
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -2506,19 +2583,29 @@ if ($action === 'templates') {
             throw new Exception('Process ID is required');
         }
 
-        dcAssertProcessIdInCaptureScope($pdo, (int) $processId, (int) $company_id, (bool) $capture_scope_group);
+        $processCompanyId = !empty($capture_scope_ctx)
+            ? dcCaptureProcessCompanyId($capture_scope_ctx)
+            : (int) $company_id;
+        dcAssertProcessIdInCaptureScope($pdo, (int) $processId, (int) $processCompanyId, (bool) $capture_scope_group);
 
         // 在 Data Capture 选择的 Process 下设置的 formula 只在该 Process 显示；若该 Process 有 sync 到其他 Process 则同步显示
         // Summary 的 formula 仅来自 Maintenance（data_capture_templates）；Process 在 Maintenance 无记录则不显示 formula
         $rawSubRowsFromSql = [];
         $templates = fetchTemplates($pdo, $ids, $processId, $rawSubRowsFromSql);
 
-        if ($captureId !== null && $captureId > 0 && $company_id) {
+        if ($captureId !== null && $captureId > 0 && $company_id && empty($capture_scope_group)) {
             $templates = mergeDetailOnlyTemplates($pdo, (int)$company_id, $captureId, $ids, $templates);
         }
 
         // 用 account 表统一解析 account_display，与 Maintenance - Formula 的 Account 列一致
-        if ($company_id) {
+        if (!empty($capture_scope_group)) {
+            $groupCodeForTpl = dcNormalizeGroupId(
+                $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ($groupIdForAccess ?? '')
+            );
+            if ($groupCodeForTpl !== '') {
+                resolveAccountDisplayInTemplatesForGroup($pdo, $groupCodeForTpl, $templates);
+            }
+        } elseif ($company_id) {
             resolveAccountDisplayInTemplates($pdo, (int)$company_id, $templates);
         }
 

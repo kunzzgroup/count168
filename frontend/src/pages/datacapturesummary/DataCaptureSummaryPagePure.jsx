@@ -34,6 +34,8 @@ import SummaryConfirmDeleteModal from "./components/SummaryConfirmDeleteModal.js
 
 import { SummaryProvider, useSummaryContext } from "./context/SummaryContext.jsx";
 
+import { dataCaptureScopeLedgerCompanyId } from "../datacapture/lib/dataCaptureScope.js";
+
 import { clearSummaryCaptureRoundStorage } from "./lib/summaryStorage.js";
 
 import { clearSummaryFormulaContext, bindSummaryFormulaContext } from "./lib/summaryFormulaContext.js";
@@ -119,11 +121,7 @@ function DataCaptureSummaryPureInner() {
 
 
 
-  const effectiveCompanyId =
-    companyId ??
-    (capture.processData?.scopeCompanyId != null
-      ? Number(capture.processData.scopeCompanyId)
-      : null);
+  const effectiveCompanyId = dataCaptureScopeLedgerCompanyId(captureScope, capture.processData);
 
 
 

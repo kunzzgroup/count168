@@ -184,7 +184,10 @@ export function useDataCaptureSubmitReset({
         groupOnly: groupOnlyCapture,
         selectedGroup,
         scope: captureScope,
-        scopeCompanyId: captureScope?.scopeCompanyId,
+        scopeCompanyId:
+          captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
+            ? Number(captureScope.scopeCompanyId)
+            : null,
       });
 
       markSummaryFreshNavigation();

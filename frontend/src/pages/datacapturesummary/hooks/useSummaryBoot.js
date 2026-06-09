@@ -6,6 +6,7 @@ import {
 } from "../../datacapture/lib/dataCaptureCompanyAccess.js";
 import {
   dataCaptureScopeIsReady,
+  dataCaptureScopeLedgerCompanyId,
   normalizeGroupCaptureScope,
   resolveDataCaptureScopeFromSessionMeta,
 } from "../../datacapture/lib/dataCaptureScope.js";
@@ -35,6 +36,32 @@ export function useSummaryBoot() {
     const processData = session?.processData ?? null;
     const groupOnly = processData?.groupOnlyCapture === true;
 
+    const resolveGroupScope = (meta, processMetaForNormalize = meta) => {
+      const fromMeta = resolveDataCaptureScopeFromSessionMeta(meta);
+      if (fromMeta) {
+        return normalizeGroupCaptureScope(fromMeta, processMetaForNormalize);
+      }
+      const groupKey = meta?.captureSelectedGroup
+        ? String(meta.captureSelectedGroup).trim().toUpperCase()
+        : "";
+      if (!groupKey) return null;
+      return normalizeGroupCaptureScope(
+        {
+          mode: "group",
+          groupId: groupKey,
+          viewGroup: groupKey,
+          scopeCompanyId: 0,
+          resolveCompanyViaGroupId: true,
+        },
+        processMetaForNormalize,
+      );
+    };
+
+    if (groupOnly) {
+      const scoped = resolveGroupScope(processData, processData);
+      if (scoped) return scoped;
+    }
+
     if (processData) {
       const fromSession = resolveDataCaptureScopeFromSessionMeta(processData);
       if (fromSession) {
@@ -44,18 +71,19 @@ export function useSummaryBoot() {
 
     const pointerMeta = readCaptureSessionMeta();
     if (pointerMeta?.groupOnlyCapture) {
-      const fromPointer = resolveDataCaptureScopeFromSessionMeta({
-        groupOnlyCapture: true,
-        captureSelectedGroup: pointerMeta.captureSelectedGroup,
-        scopeCompanyId: pointerMeta.scopeCompanyId,
-        captureScopeMode: pointerMeta.captureScopeMode,
-      });
-      if (fromPointer) {
-        return normalizeGroupCaptureScope(fromPointer, {
+      const scoped = resolveGroupScope(
+        {
           groupOnlyCapture: true,
           captureSelectedGroup: pointerMeta.captureSelectedGroup,
-        });
-      }
+          scopeCompanyId: pointerMeta.scopeCompanyId,
+          captureScopeMode: pointerMeta.captureScopeMode,
+        },
+        {
+          groupOnlyCapture: true,
+          captureSelectedGroup: pointerMeta.captureSelectedGroup,
+        },
+      );
+      if (scoped) return scoped;
     }
 
     if (isDashboardGroupOnlyMode() && canUseGroupOnlyMode(me)) {
@@ -64,41 +92,18 @@ export function useSummaryBoot() {
         ? String(persisted.selectedGroup).trim().toUpperCase()
         : "";
       if (groupKey) {
-        const fromDashboard = resolveDataCaptureScopeFromSessionMeta({
-          groupOnlyCapture: true,
-          captureSelectedGroup: groupKey,
-        });
-        if (fromDashboard) {
-          return normalizeGroupCaptureScope(fromDashboard, {
+        const scoped = resolveGroupScope(
+          {
             groupOnlyCapture: true,
             captureSelectedGroup: groupKey,
-          });
-        }
-      }
-    }
-
-    if (groupOnly) {
-      const groupKey = processData?.captureSelectedGroup
-        ? String(processData.captureSelectedGroup).trim().toUpperCase()
-        : "";
-      if (groupKey) {
-        return normalizeGroupCaptureScope(
-          {
-            mode: "group",
-            groupId: groupKey,
-            viewGroup: groupKey,
-            scopeCompanyId:
-              processData.scopeCompanyId != null && Number(processData.scopeCompanyId) > 0
-                ? Number(processData.scopeCompanyId)
-                : 0,
-            resolveCompanyViaGroupId: !(
-              processData.scopeCompanyId != null && Number(processData.scopeCompanyId) > 0
-            ),
           },
-          processData,
+          {
+            groupOnlyCapture: true,
+            captureSelectedGroup: groupKey,
+          },
         );
+        if (scoped) return scoped;
       }
-      return null;
     }
 
     const sessionCompanyId =
@@ -117,10 +122,7 @@ export function useSummaryBoot() {
     return null;
   }, [me, sessionReady]);
 
-  const companyId =
-    captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
-      ? Number(captureScope.scopeCompanyId)
-      : null;
+  const companyId = dataCaptureScopeLedgerCompanyId(captureScope);
 
   useEffect(() => {
     if (!sessionReady || !me) return;

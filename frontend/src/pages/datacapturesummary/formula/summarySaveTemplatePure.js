@@ -57,7 +57,7 @@ export function buildTemplatePayloadFromRow(row, { processId, companyId } = {}) 
     process_id: processId ?? null,
     row_index: row.rowIndex ?? null,
     sub_order: productType === "sub" ? row.subOrder ?? null : null,
-    company_id: companyId ?? null,
+    ...(companyId != null && Number(companyId) > 0 ? { company_id: Number(companyId) } : {}),
   };
 }
 

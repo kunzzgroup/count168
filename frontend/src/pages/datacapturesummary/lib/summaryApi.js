@@ -11,9 +11,10 @@ function withCaptureScope(url, captureScope) {
 }
 
 function withCompany(url, companyId) {
-  if (companyId == null || companyId === "") return url;
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return url;
   const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}company_id=${encodeURIComponent(String(companyId))}`;
+  return `${url}${sep}company_id=${encodeURIComponent(String(cid))}`;
 }
 
 async function parseJsonResponse(response) {
@@ -130,8 +131,10 @@ export async function fetchSummaryTemplates({
   const body = {
     idProducts: [...new Set((idProducts || []).map((v) => String(v || "").trim()).filter(Boolean))],
     processId,
-    company_id: companyId,
   };
+  if (companyId != null && Number(companyId) > 0) {
+    body.company_id = Number(companyId);
+  }
   if (captureId != null && !Number.isNaN(Number(captureId)) && Number(captureId) > 0) {
     body.captureId = Number(captureId);
   }
@@ -176,8 +179,10 @@ export async function deleteSummaryTemplate({
   const body = {
     template_key: templateKey,
     product_type: productType,
-    company_id: companyId,
   };
+  if (companyId != null && Number(companyId) > 0) {
+    body.company_id = Number(companyId);
+  }
   if (templateId != null && templateId !== "") body.template_id = templateId;
   if (formulaVariant != null && formulaVariant !== "") body.formula_variant = formulaVariant;
   if (processId != null && processId !== "") body.process_id = processId;
