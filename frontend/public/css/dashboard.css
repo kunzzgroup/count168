@@ -225,7 +225,8 @@ body.dashboard-page {
     .expiration-reminder-modal-box.dashboard-alert-modal-box--critical,
     .dashboard-summary-pie-chart-shell.is-enter,
     .dashboard-summary-pie-chart-shell.is-enter::before,
-    .dashboard-summary-pie-center.is-enter {
+    .dashboard-summary-pie-center.is-enter,
+    .dashboard-panel-chart-body.is-enter {
         animation: none;
     }
 }
@@ -1139,9 +1140,19 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     width: 100%;
 }
 
-.dashboard-panel-chart-body .recharts-area-area,
-.dashboard-panel-chart-body .recharts-area-curve {
-    animation: none !important;
+.dashboard-panel-chart-body.is-enter {
+    animation: dashboard-trend-chart-in 0.76s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes dashboard-trend-chart-in {
+    0% {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .dashboard-panel-card--chart {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Area,
   AreaChart,
@@ -21,6 +22,10 @@ export function DashboardTrendChart({
   chartDateRangeText,
   chartXAxisLayout,
 }) {
+  const [chartVisitKey] = useState(() => Date.now());
+  const chartAnimReady = chartRows.length > 0;
+  const chartAnimKey = `${chartVisitKey}-${chartDateRangeText}-${chartAnimReady ? "ready" : "pending"}`;
+
   return (
     <div className="dashboard-panel-card dashboard-panel-card--chart">
       <div className="dashboard-panel-head">
@@ -43,9 +48,10 @@ export function DashboardTrendChart({
           {chartDateRangeText}
         </div>
       </div>
-      <div className="dashboard-panel-chart-body">
+      <div className={`dashboard-panel-chart-body${chartAnimReady ? " is-enter" : ""}`}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
+            key={chartAnimKey}
             data={chartRows}
             margin={{ top: 8, right: 16, left: 0, bottom: chartXAxisLayout.marginBottom }}
           >
@@ -91,15 +97,17 @@ export function DashboardTrendChart({
               (s) =>
                 chartVisible[s.idx] && (
                   <Area
-                    key={s.dataKey}
+                    key={`${s.dataKey}-${chartAnimKey}`}
                     type="monotone"
                     dataKey={s.dataKey}
                     name={s.label}
                     stroke={s.color}
                     fill={s.fill}
                     strokeWidth={2}
-                    isAnimationActive={false}
-                    animationDuration={0}
+                    isAnimationActive={chartAnimReady}
+                    animationBegin={100 + s.idx * 130}
+                    animationDuration={900}
+                    animationEasing="ease-out"
                   />
                 )
             )}
