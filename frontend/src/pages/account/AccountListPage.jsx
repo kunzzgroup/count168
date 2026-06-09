@@ -775,6 +775,71 @@ export default function AccountListPage() {
     setCompanyId(null);
   }, []);
 
+  const {
+    groupIds,
+    companiesForPicker,
+    groupsAllMode,
+    groupAllMode,
+    handlePickAllGroups,
+    handlePickAllInGroup,
+    isListScopeReady,
+    mergeCompanyIds,
+    setGroupsAllMode,
+    setGroupAllMode,
+  } = useGcFilterWithAllModes({
+    companies,
+    companyId,
+    selectedGroup,
+    setSelectedGroup,
+    onSelectCompany: (c) =>
+      onSwitchCompanyRef.current?.(c, {
+        viewGroup: gcScopeRef.current?.selectedGroup ?? selectedGroup,
+      }),
+    onPrepareCompanySelect: (pick) => {
+      const id = Number(pick?.id);
+      if (!Number.isFinite(id) || id <= 0) return;
+      const scope = gcScopeRef.current;
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        setCompanyId(id);
+        applyCacheOrClearAccounts({
+          companyId: id,
+          selectedGroup: scope?.selectedGroup ?? selectedGroup,
+          groupsAllMode: false,
+          groupAllMode: false,
+          mergeCompanyIds: scope?.mergeCompanyIds ?? [],
+          groupIds: scope?.groupIds ?? [],
+          isListScopeReady: true,
+        });
+      });
+    },
+    onDeselectGroup: (cid) => {
+      const scope = gcScopeRef.current;
+      skipCompanyFetchEffectRef.current = true;
+      flushSync(() => {
+        applyCacheOrClearAccounts(
+          {
+            companyId: cid,
+            selectedGroup: null,
+            groupsAllMode: false,
+            groupAllMode: false,
+            mergeCompanyIds: scope?.mergeCompanyIds ?? [],
+            groupIds: scope?.groupIds ?? [],
+            isListScopeReady: true,
+          },
+          { groupOnly: false },
+        );
+      });
+    },
+    onClearCompany: handleClearCompany,
+    switchingCompany: false,
+    preferredCompanyId: companyId,
+    me: sessionMe,
+    autoPickCompanyWhenEmpty: false,
+    forceAllowGroupOnly: canUseGroupOnlyMode(sessionMe),
+    broadcastFilterToLayout: false,
+  });
+
   const onSwitchCompany = useCallback(
     async (c, { viewGroup = undefined, fetchList = true } = {}) => {
       const nextCompanyId = Number(c?.id);
@@ -923,71 +988,6 @@ export default function AccountListPage() {
   );
 
   onSwitchCompanyRef.current = onSwitchCompany;
-
-  const {
-    groupIds,
-    companiesForPicker,
-    groupsAllMode,
-    groupAllMode,
-    handlePickAllGroups,
-    handlePickAllInGroup,
-    isListScopeReady,
-    mergeCompanyIds,
-    setGroupsAllMode,
-    setGroupAllMode,
-  } = useGcFilterWithAllModes({
-    companies,
-    companyId,
-    selectedGroup,
-    setSelectedGroup,
-    onSelectCompany: (c) =>
-      onSwitchCompanyRef.current?.(c, {
-        viewGroup: gcScopeRef.current?.selectedGroup ?? selectedGroup,
-      }),
-    onPrepareCompanySelect: (pick) => {
-      const id = Number(pick?.id);
-      if (!Number.isFinite(id) || id <= 0) return;
-      const scope = gcScopeRef.current;
-      skipCompanyFetchEffectRef.current = true;
-      flushSync(() => {
-        setCompanyId(id);
-        applyCacheOrClearAccounts({
-          companyId: id,
-          selectedGroup: scope?.selectedGroup ?? selectedGroup,
-          groupsAllMode: false,
-          groupAllMode: false,
-          mergeCompanyIds: scope?.mergeCompanyIds ?? [],
-          groupIds: scope?.groupIds ?? [],
-          isListScopeReady: true,
-        });
-      });
-    },
-    onDeselectGroup: (cid) => {
-      const scope = gcScopeRef.current;
-      skipCompanyFetchEffectRef.current = true;
-      flushSync(() => {
-        applyCacheOrClearAccounts(
-          {
-            companyId: cid,
-            selectedGroup: null,
-            groupsAllMode: false,
-            groupAllMode: false,
-            mergeCompanyIds: scope?.mergeCompanyIds ?? [],
-            groupIds: scope?.groupIds ?? [],
-            isListScopeReady: true,
-          },
-          { groupOnly: false },
-        );
-      });
-    },
-    onClearCompany: handleClearCompany,
-    switchingCompany: false,
-    preferredCompanyId: companyId,
-    me: sessionMe,
-    autoPickCompanyWhenEmpty: false,
-    forceAllowGroupOnly: canUseGroupOnlyMode(sessionMe),
-    broadcastFilterToLayout: false,
-  });
 
   gcScopeRef.current = {
     companyId,
