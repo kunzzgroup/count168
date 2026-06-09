@@ -191,7 +191,8 @@ try {
         exit;
     }
 
-    $today = date('Y-m-d');
+    //$today = date('Y-m-d');
+    $today = '2026-06-10';
     
     $inserted = 0;
     bmp_ensureMaintenanceResendPendingTable($pdo);
