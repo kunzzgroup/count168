@@ -17,6 +17,7 @@ import {
   setFormatGridReady,
   setFormatPreviewHtml,
   showFormatEditableGrid,
+  showFormatPasteArea,
   toggleTableDisplayForFormat,
 } from "../format/dataCaptureFormat.js";
 import { normalizeCaptureType } from "../lib/dataCaptureFormRules.js";
@@ -73,11 +74,8 @@ export function clearCaptureTableForReset() {
 
   const tablePreviewFormat = document.getElementById("tablePreviewFormat");
   if (tablePreviewFormat) {
-    tablePreviewFormat.innerHTML = "";
     tablePreviewFormat.style.display = "none";
   }
-
-  showFormatEditableGrid();
 
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
   if (captureType === "2.Format") {
@@ -85,6 +83,12 @@ export function clearCaptureTableForReset() {
   }
 
   setFormatGridReady(false);
+
+  if (captureType === "2.Format") {
+    showFormatPasteArea();
+  } else {
+    showFormatEditableGrid();
+  }
   clearAllSelections();
 }
 

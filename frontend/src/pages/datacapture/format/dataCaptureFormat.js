@@ -135,7 +135,17 @@ export function clearFormatStyles() {
   }
 }
 
-/** 2.Format: always show editable #dataTable (same view as back-from-summary). */
+/** 2.Format: empty state — show paste area, hide editable grid. */
+export function showFormatPasteArea() {
+  const dataTable = document.getElementById("dataTable");
+  const pasteAreaFormat = document.getElementById("pasteAreaFormat");
+  const tablePreviewFormat = document.getElementById("tablePreviewFormat");
+  if (dataTable) dataTable.style.display = "none";
+  if (pasteAreaFormat) pasteAreaFormat.style.display = "block";
+  if (tablePreviewFormat) tablePreviewFormat.style.display = "none";
+}
+
+/** 2.Format with data: show editable #dataTable (same view as back-from-summary). */
 export function showFormatEditableGrid() {
   const dataTable = document.getElementById("dataTable");
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
@@ -237,12 +247,17 @@ export function toggleTableDisplayForFormat() {
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
 
   if (captureType === "2.Format") {
-    showFormatEditableGrid();
-
-    if (!domGridHasEditableData() && !getFormatGridReady()) {
+    if (domGridHasEditableData() || getFormatGridReady()) {
+      showFormatEditableGrid();
+    } else {
       const previewHtml = getFormatPreviewHtml();
-      if (previewHtml) {
+      if (previewHtml && shouldRestoreFormatFromPreview()) {
         restoreFormatGridFromPreviewHtml(previewHtml);
+      }
+      if (domGridHasEditableData() || getFormatGridReady()) {
+        showFormatEditableGrid();
+      } else {
+        showFormatPasteArea();
       }
     }
   } else {

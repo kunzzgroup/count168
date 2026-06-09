@@ -24,10 +24,14 @@ export default function DataCaptureTableSection({
   onSubmit,
   onReset,
 }) {
+  const formatPasteMode = captureType === "2.Format" && !formatGridReady;
   const containerClass = [
     "excel-table-container",
     groupOnlyTable ? "excel-table-container--group-only" : "",
     citibetMode ? "citibet-mode" : "",
+    captureType === "1.Text" ? "capture-type-text" : "",
+    captureType === "2.Format" ? "capture-type-format" : "",
+    formatPasteMode ? "format-paste-mode" : "",
   ]
     .filter(Boolean)
     .join(" ");

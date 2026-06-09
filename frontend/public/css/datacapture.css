@@ -1569,9 +1569,24 @@ body.datacapture-page .excel-table-container {
     text-transform: uppercase;
 }
 
+/* 1.Text / 2.Format：保留粘贴与输入的原始大小写 */
+.excel-table-container.capture-type-text .excel-table td[contenteditable="true"],
+.excel-table-container.capture-type-format .excel-table td[contenteditable="true"] {
+    text-transform: none;
+}
+
+.excel-table-container.capture-type-text .excel-table td[contenteditable="true"]:focus,
+.excel-table-container.capture-type-format .excel-table td[contenteditable="true"]:focus {
+    text-transform: none;
+}
+
 /* 2.Format模式：确保粘贴的单元格内容样式不被覆盖 */
 .excel-table td[contenteditable="true"][style] {
     color: inherit !important;
+}
+
+.excel-table-container.capture-type-format .excel-table td[contenteditable="true"][style] {
+    text-transform: none !important;
 }
 
 .excel-table td[contenteditable="true"] span[style],

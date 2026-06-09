@@ -149,7 +149,6 @@ export function handleGlobalFormatPaste(e) {
   const startRow = appendMode ? resolveFormatPasteStartRow(anchorCell) : 0;
 
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
-  showFormatEditableGrid();
 
   const { html, text } = readClipboard(clipboard);
 

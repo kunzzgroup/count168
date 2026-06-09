@@ -7,6 +7,11 @@ function isTableActive() {
   return window.__DC_GET_TABLE_ACTIVE__?.() ?? false;
 }
 
+function shouldPreserveCellCase() {
+  const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "";
+  return captureType === "1.Text" || captureType === "2.Format";
+}
+
 function hasPasteHistory() {
   return window.__DC_HAS_PASTE_HISTORY__?.() ?? false;
 }
@@ -317,20 +322,19 @@ const key = (e.key || '').toLowerCase();
                 setActiveCell(firstCell);
                 moveCaretToEnd(firstCell);
 
-                // Manually insert character (because we need to convert to uppercase)
+                const typedChar = shouldPreserveCellCase() ? e.key : e.key.toUpperCase();
                 const selection = window.getSelection();
                 if (selection && selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0);
                     range.deleteContents();
-                    const textNode = document.createTextNode(e.key.toUpperCase());
+                    const textNode = document.createTextNode(typedChar);
                     range.insertNode(textNode);
                     range.setStartAfter(textNode);
                     range.collapse(true);
                     selection.removeAllRanges();
                     selection.addRange(range);
                 } else {
-                    // If Selection API cannot be used, directly set text content
-                    firstCell.textContent = e.key.toUpperCase();
+                    firstCell.textContent = typedChar;
                     moveCaretToEnd(firstCell);
                 }
 
