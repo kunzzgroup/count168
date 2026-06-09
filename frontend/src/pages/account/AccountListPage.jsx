@@ -129,12 +129,23 @@ function accountRowsFingerprint(rows) {
   return rows.map((a) => Number(a.id)).join(",");
 }
 
+function readUrlCompanyId() {
+  if (typeof window === "undefined") return null;
+  const raw = new URL(window.location.href).searchParams.get("company_id");
+  const n = raw != null && raw !== "" ? Number(raw) : Number.NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 function readAccountListBootGc() {
   if (typeof sessionStorage === "undefined") {
-    return { selectedGroup: null, companyId: null };
+    return { selectedGroup: null, companyId: readUrlCompanyId() };
   }
   const optOut = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
   const { selectedGroup, companyId, groupOnly } = readPersistedDashboardGcFilter();
+  const urlCompanyId = readUrlCompanyId();
+  if (urlCompanyId != null) {
+    return { selectedGroup: optOut ? null : selectedGroup, companyId: urlCompanyId };
+  }
   if (groupOnly || isDashboardGroupOnlyMode()) {
     return { selectedGroup: optOut ? null : selectedGroup, companyId: null };
   }
@@ -536,10 +547,17 @@ export default function AccountListPage() {
 
         const url = new URL(window.location.href);
         const urlCompanyId = url.searchParams.get("company_id");
+        const urlCompanyNum =
+          urlCompanyId != null && urlCompanyId !== "" ? Number(urlCompanyId) : Number.NaN;
+        const hasExplicitUrlCompany = Number.isFinite(urlCompanyNum) && urlCompanyNum > 0;
         const persistedGc = readPersistedDashboardGcFilter();
         const savedCompanyId = readDashboardSelectedCompanyId();
         let initialCompanyId = persistedGc.groupOnly ? null : (persistedGc.companyId ?? savedCompanyId);
-        if (
+        if (hasExplicitUrlCompany) {
+          initialCompanyId = urlCompanyNum;
+          persistDashboardGroupOnlyMode(false);
+          persistDashboardSelectedCompany(urlCompanyNum);
+        } else if (
           savedCompanyId != null &&
           !persistedGc.groupOnly &&
           !(canUseGroupOnlyMode(sessionMe) && isDashboardGroupOnlyMode())

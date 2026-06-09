@@ -174,6 +174,8 @@ export const ACCOUNT_I18N = {
     apiReadOnlyCannotAdd: "Read-only account cannot add accounts",
     apiReadOnlyCannotDelete: "Read-only account cannot delete accounts",
     apiCurrencyInUse: "Currency is in use and cannot be deleted",
+    apiCurrencyBlockedByHistory:
+      "Cannot delete currency — historical records still reference it ({detail}). Remove related Data Capture / Transaction records first.",
     currencyInUseTitle: "Cannot delete currency",
     currencyInUseMessage: "Currency {code} is still used by the following account(s):",
     ok: "OK",
@@ -351,6 +353,8 @@ export const ACCOUNT_I18N = {
     apiReadOnlyCannotAdd: "只读账号无法添加账户",
     apiReadOnlyCannotDelete: "只读账号无法删除账户",
     apiCurrencyInUse: "货币正在使用中，无法删除",
+    apiCurrencyBlockedByHistory:
+      "无法删除货币，仍有历史业务数据引用（{detail}）。请先在 Data Capture / Transaction 中清理相关记录。",
     currencyInUseTitle: "无法删除货币",
     currencyInUseMessage: "货币 {code} 仍被以下账号使用：",
     ok: "确定",
@@ -552,7 +556,12 @@ function translateAccountDynamicApiMessage(lang, message, data = null) {
   }
   const usageDetail = parseCurrencyUsageDetailFromMessage(raw);
   if (usageDetail) {
-    return getAccountText(lang, "apiCurrencyInUse") + ": " + translateCurrencyUsageDetail(lang, usageDetail);
+    const localized = translateCurrencyUsageDetail(lang, usageDetail);
+    const isHistoricalOnly = !/\baccount\(s\)|账号/i.test(localized);
+    if (isHistoricalOnly) {
+      return getAccountText(lang, "apiCurrencyBlockedByHistory", { detail: localized });
+    }
+    return getAccountText(lang, "apiCurrencyInUse") + ": " + localized;
   }
   m = raw.match(/^(?:Currency is being used|正在使用|Cannot delete).*currency/i);
   if (m || /being used|正在使用/i.test(raw)) return getAccountText(lang, "apiCurrencyInUse");
