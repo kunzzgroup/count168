@@ -126,7 +126,7 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
         if ($hadScheduleStart && $hadScheduleEnd && $fq !== 'monthly') {
             $row['accounting_resend_consolidated_range'] = 1;
         }
-        if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'once') {
+        if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'once' || $fq === 'week') {
             $row['day_start_frequency'] = $fq;
         }
         if (!$hadScheduleStart && !empty($row['accounting_resend_relax_created_floor'])
@@ -148,7 +148,7 @@ if (!function_exists('bmp_normalizePeriodType')) {
     function bmp_normalizePeriodType(?string $raw): string
     {
         $t = strtolower(trim((string) $raw));
-        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range' || $t === 'once_one_off') {
+        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range' || $t === 'once_one_off' || $t === 'weekly') {
             return $t;
         }
         return 'monthly';

@@ -194,10 +194,10 @@ try {
         $newDayStart = bank_resend_normalizeOptionalYmd($payload['day_start'] ?? null);
         $newDayEnd = bank_resend_normalizeOptionalYmd($payload['day_end'] ?? null);
         $newFrequency = trim((string) ($payload['day_start_frequency'] ?? '1st_of_every_month'));
-        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'once'], true)) {
+        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'once', 'week'], true)) {
             $newFrequency = '1st_of_every_month';
         }
-        if ($newFrequency === 'once') {
+        if ($newFrequency === 'once' || $newFrequency === 'week') {
             $newDayEnd = null;
         }
         if ($newDayStart !== null && $newDayEnd !== null && $newDayEnd < $newDayStart) {
@@ -292,6 +292,14 @@ try {
                )"
         );
         $delMonthPap->execute([$company_id, $bankProcessId, $newDayStart, $newDayEnd, $startYmInt, $endYmInt]);
+    } elseif ($scheduleFromClient && $newFrequency === 'week' && $newDayStart !== null) {
+        $delMonthPap = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND period_type IN ('weekly','weekly_skipped')
+               AND DATE(posted_date) = DATE(?)"
+        );
+        $delMonthPap->execute([$company_id, $bankProcessId, $newDayStart]);
     } else {
         // 仅清除 day_start 所在月份的 posted 标记，避免一次 Resend 把整合同期都补回。
         // 兜底：

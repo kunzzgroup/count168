@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/profit_sharing_account_label.php';
+require_once __DIR__ . '/../processes/contract_billing_addon.php';
 
 /**
  * 解析 bank_process.day_start（支持 yyyy-mm-dd、d/m/Y 等），与 history_api 原逻辑一致。
@@ -166,6 +167,67 @@ function bankProcessOnceOneOffHistoryDescription(array $t): string
     if ($psAmount !== null) {
         return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($psAmount);
     }
+    return $prefix;
+}
+
+/**
+ * Payment History：Frequency=week 入账行描述。
+ * WEEK (DD/MM/YYYY - DD/MM/YYYY) @ <对应账户金额>
+ *
+ * @param array $t 需含 account_id、card_merchant_id、customer_id、profit_account_id、process_*；transaction_date 为周起点
+ */
+function bankProcessWeeklyHistoryDescription(array $t): string
+{
+    $startYmd = null;
+    $td = trim((string) ($t['transaction_date'] ?? ''));
+    if ($td !== '' && stripos($td, '0000-00-00') !== 0) {
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m)) {
+            $startYmd = $m[1];
+        } else {
+            $ts = strtotime(str_replace('/', '-', $td));
+            if ($ts !== false) {
+                $startYmd = date('Y-m-d', $ts);
+            }
+        }
+    }
+    if ($startYmd === null) {
+        $startYmd = bankProcessParseDayStartToYmd($t['bp_day_start'] ?? null);
+    }
+    $startDmy = date('d/m/Y');
+    $endDmy = $startDmy;
+    if ($startYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $startYmd)) {
+        $ts = strtotime($startYmd);
+        if ($ts !== false) {
+            $startDmy = date('d/m/Y', $ts);
+        }
+        $endYmd = weekPeriodEndInclusiveYmd($startYmd);
+        if ($endYmd !== null) {
+            $tsEnd = strtotime($endYmd);
+            if ($tsEnd !== false) {
+                $endDmy = date('d/m/Y', $tsEnd);
+            }
+        }
+    }
+    $prefix = 'WEEK (' . $startDmy . ' - ' . $endDmy . ')';
+    $txAccountId = (int) ($t['account_id'] ?? 0);
+    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+    $customerId = (int) ($t['customer_id'] ?? 0);
+    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+
+    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_cost'] ?? '0');
+    }
+    if ($txAccountId > 0 && $txAccountId === $customerId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber(money_abs($t['process_price'] ?? '0', 2));
+    }
+    if ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_profit'] ?? '0');
+    }
+    $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
+    if ($psAmount !== null) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($psAmount);
+    }
+
     return $prefix;
 }
 

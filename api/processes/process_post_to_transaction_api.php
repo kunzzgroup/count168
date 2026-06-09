@@ -958,6 +958,61 @@ function txnIsPartialFirstMonthPostedOrSkipped(PDO $pdo, int $companyId, int $pr
     }
 }
 
+function txnIsWeeklyPostedOrSkippedForPeriodStart(PDO $pdo, int $companyId, int $processId, string $periodStartYmd): bool
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStartYmd)) {
+        return false;
+    }
+    try {
+        if (!tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
+            return false;
+        }
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+             AND DATE(posted_date) = DATE(?)
+             AND period_type IN ('weekly','weekly_skipped') LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $periodStartYmd]);
+
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Weekly Resend 单期入账后：将 Resend 锚点之前、由库里 day_start 滚动的标准周写 weekly_skipped，抑制 backlog。
+ */
+function txnRecordWeeklySkippedBeforeResendAnchor(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $storedDayStartYmd,
+    string $resendAnchorYmd,
+    bool $hasPeriodType
+): void {
+    if (!$hasPeriodType || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedDayStartYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchorYmd)) {
+        return;
+    }
+    if ($storedDayStartYmd >= $resendAnchorYmd) {
+        return;
+    }
+    $due = $storedDayStartYmd;
+    for ($i = 0; $i < 520; $i++) {
+        if ($due >= $resendAnchorYmd) {
+            break;
+        }
+        if (!txnIsWeeklyPostedOrSkippedForPeriodStart($pdo, $companyId, $processId, $due)) {
+            recordProcessAccountingPosted($pdo, $companyId, $processId, $due, 'weekly_skipped', $hasPeriodType);
+        }
+        $nextDue = weekPeriodNextStartYmd($due);
+        if ($nextDue === null || $nextDue <= $due) {
+            break;
+        }
+        $due = $nextDue;
+    }
+}
+
 /** 解析 profit_sharing 字符串 "RUP3 - 55, RUP4 - 10" 为 [['account_text'=>'RUP3','amount'=>55], ...] */
 function parseProfitSharingString(string $profitSharing): array
 {
@@ -1018,7 +1073,7 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off' && $pt !== 'weekly') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -1032,7 +1087,7 @@ try {
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
         $pt = $p['period_type'] ?? '';
         $bm = trim((string) ($p['billing_month'] ?? ''));
-        $key = $p['id'] . '_' . $pt . '_' . (($pt === 'monthly' && $bm !== '') ? $bm : '');
+        $key = $p['id'] . '_' . $pt . '_' . ((in_array($pt, ['monthly', 'weekly'], true) && $bm !== '') ? $bm : '');
         if (isset($seen[$key])) {
             return false;
         }
@@ -1386,6 +1441,15 @@ try {
             // 一次性合同：不按应付日限制；归属日与 Inbox 去重锚点用 day_start，缺失则用今日
             $transactionDate = ($dayStartYmd !== null && $dayStartYmd !== '') ? $dayStartYmd : $fallbackDate;
             $postedDateForInbox = $transactionDate;
+        } elseif ($periodType === 'weekly') {
+            $weekAnchor = trim((string) ($pair['billing_month'] ?? ''));
+            if ($weekAnchor !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekAnchor)) {
+                $transactionDate = $weekAnchor;
+                $postedDateForInbox = $weekAnchor;
+            } elseif ($dayStartYmd !== null && $dayStartYmd !== '') {
+                $transactionDate = $dayStartYmd;
+                $postedDateForInbox = $dayStartYmd;
+            }
         } elseif ($periodType === 'monthly') {
             // monthly：Payment History 归档日固定为该期应付日（dueYmd），
             // 非 resend 场景未到应付日不允许提前入账；resend 维持可回补旧期能力。
@@ -1441,7 +1505,7 @@ try {
             }
         }
 
-        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ($periodType === 'once_one_off' ? ' (once)' : '')));
+        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ($periodType === 'once_one_off' ? ' (once)' : ($periodType === 'weekly' ? ' (weekly)' : ''))));
         $processTail = txnProcessBankDescriptionTail($p);
         $resendEndMarker = '';
         if ($periodType === 'resend_consolidated_range') {
@@ -1494,6 +1558,8 @@ try {
         } elseif ($monthlyProrationPsRatio !== null) {
             $psRatio = $monthlyProrationPsRatio;
         } elseif ($periodType === 'once_one_off') {
+            $psRatio = '1.0000000000000000';
+        } elseif ($periodType === 'weekly') {
             $psRatio = '1.0000000000000000';
         } elseif ($periodType === 'day_end_tail' || $periodType === 'resend_consolidated_range') {
             $fp = money_normalize($p['profit'] ?? '0');
@@ -1611,6 +1677,29 @@ try {
                         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmd, 'monthly', $has_period_type);
                     }
                 }
+            }
+        }
+
+        if ($periodType === 'weekly'
+            && !empty($p['accounting_resend_single_period_from_schedule'])
+            && strtolower(trim((string) $frequency)) === 'week'
+            && $has_resend_relax_col
+            && !empty($p['accounting_resend_relax_created_floor'])) {
+            $storedRaw = $p['bank_process_stored_day_start'] ?? null;
+            $storedYmd = $storedRaw !== null && trim((string) $storedRaw) !== '' ? bankProcessDateFieldToYmd((string) $storedRaw) : null;
+            $resendAnchor = trim((string) ($pair['billing_month'] ?? ''));
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchor)) {
+                $resendAnchor = $dayStartYmd ?? '';
+            }
+            if ($storedYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchor)) {
+                txnRecordWeeklySkippedBeforeResendAnchor(
+                    $pdo,
+                    $companyId,
+                    (int) $p['id'],
+                    $storedYmd,
+                    $resendAnchor,
+                    $has_period_type
+                );
             }
         }
 

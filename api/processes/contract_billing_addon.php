@@ -289,3 +289,32 @@ function billingMonthlyResendRangeComplete(string $dayStartYmd, string $dayEndYm
 
     return false;
 }
+
+/** Week frequency: inclusive period end (start + 6 days). */
+function weekPeriodEndInclusiveYmd(string $startYmd): ?string
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startYmd)) {
+        return null;
+    }
+    try {
+        return (new DateTimeImmutable($startYmd))->modify('+6 days')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** Next period start = current period end (rolling anchor). */
+function weekPeriodNextStartYmd(string $startYmd): ?string
+{
+    return weekPeriodEndInclusiveYmd($startYmd);
+}
+
+function weekPeriodIsReadyForAccounting(string $dueYmd, string $periodEndYmd, bool $resendRelax): bool
+{
+    if ($resendRelax) {
+        return true;
+    }
+    $today = date('Y-m-d');
+
+    return $today >= $periodEndYmd;
+}

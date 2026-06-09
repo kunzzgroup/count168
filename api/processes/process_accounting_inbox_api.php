@@ -594,6 +594,87 @@ function inboxTryDayEndMonthlyCapAmounts1stOfMonth(array $r, bool $hasDayEndMont
     return prorateInclusiveDateRange($monthFirst, $dayEndYmd, $bc, $bp, $bf);
 }
 
+/** 周期 [due, periodEnd] 是否与指定自然月有重叠 */
+function weekPeriodOverlapsCalendarMonth(string $dueYmd, string $periodEndYmd, int $year, int $month): bool
+{
+    $monthFirst = sprintf('%04d-%02d-01', $year, $month);
+    $ts = mktime(0, 0, 0, $month, 1, $year);
+    if ($ts === false) {
+        return false;
+    }
+    $monthLast = date('Y-m-t', $ts);
+
+    return $dueYmd <= $monthLast && $periodEndYmd >= $monthFirst;
+}
+
+function hasWeeklyPostedForPeriodStart(PDO $pdo, int $companyId, int $processId, string $periodStartYmd): bool
+{
+    if ($periodStartYmd === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStartYmd)) {
+        return false;
+    }
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return false;
+        }
+        if (!tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
+            $stmt = $pdo->prepare(
+                'SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) LIMIT 1'
+            );
+            $stmt->execute([$companyId, $processId, $periodStartYmd]);
+
+            return (bool) $stmt->fetch();
+        }
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+             AND DATE(posted_date) = DATE(?)
+             AND period_type IN ('weekly','weekly_skipped') LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $periodStartYmd]);
+
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function inboxFormatWeeklyBillingStartForDisplay(string $weeklyBillingStartYmd): string
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weeklyBillingStartYmd)) {
+        return $weeklyBillingStartYmd;
+    }
+    $ts = strtotime($weeklyBillingStartYmd);
+
+    return $ts !== false ? date('d/m/Y', $ts) : $weeklyBillingStartYmd;
+}
+
+function inboxAppendWeeklyNeedToday(
+    array &$needToday,
+    array $r,
+    string $weeklyBillingStart,
+    string $cost,
+    string $price,
+    string $profit
+): void {
+    $needToday[] = [
+        'id' => (int) $r['id'],
+        'name' => $r['name'] ?? '',
+        'bank' => $r['bank'] ?? '',
+        'country' => $r['country'] ?? '',
+        'day_start' => inboxFormatWeeklyBillingStartForDisplay($weeklyBillingStart),
+        'contract' => 'WEEK',
+        'cost' => $cost,
+        'price' => $price,
+        'profit' => $profit,
+        'already_posted_today' => false,
+        'is_partial_first_month' => false,
+        'is_manual_inactive' => false,
+        'is_weekly' => true,
+        'weekly_billing_start' => $weeklyBillingStart,
+        'monthly_billing_month' => $weeklyBillingStart,
+    ];
+}
+
 /**
  * 追加一条 monthly 型 Accounting Due 行。frequency=monthly 时按「对日对月」服务区间比例（与 process_post 一致），不使用自然月末截断。
  *
@@ -913,6 +994,17 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     );
                     continue;
                 }
+                if (!empty($item['is_weekly'])) {
+                    $anchorRaw = trim((string) ($item['weekly_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
+                    $anchorYmd = $anchorRaw !== '' ? inboxBankProcessDateFieldToYmd($anchorRaw) : null;
+                    if ($anchorYmd === null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorRaw)) {
+                        $anchorYmd = $anchorRaw;
+                    }
+                    $item['already_posted_today'] = $anchorYmd !== null
+                        ? hasWeeklyPostedForPeriodStart($pdo, $companyId, (int) $item['id'], $anchorYmd)
+                        : false;
+                    continue;
+                }
                 // 按「账单所属自然月」判断是否已入账（与逾期未显示逻辑一致）
                 if (!empty($item['monthly_billing_month']) && preg_match('/^(\d{4})-(\d{1,2})$/', (string) $item['monthly_billing_month'], $m)) {
                     $item['already_posted_today'] = hasMonthlyPostedOrSkippedInCalendarMonth(
@@ -1214,6 +1306,90 @@ try {
                 'is_manual_inactive' => false,
                 'is_once_one_off' => true,
             ];
+            continue;
+        }
+
+        if ($frequency === 'week') {
+            if (empty($dayStart) || $startDate === '') {
+                continue;
+            }
+            if ($today < $startDate && empty($r['accounting_resend_relax_created_floor'])) {
+                continue;
+            }
+            $processIdWeek = (int) $r['id'];
+            $todayYear = (int) date('Y', strtotime($today));
+            $todayMonth = (int) date('n', strtotime($today));
+
+            if ($resendSinglePeriod) {
+                $due = $startDate;
+                $periodEnd = weekPeriodEndInclusiveYmd($due);
+                if ($periodEnd !== null
+                    && weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax)
+                    && weekPeriodOverlapsCalendarMonth($due, $periodEnd, $todayYear, $todayMonth)
+                    && !hasWeeklyPostedForPeriodStart($pdo, $company_id, $processIdWeek, $due)) {
+                    inboxAppendWeeklyNeedToday($needToday, $r, $due, $baseCost, $basePrice, $baseProfit);
+                }
+                continue;
+            }
+
+            $due = $startDate;
+            $queuedWeekly = [];
+            for ($wi = 0; $wi < 520; $wi++) {
+                $periodEnd = weekPeriodEndInclusiveYmd($due);
+                if ($periodEnd === null) {
+                    break;
+                }
+                if (!$resendMulti && $periodEnd > $today && !$resendRelax) {
+                    break;
+                }
+                $eligible = false;
+                if (weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax)
+                    && weekPeriodOverlapsCalendarMonth($due, $periodEnd, $todayYear, $todayMonth)) {
+                    if (!$resendRelax && $due < $createdYmd) {
+                        try {
+                            $cy = (int) date('Y', strtotime($createdYmd));
+                            $cm = (int) date('n', strtotime($createdYmd));
+                            if (!weekPeriodOverlapsCalendarMonth($due, $periodEnd, $cy, $cm)) {
+                                $nextDue = weekPeriodNextStartYmd($due);
+                                if ($nextDue === null || $nextDue <= $due) {
+                                    break;
+                                }
+                                $due = $nextDue;
+                                continue;
+                            }
+                        } catch (Throwable $e) {
+                            $nextDue = weekPeriodNextStartYmd($due);
+                            if ($nextDue === null || $nextDue <= $due) {
+                                break;
+                            }
+                            $due = $nextDue;
+                            continue;
+                        }
+                    }
+                    $eligible = true;
+                }
+                if ($eligible && !hasWeeklyPostedForPeriodStart($pdo, $company_id, $processIdWeek, $due)) {
+                    if ($resendMulti) {
+                        $queuedWeekly[] = $due;
+                    } else {
+                        inboxAppendWeeklyNeedToday($needToday, $r, $due, $baseCost, $basePrice, $baseProfit);
+                        break;
+                    }
+                }
+                if ($periodEnd > $today && !$resendRelax) {
+                    break;
+                }
+                $nextDue = weekPeriodNextStartYmd($due);
+                if ($nextDue === null || $nextDue <= $due) {
+                    break;
+                }
+                $due = $nextDue;
+            }
+            if ($resendMulti && !empty($queuedWeekly)) {
+                foreach ($queuedWeekly as $wDue) {
+                    inboxAppendWeeklyNeedToday($needToday, $r, $wDue, $baseCost, $basePrice, $baseProfit);
+                }
+            }
             continue;
         }
 
@@ -1672,9 +1848,20 @@ try {
             if (!empty($item['is_day_end_tail'])) return 4;
             if (!empty($item['is_partial_first_month'])) return 3;
             if (!empty($item['is_manual_inactive'])) return 2;
+            if (!empty($item['is_weekly'])) return 1;
             return 1; // regular monthly
         };
         $normalizeBm = static function (array $item): string {
+            if (!empty($item['is_weekly'])) {
+                $ws = trim((string) ($item['weekly_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ws)) {
+                    return $ws;
+                }
+                $parsed = inboxBankProcessDateFieldToYmd($ws);
+                if ($parsed !== null) {
+                    return $parsed;
+                }
+            }
             $bm = trim((string) ($item['monthly_billing_month'] ?? ''));
             if (preg_match('/^(\d{4})-(\d{1,2})$/', $bm, $m)) {
                 return ((int) $m[1]) . '-' . ((int) $m[2]);
@@ -1694,6 +1881,7 @@ try {
             if (!empty($item['is_day_end_tail'])) return 'day_end_tail';
             if (!empty($item['is_partial_first_month'])) return 'partial_first_month';
             if (!empty($item['is_manual_inactive'])) return 'manual_inactive';
+            if (!empty($item['is_weekly'])) return 'weekly';
             return 'monthly';
         };
 
@@ -1744,6 +1932,10 @@ try {
             $p = money_normalize($row['price'] ?? '0', 2);
             $pr = money_normalize($row['profit'] ?? '0', 2);
             $fp = $pid . '|' . $dsNorm . '|' . $c . '|' . $p . '|' . $pr;
+            if (!empty($row['is_weekly'])) {
+                $ws = trim((string) ($row['weekly_billing_start'] ?? $row['monthly_billing_month'] ?? ''));
+                $fp .= '|weekly|' . ($ws !== '' ? $ws : $dsNorm);
+            }
             if (!isset($byFingerprint[$fp]) || $rankOf($row) >= $rankOf($byFingerprint[$fp])) {
                 $byFingerprint[$fp] = $row;
             }
@@ -1809,12 +2001,14 @@ try {
                 && empty($row['is_day_end_tail'])
                 && empty($row['is_resend_consolidated_range'])
                 && empty($row['is_once_one_off'])
-                && empty($row['is_manual_inactive']);
+                && empty($row['is_manual_inactive'])
+                && empty($row['is_weekly']);
             $existingIsRegular = empty($existing['is_partial_first_month'])
                 && empty($existing['is_day_end_tail'])
                 && empty($existing['is_resend_consolidated_range'])
                 && empty($existing['is_once_one_off'])
-                && empty($existing['is_manual_inactive']);
+                && empty($existing['is_manual_inactive'])
+                && empty($existing['is_weekly']);
             if (!$rowIsRegular && $existingIsRegular) {
                 $displayUnique[$dk] = $row;
             }
