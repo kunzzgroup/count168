@@ -1,5 +1,56 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
-import { dataCaptureScopeApiParams } from "./dataCaptureScope.js";
+import { dataCaptureScopeApiParams, dataCaptureScopeCacheKey } from "./dataCaptureScope.js";
+
+export const dataCaptureQueryKeys = {
+  root: () => ["dataCapture"],
+  permissions: (companyCode) => [
+    ...dataCaptureQueryKeys.root(),
+    "permissions",
+    companyCode ?? "none",
+  ],
+  submissions: (scopeKey, captureDate) => [
+    ...dataCaptureQueryKeys.root(),
+    "submissions",
+    scopeKey || "none",
+    captureDate || "",
+  ],
+  companyFormCatalog: (scopeKey) => [
+    ...dataCaptureQueryKeys.root(),
+    "companyFormCatalog",
+    scopeKey || "none",
+  ],
+  groupCurrencies: (viewGroup) => [
+    ...dataCaptureQueryKeys.root(),
+    "groupCurrencies",
+    viewGroup || "none",
+  ],
+  processesByDay: (scopeKey, date) => [
+    ...dataCaptureQueryKeys.root(),
+    "processesByDay",
+    scopeKey || "none",
+    date || "",
+  ],
+  processesForScope: (scopeKey) => [
+    ...dataCaptureQueryKeys.root(),
+    "processesByDay",
+    scopeKey || "none",
+  ],
+  processDetail: (scopeKey, processId) => [
+    ...dataCaptureQueryKeys.root(),
+    "processDetail",
+    scopeKey || "none",
+    String(processId ?? ""),
+  ],
+  descriptionCatalog: (companyId) => [
+    ...dataCaptureQueryKeys.root(),
+    "descriptionCatalog",
+    String(companyId ?? ""),
+  ],
+};
+
+export function dataCaptureScopeQueryKey(scope) {
+  return dataCaptureScopeCacheKey(scope);
+}
 
 /** YYYY-MM-DD in local timezone */
 export function getLocalDateString(date = null) {

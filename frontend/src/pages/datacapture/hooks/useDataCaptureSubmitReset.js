@@ -10,7 +10,7 @@ import {
 import { isGroupOnlyProcessId } from "../lib/dataCaptureGroupOnlyProcesses.js";
 import { clearGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import {
-  captureTableDataFromDom,
+  captureTableSnapshot,
   pickRicherTableSnapshot,
   tableSnapshotHasData,
   trimSnapshotToFilledRows,
@@ -21,14 +21,32 @@ import {
   validateDataCaptureForm,
 } from "../lib/dataCaptureFormRules.js";
 import { fetchProcessDetail, fetchGroupProcessIdByCode } from "../lib/dataCaptureApi.js";
-import { convertTableFormatOnSubmit } from "../lib/dataCaptureConvertTableOnSubmit.js";
-import { prepareFormatSubmitSnapshot } from "../format/dataCaptureFormat.js";
+import {
+  applyConvertTableOnSubmitToGrid,
+  convertTableFormatForSubmit,
+} from "../lib/dataCaptureConvertTableOnSubmit.js";
+import {
+  clearFormatPreviewHtml,
+  prepareFormatSubmitSnapshot,
+  setFormatGridReady,
+} from "../format/dataCaptureFormat.js";
+import { clearCaptureTableUiAfterGridClear } from "../grid/dataCaptureGridClearRestore.js";
+import { createEmptyGrid, clearGridCells } from "../grid/gridModel.js";
+import { resolveDataCaptureGridDimensions } from "../grid/dataCaptureGridMeta.js";
 import { buildSpaPath } from "../../../utils/core/apiUrl.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
+import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
+import { applyBridgeCaptureType, toggleBridgeFormatDisplay } from "../lib/dataCaptureBridge.js";
+import {
+  callDataCaptureRuntime,
+  getDataCaptureState,
+  registerDataCaptureRuntime,
+  unregisterDataCaptureRuntime,
+} from "../lib/dataCaptureRuntime.js";
 
-function buildProcessCapturePayload(form, captureType, currencies) {
+function buildProcessCapturePayload(form, captureType, currencies, selectedDescriptions) {
   const currencyOpt = (currencies || []).find((c) => String(c.id) === String(form.currencyId));
   return {
     date: form.captureDate,
@@ -36,7 +54,7 @@ function buildProcessCapturePayload(form, captureType, currencies) {
     processName: form.selectedProcess?.displayText || "",
     processCode: form.selectedProcess?.process_id || "",
     dataCaptureType: captureType,
-    descriptions: getActiveDescriptions(form.descriptionDisplay),
+    descriptions: getActiveDescriptions(form.descriptionDisplay, selectedDescriptions),
     currency: form.currencyId,
     currencyName: currencyOpt?.code || "",
     removeWord: form.removeWord || "",
@@ -61,6 +79,8 @@ export function useDataCaptureSubmitReset({
   groupOnlyCapture = false,
   selectedGroup = null,
 }) {
+  const { selectedDescriptions, clearSelectedDescriptions, gridRef, gridVersion, replaceGrid } =
+    useDataCaptureContext();
   const [submitDisabled, setSubmitDisabled] = useState(true);
   const restoreInFlightRef = useRef(false);
   const captureTypeRef = useRef(captureType);
@@ -68,21 +88,22 @@ export function useDataCaptureSubmitReset({
 
   const recomputeSubmitState = useCallback(() => {
     const activeCaptureType = captureTypeRef.current;
-    const tableData = captureTableDataFromDom(activeCaptureType);
+    const tableData = captureTableSnapshot(activeCaptureType, gridRef.current, {
+      commitModel: false,
+    });
 
     if (
       activeCaptureType === "2.Format" &&
       tableSnapshotHasData(tableData) &&
-      typeof window.__DC_GET_FORMAT_GRID_READY__ === "function" &&
-      !window.__DC_GET_FORMAT_GRID_READY__()
+      callDataCaptureRuntime("getFormatGridReady") === false
     ) {
-      window.__DC_SET_FORMAT_GRID_READY__?.(true);
-      window.__DC_TOGGLE_FORMAT_DISPLAY__?.();
+      callDataCaptureRuntime("setFormatGridReady", true);
+      toggleBridgeFormatDisplay();
     }
 
     const ready = isSubmitReady({
       selectedProcess: form.selectedProcess,
-      descriptions: window.selectedDescriptions || [],
+      descriptions: selectedDescriptions,
       descriptionDisplay: form.descriptionDisplay,
       currencyId: form.currencyId,
       captureType: activeCaptureType,
@@ -90,44 +111,34 @@ export function useDataCaptureSubmitReset({
       requireDescriptions,
     });
     setSubmitDisabled(!ready);
-  }, [form.selectedProcess, form.currencyId, form.descriptionDisplay, requireDescriptions]);
+  }, [form.selectedProcess, form.currencyId, form.descriptionDisplay, requireDescriptions, selectedDescriptions, gridRef]);
 
   useEffect(() => {
     recomputeSubmitState();
   }, [recomputeSubmitState]);
 
   useEffect(() => {
-    let observer;
-    let pollId;
-    let debounceId;
+    recomputeSubmitState();
+  }, [gridVersion, recomputeSubmitState]);
 
+  useEffect(() => {
+    let debounceId;
     const schedule = () => {
       clearTimeout(debounceId);
       debounceId = setTimeout(() => recomputeSubmitState(), 80);
     };
 
-    const attach = () => {
-      const tableBody = document.getElementById("tableBody");
-      if (!tableBody) return false;
-      tableBody.addEventListener("input", schedule, true);
-      observer = new MutationObserver(schedule);
-      observer.observe(tableBody, { childList: true, subtree: true, characterData: true });
-      schedule();
-      return true;
-    };
+    const tableBody = document.getElementById("tableBody");
+    if (!tableBody) return undefined;
 
-    if (!attach()) {
-      pollId = setInterval(() => {
-        if (attach()) clearInterval(pollId);
-      }, 250);
-    }
+    tableBody.addEventListener("input", schedule, true);
+    tableBody.addEventListener("focusin", schedule, true);
+    schedule();
 
     return () => {
-      clearInterval(pollId);
       clearTimeout(debounceId);
-      const tableBody = document.getElementById("tableBody");
-      if (tableBody) tableBody.removeEventListener("input", schedule, true);
-      observer?.disconnect();
+      tableBody.removeEventListener("input", schedule, true);
+      tableBody.removeEventListener("focusin", schedule, true);
     };
   }, [recomputeSubmitState]);
 
@@ -139,10 +150,12 @@ export function useDataCaptureSubmitReset({
 
     const activeCaptureType = captureTypeRef.current;
 
-    const tableData = captureTableDataFromDom(activeCaptureType);
+    const tableData = captureTableSnapshot(activeCaptureType, gridRef.current, {
+      commitModel: true,
+    });
     const validation = validateDataCaptureForm({
       selectedProcess: form.selectedProcess,
-      descriptions: window.selectedDescriptions || [],
+      descriptions: selectedDescriptions,
       descriptionDisplay: form.descriptionDisplay,
       currencyId: form.currencyId,
       captureType: activeCaptureType,
@@ -158,15 +171,14 @@ export function useDataCaptureSubmitReset({
       prepareFormatSubmitSnapshot(activeCaptureType);
     }
 
+    const preConvertSnapshot = captureTableSnapshot(activeCaptureType, gridRef.current, {
+      commitModel: true,
+    });
     const formatSnapshotBeforeConvert =
-      activeCaptureType === "2.Format"
-        ? trimSnapshotToFilledRows(captureTableDataFromDom(activeCaptureType))
-        : null;
-
-    convertTableFormatOnSubmit(activeCaptureType);
+      activeCaptureType === "2.Format" ? trimSnapshotToFilledRows(preConvertSnapshot) : null;
 
     try {
-      const processData = buildProcessCapturePayload(form, activeCaptureType, form.currencies);
+      const processData = buildProcessCapturePayload(form, activeCaptureType, form.currencies, selectedDescriptions);
       if (groupOnlyCapture && isGroupOnlyProcessId(processData.process)) {
         const code =
           form.selectedProcess?.process_id ||
@@ -186,7 +198,7 @@ export function useDataCaptureSubmitReset({
         processData.processCode = String(code).trim().toUpperCase();
       }
 
-      const capturedAfterConvert = captureTableDataFromDom(activeCaptureType);
+      const capturedAfterConvert = convertTableFormatForSubmit(activeCaptureType, preConvertSnapshot);
       const finalTableData =
         activeCaptureType === "2.Format" && formatSnapshotBeforeConvert
           ? pickRicherTableSnapshot(formatSnapshotBeforeConvert, capturedAfterConvert)
@@ -212,30 +224,40 @@ export function useDataCaptureSubmitReset({
       console.error("Error submitting data:", error);
       pushDataCaptureNotification(t("failedCaptureData"), "danger");
     }
-  }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions, groupOnlyCapture, selectedGroup, captureScope]);
+  }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions, groupOnlyCapture, selectedGroup, captureScope, selectedDescriptions, gridRef]);
 
   const reset = useCallback(() => {
-    if (typeof window.__DC_REACT_FORM_RESET__ === "function") {
-      window.__DC_REACT_FORM_RESET__();
-    }
-    window.selectedDescriptions = [];
+    callDataCaptureRuntime("reactFormReset");
+    clearSelectedDescriptions();
 
     if (groupOnlyCapture && selectedGroup && isGroupOnlyProcessId(form.selectedProcess?.id)) {
       clearGroupOnlyTableDraft(selectedGroup, form.selectedProcess.id);
     }
 
-    if (typeof window.__DC_CLEAR_CAPTURE_TABLE__ === "function") {
-      window.__DC_CLEAR_CAPTURE_TABLE__();
+    const current = gridRef.current;
+    if (current) {
+      replaceGrid(clearGridCells(current));
+    } else {
+      const { rows, cols } = resolveDataCaptureGridDimensions(groupOnlyCapture);
+      replaceGrid(createEmptyGrid(rows, cols));
     }
+    clearCaptureTableUiAfterGridClear();
 
-    if (typeof window.__DC_APPLY_CAPTURE_TYPE__ === "function") {
-      window.__DC_APPLY_CAPTURE_TYPE__("1.Text");
-    } else if (typeof window.applyDataCaptureType === "function") {
-      window.applyDataCaptureType("1.Text");
-    }
+    clearFormatPreviewHtml();
+    setFormatGridReady(false);
+
+    applyBridgeCaptureType("1.Text");
 
     recomputeSubmitState();
-  }, [recomputeSubmitState, groupOnlyCapture, selectedGroup, form.selectedProcess?.id]);
+  }, [
+    recomputeSubmitState,
+    groupOnlyCapture,
+    selectedGroup,
+    form.selectedProcess?.id,
+    clearSelectedDescriptions,
+    gridRef,
+    replaceGrid,
+  ]);
 
   const restoreFromStorage = useCallback(async () => {
     if (!shouldRestoreFromUrl()) return;
@@ -245,12 +267,12 @@ export function useDataCaptureSubmitReset({
     const session = loadCaptureSession(captureScope);
     if (!session || !captureSessionMatchesScope(session, captureScope)) {
       restoreInFlightRef.current = false;
-      window.__DC_IS_RESTORING__ = false;
+      getDataCaptureState().isRestoring = false;
       stripRestoreParamFromUrl();
       return;
     }
 
-    window.__DC_IS_RESTORING__ = true;
+    getDataCaptureState().isRestoring = true;
     const { tableData, processData, captureType: savedType } = session;
     const restoringGroupOnly = processData.groupOnlyCapture === true;
 
@@ -259,50 +281,35 @@ export function useDataCaptureSubmitReset({
         applyGroupOnlyCaptureRestoreFilter(processData);
       }
 
-      if (typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === "function") {
-        await window.__DC_POST_LEGACY_RESTORE_SYNC__(processData);
-      }
+      await callDataCaptureRuntime("syncRestoreForm", processData);
 
-      if (typeof window.__DC_RELOAD_PROCESSES__ === "function") {
-        await window.__DC_RELOAD_PROCESSES__();
-      }
-      if (typeof window.__DC_REFRESH_SUBMITTED_PROCESSES__ === "function") {
-        await window.__DC_REFRESH_SUBMITTED_PROCESSES__();
-      }
+      await callDataCaptureRuntime("reloadProcesses");
+      await callDataCaptureRuntime("refreshSubmittedProcesses");
 
       await new Promise((r) => setTimeout(r, 300));
 
-      if (typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === "function") {
-        await window.__DC_POST_LEGACY_RESTORE_SYNC__(processData);
-      }
+      await callDataCaptureRuntime("syncRestoreForm", processData);
 
       const pid = processData.process != null ? String(processData.process) : "";
       if (pid && captureScope && !restoringGroupOnly && !isGroupOnlyProcessId(pid)) {
         const res = await fetchProcessDetail(pid, captureScope);
-        if (res.success && res.data && typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === "function") {
-          await window.__DC_POST_LEGACY_RESTORE_SYNC__({
+        if (res.success && res.data) {
+          await callDataCaptureRuntime("syncRestoreForm", {
             ...processData,
             currency: processData.currency || res.data.currency_id,
           });
         }
       }
 
-      if (typeof window.__DC_RESTORE_CAPTURE_TABLE__ === "function") {
-        await window.__DC_RESTORE_CAPTURE_TABLE__(tableData, savedType);
-      } else if (typeof window.applyDataCaptureType === "function") {
-        window.applyDataCaptureType(savedType);
-      }
-
-      if (typeof window.__DC_POST_LEGACY_RESTORE_SYNC__ === "function") {
-        await window.__DC_POST_LEGACY_RESTORE_SYNC__(processData);
-      }
+      await callDataCaptureRuntime("restoreCaptureTable", tableData, savedType);
+      await callDataCaptureRuntime("syncRestoreForm", processData);
 
       stripRestoreParamFromUrl();
     } catch (err) {
       console.error("React restore failed:", err);
     } finally {
       restoreInFlightRef.current = false;
-      window.__DC_IS_RESTORING__ = false;
+      getDataCaptureState().isRestoring = false;
       recomputeSubmitState();
     }
   }, [captureScope, recomputeSubmitState]);
@@ -311,27 +318,17 @@ export function useDataCaptureSubmitReset({
   handlersRef.current = { submit, reset, restoreFromStorage, recomputeSubmitState };
 
   useLayoutEffect(() => {
-    const runConvert = () => convertTableFormatOnSubmit(captureTypeRef.current);
-    window.__DC_CONVERT_TABLE_ON_SUBMIT__ = runConvert;
-    window.__DC_CONVERT_TABLE_ON_SUBMIT_REACT__ = runConvert;
-    window.__DC_RECOMPUTE_SUBMIT_STATE__ = () => handlersRef.current.recomputeSubmitState();
-    window.__DC_SUBMIT__ = () => handlersRef.current.submit();
-    window.__DC_RESET__ = () => handlersRef.current.reset();
-    window.__DC_RESTORE_FROM_STORAGE__ = () => handlersRef.current.restoreFromStorage();
-    window.updateSubmitButtonState = window.__DC_RECOMPUTE_SUBMIT_STATE__;
-
-    return () => {
-      const recompute = window.__DC_RECOMPUTE_SUBMIT_STATE__;
-      delete window.__DC_CONVERT_TABLE_ON_SUBMIT__;
-      delete window.__DC_CONVERT_TABLE_ON_SUBMIT_REACT__;
-      delete window.__DC_RECOMPUTE_SUBMIT_STATE__;
-      delete window.__DC_SUBMIT__;
-      delete window.__DC_RESET__;
-      delete window.__DC_RESTORE_FROM_STORAGE__;
-      if (window.updateSubmitButtonState === recompute) {
-        delete window.updateSubmitButtonState;
-      }
+    const runConvert = () => applyConvertTableOnSubmitToGrid(captureTypeRef.current);
+    const api = {
+      convertTableOnSubmit: runConvert,
+      recomputeSubmitState: () => handlersRef.current.recomputeSubmitState(),
+      submit: () => handlersRef.current.submit(),
+      reset: () => handlersRef.current.reset(),
+      restoreFromStorage: () => handlersRef.current.restoreFromStorage(),
     };
+
+    registerDataCaptureRuntime(api);
+    return () => unregisterDataCaptureRuntime(Object.keys(api));
   }, []);
 
   return {

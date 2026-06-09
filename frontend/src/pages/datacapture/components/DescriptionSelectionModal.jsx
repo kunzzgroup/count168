@@ -4,6 +4,7 @@ import ConfirmDeleteModal, { CONFIRM_DELETE_NESTED_Z_INDEX } from "../../../comp
 import { fetchDescriptionCatalog, postAddDescription, postDeleteDescription } from "../lib/dataCaptureApi.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
+import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
 
 function normalizeCatalog(json) {
   const raw = json?.descriptions ?? json?.data?.descriptions ?? [];
@@ -17,6 +18,7 @@ function normalizeCatalog(json) {
 }
 
 export default function DescriptionSelectionModal({ t, open, onClose, companyId, onConfirm }) {
+  const { selectedDescriptions, confirmDescriptions } = useDataCaptureContext();
   const [catalog, setCatalog] = useState([]);
   const [pendingNames, setPendingNames] = useState([]);
   const [search, setSearch] = useState("");
@@ -51,15 +53,11 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
 
   useEffect(() => {
     if (!open) return;
-    setPendingNames(
-      (Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : []).map((n) =>
-        String(n).trim().toUpperCase(),
-      ),
-    );
+    setPendingNames(selectedDescriptions.map((n) => String(n).trim().toUpperCase()));
     setSearch("");
     setNewName("");
     void loadCatalog();
-  }, [open, loadCatalog]);
+  }, [open, loadCatalog, selectedDescriptions]);
 
   const filteredCatalog = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -127,13 +125,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         setCatalog((prev) => prev.filter((d) => String(d.id) !== String(id)));
         setPendingNames((prev) => {
           const next = prev.filter((n) => n !== name);
-          window.selectedDescriptions = [...next];
-          if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === "function") {
-            window.__DC_ON_DESCRIPTIONS_CONFIRMED__(next);
-          }
-          setTimeout(() => {
-            if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-          }, 0);
+          confirmDescriptions(next);
           return next;
         });
         notify("Description deleted successfully", "success");
@@ -141,7 +133,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         notify("Failed to delete description");
       }
     },
-    [notify],
+    [notify, confirmDescriptions],
   );
 
   const handleDelete = useCallback(
