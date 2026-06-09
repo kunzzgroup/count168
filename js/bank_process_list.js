@@ -2460,29 +2460,42 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_insurance'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
-/** Day end 开关只控制是否跑 1st 自动链，不锁日历；仅 Frequency=Once 时禁用 Day end 与合约相关控件 */
+/** Frequency=Once / Week 时 Day end 日历不可选 */
+function bankFrequencyLocksDayEnd() {
+    const freqEl = document.getElementById('bank_day_start_frequency');
+    return !!(freqEl && (freqEl.value === 'once' || freqEl.value === 'week'));
+}
+
+function setBankDayEndPickerInteractive(enabled) {
+    const endPick = document.getElementById('bank_day_end_picker');
+    const dayEndWrap = document.querySelector('.bank-day-end-input-wrap');
+    if (endPick) {
+        endPick.disabled = !enabled;
+        endPick.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+        endPick.style.opacity = enabled ? '' : '0.55';
+        endPick.style.cursor = enabled ? '' : 'not-allowed';
+        endPick.style.pointerEvents = enabled ? '' : 'none';
+        endPick.classList.toggle('bank-form-day-picker--disabled', !enabled);
+    }
+    if (dayEndWrap) {
+        dayEndWrap.style.opacity = enabled ? '' : '0.75';
+        dayEndWrap.classList.toggle('bank-day-end-input-wrap--disabled', !enabled);
+    }
+}
+
+/** Day end 开关只控制是否跑 1st 自动链；Frequency=Once/Week 时禁用 Day end 日历 */
 function syncBankDayEndCapDatePickersLocked() {
     if (typeof isBankProcessBillingScheduleLocked === 'function' && isBankProcessBillingScheduleLocked()) {
         return;
     }
     const startPick = document.getElementById('bank_day_start_picker');
-    const endPick = document.getElementById('bank_day_end_picker');
-    const freqEl = document.getElementById('bank_day_start_frequency');
-    const once = freqEl && freqEl.value === 'once';
     if (startPick) {
         startPick.disabled = false;
         startPick.style.opacity = '';
         startPick.style.cursor = '';
+        startPick.style.pointerEvents = '';
     }
-    if (once && endPick) {
-        endPick.disabled = true;
-        endPick.style.opacity = '0.55';
-        endPick.style.cursor = 'not-allowed';
-    } else if (endPick) {
-        endPick.disabled = false;
-        endPick.style.opacity = '';
-        endPick.style.cursor = '';
-    }
+    setBankDayEndPickerInteractive(!bankFrequencyLocksDayEnd());
 }
 
 function syncBankDayEndMonthlyCapSwitchLabel() {
@@ -2543,10 +2556,8 @@ function syncBankOnceFrequencyUi(opts) {
     }
     const freqEl = document.getElementById('bank_day_start_frequency');
     const dayEndEl = document.getElementById('bank_day_end');
-    const dayEndPick = document.getElementById('bank_day_end_picker');
     const contractEl = document.getElementById('bank_contract');
     const insEl = document.getElementById('bank_insurance');
-    const dayEndWrap = document.querySelector('.bank-day-end-input-wrap');
     if (!freqEl) return;
 
     const once = freqEl.value === 'once';
@@ -2576,24 +2587,14 @@ function syncBankOnceFrequencyUi(opts) {
             insEl.disabled = once;
             if (!once) insEl.classList.remove('bank-field-error');
         }
-        if (dayEndPick) {
-            dayEndPick.disabled = true;
-            dayEndPick.style.opacity = '0.55';
-            dayEndPick.style.cursor = 'not-allowed';
-        }
-        if (dayEndWrap) dayEndWrap.style.opacity = '0.75';
+        setBankDayEndPickerInteractive(false);
     } else {
         if (contractEl) {
             contractEl.disabled = false;
             contractEl.setAttribute('required', 'required');
         }
         if (insEl) insEl.disabled = false;
-        if (dayEndPick) {
-            dayEndPick.disabled = false;
-            dayEndPick.style.opacity = '';
-            dayEndPick.style.cursor = '';
-        }
-        if (dayEndWrap) dayEndWrap.style.opacity = '';
+        setBankDayEndPickerInteractive(true);
     }
     if (typeof syncBankDayEndMonthlyCapUi === 'function') syncBankDayEndMonthlyCapUi();
 }

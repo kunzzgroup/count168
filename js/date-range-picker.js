@@ -162,6 +162,10 @@
 
     function openBankSingleDatePicker(anchorEl, opts) {
         if (!anchorEl || !opts || !opts.inputId || !opts.displayId) return;
+        if (anchorEl.disabled || anchorEl.getAttribute('aria-disabled') === 'true'
+            || anchorEl.classList.contains('bank-form-day-picker--disabled')) {
+            return;
+        }
         const popup = document.getElementById('calendar-popup');
         if (!popup) return;
         bankPopupState = {
@@ -587,6 +591,10 @@
             el.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                if (el.disabled || el.getAttribute('aria-disabled') === 'true'
+                    || el.classList.contains('bank-form-day-picker--disabled')) {
+                    return;
+                }
                 openBankSingleDatePicker(el, {
                     inputId: p.inputId,
                     displayId: p.displayId,
