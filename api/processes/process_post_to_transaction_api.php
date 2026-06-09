@@ -1163,11 +1163,45 @@ try {
 
         $dayStartYmd = !empty($p['day_start']) ? bankProcessDateFieldToYmd($p['day_start']) : null;
         $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
+        $frequencyNorm = strtolower(trim((string) $frequency));
         $createdYmd = bmp_inboxEffectiveCreatedYmd(
             ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate),
             $dayStartYmd,
             $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor'])
         );
+
+        // Week 流程误传 monthly 时纠正，避免落成「今日 + Monthly bill」
+        if ($frequencyNorm === 'week' && $periodType === 'monthly') {
+            $periodType = 'weekly';
+        }
+
+        $resolvedWeeklyBm = '';
+        if ($periodType === 'weekly') {
+            $resolvedWeeklyBm = trim((string) ($pair['billing_month'] ?? ''));
+            if ($resolvedWeeklyBm !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $resolvedWeeklyBm)) {
+                $parsedWeekBm = bankProcessDateFieldToYmd($resolvedWeeklyBm);
+                $resolvedWeeklyBm = $parsedWeekBm !== null ? $parsedWeekBm : '';
+            }
+            if ($resolvedWeeklyBm === '' && $dayStartYmd) {
+                $resendRelaxPost = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
+                $infWeek = weekInferEarliestOpenBillingStartYmd(
+                    $pdo,
+                    $company_id,
+                    (int) $p['id'],
+                    $dayStartYmd,
+                    $createdYmd,
+                    $fallbackDate,
+                    $resendRelaxPost
+                );
+                if ($infWeek !== null && $infWeek !== '') {
+                    $resolvedWeeklyBm = $infWeek;
+                }
+            }
+            if ($resolvedWeeklyBm === '') {
+                continue;
+            }
+            $pair['billing_month'] = $resolvedWeeklyBm;
+        }
 
         // monthly：若前端未传 billing_month（例如列表页批量 Transaction），按 Inbox 规则推断账单自然月，保证 proration 与 transaction_date 一致
         $resolvedMonthlyBm = '';
@@ -1442,7 +1476,7 @@ try {
             $transactionDate = ($dayStartYmd !== null && $dayStartYmd !== '') ? $dayStartYmd : $fallbackDate;
             $postedDateForInbox = $transactionDate;
         } elseif ($periodType === 'weekly') {
-            $weekAnchor = trim((string) ($pair['billing_month'] ?? ''));
+            $weekAnchor = $resolvedWeeklyBm !== '' ? $resolvedWeeklyBm : trim((string) ($pair['billing_month'] ?? ''));
             if ($weekAnchor !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekAnchor)) {
                 $transactionDate = $weekAnchor;
                 $postedDateForInbox = $weekAnchor;

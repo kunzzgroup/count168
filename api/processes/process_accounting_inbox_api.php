@@ -594,48 +594,9 @@ function inboxTryDayEndMonthlyCapAmounts1stOfMonth(array $r, bool $hasDayEndMont
     return prorateInclusiveDateRange($monthFirst, $dayEndYmd, $bc, $bp, $bf);
 }
 
-/** 周期 [due, periodEnd] 是否与指定自然月有重叠 */
-function weekPeriodOverlapsCalendarMonth(string $dueYmd, string $periodEndYmd, int $year, int $month): bool
-{
-    $monthFirst = sprintf('%04d-%02d-01', $year, $month);
-    $ts = mktime(0, 0, 0, $month, 1, $year);
-    if ($ts === false) {
-        return false;
-    }
-    $monthLast = date('Y-m-t', $ts);
-
-    return $dueYmd <= $monthLast && $periodEndYmd >= $monthFirst;
-}
-
 function hasWeeklyPostedForPeriodStart(PDO $pdo, int $companyId, int $processId, string $periodStartYmd): bool
 {
-    if ($periodStartYmd === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStartYmd)) {
-        return false;
-    }
-    try {
-        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
-        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
-            return false;
-        }
-        if (!tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
-            $stmt = $pdo->prepare(
-                'SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) LIMIT 1'
-            );
-            $stmt->execute([$companyId, $processId, $periodStartYmd]);
-
-            return (bool) $stmt->fetch();
-        }
-        $stmt = $pdo->prepare(
-            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
-             AND DATE(posted_date) = DATE(?)
-             AND period_type IN ('weekly','weekly_skipped') LIMIT 1"
-        );
-        $stmt->execute([$companyId, $processId, $periodStartYmd]);
-
-        return (bool) $stmt->fetch();
-    } catch (Throwable $e) {
-        return false;
-    }
+    return weekHasPostedOrSkippedForPeriodStart($pdo, $companyId, $processId, $periodStartYmd);
 }
 
 function inboxFormatWeeklyBillingStartForDisplay(string $weeklyBillingStartYmd): string
@@ -1948,7 +1909,7 @@ try {
         $monthlyByDisplayKey = [];
         $keptRows = [];
         foreach ($needToday as $row) {
-            if ($rankOf($row) !== 1) {
+            if ($rankOf($row) !== 1 || !empty($row['is_weekly'])) {
                 $keptRows[] = $row;
                 continue;
             }

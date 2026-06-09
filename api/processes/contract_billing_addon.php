@@ -318,3 +318,117 @@ function weekPeriodIsReadyForAccounting(string $dueYmd, string $periodEndYmd, bo
 
     return $today >= $periodEndYmd;
 }
+
+/** 周期 [due, periodEnd] 是否与指定自然月有重叠 */
+function weekPeriodOverlapsCalendarMonth(string $dueYmd, string $periodEndYmd, int $year, int $month): bool
+{
+    $monthFirst = sprintf('%04d-%02d-01', $year, $month);
+    $ts = mktime(0, 0, 0, $month, 1, $year);
+    if ($ts === false) {
+        return false;
+    }
+    $monthLast = date('Y-m-t', $ts);
+
+    return $dueYmd <= $monthLast && $periodEndYmd >= $monthFirst;
+}
+
+function weekHasPostedOrSkippedForPeriodStart(PDO $pdo, int $companyId, int $processId, string $periodStartYmd): bool
+{
+    if ($periodStartYmd === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $periodStartYmd)) {
+        return false;
+    }
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return false;
+        }
+        $stmtCol = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
+        $hasPeriodType = $stmtCol && $stmtCol->rowCount() > 0;
+        if (!$hasPeriodType) {
+            $stmt = $pdo->prepare(
+                'SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) LIMIT 1'
+            );
+            $stmt->execute([$companyId, $processId, $periodStartYmd]);
+
+            return (bool) $stmt->fetch();
+        }
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+             AND DATE(posted_date) = DATE(?)
+             AND period_type IN ('weekly','weekly_skipped') LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $periodStartYmd]);
+
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * 与 Inbox 一致：返回当前应入账的最早未结清周起点（Y-m-d）。
+ */
+function weekInferEarliestOpenBillingStartYmd(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $contractStartYmd,
+    string $createdYmd,
+    string $today,
+    bool $resendRelax = false
+): ?string {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $contractStartYmd)) {
+        return null;
+    }
+    $todayYear = (int) date('Y', strtotime($today));
+    $todayMonth = (int) date('n', strtotime($today));
+    $due = $contractStartYmd;
+    for ($wi = 0; $wi < 520; $wi++) {
+        $periodEnd = weekPeriodEndInclusiveYmd($due);
+        if ($periodEnd === null) {
+            break;
+        }
+        if (!$resendRelax && $periodEnd > $today) {
+            break;
+        }
+        $eligible = false;
+        if (weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax)
+            && weekPeriodOverlapsCalendarMonth($due, $periodEnd, $todayYear, $todayMonth)) {
+            if (!$resendRelax && $due < $createdYmd) {
+                try {
+                    $cy = (int) date('Y', strtotime($createdYmd));
+                    $cm = (int) date('n', strtotime($createdYmd));
+                    if (!weekPeriodOverlapsCalendarMonth($due, $periodEnd, $cy, $cm)) {
+                        $nextDue = weekPeriodNextStartYmd($due);
+                        if ($nextDue === null || $nextDue <= $due) {
+                            break;
+                        }
+                        $due = $nextDue;
+                        continue;
+                    }
+                } catch (Throwable $e) {
+                    $nextDue = weekPeriodNextStartYmd($due);
+                    if ($nextDue === null || $nextDue <= $due) {
+                        break;
+                    }
+                    $due = $nextDue;
+                    continue;
+                }
+            }
+            $eligible = true;
+        }
+        if ($eligible && !weekHasPostedOrSkippedForPeriodStart($pdo, $companyId, $processId, $due)) {
+            return $due;
+        }
+        if ($periodEnd > $today && !$resendRelax) {
+            break;
+        }
+        $nextDue = weekPeriodNextStartYmd($due);
+        if ($nextDue === null || $nextDue <= $due) {
+            break;
+        }
+        $due = $nextDue;
+    }
+
+    return null;
+}

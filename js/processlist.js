@@ -1843,6 +1843,37 @@ function loadAccountingInbox() {
             renderAccountingInbox([]);
         });
 }
+function bankRowIsWeeklyAccountingDue(row) {
+    return !!(row && (row.is_weekly || String(row.contract || '').trim().toUpperCase() === 'WEEK'));
+}
+
+function accountingDuePeriodTypeFromRow(row) {
+    if (!row || typeof row !== 'object') return 'monthly';
+    if (row.is_once_one_off) return 'once_one_off';
+    if (bankRowIsWeeklyAccountingDue(row)) return 'weekly';
+    if (row.is_manual_inactive) return 'manual_inactive';
+    if (row.is_resend_consolidated_range) return 'resend_consolidated_range';
+    if (row.is_partial_first_month) return 'partial_first_month';
+    if (row.is_day_end_tail) return 'day_end_tail';
+    return 'monthly';
+}
+
+function accountingDueBillingMonthFromRow(row) {
+    if (!row || typeof row !== 'object') return '';
+    if (bankRowIsWeeklyAccountingDue(row)) {
+        const ws = String(row.weekly_billing_start || row.monthly_billing_month || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(ws)) return ws;
+        const dmy = String(row.day_start || row.start_date || '').trim();
+        const dmyMatch = dmy.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (dmyMatch) {
+            return dmyMatch[3] + '-' + String(parseInt(dmyMatch[2], 10)).padStart(2, '0') + '-' + String(parseInt(dmyMatch[1], 10)).padStart(2, '0');
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dmy)) return dmy;
+        return '';
+    }
+    return (row.monthly_billing_month != null && row.monthly_billing_month !== '') ? String(row.monthly_billing_month).trim() : '';
+}
+
 function renderAccountingInbox(items) {
     const tbody = document.getElementById('processAccountingInboxTbody');
     const countEl = document.getElementById('processAccountingInboxCount');
@@ -1872,12 +1903,12 @@ function renderAccountingInbox(items) {
         const cbDisabled = row.already_posted_today ? ' disabled' : '';
         const cbChecked = row.already_posted_today ? '' : ' checked';
         const cbClass = 'process-accounting-inbox-row-cb';
-        const periodType = row.is_once_one_off ? 'once_one_off' : (row.is_manual_inactive ? 'manual_inactive' : (row.is_resend_consolidated_range ? 'resend_consolidated_range' : (row.is_partial_first_month ? 'partial_first_month' : (row.is_day_end_tail ? 'day_end_tail' : 'monthly'))));
+        const periodType = accountingDuePeriodTypeFromRow(row);
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-        const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
+        const startDate = (row.day_start || row.start_date || (bankRowIsWeeklyAccountingDue(row) ? row.weekly_billing_start : '') || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
-        const contractDisplay = row.is_once_one_off ? 'ONCE' : (({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw);
-        const bm = (row.monthly_billing_month != null && row.monthly_billing_month !== '') ? String(row.monthly_billing_month).trim() : '';
+        const contractDisplay = row.is_once_one_off ? 'ONCE' : (bankRowIsWeeklyAccountingDue(row) ? 'WEEK' : (({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw));
+        const bm = accountingDueBillingMonthFromRow(row);
         const bmAttr = bm ? ' data-billing-month="' + escapeHtml(bm) + '"' : '';
         const deleteCbClass = 'process-accounting-inbox-delete-cb';
         const deleteCbHtml = '<input type="checkbox" class="' + deleteCbClass + '" data-id="' + row.id + '" onchange="updateAccountingInboxDeleteButton()">';
