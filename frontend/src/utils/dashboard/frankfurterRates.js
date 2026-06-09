@@ -1,10 +1,44 @@
 const FRANKFURTER_API = "https://api.frankfurter.dev/v2/rates";
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const SESSION_CACHE_PREFIX = "frankfurter_rates_v1:";
 
 /** @type {Map<string, { expires: number, rates: Record<string, number>, date: string | null, unsupported?: string[] }>} */
 const rateCache = new Map();
 /** @type {Map<string, Promise<{ rates: Record<string, number>, date: string | null, unsupported: string[] }>>} */
 const frankfurterInflight = new Map();
+
+function readSessionRateCache(key) {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(`${SESSION_CACHE_PREFIX}${key}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.expires || parsed.expires <= Date.now()) {
+      sessionStorage.removeItem(`${SESSION_CACHE_PREFIX}${key}`);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionRateCache(key, payload) {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      `${SESSION_CACHE_PREFIX}${key}`,
+      JSON.stringify({
+        expires: Date.now() + CACHE_TTL_MS,
+        rates: payload.rates,
+        date: payload.date,
+        unsupported: payload.unsupported || [],
+      })
+    );
+  } catch {
+    /* sessionStorage quota — memory cache still works */
+  }
+}
 
 function cacheKey(base, quotes, date) {
   const sorted = [...quotes].sort().join(",");
@@ -33,6 +67,16 @@ export async function fetchFrankfurterRates(base, quoteCodes, dateYmd = null) {
   const cached = rateCache.get(key);
   if (cached && cached.expires > Date.now()) {
     return { rates: cached.rates, date: cached.date, unsupported: cached.unsupported || [] };
+  }
+
+  const sessionCached = readSessionRateCache(key);
+  if (sessionCached) {
+    rateCache.set(key, sessionCached);
+    return {
+      rates: sessionCached.rates,
+      date: sessionCached.date,
+      unsupported: sessionCached.unsupported || [],
+    };
   }
 
   if (frankfurterInflight.has(key)) {
@@ -96,12 +140,14 @@ function storeFrankfurterRatesCache(baseCode, quotes, dateYmd, payload) {
     return;
   }
   const key = cacheKey(baseCode, quotes, dateYmd);
-  rateCache.set(key, {
+  const entry = {
     expires: Date.now() + CACHE_TTL_MS,
     rates: payload.rates,
     date: payload.date,
     unsupported: payload.unsupported || [],
-  });
+  };
+  rateCache.set(key, entry);
+  writeSessionRateCache(key, entry);
 }
 
 async function fetchFrankfurterRatesOnce(baseCode, quotes, dateYmd) {
@@ -173,13 +219,22 @@ export function peekFrankfurterRatesCache(base, quoteCodes, dateYmd = null) {
     return { rates: { [baseCode]: 1 }, date: dateYmd, unsupported: [] };
   }
   const key = cacheKey(baseCode, quotes, dateYmd);
-  const cached = rateCache.get(key);
-  if (!cached || cached.expires <= Date.now()) return null;
-  return {
-    rates: cached.rates,
-    date: cached.date,
-    unsupported: cached.unsupported || [],
-  };
+  let cached = rateCache.get(key);
+  if (!cached || cached.expires <= Date.now()) {
+    const sessionCached = readSessionRateCache(key);
+    if (sessionCached) {
+      rateCache.set(key, sessionCached);
+      cached = sessionCached;
+    }
+  }
+  if (cached && cached.expires > Date.now()) {
+    return {
+      rates: cached.rates,
+      date: cached.date,
+      unsupported: cached.unsupported || [],
+    };
+  }
+  return null;
 }
 
 /**
@@ -222,16 +277,23 @@ export function peekFrankfurterRatesCacheOrDerived(base, quoteCodes, dateYmd = n
   return null;
 }
 
-/** Warm Frankfurter cache for every currency base in the list (best-effort). */
-export function warmFrankfurterRatesForCurrencies(currencies, dateYmd = null) {
+/** Warm Frankfurter cache for the display base only (best-effort, non-blocking). */
+export function warmFrankfurterRatesForCurrencies(
+  currencies,
+  dateYmd = null,
+  preferredBase = null
+) {
   const codes = [...new Set(
     (currencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean)
   )];
   if (codes.length <= 1) return;
-  for (const base of codes) {
-    if (peekFrankfurterRatesCacheOrDerived(base, codes, dateYmd)) continue;
-    void fetchFrankfurterRates(base, codes, dateYmd).catch(() => {});
-  }
+
+  const base = String(preferredBase || codes[0] || "")
+    .trim()
+    .toUpperCase();
+  if (!base || !codes.includes(base)) return;
+  if (peekFrankfurterRatesCacheOrDerived(base, codes, dateYmd)) return;
+  void fetchFrankfurterRates(base, codes, dateYmd).catch(() => {});
 }
 
 /**

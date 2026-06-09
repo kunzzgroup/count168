@@ -4720,9 +4720,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   useEffect(() => {
     if (currencies.length <= 1 || !dateTo) return undefined;
-    warmFrankfurterRatesForCurrencies(currencies, resolveFrankfurterDate(dateTo));
-    return undefined;
-  }, [currencies, dateTo]);
+    const base = currencyCode || currencies[0];
+    const timer = window.setTimeout(() => {
+      warmFrankfurterRatesForCurrencies(currencies, resolveFrankfurterDate(dateTo), base);
+    }, 2000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [currencies, dateTo, currencyCode]);
 
   useEffect(() => {
     if (!gcBootstrapReady || currencies.length <= 1 || !dashboardScopeKey) return undefined;
