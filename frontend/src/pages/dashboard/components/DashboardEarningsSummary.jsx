@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
-import { formatFrankfurterUnitRate } from "../../../utils/dashboard/frankfurterRates.js";
+import {
+  computeDisplayConvertedAmount,
+  formatFrankfurterUnitRate,
+} from "../../../utils/dashboard/frankfurterRates.js";
 import {
   buildEarningsPieSlices,
   buildEarningsShareByCode,
@@ -163,9 +166,19 @@ export function DashboardEarningsSummary({
       (r) => String(r.code).toUpperCase() === String(slice?.code || "").toUpperCase()
     );
     const sharePct = row ? computeCurrencySharePct(row, earningsShareByCode) : null;
+    const displayConverted =
+      row && useConvertedEarnings
+        ? computeDisplayConvertedAmount(
+            row.earnings,
+            row.code,
+            currencyCode,
+            exchangeRates.rates
+          )
+        : null;
     return {
       slice,
       sharePct,
+      displayConverted,
       left: pos.left + pieShellLayout.left,
       top: pos.top + pieShellLayout.top,
       placeAbove: pos.placeAbove,
@@ -176,6 +189,9 @@ export function DashboardEarningsSummary({
     earningsPieSlices,
     earningsCurrencyRows,
     earningsShareByCode,
+    useConvertedEarnings,
+    currencyCode,
+    exchangeRates.rates,
     pieShellLayout,
   ]);
 
@@ -267,6 +283,7 @@ export function DashboardEarningsSummary({
                 <EarningsPieSectorTooltip
                   slice={hoveredPieTooltip.slice}
                   sharePct={hoveredPieTooltip.sharePct}
+                  displayConverted={hoveredPieTooltip.displayConverted}
                   baseCode={currencyCode}
                   useConverted={useConvertedEarnings}
                   convertedApproxTemplate={i18n.convertedApprox}
@@ -337,7 +354,14 @@ export function DashboardEarningsSummary({
                       String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
                         <span className="dashboard-summary-currency-converted">
                           {formatI18nTemplate(i18n.convertedApprox, {
-                            amount: formatCurrency(row.earningsConverted),
+                            amount: formatCurrency(
+                              computeDisplayConvertedAmount(
+                                row.earnings,
+                                row.code,
+                                currencyCode,
+                                exchangeRates.rates
+                              ) ?? row.earningsConverted
+                            ),
                             code: currencyCode,
                           })}
                         </span>

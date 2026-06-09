@@ -391,9 +391,22 @@ export function formatFrankfurterUnitRate(fromCode, baseCode, rates) {
   if (unitRate === 1) return "1";
   const abs = Math.abs(unitRate);
   if (abs >= 1000) return unitRate.toFixed(2);
-  if (abs >= 100) return unitRate.toFixed(3);
-  if (abs >= 1) return unitRate.toFixed(4);
-  if (abs >= 0.01) return unitRate.toFixed(4);
-  if (abs >= 0.0001) return unitRate.toFixed(5);
-  return unitRate.toExponential(2);
+  if (abs >= 100) return unitRate.toFixed(4);
+  if (abs >= 1) return unitRate.toFixed(6);
+  if (abs >= 0.01) return unitRate.toFixed(6);
+  if (abs >= 0.0001) return unitRate.toFixed(6);
+  return unitRate.toExponential(4);
+}
+
+/**
+ * Convert using the same unit rate string shown in the Rate column
+ * (amount × displayed rate) so manual calculator checks match the UI.
+ */
+export function computeDisplayConvertedAmount(amount, fromCode, baseCode, rates) {
+  const formatted = formatFrankfurterUnitRate(fromCode, baseCode, rates);
+  if (formatted === "—") return null;
+  const unitRate = parseFloat(formatted);
+  const n = parseFloat(amount);
+  if (!Number.isFinite(unitRate) || !Number.isFinite(n)) return null;
+  return n * unitRate;
 }

@@ -73,13 +73,7 @@ export function clearCaptureTableUiAfterGridClear() {
     tablePreviewFormat.style.display = "none";
   }
 
-<<<<<<< HEAD
-  const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
-=======
-  showFormatEditableGrid();
-
   const captureType = callDataCaptureRuntime("getCaptureType") || "1.Text";
->>>>>>> a889492a0 (274(datacapture pg to react + vite non-legacy))
   if (captureType === "2.Format") {
     clearFormatPreviewHtml();
   }
