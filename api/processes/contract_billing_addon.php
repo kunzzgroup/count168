@@ -165,14 +165,13 @@ function weekPeriodNextStartYmd(string $currentPeriodStartYmd): ?string
     return weekPeriodEndInclusiveYmd($currentPeriodStartYmd);
 }
 
-/** 非 Resend：仅当今天 >= 周期结束日，该周才进入 Accounting Due / 允许入账。 */
+/** 非 Resend：仅当今天 >= 周期开始日，该周才进入 Accounting Due / 允许入账（例：6/1–6/7 在 6/1 出现）。 */
 function weekPeriodIsReadyForAccounting(string $periodStartYmd, string $todayYmd, bool $resendRelax): bool
 {
     if ($resendRelax) {
         return true;
     }
-    $end = weekPeriodEndInclusiveYmd($periodStartYmd);
-    return $end !== null && $todayYmd >= $end;
+    return $todayYmd >= $periodStartYmd;
 }
 
 /** Day frequency：下一自然日 Y-m-d。 */

@@ -1372,8 +1372,8 @@ try {
                     if ($periodEnd === null) {
                         break;
                     }
-                    // 未结束的周（结束日 > 今天）不扫描后续
-                    if (!$resendRelax && $periodEnd > $today) {
+                    // 未开始的周（起点 > 今天）不扫描后续
+                    if (!$resendRelax && $due > $today) {
                         break;
                     }
                     if ($onlyPeriodStart !== null && $due !== $onlyPeriodStart) {
