@@ -323,7 +323,7 @@ function isBenignFetchError(err) {
 }
 
 /** Coalesce rapid scope updates (company pick + currency hydrate) into one load. */
-const LOAD_DASHBOARD_DEBOUNCE_MS = 120;
+const LOAD_DASHBOARD_DEBOUNCE_MS = 200;
 /** Wait before low-priority sibling prefetches after a company pick. */
 const COMPANY_SWITCH_PREFETCH_DELAY_MS = 3000;
 /** Idle delay before one-time session warm of picker companies (current currency only). */
@@ -343,6 +343,33 @@ function fetchBootstrapDeduped(inflightMap, requestKey, fetcher) {
     inflightMap.delete(requestKey);
   });
   inflightMap.set(requestKey, promise);
+  return promise;
+}
+
+/** Strip client-only query params so prefetch and active loads share one HTTP round-trip. */
+function normalizeBootstrapDedupeKey(queryString) {
+  const params = new URLSearchParams(queryString);
+  params.delete("prefetch");
+  return params.toString();
+}
+
+/** HTTP-level dedupe: callers parse json independently (prefetch vs active load). */
+async function fetchBootstrapHttpDeduped(inflightMap, requestKey, init) {
+  const dedupeKey = normalizeBootstrapDedupeKey(requestKey);
+  if (inflightMap.has(dedupeKey)) {
+    return inflightMap.get(dedupeKey);
+  }
+  const promise = (async () => {
+    const res = await fetch(
+      buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${requestKey}`),
+      init ?? { credentials: "include" }
+    );
+    const json = await res.json();
+    return { res, json };
+  })().finally(() => {
+    inflightMap.delete(dedupeKey);
+  });
+  inflightMap.set(dedupeKey, promise);
   return promise;
 }
 
@@ -2642,6 +2669,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       });
       const existing = scopeKey ? getDashboardCache(scopeKey) : null;
       const isActiveScope = scopeKey === resolveDashboardScopeKey();
+      if (isActiveScope) return;
       const codes = resolvePrefetchBootstrapCodes(id, vg, isActiveScope);
       if (
         !scopeKey ||
@@ -2674,50 +2702,48 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (dashboardPrefetchFailedRef.current.has(requestKey)) return;
 
       try {
-        await fetchBootstrapDeduped(bootstrapInflightRef.current, requestKey, async () => {
-          const res = await fetch(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${requestKey}`), {
-            credentials: "include",
-          });
-          const json = await res.json();
-          if (!res.ok || !json.success || !json.data?.current) {
-            if (!res.ok) dashboardPrefetchFailedRef.current.add(requestKey);
-            return null;
-          }
+        const { res, json } = await fetchBootstrapHttpDeduped(
+          bootstrapInflightRef.current,
+          requestKey,
+          { credentials: "include" }
+        );
+        if (!res.ok || !json.success || !json.data?.current) {
+          if (!res.ok) dashboardPrefetchFailedRef.current.add(requestKey);
+          return;
+        }
 
-          const current = applyDashboardPayloadAdjustments(json.data.current, id, vg || null);
-          const previous = json.data.previous
-            ? applyDashboardPayloadAdjustments(json.data.previous, id, vg || null)
-            : null;
-          const earningsCurrent = earningsRowsFromBootstrapEntries(
-            json.data.earnings?.current,
+        const current = applyDashboardPayloadAdjustments(json.data.current, id, vg || null);
+        const previous = json.data.previous
+          ? applyDashboardPayloadAdjustments(json.data.previous, id, vg || null)
+          : null;
+        const earningsCurrent = earningsRowsFromBootstrapEntries(
+          json.data.earnings?.current,
+          id,
+          vg || null
+        );
+
+        if (current) {
+          seedDashboardPayloadCacheForCompany(id, vg || null, rangeFrom, rangeTo, cur, current);
+        }
+        if (previous) {
+          const prevRange = previousMonthEquivalentRange(rangeFrom, rangeTo);
+          seedDashboardPayloadCacheForCompany(
             id,
-            vg || null
+            vg || null,
+            prevRange.from,
+            prevRange.to,
+            cur,
+            previous
           );
+        }
 
-          if (current) {
-            seedDashboardPayloadCacheForCompany(id, vg || null, rangeFrom, rangeTo, cur, current);
-          }
-          if (previous) {
-            const prevRange = previousMonthEquivalentRange(rangeFrom, rangeTo);
-            seedDashboardPayloadCacheForCompany(
-              id,
-              vg || null,
-              prevRange.from,
-              prevRange.to,
-              cur,
-              previous
-            );
-          }
-
-          const cacheEntry = {
-            current,
-            previous,
-            earnings: earningsCurrent.length > 1 ? earningsCurrent : undefined,
-          };
-          setDashboardCache(scopeKey, cacheEntry);
-          applyPrefetchCacheToActiveScope(scopeKey, cacheEntry, codes);
-          return cacheEntry;
-        });
+        const cacheEntry = {
+          current,
+          previous,
+          earnings: earningsCurrent.length > 1 ? earningsCurrent : undefined,
+        };
+        setDashboardCache(scopeKey, cacheEntry);
+        applyPrefetchCacheToActiveScope(scopeKey, cacheEntry, codes);
       } catch {
         /* Best-effort prefetch. */
       }
@@ -2784,10 +2810,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (dashboardPrefetchFailedRef.current.has(requestKey)) return;
 
       try {
-        const res = await fetch(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${q}`), {
-          credentials: "include",
-        });
-        const json = await res.json();
+        const { res, json } = await fetchBootstrapHttpDeduped(
+          bootstrapInflightRef.current,
+          requestKey,
+          { credentials: "include" }
+        );
         if (!res.ok || !json.success || !json.data?.current) {
           if (!res.ok) dashboardPrefetchFailedRef.current.add(requestKey);
           return;
@@ -2868,6 +2895,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       });
       const existing = scopeKey ? getDashboardCache(scopeKey) : null;
       const isActiveScope = scopeKey === resolveDashboardScopeKey();
+      if (isActiveScope) return;
       const codes =
         currenciesByGroupRef.current.get(g) ??
         (isActiveScope && currenciesRef.current.length > 1 ? currenciesRef.current : null);
@@ -2894,10 +2922,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (dashboardPrefetchFailedRef.current.has(requestKey)) return;
 
       try {
-        const res = await fetch(buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${q}`), {
-          credentials: "include",
-        });
-        const json = await res.json();
+        const { res, json } = await fetchBootstrapHttpDeduped(
+          bootstrapInflightRef.current,
+          requestKey,
+          { credentials: "include" }
+        );
         if (!res.ok || !json.success || !json.data?.current) {
           if (!res.ok) dashboardPrefetchFailedRef.current.add(requestKey);
           return;
@@ -2983,40 +3012,38 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const requestKey = q.toString();
       const signal = useSharedAbort ? dashboardFetchAbortRef.current?.signal : undefined;
 
-      return fetchBootstrapDeduped(bootstrapInflightRef.current, requestKey, async () => {
-        const res = await fetch(
-          buildApiUrl(`${DASHBOARD_BOOTSTRAP_API}?${requestKey}`),
-          dashboardFetchInit(signal)
-        );
-        const json = await res.json();
-        if (!res.ok || !json.success || !json.data) {
-          throw new Error(json.message || json.error || i18n.dashboardApiError);
-        }
-        if ((scope === "full" || scope === "kpi") && !json.data.current) {
-          throw new Error(json.message || json.error || i18n.dashboardApiError);
-        }
+      const { res, json } = await fetchBootstrapHttpDeduped(
+        bootstrapInflightRef.current,
+        requestKey,
+        dashboardFetchInit(signal)
+      );
+      if (!res.ok || !json.success || !json.data) {
+        throw new Error(json.message || json.error || i18n.dashboardApiError);
+      }
+      if ((scope === "full" || scope === "kpi") && !json.data.current) {
+        throw new Error(json.message || json.error || i18n.dashboardApiError);
+      }
 
-        const current =
-          json.data.current != null
-            ? applyDashboardPayloadAdjustments(json.data.current, companyId, selectedGroup)
-            : null;
-        const previous = json.data.previous
-          ? applyDashboardPayloadAdjustments(json.data.previous, companyId, selectedGroup)
+      const current =
+        json.data.current != null
+          ? applyDashboardPayloadAdjustments(json.data.current, companyId, selectedGroup)
           : null;
+      const previous = json.data.previous
+        ? applyDashboardPayloadAdjustments(json.data.previous, companyId, selectedGroup)
+        : null;
 
-        if (current) {
-          seedDashboardPayloadCache(dateFrom, dateTo, currencyCode, current);
-        }
-        if (previous) {
-          const prevRange = previousMonthEquivalentRange(dateFrom, dateTo);
-          seedDashboardPayloadCache(prevRange.from, prevRange.to, currencyCode, previous);
-        }
+      if (current) {
+        seedDashboardPayloadCache(dateFrom, dateTo, currencyCode, current);
+      }
+      if (previous) {
+        const prevRange = previousMonthEquivalentRange(dateFrom, dateTo);
+        seedDashboardPayloadCache(prevRange.from, prevRange.to, currencyCode, previous);
+      }
 
-        const earningsCurrent = earningsRowsFromBootstrapEntries(json.data.earnings?.current);
-        const earningsPrevious = earningsRowsFromBootstrapEntries(json.data.earnings?.previous);
+      const earningsCurrent = earningsRowsFromBootstrapEntries(json.data.earnings?.current);
+      const earningsPrevious = earningsRowsFromBootstrapEntries(json.data.earnings?.previous);
 
-        return { current, previous, earningsCurrent, earningsPrevious };
-      });
+      return { current, previous, earningsCurrent, earningsPrevious };
     },
     [
       dateFrom,
@@ -3651,9 +3678,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       dashboardFetchScopeRef.current = cacheKey;
       dashboardFetchAbortRef.current = new AbortController();
     } else if (dashboardFetchScopeRef.current !== cacheKey) {
-      const currencyOnlyScopeChange =
-        dashboardFetchStructuralScopeRef.current === structuralKey && groupAllMode;
-      if (!currencyOnlyScopeChange) {
+      const scopeSliceOnlyChange =
+        dashboardFetchStructuralScopeRef.current === structuralKey;
+      if (!scopeSliceOnlyChange) {
         dashboardFetchAbortRef.current?.abort();
         dashboardFetchAbortRef.current = new AbortController();
       }
@@ -4143,14 +4170,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (!activeGroup) return undefined;
 
     let cancelled = false;
-    const timer = window.setTimeout(() => {
+    const runGroupWarm = () => {
       if (cancelled) return;
       if (!dateFrom || !dateTo) return;
+      if (!dashboardDataRef.current || dashboardFetchInFlightScopeRef.current) {
+        window.setTimeout(runGroupWarm, 600);
+        return;
+      }
       const activeId = companyId != null ? parseInt(companyId, 10) : Number.NaN;
       if (Number.isFinite(activeId) && activeId > 0 && !groupAllMode) return;
-      if (!(Number.isFinite(activeId) && activeId > 0) && !groupAllMode && companyId == null) {
-        void prefetchDashboardGroupLedger(activeGroup);
-      }
       const rows = companiesForCompanyPicker(companies, activeGroup, groupIds);
       const tasks = [];
       for (const row of rows) {
@@ -4164,17 +4192,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       let idx = 0;
       const drain = () => {
         if (cancelled) return;
-        const batch = tasks.slice(idx, idx + 3);
+        const batch = tasks.slice(idx, idx + 2);
         idx += batch.length;
         if (!batch.length) return;
         void Promise.allSettled(batch.map((fn) => fn())).then(() => {
           if (idx < tasks.length && !cancelled) {
-            window.setTimeout(drain, 80);
+            window.setTimeout(drain, 120);
           }
         });
       };
       drain();
-    }, 350);
+    };
+    const timer = window.setTimeout(runGroupWarm, 1200);
 
     return () => {
       cancelled = true;
@@ -4213,7 +4242,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     const run = () => {
       if (cancelled || interactionGen !== scopeInteractionGenRef.current) return;
-      if (!dashboardDataRef.current || dashboardBootstrapInFlightRef.current) {
+      if (
+        !dashboardDataRef.current ||
+        dashboardBootstrapInFlightRef.current ||
+        dashboardFetchInFlightScopeRef.current
+      ) {
         window.setTimeout(run, 600);
         return;
       }
@@ -4293,7 +4326,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     let cancelled = false;
     const runWarm = () => {
       if (cancelled || isDashboardSessionWarmDone()) return;
-      if (dashboardBootstrapInFlightRef.current) {
+      if (
+        dashboardBootstrapInFlightRef.current ||
+        dashboardFetchInFlightScopeRef.current ||
+        !dashboardDataRef.current
+      ) {
         window.setTimeout(runWarm, 800);
         return;
       }
@@ -4423,7 +4460,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     const run = () => {
       if (cancelled || interactionGen !== scopeInteractionGenRef.current) return;
-      if (!dashboardDataRef.current || dashboardBootstrapInFlightRef.current) {
+      if (
+        !dashboardDataRef.current ||
+        dashboardBootstrapInFlightRef.current ||
+        dashboardFetchInFlightScopeRef.current
+      ) {
         window.setTimeout(run, 600);
         return;
       }
