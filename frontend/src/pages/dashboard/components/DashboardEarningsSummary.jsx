@@ -75,6 +75,23 @@ export function DashboardEarningsSummary({
   const summaryPieReady =
     earningsPanelStable && earningsPieSlices.length > 0 && !summaryEarningsLoading;
 
+  /** Play pie enter animation once per scope; skip when returning from another page with same filters. */
+  const shouldPlayPieEnterAnim = useMemo(() => {
+    if (!summaryPieReady || !exchangeRateScopeKey) return false;
+    if (typeof sessionStorage === "undefined") return true;
+    return sessionStorage.getItem(`dashboard_pie_anim:${exchangeRateScopeKey}`) !== "1";
+  }, [summaryPieReady, exchangeRateScopeKey]);
+
+  useEffect(() => {
+    if (!shouldPlayPieEnterAnim || !exchangeRateScopeKey) return undefined;
+    const timer = window.setTimeout(() => {
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem(`dashboard_pie_anim:${exchangeRateScopeKey}`, "1");
+      }
+    }, 360);
+    return () => window.clearTimeout(timer);
+  }, [shouldPlayPieEnterAnim, exchangeRateScopeKey]);
+
   const isRowAmountLoading = useCallback(
     (code) => {
       if (currencies.length <= 1) return summaryEarningsLoading;
@@ -212,8 +229,10 @@ export function DashboardEarningsSummary({
                     strokeWidth={3}
                     label={false}
                     activeShape={false}
-                    isAnimationActive={false}
-                    animationDuration={0}
+                    isAnimationActive={shouldPlayPieEnterAnim}
+                    animationBegin={0}
+                    animationDuration={320}
+                    animationEasing="ease-out"
                     onMouseEnter={handlePieSectorEnter}
                     onMouseLeave={() => setHoveredPieSector(null)}
                   >
@@ -226,7 +245,10 @@ export function DashboardEarningsSummary({
                 </PieChart>
               </ResponsiveContainer>
               {!summaryEarningsLoading && earningsPanelStable && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
-                <div className="dashboard-summary-pie-center" aria-hidden="true">
+                <div
+                  className={`dashboard-summary-pie-center${shouldPlayPieEnterAnim ? " is-enter" : ""}`}
+                  aria-hidden="true"
+                >
                   <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
                   <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
                   <span className="dashboard-summary-pie-center-caption">{i18n.shareOfTotal}</span>

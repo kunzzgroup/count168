@@ -1345,6 +1345,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     z-index: 6;
 }
 
+.dashboard-summary-pie-center.is-enter {
+    animation: dashboard-pie-center-in 0.48s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
 .dashboard-summary-pie-center-pct {
     font-size: var(--summary-size-pie-pct);
     font-weight: 700;
@@ -1389,6 +1393,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-pie-chart-shell .recharts-pie-sector {
     outline: none;
     cursor: default;
+    transition: opacity var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container,
