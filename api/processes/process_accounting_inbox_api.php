@@ -1166,7 +1166,7 @@ try {
     }
 
     //$today = date('Y-m-d');
-    $today = '2026-06-10';
+    $today = '2026-06-1';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
