@@ -47,6 +47,9 @@ function toSkippedPeriodType(string $periodType): string
     if ($t === 'once_one_off') {
         return 'once_one_off_skipped';
     }
+    if ($t === 'weekly') {
+        return 'weekly_skipped';
+    }
     return 'monthly_skipped';
 }
 
@@ -151,7 +154,8 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim((string) $periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail'
+            && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off' && $pt !== 'weekly') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -162,7 +166,9 @@ try {
     }
     $seen = [];
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
-        $key = $p['id'] . '_' . $p['period_type'];
+        $bm = trim((string) ($p['billing_month'] ?? ''));
+        $pt = (string) ($p['period_type'] ?? '');
+        $key = $p['id'] . '_' . $pt . '_' . (($pt === 'weekly' && $bm !== '') ? $bm : '');
         if (isset($seen[$key])) {
             return false;
         }
@@ -217,6 +223,10 @@ try {
         $postDate = $today;
         if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($p['billing_month'] ?? '') !== '') {
             $postDate = postedDateForMonthlyBillingMonth($p['billing_month'], $today);
+        }
+        if ($periodType === 'weekly' && ($p['billing_month'] ?? '') !== ''
+            && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim((string) $p['billing_month']))) {
+            $postDate = trim((string) $p['billing_month']);
         }
         if ($periodType === 'resend_consolidated_range') {
             // 与 process_accounting_inbox_api 一致：先合并 Resend 弹窗暂存列再取 day_start，避免 COALESCE(库列) 与 Inbox 展示锚点不一致导致无法写入 *_skipped。

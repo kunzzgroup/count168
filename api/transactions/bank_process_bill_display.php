@@ -6,6 +6,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/money_decimal.php';
+require_once __DIR__ . '/../processes/contract_billing_addon.php';
 
 /**
  * 解析 bank_process.day_start（支持 yyyy-mm-dd、d/m/Y 等），与 history_api 原逻辑一致。
@@ -183,6 +184,55 @@ function bankProcessOnceOneOffHistoryDescription(array $t): string
         $dmy = date('d/m/Y');
     }
     $prefix = 'ONCE (' . $dmy . ')';
+    $txAccountId = (int) ($t['account_id'] ?? 0);
+    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+    $customerId = (int) ($t['customer_id'] ?? 0);
+    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+
+    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_cost'] ?? '0');
+    }
+    if ($txAccountId > 0 && $txAccountId === $customerId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber(money_abs($t['process_price'] ?? '0', 2));
+    }
+    if ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_profit'] ?? '0');
+    }
+    $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
+    if ($psAmount !== null) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($psAmount);
+    }
+    return $prefix;
+}
+
+/**
+ * Payment History / Maintenance：Frequency=week 入账行描述。
+ * WEEK (DD/MM/YYYY - DD/MM/YYYY) @ 对应账单价格
+ */
+function bankProcessWeeklyHistoryDescription(array $t): string
+{
+    $startYmd = null;
+    $td = trim((string) ($t['transaction_date'] ?? ''));
+    if ($td !== '') {
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m)) {
+            $startYmd = $m[1];
+        } else {
+            $ts = strtotime(str_replace('/', '-', $td));
+            if ($ts !== false) {
+                $startYmd = date('Y-m-d', $ts);
+            }
+        }
+    }
+    if ($startYmd === null) {
+        $startYmd = bankProcessParseDayStartToYmd($t['bp_day_start'] ?? null);
+    }
+    if ($startYmd === null) {
+        $startYmd = date('Y-m-d');
+    }
+    $endYmd = weekPeriodEndInclusiveYmd($startYmd) ?? $startYmd;
+    $startDm = date('d/m/Y', strtotime($startYmd));
+    $endDm = date('d/m/Y', strtotime($endYmd));
+    $prefix = 'WEEK (' . $startDm . ' - ' . $endDm . ')';
     $txAccountId = (int) ($t['account_id'] ?? 0);
     $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
     $customerId = (int) ($t['customer_id'] ?? 0);

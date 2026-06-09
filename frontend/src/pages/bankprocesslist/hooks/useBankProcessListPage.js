@@ -60,6 +60,7 @@ import {
   filterBankProcessRowsBySearch,
   sortBankProcessTableRows,
   accountingDuePeriodType,
+  accountingDueBillingMonth,
   checkBankResendLockFromBackend,
   isBankResendScheduleLockedToday,
   normalizeBankResendDayStartYmd,
@@ -980,7 +981,7 @@ export function useBankProcessListPage() {
       return;
     }
     const frequencyNorm = bankProcessFrequencyNormalized(form.day_start_frequency);
-    if (frequencyNorm === "once" || frequencyNorm === "monthly") return;
+    if (frequencyNorm === "once" || frequencyNorm === "week" || frequencyNorm === "monthly") return;
 
     const start = String(form.day_start || "").trim();
     const contract = String(form.contract || "").trim();
@@ -1018,7 +1019,7 @@ export function useBankProcessListPage() {
   useEffect(() => {
     if (!resendModalOpen) return;
     const fq = bankProcessFrequencyNormalized(resendFrequency);
-    if (fq !== "once" && fq !== "monthly") return;
+    if (fq !== "once" && fq !== "week" && fq !== "monthly") return;
     if (!String(resendDayEnd || "").trim()) return;
     setResendDayEnd("");
   }, [resendModalOpen, resendFrequency, resendDayEnd]);
@@ -1758,6 +1759,7 @@ export function useBankProcessListPage() {
     if (guardWrite()) return;
     const rawFreq = bankProcessFrequencyNormalized(form.day_start_frequency);
     const isOnceSubmit = rawFreq === "once";
+    const isWeekSubmit = rawFreq === "week";
     const dayStart = String(form.day_start || "").trim();
     const dayEnd = String(form.day_end || "").trim();
     if (dayStart && dayEnd && dayEnd < dayStart) {
@@ -1772,8 +1774,8 @@ export function useBankProcessListPage() {
       notify(t("dayEndRequiredForCap"), "danger");
       return;
     }
-    if (!isOnceSubmit && !String(form.contract || "").trim()) {
-      notify(t("contractRequiredUnlessOnce"), "danger");
+    if (!isOnceSubmit && !isWeekSubmit && !String(form.contract || "").trim()) {
+      notify(t("contractRequiredUnlessOnceOrWeek"), "danger");
       return;
     }
     if (!editMode) {
@@ -1788,6 +1790,7 @@ export function useBankProcessListPage() {
     }
     let normalizedFreq;
     if (isOnceSubmit) normalizedFreq = "once";
+    else if (rawFreq === "week") normalizedFreq = "week";
     else if (rawFreq === "monthly") normalizedFreq = "monthly";
     else normalizedFreq = "1st_of_every_month";
     const moneyNormalized = {
@@ -1806,6 +1809,10 @@ export function useBankProcessListPage() {
         return;
       }
       if (isOnceSubmit && (k === "day_end" || k === "contract" || k === "insurance")) {
+        fd.append(k, "");
+        return;
+      }
+      if (isWeekSubmit && (k === "day_end" || k === "contract")) {
         fd.append(k, "");
         return;
       }
@@ -1834,7 +1841,7 @@ export function useBankProcessListPage() {
     try {
       const fd = new FormData();
       selected.forEach((r) => {
-        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", r.monthly_billing_month || "");
+        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", accountingDueBillingMonth(r));
       });
       fd.append("allow_future_monthly", "1");
       const res = await fetch(buildApiUrl("api/processes/process_post_to_transaction_api.php"), { method: "POST", body: fd, credentials: "include" });
@@ -1853,7 +1860,7 @@ export function useBankProcessListPage() {
     try {
       const fd = new FormData();
       selected.forEach((r) => {
-        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", r.monthly_billing_month || "");
+        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", accountingDueBillingMonth(r));
       });
       const res = await fetch(buildApiUrl("api/processes/dismiss_accounting_due_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
@@ -1888,7 +1895,7 @@ export function useBankProcessListPage() {
     const dayStart = String(resendDayStart || "").trim();
     const dayEnd = String(resendDayEnd || "").trim();
     const fqEarly = bankProcessFrequencyNormalized(resendFrequency);
-    const resendOmitsDayEnd = fqEarly === "once" || fqEarly === "monthly";
+    const resendOmitsDayEnd = fqEarly === "once" || fqEarly === "week" || fqEarly === "monthly";
     if (!resendOmitsDayEnd && dayStart && dayEnd && dayEnd < dayStart) {
       const msg = t("dayEndEarlierThanStart");
       setResendInlineError(msg);
@@ -1896,10 +1903,10 @@ export function useBankProcessListPage() {
       return;
     }
     const fq = bankProcessFrequencyNormalized(resendFrequency);
-    const omitDayEnd = fq === "once" || fq === "monthly";
+    const omitDayEnd = fq === "once" || fq === "week" || fq === "monthly";
     const dayEndTrim = omitDayEnd ? "" : String(resendDayEnd || "").trim();
     const normalizedResendFrequency =
-      fq === "once" ? "once" : (fq === "monthly" ? "monthly" : "1st_of_every_month");
+      fq === "once" ? "once" : (fq === "monthly" ? "monthly" : (fq === "week" ? "week" : "1st_of_every_month"));
     try {
       const res = await fetch(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",

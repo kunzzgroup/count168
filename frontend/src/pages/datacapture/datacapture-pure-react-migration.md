@@ -5,7 +5,7 @@
 将 `/datacapture` 从 **React 外壳 + `window.__DC_*` DOM 桥接** 迁移为 **纯 React + Vite** 架构：
 
 - 不再依赖 `window.__DC_*` / `window.selectedDescriptions` 等全局桥接
-- 不再运行时加载 `js/decimal.min.js`、`js/money-decimal.js`（改为 npm 模块）
+- 不再运行时加载 `js/decimal.min.js`、`js/money-decimal.js`（改用已有 `frontend/src/utils/money/` ES 模块，见下文「金额计算模块」）
 - 表格以 **React state 为单一数据源**，不再以 `#tableBody` DOM 为真相
 - **后端 API 不变**（路径、参数、返回结构不改）
 - **localStorage session 格式不变**（与 `/datacapturesummary` 衔接）
@@ -25,9 +25,33 @@
 | 2.Format 模式 | iframe 预览 + DOM style | ❌ |
 | 启动流程 | `scriptsReady` 门闩 + `dataCaptureSpaInit.js` | ❌ |
 | 外部脚本 | 仍加载 `decimal.min.js`、`money-decimal.js` | ❌ |
+| 金额 ES 模块 | `utils/money/decimalEngine.js`、`utils/money/moneyDecimal.js` 已存在且多页在用；datacapture 部分仍依赖 `window.MoneyDecimal` | ⚠️ 半迁移 |
 | `js/datacapture.js` | 运行时已不加载，逻辑已抽到 `frontend/src/pages/datacapture/` | ✅（但仍是 legacy 风格代码） |
 
 **核心问题**：代码已从 `js/datacapture.js` 抽出，但模块间仍通过 **`window.__DC_*` 全局函数** 通信，表格数据存在 DOM 里。
+
+---
+
+## 金额计算模块（必须使用，勿删）
+
+项目内 **已有** legacy 脚本的 ES module 替代，迁移时必须 **沿用这两个文件**，**不要删除**，也 **不要** 在 `datacapture/` 下重复封装：
+
+| 文件 | 替代 legacy | 用途 |
+|------|-------------|------|
+| `frontend/src/utils/money/decimalEngine.js` | `js/decimal.min.js` | 统一配置 `decimal.js`（precision 40、ROUND_DOWN） |
+| `frontend/src/utils/money/moneyDecimal.js` | `js/money-decimal.js` | 导出 `MoneyDecimal` 及 `formatThousands` 等，API 与 `window.MoneyDecimal` 同形 |
+
+依赖：`frontend/package.json` 已含 `decimal.js`，无需再装其他金额库。
+
+**已在使用的页面（纯 React import）**：transaction、member、bankprocesslist、report、`datacapturesummary/formula/*`，以及 datacapture 的 `paste/core/dataCapturePasteMoneyUtils.js`。
+
+**datacapture 待统一切换**（PR8）：
+
+- `DataCapturePage.jsx` — 删除 `loadScriptOnce(js/decimal.min.js)`、`loadScriptOnce(js/money-decimal.js)`
+- `lib/dataCaptureBracket.js` — 仍读 `window.MoneyDecimal`，应改为 `import { MoneyDecimal } from '../../../utils/money/moneyDecimal.js'`
+
+**可后续删除的是 legacy 静态脚本**（全站确认无 `<script>` / PHP 引用后）：`js/decimal.min.js`、`js/money-decimal.js`。  
+**不可删除**：`frontend/src/utils/money/decimalEngine.js`、`frontend/src/utils/money/moneyDecimal.js`。
 
 相关文档：`datacapturesummary/datacapturesummary-pure-react-migration.md`（Summary 页迁移，可对照）。
 
@@ -133,7 +157,7 @@ flowchart TB
   - `selectedDescriptions`（替代 `window.selectedDescriptions`）
   - `submitDisabled`（替代 DOM observer + `__DC_RECOMPUTE_SUBMIT_STATE__`）
 - `VITE_DC_PURE_REACT=1` 时：
-  - 跳过 `loadScriptOnce(decimal.min.js / money-decimal.js)`，改用 npm（见 PR8，可先 stub）
+  - 跳过 `loadScriptOnce(decimal.min.js / money-decimal.js)`；金额逻辑统一 `import` 自 `utils/money/moneyDecimal.js`（见 PR8、「金额计算模块」）
   - 跳过 `window.__DC_SPA_INIT_PAGE__`
   - 移除 `scriptsReady` 门闩，页面 mount 即 ready
 - 删除 decoy DOM：
@@ -356,25 +380,39 @@ flowchart TB
 
 ---
 
-### PR8：移除外部 legacy 脚本，改用 npm
+### PR8：移除外部 legacy 脚本，统一使用 `utils/money/`
 
-**目标**：不再 `loadScriptOnce` 加载 `/js/decimal.min.js`、`/js/money-decimal.js`。
+**目标**：不再 `loadScriptOnce` 加载 `/js/decimal.min.js`、`/js/money-decimal.js`；全 datacapture 金额计算走已有 ES 模块。
+
+**必须使用（保留，勿删、勿重复封装）**：
+
+- `frontend/src/utils/money/decimalEngine.js`
+- `frontend/src/utils/money/moneyDecimal.js`
 
 **改动范围**：
 
-- `DataCapturePage.jsx`
-- `lib/dataCaptureBracket.js` 及所有用 `window.Decimal` / `window.MoneyDecimal` 的文件
+- `DataCapturePage.jsx` — 删除两处 `loadScriptOnce`
+- `lib/dataCaptureBracket.js` — 将 `window.MoneyDecimal` 改为 import（当前唯一仍读全局的 datacapture 文件）
+- 全目录 grep：`window.MoneyDecimal` / `window.Decimal`，确保 datacapture 内为零
 
 **执行项**：
 
-- `npm install decimal.js`（或项目已有等价包）
-- 封装 `lib/moneyDecimal.js` 替代全局 `MoneyDecimal`
-- datacapture 内引用改为 ES module import
+- **不要** 新建 `datacapture/lib/moneyDecimal.js` 或再装替代库；直接：
+
+  ```javascript
+  import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
+  // 或按需：import Decimal from "../../../utils/money/decimalEngine.js";
+  ```
+
+- `decimal.js` 已在 `package.json`，无需重复 `npm install`
+- `paste/core/dataCapturePasteMoneyUtils.js` 已正确 import，作为参照
+- Summary 纯 React 完成后，`preloadSummaryLegacyScripts.js` 也可停止预加载上述两个 legacy 脚本
 
 **验收**：
 
-- 括号负数、金额格式化与现版一致
-- Network 面板不再请求 `/js/decimal.min.js`
+- 括号负数、金额格式化、CITIBET/粘贴金额与现版一致
+- Network 面板 datacapture 路由下不再请求 `/js/decimal.min.js`、`/js/money-decimal.js`
+- `utils/money/*` 仍被 transaction、report、formula 等页正常引用
 
 ---
 
@@ -415,6 +453,16 @@ flowchart TB
 - `DataCapturePage.jsx` 中 `loadScriptOnce`、`scriptsReady`、`__DATA_CAPTURE_SPA_BOOTSTRAP__`
 - `README.md` 更新为「纯 React」
 
+**全站无 legacy 引用后可删（非本 PR 必删）**：
+
+- `js/decimal.min.js`
+- `js/money-decimal.js`
+
+**明确保留（勿删）**：
+
+- `frontend/src/utils/money/decimalEngine.js`
+- `frontend/src/utils/money/moneyDecimal.js`
+
 **验收**：
 
 ```bash
@@ -434,6 +482,8 @@ rg "window\\.__DC_" frontend/src/pages/datacapture
 | `lib/dataCaptureStorage.js` | localStorage key 与 scope 逻辑 |
 | `lib/dataCaptureFormRules.js` | 校验规则 |
 | `lib/dataCaptureScope.js` | 公司/分组 scope |
+| `utils/money/decimalEngine.js` | **必须使用** — `decimal.js` 统一配置，替代 `js/decimal.min.js` |
+| `utils/money/moneyDecimal.js` | **必须使用** — `MoneyDecimal` API，替代 `js/money-decimal.js`；datacapture 全量 import 此模块 |
 | `paste/vendors/*` 业务逻辑 | 重构为纯函数，逻辑尽量保留 |
 | `public/css/datacapture.css` | 样式可继续用 |
 
@@ -535,11 +585,38 @@ PR10 清理 + 默认开启 VITE_DC_PURE_REACT
 
 ---
 
-## 与 Summary 页的关系
+## 与 Summary 页的关系 / Summary 迁移前置条件
 
-- DataCapture 纯 React 完成后，Summary 仍可能加载 `js/datacapturesummary.js`
-- **本迁移只需保证** `saveCaptureSession` 输出与现版一致，Summary 无需同步改
-- 若后续 Summary 也纯 React，可共用 `gridModel` / snapshot 工具（可选）
+**执行顺序：必须先完成本页（Phase 1），再启动 Summary 纯 React（Phase 2）。**
+
+详细方案见：`datacapturesummary/datacapturesummary-pure-react-migration.md`。
+
+### Phase 1（本页）对 Phase 2 的交付物
+
+| 交付项 | 说明 |
+|--------|------|
+| `saveCaptureSession` 输出 | JSON 结构与现版一致；Summary `readCaptureSessionFromStorage` 无需改 |
+| Storage key | `capturedTableData`、`capturedProcessData`、`capturedDataCaptureType` 及 scope suffix 不变 |
+| 全链路回归 | Submit → `/datacapturesummary?success=1` → Summary 展示 → Back → `?restore=1` |
+| 移除跨页 legacy 预热 | `DataCapturePage.jsx` 中 `preloadSummaryLegacyScriptsInBackground()` 须在 PR10 删除或替换 |
+| 金额模块 | 全 datacapture 统一 `import` `utils/money/moneyDecimal.js`，不再加载 `js/decimal.min.js` / `js/money-decimal.js` |
+
+### Phase 1 完成前，Summary 侧保持不变
+
+- Summary 仍可加载 `js/datacapturesummary.js`（`preloadSummaryLegacyScripts.js`）
+- **禁止** 在 datacapture 未冻结 snapshot 时修改 `lib/dataCaptureStorage.js` 的写入 schema
+
+### Phase 2 开工门槛（checklist）
+
+- [ ] 本页 PR10 完成：`window.__DC_*` 运行时依赖为零（迁移文档验收命令通过）
+- [ ] `VITE_DC_PURE_REACT` 分支功能全量回归通过
+- [ ] datacapture Submit → summary 对比测试：localStorage JSON 与迁移前一致
+- [ ] `preloadSummaryLegacyScriptsInBackground` 已从 datacapture 移除
+- [ ] 再开启 `VITE_SUMMARY_PURE_REACT` 启动 Summary 迁移
+
+### 可选共用
+
+- 若 Summary 表格 model 需要读 capture snapshot，可复用 `grid/gridModel.js` / `lib/dataCaptureTableSnapshot.js` 的纯函数（Phase 2 PR2 评估）
 
 ---
 
