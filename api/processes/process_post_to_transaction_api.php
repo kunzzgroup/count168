@@ -1519,8 +1519,7 @@ try {
             }
             if ($resolvedWeeklyStart !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $resolvedWeeklyStart)) {
                 $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
-                $weeklyEndYmd = weekPeriodEndInclusiveYmd($resolvedWeeklyStart);
-                if (!$allowFutureMonthly && !$resendRelax && $weeklyEndYmd !== null && $weeklyEndYmd > $fallbackDate) {
+                if (!$allowFutureMonthly && !$resendRelax && $resolvedWeeklyStart > $fallbackDate) {
                     $skipCurrentPair = true;
                     $skippedFutureMonthlyDueCount++;
                 }
