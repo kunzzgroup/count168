@@ -176,6 +176,9 @@ export const ACCOUNT_I18N = {
     apiCurrencyInUse: "Currency is in use and cannot be deleted",
     apiCurrencyBlockedByHistory:
       "Cannot delete currency — historical records still reference it ({detail}). Remove related Data Capture / Transaction records first.",
+    forceDeleteCurrency: "Force delete",
+    forceDeleteCurrencyConfirm:
+      "Currency {code} is still referenced by historical records ({detail}). Force delete will remove the currency definition; old Data Capture / Transaction rows may keep a stale currency reference. Continue?",
     currencyInUseTitle: "Cannot delete currency",
     currencyInUseMessage: "Currency {code} is still used by the following account(s):",
     ok: "OK",
@@ -355,6 +358,9 @@ export const ACCOUNT_I18N = {
     apiCurrencyInUse: "货币正在使用中，无法删除",
     apiCurrencyBlockedByHistory:
       "无法删除货币，仍有历史业务数据引用（{detail}）。请先在 Data Capture / Transaction 中清理相关记录。",
+    forceDeleteCurrency: "强制删除",
+    forceDeleteCurrencyConfirm:
+      "货币 {code} 仍被历史业务数据引用（{detail}）。强制删除会移除该货币定义，旧的 Data Capture / Transaction 记录可能保留失效的货币引用。是否继续？",
     currencyInUseTitle: "无法删除货币",
     currencyInUseMessage: "货币 {code} 仍被以下账号使用：",
     ok: "确定",
@@ -508,6 +514,20 @@ export function parseCurrencyUsageDetailFromMessage(message) {
   const raw = String(message || "").trim();
   const m = raw.match(/being used by:\s*(.+?)(?:\s*\[Debug:|$)/i);
   return m ? m[1].trim() : "";
+}
+
+/** True when delete failed only due to historical records, not linked accounts. */
+export function isHistoricalOnlyCurrencyDeleteBlock(message, accountsInUse = []) {
+  if (Array.isArray(accountsInUse) && accountsInUse.length > 0) return false;
+  const detail = parseCurrencyUsageDetailFromMessage(message);
+  if (!detail) return false;
+  return !/\baccount\(s\)/i.test(detail);
+}
+
+export function formatCurrencyUsageDetail(lang, message) {
+  const detail = parseCurrencyUsageDetailFromMessage(message);
+  if (!detail) return "";
+  return translateCurrencyUsageDetail(toLocale(lang), detail);
 }
 
 function translateCurrencyUsageDetail(lang, detail) {

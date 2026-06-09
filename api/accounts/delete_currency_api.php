@@ -400,9 +400,10 @@ try {
 
     [$usageMessages, $debugInfo] = collectCurrencyUsage($pdo, $currencyId, $currencyCtx, (string) $currency['code']);
 
+    // force=true: skip historical usage (data capture, transactions, templates); still block on linked accounts.
     if ($forceDelete) {
         $usageMessages = array_filter($usageMessages, static function ($msg) {
-            return strpos($msg, 'account(s)') === false;
+            return strpos($msg, 'account(s)') !== false;
         });
     }
 

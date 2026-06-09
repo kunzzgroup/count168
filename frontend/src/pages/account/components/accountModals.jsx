@@ -4,7 +4,15 @@ import { toUpper } from "../accountLogic.js";
 
 const confirmModalZIndex = accountModalOverlayZIndex + 50;
 
-export function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
+export function AccountConfirmModal({
+  open,
+  message,
+  onConfirm,
+  onClose,
+  t,
+  title,
+  confirmLabel,
+}) {
   if (!open) return null;
   return portalToDocumentBody(
     <div id="confirmDeleteModal" className="account-modal" role="dialog" aria-modal="true" style={{ zIndex: confirmModalZIndex }}>
@@ -14,7 +22,7 @@ export function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
-        <h2 className="account-confirm-title">{t("confirmDelete")}</h2>
+        <h2 className="account-confirm-title">{title || t("confirmDelete")}</h2>
         <p id="confirmDeleteMessage" className="account-confirm-message">
           {message || t("actionCannotUndone")}
         </p>
@@ -23,7 +31,7 @@ export function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
             {t("cancel")}
           </button>
           <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
-            {t("delete")}
+            {confirmLabel || t("delete")}
           </button>
         </div>
       </div>
