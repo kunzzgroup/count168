@@ -174,3 +174,62 @@ function weekPeriodIsReadyForAccounting(string $periodStartYmd, string $todayYmd
     $end = weekPeriodEndInclusiveYmd($periodStartYmd);
     return $end !== null && $todayYmd >= $end;
 }
+
+/** Day frequency：下一自然日 Y-m-d。 */
+function dailyNextDayYmd(string $ymd): ?string
+{
+    try {
+        return (new DateTimeImmutable($ymd))->modify('+1 day')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** 指定自然月首日 Y-m-d。 */
+function calendarMonthFirstYmd(int $year, int $month): string
+{
+    return sprintf('%04d-%02d-01', $year, max(1, min(12, $month)));
+}
+
+/** Day frequency：按天数累乘 cost / price / profit（单日全额 × N）。 */
+function dailyAmountsForDayCount(string $cost, string $price, string $profit, int $days): array
+{
+    $d = (string) max(1, $days);
+    return [
+        'cost' => money_mul($cost, $d, 2),
+        'price' => money_mul($price, $d, 2),
+        'profit' => money_mul($profit, $d, 2),
+    ];
+}
+
+/** 解析 daily consolidated billing_month 锚点 `start|end`（均为 Y-m-d）。 */
+function dailyParseConsolidatedBillingRange(?string $billingMonth): ?array
+{
+    $raw = trim((string) $billingMonth);
+    if ($raw === '' || strpos($raw, '|') === false) {
+        return null;
+    }
+    [$start, $end] = array_map('trim', explode('|', $raw, 2));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) {
+        return null;
+    }
+    if ($start > $end) {
+        return null;
+    }
+    return ['start' => $start, 'end' => $end];
+}
+
+/** 含首尾的自然日天数。 */
+function dailyInclusiveDayCount(string $startYmd, string $endYmd): int
+{
+    try {
+        $a = new DateTimeImmutable($startYmd);
+        $b = new DateTimeImmutable($endYmd);
+        if ($b < $a) {
+            return 0;
+        }
+        return (int) $a->diff($b)->days + 1;
+    } catch (Throwable $e) {
+        return 0;
+    }
+}

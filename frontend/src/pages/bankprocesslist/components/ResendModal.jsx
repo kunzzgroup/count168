@@ -21,7 +21,8 @@ export default function ResendModal({
   const isOnce = fq === "once";
   const isMonthly = fq === "monthly";
   const isWeek = fq === "week";
-  const dayEndDisabled = isOnce || isMonthly || isWeek;
+  const isDay = fq === "day";
+  const dayEndDisabled = isOnce || isMonthly || isWeek || isDay;
   return (
     <ProcessModalPortal>
     <div id="confirmBankResendModal" className="process-modal process-modal--bank-resend" style={processModalBackdropStyle}>
@@ -77,6 +78,7 @@ export default function ResendModal({
                 <option value="1st_of_every_month">{t("firstOfEveryMonth")}</option>
                 <option value="monthly">{t("monthly")}</option>
                 <option value="week">{t("weekFrequency")}</option>
+                <option value="day">{t("dayFrequency")}</option>
                 <option value="once">{t("onceFrequency")}</option>
               </select>
             </div>

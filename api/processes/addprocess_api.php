@@ -459,12 +459,12 @@ try {
             exit;
         }
         $day_start_frequency = trim($_POST['day_start_frequency'] ?? '1st_of_every_month');
-        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly', 'week', 'once'], true)) {
+        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly', 'week', 'day', 'once'], true)) {
             $day_start_frequency = '1st_of_every_month';
         }
-        if ($day_start_frequency === 'once' || $day_start_frequency === 'week') {
+        if ($day_start_frequency === 'once' || $day_start_frequency === 'week' || $day_start_frequency === 'day') {
             $_POST['day_end'] = '';
-            if ($day_start_frequency === 'week') {
+            if ($day_start_frequency === 'week' || $day_start_frequency === 'day') {
                 $_POST['contract'] = '';
             }
         }

@@ -182,10 +182,10 @@ try {
         $newDayStart = bank_resend_normalizeOptionalYmd($payload['day_start'] ?? null);
         $newDayEnd = bank_resend_normalizeOptionalYmd($payload['day_end'] ?? null);
         $newFrequency = trim((string) ($payload['day_start_frequency'] ?? '1st_of_every_month'));
-        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'week', 'once'], true)) {
+        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'week', 'day', 'once'], true)) {
             $newFrequency = '1st_of_every_month';
         }
-        if ($newFrequency === 'once' || $newFrequency === 'week' || $newFrequency === 'monthly') {
+        if ($newFrequency === 'once' || $newFrequency === 'week' || $newFrequency === 'day' || $newFrequency === 'monthly') {
             $newDayEnd = null;
         }
         if ($newDayStart !== null && $newDayEnd !== null && $newDayEnd < $newDayStart) {
