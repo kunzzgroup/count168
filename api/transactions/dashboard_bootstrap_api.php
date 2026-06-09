@@ -169,7 +169,7 @@ try {
     $prevRange = dashboard_bootstrap_previous_period($dateFrom, $dateTo);
 
     $bootstrapScope = isset($_GET['bootstrap_scope']) ? strtolower(trim((string) $_GET['bootstrap_scope'])) : 'full';
-    if (!in_array($bootstrapScope, ['full', 'kpi', 'earnings'], true)) {
+    if (!in_array($bootstrapScope, ['full', 'kpi', 'earnings', 'previous'], true)) {
         $bootstrapScope = 'full';
     }
     $isPrefetch = isset($_GET['prefetch']) && (string) $_GET['prefetch'] === '1';
@@ -197,6 +197,20 @@ try {
             throw new Exception($failMsg);
         }
 
+        // kpi: current only — previous period loads in a follow-up request so first paint is ~2× faster.
+        if ($bootstrapScope === 'full') {
+            $prevParams = $baseParams;
+            $prevParams['date_from'] = $prevRange['from'];
+            $prevParams['date_to'] = $prevRange['to'];
+            if ($primaryCurrency !== '') {
+                $prevParams['currency'] = $primaryCurrency;
+            }
+            $previousJson = dashboard_bootstrap_capture($prevParams);
+            $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
+                ? $previousJson['data']
+                : null;
+        }
+    } elseif ($bootstrapScope === 'previous') {
         $prevParams = $baseParams;
         $prevParams['date_from'] = $prevRange['from'];
         $prevParams['date_to'] = $prevRange['to'];
@@ -283,6 +297,8 @@ try {
 
     if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi') {
         $responseData['current'] = $currentJson['data'] ?? null;
+        $responseData['previous'] = $bootstrapScope === 'full' ? $previousData : null;
+    } elseif ($bootstrapScope === 'previous') {
         $responseData['previous'] = $previousData;
     }
 

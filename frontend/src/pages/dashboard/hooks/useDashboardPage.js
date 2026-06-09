@@ -470,6 +470,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** Scope key while a full bootstrap (KPI + earnings) is in flight for the active view. */
   const dashboardBootstrapInFlightRef = useRef("");
   const dashboardFetchInFlightScopeRef = useRef("");
+  const previousPeriodFetchGenRef = useRef(0);
+  const previousPeriodInFlightRef = useRef("");
   const loadDashboardTriggerKeyRef = useRef("");
   const loadDashboardStructuralKeyRef = useRef("");
   /** Prevents synchronous DASHBOARD_GROUP_FILTER_EVENT ↔ sync re-entry stack overflow. */
@@ -3032,14 +3034,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!res.ok || !json.success || !json.data) {
         throw new Error(json.message || json.error || i18n.dashboardApiError);
       }
-      if ((scope === "full" || scope === "kpi") && !json.data.current) {
+      if (scope === "previous") {
+        if (!json.data.previous) {
+          throw new Error(json.message || json.error || i18n.dashboardApiError);
+        }
+      } else if ((scope === "full" || scope === "kpi") && !json.data.current) {
         throw new Error(json.message || json.error || i18n.dashboardApiError);
       }
 
       const current =
-        json.data.current != null
-          ? applyDashboardPayloadAdjustments(json.data.current, companyId, selectedGroup)
-          : null;
+        scope === "previous"
+          ? null
+          : json.data.current != null
+            ? applyDashboardPayloadAdjustments(json.data.current, companyId, selectedGroup)
+            : null;
       const previous = json.data.previous
         ? applyDashboardPayloadAdjustments(json.data.previous, companyId, selectedGroup)
         : null;
@@ -3052,7 +3060,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         seedDashboardPayloadCache(prevRange.from, prevRange.to, currencyCode, previous);
       }
 
-      const earningsCurrent = earningsRowsFromBootstrapEntries(json.data.earnings?.current);
+      const earningsCurrent =
+        scope === "previous" ? [] : earningsRowsFromBootstrapEntries(json.data.earnings?.current);
       const earningsPrevious = earningsRowsFromBootstrapEntries(json.data.earnings?.previous);
 
       return { current, previous, earningsCurrent, earningsPrevious };
@@ -3070,6 +3079,68 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       earningsRowsFromBootstrapEntries,
       i18n.failedToLoadDashboard,
       i18n.dashboardApiError,
+    ]
+  );
+
+  /** MoM compare baseline — deferred so the first bootstrap only waits on current period. */
+  const loadDashboardPreviousPeriod = useCallback(
+    async (targetScopeKey) => {
+      const cacheKey = targetScopeKey ?? dashboardScopeKey;
+      if (!cacheKey || cacheKey !== resolveDashboardScopeKey()) return;
+
+      const cached = getDashboardCache(cacheKey);
+      if (cached?.previous) {
+        setDashboardDataPrev(cached.previous);
+        return;
+      }
+      if (previousPeriodInFlightRef.current === cacheKey) return;
+
+      const canUseBootstrap =
+        !(showAllCurrencies && canShowAllCurrencies) &&
+        !(groupsAllMode && !groupAllMode) &&
+        !groupAllMode &&
+        !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
+        (companyId != null || groupAggregateMode);
+      if (!canUseBootstrap) return;
+
+      const scopeNeedsCurrency = dashboardScopeNeedsCurrency({
+        companyId,
+        usesGroupLedgerDashboard,
+        groupAllMode,
+        groupsAllMode,
+        mergedSubsetIds,
+      });
+      if (scopeNeedsCurrency && !currencyCode) return;
+
+      const gen = ++previousPeriodFetchGenRef.current;
+      previousPeriodInFlightRef.current = cacheKey;
+      try {
+        const boot = await loadDashboardViaBootstrap({ scope: "previous" });
+        if (gen !== previousPeriodFetchGenRef.current) return;
+        if (resolveDashboardScopeKey() !== cacheKey || !boot.previous) return;
+        setDashboardDataPrev(boot.previous);
+        patchDashboardCache(cacheKey, { previous: boot.previous });
+      } catch {
+        /* Background MoM compare — non-blocking. */
+      } finally {
+        if (previousPeriodInFlightRef.current === cacheKey) {
+          previousPeriodInFlightRef.current = "";
+        }
+      }
+    },
+    [
+      dashboardScopeKey,
+      resolveDashboardScopeKey,
+      companyId,
+      groupAggregateMode,
+      showAllCurrencies,
+      canShowAllCurrencies,
+      groupsAllMode,
+      groupAllMode,
+      mergedSubsetIds,
+      usesGroupLedgerDashboard,
+      currencyCode,
+      loadDashboardViaBootstrap,
     ]
   );
 
@@ -3684,6 +3755,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const gen = ++dashboardFetchGenRef.current;
     if (dashboardFetchStructuralScopeRef.current !== structuralKey) {
       dashboardFetchAbortRef.current?.abort();
+      ++previousPeriodFetchGenRef.current;
+      previousPeriodInFlightRef.current = "";
       dashboardFetchStructuralScopeRef.current = structuralKey;
       dashboardFetchScopeRef.current = cacheKey;
       dashboardFetchAbortRef.current = new AbortController();
@@ -3740,6 +3813,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setLoading(false);
 
       if (!needsMultiCurrencyEarnings || cacheEntryHasFullEarnings(cached, multiCurrencyCodes)) {
+        if (!cached.previous) {
+          void loadDashboardPreviousPeriod(cacheKey);
+        }
         return;
       }
       setEarningsByCurrencyLoading(true);
@@ -3946,6 +4022,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           }
 
           setDashboardCache(cacheKey, cacheEntry);
+          if (bootstrapScope === "kpi" && !boot.previous) {
+            void loadDashboardPreviousPeriod(cacheKey);
+          }
           return;
         } catch {
           /* Fall back to legacy per-endpoint loading. */
@@ -4106,6 +4185,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     getCompleteCachedEarnings,
     tryBuildGroupAllDashboardFromCompanyCaches,
     fetchGroupAllMergedDashboard,
+    loadDashboardPreviousPeriod,
   ]);
 
   const loadDashboardTriggerKey = useMemo(
