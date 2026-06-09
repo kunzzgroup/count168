@@ -33,10 +33,10 @@ export function isCitibetCaptureType(captureType) {
   return normalizeCaptureType(captureType) === "CITIBET";
 }
 
-/** Descriptions from modal/global state, with fallback when display text is set but array is empty. */
-export function getActiveDescriptions(descriptionDisplay) {
-  const fromWindow = Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : [];
-  if (fromWindow.length) return fromWindow.filter(Boolean);
+/** Descriptions from Context/modal, with fallback when display text is set but array is empty. */
+export function getActiveDescriptions(descriptionDisplay, selectedDescriptions = null) {
+  const fromContext = Array.isArray(selectedDescriptions) ? selectedDescriptions : [];
+  if (fromContext.length) return fromContext.filter(Boolean);
   const display = String(descriptionDisplay || "").trim();
   if (!display) return [];
   return display

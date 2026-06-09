@@ -5,6 +5,8 @@
 import { resolveDataCaptureGridDimensions } from "../grid/dataCaptureGridMeta.js";
 import { isGroupOnlyProcessId, selectedProcessFromGroupOnlySession } from "./dataCaptureGroupOnlyProcesses.js";
 import { tableSnapshotHasData } from "./dataCaptureTableSnapshot.js";
+import { applyBridgeCaptureType } from "./dataCaptureBridge.js";
+import { callDataCaptureRuntime, getDataCaptureState } from "./dataCaptureRuntime.js";
 
 export const GROUP_ONLY_TABLE_DRAFTS_KEY = "dc_group_only_table_drafts";
 
@@ -99,7 +101,7 @@ export function saveGroupOnlyTableDraftFromCaptureSession(session) {
 }
 
 export function shouldApplyGroupOnlyTableDraft() {
-  if (window.__DC_IS_RESTORING__) return false;
+  if (getDataCaptureState().isRestoring) return false;
   try {
     if (new URLSearchParams(window.location.search).get("restore") === "1") return false;
   } catch {
@@ -114,26 +116,18 @@ export async function restoreGroupOnlyTableDraft(groupId, processKey) {
 
   const draft = readGroupOnlyTableDraft(groupId, processKey);
   if (!draft?.tableData) {
-    window.__DC_CLEAR_CAPTURE_TABLE__?.();
-    window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+    callDataCaptureRuntime("clearCaptureTable");
+    callDataCaptureRuntime("recomputeSubmitState");
     return;
   }
 
   const type = draft.captureType || "1.Text";
-  if (typeof window.__DC_APPLY_CAPTURE_TYPE__ === "function") {
-    window.__DC_APPLY_CAPTURE_TYPE__(type);
-  } else if (typeof window.applyDataCaptureType === "function") {
-    window.applyDataCaptureType(type);
-  }
+  applyBridgeCaptureType(type);
 
   const { rows, cols } = resolveDataCaptureGridDimensions(true);
-  if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
-    await window.__DC_ENSURE_GRID_READY__(rows, cols);
-  }
+  await callDataCaptureRuntime("ensureGridReady", rows, cols);
 
-  if (typeof window.__DC_RESTORE_CAPTURE_TABLE__ === "function") {
-    await window.__DC_RESTORE_CAPTURE_TABLE__(draft.tableData, type);
-  }
+  await callDataCaptureRuntime("restoreCaptureTable", draft.tableData, type);
 
-  window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+  callDataCaptureRuntime("recomputeSubmitState");
 }

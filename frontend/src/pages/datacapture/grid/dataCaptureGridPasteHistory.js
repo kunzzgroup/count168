@@ -1,3 +1,5 @@
+import { notifyPasteUser } from "../lib/dataCaptureBridge.js";
+
 const MAX_HISTORY_SIZE = 50;
 
 export const pasteHistory = [];
@@ -20,7 +22,7 @@ export function hasPasteHistory() {
 
 export function undoLastPaste() {
   if (pasteHistory.length === 0) {
-    window.showNotification?.("No paste operation to undo", "danger");
+    notifyPasteUser("No paste operation to undo", "danger");
     return;
   }
 
@@ -39,5 +41,5 @@ export function undoLastPaste() {
     }
   });
 
-  window.showNotification?.(`Undo completed: ${undoCount} cells restored`, "success");
+  notifyPasteUser(`Undo completed: ${undoCount} cells restored`, "success");
 }

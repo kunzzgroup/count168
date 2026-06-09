@@ -1,16 +1,7 @@
 /**
- * Reset / restore grid snapshot — extracted from js/datacapture.js (Phase 5g).
+ * Reset / restore grid snapshot.
  */
-import { resolveDataCaptureGridDimensions } from "./dataCaptureGridMeta.js";
-
-function activeGridDimensions() {
-  return resolveDataCaptureGridDimensions(window.__DC_IS_GROUP_ONLY_GRID__ === true);
-}
 import { clearAllSelections } from "./dataCaptureGridSelection.js";
-import {
-  clearEditableGridCells,
-  populateGridFromSnapshot,
-} from "./dataCaptureGridSnapshot.js";
 import {
   clearFormatPreviewHtml,
   clearFormatStyles,
@@ -21,24 +12,29 @@ import {
   toggleTableDisplayForFormat,
 } from "../format/dataCaptureFormat.js";
 import { normalizeCaptureType } from "../lib/dataCaptureFormRules.js";
+import { resolveDataCaptureGridDimensions } from "./dataCaptureGridMeta.js";
 import {
   buildFormatPreviewHtmlFromTableSnapshot,
-  snapshotDataCellDomIndex,
+  tableSnapshotHasData,
 } from "../lib/dataCaptureTableSnapshot.js";
+import { callDataCaptureRuntime, getDataCaptureState } from "../lib/dataCaptureRuntime.js";
+
+function activeGridDimensions() {
+  return resolveDataCaptureGridDimensions(getDataCaptureState().isGroupOnlyGrid === true);
+}
 
 function rebuildDefaultColumnHeaders(headerRow, cols) {
   headerRow.innerHTML = "<th></th>";
   for (let j = 0; j < cols; j += 1) {
     const header = document.createElement("th");
     header.textContent = String(j + 1);
-    window.__DC_GRID_ATTACH_COLUMN_HEADER__?.(header);
+    callDataCaptureRuntime("attachColumnHeader", header);
     headerRow.appendChild(header);
   }
 }
 
-export function clearCaptureTableForReset() {
-  clearEditableGridCells();
-
+/** Format / header chrome reset without clearing tbody cell values. */
+export function clearCaptureTableUiAfterGridClear() {
   const tableHeader = document.getElementById("tableHeader");
   if (tableHeader) {
     const headerRow = tableHeader.querySelector("tr");
@@ -77,7 +73,13 @@ export function clearCaptureTableForReset() {
     tablePreviewFormat.style.display = "none";
   }
 
+<<<<<<< HEAD
   const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "1.Text";
+=======
+  showFormatEditableGrid();
+
+  const captureType = callDataCaptureRuntime("getCaptureType") || "1.Text";
+>>>>>>> a889492a0 (274(datacapture pg to react + vite non-legacy))
   if (captureType === "2.Format") {
     clearFormatPreviewHtml();
   }
@@ -96,9 +98,9 @@ export async function restoreCaptureTableFromData(tableData, savedType) {
   const type = normalizeCaptureType(savedType || "1.Text") || "1.Text";
 
   if (!tableData?.rows?.length) {
-    if (type) window.__DC_APPLY_CAPTURE_TYPE__?.(type);
+    callDataCaptureRuntime("applyCaptureType", type);
     const { rows, cols } = activeGridDimensions();
-    window.__DC_ENSURE_GRID_READY__?.(rows, cols);
+    callDataCaptureRuntime("ensureGridReady", rows, cols);
     return;
   }
 
@@ -108,84 +110,34 @@ export async function restoreCaptureTableFromData(tableData, savedType) {
     15,
   );
 
-  if (typeof window.__DC_INITIALIZE_TABLE__ === "function") {
-    window.__DC_INITIALIZE_TABLE__(requiredRows, requiredCols);
-  } else {
-    window.__DC_ENSURE_GRID_READY__?.(requiredRows, requiredCols);
-  }
+  callDataCaptureRuntime("ensureGridReady", requiredRows, requiredCols);
 
   await new Promise((resolve) => {
     setTimeout(resolve, 100);
   });
 
-  const populated = populateGridFromSnapshot(tableData);
+  callDataCaptureRuntime("populateGridFromSnapshot", tableData);
 
-  const tableBody = document.getElementById("tableBody");
-  if (!populated && tableBody) {
-    tableData.rows.forEach((rowData, rowIndex) => {
-      const tableRow = tableBody.children[rowIndex];
-      if (!tableRow) return;
-
-      rowData.forEach((cellData, colIndex) => {
-        if (cellData.type !== "data") return;
-        const domColIndex = snapshotDataCellDomIndex(cellData, colIndex);
-        if (domColIndex == null) return;
-        const cell = tableRow.children[domColIndex];
-        if (!cell || cell.contentEditable !== "true") return;
-
-        cell.removeAttribute("colspan");
-        cell.style.display = "";
-        if (cellData.colspan && cellData.colspan > 1) {
-          cell.setAttribute("colspan", String(cellData.colspan));
-          for (let i = 1; i < cellData.colspan; i += 1) {
-            const hiddenCellIndex = domColIndex + i;
-            if (tableRow.children[hiddenCellIndex]) {
-              tableRow.children[hiddenCellIndex].style.display = "none";
-            }
-          }
-        }
-        cell.textContent = cellData.value || "";
-      });
-    });
-  }
-
-  if (tableBody) {
-    let hasData = false;
-    tableData.rows.forEach((rowData) => {
-      if (hasData) return;
-      rowData.forEach((cellData) => {
-        if (cellData.type === "data" && cellData.value && cellData.value.trim() !== "") {
-          hasData = true;
-        }
-      });
-    });
-
-    if (hasData) {
-      setFormatGridReady(true);
-      try {
-        const html = buildFormatPreviewHtmlFromTableSnapshot(tableData);
-        if (html) {
-          setFormatPreviewHtml(html);
-        }
-        showFormatEditableGrid();
-      } catch {
-        /* ignore */
+  const hasData = tableSnapshotHasData(tableData);
+  if (hasData) {
+    setFormatGridReady(true);
+    try {
+      const html = buildFormatPreviewHtmlFromTableSnapshot(tableData);
+      if (html) {
+        setFormatPreviewHtml(html);
       }
-    } else {
-      setFormatGridReady(false);
-      clearFormatPreviewHtml();
+      showFormatEditableGrid();
+    } catch {
+      /* ignore */
     }
-
-    setTimeout(() => {
-      window.__DC_FIX_CITIBET_AMOUNTS__?.();
-    }, 200);
+  } else {
+    setFormatGridReady(false);
+    clearFormatPreviewHtml();
   }
 
-  if (type) {
-    window.__DC_APPLY_CAPTURE_TYPE__?.(type);
-  }
+  callDataCaptureRuntime("applyCaptureType", type);
 
-  const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || type;
+  const captureType = callDataCaptureRuntime("getCaptureType") || type;
   if (captureType === "2.Format") {
     setTimeout(() => {
       toggleTableDisplayForFormat();

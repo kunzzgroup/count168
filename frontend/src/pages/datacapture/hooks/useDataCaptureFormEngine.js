@@ -1,4 +1,5 @@
 import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   buildDateOptions,
   displayTextFromProcessRow,
@@ -8,6 +9,8 @@ import {
   fetchProcessesByDay,
   getLocalDateString,
 } from "../lib/dataCaptureApi.js";
+import { dataCaptureQueryKeys } from "../lib/dataCaptureApi.js";
+import { dataCaptureScopeCacheKey, dataCaptureScopeIsReady } from "../lib/dataCaptureScope.js";
 import {
   readGroupOnlyProcessPrefs,
   saveGroupOnlyProcessPrefs,
@@ -16,7 +19,16 @@ import {
 import { selectedProcessFromGroupOnlySession } from "../lib/dataCaptureGroupOnlyProcesses.js";
 import { restoreGroupOnlyTableDraft, saveGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
-import { captureTableDataFromDom } from "../lib/dataCaptureTableSnapshot.js";
+import { captureTableSnapshot } from "../lib/dataCaptureTableSnapshot.js";
+import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
+import { getBridgeCaptureType } from "../lib/dataCaptureBridge.js";
+import {
+  callDataCaptureRuntime,
+  getDataCaptureRuntime,
+  getDataCaptureState,
+  registerDataCaptureRuntime,
+  unregisterDataCaptureRuntime,
+} from "../lib/dataCaptureRuntime.js";
 
 const PROCESS_PLACEHOLDER = "Select Process";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
@@ -78,7 +90,7 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
 
     if (pd.description_names) {
       const arr = Array.isArray(pd.description_names) ? pd.description_names : [pd.description_names];
-      window.selectedDescriptions = [...arr];
+      setters.setSelectedDescriptions?.([...arr]);
       setDescriptionDisplay(arr.join(", "));
     }
   }
@@ -109,8 +121,11 @@ function readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData) {
 
 export function useDataCaptureFormEngine(
   captureScope,
-  { applyCompanyOnlyFields = true, selectedGroup = null, scriptsReady = false } = {},
+  { applyCompanyOnlyFields = true, selectedGroup = null, engineReady = false } = {},
 ) {
+  const { setSelectedDescriptions, clearSelectedDescriptions } = useDataCaptureContext();
+  const queryClient = useQueryClient();
+  const scopeKey = dataCaptureScopeCacheKey(captureScope);
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
   const restoredProcessData = useMemo(() => readRestoredProcessData(), []);
@@ -127,18 +142,54 @@ export function useDataCaptureFormEngine(
     if (initialGroupOnlyPrefs?.date) return initialGroupOnlyPrefs.date;
     return defaultDate;
   });
-  const [currencies, setCurrencies] = useState([]);
-  const currenciesRef = useRef([]);
-  currenciesRef.current = currencies;
+  const companyId = captureScope?.scopeCompanyId ?? null;
 
-  const [processRows, setProcessRows] = useState([]);
-  const processRowsRef = useRef([]);
-  processRowsRef.current = processRows;
   const [currencyId, setCurrencyId] = useState(() => {
     if (restoredProcessData?.currency) return String(restoredProcessData.currency);
     if (initialGroupOnlyPrefs?.currency) return String(initialGroupOnlyPrefs.currency);
     return "";
   });
+
+  const companyCurrenciesQuery = useQuery({
+    queryKey: dataCaptureQueryKeys.companyFormCatalog(scopeKey),
+    queryFn: async () => {
+      const result = await fetchAddProcessFormData(captureScope);
+      if (!result.success) return [];
+      const list = Array.isArray(result.currencies) ? result.currencies : [];
+      return list.map((c) => ({
+        id: String(c.id),
+        code: String(c.code || "").trim().toUpperCase(),
+      }));
+    },
+    enabled: Boolean(applyCompanyOnlyFields && companyId && dataCaptureScopeIsReady(captureScope)),
+  });
+
+  const groupCurrenciesQuery = useQuery({
+    queryKey: dataCaptureQueryKeys.groupCurrencies(selectedGroup),
+    queryFn: async () => fetchGroupCaptureCurrencies(selectedGroup),
+    enabled: Boolean(!applyCompanyOnlyFields && selectedGroup),
+  });
+
+  const currencies = applyCompanyOnlyFields
+    ? (companyCurrenciesQuery.data ?? [])
+    : (groupCurrenciesQuery.data ?? []);
+  const currenciesRef = useRef([]);
+  currenciesRef.current = currencies;
+
+  const processesQuery = useQuery({
+    queryKey: dataCaptureQueryKeys.processesByDay(scopeKey, captureDate),
+    queryFn: async () => {
+      const result = await fetchProcessesByDay(captureDate, captureScope);
+      if (!result.success) return [];
+      return Array.isArray(result.data) ? result.data : [];
+    },
+    enabled: Boolean(applyCompanyOnlyFields && companyId && dataCaptureScopeIsReady(captureScope)),
+  });
+
+  const [processRows, setProcessRows] = useState([]);
+  const processRowsRef = useRef([]);
+  processRowsRef.current = processRows;
+
   const [replaceFrom, setReplaceFrom] = useState(() =>
     restoredProcessData?.replaceWordFrom ? String(restoredProcessData.replaceWordFrom).toUpperCase() : "",
   );
@@ -165,7 +216,6 @@ export function useDataCaptureFormEngine(
   selectedGroupRef.current = selectedGroup;
   const selectedProcessRef = useRef(selectedProcess);
   selectedProcessRef.current = selectedProcess;
-  const companyId = captureScope?.scopeCompanyId ?? null;
 
   const companyIdRef = useRef(companyId);
   companyIdRef.current = companyId;
@@ -178,119 +228,88 @@ export function useDataCaptureFormEngine(
   useLayoutEffect(() => {
     const url = new URLSearchParams(window.location.search);
     if (url.get("restore") === "1") {
-      window.__DC_IS_RESTORING__ = true;
+      getDataCaptureState().isRestoring = true;
       if (Array.isArray(restoredProcessData?.descriptions)) {
-        window.selectedDescriptions = [...restoredProcessData.descriptions];
+        setSelectedDescriptions([...restoredProcessData.descriptions]);
       }
     }
-  }, [restoredProcessData]);
+  }, [restoredProcessData, setSelectedDescriptions]);
 
-  const reloadProcessesForDate = useCallback(async (dateStr, options = {}) => {
-    const { preserveSelection = false } = options;
-    if (!applyCompanyOnlyFieldsRef.current) return;
-    const cid = companyIdRef.current;
-    const scope = captureScopeRef.current;
-    if (!cid || !scope) return;
-    const result = await fetchProcessesByDay(dateStr, scope);
-    if (!result.success) return;
-    const rows = Array.isArray(result.data) ? result.data : [];
-    setProcessRows(rows);
-    if (typeof window.syncProcessDataMapFromApiData === "function") {
-      window.syncProcessDataMapFromApiData(rows);
+  const clearProcessFieldsForDateChange = useCallback(() => {
+    setSelectedProcess(null);
+    setCurrencyId("");
+    if (applyCompanyOnlyFieldsRef.current) {
+      setRemoveWord("");
+      setReplaceFrom("");
+      setReplaceTo("");
+      clearSelectedDescriptions();
+      setDescriptionDisplay("");
     }
-    const restoring = window.__DC_IS_RESTORING__ === true;
-    if (!preserveSelection && !restoring) {
-      setSelectedProcess(null);
-      setCurrencyId("");
-      if (applyCompanyOnlyFieldsRef.current) {
-        setRemoveWord("");
-        setReplaceFrom("");
-        setReplaceTo("");
-        window.selectedDescriptions = [];
-        setDescriptionDisplay("");
-      }
-      setRemark("");
-    }
+    setRemark("");
     setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+      callDataCaptureRuntime("recomputeSubmitState");
     }, 0);
-  }, []);
+  }, [clearSelectedDescriptions]);
 
-  const loadInitialForm = useCallback(async () => {
-    if (!applyCompanyOnlyFieldsRef.current) return;
-    const cid = companyIdRef.current;
-    const scope = captureScopeRef.current;
-    if (!cid || !scope) return;
-    const result = await fetchAddProcessFormData(scope);
-    if (!result.success) return;
-    const list = Array.isArray(result.currencies) ? result.currencies : [];
-    const norm = list.map((c) => ({
-      id: String(c.id),
-      code: String(c.code || "").trim().toUpperCase(),
-    }));
-    setCurrencies(norm);
-  }, []);
+  const reloadProcessesForDate = useCallback(
+    async (dateStr, options = {}) => {
+      const { preserveSelection = false } = options;
+      if (!applyCompanyOnlyFieldsRef.current) return;
+      const cid = companyIdRef.current;
+      const scope = captureScopeRef.current;
+      if (!cid || !scope) return;
 
-  const loadGroupOnlyCurrencies = useCallback(async () => {
-    if (applyCompanyOnlyFieldsRef.current) return;
-    const viewGroup = selectedGroupRef.current
-      ? String(selectedGroupRef.current).trim().toUpperCase()
-      : "";
-    if (!viewGroup) {
-      setCurrencies([]);
+      const restoring = getDataCaptureState().isRestoring === true;
+      if (!preserveSelection && !restoring) {
+        clearProcessFieldsForDateChange();
+      }
+
+      const key = dataCaptureQueryKeys.processesByDay(
+        dataCaptureScopeCacheKey(scope),
+        dateStr,
+      );
+      await queryClient.invalidateQueries({ queryKey: key });
+      await queryClient.refetchQueries({ queryKey: key });
+    },
+    [clearProcessFieldsForDateChange, queryClient],
+  );
+
+  useEffect(() => {
+    const rows = processesQuery.data ?? [];
+    setProcessRows(rows);
+  }, [processesQuery.data]);
+
+  useEffect(() => {
+    if (!applyCompanyOnlyFields && !selectedGroup) {
       setCurrencyId("");
-      return;
     }
-    const list = await fetchGroupCaptureCurrencies(viewGroup);
-    setCurrencies(list);
+  }, [applyCompanyOnlyFields, selectedGroup]);
+
+  useEffect(() => {
+    if (applyCompanyOnlyFields || !groupCurrenciesQuery.data?.length) return;
     setCurrencyId((prev) => {
       if (!prev) return "";
-      return list.some((c) => String(c.id) === String(prev)) ? prev : "";
+      return groupCurrenciesQuery.data.some((c) => String(c.id) === String(prev)) ? prev : "";
     });
-  }, []);
+  }, [applyCompanyOnlyFields, groupCurrenciesQuery.data]);
 
-  useEffect(() => {
-    if (applyCompanyOnlyFields) {
-      if (!companyId) {
-        setCurrencies([]);
-        return;
-      }
-      void loadInitialForm();
-      return;
-    }
-    void loadGroupOnlyCurrencies();
-  }, [
-    companyId,
-    applyCompanyOnlyFields,
-    selectedGroup,
-    loadInitialForm,
-    loadGroupOnlyCurrencies,
-  ]);
-
+  const prevCaptureDateRef = useRef(captureDate);
   useEffect(() => {
     if (!companyId || !applyCompanyOnlyFields) return;
-    if (window.__DC_IS_RESTORING__) return;
-    const url = new URLSearchParams(window.location.search);
-    if (url.get("restore") === "1") return;
-    void reloadProcessesForDate(captureDate, { preserveSelection: false });
-  }, [companyId, applyCompanyOnlyFields, captureDate, reloadProcessesForDate]);
+    if (getDataCaptureState().isRestoring) return;
+    try {
+      if (new URLSearchParams(window.location.search).get("restore") === "1") return;
+    } catch {
+      /* ignore */
+    }
+    if (prevCaptureDateRef.current === captureDate) return;
+    prevCaptureDateRef.current = captureDate;
+    clearProcessFieldsForDateChange();
+  }, [companyId, applyCompanyOnlyFields, captureDate, clearProcessFieldsForDateChange]);
 
-  const onDateChange = useCallback(
-    (e) => {
-      const v = e.target.value;
-      setCaptureDate(v);
-      // Defer fetch past the native <select> close + layout (avoids insertBefore issues on touch / async flush).
-      const run = () => void reloadProcessesForDate(v, { preserveSelection: false });
-      if (typeof requestAnimationFrame === "function") {
-        requestAnimationFrame(() => {
-          queueMicrotask(run);
-        });
-      } else {
-        queueMicrotask(run);
-      }
-    },
-    [reloadProcessesForDate]
-  );
+  const onDateChange = useCallback((e) => {
+    setCaptureDate(e.target.value);
+  }, []);
 
   const persistGroupOnlyFormPrefs = useCallback(
     (processOverride = null) => {
@@ -318,12 +337,9 @@ export function useDataCaptureFormEngine(
     };
     const prev = selectedProcessRef.current;
     if (prev?.id && prev.id !== next.id) {
-      const activeCaptureType =
-        typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
-          ? window.__DC_GET_CAPTURE_TYPE__() || "1.Text"
-          : "1.Text";
+      const activeCaptureType = getBridgeCaptureType("1.Text");
       saveGroupOnlyTableDraft(selectedGroupRef.current, prev.id, {
-        tableData: captureTableDataFromDom(activeCaptureType),
+        tableData: captureTableSnapshot(activeCaptureType),
         captureType: activeCaptureType,
       });
     }
@@ -339,7 +355,7 @@ export function useDataCaptureFormEngine(
     setProcessFilter("");
     void restoreGroupOnlyTableDraft(selectedGroupRef.current, next.id);
     setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+      callDataCaptureRuntime("recomputeSubmitState");
     }, 0);
   }, [currencyId, captureDate]);
 
@@ -366,26 +382,27 @@ export function useDataCaptureFormEngine(
           setReplaceTo,
           setRemark,
           setDescriptionDisplay,
+          setSelectedDescriptions,
         },
         currenciesRef.current,
         applyCompanyOnlyFieldsRef.current
       );
     }
     setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+      callDataCaptureRuntime("recomputeSubmitState");
     }, 0);
-  }, []);
+  }, [setSelectedDescriptions]);
 
   const clearCompanyOnlyFields = useCallback(() => {
     setRemoveWord("");
     setReplaceFrom("");
     setReplaceTo("");
-    window.selectedDescriptions = [];
+    clearSelectedDescriptions();
     setDescriptionDisplay("");
     setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+      callDataCaptureRuntime("recomputeSubmitState");
     }, 0);
-  }, []);
+  }, [clearSelectedDescriptions]);
 
   const applyGroupOnlyPrefsForGroup = useCallback((groupId) => {
     if (applyCompanyOnlyFieldsRef.current) return;
@@ -398,7 +415,7 @@ export function useDataCaptureFormEngine(
       void restoreGroupOnlyTableDraft(groupId, proc.id);
     }
     setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+      callDataCaptureRuntime("recomputeSubmitState");
     }, 0);
   }, []);
 
@@ -409,25 +426,25 @@ export function useDataCaptureFormEngine(
       setRemoveWord("");
       setReplaceFrom("");
       setReplaceTo("");
-      window.selectedDescriptions = [];
+      clearSelectedDescriptions();
       setDescriptionDisplay("");
     }
     setRemark("");
     setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+      callDataCaptureRuntime("recomputeSubmitState");
     }, 0);
-  }, []);
+  }, [clearSelectedDescriptions]);
 
   const applyReactFormDefaults = useCallback(() => {
     const today = getLocalDateString();
     setCaptureDate(today);
-    if (applyCompanyOnlyFieldsRef.current) {
-      clearProcessSelection();
-      void reloadProcessesForDate(today, { preserveSelection: false });
-      return;
-    }
     clearProcessSelection();
-  }, [clearProcessSelection, reloadProcessesForDate]);
+    if (applyCompanyOnlyFieldsRef.current) {
+      void queryClient.invalidateQueries({
+        queryKey: dataCaptureQueryKeys.processesByDay(scopeKey, today),
+      });
+    }
+  }, [clearProcessSelection, queryClient, scopeKey]);
 
   const windowHooksRef = useRef({});
   windowHooksRef.current = {
@@ -435,34 +452,11 @@ export function useDataCaptureFormEngine(
     applyReactFormDefaults,
   };
 
+  const applyGroupOnlyPrefsForGroupRef = useRef(applyGroupOnlyPrefsForGroup);
+  applyGroupOnlyPrefsForGroupRef.current = applyGroupOnlyPrefsForGroup;
+
   useLayoutEffect(() => {
-    if (!Array.isArray(window.selectedDescriptions)) {
-      window.selectedDescriptions = [];
-    }
-    window.__DATA_CAPTURE_REACT_FORM__ = true;
-
-    window.__DC_SET_PROCESS_LIST__ = (rows) => {
-      startTransition(() => {
-        setProcessRows(Array.isArray(rows) ? rows : []);
-      });
-    };
-
-    window.__DC_RELOAD_PROCESSES__ = async () => {
-      const el = document.getElementById("capture_date");
-      const d = el?.value || getLocalDateString();
-      await windowHooksRef.current.reloadProcessesForDate(d, { preserveSelection: true });
-    };
-
-    window.__DC_REACT_FORM_RESET__ = () => {
-      windowHooksRef.current.applyReactFormDefaults();
-    };
-
-    window.__DC_ON_DESCRIPTIONS_CONFIRMED__ = (descriptions) => {
-      const arr = Array.isArray(descriptions) ? descriptions : [];
-      setDescriptionDisplay(arr.join(", "));
-    };
-
-    window.__DC_POST_LEGACY_RESTORE_SYNC__ = async (processData) => {
+    const syncRestoreForm = async (processData) => {
       if (!processData) return;
       if (processData.date) setCaptureDate(processData.date);
       if (processData.currency) setCurrencyId(String(processData.currency));
@@ -471,7 +465,7 @@ export function useDataCaptureFormEngine(
       if (processData.replaceWordTo != null) setReplaceTo(String(processData.replaceWordTo).toUpperCase());
       if (processData.remark != null) setRemark(String(processData.remark).toUpperCase());
       if (processData.descriptions && Array.isArray(processData.descriptions)) {
-        window.selectedDescriptions = [...processData.descriptions];
+        setSelectedDescriptions([...processData.descriptions]);
         setDescriptionDisplay(processData.descriptions.join(", "));
       }
 
@@ -519,19 +513,39 @@ export function useDataCaptureFormEngine(
       }
 
       setTimeout(() => {
-        if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+        callDataCaptureRuntime("recomputeSubmitState");
       }, 0);
     };
 
-    return () => {
-      delete window.__DATA_CAPTURE_REACT_FORM__;
-      delete window.__DC_SET_PROCESS_LIST__;
-      delete window.__DC_RELOAD_PROCESSES__;
-      delete window.__DC_REACT_FORM_RESET__;
-      delete window.__DC_ON_DESCRIPTIONS_CONFIRMED__;
-      delete window.__DC_POST_LEGACY_RESTORE_SYNC__;
+    const api = {
+      setProcessList: (processRows) => {
+        startTransition(() => {
+          setProcessRows(Array.isArray(processRows) ? processRows : []);
+        });
+      },
+      reloadProcesses: async () => {
+        const el = document.getElementById("capture_date");
+        const d = el?.value || getLocalDateString();
+        await windowHooksRef.current.reloadProcessesForDate(d, { preserveSelection: true });
+      },
+      reactFormReset: () => {
+        windowHooksRef.current.applyReactFormDefaults();
+      },
+      onDescriptionsConfirmed: (descriptions) => {
+        const arr = Array.isArray(descriptions) ? descriptions : [];
+        setDescriptionDisplay(arr.join(", "));
+      },
+      syncRestoreForm,
+      applyGroupOnlyPersistedForm: async () => {
+        if (applyCompanyOnlyFieldsRef.current) return;
+        const groupId = selectedGroupRef.current;
+        if (groupId) applyGroupOnlyPrefsForGroupRef.current(groupId);
+      },
     };
-  }, []);
+
+    registerDataCaptureRuntime(api);
+    return () => unregisterDataCaptureRuntime(Object.keys(api));
+  }, [setSelectedDescriptions]);
 
   const filteredProcesses = useMemo(() => {
     const q = processFilter.trim().toLowerCase();
@@ -559,16 +573,16 @@ export function useDataCaptureFormEngine(
 
   useEffect(() => {
     if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
-    if (window.__DC_IS_RESTORING__) return;
+    if (getDataCaptureState().isRestoring) return;
     persistGroupOnlyFormPrefs();
   }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, currencyId, captureDate, persistGroupOnlyFormPrefs]);
 
   /** Restore saved group-only table draft when process is pre-selected or grid becomes ready. */
   useEffect(() => {
     if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
-    if (!scriptsReady) return;
-    if (typeof window.__DC_RESTORE_CAPTURE_TABLE__ !== "function") return;
-    if (window.__DC_IS_RESTORING__) return;
+    if (!engineReady) return;
+    if (typeof getDataCaptureRuntime().restoreCaptureTable !== "function") return;
+    if (getDataCaptureState().isRestoring) return;
     try {
       if (new URLSearchParams(window.location.search).get("restore") === "1") return;
     } catch {
@@ -579,22 +593,8 @@ export function useDataCaptureFormEngine(
     applyCompanyOnlyFields,
     selectedGroup,
     selectedProcess?.id,
-    scriptsReady,
+    engineReady,
   ]);
-
-  const applyGroupOnlyPrefsForGroupRef = useRef(applyGroupOnlyPrefsForGroup);
-  applyGroupOnlyPrefsForGroupRef.current = applyGroupOnlyPrefsForGroup;
-
-  useLayoutEffect(() => {
-    window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__ = async () => {
-      if (applyCompanyOnlyFieldsRef.current) return;
-      const groupId = selectedGroupRef.current;
-      if (groupId) applyGroupOnlyPrefsForGroupRef.current(groupId);
-    };
-    return () => {
-      delete window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__;
-    };
-  }, []);
 
   return {
     dateOptions,

@@ -1,10 +1,25 @@
 /**
  * Document-level grid keyboard shortcuts — extracted from js/datacapture.js.
- * Re-run: node frontend/scripts/extract-grid-document-keyboard.mjs
  */
 
+import {
+  gridClearAllSelections,
+  gridCopySelectedCells,
+  gridGetSelectedCellCount,
+  gridGetSelectedCells,
+  gridGetTableActive,
+  gridHasPasteHistory,
+  gridMoveCaretToEnd,
+  gridPasteToSelectedCells,
+  gridRecomputeSubmitState,
+  gridSelectAllCells,
+  gridSetActiveCell,
+  gridSetActiveCellWithoutFocus,
+  gridUndoLastPaste,
+} from "../lib/dataCaptureBridge.js";
+
 function isTableActive() {
-  return window.__DC_GET_TABLE_ACTIVE__?.() ?? false;
+  return gridGetTableActive();
 }
 
 function shouldPreserveCellCase() {
@@ -13,51 +28,51 @@ function shouldPreserveCellCase() {
 }
 
 function hasPasteHistory() {
-  return window.__DC_HAS_PASTE_HISTORY__?.() ?? false;
+  return gridHasPasteHistory();
 }
 
 function undoLastPaste() {
-  window.__DC_UNDO_LAST_PASTE__?.();
+  gridUndoLastPaste();
 }
 
 function clearAllSelections() {
-  window.__DC_CLEAR_ALL_SELECTIONS__?.();
+  gridClearAllSelections();
 }
 
 function getSelectedCells() {
-  return window.__DC_GET_SELECTED_CELLS__?.() ?? [];
+  return gridGetSelectedCells();
 }
 
 function getSelectedCellCount() {
-  return window.__DC_GET_SELECTED_CELL_COUNT__?.() ?? 0;
+  return gridGetSelectedCellCount();
 }
 
 function setActiveCellWithoutFocus(cell) {
-  window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS__?.(cell);
+  gridSetActiveCellWithoutFocus(cell);
 }
 
 function setActiveCell(cell) {
-  window.__DC_SET_ACTIVE_CELL__?.(cell);
+  gridSetActiveCell(cell);
 }
 
 function moveCaretToEnd(cell) {
-  window.__DC_MOVE_CARET_TO_END__?.(cell);
+  gridMoveCaretToEnd(cell);
 }
 
 function recomputeSubmitState() {
-  window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+  gridRecomputeSubmitState();
 }
 
 function selectAllCells() {
-  window.selectAllCells?.();
+  gridSelectAllCells();
 }
 
 function copySelectedCells() {
-  window.copySelectedCells?.();
+  gridCopySelectedCells();
 }
 
 function pasteToSelectedCells() {
-  window.pasteToSelectedCells?.();
+  gridPasteToSelectedCells();
 }
 
 export function handleDocumentGridKeydown(e) {

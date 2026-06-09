@@ -159,10 +159,14 @@ function weekPeriodEndInclusiveYmd(string $periodStartYmd): ?string
     }
 }
 
-/** 下一期起点 = 上一期结束日（连续周，如 5/28–6/3 后接 6/3–6/9）。 */
+/** 下一期起点 = 上一期结束日次日（周期间不重叠，如 6/1–6/7 后接 6/8–6/14）。 */
 function weekPeriodNextStartYmd(string $currentPeriodStartYmd): ?string
 {
-    return weekPeriodEndInclusiveYmd($currentPeriodStartYmd);
+    try {
+        return (new DateTimeImmutable($currentPeriodStartYmd))->modify('+7 days')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
 }
 
 /** 非 Resend：仅当今天 >= 周期开始日，该周才进入 Accounting Due / 允许入账（例：6/1–6/7 在 6/1 出现）。 */

@@ -1,12 +1,15 @@
-import { convertBracketedToNegative } from "./dataCaptureBracket.js";
+import { convertBracketedToNegative } from "../grid/gridModel.js";
+import { readGridFromDom } from "../grid/gridDomAdapter.js";
 import { normalizeStoredCaptureType } from "./dataCaptureStorage.js";
+import { getBridgeCaptureType, getPasteGridModel, syncBridgeGridFromDom } from "./dataCaptureBridge.js";
+import { gridModelHasEditableData, gridToSnapshot } from "../grid/gridModel.js";
 
 const FORMAT_LABEL_FIRST_COLUMNS = new Set(["AGENT", "PLAYER", "MEMBER", "USER"]);
 
 function resolveSnapshotCaptureType(captureType) {
   return (
     normalizeStoredCaptureType(captureType) ||
-    normalizeStoredCaptureType(window.__DC_GET_CAPTURE_TYPE__?.()) ||
+    normalizeStoredCaptureType(getBridgeCaptureType("")) ||
     "1.Text"
   );
 }
@@ -154,6 +157,31 @@ export function captureTableDataFromDom(captureType) {
   return tableData;
 }
 
+/**
+ * Build a submit/validation snapshot from the grid.
+ * @param {object} [options]
+ * @param {boolean} [options.commitModel=false] When true, sync live DOM into React model first.
+ *   Use true only before submit/convert; keep false for submit-state recompute while typing.
+ */
+export function captureTableSnapshot(captureType, grid = null, options = {}) {
+  const { commitModel = false } = options;
+  const resolvedType = resolveSnapshotCaptureType(captureType);
+
+  if (commitModel) {
+    syncBridgeGridFromDom();
+  }
+
+  const workingGrid = grid ?? getPasteGridModel();
+  if (workingGrid) {
+    const sourceGrid = commitModel
+      ? workingGrid
+      : readGridFromDom(workingGrid.rows, workingGrid.cols);
+    return gridToSnapshot(sourceGrid, resolvedType);
+  }
+
+  return captureTableDataFromDom(resolvedType);
+}
+
 export function tableSnapshotHasData(tableData) {
   if (!tableData?.rows?.length) return false;
   return tableData.rows.some((row) => rowHasSnapshotData(row));
@@ -228,10 +256,17 @@ export function buildFormatPreviewHtmlFromTableSnapshot(tableData) {
   return html;
 }
 
-export function domGridHasEditableData() {
+function domGridHasEditableDataFromDom() {
   const tableBody = document.getElementById("tableBody");
   if (!tableBody) return false;
   return Array.from(tableBody.querySelectorAll('td[contenteditable="true"]')).some((cell) =>
-    String(cell.textContent || "").trim()
+    String(cell.textContent || "").trim(),
   );
+}
+
+/** Whether the grid has any non-empty cell — grid model first in pure-react, then DOM. */
+export function domGridHasEditableData() {
+  const grid = getPasteGridModel();
+  if (grid && gridModelHasEditableData(grid)) return true;
+  return domGridHasEditableDataFromDom();
 }
