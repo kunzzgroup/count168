@@ -23,6 +23,8 @@ import { mergeEarningsByCurrency, mergeGroupData } from "../../../utils/dashboar
 import {
   convertToBaseAmount,
   fetchFrankfurterRates,
+  frankfurterMissingQuotes,
+  frankfurterRatesCoverQuotes,
   peekFrankfurterRatesCacheOrDerived,
   resolveFrankfurterDate,
   sumConvertedEarnings,
@@ -472,6 +474,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const dashboardFetchInFlightScopeRef = useRef("");
   const previousPeriodFetchGenRef = useRef(0);
   const previousPeriodInFlightRef = useRef("");
+  const exchangeRatesFetchGenRef = useRef(0);
   const chartDailyFetchGenRef = useRef(0);
   const chartDailyInFlightRef = useRef("");
   const loadDashboardTriggerKeyRef = useRef("");
@@ -3653,36 +3656,48 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
 
     let cancelled = false;
+    const gen = ++exchangeRatesFetchGenRef.current;
     const rateDate = resolveFrankfurterDate(dateTo);
     const cached = peekFrankfurterRatesCacheOrDerived(rateBase, currencies, rateDate);
+    const cachedReady =
+      cached && frankfurterRatesCoverQuotes(rateBase, currencies, cached.rates);
 
-    if (cached) {
-      setExchangeRates({ rates: cached.rates, date: cached.date, unsupported: cached.unsupported });
+    if (cachedReady) {
+      setExchangeRates({
+        rates: cached.rates,
+        date: cached.date,
+        unsupported: frankfurterMissingQuotes(rateBase, currencies, cached.rates),
+      });
       setExchangeRatesError("");
       setExchangeRatesLoading(false);
     } else {
+      setExchangeRates({ rates: { [rateBase]: 1 }, date: null, unsupported: [] });
       setExchangeRatesLoading(true);
       setExchangeRatesError("");
     }
 
     (async () => {
       try {
-        const { rates, date, unsupported } = await fetchFrankfurterRates(
-          rateBase,
-          currencies,
-          rateDate
-        );
-        if (!cancelled) {
-          setExchangeRates({ rates, date, unsupported });
-          setExchangeRatesError("");
-        }
+        const { rates, date } = await fetchFrankfurterRates(rateBase, currencies, rateDate);
+        if (cancelled || gen !== exchangeRatesFetchGenRef.current) return;
+        setExchangeRates({
+          rates,
+          date,
+          unsupported: frankfurterMissingQuotes(rateBase, currencies, rates),
+        });
+        setExchangeRatesError("");
       } catch {
-        if (!cancelled) {
-          setExchangeRates({ rates: { [rateBase]: 1 }, date: null, unsupported: currencies });
-          setExchangeRatesError("failed");
-        }
+        if (cancelled || gen !== exchangeRatesFetchGenRef.current) return;
+        setExchangeRates({
+          rates: { [rateBase]: 1 },
+          date: null,
+          unsupported: frankfurterMissingQuotes(rateBase, currencies, { [rateBase]: 1 }),
+        });
+        setExchangeRatesError("failed");
       } finally {
-        if (!cancelled) setExchangeRatesLoading(false);
+        if (!cancelled && gen === exchangeRatesFetchGenRef.current) {
+          setExchangeRatesLoading(false);
+        }
       }
     })();
 
@@ -4960,7 +4975,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       codes: foreignCodes.join(", "),
       date: dateLabel,
     });
-    if (exchangeRates.unsupported?.length) {
+    const missingQuotes = frankfurterMissingQuotes(
+      displayCurrencyCode,
+      currencies,
+      exchangeRates.rates
+    );
+    if (missingQuotes.length) {
       text += ` · ${i18n.rateUnavailable}`;
     }
     return text;
@@ -4970,7 +4990,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     exchangeRatesLoading,
     exchangeRatesError,
     exchangeRates.date,
-    exchangeRates.unsupported,
+    exchangeRates.rates,
     i18n,
   ]);
 

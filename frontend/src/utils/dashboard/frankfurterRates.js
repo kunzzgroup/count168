@@ -82,6 +82,27 @@ function normalizeFrankfurterQuotes(baseCode, quoteCodes) {
   )];
 }
 
+/** True when every foreign quote has a positive rate for `base`. */
+export function frankfurterRatesCoverQuotes(base, quoteCodes, rates) {
+  const baseCode = String(base || "").trim().toUpperCase();
+  if (!baseCode || !rates?.[baseCode] || rates[baseCode] <= 0) return false;
+  const quotes = normalizeFrankfurterQuotes(baseCode, quoteCodes);
+  if (!quotes.length) return true;
+  return quotes.every((quote) => {
+    const rate = rates[quote];
+    return rate && rate > 0;
+  });
+}
+
+/** Foreign quotes missing from a Frankfurter base→quote rate map. */
+export function frankfurterMissingQuotes(base, quoteCodes, rates) {
+  const baseCode = String(base || "").trim().toUpperCase();
+  return normalizeFrankfurterQuotes(baseCode, quoteCodes).filter((quote) => {
+    const rate = rates?.[quote];
+    return !rate || rate <= 0;
+  });
+}
+
 /** Re-base Frankfurter multipliers (1 sourceBase = rate[quote] quote). */
 export function deriveFrankfurterRates(newBase, sourceRates, sourceBase, quoteCodes) {
   const targetBase = String(newBase || "").trim().toUpperCase();
