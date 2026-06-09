@@ -144,6 +144,34 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
     }
 }
 
+/**
+ * Inbox / 入账：合并 Resend 暂存列；仅当 relax=0 时恢复库内持久 day_start/day_end/frequency。
+ *
+ * @param array<string,mixed> $row
+ * @return array<string,mixed>
+ */
+if (!function_exists('bmp_finalizeBankProcessRowForAccounting')) {
+    function bmp_finalizeBankProcessRowForAccounting(array $row, bool $hasFrequency = true): array
+    {
+        $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
+        $relaxActive = !empty($row['accounting_resend_relax_created_floor']);
+        if (!$relaxActive) {
+            $merged['day_start'] = $row['day_start'] ?? null;
+            $merged['day_end'] = $row['day_end'] ?? null;
+            if ($hasFrequency) {
+                $merged['day_start_frequency'] = $row['day_start_frequency'] ?? '1st_of_every_month';
+            }
+            $merged['accounting_resend_relax_created_floor'] = 0;
+            unset(
+                $merged['accounting_resend_consolidated_range'],
+                $merged['accounting_resend_single_period_from_schedule'],
+                $merged['bank_process_stored_day_start']
+            );
+        }
+        return $merged;
+    }
+}
+
 if (!function_exists('bmp_normalizePeriodType')) {
     function bmp_normalizePeriodType(?string $raw): string
     {

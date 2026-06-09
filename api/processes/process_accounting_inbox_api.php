@@ -780,22 +780,7 @@ function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFre
     $stmt->execute([$companyId]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $i => $row) {
-        $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
-        // 强制走正常出账：忽略 Resend 覆盖，恢复流程原始 day_start/day_end/frequency。
-        $merged['day_start'] = $row['day_start'] ?? null;
-        $merged['day_end'] = $row['day_end'] ?? null;
-        if ($hasFrequency) {
-            $merged['day_start_frequency'] = $row['day_start_frequency'] ?? '1st_of_every_month';
-        }
-        $merged['accounting_resend_relax_created_floor'] = 0;
-        unset(
-            $merged['accounting_resend_consolidated_range'],
-            $merged['accounting_resend_single_period_from_schedule'],
-            $merged['accounting_resend_schedule_day_start'],
-            $merged['accounting_resend_schedule_day_end'],
-            $merged['accounting_resend_schedule_frequency']
-        );
-        $rows[$i] = $merged;
+        $rows[$i] = bmp_finalizeBankProcessRowForAccounting($row, $hasFrequency);
     }
     return $rows;
 }
@@ -1284,9 +1269,9 @@ try {
             if ($resendSinglePeriod) {
                 $due = $startDate;
                 $periodEnd = weekPeriodEndInclusiveYmd($due);
+                // Resend 单期：只开弹窗锚点那一周，不按「今天所在月」过滤（未来周如 6/16 在 6/9 也应出现）。
                 if ($periodEnd !== null
                     && weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax)
-                    && weekPeriodOverlapsCalendarMonth($due, $periodEnd, $todayYear, $todayMonth)
                     && !hasWeeklyPostedForPeriodStart($pdo, $company_id, $processIdWeek, $due)) {
                     inboxAppendWeeklyNeedToday($needToday, $r, $due, $baseCost, $basePrice, $baseProfit);
                 }

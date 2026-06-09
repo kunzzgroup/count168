@@ -785,21 +785,7 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $merged = bmp_mergeResendScheduleIntoBankProcessRowForAccounting($row);
-        // 与 process_accounting_inbox_api 一致：Accounting Due 入账用库内真实 day_start/day_end/frequency，勿用 Resend 暂存覆盖。
-        $merged['day_start'] = $row['day_start'] ?? null;
-        $merged['day_end'] = $row['day_end'] ?? null;
-        if ($hasFrequency) {
-            $merged['day_start_frequency'] = $row['day_start_frequency'] ?? '1st_of_every_month';
-        }
-        $merged['accounting_resend_relax_created_floor'] = 0;
-        unset(
-            $merged['accounting_resend_consolidated_range'],
-            $merged['accounting_resend_single_period_from_schedule'],
-            $merged['accounting_resend_schedule_day_start'],
-            $merged['accounting_resend_schedule_day_end'],
-            $merged['accounting_resend_schedule_frequency']
-        );
+        $merged = bmp_finalizeBankProcessRowForAccounting($row, $hasFrequency);
         $byId[(int) $merged['id']] = $merged;
     }
     return $byId;
