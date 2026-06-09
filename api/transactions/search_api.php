@@ -2260,6 +2260,12 @@ try {
             $dispAccountId = (string) ($account['account_id'] ?? '');
         }
 
+        // Default list: omit balance 0.00 unless Show Payment Only (show_inactive) is on.
+        // Show Win/Loss Only / Show 0 balance are applied on the client; hide_zero_balance=0 skips this.
+        if ($hide_zero_balance && !$show_inactive && !searchMoneyNonZero($balance)) {
+            continue;
+        }
+
         $results[] = [
             'account_id' => $dispAccountId,
             'account_name' => $account['name'],
