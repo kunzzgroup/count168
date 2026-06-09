@@ -19,7 +19,8 @@
 | 当月过滤 | **上个月及更早不算**；只算 `max(day_start, 当月1号)` ～ **今天**（含今天） |
 | 首次积压 / 补账 | 当月从计费起点起有 **连续多日** 未入账 → **合并成一笔** Due，**日期列显示今天**，金额为 `单日全额 × 天数` |
 | 合并入账之后 | 仅余 **1 天** 未入账时 → **单日一笔**；`transaction_date` = 该天 |
-| Resend | **一律合并**当月所有未入账天数为一笔，展示日期 = 今天 |
+| Resend（弹窗填了 `day_start`） | **单期**：只补弹窗指定 **那一天**；**不受「今天」上限**；入账后 **不回扫**库里原始 `day_start` |
+| Resend（未指定单期 / 非 relax 单期） | 日常逻辑：当月积压仍可 **合并** 为一笔 |
 | 表单选项顺序 | `1st_of_every_month` → `monthly` → `week` → **`day`** → `once` |
 | Day end | **不必填**；选 Day 时前端应 **禁用** 并提交空值 |
 | Contract | **不必填**；选 Day 时前端应 **禁用** 并提交空值 |
@@ -55,6 +56,17 @@
 6/1–6/9 已合并入账；6/10、6/11 都未入，今天 6/12：
 
 - 未入账 = `[6/10, 6/11]`，首日 `6/10 ≠ effectiveStart(6/1)` → **只列最早一天 6/10**（不合并）
+
+### 1.5 Resend 单期（重要：只补指定一日，入账后不回扫原始 day_start）
+
+**业务要求**：Resend 弹窗选 Day 并填某日（如 **6/16**）→ 只补 **该自然日**；**不必是今天**；入账后结束，**不得**立刻按库里真实 `day_start` 从当月 1 号补历史天。
+
+| 场景 | 库里真实 `day_start` | Resend 弹窗 | 今天 | Resend 期间 Due | 入账后 Due（正确） |
+|------|----------------------|-------------|------|-----------------|-------------------|
+| 补 6/16 单日 | 6/1 | 6/16，Frequency=Day | 6/9 | **1 行**：`start_date = 16/06/2026`，单日全额 | **空**（不出现 6/1–6/15 积压） |
+| 误期行为（已修复前） | 6/1 | 6/16 | 6/9 | Due **空**（`effectiveEnd=today` 且 6/16>今天） | 或入账后又从 6/1 合并补账 |
+
+弹窗 `day_start` / `frequency` **不写入** `bank_process`（与 Edit Process 分离）；relax 期间由暂存列覆盖计算。
 
 ---
 
@@ -129,7 +141,8 @@ if (frequency === 'day') {
 - Frequency 下拉包含 `day`（在 `week` 之后）
 - Day / Week / Monthly / Once：**禁用 Day end**，提交时 `day_end: null`
 - 请求 `resend_accounting_due_api.php` 时 `day_start_frequency` 可为 `day`
-- Resend 后 Inbox 对 Day 流程 **合并为一笔**（非 Week 式多行）
+- **单期 Resend**（弹窗填了 `day_start`）：Due **只 1 行**、对应该自然日；**不要求**该日 ≤ 今天
+- 弹窗参数仅本次 Resend 有效，**不 UPDATE** `bank_process` 持久字段
 
 ### 3.3 Accounting Due 弹窗
 
@@ -185,9 +198,9 @@ billing_months[] = 2026-06-10
 | 更新 Process | `api/processes/processlist_api.php?action=update_process` | 同上 |
 | Accounting Due 列表 | `api/processes/process_accounting_inbox_api.php` | 核心排队；返回 `is_daily`、`is_daily_consolidated`、`daily_billing_start/end`、`start_date` |
 | 周期工具 | `api/processes/contract_billing_addon.php` | `dailyNextDayYmd`、`dailyAmountsForDayCount`、`dailyParseConsolidatedBillingRange` 等 |
-| 入账 Transaction | `api/processes/process_post_to_transaction_api.php` | `daily` / `daily_consolidated`；合并时金额 × 天数；PAP 按天写入 |
+| 入账 Transaction | `api/processes/process_post_to_transaction_api.php` | `daily` / `daily_consolidated`；**Daily Resend 单期入账后**写 `daily_skipped` 抑制历史 backlog（见 §5.5、§6.4） |
 | 从 Due 删除 | `api/processes/dismiss_accounting_due_api.php` | 合并删除时对区间每天写 `daily_skipped` |
-| Resend | `api/bankprocess_maintenance/resend_accounting_due_api.php` | 允许 `day`；`day_end` 置 null |
+| Resend | `api/bankprocess_maintenance/resend_accounting_due_api.php` | 允许 `day`；`day_end` 置 null；**Day 时只删** `posted_date = 弹窗 day_start` 的 `daily` / `daily_skipped` |
 | Resend 库 | `api/bankprocess_maintenance/maintenance_accounting_resend_lib.php` | `bmp_normalizePeriodType` 识别 `daily` / `daily_consolidated` |
 | Payment History 描述 | `api/transactions/bank_process_bill_display.php` | `bankProcessDailyHistoryDescription()` |
 | History 展示 | `api/transactions/history_api.php` | `period_type === 'daily'` 或 `daily_consolidated` 时用 DAY 文案 |
@@ -209,10 +222,11 @@ $unpostedDays = dailyCollectUnpostedDaysInRange($pdo, $companyId, $processId, $e
 
 **注意**：`dailyCollectUnpostedDaysInRange` **不使用** `dts_created` 过滤；跨月截断仅由 `effectiveStart` 保证。
 
-### 5.2 合并 vs 单日
+### 5.2 合并 vs 单日（日常模式；单期 Resend 见 §5.5，不走本段）
 
 ```php
-$forceConsolidated = $resendRelax; // Resend 一律合并
+// 单期 Resend 已在前面 return：只 inboxAppendDailyNeedToday(弹窗日)
+$forceConsolidated = $resendRelax && !$resendSinglePeriod; // relax 且非单期时可合并
 $isCatchUpBatch    = count($unpostedDays) > 1 && $unpostedDays[0] === $effectiveStart;
 
 if ($forceConsolidated || $isCatchUpBatch) {
@@ -272,14 +286,45 @@ if ($forceConsolidated || $isCatchUpBatch) {
 - 务必用 `is_daily` / `is_daily_consolidated` 识别，**不要**把 `monthly_billing_month` 当自然月 `Y-n` 解析
 - 合并行的 `monthly_billing_month` 格式为 **`start|end`**（`Y-m-d|Y-m-d`）
 
-### 5.5 已入账标记
+### 5.5 Resend 模式
+
+#### 排队（Inbox）
+
+当 `accounting_resend_single_period_from_schedule = 1` 且 `frequency = day`：
+
+```php
+// 只查弹窗锚点一日；不走 effectiveEnd = today，不 forceConsolidated
+if (!hasDailyPostedOrSkippedForDay(..., $startDate)) {
+    inboxAppendDailyNeedToday(..., $startDate, ...);
+}
+```
+
+| 模式 | Due 行为 |
+|------|----------|
+| **单期 Resend**（弹窗填 `day_start`） | **1 行单日**；锚点 = 弹窗日；未来日也可出现 |
+| 日常 / relax 非单期 | 仍用 `effectiveStart`～`today`；积压可 **合并** |
+
+#### Resend 清除 posted（`resend_accounting_due_api.php`）
+
+| frequency | 清除范围 |
+|-----------|----------|
+| `day` | **仅** `period_type IN ('daily','daily_skipped')` 且 `posted_date = 弹窗 day_start` |
+| 其他（无 day_end 区间） | 弹窗 `day_start` **所在自然月** 的全部 posted |
+
+#### Resend 单期入账后（`process_post_to_transaction_api.php`）
+
+清 relax **之前**调用 `txnRecordDailySkippedBeforeResendAnchor()`：对「库里真实 `day_start` → Resend 锚点之前」每个尚无 `daily` / `daily_skipped` 的自然日写 **`daily_skipped`**。
+
+**回归警示**：若 Inbox 仍用 `effectiveEnd = today`，Resend 未来日（如今天 6/9、补 6/16）会得到 **Due 空**；若入账后未写 `daily_skipped` 就清 relax，会从原始 `day_start` 再排出合并/单日 backlog。
+
+### 5.6 已入账标记
 
 `markAlreadyPostedOnNeedToday()`：
 
 - **单日**：`hasDailyPostedOrSkippedForDay(processId, daily_billing_start)`
 - **合并**：对 `dailyParseConsolidatedBillingRange(monthly_billing_month)` 区间内逐日检查；全部已有 PAP 则 `already_posted_today = true`
 
-### 5.6 Inbox 去重
+### 5.7 Inbox 去重
 
 `needToday` 去重时 Day 行须：
 
@@ -328,6 +373,27 @@ Profit Sharing：合并账按折算后 `profit` 与原始 `profit` 比例分摊�
 process_id + daily + billing_month(YYYY-MM-DD)
 process_id + daily_consolidated + billing_month(YYYY-MM-DD|YYYY-MM-DD)
 ```
+
+### 6.4 Daily Resend 单期入账后的 `daily_skipped`（必读）
+
+触发条件：`period_type === 'daily'` + `accounting_resend_single_period_from_schedule` + `frequency === 'day'` + 清 relax 前。
+
+```php
+txnRecordDailySkippedBeforeResendAnchor(
+    $pdo, $companyId, $processId,
+    $storedDayStartYmd,   // bank_process_stored_day_start
+    $resendAnchorYmd,     // billing_months[] / 弹窗 day_start
+    $hasPeriodType
+);
+```
+
+示例（库里 `day_start = 2026-06-01`，Resend `2026-06-16` 并入账，今天 = 6/9）：
+
+| 自然日 | 入账后 PAP |
+|--------|------------|
+| 2026-06-01 … 2026-06-15 | `daily_skipped`（抑制 backlog） |
+| 2026-06-16 | `daily`（本次 Resend 入账） |
+| 2026-06-17 及以后 | 无；按正常 Day 规则待日到期后再入列 |
 
 ---
 
@@ -397,6 +463,10 @@ Inbox 内保留：
 | 合并账 `transaction_date` 写成区间首日 | History 日期与「展示在今天」不符 |
 | 前端传 `period_type=monthly` | 金额不按天累乘，逻辑错乱 |
 | 把 `monthly_billing_month` 当 `Y-n` 自然月 | 合并锚点 `2026-06-01\|2026-06-09` 解析失败 |
+| Resend 单期仍用 `effectiveEnd = today` | 弹窗未来日（6/16、今天 6/9）→ Due **空** |
+| Resend 入账后未写 `daily_skipped` 就清 relax | 从库里 `day_start` 再排出 6/1–6/15 合并/单日 |
+
+修改 `process_accounting_inbox_api.php`、`process_post_to_transaction_api.php`、`resend_accounting_due_api.php` 时，须用 §1.5 回归：**Resend 6/16（今天 6/9）→ Due 1 行 → 入账 → Due 空**。
 
 ---
 
@@ -410,7 +480,11 @@ Inbox 内保留：
 - [ ] 入账后 Inbox 该行消失；History **仅 1 条**：`DAY (01/06/2026 - 09/06/2026) @ 90`，日期 **09/06/2026**
 - [ ] 次日仅 `6/10` 未入 → 1 行单日，`period_types[]=daily`，`billing_months[]=2026-06-10`
 - [ ] Delete 合并行后，区间内每日均有 `daily_skipped`，不再出现
-- [ ] Resend 可选 `day`，Day end 禁用；Due 合并为一笔
+- [ ] Resend 可选 `day`，Day end 禁用
+- [ ] **Resend Day 单期**：库里 `day_start=6/1`，弹窗 Resend `6/16`、今天 `6/9` → Due **1 行** `16/06/2026`
+- [ ] **Resend Day 入账后**：Due **为空**，**不**再出现 6/1–6/15 合并或单日 backlog
+- [ ] **Resend Day 清除**：只删 `posted_date=6/16` 的 daily 记录，同月其他天 **保留**（若曾入账）
+- [ ] `process_accounting_posted` 中早于 Resend 锚点的自然日存在 `daily_skipped`（入账后检查）
 
 ---
 
@@ -439,7 +513,8 @@ Inbox 内保留：
 | 周期 | 7 天 | 1 天 |
 | 金额 | 整周全额 | 单日全额（合并时 × 天数） |
 | Due 多行（非 Resend） | 最早未结清 **一周** | 合并 **或** 最早 **一天** |
-| Resend | 可多周多行 | **始终合并** |
+| Resend 单期 | 只列弹窗那一周 | **只列弹窗那一日**（单日，非合并） |
+| Resend 非单期 / 日常积压 | 可多周多行 | 当月未入账天可 **合并** |
 | `billing_months[]` | 周期起点 `Y-m-d` | 单日 `Y-m-d`；合并 `start\|end` |
 | Due 日期列 | 周起点 | 合并=**今天**；单日=账单日 |
 | PAP `posted_date` | 周起点 | **每个自然日** |
@@ -450,5 +525,6 @@ Inbox 内保留：
 
 - 功能：**Bank Process Frequency = Day**
 - `day_start_frequency` 枚举：`1st_of_every_month` | `monthly` | `week` | **`day`** | `once`
-- 本文档与当前 `api/processes/process_accounting_inbox_api.php` 实现一致（含合并补账 `isCatchUpBatch` 规则）
-- 若调整 Day 规则，请同步更新本文档与 PHP 前端 `period_types[]` / `billing_months[]` 传参约定
+- **2026-06**：修复 Daily Resend 单期——Inbox 只列弹窗指定日（不受今天限制）；Resend 清除按日精确删；入账后写 `daily_skipped` 抑制回扫原始 `day_start`（§1.5、§5.5、§6.4）
+- 本文档与当前 `process_accounting_inbox_api.php`、`process_post_to_transaction_api.php`、`resend_accounting_due_api.php` 实现一致（含日常合并补账 `isCatchUpBatch` 规则）
+- 若调整 Day / Resend 规则，请同步更新本文档与 PHP 前端 `period_types[]` / `billing_months[]` 传参约定

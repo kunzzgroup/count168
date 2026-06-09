@@ -276,6 +276,27 @@ try {
                AND DATE(posted_date) = ?"
         );
         $delAnchorConsolidated->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+        $removedPap = $delMonthPap->rowCount();
+    } elseif ($scheduleFromClient && $newFrequency === 'week') {
+        // Week：仅清除该周锚点的 weekly / weekly_skipped，避免按整月误删同月其他周。
+        $delWeekPap = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND period_type IN ('weekly','weekly_skipped')
+               AND DATE(posted_date) = ?"
+        );
+        $delWeekPap->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+        $removedPap = $delWeekPap->rowCount();
+    } elseif ($scheduleFromClient && $newFrequency === 'day') {
+        // Day：仅清除该自然日的 daily / daily_skipped，避免按整月误删同月其他天。
+        $delDayPap = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND period_type IN ('daily','daily_skipped')
+               AND DATE(posted_date) = ?"
+        );
+        $delDayPap->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+        $removedPap = $delDayPap->rowCount();
     } else {
         // 仅清除 day_start 所在月份的 posted 标记，避免一次 Resend 把整合同期都补回。
         // 兜底：
@@ -297,8 +318,8 @@ try {
                AND DATE(posted_date) = ?"
         );
         $delAnchorConsolidated->execute([$company_id, $bankProcessId, $effectiveDayStartYmd]);
+        $removedPap = $delMonthPap->rowCount();
     }
-    $removedPap = $delMonthPap->rowCount();
 
     $delPend = $pdo->prepare(
         'DELETE FROM bank_process_maintenance_resend_pending WHERE company_id = ? AND bank_process_id = ?'

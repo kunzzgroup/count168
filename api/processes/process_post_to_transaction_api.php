@@ -941,6 +941,126 @@ function txnRecordMonthlySkippedCoveringConsolidatedRange(
     }
 }
 
+/** 与 Inbox hasWeeklyPostedForPeriodStart：该周周期起点是否已入账或已跳过。 */
+function txnIsWeeklyPostedOrSkippedForPeriodStart(PDO $pdo, int $companyId, int $processId, string $periodStartYmd): bool
+{
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return false;
+        }
+        if (!tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
+            return false;
+        }
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?)
+               AND period_type IN ('weekly','weekly_skipped')
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $periodStartYmd]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Weekly Resend 单期入账后：对「库里真实 day_start → Resend 锚点之前」的标准周写 weekly_skipped，
+ * 避免清除 relax 后 Inbox 从原始锚点再排出历史 backlog。
+ */
+function txnRecordWeeklySkippedBeforeResendAnchor(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $storedDayStartYmd,
+    string $resendAnchorYmd,
+    bool $hasPeriodType
+): void {
+    if (!$hasPeriodType) {
+        return;
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedDayStartYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchorYmd)) {
+        return;
+    }
+    if ($storedDayStartYmd >= $resendAnchorYmd) {
+        return;
+    }
+    $due = $storedDayStartYmd;
+    $guard = 0;
+    while ($due !== '' && $due < $resendAnchorYmd && $guard < 520) {
+        if (!txnIsWeeklyPostedOrSkippedForPeriodStart($pdo, $companyId, $processId, $due)) {
+            recordProcessAccountingPosted($pdo, $companyId, $processId, $due, 'weekly_skipped', $hasPeriodType);
+        }
+        $next = weekPeriodNextStartYmd($due);
+        if ($next === null || $next === $due) {
+            break;
+        }
+        $due = $next;
+        $guard++;
+    }
+}
+
+/** 与 Inbox hasDailyPostedOrSkippedForDay：该自然日是否已入账或已跳过。 */
+function txnIsDailyPostedOrSkippedForDay(PDO $pdo, int $companyId, int $processId, string $dayYmd): bool
+{
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return false;
+        }
+        if (!tableHasColumn($pdo, 'process_accounting_posted', 'period_type')) {
+            return false;
+        }
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?)
+               AND period_type IN ('daily','daily_skipped')
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $dayYmd]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * Daily Resend 单期入账后：对「库里真实 day_start → Resend 锚点之前」的自然日写 daily_skipped，
+ * 避免清除 relax 后 Inbox 从原始锚点再排出历史 backlog。
+ */
+function txnRecordDailySkippedBeforeResendAnchor(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $storedDayStartYmd,
+    string $resendAnchorYmd,
+    bool $hasPeriodType
+): void {
+    if (!$hasPeriodType) {
+        return;
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedDayStartYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchorYmd)) {
+        return;
+    }
+    if ($storedDayStartYmd >= $resendAnchorYmd) {
+        return;
+    }
+    $d = $storedDayStartYmd;
+    $guard = 0;
+    while ($d !== '' && $d < $resendAnchorYmd && $guard < 4000) {
+        if (!txnIsDailyPostedOrSkippedForDay($pdo, $companyId, $processId, $d)) {
+            recordProcessAccountingPosted($pdo, $companyId, $processId, $d, 'daily_skipped', $hasPeriodType);
+        }
+        $next = dailyNextDayYmd($d);
+        if ($next === null || $next === $d) {
+            break;
+        }
+        $d = $next;
+        $guard++;
+    }
+}
+
 /** 与 Inbox：首月 partial 是否已入账或已 dismiss（任一则不再排队 partial） */
 function txnIsPartialFirstMonthPostedOrSkipped(PDO $pdo, int $companyId, int $processId): bool
 {
@@ -1687,6 +1807,58 @@ try {
                         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $storedYmd, 'monthly', $has_period_type);
                     }
                 }
+            }
+        }
+
+        // Daily Resend 单期入账后：抑制「回到库里真实 day_start」时排出的历史日 backlog（与 weekly_skipped 同理）。
+        if ($periodType === 'daily'
+            && !empty($p['accounting_resend_single_period_from_schedule'])
+            && $frequency === 'day') {
+            $storedRawDay = $p['bank_process_stored_day_start'] ?? null;
+            $storedYmdDay = $storedRawDay !== null && trim((string) $storedRawDay) !== ''
+                ? bankProcessDateFieldToYmd((string) $storedRawDay)
+                : null;
+            $resendAnchorDay = trim((string) ($pair['billing_month'] ?? ''));
+            if ($resendAnchorDay === '' && $dayStartYmd) {
+                $resendAnchorDay = $dayStartYmd;
+            }
+            if ($storedYmdDay !== null && $resendAnchorDay !== ''
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedYmdDay)
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchorDay)) {
+                txnRecordDailySkippedBeforeResendAnchor(
+                    $pdo,
+                    $companyId,
+                    (int) $p['id'],
+                    $storedYmdDay,
+                    $resendAnchorDay,
+                    $has_period_type
+                );
+            }
+        }
+
+        // Weekly Resend 单期入账后：抑制「回到库里真实 day_start」时排出的历史周 backlog（与 monthly partial_first_month_skipped 同理）。
+        if ($periodType === 'weekly'
+            && !empty($p['accounting_resend_single_period_from_schedule'])
+            && $frequency === 'week') {
+            $storedRawWeek = $p['bank_process_stored_day_start'] ?? null;
+            $storedYmdWeek = $storedRawWeek !== null && trim((string) $storedRawWeek) !== ''
+                ? bankProcessDateFieldToYmd((string) $storedRawWeek)
+                : null;
+            $resendAnchorWeek = trim((string) ($pair['billing_month'] ?? ''));
+            if ($resendAnchorWeek === '' && $dayStartYmd) {
+                $resendAnchorWeek = $dayStartYmd;
+            }
+            if ($storedYmdWeek !== null && $resendAnchorWeek !== ''
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedYmdWeek)
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchorWeek)) {
+                txnRecordWeeklySkippedBeforeResendAnchor(
+                    $pdo,
+                    $companyId,
+                    (int) $p['id'],
+                    $storedYmdWeek,
+                    $resendAnchorWeek,
+                    $has_period_type
+                );
             }
         }
 

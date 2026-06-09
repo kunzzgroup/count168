@@ -38,6 +38,19 @@
 - 第一期：**6/1 – 6/7**，6/7 起可入列
 - 第二期：**6/7 – 6/13**，须到 **6/13** 才入列；6/9 当天只列最早一笔未结清（若第一期已入账则仍等第二期结束）
 
+### 1.3 Resend 单期（重要：只补指定一周，入账后不回扫原始 day_start）
+
+**业务要求**：Resend 仅对弹窗指定的那一周生效；入账完成后 **不得** 立刻按 Process **库里真实** `day_start` 从头补历史 backlog。
+
+| 场景 | 库里真实 `day_start` | Resend 弹窗 `day_start` | Resend 期间 Due | 入账后 Due（正确） |
+|------|----------------------|-------------------------|-----------------|-------------------|
+| 补 6/15 那一周 | 5/27 | 6/15，Frequency=Week | 只显示 **6/15 – 6/21** 一行 | **空**（不出现 5/27、6/2 等历史周） |
+| 误期行为（已修复前） | 5/27 | 6/15 | 只显示 6/15 一行 | 入账后又冒出 **5/27** 等最早未结清周 |
+
+标准周锚点由 **库里** `day_start` 滚动（5/27 → 6/2 → 6/8 → 6/14 → 6/20 …）。弹窗填 **6/15** 可能与标准锚点不一致；Resend 仍只开 **6/15–6/21** 单期，入账后须把 **早于 6/15 的标准周** 标为 `weekly_skipped`，再清除 `accounting_resend_relax_created_floor`。
+
+**「Posted 3 transaction record(s)」**：通常表示 **1 张周账单** 生成 3 条分录（cost / price / profit），**不是** 3 张账单。
+
 ---
 
 ## 2. 数据库与存储
@@ -100,6 +113,9 @@ if (frequency === 'week') {
 - Frequency 下拉同样包含 `week`
 - Week / Monthly / Once：**禁用 Day end**，提交时 `day_end: null`
 - 请求 `resend_accounting_due_api.php` 时 `day_start_frequency` 可为 `week`
+- 弹窗中的 `day_start` / `frequency` **仅本次 Resend 有效**，**不写入** `bank_process`（Edit Process 仍用库里字段）
+- **用户预期**：选 Week 并填某日（如 6/15）→ Accounting Due **只出现该周** → 入账后 **结束**，不要自动再出现库里最早 `day_start`（如 5/27）的历史周
+- **建议（可选增强）**：Week Resend 时可将弹窗日期 **对齐到标准周起点**（由库里 `day_start` 滚动得出），减少「6/15 与标准 6/14 锚点不一致」的困惑；当前后端允许任意日期，靠入账后 `weekly_skipped` 抑制 backlog
 
 ### 3.3 Accounting Due 弹窗
 
@@ -140,9 +156,9 @@ billing_months[] = 2026-06-01   // 该周起点，不是 Y-n 自然月格式
 | 新增 Process | `api/processes/addprocess_api.php` | 允许 `week`；强制清空 `day_end`；清空 `contract` |
 | 更新 Process | `api/processes/processlist_api.php?action=update_process` | 同上 |
 | Accounting Due 列表 | `api/processes/process_accounting_inbox_api.php` | 核心排队逻辑；返回 `is_weekly`、`weekly_billing_start` |
-| 入账 Transaction | `api/processes/process_post_to_transaction_api.php` | `period_type=weekly`；`billing_months[]=Y-m-d` |
+| 入账 Transaction | `api/processes/process_post_to_transaction_api.php` | `period_type=weekly`；`billing_months[]=Y-m-d`；**Weekly Resend 单期入账后**写 `weekly_skipped` 抑制历史 backlog（见 §5.5、§6.4） |
 | 从 Due 删除 | `api/processes/dismiss_accounting_due_api.php` | 写入 `weekly_skipped`；`posted_date` = 周期起点 |
-| Resend | `api/bankprocess_maintenance/resend_accounting_due_api.php` | 允许 `week`；`day_end` 置 null |
+| Resend | `api/bankprocess_maintenance/resend_accounting_due_api.php` | 允许 `week`；`day_end` 置 null；**Week 时只删** `posted_date = 弹窗 day_start` 的 `weekly` / `weekly_skipped`（不按整月删） |
 | Payment History 描述 | `api/transactions/bank_process_bill_display.php` | `bankProcessWeeklyHistoryDescription()` |
 | History 展示 | `api/transactions/history_api.php` | `period_type === 'weekly'` 时用 WEEK 文案 |
 
@@ -219,8 +235,32 @@ weekPeriodIsReadyForAccounting('2026-06-04', '2026-06-09', false); // 若误用 
 
 ### 5.5 Resend 模式
 
+#### 排队（Inbox）
+
 - `accounting_resend_relax_created_floor = 1` 且非单期：可列出多笔未结清周账单（`resendMulti`）
-- 单期 Resend：仅列 `day_start` 对应那一期
+- **单期 Resend**（弹窗填了 `day_start` → `accounting_resend_single_period_from_schedule = 1`）：仅列弹窗锚点那一期；`day_start` 在 relax 期间由暂存列覆盖，**不改**库里持久字段
+
+#### Resend 清除 posted（`resend_accounting_due_api.php`）
+
+| frequency | 清除范围 |
+|-----------|----------|
+| `week` | **仅** `period_type IN ('weekly','weekly_skipped')` 且 `posted_date = 弹窗 day_start` |
+| 其他（无 day_end 区间） | 弹窗 `day_start` **所在自然月** 的全部 posted（含 `partial_first_month` 等） |
+
+**勿**对 Week 使用「按整月 DELETE」——会误删同月其他已入账周（如 Resend 6/15 时删掉 6/2、6/8 的记录）。
+
+#### Resend 单期入账后（`process_post_to_transaction_api.php`）
+
+入账成功、**清除 relax 之前**，须执行（与 monthly `partial_first_month_skipped` 同理）：
+
+1. 取 `bank_process_stored_day_start`（库里真实锚点，如 5/27）
+2. 取 Resend 锚点 = `billing_months[]` / 弹窗 `day_start`（如 6/15）
+3. 从 (1) 按 `weekPeriodNextStartYmd` 滚动，对每个 `due < Resend 锚点` 且尚无 `weekly` / `weekly_skipped` 的标准周，写入 **`weekly_skipped`**（`posted_date = due`）
+4. 再 `UPDATE bank_process SET accounting_resend_relax_created_floor = 0, ...`
+
+实现函数：`txnRecordWeeklySkippedBeforeResendAnchor()`、`txnIsWeeklyPostedOrSkippedForPeriodStart()`。
+
+**回归警示**：若删除或跳过步骤 3 就清 relax，Inbox 会立刻用库里 `day_start` 扫描，**最早未结清周**（如 5/27）会再次进入 Accounting Due。
 
 ### 5.6 已入账标记
 
@@ -252,6 +292,39 @@ allow_future_monthly = 1   // 可选，与 monthly 共用开关
 ```
 process_id + weekly + billing_month(YYYY-MM-DD)
 ```
+
+### 6.4 Weekly Resend 单期入账后的 `weekly_skipped`（必读）
+
+触发条件同时满足：
+
+- `period_type === 'weekly'`
+- `accounting_resend_single_period_from_schedule` 非空
+- `day_start_frequency === 'week'`
+- `accounting_resend_relax_created_floor === 1`（入账循环内，清 relax 前）
+
+伪代码：
+
+```php
+// 清 relax 之前调用
+txnRecordWeeklySkippedBeforeResendAnchor(
+    $pdo, $companyId, $processId,
+    $storedDayStartYmd,   // bank_process_stored_day_start
+    $resendAnchorYmd,    // billing_months[] 或弹窗 day_start
+    $hasPeriodType
+);
+// 然后才 UPDATE ... accounting_resend_relax_created_floor = 0
+```
+
+示例（库里 `day_start = 2026-05-27`，Resend `2026-06-15` 并入账）：
+
+| 标准周起点 `due` | 入账后 `process_accounting_posted` |
+|----------------|-----------------------------------|
+| 2026-05-27 | `weekly_skipped`（抑制 backlog） |
+| 2026-06-02 | `weekly_skipped` |
+| 2026-06-08 | `weekly_skipped` |
+| 2026-06-14 | `weekly_skipped` |
+| 2026-06-15 | `weekly`（本次 Resend 入账） |
+| 2026-06-20 及以后 | 无记录；按正常 Week 规则待周期结束后再入列 |
 
 ---
 
@@ -316,6 +389,18 @@ Inbox 内保留：`weekPeriodOverlapsCalendarMonth()`、`hasWeeklyPostedForPerio
 - `normalizeBm` → 使用 `weekly_billing_start` 的 `Y-m-d`
 - fingerprint 含 `weekly_billing_start`，避免多周被合并成一行
 
+### 9.5 Weekly Resend：易错点与勿回归清单
+
+| 易错点 | 后果 | 正确做法 |
+|--------|------|----------|
+| Resend 入账后 **先** 清 `accounting_resend_relax_created_floor`，**未** 写 `weekly_skipped` | Due 立刻出现库里最早未结清周（如 5/27） | 先 `txnRecordWeeklySkippedBeforeResendAnchor`，再清 relax |
+| Week Resend 按 **自然月** 删 `process_accounting_posted` | 同月其他周被误删，或该删的未删 | `frequency=week` 时按 `posted_date = 弹窗 day_start` 精确删 |
+| 以为「Posted 3 条」= 3 张账单 | 误判为重复入账 | 1 周账单 = 最多 3 条 transaction（cost/price/profit 等） |
+| Accounting Due 列表 **START DATE** 只看 `day_start` | Resend 后显示库里 5/27 而非本周锚点 | Week 行应用 `weekly_billing_start` 展示（前端可选增强） |
+| 弹窗 `day_start` 与标准周锚点不一致（如填 6/15，标准为 6/14） | 用户困惑；依赖入账后 skip 抑制标准 6/14 行 | 文档说明 + 可选前端对齐标准锚点 |
+
+修改 `process_post_to_transaction_api.php`、`resend_accounting_due_api.php` 或 `maintenance_accounting_resend_lib.php` 时，须用 §1.3 示例回归：**Resend 6/15 → 入账 → Due 为空**。
+
 ---
 
 ## 10. PHP 前端联调检查清单
@@ -328,6 +413,10 @@ Inbox 内保留：`weekPeriodOverlapsCalendarMonth()`、`hasWeeklyPostedForPerio
 - [ ] 入账后 Inbox 该行消失；Payment History 为 `WEEK (dd/mm/yyyy - dd/mm/yyyy) @ ...`
 - [ ] Delete from Due 写入 `weekly_skipped` 后不再出现
 - [ ] Resend 可选 week，Day end 禁用
+- [ ] **Resend Week**：库里 `day_start=5/27`，弹窗 Resend `6/15` → Due **仅** 6/15 一行
+- [ ] **Resend Week 入账后**：Due **为空**，**不**再出现 5/27 / 6/2 等历史周
+- [ ] **Resend Week 清除**：只删 `posted_date=6/15` 的 weekly 记录，同月 6/2、6/8 等 **保留**（若曾入账）
+- [ ] `process_accounting_posted` 中早于 Resend 锚点的标准周存在 `weekly_skipped`（入账后检查）
 
 ---
 
@@ -352,4 +441,5 @@ Inbox 内保留：`weekPeriodOverlapsCalendarMonth()`、`hasWeeklyPostedForPerio
 
 - 功能：**Bank Process Frequency = Week**
 - `day_start_frequency` 枚举扩展：`1st_of_every_month` | `monthly` | **`week`** | `once`
-- 本文档描述与当前 `api/processes/process_accounting_inbox_api.php` 实现一致；若调整 Week 规则，请同步更新本文档与 PHP 前端 `period_types[]` / `billing_months[]` 传参约定。
+- **2026-06**：修复 Weekly Resend 单期入账后回扫库里原始 `day_start` 导致多出历史周的问题；Resend 清除改为按周锚点精确删；入账后写 `weekly_skipped`（§1.3、§5.5、§6.4、§9.5）
+- 本文档描述与当前 `process_accounting_inbox_api.php`、`process_post_to_transaction_api.php`、`resend_accounting_due_api.php` 实现一致；若调整 Week / Resend 规则，请同步更新本文档与 PHP 前端 `period_types[]` / `billing_months[]` 传参约定。
