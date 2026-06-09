@@ -142,7 +142,7 @@ function dashboard_bootstrap_capture(array $params): array
 /** Attach kpi_only for fast KPI paths (skip daily GROUP BY on server). */
 function dashboard_bootstrap_capture_scoped(array $params, string $bootstrapScope): array
 {
-    if (in_array($bootstrapScope, ['kpi', 'previous'], true)) {
+    if (in_array($bootstrapScope, ['kpi', 'previous', 'earnings'], true)) {
         $params['kpi_only'] = '1';
     }
 
@@ -244,7 +244,7 @@ try {
             if ($primaryCurrency !== '') {
                 $currentParams['currency'] = $primaryCurrency;
             }
-            $currentJson = dashboard_bootstrap_capture($currentParams);
+            $currentJson = dashboard_bootstrap_capture_scoped($currentParams, 'kpi');
         }
         if ($bootstrapScope === 'earnings' && $previousData === null) {
             $prevParams = $baseParams;
@@ -253,7 +253,7 @@ try {
             if ($primaryCurrency !== '') {
                 $prevParams['currency'] = $primaryCurrency;
             }
-            $previousJson = dashboard_bootstrap_capture($prevParams);
+            $previousJson = dashboard_bootstrap_capture_scoped($prevParams, 'previous');
             $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
                 ? $previousJson['data']
                 : null;
@@ -275,7 +275,9 @@ try {
 
             $curParams = $baseParams;
             $curParams['currency'] = $code;
-            $curJson = dashboard_bootstrap_capture($curParams);
+            $curJson = $bootstrapScope === 'earnings'
+                ? dashboard_bootstrap_capture_scoped($curParams, 'earnings')
+                : dashboard_bootstrap_capture($curParams);
             $curPayload = (!empty($curJson['success']) && is_array($curJson['data']))
                 ? dashboard_bootstrap_slim_payload($curJson['data'])
                 : null;
@@ -284,7 +286,9 @@ try {
             $prevCurParams['date_from'] = $prevRange['from'];
             $prevCurParams['date_to'] = $prevRange['to'];
             $prevCurParams['currency'] = $code;
-            $prevCurJson = dashboard_bootstrap_capture($prevCurParams);
+            $prevCurJson = $bootstrapScope === 'earnings'
+                ? dashboard_bootstrap_capture_scoped($prevCurParams, 'previous')
+                : dashboard_bootstrap_capture($prevCurParams);
             $prevCurPayload = (!empty($prevCurJson['success']) && is_array($prevCurJson['data']))
                 ? dashboard_bootstrap_slim_payload($prevCurJson['data'])
                 : null;

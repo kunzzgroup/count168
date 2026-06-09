@@ -2726,7 +2726,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const q = new URLSearchParams({
         date_from: rangeFrom,
         date_to: rangeTo,
-        bootstrap_scope: codes?.length > 1 ? "full" : "kpi",
+        bootstrap_scope: "kpi",
         prefetch: "1",
       });
       if (usesLedger && vg) {
@@ -2825,7 +2825,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const q = new URLSearchParams({
         date_from: rangeFrom,
         date_to: rangeTo,
-        bootstrap_scope: codes.length > 1 ? "full" : "kpi",
+        bootstrap_scope: "kpi",
         prefetch: "1",
         currency: code,
       });
@@ -2952,7 +2952,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const q = new URLSearchParams({
         date_from: rangeFrom,
         date_to: rangeTo,
-        bootstrap_scope: codes?.length > 1 ? "full" : "kpi",
+        bootstrap_scope: "kpi",
         prefetch: "1",
         view_group: g,
         group_id: g,
@@ -3062,6 +3062,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       if (scope === "previous") {
         if (!json.data.previous) {
+          throw new Error(json.message || json.error || i18n.dashboardApiError);
+        }
+      } else if (scope === "earnings") {
+        const earningsRows = json.data.earnings?.current;
+        if (!Array.isArray(earningsRows) || earningsRows.length <= 1) {
           throw new Error(json.message || json.error || i18n.dashboardApiError);
         }
       } else if ((scope === "full" || scope === "kpi" || scope === "chart") && !json.data.current) {
@@ -3825,7 +3830,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     try {
       dashboardBootstrapInFlightRef.current = cacheKey;
       const boot = await loadDashboardViaBootstrap({
-        scope: "full",
+        scope: "earnings",
         currencyCodesOverride: codes,
       });
       if (gen !== earningsFetchGenRef.current) return;
