@@ -1001,7 +1001,8 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail'
+            && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off' && $pt !== 'weekly') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -1015,7 +1016,7 @@ try {
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
         $pt = $p['period_type'] ?? '';
         $bm = trim((string) ($p['billing_month'] ?? ''));
-        $key = $p['id'] . '_' . $pt . '_' . (($pt === 'monthly' && $bm !== '') ? $bm : '');
+        $key = $p['id'] . '_' . $pt . '_' . ((($pt === 'monthly' || $pt === 'weekly') && $bm !== '') ? $bm : '');
         if (isset($seen[$key])) {
             return false;
         }
@@ -1357,6 +1358,21 @@ try {
             // 一次性合同：不按应付日限制；归属日与 Inbox 去重锚点用 day_start，缺失则用今日
             $transactionDate = ($dayStartYmd !== null && $dayStartYmd !== '') ? $dayStartYmd : $fallbackDate;
             $postedDateForInbox = $transactionDate;
+        } elseif ($periodType === 'weekly') {
+            $resolvedWeeklyStart = trim((string) ($pair['billing_month'] ?? ''));
+            if ($resolvedWeeklyStart === '' && $dayStartYmd) {
+                $resolvedWeeklyStart = $dayStartYmd;
+            }
+            if ($resolvedWeeklyStart !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $resolvedWeeklyStart)) {
+                $resendRelax = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
+                $weeklyEndYmd = weekPeriodEndInclusiveYmd($resolvedWeeklyStart);
+                if (!$allowFutureMonthly && !$resendRelax && $weeklyEndYmd !== null && $weeklyEndYmd > $fallbackDate) {
+                    $skipCurrentPair = true;
+                    $skippedFutureMonthlyDueCount++;
+                }
+                $transactionDate = $resolvedWeeklyStart;
+                $postedDateForInbox = $resolvedWeeklyStart;
+            }
         } elseif ($periodType === 'monthly') {
             // monthly：Payment History 归档日固定为该期应付日（dueYmd），
             // 非 resend 场景未到应付日不允许提前入账；resend 维持可回补旧期能力。

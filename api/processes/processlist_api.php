@@ -1142,8 +1142,14 @@ function updateBankProcess() {
         $day_end = trim((string)(is_array($day_end_raw) ? (string)end($day_end_raw) : $day_end_raw));
         $day_start_frequency_raw = $_POST['day_start_frequency'] ?? '1st_of_every_month';
         $day_start_frequency = trim((string)(is_array($day_start_frequency_raw) ? (string)end($day_start_frequency_raw) : $day_start_frequency_raw));
-        if (!in_array($day_start_frequency, ['monthly', 'once', '1st_of_every_month'], true)) {
+        if (!in_array($day_start_frequency, ['monthly', 'week', 'once', '1st_of_every_month'], true)) {
             $day_start_frequency = '1st_of_every_month';
+        }
+        if ($day_start_frequency === 'once' || $day_start_frequency === 'week') {
+            $day_end = null;
+            if ($day_start_frequency === 'week') {
+                $contract = '';
+            }
         }
         if ($day_start === '') {
             $day_start = null;

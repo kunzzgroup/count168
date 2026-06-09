@@ -148,3 +148,29 @@ function prorateMonthlyAnniversaryPeriodLinear(
         'ratio' => $r,
     ];
 }
+
+/** Week：单期 [start, start+6]（含首尾 7 日）。 */
+function weekPeriodEndInclusiveYmd(string $periodStartYmd): ?string
+{
+    try {
+        return (new DateTimeImmutable($periodStartYmd))->modify('+6 days')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** 下一期起点 = 上一期结束日（连续周，如 5/28–6/3 后接 6/3–6/9）。 */
+function weekPeriodNextStartYmd(string $currentPeriodStartYmd): ?string
+{
+    return weekPeriodEndInclusiveYmd($currentPeriodStartYmd);
+}
+
+/** 非 Resend：仅当今天 >= 周期结束日，该周才进入 Accounting Due / 允许入账。 */
+function weekPeriodIsReadyForAccounting(string $periodStartYmd, string $todayYmd, bool $resendRelax): bool
+{
+    if ($resendRelax) {
+        return true;
+    }
+    $end = weekPeriodEndInclusiveYmd($periodStartYmd);
+    return $end !== null && $todayYmd >= $end;
+}

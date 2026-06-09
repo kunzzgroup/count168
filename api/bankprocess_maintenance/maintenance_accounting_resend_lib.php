@@ -125,7 +125,7 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
             $row['accounting_resend_consolidated_range'] = 1;
         }
         $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
-        if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'once') {
+        if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'week' || $fq === 'once') {
             $row['day_start_frequency'] = $fq;
         }
         if (!$hadScheduleStart && !empty($row['accounting_resend_relax_created_floor'])
@@ -147,7 +147,8 @@ if (!function_exists('bmp_normalizePeriodType')) {
     function bmp_normalizePeriodType(?string $raw): string
     {
         $t = strtolower(trim((string) $raw));
-        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range' || $t === 'once_one_off') {
+        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail'
+            || $t === 'resend_consolidated_range' || $t === 'once_one_off' || $t === 'weekly') {
             return $t;
         }
         return 'monthly';
@@ -270,6 +271,7 @@ if (!function_exists('bmp_resolveProcessAccountingPostedId')) {
 
         $typeSets = [
             'monthly' => ['monthly', 'monthly_skipped'],
+            'weekly' => ['weekly', 'weekly_skipped'],
             'day_end_tail' => ['day_end_tail', 'day_end_tail_skipped'],
             'partial_first_month' => ['partial_first_month', 'partial_first_month_skipped'],
             'resend_consolidated_range' => ['resend_consolidated_range', 'resend_consolidated_range_skipped'],
@@ -327,6 +329,7 @@ if (!function_exists('bmp_deletePapFallback')) {
         }
         $typeSets = [
             'monthly' => ['monthly', 'monthly_skipped'],
+            'weekly' => ['weekly', 'weekly_skipped'],
             'day_end_tail' => ['day_end_tail', 'day_end_tail_skipped'],
             'partial_first_month' => ['partial_first_month', 'partial_first_month_skipped'],
             'resend_consolidated_range' => ['resend_consolidated_range', 'resend_consolidated_range_skipped'],
@@ -339,7 +342,7 @@ if (!function_exists('bmp_deletePapFallback')) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute(array_merge([$companyId, $bankProcessId], $types, [$transactionDateYmd]));
         $n = $stmt->rowCount();
-        if ($n > 0 || ($pt !== 'monthly' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range')) {
+        if ($n > 0 || ($pt !== 'monthly' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'weekly')) {
             return $n;
         }
         $sql2 = "DELETE FROM process_accounting_posted
