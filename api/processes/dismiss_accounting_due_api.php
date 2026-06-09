@@ -191,8 +191,7 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-06-10';
+    $today = date('Y-m-d');
     
     $inserted = 0;
     bmp_ensureMaintenanceResendPendingTable($pdo);
@@ -222,44 +221,6 @@ try {
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $weekBm)) {
                 $postDate = $weekBm;
             }
-        } elseif ($periodType === 'daily' && ($p['billing_month'] ?? '') !== '') {
-            $dayBm = trim((string) $p['billing_month']);
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayBm)) {
-                $postDate = $dayBm;
-            }
-        }
-        if ($periodType === 'daily_consolidated') {
-            $range = dailyParseConsolidatedBillingRange($p['billing_month'] ?? null);
-            if ($range === null) {
-                continue;
-            }
-            $cur = $range['start'];
-            for ($di = 0; $di < 4000; $di++) {
-                if ($cur > $range['end']) {
-                    break;
-                }
-                $insPap->execute([$companyId, $processId, $cur, 'daily_skipped']);
-                if ($insPap->rowCount() > 0) {
-                    $inserted++;
-                    $papId = (int) $pdo->lastInsertId();
-                } else {
-                    $selPap->execute([$companyId, $processId, $cur, 'daily_skipped']);
-                    $fid = $selPap->fetchColumn();
-                    $papId = $fid ? (int) $fid : 0;
-                    if ($papId > 0) {
-                        $inserted++;
-                    }
-                }
-                if ($papId > 0) {
-                    $insRp->execute([$companyId, $processId, $papId, 'daily_skipped', $cur]);
-                }
-                $next = dailyNextDayYmd($cur);
-                if ($next === null || $next <= $cur) {
-                    break;
-                }
-                $cur = $next;
-            }
-            continue;
         }
         if ($periodType === 'resend_consolidated_range') {
             // 与 process_accounting_inbox_api 一致：先合并 Resend 弹窗暂存列再取 day_start，避免 COALESCE(库列) 与 Inbox 展示锚点不一致导致无法写入 *_skipped。
