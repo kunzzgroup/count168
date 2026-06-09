@@ -886,6 +886,7 @@ export default function AccountListPage() {
           : String(gcScopeRef.current?.selectedGroup ?? selectedGroup ?? "").trim() || null;
 
       if (
+        !uiAlreadyApplied &&
         companySwitchInFlightRef.current &&
         companySwitchTargetRef.current === nextCompanyId
       ) {

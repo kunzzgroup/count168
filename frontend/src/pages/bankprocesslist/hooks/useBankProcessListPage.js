@@ -1347,7 +1347,6 @@ export function useBankProcessListPage() {
 
         if (sessionCompanyId === nextId) return;
 
-        const previousCompanyId = Number(companyId) === nextId ? sessionCompanyId : companyId;
         companySessionAbortRef.current?.abort();
         const sessionAc = new AbortController();
         companySessionAbortRef.current = sessionAc;
@@ -1360,38 +1359,12 @@ export function useBankProcessListPage() {
           const json = await res.json();
           if (sessionAc.signal.aborted) return;
           if (!res.ok || !json.success) {
-            if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
-              skipCompanyFetchEffectRef.current = true;
-              flushSync(() => {
-                setCompanyId(previousCompanyId);
-                applyBankProcessListCache(previousCompanyId);
-              });
-              void fetchRows({
-                companyId: previousCompanyId,
-                silent: true,
-                preservePage: true,
-                preserveSelection: true,
-              });
-            }
             notify(apiMsg(json, "switchCompanyFailed"), "danger");
             return;
           }
           notifyCompanySessionUpdated(json.data ?? null);
         } catch {
           if (sessionAc.signal.aborted) return;
-          if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
-            skipCompanyFetchEffectRef.current = true;
-            flushSync(() => {
-              setCompanyId(previousCompanyId);
-              applyBankProcessListCache(previousCompanyId);
-            });
-            void fetchRows({
-              companyId: previousCompanyId,
-              silent: true,
-              preservePage: true,
-              preserveSelection: true,
-            });
-          }
           notify(t("switchCompanyFailed"), "danger");
         } finally {
           if (companySessionAbortRef.current === sessionAc) {
