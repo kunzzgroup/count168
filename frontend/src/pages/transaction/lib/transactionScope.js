@@ -37,9 +37,10 @@ export function resolveTransactionScope(filterSnapshot) {
   const uiCompanyIdRaw = filterSnapshot.companyId;
   const hasExplicitCompany =
     uiCompanyIdRaw != null && Number(uiCompanyIdRaw) > 0;
-  // Explicit company pill wins over cross-page group-only session flag (prevents IG currencies leaking into 95).
+  // Explicit company pill always wins — never treat subsidiary drill-down as group ledger
+  // (prevents IG group CR/DR leaking into company 95 when dashboard group-only flag is set).
   const groupOnlyLedger = hasExplicitCompany
-    ? Boolean(filterSnapshot.groupOnlyLedger)
+    ? false
     : Boolean(filterSnapshot.groupOnlyLedger) ||
       (selectedGroup && isDashboardGroupOnlyMode());
   const uiCompanyId = groupOnlyLedger

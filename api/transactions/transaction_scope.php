@@ -131,6 +131,11 @@ function tx_search_transaction_filter(PDO $pdo, array $scope, string $alias = 't
     $sql = tx_sql_transaction_scope_where($scope, $alias);
     if (!$isGroup && tx_table_has_scope_column($pdo, 'transactions')) {
         $sql .= tx_sql_transaction_company_ledger_only($alias);
+        $companyId = (int) ($scope['company_id'] ?? 0);
+        if ($companyId > 0) {
+            // Dual-tenant: subsidiary ledger rows may share anchor company_id; scope_id isolates company.
+            $sql .= " AND COALESCE({$alias}.scope_id, {$alias}.company_id) = {$companyId}";
+        }
     }
 
     return [

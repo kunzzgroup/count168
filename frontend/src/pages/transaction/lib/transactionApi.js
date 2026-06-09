@@ -214,6 +214,7 @@ export async function searchTransactions({
   companyId,
   viewGroup,
   groupId,
+  groupAggregate,
   dateFrom,
   dateTo,
   showInactive,
@@ -224,7 +225,7 @@ export async function searchTransactions({
   signal,
 } = {}) {
   const params = new URLSearchParams();
-  appendTransactionScope(params, { companyId, viewGroup, groupId });
+  appendTransactionScope(params, { companyId, viewGroup, groupId, groupAggregate });
   params.set("date_from", String(dateFrom || ""));
   params.set("date_to", String(dateTo || ""));
   params.set("show_inactive", showInactive ? "1" : "0");
