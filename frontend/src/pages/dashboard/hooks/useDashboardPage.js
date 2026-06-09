@@ -3919,6 +3919,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       previousPeriodInFlightRef.current = "";
       ++chartDailyFetchGenRef.current;
       chartDailyInFlightRef.current = "";
+      dashboardFetchInFlightScopeRef.current = "";
+      dashboardBootstrapInFlightRef.current = "";
       dashboardFetchStructuralScopeRef.current = structuralKey;
       dashboardFetchScopeRef.current = cacheKey;
       dashboardFetchAbortRef.current = new AbortController();
@@ -4104,10 +4106,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }
 
     const latestCached = getDashboardCache(cacheKey);
-    const needsNetworkFetch =
-      !latestCached?.current ||
-      (needsMultiCurrencyEarnings &&
-        !cacheEntryHasFullEarnings(latestCached, multiCurrencyCodes));
+    const needsDashboardFetch = !latestCached?.current;
+    const needsEarningsUpgrade =
+      needsMultiCurrencyEarnings &&
+      !cacheEntryHasFullEarnings(latestCached, multiCurrencyCodes);
     const scopeNeedsCurrency = dashboardScopeNeedsCurrency({
       companyId,
       usesGroupLedgerDashboard,
@@ -4116,7 +4118,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       mergedSubsetIds,
     });
     if (
-      needsNetworkFetch &&
+      needsDashboardFetch &&
       scopeNeedsCurrency &&
       !currencyCode &&
       !latestCached?.current &&
@@ -4125,17 +4127,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setLoading(true);
       return;
     }
-    if (needsNetworkFetch && dashboardFetchInFlightScopeRef.current === cacheKey) {
-      if (dashboardDataRef.current) {
-        setLoading(false);
-      }
+
+    if (!needsDashboardFetch && needsEarningsUpgrade) {
+      setLoading(false);
+      setEarningsByCurrencyLoading(true);
+      ensureDeferredDashboardLoads(cacheKey, latestCached, multiCurrencyCodes);
+      void upgradeActiveScopeEarnings();
+      return;
+    }
+
+    if (!needsDashboardFetch) {
+      ensureDeferredDashboardLoads(cacheKey, latestCached, multiCurrencyCodes);
+      setLoading(false);
       return;
     }
 
     try {
-      if (needsNetworkFetch) {
-        dashboardFetchInFlightScopeRef.current = cacheKey;
-      }
+      dashboardFetchInFlightScopeRef.current = cacheKey;
       let current;
       let currentKpi = null;
       const canUseDashboardBootstrap =
@@ -4147,17 +4155,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       if (canUseDashboardBootstrap) {
         try {
-          const bootstrapScope = needsMultiCurrencyEarnings ? "full" : "kpi";
-          if (needsMultiCurrencyEarnings) {
-            dashboardBootstrapInFlightRef.current = cacheKey;
-          }
-          const boot = await loadDashboardViaBootstrap({ scope: bootstrapScope });
+          const boot = await loadDashboardViaBootstrap({ scope: "kpi" });
           if (gen !== dashboardFetchGenRef.current) return;
 
           current = boot.current;
           setMultiCurrencyKpi(null);
           setMultiCurrencyKpiPrev(null);
           setDashboardData(current);
+          dashboardDataRef.current = current;
           setDashboardDataPrev(boot.previous);
           setDisplayScopeKey(cacheKey);
           setLoading(false);
@@ -4179,15 +4184,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
               codesForEarnings || currenciesRef.current,
               resolveDashboardScopeKey
             );
+          } else if (needsMultiCurrencyEarnings) {
+            setEarningsByCurrencyLoading(true);
+            void upgradeActiveScopeEarnings();
           } else {
             setEarningsByCurrencyLoading(false);
           }
 
           setDashboardCache(cacheKey, cacheEntry);
-          if (bootstrapScope === "kpi" && !boot.previous) {
+          if (!boot.previous) {
             void loadDashboardPreviousPeriod(cacheKey);
           }
-          if (bootstrapScope === "kpi" && dashboardPayloadNeedsChartDaily(boot.current)) {
+          if (dashboardPayloadNeedsChartDaily(boot.current)) {
             void loadDashboardChartDaily(cacheKey);
           }
           return;
@@ -4317,9 +4325,25 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setMultiCurrencyKpiPrev(null);
       }
     } finally {
-      if (gen === dashboardFetchGenRef.current) setLoading(false);
       if (dashboardFetchInFlightScopeRef.current === cacheKey) {
         dashboardFetchInFlightScopeRef.current = "";
+      }
+      if (gen === dashboardFetchGenRef.current) {
+        setLoading(false);
+      } else if (
+        !dashboardDataRef.current &&
+        resolveDashboardScopeKey() === cacheKey
+      ) {
+        window.setTimeout(() => {
+          if (
+            resolveDashboardScopeKey() !== cacheKey ||
+            dashboardDataRef.current ||
+            dashboardFetchInFlightScopeRef.current
+          ) {
+            return;
+          }
+          void loadDashboard();
+        }, 100);
       }
     }
   }, [
@@ -4353,6 +4377,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     loadDashboardPreviousPeriod,
     loadDashboardChartDaily,
     ensureDeferredDashboardLoads,
+    upgradeActiveScopeEarnings,
   ]);
 
   const loadDashboardTriggerKey = useMemo(
@@ -5339,6 +5364,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         buildDashboardSidebarNotifyOptions(c, persistGroup, { ignoreGroupOnly: true }),
       );
       flushSync(() => {
+        dashboardFetchInFlightScopeRef.current = "";
+        dashboardBootstrapInFlightRef.current = "";
         applyCompanySelection(id);
         primeCurrenciesFromCache({
           companyId: id,
