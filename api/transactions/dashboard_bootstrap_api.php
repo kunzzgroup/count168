@@ -120,7 +120,27 @@ function dashboard_bootstrap_slim_payload(?array $data): ?array
     return $data;
 }
 
+/**
+ * Memoize identical in-process captures (e.g. earnings scope re-fetch).
+ *
+ * @param array<string, string|null> $params
+ * @return array{success:bool,message?:string,data?:mixed,error?:string}
+ */
+function dashboard_bootstrap_capture(array $params): array
+{
+    static $cache = [];
+    ksort($params);
+    $key = http_build_query($params);
+    if (isset($cache[$key])) {
+        return $cache[$key];
+    }
+    $cache[$key] = dashboard_api_capture($params);
+
+    return $cache[$key];
+}
+
 try {
+    dashboard_api_begin_bootstrap_batch();
     $baseParams = dashboard_bootstrap_base_params();
     if ($baseParams === []) {
         throw new Exception('Missing dashboard scope');
@@ -162,7 +182,7 @@ try {
         if ($primaryCurrency !== '') {
             $currentParams['currency'] = $primaryCurrency;
         }
-        $currentJson = dashboard_api_capture($currentParams);
+        $currentJson = dashboard_bootstrap_capture($currentParams);
         if (empty($currentJson['success']) || !is_array($currentJson['data'])) {
             $failMsg = $currentJson['message'] ?? $currentJson['error'] ?? 'Failed to load dashboard';
             if ($isPrefetch) {
@@ -183,7 +203,7 @@ try {
         if ($primaryCurrency !== '') {
             $prevParams['currency'] = $primaryCurrency;
         }
-        $previousJson = dashboard_api_capture($prevParams);
+        $previousJson = dashboard_bootstrap_capture($prevParams);
         $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
             ? $previousJson['data']
             : null;
@@ -198,7 +218,7 @@ try {
             if ($primaryCurrency !== '') {
                 $currentParams['currency'] = $primaryCurrency;
             }
-            $currentJson = dashboard_api_capture($currentParams);
+            $currentJson = dashboard_bootstrap_capture($currentParams);
         }
         if ($bootstrapScope === 'earnings' && $previousData === null) {
             $prevParams = $baseParams;
@@ -207,7 +227,7 @@ try {
             if ($primaryCurrency !== '') {
                 $prevParams['currency'] = $primaryCurrency;
             }
-            $previousJson = dashboard_api_capture($prevParams);
+            $previousJson = dashboard_bootstrap_capture($prevParams);
             $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
                 ? $previousJson['data']
                 : null;
@@ -229,7 +249,7 @@ try {
 
             $curParams = $baseParams;
             $curParams['currency'] = $code;
-            $curJson = dashboard_api_capture($curParams);
+            $curJson = dashboard_bootstrap_capture($curParams);
             $curPayload = (!empty($curJson['success']) && is_array($curJson['data']))
                 ? dashboard_bootstrap_slim_payload($curJson['data'])
                 : null;
@@ -238,7 +258,7 @@ try {
             $prevCurParams['date_from'] = $prevRange['from'];
             $prevCurParams['date_to'] = $prevRange['to'];
             $prevCurParams['currency'] = $code;
-            $prevCurJson = dashboard_api_capture($prevCurParams);
+            $prevCurJson = dashboard_bootstrap_capture($prevCurParams);
             $prevCurPayload = (!empty($prevCurJson['success']) && is_array($prevCurJson['data']))
                 ? dashboard_bootstrap_slim_payload($prevCurJson['data'])
                 : null;
@@ -279,4 +299,6 @@ try {
         'data' => null,
         'error' => $e->getMessage(),
     ], JSON_UNESCAPED_UNICODE);
+} finally {
+    dashboard_api_end_bootstrap_batch();
 }

@@ -373,6 +373,19 @@ async function fetchBootstrapHttpDeduped(inflightMap, requestKey, init) {
   return promise;
 }
 
+/** Company/subsidiary scopes need a resolved display currency before bootstrap. */
+function dashboardScopeNeedsCurrency({
+  companyId,
+  usesGroupLedgerDashboard,
+  groupAllMode,
+  groupsAllMode,
+  mergedSubsetIds,
+}) {
+  if (usesGroupLedgerDashboard || groupAllMode || groupsAllMode) return false;
+  if (mergedSubsetIds?.length > 1) return false;
+  return companyId != null;
+}
+
 function resolveDashboardActiveCurrency({
   codes,
   scopeKey,
@@ -2972,7 +2985,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const loadDashboardViaBootstrap = useCallback(
-    async ({ scope = "full", currencyCodesOverride = null, useSharedAbort = true } = {}) => {
+    async ({ scope = "full", currencyCodesOverride = null } = {}) => {
       const q = new URLSearchParams({
         date_from: dateFrom,
         date_to: dateTo,
@@ -3010,12 +3023,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
 
       const requestKey = q.toString();
-      const signal = useSharedAbort ? dashboardFetchAbortRef.current?.signal : undefined;
 
       const { res, json } = await fetchBootstrapHttpDeduped(
         bootstrapInflightRef.current,
         requestKey,
-        dashboardFetchInit(signal)
+        { credentials: "include" }
       );
       if (!res.ok || !json.success || !json.data) {
         throw new Error(json.message || json.error || i18n.dashboardApiError);
@@ -3403,7 +3415,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         const earningsBoot = await loadDashboardViaBootstrap({
           scope: "earnings",
           currencyCodesOverride: currencies,
-          useSharedAbort: false,
         });
         if (gen !== earningsFetchGenRef.current) return;
         if (Array.isArray(earningsBoot?.earningsCurrent) && earningsBoot.earningsCurrent.length > 1) {
@@ -3615,7 +3626,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const boot = await loadDashboardViaBootstrap({
         scope: "full",
         currencyCodesOverride: codes,
-        useSharedAbort: false,
       });
       if (gen !== earningsFetchGenRef.current) return;
       if (Array.isArray(boot?.earningsCurrent) && boot.earningsCurrent.length > 1) {
@@ -3709,6 +3719,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       Array.isArray(multiCurrencyCodes) && multiCurrencyCodes.length > 1;
     setLoadError("");
 
+    let hydratedFromPayload = false;
+
     if (cached?.current) {
       setDashboardData(cached.current);
       setDashboardDataPrev(cached.previous ?? null);
@@ -3732,8 +3744,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       setEarningsByCurrencyLoading(true);
     } else {
-      let hydratedFromPayload = false;
-
       if (groupAllMode) {
         const synthesized = tryBuildGroupAllDashboardFromCompanyCaches();
         if (synthesized?.current) {
@@ -3860,6 +3870,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !latestCached?.current ||
       (needsMultiCurrencyEarnings &&
         !cacheEntryHasFullEarnings(latestCached, multiCurrencyCodes));
+    const scopeNeedsCurrency = dashboardScopeNeedsCurrency({
+      companyId,
+      usesGroupLedgerDashboard,
+      groupAllMode,
+      groupsAllMode,
+      mergedSubsetIds,
+    });
+    if (
+      needsNetworkFetch &&
+      scopeNeedsCurrency &&
+      !currencyCode &&
+      !latestCached?.current &&
+      !hydratedFromPayload
+    ) {
+      setLoading(true);
+      return;
+    }
     if (needsNetworkFetch && dashboardFetchInFlightScopeRef.current === cacheKey) {
       if (dashboardDataRef.current) {
         setLoading(false);
@@ -4120,9 +4147,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     }, debounceMs);
     return () => {
       window.clearTimeout(timer);
-      if (prevStructural !== dashboardStructuralScopeKey) {
-        dashboardFetchAbortRef.current?.abort();
-      }
     };
   }, [gcBootstrapReady, loadDashboardTriggerKey, dashboardStructuralScopeKey, loadDashboard]);
 
@@ -5321,7 +5345,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     });
     notifyDashboardGroupFilterChanged(bootGroup, id);
     const bootRow = companies.find((co) => parseInt(co.id, 10) === id);
-    if (bootRow) void prefetchDashboardCompany(bootRow, bootGroup);
+    if (bootRow) {
+      const deferBootPrefetch = () => {
+        if (!dashboardDataRef.current || dashboardFetchInFlightScopeRef.current) {
+          window.setTimeout(deferBootPrefetch, 400);
+          return;
+        }
+        void prefetchDashboardCompany(bootRow, bootGroup);
+      };
+      window.setTimeout(deferBootPrefetch, 0);
+    }
     void syncCompanySession(id, bootGroup);
   }, [
     gcBootstrapReady,
