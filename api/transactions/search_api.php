@@ -962,6 +962,18 @@ try {
     $search_txn_where = $search_txn_filter['sql'];
     $search_txn_bind = (int) $search_txn_filter['bind'];
     $search_is_group_ledger = (bool) $search_txn_filter['is_group'];
+    // Belt-and-suspenders: explicit company_id in request never uses group ledger account list.
+    if ($company_id > 0 && isset($_GET['company_id']) && trim((string) $_GET['company_id']) !== '') {
+        $search_is_group_ledger = false;
+        if (($search_list_scope['mode'] ?? '') === 'group') {
+            $search_list_scope['mode'] = 'company';
+            $search_list_scope['company_id'] = $company_id;
+            $search_txn_filter = tx_search_transaction_filter($pdo, $search_list_scope, 't');
+            searchApiSetTransactionScopeFilter($search_txn_filter);
+            $search_txn_where = $search_txn_filter['sql'];
+            $search_txn_bind = (int) $search_txn_filter['bind'];
+        }
+    }
     if ($search_is_group_ledger) {
         $company_id = 0;
     }

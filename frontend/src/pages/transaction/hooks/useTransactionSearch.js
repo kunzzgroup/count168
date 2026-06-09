@@ -492,8 +492,16 @@ export function useTransactionSearch({
       }
       setTablesVisible(true);
 
+      const subsidiarySearch =
+        scopeApi.subsidiaryAccountsOnly ||
+        (scopeApi.companyId != null && Number(scopeApi.companyId) > 0);
       const paramsBase = {
         ...scopeApi,
+        // Search must not send view_group when drilling into a subsidiary — backend would treat it as group ledger.
+        viewGroup: subsidiarySearch ? undefined : scopeApi.viewGroup,
+        groupId: subsidiarySearch ? undefined : scopeApi.groupId,
+        groupAggregate: subsidiarySearch ? undefined : scopeApi.groupAggregate,
+        subsidiaryAccountsOnly: subsidiarySearch ? true : scopeApi.subsidiaryAccountsOnly,
         dateFrom: effectiveDateFrom,
         dateTo: effectiveDateTo,
         showInactive: showInactiveForQuery,

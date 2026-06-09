@@ -107,6 +107,18 @@ export function resolveTransactionScope(filterSnapshot) {
     scopeCompanyId = uiCompanyId;
   }
 
+  // Explicit company pill (95, C168, …) always uses subsidiary scope — never group ledger.
+  if (hasExplicitCompany && uiCompanyId > 0) {
+    const scopeRow = snapCompanies.find((c) => Number(c.id) === uiCompanyId) || null;
+    return {
+      mode: "company",
+      scopeCompanyId: uiCompanyId,
+      viewGroup: resolveViewGroupForCompany(scopeRow, selectedGroup) || selectedGroup || null,
+      selectedGroup,
+      uiCompanyId,
+    };
+  }
+
   if (!scopeCompanyId || scopeCompanyId <= 0) {
     if (groupsAllMode && !groupAllMode) {
       const gids = groupIdsForGroupsAllAggregate(snapCompanies, filterSnapshot.snapGroupIds);

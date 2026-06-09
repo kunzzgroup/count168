@@ -870,11 +870,10 @@ function tenant_account_company_subsidiary_where(PDO $pdo, int $companyId, strin
     }
     $subOnly = tenant_sql_account_company_subsidiary_only($pdo, $a);
     if (tenant_table_has_scope_columns($pdo, 'account_company')) {
+        // Dual-tenant: company_id FK may be shared anchor; scope_id is the subsidiary key.
         return [
-            'sql' => "(({$a}.scope_type = 'company' AND {$a}.scope_id = ?)"
-                . " OR ({$a}.company_id = ? AND (COALESCE({$a}.scope_id, 0) = 0 OR {$a}.scope_id = {$a}.company_id)))"
-                . $subOnly,
-            'params' => [$companyId, $companyId],
+            'sql' => "COALESCE(NULLIF({$a}.scope_id, 0), {$a}.company_id) = ?{$subOnly}",
+            'params' => [$companyId],
         ];
     }
 
