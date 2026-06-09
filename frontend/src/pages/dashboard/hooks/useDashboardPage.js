@@ -25,6 +25,7 @@ import {
   fetchFrankfurterRates,
   frankfurterMissingQuotes,
   frankfurterRatesCoverQuotes,
+  peekFrankfurterRatesCache,
   peekFrankfurterRatesCacheOrDerived,
   resolveFrankfurterDate,
   sumConvertedEarnings,
@@ -442,7 +443,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const [earningsByCurrency, setEarningsByCurrency] = useState([]);
   const [earningsByCurrencyPrev, setEarningsByCurrencyPrev] = useState([]);
   const [earningsByCurrencyLoading, setEarningsByCurrencyLoading] = useState(false);
-  const [exchangeRates, setExchangeRates] = useState({ rates: {}, date: null, unsupported: [] });
+  const [exchangeRates, setExchangeRates] = useState({
+    rates: {},
+    date: null,
+    unsupported: [],
+    scopeKey: "",
+  });
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
   const [exchangeRatesError, setExchangeRatesError] = useState("");
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
@@ -3660,8 +3666,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useEffect(() => {
     const rateBase =
       showAllCurrencies && canShowAllCurrencies ? conversionBaseCurrency : currencyCode;
+    const rateScopeKey = [
+      companyId ?? "",
+      rateBase ?? "",
+      [...currencies].sort().join(","),
+      dateTo ?? "",
+    ].join("|");
+
     if (!rateBase || currencies.length <= 1) {
-      setExchangeRates({ rates: { [rateBase]: 1 }, date: null, unsupported: [] });
+      setExchangeRates({
+        rates: { [rateBase]: 1 },
+        date: null,
+        unsupported: [],
+        scopeKey: rateScopeKey,
+      });
       setExchangeRatesError("");
       setExchangeRatesLoading(false);
       return undefined;
@@ -3670,7 +3688,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     let cancelled = false;
     const gen = ++exchangeRatesFetchGenRef.current;
     const rateDate = resolveFrankfurterDate(dateTo);
-    const cached = peekFrankfurterRatesCacheOrDerived(rateBase, currencies, rateDate);
+    const cached = peekFrankfurterRatesCache(rateBase, currencies, rateDate);
     const cachedReady =
       cached && frankfurterRatesCoverQuotes(rateBase, currencies, cached.rates);
 
@@ -3679,11 +3697,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         rates: cached.rates,
         date: cached.date,
         unsupported: frankfurterMissingQuotes(rateBase, currencies, cached.rates),
+        scopeKey: rateScopeKey,
       });
       setExchangeRatesError("");
       setExchangeRatesLoading(false);
     } else {
-      setExchangeRates({ rates: { [rateBase]: 1 }, date: null, unsupported: [] });
+      setExchangeRates({ rates: { [rateBase]: 1 }, date: null, unsupported: [], scopeKey: "" });
       setExchangeRatesLoading(true);
       setExchangeRatesError("");
     }
@@ -3692,18 +3711,31 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       try {
         const { rates, date } = await fetchFrankfurterRates(rateBase, currencies, rateDate);
         if (cancelled || gen !== exchangeRatesFetchGenRef.current) return;
+
+        const fullCoverage = frankfurterRatesCoverQuotes(rateBase, currencies, rates);
+        if (!fullCoverage && cachedReady) {
+          return;
+        }
+
         setExchangeRates({
-          rates,
-          date,
-          unsupported: frankfurterMissingQuotes(rateBase, currencies, rates),
+          rates: fullCoverage ? rates : cachedReady ? cached.rates : rates,
+          date: fullCoverage ? date : cachedReady ? cached.date : date,
+          unsupported: frankfurterMissingQuotes(
+            rateBase,
+            currencies,
+            fullCoverage ? rates : cachedReady ? cached.rates : rates
+          ),
+          scopeKey: rateScopeKey,
         });
-        setExchangeRatesError("");
+        setExchangeRatesError(fullCoverage || cachedReady ? "" : "failed");
       } catch {
         if (cancelled || gen !== exchangeRatesFetchGenRef.current) return;
+        if (cachedReady) return;
         setExchangeRates({
           rates: { [rateBase]: 1 },
           date: null,
           unsupported: frankfurterMissingQuotes(rateBase, currencies, { [rateBase]: 1 }),
+          scopeKey: rateScopeKey,
         });
         setExchangeRatesError("failed");
       } finally {
@@ -3716,7 +3748,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return () => {
       cancelled = true;
     };
-  }, [currencyCode, currencies, dateTo, showAllCurrencies, canShowAllCurrencies, conversionBaseCurrency]);
+  }, [
+    companyId,
+    currencyCode,
+    currencies,
+    dateTo,
+    showAllCurrencies,
+    canShowAllCurrencies,
+    conversionBaseCurrency,
+  ]);
 
   const loadAllCurrenciesDashboard = useCallback(
     async (rangeFrom, rangeTo) => {
@@ -5005,14 +5045,32 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return i18n.earningsIncludesConversion;
   }, [earningsBreakdownShowsRate, i18n.earningsIncludesConversion]);
 
+  const exchangeRateScopeKey = useMemo(
+    () =>
+      [
+        companyId ?? "",
+        displayCurrencyCode ?? "",
+        [...currencies].sort().join(","),
+        dateTo ?? "",
+      ].join("|"),
+    [companyId, displayCurrencyCode, currencies, dateTo]
+  );
+
   const rateFootnoteText = useMemo(() => {
     if (currencies.length <= 1) return "";
-    if (exchangeRatesLoading) return i18n.rateLoading;
+    if (exchangeRatesLoading || exchangeRates.scopeKey !== exchangeRateScopeKey) {
+      return i18n.rateLoading;
+    }
     if (exchangeRatesError) return i18n.rateUnavailable;
     const foreignCodes = currencies
       .map((c) => String(c).toUpperCase())
       .filter((c) => c !== String(displayCurrencyCode).toUpperCase());
     if (!foreignCodes.length) return "";
+    if (
+      !frankfurterRatesCoverQuotes(displayCurrencyCode, currencies, exchangeRates.rates)
+    ) {
+      return i18n.rateLoading;
+    }
     const dateLabel = exchangeRates.date || "—";
     let text = formatI18nTemplate(i18n.rateFootnote, {
       codes: foreignCodes.join(", "),
@@ -5030,10 +5088,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [
     currencies,
     displayCurrencyCode,
+    exchangeRateScopeKey,
     exchangeRatesLoading,
     exchangeRatesError,
     exchangeRates.date,
     exchangeRates.rates,
+    exchangeRates.scopeKey,
     i18n,
   ]);
 

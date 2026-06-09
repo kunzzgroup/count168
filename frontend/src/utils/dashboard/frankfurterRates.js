@@ -1,8 +1,10 @@
 const FRANKFURTER_API = "https://api.frankfurter.dev/v2/rates";
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
-/** @type {Map<string, { expires: number, rates: Record<string, number>, date: string | null }>} */
+/** @type {Map<string, { expires: number, rates: Record<string, number>, date: string | null, unsupported?: string[] }>} */
 const rateCache = new Map();
+/** @type {Map<string, Promise<{ rates: Record<string, number>, date: string | null, unsupported: string[] }>>} */
+const frankfurterInflight = new Map();
 
 function cacheKey(base, quotes, date) {
   const sorted = [...quotes].sort().join(",");
@@ -17,11 +19,7 @@ function cacheKey(base, quotes, date) {
  */
 export async function fetchFrankfurterRates(base, quoteCodes, dateYmd = null) {
   const baseCode = String(base || "").trim().toUpperCase();
-  const quotes = [...new Set(
-    (quoteCodes || [])
-      .map((c) => String(c || "").trim().toUpperCase())
-      .filter((c) => c && c !== baseCode)
-  )];
+  const quotes = normalizeFrankfurterQuotes(baseCode, quoteCodes);
 
   if (!baseCode) {
     return { rates: {}, date: null, unsupported: quotes };
@@ -37,41 +35,31 @@ export async function fetchFrankfurterRates(base, quoteCodes, dateYmd = null) {
     return { rates: cached.rates, date: cached.date, unsupported: cached.unsupported || [] };
   }
 
-  const params = new URLSearchParams({ base: baseCode, quotes: quotes.join(",") });
-  if (dateYmd) params.set("date", dateYmd);
-
-  const res = await fetch(`${FRANKFURTER_API}?${params}`);
-  if (!res.ok) {
-    throw new Error(`Frankfurter HTTP ${res.status}`);
+  if (frankfurterInflight.has(key)) {
+    return frankfurterInflight.get(key);
   }
 
-  const rows = await res.json();
-  if (!Array.isArray(rows)) {
-    throw new Error("Frankfurter invalid response");
-  }
-
-  const rates = { [baseCode]: 1 };
-  const supported = new Set();
-  for (const row of rows) {
-    const quote = String(row.quote || "").toUpperCase();
-    const rate = parseFloat(row.rate);
-    if (quote && Number.isFinite(rate) && rate > 0) {
-      rates[quote] = rate;
-      supported.add(quote);
+  const promise = (async () => {
+    let lastResult = { rates: { [baseCode]: 1 }, date: dateYmd, unsupported: quotes };
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      lastResult = await fetchFrankfurterRatesOnce(baseCode, quotes, dateYmd);
+      if (frankfurterRatesCoverQuotes(baseCode, quoteCodes, lastResult.rates)) {
+        storeFrankfurterRatesCache(baseCode, quotes, dateYmd, lastResult);
+        return lastResult;
+      }
+      if (attempt === 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+      }
     }
+    return lastResult;
+  })();
+
+  frankfurterInflight.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    frankfurterInflight.delete(key);
   }
-
-  const unsupported = quotes.filter((q) => !supported.has(q));
-  const date = rows[0]?.date || dateYmd || null;
-
-  rateCache.set(key, {
-    expires: Date.now() + CACHE_TTL_MS,
-    rates,
-    date,
-    unsupported,
-  });
-
-  return { rates, date, unsupported };
 }
 
 function normalizeFrankfurterQuotes(baseCode, quoteCodes) {
@@ -103,6 +91,50 @@ export function frankfurterMissingQuotes(base, quoteCodes, rates) {
   });
 }
 
+function storeFrankfurterRatesCache(baseCode, quotes, dateYmd, payload) {
+  if (!frankfurterRatesCoverQuotes(baseCode, [baseCode, ...quotes], payload.rates)) {
+    return;
+  }
+  const key = cacheKey(baseCode, quotes, dateYmd);
+  rateCache.set(key, {
+    expires: Date.now() + CACHE_TTL_MS,
+    rates: payload.rates,
+    date: payload.date,
+    unsupported: payload.unsupported || [],
+  });
+}
+
+async function fetchFrankfurterRatesOnce(baseCode, quotes, dateYmd) {
+  const params = new URLSearchParams({ base: baseCode, quotes: quotes.join(",") });
+  if (dateYmd) params.set("date", dateYmd);
+
+  const res = await fetch(`${FRANKFURTER_API}?${params}`);
+  if (!res.ok) {
+    throw new Error(`Frankfurter HTTP ${res.status}`);
+  }
+
+  const rows = await res.json();
+  if (!Array.isArray(rows)) {
+    throw new Error("Frankfurter invalid response");
+  }
+
+  const rates = { [baseCode]: 1 };
+  const supported = new Set();
+  for (const row of rows) {
+    const quote = String(row.quote || "").toUpperCase();
+    const rate = parseFloat(row.rate);
+    if (quote && Number.isFinite(rate) && rate > 0) {
+      rates[quote] = rate;
+      supported.add(quote);
+    }
+  }
+
+  const unsupported = quotes.filter((q) => !supported.has(q));
+  const date = rows[0]?.date || dateYmd || null;
+
+  return { rates, date, unsupported };
+}
+
 /** Re-base Frankfurter multipliers (1 sourceBase = rate[quote] quote). */
 export function deriveFrankfurterRates(newBase, sourceRates, sourceBase, quoteCodes) {
   const targetBase = String(newBase || "").trim().toUpperCase();
@@ -130,16 +162,6 @@ export function deriveFrankfurterRates(newBase, sourceRates, sourceBase, quoteCo
     }
   }
   return { rates, unsupported: quotes.filter((q) => !rates[q]) };
-}
-
-function storeFrankfurterRatesCache(baseCode, quotes, dateYmd, payload) {
-  const key = cacheKey(baseCode, quotes, dateYmd);
-  rateCache.set(key, {
-    expires: Date.now() + CACHE_TTL_MS,
-    rates: payload.rates,
-    date: payload.date,
-    unsupported: payload.unsupported || [],
-  });
 }
 
 /** Return cached Frankfurter rates synchronously, or null if missing/expired. */
@@ -187,6 +209,7 @@ export function peekFrankfurterRatesCacheOrDerived(base, quoteCodes, dateYmd = n
       ...quotes,
     ]);
     if (!derived || !Object.keys(derived.rates).length) continue;
+    if (!frankfurterRatesCoverQuotes(baseCode, quoteCodes, derived.rates)) continue;
     const payload = {
       rates: derived.rates,
       date: cached.date,
