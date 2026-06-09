@@ -22,6 +22,7 @@ export function DashboardEarningsSummary({
   summaryEarningsValue,
   summaryConversionNote,
   summaryEarningsLoading,
+  earningsPanelStable = true,
   earningsByCurrencyLoading,
   exchangeRates,
   exchangeRatesError,
@@ -71,7 +72,8 @@ export function DashboardEarningsSummary({
     return map;
   }, [earningsCurrencyRows]);
 
-  const summaryPieReady = earningsPieSlices.length > 0 && !summaryEarningsLoading;
+  const summaryPieReady =
+    earningsPanelStable && earningsPieSlices.length > 0 && !summaryEarningsLoading;
 
   const isRowAmountLoading = useCallback(
     (code) => {
@@ -92,7 +94,7 @@ export function DashboardEarningsSummary({
 
   useEffect(() => {
     setHoveredPieSector(null);
-  }, [currencyCode, earningsPieSlices]);
+  }, [currencyCode]);
 
   useLayoutEffect(() => {
     const wrap = pieAreaRef.current;
@@ -117,7 +119,7 @@ export function DashboardEarningsSummary({
       observer?.disconnect();
       window.removeEventListener("resize", syncLayout);
     };
-  }, [summaryPieReady, earningsPieSlices.length, currencyCode]);
+  }, [summaryPieReady, currencyCode]);
 
   const handlePieSectorEnter = useCallback(
     (sectorData, index) => {
@@ -186,8 +188,10 @@ export function DashboardEarningsSummary({
           </div>
           <div
             ref={pieAreaRef}
-            className="dashboard-summary-pie-wrap"
-            aria-hidden={summaryEarningsLoading && !earningsPieSlices.length}
+            className={`dashboard-summary-pie-wrap${
+              earningsPanelStable ? " is-stable" : " is-settling"
+            }`}
+            aria-hidden={!earningsPanelStable && !earningsPieSlices.length}
             onMouseLeave={() => setHoveredPieSector(null)}
           >
             <div ref={pieShellRef} className="dashboard-summary-pie-chart-shell">
@@ -211,10 +215,7 @@ export function DashboardEarningsSummary({
                     strokeWidth={3}
                     label={false}
                     activeShape={false}
-                    isAnimationActive={summaryPieReady && !earningsByCurrencyLoading}
-                    animationBegin={0}
-                    animationDuration={320}
-                    animationEasing="ease-out"
+                    isAnimationActive={false}
                     onMouseEnter={handlePieSectorEnter}
                     onMouseLeave={() => setHoveredPieSector(null)}
                   >
@@ -226,7 +227,7 @@ export function DashboardEarningsSummary({
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              {!summaryEarningsLoading && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
+              {!summaryEarningsLoading && earningsPanelStable && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
                 <div key={currencyCode || "center"} className="dashboard-summary-pie-center" aria-hidden="true">
                   <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
                   <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
@@ -256,7 +257,12 @@ export function DashboardEarningsSummary({
             )}
           </div>
         </div>
-        <div className="dashboard-summary-currency-list" aria-label={i18n.currencyBreakdown}>
+        <div
+          className={`dashboard-summary-currency-list${
+            currencies.length > 1 ? " is-multi-currency" : ""
+          }`}
+          aria-label={i18n.currencyBreakdown}
+        >
           <div className="dashboard-summary-currency-list-head" aria-hidden="true">
             <span>{i18n.breakdownCurrency}</span>
             <span>{i18n.breakdownAmount}</span>
@@ -315,6 +321,13 @@ export function DashboardEarningsSummary({
                             amount: formatCurrency(row.earningsConverted),
                             code: currencyCode,
                           })}
+                        </span>
+                      )}
+                    {earningsBreakdownShowsRate &&
+                      !useConvertedEarnings &&
+                      String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
+                        <span className="dashboard-summary-currency-converted is-placeholder" aria-hidden="true">
+                          &nbsp;
                         </span>
                       )}
                   </div>

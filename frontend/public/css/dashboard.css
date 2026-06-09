@@ -1210,6 +1210,15 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     user-select: none;
 }
 
+.dashboard-summary-pie-wrap.is-settling .dashboard-summary-pie-chart-shell {
+    opacity: 0.72;
+}
+
+.dashboard-summary-pie-wrap.is-stable .dashboard-summary-pie-chart-shell {
+    opacity: 1;
+    transition: opacity 0.18s ease-out;
+}
+
 .dashboard-summary-pie-chart-shell {
     position: relative;
     width: min(100%, 220px);
@@ -1261,6 +1270,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     line-height: 1.1;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
+    min-height: 1.15em;
 }
 
 .dashboard-summary-hero-conversion-note {
@@ -1686,6 +1696,15 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-height: 1.15em;
+}
+
+.dashboard-summary-currency-converted.is-placeholder {
+    visibility: hidden;
+}
+
+.dashboard-summary-currency-list.is-multi-currency .dashboard-summary-currency-row:not(.is-active) .dashboard-summary-currency-amount-col {
+    min-height: 2.45em;
 }
 
 .dashboard-summary-currency-rate {
@@ -1715,6 +1734,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     border: 1px solid var(--color-border-slate, #e2e8f0);
     border-radius: var(--radius-panel, 8px);
     flex-shrink: 0;
+    min-height: 2.2em;
 }
 
 .dashboard-summary-rate-footnote.is-warn {
