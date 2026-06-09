@@ -303,10 +303,15 @@ function weekPeriodEndInclusiveYmd(string $startYmd): ?string
     }
 }
 
-/** Next period start = current period end (rolling anchor). */
+/** Next period start = day after current period end (6/1–6/7 → next 6/8, not 6/7). */
 function weekPeriodNextStartYmd(string $startYmd): ?string
 {
-    return weekPeriodEndInclusiveYmd($startYmd);
+    $end = weekPeriodEndInclusiveYmd($startYmd);
+    if ($end === null) {
+        return null;
+    }
+
+    return dailyNextDayYmd($end);
 }
 
 function weekPeriodIsReadyForAccounting(string $dueYmd, string $periodEndYmd, bool $resendRelax, ?string $todayYmd = null): bool
