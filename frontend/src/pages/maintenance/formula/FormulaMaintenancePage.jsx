@@ -248,11 +248,11 @@ export default function FormulaMaintenancePage() {
       companyIdRef.current = nextId;
       setCompanyId(nextId);
       if (nextCode) setCompanyCode(nextCode);
-      clearFormulaList();
+      resetSelection();
     };
     window.addEventListener("eazycount:company-session-updated", handleSwitch);
     return () => window.removeEventListener("eazycount:company-session-updated", handleSwitch);
-  }, [clearFormulaList]);
+  }, [resetSelection]);
 
   /** 先展示前 N 行，其余用 rAF 分批追加，避免一次性渲染卡住 UI */
   const hydrateFormulaList = useCallback(
@@ -661,11 +661,10 @@ export default function FormulaMaintenancePage() {
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
-      setSelectedProcess(null);
-      clearFormulaList();
+      resetSelection();
       void performSearch({ companyId: nextId, selectedGroup: newGroup, scope: nextScope });
     },
-    [clearFormulaList, companies, groupAllMode, groupsAllMode, performSearch],
+    [companies, groupAllMode, groupsAllMode, performSearch, resetSelection],
   );
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;

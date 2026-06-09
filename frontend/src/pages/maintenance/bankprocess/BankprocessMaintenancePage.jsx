@@ -80,6 +80,7 @@ export default function BankprocessMaintenancePage() {
   const [bankprocessListEpoch, setBankprocessListEpoch] = useState(0);
   const [bankprocessDataSourceCompanyId, setBankprocessDataSourceCompanyId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [listSyncing, setListSyncing] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -308,6 +309,10 @@ export default function BankprocessMaintenancePage() {
     const seq = ++searchSeqRef.current;
 
     if (!quietRefresh) setLoading(true);
+    else {
+      setLoading(false);
+      setListSyncing(true);
+    }
     setSelectedIds([]);
 
     const currencyKey = allCurrenciesSelected ? "ALL" : selectedCurrencies.slice().sort().join(",");
@@ -355,6 +360,7 @@ export default function BankprocessMaintenancePage() {
       if (seq === searchSeqRef.current) {
         initialBankprocessSearchDoneRef.current = true;
         setLoading(false);
+        setListSyncing(false);
       }
     }
   }, [
@@ -545,7 +551,11 @@ export default function BankprocessMaintenancePage() {
   };
 
   const tableLoading =
-    loading || bootLoading || !currenciesReady || (!hasSearched && Boolean(companyId));
+    loading ||
+    bootLoading ||
+    ((!currenciesReady || !hasSearched) &&
+      Boolean(companyId) &&
+      !initialBankprocessSearchDoneRef.current);
 
   return (
     <div className="bankprocess-maintenance-page-root container">
@@ -584,19 +594,27 @@ export default function BankprocessMaintenancePage() {
         m={m}
       />
 
-      <BankprocessMaintenanceTable
-        key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
-        loading={tableLoading}
-        rows={rows}
-        hasSearched={hasSearched}
-        listEpoch={bankprocessListEpoch}
-        rowKeyCompanyId={bankprocessDataSourceCompanyId ?? companyId}
-        selectedIds={selectedIds}
-        onToggleRow={onToggleRow}
-        selectAll={selectAll}
-        onToggleSelectAll={onToggleSelectAll}
-        m={m}
-      />
+      <div className="bankprocess-maintenance-table-region">
+        {listSyncing && (
+          <div className="bankprocess-maintenance-sync-track" aria-hidden>
+            <div className="bankprocess-maintenance-sync-bar" />
+          </div>
+        )}
+        <BankprocessMaintenanceTable
+          key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
+          loading={tableLoading}
+          listSyncing={listSyncing}
+          rows={rows}
+          hasSearched={hasSearched}
+          listEpoch={bankprocessListEpoch}
+          rowKeyCompanyId={bankprocessDataSourceCompanyId ?? companyId}
+          selectedIds={selectedIds}
+          onToggleRow={onToggleRow}
+          selectAll={selectAll}
+          onToggleSelectAll={onToggleSelectAll}
+          m={m}
+        />
+      </div>
 
       <div id="notificationContainer" className="maintenance-notification-container">
         {toasts.map((toast) => (

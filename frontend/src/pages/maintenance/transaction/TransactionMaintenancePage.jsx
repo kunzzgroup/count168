@@ -313,12 +313,18 @@ export default function TransactionMaintenancePage() {
       const ac = new AbortController();
       maintenanceAbortRef.current = ac;
       const seq = ++maintenanceSeqRef.current;
+      const quietRefresh = initialSearchDoneRef.current;
       if (filtersChanged || overrides.scope) {
-        setTransactionData([]);
-        setMaintenanceDataComplete(false);
-        setListLoading(true);
-        setListSyncing(false);
-      } else if (!initialSearchDoneRef.current) {
+        if (!quietRefresh) {
+          setTransactionData([]);
+          setMaintenanceDataComplete(false);
+          setListLoading(true);
+          setListSyncing(false);
+        } else {
+          setListLoading(false);
+          setListSyncing(true);
+        }
+      } else if (!quietRefresh) {
         setListLoading(true);
       } else {
         setListLoading(false);
@@ -345,7 +351,7 @@ export default function TransactionMaintenancePage() {
         setTransactionData(rows);
         setMaintenanceDataComplete(true);
         lastSearchQueryKeyRef.current = effectiveSearchKey;
-        if (filtersChanged || overrides.scope) {
+        if ((filtersChanged || overrides.scope) && !quietRefresh) {
           if (rows.length > 0) {
             notify(t("foundRecords", { n: rows.length }), "success");
           } else {
@@ -868,10 +874,16 @@ export default function TransactionMaintenancePage() {
     const nextTo = formatDmyFromYmd(end);
     if (!nextFrom || !nextTo) return;
     if (nextFrom === dateFrom && nextTo === dateTo) return;
-    setTransactionData([]);
-    setMaintenanceDataComplete(false);
-    setListLoading(true);
-    setListSyncing(false);
+    const quietRefresh = initialSearchDoneRef.current;
+    if (!quietRefresh) {
+      setTransactionData([]);
+      setMaintenanceDataComplete(false);
+      setListLoading(true);
+      setListSyncing(false);
+    } else {
+      setListLoading(false);
+      setListSyncing(true);
+    }
     setSearchError(null);
     setDateFrom(nextFrom);
     setDateTo(nextTo);
@@ -1026,9 +1038,8 @@ export default function TransactionMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  const listSyncingUi =
-    listSyncing && (listRowCount > 0 || !maintenanceDataComplete);
-  const showTopLoadingBar = listLoading || listSyncingUi;
+  const listSyncingUi = listSyncing && listRowCount > 0;
+  const showTopLoadingBar = listLoading;
 
   return (
     <div className="container">
@@ -1080,16 +1091,23 @@ export default function TransactionMaintenancePage() {
           m={m}
         />
 
-        <TransactionMaintenanceTable
-          data={transactionData}
-          showSkeleton={showListSkeleton && !listSyncingUi}
-          showEmptyState={showNoDataEmpty}
-          statusMessage={listStatusMessage}
-          showTopLoading={showTopLoadingBar}
-          topLoadingLabel={listStatusMessage || t("loading")}
-          isPlaceholderData={listSyncingUi}
-          m={m}
-        />
+        <div className="transaction-maintenance-table-region">
+          {listSyncingUi && (
+            <div className="transaction-maintenance-sync-track" aria-hidden>
+              <div className="transaction-maintenance-sync-bar" />
+            </div>
+          )}
+          <TransactionMaintenanceTable
+            data={transactionData}
+            showSkeleton={showListSkeleton && !listSyncingUi}
+            showEmptyState={showNoDataEmpty}
+            statusMessage={listStatusMessage}
+            showTopLoading={showTopLoadingBar}
+            topLoadingLabel={listStatusMessage || t("loading")}
+            listSyncing={listSyncingUi}
+            m={m}
+          />
+        </div>
       </div>
 
       {/* Notifications */}

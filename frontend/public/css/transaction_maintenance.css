@@ -1402,3 +1402,44 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     }
 }
 
+/* 与 Payment Maintenance 一致：静默刷新顶栏细条 + 表体略灰 */
+.transaction-maintenance-table-region {
+    position: relative;
+}
+
+.transaction-maintenance-table-region .transaction-maintenance-sync-track {
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    background: rgba(229, 231, 235, 0.9);
+}
+
+.transaction-maintenance-table-region .transaction-maintenance-sync-bar {
+    height: 100%;
+    width: 38%;
+    max-width: 180px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.15));
+    animation: transaction-maintenance-sync-slide 0.95s ease-in-out infinite;
+}
+
+@keyframes transaction-maintenance-sync-slide {
+    0% {
+        transform: translateX(-120%);
+    }
+
+    100% {
+        transform: translateX(420%);
+    }
+}
+
+.transaction-maintenance-table-region .maintenance-list-container--syncing {
+    opacity: 0.94;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.transaction-maintenance-page-root .maintenance-list-container--syncing .maintenance-virtual-scroll {
+    pointer-events: none;
+}

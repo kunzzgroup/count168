@@ -1264,3 +1264,44 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
     text-decoration: none;
 }
 
+/* 与 Payment Maintenance 一致：静默刷新顶栏细条 + 表体略灰 */
+.bankprocess-maintenance-table-region {
+    position: relative;
+}
+
+.bankprocess-maintenance-table-region .bankprocess-maintenance-sync-track {
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    background: rgba(229, 231, 235, 0.9);
+}
+
+.bankprocess-maintenance-table-region .bankprocess-maintenance-sync-bar {
+    height: 100%;
+    width: 38%;
+    max-width: 180px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.15));
+    animation: bankprocess-maintenance-sync-slide 0.95s ease-in-out infinite;
+}
+
+@keyframes bankprocess-maintenance-sync-slide {
+    0% {
+        transform: translateX(-120%);
+    }
+
+    100% {
+        transform: translateX(420%);
+    }
+}
+
+.bankprocess-maintenance-table-region .maintenance-list-container--syncing {
+    opacity: 0.94;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.bankprocess-maintenance-page-root .maintenance-list-container--syncing .maintenance-virtual-scroll {
+    pointer-events: none;
+}

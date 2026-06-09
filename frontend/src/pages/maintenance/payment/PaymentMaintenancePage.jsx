@@ -222,7 +222,6 @@ export default function PaymentMaintenancePage() {
       companyIdRef.current = nextId;
       setCompanyId(nextId);
       if (nextCode) setCompanyCode(nextCode);
-      setPaymentData([]);
       setSelectedIds([]);
       setConfirmDelete(false);
     };

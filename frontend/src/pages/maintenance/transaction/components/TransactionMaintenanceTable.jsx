@@ -112,7 +112,7 @@ function VirtualDataRow({ row, index }) {
  * @param {boolean} props.showSkeleton
  * @param {boolean} props.showEmptyState
  * @param {string} props.statusMessage
- * @param {boolean} props.isPlaceholderData
+ * @param {boolean} props.listSyncing
  * @param {object} props.m
  */
 export default function TransactionMaintenanceTable({
@@ -122,7 +122,7 @@ export default function TransactionMaintenanceTable({
   statusMessage = "",
   showTopLoading = false,
   topLoadingLabel = "",
-  isPlaceholderData,
+  listSyncing = false,
   m,
 }) {
   const scrollRef = useRef(null);
@@ -217,7 +217,11 @@ export default function TransactionMaintenanceTable({
   const topLabel = topLoadingLabel || m.loading;
 
   return (
-    <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table">
+    <div
+      className={`maintenance-list-container maintenance-virtual-table transaction-virtual-table${
+        listSyncing ? " maintenance-list-container--syncing" : ""
+      }`}
+    >
       <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
         {showBlueBar ? <TopLoadingBar label={topLabel} /> : null}
         <VirtualTableHeader m={m} />
