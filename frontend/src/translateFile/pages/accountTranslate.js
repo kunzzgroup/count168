@@ -484,7 +484,7 @@ function formatAccountInUseLabel(acc) {
 /** Parse account labels from delete_currency_api English message. */
 export function parseAccountsFromCurrencyDeleteMessage(message) {
   const raw = String(message || "").trim();
-  const m = raw.match(/following accounts are using it:\s*(.+)$/i);
+  const m = raw.match(/following accounts are using it:\s*(.+?)(?:\s*\[Debug:|$)/i);
   if (!m) return [];
   return m[1]
     .split(",")
@@ -497,6 +497,26 @@ export function parseAccountsFromCurrencyDeleteMessage(message) {
       }
       return { name: label, account_id: label };
     });
+}
+
+/** Parse non-account usage summary from delete_currency_api message (transactions, data captures, etc.). */
+export function parseCurrencyUsageDetailFromMessage(message) {
+  const raw = String(message || "").trim();
+  const m = raw.match(/being used by:\s*(.+?)(?:\s*\[Debug:|$)/i);
+  return m ? m[1].trim() : "";
+}
+
+function translateCurrencyUsageDetail(lang, detail) {
+  const locale = toLocale(lang);
+  if (locale !== "zh") return detail;
+  return detail
+    .replace(/\bdata capture template\(s\)/gi, "数据采集模板")
+    .replace(/\bdata capture detail\(s\)/gi, "数据采集明细")
+    .replace(/\bdata capture\(s\)/gi, "数据采集")
+    .replace(/\brate transaction detail\(s\)/gi, "汇率交易明细")
+    .replace(/\brate transaction\(s\)/gi, "汇率交易")
+    .replace(/\btransaction\(s\)/gi, "交易")
+    .replace(/\baccount\(s\)/gi, "账号");
 }
 
 function translateAccountDynamicApiMessage(lang, message, data = null) {
@@ -529,6 +549,10 @@ function translateAccountDynamicApiMessage(lang, message, data = null) {
     if (labels.length > 0) {
       return getAccountText(lang, "apiCurrencyInUse") + ": " + labels.join(", ");
     }
+  }
+  const usageDetail = parseCurrencyUsageDetailFromMessage(raw);
+  if (usageDetail) {
+    return getAccountText(lang, "apiCurrencyInUse") + ": " + translateCurrencyUsageDetail(lang, usageDetail);
   }
   m = raw.match(/^(?:Currency is being used|正在使用|Cannot delete).*currency/i);
   if (m || /being used|正在使用/i.test(raw)) return getAccountText(lang, "apiCurrencyInUse");
