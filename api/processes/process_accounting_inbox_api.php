@@ -1421,7 +1421,7 @@ try {
                 $periodEnd = weekPeriodEndInclusiveYmd($due);
                 // Resend 单期：只开弹窗锚点那一周，不按「今天所在月」过滤（未来周如 6/16 在 6/9 也应出现）。
                 if ($periodEnd !== null
-                    && weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax)
+                    && weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax, $today)
                     && !hasWeeklyPostedForPeriodStart($pdo, $company_id, $processIdWeek, $due)) {
                     inboxAppendWeeklyNeedToday($needToday, $r, $due, $baseCost, $basePrice, $baseProfit);
                 }
@@ -1435,11 +1435,11 @@ try {
                 if ($periodEnd === null) {
                     break;
                 }
-                if (!$resendMulti && $periodEnd > $today && !$resendRelax) {
+                if (!$resendMulti && $due > $today && !$resendRelax) {
                     break;
                 }
                 $eligible = false;
-                if (weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax)
+                if (weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax, $today)
                     && weekPeriodOverlapsCalendarMonth($due, $periodEnd, $todayYear, $todayMonth)) {
                     if (!$resendRelax && $due < $createdYmd) {
                         try {
@@ -1471,9 +1471,6 @@ try {
                         inboxAppendWeeklyNeedToday($needToday, $r, $due, $baseCost, $basePrice, $baseProfit);
                         break;
                     }
-                }
-                if ($periodEnd > $today && !$resendRelax) {
-                    break;
                 }
                 $nextDue = weekPeriodNextStartYmd($due);
                 if ($nextDue === null || $nextDue <= $due) {

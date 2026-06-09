@@ -309,14 +309,17 @@ function weekPeriodNextStartYmd(string $startYmd): ?string
     return weekPeriodEndInclusiveYmd($startYmd);
 }
 
-function weekPeriodIsReadyForAccounting(string $dueYmd, string $periodEndYmd, bool $resendRelax): bool
+function weekPeriodIsReadyForAccounting(string $dueYmd, string $periodEndYmd, bool $resendRelax, ?string $todayYmd = null): bool
 {
     if ($resendRelax) {
         return true;
     }
-    $today = date('Y-m-d');
+    $today = ($todayYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $todayYmd))
+        ? $todayYmd
+        : date('Y-m-d');
 
-    return $today >= $periodEndYmd;
+    // Week 账单在周期起点日即可进入 Accounting Due（Due Date = 周起点），不必等周末。
+    return $today >= $dueYmd;
 }
 
 /** 周期 [due, periodEnd] 是否与指定自然月有重叠 */
@@ -388,11 +391,11 @@ function weekInferEarliestOpenBillingStartYmd(
         if ($periodEnd === null) {
             break;
         }
-        if (!$resendRelax && $periodEnd > $today) {
+        if (!$resendRelax && $due > $today) {
             break;
         }
         $eligible = false;
-        if (weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax)
+        if (weekPeriodIsReadyForAccounting($due, $periodEnd, $resendRelax, $today)
             && weekPeriodOverlapsCalendarMonth($due, $periodEnd, $todayYear, $todayMonth)) {
             if (!$resendRelax && $due < $createdYmd) {
                 try {
@@ -419,9 +422,6 @@ function weekInferEarliestOpenBillingStartYmd(
         }
         if ($eligible && !weekHasPostedOrSkippedForPeriodStart($pdo, $companyId, $processId, $due)) {
             return $due;
-        }
-        if ($periodEnd > $today && !$resendRelax) {
-            break;
         }
         $nextDue = weekPeriodNextStartYmd($due);
         if ($nextDue === null || $nextDue <= $due) {
