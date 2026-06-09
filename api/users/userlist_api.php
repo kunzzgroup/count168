@@ -572,20 +572,29 @@ function userlist_fetch_group_only_user_ids(PDO $pdo, string $groupScope): array
     $groupPk = userlist_resolve_group_pk_by_code($pdo, $g);
     $ids = [];
 
-    if (userlist_table_exists($pdo, 'user_group_map') && gc_has_groups_table($pdo)) {
-        try {
-            $stmt = $pdo->prepare('
-                SELECT ugm.user_id
-                FROM user_group_map ugm
-                INNER JOIN `groups` grp ON grp.id = ugm.group_id
-                WHERE UPPER(TRIM(grp.group_code)) = ?
-            ');
-            $stmt->execute([$g]);
+    if (userlist_table_exists($pdo, 'user_group_map')) {
+        if ($groupPk > 0) {
+            $stmt = $pdo->prepare('SELECT user_id FROM user_group_map WHERE group_id = ?');
+            $stmt->execute([$groupPk]);
             foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
                 $ids[(int) $uid] = true;
             }
-        } catch (Throwable $e) {
-            // fall through
+        }
+        if (gc_has_groups_table($pdo)) {
+            try {
+                $stmt = $pdo->prepare('
+                    SELECT ugm.user_id
+                    FROM user_group_map ugm
+                    INNER JOIN `groups` grp ON grp.id = ugm.group_id
+                    WHERE UPPER(TRIM(grp.group_code)) = ?
+                ');
+                $stmt->execute([$g]);
+                foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+                    $ids[(int) $uid] = true;
+                }
+            } catch (Throwable $e) {
+                // fall through
+            }
         }
     }
 
@@ -600,79 +609,7 @@ function userlist_fetch_group_only_user_ids(PDO $pdo, string $groupScope): array
         }
     }
 
-    $out = [];
-    foreach (array_keys($ids) as $userId) {
-        $userId = (int) $userId;
-        if ($userId <= 0) {
-            continue;
-        }
-        // Group-only ledger: exclude users assigned to subsidiaries (e.g. CX admin under AP).
-        if (userlist_fetch_user_subsidiary_company_ids($pdo, $userId) !== []) {
-            continue;
-        }
-        $out[] = $userId;
-    }
-
-    return $out;
-}
-
-/**
- * Subsidiary company list under a group pill (AP + C168): keep company-scoped users,
- * drop group-ledger users tied to other groups or other subsidiaries only.
- *
- * @param list<int> $userIds
- * @param list<int> $filterCompanyIds
- * @return list<int>
- */
-function userlist_filter_users_for_group_subsidiary_view(PDO $pdo, array $userIds, string $groupScope, array $filterCompanyIds): array
-{
-    $g = userlist_normalize_group_id($groupScope);
-    if ($g === null || $userIds === []) {
-        return $userIds;
-    }
-
-    $companyIdSet = [];
-    foreach ($filterCompanyIds as $cid) {
-        $cid = (int) $cid;
-        if ($cid > 0) {
-            $companyIdSet[$cid] = true;
-        }
-    }
-    if ($companyIdSet === []) {
-        return $userIds;
-    }
-
-    $filtered = [];
-    foreach ($userIds as $userId) {
-        $userId = (int) $userId;
-        if ($userId <= 0) {
-            continue;
-        }
-
-        $groupCodes = userlist_fetch_user_group_codes($pdo, $userId);
-        if ($groupCodes === []) {
-            $filtered[] = $userId;
-            continue;
-        }
-
-        if (!in_array($g, $groupCodes, true)) {
-            continue;
-        }
-
-        $subsidiaries = userlist_fetch_user_subsidiary_company_ids($pdo, $userId);
-        if ($subsidiaries === []) {
-            continue;
-        }
-
-        foreach ($subsidiaries as $cid) {
-            if (isset($companyIdSet[(int) $cid])) {
-                $filtered[] = $userId;
-                break;
-            }
-        }
-    }
-
-    return $filtered;
+    return array_values(array_filter(array_map('intval', array_keys($ids)), static fn (int $id): bool => $id > 0));
 }
 
 /**
@@ -3108,22 +3045,7 @@ try {
                 }
 
                 $filterCompanyIds = userlist_resolve_filter_company_ids($pdo, $input);
-                if ($groupScope !== null && $filterCompanyIds !== []) {
-                    foreach ($filterCompanyIds as $cid) {
-                        if (!gc_session_can_access_company_id($pdo, (int) $cid, $groupScope)) {
-                            sendResponse(true, 'Users retrieved successfully', []);
-                        }
-                    }
-                }
                 $companyUserIds = userlist_fetch_company_scope_user_ids($pdo, $filterCompanyIds);
-                if ($groupScope !== null && !userlist_is_group_only_list_request($input) && $companyUserIds !== []) {
-                    $companyUserIds = userlist_filter_users_for_group_subsidiary_view(
-                        $pdo,
-                        $companyUserIds,
-                        $groupScope,
-                        $filterCompanyIds
-                    );
-                }
                 if ($companyUserIds === []) {
                     sendResponse(true, 'Users retrieved successfully', []);
                 }

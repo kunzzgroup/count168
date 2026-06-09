@@ -11,7 +11,6 @@ require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 require_once __DIR__ . '/../api_response.php';
-require_once __DIR__ . '/userlist_visibility.php';
 
 header('Content-Type: application/json');
 
@@ -139,34 +138,14 @@ function toggle_group_entity_company_ids(PDO $pdo, string $groupId): array
 }
 
 /** @return list<int> */
-function toggle_resolve_scope_company_ids(PDO $pdo, ?int $postedCompanyId, ?string $groupId, bool $groupOnly = false): array
+function toggle_resolve_scope_company_ids(PDO $pdo, ?int $postedCompanyId, ?string $groupId): array
 {
     $sessionCompanyId = (int) ($_SESSION['company_id'] ?? 0);
     $primary = ($postedCompanyId !== null && $postedCompanyId > 0) ? $postedCompanyId : $sessionCompanyId;
     $accessible = toggle_fetch_accessible_companies($pdo);
     $allowed = gc_resolve_allowed_company_numeric_ids($pdo, $accessible);
+
     $groupNorm = toggle_normalize_group_id($groupId);
-
-    if ($groupOnly && $groupNorm !== null) {
-        $groupIds = toggle_group_entity_company_ids($pdo, $groupNorm);
-        if ($groupIds === []) {
-            $groupIds = toggle_company_ids_for_group($accessible, $groupNorm);
-        }
-
-        return $groupIds;
-    }
-
-    if ($primary > 0) {
-        if ($allowed !== [] && !in_array($primary, $allowed, true)) {
-            return [];
-        }
-        if ($groupNorm !== null && !gc_session_can_access_company_id($pdo, $primary, $groupNorm)) {
-            return [];
-        }
-
-        return [$primary];
-    }
-
     if ($groupNorm !== null) {
         $groupIds = toggle_group_entity_company_ids($pdo, $groupNorm);
         if ($groupIds === []) {
@@ -175,6 +154,13 @@ function toggle_resolve_scope_company_ids(PDO $pdo, ?int $postedCompanyId, ?stri
         if ($groupIds !== []) {
             return $groupIds;
         }
+    }
+
+    if ($primary > 0) {
+        if ($allowed !== [] && !in_array($primary, $allowed, true)) {
+            return [];
+        }
+        return [$primary];
     }
 
     return $allowed;
@@ -284,52 +270,25 @@ try {
 
     $postedCompanyId = (int) ($_POST['company_id'] ?? 0);
     $groupId = toggle_normalize_group_id($_POST['group_id'] ?? null);
-    $groupOnly = !empty($_POST['group_only'])
-        && filter_var($_POST['group_only'], FILTER_VALIDATE_BOOLEAN);
-
-    if (!userlist_visibility_user_allowed_for_request(
-        $pdo,
-        $id,
-        $groupId,
-        $postedCompanyId > 0 ? $postedCompanyId : null,
-        $groupOnly
-    )) {
-        api_error('无权限操作此用户', 403);
-        exit;
-    }
-
     $scopeCompanyIds = toggle_resolve_scope_company_ids(
         $pdo,
         $postedCompanyId > 0 ? $postedCompanyId : null,
-        $groupId,
-        $groupOnly
+        $groupId
     );
     if ($scopeCompanyIds === []) {
         api_error('无权限操作此用户', 403);
         exit;
     }
 
-    if ($groupOnly) {
-        $stmt = $pdo->prepare('SELECT status, role FROM user WHERE id = ? LIMIT 1');
-        $stmt->execute([$id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row) {
-            api_error('无权限操作此用户', 403);
-            exit;
-        }
-        $current = ['status' => $row['status']];
-        $isOwnerShadow = false;
-        $targetRole = strtolower(trim((string) ($row['role'] ?? '')));
-    } else {
-        $target = toggle_find_target($pdo, $id, $scopeCompanyIds);
-        if ($target === null) {
-            api_error('无权限操作此用户', 403);
-            exit;
-        }
-        $current = $target['current'];
-        $isOwnerShadow = $target['isOwnerShadow'];
-        $targetRole = $target['targetRole'];
+    $target = toggle_find_target($pdo, $id, $scopeCompanyIds);
+    if ($target === null) {
+        api_error('无权限操作此用户', 403);
+        exit;
     }
+
+    $current = $target['current'];
+    $isOwnerShadow = $target['isOwnerShadow'];
+    $targetRole = $target['targetRole'];
 
     if ($currentUserId > 0 && $currentUserId === $id) {
         api_error('You cannot toggle your own status', 403);
