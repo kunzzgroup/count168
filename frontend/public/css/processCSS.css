@@ -1515,9 +1515,9 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     flex-shrink: 0;
 }
 
-/* Bank Process 顶栏日期：药丸与日历 dropdown 同宽（--bank-toolbar-date-pill-width = 280px） */
+/* Bank Process 顶栏日期：药丸与日历 dropdown 同宽（--bank-toolbar-date-pill-width = 250px） */
 body.process-page.process-page--bank {
-    --bank-toolbar-calendar-min: 280px;
+    --bank-toolbar-calendar-min: 250px;
     --bank-toolbar-date-pill-width: var(--bank-toolbar-calendar-min);
 }
 
