@@ -1136,6 +1136,11 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     width: 100%;
 }
 
+.dashboard-panel-chart-body .recharts-area-area,
+.dashboard-panel-chart-body .recharts-area-curve {
+    animation: none !important;
+}
+
 .dashboard-panel-card--chart {
     padding-bottom: clamp(6px, 0.5vw, 10px);
 }
@@ -1208,15 +1213,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     justify-content: center;
     overflow: visible;
     user-select: none;
-}
-
-.dashboard-summary-pie-wrap.is-settling .dashboard-summary-pie-chart-shell {
-    opacity: 0.72;
-}
-
-.dashboard-summary-pie-wrap.is-stable .dashboard-summary-pie-chart-shell {
-    opacity: 1;
-    transition: opacity 0.18s ease-out;
 }
 
 .dashboard-summary-pie-chart-shell {
@@ -1347,7 +1343,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     text-align: center;
     pointer-events: none;
     z-index: 6;
-    animation: dashboard-pie-center-in 0.48s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
 }
 
 .dashboard-summary-pie-center-pct {
@@ -1394,7 +1389,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-pie-chart-shell .recharts-pie-sector {
     outline: none;
     cursor: default;
-    transition: opacity var(--duration-fast, 0.2s) var(--ease-out-soft, ease);
 }
 
 .dashboard-summary-pie-wrap .recharts-responsive-container,

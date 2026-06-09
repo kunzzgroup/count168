@@ -98,6 +98,8 @@ export function DashboardTrendChart({
                     stroke={s.color}
                     fill={s.fill}
                     strokeWidth={2}
+                    isAnimationActive={false}
+                    animationDuration={0}
                   />
                 )
             )}

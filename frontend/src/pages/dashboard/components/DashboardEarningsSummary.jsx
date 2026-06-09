@@ -188,9 +188,7 @@ export function DashboardEarningsSummary({
           </div>
           <div
             ref={pieAreaRef}
-            className={`dashboard-summary-pie-wrap${
-              earningsPanelStable ? " is-stable" : " is-settling"
-            }`}
+            className="dashboard-summary-pie-wrap"
             aria-hidden={!earningsPanelStable && !earningsPieSlices.length}
             onMouseLeave={() => setHoveredPieSector(null)}
           >
@@ -198,7 +196,6 @@ export function DashboardEarningsSummary({
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                   <Pie
-                    key={currencyCode || "pie"}
                     data={
                       earningsPieSlices.length
                         ? earningsPieSlices
@@ -216,6 +213,7 @@ export function DashboardEarningsSummary({
                     label={false}
                     activeShape={false}
                     isAnimationActive={false}
+                    animationDuration={0}
                     onMouseEnter={handlePieSectorEnter}
                     onMouseLeave={() => setHoveredPieSector(null)}
                   >
@@ -228,7 +226,7 @@ export function DashboardEarningsSummary({
                 </PieChart>
               </ResponsiveContainer>
               {!summaryEarningsLoading && earningsPanelStable && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
-                <div key={currencyCode || "center"} className="dashboard-summary-pie-center" aria-hidden="true">
+                <div className="dashboard-summary-pie-center" aria-hidden="true">
                   <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
                   <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
                   <span className="dashboard-summary-pie-center-caption">{i18n.shareOfTotal}</span>
