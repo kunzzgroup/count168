@@ -11,7 +11,9 @@ import {
   computePieCenterMetrics,
   computeSectorTooltipPosition,
   getCurrencyColor,
+  resolveEarningsPiePaddingAngle,
 } from "../lib/dashboardEarnings.js";
+import { DASHBOARD_EARNINGS_PIE_MIN_ANGLE } from "../lib/dashboardConstants.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { EarningsPieSectorTooltip } from "./EarningsPieSectorTooltip.jsx";
 
@@ -71,6 +73,11 @@ export function DashboardEarningsSummary({
     });
     return map;
   }, [earningsCurrencyRows]);
+
+  const piePaddingAngle = useMemo(
+    () => resolveEarningsPiePaddingAngle(earningsPieSlices.length),
+    [earningsPieSlices.length]
+  );
 
   const summaryPieReady =
     earningsPanelStable && earningsPieSlices.length > 0 && !summaryEarningsLoading;
@@ -238,9 +245,10 @@ export function DashboardEarningsSummary({
                     cy="50%"
                     innerRadius="62%"
                     outerRadius="84%"
-                    paddingAngle={earningsPieSlices.length > 1 ? 3 : 0}
+                    paddingAngle={piePaddingAngle}
+                    minAngle={DASHBOARD_EARNINGS_PIE_MIN_ANGLE}
                     stroke="#fff"
-                    strokeWidth={3}
+                    strokeWidth={2}
                     label={false}
                     activeShape={false}
                     isAnimationActive={summaryPieReady}
@@ -252,7 +260,7 @@ export function DashboardEarningsSummary({
                   >
                     {(earningsPieSlices.length ? earningsPieSlices : [{ fill: "#e0e7ff" }]).map(
                       (entry, index) => (
-                        <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={3} />
+                        <Cell key={entry.code || index} fill={entry.fill} stroke="#fff" strokeWidth={2} />
                       )
                     )}
                   </Pie>

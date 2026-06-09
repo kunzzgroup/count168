@@ -26,11 +26,18 @@ export function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
         originalEarnings,
         earningsConverted: row.earningsConverted,
         value: Math.abs(earnings),
-        fill: getCurrencyColor(row.code, index),
+        fill: getCurrencyColor(row.code),
       };
     })
     .filter((row) => row && row.value > 0)
     .sort((a, b) => b.value - a.value);
+}
+
+/** Gap between donut sectors; tighter when several small slices need room. */
+export function resolveEarningsPiePaddingAngle(sliceCount) {
+  if (sliceCount <= 1) return 0;
+  if (sliceCount >= 4) return 2;
+  return 3;
 }
 
 const PIE_RADIAN = Math.PI / 180;
