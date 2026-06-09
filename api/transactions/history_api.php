@@ -1923,6 +1923,8 @@ try {
                     $description = bankProcessOnceOneOffHistoryDescription($t);
                 } elseif ($periodType === 'weekly') {
                     $description = bankProcessWeeklyHistoryDescription($t);
+                } elseif ($periodType === 'daily' || $periodType === 'daily_consolidated') {
+                    $description = bankProcessDailyHistoryDescription($t);
                 } else {
                     if ($periodType === 'day_end_tail') {
                         // 统一 day_end 展示文案：Prorated(... | n days)@Monthly（不带 DayEnd 前缀）

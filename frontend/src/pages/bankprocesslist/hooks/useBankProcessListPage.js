@@ -981,7 +981,7 @@ export function useBankProcessListPage() {
       return;
     }
     const frequencyNorm = bankProcessFrequencyNormalized(form.day_start_frequency);
-    if (frequencyNorm === "once" || frequencyNorm === "week" || frequencyNorm === "monthly") return;
+    if (frequencyNorm === "once" || frequencyNorm === "week" || frequencyNorm === "day" || frequencyNorm === "monthly") return;
 
     const start = String(form.day_start || "").trim();
     const contract = String(form.contract || "").trim();
@@ -1019,7 +1019,7 @@ export function useBankProcessListPage() {
   useEffect(() => {
     if (!resendModalOpen) return;
     const fq = bankProcessFrequencyNormalized(resendFrequency);
-    if (fq !== "once" && fq !== "week" && fq !== "monthly") return;
+    if (fq !== "once" && fq !== "week" && fq !== "day" && fq !== "monthly") return;
     if (!String(resendDayEnd || "").trim()) return;
     setResendDayEnd("");
   }, [resendModalOpen, resendFrequency, resendDayEnd]);
@@ -1733,6 +1733,7 @@ export function useBankProcessListPage() {
     const rawFreq = bankProcessFrequencyNormalized(form.day_start_frequency);
     const isOnceSubmit = rawFreq === "once";
     const isWeekSubmit = rawFreq === "week";
+    const isDaySubmit = rawFreq === "day";
     const dayStart = String(form.day_start || "").trim();
     const dayEnd = String(form.day_end || "").trim();
     if (dayStart && dayEnd && dayEnd < dayStart) {
@@ -1747,8 +1748,8 @@ export function useBankProcessListPage() {
       notify(t("dayEndRequiredForCap"), "danger");
       return;
     }
-    if (!isOnceSubmit && !isWeekSubmit && !String(form.contract || "").trim()) {
-      notify(t("contractRequiredUnlessOnceOrWeek"), "danger");
+    if (!isOnceSubmit && !isWeekSubmit && !isDaySubmit && !String(form.contract || "").trim()) {
+      notify(t("contractRequiredUnlessOnceWeekOrDay"), "danger");
       return;
     }
     if (!editMode) {
@@ -1764,6 +1765,7 @@ export function useBankProcessListPage() {
     let normalizedFreq;
     if (isOnceSubmit) normalizedFreq = "once";
     else if (rawFreq === "week") normalizedFreq = "week";
+    else if (rawFreq === "day") normalizedFreq = "day";
     else if (rawFreq === "monthly") normalizedFreq = "monthly";
     else normalizedFreq = "1st_of_every_month";
     const moneyNormalized = {
@@ -1786,6 +1788,10 @@ export function useBankProcessListPage() {
         return;
       }
       if (isWeekSubmit && (k === "day_end" || k === "contract")) {
+        fd.append(k, "");
+        return;
+      }
+      if (isDaySubmit && (k === "day_end" || k === "contract")) {
         fd.append(k, "");
         return;
       }
@@ -1868,7 +1874,7 @@ export function useBankProcessListPage() {
     const dayStart = String(resendDayStart || "").trim();
     const dayEnd = String(resendDayEnd || "").trim();
     const fqEarly = bankProcessFrequencyNormalized(resendFrequency);
-    const resendOmitsDayEnd = fqEarly === "once" || fqEarly === "week" || fqEarly === "monthly";
+    const resendOmitsDayEnd = fqEarly === "once" || fqEarly === "week" || fqEarly === "day" || fqEarly === "monthly";
     if (!resendOmitsDayEnd && dayStart && dayEnd && dayEnd < dayStart) {
       const msg = t("dayEndEarlierThanStart");
       setResendInlineError(msg);
@@ -1876,10 +1882,13 @@ export function useBankProcessListPage() {
       return;
     }
     const fq = bankProcessFrequencyNormalized(resendFrequency);
-    const omitDayEnd = fq === "once" || fq === "week" || fq === "monthly";
+    const omitDayEnd = fq === "once" || fq === "week" || fq === "day" || fq === "monthly";
     const dayEndTrim = omitDayEnd ? "" : String(resendDayEnd || "").trim();
     const normalizedResendFrequency =
-      fq === "once" ? "once" : (fq === "monthly" ? "monthly" : (fq === "week" ? "week" : "1st_of_every_month"));
+      fq === "once" ? "once"
+        : (fq === "monthly" ? "monthly"
+          : (fq === "week" ? "week"
+            : (fq === "day" ? "day" : "1st_of_every_month")));
     try {
       const res = await fetch(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",

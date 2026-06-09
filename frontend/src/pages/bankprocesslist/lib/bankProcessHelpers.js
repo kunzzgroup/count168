@@ -553,10 +553,11 @@ export const EMPTY_BANK_FORM = {
   sop: "",
 };
 
-/** @returns {'monthly'|'week'|'once'|'1st_of_every_month'} */
+/** @returns {'monthly'|'week'|'day'|'once'|'1st_of_every_month'} */
 export function bankProcessFrequencyNormalized(v) {
   if (v === "monthly") return "monthly";
   if (v === "week") return "week";
+  if (v === "day") return "day";
   if (v === "once") return "once";
   return "1st_of_every_month";
 }
@@ -720,6 +721,8 @@ export const contractBillingEndYmdForBankForm = (startYmd, termMonths, frequency
 export function accountingDuePeriodType(r) {
   if (r.is_once_one_off) return "once_one_off";
   if (r.is_weekly) return "weekly";
+  if (r.is_daily && r.is_daily_consolidated) return "daily_consolidated";
+  if (r.is_daily) return "daily";
   if (r.is_manual_inactive) return "manual_inactive";
   if (r.is_resend_consolidated_range) return "resend_consolidated_range";
   if (r.is_partial_first_month) return "partial_first_month";
@@ -729,5 +732,8 @@ export function accountingDuePeriodType(r) {
 
 /** Accounting Due 入账/删除时传给后端的 billing_months[] 锚点。 */
 export function accountingDueBillingMonth(r) {
+  if (r.is_daily || r.is_daily_consolidated) {
+    return String(r.monthly_billing_month || r.daily_billing_start || "").trim();
+  }
   return String(r.weekly_billing_start || r.monthly_billing_month || "").trim();
 }

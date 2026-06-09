@@ -40,10 +40,11 @@ export default function BankProcessFormModal({
   const frequency = bankProcessFrequencyNormalized(form.day_start_frequency);
   const isOnce = frequency === "once";
   const isWeek = frequency === "week";
+  const isDay = frequency === "day";
   const showCapSwitch = editMode && frequency === "1st_of_every_month";
   const capOn = !!form.day_end_monthly_cap_enabled;
   const dayEndLockedByCap = showCapSwitch && capOn;
-  const dayEndDisabled = isOnce || isWeek || dayEndLockedByCap;
+  const dayEndDisabled = isOnce || isWeek || isDay || dayEndLockedByCap;
   const profitSharingRows = parseProfitSharingToRows(form.profit_sharing, accounts);
 
   const profitSharingDisplayLabel = (row) => {
@@ -68,7 +69,7 @@ export default function BankProcessFormModal({
   };
 
   let dayEndMin = dayStart || undefined;
-  if (!isOnce && !isWeek && frequency !== "monthly" && dayStart && contract) {
+  if (!isOnce && !isWeek && !isDay && frequency !== "monthly" && dayStart && contract) {
     const term = parseBankContractRentalMonthsForDayEnd(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(dayStart, term, frequency) : null;
     if (calculated) {
@@ -300,7 +301,7 @@ export default function BankProcessFormModal({
                       }
                       value={form.day_end}
                       disabled={dayEndDisabled}
-                      minYmd={isOnce || isWeek ? undefined : dayEndMin}
+                      minYmd={isOnce || isWeek || isDay ? undefined : dayEndMin}
                       placeholder={t("pickDate")}
                       clearLabel={t("clearDate")}
                       wrapClassName="bank-day-end-input-wrap"
@@ -355,6 +356,7 @@ export default function BankProcessFormModal({
                         { value: "1st_of_every_month", label: t("firstOfEveryMonth") },
                         { value: "monthly", label: t("monthly") },
                         { value: "week", label: t("weekFrequency") },
+                        { value: "day", label: t("dayFrequency") },
                         { value: "once", label: t("onceFrequency") },
                       ]}
                       onChange={(next) => {
@@ -371,6 +373,15 @@ export default function BankProcessFormModal({
                             };
                           }
                           if (next === "week" && prevNorm !== "week") {
+                            return {
+                              ...prev,
+                              day_start_frequency: next,
+                              day_end: "",
+                              contract: "",
+                              day_end_monthly_cap_enabled: false,
+                            };
+                          }
+                          if (next === "day" && prevNorm !== "day") {
                             return {
                               ...prev,
                               day_start_frequency: next,
@@ -436,7 +447,7 @@ export default function BankProcessFormModal({
                         id="bank_contract"
                         value={form.contract}
                         placeholder={t("contract")}
-                        disabled={isOnce || isWeek}
+                        disabled={isOnce || isWeek || isDay}
                         options={BANK_PROCESS_CONTRACT_OPTIONS.map((opt) => ({
                           value: opt.value,
                           label: formatBankProcessContractLabel(lang, opt.value),

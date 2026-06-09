@@ -637,6 +637,141 @@ function inboxUniqueSortedWeeklyStarts(array $starts): array
     return $uniq;
 }
 
+/** 该自然日是否已入账或已从 Due 跳过（daily）。 */
+function hasDailyPostedOrSkippedForDay(PDO $pdo, int $companyId, int $processId, string $dayYmd): bool
+{
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?)
+               AND period_type IN ('daily','daily_skipped')
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $dayYmd]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** 当前自然月是否已有任意 daily 入账/跳过（用于判断是否仍可用首次合并账）。 */
+function hasAnyDailyPostedInCalendarMonth(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
+{
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND YEAR(posted_date) = ? AND MONTH(posted_date) = ?
+               AND period_type IN ('daily','daily_skipped')
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $year, $month]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * @return string[] 区间内尚未入账/跳过的自然日（Y-m-d，升序）。
+ * Day frequency：仅按 [rangeStart, rangeEnd] 与 PAP 判断；不按 dts_created 截断当月天数
+ * （「当月之前不算」已由 effectiveStart = max(day_start, 当月1号) 保证）。
+ */
+function dailyCollectUnpostedDaysInRange(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $rangeStartYmd,
+    string $rangeEndYmd
+): array {
+    $days = [];
+    $d = $rangeStartYmd;
+    while ($d !== '' && $d <= $rangeEndYmd) {
+        if (!hasDailyPostedOrSkippedForDay($pdo, $companyId, $processId, $d)) {
+            $days[] = $d;
+        }
+        $next = dailyNextDayYmd($d);
+        if ($next === null) {
+            break;
+        }
+        $d = $next;
+    }
+    return $days;
+}
+
+function inboxFormatYmdToDisplayDm(string $ymd): string
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+        return $ymd;
+    }
+    try {
+        return (new DateTimeImmutable($ymd))->format('d/m/Y');
+    } catch (Throwable $e) {
+        return $ymd;
+    }
+}
+
+function inboxAppendDailyNeedToday(
+    array &$needToday,
+    array $r,
+    string $dailyBillingDay,
+    string $cost,
+    string $price,
+    string $profit
+): void {
+    $needToday[] = [
+        'id' => (int) $r['id'],
+        'name' => $r['name'] ?? '',
+        'bank' => $r['bank'] ?? '',
+        'country' => $r['country'] ?? '',
+        'day_start' => $r['day_start'] ?? null,
+        'contract' => 'DAY',
+        'cost' => $cost,
+        'price' => $price,
+        'profit' => $profit,
+        'already_posted_today' => false,
+        'is_partial_first_month' => false,
+        'is_manual_inactive' => false,
+        'is_daily' => true,
+        'is_daily_consolidated' => false,
+        'daily_billing_start' => $dailyBillingDay,
+        'monthly_billing_month' => $dailyBillingDay,
+        'start_date' => inboxFormatYmdToDisplayDm($dailyBillingDay),
+    ];
+}
+
+function inboxAppendDailyConsolidatedNeedToday(
+    array &$needToday,
+    array $r,
+    string $rangeStartYmd,
+    string $rangeEndYmd,
+    string $displayTodayYmd,
+    string $cost,
+    string $price,
+    string $profit
+): void {
+    $needToday[] = [
+        'id' => (int) $r['id'],
+        'name' => $r['name'] ?? '',
+        'bank' => $r['bank'] ?? '',
+        'country' => $r['country'] ?? '',
+        'day_start' => $r['day_start'] ?? null,
+        'contract' => 'DAY',
+        'cost' => $cost,
+        'price' => $price,
+        'profit' => $profit,
+        'already_posted_today' => false,
+        'is_partial_first_month' => false,
+        'is_manual_inactive' => false,
+        'is_daily' => true,
+        'is_daily_consolidated' => true,
+        'daily_billing_start' => $rangeStartYmd,
+        'daily_billing_end' => $rangeEndYmd,
+        'monthly_billing_month' => $rangeStartYmd . '|' . $rangeEndYmd,
+        'start_date' => inboxFormatYmdToDisplayDm($displayTodayYmd),
+    ];
+}
+
 /** 该自然月是否已有 monthly / monthly_skipped（用于判断本期是否已处理） */
 function hasMonthlyPostedOrSkippedInCalendarMonth(PDO $pdo, int $companyId, int $processId, int $year, int $month): bool
 {
@@ -834,6 +969,54 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                         : false;
                     continue;
                 }
+                if (!empty($item['is_daily'])) {
+                    if (!empty($item['is_daily_consolidated'])) {
+                        $rangeRaw = trim((string) ($item['monthly_billing_month'] ?? ''));
+                        $range = dailyParseConsolidatedBillingRange($rangeRaw);
+                        if ($range === null) {
+                            $item['already_posted_today'] = false;
+                            continue;
+                        }
+                        $remaining = dailyCollectUnpostedDaysInRange(
+                            $pdo,
+                            $companyId,
+                            (int) $item['id'],
+                            $range['start'],
+                            $range['end']
+                        );
+                        $item['already_posted_today'] = empty($remaining);
+                    } else {
+                        $dayYmd = trim((string) ($item['daily_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
+                        $item['already_posted_today'] = ($dayYmd !== '')
+                            ? hasDailyPostedOrSkippedForDay($pdo, $companyId, (int) $item['id'], $dayYmd)
+                            : false;
+                    }
+                    continue;
+                }
+                if (!empty($item['is_daily'])) {
+                    if (!empty($item['is_daily_consolidated'])) {
+                        $rangeRaw = trim((string) ($item['monthly_billing_month'] ?? ''));
+                        $range = dailyParseConsolidatedBillingRange($rangeRaw);
+                        if ($range === null) {
+                            $item['already_posted_today'] = false;
+                            continue;
+                        }
+                        $remaining = dailyCollectUnpostedDaysInRange(
+                            $pdo,
+                            $companyId,
+                            (int) $item['id'],
+                            $range['start'],
+                            $range['end']
+                        );
+                        $item['already_posted_today'] = empty($remaining);
+                    } else {
+                        $dayYmd = trim((string) ($item['daily_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
+                        $item['already_posted_today'] = ($dayYmd !== '')
+                            ? hasDailyPostedOrSkippedForDay($pdo, $companyId, (int) $item['id'], $dayYmd)
+                            : false;
+                    }
+                    continue;
+                }
                 if (!empty($item['is_partial_first_month'])) {
                     $item['already_posted_today'] = in_array((int) $item['id'], $partialPostedIds, true);
                     continue;
@@ -883,6 +1066,30 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     $item['already_posted_today'] = ($ws !== '')
                         ? hasWeeklyPostedForPeriodStart($pdo, $companyId, (int) ($item['id'] ?? 0), $ws)
                         : false;
+                    continue;
+                }
+                if (!empty($item['is_daily'])) {
+                    if (!empty($item['is_daily_consolidated'])) {
+                        $rangeRaw = trim((string) ($item['monthly_billing_month'] ?? ''));
+                        $range = dailyParseConsolidatedBillingRange($rangeRaw);
+                        if ($range === null) {
+                            $item['already_posted_today'] = false;
+                            continue;
+                        }
+                        $remaining = dailyCollectUnpostedDaysInRange(
+                            $pdo,
+                            $companyId,
+                            (int) ($item['id'] ?? 0),
+                            $range['start'],
+                            $range['end']
+                        );
+                        $item['already_posted_today'] = empty($remaining);
+                    } else {
+                        $dayYmd = trim((string) ($item['daily_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
+                        $item['already_posted_today'] = ($dayYmd !== '')
+                            ? hasDailyPostedOrSkippedForDay($pdo, $companyId, (int) ($item['id'] ?? 0), $dayYmd)
+                            : false;
+                    }
                     continue;
                 }
                 if (!empty($item['is_resend_consolidated_range'])) {
@@ -1226,6 +1433,58 @@ try {
             }
             if ($need && $weeklyBillingStart !== null) {
                 inboxAppendWeeklyNeedToday($needToday, $r, $weeklyBillingStart, $baseCost, $basePrice, $baseProfit);
+            }
+            continue;
+        }
+
+        if ($frequency === 'day') {
+            if (empty($dayStart) || $startTs === false) {
+                continue;
+            }
+            if ($today < $startDate && !$resendRelax) {
+                continue;
+            }
+            $processIdDay = (int) $r['id'];
+            $todayYear = (int) date('Y', strtotime($today));
+            $todayMonth = (int) date('n', strtotime($today));
+            $monthFirst = calendarMonthFirstYmd($todayYear, $todayMonth);
+            $effectiveStart = max($startDate, $monthFirst);
+            $effectiveEnd = $today;
+            if ($effectiveStart > $effectiveEnd) {
+                continue;
+            }
+            $unpostedDays = dailyCollectUnpostedDaysInRange(
+                $pdo,
+                $company_id,
+                $processIdDay,
+                $effectiveStart,
+                $effectiveEnd
+            );
+            if (empty($unpostedDays)) {
+                continue;
+            }
+            // 合并条件：Resend 一律合并；或当月仍有「从计费起点连续到今天」的多日积压（含中间已有零星入账后的前段补账）。
+            // 例：day_start=6/1、今天=6/9，未入账 6/1–6/9 → 一笔合并展示在今天；
+            // 若 6/9 已误入单笔、仍缺 6/1–6/8 → 仍合并 6/1–6/8 于今天，而非逐日八笔。
+            // 合并入账后日常仅余 1 天未入时（如仅 6/10）→ 单日一笔。
+            $forceConsolidated = $resendRelax;
+            $isCatchUpBatch = count($unpostedDays) > 1 && $unpostedDays[0] === $effectiveStart;
+            if ($forceConsolidated || $isCatchUpBatch) {
+                $rangeStart = $unpostedDays[0];
+                $rangeEnd = $unpostedDays[count($unpostedDays) - 1];
+                $amounts = dailyAmountsForDayCount($baseCost, $basePrice, $baseProfit, count($unpostedDays));
+                inboxAppendDailyConsolidatedNeedToday(
+                    $needToday,
+                    $r,
+                    $rangeStart,
+                    $rangeEnd,
+                    $today,
+                    $amounts['cost'],
+                    $amounts['price'],
+                    $amounts['profit']
+                );
+            } else {
+                inboxAppendDailyNeedToday($needToday, $r, $unpostedDays[0], $baseCost, $basePrice, $baseProfit);
             }
             continue;
         }
@@ -1654,6 +1913,7 @@ try {
             if (!empty($item['is_partial_first_month'])) return 3;
             if (!empty($item['is_manual_inactive'])) return 2;
             if (!empty($item['is_weekly'])) return 1;
+            if (!empty($item['is_daily'])) return 1;
             return 1; // regular monthly
         };
         $normalizeBm = static function (array $item): string {
@@ -1661,6 +1921,18 @@ try {
                 $ws = trim((string) ($item['weekly_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
                 if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ws)) {
                     return $ws;
+                }
+            }
+            if (!empty($item['is_daily'])) {
+                if (!empty($item['is_daily_consolidated'])) {
+                    $rangeRaw = trim((string) ($item['monthly_billing_month'] ?? ''));
+                    if ($rangeRaw !== '') {
+                        return 'daily|' . $rangeRaw;
+                    }
+                }
+                $ds = trim((string) ($item['daily_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ds)) {
+                    return 'daily|' . $ds;
                 }
             }
             $bm = trim((string) ($item['monthly_billing_month'] ?? ''));
@@ -1683,6 +1955,9 @@ try {
         $typeOf = static function (array $item): string {
             if (!empty($item['is_once_one_off'])) return 'once_one_off';
             if (!empty($item['is_weekly'])) return 'weekly';
+            if (!empty($item['is_daily'])) {
+                return !empty($item['is_daily_consolidated']) ? 'daily_consolidated' : 'daily';
+            }
             if (!empty($item['is_resend_consolidated_range'])) return 'resend_consolidated_range';
             if (!empty($item['is_day_end_tail'])) return 'day_end_tail';
             if (!empty($item['is_partial_first_month'])) return 'partial_first_month';
@@ -1740,7 +2015,11 @@ try {
             if (!empty($row['is_weekly'])) {
                 $weeklyAnchor = trim((string) ($row['weekly_billing_start'] ?? $row['monthly_billing_month'] ?? ''));
             }
-            $fp = $pid . '|' . $dsNorm . '|' . $weeklyAnchor . '|' . $c . '|' . $p . '|' . $pr;
+            $dailyAnchor = '';
+            if (!empty($row['is_daily'])) {
+                $dailyAnchor = trim((string) ($row['monthly_billing_month'] ?? $row['daily_billing_start'] ?? ''));
+            }
+            $fp = $pid . '|' . $dsNorm . '|' . $weeklyAnchor . '|' . $dailyAnchor . '|' . $c . '|' . $p . '|' . $pr;
             if (!isset($byFingerprint[$fp]) || $rankOf($row) >= $rankOf($byFingerprint[$fp])) {
                 $byFingerprint[$fp] = $row;
             }
