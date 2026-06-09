@@ -77,9 +77,19 @@ export function DashboardEarningsSummary({
 
   /** Unique per page visit so pie enter animation replays when navigating back to Dashboard. */
   const [pieVisitKey] = useState(() => Date.now());
+  const [pieFlowIdle, setPieFlowIdle] = useState(false);
   const pieAnimKey = `${pieVisitKey}-${exchangeRateScopeKey || "scope"}-${
     summaryPieReady ? "ready" : "pending"
   }`;
+
+  useEffect(() => {
+    if (!summaryPieReady) {
+      setPieFlowIdle(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setPieFlowIdle(true), 920);
+    return () => window.clearTimeout(timer);
+  }, [pieAnimKey, summaryPieReady]);
 
   const isRowAmountLoading = useCallback(
     (code) => {
@@ -194,13 +204,15 @@ export function DashboardEarningsSummary({
           </div>
           <div
             ref={pieAreaRef}
-            className="dashboard-summary-pie-wrap"
+            className={`dashboard-summary-pie-wrap${pieFlowIdle ? " is-flow-idle" : ""}`}
             aria-hidden={!earningsPanelStable && !earningsPieSlices.length}
             onMouseLeave={() => setHoveredPieSector(null)}
           >
             <div
               ref={pieShellRef}
-              className={`dashboard-summary-pie-chart-shell${summaryPieReady ? " is-enter" : ""}`}
+              className={`dashboard-summary-pie-chart-shell${
+                summaryPieReady ? " is-enter is-flow-active" : ""
+              }`}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
@@ -224,7 +236,7 @@ export function DashboardEarningsSummary({
                     activeShape={false}
                     isAnimationActive={summaryPieReady}
                     animationBegin={80}
-                    animationDuration={720}
+                    animationDuration={920}
                     animationEasing="ease-out"
                     onMouseEnter={handlePieSectorEnter}
                     onMouseLeave={() => setHoveredPieSector(null)}
