@@ -25,6 +25,7 @@ import {
   fetchFrankfurterRates,
   frankfurterMissingQuotes,
   frankfurterRatesCoverQuotes,
+  frankfurterRatesPartiallyUsable,
   peekFrankfurterRatesCache,
   peekFrankfurterRatesCacheOrDerived,
   resolveFrankfurterDate,
@@ -3916,7 +3917,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const rateDate = resolveFrankfurterDate(dateTo);
     const cached = peekFrankfurterRatesCache(rateBase, currencies, rateDate);
     const cachedReady =
-      cached && frankfurterRatesCoverQuotes(rateBase, currencies, cached.rates);
+      cached && frankfurterRatesPartiallyUsable(rateBase, currencies, cached.rates);
 
     if (cachedReady) {
       setExchangeRates({
@@ -3939,21 +3940,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (cancelled || gen !== exchangeRatesFetchGenRef.current) return;
 
         const fullCoverage = frankfurterRatesCoverQuotes(rateBase, currencies, rates);
-        if (!fullCoverage && cachedReady) {
+        const partialUsable = frankfurterRatesPartiallyUsable(rateBase, currencies, rates);
+        if (!partialUsable && cachedReady) {
           return;
         }
 
+        const ratesToUse = fullCoverage || partialUsable ? rates : cachedReady ? cached.rates : rates;
         setExchangeRates({
-          rates: fullCoverage ? rates : cachedReady ? cached.rates : rates,
-          date: fullCoverage ? date : cachedReady ? cached.date : date,
-          unsupported: frankfurterMissingQuotes(
-            rateBase,
-            currencies,
-            fullCoverage ? rates : cachedReady ? cached.rates : rates
-          ),
+          rates: ratesToUse,
+          date: fullCoverage || partialUsable ? date : cachedReady ? cached.date : date,
+          unsupported: frankfurterMissingQuotes(rateBase, currencies, ratesToUse),
           scopeKey: rateScopeKey,
         });
-        setExchangeRatesError(fullCoverage || cachedReady ? "" : "failed");
+        setExchangeRatesError(partialUsable || cachedReady ? "" : "failed");
       } catch {
         if (cancelled || gen !== exchangeRatesFetchGenRef.current) return;
         if (cachedReady) return;
@@ -5209,8 +5208,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const canConvert =
       currencies.length > 1 &&
       !exchangeRatesError &&
-      Object.keys(rates).length > 0 &&
-      !exchangeRatesLoading;
+      !exchangeRatesLoading &&
+      frankfurterRatesPartiallyUsable(base, currencies, rates);
 
     return baseRows.map((row) => {
       const earningsConverted =
@@ -5247,10 +5246,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       currencies.length > 1 &&
       !exchangeRatesError &&
       !exchangeRatesLoading &&
-      Object.keys(exchangeRates.rates || {}).length > 0 &&
+      frankfurterRatesPartiallyUsable(
+        displayCurrencyCode,
+        currencies,
+        exchangeRates.rates || {}
+      ) &&
       (allCurrencyEarningsReady || (showAllCurrencies && canShowAllCurrencies)),
     [
       currencies.length,
+      displayCurrencyCode,
       exchangeRatesError,
       exchangeRatesLoading,
       exchangeRates.rates,
@@ -5279,8 +5283,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const canConvert =
       currencies.length > 1 &&
       !exchangeRatesError &&
-      Object.keys(rates).length > 0 &&
-      !exchangeRatesLoading;
+      !exchangeRatesLoading &&
+      frankfurterRatesPartiallyUsable(base, currencies, rates);
 
     return earningsByCurrencyPrev.map((row) => ({
       ...row,
@@ -5347,14 +5351,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       .map((c) => String(c).toUpperCase())
       .filter((c) => c !== String(displayCurrencyCode).toUpperCase());
     if (!foreignCodes.length) return "";
-    if (
-      !frankfurterRatesCoverQuotes(displayCurrencyCode, currencies, exchangeRates.rates)
-    ) {
-      return i18n.rateLoading;
-    }
+    const convertibleForeignCodes = foreignCodes.filter(
+      (code) => !frankfurterMissingQuotes(displayCurrencyCode, [code], exchangeRates.rates).includes(code)
+    );
+    if (!convertibleForeignCodes.length) return i18n.rateUnavailable;
     const dateLabel = exchangeRates.date || "—";
     let text = formatI18nTemplate(i18n.rateFootnote, {
-      codes: foreignCodes.join(", "),
+      codes: convertibleForeignCodes.join(", "),
       date: dateLabel,
     });
     const missingQuotes = frankfurterMissingQuotes(
@@ -5383,10 +5386,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const summaryEarningsLoading = scopeDataPending || (loading && !dashboardData);
   const earningsPanelStable =
     currencies.length <= 1 ||
-    (allCurrencyEarningsReady &&
-      !earningsByCurrencyLoading &&
-      !exchangeRatesLoading &&
-      !exchangeRatesError);
+    (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
   const kpiLoading = scopeDataPending || (loading && !dashboardData);
 
   useLayoutEffect(() => {

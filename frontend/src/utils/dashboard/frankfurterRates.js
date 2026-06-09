@@ -87,7 +87,7 @@ export async function fetchFrankfurterRates(base, quoteCodes, dateYmd = null) {
     let lastResult = { rates: { [baseCode]: 1 }, date: dateYmd, unsupported: quotes };
     for (let attempt = 0; attempt < 2; attempt += 1) {
       lastResult = await fetchFrankfurterRatesOnce(baseCode, quotes, dateYmd);
-      if (frankfurterRatesCoverQuotes(baseCode, quoteCodes, lastResult.rates)) {
+      if (frankfurterRatesPartiallyUsable(baseCode, quoteCodes, lastResult.rates)) {
         storeFrankfurterRatesCache(baseCode, quotes, dateYmd, lastResult);
         return lastResult;
       }
@@ -126,6 +126,18 @@ export function frankfurterRatesCoverQuotes(base, quoteCodes, rates) {
   });
 }
 
+/** True when base rate exists and at least one foreign quote can convert (partial OK). */
+export function frankfurterRatesPartiallyUsable(base, quoteCodes, rates) {
+  const baseCode = String(base || "").trim().toUpperCase();
+  if (!baseCode || !rates?.[baseCode] || rates[baseCode] <= 0) return false;
+  const quotes = normalizeFrankfurterQuotes(baseCode, quoteCodes);
+  if (!quotes.length) return true;
+  return quotes.some((quote) => {
+    const rate = rates[quote];
+    return rate && rate > 0;
+  });
+}
+
 /** Foreign quotes missing from a Frankfurter base→quote rate map. */
 export function frankfurterMissingQuotes(base, quoteCodes, rates) {
   const baseCode = String(base || "").trim().toUpperCase();
@@ -136,7 +148,7 @@ export function frankfurterMissingQuotes(base, quoteCodes, rates) {
 }
 
 function storeFrankfurterRatesCache(baseCode, quotes, dateYmd, payload) {
-  if (!frankfurterRatesCoverQuotes(baseCode, [baseCode, ...quotes], payload.rates)) {
+  if (!frankfurterRatesPartiallyUsable(baseCode, [baseCode, ...quotes], payload.rates)) {
     return;
   }
   const key = cacheKey(baseCode, quotes, dateYmd);

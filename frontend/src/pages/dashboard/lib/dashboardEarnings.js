@@ -14,8 +14,12 @@ export function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
     .filter((row) => row.earnings != null)
     .map((row, index) => {
       const originalEarnings = row.earnings;
-      const earnings =
-        useConverted && row.earningsConverted != null ? row.earningsConverted : row.earnings;
+      const earnings = useConverted
+        ? row.earningsConverted != null
+          ? row.earningsConverted
+          : null
+        : row.earnings;
+      if (earnings == null) return null;
       return {
         code: row.code,
         earnings,
@@ -25,7 +29,7 @@ export function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
         fill: getCurrencyColor(row.code, index),
       };
     })
-    .filter((row) => row.value > 0)
+    .filter((row) => row && row.value > 0)
     .sort((a, b) => b.value - a.value);
 }
 
@@ -84,8 +88,14 @@ export function computeSectorTooltipPosition(sector, shellWidth, shellHeight) {
 
 /** Denominator for share %: algebraic converted total, or sum of abs native amounts. */
 export function resolveEarningsShareDenominator(rows, { useConverted = false, convertedTotal = null } = {}) {
-  if (useConverted && convertedTotal != null && Number.isFinite(convertedTotal)) {
-    return convertedTotal;
+  if (useConverted) {
+    if (convertedTotal != null && Number.isFinite(convertedTotal)) {
+      return convertedTotal;
+    }
+    return (rows || []).reduce((sum, row) => {
+      if (row.earningsConverted == null) return sum;
+      return sum + (parseFloat(row.earningsConverted) || 0);
+    }, 0);
   }
   return (rows || []).reduce((sum, row) => {
     if (row.earnings == null) return sum;
@@ -112,10 +122,11 @@ export function computePieCenterMetrics(rows, selectedCode, { useConverted = fal
 }
 
 export function computeCurrencySharePct(row, total, useConverted) {
-  const val =
-    useConverted && row.earningsConverted != null
+  const val = useConverted
+    ? row.earningsConverted != null
       ? parseFloat(row.earningsConverted) || 0
-      : parseFloat(row.earnings) || 0;
+      : 0
+    : parseFloat(row.earnings) || 0;
   if (!total || total === 0) return 0;
   return (val / total) * 100;
 }
