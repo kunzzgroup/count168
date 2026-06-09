@@ -1445,6 +1445,13 @@ try {
                 continue;
             }
             $processIdDay = (int) $r['id'];
+            // Resend 单期：只补弹窗指定自然日，不受「今天」上限与当月合并规则约束。
+            if ($resendSinglePeriod && $startDate !== '') {
+                if (!hasDailyPostedOrSkippedForDay($pdo, $company_id, $processIdDay, $startDate)) {
+                    inboxAppendDailyNeedToday($needToday, $r, $startDate, $baseCost, $basePrice, $baseProfit);
+                }
+                continue;
+            }
             $todayYear = (int) date('Y', strtotime($today));
             $todayMonth = (int) date('n', strtotime($today));
             $monthFirst = calendarMonthFirstYmd($todayYear, $todayMonth);
@@ -1463,11 +1470,11 @@ try {
             if (empty($unpostedDays)) {
                 continue;
             }
-            // 合并条件：Resend 一律合并；或当月仍有「从计费起点连续到今天」的多日积压（含中间已有零星入账后的前段补账）。
+            // 合并条件：relax 且非单期 Resend 时可合并；或当月仍有「从计费起点连续到今天」的多日积压。
+            // 单期 Resend（弹窗指定一日）已在上面单独处理，不走本段。
             // 例：day_start=6/1、今天=6/9，未入账 6/1–6/9 → 一笔合并展示在今天；
-            // 若 6/9 已误入单笔、仍缺 6/1–6/8 → 仍合并 6/1–6/8 于今天，而非逐日八笔。
             // 合并入账后日常仅余 1 天未入时（如仅 6/10）→ 单日一笔。
-            $forceConsolidated = $resendRelax;
+            $forceConsolidated = $resendRelax && !$resendSinglePeriod;
             $isCatchUpBatch = count($unpostedDays) > 1 && $unpostedDays[0] === $effectiveStart;
             if ($forceConsolidated || $isCatchUpBatch) {
                 $rangeStart = $unpostedDays[0];
