@@ -1,27 +1,15 @@
 /** SVG defs + overlays for modern flowing chart animations. */
 
 const TREND_FLOW_SERIES = [
-  { id: "Profit", color: "#3b82f6", glow: "rgba(59,130,246,0.55)" },
-  { id: "Exp", color: "#ef4444", glow: "rgba(239,68,68,0.5)" },
-  { id: "Net", color: "#10b981", glow: "rgba(16,185,129,0.5)" },
-  { id: "Earn", color: "#f59e0b", glow: "rgba(245,158,11,0.5)" },
+  { id: "Profit", color: "#3b82f6" },
+  { id: "Exp", color: "#ef4444" },
+  { id: "Net", color: "#10b981" },
+  { id: "Earn", color: "#f59e0b" },
 ];
 
 export function DashboardTrendFlowDefs() {
   return (
     <defs>
-      {TREND_FLOW_SERIES.map(({ id, color, glow }) => (
-        <filter key={`f-${id}`} id={`dashboardGlow${id}`} x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2.4" result="blur" />
-          <feFlood floodColor={glow} floodOpacity="0.85" result="glowColor" />
-          <feComposite in="glowColor" in2="blur" operator="in" result="coloredBlur" />
-          <feMerge>
-            <feMergeNode in="coloredBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      ))}
-
       {TREND_FLOW_SERIES.map(({ id, color }) => (
         <g key={id}>
           <linearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -38,13 +26,6 @@ export function DashboardTrendFlowDefs() {
             <animate attributeName="x1" values="-240;520;-240" dur="2.6s" repeatCount="indefinite" />
             <animate attributeName="x2" values="0;760;0" dur="2.6s" repeatCount="indefinite" />
           </linearGradient>
-          <linearGradient id={`g${id}StrokeFlow`} gradientUnits="userSpaceOnUse" x1="-180" y1="0" x2="180" y2="0">
-            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-            <stop offset="45%" stopColor="#ffffff" stopOpacity="0.95" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.45" />
-            <animate attributeName="x1" values="-180;360;-180" dur="2.2s" repeatCount="indefinite" />
-            <animate attributeName="x2" values="180;720;180" dur="2.2s" repeatCount="indefinite" />
-          </linearGradient>
         </g>
       ))}
 
@@ -53,10 +34,10 @@ export function DashboardTrendFlowDefs() {
 }
 
 const FLOW_FILL_BY_DATA_KEY = {
-  profit: { base: "url(#gProfit)", flow: "url(#gProfitFlow)", glow: "url(#dashboardGlowProfit)" },
-  expenses: { base: "url(#gExp)", flow: "url(#gExpFlow)", glow: "url(#dashboardGlowExp)" },
-  netProfit: { base: "url(#gNet)", flow: "url(#gNetFlow)", glow: "url(#dashboardGlowNet)" },
-  earnings: { base: "url(#gEarn)", flow: "url(#gEarnFlow)", glow: "url(#dashboardGlowEarn)" },
+  profit: { base: "url(#gProfit)", flow: "url(#gProfitFlow)" },
+  expenses: { base: "url(#gExp)", flow: "url(#gExpFlow)" },
+  netProfit: { base: "url(#gNet)", flow: "url(#gNetFlow)" },
+  earnings: { base: "url(#gEarn)", flow: "url(#gEarnFlow)" },
 };
 
 export function resolveTrendFlowFill(dataKey) {

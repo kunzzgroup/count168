@@ -227,8 +227,6 @@ body.dashboard-page {
     .dashboard-summary-pie-chart-shell.is-enter::before,
     .dashboard-summary-pie-center.is-enter,
     .dashboard-panel-chart-body.is-enter,
-    .dashboard-panel-chart-body.is-flow-active .recharts-surface,
-    .dashboard-panel-chart-body.is-flow-idle .dashboard-trend-area-base .recharts-area-curve,
     .dashboard-summary-pie-chart-shell.is-enter::after,
     .dashboard-summary-pie-wrap.is-flow-idle .dashboard-summary-pie-chart-shell {
         animation: none;
@@ -1148,30 +1146,18 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     animation: dashboard-trend-chart-in 0.76s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.dashboard-panel-chart-body.is-flow-active .recharts-surface {
-    clip-path: inset(0 100% 0 0);
-    animation: dashboard-chart-flow-reveal 1.08s cubic-bezier(0.16, 1, 0.3, 1) 0.06s forwards;
-}
-
-.dashboard-panel-chart-body.is-flow-active .recharts-cartesian-grid-horizontal line,
-.dashboard-panel-chart-body.is-flow-active .recharts-cartesian-grid-vertical line {
-    opacity: 0;
-    animation: dashboard-chart-grid-fade 0.55s ease-out 0.42s forwards;
-}
-
 .dashboard-panel-chart-body.is-flow-active .dashboard-trend-area-base .recharts-area-curve {
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
 .dashboard-panel-chart-body.is-flow-idle .dashboard-trend-area-base .recharts-area-curve {
-    stroke-dasharray: 6 1000;
-    stroke-dashoffset: 0;
-    animation: dashboard-chart-stroke-flow 2.4s linear infinite;
+    filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.28));
 }
 
 .dashboard-panel-chart-body.is-flow-idle .dashboard-trend-area-flow .recharts-area-area {
     mix-blend-mode: soft-light;
+    opacity: 0.55;
 }
 
 .dashboard-chart-flow-pulses .dashboard-chart-flow-pulse-group {
@@ -1190,33 +1176,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     100% {
         opacity: 1;
         transform: translateY(0);
-    }
-}
-
-@keyframes dashboard-chart-flow-reveal {
-    0% {
-        clip-path: inset(0 100% 0 0);
-    }
-    100% {
-        clip-path: inset(0 0 0 0);
-    }
-}
-
-@keyframes dashboard-chart-grid-fade {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes dashboard-chart-stroke-flow {
-    0% {
-        stroke-dashoffset: 0;
-    }
-    100% {
-        stroke-dashoffset: -120;
     }
 }
 

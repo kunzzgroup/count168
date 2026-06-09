@@ -125,7 +125,6 @@ export function DashboardTrendChart({
                   animationBegin={begin}
                   animationDuration={1050}
                   animationEasing="ease-out"
-                  style={{ filter: flowFill?.glow }}
                   className="dashboard-trend-area-base"
                 />,
               ];
@@ -140,7 +139,7 @@ export function DashboardTrendChart({
                     tooltipType="none"
                     stroke="none"
                     fill={flowFill.flow}
-                    fillOpacity={0.72}
+                    fillOpacity={0.38}
                     isAnimationActive={chartAnimReady}
                     animationBegin={begin + 180}
                     animationDuration={980}

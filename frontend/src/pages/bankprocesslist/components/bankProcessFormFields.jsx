@@ -16,6 +16,7 @@ export function BankSimpleSelect({
   disabled = false,
   includeEmptyOption = true,
   className = "",
+  portalDropdownClassName = "",
 }) {
   const [open, setOpen] = useState(false);
   const [usePortal, setUsePortal] = useState(false);
@@ -95,7 +96,7 @@ export function BankSimpleSelect({
   const dropdownNode = (
     <div
       ref={dropdownRef}
-      className={`custom-select-dropdown show${usePortal ? " custom-select-dropdown-portal" : ""}`}
+      className={`custom-select-dropdown show${usePortal ? " custom-select-dropdown-portal" : ""}${portalDropdownClassName ? ` ${portalDropdownClassName}` : ""}`}
       style={usePortal && menuStyle ? menuStyle : undefined}
       role="listbox"
       id={id ? `${id}_dropdown` : undefined}

@@ -1,7 +1,7 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { bankProcessFrequencyNormalized } from "../lib/bankProcessHelpers.js";
-import { BankFormDateField } from "./bankProcessFormFields.jsx";
+import { BankFormDateField, BankSimpleSelect } from "./bankProcessFormFields.jsx";
 
 export default function ResendModal({
   resendTarget,
@@ -69,18 +69,21 @@ export default function ResendModal({
             />
             <div className="bank-resend-field bank-resend-field--full">
               <label className="bank-resend-field__label" htmlFor="bank_resend_frequency">{t("frequency")}</label>
-              <select
+              <BankSimpleSelect
                 id="bank_resend_frequency"
-                className="bank-resend-control bank-resend-control--select"
+                className="bank-resend-frequency-select"
+                portalDropdownClassName="bank-resend-select-dropdown"
                 value={fq}
-                onChange={(e) => setResendFrequency(e.target.value)}
-              >
-                <option value="1st_of_every_month">{t("firstOfEveryMonth")}</option>
-                <option value="monthly">{t("monthly")}</option>
-                <option value="week">{t("weekFrequency")}</option>
-                <option value="day">{t("dayFrequency")}</option>
-                <option value="once">{t("onceFrequency")}</option>
-              </select>
+                includeEmptyOption={false}
+                options={[
+                  { value: "1st_of_every_month", label: t("firstOfEveryMonth") },
+                  { value: "monthly", label: t("monthly") },
+                  { value: "week", label: t("weekFrequency") },
+                  { value: "day", label: t("dayFrequency") },
+                  { value: "once", label: t("onceFrequency") },
+                ]}
+                onChange={(next) => setResendFrequency(next)}
+              />
             </div>
           </div>
           {resendInlineError ? (
