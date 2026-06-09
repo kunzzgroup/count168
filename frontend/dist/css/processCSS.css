@@ -1671,16 +1671,66 @@ body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day {
     min-height: 20px;
     font-size: clamp(8px, 0.58vw, 10px);
-    border-radius: 4px;
+    font-weight: 700;
+    border-radius: 6px;
 }
 
 body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekdays,
 body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-days,
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekdays,
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-days {
-    gap: 2px;
+    gap: 0;
     width: 100%;
     max-width: 100%;
+}
+
+/* 与 dashboard transaction-range 日历区间选中样式一致 */
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day:not(.disabled):not(.selected):not(.start-date):not(.end-date):hover,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day:not(.disabled):not(.selected):not(.start-date):not(.end-date):hover {
+    background: #f1f5ff;
+    color: #1d4ed8;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.today:not(.start-date):not(.end-date):not(.selected),
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.today:not(.start-date):not(.end-date):not(.selected) {
+    border-color: rgba(37, 99, 235, 0.55);
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.18);
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.in-range,
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.preview-range,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.in-range,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.preview-range {
+    background: #eff6ff;
+    color: #2563eb;
+    border-radius: 0;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.start-date,
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.end-date,
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.selected,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.start-date,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.end-date,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.selected {
+    background: var(--btn-add-gradient);
+    color: #ffffff;
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
+    transform: translateY(-1px);
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.start-date,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.start-date {
+    border-radius: 6px 0 0 6px;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.end-date,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.end-date {
+    border-radius: 0 6px 6px 0;
+}
+
+body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.start-date.end-date,
+body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day.start-date.end-date {
+    border-radius: 6px;
 }
 
 /* Bank Process 窄屏（<1700px）：日期加长、Search/Filter 图标药丸，filter 收进按钮 */
