@@ -464,11 +464,11 @@ try {
             exit;
         }
         $day_start_frequency = trim($_POST['day_start_frequency'] ?? '1st_of_every_month');
-        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly', 'once', 'week'], true)) {
+        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly', 'once', 'week', 'day'], true)) {
             $day_start_frequency = '1st_of_every_month';
         }
         $dayEnd = trim($_POST['day_end'] ?? '') ?: null;
-        if ($day_start_frequency === 'week') {
+        if ($day_start_frequency === 'week' || $day_start_frequency === 'day') {
             $dayEnd = null;
         }
         $dayEndMonthlyCapEnabled = isset($_POST['day_end_monthly_cap_enabled']) && (string) $_POST['day_end_monthly_cap_enabled'] === '1';
@@ -499,7 +499,7 @@ try {
             'card_merchant_id' => (isset($_POST['card_merchant_id']) && $_POST['card_merchant_id'] !== '') ? (int)$_POST['card_merchant_id'] : null,
             'customer_id' => (isset($_POST['customer_id']) && $_POST['customer_id'] !== '') ? (int)$_POST['customer_id'] : null,
             'profit_account_id' => (isset($_POST['profit_account_id']) && $_POST['profit_account_id'] !== '') ? (int)$_POST['profit_account_id'] : null,
-            'contract' => ($day_start_frequency === 'week') ? '' : trim($_POST['contract'] ?? ''),
+            'contract' => ($day_start_frequency === 'week' || $day_start_frequency === 'day') ? '' : trim($_POST['contract'] ?? ''),
             'insurance' => money_optional($_POST['insurance'] ?? null),
             'sop' => trim($_POST['sop'] ?? ''),
             'remark' => trim($_POST['remark'] ?? ''),

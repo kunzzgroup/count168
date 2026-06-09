@@ -395,6 +395,7 @@ if (!function_exists('renderBankProcessModals')) {
                                         <option value="1st_of_every_month" selected>1st of Every Month</option>
                                         <option value="monthly">Monthly</option>
                                         <option value="week">Week</option>
+                                        <option value="day">Day</option>
                                         <option value="once">Once</option>
                                     </select>
                                 </div>
@@ -904,6 +905,7 @@ if (!function_exists('renderBankProcessModals')) {
                                 <option value="1st_of_every_month">1st of Every Month</option>
                                 <option value="monthly">Monthly</option>
                                 <option value="week">Week</option>
+                                <option value="day">Day</option>
                                 <option value="once" selected>Once</option>
                             </select>
                         </div>

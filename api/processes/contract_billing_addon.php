@@ -432,3 +432,103 @@ function weekInferEarliestOpenBillingStartYmd(
 
     return null;
 }
+
+function calendarMonthFirstYmd(int $year, int $month): string
+{
+    return sprintf('%04d-%02d-01', $year, $month);
+}
+
+function dailyNextDayYmd(string $ymd): ?string
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+        return null;
+    }
+    try {
+        return (new DateTimeImmutable($ymd))->modify('+1 day')->format('Y-m-d');
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+function dailyAmountsForDayCount(string $cost, string $price, string $profit, int $dayCount): array
+{
+    $dayCount = max(1, $dayCount);
+    $mult = (string) $dayCount;
+
+    return [
+        'cost' => money_mul($cost, $mult, 2),
+        'price' => money_mul($price, $mult, 2),
+        'profit' => money_mul($profit, $mult, 2),
+    ];
+}
+
+/** @return array{start:string,end:string}|null */
+function dailyParseConsolidatedBillingRange(?string $billingMonth): ?array
+{
+    $s = trim((string) $billingMonth);
+    if ($s === '' || strpos($s, '|') === false) {
+        return null;
+    }
+    $parts = explode('|', $s, 2);
+    $start = trim($parts[0] ?? '');
+    $end = trim($parts[1] ?? '');
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) {
+        return null;
+    }
+    if ($start > $end) {
+        return null;
+    }
+
+    return ['start' => $start, 'end' => $end];
+}
+
+function dailyInclusiveDayCount(string $startYmd, string $endYmd): int
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endYmd)) {
+        return 0;
+    }
+    try {
+        $s = new DateTimeImmutable($startYmd);
+        $e = new DateTimeImmutable($endYmd);
+        if ($e < $s) {
+            return 0;
+        }
+
+        return (int) $s->diff($e)->days + 1;
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function dayHasPostedOrSkippedForDay(PDO $pdo, int $companyId, int $processId, string $dayYmd): bool
+{
+    if ($dayYmd === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayYmd)) {
+        return false;
+    }
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return false;
+        }
+        $stmtCol = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
+        $hasPeriodType = $stmtCol && $stmtCol->rowCount() > 0;
+        if (!$hasPeriodType) {
+            $stmt = $pdo->prepare(
+                'SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND DATE(posted_date) = DATE(?) LIMIT 1'
+            );
+            $stmt->execute([$companyId, $processId, $dayYmd]);
+
+            return (bool) $stmt->fetch();
+        }
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ?
+             AND DATE(posted_date) = DATE(?)
+             AND period_type IN ('daily','daily_skipped') LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $dayYmd]);
+
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}

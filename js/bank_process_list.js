@@ -239,11 +239,12 @@ function normalizeBankScheduleValue(value) {
     return value == null ? '' : String(value).trim();
 }
 
-/** @returns {'monthly'|'once'|'week'|'1st_of_every_month'} */
+/** @returns {'monthly'|'once'|'week'|'day'|'1st_of_every_month'} */
 function bankProcessFrequencyNormalized(v) {
     if (v === 'monthly') return 'monthly';
     if (v === 'once') return 'once';
     if (v === 'week') return 'week';
+    if (v === 'day') return 'day';
     return '1st_of_every_month';
 }
 
@@ -1717,10 +1718,16 @@ function bankRowIsWeeklyAccountingDue(row) {
     return !!(row && (row.is_weekly || String(row.contract || '').trim().toUpperCase() === 'WEEK'));
 }
 
+function bankRowIsDailyAccountingDue(row) {
+    return !!(row && (row.is_daily || String(row.contract || '').trim().toUpperCase() === 'DAY'));
+}
+
 function accountingDuePeriodTypeFromRow(row) {
     if (!row || typeof row !== 'object') return 'monthly';
     if (row.is_once_one_off) return 'once_one_off';
     if (bankRowIsWeeklyAccountingDue(row)) return 'weekly';
+    if (row.is_daily && row.is_daily_consolidated) return 'daily_consolidated';
+    if (bankRowIsDailyAccountingDue(row)) return 'daily';
     if (row.is_manual_inactive) return 'manual_inactive';
     if (row.is_resend_consolidated_range) return 'resend_consolidated_range';
     if (row.is_partial_first_month) return 'partial_first_month';
@@ -1730,6 +1737,9 @@ function accountingDuePeriodTypeFromRow(row) {
 
 function accountingDueBillingMonthFromRow(row) {
     if (!row || typeof row !== 'object') return '';
+    if (bankRowIsDailyAccountingDue(row)) {
+        return String(row.monthly_billing_month || row.daily_billing_start || '').trim();
+    }
     if (bankRowIsWeeklyAccountingDue(row)) {
         const ws = String(row.weekly_billing_start || row.monthly_billing_month || '').trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(ws)) return ws;
@@ -1775,9 +1785,9 @@ function renderAccountingInbox(items) {
         const cbClass = 'process-accounting-inbox-row-cb';
         const periodType = accountingDuePeriodTypeFromRow(row);
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-        const startDate = (row.day_start || row.start_date || (bankRowIsWeeklyAccountingDue(row) ? row.weekly_billing_start : '') || '').toString().trim() || '-';
+        const startDate = (row.start_date || row.day_start || (bankRowIsWeeklyAccountingDue(row) ? row.weekly_billing_start : '') || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
-        const contractDisplay = row.is_once_one_off ? 'ONCE' : (bankRowIsWeeklyAccountingDue(row) ? 'WEEK' : (({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw));
+        const contractDisplay = row.is_once_one_off ? 'ONCE' : (bankRowIsWeeklyAccountingDue(row) ? 'WEEK' : (bankRowIsDailyAccountingDue(row) ? 'DAY' : (({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw)));
         const bm = accountingDueBillingMonthFromRow(row);
         const bmAttr = bm ? ' data-billing-month="' + escapeHtml(bm) + '"' : '';
         const deleteCbClass = 'process-accounting-inbox-delete-cb';
@@ -2256,6 +2266,7 @@ function markBankRequiredErrors() {
     var freqOnceEl = document.getElementById('bank_day_start_frequency');
     var freqOnce = freqOnceEl && freqOnceEl.value === 'once';
     var freqWeek = freqOnceEl && freqOnceEl.value === 'week';
+    var freqDay = freqOnceEl && freqOnceEl.value === 'day';
     var country = (document.getElementById('bank_country') && document.getElementById('bank_country').value || '').trim();
     var bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
     var type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
@@ -2276,7 +2287,7 @@ function markBankRequiredErrors() {
     if (!name) { var el = document.getElementById('bank_name'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
     if (!cost) { var el = document.getElementById('bank_cost'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
     if (!price) { var el = document.getElementById('bank_price'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
-    if (!contract && !freqOnce && !freqWeek) { var el = document.getElementById('bank_contract'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
+    if (!contract && !freqOnce && !freqWeek && !freqDay) { var el = document.getElementById('bank_contract'); if (el) { el.classList.add('bank-field-error'); hasError = true; } }
     if (!cardMerchant && cardMerchantBtn) { cardMerchantBtn.classList.add('bank-field-error'); hasError = true; }
     if (!customer && customerBtn) { customerBtn.classList.add('bank-field-error'); hasError = true; }
     if (!profitAccount && profitAccountBtn) { profitAccountBtn.classList.add('bank-field-error'); hasError = true; }
@@ -2355,13 +2366,14 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
         const freqOnceSubmitEl = document.getElementById('bank_day_start_frequency');
         const isOnceSubmit = freqOnceSubmitEl && freqOnceSubmitEl.value === 'once';
         const isWeekSubmit = freqOnceSubmitEl && freqOnceSubmitEl.value === 'week';
+        const isDaySubmit = freqOnceSubmitEl && freqOnceSubmitEl.value === 'day';
         const cardMerchantBtn = document.getElementById('bank_card_merchant');
         const customerBtn = document.getElementById('bank_customer');
         const profitAccountBtn = document.getElementById('bank_profit_account');
         const cardMerchant = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value');
         const customer = customerBtn && customerBtn.getAttribute('data-value');
         const profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
-        if (!country || !bank || !type || !name || !cost || !price || (!contract && !isOnceSubmit && !isWeekSubmit) || !cardMerchant || !customer || !profitAccount) {
+        if (!country || !bank || !type || !name || !cost || !price || (!contract && !isOnceSubmit && !isWeekSubmit && !isDaySubmit) || !cardMerchant || !customer || !profitAccount) {
             return;
         }
         const editId = document.getElementById('bank_edit_id').value;
@@ -2427,6 +2439,10 @@ if (addBankProcessForm && !window.__bankAddProcessSubmitBound) {
         } else if (freqEl && freqEl.value === 'week') {
             formData.set('day_end', '');
             formData.set('contract', '');
+        } else if (freqEl && freqEl.value === 'day') {
+            formData.set('day_end', '');
+            formData.set('contract', '');
+            formData.set('day_start_frequency', 'day');
         }
         try {
             if (editId) {
@@ -2489,10 +2505,10 @@ allowOnlyNumberCommaPeriod(document.getElementById('bank_insurance'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
 allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
-/** Frequency=Once / Week 时 Day end 日历不可选 */
+/** Frequency=Once / Week / Day 时 Day end 日历不可选 */
 function bankFrequencyLocksDayEnd() {
     const freqEl = document.getElementById('bank_day_start_frequency');
-    return !!(freqEl && (freqEl.value === 'once' || freqEl.value === 'week'));
+    return !!(freqEl && (freqEl.value === 'once' || freqEl.value === 'week' || freqEl.value === 'day'));
 }
 
 function setBankDayEndPickerInteractive(enabled) {
@@ -2576,7 +2592,7 @@ function syncBankDayEndMonthlyCapUi() {
     syncBankDayEndCapDatePickersLocked();
 }
 
-/** Frequency = Once / Week：禁用 Day end / Contract；Once 另禁用 Insurance */
+/** Frequency = Once / Week / Day：禁用 Day end / Contract；Once 另禁用 Insurance */
 function syncBankOnceFrequencyUi(opts) {
     opts = opts || {};
     const preserveValues = !!opts.preserveValues;
@@ -2591,7 +2607,8 @@ function syncBankOnceFrequencyUi(opts) {
 
     const once = freqEl.value === 'once';
     const week = freqEl.value === 'week';
-    const noContractDayEnd = once || week;
+    const day = freqEl.value === 'day';
+    const noContractDayEnd = once || week || day;
 
     if (noContractDayEnd) {
         if (!preserveValues) {

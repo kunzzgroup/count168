@@ -1847,10 +1847,16 @@ function bankRowIsWeeklyAccountingDue(row) {
     return !!(row && (row.is_weekly || String(row.contract || '').trim().toUpperCase() === 'WEEK'));
 }
 
+function bankRowIsDailyAccountingDue(row) {
+    return !!(row && (row.is_daily || String(row.contract || '').trim().toUpperCase() === 'DAY'));
+}
+
 function accountingDuePeriodTypeFromRow(row) {
     if (!row || typeof row !== 'object') return 'monthly';
     if (row.is_once_one_off) return 'once_one_off';
     if (bankRowIsWeeklyAccountingDue(row)) return 'weekly';
+    if (row.is_daily && row.is_daily_consolidated) return 'daily_consolidated';
+    if (bankRowIsDailyAccountingDue(row)) return 'daily';
     if (row.is_manual_inactive) return 'manual_inactive';
     if (row.is_resend_consolidated_range) return 'resend_consolidated_range';
     if (row.is_partial_first_month) return 'partial_first_month';
@@ -1860,6 +1866,9 @@ function accountingDuePeriodTypeFromRow(row) {
 
 function accountingDueBillingMonthFromRow(row) {
     if (!row || typeof row !== 'object') return '';
+    if (bankRowIsDailyAccountingDue(row)) {
+        return String(row.monthly_billing_month || row.daily_billing_start || '').trim();
+    }
     if (bankRowIsWeeklyAccountingDue(row)) {
         const ws = String(row.weekly_billing_start || row.monthly_billing_month || '').trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(ws)) return ws;
@@ -1905,9 +1914,9 @@ function renderAccountingInbox(items) {
         const cbClass = 'process-accounting-inbox-row-cb';
         const periodType = accountingDuePeriodTypeFromRow(row);
         const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-        const startDate = (row.day_start || row.start_date || (bankRowIsWeeklyAccountingDue(row) ? row.weekly_billing_start : '') || '').toString().trim() || '-';
+        const startDate = (row.start_date || row.day_start || (bankRowIsWeeklyAccountingDue(row) ? row.weekly_billing_start : '') || '').toString().trim() || '-';
         const contractRaw = (row.contract || '').toString().trim() || '-';
-        const contractDisplay = row.is_once_one_off ? 'ONCE' : (bankRowIsWeeklyAccountingDue(row) ? 'WEEK' : (({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw));
+        const contractDisplay = row.is_once_one_off ? 'ONCE' : (bankRowIsWeeklyAccountingDue(row) ? 'WEEK' : (bankRowIsDailyAccountingDue(row) ? 'DAY' : (({ '1+1': '1+1 MONTH', '1+2': '1+2 MONTHS', '1+3': '1+3 MONTHS' })[contractRaw] || contractRaw)));
         const bm = accountingDueBillingMonthFromRow(row);
         const bmAttr = bm ? ' data-billing-month="' + escapeHtml(bm) + '"' : '';
         const deleteCbClass = 'process-accounting-inbox-delete-cb';
@@ -2080,13 +2089,14 @@ function syncBankResendModalOnceDayEndUi() {
     const isOnce = freq.value === 'once';
     const isMonthly = freq.value === 'monthly';
     const isWeek = freq.value === 'week';
-    if (isOnce || isMonthly || isWeek) {
+    const isDay = freq.value === 'day';
+    if (isOnce || isMonthly || isWeek || isDay) {
         dayEnd.value = '';
         dayEnd.disabled = true;
         dayEnd.style.opacity = '0.55';
         dayEnd.title = isMonthly
             ? 'Not used when Frequency is Monthly'
-            : (isWeek ? 'Not used when Frequency is Week' : 'Not used when Frequency is Once');
+            : (isWeek ? 'Not used when Frequency is Week' : (isDay ? 'Not used when Frequency is Day' : 'Not used when Frequency is Once'));
     } else {
         dayEnd.disabled = false;
         dayEnd.style.opacity = '';
@@ -2330,6 +2340,7 @@ function showConfirmBankResendModal(processId) {
         if (freq === 'monthly') return 'monthly';
         if (freq === 'once') return 'once';
         if (freq === 'week') return 'week';
+        if (freq === 'day') return 'day';
         return '1st_of_every_month';
     }
     const msgEl = document.getElementById('confirmBankResendMessage');
@@ -2444,8 +2455,8 @@ async function confirmBankResendFromModal() {
     const fqEl = document.getElementById('bank_resend_frequency');
     const scheduleOpts = (dsEl && deEl && fqEl) ? {
         day_start: (dsEl.value || '').trim(),
-        day_end: (fqEl.value === 'once' || fqEl.value === 'monthly' || fqEl.value === 'week') ? '' : (deEl.value || '').trim(),
-        day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : (fqEl.value === 'once' ? 'once' : (fqEl.value === 'week' ? 'week' : '1st_of_every_month'))
+        day_end: (fqEl.value === 'once' || fqEl.value === 'monthly' || fqEl.value === 'week' || fqEl.value === 'day') ? '' : (deEl.value || '').trim(),
+        day_start_frequency: fqEl.value === 'monthly' ? 'monthly' : (fqEl.value === 'once' ? 'once' : (fqEl.value === 'week' ? 'week' : (fqEl.value === 'day' ? 'day' : '1st_of_every_month')))
     } : null;
     const proc = Array.isArray(processes) ? processes.find(p => p.id === id) : null;
     let backendLocked = false;

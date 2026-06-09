@@ -232,6 +232,77 @@ function bankProcessWeeklyHistoryDescription(array $t): string
 }
 
 /**
+ * Payment History：Frequency=day 入账行描述。
+ * DAY (DD/MM/YYYY) @ <金额> 或 DAY (DD/MM/YYYY - DD/MM/YYYY) @ <金额>
+ *
+ * @param array $t 需含 account_id、card_merchant_id、customer_id、profit_account_id、process_*；description 可含 [DAILY_RANGE=…]
+ */
+function bankProcessDailyHistoryDescription(array $t): string
+{
+    $startYmd = null;
+    $endYmd = null;
+    $desc = trim((string) ($t['description'] ?? ''));
+    if (preg_match('/\[DAILY_RANGE=(\d{4}-\d{2}-\d{2})\|(\d{4}-\d{2}-\d{2})\]/', $desc, $m)) {
+        $startYmd = $m[1];
+        $endYmd = $m[2];
+    }
+    if ($startYmd === null) {
+        $td = trim((string) ($t['transaction_date'] ?? ''));
+        if ($td !== '' && stripos($td, '0000-00-00') !== 0) {
+            if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $td, $m2)) {
+                $startYmd = $m2[1];
+            } else {
+                $ts = strtotime(str_replace('/', '-', $td));
+                if ($ts !== false) {
+                    $startYmd = date('Y-m-d', $ts);
+                }
+            }
+        }
+        if ($startYmd === null) {
+            $startYmd = bankProcessParseDayStartToYmd($t['bp_day_start'] ?? null);
+        }
+        $endYmd = $startYmd;
+    }
+    $startDmy = date('d/m/Y');
+    $endDmy = $startDmy;
+    if ($startYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $startYmd)) {
+        $ts = strtotime($startYmd);
+        if ($ts !== false) {
+            $startDmy = date('d/m/Y', $ts);
+        }
+    }
+    if ($endYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $endYmd)) {
+        $tsEnd = strtotime($endYmd);
+        if ($tsEnd !== false) {
+            $endDmy = date('d/m/Y', $tsEnd);
+        }
+    }
+    $prefix = ($startYmd !== null && $endYmd !== null && $startYmd !== $endYmd)
+        ? ('DAY (' . $startDmy . ' - ' . $endDmy . ')')
+        : ('DAY (' . $startDmy . ')');
+    $txAccountId = (int) ($t['account_id'] ?? 0);
+    $cardMerchantId = (int) ($t['card_merchant_id'] ?? 0);
+    $customerId = (int) ($t['customer_id'] ?? 0);
+    $profitAccountId = (int) ($t['profit_account_id'] ?? 0);
+
+    if ($txAccountId > 0 && $txAccountId === $cardMerchantId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_cost'] ?? '0');
+    }
+    if ($txAccountId > 0 && $txAccountId === $customerId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber(money_abs($t['process_price'] ?? '0', 2));
+    }
+    if ($txAccountId > 0 && $txAccountId === $profitAccountId) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($t['process_profit'] ?? '0');
+    }
+    $psAmount = bankProcessProfitSharingOriginalAmountByAccount($t);
+    if ($psAmount !== null) {
+        return $prefix . ' @ ' . bankProcessBillFormatTripartNumber($psAmount);
+    }
+
+    return $prefix;
+}
+
+/**
  * 首月比例账单描述：Pro-rated(dd/mm - dd/mm)@monthly <对应账单价格>
  * 仅显示当前这条记录对应的价格：
  * - Supplier(card_merchant): buy price

@@ -176,7 +176,7 @@ if (!function_exists('bmp_normalizePeriodType')) {
     function bmp_normalizePeriodType(?string $raw): string
     {
         $t = strtolower(trim((string) $raw));
-        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range' || $t === 'once_one_off' || $t === 'weekly') {
+        if ($t === 'partial_first_month' || $t === 'manual_inactive' || $t === 'day_end_tail' || $t === 'resend_consolidated_range' || $t === 'once_one_off' || $t === 'weekly' || $t === 'daily' || $t === 'daily_consolidated') {
             return $t;
         }
         return 'monthly';

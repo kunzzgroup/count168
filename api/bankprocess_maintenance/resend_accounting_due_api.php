@@ -194,10 +194,10 @@ try {
         $newDayStart = bank_resend_normalizeOptionalYmd($payload['day_start'] ?? null);
         $newDayEnd = bank_resend_normalizeOptionalYmd($payload['day_end'] ?? null);
         $newFrequency = trim((string) ($payload['day_start_frequency'] ?? '1st_of_every_month'));
-        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'once', 'week'], true)) {
+        if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'once', 'week', 'day'], true)) {
             $newFrequency = '1st_of_every_month';
         }
-        if ($newFrequency === 'once' || $newFrequency === 'week') {
+        if ($newFrequency === 'once' || $newFrequency === 'week' || $newFrequency === 'day') {
             $newDayEnd = null;
         }
         if ($newDayStart !== null && $newDayEnd !== null && $newDayEnd < $newDayStart) {
@@ -297,6 +297,14 @@ try {
             "DELETE FROM process_accounting_posted
              WHERE company_id = ? AND process_id = ?
                AND period_type IN ('weekly','weekly_skipped')
+               AND DATE(posted_date) = DATE(?)"
+        );
+        $delMonthPap->execute([$company_id, $bankProcessId, $newDayStart]);
+    } elseif ($scheduleFromClient && $newFrequency === 'day' && $newDayStart !== null) {
+        $delMonthPap = $pdo->prepare(
+            "DELETE FROM process_accounting_posted
+             WHERE company_id = ? AND process_id = ?
+               AND period_type IN ('daily','daily_skipped')
                AND DATE(posted_date) = DATE(?)"
         );
         $delMonthPap->execute([$company_id, $bankProcessId, $newDayStart]);

@@ -1858,6 +1858,8 @@ try {
                     $description = bankProcessOnceOneOffHistoryDescription($t);
                 } elseif ($periodType === 'weekly') {
                     $description = bankProcessWeeklyHistoryDescription($t);
+                } elseif ($periodType === 'daily' || $periodType === 'daily_consolidated') {
+                    $description = bankProcessDailyHistoryDescription($t);
                 } elseif ($isBankProcessTransaction
                     && strtolower(trim((string) ($t['bp_frequency'] ?? ''))) === 'week'
                     && in_array($periodType, ['monthly', ''], true)) {
@@ -2042,8 +2044,8 @@ try {
         if ($isBankProcessTransaction && in_array($t['transaction_type'], ['WIN', 'LOSE'], true)) {
             $ptForDisplay = isset($t['period_type']) ? trim((string) $t['period_type']) : '';
             // monthly / partial / tail：仍按 transaction_date 规范化；resend_consolidated 必须保留入账写入的 Day start，勿与 monthly 应付日混用
-            if ($ptForDisplay === 'weekly') {
-                // 保留 transaction_date = 周起点
+            if ($ptForDisplay === 'weekly' || $ptForDisplay === 'daily' || $ptForDisplay === 'daily_consolidated') {
+                // 保留 transaction_date（周起点 / 合并日展示为 today / 单日=账单日）
             } elseif ($ptForDisplay === 'monthly' || $ptForDisplay === 'partial_first_month' || $ptForDisplay === 'day_end_tail') {
                 $anchorYmd = historyMonthlyBankProcessDisplayYmd(
                     isset($t['bp_day_start']) ? (string) $t['bp_day_start'] : null,

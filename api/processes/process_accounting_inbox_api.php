@@ -599,6 +599,115 @@ function hasWeeklyPostedForPeriodStart(PDO $pdo, int $companyId, int $processId,
     return weekHasPostedOrSkippedForPeriodStart($pdo, $companyId, $processId, $periodStartYmd);
 }
 
+function hasDailyPostedOrSkippedForDay(PDO $pdo, int $companyId, int $processId, string $dayYmd): bool
+{
+    return dayHasPostedOrSkippedForDay($pdo, $companyId, $processId, $dayYmd);
+}
+
+function inboxFormatDailyYmdForDisplay(string $dayYmd): string
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayYmd)) {
+        return $dayYmd;
+    }
+    $ts = strtotime($dayYmd);
+
+    return $ts !== false ? date('d/m/Y', $ts) : $dayYmd;
+}
+
+/** @return list<string> */
+function dailyCollectUnpostedDaysInRange(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $rangeStartYmd,
+    string $rangeEndYmd
+): array {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $rangeStartYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $rangeEndYmd)) {
+        return [];
+    }
+    if ($rangeStartYmd > $rangeEndYmd) {
+        return [];
+    }
+    $days = [];
+    $cur = $rangeStartYmd;
+    for ($i = 0; $i < 4000; $i++) {
+        if ($cur > $rangeEndYmd) {
+            break;
+        }
+        if (!hasDailyPostedOrSkippedForDay($pdo, $companyId, $processId, $cur)) {
+            $days[] = $cur;
+        }
+        $next = dailyNextDayYmd($cur);
+        if ($next === null || $next <= $cur) {
+            break;
+        }
+        $cur = $next;
+    }
+
+    return $days;
+}
+
+function inboxAppendDailyNeedToday(
+    array &$needToday,
+    array $r,
+    string $dailyBillingDay,
+    string $cost,
+    string $price,
+    string $profit
+): void {
+    $needToday[] = [
+        'id' => (int) $r['id'],
+        'name' => $r['name'] ?? '',
+        'bank' => $r['bank'] ?? '',
+        'country' => $r['country'] ?? '',
+        'day_start' => inboxFormatDailyYmdForDisplay($dailyBillingDay),
+        'contract' => 'DAY',
+        'cost' => $cost,
+        'price' => $price,
+        'profit' => $profit,
+        'already_posted_today' => false,
+        'is_partial_first_month' => false,
+        'is_manual_inactive' => false,
+        'is_daily' => true,
+        'is_daily_consolidated' => false,
+        'daily_billing_start' => $dailyBillingDay,
+        'monthly_billing_month' => $dailyBillingDay,
+        'start_date' => inboxFormatDailyYmdForDisplay($dailyBillingDay),
+    ];
+}
+
+function inboxAppendDailyConsolidatedNeedToday(
+    array &$needToday,
+    array $r,
+    string $rangeStartYmd,
+    string $rangeEndYmd,
+    string $todayYmd,
+    string $cost,
+    string $price,
+    string $profit
+): void {
+    $needToday[] = [
+        'id' => (int) $r['id'],
+        'name' => $r['name'] ?? '',
+        'bank' => $r['bank'] ?? '',
+        'country' => $r['country'] ?? '',
+        'day_start' => inboxFormatDailyYmdForDisplay($rangeStartYmd),
+        'contract' => 'DAY',
+        'cost' => $cost,
+        'price' => $price,
+        'profit' => $profit,
+        'already_posted_today' => false,
+        'is_partial_first_month' => false,
+        'is_manual_inactive' => false,
+        'is_daily' => true,
+        'is_daily_consolidated' => true,
+        'daily_billing_start' => $rangeStartYmd,
+        'daily_billing_end' => $rangeEndYmd,
+        'monthly_billing_month' => $rangeStartYmd . '|' . $rangeEndYmd,
+        'start_date' => inboxFormatDailyYmdForDisplay($todayYmd),
+    ];
+}
+
 function inboxFormatWeeklyBillingStartForDisplay(string $weeklyBillingStartYmd): string
 {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $weeklyBillingStartYmd)) {
@@ -948,6 +1057,42 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     }
                     $item['already_posted_today'] = $anchorYmd !== null
                         ? hasWeeklyPostedForPeriodStart($pdo, $companyId, (int) $item['id'], $anchorYmd)
+                        : false;
+                    continue;
+                }
+                if (!empty($item['is_daily'])) {
+                    if (!empty($item['is_daily_consolidated'])) {
+                        $range = dailyParseConsolidatedBillingRange($item['monthly_billing_month'] ?? null);
+                        if ($range === null) {
+                            $item['already_posted_today'] = false;
+                            continue;
+                        }
+                        $allPosted = true;
+                        $cur = $range['start'];
+                        for ($di = 0; $di < 4000; $di++) {
+                            if ($cur > $range['end']) {
+                                break;
+                            }
+                            if (!hasDailyPostedOrSkippedForDay($pdo, $companyId, (int) $item['id'], $cur)) {
+                                $allPosted = false;
+                                break;
+                            }
+                            $next = dailyNextDayYmd($cur);
+                            if ($next === null || $next <= $cur) {
+                                break;
+                            }
+                            $cur = $next;
+                        }
+                        $item['already_posted_today'] = $allPosted;
+                        continue;
+                    }
+                    $dayRaw = trim((string) ($item['daily_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
+                    $dayYmd = $dayRaw !== '' ? inboxBankProcessDateFieldToYmd($dayRaw) : null;
+                    if ($dayYmd === null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayRaw)) {
+                        $dayYmd = $dayRaw;
+                    }
+                    $item['already_posted_today'] = $dayYmd !== null
+                        ? hasDailyPostedOrSkippedForDay($pdo, $companyId, (int) $item['id'], $dayYmd)
                         : false;
                     continue;
                 }
@@ -1335,6 +1480,68 @@ try {
                 foreach ($queuedWeekly as $wDue) {
                     inboxAppendWeeklyNeedToday($needToday, $r, $wDue, $baseCost, $basePrice, $baseProfit);
                 }
+            }
+            continue;
+        }
+
+        if ($frequency === 'day') {
+            if (empty($dayStart) || $startDate === '') {
+                continue;
+            }
+            if ($today < $startDate && empty($r['accounting_resend_relax_created_floor'])) {
+                continue;
+            }
+            $processIdDay = (int) $r['id'];
+            $todayYear = (int) date('Y', strtotime($today));
+            $todayMonth = (int) date('n', strtotime($today));
+            $monthFirst = calendarMonthFirstYmd($todayYear, $todayMonth);
+            $effectiveStart = max($startDate, $monthFirst);
+            $effectiveEnd = $today;
+
+            if ($resendSinglePeriod) {
+                if (!hasDailyPostedOrSkippedForDay($pdo, $company_id, $processIdDay, $startDate)) {
+                    inboxAppendDailyNeedToday($needToday, $r, $startDate, $baseCost, $basePrice, $baseProfit);
+                }
+                continue;
+            }
+
+            if ($effectiveStart > $effectiveEnd && !$resendRelax) {
+                continue;
+            }
+            if ($effectiveStart > $effectiveEnd && $resendRelax) {
+                $effectiveEnd = $effectiveStart;
+            }
+
+            $unpostedDays = dailyCollectUnpostedDaysInRange(
+                $pdo,
+                $company_id,
+                $processIdDay,
+                $effectiveStart,
+                $effectiveEnd
+            );
+            if (empty($unpostedDays)) {
+                continue;
+            }
+
+            $forceConsolidated = $resendRelax && !$resendSinglePeriod;
+            $isCatchUpBatch = count($unpostedDays) > 1 && $unpostedDays[0] === $effectiveStart;
+
+            if ($forceConsolidated || $isCatchUpBatch) {
+                $rangeStart = $unpostedDays[0];
+                $rangeEnd = $unpostedDays[count($unpostedDays) - 1];
+                $tot = dailyAmountsForDayCount($baseCost, $basePrice, $baseProfit, count($unpostedDays));
+                inboxAppendDailyConsolidatedNeedToday(
+                    $needToday,
+                    $r,
+                    $rangeStart,
+                    $rangeEnd,
+                    $today,
+                    $tot['cost'],
+                    $tot['price'],
+                    $tot['profit']
+                );
+            } else {
+                inboxAppendDailyNeedToday($needToday, $r, $unpostedDays[0], $baseCost, $basePrice, $baseProfit);
             }
             continue;
         }
@@ -1795,9 +2002,24 @@ try {
             if (!empty($item['is_partial_first_month'])) return 3;
             if (!empty($item['is_manual_inactive'])) return 2;
             if (!empty($item['is_weekly'])) return 1;
+            if (!empty($item['is_daily'])) return 1;
             return 1; // regular monthly
         };
         $normalizeBm = static function (array $item): string {
+            if (!empty($item['is_daily'])) {
+                $bm = trim((string) ($item['monthly_billing_month'] ?? ''));
+                if (preg_match('/^\d{4}-\d{2}-\d{2}(\|\d{4}-\d{2}-\d{2})?$/', $bm)) {
+                    return 'daily|' . $bm;
+                }
+                $ds = trim((string) ($item['daily_billing_start'] ?? ''));
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ds)) {
+                    return 'daily|' . $ds;
+                }
+                $parsed = inboxBankProcessDateFieldToYmd($ds);
+                if ($parsed !== null) {
+                    return 'daily|' . $parsed;
+                }
+            }
             if (!empty($item['is_weekly'])) {
                 $ws = trim((string) ($item['weekly_billing_start'] ?? $item['monthly_billing_month'] ?? ''));
                 if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ws)) {
@@ -1828,6 +2050,8 @@ try {
             if (!empty($item['is_partial_first_month'])) return 'partial_first_month';
             if (!empty($item['is_manual_inactive'])) return 'manual_inactive';
             if (!empty($item['is_weekly'])) return 'weekly';
+            if (!empty($item['is_daily_consolidated'])) return 'daily_consolidated';
+            if (!empty($item['is_daily'])) return 'daily';
             return 'monthly';
         };
 
@@ -1882,6 +2106,10 @@ try {
                 $ws = trim((string) ($row['weekly_billing_start'] ?? $row['monthly_billing_month'] ?? ''));
                 $fp .= '|weekly|' . ($ws !== '' ? $ws : $dsNorm);
             }
+            if (!empty($row['is_daily'])) {
+                $dailyAnchor = trim((string) ($row['monthly_billing_month'] ?? $row['daily_billing_start'] ?? ''));
+                $fp .= '|daily|' . ($dailyAnchor !== '' ? $dailyAnchor : $dsNorm);
+            }
             if (!isset($byFingerprint[$fp]) || $rankOf($row) >= $rankOf($byFingerprint[$fp])) {
                 $byFingerprint[$fp] = $row;
             }
@@ -1894,7 +2122,7 @@ try {
         $monthlyByDisplayKey = [];
         $keptRows = [];
         foreach ($needToday as $row) {
-            if ($rankOf($row) !== 1 || !empty($row['is_weekly'])) {
+            if ($rankOf($row) !== 1 || !empty($row['is_weekly']) || !empty($row['is_daily'])) {
                 $keptRows[] = $row;
                 continue;
             }
@@ -1948,13 +2176,15 @@ try {
                 && empty($row['is_resend_consolidated_range'])
                 && empty($row['is_once_one_off'])
                 && empty($row['is_manual_inactive'])
-                && empty($row['is_weekly']);
+                && empty($row['is_weekly'])
+                && empty($row['is_daily']);
             $existingIsRegular = empty($existing['is_partial_first_month'])
                 && empty($existing['is_day_end_tail'])
                 && empty($existing['is_resend_consolidated_range'])
                 && empty($existing['is_once_one_off'])
                 && empty($existing['is_manual_inactive'])
-                && empty($existing['is_weekly']);
+                && empty($existing['is_weekly'])
+                && empty($existing['is_daily']);
             if (!$rowIsRegular && $existingIsRegular) {
                 $displayUnique[$dk] = $row;
             }

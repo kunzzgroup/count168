@@ -999,6 +999,69 @@ function txnRecordWeeklySkippedBeforeResendAnchor(
     }
 }
 
+function txnIsDailyPostedOrSkippedForDay(PDO $pdo, int $companyId, int $processId, string $dayYmd): bool
+{
+    return dayHasPostedOrSkippedForDay($pdo, $companyId, $processId, $dayYmd);
+}
+
+/**
+ * Daily Resend 单期入账后：将 Resend 锚点之前、由库里 day_start 滚动的每个自然日写 daily_skipped，抑制 backlog。
+ */
+function txnRecordDailySkippedBeforeResendAnchor(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $storedDayStartYmd,
+    string $resendAnchorYmd,
+    bool $hasPeriodType
+): void {
+    if (!$hasPeriodType || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $storedDayStartYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchorYmd)) {
+        return;
+    }
+    if ($storedDayStartYmd >= $resendAnchorYmd) {
+        return;
+    }
+    $cur = $storedDayStartYmd;
+    for ($i = 0; $i < 4000; $i++) {
+        if ($cur >= $resendAnchorYmd) {
+            break;
+        }
+        if (!txnIsDailyPostedOrSkippedForDay($pdo, $companyId, $processId, $cur)) {
+            recordProcessAccountingPosted($pdo, $companyId, $processId, $cur, 'daily_skipped', $hasPeriodType);
+        }
+        $next = dailyNextDayYmd($cur);
+        if ($next === null || $next <= $cur) {
+            break;
+        }
+        $cur = $next;
+    }
+}
+
+function recordDailyRangeAccountingPosted(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $fromYmd,
+    string $toYmd,
+    bool $hasPeriodType
+): void {
+    if (!$hasPeriodType || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $toYmd)) {
+        return;
+    }
+    $cur = $fromYmd;
+    for ($i = 0; $i < 4000; $i++) {
+        if ($cur > $toYmd) {
+            break;
+        }
+        recordProcessAccountingPosted($pdo, $companyId, $processId, $cur, 'daily', $hasPeriodType);
+        $next = dailyNextDayYmd($cur);
+        if ($next === null || $next <= $cur) {
+            break;
+        }
+        $cur = $next;
+    }
+}
+
 /** 解析 profit_sharing 字符串 "RUP3 - 55, RUP4 - 10" 为 [['account_text'=>'RUP3','amount'=>55], ...] */
 function parseProfitSharingString(string $profitSharing): array
 {
@@ -1059,7 +1122,7 @@ try {
     $pairs = [];
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
-        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off' && $pt !== 'weekly') {
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail' && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off' && $pt !== 'weekly' && $pt !== 'daily' && $pt !== 'daily_consolidated') {
             $pt = 'monthly';
         }
         $pairs[] = [
@@ -1073,7 +1136,7 @@ try {
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
         $pt = $p['period_type'] ?? '';
         $bm = trim((string) ($p['billing_month'] ?? ''));
-        $key = $p['id'] . '_' . $pt . '_' . ((in_array($pt, ['monthly', 'weekly'], true) && $bm !== '') ? $bm : '');
+        $key = $p['id'] . '_' . $pt . '_' . ((in_array($pt, ['monthly', 'weekly', 'daily', 'daily_consolidated'], true) && $bm !== '') ? $bm : '');
         if (isset($seen[$key])) {
             return false;
         }
@@ -1160,6 +1223,10 @@ try {
         if ($frequencyNorm === 'week' && $periodType === 'monthly') {
             $periodType = 'weekly';
         }
+        if ($frequencyNorm === 'day' && $periodType === 'monthly') {
+            $bmGuess = trim((string) ($pair['billing_month'] ?? ''));
+            $periodType = (strpos($bmGuess, '|') !== false) ? 'daily_consolidated' : 'daily';
+        }
 
         $resolvedWeeklyBm = '';
         if ($periodType === 'weekly') {
@@ -1187,6 +1254,30 @@ try {
                 continue;
             }
             $pair['billing_month'] = $resolvedWeeklyBm;
+        }
+
+        $resolvedDailyBm = '';
+        $dailyConsolidatedRange = null;
+        if ($periodType === 'daily' || $periodType === 'daily_consolidated') {
+            $resolvedDailyBm = trim((string) ($pair['billing_month'] ?? ''));
+            if ($periodType === 'daily_consolidated') {
+                $dailyConsolidatedRange = dailyParseConsolidatedBillingRange($resolvedDailyBm);
+                if ($dailyConsolidatedRange === null) {
+                    continue;
+                }
+            } else {
+                if ($resolvedDailyBm !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $resolvedDailyBm)) {
+                    $parsedDailyBm = bankProcessDateFieldToYmd($resolvedDailyBm);
+                    $resolvedDailyBm = $parsedDailyBm !== null ? $parsedDailyBm : '';
+                }
+                if ($resolvedDailyBm === '' && $dayStartYmd) {
+                    $resolvedDailyBm = $dayStartYmd;
+                }
+                if ($resolvedDailyBm === '') {
+                    continue;
+                }
+            }
+            $pair['billing_month'] = $resolvedDailyBm;
         }
 
         // monthly：若前端未传 billing_month（例如列表页批量 Transaction），按 Inbox 规则推断账单自然月，保证 proration 与 transaction_date 一致
@@ -1295,6 +1386,15 @@ try {
             $cost = $tail['cost'];
             $price = $tail['price'];
             $profit = $tail['profit'];
+        } elseif ($periodType === 'daily_consolidated' && $dailyConsolidatedRange !== null) {
+            $dayCount = dailyInclusiveDayCount($dailyConsolidatedRange['start'], $dailyConsolidatedRange['end']);
+            if ($dayCount < 1) {
+                continue;
+            }
+            $totDaily = dailyAmountsForDayCount($cost, $price, $profit, $dayCount);
+            $cost = $totDaily['cost'];
+            $price = $totDaily['price'];
+            $profit = $totDaily['profit'];
         }
 
         // monthly：与 Inbox 一致；1st_of_every_month 新建在创建日晚于当月1号时从创建日摊到月末；Resend 仍从 dueYmd（1号）起算比例。
@@ -1470,6 +1570,18 @@ try {
                 $transactionDate = $dayStartYmd;
                 $postedDateForInbox = $dayStartYmd;
             }
+        } elseif ($periodType === 'daily') {
+            $dayAnchor = trim((string) ($pair['billing_month'] ?? ''));
+            if ($dayAnchor !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayAnchor)) {
+                $transactionDate = $dayAnchor;
+                $postedDateForInbox = $dayAnchor;
+            } elseif ($dayStartYmd !== null && $dayStartYmd !== '') {
+                $transactionDate = $dayStartYmd;
+                $postedDateForInbox = $dayStartYmd;
+            }
+        } elseif ($periodType === 'daily_consolidated') {
+            $transactionDate = $fallbackDate;
+            $postedDateForInbox = $fallbackDate;
         } elseif ($periodType === 'monthly') {
             // monthly：Payment History 归档日固定为该期应付日（dueYmd），
             // 非 resend 场景未到应付日不允许提前入账；resend 维持可回补旧期能力。
@@ -1525,9 +1637,13 @@ try {
             }
         }
 
-        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ($periodType === 'once_one_off' ? ' (once)' : ($periodType === 'weekly' ? ' (weekly)' : ''))));
+        $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ($periodType === 'once_one_off' ? ' (once)' : ($periodType === 'weekly' ? ' (weekly)' : ($periodType === 'daily' ? ' (daily)' : ($periodType === 'daily_consolidated' ? ' (daily consolidated)' : ''))))));
         $processTail = txnProcessBankDescriptionTail($p);
         $resendEndMarker = '';
+        $dailyRangeMarker = '';
+        if ($periodType === 'daily_consolidated' && $dailyConsolidatedRange !== null) {
+            $dailyRangeMarker = ' [DAILY_RANGE=' . $dailyConsolidatedRange['start'] . '|' . $dailyConsolidatedRange['end'] . ']';
+        }
         if ($periodType === 'resend_consolidated_range') {
             $endRawForMarker = $p['day_end'] ?? null;
             $endYmdForMarker = $endRawForMarker !== null && trim((string) $endRawForMarker) !== ''
@@ -1538,6 +1654,7 @@ try {
                 $resendEndMarker = ' [RESEND_END=' . $endYmdForMarker . ']';
             }
         }
+        $descExtraMarker = $resendEndMarker . $dailyRangeMarker;
         $compMonthLabel = getCompensationMonthLabelFromContract($p['contract'] ?? null);
         // Cost → Supplier(card_merchant)，Price → Customer，Profit → Company；首月按比例时三笔均用折算后的 cost/price/profit
         if (!empty($p['card_merchant_id']) && money_cmp($cost, '0') > 0) {
@@ -1546,7 +1663,7 @@ try {
             $txn['amount'] = txnTrunc2($cost);
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($cost) . $processTail)
-                : ("Process: Buy Price for $processLabel" . $suffix . $resendEndMarker . $processTail);
+                : ("Process: Buy Price for $processLabel" . $suffix . $descExtraMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1558,7 +1675,7 @@ try {
             $txn['amount'] = txnTrunc2($price);
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($price) . $processTail)
-                : ("Process: Sell Price for $processLabel" . $suffix . $resendEndMarker . $processTail);
+                : ("Process: Sell Price for $processLabel" . $suffix . $descExtraMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1581,7 +1698,9 @@ try {
             $psRatio = '1.0000000000000000';
         } elseif ($periodType === 'weekly') {
             $psRatio = '1.0000000000000000';
-        } elseif ($periodType === 'day_end_tail' || $periodType === 'resend_consolidated_range') {
+        } elseif ($periodType === 'daily') {
+            $psRatio = '1.0000000000000000';
+        } elseif ($periodType === 'day_end_tail' || $periodType === 'resend_consolidated_range' || $periodType === 'daily_consolidated') {
             $fp = money_normalize($p['profit'] ?? '0');
             $psRatio = money_cmp($fp, '0') > 0 ? money_div($profit, $fp, MONEY_CALC_SCALE) : '0.0000000000000000';
         }
@@ -1610,7 +1729,7 @@ try {
             $txn['amount'] = txnTrunc2($companyProfit);
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($profit) . $processTail)
-                : ("Process: Profit for $processLabel" . $suffix . $resendEndMarker . $processTail);
+                : ("Process: Profit for $processLabel" . $suffix . $descExtraMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
@@ -1620,12 +1739,25 @@ try {
             $txn['amount'] = txnTrunc2($ps['amount']);
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($ps['amount']) . $processTail)
-                : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . money_out($ps['amount'], 2) . ')' . $suffix . $resendEndMarker . $processTail);
+                : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . money_out($ps['amount'], 2) . ')' . $suffix . $descExtraMarker . $processTail);
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
 
-        recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
+        if ($periodType === 'daily_consolidated' && $dailyConsolidatedRange !== null) {
+            recordDailyRangeAccountingPosted(
+                $pdo,
+                $companyId,
+                (int) $p['id'],
+                $dailyConsolidatedRange['start'],
+                $dailyConsolidatedRange['end'],
+                $has_period_type
+            );
+        } elseif ($periodType === 'daily') {
+            recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, 'daily', $has_period_type);
+        } else {
+            recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $postedDateForInbox, $periodType, $has_period_type);
+        }
 
         if ($periodType === 'once_one_off' && $frequency === 'once' && trim((string) ($p['status'] ?? '')) === 'active') {
             $updOnceInactive = $pdo->prepare(
@@ -1713,6 +1845,29 @@ try {
             }
             if ($storedYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchor)) {
                 txnRecordWeeklySkippedBeforeResendAnchor(
+                    $pdo,
+                    $companyId,
+                    (int) $p['id'],
+                    $storedYmd,
+                    $resendAnchor,
+                    $has_period_type
+                );
+            }
+        }
+
+        if ($periodType === 'daily'
+            && !empty($p['accounting_resend_single_period_from_schedule'])
+            && strtolower(trim((string) $frequency)) === 'day'
+            && $has_resend_relax_col
+            && !empty($p['accounting_resend_relax_created_floor'])) {
+            $storedRaw = $p['bank_process_stored_day_start'] ?? null;
+            $storedYmd = $storedRaw !== null && trim((string) $storedRaw) !== '' ? bankProcessDateFieldToYmd((string) $storedRaw) : null;
+            $resendAnchor = trim((string) ($pair['billing_month'] ?? ''));
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchor)) {
+                $resendAnchor = $dayStartYmd ?? '';
+            }
+            if ($storedYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $resendAnchor)) {
+                txnRecordDailySkippedBeforeResendAnchor(
                     $pdo,
                     $companyId,
                     (int) $p['id'],
