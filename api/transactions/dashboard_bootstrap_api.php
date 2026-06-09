@@ -139,6 +139,16 @@ function dashboard_bootstrap_capture(array $params): array
     return $cache[$key];
 }
 
+/** Attach kpi_only for fast KPI paths (skip daily GROUP BY on server). */
+function dashboard_bootstrap_capture_scoped(array $params, string $bootstrapScope): array
+{
+    if (in_array($bootstrapScope, ['kpi', 'previous'], true)) {
+        $params['kpi_only'] = '1';
+    }
+
+    return dashboard_bootstrap_capture($params);
+}
+
 try {
     dashboard_api_begin_bootstrap_batch();
     $baseParams = dashboard_bootstrap_base_params();
@@ -169,7 +179,7 @@ try {
     $prevRange = dashboard_bootstrap_previous_period($dateFrom, $dateTo);
 
     $bootstrapScope = isset($_GET['bootstrap_scope']) ? strtolower(trim((string) $_GET['bootstrap_scope'])) : 'full';
-    if (!in_array($bootstrapScope, ['full', 'kpi', 'earnings', 'previous'], true)) {
+    if (!in_array($bootstrapScope, ['full', 'kpi', 'earnings', 'previous', 'chart'], true)) {
         $bootstrapScope = 'full';
     }
     $isPrefetch = isset($_GET['prefetch']) && (string) $_GET['prefetch'] === '1';
@@ -177,12 +187,14 @@ try {
     $currentJson = null;
     $previousData = null;
 
-    if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi') {
+    if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi' || $bootstrapScope === 'chart') {
         $currentParams = $baseParams;
         if ($primaryCurrency !== '') {
             $currentParams['currency'] = $primaryCurrency;
         }
-        $currentJson = dashboard_bootstrap_capture($currentParams);
+        $currentJson = $bootstrapScope === 'chart'
+            ? dashboard_bootstrap_capture($currentParams)
+            : dashboard_bootstrap_capture_scoped($currentParams, $bootstrapScope);
         if (empty($currentJson['success']) || !is_array($currentJson['data'])) {
             $failMsg = $currentJson['message'] ?? $currentJson['error'] ?? 'Failed to load dashboard';
             if ($isPrefetch) {
@@ -205,7 +217,7 @@ try {
             if ($primaryCurrency !== '') {
                 $prevParams['currency'] = $primaryCurrency;
             }
-            $previousJson = dashboard_bootstrap_capture($prevParams);
+            $previousJson = dashboard_bootstrap_capture_scoped($prevParams, 'previous');
             $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
                 ? $previousJson['data']
                 : null;
@@ -217,7 +229,7 @@ try {
         if ($primaryCurrency !== '') {
             $prevParams['currency'] = $primaryCurrency;
         }
-        $previousJson = dashboard_bootstrap_capture($prevParams);
+        $previousJson = dashboard_bootstrap_capture_scoped($prevParams, 'previous');
         $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
             ? $previousJson['data']
             : null;
@@ -295,7 +307,7 @@ try {
         'bootstrap_scope' => $bootstrapScope,
     ];
 
-    if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi') {
+    if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi' || $bootstrapScope === 'chart') {
         $responseData['current'] = $currentJson['data'] ?? null;
         $responseData['previous'] = $bootstrapScope === 'full' ? $previousData : null;
     } elseif ($bootstrapScope === 'previous') {

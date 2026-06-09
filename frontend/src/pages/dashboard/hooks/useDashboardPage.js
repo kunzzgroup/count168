@@ -470,8 +470,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** Scope key while a full bootstrap (KPI + earnings) is in flight for the active view. */
   const dashboardBootstrapInFlightRef = useRef("");
   const dashboardFetchInFlightScopeRef = useRef("");
-  const previousPeriodFetchGenRef = useRef(0);
-  const previousPeriodInFlightRef = useRef("");
+  const chartDailyFetchGenRef = useRef(0);
+  const chartDailyInFlightRef = useRef("");
   const loadDashboardTriggerKeyRef = useRef("");
   const loadDashboardStructuralKeyRef = useRef("");
   /** Prevents synchronous DASHBOARD_GROUP_FILTER_EVENT ↔ sync re-entry stack overflow. */
@@ -3038,7 +3038,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (!json.data.previous) {
           throw new Error(json.message || json.error || i18n.dashboardApiError);
         }
-      } else if ((scope === "full" || scope === "kpi") && !json.data.current) {
+      } else if ((scope === "full" || scope === "kpi" || scope === "chart") && !json.data.current) {
         throw new Error(json.message || json.error || i18n.dashboardApiError);
       }
 
@@ -3140,6 +3140,67 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       mergedSubsetIds,
       usesGroupLedgerDashboard,
       currencyCode,
+      loadDashboardViaBootstrap,
+    ]
+  );
+
+  /** Trend chart daily series — deferred so KPI bootstrap can skip GROUP BY daily aggregation. */
+  const loadDashboardChartDaily = useCallback(
+    async (targetScopeKey) => {
+      const cacheKey = targetScopeKey ?? dashboardScopeKey;
+      if (!cacheKey || cacheKey !== resolveDashboardScopeKey()) return;
+      if (chartDailyInFlightRef.current === cacheKey) return;
+
+      const current = dashboardDataRef.current;
+      const daily = current?.daily_data;
+      const hasChartSeries =
+        daily &&
+        (Object.keys(daily.capital || {}).length > 0 ||
+          Object.keys(daily.expenses || {}).length > 0 ||
+          Object.keys(daily.profit || {}).length > 0);
+      if (hasChartSeries) return;
+
+      const canUseBootstrap =
+        !(showAllCurrencies && canShowAllCurrencies) &&
+        !(groupsAllMode && !groupAllMode) &&
+        !groupAllMode &&
+        !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
+        (companyId != null || groupAggregateMode);
+      if (!canUseBootstrap || !current) return;
+
+      const gen = ++chartDailyFetchGenRef.current;
+      chartDailyInFlightRef.current = cacheKey;
+      try {
+        const boot = await loadDashboardViaBootstrap({ scope: "chart" });
+        if (gen !== chartDailyFetchGenRef.current) return;
+        if (resolveDashboardScopeKey() !== cacheKey || !boot.current?.daily_data) return;
+        const merged = applyDashboardPayloadAdjustments(
+          { ...current, daily_data: boot.current.daily_data },
+          companyId,
+          selectedGroup
+        );
+        setDashboardData(merged);
+        patchDashboardCache(cacheKey, { current: merged });
+      } catch {
+        /* Background chart — non-blocking. */
+      } finally {
+        if (chartDailyInFlightRef.current === cacheKey) {
+          chartDailyInFlightRef.current = "";
+        }
+      }
+    },
+    [
+      dashboardScopeKey,
+      resolveDashboardScopeKey,
+      companyId,
+      groupAggregateMode,
+      showAllCurrencies,
+      canShowAllCurrencies,
+      groupsAllMode,
+      groupAllMode,
+      mergedSubsetIds,
+      applyDashboardPayloadAdjustments,
+      selectedGroup,
       loadDashboardViaBootstrap,
     ]
   );
@@ -3757,6 +3818,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       dashboardFetchAbortRef.current?.abort();
       ++previousPeriodFetchGenRef.current;
       previousPeriodInFlightRef.current = "";
+      ++chartDailyFetchGenRef.current;
+      chartDailyInFlightRef.current = "";
       dashboardFetchStructuralScopeRef.current = structuralKey;
       dashboardFetchScopeRef.current = cacheKey;
       dashboardFetchAbortRef.current = new AbortController();
@@ -4025,6 +4088,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           if (bootstrapScope === "kpi" && !boot.previous) {
             void loadDashboardPreviousPeriod(cacheKey);
           }
+          if (bootstrapScope === "kpi" && !boot.current?.daily_data?.profit) {
+            void loadDashboardChartDaily(cacheKey);
+          }
           return;
         } catch {
           /* Fall back to legacy per-endpoint loading. */
@@ -4186,6 +4252,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     tryBuildGroupAllDashboardFromCompanyCaches,
     fetchGroupAllMergedDashboard,
     loadDashboardPreviousPeriod,
+    loadDashboardChartDaily,
   ]);
 
   const loadDashboardTriggerKey = useMemo(
