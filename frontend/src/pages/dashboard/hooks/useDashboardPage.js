@@ -690,6 +690,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [listCurrencyScopeKeys, currencies]
   );
 
+  const cacheEntryHasFullEarnings = useCallback((entry, codes) => {
+    if (!Array.isArray(codes) || codes.length <= 1) return true;
+    const rows = entry?.earnings;
+    return (
+      rows?.length === codes.length && rows.every((row) => row.earnings != null)
+    );
+  }, []);
+
+  /** Complete per-currency earnings rows safe to apply to UI state (never undefined). */
+  const getCompleteCachedEarnings = useCallback((entry, codes) => {
+    if (!Array.isArray(codes) || codes.length <= 1) return null;
+    const rows = entry?.earnings;
+    if (!Array.isArray(rows) || rows.length !== codes.length) return null;
+    if (!rows.every((row) => row.earnings != null)) return null;
+    return rows;
+  }, []);
+
   /** Earnings for the active scope (exact cache key first, then sibling currency caches). */
   const resolveScopeDashboardEarnings = useCallback(
     (codes = currencies, scopeKey = dashboardScopeKey) => {
@@ -723,23 +740,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       (currenciesRef.current.length > 1 ? currenciesRef.current : null)
     );
   }, [subsidiaryDashboardScope, companyId, selectedGroup, groupAllMode]);
-
-  const cacheEntryHasFullEarnings = useCallback((entry, codes) => {
-    if (!Array.isArray(codes) || codes.length <= 1) return true;
-    const rows = entry?.earnings;
-    return (
-      rows?.length === codes.length && rows.every((row) => row.earnings != null)
-    );
-  }, []);
-
-  /** Complete per-currency earnings rows safe to apply to UI state (never undefined). */
-  const getCompleteCachedEarnings = useCallback((entry, codes) => {
-    if (!Array.isArray(codes) || codes.length <= 1) return null;
-    const rows = entry?.earnings;
-    if (!Array.isArray(rows) || rows.length !== codes.length) return null;
-    if (!rows.every((row) => row.earnings != null)) return null;
-    return rows;
-  }, []);
 
   const resolvePrefetchBootstrapCodes = useCallback((targetCompanyId, viewGroup, isActiveScope = false) => {
     const id = parseInt(targetCompanyId, 10);
