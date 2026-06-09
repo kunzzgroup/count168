@@ -46,6 +46,23 @@ export function resolveEffectiveOwnershipPct(dashboardData, selectedGroup) {
   return directPct === 0 && inGroupView ? 1 : 0;
 }
 
+/** True when cached per-currency earnings disagree with the active KPI card (e.g. all zeros). */
+export function dashboardEarningsRowsLookStale(rows, kpiEarnings, activeCurrencyCode) {
+  if (!Array.isArray(rows) || !rows.length) return false;
+  if (rows.some((row) => row.earnings == null)) return false;
+  const kpi = parseFloat(kpiEarnings);
+  if (!Number.isFinite(kpi) || Math.abs(kpi) < 0.0001) return false;
+
+  const code = String(activeCurrencyCode || "").trim().toUpperCase();
+  const allNearZero = rows.every((row) => Math.abs(parseFloat(row.earnings) || 0) < 0.0001);
+  if (!code) return allNearZero;
+
+  const active = rows.find((row) => String(row.code).trim().toUpperCase() === code);
+  const activeVal = parseFloat(active?.earnings);
+  if (Number.isFinite(activeVal) && Math.abs(activeVal - kpi) < 0.02) return false;
+  return allNearZero || !Number.isFinite(activeVal) || Math.abs(activeVal - kpi) > 0.02;
+}
+
 export function computeKpiMetrics(dashboardData, selectedGroup) {
   if (!dashboardData) return null;
   const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
