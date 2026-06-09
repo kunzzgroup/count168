@@ -1165,8 +1165,8 @@ try {
         exit;
     }
 
-    //$today = date('Y-m-d');
-    $today = '2026-06-10';
+    $today = date('Y-m-d');
+    //$today = '2026-06-10';
 
     $hasFrequency = hasBankProcessFrequencyColumn($pdo);
     $hasIssueFlagColumn = tableHasColumn($pdo, 'bank_process', 'issue_flag');
@@ -1274,7 +1274,9 @@ try {
     foreach ($rows as $r) {
         if (!empty($r['accounting_resend_relax_created_floor']) && !empty($r['accounting_resend_consolidated_range'])) {
             $deferCapTail = inboxShouldDeferResendConsolidatedToDayEndCapTail($r, $hasDayEndMonthlyCapCol, $hasFrequency);
-            if (!$deferCapTail) {
+            $rcFreqCons = strtolower(trim((string) ($r['day_start_frequency'] ?? '1st_of_every_month')));
+            $skipConsolidatedForDayWeek = in_array($rcFreqCons, ['day', 'week'], true);
+            if (!$deferCapTail && !$skipConsolidatedForDayWeek) {
                 $dayStartRaw = $r['day_start'] ?? null;
                 $dayEndRaw = $r['day_end'] ?? null;
                 $startDate = inboxBankProcessDateFieldToYmd($dayStartRaw);
@@ -1303,10 +1305,13 @@ try {
                         'is_day_end_tail' => false,
                         'is_resend_consolidated_range' => true,
                     ];
+                    continue;
                 }
-                continue;
             }
             // cap ON + day_end 最后一月尾段：勿排 consolidated 整段，继续 regular monthly（例 6/1）；7 月由 2b day_end_tail
+            if (!$skipConsolidatedForDayWeek && !$deferCapTail) {
+                continue;
+            }
         }
         // Resend 单期开账（弹窗同时填 day_start + day_end）：统一走 consolidated 一条，避免与 monthly/day_end_tail 重复入列。
         if (!empty($r['accounting_resend_relax_created_floor'])
