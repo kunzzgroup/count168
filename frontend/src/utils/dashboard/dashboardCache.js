@@ -1,5 +1,11 @@
-const MAX_ENTRIES = 24;
-const MAX_PAYLOAD_ENTRIES = 64;
+/** Scope entries: company/group × currency × date (session-sized LRU). */
+const MAX_ENTRIES = 512;
+/** Per-company dashboard_api payload dedupe (session-sized LRU). */
+const MAX_PAYLOAD_ENTRIES = 1024;
+
+let sessionOwnerKey = "";
+let sessionBootstrapDone = false;
+let sessionWarmDone = false;
 
 /** @type {Map<string, { current: unknown, previous: unknown, earnings?: Array<{ code: string, earnings: number }> }>} */
 const store = new Map();
@@ -34,6 +40,45 @@ export function buildDashboardCacheKey({
     groupAllMode ? "1" : "0",
     subset,
   ].join("|");
+}
+
+export function bindDashboardSessionCache(ownerKey) {
+  const key = String(ownerKey || "").trim();
+  if (!key) return;
+  if (sessionOwnerKey && sessionOwnerKey !== key) {
+    store.clear();
+    payloadStore.clear();
+    sessionBootstrapDone = false;
+  }
+  sessionOwnerKey = key;
+}
+
+export function isDashboardSessionBootstrapped(ownerKey) {
+  const key = String(ownerKey || "").trim();
+  return Boolean(key && sessionBootstrapDone && sessionOwnerKey === key);
+}
+
+export function markDashboardSessionBootstrapped(ownerKey) {
+  const key = String(ownerKey || "").trim();
+  if (!key) return;
+  sessionOwnerKey = key;
+  sessionBootstrapDone = true;
+}
+
+export function isDashboardSessionWarmDone() {
+  return sessionWarmDone;
+}
+
+export function markDashboardSessionWarmDone() {
+  sessionWarmDone = true;
+}
+
+export function resetDashboardSessionCaches() {
+  store.clear();
+  payloadStore.clear();
+  sessionOwnerKey = "";
+  sessionBootstrapDone = false;
+  sessionWarmDone = false;
 }
 
 export function getDashboardCache(key) {

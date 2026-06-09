@@ -6454,6 +6454,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 }
 
 #confirmBankResendModal .bank-resend-control--select {
+    min-height: 48px;
     cursor: pointer;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -6482,11 +6483,18 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 #confirmBankResendModal .bank-resend-modal-actions .process-btn-cancel,
 #confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
     width: 100%;
-    min-height: 58px;
     padding: 0.85rem 1.5rem;
     font-size: clamp(1.25rem, 2.4vw, 1.65rem);
     font-weight: 700;
     border-radius: 0.55rem;
+}
+
+#confirmBankResendModal .bank-resend-modal-actions .process-btn-cancel {
+    min-height: 58px;
+}
+
+#confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
+    min-height: 35px;
 }
 
 /* 覆盖 ec-auth-shell 对全局 .btn 的缩小 */
@@ -6494,7 +6502,14 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
 body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
     font-size: clamp(1.25rem, 2.4vw, 1.65rem) !important;
     padding: 0.85rem 1.5rem !important;
+}
+
+body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-cancel {
     min-height: 45px !important;
+}
+
+body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-btn-resend {
+    min-height: 35px !important;
 }
 
 /* Scrollbars: app-wide — dashboard-scrollbar.css */

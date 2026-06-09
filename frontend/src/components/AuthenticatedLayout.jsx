@@ -57,6 +57,7 @@ import {
   patchMeFromCompanyContext,
 } from "../utils/company/loginScope.js";
 import { categoryFlagsFromSession } from "../utils/company/sidebarCompanySwitch.js";
+import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import "../../public/css/modal-close-unified.css";
 
 function formatSidebarExpirationHint(hint, i18n) {
@@ -788,6 +789,7 @@ export default function AuthenticatedLayout() {
     } catch {
       // Even if request fails, clear client route to login.
     } finally {
+      resetDashboardSessionCaches();
       clearDashboardFilterSession();
       clearOwnerCompaniesCache();
       setLogoutLoading(false);

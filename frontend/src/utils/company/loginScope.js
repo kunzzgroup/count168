@@ -6,6 +6,7 @@ import {
   isDashboardGroupOnlyMode,
   normalizeNativeCompanyGroupId,
   readAccessibleGroupIds,
+  resolveViewGroupForCompany,
 } from "./sharedCompanyFilter.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
 import { buildSidebarExpirationFields } from "../expiration/expirationReminder.js";
@@ -194,6 +195,34 @@ export function canPrefetchCompanyScope(me, companyId, companies = [], viewGroup
   }
 
   return false;
+}
+
+/**
+ * Rows that dashboard_api will accept for this user (user_company_map / assigned ids).
+ * Owner and group-login users keep the full list.
+ */
+export function filterCompaniesForDashboardApiAccess(
+  me,
+  companyRows,
+  companies = [],
+  viewGroup = null
+) {
+  if (!Array.isArray(companyRows) || !companyRows.length || !me) return [];
+  const list = Array.isArray(companies) && companies.length ? companies : companyRows;
+  const role = String(me.role || "").trim().toLowerCase();
+  if (role === "owner" || isGroupLogin(me)) {
+    return companyRows;
+  }
+  const groupCtx =
+    viewGroup != null && String(viewGroup).trim() !== ""
+      ? String(viewGroup).trim().toUpperCase()
+      : null;
+  return companyRows.filter((row) => {
+    const id = Number(row?.id);
+    if (!Number.isFinite(id) || id <= 0) return false;
+    const vg = groupCtx ?? resolveViewGroupForCompany(row, null);
+    return canPrefetchCompanyScope(me, id, list, vg);
+  });
 }
 
 /**
