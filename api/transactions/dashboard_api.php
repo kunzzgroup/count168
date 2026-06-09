@@ -73,12 +73,6 @@ function dashboard_api_kpi_only(): bool
     return isset($_GET['kpi_only']) && (string) $_GET['kpi_only'] === '1';
 }
 
-/** Chart scope: daily series for profit/expenses only — skip B/F and CAPITAL role. */
-function dashboard_api_chart_only(): bool
-{
-    return isset($_GET['chart_only']) && (string) $_GET['chart_only'] === '1';
-}
-
 /** SQL AND: subsidiary currency rows only (exclude group ledger on shared anchor company_id). */
 function dashboard_sql_currency_subsidiary_only(PDO $pdo, string $alias = 'c'): string
 {
@@ -2006,17 +2000,15 @@ function dashboardExpensesBuildWinLossBundle(
     $dcdBaseWhere = "dcd.company_id = ? AND dc.company_id = ? AND dcd.currency_id = ?{$acctFilterDcd}";
     $dcdBindBase = [$companyId, $companyId, $currencyId, ...$acctParamsDcd];
 
-    $kpiOnlyRequest = !empty($GLOBALS['DASHBOARD_KPI_ONLY']);
-    if (!$kpiOnlyRequest) {
-        $sql = "SELECT COALESCE(SUM({$dcdQ}), 0)
-                FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE {$dcdBaseWhere} AND dc.capture_date < ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(array_merge($dcdBindBase, [$dateFromDb]));
-        $captureBf = dashboardMoneyAdd($captureBf, $stmt->fetchColumn());
-    }
+    $sql = "SELECT COALESCE(SUM({$dcdQ}), 0)
+            FROM data_capture_details dcd
+            JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE {$dcdBaseWhere} AND dc.capture_date < ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge($dcdBindBase, [$dateFromDb]));
+    $captureBf = dashboardMoneyAdd($captureBf, $stmt->fetchColumn());
 
+    $kpiOnlyRequest = !empty($GLOBALS['DASHBOARD_KPI_ONLY']);
     if ($kpiOnlyRequest) {
         $periodWl = dashboardMoneyZero();
         $sql = "SELECT COALESCE(SUM({$dcdQ}), 0)
@@ -2526,10 +2518,7 @@ try {
         $filter_currency_code = strtoupper(trim((string) $_GET['currency']));
     }
     $kpiOnly = dashboard_api_kpi_only();
-    $chartOnly = dashboard_api_chart_only();
     $GLOBALS['DASHBOARD_KPI_ONLY'] = $kpiOnly;
-    $GLOBALS['DASHBOARD_CHART_ONLY'] = $chartOnly;
-    $skipBfQueries = $kpiOnly || $chartOnly;
 
     // No company_id: group ledger only (scope_type=group). Distinct from company_id-scoped rows.
     $groupLedgerCode = reportNormalizeGroupId($_GET['view_group'] ?? '');
@@ -2651,14 +2640,9 @@ try {
     $dashTxnSubSql = dashboard_sql_txn_subsidiary_only($pdo, 't');
     $dashTxnSubSqlH = dashboard_sql_txn_subsidiary_only($pdo, 'h');
 
-    // KPI / chart paths only need expenses + profit; capital is not shown on those cards.
-    $roles = $skipBfQueries
-        ? ['EXPENSES', 'PROFIT']
-        : ['CAPITAL', 'EXPENSES', 'PROFIT'];
+    // 定义要查询的角色
+    $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
     $result = [];
-    if ($skipBfQueries) {
-        $result['capital'] = dashboardEmptyRoleBucket('CAPITAL');
-    }
 
     foreach ($roles as $role) {
         $excludeClear = dashboardShouldExcludeClearForRole($role);
@@ -2770,8 +2754,7 @@ try {
             list($acct_filter_dcd, $acct_params_dcd) = dashboardDcdAccountMatchFilterSql($accounts);
             $dcdAmountSql = dcd_processed_amount_sql_quant2('dcd.processed_amount');
 
-            // --- 1. 计算 B/F (Balance Forward) — KPI/chart only need period deltas ---
-            if (!$skipBfQueries) {
+            // --- 1. 计算 B/F (Balance Forward) ---
             // A. Data Capture B/F (EXPENSES uses search_api-aligned bundle after scope loop)
             if (!$isExpensesRole) {
             $sql = "SELECT COALESCE(SUM({$dcdAmountSql}), 0)
@@ -2876,7 +2859,6 @@ try {
             } catch (Throwable $e) {
             }
         }
-            }
 
         // --- 2. 计算每日数据 (Daily Deltas) ---
         if (!$isExpensesRole) {
@@ -3101,9 +3083,7 @@ try {
                 $filter_currency_code
             );
             $daily_win_loss = $wlBundle['daily'];
-            if (!$kpiOnly) {
-                $total_bf = dashboardMoneyAdd($total_bf, $wlBundle['capture_bf']);
-            }
+            $total_bf = dashboardMoneyAdd($total_bf, $wlBundle['capture_bf']);
             $expensesPeriodWlFromBundle = $wlBundle['period_wl'];
             $crDrBundle = dashboardExpensesBuildCrDrBundle(
                 $pdo,
@@ -3134,20 +3114,18 @@ try {
             );
 
             // A) 调整期初：起始日前的 Share Commission 需要从 B/F 扣回
-            if (!$skipBfQueries) {
-                $adjBfSql = "SELECT COALESCE(SUM(t.amount), 0) AS adj_total
-                             FROM transactions t
-                             WHERE t.company_id = ?
-                               AND t.transaction_type = 'PAYMENT'
-                               AND t.from_account_id IN ($profitIdsPlaceholder)
-                               AND t.transaction_date < ?
-                               AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . $dashTxnSubSql;
-                $adjBfStmt = $pdo->prepare($adjBfSql);
-                $adjBfStmt->execute(array_merge([$company_id], $primaryAccountIds, [$date_from_db], $profitAdjCurrencyParams));
-                $adjBf = $adjBfStmt->fetchColumn();
-                if (money_cmp(money_abs($adjBf), '0.00001') > 0) {
-                    $total_bf = dashboardMoneySub($total_bf, $adjBf);
-                }
+            $adjBfSql = "SELECT COALESCE(SUM(t.amount), 0) AS adj_total
+                         FROM transactions t
+                         WHERE t.company_id = ?
+                           AND t.transaction_type = 'PAYMENT'
+                           AND t.from_account_id IN ($profitIdsPlaceholder)
+                           AND t.transaction_date < ?
+                           AND t.sms LIKE '[DOMAIN_SHARE_COMMISSION|%'" . $profitAdjCurrencyFilter . $dashTxnSubSql;
+            $adjBfStmt = $pdo->prepare($adjBfSql);
+            $adjBfStmt->execute(array_merge([$company_id], $primaryAccountIds, [$date_from_db], $profitAdjCurrencyParams));
+            $adjBf = $adjBfStmt->fetchColumn();
+            if (money_cmp(money_abs($adjBf), '0.00001') > 0) {
+                $total_bf = dashboardMoneySub($total_bf, $adjBf);
             }
 
             // B) 调整本期：按日扣回，保证图表与 period_total 一致
@@ -3307,79 +3285,75 @@ try {
             dashboardHasContraApprovalColumns($pdo)
         );
 
-    // 获取当前账户的 ownership_percentage（bootstrap 多币种请求内复用）
-    $viewGroupForOwnership = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : '';
-    $ownershipCacheKey = 'ownership_ctx:'
-        . $company_id . ':'
-        . strtoupper($viewGroupForOwnership) . ':'
-        . ($subsidiaryAccountsOnly ? '1' : '0') . ':'
-        . ($_SESSION['user_id'] ?? 0) . ':'
-        . ($_SESSION['user_type'] ?? '');
-    $ownershipCtx = dashboard_bootstrap_cache_remember($ownershipCacheKey, static function () use (
-        $pdo,
-        $company_id,
-        $viewGroupForOwnership
-    ): array {
-        $ownership_percentage = 0.0;
-        $has_ownership_setup = false;
-        $group_equity_percentage = 0.0;
-        $group_account_percentage = 0.0;
-        $has_group_ownership = false;
-        try {
-            $ownershipSchema = dashboardCompanyOwnershipSchema($pdo);
-            $hasCompanyOwnership = $ownershipSchema['table'];
-            if ($hasCompanyOwnership) {
-                $stmtSetup = $pdo->prepare('SELECT 1 FROM company_ownership WHERE company_id = ? LIMIT 1');
-                $stmtSetup->execute([$company_id]);
-                if ($stmtSetup->fetchColumn() !== false) {
-                    $has_ownership_setup = true;
+    // 获取当前账户的 ownership_percentage
+    $ownership_percentage = 0;
+    $has_ownership_setup = false;
+    $group_equity_percentage = 0;
+    $group_account_percentage = 0;
+    $has_group_ownership = false;
+    try {
+        $ownershipSchema = dashboardCompanyOwnershipSchema($pdo); // static 缓存
+        $hasCompanyOwnership = $ownershipSchema['table'];
+        if ($hasCompanyOwnership) {
+            $stmtSetup = $pdo->prepare("SELECT 1 FROM company_ownership WHERE company_id = ? LIMIT 1");
+            $stmtSetup->execute([$company_id]);
+            if ($stmtSetup->fetchColumn() !== false) {
+                $has_ownership_setup = true;
+            }
+
+            $hasOwnerType = $ownershipSchema['owner_type_col'];
+            $userId = $_SESSION['user_id'] ?? 0;
+            $userType = $_SESSION['user_type'] ?? '';
+
+            if ($hasOwnerType) {
+                $ownerTypeStr = 'account';
+                if ($userType === 'owner') {
+                    $ownerTypeStr = 'owner';
+                } elseif ($userType === 'user') {
+                    $ownerTypeStr = 'user';
                 }
 
-                $hasOwnerType = $ownershipSchema['owner_type_col'];
-                $userId = $_SESSION['user_id'] ?? 0;
-                $userType = $_SESSION['user_type'] ?? '';
-                $ownerTypeStr = 'account';
-
-                if ($hasOwnerType) {
-                    if ($userType === 'owner') {
-                        $ownerTypeStr = 'owner';
-                    } elseif ($userType === 'user') {
-                        $ownerTypeStr = 'user';
-                    }
-
-                    $stmtPct = $pdo->prepare('SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ?');
-                    $stmtPct->execute([$company_id, $userId, $ownerTypeStr]);
-                    $pct = $stmtPct->fetchColumn();
-                    if ($pct !== false) {
-                        $ownership_percentage = (float) $pct;
-                    }
-                } elseif ($userType === 'member') {
-                    $stmtPct = $pdo->prepare('SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ?');
+                // Direct ownership: JK's own share in this company
+                $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ?");
+                $stmtPct->execute([$company_id, $userId, $ownerTypeStr]);
+                $pct = $stmtPct->fetchColumn();
+                if ($pct !== false) {
+                    $ownership_percentage = (float) $pct;
+                }
+            } else {
+                if ($userType === 'member') {
+                    $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ?");
                     $stmtPct->execute([$company_id, $userId]);
                     $pct = $stmtPct->fetchColumn();
                     if ($pct !== false) {
                         $ownership_percentage = (float) $pct;
                     }
                 }
+            }
 
-                try {
-                    $view_group = $viewGroupForOwnership;
-                    $skipGroupChain = $ownership_percentage > 0.0;
-                    $grpEquityRow = null;
-                    $multiGroupPathResolved = false;
+            // ── Group Equity ──
+            // 多段链：TT→SS% × SS→AA% (group_ownership) × AA 内用户% ；Earnings = 净利 × 链上连乘
+            // 有「直接」公司股权 (ownership_percentage>0) 时仅用直接%，避免与链重复（如 JK 90%）
+            // 原两段式：company group 行 × group_ownership
+            try {
+                $view_group = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : '';
+                $skipGroupChain = ((float) $ownership_percentage) > 0.0;
+                $grpEquityRow = null;
+                $multiGroupPathResolved = false;
 
-                    if (!$skipGroupChain && $view_group !== '') {
+                if (!$skipGroupChain) {
+                    if ($view_group !== '') {
                         $pathDec = dashboardResolveEarningsPathProduct($pdo, $company_id, $view_group);
                         if ($pathDec !== null) {
                             $multiGroupPathResolved = true;
                             $group_equity_percentage = $pathDec * 100.0;
                             $hasGroupTable = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
                             if ($hasGroupTable) {
-                                $stmtAccShare = $pdo->prepare('
+                                $stmtAccShare = $pdo->prepare("
                                     SELECT percentage FROM group_ownership
                                     WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) AND account_id = ? AND owner_type = ?
-                                ');
-                                $stmtAccShare->execute([$view_group, $userId, $ownerTypeStr]);
+                                ");
+                                $stmtAccShare->execute([$view_group, $userId, $ownerTypeStr ?? 'owner']);
                                 $accSharePct = $stmtAccShare->fetchColumn();
                                 if ($accSharePct !== false) {
                                     $group_account_percentage = (float) $accSharePct;
@@ -3391,77 +3365,66 @@ try {
                             }
                         }
                     }
+                }
 
-                    if (!$has_group_ownership && !$multiGroupPathResolved) {
-                        if ($view_group !== '') {
-                            $stmtGrpEquity = $pdo->prepare('
+                if (!$has_group_ownership && !$multiGroupPathResolved) {
+                    if ($view_group !== '') {
+                        $stmtGrpEquity = $pdo->prepare("
+                            SELECT partner_group_id, percentage
+                            FROM company_ownership
+                            WHERE company_id = ? AND owner_type = 'group'
+                              AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+                            LIMIT 1
+                        ");
+                        $stmtGrpEquity->execute([$company_id, $view_group]);
+                        $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                        if (!$grpEquityRow) {
+                            $stmtGrpEquity = $pdo->prepare("
                                 SELECT partner_group_id, percentage
                                 FROM company_ownership
-                                WHERE company_id = ? AND owner_type = \'group\'
-                                  AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+                                WHERE company_id = ? AND owner_type = 'group'
                                 LIMIT 1
-                            ');
-                            $stmtGrpEquity->execute([$company_id, $view_group]);
-                            $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
-                            if (!$grpEquityRow) {
-                                $stmtGrpEquity = $pdo->prepare('
-                                    SELECT partner_group_id, percentage
-                                    FROM company_ownership
-                                    WHERE company_id = ? AND owner_type = \'group\'
-                                    LIMIT 1
-                                ');
-                                $stmtGrpEquity->execute([$company_id]);
-                                $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
-                            }
-                        } else {
-                            $stmtGrpEquity = $pdo->prepare('
-                                SELECT partner_group_id, percentage
-                                FROM company_ownership
-                                WHERE company_id = ? AND owner_type = \'group\'
-                                LIMIT 1
-                            ');
+                            ");
                             $stmtGrpEquity->execute([$company_id]);
                             $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
                         }
+                    } else {
+                        $stmtGrpEquity = $pdo->prepare("
+                            SELECT partner_group_id, percentage
+                            FROM company_ownership
+                            WHERE company_id = ? AND owner_type = 'group'
+                            LIMIT 1
+                        ");
+                        $stmtGrpEquity->execute([$company_id]);
+                        $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                    }
 
-                        if ($grpEquityRow && $grpEquityRow['partner_group_id']) {
-                            $companyGroupId = $grpEquityRow['partner_group_id'];
-                            $group_equity_percentage = (float) $grpEquityRow['percentage'];
+                    if ($grpEquityRow && $grpEquityRow['partner_group_id']) {
+                        $companyGroupId = $grpEquityRow['partner_group_id'];
+                        $group_equity_percentage = (float) $grpEquityRow['percentage'];
 
-                            $hasGroupTable = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
-                            if ($hasGroupTable) {
-                                $stmtAccShare = $pdo->prepare('
-                                    SELECT percentage FROM group_ownership
-                                    WHERE group_id = ? AND account_id = ? AND owner_type = ?
-                                ');
-                                $stmtAccShare->execute([$companyGroupId, $userId, $ownerTypeStr]);
-                                $accSharePct = $stmtAccShare->fetchColumn();
-                                if ($accSharePct !== false) {
-                                    $group_account_percentage = (float) $accSharePct;
-                                    $has_group_ownership = true;
-                                }
+                        $hasGroupTable = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+                        if ($hasGroupTable) {
+                            $stmtAccShare = $pdo->prepare("
+                                SELECT percentage FROM group_ownership
+                                WHERE group_id = ? AND account_id = ? AND owner_type = ?
+                            ");
+                            $stmtAccShare->execute([$companyGroupId, $userId, $ownerTypeStr ?? 'owner']);
+                            $accSharePct = $stmtAccShare->fetchColumn();
+                            if ($accSharePct !== false) {
+                                $group_account_percentage = (float) $accSharePct;
+                                $has_group_ownership = true;
                             }
                         }
                     }
-                } catch (Throwable $e) {
                 }
+            } catch (Throwable $e) {
+                // ignore — group tables may not exist yet
             }
-        } catch (Throwable $e) {
         }
-
-        return [
-            'ownership_percentage' => $ownership_percentage,
-            'has_ownership_setup' => $has_ownership_setup,
-            'group_equity_percentage' => $group_equity_percentage,
-            'group_account_percentage' => $group_account_percentage,
-            'has_group_ownership' => $has_group_ownership,
-        ];
-    });
-    $ownership_percentage = $ownershipCtx['ownership_percentage'];
-    $has_ownership_setup = $ownershipCtx['has_ownership_setup'];
-    $group_equity_percentage = $ownershipCtx['group_equity_percentage'];
-    $group_account_percentage = $ownershipCtx['group_account_percentage'];
-    $has_group_ownership = $ownershipCtx['has_group_ownership'];
+    } catch (Throwable $e) {
+        // ignore
+    }
 
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
     echo json_encode([

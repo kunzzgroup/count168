@@ -192,12 +192,9 @@ try {
         if ($primaryCurrency !== '') {
             $currentParams['currency'] = $primaryCurrency;
         }
-        if ($bootstrapScope === 'chart') {
-            $currentParams['chart_only'] = '1';
-            $currentJson = dashboard_bootstrap_capture($currentParams);
-        } else {
-            $currentJson = dashboard_bootstrap_capture_scoped($currentParams, $bootstrapScope);
-        }
+        $currentJson = $bootstrapScope === 'chart'
+            ? dashboard_bootstrap_capture($currentParams)
+            : dashboard_bootstrap_capture_scoped($currentParams, $bootstrapScope);
         if (empty($currentJson['success']) || !is_array($currentJson['data'])) {
             $failMsg = $currentJson['message'] ?? $currentJson['error'] ?? 'Failed to load dashboard';
             if ($isPrefetch) {
