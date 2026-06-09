@@ -75,22 +75,11 @@ export function DashboardEarningsSummary({
   const summaryPieReady =
     earningsPanelStable && earningsPieSlices.length > 0 && !summaryEarningsLoading;
 
-  /** Play pie enter animation once per scope; skip when returning from another page with same filters. */
-  const shouldPlayPieEnterAnim = useMemo(() => {
-    if (!summaryPieReady || !exchangeRateScopeKey) return false;
-    if (typeof sessionStorage === "undefined") return true;
-    return sessionStorage.getItem(`dashboard_pie_anim:${exchangeRateScopeKey}`) !== "1";
-  }, [summaryPieReady, exchangeRateScopeKey]);
-
-  useEffect(() => {
-    if (!shouldPlayPieEnterAnim || !exchangeRateScopeKey) return undefined;
-    const timer = window.setTimeout(() => {
-      if (typeof sessionStorage !== "undefined") {
-        sessionStorage.setItem(`dashboard_pie_anim:${exchangeRateScopeKey}`, "1");
-      }
-    }, 360);
-    return () => window.clearTimeout(timer);
-  }, [shouldPlayPieEnterAnim, exchangeRateScopeKey]);
+  /** Unique per page visit so pie enter animation replays when navigating back to Dashboard. */
+  const [pieVisitKey] = useState(() => Date.now());
+  const pieAnimKey = `${pieVisitKey}-${exchangeRateScopeKey || "scope"}-${
+    summaryPieReady ? "ready" : "pending"
+  }`;
 
   const isRowAmountLoading = useCallback(
     (code) => {
@@ -209,10 +198,14 @@ export function DashboardEarningsSummary({
             aria-hidden={!earningsPanelStable && !earningsPieSlices.length}
             onMouseLeave={() => setHoveredPieSector(null)}
           >
-            <div ref={pieShellRef} className="dashboard-summary-pie-chart-shell">
+            <div
+              ref={pieShellRef}
+              className={`dashboard-summary-pie-chart-shell${summaryPieReady ? " is-enter" : ""}`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                   <Pie
+                    key={pieAnimKey}
                     data={
                       earningsPieSlices.length
                         ? earningsPieSlices
@@ -229,9 +222,9 @@ export function DashboardEarningsSummary({
                     strokeWidth={3}
                     label={false}
                     activeShape={false}
-                    isAnimationActive={shouldPlayPieEnterAnim}
-                    animationBegin={0}
-                    animationDuration={320}
+                    isAnimationActive={summaryPieReady}
+                    animationBegin={80}
+                    animationDuration={720}
                     animationEasing="ease-out"
                     onMouseEnter={handlePieSectorEnter}
                     onMouseLeave={() => setHoveredPieSector(null)}
@@ -246,7 +239,8 @@ export function DashboardEarningsSummary({
               </ResponsiveContainer>
               {!summaryEarningsLoading && earningsPanelStable && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
                 <div
-                  className={`dashboard-summary-pie-center${shouldPlayPieEnterAnim ? " is-enter" : ""}`}
+                  key={pieAnimKey}
+                  className="dashboard-summary-pie-center is-enter"
                   aria-hidden="true"
                 >
                   <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
