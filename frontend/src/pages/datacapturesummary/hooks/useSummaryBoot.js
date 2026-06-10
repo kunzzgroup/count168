@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DATA_CAPTURE_HOME_PATH,
-  resolveCompanyGamesAccess,
+  resolveSummaryPageAccess,
 } from "../../datacapture/lib/dataCaptureCompanyAccess.js";
 import {
   dataCaptureScopeIsReady,
@@ -139,6 +139,8 @@ export function useSummaryBoot() {
 
     let cancelled = false;
     (async () => {
+      const session = loadSummaryCaptureSession(captureScope);
+      const hasSession = Boolean(session?.tableData && session?.processData);
       const scopeCid =
         captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
           ? Number(captureScope.scopeCompanyId)
@@ -152,10 +154,13 @@ export function useSummaryBoot() {
               ? String(scopeCid)
               : "";
 
-      const allowed = await resolveCompanyGamesAccess({
+      const allowed = await resolveSummaryPageAccess({
+        captureScope,
         companyId: scopeCid,
         companyCode,
         sessionUser: me,
+        sessionProcessData: session?.processData,
+        hasStoredCaptureSession: hasSession,
       });
       if (!cancelled && !allowed) {
         navigate(DATA_CAPTURE_HOME_PATH, { replace: true });

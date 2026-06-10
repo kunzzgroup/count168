@@ -3,9 +3,15 @@ import { accountModalOverlayZIndex } from "../../../components/ProcessModalPorta
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import {
+  applyTenantLedgerToParams,
+  LEDGER_GROUP,
+  resolvePageLedgerScope,
+} from "../../../utils/company/tenantLedgerParams.js";
+import {
   DEFAULT_FORM,
   getOrderedRoles,
   normalizeAlertAmount,
+  pickDefaultAddCurrencyIds,
   toUpper,
 } from "../../account/accountLogic.js";
 import { getAccountText, translateAccountApiMessage } from "../../../translateFile/pages/accountTranslate.js";
@@ -25,6 +31,46 @@ function isVirtualGroupLinkCompanyRow(c) {
   return ls != null && String(ls).trim() !== "";
 }
 
+function resolveSummaryAddAccountContext(captureScope, processData, companyId) {
+  const groupOnlyCapture =
+    processData?.groupOnlyCapture === true || processData?.captureScopeMode === "group";
+  const isGroupLedger =
+    (captureScope?.mode === "group" &&
+      (captureScope?.resolveCompanyViaGroupId ||
+        Number(captureScope?.scopeCompanyId ?? 0) <= 0)) ||
+    groupOnlyCapture;
+
+  const groupId = String(captureScope?.groupId || processData?.captureSelectedGroup || "")
+    .trim()
+    .toUpperCase();
+
+  if (isGroupLedger && groupId) {
+    return {
+      groupOnlyAccountMode: true,
+      selectedGroup: groupId,
+      companyId: null,
+      pageLedgerScope: { ledger: LEDGER_GROUP, groupId, companyId: null },
+    };
+  }
+
+  const cid = companyId != null && Number(companyId) > 0 ? Number(companyId) : null;
+  return {
+    groupOnlyAccountMode: false,
+    selectedGroup: groupId || null,
+    companyId: cid,
+    pageLedgerScope: resolvePageLedgerScope({
+      groupOnly: false,
+      selectedGroup: groupId || null,
+      companyId: cid,
+    }),
+  };
+}
+
+function canOpenAddAccount(ctx) {
+  if (ctx.groupOnlyAccountMode && ctx.selectedGroup) return true;
+  return ctx.companyId != null && Number(ctx.companyId) > 0;
+}
+
 /** Remove stale #addModal if present from an older page shell. */
 function purgeLegacySummaryAddAccountModal() {
   const legacy = document.getElementById("addModal");
@@ -35,8 +81,14 @@ function purgeLegacySummaryAddAccountModal() {
   }
 }
 
-/** Summary Add Account — same shared AccountModal as Account List / Bank Process. */
-export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
+/** Summary Add Account — shared AccountModal; supports company and group capture scope. */
+export function useSummaryAddAccount({
+  companyId,
+  captureScope = null,
+  processData = null,
+  notify,
+  onAccountCreated,
+}) {
   const lang = useLoginLang();
   const t = useCallback((key, params) => getAccountText(lang, key, params), [lang]);
   const apiMsg = useCallback(
@@ -44,6 +96,13 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
       translateAccountApiMessage(lang, json?.message ?? json?.error, fallbackKey || ""),
     [lang],
   );
+
+  const ledgerCtx = useMemo(
+    () => resolveSummaryAddAccountContext(captureScope, processData, companyId),
+    [captureScope, processData, companyId],
+  );
+  const ledgerCtxRef = useRef(ledgerCtx);
+  ledgerCtxRef.current = ledgerCtx;
 
   const [open, setOpen] = useState(false);
   const [roles, setRoles] = useState([]);
@@ -55,19 +114,28 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
   const [currencyInput, setCurrencyInput] = useState("");
 
   const openingRef = useRef(false);
-  const companyIdRef = useRef(companyId);
   const notifyRef = useRef(notify);
-  companyIdRef.current = companyId;
   notifyRef.current = notify;
 
-  const orderedRoles = useMemo(() => getOrderedRoles(roles), [roles]);
+  const groupPickerCompanies = useMemo(() => {
+    if (!ledgerCtx.groupOnlyAccountMode || !ledgerCtx.selectedGroup) return [];
+    const g = ledgerCtx.selectedGroup;
+    return [{ id: g, company_id: g, group_id: g }];
+  }, [ledgerCtx]);
+
   const companyButtons = useMemo(
-    () => companies.filter((c) => c.company_id && String(c.company_id).trim() !== "" && !isVirtualGroupLinkCompanyRow(c)),
-    [companies]
+    () =>
+      companies.filter(
+        (c) => c.company_id && String(c.company_id).trim() !== "" && !isVirtualGroupLinkCompanyRow(c),
+      ),
+    [companies],
   );
 
+  const modalPickerCompanies = ledgerCtx.groupOnlyAccountMode ? groupPickerCompanies : companyButtons;
+  const orderedRoles = useMemo(() => getOrderedRoles(roles), [roles]);
+
   useEffect(() => {
-    if (!companyId) return undefined;
+    if (ledgerCtx.groupOnlyAccountMode || !ledgerCtx.companyId) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -82,13 +150,37 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
     return () => {
       cancelled = true;
     };
-  }, [companyId]);
+  }, [ledgerCtx.groupOnlyAccountMode, ledgerCtx.companyId]);
+
+  const loadRoles = useCallback(async () => {
+    const ctx = ledgerCtxRef.current;
+    try {
+      const url = new URL(buildApiUrl("api/editdata/editdata_api.php"));
+      const gid = ctx.selectedGroup ? String(ctx.selectedGroup).trim().toUpperCase() : null;
+      const numericCid = ctx.companyId != null ? Number(ctx.companyId) : null;
+      const groupOnlyFetch = Boolean(gid && (!Number.isFinite(numericCid) || numericCid <= 0));
+      if (gid) url.searchParams.set("group_id", gid);
+      if (groupOnlyFetch) {
+        url.searchParams.set("group_only", "1");
+      } else if (Number.isFinite(numericCid) && numericCid > 0) {
+        url.searchParams.set("company_id", String(numericCid));
+      }
+      const res = await fetch(url.toString(), { credentials: "include" });
+      const json = await res.json();
+      if (json?.success && Array.isArray(json?.data?.roles)) {
+        setRoles(json.data.roles);
+      }
+    } catch {
+      /* optional */
+    }
+  }, []);
 
   const loadSelectionMeta = useCallback(async (accountId) => {
-    const cid = companyIdRef.current;
+    const ctx = ledgerCtxRef.current;
     const currencyParams = new URLSearchParams({ action: "get_available_currencies" });
     if (accountId) currencyParams.set("account_id", String(accountId));
-    if (cid) currencyParams.set("company_id", String(cid));
+    applyTenantLedgerToParams(currencyParams, ctx.pageLedgerScope);
+
     const companyUrl = accountId
       ? `api/accounts/account_company_api.php?action=get_available_companies&account_id=${accountId}`
       : "api/accounts/account_company_api.php?action=get_available_companies";
@@ -104,19 +196,34 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
 
     if (curJ.success && Array.isArray(curJ.data)) {
       setCurrencies(curJ.data.map((c) => ({ id: c.id, code: c.code, is_linked: !!c.is_linked })));
-      setSelectedCurrencyIds([]);
+      setSelectedCurrencyIds(pickDefaultAddCurrencyIds(curJ.data));
     }
     if (compJ.success && Array.isArray(compJ.data)) {
       const linked = compJ.data.filter((c) => c.is_linked).map((c) => Number(c.id));
-      setSelectedCompanyIds(linked.length ? linked : cid ? [Number(cid)] : []);
+      if (ctx.groupOnlyAccountMode) {
+        const defaultGroupEntity =
+          groupPickerCompanies.find(
+            (c) => String(c.group_id || c.company_id || "") === String(ctx.selectedGroup || ""),
+          ) ||
+          groupPickerCompanies[0] ||
+          null;
+        setSelectedCompanyIds(defaultGroupEntity?.id ? [String(defaultGroupEntity.id)] : []);
+      } else {
+        const cid = ctx.companyId;
+        setSelectedCompanyIds(linked.length ? linked : cid ? [Number(cid)] : []);
+      }
     }
-  }, []);
+  }, [groupPickerCompanies]);
 
   const resetToAdd = useCallback(() => {
-    const cid = companyIdRef.current;
+    const ctx = ledgerCtxRef.current;
     setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]);
-    setSelectedCompanyIds(cid ? [Number(cid)] : []);
+    if (ctx.groupOnlyAccountMode && ctx.selectedGroup) {
+      setSelectedCompanyIds([ctx.selectedGroup]);
+    } else {
+      setSelectedCompanyIds(ctx.companyId ? [Number(ctx.companyId)] : []);
+    }
     setCurrencyInput("");
   }, []);
 
@@ -128,9 +235,9 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
   }, [resetToAdd]);
 
   const showAddAccount = useCallback(async () => {
-    const cid = companyIdRef.current;
+    const ctx = ledgerCtxRef.current;
     const notifyFn = notifyRef.current;
-    if (!cid) {
+    if (!canOpenAddAccount(ctx)) {
       notifyFn?.(t("pleaseSelectCompanyFirst"), "", "danger");
       return;
     }
@@ -138,9 +245,7 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
     openingRef.current = true;
     purgeLegacySummaryAddAccountModal();
     try {
-      const editRes = await fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" });
-      const editJson = await editRes.json();
-      setRoles(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
+      await loadRoles();
       resetToAdd();
       await loadSelectionMeta(null);
       setOpen(true);
@@ -149,7 +254,7 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
     } finally {
       openingRef.current = false;
     }
-  }, [loadSelectionMeta, resetToAdd, t]);
+  }, [loadRoles, loadSelectionMeta, resetToAdd, t]);
 
   useLayoutEffect(() => {
     purgeLegacySummaryAddAccountModal();
@@ -160,16 +265,26 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
       if (e?.preventDefault) e.preventDefault();
       const code = toUpper(currencyInput).trim();
       if (!code) return;
-      const targetCompany = selectedCompanyIds[0] || companyIdRef.current;
-      if (!targetCompany) {
-        notifyRef.current?.(t("pleaseSelectCompanyFirst"), "", "danger");
-        return;
+      const ctx = ledgerCtxRef.current;
+      const payload = { code };
+      if (ctx.pageLedgerScope?.groupId) payload.group_id = ctx.pageLedgerScope.groupId;
+      if (ctx.pageLedgerScope?.ledger === LEDGER_GROUP) {
+        payload.group_only = true;
+      } else if (ctx.pageLedgerScope?.companyId) {
+        payload.company_id = ctx.pageLedgerScope.companyId;
+      } else {
+        const targetCompany = selectedCompanyIds[0] || ctx.companyId;
+        if (!targetCompany) {
+          notifyRef.current?.(t("pleaseSelectCompanyFirst"), "", "danger");
+          return;
+        }
+        payload.company_id = targetCompany;
       }
       try {
         const res = await fetch(buildApiUrl("api/accounts/create_currency_api.php"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, company_id: targetCompany }),
+          body: JSON.stringify(payload),
           credentials: "include",
         });
         const json = await res.json();
@@ -183,7 +298,7 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
         notifyRef.current?.(t("createFailed"), "", "danger");
       }
     },
-    [apiMsg, currencyInput, selectedCompanyIds, t]
+    [apiMsg, currencyInput, selectedCompanyIds, t],
   );
 
   const removeCurrency = useCallback(
@@ -206,12 +321,13 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
         notifyRef.current?.(t("failedDeleteCurrency"), "", "danger");
       }
     },
-    [apiMsg, t]
+    [apiMsg, t],
   );
 
   const submitAddAccount = useCallback(
     async (e) => {
       e.preventDefault();
+      const ctx = ledgerCtxRef.current;
       const alertAmount = normalizeAlertAmount(form.alert_amount);
       if (form.payment_alert === "1" && (!form.alert_type || !form.alert_start_date)) {
         notifyRef.current?.(t("paymentAlertRequiredFields"), "", "danger");
@@ -228,9 +344,16 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
         fd.set("alert_start_date", "");
         fd.set("alert_amount", "");
       }
-      if (selectedCompanyIds.length) fd.set("company_ids", JSON.stringify(selectedCompanyIds));
-      if (companyIdRef.current) fd.set("company_id", String(companyIdRef.current));
-      if (selectedCurrencyIds.length) fd.set("currency_ids", JSON.stringify(selectedCurrencyIds));
+      if (!ctx.groupOnlyAccountMode && selectedCompanyIds.length) {
+        fd.set("company_ids", JSON.stringify(selectedCompanyIds));
+      }
+      if (!ctx.groupOnlyAccountMode && ctx.companyId) {
+        fd.set("company_id", String(ctx.companyId));
+      }
+      applyTenantLedgerToParams(fd, ctx.pageLedgerScope);
+      if (selectedCurrencyIds.length) {
+        fd.set("currency_ids", JSON.stringify(selectedCurrencyIds));
+      }
 
       try {
         const res = await fetch(buildApiUrl("api/accounts/addaccountapi.php"), {
@@ -246,7 +369,7 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
 
         const newAccountId = json?.data?.id;
 
-        if (newAccountId && selectedCompanyIds.length) {
+        if (newAccountId && !ctx.groupOnlyAccountMode && selectedCompanyIds.length) {
           await Promise.all(
             selectedCompanyIds.map((cid) =>
               fetch(buildApiUrl("api/accounts/account_company_api.php?action=add_company"), {
@@ -254,8 +377,8 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ account_id: newAccountId, company_id: cid }),
                 credentials: "include",
-              })
-            )
+              }),
+            ),
           );
         }
         if (newAccountId && selectedCurrencyIds.length) {
@@ -266,8 +389,8 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ account_id: newAccountId, currency_id: cur }),
                 credentials: "include",
-              })
-            )
+              }),
+            ),
           );
         }
 
@@ -281,7 +404,7 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
         notifyRef.current?.(t("saveFailed"), "", "danger");
       }
     },
-    [apiMsg, closeAddAccount, form, onAccountCreated, selectedCompanyIds, selectedCurrencyIds, t]
+    [apiMsg, closeAddAccount, form, onAccountCreated, selectedCompanyIds, selectedCurrencyIds, t],
   );
 
   return {
@@ -296,7 +419,7 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
       setForm,
       orderedRoles,
       currencies,
-      companies: companyButtons,
+      companies: modalPickerCompanies,
       selectedCurrencyIds,
       setSelectedCurrencyIds,
       selectedCompanyIds,
@@ -307,6 +430,7 @@ export function useSummaryAddAccount({ companyId, notify, onAccountCreated }) {
       onRemoveCurrency: removeCurrency,
       onSubmit: submitAddAccount,
       onClose: closeAddAccount,
+      groupPickerMode: ledgerCtx.groupOnlyAccountMode,
       t,
       overlayZIndex: accountModalOverlayZIndex,
     },

@@ -220,6 +220,10 @@ function DataCaptureSummaryPureInner() {
 
     companyId: effectiveCompanyId,
 
+    captureScope,
+
+    processData: capture.processData,
+
     notify: overlays.showNotification,
 
     onAccountCreated: refreshAccountList,

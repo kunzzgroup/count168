@@ -13,6 +13,7 @@ export const SUMMARY_CAPTURE_STORAGE_KEYS = [
   "capturedFormatPreviewHtml",
   "captured655PreviewHtml",
   "capturedTableRateValues",
+  "capturedTableRateValuesByProductId",
   "capturedTableFormulaSourceForRefresh",
   "capturedCaptureId",
   "summarySuppressedRowKeys",
