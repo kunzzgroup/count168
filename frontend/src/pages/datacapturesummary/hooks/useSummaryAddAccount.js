@@ -117,6 +117,14 @@ export function useSummaryAddAccount({
   const notifyRef = useRef(notify);
   notifyRef.current = notify;
 
+  const emitNotify = useCallback(
+    (message, type = "success") => {
+      const title = type === "success" ? t("notifSuccess") : t("notifError");
+      notifyRef.current?.(title, message, type);
+    },
+    [t],
+  );
+
   const groupPickerCompanies = useMemo(() => {
     if (!ledgerCtx.groupOnlyAccountMode || !ledgerCtx.selectedGroup) return [];
     const g = ledgerCtx.selectedGroup;
@@ -236,9 +244,8 @@ export function useSummaryAddAccount({
 
   const showAddAccount = useCallback(async () => {
     const ctx = ledgerCtxRef.current;
-    const notifyFn = notifyRef.current;
     if (!canOpenAddAccount(ctx)) {
-      notifyFn?.(t("pleaseSelectCompanyFirst"), "", "danger");
+      emitNotify(t("pleaseSelectCompanyFirst"), "danger");
       return;
     }
     if (openingRef.current) return;
@@ -250,11 +257,11 @@ export function useSummaryAddAccount({
       await loadSelectionMeta(null);
       setOpen(true);
     } catch {
-      notifyFn?.(t("errorLoadingAccount"), "", "danger");
+      emitNotify(t("errorLoadingAccount"), "danger");
     } finally {
       openingRef.current = false;
     }
-  }, [loadRoles, loadSelectionMeta, resetToAdd, t]);
+  }, [emitNotify, loadRoles, loadSelectionMeta, resetToAdd, t]);
 
   useLayoutEffect(() => {
     purgeLegacySummaryAddAccountModal();
@@ -275,7 +282,7 @@ export function useSummaryAddAccount({
       } else {
         const targetCompany = selectedCompanyIds[0] || ctx.companyId;
         if (!targetCompany) {
-          notifyRef.current?.(t("pleaseSelectCompanyFirst"), "", "danger");
+          emitNotify(t("pleaseSelectCompanyFirst"), "danger");
           return;
         }
         payload.company_id = targetCompany;
@@ -289,16 +296,16 @@ export function useSummaryAddAccount({
         });
         const json = await res.json();
         if (!json.success || !json.data) {
-          notifyRef.current?.(apiMsg(json, "createFailed"), "", "danger");
+          emitNotify(apiMsg(json, "createFailed"), "danger");
           return;
         }
         setCurrencies((prev) => [...prev, { id: json.data.id, code: json.data.code, is_linked: false }]);
         setCurrencyInput("");
       } catch {
-        notifyRef.current?.(t("createFailed"), "", "danger");
+        emitNotify(t("createFailed"), "danger");
       }
     },
-    [apiMsg, currencyInput, selectedCompanyIds, t],
+    [apiMsg, currencyInput, emitNotify, selectedCompanyIds, t],
   );
 
   const removeCurrency = useCallback(
@@ -312,16 +319,16 @@ export function useSummaryAddAccount({
         });
         const json = await res.json();
         if (!json.success) {
-          notifyRef.current?.(apiMsg(json, "failedDeleteCurrency"), "", "danger");
+          emitNotify(apiMsg(json, "failedDeleteCurrency"), "danger");
           return;
         }
         setCurrencies((prev) => prev.filter((c) => Number(c.id) !== Number(cid)));
         setSelectedCurrencyIds((prev) => prev.filter((x) => Number(x) !== Number(cid)));
       } catch {
-        notifyRef.current?.(t("failedDeleteCurrency"), "", "danger");
+        emitNotify(t("failedDeleteCurrency"), "danger");
       }
     },
-    [apiMsg, t],
+    [apiMsg, emitNotify, t],
   );
 
   const submitAddAccount = useCallback(
@@ -330,7 +337,7 @@ export function useSummaryAddAccount({
       const ctx = ledgerCtxRef.current;
       const alertAmount = normalizeAlertAmount(form.alert_amount);
       if (form.payment_alert === "1" && (!form.alert_type || !form.alert_start_date)) {
-        notifyRef.current?.(t("paymentAlertRequiredFields"), "", "danger");
+        emitNotify(t("paymentAlertRequiredFields"), "danger");
         return;
       }
 
@@ -363,7 +370,7 @@ export function useSummaryAddAccount({
         });
         const json = await res.json();
         if (!json.success) {
-          notifyRef.current?.(apiMsg(json, "saveFailed"), "", "danger");
+          emitNotify(apiMsg(json, "saveFailed"), "danger");
           return;
         }
 
@@ -395,16 +402,23 @@ export function useSummaryAddAccount({
         }
 
         closeAddAccount();
-        notifyRef.current?.(t("accountSavedSuccessfully"), "", "success");
+
+        const accountCode = String(form.account_id || "").trim().toUpperCase();
+        emitNotify(
+          accountCode
+            ? t("accountAddedToFormulaList", { accountId: accountCode })
+            : t("accountSavedSuccessfully"),
+          "success",
+        );
 
         if (typeof onAccountCreated === "function") {
           await onAccountCreated(newAccountId);
         }
       } catch {
-        notifyRef.current?.(t("saveFailed"), "", "danger");
+        emitNotify(t("saveFailed"), "danger");
       }
     },
-    [apiMsg, closeAddAccount, form, onAccountCreated, selectedCompanyIds, selectedCurrencyIds, t],
+    [apiMsg, closeAddAccount, emitNotify, form, onAccountCreated, selectedCompanyIds, selectedCurrencyIds, t],
   );
 
   return {
