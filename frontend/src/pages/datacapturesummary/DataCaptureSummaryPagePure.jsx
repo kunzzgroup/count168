@@ -45,6 +45,7 @@ import { useSummaryOverlays } from "./hooks/useSummaryOverlays.js";
 import { fetchSummaryAccountList } from "./lib/summaryApi.js";
 import { saveSummaryTemplatePure } from "./formula/summarySaveTemplatePure.js";
 import { recalculateRowAmounts } from "./table/summaryRowAmount.js";
+import { pushSummaryNotification } from "./lib/summaryNotify.js";
 
 import {
 
@@ -457,19 +458,29 @@ function DataCaptureSummaryPureInner() {
   );
 
   const handleInlineEditSave = useCallback(
-    (row, patch) => {
+    async (row, patch) => {
       updateRow(row.key, patch);
       const merged = recalculateRowAmounts({ ...row, ...patch }, globalRateInput);
       if (!merged.accountId || !merged.account?.trim()) return;
-      saveSummaryTemplatePure(merged, {
-        captureScope,
-        companyId,
-        processId: capture.processId,
-      }).catch((e) => {
+      try {
+        const tpl = await saveSummaryTemplatePure(merged, {
+          captureScope,
+          companyId: effectiveCompanyId,
+          processId: capture.processId,
+        });
+        if (!tpl.success) {
+          pushSummaryNotification("Error", tpl.message || "Template save failed.", "error");
+        }
+      } catch (e) {
         console.warn("Inline edit template save failed:", e);
-      });
+        pushSummaryNotification(
+          "Error",
+          String(e?.message || e) || "Template save failed.",
+          "error"
+        );
+      }
     },
-    [updateRow, globalRateInput, captureScope, companyId, capture.processId]
+    [updateRow, globalRateInput, captureScope, effectiveCompanyId, capture.processId]
   );
 
 

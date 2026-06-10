@@ -566,6 +566,64 @@ function syncDeleteTemplateToMultiUseProcesses(PDO $pdo, int $sourceProcessId, s
     }
 }
 
+/**
+ * Scope columns for data_capture_templates — aligns with Submit / Formula Maintenance ledger filter.
+ *
+ * @return array{scope_type: ?string, scope_id: ?int}|null null when table has no scope columns
+ */
+function resolveTemplateScopeInsertForSave(PDO $pdo, int $companyId): ?array
+{
+    if (!tenant_table_has_scope_columns($pdo, 'data_capture_templates')) {
+        return null;
+    }
+
+    global $capture_scope_ctx;
+    $scopeCtx = is_array($capture_scope_ctx) && $capture_scope_ctx !== []
+        ? $capture_scope_ctx
+        : [
+            'company_id' => $companyId,
+            'is_group_scope' => false,
+        ];
+    $scopeCtx['dual_tenant'] = true;
+
+    $insert = dcCaptureScopeInsertValues($scopeCtx);
+
+    return [
+        'scope_type' => $insert['scope_type'],
+        'scope_id' => $insert['scope_id'] !== null ? (int) $insert['scope_id'] : null,
+    ];
+}
+
+/** Backfill templates saved before scope columns were populated (subsidiary company ledger only). */
+function backfillTemplateScopeForCompany(PDO $pdo, int $companyId, ?array $scopeInsert): void
+{
+    if (
+        $scopeInsert === null
+        || ($scopeInsert['scope_type'] ?? '') !== 'company'
+        || (int) ($scopeInsert['scope_id'] ?? 0) <= 0
+    ) {
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE data_capture_templates
+            SET scope_type = :scope_type,
+                scope_id = :scope_id
+            WHERE company_id = :company_id
+              AND (scope_type IS NULL OR TRIM(scope_type) = '')
+              AND (scope_id IS NULL OR scope_id = 0)
+        ");
+        $stmt->execute([
+            ':scope_type' => $scopeInsert['scope_type'],
+            ':scope_id' => (int) $scopeInsert['scope_id'],
+            ':company_id' => $companyId,
+        ]);
+    } catch (Exception $e) {
+        error_log('Template scope backfill warning: ' . $e->getMessage());
+    }
+}
+
 function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     // Ensure required keys exist
     if (empty($row['id_product']) || empty($row['account_id'])) {
@@ -610,6 +668,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         }
     }
     $hasProcessId = $processId !== null && $processId > 0;
+    $templateScopeInsert = resolveTemplateScopeInsertForSave($pdo, $companyId);
     $dataCaptureId = isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null;
     
     // Get formula_display to determine formula_variant
@@ -948,6 +1007,10 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         $existingId = $existingRecord['id'];
         error_log("Found duplicate template record (ID: $existingId) - product_type=$productType, id_product=" . ($row['id_product'] ?? 'NULL') . ", account_id=" . ($row['account_id'] ?? 'NULL') . ", formula_variant=$formulaVariant, process_id=" . ($processId ?? 'NULL') . ", data_capture_id=" . ($dataCaptureId ?? 'NULL') . " - Updating instead of inserting");
         
+        $scopeUpdateSql = $templateScopeInsert !== null
+            ? "scope_type = :scope_type,\n                scope_id = :scope_id,\n                "
+            : '';
+
         $stmt = $pdo->prepare("
             UPDATE data_capture_templates SET
                 id_product = :id_product,
@@ -974,11 +1037,11 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 row_index = :row_index,
                 sub_order = :sub_order,
                 formula_variant = :formula_variant,
-                updated_at = CURRENT_TIMESTAMP
+                {$scopeUpdateSql}updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
         ");
-        
-        $stmt->execute([
+
+        $updateParams = [
             ':id' => $existingId,
             ':id_product' => $row['id_product'],
             ':parent_id_product' => $parentIdProduct,
@@ -1005,7 +1068,13 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
             ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null,
             ':formula_variant' => $formulaVariant,
-        ]);
+        ];
+        if ($templateScopeInsert !== null) {
+            $updateParams[':scope_type'] = $templateScopeInsert['scope_type'];
+            $updateParams[':scope_id'] = $templateScopeInsert['scope_id'];
+        }
+
+        $stmt->execute($updateParams);
         
         // 如果当前 Process 是源 Process，同步 Formula 到所有关联的 Multi-use Processes
         if ($hasProcessId && $processId) {
@@ -1038,10 +1107,16 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         ]; // Return template info after update
     }
 
+    $scopeInsertColumns = $templateScopeInsert !== null ? "scope_type,\n            scope_id,\n            " : '';
+    $scopeInsertValues = $templateScopeInsert !== null ? ":scope_type,\n            :scope_id,\n            " : '';
+    $scopeDuplicateUpdate = $templateScopeInsert !== null
+        ? "scope_type = VALUES(scope_type),\n            scope_id = VALUES(scope_id),\n            "
+        : '';
+
     $stmt = $pdo->prepare("
         INSERT INTO data_capture_templates (
             company_id,
-            id_product,
+            {$scopeInsertColumns}id_product,
             product_type,
             parent_id_product,
             template_key,
@@ -1068,7 +1143,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             formula_variant
         ) VALUES (
             :company_id,
-            :id_product,
+            {$scopeInsertValues}:id_product,
             :product_type,
             :parent_id_product,
             :template_key,
@@ -1119,10 +1194,10 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             row_index = VALUES(row_index),
             sub_order = VALUES(sub_order),
             formula_variant = VALUES(formula_variant),
-            updated_at = CURRENT_TIMESTAMP
+            {$scopeDuplicateUpdate}updated_at = CURRENT_TIMESTAMP
     ");
 
-    $stmt->execute([
+    $insertParams = [
         ':company_id' => $companyId,
         ':id_product' => $row['id_product'],
         ':product_type' => $productType,
@@ -1149,7 +1224,13 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
         ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null,
         ':formula_variant' => $formulaVariant,
-    ]);
+    ];
+    if ($templateScopeInsert !== null) {
+        $insertParams[':scope_type'] = $templateScopeInsert['scope_type'];
+        $insertParams[':scope_id'] = $templateScopeInsert['scope_id'];
+    }
+
+    $stmt->execute($insertParams);
     
     $templateId = $pdo->lastInsertId();
     
@@ -2230,6 +2311,14 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         $templateResult = saveTemplateRow($pdo, $templatePayload, $company_id);
+
+        if ($templateResult !== null) {
+            backfillTemplateScopeForCompany(
+                $pdo,
+                (int) $company_id,
+                resolveTemplateScopeInsertForSave($pdo, (int) $company_id)
+            );
+        }
         
         // Handle both old format (string) and new format (array) for backward compatibility
         $templateKey = is_array($templateResult) ? $templateResult['template_key'] : $templateResult;
