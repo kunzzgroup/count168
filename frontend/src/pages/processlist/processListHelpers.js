@@ -1,4 +1,3 @@
-import { filterCompaniesForBankPills } from "../../utils/company/companyCategoryFlags.js";
 import { excludeGroupLabelsFromCompanyPicker } from "../../utils/company/sharedCompanyFilter.js";
 
 export const PAGE_SIZE = 25;
@@ -72,7 +71,7 @@ export function processListCacheHasRows(cached) {
 /** Process / Bank Process company pills: in-group list without group labels (AP, IG, …). */
 export function filterProcessPageCompanyButtons(
   allCompanyButtons,
-  { groupFilterKind, groupIds, selectedGroupKey, pillCategory = null, preferredCompanyId = null } = {}
+  { groupFilterKind, groupIds, selectedGroupKey } = {}
 ) {
   let list;
   if (groupFilterKind === "ungrouped") {
@@ -91,11 +90,7 @@ export function filterProcessPageCompanyButtons(
     });
     list = inG.length ? inG : allCompanyButtons;
   }
-  list = excludeGroupLabelsFromCompanyPicker(list, groupIds);
-  if (pillCategory === "bank") {
-    return filterCompaniesForBankPills(list, preferredCompanyId);
-  }
-  return list;
+  return excludeGroupLabelsFromCompanyPicker(list, groupIds);
 }
 
 export function dedupeCompanyRowsForSwitcher(companies, preferredPk) {
