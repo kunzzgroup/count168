@@ -487,6 +487,34 @@ export default function BankprocessMaintenancePage() {
 
   const groupedIds = groupedIdsFromHook;
 
+  // 纯 Bank 组：无 Bank 公司的组不显示；当前组无公司时自动切组并选中首个 Bank 公司。
+  useEffect(() => {
+    if (bootLoading || !companies.length) return;
+
+    if (visibleCompanies.length > 0) {
+      const cid = Number(companyId);
+      const activeOk = visibleCompanies.some((c) => Number(c.id) === cid);
+      if (!activeOk) void onPickCompany(visibleCompanies[0]);
+      return;
+    }
+
+    if (!groupedIds.length) return;
+    const fallbackGroup = groupedIds[0];
+    if (!fallbackGroup) return;
+    if (String(selectedGroup || "").trim().toUpperCase() !== fallbackGroup) {
+      void onGroupClick(fallbackGroup);
+    }
+  }, [
+    bootLoading,
+    companies.length,
+    groupedIds,
+    visibleCompanies,
+    companyId,
+    selectedGroup,
+    onGroupClick,
+    onPickCompany,
+  ]);
+
   const toggleBankprocessCurrency = useCallback((code) => {
     if (!code) return;
     setAllCurrenciesSelected(false);
