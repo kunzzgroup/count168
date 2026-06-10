@@ -1,6 +1,5 @@
 import {
   GROUP_ONLY_GRID_COLS,
-  GROUP_ONLY_GRID_ROWS,
   MAX_GRID_ROWS,
 } from "../../grid/dataCaptureGridMeta.js";
 import { applyMatrixPatch, findLastFilledGridRowIndex, gridRowHasEditableData, resizeGrid } from "../../grid/gridModel.js";
@@ -22,7 +21,7 @@ export function parseGenericHtmlTable(htmlString, startCell) {
 
 function pasteGridCaps() {
   if (getDataCaptureState().isGroupOnlyGrid === true) {
-    return { maxRows: GROUP_ONLY_GRID_ROWS, maxCols: GROUP_ONLY_GRID_COLS };
+    return { maxRows: MAX_GRID_ROWS, maxCols: GROUP_ONLY_GRID_COLS };
   }
   return { maxRows: MAX_GRID_ROWS, maxCols: MAX_GRID_ROWS };
 }

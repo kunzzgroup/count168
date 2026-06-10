@@ -37,6 +37,7 @@ import {
   showRowContextMenu,
 } from "../lib/dataCaptureContextMenu.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
+import { MAX_GRID_ROWS } from "../grid/dataCaptureGridMeta.js";
 import {
   callDataCaptureRuntime,
   getDataCaptureState,
@@ -46,6 +47,11 @@ import {
 
 function isGroupOnlyFixedGrid() {
   return getDataCaptureState().isGroupOnlyGrid === true;
+}
+
+/** Group-only: columns stay fixed; row insert/delete via context menu stays disabled. */
+function isGroupOnlyFixedColumns() {
+  return isGroupOnlyFixedGrid();
 }
 
 function withTargetEvent(e, target) {
@@ -120,7 +126,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     const getGrid = () => apiRef.current.gridRef.current;
 
     const insertColumnLeft = () => {
-      if (isGroupOnlyFixedGrid()) return;
+      if (isGroupOnlyFixedColumns()) return;
       const col = getContextMenuColumnIndex();
       const grid = getGrid();
       if (col === null || col < 0 || !grid) return;
@@ -131,7 +137,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const insertColumnRight = () => {
-      if (isGroupOnlyFixedGrid()) return;
+      if (isGroupOnlyFixedColumns()) return;
       const col = getContextMenuColumnIndex();
       const grid = getGrid();
       if (col === null || col < 0 || !grid) return;
@@ -142,7 +148,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const deleteColumn = () => {
-      if (isGroupOnlyFixedGrid()) return;
+      if (isGroupOnlyFixedColumns()) return;
       const grid = getGrid();
       if (!grid) return;
       const indices = getSelectedColumnIndices();
@@ -218,9 +224,8 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const appendGridRow = () => {
-      if (isGroupOnlyFixedGrid()) return null;
       const grid = getGrid();
-      if (!grid) return null;
+      if (!grid || grid.rows >= MAX_GRID_ROWS) return null;
       const next = appendRowInGrid(grid);
       apiRef.current.replaceGrid(next);
       recomputeSubmitState();
@@ -228,7 +233,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const appendGridColumn = () => {
-      if (isGroupOnlyFixedGrid()) return null;
+      if (isGroupOnlyFixedColumns()) return null;
       const grid = getGrid();
       if (!grid) return null;
       const next = appendColumnInGrid(grid);
