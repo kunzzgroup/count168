@@ -6,10 +6,9 @@
 /** @type {Record<string, unknown>} */
 let runtime = {};
 
-/** @type {{ isRestoring: boolean, pasteModelApplied: boolean, isGroupOnlyGrid: boolean }} */
+/** @type {{ isRestoring: boolean, isGroupOnlyGrid: boolean }} */
 const state = {
   isRestoring: false,
-  pasteModelApplied: false,
   isGroupOnlyGrid: false,
 };
 
@@ -45,6 +44,5 @@ export function callDataCaptureRuntime(name, ...args) {
 export function resetDataCaptureRuntime() {
   runtime = {};
   state.isRestoring = false;
-  state.pasteModelApplied = false;
   state.isGroupOnlyGrid = false;
 }

@@ -7,7 +7,6 @@ import {
   getBridgeCaptureType,
   getPasteGridModel,
   replacePasteGridModel,
-  syncBridgeGridFromDom,
 } from "./dataCaptureBridge.js";
 
 function resolveRequiredGridSize(tableData, fallbackGrid) {
@@ -92,7 +91,7 @@ function padSnapshotColumns(tableData, colCount) {
 }
 
 /**
- * @param {object} tableData — `captureTableDataFromDom` / `gridToSnapshot` shape
+ * @param {object} tableData — `gridToSnapshot` shape
  * @param {string} [captureType]
  * @returns {object} new snapshot (unchanged when no conversion applies)
  */
@@ -239,7 +238,6 @@ export function convertTableFormatOnSubmitSnapshot(tableData, captureType) {
 
 /** Apply submit-time conversion to the live grid model (paste / bridge entry). */
 export function applyConvertTableOnSubmitToGrid(captureType) {
-  syncBridgeGridFromDom();
   const grid = getPasteGridModel();
   if (!grid) return null;
 

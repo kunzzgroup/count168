@@ -1,7 +1,7 @@
 import { isCitibetCaptureType } from "../../lib/dataCaptureFormRules.js";
 import { parseCitibetPasteData } from "../core/dataCapturePasteDetect.js";
 import { applyDataMatrixToGrid, notifyPasteSuccess } from "../core/dataCapturePasteApply.js";
-import { recomputeSubmitStateAfterPaste, runConvertTableOnSubmit, runFixCitibetAmounts } from "../../lib/dataCaptureBridge.js";
+import { recomputeSubmitStateAfterPaste, runConvertTableOnSubmit } from "../../lib/dataCaptureBridge.js";
 
 export function handleCitibetPaste(e, pastedData, anchorCell, captureType, preParsed = null) {
   const parsed = preParsed || parseCitibetPasteData(pastedData, captureType);
@@ -24,9 +24,6 @@ export function handleCitibetPaste(e, pastedData, anchorCell, captureType, prePa
         recomputeSubmitStateAfterPaste();
       } else {
         runConvertTableOnSubmit();
-        if (isCitibetCaptureType(captureType)) {
-          runFixCitibetAmounts();
-        }
       }
     }, 100);
   }

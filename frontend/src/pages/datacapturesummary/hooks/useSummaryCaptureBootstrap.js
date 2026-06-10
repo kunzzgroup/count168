@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchSummaryServerState } from "../lib/summaryApi.js";
 import { summaryQueryKeys } from "../lib/summaryQueryKeys.js";
@@ -9,25 +9,35 @@ import {
 import {
   clearStaleCaptureIdForFreshRound,
   isSummaryFreshFromCapture,
-  readCaptureSessionFromStorage,
+  loadSummaryCaptureSession,
 } from "../lib/summaryStorage.js";
+import { clearSuppressedRowKeys } from "../lib/summarySuppressedRows.js";
 
-/**
- * Phase 1: React owns capture-session read + server state prefetch.
- * Legacy script still renders the table; globals are hydrated before init.
- */
+/** Capture session read + optional server state prefetch for pure React Summary. */
 export function useSummaryCaptureBootstrap({ captureScope, companyId, searchParams, enabled }) {
   const freshFromCapture = isSummaryFreshFromCapture(searchParams);
-  /** Sticky for this mount — URL ?success=1 is stripped after toast, must not flip hydrate mid-populate. */
+  /** Sticky for this mount — URL ?success=1 is stripped after toast, must not flip mid-populate. */
   const freshPinnedRef = useRef(false);
   if (freshFromCapture) {
     freshPinnedRef.current = true;
   }
   const isFreshCaptureRound = freshPinnedRef.current;
 
+  useEffect(() => {
+    if (isFreshCaptureRound) {
+      clearStaleCaptureIdForFreshRound();
+      clearSuppressedRowKeys();
+    }
+  }, [isFreshCaptureRound]);
+
   const captureSession = useMemo(() => {
     if (!enabled) return null;
-    return readCaptureSessionFromStorage(captureScope);
+    const session = loadSummaryCaptureSession(captureScope);
+    if (!session?.tableData || !session?.processData) return null;
+    return {
+      tableData: session.tableData,
+      processData: session.processData,
+    };
   }, [enabled, captureScope]);
 
   const transformed = useMemo(() => {
@@ -62,38 +72,6 @@ export function useSummaryCaptureBootstrap({ captureScope, companyId, searchPara
 
   const hasCaptureData = !!captureSession && !!transformed && !!processData;
 
-  /** Call immediately before legacy initDataCaptureSummaryPage(). */
-  function hydrateLegacyGlobals() {
-    if (isFreshCaptureRound) {
-      clearStaleCaptureIdForFreshRound();
-      window.DATACAPTURESUMMARY_CAPTURE_ID = null;
-    }
-
-    window.__summaryFreshFromCapture = isFreshCaptureRound;
-
-    if (companyId != null) {
-      window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
-    }
-    if (captureScope) {
-      window.DATACAPTURESUMMARY_CAPTURE_SCOPE = captureScope;
-    }
-
-    if (!hasCaptureData) {
-      window.capturedProcessData = null;
-      window.transformedTableData = null;
-      window.currentProcessId = null;
-      window.currentProcessCode = null;
-      window._summaryStateFromServer = null;
-      return;
-    }
-
-    window.capturedProcessData = processData;
-    window.transformedTableData = transformed;
-    window.currentProcessId = processId;
-    window.currentProcessCode = processCode;
-    window._summaryStateFromServer = serverStateQuery.data ?? null;
-  }
-
   return {
     freshFromCapture: isFreshCaptureRound,
     hasCaptureData,
@@ -104,6 +82,5 @@ export function useSummaryCaptureBootstrap({ captureScope, companyId, searchPara
     serverState: serverStateQuery.data ?? null,
     serverStateLoading: serverStateQuery.isLoading,
     serverStateQueryEnabled,
-    hydrateLegacyGlobals,
   };
 }

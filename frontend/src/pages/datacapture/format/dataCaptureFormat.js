@@ -11,7 +11,6 @@ import {
   onFormatGridReady,
   parseHtmlFormat,
   processFormatHtml,
-  syncBridgeGridFromDom,
 } from "../lib/dataCaptureBridge.js";
 import {
   buildFormatPreviewHtmlFromTableSnapshot,
@@ -217,8 +216,6 @@ export function prepareFormatSubmitSnapshot(captureType) {
   if (type !== "2.Format") return true;
 
   showFormatEditableGrid();
-
-  syncBridgeGridFromDom();
 
   flushPendingFormatPasteArea();
 

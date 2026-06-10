@@ -1,11 +1,10 @@
 import { MAX_GRID_ROWS } from "../../grid/dataCaptureGridMeta.js";
-import { applyMatrixPatch, resizeGrid } from "../../grid/gridModel.js";
+import { applyMatrixPatch, findLastFilledGridRowIndex, gridRowHasEditableData, resizeGrid } from "../../grid/gridModel.js";
 import { parseAndFillHTMLTable } from "./dataCaptureParseGenericHtml.js";
 import {
   ensurePasteTableInitialized,
   getFirstSelectedGridCell,
   getPasteGridModel,
-  markPasteModelApplied,
   notifyPasteUser,
   recordPasteHistory,
   replacePasteGridModel,
@@ -40,12 +39,17 @@ export function ensurePasteGrid(rows, cols) {
 function getGridSize() {
   const grid = getPasteGridModel();
   if (grid) return { rows: grid.rows, cols: grid.cols };
-  const rows = document.querySelectorAll("#tableBody tr").length;
-  const cols = document.querySelectorAll("#tableHeader th").length - 1;
-  return { rows, cols };
+  return { rows: 26, cols: 20 };
 }
 
 export function resolvePasteAnchor(cell) {
+  if (cell?.dataset?.row != null && cell?.dataset?.col != null) {
+    const startRow = Number.parseInt(cell.dataset.row, 10);
+    const startCol = Number.parseInt(cell.dataset.col, 10);
+    if (Number.isFinite(startRow) && Number.isFinite(startCol)) {
+      return { startRow, startCol };
+    }
+  }
   if (!cell?.parentNode?.parentNode) return { startRow: 0, startCol: 0 };
   const startRow = Array.from(cell.parentNode.parentNode.children).indexOf(cell.parentNode);
   const startCol = Number.parseInt(cell.dataset.col, 10);
@@ -57,16 +61,8 @@ export function resolvePasteAnchor(cell) {
 
 /** Last tbody row index that has any editable cell content. */
 export function findLastFilledGridRow() {
-  const tableBody = document.getElementById("tableBody");
-  if (!tableBody) return -1;
-
-  const rows = Array.from(tableBody.children);
-  for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex -= 1) {
-    const hasData = Array.from(rows[rowIndex].querySelectorAll('td[contenteditable="true"]')).some(
-      (cell) => String(cell.textContent || "").trim() !== ""
-    );
-    if (hasData) return rowIndex;
-  }
+  const grid = getPasteGridModel();
+  if (grid) return findLastFilledGridRowIndex(grid);
   return -1;
 }
 
@@ -98,10 +94,12 @@ export function getDefaultPasteAnchorCell() {
 
 /** Whether a tbody row has any non-empty editable cell. */
 export function rowHasEditableData(rowEl) {
-  if (!rowEl) return false;
-  return Array.from(rowEl.querySelectorAll('td[contenteditable="true"]')).some(
-    (cell) => String(cell.textContent || "").trim() !== ""
-  );
+  const grid = getPasteGridModel();
+  if (!grid || !rowEl) return false;
+  const tableBody = document.getElementById("tableBody");
+  const rowIndex = tableBody ? Array.from(tableBody.children).indexOf(rowEl) : -1;
+  if (rowIndex < 0) return false;
+  return gridRowHasEditableData(grid, rowIndex);
 }
 
 /**
@@ -264,7 +262,6 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
 
   grid = applyMatrixPatch(grid, startRow, startCol, matrixForPatch);
   replacePasteGridModel(grid);
-  markPasteModelApplied();
   recordPasteHistory(changes);
   recomputeSubmitStateAfterPaste();
 

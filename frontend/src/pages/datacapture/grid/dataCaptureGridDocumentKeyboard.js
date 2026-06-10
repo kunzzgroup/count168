@@ -3,6 +3,7 @@
  */
 
 import {
+  clearBridgeCells,
   gridClearAllSelections,
   gridCopySelectedCells,
   gridGetSelectedCellCount,
@@ -16,15 +17,21 @@ import {
   gridSetActiveCell,
   gridSetActiveCellWithoutFocus,
   gridUndoLastPaste,
+  updateBridgeCell,
 } from "../lib/dataCaptureBridge.js";
 
 function isTableActive() {
   return gridGetTableActive();
 }
 
-function shouldPreserveCellCase() {
-  const captureType = window.__DC_GET_CAPTURE_TYPE__?.() || "";
-  return captureType === "1.Text" || captureType === "2.Format";
+function cellPosition(cell) {
+  if (!cell?.parentNode?.parentNode) return null;
+  const row = cell.parentNode;
+  const table = row.parentNode;
+  const rowIndex = Array.from(table.children).indexOf(row);
+  const colIndex = Number.parseInt(cell.dataset.col, 10);
+  if (rowIndex < 0 || !Number.isFinite(colIndex)) return null;
+  return { rowIndex, colIndex };
 }
 
 function hasPasteHistory() {
@@ -285,19 +292,19 @@ const key = (e.key || '').toLowerCase();
     } else if (e.key === 'Delete') {
         if (getSelectedCellCount() > 0) {
             e.preventDefault();
-            getSelectedCells().forEach((cell) => {
-                if (cell?.contentEditable === 'true') {
-                    cell.textContent = '';
-                }
-            });
+            const positions = getSelectedCells()
+                .map((cell) => cellPosition(cell))
+                .filter(Boolean);
+            if (positions.length) clearBridgeCells(positions);
             recomputeSubmitState();
         }
     } else if (e.key === 'Backspace') {
         if (!isEditingCell && getSelectedCellCount() > 0) {
             e.preventDefault();
-            getSelectedCells().forEach(cell => {
-                cell.textContent = '';
-            });
+            const positions = getSelectedCells()
+                .map((cell) => cellPosition(cell))
+                .filter(Boolean);
+            if (positions.length) clearBridgeCells(positions);
             recomputeSubmitState();
         }
     } else if (e.ctrlKey && key === 'a') {
@@ -329,34 +336,17 @@ const key = (e.key || '').toLowerCase();
             e.key !== 'Escape' && e.key !== 'Delete' && e.key !== 'Backspace';
 
         if (isPrintableChar) {
-            // Get first selected cell
             const firstCell = getSelectedCells()[0];
             if (firstCell && firstCell.contentEditable === 'true') {
-                // Clear cell content and focus
-                firstCell.textContent = '';
+                const pos = cellPosition(firstCell);
+                const typedChar = e.key.toUpperCase();
                 setActiveCell(firstCell);
-                moveCaretToEnd(firstCell);
-
-                const typedChar = shouldPreserveCellCase() ? e.key : e.key.toUpperCase();
-                const selection = window.getSelection();
-                if (selection && selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    range.deleteContents();
-                    const textNode = document.createTextNode(typedChar);
-                    range.insertNode(textNode);
-                    range.setStartAfter(textNode);
-                    range.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                } else {
-                    firstCell.textContent = typedChar;
-                    moveCaretToEnd(firstCell);
+                if (pos) {
+                    updateBridgeCell(pos.rowIndex, pos.colIndex, { value: typedChar });
                 }
-
-                // Prevent default behavior, because we've already manually handled the input
+                firstCell.textContent = typedChar;
+                moveCaretToEnd(firstCell);
                 e.preventDefault();
-
-                // Update submit button state
                 recomputeSubmitState();
             }
         }

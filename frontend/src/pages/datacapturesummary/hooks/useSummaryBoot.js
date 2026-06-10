@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DATA_CAPTURE_HOME_PATH,
@@ -6,19 +6,17 @@ import {
 } from "../../datacapture/lib/dataCaptureCompanyAccess.js";
 import {
   dataCaptureScopeIsReady,
+  dataCaptureScopeLedgerCompanyId,
   normalizeGroupCaptureScope,
   resolveDataCaptureScopeFromSessionMeta,
 } from "../../datacapture/lib/dataCaptureScope.js";
-import {
-  loadActiveCaptureSession,
-  readCaptureSessionMeta,
-} from "../../datacapture/lib/dataCaptureStorage.js";
+import { readCaptureSessionMeta } from "../../datacapture/lib/dataCaptureStorage.js";
 import {
   isDashboardGroupOnlyMode,
   readPersistedDashboardGcFilter,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
-import { consumeSummaryFreshNavigation } from "../lib/summaryStorage.js";
+import { consumeSummaryFreshNavigation, loadSummaryCaptureSession } from "../lib/summaryStorage.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { usePartnershipAuditReadOnlyLocked } from "../../../utils/audit/partnershipAuditReadOnly.js";
 
@@ -34,9 +32,35 @@ export function useSummaryBoot() {
   const captureScope = useMemo(() => {
     if (!sessionReady) return null;
 
-    const session = loadActiveCaptureSession();
+    const session = loadSummaryCaptureSession();
     const processData = session?.processData ?? null;
     const groupOnly = processData?.groupOnlyCapture === true;
+
+    const resolveGroupScope = (meta, processMetaForNormalize = meta) => {
+      const fromMeta = resolveDataCaptureScopeFromSessionMeta(meta);
+      if (fromMeta) {
+        return normalizeGroupCaptureScope(fromMeta, processMetaForNormalize);
+      }
+      const groupKey = meta?.captureSelectedGroup
+        ? String(meta.captureSelectedGroup).trim().toUpperCase()
+        : "";
+      if (!groupKey) return null;
+      return normalizeGroupCaptureScope(
+        {
+          mode: "group",
+          groupId: groupKey,
+          viewGroup: groupKey,
+          scopeCompanyId: 0,
+          resolveCompanyViaGroupId: true,
+        },
+        processMetaForNormalize,
+      );
+    };
+
+    if (groupOnly) {
+      const scoped = resolveGroupScope(processData, processData);
+      if (scoped) return scoped;
+    }
 
     if (processData) {
       const fromSession = resolveDataCaptureScopeFromSessionMeta(processData);
@@ -47,18 +71,19 @@ export function useSummaryBoot() {
 
     const pointerMeta = readCaptureSessionMeta();
     if (pointerMeta?.groupOnlyCapture) {
-      const fromPointer = resolveDataCaptureScopeFromSessionMeta({
-        groupOnlyCapture: true,
-        captureSelectedGroup: pointerMeta.captureSelectedGroup,
-        scopeCompanyId: pointerMeta.scopeCompanyId,
-        captureScopeMode: pointerMeta.captureScopeMode,
-      });
-      if (fromPointer) {
-        return normalizeGroupCaptureScope(fromPointer, {
+      const scoped = resolveGroupScope(
+        {
           groupOnlyCapture: true,
           captureSelectedGroup: pointerMeta.captureSelectedGroup,
-        });
-      }
+          scopeCompanyId: pointerMeta.scopeCompanyId,
+          captureScopeMode: pointerMeta.captureScopeMode,
+        },
+        {
+          groupOnlyCapture: true,
+          captureSelectedGroup: pointerMeta.captureSelectedGroup,
+        },
+      );
+      if (scoped) return scoped;
     }
 
     if (isDashboardGroupOnlyMode() && canUseGroupOnlyMode(me)) {
@@ -67,21 +92,18 @@ export function useSummaryBoot() {
         ? String(persisted.selectedGroup).trim().toUpperCase()
         : "";
       if (groupKey) {
-        const fromDashboard = resolveDataCaptureScopeFromSessionMeta({
-          groupOnlyCapture: true,
-          captureSelectedGroup: groupKey,
-        });
-        if (fromDashboard) {
-          return normalizeGroupCaptureScope(fromDashboard, {
+        const scoped = resolveGroupScope(
+          {
             groupOnlyCapture: true,
             captureSelectedGroup: groupKey,
-          });
-        }
+          },
+          {
+            groupOnlyCapture: true,
+            captureSelectedGroup: groupKey,
+          },
+        );
+        if (scoped) return scoped;
       }
-    }
-
-    if (groupOnly) {
-      return null;
     }
 
     const sessionCompanyId =
@@ -100,10 +122,7 @@ export function useSummaryBoot() {
     return null;
   }, [me, sessionReady]);
 
-  const companyId =
-    captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
-      ? Number(captureScope.scopeCompanyId)
-      : null;
+  const companyId = dataCaptureScopeLedgerCompanyId(captureScope);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -148,16 +167,13 @@ export function useSummaryBoot() {
     };
   }, [me, companyId, captureScope, sessionReady, navigate]);
 
-  useLayoutEffect(() => {
-    window.DATACAPTURESUMMARY_COMPANY_ID = companyId;
-    window.DATACAPTURESUMMARY_CAPTURE_SCOPE = captureScope;
-    return () => {
-      window.DATACAPTURESUMMARY_COMPANY_ID = null;
-      window.DATACAPTURESUMMARY_CAPTURE_SCOPE = null;
-    };
-  }, [companyId, captureScope]);
+  const hasStoredCaptureSession = useMemo(() => {
+    if (!sessionReady) return false;
+    const session = loadSummaryCaptureSession(captureScope);
+    return Boolean(session?.tableData && session?.processData);
+  }, [sessionReady, captureScope]);
 
-  const scopeReady = dataCaptureScopeIsReady(captureScope);
+  const scopeReady = dataCaptureScopeIsReady(captureScope) || hasStoredCaptureSession;
 
   return {
     me,

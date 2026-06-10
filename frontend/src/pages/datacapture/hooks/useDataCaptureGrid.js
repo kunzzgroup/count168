@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
 import {
   clearGridCells,
+  clearCellsInGrid,
   createEmptyGrid,
   resizeGrid,
   snapshotToGrid,
@@ -35,7 +36,7 @@ function gridDimsFromModel(grid) {
 export function useDataCaptureGrid(engineReady, groupOnly = false) {
   useDataCaptureGridWindowBridges();
 
-  const { gridRef, replaceGrid } = useDataCaptureContext();
+  const { gridRef, replaceGrid, updateCell } = useDataCaptureContext();
   const dimensionsRef = useRef(resolveDataCaptureGridDimensions(groupOnly));
   const groupOnlyRef = useRef(groupOnly);
   groupOnlyRef.current = groupOnly;
@@ -100,6 +101,15 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
     return gridDimsFromModel(gridRef.current);
   }, [gridRef]);
 
+  const clearCellsAt = useCallback(
+    (positions) => {
+      const current = gridRef.current;
+      if (!current || !positions?.length) return;
+      replaceGrid(clearCellsInGrid(current, positions));
+    },
+    [gridRef, replaceGrid],
+  );
+
   const handlersRef = useRef({});
   handlersRef.current = {
     initializeGrid,
@@ -107,6 +117,8 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
     populateGridFromSnapshot,
     clearGridCellsPure,
     replaceGrid,
+    updateCell,
+    clearCellsAt,
     gridRef,
   };
 
@@ -117,6 +129,10 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
       ensureGridReady: (rows, cols) => handlersRef.current.ensureGridReady(rows, cols),
       populateGridFromSnapshot: (tableData) => handlersRef.current.populateGridFromSnapshot(tableData),
       clearGridCells: () => handlersRef.current.clearGridCellsPure(),
+      updateCell: (rowIndex, colIndex, patch) => handlersRef.current.updateCell(rowIndex, colIndex, patch),
+      clearCellsAt: (positions) => handlersRef.current.clearCellsAt(positions),
+      getGridModel: () => handlersRef.current.gridRef.current,
+      replaceGrid: (grid) => handlersRef.current.replaceGrid(grid),
       getGridDimensions: readGridDimensionsBridge,
       clearCaptureTable: () => {
         handlersRef.current.clearGridCellsPure();

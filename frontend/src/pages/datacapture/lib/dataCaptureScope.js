@@ -110,6 +110,27 @@ export function normalizeGroupCaptureScope(scope, processMeta = null) {
   };
 }
 
+/** Numeric company id for ledger APIs — null under strict group capture (no subsidiary leakage). */
+export function dataCaptureScopeLedgerCompanyId(scope, processMeta = null) {
+  const isGroup =
+    scope?.mode === "group" ||
+    processMeta?.groupOnlyCapture === true ||
+    processMeta?.captureScopeMode === "group";
+  if (
+    isGroup &&
+    (scope?.resolveCompanyViaGroupId || Number(scope?.scopeCompanyId ?? 0) <= 0)
+  ) {
+    return null;
+  }
+  if (scope?.scopeCompanyId != null && Number(scope.scopeCompanyId) > 0) {
+    return Number(scope.scopeCompanyId);
+  }
+  if (processMeta?.scopeCompanyId != null && Number(processMeta.scopeCompanyId) > 0) {
+    return Number(processMeta.scopeCompanyId);
+  }
+  return null;
+}
+
 export function dataCaptureScopeIsReady(scope) {
   if (!scope) return false;
   if (scope.mode === "aggregate") {

@@ -106,9 +106,10 @@ function withScope(url, scope) {
 }
 
 function withCompany(url, companyId) {
-  if (!companyId) return url;
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return url;
   const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}company_id=${encodeURIComponent(companyId)}`;
+  return `${url}${sep}company_id=${encodeURIComponent(String(cid))}`;
 }
 
 /** Same as legacy loadFormData: GET api/processes/addprocess_api.php */

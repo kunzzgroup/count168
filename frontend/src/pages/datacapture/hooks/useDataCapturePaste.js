@@ -6,7 +6,6 @@ import {
 } from "../paste/vendors/dataCaptureCitibetParsers.js";
 import { handleCellPasteEvent as handleCellPasteEventCore } from "../paste/core/dataCapturePasteHandler.js";
 import { handleGlobalGridPaste as handleGlobalGridPasteCore } from "../paste/core/dataCapturePasteHandler.js";
-import { afterPasteApply } from "../lib/dataCaptureBridge.js";
 import { handleGenericPaste } from "../paste/core/dataCaptureGenericPaste.js";
 import { parsePastedData } from "../paste/core/dataCaptureParsePastedData.js";
 import { parseAndFillHtmlTableForText } from "../paste/core/dataCaptureTextHtmlPaste.js";
@@ -23,11 +22,9 @@ import { registerDataCaptureRuntime, unregisterDataCaptureRuntime } from "../lib
 export function useDataCapturePaste() {
   const handlerRef = useRef((e) => {
     handleCellPasteEventCore(e);
-    afterPasteApply();
   });
   handlerRef.current = (e) => {
     handleCellPasteEventCore(e);
-    afterPasteApply();
   };
 
   useLayoutEffect(() => {
@@ -52,7 +49,6 @@ export function useDataCapturePaste() {
   useEffect(() => {
     const onGlobalPaste = (e) => {
       handleGlobalGridPasteCore(e);
-      afterPasteApply();
     };
     document.addEventListener("paste", onGlobalPaste);
     return () => document.removeEventListener("paste", onGlobalPaste);

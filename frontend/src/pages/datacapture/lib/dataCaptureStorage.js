@@ -85,7 +85,7 @@ export function saveCaptureSession(tableData, processData, captureType, context 
   const scopeCompanyId =
     scope?.scopeCompanyId != null && Number(scope.scopeCompanyId) > 0
       ? Number(scope.scopeCompanyId)
-      : context.scopeCompanyId != null
+      : context.scopeCompanyId != null && Number(context.scopeCompanyId) > 0
         ? Number(context.scopeCompanyId)
         : null;
 
@@ -130,7 +130,9 @@ export function readCaptureSessionMeta(scope = null) {
         : null,
       captureScopeMode: processData.captureScopeMode || null,
       scopeCompanyId:
-        processData.scopeCompanyId != null ? Number(processData.scopeCompanyId) : null,
+        processData.scopeCompanyId != null && Number(processData.scopeCompanyId) > 0
+          ? Number(processData.scopeCompanyId)
+          : null,
     };
   } catch {
     return null;

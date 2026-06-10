@@ -1,16 +1,38 @@
 import { memo, useCallback, useLayoutEffect, useRef } from "react";
-import { highlightHeadersForCell } from "../grid/gridCellInteraction.js";
+import {
+  highlightHeadersForCell,
+  replaceTextContentPreservingCaret,
+} from "../grid/gridCellInteraction.js";
 import { applyCellModelToElement } from "../grid/gridDomAdapter.js";
 import { formatMoneyDisplay } from "../paste/core/dataCapturePasteMoneyUtils.js";
-import { getBridgeCaptureType, gridHandleCellPaste, gridRecomputeSubmitState } from "../lib/dataCaptureBridge.js";
-
-function shouldSkipBlurMoneyFormat() {
-  const captureType = getBridgeCaptureType("");
+import {
+  getBridgeCaptureType,
+  gridHandleCellPaste,
+  gridRecomputeSubmitState,
+  updateBridgeCell,
+} from "../lib/dataCaptureBridge.js";
+function isTextOrFormatCaptureType(captureType = getBridgeCaptureType("")) {
   return captureType === "1.Text" || captureType === "2.Format";
 }
 
+/** Manual cell edits are always stored uppercase (AAA, BBB, ABC, …). */
+function normalizeCellEditValue(value) {
+  return String(value ?? "").toUpperCase();
+}
+
+function finalizeCellEditValue(value, captureType = getBridgeCaptureType("")) {
+  let next = normalizeCellEditValue(value);
+  if (!isTextOrFormatCaptureType(captureType)) {
+    const trimmed = String(next).trim();
+    if (trimmed) {
+      next = formatMoneyDisplay(trimmed);
+    }
+  }
+  return next;
+}
+
 /**
- * Editable grid cell — uncontrolled contentEditable; DOM syncs to model on blur / version bumps.
+ * Editable grid cell — contentEditable for input UX; React grid model is SSOT.
  */
 function DataCaptureGridCell({
   rowIndex,
@@ -40,6 +62,28 @@ function DataCaptureGridCell({
     applyCellModelToElement(elRef.current, cell);
   }, [cell, gridVersion]);
 
+  const commitCellValue = useCallback(
+    (value, extraPatch = {}) => {
+      updateBridgeCell(rowIndex, colIndex, {
+        value: value ?? "",
+        html: undefined,
+        ...extraPatch,
+      });
+      gridRecomputeSubmitState();
+    },
+    [rowIndex, colIndex],
+  );
+
+  const handleInput = useCallback(
+    (e) => {
+      const target = e.currentTarget;
+      const value = normalizeCellEditValue(target.textContent ?? "");
+      replaceTextContentPreservingCaret(target, value);
+      commitCellValue(value);
+    },
+    [commitCellValue],
+  );
+
   const handleFocus = useCallback((e) => {
     const target = e.currentTarget;
     target.classList.add("selected");
@@ -47,19 +91,20 @@ function DataCaptureGridCell({
     gridRecomputeSubmitState();
   }, []);
 
-  const handleBlur = useCallback((e) => {
-    const target = e.currentTarget;
-    target.classList.remove("selected");
-    if (shouldSkipBlurMoneyFormat()) return;
+  const handleBlur = useCallback(
+    (e) => {
+      const target = e.currentTarget;
+      target.classList.remove("selected");
 
-    const t = (target.textContent || "").trim();
-    if (!t) return;
+      const value = finalizeCellEditValue(target.textContent ?? "");
+      if (value !== target.textContent) {
+        target.textContent = value;
+      }
 
-    const displayed = formatMoneyDisplay(t);
-    if (displayed !== t) {
-      target.textContent = displayed;
-    }
-  }, []);
+      commitCellValue(value);
+    },
+    [commitCellValue],
+  );
 
   const handlePaste = useCallback((e) => {
     gridHandleCellPaste(e);
@@ -76,6 +121,7 @@ function DataCaptureGridCell({
     onClick,
     onKeyDown,
     onContextMenu,
+    onInput: handleInput,
     onFocus: handleFocus,
     onBlur: handleBlur,
     onPaste: handlePaste,
