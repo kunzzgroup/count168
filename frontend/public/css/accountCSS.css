@@ -3276,3 +3276,67 @@ body > .user-modal-permission-picker-root--above-modals {
     z-index: 25500;
 }
 
+/* Add/Edit Account — Companies picker: compact width, 4-col grid, smaller chips */
+.user-modal-company-picker--account {
+    width: min(400px, calc(100vw - 32px));
+    max-height: min(68vh, 460px);
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-header {
+    padding: 12px 14px;
+    font-size: 14px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-filter-row {
+    padding: 10px 14px 0;
+    gap: 6px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-search {
+    padding: 7px 10px 7px 32px;
+    font-size: 12px;
+    border-radius: 8px;
+    background-position: 9px center;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-select-all {
+    padding: 6px 10px;
+    font-size: 11px;
+    border-radius: 8px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-body {
+    flex: 0 1 auto;
+    max-height: min(36vh, 280px);
+    padding: 6px 6px 2px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    padding: 0 4px 8px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-label {
+    padding: 5px 6px;
+    gap: 5px;
+    font-size: 11px;
+    border-radius: 7px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-label input[type="checkbox"],
+.user-modal-company-picker--account .user-modal-company-picker-label input[type="radio"] {
+    width: 13px;
+    height: 13px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-footer {
+    padding: 10px 14px 12px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-done {
+    padding: 9px 12px;
+    font-size: 13px;
+    border-radius: 8px;
+}
+

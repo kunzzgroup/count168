@@ -430,7 +430,7 @@ export default function AccountModal({
               onClick={closeCompanyPicker}
             />
             <div
-              className="user-modal-company-picker"
+              className="user-modal-company-picker user-modal-company-picker--account"
               role="dialog"
               aria-modal="true"
               aria-labelledby="account-modal-company-picker-title"
@@ -471,31 +471,33 @@ export default function AccountModal({
                   </button>
                 )}
               </div>
-              <ul className="user-modal-company-picker-list">
-                {companyPickerFiltered.map((c) => {
-                  const id = c.picker_value;
-                  const checked = draftCompanyIds.map((v) => normalizePickerValue(v)).includes(id);
-                  return (
-                    <li key={id} className="user-modal-company-picker-row">
-                      <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
-                        <input
-                          type={groupPickerMode ? "radio" : "checkbox"}
-                          name={groupPickerMode ? "account-group-picker" : undefined}
-                          checked={checked}
-                          onChange={() =>
-                            setDraftCompanyIds((prev) => {
-                              if (groupPickerMode) return [id];
-                              if (prev.includes(id)) return prev.filter((x) => x !== id);
-                              return [...prev, id];
-                            })
-                          }
-                        />
-                        <span>{String(c.company_id || "").toUpperCase()}</span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="user-modal-company-picker-body">
+                <ul className="user-modal-company-picker-list">
+                  {companyPickerFiltered.map((c) => {
+                    const id = c.picker_value;
+                    const checked = draftCompanyIds.map((v) => normalizePickerValue(v)).includes(id);
+                    return (
+                      <li key={id} className="user-modal-company-picker-row">
+                        <label className={checked ? "user-modal-company-picker-label is-checked" : "user-modal-company-picker-label"}>
+                          <input
+                            type={groupPickerMode ? "radio" : "checkbox"}
+                            name={groupPickerMode ? "account-group-picker" : undefined}
+                            checked={checked}
+                            onChange={() =>
+                              setDraftCompanyIds((prev) => {
+                                if (groupPickerMode) return [id];
+                                if (prev.includes(id)) return prev.filter((x) => x !== id);
+                                return [...prev, id];
+                              })
+                            }
+                          />
+                          <span>{String(c.company_id || "").toUpperCase()}</span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
               <div className="user-modal-company-picker-footer">
                 <button
                   type="button"
