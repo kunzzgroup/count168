@@ -10,13 +10,8 @@ import {
 } from "../../utils/company/tenantLedgerParams.js";
 import {
   clearDashboardGroupFilterKeepCompany,
-  companiesForCompanyPicker,
   companiesInGroupList,
-  dedupeOwnerCompaniesByCode,
-  excludeGroupLabelsFromCompanyPicker,
-  filterCompaniesWithDisplayId,
   isDashboardGroupOnlyMode,
-  normalizeCompanyGroupId,
   DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   DASHBOARD_GROUP_FILTER_EVENT,
   notifyDashboardGroupFilterChanged,
@@ -33,10 +28,10 @@ import {
   readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
-  independentCompaniesForPicker,
   stripCompanyIdFromUrl,
   fetchOwnerCompaniesAll,
   getCachedOwnerCompanies,
+  sortedUniqueGroupIds,
 } from "../../utils/company/sharedCompanyFilter.js";
 import {
   consumeAccountListRouteCache,
@@ -76,7 +71,12 @@ import {
   buildAccountsUrl,
   buildGroupAccountsUrl,
   fetchMergedAccounts,
+  isCompanyInAccountListPicker,
   pickDefaultAddCurrencyIds,
+  readAccountListGroupFilterOptOut,
+  resolveAccountListGroupOnlyFetch,
+  resolveAccountListInlinePickerCompanies,
+  shouldLoadAccountListData,
 } from "./accountLogic.js";
 
 // Components
@@ -116,12 +116,13 @@ function resolveAccountsListFetchScopeKey({
   groupsAllMode: gAll = false,
   groupAllMode: cAll = false,
   isListScopeReady: ready = true,
+  groupOnlyMode = false,
 } = {}) {
   if (!ready) return "";
   if (gAll) return cAll ? "groups-all:companies-all" : "groups-all";
   if (cAll) return `group-all:${sg || ""}`;
   if (cid != null) return `company:${cid}`;
-  if (sg) return `group:${sg}`;
+  if (sg && groupOnlyMode) return `group:${sg}`;
   return "";
 }
 
@@ -143,12 +144,12 @@ function readAccountListBootGc() {
   }
   const optOut = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
   const { selectedGroup, companyId, groupOnly } = readPersistedDashboardGcFilter();
+  if (groupOnly || isDashboardGroupOnlyMode()) {
+    return { selectedGroup: optOut ? null : selectedGroup, companyId: null };
+  }
   const urlCompanyId = readUrlCompanyId();
   if (urlCompanyId != null) {
     return { selectedGroup: optOut ? null : selectedGroup, companyId: urlCompanyId };
-  }
-  if (groupOnly || isDashboardGroupOnlyMode()) {
-    return { selectedGroup: optOut ? null : selectedGroup, companyId: null };
   }
   const saved = readDashboardSelectedCompanyId();
   return {
@@ -314,8 +315,9 @@ export default function AccountListPage() {
   }, [companyId, searchTerm, showInactive, showAll]);
 
   const resolveGroupOnlyFetch = useCallback((gcScope) => {
-    const { companyId: cid, selectedGroup: sg, groupsAllMode: gAll, groupAllMode: cAll } = gcScope || {};
-    return Boolean(sg && !cid && !cAll && !gAll);
+    const { companyId: cid, selectedGroup: sg, groupsAllMode: gAll, groupAllMode: cAll } =
+      gcScope || {};
+    return resolveAccountListGroupOnlyFetch(sg, cid, gAll, cAll);
   }, []);
 
   const applyAccountListResult = useCallback(
@@ -635,7 +637,10 @@ export default function AccountListPage() {
         const persistedGc = readPersistedDashboardGcFilter();
         const savedCompanyId = readDashboardSelectedCompanyId();
         let initialCompanyId = persistedGc.groupOnly ? null : (persistedGc.companyId ?? savedCompanyId);
-        if (hasExplicitUrlCompany) {
+        if (persistedGc.groupOnly || isDashboardGroupOnlyMode()) {
+          initialCompanyId = null;
+          stripCompanyIdFromUrl();
+        } else if (hasExplicitUrlCompany) {
           initialCompanyId = urlCompanyNum;
           persistDashboardGroupOnlyMode(false);
           persistDashboardSelectedCompany(urlCompanyNum);
@@ -645,12 +650,6 @@ export default function AccountListPage() {
           !(canUseGroupOnlyMode(sessionMe) && isDashboardGroupOnlyMode())
         ) {
           persistDashboardGroupOnlyMode(false);
-        } else if (
-          isDashboardGroupOnlyMode() ||
-          (persistedGc.groupOnly && (isGroupLogin(sessionMe) || canUseGroupOnlyMode(sessionMe)))
-        ) {
-          initialCompanyId = null;
-          stripCompanyIdFromUrl();
         } else if (initialCompanyId == null && !isGroupLogin(sessionMe)) {
           initialCompanyId = resolveBootCompanyId({
             urlCompanyId,
@@ -712,7 +711,33 @@ export default function AccountListPage() {
           (persistedGc.groupOnly ||
             isDashboardGroupOnlyMode() ||
             canUseGroupOnlyMode(sessionMe, bootGroup));
-        const resolvedCompanyId = groupOnlyBoot ? null : initialCompanyId;
+        let resolvedCompanyId = groupOnlyBoot ? null : initialCompanyId;
+
+        const bootGroupIds = sortedUniqueGroupIds(rows);
+        if (
+          !groupOnlyBoot &&
+          resolvedCompanyId != null &&
+          !isCompanyInAccountListPicker(
+            {
+              companies: rows,
+              groupIds: bootGroupIds,
+              selectedGroup: bootGroup,
+              preferredCompanyId: resolvedCompanyId,
+              groupFilterOptOut,
+            },
+            resolvedCompanyId,
+          )
+        ) {
+          resolvedCompanyId = null;
+          stripCompanyIdFromUrl();
+          persistDashboardSelectedCompany(null);
+        }
+
+        const shouldLoadList = shouldLoadAccountListData({
+          companyId: resolvedCompanyId,
+          selectedGroup: bootGroup,
+          groupOnlyMode: groupOnlyBoot,
+        });
 
         if (bootGroup) {
           persistDashboardGroupFilter(bootGroup);
@@ -750,11 +775,13 @@ export default function AccountListPage() {
 
         if (cancelled) return;
 
-        const scopeKey = resolvedCompanyId
-          ? `company:${Number(resolvedCompanyId)}`
-          : groupOnlyBoot && bootGroup
-            ? `group:${bootGroup}`
-            : null;
+        const scopeKey = shouldLoadList
+          ? resolvedCompanyId
+            ? `company:${Number(resolvedCompanyId)}`
+            : groupOnlyBoot && bootGroup
+              ? `group:${bootGroup}`
+              : null
+          : null;
         const listCacheKey = scopeKey
           ? resolveAccountListCacheKey(scopeKey, initialSearchTerm, initialShowInactive, initialShowAll)
           : null;
@@ -800,10 +827,12 @@ export default function AccountListPage() {
             groupOnly: groupOnlyBoot,
             trustRequestScope: true,
           });
+        } else {
+          setAccounts([]);
         }
 
         if (cancelled) return;
-        if (resolvedCompanyId != null) {
+        if (resolvedCompanyId != null && shouldLoadList) {
           const urlNow = new URL(window.location.href);
           urlNow.searchParams.set("company_id", String(resolvedCompanyId));
           window.history.replaceState({}, document.title, urlNow.toString());
@@ -972,34 +1001,18 @@ export default function AccountListPage() {
   };
 
   /** Group-only: still show Company pills so user can narrow scope (same as User List). */
-  const inlineCompaniesForPicker = useMemo(() => {
-    const groupFilterOptOut =
-      typeof sessionStorage !== "undefined" &&
-      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
-
-    const independentPicker = () => {
-      const list = independentCompaniesForPicker(companies, groupIds);
-      if (list.length) {
-        return dedupeOwnerCompaniesByCode(list, companyId);
-      }
-      return excludeGroupLabelsFromCompanyPicker(
-        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), companyId),
+  const inlineCompaniesForPicker = useMemo(
+    () =>
+      resolveAccountListInlinePickerCompanies({
+        companies,
         groupIds,
-      ).filter((c) => !normalizeCompanyGroupId(c));
-    };
-
-    if (!selectedGroup || groupFilterOptOut) {
-      return independentPicker();
-    }
-
-    if (companiesForPicker.length > 0) return companiesForPicker;
-
-    const effectiveGroup = String(selectedGroup).trim().toUpperCase();
-    return dedupeOwnerCompaniesByCode(
-      companiesForCompanyPicker(companies, effectiveGroup, groupIds),
-      companyId,
-    );
-  }, [companiesForPicker, selectedGroup, companyId, companies, groupIds]);
+        selectedGroup,
+        preferredCompanyId: companyId,
+        companiesForPickerFromHook: companiesForPicker,
+        groupFilterOptOut: readAccountListGroupFilterOptOut(),
+      }),
+    [companiesForPicker, selectedGroup, companyId, companies, groupIds],
+  );
 
   const applyGroupOnlyAccountScope = useCallback(
     (gid, { persist = true } = {}) => {
@@ -1523,9 +1536,57 @@ export default function AccountListPage() {
             groupsAllMode,
             groupAllMode,
             isListScopeReady,
+            groupOnlyMode: isDashboardGroupOnlyMode(),
           }),
     [bootLoading, isListScopeReady, groupsAllMode, groupAllMode, companyId, selectedGroup],
   );
+
+  useEffect(() => {
+    if (bootLoading || groupsAllMode || groupAllMode) return;
+    if (companyId == null) return;
+    if (isDashboardGroupOnlyMode()) return;
+    if (
+      isCompanyInAccountListPicker(
+        {
+          companies,
+          groupIds,
+          selectedGroup,
+          preferredCompanyId: companyId,
+          companiesForPickerFromHook: companiesForPicker,
+          groupFilterOptOut: readAccountListGroupFilterOptOut(),
+        },
+        companyId,
+      )
+    ) {
+      return;
+    }
+    skipCompanyFetchEffectRef.current = true;
+    listFetchAbortRef.current?.abort();
+    flushSync(() => {
+      setCompanyId(null);
+      setAccounts([]);
+    });
+    stripCompanyIdFromUrl();
+    persistDashboardSelectedCompany(null);
+  }, [
+    bootLoading,
+    companyId,
+    companies,
+    companiesForPicker,
+    groupIds,
+    groupsAllMode,
+    groupAllMode,
+    selectedGroup,
+  ]);
+
+  useEffect(() => {
+    if (bootLoading) return;
+    if (accountsListFetchScopeKey) return;
+    if (!isListScopeReady) return;
+    listFetchAbortRef.current?.abort();
+    setAccounts([]);
+    lastAccountsFetchKeyRef.current = "";
+  }, [bootLoading, accountsListFetchScopeKey, isListScopeReady]);
 
   useEffect(() => {
     if (!accountsListFetchScopeKey) return;
