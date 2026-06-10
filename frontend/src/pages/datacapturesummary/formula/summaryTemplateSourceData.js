@@ -427,3 +427,118 @@ export function resolveCurrentSourceDataFromTemplate({
 
   return resolvedSourceExpression;
 }
+
+/**
+ * Expand $column refs in formula_operators using current capture table
+ * (legacy applyMainTemplateToRow hasDollarSigns branch).
+ */
+export function expandDollarFormulaOperators({
+  formulaOperators,
+  sourceColumns = "",
+  idProduct,
+  rowIndex = null,
+  clickedColumns = "",
+}) {
+  const formulaOperatorsValue = String(formulaOperators || "").trim();
+  if (!formulaOperatorsValue || !/\$(\d+)(?!\d)/.test(formulaOperatorsValue)) {
+    return "";
+  }
+
+  let displayFormula = formulaOperatorsValue;
+  const dollarPattern = /\$(\d+)(?!\d)/g;
+  const allMatches = [];
+  let match;
+  dollarPattern.lastIndex = 0;
+  while ((match = dollarPattern.exec(formulaOperatorsValue)) !== null) {
+    const columnNumber = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(columnNumber) && columnNumber > 0) {
+      allMatches.push({
+        fullMatch: match[0],
+        columnNumber,
+        index: match.index,
+      });
+    }
+  }
+  if (!allMatches.length) return "";
+
+  allMatches.sort((a, b) => b.index - a.index);
+
+  const columnRefMap = new Map();
+  const sourceColumnsValue = String(sourceColumns || "").trim();
+  if (sourceColumnsValue && isNewIdProductColumnFormat(sourceColumnsValue)) {
+    for (const part of sourceColumnsValue.split(/\s+/).filter((c) => c.trim())) {
+      const parsedPart = parseIdProductColumnRef(part);
+      if (parsedPart?.captureRowIndex != null) {
+        const displayColumnKey = parsedPart.dataColumnIndex + 1;
+        columnRefMap.set(displayColumnKey, {
+          idProduct: parsedPart.idProduct,
+          rowLabel: null,
+          dataColumnIndex: parsedPart.dataColumnIndex,
+          captureRowIndex: parsedPart.captureRowIndex,
+        });
+        continue;
+      }
+      let partMatch = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
+      if (partMatch) {
+        const displayColumnIndex = Number.parseInt(partMatch[3], 10);
+        columnRefMap.set(displayColumnIndex, {
+          idProduct: partMatch[1],
+          rowLabel: partMatch[2],
+          dataColumnIndex: displayColumnIndex - 1,
+          captureRowIndex: null,
+        });
+        continue;
+      }
+      partMatch = part.match(/^([^:]+):(\d+)$/);
+      if (partMatch) {
+        const displayColumnIndex = Number.parseInt(partMatch[2], 10);
+        columnRefMap.set(displayColumnIndex, {
+          idProduct: partMatch[1],
+          rowLabel: null,
+          dataColumnIndex: displayColumnIndex - 1,
+          captureRowIndex: null,
+        });
+      }
+    }
+  }
+
+  for (const dollarMatch of allMatches) {
+    let columnValue = null;
+
+    if (columnRefMap.has(dollarMatch.columnNumber)) {
+      const ref = columnRefMap.get(dollarMatch.columnNumber);
+      columnValue = getCellValueByIdProductAndColumn(
+        ref.idProduct,
+        ref.dataColumnIndex,
+        ref.rowLabel,
+        ref.captureRowIndex
+      );
+    }
+
+    if (columnValue === null) {
+      columnValue = getCellValueByIdProductAndColumn(
+        idProduct,
+        dollarMatch.columnNumber - 1,
+        null,
+        rowIndex
+      );
+    }
+
+    if (columnValue === null) {
+      columnValue = "0";
+    }
+
+    displayFormula =
+      displayFormula.substring(0, dollarMatch.index) +
+      columnValue +
+      displayFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+  }
+
+  const parsed = parseReferenceFormula(
+    displayFormula,
+    idProduct,
+    clickedColumns,
+    rowIndex
+  );
+  return parsed || displayFormula;
+}

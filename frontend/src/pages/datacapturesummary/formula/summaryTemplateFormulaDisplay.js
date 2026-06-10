@@ -2,7 +2,10 @@ import { createFormulaDisplayFromExpression } from "../../../shared/formula/inde
 import { evaluateFormulaExpression, parseReferenceFormula } from "./summaryFormulaReference.js";
 import { formatNegativeNumbersInFormula } from "./summaryFormulaParseUtils.js";
 import { preserveFormulaStructure } from "./summaryPreserveFormula.js";
-import { resolveCurrentSourceDataFromTemplate } from "./summaryTemplateSourceData.js";
+import {
+  expandDollarFormulaOperators,
+  resolveCurrentSourceDataFromTemplate,
+} from "./summaryTemplateSourceData.js";
 import { isMg95ElsonSpecialRow } from "../lib/summaryIdProductDisplay.js";
 import { formatProcessedAmountDisplay } from "../table/summaryRowAmount.js";
 
@@ -34,13 +37,54 @@ export function resolveTemplateFormulaDisplay({
     }
   }
 
+  const clickedColumns = String(
+    row?.clickedColumns || template?.clicked_columns || template?.clickedColumns || ""
+  ).trim();
+  const hasDollarOperators =
+    hasMeaningfulFormulaOperators(formulaOperators) && /\$(\d+)(?!\d)/.test(formulaOperators);
+
+  if (hasDollarOperators) {
+    const expandedBase = expandDollarFormulaOperators({
+      formulaOperators,
+      sourceColumns,
+      idProduct,
+      rowIndex: row?.rowIndex ?? null,
+      clickedColumns,
+    });
+    if (expandedBase && expandedBase.trim() !== "") {
+      return createFormulaDisplayFromExpression(expandedBase, sourcePercent, enableSourcePercent);
+    }
+    if (savedFormulaDisplay && savedFormulaDisplay !== "Formula") {
+      return savedFormulaDisplay;
+    }
+  }
+
+  const hasBracketOperators =
+    hasMeaningfulFormulaOperators(formulaOperators) &&
+    /\[[^\]]+\s*[: ,]\s*\d+\]/.test(formulaOperators);
+  if (hasBracketOperators && !hasDollarOperators) {
+    const parsedOperators = parseReferenceFormula(
+      formulaOperators,
+      idProduct,
+      clickedColumns,
+      row?.rowIndex ?? null
+    );
+    if (parsedOperators && parsedOperators.trim() !== "") {
+      return createFormulaDisplayFromExpression(
+        parsedOperators,
+        sourcePercent,
+        enableSourcePercent
+      );
+    }
+  }
+
   let resolvedFromOperators = "";
   if (hasMeaningfulFormulaOperators(formulaOperators)) {
     try {
       resolvedFromOperators = evaluateFormulaExpression(
         formulaOperators,
         idProduct,
-        row?.clickedColumns || "",
+        clickedColumns,
         row?.rowIndex
       );
       if (!Number.isNaN(Number(resolvedFromOperators)) && Number.isFinite(Number(resolvedFromOperators))) {
