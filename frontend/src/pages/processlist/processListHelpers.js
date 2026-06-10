@@ -1,7 +1,4 @@
-import {
-  filterCompaniesForBankPills,
-  filterCompaniesForGamesPills,
-} from "../../utils/company/companyCategoryFlags.js";
+import { filterCompaniesForBankPills } from "../../utils/company/companyCategoryFlags.js";
 import { excludeGroupLabelsFromCompanyPicker } from "../../utils/company/sharedCompanyFilter.js";
 
 export const PAGE_SIZE = 25;
@@ -95,9 +92,6 @@ export function filterProcessPageCompanyButtons(
     list = inG.length ? inG : allCompanyButtons;
   }
   list = excludeGroupLabelsFromCompanyPicker(list, groupIds);
-  if (pillCategory === "games") {
-    return filterCompaniesForGamesPills(list, preferredCompanyId);
-  }
   if (pillCategory === "bank") {
     return filterCompaniesForBankPills(list, preferredCompanyId);
   }
