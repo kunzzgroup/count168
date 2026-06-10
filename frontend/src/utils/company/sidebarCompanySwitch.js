@@ -103,7 +103,7 @@ export function resolveMaintenanceRedirectForSession(sessionData, currentPath) {
 
   if (isGamesOnlyCategoryFlags(flags)) {
     if (path === "/bankprocess-maintenance") return "/capture-maintenance";
-    if (path === "/payment-maintenance") return "/transaction-maintenance";
+    // Payment Maintenance 与 Process 共用公司 pills，切换 Games 公司时不跳转。
     return null;
   }
 
