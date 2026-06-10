@@ -158,6 +158,7 @@ export default function CaptureMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
+    pillCategory: "games",
   });
 
   const captureScope = useMemo(
