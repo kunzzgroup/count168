@@ -23,6 +23,7 @@ import {
   filterCompaniesForLoginScope,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { filterCompaniesForGamesPills } from "../../utils/company/companyCategoryFlags.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
@@ -776,7 +777,10 @@ function DataCapturePageContent() {
     submitReset.restoreFromStorage();
   }, [engineReady, submitReset.restoreFromStorage]);
 
-  const list = filterCompaniesWithDisplayId(companiesForPicker);
+  const list = filterCompaniesForGamesPills(
+    filterCompaniesWithDisplayId(companiesForPicker),
+    companyId
+  );
   const pageShellKey = dataCaptureScopeCacheKey(captureScope) || "pending";
 
   return (

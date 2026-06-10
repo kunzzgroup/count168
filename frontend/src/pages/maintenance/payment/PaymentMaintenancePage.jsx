@@ -128,6 +128,7 @@ export default function PaymentMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
+    pillCategory: "bank",
   });
 
   const paymentScope = useMemo(

@@ -1992,14 +1992,18 @@ export function useBankProcessListPage() {
         groupFilterKind: "follow",
         groupIds,
         selectedGroupKey: null,
+        pillCategory: "bank",
+        preferredCompanyId: companyId,
       });
     }
     return filterProcessPageCompanyButtons(allCompanyButtons, {
       groupFilterKind,
       groupIds,
       selectedGroupKey,
+      pillCategory: "bank",
+      preferredCompanyId: companyId,
     });
-  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
+  }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind, companyId]);
 
   const handlePickGroup = useCallback(
     (gid) => {

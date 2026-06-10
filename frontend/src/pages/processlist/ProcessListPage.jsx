@@ -701,8 +701,10 @@ export default function ProcessListPage() {
         groupFilterKind,
         groupIds,
         selectedGroupKey,
+        pillCategory: "games",
+        preferredCompanyId: pickerCompanyId,
       }),
-    [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]
+    [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind, pickerCompanyId]
   );
 
   const sortedDisplayRows = useMemo(

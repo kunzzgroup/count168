@@ -1,3 +1,7 @@
+import {
+  filterCompaniesForBankPills,
+  filterCompaniesForGamesPills,
+} from "../../utils/company/companyCategoryFlags.js";
 import { excludeGroupLabelsFromCompanyPicker } from "../../utils/company/sharedCompanyFilter.js";
 
 export const PAGE_SIZE = 25;
@@ -71,7 +75,7 @@ export function processListCacheHasRows(cached) {
 /** Process / Bank Process company pills: in-group list without group labels (AP, IG, …). */
 export function filterProcessPageCompanyButtons(
   allCompanyButtons,
-  { groupFilterKind, groupIds, selectedGroupKey }
+  { groupFilterKind, groupIds, selectedGroupKey, pillCategory = null, preferredCompanyId = null } = {}
 ) {
   let list;
   if (groupFilterKind === "ungrouped") {
@@ -90,7 +94,14 @@ export function filterProcessPageCompanyButtons(
     });
     list = inG.length ? inG : allCompanyButtons;
   }
-  return excludeGroupLabelsFromCompanyPicker(list, groupIds);
+  list = excludeGroupLabelsFromCompanyPicker(list, groupIds);
+  if (pillCategory === "games") {
+    return filterCompaniesForGamesPills(list, preferredCompanyId);
+  }
+  if (pillCategory === "bank") {
+    return filterCompaniesForBankPills(list, preferredCompanyId);
+  }
+  return list;
 }
 
 export function dedupeCompanyRowsForSwitcher(companies, preferredPk) {
