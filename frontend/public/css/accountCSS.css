@@ -131,10 +131,6 @@ body.account-page .action-buttons-container .user-gc-inline-panel {
     row-gap: var(--user-gc-inline-row-gap, 4px);
 }
 
-body.account-page .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
-    text-align: left;
-    justify-self: start;
-}
 
 body.account-page .account-table-wrapper {
     flex: 1 1 auto;
@@ -149,9 +145,10 @@ body.account-page .account-table-wrapper {
 
 .account-page .account-table-header {
     flex-shrink: 0;
-    margin-top: 8px;
+    margin-top: 12px;
     width: 100%;
     box-sizing: border-box;
+    font-family: inherit;
 }
 
 /*
