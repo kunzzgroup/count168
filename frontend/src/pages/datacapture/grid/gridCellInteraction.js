@@ -15,7 +15,7 @@ import {
   updateBridgeCell,
 } from "../lib/dataCaptureBridge.js";
 import { MAX_GRID_ROWS } from "./dataCaptureGridMeta.js";
-import { requestGridCellFocus, takePendingGridCellFocus } from "../lib/gridFocusQueue.js";
+import { peekPendingGridCellFocus, requestGridCellFocus, takePendingGridCellFocus } from "../lib/gridFocusQueue.js";
 
 function cellPosition(cell) {
   if (!cell?.parentNode?.parentNode) return null;
