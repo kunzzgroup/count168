@@ -701,7 +701,7 @@ export default function ProcessListPage() {
         groupFilterKind,
         groupIds,
         selectedGroupKey,
-        pillCategory: "games",
+        pillCategory: "process",
         preferredCompanyId: pickerCompanyId,
       }),
     [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind, pickerCompanyId]
