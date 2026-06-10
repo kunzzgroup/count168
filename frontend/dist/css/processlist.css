@@ -2597,15 +2597,30 @@ body.process-page .calendar-popup--transaction-range.calendar-popup--no-presets 
 }
 
 .custom-select-dropdown.custom-select-dropdown-portal {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column;
     box-sizing: border-box;
     border: 1px solid #dbe3ee;
     border-radius: 0.52rem;
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
     background: #ffffff;
     overflow: hidden;
+    /* 紧凑列表：JS 会再按视口收紧；此处作兜底上限 */
+    max-height: min(280px, calc(100vh - 32px));
     /* Above ProcessModalPortal backdrop (10050); inline style from JS may raise further in nested modals */
     z-index: 10060;
+}
+
+/* Portal 挂在 body：总高度由 JS max-height 约束，选项区占满剩余空间并在内部滚动 */
+.custom-select-dropdown.custom-select-dropdown-portal .custom-select-search {
+    flex-shrink: 0;
+}
+
+.custom-select-dropdown.custom-select-dropdown-portal .custom-select-options {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
 }
 
 #addBankModal .custom-select-dropdown.custom-select-dropdown-portal,
@@ -2856,13 +2871,13 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     position: relative;
 }
 
-/* Bank 弹窗内 Supplier/Customer/Company 下拉：选项区尽量占满视口，减少滚动 */
+/* Bank 弹窗内非 Portal 下拉：紧凑高度，选项区内滚动 */
 #addBankModal .custom-select-dropdown {
-    max-height: min(500px, 85vh) !important;
+    max-height: 280px !important;
 }
 
 #addBankModal .custom-select-options {
-    max-height: min(460px, 80vh) !important;
+    max-height: 228px !important;
 }
 
 /* Bank flow custom-select: trigger + list match Add Process / Account modal */

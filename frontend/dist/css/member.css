@@ -821,7 +821,7 @@ body.transaction-page {
     font-weight: var(--font-weight-semibold, 600);
 }
 .member-amount--pos {
-    color: #0b2557;
+    color: #172a9f;
 }
 .member-amount--neg {
     color: #b91c1c;
@@ -863,7 +863,7 @@ body.transaction-page {
 }
 .member-amount-pill--pos {
     background-color: #dcfce7;
-    color: #166534;
+    color: #172a9f;
 }
 .member-amount-pill--neg {
     background-color: #fee2e2;
@@ -2140,11 +2140,11 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 }
 
 .member-total-val--gain .member-total-val__arrow {
-    color: #16a34a;
+    color: #172a9f;
 }
 
 .member-total-val--gain .member-total-val__figure {
-    color: #166534;
+    color: #172a9f;
     font-size: 13px;
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -2410,7 +2410,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 }
 
 .member-balance-matrix-amt--pos {
-    color: #15803d;
+    color: #172a9f;
 }
 
 .member-balance-matrix-amt--neg {

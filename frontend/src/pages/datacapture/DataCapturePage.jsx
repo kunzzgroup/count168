@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import {
+  buildDashboardSidebarNotifyOptions,
   companiesInGroupList,
   companyBelongsToGroup,
   dedupeOwnerCompaniesByCode,
@@ -23,6 +24,7 @@ import {
   filterCompaniesForLoginScope,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { applySidebarForCompanySwitch } from "../../utils/company/sidebarCompanySwitch.js";
 import { filterCompaniesForGamesPills } from "../../utils/company/companyCategoryFlags.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
@@ -144,7 +146,11 @@ function DataCapturePageContent() {
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [switchingCompany, setSwitchingCompany] = useState(false);
   const bootCompletedRef = useRef(false);
+  const companySwitchGenRef = useRef(0);
+  /** Synchronous guard so URL effect does not fight optimistic pill picks before React re-renders. */
+  const companySwitchInFlightRef = useRef(false);
   const prevGroupOnlyGroupRef = useRef(null);
   const prevProcessCompanyRef = useRef(undefined);
   const prevScopeKeyRef = useRef(null);
@@ -206,6 +212,7 @@ function DataCapturePageContent() {
     enableGroupAnchorSession: false,
     autoPickCompanyWhenEmpty: false,
     broadcastFilterToLayout: false,
+    switchingCompany,
     me,
   });
 
@@ -244,6 +251,19 @@ function DataCapturePageContent() {
       selectedGroup ? resolveGroupEntityRowFromSnap(companiesDeduped, selectedGroup) : null,
     [companiesDeduped, selectedGroup],
   );
+
+  const sidebarNotifyRow = useMemo(() => {
+    if (isCompanySelected) return currentCompanyRow;
+    if (groupOnlyTable && selectedGroup) return groupEntityRow ?? anchorCompanyRow;
+    return anchorCompanyRow;
+  }, [
+    isCompanySelected,
+    currentCompanyRow,
+    groupOnlyTable,
+    selectedGroup,
+    groupEntityRow,
+    anchorCompanyRow,
+  ]);
 
   /** API + storage company id (group entity vs subsidiary). */
   const effectiveCompanyId = scopeCompanyId;
@@ -520,8 +540,11 @@ function DataCapturePageContent() {
     };
   }, []);
 
+  /** Apply deep-link / back-forward URL changes only — not optimistic pill picks (those update URL after session sync). */
   useEffect(() => {
-    if (bootLoading || companies.length === 0) return;
+    if (bootLoading || companies.length === 0 || switchingCompany || companySwitchInFlightRef.current) {
+      return;
+    }
     if (isDashboardGroupOnlyMode()) {
       if (companyIdFromUrl) {
         const params = new URLSearchParams(searchParams);
@@ -548,29 +571,41 @@ function DataCapturePageContent() {
     }
 
     let cancelled = false;
+    setSwitchingCompany(true);
     (async () => {
       persistDashboardGroupOnlyMode(false);
       persistDashboardSelectedCompany(id);
       try {
         const syncJson = await syncDataCaptureCompanySession(id);
-        if (!syncJson.success) return;
+        if (!syncJson.success || cancelled) return;
         if (syncJson.data?.has_gambling === false) {
           navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
           return;
         }
+        const vg = row.group_id ? String(row.group_id).trim().toUpperCase() : selectedGroup;
+        applySidebarForCompanySwitch(vg, row, syncJson.data ?? null);
+        notifyCompanySessionUpdated(syncJson.data ?? null);
       } catch {
         return;
       }
       if (!cancelled) {
         setCompanyId(id);
-        notifyCompanySessionUpdated();
+        if (row.group_id) {
+          setSelectedGroup(String(row.group_id).trim().toUpperCase());
+        }
+        groupAnchorSessionRef.current = {
+          group: row.group_id ? String(row.group_id).trim().toUpperCase() : null,
+          companyId: id,
+        };
       }
-    })();
+    })().finally(() => {
+      if (!cancelled) setSwitchingCompany(false);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, companyIdFromUrl, companies, companiesNormalized, companyId, selectedGroup, navigate]);
+  }, [bootLoading, companyIdFromUrl, companies, companiesNormalized, selectedGroup, navigate, switchingCompany, searchParams]);
 
   useEffect(() => {
     if (!companyId || !selectedGroup) return;
@@ -582,18 +617,16 @@ function DataCapturePageContent() {
     form.clearProcessSelection?.();
   }, [companyId, selectedGroup, currentCompanyRow, navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
 
-  /** Sidebar menu flags follow group/company filter (page-owned broadcast; avoids GC hook auto-pick loop). */
+  /** Sidebar menu flags + expiry follow group/company filter (page-owned broadcast; avoids GC hook auto-pick loop). */
   useLayoutEffect(() => {
     if (bootLoading) return;
-    const code =
-      currentCompanyRow?.company_id != null && String(currentCompanyRow.company_id).trim() !== ""
-        ? String(currentCompanyRow.company_id).trim()
-        : null;
-    notifyDashboardGroupFilterChanged(selectedGroup, companyId, {
-      companyCode: code,
-      ignoreGroupOnly: true,
-    });
-  }, [bootLoading, selectedGroup, companyId, currentCompanyRow?.company_id]);
+    const notifyCompanyId = isCompanySelected ? companyId : null;
+    notifyDashboardGroupFilterChanged(
+      selectedGroup,
+      notifyCompanyId,
+      buildDashboardSidebarNotifyOptions(sidebarNotifyRow, selectedGroup, { ignoreGroupOnly: true }),
+    );
+  }, [bootLoading, selectedGroup, companyId, isCompanySelected, sidebarNotifyRow]);
 
   /** Group-only UI: sync PHP session to group entity so Summary/API match scope. */
   useEffect(() => {
@@ -623,7 +656,12 @@ function DataCapturePageContent() {
           return;
         }
         groupAnchorSessionRef.current = { group: g, companyId: anchorId };
-        notifyCompanySessionUpdated();
+        const anchorRow =
+          groupEntityRow ??
+          companiesNormalized.find((c) => Number(c.id) === anchorId) ??
+          null;
+        applySidebarForCompanySwitch(g, anchorRow, syncJson.data ?? null);
+        notifyCompanySessionUpdated(syncJson.data ?? null);
       } catch {
         /* ignore */
       }
@@ -637,6 +675,8 @@ function DataCapturePageContent() {
     isCompanySelected,
     selectedGroup,
     sessionSyncCompanyId,
+    groupEntityRow,
+    companiesNormalized,
     me?.company_id,
     navigate,
   ]);
@@ -653,34 +693,61 @@ function DataCapturePageContent() {
     prevScopeKeyRef.current = scopeKey || null;
   }, [captureScope, clearSelectedDescriptions]);
 
-  const switchCompanySessionAndNavigate = useCallback(async (nextCompanyId) => {
-    const id = Number(nextCompanyId);
-    if (!id) return;
+  const switchCompanySessionAndNavigate = useCallback(
+    async (nextCompanyId, companyRow) => {
+      const id = Number(nextCompanyId);
+      if (!id) return;
 
-    try {
-      const syncJson = await syncDataCaptureCompanySession(id);
-      if (!syncJson.success) return;
+      const row =
+        companyRow ?? companiesNormalized.find((c) => Number(c.id) === id) ?? null;
+      const switchGen = ++companySwitchGenRef.current;
+      companySwitchInFlightRef.current = true;
+      setSwitchingCompany(true);
 
-      notifyCompanySessionUpdated(syncJson.data ?? null);
+      persistDashboardGroupOnlyMode(false);
+      persistDashboardSelectedCompany(id);
+      navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
 
-      if (syncJson.data?.has_gambling === false) {
-        navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+      try {
+        const syncJson = await syncDataCaptureCompanySession(id);
+        if (switchGen !== companySwitchGenRef.current) return;
+        if (!syncJson.success) return;
+
+        if (syncJson.data?.has_gambling === false) {
+          navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+          return;
+        }
+
+        const vg =
+          selectedGroup != null && String(selectedGroup).trim() !== ""
+            ? String(selectedGroup).trim().toUpperCase()
+            : row?.group_id
+              ? String(row.group_id).trim().toUpperCase()
+              : null;
+        applySidebarForCompanySwitch(vg, row, syncJson.data ?? null);
+        notifyCompanySessionUpdated(syncJson.data ?? null);
+      } catch {
+        if (switchGen === companySwitchGenRef.current) {
+          navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+        }
         return;
+      } finally {
+        if (switchGen === companySwitchGenRef.current) {
+          companySwitchInFlightRef.current = false;
+          setSwitchingCompany(false);
+        }
       }
-    } catch {
-      navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
-      return;
-    }
 
-    persistDashboardGroupOnlyMode(false);
-    persistDashboardSelectedCompany(id);
-    groupAnchorSessionRef.current = {
-      group: selectedGroup ? String(selectedGroup).trim().toUpperCase() : null,
-      companyId: id,
-    };
-    setCompanyId(id);
-    navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
-  }, [navigate, selectedGroup]);
+      if (switchGen !== companySwitchGenRef.current) return;
+
+      groupAnchorSessionRef.current = {
+        group: selectedGroup ? String(selectedGroup).trim().toUpperCase() : null,
+        companyId: id,
+      };
+      setCompanyId(id);
+    },
+    [navigate, selectedGroup, companiesNormalized],
+  );
 
   const handleClearCompany = useCallback(() => {
     setCompanyId(null);
@@ -707,7 +774,7 @@ function DataCapturePageContent() {
   onClearCompanyRef.current = handleClearCompany;
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
   onSelectCompanyRef.current = async (comp) => {
-    if (comp?.id) void switchCompanySessionAndNavigate(comp.id);
+    if (comp?.id) void switchCompanySessionAndNavigate(comp.id, comp);
   };
 
   useEffect(() => {
@@ -849,6 +916,7 @@ function DataCapturePageContent() {
                     pickerCompanyId={companyId}
                     onPickAllInGroup={handlePickAllInGroup}
                     onPickCompany={handlePickCompany}
+                    switchingCompany={switchingCompany}
                   />
                 </div>
               )}

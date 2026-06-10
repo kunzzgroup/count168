@@ -130,6 +130,26 @@ import {
   resolveSavedCurrencyOrder,
 } from "../../../utils/company/currencyDisplayOrder.js";
 
+/** Company login with only grouped subsidiaries: idle until user picks AP/IG (no independent company). */
+function companyDashboardAwaitingGroupPick(me, companies, groupIds) {
+  if (!companyLoginRequiresSubsidiaryWithGroup(me)) return false;
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  return independentCompaniesForPicker(companies, gids).length === 0;
+}
+
+/** Company login bound to a grouped subsidiary (e.g. C168 under AP) — boot with session company + group. */
+function resolveCompanyLoginGroupedSubsidiary(me, companies, groupIds) {
+  if (!me || !companyLoginRequiresSubsidiaryWithGroup(me)) return null;
+  const cid = me.company_id ? parseInt(me.company_id, 10) : Number.NaN;
+  if (!Number.isFinite(cid) || cid <= 0) return null;
+  const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
+  const row = companies.find((c) => parseInt(c.id, 10) === cid);
+  if (!row || companyRowIsIndependent(row, gids)) return null;
+  const group = normalizeCompanyGroupId(row) || normalizeNativeCompanyGroupId(row);
+  if (!group) return null;
+  return { companyId: cid, row, group: String(group).trim().toUpperCase() };
+}
+
 /** Per-company view_group for API access (linked companies under AP/IG, etc.). */
 function resolveViewGroupForCompany(companyRow, fallbackGroup = null) {
   if (!companyRow) {
@@ -574,10 +594,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (groupsAllMode && !groupAllMode) return false;
     if (groupAllMode) return false;
     if (!selectedGroup) return false;
-    if (!companyId) return true;
+    if (!companyId) return canUseGroupOnlyMode(me, selectedGroup, companies);
     const row = companies.find((c) => parseInt(c.id, 10) === parseInt(companyId, 10));
     return companyRowIsGroupEntity(row, selectedGroup);
-  }, [groupsAllMode, groupAllMode, selectedGroup, companyId, companies]);
+  }, [groupsAllMode, groupAllMode, selectedGroup, companyId, companies, me]);
 
   /** Subsidiary drill-down under a group tab (e.g. C168 under AP) — isolate from group-ledger data. */
   const subsidiaryDashboardScope = useMemo(() => {
@@ -621,7 +641,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (gAll && !gaMode) return false;
         if (gaMode) return false;
         if (!selGroup) return false;
-        if (cid == null) return true;
+        if (cid == null) return canUseGroupOnlyMode(me, selGroup, companies);
         const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
         return companyRowIsGroupEntity(row, selGroup);
       })();
@@ -670,6 +690,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       canShowAllCurrencies,
       conversionBaseCurrency,
       companies,
+      me,
     ]
   );
 
@@ -872,6 +893,83 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
 
+      const scopedGroupIds = sortedUniqueGroupIds(scopedCompanies);
+      const awaitingGroupPick = companyDashboardAwaitingGroupPick(u, scopedCompanies, scopedGroupIds);
+      const loginSubsidiary = resolveCompanyLoginGroupedSubsidiary(
+        u,
+        scopedCompanies,
+        scopedGroupIds
+      );
+
+      if (
+        loginSubsidiary &&
+        !groupFilterOptOut &&
+        !persisted.groupsAllMode &&
+        !persisted.selectedGroup &&
+        !Boolean(persisted.groupAllMode)
+      ) {
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
+        }
+        const { companyId: bootCid, group, row: bootRow } = loginSubsidiary;
+        setGroupsAllMode(false);
+        setGroupAllMode(false);
+        setSelectedGroup(group);
+        persistDashboardGroupFilter(group);
+        setCompanyId(bootCid);
+        persistDashboardFilterState(group, bootCid, { allowGroupOnly: false });
+        setLoading(false);
+        bootstrapGcOnceRef.current = true;
+        markDashboardSessionBootstrapped(bootSessionKey);
+        setGcBootstrapReady(true);
+        notifyDashboardGroupFilterChanged(
+          group,
+          bootCid,
+          buildDashboardSidebarNotifyOptions(bootRow, group, { ignoreGroupOnly: true }),
+        );
+        window.setTimeout(() => {
+          void syncCompanySessionApi(bootCid, group).then((json) => {
+            if (!json?.success || !json?.data) return;
+            notifyCompanySessionUpdated(json.data);
+            notifyDashboardGroupFilterChanged(group, bootCid, {
+              ...buildDashboardSidebarNotifyOptions(bootRow, group, { ignoreGroupOnly: true }),
+              hasGambling: json.data.has_gambling,
+              hasBank: json.data.has_bank,
+            });
+          });
+        }, 120);
+        return;
+      }
+
+      if (
+        awaitingGroupPick &&
+        !persisted.groupsAllMode &&
+        !persisted.selectedGroup &&
+        !loginSubsidiary
+      ) {
+        if (!groupFilterOptOut && typeof sessionStorage !== "undefined") {
+          sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
+        }
+        setGroupsAllMode(false);
+        setSelectedGroup(null);
+        setCompanyId(null);
+        setCurrencies([]);
+        setCurrencyCode("");
+        setDashboardData(null);
+        setDashboardDataPrev(null);
+        setDisplayScopeKey("");
+        persistDashboardSelectedCompany(null);
+        persistDashboardGroupOnlyMode(false);
+        persistDashboardGroupsAllMode(false);
+        persistDashboardFilterState(null, null, { allowGroupOnly: false, groupsAllMode: false });
+        setLoading(false);
+        bootstrapGcOnceRef.current = true;
+        markDashboardSessionBootstrapped(bootSessionKey);
+        setGcBootstrapReady(true);
+        notifyDashboardGroupFilterChanged(null, null);
+        return;
+      }
+
       const fallbackId =
         scopedCompanies.length === 1
           ? parseInt(scopedCompanies[0].id, 10)
@@ -888,6 +986,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           : resolveBootCompanyId({ sessionCompanyId: fallbackId, defaultRowId: scopedCompanies[0]?.id });
       if (cid && !scopedCompanies.some((c) => parseInt(c.id, 10) === parseInt(cid, 10))) {
         cid = resolveBootCompanyId({ defaultRowId: parseInt(scopedCompanies[0].id, 10) });
+      }
+      if (
+        awaitingGroupPick &&
+        !persisted.selectedGroup &&
+        !persisted.groupsAllMode &&
+        !loginSubsidiary
+      ) {
+        cid = null;
       }
 
       const current =
@@ -921,9 +1027,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           persistedCompany != null && Number.isFinite(Number(persistedCompany))
             ? Number(persistedCompany)
             : null;
-      } else if (groupFilterOptOut && bootCid == null) {
-        const pick = resolveCompanyWhenClosingGroup(scopedCompanies, null, sortedUniqueGroupIds(scopedCompanies));
-        if (pick?.id) bootCid = parseInt(pick.id, 10);
+      } else if (groupFilterOptOut) {
+        const pick = resolveCompanyWhenClosingGroup(
+          scopedCompanies,
+          bootCid ?? persisted.companyId ?? null,
+          scopedGroupIds
+        );
+        bootCid = pick?.id ? parseInt(pick.id, 10) : null;
       } else if (!groupFilterOptOut && bootCid == null && group) {
         const pick = pickDefaultCompanyForGroup(scopedCompanies, group, { me: u });
         if (pick?.id) bootCid = parseInt(pick.id, 10);
@@ -1074,16 +1184,64 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         !persisted.groupsAllMode &&
         (optOut || companyLoginRequiresSubsidiaryWithGroup(meRef.current))
       ) {
+        if (optOut) {
+          const independents = independentCompaniesForPicker(companies, groupIds);
+          const persistedCid =
+            persisted.companyId != null && Number.isFinite(Number(persisted.companyId))
+              ? Number(persisted.companyId)
+              : Number.NaN;
+          const currentCid = companyId != null ? Number(companyId) : Number.NaN;
+          let targetCompanyId = null;
+          if (
+            Number.isFinite(persistedCid) &&
+            independents.some((c) => Number(c.id) === persistedCid)
+          ) {
+            targetCompanyId = persistedCid;
+          } else if (
+            Number.isFinite(currentCid) &&
+            independents.some((c) => Number(c.id) === currentCid)
+          ) {
+            targetCompanyId = currentCid;
+          }
+          if (selectedGroup == null && companyId === targetCompanyId) {
+            return;
+          }
+          setGroupsAllMode(false);
+          setGroupAllMode(false);
+          setSelectedGroup(null);
+          setCompanyId(targetCompanyId);
+          return;
+        }
+
+        const awaitingPick = companyDashboardAwaitingGroupPick(
+          meRef.current,
+          companies,
+          groupIds
+        );
+        const loginSub = resolveCompanyLoginGroupedSubsidiary(
+          meRef.current,
+          companies,
+          groupIds
+        );
         const targetCompanyId =
-          persisted.companyId != null && Number.isFinite(Number(persisted.companyId))
-            ? Number(persisted.companyId)
-            : companyId;
-        if (selectedGroup == null && (targetCompanyId == null || companyId === targetCompanyId)) {
+          awaitingPick && !loginSub
+            ? null
+            : loginSub
+              ? loginSub.companyId
+              : persisted.companyId != null && Number.isFinite(Number(persisted.companyId))
+                ? Number(persisted.companyId)
+                : companyId;
+        const targetGroup = loginSub ? loginSub.group : null;
+        if (
+          (targetGroup == null || selectedGroup === targetGroup) &&
+          (targetCompanyId == null || companyId === targetCompanyId)
+        ) {
           return;
         }
         setGroupsAllMode(false);
         setGroupAllMode(false);
-        setSelectedGroup(null);
+        if (targetGroup != null) setSelectedGroup(targetGroup);
+        else setSelectedGroup(null);
         if (targetCompanyId != null) setCompanyId(targetCompanyId);
         else setCompanyId(null);
         return;
@@ -1192,13 +1350,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       independentCompaniesForPicker(companies, groupIds),
       preferredId
     );
-    if (independent.length) return apiAccessiblePicker(independent);
-    return apiAccessiblePicker(
-      excludeGroupLabelsFromCompanyPicker(
-        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), preferredId),
-        groupIds
-      ).filter((c) => !normalizeCompanyGroupId(c))
-    );
+    return apiAccessiblePicker(independent);
   }, [
     companies,
     selectedGroup,
@@ -1515,6 +1667,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const gen = ++currencyLoadGenRef.current;
     const singleCid = companyId != null ? parseInt(companyId, 10) : null;
     const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
+
+    const companySubsidiaryScopeIdle =
+      companyLoginRequiresSubsidiaryWithGroup(me) &&
+      !groupsAllMode &&
+      !groupAllMode &&
+      companyId == null &&
+      (!groupKey || !canUseGroupOnlyMode(me, groupKey, companies));
+    if (companySubsidiaryScopeIdle) {
+      setCurrencies([]);
+      setCurrencyCode("");
+      return;
+    }
     const singleCompanyScope =
       Number.isFinite(singleCid) &&
       singleCid > 0 &&
@@ -2656,7 +2820,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (gAll && !gaMode) return false;
         if (gaMode) return false;
         if (!selGroup) return false;
-        if (cid == null) return true;
+        if (cid == null) return canUseGroupOnlyMode(me, selGroup, companies);
         const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
         return companyRowIsGroupEntity(row, selGroup);
       })();
@@ -5617,23 +5781,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             mergedSubsetIds: null,
           });
           void syncCompanySession(id, null);
-        } else if (companyId != null) {
-          flushSync(() => {
-            setGroupsAllMode(false);
-            setGroupAllMode(false);
-            setMergedSubsetIds(null);
-            setSelectedGroup(null);
-          });
-          persistDashboardGroupsAllMode(false);
-          clearDashboardGroupFilterKeepCompany(companyId);
-          setGroupFilterOptOutTick((n) => n + 1);
-          void syncCompanySession(companyId, null);
         } else {
           flushSync(() => {
             setGroupsAllMode(false);
             setGroupAllMode(false);
             setMergedSubsetIds(null);
             setSelectedGroup(null);
+            setCompanyId(null);
           });
           if (typeof sessionStorage !== "undefined") {
             sessionStorage.setItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY, "1");
@@ -5642,7 +5796,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           setGroupFilterOptOutTick((n) => n + 1);
           persistDashboardGroupOnlyMode(false);
           persistDashboardGroupsAllMode(false);
+          persistDashboardSelectedCompany(null);
           persistDashboardFilterState(null, null, { allowGroupOnly: false, groupsAllMode: false });
+          primeCurrenciesFromCache({
+            companyId: null,
+            selectedGroup: null,
+            groupsAllMode: false,
+            groupAllMode: false,
+            clearOnMiss: true,
+          });
+          primeDashboardFromCache({
+            companyId: null,
+            selectedGroup: null,
+            groupsAllMode: false,
+            groupAllMode: false,
+            mergedSubsetIds: null,
+          });
           notifyDashboardGroupFilterChanged(null, null);
         }
         return;
@@ -5893,12 +6062,52 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const handlePickAllInGroup = useCallback(() => {
-    if (groupAllMode && companyId == null) return;
     const list = resolveMergeCompanyList();
+    const groupForPersist = groupsAllMode ? null : selectedGroup;
+    const sidebarGroup = groupsAllMode ? readGroupsAllSidebarGroup() : groupForPersist;
+
+    if (groupAllMode && companyId == null) {
+      // Company login: Company All cannot be toggled off.
+      if (isCompanyLogin(me) && !isGroupLogin(me)) return;
+
+      // Group login: fully close Company All (no subsidiary auto-pick).
+      scopeInteractionGenRef.current += 1;
+      setLoadError("");
+      persistDashboardGroupAllMode(false);
+      persistDashboardFilterState(groupForPersist, null, {
+        allowGroupOnly: canUseGroupOnlyMode(me, groupForPersist, companies),
+        groupsAllMode,
+      });
+      flushSync(() => {
+        setGroupAllMode(false);
+        setMergedSubsetIds(null);
+        setCompanyId(null);
+        primeCurrenciesFromCache({
+          companyId: null,
+          selectedGroup: groupForPersist,
+          groupsAllMode,
+          groupAllMode: false,
+          clearOnMiss: true,
+        });
+        primeDashboardFromCache({
+          companyId: null,
+          selectedGroup: groupForPersist,
+          groupsAllMode,
+          groupAllMode: false,
+          mergedSubsetIds: null,
+        });
+      });
+      notifyDashboardGroupFilterChanged(
+        groupForPersist,
+        null,
+        buildDashboardSidebarNotifyOptions(null, sidebarGroup),
+      );
+      return;
+    }
+
     if (!list.length) return;
     scopeInteractionGenRef.current += 1;
     setLoadError("");
-    const groupForPersist = groupsAllMode ? null : selectedGroup;
     persistDashboardFilterState(groupForPersist, null, {
       allowGroupOnly: false,
       companyAllMode: true,
@@ -5921,7 +6130,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         mergedSubsetIds: null,
       });
     });
-    const sidebarGroup = groupsAllMode ? readGroupsAllSidebarGroup() : groupForPersist;
     notifyDashboardGroupFilterChanged(
       groupForPersist,
       null,
@@ -5940,6 +6148,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     resolveMergeCompanyList,
     groupsAllMode,
     selectedGroup,
+    companies,
+    me,
     primeCurrenciesFromCache,
     primeDashboardFromCache,
     prefetchDashboardGroupAll,
@@ -6047,6 +6257,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (
       typeof sessionStorage !== "undefined" &&
       sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1"
+    ) {
+      return;
+    }
+    if (
+      companyLoginRequiresSubsidiaryWithGroup(me) &&
+      !selectedGroup &&
+      !groupsAllMode &&
+      !resolveCompanyLoginGroupedSubsidiary(me, companies, groupIds)
     ) {
       return;
     }
