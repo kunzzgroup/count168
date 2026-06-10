@@ -5,7 +5,7 @@ import { canAccessC168AutoRenew } from "../../utils/company/loginScope.js";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
-import { formatDate, formatDomainFeeDisplay2 } from "../domain/domainHelpers.js";
+import { formatDate, formatDomainFeeDisplay2, normalizeDomainFeeSettingsFromApi } from "../domain/domainHelpers.js";
 import { DashboardCalendarPopup } from "../dashboard/components/DashboardCalendarPopup.jsx";
 import ConfirmDeleteModal from "../../components/ConfirmDeleteModal.jsx";
 import {
@@ -30,6 +30,7 @@ import {
   getRowDraftValues,
   paginateRows,
   periodToLabelKey,
+  resolveAutoRenewDisplayPrice,
   rowStableKey,
   sortAutoRenewRows,
 } from "./autoRenewPageHelpers.js";
@@ -124,6 +125,7 @@ export default function AutoRenewPage() {
     setDateTo,
   });
   const [rows, setRows] = useState([]);
+  const [feeSettings, setFeeSettings] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
   const [canEditGlobal, setCanEditGlobal] = useState(false);
@@ -156,6 +158,7 @@ export default function AutoRenewPage() {
 
   const applyListData = useCallback((data) => {
     setRows(Array.isArray(data?.rows) ? data.rows : []);
+    setFeeSettings(normalizeDomainFeeSettingsFromApi(data?.fee_settings));
     setAccounts(Array.isArray(data?.accounts) ? data.accounts : []);
     setCounts(data?.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
     setCanEditGlobal(Boolean(data?.can_edit));
@@ -247,14 +250,14 @@ export default function AutoRenewPage() {
 
   const handleApprove = useCallback((row) => {
     if (!canEditGlobal || busyRequestId) return;
-    if (!canApproveRow(row, rowDrafts)) return;
+    if (!canApproveRow(row, rowDrafts, feeSettings)) return;
     setApproveConfirmRow(row);
-  }, [busyRequestId, canEditGlobal, rowDrafts]);
+  }, [busyRequestId, canEditGlobal, feeSettings, rowDrafts]);
 
   const confirmApproveRow = useCallback(async () => {
     const row = approveConfirmRow;
     if (!row || !canEditGlobal || busyRequestId) return;
-    if (!canApproveRow(row, rowDrafts)) return;
+    if (!canApproveRow(row, rowDrafts, feeSettings)) return;
 
     const { period, fromAccountId, toAccountId } = getRowDraftValues(row, rowDrafts);
     setApproveConfirmRow(null);
@@ -273,7 +276,7 @@ export default function AutoRenewPage() {
     } finally {
       setBusyRequestId(null);
     }
-  }, [approveConfirmRow, busyRequestId, canEditGlobal, fetchList, notify, rowDrafts, t]);
+  }, [approveConfirmRow, busyRequestId, canEditGlobal, feeSettings, fetchList, notify, rowDrafts, t]);
 
   const handleReject = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || row.is_payment_deleted) return;
@@ -376,14 +379,15 @@ export default function AutoRenewPage() {
     }
 
     if (row.status === "pending" && canEditGlobal) {
-      const approveEnabled = canApproveRow(row, rowDrafts) && busyRequestId !== row.request_id;
+      const displayPrice = resolveAutoRenewDisplayPrice(row, rowDrafts, feeSettings);
+      const approveEnabled = canApproveRow(row, rowDrafts, feeSettings) && busyRequestId !== row.request_id;
       return (
         <div className="auto-renew-action-btns">
           <button
             type="button"
             className="auto-renew-btn auto-renew-btn-primary auto-renew-btn--sm"
             disabled={!approveEnabled}
-            title={!row.price ? t("noPriceHint") : undefined}
+            title={displayPrice <= 0 ? t("noPriceHint") : undefined}
             onClick={() => handleApprove(row)}
           >
             {busyRequestId === row.request_id ? t("processing") : t("approve")}
@@ -550,6 +554,7 @@ export default function AutoRenewPage() {
                     const globalIdx = (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
                     const isPendingEditable = row.status === "pending" && canEditGlobal && !row.is_payment_deleted;
                     const draft = getRowDraftValues(row, rowDrafts);
+                    const displayPrice = resolveAutoRenewDisplayPrice(row, rowDrafts, feeSettings);
                     const rowBusy = busyRequestId === row.request_id;
                     const rowKey = rowStableKey(row);
 
@@ -562,7 +567,7 @@ export default function AutoRenewPage() {
                         <div className="card-item card-item--strong">{row.company_code}</div>
                         <div className="card-item">{row.owner_name || "-"}</div>
                         <div className="card-item">
-                          {row.price ? formatDomainFeeDisplay2(row.price) : <span className="auto-renew-table-muted">—</span>}
+                          {displayPrice > 0 ? formatDomainFeeDisplay2(displayPrice) : <span className="auto-renew-table-muted">—</span>}
                         </div>
                         <div className="card-item">{row.expiration_date ? formatDate(row.expiration_date) : "-"}</div>
                         <div className="card-item">
