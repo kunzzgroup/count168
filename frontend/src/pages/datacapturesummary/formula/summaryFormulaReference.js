@@ -426,6 +426,25 @@ function findProcessRow(tableData, processValue, rowIndex = null) {
     return null;
 }
 
+/** Row label (A, B, C, …) from capture table for a given id_product / row index. */
+function getRowLabelFromProcessValue(processValue, rowIndexOverride = null) {
+    try {
+        const parsedTableData = readTransformedTableData();
+        if (!parsedTableData) return null;
+
+        const processRow = findProcessRow(parsedTableData, processValue, rowIndexOverride);
+        if (!processRow?.length) return null;
+
+        if (processRow[0]?.type === "header") {
+            return String(processRow[0].value || "").trim() || null;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting row label from process value:", error);
+        return null;
+    }
+}
+
 // Get column value by id_product and column_number (for reference format [id_product : column])
 
 function getColumnValueByIdProduct(idProduct, columnNumber) {
