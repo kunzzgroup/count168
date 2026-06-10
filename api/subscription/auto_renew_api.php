@@ -72,6 +72,7 @@ try {
             'accounts' => $result['accounts'],
             'counts' => $result['counts'],
             'can_edit' => $canEdit,
+            'fee_settings' => auto_renew_fee_settings_for_api($pdo),
         ]);
     }
 

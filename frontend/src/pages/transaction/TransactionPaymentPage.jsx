@@ -278,8 +278,10 @@ export default function TransactionPaymentPage() {
             removeCategoryTag={search.removeCategoryTag}
             searchState={search.searchState}
             setSearchState={search.setSearchState}
+            showAllCurrencies={search.showAllCurrencies}
             selectedCurrencies={search.selectedCurrencies}
             setSelectedCurrencies={search.setSelectedCurrencies}
+            toggleAllCurrenciesBtn={search.toggleAllCurrenciesBtn}
             currencyOptions={data.currencyOptions}
             searchLoading={search.searchLoading}
             onSearch={onSearch}

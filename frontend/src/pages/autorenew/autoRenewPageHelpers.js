@@ -1,4 +1,4 @@
-import { calculateCountdown } from "../domain/domainHelpers.js";
+import { calculateCountdown, resolveDomainFeePriceForPeriod } from "../domain/domainHelpers.js";
 
 export const AUTO_RENEW_PAGE_SIZE = 20;
 
@@ -179,8 +179,22 @@ export function rowStableKey(row) {
   return String(row?.request_id ?? "");
 }
 
-export function canApproveRow(row, drafts) {
+export function resolveAutoRenewDisplayPrice(row, drafts, feeSettings) {
+  const isPendingEditable = row.status === "pending" && !row.is_payment_deleted;
+  if (!isPendingEditable) {
+    const saved = Number(row.price);
+    return Number.isFinite(saved) && saved > 0 ? saved : 0;
+  }
+
+  const { period } = getRowDraftValues(row, drafts);
+  if (!period || !feeSettings) return 0;
+
+  return resolveDomainFeePriceForPeriod(feeSettings, period, "company");
+}
+
+export function canApproveRow(row, drafts, feeSettings) {
   if (row.status !== "pending" || !row.can_approve) return false;
   const { period, fromAccountId, toAccountId } = getRowDraftValues(row, drafts);
-  return Boolean(period && fromAccountId && toAccountId && row.price);
+  const price = resolveAutoRenewDisplayPrice(row, drafts, feeSettings);
+  return Boolean(period && fromAccountId && toAccountId && price > 0);
 }

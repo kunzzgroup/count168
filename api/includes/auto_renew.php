@@ -203,14 +203,22 @@ require_once __DIR__ . '/payment_delete_shared.php';
 const AUTO_RENEW_WINDOW_DAYS = 30;
 const AUTO_RENEW_HISTORY_DAYS = 90;
 
-function auto_renew_table_has_column(PDO $pdo, string $table, string $column): bool
-{
-    try {
-        $stmt = $pdo->prepare('SHOW COLUMNS FROM `' . str_replace('`', '', $table) . '` LIKE ?');
-        $stmt->execute([$column]);
-        return $stmt->rowCount() > 0;
-    } catch (Exception $e) {
-        return false;
+if (!function_exists('auto_renew_table_has_column')) {
+    function auto_renew_table_has_column(PDO $pdo, string $table, string $column): bool
+    {
+        static $cache = [];
+        $key = $table . '.' . $column;
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+        try {
+            $stmt = $pdo->prepare('SHOW COLUMNS FROM `' . str_replace('`', '', $table) . '` LIKE ?');
+            $stmt->execute([$column]);
+            $cache[$key] = $stmt->rowCount() > 0;
+        } catch (Exception $e) {
+            $cache[$key] = false;
+        }
+        return $cache[$key];
     }
 }
 
@@ -296,20 +304,228 @@ function auto_renew_ensure_domain_fee_settings(PDO $pdo): void
             // may exist
         }
     }
+    foreach (['company_period_prices', 'period_prices', 'group_period_prices'] as $col) {
+        if (auto_renew_table_has_column($pdo, 'domain_list_fee_settings', $col)) {
+            continue;
+        }
+        try {
+            $pdo->exec("ALTER TABLE `domain_list_fee_settings` ADD COLUMN `{$col}` LONGTEXT NULL DEFAULT NULL");
+        } catch (Exception $e) {
+            // may exist
+        }
+    }
     $ensured = true;
 }
 
 /**
- * @return array{price: ?string, group_price: ?string, company_price: ?string}
+ * @param array<string, mixed>|null $raw
+ * @return array<string, ?string>
+ */
+function auto_renew_normalize_period_prices(?array $raw): array
+{
+    $out = [];
+    foreach (AUTO_RENEW_VALID_PERIODS as $key) {
+        $out[$key] = null;
+    }
+    if (!is_array($raw)) {
+        return $out;
+    }
+    foreach (AUTO_RENEW_VALID_PERIODS as $key) {
+        if (!array_key_exists($key, $raw)) {
+            continue;
+        }
+        $val = $raw[$key];
+        if ($val === null || $val === '') {
+            $out[$key] = null;
+            continue;
+        }
+        try {
+            $out[$key] = money_out(money_normalize((string) $val));
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+    return $out;
+}
+
+/** @return array<string, mixed>|null */
+function auto_renew_decode_fee_json_column($value): ?array
+{
+    if ($value === null || $value === '') {
+        return null;
+    }
+    if (is_array($value)) {
+        return $value;
+    }
+    if (!is_string($value)) {
+        return null;
+    }
+    $decoded = json_decode($value, true);
+    return is_array($decoded) ? $decoded : null;
+}
+
+/**
+ * @param array<string, mixed>|null $decoded
+ * @param 'company'|'group' $kind
+ * @return array<string, ?string>|null
+ */
+function auto_renew_extract_period_prices_from_payload(?array $decoded, string $kind): ?array
+{
+    if (!is_array($decoded)) {
+        return null;
+    }
+    if ($kind === 'company' && isset($decoded['company']) && is_array($decoded['company'])) {
+        $parsed = auto_renew_normalize_period_prices($decoded['company']);
+        return $parsed === [] ? null : $parsed;
+    }
+    if ($kind === 'group' && isset($decoded['group']) && is_array($decoded['group'])) {
+        $parsed = auto_renew_normalize_period_prices($decoded['group']);
+        return $parsed === [] ? null : $parsed;
+    }
+    if ($kind === 'company') {
+        foreach (AUTO_RENEW_VALID_PERIODS as $key) {
+            if (array_key_exists($key, $decoded)) {
+                $parsed = auto_renew_normalize_period_prices($decoded);
+                return $parsed === [] ? null : $parsed;
+            }
+        }
+    }
+    if ($kind === 'group' && !isset($decoded['company']) && !isset($decoded['group'])) {
+        foreach (AUTO_RENEW_VALID_PERIODS as $key) {
+            if (array_key_exists($key, $decoded)) {
+                $parsed = auto_renew_normalize_period_prices($decoded);
+                return $parsed === [] ? null : $parsed;
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * @param array<string, ?string> $periodPrices
+ */
+function auto_renew_apply_legacy_flat_period_price(array $periodPrices, ?string $legacyFlat): array
+{
+    $hasAny = false;
+    foreach ($periodPrices as $v) {
+        if ($v !== null && $v !== '' && money_cmp($v, '0') > 0) {
+            $hasAny = true;
+            break;
+        }
+    }
+    if (!$hasAny && $legacyFlat !== null && $legacyFlat !== '' && money_cmp($legacyFlat, '0') > 0) {
+        $periodPrices['6months'] = money_out($legacyFlat);
+    }
+    return $periodPrices;
+}
+
+/**
+ * @param mixed $rawCompanyPeriodPrices
+ * @param mixed $rawPeriodPrices
+ * @param array<string, mixed> $row
+ * @return array<string, ?string>
+ */
+function auto_renew_decode_company_period_prices_from_row($rawCompanyPeriodPrices, $rawPeriodPrices, array $row): array
+{
+    $periodPrices = auto_renew_normalize_period_prices(null);
+    $parsed = null;
+
+    $companyDecoded = auto_renew_decode_fee_json_column($rawCompanyPeriodPrices);
+    if ($companyDecoded !== null) {
+        $parsed = auto_renew_extract_period_prices_from_payload($companyDecoded, 'company');
+        if ($parsed === null && !isset($companyDecoded['company']) && !isset($companyDecoded['group'])) {
+            $flat = auto_renew_normalize_period_prices($companyDecoded);
+            $parsed = $flat === [] ? null : $flat;
+        }
+    }
+
+    if ($parsed === null) {
+        $decoded = auto_renew_decode_fee_json_column($rawPeriodPrices);
+        $parsed = auto_renew_extract_period_prices_from_payload($decoded, 'company');
+    }
+    if (is_array($parsed)) {
+        $periodPrices = $parsed;
+    }
+    $legacy = $row['company_price'] ?? $row['price'] ?? null;
+    return auto_renew_apply_legacy_flat_period_price(
+        $periodPrices,
+        $legacy !== null && $legacy !== '' ? (string) $legacy : null
+    );
+}
+
+/**
+ * @param mixed $rawGroupPeriodPrices
+ * @param mixed $rawPeriodPrices
+ * @param array<string, mixed> $row
+ * @return array<string, ?string>
+ */
+function auto_renew_decode_group_period_prices_from_row($rawGroupPeriodPrices, $rawPeriodPrices, array $row): array
+{
+    $periodPrices = auto_renew_normalize_period_prices(null);
+    $parsed = null;
+
+    $groupDecoded = auto_renew_decode_fee_json_column($rawGroupPeriodPrices);
+    if ($groupDecoded !== null) {
+        $parsed = auto_renew_extract_period_prices_from_payload($groupDecoded, 'group');
+        if ($parsed === null && !isset($groupDecoded['company']) && !isset($groupDecoded['group'])) {
+            $flat = auto_renew_normalize_period_prices($groupDecoded);
+            $parsed = $flat === [] ? null : $flat;
+        }
+    }
+
+    if ($parsed === null) {
+        $periodDecoded = auto_renew_decode_fee_json_column($rawPeriodPrices);
+        if (is_array($periodDecoded) && isset($periodDecoded['group']) && is_array($periodDecoded['group'])) {
+            $parsed = auto_renew_extract_period_prices_from_payload($periodDecoded, 'group');
+        }
+    }
+
+    if (is_array($parsed)) {
+        $periodPrices = $parsed;
+    }
+
+    $legacy = $row['group_price'] ?? null;
+    return auto_renew_apply_legacy_flat_period_price(
+        $periodPrices,
+        $legacy !== null && $legacy !== '' ? (string) $legacy : null
+    );
+}
+
+/**
+ * @return array{
+ *   price: ?string,
+ *   group_price: ?string,
+ *   company_price: ?string,
+ *   company_period_prices: array<string, ?string>,
+ *   group_period_prices: array<string, ?string>
+ * }
  */
 function auto_renew_fetch_domain_fee_settings(PDO $pdo): array
 {
     auto_renew_ensure_domain_fee_settings($pdo);
-    $stmt = $pdo->query('SELECT `price`, `group_price`, `company_price` FROM `domain_list_fee_settings` WHERE `id` = 1');
+    $cols = ['price', 'group_price', 'company_price'];
+    if (auto_renew_table_has_column($pdo, 'domain_list_fee_settings', 'company_period_prices')) {
+        $cols[] = 'company_period_prices';
+    }
+    $cols[] = 'period_prices';
+    if (auto_renew_table_has_column($pdo, 'domain_list_fee_settings', 'group_period_prices')) {
+        $cols[] = 'group_period_prices';
+    }
+    $sql = 'SELECT `' . implode('`, `', $cols) . '` FROM `domain_list_fee_settings` WHERE `id` = 1';
+    $stmt = $pdo->query($sql);
     $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
     if (!$row) {
-        return ['price' => null, 'group_price' => null, 'company_price' => null];
+        return [
+            'price' => null,
+            'group_price' => null,
+            'company_price' => null,
+            'company_period_prices' => auto_renew_normalize_period_prices(null),
+            'group_period_prices' => auto_renew_normalize_period_prices(null),
+        ];
     }
+    $rawCompanyPeriodPrices = $row['company_period_prices'] ?? null;
+    $rawPeriodPrices = $row['period_prices'] ?? null;
+    $rawGroupPeriodPrices = $row['group_period_prices'] ?? null;
     foreach (['price', 'group_price', 'company_price'] as $key) {
         if ($row[$key] !== null && $row[$key] !== '') {
             $row[$key] = money_out($row[$key]);
@@ -317,28 +533,58 @@ function auto_renew_fetch_domain_fee_settings(PDO $pdo): array
             $row[$key] = null;
         }
     }
+    $row['company_period_prices'] = auto_renew_decode_company_period_prices_from_row(
+        $rawCompanyPeriodPrices,
+        $rawPeriodPrices,
+        $row
+    );
+    $row['group_period_prices'] = auto_renew_decode_group_period_prices_from_row(
+        $rawGroupPeriodPrices,
+        $rawPeriodPrices,
+        $row
+    );
     return $row;
 }
 
-function auto_renew_resolve_price_for_company(PDO $pdo, ?string $groupId): ?string
+/**
+ * Same shape as domain get_domain_fee_settings (for normalizeDomainFeeSettingsFromApi).
+ *
+ * @return array{company_period_prices: array<string, string>, group_period_prices: array<string, string>}
+ */
+function auto_renew_fee_settings_for_api(PDO $pdo): array
 {
     $settings = auto_renew_fetch_domain_fee_settings($pdo);
-    $groupId = trim((string) ($groupId ?? ''));
-    if ($groupId !== '') {
-        $gp = $settings['group_price'] ?? null;
-        if ($gp !== null && $gp !== '' && money_cmp($gp, '0') > 0) {
-            return money_normalize($gp);
-        }
+    $company = [];
+    $group = [];
+    foreach (AUTO_RENEW_VALID_PERIODS as $key) {
+        $company[$key] = (string) ($settings['company_period_prices'][$key] ?? '');
+        $group[$key] = (string) ($settings['group_period_prices'][$key] ?? '');
     }
-    $cp = $settings['company_price'] ?? null;
+    return [
+        'company_period_prices' => $company,
+        'group_period_prices' => $group,
+    ];
+}
+
+/** Auto renew always bills Company Price (never Group Price). */
+function auto_renew_resolve_price_for_period(PDO $pdo, ?string $period): ?string
+{
+    $period = auto_renew_normalize_period($period);
+    if (!$period) {
+        return null;
+    }
+    $settings = auto_renew_fetch_domain_fee_settings($pdo);
+    $cp = $settings['company_period_prices'][$period] ?? null;
     if ($cp !== null && $cp !== '' && money_cmp($cp, '0') > 0) {
         return money_normalize($cp);
     }
-    $legacy = $settings['price'] ?? null;
-    if ($legacy !== null && $legacy !== '' && money_cmp($legacy, '0') > 0) {
-        return money_normalize($legacy);
-    }
     return null;
+}
+
+function auto_renew_resolve_price_for_company(PDO $pdo): ?string
+{
+    return auto_renew_resolve_price_for_period($pdo, '6months')
+        ?? auto_renew_resolve_price_for_period($pdo, '1year');
 }
 
 function auto_renew_resolve_c168_company_code_account(PDO $pdo, int $c168Pk, string $companyCode, int $excludeAccountId = 0): ?int
@@ -609,9 +855,19 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
     $groupId = !empty($row['group_id']) ? (string) $row['group_id'] : null;
     $expirationDate = !empty($row['expiration_date']) ? (string) $row['expiration_date'] : null;
     $daysLeft = auto_renew_days_until($expirationDate);
-    $price = auto_renew_resolve_price_for_company($pdo, $groupId);
     $requestStatus = (string) ($row['request_status'] ?? 'pending');
     $period = auto_renew_normalize_period($row['request_period'] ?? null);
+    $savedPrice = null;
+    if (!empty($row['request_price'])) {
+        $savedPrice = money_out($row['request_price']);
+    }
+    if ($requestStatus !== 'pending' && $savedPrice !== null && $savedPrice !== '') {
+        $price = money_normalize($savedPrice);
+    } elseif ($period) {
+        $price = auto_renew_resolve_price_for_period($pdo, $period);
+    } else {
+        $price = null;
+    }
     $fromId = !empty($row['from_account_id']) ? (int) $row['from_account_id'] : null;
     $toId = !empty($row['to_account_id']) ? (int) $row['to_account_id'] : null;
 
@@ -651,7 +907,10 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
             ? (string) $row['payment_description']
             : ($period ? auto_renew_format_payment_description($companyCode, $period) : null),
         'reject_reason' => $row['reject_reason'] ?? null,
-        'can_approve' => $requestStatus === 'pending' && $price !== null && empty($row['is_payment_deleted']),
+        'can_approve' => $requestStatus === 'pending'
+            && $price !== null
+            && money_cmp($price, '0') > 0
+            && empty($row['is_payment_deleted']),
         'can_delete' => $requestStatus === 'approved'
             && !empty($row['transaction_id'])
             && empty($row['is_payment_deleted']),
@@ -750,12 +1009,14 @@ function auto_renew_list_deleted_payment_rows(
             }
         }
 
+        $amount = $td['amount'] ?? null;
         $out[] = [
             'request_id' => 0,
             'deleted_payment_id' => (int) ($td['transaction_id'] ?? 0),
             'is_payment_deleted' => true,
             'request_status' => 'approved',
             'request_period' => $period,
+            'request_price' => ($amount !== null && $amount !== '') ? money_out($amount) : null,
             'from_account_id' => !empty($td['from_account_id']) ? (int) $td['from_account_id'] : null,
             'to_account_id' => !empty($td['account_id']) ? (int) $td['account_id'] : null,
             'transaction_id' => (int) ($td['transaction_id'] ?? 0),
@@ -800,6 +1061,7 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
                 r.id AS request_id,
                 r.status AS request_status,
                 r.period AS request_period,
+                r.price AS request_price,
                 r.from_account_id,
                 r.to_account_id,
                 r.transaction_id,
@@ -835,6 +1097,7 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
                 r.id AS request_id,
                 r.status AS request_status,
                 r.period AS request_period,
+                r.price AS request_price,
                 r.from_account_id,
                 r.to_account_id,
                 r.transaction_id,
@@ -883,6 +1146,7 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
                 r.id AS request_id,
                 r.status AS request_status,
                 r.period AS request_period,
+                r.price AS request_price,
                 r.from_account_id,
                 r.to_account_id,
                 r.transaction_id,
@@ -1113,7 +1377,9 @@ function auto_renew_save_draft(PDO $pdo, int $requestId, array $input, array $se
         throw new RuntimeException('Invalid to account');
     }
 
-    $price = auto_renew_resolve_price_for_company($pdo, $row['group_id'] ?? null);
+    $price = $period
+        ? auto_renew_resolve_price_for_period($pdo, $period)
+        : null;
 
     $upd = $pdo->prepare('
         UPDATE company_auto_renew_request
@@ -1186,7 +1452,7 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
         throw new RuntimeException('Invalid account selection');
     }
 
-    $price = auto_renew_resolve_price_for_company($pdo, $row['group_id'] ?? null);
+    $price = auto_renew_resolve_price_for_period($pdo, $period);
     if ($price === null || money_cmp($price, '0') <= 0) {
         throw new RuntimeException('Domain renewal price is not configured. Set it in Domain first.');
     }
