@@ -123,6 +123,10 @@ body.datacapture-page .container {
         min-height: min(42vh, 360px);
     }
 
+    body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
+        max-height: min(42vh, 360px);
+    }
+
     body.datacapture-page .form-container {
         overflow: visible;
     }
@@ -1637,18 +1641,52 @@ body.datacapture-page .excel-table-container {
     flex: 0 0 auto;
 }
 
-/* Group-only: shrink-wrap table block; Submit follows content instead of a tall empty gap */
+/* Group-only: fixed viewport band; extra rows scroll inside the table list */
 body.datacapture-page .bottom-section:has(.excel-table-container--group-only) {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
 }
 
 body.datacapture-page .excel-table-container--group-only {
-    flex: 0 1 auto;
-    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 100%;
     height: auto;
-    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table-header {
+    flex-shrink: 0;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f6f8fa;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table td.row-header {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: #f6f8fa;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table thead th:first-child {
+    left: 0;
+    z-index: 3;
 }
 
 .excel-table-header.dc-table-header-bar--group-only {

@@ -38,6 +38,27 @@ export default function DataCaptureTableSection({
     .filter(Boolean)
     .join(" ");
 
+  const gridBody = (
+    <>
+      <DataCaptureGrid engineReady={engineReady} />
+      <div id="tablePreviewFormat" className="table-preview-format" style={{ display: "none" }}>
+        <iframe
+          id="tablePreviewFrameFormat"
+          className="table-preview-frame-format"
+          title="Format Table Preview"
+        />
+      </div>
+      <div
+        id="pasteAreaFormat"
+        className="paste-area-format"
+        style={{ display: "none" }}
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
+      />
+    </>
+  );
+
   return (
     <div className="bottom-section">
       <div className={containerClass}>
@@ -77,22 +98,7 @@ export default function DataCaptureTableSection({
             </div>
           ) : null}
         </div>
-        <DataCaptureGrid engineReady={engineReady} />
-        <div id="tablePreviewFormat" className="table-preview-format" style={{ display: "none" }}>
-          <iframe
-            id="tablePreviewFrameFormat"
-            className="table-preview-frame-format"
-            title="Format Table Preview"
-          />
-        </div>
-        <div
-          id="pasteAreaFormat"
-          className="paste-area-format"
-          style={{ display: "none" }}
-          contentEditable
-          suppressContentEditableWarning
-          data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
-        />
+        {groupOnlyTable ? <div className="excel-table-scroll-body">{gridBody}</div> : gridBody}
       </div>
 
       <div className="form-actions">
