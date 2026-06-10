@@ -91,7 +91,7 @@ export default function EditFormulaModal({
   const selectAccount = (acc) => {
     const id = String(acc.id ?? "");
     const label = String(acc.account_display || acc.account || acc.name || id);
-    setField({ accountId: id, accountText: label });
+    setField({ accountId: id, accountText: label, currencyId: "", currencyLabel: "" });
     onAccountSelect?.(id);
     setAccountOpen(false);
     setAccountSearch("");

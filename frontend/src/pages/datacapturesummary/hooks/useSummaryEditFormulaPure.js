@@ -22,24 +22,71 @@ import {
 } from "../table/summarySubOrderResequence.js";
 import { pushSummaryNotification } from "../lib/summaryNotify.js";
 import { removeSuppressedRow } from "../lib/summarySuppressedRows.js";
+import {
+  applyTenantLedgerToParams,
+  LEDGER_GROUP,
+  resolvePageLedgerScope,
+} from "../../../utils/company/tenantLedgerParams.js";
 
-async function fetchAccountCurrencies(accountId, companyId) {
+function resolveEditFormulaLedgerScope(captureScope, companyId) {
+  const groupId = String(captureScope?.groupId || "")
+    .trim()
+    .toUpperCase();
+  const isGroupLedger =
+    captureScope?.mode === "group" &&
+    (captureScope?.resolveCompanyViaGroupId || Number(captureScope?.scopeCompanyId ?? 0) <= 0);
+
+  if (isGroupLedger && groupId) {
+    return { ledger: LEDGER_GROUP, groupId, companyId: null };
+  }
+
+  return resolvePageLedgerScope({
+    groupOnly: false,
+    selectedGroup: groupId || null,
+    companyId: companyId != null && Number(companyId) > 0 ? Number(companyId) : null,
+  });
+}
+
+function normalizeAccountCurrencyRow(c) {
+  return {
+    id: c.id,
+    code: c.code,
+    currency_id: c.id,
+    currency_code: c.code,
+    is_linked: !!c.is_linked,
+  };
+}
+
+function pickDefaultAccountCurrency(list, preferredCurrencyId = null) {
+  if (!Array.isArray(list) || !list.length) return null;
+
+  if (preferredCurrencyId) {
+    const preferred = list.find((c) => String(c.id) === String(preferredCurrencyId));
+    if (preferred) return preferred;
+  }
+
+  const linked = list.filter((c) => c.is_linked);
+  const pool = linked.length ? linked : list;
+  if (pool.length === 1) return pool[0];
+
+  const myr = pool.find((c) => String(c.code || "").trim().toUpperCase() === "MYR");
+  if (myr) return myr;
+
+  return pool[0];
+}
+
+async function fetchAccountCurrencies(accountId, captureScope, companyId) {
   if (!accountId) return [];
   const params = new URLSearchParams({ action: "get_available_currencies" });
   params.set("account_id", String(accountId));
-  if (companyId != null && Number(companyId) > 0) params.set("company_id", String(companyId));
+  applyTenantLedgerToParams(params, resolveEditFormulaLedgerScope(captureScope, companyId));
   const response = await fetch(
     buildApiUrl(`api/accounts/account_currency_api.php?${params.toString()}`),
     { credentials: "include" }
   );
   const json = await response.json();
   if (json.success && Array.isArray(json.data)) {
-    return json.data.map((c) => ({
-      id: c.id,
-      code: c.code,
-      currency_id: c.id,
-      currency_code: c.code,
-    }));
+    return json.data.map(normalizeAccountCurrencyRow);
   }
   return [];
 }
@@ -113,29 +160,25 @@ export function useSummaryEditFormulaPure({
     async (accountId, preferredCurrencyId = null) => {
       if (!accountId) return;
       try {
-        const list = await fetchAccountCurrencies(accountId, companyId);
-        if (list.length) {
-          setCurrencies(list);
-          if (preferredCurrencyId) {
-            const match = list.find((c) => String(c.id) === String(preferredCurrencyId));
-            if (match) {
-              setForm((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      currencyId: String(match.id),
-                      currencyLabel: String(match.code || ""),
-                    }
-                  : prev
-              );
-            }
+        const list = await fetchAccountCurrencies(accountId, captureScope, companyId);
+        setCurrencies(list);
+        const picked = pickDefaultAccountCurrency(list, preferredCurrencyId);
+        setForm((prev) => {
+          if (!prev) return prev;
+          if (!picked) {
+            return { ...prev, currencyId: "", currencyLabel: "" };
           }
-        }
+          return {
+            ...prev,
+            currencyId: String(picked.id),
+            currencyLabel: String(picked.code || ""),
+          };
+        });
       } catch (e) {
         console.warn("Failed to load account currencies:", e);
       }
     },
-    [companyId]
+    [captureScope, companyId]
   );
 
   const handleAccountSelect = useCallback(
