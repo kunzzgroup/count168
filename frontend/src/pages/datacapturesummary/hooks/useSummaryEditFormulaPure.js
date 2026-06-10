@@ -283,7 +283,15 @@ export function useSummaryEditFormulaPure({
             companyId,
             processId,
           });
-          if (tpl.success && (tpl.templateId || tpl.templateKey || tpl.formulaVariant != null)) {
+          if (!tpl.success) {
+            pushSummaryNotification(
+              "Error",
+              tpl.message || "Template save failed.",
+              "error"
+            );
+            return;
+          }
+          if (tpl.templateId || tpl.templateKey || tpl.formulaVariant != null) {
             nextRows = nextRows.map((r) =>
               r.key === targetRow.key
                 ? {
@@ -304,6 +312,12 @@ export function useSummaryEditFormulaPure({
           }
         } catch (e) {
           console.warn("Template save failed:", e);
+          pushSummaryNotification(
+            "Error",
+            String(e?.message || e) || "Template save failed.",
+            "error"
+          );
+          return;
         }
       }
     }
