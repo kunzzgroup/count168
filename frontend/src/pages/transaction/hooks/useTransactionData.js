@@ -775,13 +775,14 @@ export function useTransactionData({
       }
 
       const allowGroupOnly = canUseGroupOnlyMode(u, g);
+      const groupOnlyActive =
+        snap.companyId == null && !snap.groupsAllMode && !snap.groupAllMode;
 
-      if (allowGroupOnly) {
+      if (allowGroupOnly && groupOnlyActive) {
         await applyGroupOnlySelection(snap, g);
-        return;
+      } else {
+        await applyCompanyGroupSelection(snap, g);
       }
-
-      await applyCompanyGroupSelection(snap, g);
     },
     [applyGroupOnlySelection, applyCompanyGroupSelection, deselectGroupKeepCompany, u],
   );
