@@ -319,6 +319,7 @@ function DataCapturePageContent() {
     captureScope,
     selectedGroup,
     selectedProcessId: form.selectedProcess?.id,
+    currencyId: form.currencyId,
     captureType,
   });
   useDataCapturePaste();

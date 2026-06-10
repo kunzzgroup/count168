@@ -207,12 +207,13 @@ export function useDataCaptureSubmitReset({
           tableData: preConvertSnapshot,
           captureType: activeCaptureType,
         };
-        saveGroupOnlyTableDraft(selectedGroup, form.selectedProcess.id, draftPayload, {
+        saveGroupOnlyTableDraft(selectedGroup, form.selectedProcess.id, form.currencyId, draftPayload, {
           captureScope,
         });
         await flushGroupOnlyTableDraftToServer(
           selectedGroup,
           form.selectedProcess.id,
+          form.currencyId,
           draftPayload,
           captureScope,
         );
@@ -257,13 +258,14 @@ export function useDataCaptureSubmitReset({
         : null;
 
     if (groupOnlyCapture && selectedGroup) {
-      if (groupOnlyProcessId) {
+      if (groupOnlyProcessId && form.currencyId) {
         const activeCaptureType = getBridgeCaptureType(captureType || "1.Text");
         const tableData = captureTableSnapshot(activeCaptureType, gridRef.current);
         if (tableSnapshotHasData(tableData)) {
           saveGroupOnlyTableDraft(
             selectedGroup,
             groupOnlyProcessId,
+            form.currencyId,
             { tableData, captureType: activeCaptureType },
             { captureScope, flush: true },
           );
@@ -300,6 +302,7 @@ export function useDataCaptureSubmitReset({
     captureScope,
     captureType,
     form.selectedProcess?.id,
+    form.currencyId,
     clearSelectedDescriptions,
     gridRef,
     replaceGrid,
