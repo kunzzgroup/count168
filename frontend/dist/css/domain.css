@@ -1594,35 +1594,54 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--periods.modal-c
     border-top: 1px solid var(--color-border-slate) !important;
 }
 
+/* Price modal footer — 与 Company Settings 弹窗 btn-save / btn-cancel 一致 */
 .domain-fee-react-modal .btn-save,
 .domain-fee-react-modal .btn-cancel {
+    box-sizing: border-box;
     width: 120px;
     min-height: 35.5px;
     padding: 8px 20px;
     font-family: var(--font-heading-page);
     font-size: var(--domain-text-legacy-15936);
+    font-weight: 600;
     line-height: 1;
+    border: none;
     border-radius: 6px;
-    border: none !important;
-    color: var(--color-text-inverse) !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+    cursor: pointer;
+    color: var(--color-text-inverse);
     justify-content: center !important;
 }
 
 .domain-fee-react-modal .btn-save {
-    background: var(--btn-add-gradient) !important;
+    background: var(--btn-add-gradient);
+    box-shadow: var(--shadow-btn-add-page);
 }
 
 .domain-fee-react-modal .btn-save:hover {
-    background: var(--btn-add-gradient-hover) !important;
+    background: var(--btn-add-gradient-hover);
+    box-shadow: 0 4px 8px rgba(1, 59, 153, 0.4);
+    transform: translateY(-1px);
+}
+
+.domain-fee-react-modal .btn-save:disabled,
+.domain-fee-react-modal .btn-save:disabled:hover {
+    background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%);
+    color: #f8fafc;
+    box-shadow: none;
+    transform: none;
+    cursor: not-allowed;
+    opacity: 0.9;
 }
 
 .domain-fee-react-modal .btn-cancel {
-    background: var(--gradient-domain-muted-action) !important;
+    background: var(--gradient-domain-muted-action);
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
 }
 
 .domain-fee-react-modal .btn-cancel:hover {
-    background: var(--gradient-domain-muted-action-hover) !important;
+    background: var(--gradient-domain-muted-action-hover);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
+    transform: translateY(-1px);
 }
 
 /* Price modal — Company / Group split layout */
