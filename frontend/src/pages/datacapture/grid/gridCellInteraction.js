@@ -41,6 +41,18 @@ function registerSelectedCell(cell) {
   gridRegisterSelectedCell(cell);
 }
 
+/** Blur the focused data cell so the caret closes (e.g. when clicking row/column headers). */
+export function blurActiveTableCell() {
+  const activeEl = document.activeElement;
+  if (
+    activeEl &&
+    activeEl.contentEditable === "true" &&
+    activeEl.closest("#dataTable")
+  ) {
+    activeEl.blur();
+  }
+}
+
 export function highlightHeadersForCell(cell) {
   if (!cell || cell.contentEditable !== "true") return;
 

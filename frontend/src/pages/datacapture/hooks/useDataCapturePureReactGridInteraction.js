@@ -37,6 +37,7 @@ import {
   showRowContextMenu,
 } from "../lib/dataCaptureContextMenu.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
+import { getDataCaptureText } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { MAX_GRID_ROWS } from "../grid/dataCaptureGridMeta.js";
 import {
   callDataCaptureRuntime,
@@ -223,6 +224,38 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       recomputeSubmitState();
     };
 
+    const deleteSelectedRowData = () => {
+      const grid = getGrid();
+      if (!grid) return;
+      const rowIndices = getSelectedRowIndices();
+      const colIndices = getSelectedColumnIndices();
+      const lang = localStorage.getItem("login_lang") === "zh" ? "zh" : "en";
+      if (!rowIndices.length && !colIndices.length) {
+        pushDataCaptureNotification(getDataCaptureText(lang, "selectRowToDeleteData"), "danger");
+        return;
+      }
+      let nextGrid = grid;
+      if (rowIndices.length) {
+        nextGrid = clearRowsInGrid(nextGrid, rowIndices);
+      }
+      if (colIndices.length) {
+        nextGrid = clearColumnsInGrid(nextGrid, colIndices);
+      }
+      apiRef.current.replaceGrid(nextGrid);
+      hideContextMenu();
+      clearAllSelections();
+      recomputeSubmitState();
+
+      if (getDataCaptureState().isGroupOnlyGrid === true) {
+        void (async () => {
+          const flushed = await callDataCaptureRuntime("flushGroupOnlyTableDraftNow", nextGrid);
+          if (flushed === false) {
+            pushDataCaptureNotification(getDataCaptureText(lang, "draftFlushNeedsProcessCurrency"), "danger");
+          }
+        })();
+      }
+    };
+
     const appendGridRow = () => {
       const grid = getGrid();
       if (!grid || grid.rows >= MAX_GRID_ROWS) return null;
@@ -256,6 +289,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       insertRowBelow,
       deleteRow,
       clearRow,
+      deleteSelectedRowData,
       addNewRow: appendGridRow,
       addNewColumn: appendGridColumn,
       undoLastPaste: handleUndoLastPaste,

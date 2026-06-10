@@ -269,7 +269,6 @@ body.transaction-page .transaction-add-section .tx-add-winlose-heading {
     border-top: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
-    gap: clamp(0px, -0.48vw, 10px);
 }
 
 .transaction-page .transaction-bottom-filters .transaction-company-filter {
@@ -281,7 +280,6 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-panel {
     display: grid;
     grid-template-columns: auto 1fr;
     column-gap: var(--user-gc-inline-column-gap, 4px);
-    row-gap: var(--user-gc-inline-row-gap, 4px);
     align-items: center;
     border-top: none;
     padding: 0 0 4px;
@@ -320,7 +318,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-pills--segment
     overflow-x: auto;
     gap: var(--user-gc-inline-pills-gap, 4px);
     padding-top: 2px;
-    padding-bottom: 6px;
+    padding-bottom: 2px;
     scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
 }

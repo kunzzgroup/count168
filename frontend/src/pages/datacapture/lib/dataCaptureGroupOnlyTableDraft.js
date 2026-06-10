@@ -194,7 +194,7 @@ export async function fetchGroupOnlyTableDraft(
   return null;
 }
 
-export function clearGroupOnlyTableDraft(groupId, processKey, currencyId, options = {}) {
+export async function clearGroupOnlyTableDraft(groupId, processKey, currencyId, options = {}) {
   const g = normalizeGroupId(groupId);
   const p = normalizeProcessKey(processKey);
   const c = normalizeGroupOnlyDraftCurrencyId(currencyId);
@@ -205,7 +205,7 @@ export function clearGroupOnlyTableDraft(groupId, processKey, currencyId, option
 
   const scope = options.captureScope || scopeFromGroupId(g);
   if (scope) {
-    void clearGroupCaptureDraft(scope, g, p, c);
+    await clearGroupCaptureDraft(scope, g, p, c);
   }
 }
 
@@ -216,7 +216,7 @@ export function clearGroupOnlyTableDraft(groupId, processKey, currencyId, option
  * @param {{ tableData?: object, captureType?: string, savedAt?: number }} payload
  * @param {{ captureScope?: object, flush?: boolean }} [options]
  */
-export function saveGroupOnlyTableDraft(
+export async function saveGroupOnlyTableDraft(
   groupId,
   processKey,
   currencyId,
@@ -242,8 +242,7 @@ export function saveGroupOnlyTableDraft(
   if (!scope) return;
 
   if (options.flush) {
-    void flushGroupOnlyTableDraftToServer(g, p, c, entry, scope);
-    return;
+    return flushGroupOnlyTableDraftToServer(g, p, c, entry, scope);
   }
   scheduleServerDraftSave(g, p, c, entry, scope);
 }

@@ -71,6 +71,7 @@ import { useDataCapturePageLifecycle } from "./hooks/useDataCapturePageLifecycle
 import { useDataCaptureDeleteDialog } from "./hooks/useDataCaptureDeleteDialog.js";
 import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
 import { useGroupOnlyTableDraftAutosave } from "./hooks/useGroupOnlyTableDraftAutosave.js";
+import { useGroupOnlyTableDraftFlush } from "./hooks/useGroupOnlyTableDraftFlush.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
@@ -316,6 +317,14 @@ function DataCapturePageContent() {
   });
   const { ensureGridReady } = useDataCaptureGrid(engineReady, groupOnlyTable);
   useGroupOnlyTableDraftAutosave({
+    enabled: groupOnlyTable && !mutationsBlocked,
+    captureScope,
+    selectedGroup,
+    selectedProcessId: form.selectedProcess?.id,
+    currencyId: form.currencyId,
+    captureType,
+  });
+  useGroupOnlyTableDraftFlush({
     enabled: groupOnlyTable && !mutationsBlocked,
     captureScope,
     selectedGroup,

@@ -1654,6 +1654,28 @@ body.datacapture-page .excel-table-container {
     flex: 0 0 auto;
 }
 
+body.datacapture-page .excel-table-header .dc-table-header-delete-btn {
+    background: linear-gradient(180deg, #f30e12 0%, #a91215 100%);
+    color: #ffffff;
+    border: 1px solid transparent;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+body.datacapture-page .excel-table-header .dc-table-header-delete-btn:hover:not(:disabled) {
+    background: linear-gradient(180deg, #a91215 0%, #f30e12 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+body.datacapture-page .excel-table-header .dc-table-header-delete-btn:disabled {
+    background: linear-gradient(180deg, #9ca3af 0%, #6b7280 100%);
+    color: #ffffff;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+    opacity: 1;
+}
+
 /* Group-only: shrink-wrap to row count; scroll only when rows exceed viewport */
 body.datacapture-page .bottom-section:has(.excel-table-container--group-only) {
     flex: 0 1 auto;
@@ -1704,7 +1726,161 @@ body.datacapture-page .excel-table-container--group-only .excel-table thead th:f
 
 .excel-table-header.dc-table-header-bar--group-only {
     flex-wrap: nowrap;
-    justify-content: flex-start;
+    justify-content: space-between;
+}
+
+.dc-table-size {
+    position: relative;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.dc-table-size-trigger-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dc-table-size-label {
+    font-size: clamp(12px, 0.9vw, 16px);
+    font-weight: 600;
+    color: #334155;
+}
+
+.dc-table-size-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 52px;
+    padding: 4px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #0f172a;
+    font-size: clamp(12px, 0.9vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.dc-table-size-trigger:hover:not(:disabled) {
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+
+.dc-table-size-trigger:disabled,
+.dc-table-size-reset-icon:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.dc-table-size-trigger-caret {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.dc-table-size-reset-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #2563eb;
+    cursor: pointer;
+}
+
+.dc-table-size-reset-icon:hover:not(:disabled) {
+    background: #eff6ff;
+}
+
+.dc-table-size-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 30;
+    width: min(280px, 92vw);
+    padding: 14px 16px 16px;
+    border: 1px solid #dbeafe;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+}
+
+.dc-table-size-popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    font-size: clamp(13px, 0.95vw, 17px);
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.dc-table-size-popover-close {
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.dc-table-size-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.dc-table-size-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dc-table-size-field-label {
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 600;
+    color: #475569;
+}
+
+.dc-table-size-field input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: clamp(12px, 0.9vw, 16px);
+    color: #0f172a;
+    background: #fff;
+}
+
+.dc-table-size-field input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+
+.dc-table-size-summary {
+    margin: 14px 0 16px;
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 500;
+    color: #64748b;
+}
+
+.dc-table-size-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.dc-table-size-clear-btn,
+.dc-table-size-apply-btn {
+    min-width: 72px;
+    padding: 6px 14px;
+    font-size: clamp(12px, 0.88vw, 15px);
 }
 
 .excel-table-header .dc-table-header-controls {
