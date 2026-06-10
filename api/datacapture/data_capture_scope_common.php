@@ -35,13 +35,39 @@ function dcIsGroupScopeHint(array $resolved): bool
     return $code !== '' && $code === $groupId;
 }
 
+/** Ordered group payroll process codes (Data Capture group-only: SALARY, COMMISSION, BONUS). */
+function dcGroupPayrollProcessCodes(): array
+{
+    return ['SALARY', 'COMMISSION', 'BONUS'];
+}
+
+function dcIsGroupPayrollProcessCode(string $code): bool
+{
+    return in_array(strtoupper(trim($code)), dcGroupPayrollProcessCodes(), true);
+}
+
+function dcSqlQuotedGroupPayrollProcessCodes(): string
+{
+    return implode(', ', array_map(static fn (string $c): string => "'" . $c . "'", dcGroupPayrollProcessCodes()));
+}
+
+function dcSqlOrderByGroupPayrollProcessField(string $fieldExpr): string
+{
+    $fieldExpr = trim($fieldExpr);
+    if ($fieldExpr === '') {
+        $fieldExpr = 'UPPER(TRIM(p.process_id))';
+    }
+
+    return 'ORDER BY FIELD(' . $fieldExpr . ', ' . dcSqlQuotedGroupPayrollProcessCodes() . ')';
+}
+
 /**
- * SQL fragment restricting to group-only processes (SALARY / BONUS).
+ * SQL fragment restricting to group-only processes (SALARY / COMMISSION / BONUS).
  */
 function dcSqlGroupProcessFilter(string $processAlias = 'p'): string
 {
     $a = preg_replace('/[^a-zA-Z0-9_]/', '', $processAlias) ?: 'p';
-    return " AND UPPER(TRIM({$a}.process_id)) IN ('SALARY', 'BONUS') ";
+    return ' AND UPPER(TRIM(' . $a . '.process_id)) IN (' . dcSqlQuotedGroupPayrollProcessCodes() . ') ';
 }
 
 /**
@@ -50,7 +76,7 @@ function dcSqlGroupProcessFilter(string $processAlias = 'p'): string
 function dcSqlCompanyProcessFilter(string $processAlias = 'p'): string
 {
     $a = preg_replace('/[^a-zA-Z0-9_]/', '', $processAlias) ?: 'p';
-    return " AND UPPER(TRIM({$a}.process_id)) NOT IN ('SALARY', 'BONUS') ";
+    return ' AND UPPER(TRIM(' . $a . '.process_id)) NOT IN (' . dcSqlQuotedGroupPayrollProcessCodes() . ') ';
 }
 
 /**
@@ -446,21 +472,21 @@ function dcResolveProcessIdByCode(PDO $pdo, int $companyId, string $processCode,
     if ($code === '') {
         return null;
     }
-    if ($groupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
+    if ($groupScope && !dcIsGroupPayrollProcessCode($code)) {
         return null;
     }
     if (
         !$groupScope
-        && in_array($code, ['SALARY', 'BONUS'], true)
+        && dcIsGroupPayrollProcessCode($code)
         && !dcCompanyScopeAllowsSalaryBonusProcess($pdo, $companyId)
     ) {
         return null;
     }
     $sql = 'SELECT id FROM process WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?';
     if ($groupScope) {
-        $sql .= " AND UPPER(TRIM(process_id)) IN ('SALARY', 'BONUS')";
+        $sql .= ' AND UPPER(TRIM(process_id)) IN (' . dcSqlQuotedGroupPayrollProcessCodes() . ')';
     } elseif (!dcCompanyScopeAllowsSalaryBonusProcess($pdo, $companyId)) {
-        $sql .= " AND UPPER(TRIM(process_id)) NOT IN ('SALARY', 'BONUS')";
+        $sql .= ' AND UPPER(TRIM(process_id)) NOT IN (' . dcSqlQuotedGroupPayrollProcessCodes() . ')';
     }
     $sql .= ' LIMIT 1';
     $stmt = $pdo->prepare($sql);
@@ -539,7 +565,7 @@ function dcFindSiblingGroupProcessRow(PDO $pdo, string $groupId, string $process
 function dcFindGroupEntityProcessRow(PDO $pdo, int $entityCompanyId, string $processCode): ?array
 {
     $code = strtoupper(trim($processCode));
-    if ($entityCompanyId <= 0 || !in_array($code, ['SALARY', 'BONUS'], true)) {
+    if ($entityCompanyId <= 0 || !dcIsGroupPayrollProcessCode($code)) {
         return null;
     }
     $stmt = $pdo->prepare("
@@ -620,7 +646,7 @@ function dcResolveGroupProcessTemplateRow(
         return $template;
     }
 
-    if ($code === 'BONUS') {
+    if ($code === 'BONUS' || $code === 'COMMISSION') {
         $template = dcFindGroupEntityProcessRow($pdo, $entityCompanyId, 'SALARY');
         if ($template !== null) {
             return $template;
@@ -698,8 +724,8 @@ function dcSqlCaptureProductLabel(string $processAlias = 'p', string $descriptio
 {
     $p = preg_replace('/[^a-zA-Z0-9_]/', '', $processAlias) ?: 'p';
     $d = preg_replace('/[^a-zA-Z0-9_]/', '', $descriptionAlias) ?: 'd';
-    return "CASE WHEN UPPER(TRIM({$p}.process_id)) IN ('SALARY', 'BONUS') "
-        . "THEN UPPER(TRIM({$p}.process_id)) ELSE COALESCE({$d}.name, {$p}.process_id) END";
+    return 'CASE WHEN UPPER(TRIM(' . $p . '.process_id)) IN (' . dcSqlQuotedGroupPayrollProcessCodes() . ') '
+        . 'THEN UPPER(TRIM(' . $p . '.process_id)) ELSE COALESCE(' . $d . '.name, ' . $p . '.process_id) END';
 }
 
 function dcRemapTemplateProductFieldsForTargetCode(array $templateRow, string $targetProcessCode): array
@@ -708,16 +734,14 @@ function dcRemapTemplateProductFieldsForTargetCode(array $templateRow, string $t
     if ($target === '') {
         return $templateRow;
     }
-    $remap = static function ($value) use ($target) {
+    $payrollCodes = dcGroupPayrollProcessCodes();
+    $remap = static function ($value) use ($target, $payrollCodes) {
         if ($value === null || $value === '') {
             return $value;
         }
         $v = strtoupper(trim((string) $value));
-        if ($v === 'SALARY' && $target === 'BONUS') {
-            return 'BONUS';
-        }
-        if ($v === 'BONUS' && $target === 'SALARY') {
-            return 'SALARY';
+        if (in_array($v, $payrollCodes, true) && in_array($target, $payrollCodes, true)) {
+            return $target;
         }
         return $value;
     };
@@ -727,10 +751,8 @@ function dcRemapTemplateProductFieldsForTargetCode(array $templateRow, string $t
     $key = trim((string) ($templateRow['template_key'] ?? ''));
     if ($key !== '') {
         $upper = strtoupper($key);
-        if ($upper === 'SALARY' && $target === 'BONUS') {
-            $templateRow['template_key'] = 'BONUS';
-        } elseif ($upper === 'BONUS' && $target === 'SALARY') {
-            $templateRow['template_key'] = 'SALARY';
+        if (in_array($upper, $payrollCodes, true) && in_array($target, $payrollCodes, true)) {
+            $templateRow['template_key'] = $target;
         }
     }
     return $templateRow;
@@ -822,7 +844,7 @@ function dcCreateGroupProcessByCode(
     dcSetGroupProcessEnsureError('');
 
     $code = strtoupper(trim($processCode));
-    if (!in_array($code, ['SALARY', 'BONUS'], true)) {
+    if (!dcIsGroupPayrollProcessCode($code)) {
         return null;
     }
 
@@ -961,7 +983,7 @@ function dcResolveProcessDescriptionId(
     if ($companyId <= 0 || $code === '') {
         return null;
     }
-    if (in_array($code, ['SALARY', 'BONUS'], true)) {
+    if (dcIsGroupPayrollProcessCode($code)) {
         return dcEnsureDescriptionIdForCompany($pdo, $companyId, $code);
     }
     if ($templateDescriptionId !== null && $templateDescriptionId > 0) {
@@ -998,7 +1020,7 @@ function dcFixGroupPayrollProcessDescription(PDO $pdo, int $processId): void
     }
     $companyId = (int) ($row['company_id'] ?? 0);
     $code = strtoupper(trim((string) ($row['process_code'] ?? '')));
-    if ($companyId <= 0 || !in_array($code, ['SALARY', 'BONUS'], true)) {
+    if ($companyId <= 0 || !dcIsGroupPayrollProcessCode($code)) {
         return;
     }
     $descName = strtoupper(trim((string) ($row['description_name'] ?? '')));
@@ -1147,12 +1169,12 @@ function dcAssertProcessIdInCaptureScope(PDO $pdo, int $processId, int $companyI
     if ($code === '') {
         throw new Exception('Process not found for scope');
     }
-    if ($groupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
+    if ($groupScope && !dcIsGroupPayrollProcessCode($code)) {
         throw new Exception('Invalid process for group scope');
     }
     if (
         !$groupScope
-        && in_array($code, ['SALARY', 'BONUS'], true)
+        && dcIsGroupPayrollProcessCode($code)
         && !dcCompanyScopeAllowsSalaryBonusProcess($pdo, $companyId)
     ) {
         throw new Exception('Invalid process for company scope');

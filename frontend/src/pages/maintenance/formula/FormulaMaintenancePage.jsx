@@ -11,12 +11,24 @@ import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.
 import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import {
+  isMaintenanceGroupOnlyBoot,
+  isMaintenanceSessionGroupEntityBoot,
+  shouldSkipMaintenanceCategoryGuard,
+} from "../shared/maintenanceGroupBoot.js";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
+import {
   companiesInGroupList,
   companiesNativeInGroupList,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
+  persistDashboardGroupOnlyMode,
+  persistDashboardSelectedCompany,
+  readPersistedDashboardGcFilter,
+  readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
+  DASHBOARD_GROUP_FILTER_KEY,
+  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
@@ -55,6 +67,24 @@ import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.js
 import FormulaMaintenanceTable from "./components/FormulaMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+
+function readInitialMaintenanceSelectedGroup() {
+  try {
+    const saved = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+    return saved ? String(saved).trim().toUpperCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+function readInitialMaintenanceCompanyId() {
+  const persisted = readPersistedDashboardGcFilter();
+  if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
+  const saved = readDashboardSelectedCompanyId();
+  if (saved != null) return saved;
+  if (persisted.selectedGroup) return null;
+  return null;
+}
 
 export default function FormulaMaintenancePage() {
   const navigate = useNavigate();
@@ -340,51 +370,87 @@ export default function FormulaMaintenancePage() {
         if (cancelled) return;
         setCompanies(rows);
 
-        const initialCompanyId = resolveBootCompanyId({
+        const groupFilterOptOut =
+          typeof sessionStorage !== "undefined" &&
+          sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+        const initialUiCompanyId = readInitialMaintenanceCompanyId();
+        let initialCompanyId = resolveBootCompanyId({
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
+        if (groupFilterOptOut && initialUiCompanyId != null) {
+          initialCompanyId = initialUiCompanyId;
+        } else if (groupFilterOptOut && initialCompanyId == null) {
+          initialCompanyId = null;
+        } else if (!groupFilterOptOut && (isDashboardGroupOnlyMode() || readPersistedDashboardGcFilter().groupOnly)) {
+          initialCompanyId = null;
+        } else if (initialUiCompanyId != null) {
+          initialCompanyId = initialUiCompanyId;
+        }
         const currentComp =
           initialCompanyId != null
             ? rows.find((c) => Number(c.id) === initialCompanyId)
             : null;
-        const bootGroup = resolveInitialSelectedGroupFromSession(rows, currentComp);
+        const bootGroup = groupFilterOptOut
+          ? null
+          : resolveInitialSelectedGroupFromSession(rows, currentComp, u);
         setSelectedGroup(bootGroup);
-        if (isDashboardGroupOnlyMode()) {
+        const persistedGc = readPersistedDashboardGcFilter();
+        const sessionGroup = readInitialMaintenanceSelectedGroup();
+        let groupOnlyBoot = isMaintenanceGroupOnlyBoot({
+          groupFilterOptOut,
+          sessionGroup: bootGroup ?? sessionGroup,
+          initialUiCompanyId,
+          persistedGc,
+        });
+        if (
+          !groupOnlyBoot &&
+          !groupFilterOptOut &&
+          (isMaintenanceSessionGroupEntityBoot(currentComp, u) ||
+            (bootGroup && initialUiCompanyId == null && canUseGroupOnlyMode(u, bootGroup)))
+        ) {
+          groupOnlyBoot = true;
+        }
+        if (groupOnlyBoot) {
+          persistDashboardGroupOnlyMode(true);
+          persistDashboardSelectedCompany(null);
           setCompanyId(null);
           setCompanyCode("");
           companyIdRef.current = null;
+          const effectiveGroup = bootGroup ?? sessionGroup;
           const bootScope = resolveFormulaMaintenanceScope({
             companies: rows,
-            selectedGroup: bootGroup,
+            selectedGroup: effectiveGroup,
             companyId: null,
             groupsAllMode: false,
             groupAllMode: false,
           });
           const meta = await bootstrapFormulaMaintenanceMeta({
             companies: rows,
-            groupId: bootGroup,
+            groupId: effectiveGroup,
           });
           if (cancelled) return;
-          const hasGames =
-            meta.rawPerms.includes("Games") || meta.rawPerms.includes("Gambling");
-          const bankOnly = meta.rawPerms.includes("Bank") && !hasGames;
-          if (bankOnly) {
-            navigate("/dashboard", { replace: true });
-            return;
+          let procList = [];
+          try {
+            procList = bootScope ? await fetchProcesses(null, bootScope) : [];
+          } catch (procErr) {
+            console.error("Group process list load error:", procErr);
+            notify(procErr.message || t("failedLoadProcesses"), "error");
           }
-          if (!hasGames && meta.rawPerms.length > 0) {
-            navigate("/dashboard", { replace: true });
-            return;
-          }
-          const procList = bootScope ? await fetchProcesses(null, bootScope) : [];
           setPermissions(meta.permissions);
           setActivePermission(meta.activePermission);
           setProcesses(procList);
           if (bootScope?.scopeCompanyId) {
-            setAccounts(await fetchAccounts(bootScope.scopeCompanyId, bootScope));
+            try {
+              setAccounts(await fetchAccounts(bootScope.scopeCompanyId, bootScope));
+            } catch (accErr) {
+              console.error("Group accounts load error:", accErr);
+              setAccounts([]);
+            }
+          } else {
+            setAccounts([]);
           }
-          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
+          if (effectiveGroup) sessionStorage.setItem("dashboard_group_filter", effectiveGroup);
           return;
         }
         setCompanyId(initialCompanyId);
@@ -408,15 +474,25 @@ export default function FormulaMaintenancePage() {
 
           if (cancelled) return;
 
-          const hasGames = rawPerms.includes("Games") || rawPerms.includes("Gambling");
-          const bankOnly = rawPerms.includes("Bank") && !hasGames;
-          if (bankOnly) {
-            navigate("/dashboard", { replace: true });
-            return;
-          }
-          if (!hasGames) {
-            navigate("/dashboard", { replace: true });
-            return;
+          const skipCategoryGuard = shouldSkipMaintenanceCategoryGuard({
+            groupOnlyBoot,
+            scope: bootScope,
+            me: u,
+            selectedGroup: bootGroup,
+            companyRow: currentComp,
+            companyId: initialCompanyId,
+          });
+          if (!skipCategoryGuard) {
+            const hasGames = rawPerms.includes("Games") || rawPerms.includes("Gambling");
+            const bankOnly = rawPerms.includes("Bank") && !hasGames;
+            if (bankOnly) {
+              navigate("/dashboard", { replace: true });
+              return;
+            }
+            if (!hasGames) {
+              navigate("/dashboard", { replace: true });
+              return;
+            }
           }
 
           const permList = rawPerms.filter((p) => p !== "Bank");
@@ -434,7 +510,9 @@ export default function FormulaMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled) {
+          notify(err.message || t("failedLoadProcesses"), "error");
+        }
       } finally {
         if (!cancelled) setBootLoading(false);
       }

@@ -1,6 +1,6 @@
-/** Group-scope Domain Report: SALARY / BONUS only (aligned with Data Capture group-only). */
+/** Group-scope Domain Report: SALARY / COMMISSION / BONUS (aligned with Data Capture group-only). */
 
-export const DOMAIN_GROUP_PROCESS_CODES = ["SALARY", "BONUS"];
+export const DOMAIN_GROUP_PROCESS_CODES = ["SALARY", "COMMISSION", "BONUS"];
 
 function normalizeProcessCode(value) {
   return String(value || "")
@@ -10,7 +10,7 @@ function normalizeProcessCode(value) {
 }
 
 /**
- * Map API process rows to fixed SALARY / BONUS dropdown options (numeric ids for report filter).
+ * Map API process rows to fixed SALARY / COMMISSION / BONUS dropdown options (numeric ids for report filter).
  * Always returns both codes when the API provides matching ids (backend ensures rows exist).
  */
 export function mapDomainGroupProcesses(apiList) {
