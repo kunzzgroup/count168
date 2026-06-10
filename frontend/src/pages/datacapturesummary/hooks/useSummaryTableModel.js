@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 
 import { populateSummaryRowsPure } from "../table/summaryTemplatePopulatePure.js";
 
 import { bindSummaryFormulaContext } from "../lib/summaryFormulaContext.js";
 
-import { fetchSummaryAccountList } from "../lib/summaryApi.js";
+import {
+  consumePrefetchedAccounts,
+  consumePrefetchedTemplates,
+} from "../lib/summaryPrefetch.js";
 
 import { useSummaryContext } from "../context/SummaryContext.jsx";
 
@@ -130,34 +133,30 @@ export function useSummaryTableModel({
 
 
 
-        const accounts = await fetchSummaryAccountList(captureScope);
+        const captureId = readCaptureId();
+        const [accounts, rows] = await Promise.all([
+          consumePrefetchedAccounts(captureScope),
+          populateSummaryRowsPure({
+            tableData,
+            processId,
+            processCode,
+            companyId,
+            captureScope,
+            captureId,
+            serverState,
+            freshFromCapture,
+            loadTemplates: () =>
+              consumePrefetchedTemplates({
+                captureScope,
+                companyId,
+                processId,
+                tableData,
+                captureId,
+              }),
+          }),
+        ]);
 
         setAccounts(accounts);
-
-
-
-        const rows = await populateSummaryRowsPure({
-
-          tableData,
-
-          processId,
-
-          processCode,
-
-          companyId,
-
-          captureScope,
-
-          captureId: readCaptureId(),
-
-          serverState,
-
-          freshFromCapture,
-
-        });
-
-
-
         replaceRows(rows);
 
         setTableChromeVisible(true);
@@ -256,7 +255,7 @@ export function useSummaryTableModel({
 
 
 
-  useEffect(() => {
+  useLayoutEffect(() => {
 
     if (!enabled || !hasCaptureData || !tableData) return;
 

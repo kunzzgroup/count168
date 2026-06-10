@@ -15,6 +15,7 @@ import AccountModal from "../../components/AccountModal.jsx";
 import SummaryActionBar from "./components/SummaryActionBar.jsx";
 
 import SummarySubmitBar from "./components/SummarySubmitBar.jsx";
+import SummaryPageLoading from "./components/SummaryPageLoading.jsx";
 
 import SummaryNotification from "./components/SummaryNotification.jsx";
 
@@ -216,6 +217,22 @@ function DataCaptureSummaryPureInner() {
 
 
 
+  const handleAccountCreated = useCallback(
+
+    async (newAccountId) => {
+
+      await refreshAccountList();
+
+      await editFormula.handleAccountCreated(newAccountId);
+
+    },
+
+    [refreshAccountList, editFormula.handleAccountCreated],
+
+  );
+
+
+
   const addAccount = useSummaryAddAccount({
 
     companyId: effectiveCompanyId,
@@ -226,7 +243,7 @@ function DataCaptureSummaryPureInner() {
 
     notify: overlays.showNotification,
 
-    onAccountCreated: refreshAccountList,
+    onAccountCreated: handleAccountCreated,
 
   });
 
@@ -515,7 +532,7 @@ function DataCaptureSummaryPureInner() {
 
       <div className="container">
 
-        <p style={{ padding: "12px 0", color: "#334155" }}>{t("loading") || "Loading..."}</p>
+        <SummaryPageLoading />
 
       </div>
 
@@ -530,7 +547,7 @@ function DataCaptureSummaryPureInner() {
     <div className="container">
 
       {sessionReady && dataPopulating && !tableChromeVisible ? (
-        <p style={{ padding: "12px 0", color: "#334155" }}>{t("loading") || "Loading..."}</p>
+        <SummaryPageLoading compact />
       ) : null}
 
       <SummaryActionBar

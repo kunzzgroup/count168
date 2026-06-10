@@ -130,6 +130,27 @@ export function useSummaryEditFormulaPure({
     [loadCurrenciesForAccount]
   );
 
+  const handleAccountCreated = useCallback(
+    async (newAccountId) => {
+      if (!open || !captureScope) return;
+      try {
+        const catalog = await fetchSummaryFormCatalog(captureScope);
+        const next = catalog.accounts || [];
+        setAccounts(next);
+        if (!newAccountId) return;
+        const match = next.find((a) => String(a.id) === String(newAccountId));
+        if (!match) return;
+        const id = String(match.id);
+        const label = String(match.account_display || match.account || match.name || id);
+        setForm((prev) => (prev ? { ...prev, accountId: id, accountText: label } : prev));
+        void loadCurrenciesForAccount(id);
+      } catch (e) {
+        console.error("Account list refresh after create failed:", e);
+      }
+    },
+    [open, captureScope, loadCurrenciesForAccount]
+  );
+
   const closeEditFormula = useCallback(() => {
     setOpen(false);
     setForm(null);
@@ -369,6 +390,7 @@ export function useSummaryEditFormulaPure({
     closeEditFormula,
     handleFormChange,
     handleAccountSelect,
+    handleAccountCreated,
     handleSave,
     handleCalculatorPress,
     onAddSelectedData: handleAddSelectedData,

@@ -37,6 +37,9 @@ import { buildSpaPath } from "../../../utils/core/apiUrl.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { markSummaryFreshNavigation } from "../../datacapturesummary/lib/summaryStorage.js";
+import { dataCaptureScopeLedgerCompanyId } from "../lib/dataCaptureScope.js";
+import { prefetchRouteModule } from "../../../utils/routing/routePrefetch.js";
+import { prefetchSummaryPopulateData } from "../../datacapturesummary/lib/summaryPrefetch.js";
 import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
 import { applyBridgeCaptureType, toggleBridgeFormatDisplay } from "../lib/dataCaptureBridge.js";
 import {
@@ -155,6 +158,7 @@ export function useDataCaptureSubmitReset({
 
     submitInFlightRef.current = true;
     setIsSubmitting(true);
+    prefetchRouteModule("/datacapturesummary");
     try {
       const processData = buildProcessCapturePayload(form, activeCaptureType, form.currencies, selectedDescriptions);
       if (groupOnlyCapture && isGroupOnlyProcessId(processData.process)) {
@@ -193,6 +197,13 @@ export function useDataCaptureSubmitReset({
           captureScope?.scopeCompanyId != null && Number(captureScope.scopeCompanyId) > 0
             ? Number(captureScope.scopeCompanyId)
             : null,
+      });
+
+      prefetchSummaryPopulateData({
+        captureScope,
+        companyId: dataCaptureScopeLedgerCompanyId(captureScope, processData),
+        processId: processData.process,
+        tableData: finalTableData,
       });
 
       markSummaryFreshNavigation();

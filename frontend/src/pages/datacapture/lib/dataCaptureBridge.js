@@ -6,6 +6,7 @@ import {
   getDataCaptureRuntime,
   getDataCaptureState,
 } from "./dataCaptureRuntime.js";
+import { pushDataCaptureNotification } from "./dataCaptureNotify.js";
 
 // --- Capture type / format display ---
 
@@ -110,7 +111,7 @@ export function runConvertTableOnSubmit(captureType) {
 }
 
 export function notifyPasteUser(message, level = "success") {
-  callDataCaptureRuntime("pushNotification", message, level);
+  pushDataCaptureNotification(message, level);
 }
 
 export function setTableActiveForPaste() {

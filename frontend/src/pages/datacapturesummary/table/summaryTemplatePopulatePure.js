@@ -115,6 +115,7 @@ export async function populateSummaryRowsPure({
   captureId = null,
   serverState = null,
   freshFromCapture = false,
+  loadTemplates = null,
 }) {
   const { entries, idProducts } = buildColumnAEntries(tableData);
   let rows = entries
@@ -127,13 +128,18 @@ export async function populateSummaryRowsPure({
     return rows;
   }
 
-  const { templates, subsByParent } = await fetchSummaryTemplates({
-    captureScope,
-    companyId,
-    idProducts,
-    processId,
-    captureId,
-  });
+  const fetchTemplates =
+    typeof loadTemplates === "function"
+      ? loadTemplates
+      : () =>
+          fetchSummaryTemplates({
+            captureScope,
+            companyId,
+            idProducts,
+            processId,
+            captureId,
+          });
+  const { templates, subsByParent } = await fetchTemplates();
 
   const suppressed = freshFromCapture ? new Set() : loadSuppressedRowKeys();
   const appliedMainKeys = new Set();
