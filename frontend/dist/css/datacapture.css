@@ -26,6 +26,19 @@ body.datacapture-page {
     --dc-layout-gap: clamp(12px, 1.15vw, 18px);
     --dc-top-col-left: minmax(0, 1.8fr);
     --dc-top-col-right: minmax(0, 1fr);
+    /* Group-only table: cap scroll area to remaining viewport (no empty filler below few rows) */
+    --dc-go-table-scroll-max: calc(
+        100dvh
+        - var(--layout-page-top-gap, 10px)
+        - 12px
+        - clamp(36px, 4.2vh, 52px)
+        - clamp(200px, 30vh, 300px)
+        - var(--dc-layout-gap)
+        - clamp(40px, 4.5vh, 52px)
+        - var(--dc-layout-gap)
+        - clamp(40px, 5vh, 56px)
+        - var(--dc-layout-gap)
+    );
 }
 
 body.datacapture-page {
@@ -124,7 +137,7 @@ body.datacapture-page .container {
     }
 
     body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
-        max-height: min(42vh, 360px);
+        max-height: none;
     }
 
     body.datacapture-page .form-container {
@@ -1641,21 +1654,20 @@ body.datacapture-page .excel-table-container {
     flex: 0 0 auto;
 }
 
-/* Group-only: fixed viewport band; extra rows scroll inside the table list */
+/* Group-only: shrink-wrap to row count; scroll only when rows exceed viewport */
 body.datacapture-page .bottom-section:has(.excel-table-container--group-only) {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 
 body.datacapture-page .excel-table-container--group-only {
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: 100%;
+    flex: 0 1 auto;
     height: auto;
+    max-height: none;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
 }
 
 body.datacapture-page .excel-table-container--group-only .excel-table-header {
@@ -1663,11 +1675,12 @@ body.datacapture-page .excel-table-container--group-only .excel-table-header {
 }
 
 body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
+    flex: 0 1 auto;
+    height: auto;
+    max-height: var(--dc-go-table-scroll-max);
+    overflow-x: auto;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: stable;
 }
 
 body.datacapture-page .excel-table-container--group-only .excel-table thead th {
