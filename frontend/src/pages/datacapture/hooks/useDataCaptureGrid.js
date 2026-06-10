@@ -11,6 +11,7 @@ import {
   DEFAULT_GRID_COLS,
   DEFAULT_GRID_ROWS,
   resolveDataCaptureGridDimensions,
+  resolveRestoreGridDimensions,
 } from "../grid/dataCaptureGridMeta.js";
 import {
   clearCaptureTableUiAfterGridClear,
@@ -80,10 +81,9 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
   const populateGridFromSnapshot = useCallback(
     (tableData) => {
       if (!tableData?.rows?.length) return false;
-      const requiredRows = tableData.rowCount || tableData.rows.length;
-      const requiredCols = Math.max(
-        tableData.colCount || (tableData.headers ? tableData.headers.length - 1 : 15),
-        15,
+      const { rows: requiredRows, cols: requiredCols } = resolveRestoreGridDimensions(
+        groupOnlyRef.current,
+        tableData,
       );
       replaceGrid(snapshotToGrid(tableData, requiredRows, requiredCols));
       return true;
@@ -135,6 +135,9 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
       replaceGrid: (grid) => handlersRef.current.replaceGrid(grid),
       getGridDimensions: readGridDimensionsBridge,
       clearCaptureTable: () => {
+        const groupOnly = getDataCaptureState().isGroupOnlyGrid === true;
+        const { rows, cols } = resolveDataCaptureGridDimensions(groupOnly);
+        handlersRef.current.ensureGridReady(rows, cols);
         handlersRef.current.clearGridCellsPure();
         clearCaptureTableUiAfterGridClear();
       },

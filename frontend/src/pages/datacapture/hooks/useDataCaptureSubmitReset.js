@@ -8,7 +8,11 @@ import {
   stripRestoreParamFromUrl,
 } from "../lib/dataCaptureStorage.js";
 import { isGroupOnlyProcessId } from "../lib/dataCaptureGroupOnlyProcesses.js";
-import { clearGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
+import {
+  clearGroupOnlyTableDraft,
+  flushGroupOnlyTableDraftToServer,
+  saveGroupOnlyTableDraft,
+} from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import {
   captureTableSnapshot,
   pickRicherTableSnapshot,
@@ -189,6 +193,27 @@ export function useDataCaptureSubmitReset({
         pushDataCaptureNotification(t("pleaseEnterTableData"), "danger");
         return;
       }
+
+      if (
+        groupOnlyCapture &&
+        selectedGroup &&
+        isGroupOnlyProcessId(form.selectedProcess?.id)
+      ) {
+        const draftPayload = {
+          tableData: preConvertSnapshot,
+          captureType: activeCaptureType,
+        };
+        saveGroupOnlyTableDraft(selectedGroup, form.selectedProcess.id, draftPayload, {
+          captureScope,
+        });
+        await flushGroupOnlyTableDraftToServer(
+          selectedGroup,
+          form.selectedProcess.id,
+          draftPayload,
+          captureScope,
+        );
+      }
+
       saveCaptureSession(finalTableData, processData, activeCaptureType, {
         groupOnly: groupOnlyCapture,
         selectedGroup,
@@ -226,14 +251,15 @@ export function useDataCaptureSubmitReset({
     clearSelectedDescriptions();
 
     if (groupOnlyCapture && selectedGroup && isGroupOnlyProcessId(form.selectedProcess?.id)) {
-      clearGroupOnlyTableDraft(selectedGroup, form.selectedProcess.id);
+      clearGroupOnlyTableDraft(selectedGroup, form.selectedProcess.id, { captureScope });
     }
 
+    const { rows, cols } = resolveDataCaptureGridDimensions(groupOnlyCapture);
+    callDataCaptureRuntime("ensureGridReady", rows, cols);
     const current = gridRef.current;
     if (current) {
       replaceGrid(clearGridCells(current));
     } else {
-      const { rows, cols } = resolveDataCaptureGridDimensions(groupOnlyCapture);
       replaceGrid(createEmptyGrid(rows, cols));
     }
     clearCaptureTableUiAfterGridClear();
@@ -248,6 +274,7 @@ export function useDataCaptureSubmitReset({
     recomputeSubmitState,
     groupOnlyCapture,
     selectedGroup,
+    captureScope,
     form.selectedProcess?.id,
     clearSelectedDescriptions,
     gridRef,

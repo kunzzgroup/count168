@@ -69,6 +69,7 @@ import { useDataCaptureFormat } from "./hooks/useDataCaptureFormat.js";
 import { useDataCapturePageLifecycle } from "./hooks/useDataCapturePageLifecycle.js";
 import { useDataCaptureDeleteDialog } from "./hooks/useDataCaptureDeleteDialog.js";
 import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
+import { useGroupOnlyTableDraftAutosave } from "./hooks/useGroupOnlyTableDraftAutosave.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
@@ -313,6 +314,13 @@ function DataCapturePageContent() {
     selectedGroup,
   });
   const { ensureGridReady } = useDataCaptureGrid(engineReady, groupOnlyTable);
+  useGroupOnlyTableDraftAutosave({
+    enabled: groupOnlyTable && !mutationsBlocked,
+    captureScope,
+    selectedGroup,
+    selectedProcessId: form.selectedProcess?.id,
+    captureType,
+  });
   useDataCapturePaste();
   useDataCaptureFormat();
 
