@@ -62,6 +62,45 @@ function dcSqlOrderByGroupPayrollProcessField(string $fieldExpr): string
 }
 
 /**
+ * Group payroll submitted list: SALARY(1), SALARY(2) when same code appears multiple times on one day.
+ * Rows must be sorted by created_at ASC before calling.
+ *
+ * @param array<int, array<string, mixed>> $rows
+ * @return array<int, array<string, mixed>>
+ */
+function dcAnnotateSameDayPayrollSubmissionLabels(array $rows): array
+{
+    $totals = [];
+    foreach ($rows as $row) {
+        $code = strtoupper(trim((string) ($row['process_code'] ?? '')));
+        if ($code === '') {
+            continue;
+        }
+        $totals[$code] = ($totals[$code] ?? 0) + 1;
+    }
+
+    $seqByCode = [];
+    $out = [];
+    foreach ($rows as $row) {
+        $code = strtoupper(trim((string) ($row['process_code'] ?? '')));
+        if ($code === '') {
+            $row['same_day_seq'] = 1;
+            $row['process_display'] = '';
+            $out[] = $row;
+            continue;
+        }
+        $seqByCode[$code] = ($seqByCode[$code] ?? 0) + 1;
+        $seq = $seqByCode[$code];
+        $multi = ($totals[$code] ?? 1) > 1;
+        $row['same_day_seq'] = $seq;
+        $row['process_display'] = $multi ? $code . '(' . $seq . ')' : $code;
+        $out[] = $row;
+    }
+
+    return $out;
+}
+
+/**
  * SQL fragment restricting to group-only processes (SALARY / COMMISSION / BONUS).
  */
 function dcSqlGroupProcessFilter(string $processAlias = 'p'): string

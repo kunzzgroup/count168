@@ -32,7 +32,10 @@ import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
 import "../../../public/css/datacapture.css";
 
-import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
+import {
+  formatGroupSubmittedProcessLabel,
+  formatSubmittedProcessDateTime,
+} from "./lib/dataCaptureApi.js";
 import { readCaptureSessionMeta } from "./lib/dataCaptureStorage.js";
 import {
   dataCaptureScopeCacheKey,
@@ -1064,9 +1067,11 @@ function DataCapturePageContent() {
                 submittedItems.map((process, index) => (
                   <div
                     key={
-                      process.id != null
-                        ? String(process.id)
-                        : `sub-${index}-${process.process_code}-${process.created_at || ""}-${process.submitted_by || ""}`
+                      process.capture_id != null
+                        ? `cap-${process.capture_id}`
+                        : process.id != null
+                          ? String(process.id)
+                          : `sub-${index}-${process.process_code}-${process.created_at || ""}-${process.submitted_by || ""}`
                     }
                     className="submitted-item"
                   >
@@ -1074,7 +1079,7 @@ function DataCapturePageContent() {
                       <div className="detail-row">
                         <strong>
                           {captureScope?.mode === "group"
-                            ? process.process_code
+                            ? formatGroupSubmittedProcessLabel(process)
                             : `${process.process_code}${process.description_name ? ` (${process.description_name})` : ""}`}
                         </strong>
                         <div className="submitted-meta">

@@ -339,6 +339,18 @@ export function displayTextFromProcessRow(process) {
   return process.process_id;
 }
 
+/** Group submitted list: SALARY(1), SALARY(2) when API provides same_day_seq / process_display. */
+export function formatGroupSubmittedProcessLabel(process) {
+  const display = process?.process_display != null ? String(process.process_display).trim() : "";
+  if (display) return display;
+  const code = String(process?.process_code ?? process?.process_id ?? "").trim().toUpperCase();
+  const seq = Number(process?.same_day_seq);
+  if (code && Number.isFinite(seq) && seq > 1) {
+    return `${code}(${seq})`;
+  }
+  return code;
+}
+
 /** GET addprocess_api.php — returns `descriptions` at top level (and under `data`). */
 export async function fetchDescriptionCatalog(scopeOrCompanyId) {
   const scope =

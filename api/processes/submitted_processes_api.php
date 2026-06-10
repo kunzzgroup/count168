@@ -379,9 +379,63 @@ function getSubmissionsByDate($user_id)
 }
 
 // 根据 capture_date 获取提交的processes（按选择的日期归类，显示提交日期）
+/**
+ * Group scope: one submitted-process row per data_captures row (allows multiple SALARY/COMMISSION/BONUS per day).
+ *
+ * @param array<int, string|int> $permissionProcessIds
+ * @return array<int, array<string, mixed>>
+ */
+function dcFetchGroupPayrollSubmissionsByCaptureDate(
+    PDO $pdo,
+    array $captureScopeCtx,
+    int $processCompanyId,
+    string $captureDate,
+    string $permissionCondition,
+    array $permissionProcessIds
+): array {
+    $ledgerDc = dcSubmittedLedgerFilter('dc', 'data_captures');
+    $scopeProcessFilter = dcSubmittedProcessScopeFilter('p');
+
+    $stmt = $pdo->prepare("
+        SELECT
+            dc.id AS capture_id,
+            dc.process_id,
+            DATE_FORMAT(dc.capture_date, '%Y-%m-%d') AS date_submitted,
+            dc.capture_date,
+            dc.created_at,
+            dc.user_type,
+            p.process_id AS process_code,
+            d.name AS description_name,
+            COALESCE(u.login_id, o.owner_code) AS submitted_by
+        FROM data_captures dc
+        JOIN process p ON dc.process_id = p.id
+        LEFT JOIN description d ON p.description_id = d.id
+        LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
+        LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
+        WHERE 1=1
+          {$ledgerDc['sql']}
+          AND DATE(dc.capture_date) = ?
+          AND p.company_id = ?
+        {$scopeProcessFilter}
+        {$permissionCondition}
+        ORDER BY dc.created_at ASC, dc.id ASC
+    ");
+
+    $params = array_merge(
+        dcCaptureLedgerBindParams($ledgerDc),
+        [$captureDate, $processCompanyId],
+        $permissionProcessIds
+    );
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $labeled = dcAnnotateSameDayPayrollSubmissionLabels($rows);
+
+    return array_reverse($labeled);
+}
+
 function getSubmissionsByCaptureDate($user_id)
 {
-    global $pdo, $company_id, $capture_scope_ctx;
+    global $pdo, $company_id, $capture_scope_ctx, $capture_scope_group;
 
     try {
         // 使用全局的 $company_id（已经过验证）
@@ -485,6 +539,23 @@ function getSubmissionsByCaptureDate($user_id)
             : "DATE(spx.date_submitted) = DATE(dc.capture_date)";
 
         $scopeProcessFilter = dcSubmittedProcessScopeFilter('p');
+
+        if ($capture_scope_group) {
+            $submissions = dcFetchGroupPayrollSubmissionsByCaptureDate(
+                $pdo,
+                $capture_scope_ctx,
+                (int) $processCompanyId,
+                $capture_date,
+                $permissionCondition,
+                !empty($processIds) ? $processIds : []
+            );
+            echo json_encode([
+                'success' => true,
+                'data' => $submissions,
+                'capture_date' => $capture_date,
+            ]);
+            return;
+        }
 
         // 合并 submitted_processes 与已有 data_captures（Summary 成功但 save_submission 未写入时仍能显示/去重）
         $stmt = $pdo->prepare("
@@ -782,48 +853,51 @@ function saveSubmission($user_id)
         $storeCompanyId = (int) ($scopeInsert['company_id'] ?? $expectedProcessCompanyId);
         $useScopeColumns = !empty($capture_scope_ctx['submitted_dual_tenant']);
 
-        if ($useScopeColumns) {
-            $checkStmt = $pdo->prepare("
-                SELECT id FROM submitted_processes 
-                WHERE scope_type = ?
-                  AND scope_id = ?
-                  AND user_id = ? 
-                  AND user_type = ? 
-                  AND process_id = ? 
-                  AND date_submitted = ?
-                LIMIT 1
-            ");
-            $checkStmt->execute([
-                $scopeInsert['scope_type'],
-                $scopeInsert['scope_id'],
-                $user_id,
-                $user_type,
-                $process_id,
-                $date_submitted,
-            ]);
-        } else {
-            $checkStmt = $pdo->prepare("
-                SELECT id FROM submitted_processes 
-                WHERE company_id = ? 
-                  AND user_id = ? 
-                  AND user_type = ? 
-                  AND process_id = ? 
-                  AND date_submitted = ?
-                LIMIT 1
-            ");
-            $checkStmt->execute([$storeCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
-        }
-        $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        // Group payroll: allow multiple submissions per process per capture day (list uses data_captures).
+        if (!$capture_scope_group) {
+            if ($useScopeColumns) {
+                $checkStmt = $pdo->prepare("
+                    SELECT id FROM submitted_processes 
+                    WHERE scope_type = ?
+                      AND scope_id = ?
+                      AND user_id = ? 
+                      AND user_type = ? 
+                      AND process_id = ? 
+                      AND date_submitted = ?
+                    LIMIT 1
+                ");
+                $checkStmt->execute([
+                    $scopeInsert['scope_type'],
+                    $scopeInsert['scope_id'],
+                    $user_id,
+                    $user_type,
+                    $process_id,
+                    $date_submitted,
+                ]);
+            } else {
+                $checkStmt = $pdo->prepare("
+                    SELECT id FROM submitted_processes 
+                    WHERE company_id = ? 
+                      AND user_id = ? 
+                      AND user_type = ? 
+                      AND process_id = ? 
+                      AND date_submitted = ?
+                    LIMIT 1
+                ");
+                $checkStmt->execute([$storeCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
+            }
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($existing) {
-            error_log("Submission already exists with ID: " . $existing['id']);
-            echo json_encode([
-                'success' => true,
-                'submission_id' => $existing['id'],
-                'message' => 'Submission already exists',
-                'already_exists' => true
-            ]);
-            return;
+            if ($existing) {
+                error_log("Submission already exists with ID: " . $existing['id']);
+                echo json_encode([
+                    'success' => true,
+                    'submission_id' => $existing['id'],
+                    'message' => 'Submission already exists',
+                    'already_exists' => true,
+                ]);
+                return;
+            }
         }
 
         // Try to insert with capture_date field (if it exists in the table)
