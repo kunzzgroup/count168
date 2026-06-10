@@ -9,6 +9,7 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
+require_once __DIR__ . '/../../includes/group_scope_resolve.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 require_once __DIR__ . '/../api_response.php';
 
@@ -203,6 +204,147 @@ function getUserRoleInCompany(PDO $pdo, int $userId, int $companyId): string {
  * @param list<int> $scopeCompanyIds
  * @return array{current: array<string, mixed>, isOwnerShadow: bool, targetRole: string}|null
  */
+function toggle_assert_group_id_allowed(PDO $pdo, string $groupId): bool
+{
+    $g = toggle_normalize_group_id($groupId);
+    if ($g === null) {
+        return false;
+    }
+
+    toggle_fetch_accessible_companies($pdo);
+
+    if (gc_session_can_access_group_code($pdo, $g)) {
+        return true;
+    }
+    if (function_exists('gc_session_can_access_group_ledger') && gc_session_can_access_group_ledger($pdo, $g)) {
+        return true;
+    }
+    if (function_exists('gc_session_assigned_group_codes') && in_array($g, gc_session_assigned_group_codes(), true)) {
+        return true;
+    }
+    if (gc_is_group_login()) {
+        $accessible = gc_session_accessible_group_ids();
+        if ($accessible === [] || in_array($g, $accessible, true)) {
+            $ident = gc_session_login_identifier();
+            return $accessible !== [] || $ident === null || $ident === $g;
+        }
+        return false;
+    }
+
+    $role = isset($_SESSION['role']) ? strtolower(trim((string) $_SESSION['role'])) : '';
+    if ($role === 'owner') {
+        $accessible = gc_session_accessible_group_ids();
+        return $accessible === [] || in_array($g, $accessible, true);
+    }
+
+    return false;
+}
+
+function toggle_table_exists(PDO $pdo, string $table): bool
+{
+    try {
+        return $pdo->query('SHOW TABLES LIKE ' . $pdo->quote($table))->rowCount() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function toggle_ucm_has_scope_columns(PDO $pdo): bool
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    try {
+        $cache = $pdo->query("SHOW COLUMNS FROM user_company_map LIKE 'scope_type'")->rowCount() > 0;
+    } catch (Throwable $e) {
+        $cache = false;
+    }
+
+    return $cache;
+}
+
+/** @return list<int> */
+function toggle_fetch_group_only_user_ids(PDO $pdo, string $groupScope): array
+{
+    $g = toggle_normalize_group_id($groupScope);
+    if ($g === null) {
+        return [];
+    }
+
+    $groupPk = gc_resolve_group_pk_by_code($pdo, $g);
+    $ids = [];
+
+    if (toggle_table_exists($pdo, 'user_group_map')) {
+        if ($groupPk > 0) {
+            $stmt = $pdo->prepare('SELECT user_id FROM user_group_map WHERE group_id = ?');
+            $stmt->execute([$groupPk]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+                $ids[(int) $uid] = true;
+            }
+        }
+        if (gc_has_groups_table($pdo)) {
+            try {
+                $stmt = $pdo->prepare('
+                    SELECT ugm.user_id
+                    FROM user_group_map ugm
+                    INNER JOIN `groups` grp ON grp.id = ugm.group_id
+                    WHERE UPPER(TRIM(grp.group_code)) = ?
+                ');
+                $stmt->execute([$g]);
+                foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+                    $ids[(int) $uid] = true;
+                }
+            } catch (Throwable $e) {
+                // fall through
+            }
+        }
+    }
+
+    if ($groupPk > 0 && toggle_ucm_has_scope_columns($pdo)) {
+        $stmt = $pdo->prepare("
+            SELECT user_id FROM user_company_map
+            WHERE scope_type = 'group' AND scope_id = ?
+        ");
+        $stmt->execute([$groupPk]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+            $ids[(int) $uid] = true;
+        }
+    }
+
+    return array_values(array_filter(array_map('intval', array_keys($ids)), static fn (int $id): bool => $id > 0));
+}
+
+/**
+ * Group-only ledger users are bound via user_group_map, not subsidiary user_company_map.
+ *
+ * @return array{current: array<string, mixed>, isOwnerShadow: bool, targetRole: string}|null
+ */
+function toggle_find_group_only_target(PDO $pdo, int $targetId, string $groupScope): ?array
+{
+    if (!toggle_assert_group_id_allowed($pdo, $groupScope)) {
+        return null;
+    }
+
+    $allowed = toggle_fetch_group_only_user_ids($pdo, $groupScope);
+    if (!in_array($targetId, $allowed, true)) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare('SELECT status, role FROM user WHERE id = ? LIMIT 1');
+    $stmt->execute([$targetId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return null;
+    }
+
+    return [
+        'current' => ['status' => $row['status']],
+        'isOwnerShadow' => false,
+        'targetRole' => strtolower(trim((string) ($row['role'] ?? ''))),
+    ];
+}
+
 function toggle_find_target(PDO $pdo, int $targetId, array $scopeCompanyIds): ?array
 {
     foreach ($scopeCompanyIds as $companyId) {
@@ -270,17 +412,28 @@ try {
 
     $postedCompanyId = (int) ($_POST['company_id'] ?? 0);
     $groupId = toggle_normalize_group_id($_POST['group_id'] ?? null);
-    $scopeCompanyIds = toggle_resolve_scope_company_ids(
-        $pdo,
-        $postedCompanyId > 0 ? $postedCompanyId : null,
-        $groupId
+    $groupOnlyRequest = $groupId !== null && (
+        !empty($_POST['group_only']) || !empty($_POST['group_aggregate'])
     );
-    if ($scopeCompanyIds === []) {
-        api_error('无权限操作此用户', 403);
-        exit;
+
+    $target = null;
+    if ($groupOnlyRequest) {
+        $target = toggle_find_group_only_target($pdo, $id, $groupId);
     }
 
-    $target = toggle_find_target($pdo, $id, $scopeCompanyIds);
+    if ($target === null) {
+        $scopeCompanyIds = toggle_resolve_scope_company_ids(
+            $pdo,
+            $postedCompanyId > 0 ? $postedCompanyId : null,
+            $groupId
+        );
+        if ($scopeCompanyIds === []) {
+            api_error('无权限操作此用户', 403);
+            exit;
+        }
+        $target = toggle_find_target($pdo, $id, $scopeCompanyIds);
+    }
+
     if ($target === null) {
         api_error('无权限操作此用户', 403);
         exit;

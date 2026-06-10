@@ -1823,7 +1823,10 @@ export default function UserListPage() {
       const useGroupScopeForToggle = groupOnlyUserList && !!selectedGroup;
       const toggleCompanyId = useGroupScopeForToggle ? scopeCompanyId : (groupOnlyUserList ? scopeCompanyId : companyId);
       if (toggleCompanyId != null) fd.append("company_id", String(toggleCompanyId));
-      if (useGroupScopeForToggle) fd.append("group_id", selectedGroup);
+      if (useGroupScopeForToggle) {
+        fd.append("group_id", selectedGroup);
+        fd.append("group_only", "1");
+      }
       const res = await fetch(buildApiUrl("api/users/toggle_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json(); const newStatus = json?.data?.newStatus || json?.newStatus;
       if (!json.success || !newStatus) { notifyApi(json.message, "toggleFailed", "danger"); return; }
