@@ -1814,6 +1814,28 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     box-sizing: border-box !important;
 }
 
+.company-expiration-react-modal .modal-header.company-expiration-modal-header {
+    padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
+    border-bottom: 1px solid var(--color-border-slate);
+    background: var(--color-surface-slate-50);
+    box-sizing: border-box;
+}
+
+.company-expiration-react-modal .modal-header.company-expiration-modal-header h2 {
+    margin: 0;
+    padding: 0;
+    width: auto;
+    border: none;
+    background: transparent;
+    color: var(--color-ink-muted);
+    font-size: clamp(14px, 1.25vw, 24px);
+    font-weight: 700;
+}
+
+.company-expiration-react-modal .modal-header.company-expiration-modal-header .account-close {
+    margin-right: 6px !important;
+}
+
 .company-expiration-react-modal > .close {
     position: absolute;
     right: 20px;
