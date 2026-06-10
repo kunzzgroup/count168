@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { accountModalOverlayZIndex, accountCompanyPickerZIndex } from "./ProcessModalPortal.jsx";
 
@@ -50,6 +50,8 @@ export default function AccountModal({
   const [companySearchQuery, setCompanySearchQuery] = useState("");
   /** Draft selection inside company picker; committed only on Done */
   const [draftCompanyIds, setDraftCompanyIds] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const closeCompanyPicker = () => {
     setCompanyPickerOpen(false);
@@ -59,8 +61,21 @@ export default function AccountModal({
   useEffect(() => {
     if (!open) {
       closeCompanyPicker();
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   }, [open]);
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    Promise.resolve(onSubmit?.(e)).finally(() => {
+      submittingRef.current = false;
+      setSubmitting(false);
+    });
+  };
 
   useEffect(() => {
     if (companyPickerOpen) {
@@ -205,7 +220,7 @@ export default function AccountModal({
           <span className="account-close" onClick={onClose} role="button" tabIndex={0} aria-label="Close" onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose(); } }} />
         </div>
         <div className="account-modal-body">
-          <form className="account-form" onSubmit={onSubmit}>
+          <form className="account-form" onSubmit={handleFormSubmit}>
             <div className="account-form-columns">
               <div className="account-form-column">
                 <h3 className="account-section-header">{text("personalInformation")}</h3>
@@ -395,8 +410,8 @@ export default function AccountModal({
             </div>
 
             <div className="account-form-actions">
-              <button type="submit" className="account-btn account-btn-save">
-                {isEditMode ? text("updateAccount") : text("addAccount")}
+              <button type="submit" className="account-btn account-btn-save" disabled={submitting}>
+                {submitting ? text("saving") : isEditMode ? text("updateAccount") : text("addAccount")}
               </button>
               <button type="button" className="account-btn account-btn-cancel" onClick={onClose}>
                 {text("cancel")}
