@@ -1,4 +1,8 @@
-import { MAX_GRID_ROWS } from "../../grid/dataCaptureGridMeta.js";
+import {
+  GROUP_ONLY_GRID_COLS,
+  GROUP_ONLY_GRID_ROWS,
+  MAX_GRID_ROWS,
+} from "../../grid/dataCaptureGridMeta.js";
 import { applyMatrixPatch, findLastFilledGridRowIndex, gridRowHasEditableData, resizeGrid } from "../../grid/gridModel.js";
 import { parseAndFillHTMLTable } from "./dataCaptureParseGenericHtml.js";
 import {
@@ -10,15 +14,24 @@ import {
   replacePasteGridModel,
   recomputeSubmitStateAfterPaste,
 } from "../../lib/dataCaptureBridge.js";
+import { getDataCaptureState } from "../../lib/dataCaptureRuntime.js";
 
 export function parseGenericHtmlTable(htmlString, startCell) {
   return parseAndFillHTMLTable(htmlString, startCell);
 }
 
+function pasteGridCaps() {
+  if (getDataCaptureState().isGroupOnlyGrid === true) {
+    return { maxRows: GROUP_ONLY_GRID_ROWS, maxCols: GROUP_ONLY_GRID_COLS };
+  }
+  return { maxRows: MAX_GRID_ROWS, maxCols: MAX_GRID_ROWS };
+}
+
 /** Shared grid helpers for paste modules (no legacy script required). */
 export function ensurePasteGrid(rows, cols) {
-  const targetRows = Math.max(1, Math.min(Number(rows) || 1, MAX_GRID_ROWS));
-  const targetCols = Math.max(1, Number(cols) || 1);
+  const { maxRows, maxCols } = pasteGridCaps();
+  const targetRows = Math.max(1, Math.min(Number(rows) || 1, maxRows));
+  const targetCols = Math.max(1, Math.min(Number(cols) || 1, maxCols));
   let grid = getPasteGridModel();
 
   if (!grid || grid.rows < 1 || grid.cols < 1) {
@@ -139,8 +152,9 @@ export function ensureGridFits(startRow, startCol, matrixRows, matrixCols) {
   const requiredCols = startCol + matrixCols;
   if (requiredRows <= currentRows && requiredCols <= currentCols) return;
 
-  const targetRows = Math.max(currentRows, Math.min(requiredRows, MAX_GRID_ROWS));
-  const targetCols = Math.max(currentCols, requiredCols);
+  const { maxRows, maxCols } = pasteGridCaps();
+  const targetRows = Math.max(currentRows, Math.min(requiredRows, maxRows));
+  const targetCols = Math.max(currentCols, Math.min(requiredCols, maxCols));
   ensurePasteGrid(targetRows, targetCols);
 }
 

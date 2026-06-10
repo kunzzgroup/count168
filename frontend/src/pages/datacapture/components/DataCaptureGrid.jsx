@@ -38,8 +38,10 @@ function DataCaptureGrid({ engineReady = false }) {
     );
   }
 
+  const gridStructureKey = `dc-grid-${grid.rows}-${grid.cols}-v${gridVersion}`;
+
   return (
-    <table className="excel-table" id="dataTable">
+    <table className="excel-table" id="dataTable" key={gridStructureKey}>
       <thead id="tableHeader">
         <tr>
           <th />
@@ -57,7 +59,7 @@ function DataCaptureGrid({ engineReady = false }) {
           ))}
         </tr>
       </thead>
-      <tbody id="tableBody" key={`grid-${grid.rows}-${grid.cols}`}>
+      <tbody id="tableBody">
         {grid.cells.map((row, rowIndex) => (
           <tr key={`row-${rowIndex}`}>
             <td

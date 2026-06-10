@@ -1,6 +1,5 @@
 import { loadActiveCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
 import { saveGroupOnlyProcessPrefsFromProcessData } from "../../datacapture/lib/dataCaptureGroupOnlyProcessPersistence.js";
-import { saveGroupOnlyTableDraftFromCaptureSession } from "../../datacapture/lib/dataCaptureGroupOnlyTableDraft.js";
 import { clearSummaryCaptureRoundStorage } from "./summaryStorage.js";
 
 export function buildSummaryRestoreCapturePath(companyId, options = {}) {
@@ -31,7 +30,6 @@ export function clearSummarySessionAfterSubmit(options = {}) {
   if (options.groupOnly === true) {
     const session = loadActiveCaptureSession();
     if (session?.processData) {
-      saveGroupOnlyTableDraftFromCaptureSession(session);
       saveGroupOnlyProcessPrefsFromProcessData(session.processData, session.processData.captureSelectedGroup);
     }
   }

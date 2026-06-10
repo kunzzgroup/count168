@@ -12,12 +12,17 @@ import {
 import { dataCaptureQueryKeys } from "../lib/dataCaptureApi.js";
 import { dataCaptureScopeCacheKey, dataCaptureScopeIsReady } from "../lib/dataCaptureScope.js";
 import {
+  clearGroupOnlyProcessPrefs,
   readGroupOnlyProcessPrefs,
   saveGroupOnlyProcessPrefs,
   selectedProcessFromGroupOnlyPrefs,
 } from "../lib/dataCaptureGroupOnlyProcessPersistence.js";
 import { selectedProcessFromGroupOnlySession } from "../lib/dataCaptureGroupOnlyProcesses.js";
-import { restoreGroupOnlyTableDraft, saveGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
+import {
+  cancelAllScheduledServerDraftSaves,
+  restoreGroupOnlyTableDraft,
+  saveGroupOnlyTableDraft,
+} from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
 import { captureTableSnapshot } from "../lib/dataCaptureTableSnapshot.js";
 import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
@@ -336,13 +341,25 @@ export function useDataCaptureFormEngine(
       description_name: null,
     };
     const prev = selectedProcessRef.current;
+    cancelAllScheduledServerDraftSaves();
+
     if (prev?.id && prev.id !== next.id) {
       const activeCaptureType = getBridgeCaptureType("1.Text");
-      saveGroupOnlyTableDraft(selectedGroupRef.current, prev.id, {
-        tableData: captureTableSnapshot(activeCaptureType),
-        captureType: activeCaptureType,
-      });
+      saveGroupOnlyTableDraft(
+        selectedGroupRef.current,
+        prev.id,
+        {
+          tableData: captureTableSnapshot(activeCaptureType),
+          captureType: activeCaptureType,
+        },
+        { captureScope: captureScopeRef.current, flush: true },
+      );
     }
+
+    if (prev?.id !== next.id) {
+      callDataCaptureRuntime("clearCaptureTable");
+    }
+
     setSelectedProcess(next);
     saveGroupOnlyProcessPrefs(selectedGroupRef.current, {
       process: next.id,
@@ -353,10 +370,14 @@ export function useDataCaptureFormEngine(
     });
     setProcessOpen(false);
     setProcessFilter("");
-    void restoreGroupOnlyTableDraft(selectedGroupRef.current, next.id);
-    setTimeout(() => {
-      callDataCaptureRuntime("recomputeSubmitState");
-    }, 0);
+
+    void restoreGroupOnlyTableDraft(selectedGroupRef.current, next.id, {
+      captureScope: captureScopeRef.current,
+    }).finally(() => {
+      setTimeout(() => {
+        callDataCaptureRuntime("recomputeSubmitState");
+      }, 0);
+    });
   }, [currencyId, captureDate]);
 
   const selectProcessRow = useCallback(async (row) => {
@@ -407,19 +428,34 @@ export function useDataCaptureFormEngine(
   const applyGroupOnlyPrefsForGroup = useCallback((groupId) => {
     if (applyCompanyOnlyFieldsRef.current) return;
     const prefs = readGroupOnlyProcessPrefs(groupId);
-    const proc = selectedProcessFromGroupOnlyPrefs(prefs);
-    setSelectedProcess(proc);
     if (prefs?.currency) setCurrencyId(String(prefs.currency));
     if (prefs?.date) setCaptureDate(String(prefs.date));
-    if (proc?.id) {
-      void restoreGroupOnlyTableDraft(groupId, proc.id);
-    }
+    setSelectedProcess(null);
+    callDataCaptureRuntime("clearCaptureTable");
     setTimeout(() => {
       callDataCaptureRuntime("recomputeSubmitState");
     }, 0);
   }, []);
 
   const clearProcessSelection = useCallback(() => {
+    if (!applyCompanyOnlyFieldsRef.current) {
+      const prev = selectedProcessRef.current;
+      cancelAllScheduledServerDraftSaves();
+      if (prev?.id) {
+        const activeCaptureType = getBridgeCaptureType("1.Text");
+        saveGroupOnlyTableDraft(
+          selectedGroupRef.current,
+          prev.id,
+          {
+            tableData: captureTableSnapshot(activeCaptureType),
+            captureType: activeCaptureType,
+          },
+          { captureScope: captureScopeRef.current, flush: true },
+        );
+        clearGroupOnlyProcessPrefs(selectedGroupRef.current);
+      }
+      callDataCaptureRuntime("clearCaptureTable");
+    }
     setSelectedProcess(null);
     setCurrencyId("");
     if (applyCompanyOnlyFieldsRef.current) {
@@ -577,7 +613,21 @@ export function useDataCaptureFormEngine(
     persistGroupOnlyFormPrefs();
   }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, currencyId, captureDate, persistGroupOnlyFormPrefs]);
 
-  /** Restore saved group-only table draft when process is pre-selected or grid becomes ready. */
+  /** Clear capture grid when group-only mode has no process selected. */
+  useEffect(() => {
+    if (applyCompanyOnlyFields || !selectedGroup || !engineReady) return;
+    if (selectedProcess?.id) return;
+    if (getDataCaptureState().isRestoring) return;
+    try {
+      if (new URLSearchParams(window.location.search).get("restore") === "1") return;
+    } catch {
+      /* ignore */
+    }
+    callDataCaptureRuntime("clearCaptureTable");
+    callDataCaptureRuntime("recomputeSubmitState");
+  }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, engineReady]);
+
+  /** Restore saved group-only table draft only after user selects a process. */
   useEffect(() => {
     if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
     if (!engineReady) return;
@@ -588,12 +638,13 @@ export function useDataCaptureFormEngine(
     } catch {
       /* ignore */
     }
-    void restoreGroupOnlyTableDraft(selectedGroup, selectedProcess.id);
+    void restoreGroupOnlyTableDraft(selectedGroup, selectedProcess.id, { captureScope });
   }, [
     applyCompanyOnlyFields,
     selectedGroup,
     selectedProcess?.id,
     engineReady,
+    captureScope,
   ]);
 
   return {

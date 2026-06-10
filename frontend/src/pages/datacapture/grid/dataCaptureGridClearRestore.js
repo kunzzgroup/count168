@@ -12,55 +12,15 @@ import {
   toggleTableDisplayForFormat,
 } from "../format/dataCaptureFormat.js";
 import { normalizeCaptureType } from "../lib/dataCaptureFormRules.js";
-import { resolveDataCaptureGridDimensions } from "./dataCaptureGridMeta.js";
+import { resolveRestoreGridDimensions } from "./dataCaptureGridMeta.js";
 import {
   buildFormatPreviewHtmlFromTableSnapshot,
   tableSnapshotHasData,
 } from "../lib/dataCaptureTableSnapshot.js";
 import { callDataCaptureRuntime, getDataCaptureState } from "../lib/dataCaptureRuntime.js";
 
-function activeGridDimensions() {
-  return resolveDataCaptureGridDimensions(getDataCaptureState().isGroupOnlyGrid === true);
-}
-
-function rebuildDefaultColumnHeaders(headerRow, cols) {
-  headerRow.innerHTML = "<th></th>";
-  for (let j = 0; j < cols; j += 1) {
-    const header = document.createElement("th");
-    header.textContent = String(j + 1);
-    callDataCaptureRuntime("attachColumnHeader", header);
-    headerRow.appendChild(header);
-  }
-}
-
-/** Format / header chrome reset without clearing tbody cell values. */
+/** Format / selection chrome reset — thead/tbody structure is owned by React. */
 export function clearCaptureTableUiAfterGridClear() {
-  const tableHeader = document.getElementById("tableHeader");
-  if (tableHeader) {
-    const headerRow = tableHeader.querySelector("tr");
-    if (headerRow) {
-      const headerCells = headerRow.querySelectorAll("th");
-      const currentCols = headerCells.length - 1;
-
-      headerCells.forEach((cell, index) => {
-        if (index === 0) return;
-        cell.removeAttribute("style");
-        const essentialClasses = ["column-selected", "column-active"];
-        Array.from(cell.classList).forEach((cls) => {
-          if (!essentialClasses.includes(cls)) {
-            cell.classList.remove(cls);
-          }
-        });
-        cell.textContent = String(index);
-        cell.innerHTML = String(index);
-      });
-
-      if (currentCols === 0) {
-        rebuildDefaultColumnHeaders(headerRow, activeGridDimensions().cols);
-      }
-    }
-  }
-
   clearFormatStyles();
 
   const pasteAreaFormat = document.getElementById("pasteAreaFormat");
@@ -91,17 +51,18 @@ export function clearCaptureTableUiAfterGridClear() {
 export async function restoreCaptureTableFromData(tableData, savedType) {
   const type = normalizeCaptureType(savedType || "1.Text") || "1.Text";
 
+  const groupOnly = getDataCaptureState().isGroupOnlyGrid === true;
+
   if (!tableData?.rows?.length) {
     callDataCaptureRuntime("applyCaptureType", type);
-    const { rows, cols } = activeGridDimensions();
+    const { rows, cols } = resolveRestoreGridDimensions(groupOnly, null);
     callDataCaptureRuntime("ensureGridReady", rows, cols);
     return;
   }
 
-  const requiredRows = tableData.rowCount || tableData.rows.length;
-  const requiredCols = Math.max(
-    tableData.colCount || (tableData.headers ? tableData.headers.length - 1 : 15),
-    15,
+  const { rows: requiredRows, cols: requiredCols } = resolveRestoreGridDimensions(
+    groupOnly,
+    tableData,
   );
 
   callDataCaptureRuntime("ensureGridReady", requiredRows, requiredCols);

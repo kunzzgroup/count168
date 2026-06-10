@@ -37,7 +37,16 @@ import {
   showRowContextMenu,
 } from "../lib/dataCaptureContextMenu.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
-import { callDataCaptureRuntime, registerDataCaptureRuntime, unregisterDataCaptureRuntime } from "../lib/dataCaptureRuntime.js";
+import {
+  callDataCaptureRuntime,
+  getDataCaptureState,
+  registerDataCaptureRuntime,
+  unregisterDataCaptureRuntime,
+} from "../lib/dataCaptureRuntime.js";
+
+function isGroupOnlyFixedGrid() {
+  return getDataCaptureState().isGroupOnlyGrid === true;
+}
 
 function withTargetEvent(e, target) {
   if (e.target === target) return e;
@@ -111,6 +120,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     const getGrid = () => apiRef.current.gridRef.current;
 
     const insertColumnLeft = () => {
+      if (isGroupOnlyFixedGrid()) return;
       const col = getContextMenuColumnIndex();
       const grid = getGrid();
       if (col === null || col < 0 || !grid) return;
@@ -121,6 +131,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const insertColumnRight = () => {
+      if (isGroupOnlyFixedGrid()) return;
       const col = getContextMenuColumnIndex();
       const grid = getGrid();
       if (col === null || col < 0 || !grid) return;
@@ -131,6 +142,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const deleteColumn = () => {
+      if (isGroupOnlyFixedGrid()) return;
       const grid = getGrid();
       if (!grid) return;
       const indices = getSelectedColumnIndices();
@@ -157,6 +169,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const insertRowAbove = () => {
+      if (isGroupOnlyFixedGrid()) return;
       const row = getContextMenuRowIndex();
       const grid = getGrid();
       if (row === null || row < 0 || !grid) return;
@@ -167,6 +180,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const insertRowBelow = () => {
+      if (isGroupOnlyFixedGrid()) return;
       const row = getContextMenuRowIndex();
       const grid = getGrid();
       if (row === null || row < 0 || !grid) return;
@@ -177,6 +191,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const deleteRow = () => {
+      if (isGroupOnlyFixedGrid()) return;
       const grid = getGrid();
       if (!grid) return;
       const indices = getSelectedRowIndices();
@@ -203,6 +218,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const appendGridRow = () => {
+      if (isGroupOnlyFixedGrid()) return null;
       const grid = getGrid();
       if (!grid) return null;
       const next = appendRowInGrid(grid);
@@ -212,6 +228,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const appendGridColumn = () => {
+      if (isGroupOnlyFixedGrid()) return null;
       const grid = getGrid();
       if (!grid) return null;
       const next = appendColumnInGrid(grid);
