@@ -131,7 +131,7 @@ export default function EditFormulaModal({
                   </div>
                 </div>
 
-                <div className="form-row">
+                <div className="form-row account-form-row">
                   <div className="form-group">
                     <label htmlFor="account">{t("account")}</label>
                     <div className="account-select-with-buttons">

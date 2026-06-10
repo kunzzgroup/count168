@@ -186,7 +186,7 @@ export function useSummaryPageActionsPure({
 
       saveSummaryRefreshStatePure(rows, { processId, processCode }, captureScope);
 
-      await runPopulate?.({ reset: true });
+      await runPopulate?.();
 
     } finally {
 

@@ -957,6 +957,8 @@
             display: flex;
             flex-direction: column;
             gap: clamp(6px, 0.52vw, 10px);
+            position: relative;
+            z-index: 2;
         }
         
         
@@ -968,10 +970,12 @@
         
         .edit-formula-form-container .form-left-column .account-select-with-buttons {
             width: 100%;
+            min-width: 0;
+            flex: 1;
         }
         
         .edit-formula-form-container .form-left-column .account-select-with-buttons .custom-select-wrapper {
-            width: 100%;
+            flex: 1;
             min-width: 0;
         }
         
@@ -1055,7 +1059,7 @@
             padding-left: 0px;
             box-sizing: border-box;
             position: relative;
-            z-index: 2;
+            z-index: 1;
         }
         
         .edit-formula-form-container .form-middle-column .form-group {
@@ -1616,15 +1620,22 @@
         }
         
         /* Ensure account dropdown wrapper allows overflow */
+        #editFormulaModal .account-form-row {
+            position: relative;
+            z-index: 5;
+        }
+
         #editFormulaModal .account-select-with-buttons .custom-select-wrapper {
             overflow: visible;
-            z-index: 10002;
+            z-index: 1;
         }
         
         #editFormulaModal .account-select-with-buttons {
             overflow: visible;
             position: relative;
-            z-index: 10002;
+            z-index: 1;
+            min-width: 0;
+            flex: 1;
         }
 
         /* Custom Select Styles for Account */
@@ -1761,6 +1772,12 @@
 
         #editFormulaModal .account-add-btn {
             pointer-events: auto;
+            position: relative;
+            z-index: 6;
+            min-width: 28px;
+            min-height: 28px;
+            width: 28px;
+            height: 28px;
         }
 
         .account-add-btn:hover {

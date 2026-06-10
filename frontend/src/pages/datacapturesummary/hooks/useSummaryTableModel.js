@@ -86,17 +86,15 @@ export function useSummaryTableModel({
 
   const populateStartedRef = useRef(false);
 
-  const inFlightRef = useRef(false);
+  const populateChainRef = useRef(Promise.resolve());
 
 
 
-  const runPopulate = useCallback(
+  const executePopulate = useCallback(
 
-    async (options = {}) => {
+    async () => {
 
-      if (!enabled || !hasCaptureData || !tableData || inFlightRef.current) return false;
-
-      inFlightRef.current = true;
+      if (!enabled || !hasCaptureData || !tableData) return false;
 
       setDataPopulating(true);
 
@@ -123,13 +121,6 @@ export function useSummaryTableModel({
           freshFromCapture,
 
         });
-
-
-
-        if (options.reset) {
-          const skeletonRows = buildInitialSummaryRows(tableData);
-          replaceRows(skeletonRows);
-        }
 
 
 
@@ -177,8 +168,6 @@ export function useSummaryTableModel({
 
         console.error("Pure summary populate failed:", error);
 
-        populateStartedRef.current = false;
-
         pushSummaryNotification(
 
           t?.("error") || "Error",
@@ -192,8 +181,6 @@ export function useSummaryTableModel({
         return false;
 
       } finally {
-
-        inFlightRef.current = false;
 
         setDataPopulating(false);
 
@@ -238,6 +225,14 @@ export function useSummaryTableModel({
     ]
 
   );
+
+
+
+  const runPopulate = useCallback(() => {
+    const task = populateChainRef.current.then(() => executePopulate());
+    populateChainRef.current = task.catch(() => {});
+    return task;
+  }, [executePopulate]);
 
 
 
