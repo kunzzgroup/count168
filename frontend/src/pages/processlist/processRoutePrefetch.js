@@ -90,10 +90,16 @@ export async function fetchGamesProcessListSlice(
     const listJson = await listRes.json();
     const curJson = await curRes.json();
 
+    const categoryDenied =
+      listJson?.success === false &&
+      /unauthorized permission category/i.test(String(listJson?.message || listJson?.error || ""));
+
     const rows =
       listRes.ok && listJson?.success && Array.isArray(listJson.data)
         ? normalizeGamesProcessRows(listJson.data)
-        : null;
+        : categoryDenied
+          ? []
+          : null;
 
     let currencyCodes = null;
     if (curRes.ok && curJson?.success && Array.isArray(curJson.data)) {

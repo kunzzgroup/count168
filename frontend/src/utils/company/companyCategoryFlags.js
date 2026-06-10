@@ -69,6 +69,13 @@ export function companyMatchesBankPillScope(companyRow) {
   return flags.hasBank;
 }
 
+/** Bank-only subsidiary (e.g. CX): no Games process rows on process-list. */
+export function isBankOnlyCompanyRow(companyRow) {
+  const flags = resolveCompanyCategoryFlags(companyRow);
+  if (!flags) return false;
+  return flags.hasBank && !flags.hasGambling;
+}
+
 function filterCompaniesByPillCategory(companies, matchesScope, preferredCompanyId = null) {
   if (!Array.isArray(companies)) return [];
   const pref = Number(preferredCompanyId);

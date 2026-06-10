@@ -17,6 +17,7 @@ import {
 import { findOwnerCompanyById } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
+import { isBankOnlyCompanyRow } from "../../utils/company/companyCategoryFlags.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
@@ -445,6 +446,18 @@ export default function ProcessListPage() {
       const silent = !!opts.silent;
       const cid = opts.companyId != null ? Number(opts.companyId) : Number(companyId);
       if (!Number.isFinite(cid) || cid <= 0) return;
+      const companyRow = companies.find((c) => Number(c.id) === cid) || null;
+      if (isBankOnlyCompanyRow(companyRow)) {
+        const cacheKey = resolveProcessListCacheKey(cid, debouncedSearch, showInactive, showAll);
+        processListCacheRef.current.set(cacheKey, { rows: [], currencyCodes: null });
+        setRows([]);
+        if (!silent) {
+          setSelectedIds(new Set());
+          setCurrentPage(1);
+          syncUrl({ companyId: cid });
+        }
+        return;
+      }
       if (fetchAbortRef.current) fetchAbortRef.current.abort();
       const ac = new AbortController();
       fetchAbortRef.current = ac;
@@ -483,6 +496,7 @@ export default function ProcessListPage() {
       }
     },
     [
+      companies,
       companyId,
       debouncedSearch,
       showInactive,
