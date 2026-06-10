@@ -68,7 +68,7 @@ function DataCaptureSummaryPureInner() {
 
   const t = useCallback((key, params) => getDataCaptureSummaryText(lang, key, params), [lang]);
 
-  const { updateRow, replaceRows, rows, dataPopulating, tableChromeVisible, setAccounts, globalRateInput } =
+  const { updateRow, replaceRows, rows, dataPopulating, setAccounts, globalRateInput } =
     useSummaryContext();
 
 
@@ -433,8 +433,7 @@ function DataCaptureSummaryPureInner() {
     !dataPopulating &&
     !(capture.serverStateQueryEnabled && capture.serverStateLoading);
 
-  const showTableChrome =
-    capture.hasCaptureData && (tableChromeVisible || dataPopulating);
+  const showTableChrome = capture.hasCaptureData;
 
 
 
@@ -545,10 +544,6 @@ function DataCaptureSummaryPureInner() {
   return (
 
     <div className="container">
-
-      {sessionReady && dataPopulating && !tableChromeVisible ? (
-        <SummaryPageLoading compact />
-      ) : null}
 
       <SummaryActionBar
 

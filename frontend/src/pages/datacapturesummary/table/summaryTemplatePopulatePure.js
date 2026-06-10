@@ -103,6 +103,16 @@ function rowHasTemplate(rows, mainId, templates) {
   return false;
 }
 
+/** Id Product skeleton rows from capture table — sync, no API (stable table chrome while templates load). */
+export function buildInitialSummaryRows(tableData) {
+  if (!tableData) return [];
+  const { entries } = buildColumnAEntries(tableData);
+  const rows = entries
+    .filter((e) => e.idProduct?.trim())
+    .map((entry, index) => createMainRowFromEntry(entry, index));
+  return reconcileRowIndexes(rows, tableData);
+}
+
 /**
  * Build fully populated summary rows from capture table + templates API.
  */
@@ -117,12 +127,8 @@ export async function populateSummaryRowsPure({
   freshFromCapture = false,
   loadTemplates = null,
 }) {
-  const { entries, idProducts } = buildColumnAEntries(tableData);
-  let rows = entries
-    .filter((e) => e.idProduct?.trim())
-    .map((entry, index) => createMainRowFromEntry(entry, index));
-
-  rows = reconcileRowIndexes(rows, tableData);
+  const { idProducts } = buildColumnAEntries(tableData);
+  let rows = buildInitialSummaryRows(tableData);
 
   if (processId == null || !idProducts.length) {
     return rows;

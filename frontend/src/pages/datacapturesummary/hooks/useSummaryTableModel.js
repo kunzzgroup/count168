@@ -1,6 +1,9 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 
-import { populateSummaryRowsPure } from "../table/summaryTemplatePopulatePure.js";
+import {
+  buildInitialSummaryRows,
+  populateSummaryRowsPure,
+} from "../table/summaryTemplatePopulatePure.js";
 
 import { bindSummaryFormulaContext } from "../lib/summaryFormulaContext.js";
 
@@ -77,7 +80,7 @@ export function useSummaryTableModel({
 
 }) {
 
-  const { replaceRows, setDataPopulating, setAccounts, resetToRows, setTableChromeVisible } =
+  const { replaceRows, setDataPopulating, setAccounts, setTableChromeVisible } =
 
     useSummaryContext();
 
@@ -124,11 +127,8 @@ export function useSummaryTableModel({
 
 
         if (options.reset) {
-
-          resetToRows([]);
-
-          setTableChromeVisible(false);
-
+          const skeletonRows = buildInitialSummaryRows(tableData);
+          replaceRows(skeletonRows);
         }
 
 
@@ -166,19 +166,7 @@ export function useSummaryTableModel({
 
 
         if (freshFromCapture && searchParams?.get("success") === "1") {
-
           stripSummarySuccessParamFromUrl();
-
-          pushSummaryNotification(
-
-            t?.("success") || "Success",
-
-            t?.("captureLoaded") || "Capture data loaded.",
-
-            "success"
-
-          );
-
         }
 
 
@@ -241,8 +229,6 @@ export function useSummaryTableModel({
 
       replaceRows,
 
-      resetToRows,
-
       setAccounts,
 
       setDataPopulating,
@@ -263,9 +249,15 @@ export function useSummaryTableModel({
 
     populateStartedRef.current = true;
 
+    const skeletonRows = buildInitialSummaryRows(tableData);
+    if (skeletonRows.length) {
+      replaceRows(skeletonRows);
+    }
+    setTableChromeVisible(true);
+
     void runPopulate();
 
-  }, [enabled, hasCaptureData, tableData, runPopulate]);
+  }, [enabled, hasCaptureData, tableData, runPopulate, replaceRows, setTableChromeVisible]);
 
 
 
