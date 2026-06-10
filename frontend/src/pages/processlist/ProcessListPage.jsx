@@ -19,6 +19,7 @@ import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSes
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { isBankOnlyCompanyRow } from "../../utils/company/companyCategoryFlags.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import { isBankCategoryCompany } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
@@ -37,6 +38,7 @@ import {
 } from "./processListHelpers.js";
 import {
   fetchGamesProcessListSlice,
+  prefetchBankProcessListPayload,
   resolveProcessListRouteCache,
 } from "./processRoutePrefetch.js";
 import ProcessTable from "./components/ProcessTable.jsx";
@@ -134,6 +136,34 @@ export default function ProcessListPage() {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 1500);
   }, []);
+
+  /** Bank-only companies (CX): Games list has no rows — open Bank Process with prefetched data. */
+  const redirectToBankProcessIfBankOnly = useCallback(
+    async (companyRow, companiesList) => {
+      if (!companyRow?.id) return false;
+      const bankOnly =
+        isBankOnlyCompanyRow(companyRow) ||
+        (await isBankCategoryCompany(companyRow.company_id, buildApiUrl));
+      if (!bankOnly) return false;
+
+      const nextId = Number(companyRow.id);
+      const warm = await prefetchBankProcessListPayload(nextId);
+      navigate(`/bank-process-list?company_id=${nextId}`, {
+        replace: true,
+        state: {
+          bankProcessListPrefetch: {
+            companyId: nextId,
+            companies: companiesList,
+            groupFilterKind: "follow",
+            rows: warm.rows,
+            currencyCodes: warm.currencyCodes,
+          },
+        },
+      });
+      return true;
+    },
+    [navigate],
+  );
 
   // Layout phase (with BankProcessListPage): avoid deferred useEffect cleanup stripping body.process-page after route swap.
   useLayoutEffect(() => {
@@ -320,6 +350,12 @@ export default function ProcessListPage() {
           }
         }
 
+        const currentCompanyRow = cs.find((c) => Number(c.id) === Number(effectiveCompany));
+        if (currentCompanyRow && (await redirectToBankProcessIfBankOnly(currentCompanyRow, cs))) {
+          skipLoadingDone = true;
+          return;
+        }
+
         setSelectedGroup(bootGroup);
         setCompanyId(effectiveCompany);
         setGroupFilterKind("follow");
@@ -366,7 +402,7 @@ export default function ProcessListPage() {
         if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [loadFormMeta, location.state, navigate, sessionReady, sessionMeFromLayout?.user_id]);
+  }, [loadFormMeta, location.state, redirectToBankProcessIfBankOnly, sessionReady, sessionMeFromLayout?.user_id]);
 
   const syncUrl = useCallback(
     (overrides = {}) => {
@@ -446,18 +482,6 @@ export default function ProcessListPage() {
       const silent = !!opts.silent;
       const cid = opts.companyId != null ? Number(opts.companyId) : Number(companyId);
       if (!Number.isFinite(cid) || cid <= 0) return;
-      const companyRow = companies.find((c) => Number(c.id) === cid) || null;
-      if (isBankOnlyCompanyRow(companyRow)) {
-        const cacheKey = resolveProcessListCacheKey(cid, debouncedSearch, showInactive, showAll);
-        processListCacheRef.current.set(cacheKey, { rows: [], currencyCodes: null });
-        setRows([]);
-        if (!silent) {
-          setSelectedIds(new Set());
-          setCurrentPage(1);
-          syncUrl({ companyId: cid });
-        }
-        return;
-      }
       if (fetchAbortRef.current) fetchAbortRef.current.abort();
       const ac = new AbortController();
       fetchAbortRef.current = ac;
@@ -495,16 +519,7 @@ export default function ProcessListPage() {
         if (!silent) notify(t("failedLoadProcessList"), "danger");
       }
     },
-    [
-      companies,
-      companyId,
-      debouncedSearch,
-      showInactive,
-      showAll,
-      notify,
-      syncUrl,
-      t,
-    ],
+    [companyId, debouncedSearch, showInactive, showAll, notify, syncUrl, t],
   );
 
   useEffect(() => {
@@ -738,6 +753,10 @@ export default function ProcessListPage() {
 
       suppressCrossPageSyncRef.current = true;
       try {
+        if (await redirectToBankProcessIfBankOnly(company, companies)) {
+          return;
+        }
+
         const sessionCompanyId =
           sessionMeFromLayout?.company_id != null ? Number(sessionMeFromLayout.company_id) : null;
 
@@ -817,8 +836,8 @@ export default function ProcessListPage() {
       companyId,
       fetchRows,
       loadFormMeta,
-      navigate,
       notify,
+      redirectToBankProcessIfBankOnly,
       selectedGroup,
       sessionMeFromLayout,
       t,
