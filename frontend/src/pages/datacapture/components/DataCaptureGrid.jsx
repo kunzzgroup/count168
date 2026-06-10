@@ -1,6 +1,7 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useLayoutEffect } from "react";
 import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
 import { useDataCapturePureReactGridInteraction } from "../hooks/useDataCapturePureReactGridInteraction.js";
+import { applyPendingGridCellFocus } from "../grid/gridCellInteraction.js";
 import DataCaptureGridCell from "./DataCaptureGridCell.jsx";
 
 function attachColumnHeaderListeners(header) {
@@ -24,6 +25,10 @@ function DataCaptureGrid({ engineReady = false }) {
   const bindRowHeader = useCallback((el) => {
     attachRowHeaderListeners(el);
   }, []);
+
+  useLayoutEffect(() => {
+    applyPendingGridCellFocus();
+  }, [gridVersion, grid?.rows]);
 
   if (!grid) {
     return (

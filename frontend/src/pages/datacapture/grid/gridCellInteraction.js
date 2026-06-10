@@ -10,9 +10,12 @@ import {
   gridRegisterSelectedCell,
   gridRecomputeSubmitState,
   gridUndoLastPaste,
+  getPasteGridModel,
   setBridgeTableActive,
   updateBridgeCell,
 } from "../lib/dataCaptureBridge.js";
+import { MAX_GRID_ROWS } from "./dataCaptureGridMeta.js";
+import { requestGridCellFocus, takePendingGridCellFocus } from "../lib/gridFocusQueue.js";
 
 function cellPosition(cell) {
   if (!cell?.parentNode?.parentNode) return null;
@@ -333,6 +336,28 @@ function addNewRow() {
   return gridAddNewRow();
 }
 
+export function scrollGridCellIntoView(cell) {
+  if (!cell) return;
+  cell.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+/** Apply pending focus after React grid re-render (see gridFocusQueue). */
+export function applyPendingGridCellFocus() {
+  const pending = peekPendingGridCellFocus();
+  if (!pending) return false;
+
+  const { rowIndex, colIndex } = pending;
+  const cell = document.querySelector(
+    `#dataTable td[contenteditable="true"][data-row="${rowIndex}"][data-col="${colIndex}"]`,
+  );
+  if (!cell) return false;
+
+  takePendingGridCellFocus();
+  setActiveCellForMouseEdit(cell);
+  scrollGridCellIntoView(cell);
+  return true;
+}
+
 export function handleCellKeydown(e) {
   const raw = e.target;
   const cell =
@@ -428,17 +453,25 @@ export function handleCellKeydown(e) {
       e.preventDefault();
       const currentRowIndex = Array.from(table.children).indexOf(row);
       const currentCellIndex = Array.from(row.children).indexOf(cell);
-      let nextRow = table.children[currentRowIndex + 1];
-      if (!nextRow && table.children.length < 702) {
-        const newRowIndex = addNewRow();
-        if (newRowIndex !== null) {
-          nextRow = table.children[newRowIndex];
+      const grid = getPasteGridModel();
+      const modelRowCount = grid?.rows ?? table.children.length;
+      const isLastRow =
+        currentRowIndex >= modelRowCount - 1 || currentRowIndex >= table.children.length - 1;
+
+      if (isLastRow && modelRowCount < MAX_GRID_ROWS) {
+        requestGridCellFocus(currentRowIndex + 1, currentColIdx);
+        if (addNewRow() == null) {
+          takePendingGridCellFocus();
         }
+        break;
       }
+
+      const nextRow = table.children[currentRowIndex + 1];
       if (nextRow) {
         const nextRowCell = nextRow.children[currentCellIndex];
         if (nextRowCell?.contentEditable === "true") {
           setActiveCellForMouseEdit(nextRowCell);
+          scrollGridCellIntoView(nextRowCell);
         }
       }
       break;
