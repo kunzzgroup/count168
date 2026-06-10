@@ -12,7 +12,12 @@ import {
   persistDashboardGroupFilter,
   sortedUniqueGroupIds,
 } from "./sharedCompanyFilter.js";
-import { getLoginIdentifier, isGroupLogin } from "./loginScope.js";
+import {
+  canUseGroupOnlyMode,
+  getLoginIdentifier,
+  isCompanyLogin,
+  isGroupLogin,
+} from "./loginScope.js";
 import { useDashboardStyleGcFilter } from "./useDashboardStyleGcFilter.js";
 
 /**
@@ -127,14 +132,39 @@ export function useGcFilterWithAllModes({
   }, [groupsAllMode, companyId, setSelectedGroup]);
 
   const handlePickAllInGroup = useCallback(() => {
-    if (groupAllMode && !companyId) return;
+    const list = resolveMergeCompanyList();
+    const groupForPersist = groupsAllMode ? null : selectedGroup;
+
+    if (groupAllMode && !companyId) {
+      if (isCompanyLogin(me) && !isGroupLogin(me)) return;
+
+      setGroupAllMode(false);
+      persistDashboardFilterState(groupForPersist, null, {
+        allowGroupOnly: canUseGroupOnlyMode(me, groupForPersist, companies),
+        groupsAllMode,
+      });
+      onClearCompany?.(groupForPersist);
+      notifyDashboardGroupFilterChanged(groupForPersist, null);
+      return;
+    }
+
     setGroupAllMode(true);
-    persistDashboardFilterState(groupsAllMode ? null : selectedGroup, null, {
+    persistDashboardFilterState(groupForPersist, null, {
       allowGroupOnly: false,
+      companyAllMode: true,
     });
     onClearCompany?.(groupsAllMode ? null : selectedGroup);
     notifyDashboardGroupFilterChanged(groupsAllMode ? null : selectedGroup, null);
-  }, [groupAllMode, companyId, groupsAllMode, selectedGroup, onClearCompany]);
+  }, [
+    groupAllMode,
+    companyId,
+    groupsAllMode,
+    selectedGroup,
+    onClearCompany,
+    resolveMergeCompanyList,
+    companies,
+    me,
+  ]);
 
   const handlePickGroup = useCallback(
     async (gid) => {
