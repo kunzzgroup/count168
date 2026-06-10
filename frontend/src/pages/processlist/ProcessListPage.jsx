@@ -18,7 +18,6 @@ import { findOwnerCompanyById } from "../../utils/company/sharedCompanyFilter.js
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
-import { isBankCategoryCompany } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
@@ -37,7 +36,6 @@ import {
 } from "./processListHelpers.js";
 import {
   fetchGamesProcessListSlice,
-  prefetchBankProcessListPayload,
   resolveProcessListRouteCache,
 } from "./processRoutePrefetch.js";
 import ProcessTable from "./components/ProcessTable.jsx";
@@ -318,28 +316,6 @@ export default function ProcessListPage() {
             }
           } catch {
             effectiveCompany = layoutMe.company_id ? Number(layoutMe.company_id) : effectiveCompany;
-          }
-        }
-
-        const currentCompanyRow = cs.find((c) => Number(c.id) === Number(effectiveCompany));
-        if (currentCompanyRow?.company_id) {
-          const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
-          if (bankCategory) {
-            const warm = await prefetchBankProcessListPayload(effectiveCompany);
-            navigate(`/bank-process-list?company_id=${effectiveCompany}`, {
-              replace: true,
-              state: {
-                bankProcessListPrefetch: {
-                  companyId: effectiveCompany,
-                  companies: cs,
-                  groupFilterKind: "follow",
-                  rows: warm.rows,
-                  currencyCodes: warm.currencyCodes,
-                },
-              },
-            });
-            skipLoadingDone = true;
-            return;
           }
         }
 
@@ -751,30 +727,7 @@ export default function ProcessListPage() {
         const sessionCompanyId =
           sessionMeFromLayout?.company_id != null ? Number(sessionMeFromLayout.company_id) : null;
 
-        const bankCategoryPromise = isBankCategoryCompany(company.company_id, buildApiUrl);
         void loadFormMeta(nextId);
-
-        try {
-          const bankCategory = await bankCategoryPromise;
-          if (bankCategory) {
-            const warm = await prefetchBankProcessListPayload(nextId);
-            navigate(`/bank-process-list?company_id=${nextId}`, {
-              replace: true,
-              state: {
-                bankProcessListPrefetch: {
-                  companyId: nextId,
-                  companies,
-                  groupFilterKind: "follow",
-                  rows: warm.rows,
-                  currencyCodes: warm.currencyCodes,
-                },
-              },
-            });
-            return;
-          }
-        } catch {
-          /* fall through to session sync */
-        }
 
         const runFetch = () => void fetchRows({ companyId: nextId, silent: true });
 
