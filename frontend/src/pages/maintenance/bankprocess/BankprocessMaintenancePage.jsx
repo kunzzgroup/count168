@@ -494,7 +494,7 @@ export default function BankprocessMaintenancePage() {
     if (visibleCompanies.length > 0) {
       const cid = Number(companyId);
       const activeOk = visibleCompanies.some((c) => Number(c.id) === cid);
-      if (!activeOk) void onPickCompany(visibleCompanies[0]);
+      if (!activeOk) void handlePickCompany(visibleCompanies[0]);
       return;
     }
 
@@ -512,7 +512,7 @@ export default function BankprocessMaintenancePage() {
     companyId,
     selectedGroup,
     onGroupClick,
-    onPickCompany,
+    handlePickCompany,
   ]);
 
   const toggleBankprocessCurrency = useCallback((code) => {
