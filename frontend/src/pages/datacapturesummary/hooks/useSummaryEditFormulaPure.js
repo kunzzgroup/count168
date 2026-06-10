@@ -4,12 +4,14 @@ import { fetchSummaryFormCatalog } from "../lib/summaryApi.js";
 import {
   addSelectedDescriptionToForm,
   applyCalculatorToForm,
-  buildDescriptionCatalog,
   buildFormulaDataGridItems,
   buildFormulaSavePatchFromForm,
+  buildIdProductSelectOptions,
+  buildRowDataOptionsForIdProduct,
   computeFormulaDisplayPreview,
   createBlankEditFormulaForm,
   insertCapturedCellIntoForm,
+  resolveDefaultDescriptionSelects,
   rowToEditFormulaForm,
 } from "../formula/editFormulaFormState.js";
 import { applyFormulaSaveToRows } from "../formula/summaryFormulaSaveTarget.js";
@@ -73,10 +75,15 @@ export function useSummaryEditFormulaPure({
     [rows]
   );
 
-  const descriptionCatalog = useMemo(
-    () => buildDescriptionCatalog(tableData),
+  const idProductSelectOptions = useMemo(
+    () => buildIdProductSelectOptions(tableData),
     [tableData]
   );
+
+  const rowDataOptions = useMemo(() => {
+    if (!form?.descriptionSelect1) return [];
+    return buildRowDataOptionsForIdProduct(tableData, form.descriptionSelect1);
+  }, [tableData, form?.descriptionSelect1]);
 
   const formulaDataGridItems = useMemo(
     () => (open && anchorRow ? buildFormulaDataGridItems(tableData, anchorRow) : []),
@@ -89,9 +96,17 @@ export function useSummaryEditFormulaPure({
 
   const handleFormChange = useCallback(
     (nextForm) => {
-      refreshPreview(nextForm);
+      let patched = nextForm;
+      if (nextForm?.descriptionSelect1 !== form?.descriptionSelect1) {
+        const opts = buildRowDataOptionsForIdProduct(tableData, nextForm.descriptionSelect1);
+        patched = {
+          ...nextForm,
+          descriptionSelect2: opts[0]?.value || "",
+        };
+      }
+      refreshPreview(patched);
     },
-    [refreshPreview]
+    [form?.descriptionSelect1, refreshPreview, tableData]
   );
 
   const loadCurrenciesForAccount = useCallback(
@@ -168,14 +183,20 @@ export function useSummaryEditFormulaPure({
       setSessionKey((k) => k + 1);
       const initial =
         nextMode === "new" ? createBlankEditFormulaForm(row) : rowToEditFormulaForm(row);
-      setForm(computeFormulaDisplayPreview(initial, row));
+      const dataDefaults = resolveDefaultDescriptionSelects(tableData, row);
+      setForm(
+        computeFormulaDisplayPreview(
+          { ...initial, ...dataDefaults },
+          row
+        )
+      );
       setOpen(true);
       document.body.style.overflow = "hidden";
       if (initial.accountId) {
         void loadCurrenciesForAccount(initial.accountId, initial.currencyId);
       }
     },
-    [loadCurrenciesForAccount]
+    [loadCurrenciesForAccount, tableData]
   );
 
   const showEditFormula = useCallback(
@@ -378,8 +399,8 @@ export function useSummaryEditFormulaPure({
     accounts,
     currencies,
     usedAccountIds,
-    idProductOptions: descriptionCatalog.idProducts,
-    rowDataOptions: descriptionCatalog.rowDataOptions,
+    idProductOptions: idProductSelectOptions,
+    rowDataOptions,
     formulaDataGridItems,
     saveDisabled,
     saving,

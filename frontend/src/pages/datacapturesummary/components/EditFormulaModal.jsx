@@ -215,11 +215,15 @@ export default function EditFormulaModal({
                         onChange={(e) => setField({ descriptionSelect1: e.target.value })}
                       >
                         <option value="">{t("selectIdProduct")}</option>
-                        {idProductOptions.map((id) => (
-                          <option key={id} value={id}>
-                            {id}
-                          </option>
-                        ))}
+                        {idProductOptions.map((opt) => {
+                          const value = typeof opt === "string" ? opt : opt.value;
+                          const label = typeof opt === "string" ? opt : opt.label;
+                          return (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          );
+                        })}
                       </select>
                       <select
                         id="descriptionSelect2"

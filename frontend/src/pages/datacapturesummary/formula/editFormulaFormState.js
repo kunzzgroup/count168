@@ -191,33 +191,160 @@ export function createBlankEditFormulaForm(row) {
   return createEmptyEditFormulaForm(row?.idProduct || "");
 }
 
-export function buildDescriptionCatalog(tableData) {
-  const idProducts = [];
-  const seen = new Set();
-  const rowDataOptions = [];
+/** Parse descriptionSelect1 value — id_product or id_product:row_label (legacy updateIdProductRowData). */
+export function parseIdProductSelectValue(idProductValue) {
+  const raw = String(idProductValue || "").trim();
+  if (!raw) return { idProduct: "", rowLabel: null };
 
-  if (!tableData?.rows) {
-    return { idProducts, rowDataOptions };
+  const lastColonIndex = raw.lastIndexOf(":");
+  if (lastColonIndex > 0 && lastColonIndex < raw.length - 1) {
+    const afterColon = raw.substring(lastColonIndex + 1).trim();
+    if (/^[A-Z]$/i.test(afterColon) || afterColon.length <= 3) {
+      return {
+        idProduct: raw.substring(0, lastColonIndex).trim(),
+        rowLabel: afterColon,
+      };
+    }
   }
+  return { idProduct: raw, rowLabel: null };
+}
+
+/**
+ * Id Product options for Data dropdown (legacy loadIdProductList).
+ * @returns {Array<{ value: string, label: string, rowIndex: number, idProduct: string }>}
+ */
+export function buildIdProductSelectOptions(tableData) {
+  const entries = [];
+  if (!tableData?.rows?.length) return entries;
 
   tableData.rows.forEach((rowData, rowIndex) => {
     if (rowData[1]?.type !== "data") return;
-    const id = String(rowData[1].value || "").trim();
-    if (id && !seen.has(id)) {
-      seen.add(id);
-      idProducts.push(id);
+    const idProduct = String(rowData[1].value || "").trim();
+    if (!idProduct) return;
+    const rowLabel = rowData[0]?.type === "header" ? String(rowData[0].value || "").trim() : "";
+    entries.push({ idProduct, rowLabel, rowIndex });
+  });
+
+  const countMap = new Map();
+  entries.forEach((e) => countMap.set(e.idProduct, (countMap.get(e.idProduct) || 0) + 1));
+
+  return entries.map((item) => {
+    const count = countMap.get(item.idProduct);
+    if (count > 1 && item.rowLabel) {
+      return {
+        value: `${item.idProduct}:${item.rowLabel}`,
+        label: `${item.idProduct} (${item.rowLabel})`,
+        rowIndex: item.rowIndex,
+        idProduct: item.idProduct,
+      };
     }
+    return {
+      value: item.idProduct,
+      label: item.idProduct,
+      rowIndex: item.rowIndex,
+      idProduct: item.idProduct,
+    };
+  });
+}
+
+/**
+ * Row Data options for selected id product (legacy updateIdProductRowData).
+ * @returns {Array<{ value: string, label: string }>}
+ */
+export function buildRowDataOptionsForIdProduct(tableData, idProductSelectValue) {
+  const { idProduct, rowLabel } = parseIdProductSelectValue(idProductSelectValue);
+  if (!idProduct || !tableData?.rows?.length) return [];
+
+  const normTarget = normalizeSummaryIdProductText(idProduct);
+  const options = [];
+
+  tableData.rows.forEach((rowData, rowIndex) => {
+    if (rowData[1]?.type !== "data") return;
+    const rowId = String(rowData[1].value || "").trim();
+    const idMatches =
+      rowId === idProduct ||
+      normalizeSpaces(rowId) === normalizeSpaces(idProduct) ||
+      normalizeSummaryIdProductText(rowId) === normTarget;
+    if (!idMatches) return;
+
+    const headerLabel = rowData[0]?.type === "header" ? String(rowData[0].value || "").trim() : "";
+    if (rowLabel && headerLabel !== rowLabel) return;
+
     rowData.forEach((cell, colIndex) => {
-      if (cell.type !== "data" || colIndex < 2) return;
-      const rowLabel = rowData[0]?.value ? String(rowData[0].value).trim() : "";
-      const label = rowLabel ? `${rowLabel} col ${colIndex}` : `Row ${rowIndex} col ${colIndex}`;
-      rowDataOptions.push({
+      if (colIndex < 2 || cell?.type !== "data") return;
+      const cellValue = String(cell.value ?? "").trim();
+      if (!cellValue) return;
+      options.push({
         value: `${rowIndex}:${colIndex}`,
-        label: `${label} = ${cell.value}`,
+        label: `[${colIndex}] ${cellValue}`,
       });
     });
   });
 
+  return options;
+}
+
+/** Auto-select Data dropdowns when opening Edit Formula (legacy loadIdProductList). */
+export function resolveDefaultDescriptionSelects(tableData, anchorRow) {
+  const idProductOptions = buildIdProductSelectOptions(tableData);
+  if (!idProductOptions.length) {
+    return { descriptionSelect1: "", descriptionSelect2: "" };
+  }
+
+  const processValue = String(anchorRow?.processValue || anchorRow?.idProduct || "").trim();
+  const preferredRowIdx =
+    anchorRow?.rowIndex != null && !Number.isNaN(Number(anchorRow.rowIndex))
+      ? Number(anchorRow.rowIndex)
+      : null;
+  const normCur = normalizeSpaces(processValue);
+
+  let descriptionSelect1 = "";
+  const candidates = idProductOptions.filter(
+    (opt) =>
+      normalizeSpaces(opt.idProduct) === normCur ||
+      normalizeSummaryIdProductText(opt.idProduct) === normalizeSummaryIdProductText(processValue)
+  );
+
+  if (candidates.length === 1) {
+    descriptionSelect1 = candidates[0].value;
+  } else if (candidates.length > 1) {
+    const hit =
+      preferredRowIdx != null
+        ? candidates.find((c) => c.rowIndex === preferredRowIdx)
+        : null;
+    descriptionSelect1 = (hit || candidates[0]).value;
+  } else if (preferredRowIdx != null) {
+    const hit = idProductOptions.find((c) => c.rowIndex === preferredRowIdx);
+    if (hit) descriptionSelect1 = hit.value;
+  }
+  if (!descriptionSelect1) {
+    descriptionSelect1 = idProductOptions[0].value;
+  }
+
+  const rowDataOptions = buildRowDataOptionsForIdProduct(tableData, descriptionSelect1);
+  return {
+    descriptionSelect1,
+    descriptionSelect2: rowDataOptions[0]?.value || "",
+  };
+}
+
+/** @deprecated use buildIdProductSelectOptions + buildRowDataOptionsForIdProduct */
+export function buildDescriptionCatalog(tableData) {
+  const idProducts = buildIdProductSelectOptions(tableData).map((o) => o.value);
+  const rowDataOptions = [];
+  if (tableData?.rows) {
+    tableData.rows.forEach((rowData, rowIndex) => {
+      rowData.forEach((cell, colIndex) => {
+        if (cell.type !== "data" || colIndex < 2) return;
+        const rowLabel = rowData[0]?.value ? String(rowData[0].value).trim() : "";
+        const label = rowLabel ? `${rowLabel} col ${colIndex}` : `Row ${rowIndex} col ${colIndex}`;
+        rowDataOptions.push({
+          value: `${rowIndex}:${colIndex}`,
+          label: `${label} = ${cell.value}`,
+        });
+      });
+    });
+  }
   return { idProducts, rowDataOptions };
 }
 

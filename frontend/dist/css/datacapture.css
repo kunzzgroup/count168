@@ -1637,6 +1637,20 @@ body.datacapture-page .excel-table-container {
     flex: 0 0 auto;
 }
 
+/* Group-only: shrink-wrap table block; Submit follows content instead of a tall empty gap */
+body.datacapture-page .bottom-section:has(.excel-table-container--group-only) {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow: visible;
+}
+
+body.datacapture-page .excel-table-container--group-only {
+    flex: 0 1 auto;
+    max-height: none;
+    height: auto;
+    overflow: visible;
+}
+
 .excel-table-header.dc-table-header-bar--group-only {
     flex-wrap: nowrap;
     justify-content: flex-start;
