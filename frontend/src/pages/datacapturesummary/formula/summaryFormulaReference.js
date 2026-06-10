@@ -86,7 +86,7 @@ function readDataColumnCellFromProcessRow(processRow, columnIndex) {
 // captureRowIndex: 可选，Data Capture 行序（0-based），与 id_product:#N:col 一致
 // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
 
-function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null, captureRowIndex = null) {
+export function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null, captureRowIndex = null) {
     try {
         // 若传入的是截断 id（如 "(T07)"），先解析为完整 id_product，避免 No row found / Cell value not found（有 row_label 时优先按行标签匹配）
         const idProductResolved = typeof resolveToFullIdProduct === 'function' ? resolveToFullIdProduct(idProduct, rowLabel) : idProduct;

@@ -2,21 +2,13 @@ import { createFormulaDisplayFromExpression } from "../../../shared/formula/inde
 import { evaluateFormulaExpression, parseReferenceFormula } from "./summaryFormulaReference.js";
 import { formatNegativeNumbersInFormula } from "./summaryFormulaParseUtils.js";
 import { preserveFormulaStructure } from "./summaryPreserveFormula.js";
+import { resolveCurrentSourceDataFromTemplate } from "./summaryTemplateSourceData.js";
 import { isMg95ElsonSpecialRow } from "../lib/summaryIdProductDisplay.js";
 import { formatProcessedAmountDisplay } from "../table/summaryRowAmount.js";
 
 function hasMeaningfulFormulaOperators(value) {
   const v = String(value || "").trim();
   return v !== "" && v !== "Formula";
-}
-
-function resolveSourceFromColumns(sourceColumns, idProduct, rowIndex) {
-  const cols = String(sourceColumns || "").trim();
-  if (!cols) return "";
-  if (/\[[^\]]+\s*[: ,]\s*\d+\]/.test(cols)) {
-    return parseReferenceFormula(cols, idProduct, cols, rowIndex ?? null);
-  }
-  return cols;
 }
 
 /**
@@ -29,6 +21,7 @@ export function resolveTemplateFormulaDisplay({
   formulaOperators = "",
   sourcePercent = "1",
   enableSourcePercent = true,
+  tableData = null,
 }) {
   const savedFormulaDisplay = String(template?.formula_display || template?.formulaDisplay || "").trim();
   const isBatchSelected = template?.batch_selection == 1;
@@ -65,7 +58,16 @@ export function resolveTemplateFormulaDisplay({
     return createFormulaDisplayFromExpression(resolvedFromOperators, sourcePercent, enableSourcePercent);
   }
 
-  const resolvedSourceExpression = resolveSourceFromColumns(sourceColumns, idProduct, row?.rowIndex);
+  const resolvedSourceExpression = resolveCurrentSourceDataFromTemplate({
+    row,
+    template: {
+      ...(template || {}),
+      source_columns: sourceColumns || template?.source_columns,
+      formula_operators: formulaOperators || template?.formula_operators,
+    },
+    idProduct,
+    tableData,
+  });
 
   if (isBatchSelected) {
     if (!savedFormulaDisplay || savedFormulaDisplay === "Formula") {
@@ -79,12 +81,16 @@ export function resolveTemplateFormulaDisplay({
         enableSourcePercent
       );
       if (preserved === null) {
-        return createFormulaDisplayFromExpression(resolvedSourceExpression, sourcePercent, enableSourcePercent);
+        return createFormulaDisplayFromExpression(
+          resolvedSourceExpression,
+          sourcePercent,
+          enableSourcePercent
+        );
       }
       return preserved;
     }
     if (/\[[^\]]+\s*[: ,]\s*\d+\]/.test(savedFormulaDisplay)) {
-      const parsed = parseReferenceFormula(savedFormulaDisplay);
+      const parsed = parseReferenceFormula(savedFormulaDisplay, idProduct, row?.clickedColumns || "", row?.rowIndex);
       return enableSourcePercent
         ? createFormulaDisplayFromExpression(parsed, sourcePercent, enableSourcePercent)
         : parsed;
@@ -110,7 +116,11 @@ export function resolveTemplateFormulaDisplay({
   }
 
   if (resolvedSourceExpression) {
-    return createFormulaDisplayFromExpression(resolvedSourceExpression, sourcePercent, enableSourcePercent);
+    return createFormulaDisplayFromExpression(
+      resolvedSourceExpression,
+      sourcePercent,
+      enableSourcePercent
+    );
   }
 
   return savedFormulaDisplay || "";
