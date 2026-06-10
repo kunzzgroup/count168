@@ -36,7 +36,7 @@ export const ACCOUNT_I18N = {
     showAll: "Show All",
     currencySetting: "Currency Setting",
     deleteWithCount: "Delete ({count})",
-    groupId: "GroupID:",
+    groupId: "Group ID:",
     groupFilterAll: "ALL",
     company: "Company:",
     companyRequiredMark: "Company *",

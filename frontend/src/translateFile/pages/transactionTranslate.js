@@ -29,7 +29,7 @@ export const TRANSACTION_I18N = {
     category: "Category",
     selectAllCategories: "--Select All--",
     captureDate: "Capture Date",
-    groupId: "GroupID:",
+    groupId: "Group ID:",
     all: "ALL",
     groupFilterAll: "ALL",
     company: "Company:",

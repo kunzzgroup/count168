@@ -345,7 +345,7 @@ export default function DomainPage() {
             <div>{t("ownerCodeWithColon")}</div>
             <div>{t("nameWithColon")}</div>
             <div>{t("emailWithColon")}</div>
-            <div>GroupID:</div>
+            <div>Group ID:</div>
             <div>{t("companiesWithColon")}</div>
             <div>{t("createdBy")}</div>
             <div>{t("action")}</div>

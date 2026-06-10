@@ -4,7 +4,7 @@ export const DATA_CAPTURE_I18N = {
   en: {
     pageTitle: "Data Capture",
     category: "Category:",
-    groupId: "GroupID:",
+    groupId: "Group ID:",
     groupFilterAll: "ALL",
     company: "Company:",
     date: "Date",

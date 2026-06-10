@@ -26,7 +26,7 @@ export const DASHBOARD_I18N = {
     lastMonth: "Last Month",
     thisYear: "This Year",
     lastYear: "Last Year",
-    groupId: "GroupID:",
+    groupId: "Group ID:",
     company: "Company:",
     all: "All",
     currency: "Currency:",
