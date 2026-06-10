@@ -110,7 +110,6 @@ body *::-webkit-scrollbar-corner {
 }
 
 /* Member Win/Loss (/member) — matrix rail, total column, tables, modals */
-body.member-winloss-page .member-dash-matrix-scroll,
 body.member-winloss-page .member-dash-total-matrix-body,
 body.member-winloss-page .transaction-modal-body,
 body.member-winloss-page .transaction-table-wrapper,
