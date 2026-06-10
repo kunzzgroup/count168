@@ -153,7 +153,6 @@ export default function FormulaMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
-    pillCategory: "games",
   });
 
   const formulaScope = useMemo(

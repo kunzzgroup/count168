@@ -21,10 +21,6 @@ import {
   resolveCompanyWhenClosingGroup,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
-import {
-  filterCompaniesForBankPills,
-  filterCompaniesForGamesPills,
-} from "../../../utils/company/companyCategoryFlags.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 
 function isGroupFilterOptOut() {
@@ -48,8 +44,6 @@ export function useMaintenanceGroupCompanyFilter({
   onClearCompany,
   switchingCompany = false,
   enableGroupAnchorSession = true,
-  /** "games" | "bank" — hide companies that do not belong on this maintenance page. */
-  pillCategory = null,
 }) {
   const { me } = useAuthSession();
   const [groupFilterOptOutTick, setGroupFilterOptOutTick] = useState(0);
@@ -121,16 +115,6 @@ export function useMaintenanceGroupCompanyFilter({
     selectedGroup,
     groupFilterOptOutTick,
   ]);
-
-  const categoryScopedCompanies = useMemo(() => {
-    if (pillCategory === "games") {
-      return filterCompaniesForGamesPills(visibleCompanies, companyId);
-    }
-    if (pillCategory === "bank") {
-      return filterCompaniesForBankPills(visibleCompanies, companyId);
-    }
-    return visibleCompanies;
-  }, [visibleCompanies, pillCategory, companyId]);
 
   const deselectGroupKeepCompany = useCallback(async () => {
     if (switchingCompany) return;
@@ -211,7 +195,7 @@ export function useMaintenanceGroupCompanyFilter({
 
   return {
     snapGroupIds: groupIds,
-    visibleCompanies: categoryScopedCompanies,
+    visibleCompanies,
     handleGroupClick,
     handlePickCompany: gc.handlePickCompany,
     handlePickAllGroups: gc.handlePickAllGroups,

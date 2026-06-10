@@ -185,7 +185,6 @@ export default function TransactionMaintenancePage() {
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     enableGroupAnchorSession: false,
-    pillCategory: "games",
   });
 
   const transactionScope = useMemo(
