@@ -60,6 +60,10 @@ export function useTransactionSearch({
   });
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
+  /** Block cross-page currency sync when All or multi-select is active (empty currentCode would re-apply MYR etc.). */
+  const suppressCrossPageCurrencyRef = useRef(false);
+  /** Snapshot of selected currencies immediately before entering All — restored when All is toggled off. */
+  const currenciesBeforeAllRef = useRef([]);
   const [rawSearchData, setRawSearchData] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [tablesVisible, setTablesVisible] = useState(false);
@@ -160,16 +164,6 @@ export function useTransactionSearch({
     }, delayMs);
   }, []);
 
-  const toggleAllCurrenciesBtn = useCallback(() => {
-    const next = !showAllCurrencies;
-    setShowAllCurrencies(next);
-    const nextSel = [];
-    setSelectedCurrencies(nextSel);
-    persistCurrencyFilter(scopeCacheCompanyKey, next, nextSel, transactionScope?.selectedGroup);
-    // Currency is not wired through categoryChangedByUserRef; schedule search after state flush.
-    scheduleAutoSearch();
-  }, [showAllCurrencies, scopeCacheCompanyKey, persistCurrencyFilter, scheduleAutoSearch, transactionScope?.selectedGroup]);
-
   const txCurrencyCodes = useMemo(
     () =>
       (currencyRowsOrdered || [])
@@ -178,10 +172,69 @@ export function useTransactionSearch({
     [currencyRowsOrdered],
   );
 
+  const notifySingleCurrencyIfNeeded = useCallback(
+    (codes) => {
+      if (!Array.isArray(codes) || codes.length !== 1) return;
+      const scopeKey =
+        buildDashboardCurrencyScopeKey({
+          companyId:
+            transactionScope?.scopeCompanyId > 0 ? transactionScope.scopeCompanyId : null,
+          selectedGroup: transactionScope?.selectedGroup ?? scopeViewGroup,
+        }) || String(scopeCacheCompanyKey);
+      notifyDashboardCurrencyFilterChanged(codes[0], scopeKey);
+    },
+    [
+      scopeCacheCompanyKey,
+      transactionScope?.selectedGroup,
+      transactionScope?.scopeCompanyId,
+      scopeViewGroup,
+    ],
+  );
+
+  const toggleAllCurrenciesBtn = useCallback(() => {
+    if (showAllCurrencies) {
+      const avail = new Set(txCurrencyCodes);
+      const restored = currenciesBeforeAllRef.current
+        .map((c) => String(c || "").toUpperCase().trim())
+        .filter((c) => c && avail.has(c));
+      const nextSel =
+        restored.length > 0 ? restored : txCurrencyCodes[0] ? [txCurrencyCodes[0]] : [];
+
+      suppressCrossPageCurrencyRef.current = nextSel.length !== 1;
+      setShowAllCurrencies(false);
+      setSelectedCurrencies(nextSel);
+      persistCurrencyFilter(scopeCacheCompanyKey, false, nextSel, transactionScope?.selectedGroup);
+      notifySingleCurrencyIfNeeded(nextSel);
+      scheduleAutoSearch();
+      return;
+    }
+
+    currenciesBeforeAllRef.current = selectedCurrencies
+      .map((c) => String(c || "").toUpperCase().trim())
+      .filter(Boolean);
+    suppressCrossPageCurrencyRef.current = true;
+    setShowAllCurrencies(true);
+    setSelectedCurrencies([]);
+    persistCurrencyFilter(scopeCacheCompanyKey, true, [], transactionScope?.selectedGroup);
+    scheduleAutoSearch();
+  }, [
+    showAllCurrencies,
+    selectedCurrencies,
+    txCurrencyCodes,
+    scopeCacheCompanyKey,
+    persistCurrencyFilter,
+    scheduleAutoSearch,
+    transactionScope?.selectedGroup,
+    notifySingleCurrencyIfNeeded,
+  ]);
+
+  suppressCrossPageCurrencyRef.current =
+    showAllCurrencies || selectedCurrencies.length !== 1;
+
   const applyCrossPageCurrency = useCallback(
     (code) => {
       const c = String(code || "").toUpperCase().trim();
-      if (!c) return;
+      if (!c || suppressCrossPageCurrencyRef.current) return;
       setShowAllCurrencies(false);
       setSelectedCurrencies([c]);
       persistCurrencyFilter(
@@ -210,12 +263,12 @@ export function useTransactionSearch({
     availableCodes: txCurrencyCodes,
     currentCode: selectedCurrencies.length === 1 ? selectedCurrencies[0] : "",
     onApplyCode: applyCrossPageCurrency,
+    suppressRef: suppressCrossPageCurrencyRef,
+    respectEmptyRef: suppressCrossPageCurrencyRef,
   });
 
   const toggleCurrencyBtn = useCallback(
     (code) => {
-      const nextShowAll = false;
-      let nextSel = [];
       const c = String(code || "").toUpperCase().trim();
       if (!c) return;
 
@@ -225,22 +278,16 @@ export function useTransactionSearch({
       } else {
         set.add(c);
       }
-      nextSel = [...set];
+      const nextSel = [...set];
+      const nextShowAll = false;
+
+      // Set before notify/state — cross-page listener runs synchronously and would collapse multi-select.
+      suppressCrossPageCurrencyRef.current = nextShowAll || nextSel.length !== 1;
 
       setShowAllCurrencies(nextShowAll);
       setSelectedCurrencies(nextSel);
       persistCurrencyFilter(scopeCacheCompanyKey, nextShowAll, nextSel, transactionScope?.selectedGroup);
-      if (nextSel.includes(c)) {
-        const scopeKey =
-          buildDashboardCurrencyScopeKey({
-            companyId:
-              transactionScope?.scopeCompanyId > 0
-                ? transactionScope.scopeCompanyId
-                : null,
-            selectedGroup: transactionScope?.selectedGroup ?? scopeViewGroup,
-          }) || String(scopeCacheCompanyKey);
-        notifyDashboardCurrencyFilterChanged(c, scopeKey);
-      }
+      notifySingleCurrencyIfNeeded(nextSel);
       scheduleAutoSearch();
     },
     [
@@ -249,8 +296,7 @@ export function useTransactionSearch({
       persistCurrencyFilter,
       scheduleAutoSearch,
       transactionScope?.selectedGroup,
-      transactionScope?.scopeCompanyId,
-      scopeViewGroup,
+      notifySingleCurrencyIfNeeded,
     ],
   );
 
@@ -741,6 +787,11 @@ export function useTransactionSearch({
       orderedCurrs = orderedCurrs.filter((code) => activeSet.has(String(code || "").toUpperCase()));
     }
 
+    if (!showAllCurrencies && selectedCurrencies.length > 1) {
+      const selSet = new Set(selectedCurrencies.map((x) => String(x || "").toUpperCase().trim()));
+      orderedCurrs = orderedCurrs.filter((code) => selSet.has(String(code || "").toUpperCase()));
+    }
+
     const grouped = orderedCurrs.map((currency) => {
       const { left: gl, right: gr } = groupedMap[currency];
       const l = sortByRole(gl);
@@ -806,6 +857,7 @@ export function useTransactionSearch({
     }
 
     if (scopeChanged) {
+      currenciesBeforeAllRef.current = [];
       suppressBlockingOverlayOnceRef.current = true;
       prevCaptureDateRangeKeyRef.current = null;
       prevServerSideFiltersRef.current = null;
