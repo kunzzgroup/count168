@@ -254,6 +254,70 @@ function ensureSummaryStateTable(PDO $pdo) {
     }
 }
 
+/** Ensure data_capture_summary_state has scope_type / scope_id (idempotent). */
+function dcEnsureSummaryStateScopeColumns(PDO $pdo): bool
+{
+    static $checked = false;
+    static $hasScope = false;
+    if ($checked) {
+        return $hasScope;
+    }
+    $checked = true;
+    try {
+        ensureSummaryStateTable($pdo);
+        if ($pdo->query("SHOW COLUMNS FROM data_capture_summary_state LIKE 'scope_type'")->rowCount() > 0) {
+            $hasScope = true;
+            return true;
+        }
+        $pdo->exec("
+            ALTER TABLE data_capture_summary_state
+              ADD COLUMN scope_type ENUM('company','group') NOT NULL DEFAULT 'company' AFTER company_id,
+              ADD COLUMN scope_id BIGINT UNSIGNED NULL AFTER scope_type
+        ");
+        $pdo->exec("
+            UPDATE data_capture_summary_state
+            SET scope_type = 'company', scope_id = company_id
+            WHERE scope_id IS NULL OR scope_id = 0
+        ");
+        try {
+            $pdo->exec("ALTER TABLE data_capture_summary_state DROP INDEX uk_company_process");
+        } catch (Exception $dropException) {
+            error_log('Summary state drop legacy unique key: ' . $dropException->getMessage());
+        }
+        try {
+            $pdo->exec("
+                ALTER TABLE data_capture_summary_state
+                ADD UNIQUE KEY uk_company_process_scope (company_id, process_key, scope_type, scope_id)
+            ");
+        } catch (Exception $addException) {
+            error_log('Summary state add scoped unique key: ' . $addException->getMessage());
+        }
+        $hasScope = true;
+    } catch (Exception $e) {
+        error_log('dcEnsureSummaryStateScopeColumns: ' . $e->getMessage());
+    }
+    return $hasScope;
+}
+
+/** Scope bind values for summary state read/write. */
+function resolveSummaryStateScopeBind(?array $captureScopeCtx, int $companyId): array
+{
+    if (is_array($captureScopeCtx) && $captureScopeCtx !== []) {
+        $ctx = $captureScopeCtx;
+        $ctx['dual_tenant'] = true;
+        $insert = dcCaptureScopeInsertValues($ctx);
+        return [
+            'scope_type' => (string) ($insert['scope_type'] ?? 'company'),
+            'scope_id' => (int) ($insert['scope_id'] ?? $companyId),
+        ];
+    }
+
+    return [
+        'scope_type' => 'company',
+        'scope_id' => $companyId,
+    ];
+}
+
 /**
  * 快速提交队列（用于“先立即回前端，再后台处理”）。
  */
@@ -594,14 +658,16 @@ function resolveTemplateScopeInsertForSave(PDO $pdo, int $companyId): ?array
     ];
 }
 
-/** Backfill templates saved before scope columns were populated (subsidiary company ledger only). */
-function backfillTemplateScopeForCompany(PDO $pdo, int $companyId, ?array $scopeInsert): void
+/** Backfill templates saved before scope columns were populated (company or group ledger). */
+function backfillTemplateScope(PDO $pdo, int $companyId, ?array $scopeInsert): void
 {
-    if (
-        $scopeInsert === null
-        || ($scopeInsert['scope_type'] ?? '') !== 'company'
-        || (int) ($scopeInsert['scope_id'] ?? 0) <= 0
-    ) {
+    if ($scopeInsert === null) {
+        return;
+    }
+
+    $scopeType = (string) ($scopeInsert['scope_type'] ?? '');
+    $scopeId = (int) ($scopeInsert['scope_id'] ?? 0);
+    if ($scopeId <= 0 || !in_array($scopeType, ['company', 'group'], true)) {
         return;
     }
 
@@ -615,8 +681,8 @@ function backfillTemplateScopeForCompany(PDO $pdo, int $companyId, ?array $scope
               AND (scope_id IS NULL OR scope_id = 0)
         ");
         $stmt->execute([
-            ':scope_type' => $scopeInsert['scope_type'],
-            ':scope_id' => (int) $scopeInsert['scope_id'],
+            ':scope_type' => $scopeType,
+            ':scope_id' => $scopeId,
             ':company_id' => $companyId,
         ]);
     } catch (Exception $e) {
@@ -2313,7 +2379,7 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $templateResult = saveTemplateRow($pdo, $templatePayload, $company_id);
 
         if ($templateResult !== null) {
-            backfillTemplateScopeForCompany(
+            backfillTemplateScope(
                 $pdo,
                 (int) $company_id,
                 resolveTemplateScopeInsertForSave($pdo, (int) $company_id)
@@ -2554,11 +2620,35 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($action === 'get_summary_state') {
     try {
         ensureSummaryStateTable($pdo);
+        $hasScopeColumns = dcEnsureSummaryStateScopeColumns($pdo);
+        global $capture_scope_ctx;
+        $scopeBind = resolveSummaryStateScopeBind(
+            is_array($capture_scope_ctx) ? $capture_scope_ctx : null,
+            (int) $company_id
+        );
         $processId = isset($_GET['process_id']) && $_GET['process_id'] !== '' && is_numeric($_GET['process_id']) ? (int)$_GET['process_id'] : null;
         $processCode = isset($_GET['process_code']) ? trim((string)$_GET['process_code']) : '';
         $processKey = $processId !== null ? ('pid_' . $processId) : ('code_' . ($processCode !== '' ? $processCode : 'none'));
-        $stmt = $pdo->prepare("SELECT state_json FROM data_capture_summary_state WHERE company_id = ? AND process_key = ? LIMIT 1");
-        $stmt->execute([$company_id, $processKey]);
+        if ($hasScopeColumns) {
+            $stmt = $pdo->prepare("
+                SELECT state_json
+                FROM data_capture_summary_state
+                WHERE company_id = ?
+                  AND process_key = ?
+                  AND scope_type = ?
+                  AND scope_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([
+                $company_id,
+                $processKey,
+                $scopeBind['scope_type'],
+                $scopeBind['scope_id'],
+            ]);
+        } else {
+            $stmt = $pdo->prepare("SELECT state_json FROM data_capture_summary_state WHERE company_id = ? AND process_key = ? LIMIT 1");
+            $stmt->execute([$company_id, $processKey]);
+        }
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $data = null;
         if ($row && !empty($row['state_json'])) {
@@ -2585,6 +2675,12 @@ if ($action === 'save_summary_state' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         ensureSummaryStateTable($pdo);
+        $hasScopeColumns = dcEnsureSummaryStateScopeColumns($pdo);
+        global $capture_scope_ctx;
+        $scopeBind = resolveSummaryStateScopeBind(
+            is_array($capture_scope_ctx) ? $capture_scope_ctx : null,
+            (int) $company_id
+        );
         $processId = isset($payload['processId']) && $payload['processId'] !== null && $payload['processId'] !== '' && is_numeric($payload['processId']) ? (int)$payload['processId'] : null;
         $processCode = isset($payload['processCode']) ? trim((string)$payload['processCode']) : '';
         $processKey = $processId !== null ? ('pid_' . $processId) : ('code_' . ($processCode !== '' ? $processCode : 'none'));
@@ -2600,12 +2696,28 @@ if ($action === 'save_summary_state' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'rateValuesByRateFingerprint' => $payload['rateValuesByRateFingerprint'] ?? [],
             'savedAt' => $payload['savedAt'] ?? null,
         ]);
-        $stmt = $pdo->prepare("
-            INSERT INTO data_capture_summary_state (company_id, process_key, state_json, updated_at)
-            VALUES (?, ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE state_json = VALUES(state_json), updated_at = NOW()
-        ");
-        $stmt->execute([$company_id, $processKey, $stateJson]);
+        if ($hasScopeColumns) {
+            $stmt = $pdo->prepare("
+                INSERT INTO data_capture_summary_state
+                    (company_id, scope_type, scope_id, process_key, state_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE state_json = VALUES(state_json), updated_at = NOW()
+            ");
+            $stmt->execute([
+                $company_id,
+                $scopeBind['scope_type'],
+                $scopeBind['scope_id'],
+                $processKey,
+                $stateJson,
+            ]);
+        } else {
+            $stmt = $pdo->prepare("
+                INSERT INTO data_capture_summary_state (company_id, process_key, state_json, updated_at)
+                VALUES (?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE state_json = VALUES(state_json), updated_at = NOW()
+            ");
+            $stmt->execute([$company_id, $processKey, $stateJson]);
+        }
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
         error_log('save_summary_state error: ' . $e->getMessage());

@@ -9,6 +9,7 @@ import { findMainRowForTemplate, findMainRowForSubTemplatePure } from "./summary
 import { fetchSummaryTemplates } from "../lib/summaryApi.js";
 import { normalizeSummaryIdProductText } from "../lib/summaryIdProductUtils.js";
 import { restoreRateValuesOnRows } from "../lib/summaryRefreshRestore.js";
+import { loadSummaryRefreshFormulaState } from "../lib/summaryRefreshStatePure.js";
 import {
   isParentRowSuppressed,
   isRowSuppressed,
@@ -108,6 +109,7 @@ function rowHasTemplate(rows, mainId, templates) {
 export async function populateSummaryRowsPure({
   tableData,
   processId,
+  processCode = "",
   companyId,
   captureScope,
   captureId = null,
@@ -204,7 +206,10 @@ export async function populateSummaryRowsPure({
   if (!freshFromCapture && serverState?.rows && Array.isArray(serverState.rows)) {
     rows = mergeServerStateRows(rows, serverState.rows, suppressed);
   } else if (!freshFromCapture) {
-    rows = restoreRefreshStateRows(rows, serverState, suppressed);
+    rows = restoreRefreshStateRows(rows, serverState, suppressed, captureScope, {
+      processId,
+      processCode,
+    });
   }
 
   rows = rows
@@ -212,7 +217,7 @@ export async function populateSummaryRowsPure({
     .map((row) => (isRowSuppressed(row, suppressed) ? clearRowEditableFields(row) : row));
 
   rows = sortRowsByRowIndex(rows);
-  rows = restoreRateValuesOnRows(rows);
+  rows = restoreRateValuesOnRows(rows, captureScope);
   rows = mapRowsWithAmountRecalc(rows);
   return rows;
 }
@@ -285,15 +290,16 @@ function mergeServerStateRows(rows, serverRows, suppressed = loadSuppressedRowKe
   return rows.map((r) => byKey.get(r.key) || r);
 }
 
-function restoreRefreshStateRows(rows, serverState, suppressed = loadSuppressedRowKeys()) {
+function restoreRefreshStateRows(
+  rows,
+  serverState,
+  suppressed = loadSuppressedRowKeys(),
+  captureScope = null,
+  processMeta = null,
+) {
   let saved = serverState;
   if (!saved) {
-    try {
-      const raw = localStorage.getItem("capturedTableFormulaSourceForRefresh");
-      if (raw) saved = JSON.parse(raw);
-    } catch {
-      saved = null;
-    }
+    saved = loadSummaryRefreshFormulaState(captureScope, processMeta);
   }
   if (!saved || typeof saved !== "object" || !Array.isArray(saved.rows)) {
     return rows;

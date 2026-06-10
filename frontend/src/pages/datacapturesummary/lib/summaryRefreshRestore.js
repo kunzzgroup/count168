@@ -1,30 +1,35 @@
 import { recalculateRowAmounts } from "../table/summaryRowAmount.js";
+import { summaryRefreshStorageKeys, RATE_BY_PRODUCT_KEY } from "./summaryRefreshStorageKeys.js";
+import { SUMMARY_RATE_VALUES_KEY } from "./summaryStorage.js";
 
-function readRateMaps() {
-  let byKey = null;
-  let byProduct = null;
+function readJsonObject(key) {
+  if (!key) return null;
   try {
-    const raw = localStorage.getItem("capturedTableRateValues");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        byKey = parsed;
-      }
-    }
-    const rawProduct = localStorage.getItem("capturedTableRateValuesByProductId");
-    if (rawProduct) {
-      const parsed = JSON.parse(rawProduct);
-      if (parsed && typeof parsed === "object") byProduct = parsed;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed;
     }
   } catch {
     /* ignore */
   }
+  return null;
+}
+
+function readRateMaps(captureScope) {
+  const keys = summaryRefreshStorageKeys(captureScope);
+  const byKey =
+    readJsonObject(keys.rateValues) ?? readJsonObject(SUMMARY_RATE_VALUES_KEY);
+  const byProduct =
+    readJsonObject(keys.rateByProduct) ?? readJsonObject(RATE_BY_PRODUCT_KEY);
+  if (!byKey && !byProduct) return { byKey: null, byProduct: null };
   return { byKey, byProduct };
 }
 
 /** Restore rate checkbox/value from refresh storage onto populated rows. */
-export function restoreRateValuesOnRows(rows) {
-  const { byKey, byProduct } = readRateMaps();
+export function restoreRateValuesOnRows(rows, captureScope = null) {
+  const { byKey, byProduct } = readRateMaps(captureScope);
   if (!byKey && !byProduct) return rows;
 
   return rows.map((row) => {

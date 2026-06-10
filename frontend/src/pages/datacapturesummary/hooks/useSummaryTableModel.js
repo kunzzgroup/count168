@@ -142,6 +142,8 @@ export function useSummaryTableModel({
 
           processId,
 
+          processCode,
+
           companyId,
 
           captureScope,

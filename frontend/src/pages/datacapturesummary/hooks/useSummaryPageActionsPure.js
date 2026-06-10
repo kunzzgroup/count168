@@ -17,8 +17,6 @@ import { deleteSummaryTemplate } from "../lib/summaryApi.js";
 
 import { loadActiveCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
 
-import { isDashboardGroupOnlyMode } from "../../../utils/company/sharedCompanyFilter.js";
-
 import { useSummaryContext } from "../context/SummaryContext.jsx";
 
 import { useSummarySubmitPure } from "./useSummarySubmitPure.js";
@@ -134,9 +132,7 @@ export function useSummaryPageActionsPure({
 
       const session = loadActiveCaptureSession();
 
-      const groupOnly =
-
-        session?.processData?.groupOnlyCapture === true || isDashboardGroupOnlyMode();
+      const groupOnly = session?.processData?.groupOnlyCapture === true;
 
       clearSummarySessionAfterSubmit({ groupOnly });
 
@@ -168,19 +164,17 @@ export function useSummaryPageActionsPure({
 
   const navigateBack = useCallback(() => {
 
-    saveSummaryRefreshStatePure(rows, { processId, processCode });
+    saveSummaryRefreshStatePure(rows, { processId, processCode }, captureScope);
 
     window.isNavigatingAwayByBackOrSubmit = true;
 
     const session = loadActiveCaptureSession();
 
-    const groupOnly =
-
-      session?.processData?.groupOnlyCapture === true || isDashboardGroupOnlyMode();
+    const groupOnly = session?.processData?.groupOnlyCapture === true;
 
     navigate(buildSummaryRestoreCapturePath(companyId, { groupOnly }), { replace: true });
 
-  }, [navigate, companyId, rows, processId, processCode]);
+  }, [navigate, companyId, rows, processId, processCode, captureScope]);
 
 
 
@@ -190,7 +184,7 @@ export function useSummaryPageActionsPure({
 
     try {
 
-      saveSummaryRefreshStatePure(rows, { processId, processCode });
+      saveSummaryRefreshStatePure(rows, { processId, processCode }, captureScope);
 
       await runPopulate?.({ reset: true });
 
@@ -200,7 +194,7 @@ export function useSummaryPageActionsPure({
 
     }
 
-  }, [rows, processId, processCode, runPopulate]);
+  }, [rows, processId, processCode, runPopulate, captureScope]);
 
 
 
@@ -256,7 +250,7 @@ export function useSummaryPageActionsPure({
 
       );
 
-      saveSummaryRefreshStatePure(rows, { processId, processCode });
+      saveSummaryRefreshStatePure(rows, { processId, processCode }, captureScope);
 
     } else {
 
@@ -272,7 +266,7 @@ export function useSummaryPageActionsPure({
 
     }
 
-  }, [applyRateBatch, globalRateInput, t, showNotification, rows, processId, processCode]);
+  }, [applyRateBatch, globalRateInput, t, showNotification, rows, processId, processCode, captureScope]);
 
 
 
@@ -319,7 +313,7 @@ export function useSummaryPageActionsPure({
         );
       }
 
-      saveSummaryRefreshStatePure(nextRows, { processId, processCode });
+      saveSummaryRefreshStatePure(nextRows, { processId, processCode }, captureScope);
 
       const notify = showNotification || pushSummaryNotification;
 

@@ -22,6 +22,7 @@ async function ensureGroupSubmitProcessId(effectiveScope, parsedProcessData, bas
       parsedProcessData?.process_code ||
       parsedProcessData?.processName ||
       parsedProcessData?.process_name ||
+      parsedProcessData?.process ||
       "",
   )
     .trim()
