@@ -101,10 +101,6 @@ export function filterProcessPageCompanyButtons(
   if (pillCategory === "bank") {
     return filterCompaniesForBankPills(list, preferredCompanyId);
   }
-  /** Games Process List: show every subsidiary pill (incl. bank-only CX); stay on process-list when selected. */
-  if (pillCategory === "process") {
-    return list;
-  }
   return list;
 }
 

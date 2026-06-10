@@ -15,32 +15,24 @@ function parseCompanyPermissions(raw) {
   return [];
 }
 
-function normalizePermissionKey(permission) {
-  return String(permission || "").trim().toUpperCase();
-}
-
-export function permissionsIncludeGames(permissions) {
-  const list = parseCompanyPermissions(permissions);
-  return list.some((p) => {
-    const key = normalizePermissionKey(p);
-    return key === "GAMES" || key === "GAMBLING";
-  });
-}
-
-export function permissionsIncludeBank(permissions) {
-  const list = parseCompanyPermissions(permissions);
-  return list.some((p) => normalizePermissionKey(p) === "BANK");
-}
-
 /** Category flags from owner-companies row permissions (instant sidebar before session sync). */
 export function resolveCompanyCategoryFlagsFromRow(row) {
   if (!row || typeof row !== "object") return null;
   const perms = parseCompanyPermissions(row.permissions);
   if (!perms.length) return null;
-  return {
-    hasGambling: permissionsIncludeGames(perms),
-    hasBank: permissionsIncludeBank(perms),
-  };
+  const hasGambling = perms.some((p) => p === "Games" || p === "Gambling");
+  const hasBank = perms.some((p) => p === "Bank");
+  return { hasGambling, hasBank };
+}
+
+export function permissionsIncludeGames(permissions) {
+  const list = parseCompanyPermissions(permissions);
+  return list.some((p) => p === "Games" || p === "Gambling");
+}
+
+export function permissionsIncludeBank(permissions) {
+  const list = parseCompanyPermissions(permissions);
+  return list.some((p) => p === "Bank");
 }
 
 /** Row permissions first, then session-sync cache (owner-companies API includes permissions). */
@@ -67,13 +59,6 @@ export function companyMatchesBankPillScope(companyRow) {
   const flags = resolveCompanyCategoryFlags(companyRow);
   if (!flags) return true;
   return flags.hasBank;
-}
-
-/** Bank-only subsidiary (e.g. CX): no Games process rows on process-list. */
-export function isBankOnlyCompanyRow(companyRow) {
-  const flags = resolveCompanyCategoryFlags(companyRow);
-  if (!flags) return false;
-  return flags.hasBank && !flags.hasGambling;
 }
 
 function filterCompaniesByPillCategory(companies, matchesScope, preferredCompanyId = null) {
