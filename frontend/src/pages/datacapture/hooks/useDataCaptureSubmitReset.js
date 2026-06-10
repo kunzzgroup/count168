@@ -9,7 +9,7 @@ import {
 } from "../lib/dataCaptureStorage.js";
 import { isGroupOnlyProcessId } from "../lib/dataCaptureGroupOnlyProcesses.js";
 import {
-  clearGroupOnlyTableDraft,
+  cancelAllScheduledServerDraftSaves,
   flushGroupOnlyTableDraftToServer,
   saveGroupOnlyTableDraft,
 } from "../lib/dataCaptureGroupOnlyTableDraft.js";
@@ -45,7 +45,11 @@ import { dataCaptureScopeLedgerCompanyId } from "../lib/dataCaptureScope.js";
 import { prefetchRouteModule } from "../../../utils/routing/routePrefetch.js";
 import { prefetchSummaryPopulateData } from "../../datacapturesummary/lib/summaryPrefetch.js";
 import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
-import { applyBridgeCaptureType, toggleBridgeFormatDisplay } from "../lib/dataCaptureBridge.js";
+import {
+  applyBridgeCaptureType,
+  getBridgeCaptureType,
+  toggleBridgeFormatDisplay,
+} from "../lib/dataCaptureBridge.js";
 import {
   callDataCaptureRuntime,
   getDataCaptureState,
@@ -247,11 +251,30 @@ export function useDataCaptureSubmitReset({
   }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions, groupOnlyCapture, selectedGroup, captureScope, selectedDescriptions, gridRef]);
 
   const reset = useCallback(() => {
-    callDataCaptureRuntime("reactFormReset");
-    clearSelectedDescriptions();
+    const groupOnlyProcessId =
+      groupOnlyCapture && selectedGroup && isGroupOnlyProcessId(form.selectedProcess?.id)
+        ? form.selectedProcess.id
+        : null;
 
-    if (groupOnlyCapture && selectedGroup && isGroupOnlyProcessId(form.selectedProcess?.id)) {
-      clearGroupOnlyTableDraft(selectedGroup, form.selectedProcess.id, { captureScope });
+    if (groupOnlyCapture && selectedGroup) {
+      if (groupOnlyProcessId) {
+        const activeCaptureType = getBridgeCaptureType(captureType || "1.Text");
+        const tableData = captureTableSnapshot(activeCaptureType, gridRef.current);
+        if (tableSnapshotHasData(tableData)) {
+          saveGroupOnlyTableDraft(
+            selectedGroup,
+            groupOnlyProcessId,
+            { tableData, captureType: activeCaptureType },
+            { captureScope, flush: true },
+          );
+        } else {
+          cancelAllScheduledServerDraftSaves();
+        }
+      }
+      callDataCaptureRuntime("clearGroupOnlyProcessForTableReset");
+    } else {
+      callDataCaptureRuntime("reactFormReset");
+      clearSelectedDescriptions();
     }
 
     const { rows, cols } = resolveDataCaptureGridDimensions(groupOnlyCapture);
@@ -275,6 +298,7 @@ export function useDataCaptureSubmitReset({
     groupOnlyCapture,
     selectedGroup,
     captureScope,
+    captureType,
     form.selectedProcess?.id,
     clearSelectedDescriptions,
     gridRef,

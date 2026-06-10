@@ -437,6 +437,18 @@ export function useDataCaptureFormEngine(
     }, 0);
   }, []);
 
+  /** Reset table UI only — keeps shared group+process draft on server; user re-selects process to restore. */
+  const clearGroupOnlyProcessForTableReset = useCallback(() => {
+    if (applyCompanyOnlyFieldsRef.current) return;
+    cancelAllScheduledServerDraftSaves();
+    setSelectedProcess(null);
+    setProcessOpen(false);
+    setProcessFilter("");
+    setTimeout(() => {
+      callDataCaptureRuntime("recomputeSubmitState");
+    }, 0);
+  }, []);
+
   const clearProcessSelection = useCallback(() => {
     if (!applyCompanyOnlyFieldsRef.current) {
       const prev = selectedProcessRef.current;
@@ -486,6 +498,7 @@ export function useDataCaptureFormEngine(
   windowHooksRef.current = {
     reloadProcessesForDate,
     applyReactFormDefaults,
+    clearGroupOnlyProcessForTableReset,
   };
 
   const applyGroupOnlyPrefsForGroupRef = useRef(applyGroupOnlyPrefsForGroup);
@@ -566,6 +579,9 @@ export function useDataCaptureFormEngine(
       },
       reactFormReset: () => {
         windowHooksRef.current.applyReactFormDefaults();
+      },
+      clearGroupOnlyProcessForTableReset: () => {
+        windowHooksRef.current.clearGroupOnlyProcessForTableReset();
       },
       onDescriptionsConfirmed: (descriptions) => {
         const arr = Array.isArray(descriptions) ? descriptions : [];
