@@ -1,7 +1,7 @@
 <?php
 /**
  * Shared group-only Data Capture table drafts (SALARY / COMMISSION / BONUS).
- * Scoped by group_id + process_key — not per user or per date.
+ * Scoped by group_id + process_key + currency_id — not per user or per date.
  */
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/permissions.php';
@@ -36,11 +36,12 @@ function dcEnsureGroupCaptureDraftTable(PDO $pdo): void
                 id INT UNSIGNED NOT NULL AUTO_INCREMENT,
                 group_id VARCHAR(16) NOT NULL,
                 process_key VARCHAR(32) NOT NULL,
+                currency_id INT UNSIGNED NOT NULL,
                 draft_json LONGTEXT NOT NULL,
                 updated_by INT UNSIGNED NULL DEFAULT NULL,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 PRIMARY KEY (id),
-                UNIQUE KEY uk_dc_group_draft_group_process (group_id, process_key),
+                UNIQUE KEY uk_dc_group_draft_group_process_currency (group_id, process_key, currency_id),
                 KEY idx_dc_group_draft_updated (updated_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
@@ -61,6 +62,15 @@ function dcNormalizeGroupCaptureDraftProcessKey(?string $processKey): string
         return '';
     }
     return $key;
+}
+
+function dcNormalizeGroupCaptureDraftCurrencyId($currencyId): int
+{
+    if ($currencyId === null || $currencyId === '') {
+        return 0;
+    }
+    $id = (int) $currencyId;
+    return $id > 0 ? $id : 0;
 }
 
 function dcGroupCaptureDraftHasTableData($tableData): bool
@@ -128,6 +138,9 @@ $groupId = dcNormalizeGroupCaptureDraftGroupId(
 $processKey = dcNormalizeGroupCaptureDraftProcessKey(
     $scopeParams['process_key'] ?? $scopeParams['process'] ?? ''
 );
+$currencyId = dcNormalizeGroupCaptureDraftCurrencyId(
+    $scopeParams['currency_id'] ?? $scopeParams['currency'] ?? ''
+);
 
 $action = strtolower(trim((string) ($scopeParams['action'] ?? $_GET['action'] ?? '')));
 
@@ -140,6 +153,12 @@ if ($groupId === '') {
 if ($processKey === '' && $action !== 'get_group_capture_draft') {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid process_key']);
+    exit;
+}
+
+if ($currencyId <= 0 && $action !== 'get_group_capture_draft') {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Invalid currency_id']);
     exit;
 }
 
@@ -178,21 +197,29 @@ if ($action === 'get_group_capture_draft') {
         echo json_encode(['success' => false, 'error' => 'Missing process_key']);
         exit;
     }
+    if ($currencyId <= 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Missing currency_id']);
+        exit;
+    }
     try {
         $stmt = $pdo->prepare("
             SELECT draft_json, updated_at, updated_by
             FROM data_capture_group_draft
-            WHERE group_id = ? AND process_key = ?
+            WHERE group_id = ? AND process_key = ? AND currency_id = ?
             LIMIT 1
         ");
-        $stmt->execute([$groupId, $processKey]);
+        $stmt->execute([$groupId, $processKey, $currencyId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $data = null;
         if ($row && !empty($row['draft_json'])) {
             $decoded = json_decode($row['draft_json'], true);
             if (is_array($decoded)) {
                 $storedKey = strtolower(trim((string) ($decoded['processKey'] ?? '')));
+                $storedCurrencyId = (int) ($decoded['currencyId'] ?? 0);
                 if ($storedKey !== '' && $storedKey !== $processKey) {
+                    $data = null;
+                } elseif ($storedCurrencyId > 0 && $storedCurrencyId !== $currencyId) {
                     $data = null;
                 } else {
                     $data = $decoded;
@@ -216,6 +243,11 @@ if ($action === 'save_group_capture_draft' && $_SERVER['REQUEST_METHOD'] === 'PO
         echo json_encode(['success' => false, 'error' => 'Invalid process_key']);
         exit;
     }
+    if ($currencyId <= 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid currency_id']);
+        exit;
+    }
     $payload = is_array($jsonBody) ? $jsonBody : [];
     $tableData = $payload['tableData'] ?? null;
     $captureType = trim((string) ($payload['captureType'] ?? '1.Text'));
@@ -225,8 +257,11 @@ if ($action === 'save_group_capture_draft' && $_SERVER['REQUEST_METHOD'] === 'PO
 
     if (!dcGroupCaptureDraftHasTableData($tableData)) {
         try {
-            $del = $pdo->prepare("DELETE FROM data_capture_group_draft WHERE group_id = ? AND process_key = ?");
-            $del->execute([$groupId, $processKey]);
+            $del = $pdo->prepare("
+                DELETE FROM data_capture_group_draft
+                WHERE group_id = ? AND process_key = ? AND currency_id = ?
+            ");
+            $del->execute([$groupId, $processKey, $currencyId]);
         } catch (Throwable $e) {
             error_log('save_group_capture_draft clear empty: ' . $e->getMessage());
         }
@@ -238,6 +273,7 @@ if ($action === 'save_group_capture_draft' && $_SERVER['REQUEST_METHOD'] === 'PO
         'tableData' => $tableData,
         'captureType' => $captureType,
         'processKey' => $processKey,
+        'currencyId' => $currencyId,
         'savedAt' => isset($payload['savedAt']) ? (int) $payload['savedAt'] : (int) round(microtime(true) * 1000),
     ], JSON_UNESCAPED_UNICODE);
     if ($draftJson === false) {
@@ -248,14 +284,14 @@ if ($action === 'save_group_capture_draft' && $_SERVER['REQUEST_METHOD'] === 'PO
 
     try {
         $stmt = $pdo->prepare("
-            INSERT INTO data_capture_group_draft (group_id, process_key, draft_json, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, NOW())
+            INSERT INTO data_capture_group_draft (group_id, process_key, currency_id, draft_json, updated_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
             ON DUPLICATE KEY UPDATE
                 draft_json = VALUES(draft_json),
                 updated_by = VALUES(updated_by),
                 updated_at = NOW()
         ");
-        $stmt->execute([$groupId, $processKey, $draftJson, $user_id > 0 ? $user_id : null]);
+        $stmt->execute([$groupId, $processKey, $currencyId, $draftJson, $user_id > 0 ? $user_id : null]);
         echo json_encode(['success' => true]);
     } catch (Throwable $e) {
         error_log('save_group_capture_draft: ' . $e->getMessage());
@@ -271,9 +307,17 @@ if ($action === 'clear_group_capture_draft') {
         echo json_encode(['success' => false, 'error' => 'Invalid process_key']);
         exit;
     }
+    if ($currencyId <= 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid currency_id']);
+        exit;
+    }
     try {
-        $stmt = $pdo->prepare("DELETE FROM data_capture_group_draft WHERE group_id = ? AND process_key = ?");
-        $stmt->execute([$groupId, $processKey]);
+        $stmt = $pdo->prepare("
+            DELETE FROM data_capture_group_draft
+            WHERE group_id = ? AND process_key = ? AND currency_id = ?
+        ");
+        $stmt->execute([$groupId, $processKey, $currencyId]);
         echo json_encode(['success' => true]);
     } catch (Throwable $e) {
         error_log('clear_group_capture_draft: ' . $e->getMessage());
