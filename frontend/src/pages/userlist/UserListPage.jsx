@@ -5,14 +5,12 @@ import { notifyCompanySessionUpdated } from "../../utils/company/companySessionE
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import {
   clearDashboardGroupFilterKeepCompany,
-  companiesForCompanyPicker,
   companiesGroupEntityList,
   companyRowIsGroupEntity,
   companiesInGroupList,
   dedupeOwnerCompaniesByCode,
   DASHBOARD_GROUP_FILTER_EVENT,
   DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
-  excludeGroupLabelsFromCompanyPicker,
   filterCompaniesWithDisplayId,
   isDashboardGroupOnlyMode,
   isSubsidiaryCompanyRow,
@@ -34,7 +32,6 @@ import {
   resolveCompanyPickWhenSwitchingGroup,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
-  independentCompaniesForPicker,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
@@ -75,6 +72,11 @@ import {
   canInteractWithReadOnlyToggle,
   isUserModalPageReadOnlyLock,
   getUserEditFieldLocks,
+  isCompanyInUserListPicker,
+  readUserListGroupFilterOptOut,
+  resolveUserListFetchScopeKey,
+  resolveUserListInlinePickerCompanies,
+  shouldLoadUserListData,
 } from "./userListLogic.js";
 
 // Components
@@ -582,6 +584,31 @@ export default function UserListPage() {
           bootGroup = null;
         }
 
+        const bootGroupIds = sortedUniqueGroupIds(rows);
+        if (
+          !groupOnlyBoot &&
+          effectiveNum != null &&
+          !isCompanyInUserListPicker(
+            {
+              companies: rows,
+              groupIds: bootGroupIds,
+              selectedGroup: bootGroup,
+              preferredCompanyId: effectiveNum,
+              groupFilterOptOut,
+            },
+            effectiveNum,
+          )
+        ) {
+          effectiveNum = null;
+          stripCompanyIdFromUrl();
+          persistDashboardSelectedCompany(null);
+        }
+
+        if (groupFilterOptOut && effectiveNum == null && !groupOnlyBoot) {
+          const pick = resolveCompanyWhenClosingGroup(rows, null, bootGroupIds);
+          if (pick?.id != null) effectiveNum = Number(pick.id);
+        }
+
         setCompanyId(groupOnlyBoot ? null : effectiveNum);
         setSelectedGroup(bootGroup);
         setSearch(String(url.searchParams.get("search") || ""));
@@ -630,7 +657,6 @@ export default function UserListPage() {
     groupAllMode,
     handlePickAllGroups,
     handlePickAllInGroup,
-    isListScopeReady,
     setGroupsAllMode,
     setGroupAllMode,
   } = useGcFilterWithAllModes({
@@ -665,34 +691,18 @@ export default function UserListPage() {
   });
 
   /** When no Group is selected, the shared picker only lists “ungrouped” rows — often empty for AP/IG-only tenants. */
-  const inlineCompaniesForPicker = useMemo(() => {
-    const groupFilterOptOut =
-      typeof sessionStorage !== "undefined" &&
-      sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
-
-    const independentPicker = () => {
-      const list = independentCompaniesForPicker(companies, groupIds);
-      if (list.length) {
-        return dedupeOwnerCompaniesByCode(list, companyId);
-      }
-      return excludeGroupLabelsFromCompanyPicker(
-        dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), companyId),
+  const inlineCompaniesForPicker = useMemo(
+    () =>
+      resolveUserListInlinePickerCompanies({
+        companies,
         groupIds,
-      ).filter((c) => !normalizeCompanyGroupId(c));
-    };
-
-    if (!selectedGroup || groupFilterOptOut) {
-      return independentPicker();
-    }
-
-    if (companiesForPicker.length > 0) return companiesForPicker;
-
-    const effectiveGroup = String(selectedGroup).trim().toUpperCase();
-    return dedupeOwnerCompaniesByCode(
-      companiesForCompanyPicker(companies, effectiveGroup, groupIds),
-      companyId,
-    );
-  }, [companiesForPicker, selectedGroup, companyId, companies, groupIds]);
+        selectedGroup,
+        preferredCompanyId: companyId,
+        companiesForPickerFromHook: companiesForPicker,
+        groupFilterOptOut: readUserListGroupFilterOptOut(),
+      }),
+    [companiesForPicker, selectedGroup, companyId, companies, groupIds],
+  );
 
   const groupOnlyUserList = useMemo(() => {
     if (groupsAllMode || groupAllMode) return false;
@@ -1046,8 +1056,84 @@ export default function UserListPage() {
 
   onSwitchCompanyRef.current = onSwitchCompany;
 
+  const userListFetchScopeKey = useMemo(() => {
+    if (bootLoading) return "";
+    if (
+      !shouldLoadUserListData({
+        companyId,
+        selectedGroup,
+        groupOnlyMode: groupOnlyUserList,
+        groupsAllMode,
+        groupAllMode,
+      })
+    ) {
+      return "";
+    }
+    return resolveUserListFetchScopeKey({
+      companyId,
+      selectedGroup,
+      groupsAllMode,
+      groupAllMode,
+      groupOnlyMode: groupOnlyUserList,
+    });
+  }, [
+    bootLoading,
+    companyId,
+    groupAllMode,
+    groupOnlyUserList,
+    groupsAllMode,
+    selectedGroup,
+  ]);
+
   useEffect(() => {
-    if (!bootLoading && me && (isListScopeReady || groupOnlyUserList)) {
+    if (bootLoading || groupsAllMode || groupAllMode) return;
+    if (companyId == null) return;
+    if (groupOnlyUserList) return;
+    if (
+      isCompanyInUserListPicker(
+        {
+          companies,
+          groupIds,
+          selectedGroup,
+          preferredCompanyId: companyId,
+          companiesForPickerFromHook: companiesForPicker,
+          groupFilterOptOut: readUserListGroupFilterOptOut(),
+        },
+        companyId,
+      )
+    ) {
+      return;
+    }
+    skipCompanyFetchEffectRef.current = true;
+    listFetchAbortRef.current?.abort();
+    flushSync(() => {
+      setCompanyId(null);
+      setUsersRaw([]);
+    });
+    stripCompanyIdFromUrl();
+    persistDashboardSelectedCompany(null);
+  }, [
+    bootLoading,
+    companyId,
+    companies,
+    companiesForPicker,
+    groupIds,
+    groupsAllMode,
+    groupAllMode,
+    groupOnlyUserList,
+    selectedGroup,
+  ]);
+
+  useEffect(() => {
+    if (bootLoading) return;
+    if (userListFetchScopeKey) return;
+    listFetchAbortRef.current?.abort();
+    setUsersRaw([]);
+    bootFetchedUsersKeyRef.current = null;
+  }, [bootLoading, userListFetchScopeKey]);
+
+  useEffect(() => {
+    if (!bootLoading && me && userListFetchScopeKey) {
       if (skipCompanyFetchEffectRef.current) {
         skipCompanyFetchEffectRef.current = false;
         return;
@@ -1071,12 +1157,12 @@ export default function UserListPage() {
     companyId,
     groupOnlyUserList,
     aggregateUserList,
-    isListScopeReady,
     me,
     fetchUsers,
     selectedGroup,
     groupsAllMode,
     groupAllMode,
+    userListFetchScopeKey,
   ]);
 
   /** Company login without Admin-assigned group must auto-pick a subsidiary when a group pill is shown. */
