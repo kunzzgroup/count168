@@ -120,9 +120,10 @@ export function useDataCaptureSubmitReset({
       captureType: activeCaptureType,
       tableData,
       requireDescriptions,
+      requireTableData: groupOnlyCapture,
     });
     setSubmitDisabled(!ready);
-  }, [form.selectedProcess, form.currencyId, form.descriptionDisplay, requireDescriptions, selectedDescriptions, gridRef]);
+  }, [form.selectedProcess, form.currencyId, form.descriptionDisplay, requireDescriptions, groupOnlyCapture, selectedDescriptions, gridRef]);
 
   useEffect(() => {
     recomputeSubmitState();
@@ -150,6 +151,7 @@ export function useDataCaptureSubmitReset({
       captureType: activeCaptureType,
       tableData,
       requireDescriptions,
+      requireTableData: groupOnlyCapture,
     });
     if (!validation.ok) {
       pushDataCaptureNotification(translateDataCaptureMessage(localStorage.getItem("login_lang") === "zh" ? "zh" : "en", validation.message), "danger");

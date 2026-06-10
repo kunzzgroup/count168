@@ -53,6 +53,7 @@ export function validateDataCaptureForm({
   captureType,
   tableData,
   requireDescriptions = true,
+  requireTableData = false,
 }) {
   const activeDescriptions = descriptions?.length
     ? descriptions
@@ -67,9 +68,12 @@ export function validateDataCaptureForm({
   if (!currencyId) {
     return { ok: false, message: "Please select a currency" };
   }
-  // Match legacy PHP: only CITIBET blocks Submit until the grid has data.
+  // Group-only capture and CITIBET require grid data before Submit.
   // 2.Format table checks run at submit time (after prepareFormatSubmitSnapshot).
-  if (isCitibetCaptureType(captureType) && !tableSnapshotHasData(tableData)) {
+  if (
+    (requireTableData || isCitibetCaptureType(captureType)) &&
+    !tableSnapshotHasData(tableData)
+  ) {
     return { ok: false, message: "Please enter data in the table" };
   }
   return { ok: true };
