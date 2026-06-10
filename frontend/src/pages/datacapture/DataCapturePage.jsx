@@ -1101,6 +1101,7 @@ function DataCapturePageContent() {
         groupOnlyTable={groupOnlyTable}
         onCaptureTypeChange={handleCaptureTypeChange}
         submitDisabled={submitReset.submitDisabled || mutationsBlocked}
+        isSubmitting={submitReset.isSubmitting}
         onSubmit={() => void submitReset.submit()}
         onReset={submitReset.reset}
         engineReady={engineReady}

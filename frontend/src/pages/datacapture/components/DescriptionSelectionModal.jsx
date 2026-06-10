@@ -5,6 +5,7 @@ import { fetchDescriptionCatalog, postAddDescription, postDeleteDescription } fr
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
 import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 function normalizeCatalog(json) {
   const raw = json?.descriptions ?? json?.data?.descriptions ?? [];
@@ -19,6 +20,7 @@ function normalizeCatalog(json) {
 
 export default function DescriptionSelectionModal({ t, open, onClose, companyId, onConfirm }) {
   const { selectedDescriptions, confirmDescriptions } = useDataCaptureContext();
+  const { submitting: addingDesc, guardSubmit } = useSubmitGuard(open);
   const [catalog, setCatalog] = useState([]);
   const [pendingNames, setPendingNames] = useState([]);
   const [search, setSearch] = useState("");
@@ -194,7 +196,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
             <div className="available-descriptions-section">
               <div className="add-description-bar">
                 <h3>{t("addNewDescription")}</h3>
-                <form className="add-description-form" onSubmit={handleAdd}>
+                <form className="add-description-form" onSubmit={guardSubmit(handleAdd)}>
                   <div className="add-description-input-group">
                     <input
                       type="text"
@@ -205,8 +207,8 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                       onChange={(e) => setNewName(e.target.value.toUpperCase())}
                       style={{ textTransform: "uppercase" }}
                     />
-                    <button type="submit" className="btn btn-save">
-                      {t("add")}
+                    <button type="submit" className="btn btn-save" disabled={addingDesc}>
+                      {addingDesc ? t("saving") : t("add")}
                     </button>
                   </div>
                 </form>

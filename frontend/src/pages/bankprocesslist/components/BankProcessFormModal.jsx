@@ -1,5 +1,6 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 import {
   BankFormDateField,
   BankSearchableAccountPick,
@@ -35,6 +36,7 @@ export default function BankProcessFormModal({
   lang,
   t,
 }) {
+  const { submitting, guardSubmit } = useSubmitGuard(true);
   const dayStart = String(form.day_start || "").trim();
   const contract = String(form.contract || "").trim();
   const frequency = bankProcessFrequencyNormalized(form.day_start_frequency);
@@ -86,7 +88,7 @@ export default function BankProcessFormModal({
           <span className="close" onClick={onClose} role="presentation">&times;</span>
         </div>
         <div className="modal-body">
-          <form id="addBankProcessForm" className="process-form bank-form" onSubmit={onSubmit}>
+          <form id="addBankProcessForm" className="process-form bank-form" onSubmit={guardSubmit(onSubmit)}>
             <input type="hidden" name="id" value={form.id} />
             <div className="bank-form-fields-scroll">
               <div className="bank-form-row">
@@ -473,7 +475,9 @@ export default function BankProcessFormModal({
               </div>
             </div>
             <div className="form-actions bank-actions">
-              <button type="submit" className="btn btn-save" id="bankSubmitBtn">{editMode ? t("updateProcess") : t("addProcess")}</button>
+              <button type="submit" className="btn btn-save" id="bankSubmitBtn" disabled={submitting}>
+                {submitting ? t("saving") : editMode ? t("updateProcess") : t("addProcess")}
+              </button>
               <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
             </div>
           </form>

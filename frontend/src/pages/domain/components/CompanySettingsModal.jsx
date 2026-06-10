@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifySessionRefreshRequested } from "../../../utils/company/companySessionEvents.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 import FormDateField from "../../../components/FormDateField.jsx";
 import MaintenanceCalendarPopup from "../../../components/MaintenanceCalendarPopup.jsx";
 import {
@@ -79,6 +80,7 @@ export default function CompanySettingsModal({
     ? String(initCompany?.group_code ?? initCompany?.company_id ?? "").trim().toUpperCase()
     : String(initCompany?.company_id ?? "").trim().toUpperCase();
   const renameLocked = originalEntityCode === "C168";
+  const { submitting, runGuarded } = useSubmitGuard(true);
   const [entityCodeInput, setEntityCodeInput] = useState(originalEntityCode);
   const isZh = lang === "zh";
   const t = (key, params) => getDomainText(lang, key, params);
@@ -805,7 +807,9 @@ export default function CompanySettingsModal({
 
           {/* Footer actions — 与量测图：Save 蓝 / Reset 红 / Cancel 灰 */}
           <div className="form-actions company-settings-form-actions">
-            <button type="button" className="btn btn-save" onClick={handleSave}>{t("save")}</button>
+            <button type="button" className="btn btn-save" disabled={submitting} onClick={() => runGuarded(handleSave)}>
+              {submitting ? t("saving") : t("save")}
+            </button>
             <button type="button" className="btn btn-reset-company" onClick={handleReset}>{t("reset")}</button>
             <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
           </div>

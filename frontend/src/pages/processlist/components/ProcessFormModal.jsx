@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { toProcessFormUpperInput } from "../processListHelpers.js";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 const DAY_NAME_MAP = {
   "MON": "dayMonday",
@@ -57,6 +58,7 @@ export default function ProcessFormModal({
   t,
 }) {
   const ro = Boolean(readOnly);
+  const { submitting, guardSubmit } = useSubmitGuard(true);
   const [copyOpen, setCopyOpen] = useState(false);
   const [copySearch, setCopySearch] = useState("");
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -104,7 +106,7 @@ export default function ProcessFormModal({
           </span>
         </div>
         <div className="modal-body">
-          <form className="process-form add-grid" onSubmit={onSubmit}>
+          <form className="process-form add-grid" onSubmit={guardSubmit(onSubmit)}>
             <div className="add-col">
               <div className="process-form-section">
                 <h3 className="process-form-section-title">{t("processFormSectionBasic")}</h3>
@@ -594,8 +596,8 @@ export default function ProcessFormModal({
             </div>
 
             <div className="form-actions add-actions modal-footer process-form-modal-footer">
-              <button type="submit" className="btn btn-save" disabled={ro}>
-                {editMode ? t("updateProcess") : t("addProcess")}
+              <button type="submit" className="btn btn-save" disabled={ro || submitting}>
+                {submitting ? t("saving") : editMode ? t("updateProcess") : t("addProcess")}
               </button>
               <button type="button" className="btn btn-cancel" onClick={onClose}>
                 {t("cancel")}

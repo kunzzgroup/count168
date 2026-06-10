@@ -105,6 +105,7 @@ export default function SecondaryPasswordPage({ variant }) {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     const value = password.trim();
     if (!/^\d{6}$/.test(value)) {
       setErrorMessage(i18n.digitsSix);

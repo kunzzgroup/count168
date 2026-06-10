@@ -21,6 +21,7 @@ export default function DataCaptureTableSection({
   groupOnlyTable = false,
   onCaptureTypeChange,
   submitDisabled = true,
+  isSubmitting = false,
   onSubmit,
   onReset,
   engineReady = false,
@@ -99,16 +100,16 @@ export default function DataCaptureTableSection({
           id="dataCaptureSubmitBtn"
           type="button"
           className="btn btn-save"
-          disabled={submitDisabled}
+          disabled={submitDisabled || isSubmitting}
           style={{
-            opacity: submitDisabled ? 0.6 : 1,
-            cursor: submitDisabled ? "not-allowed" : "pointer",
+            opacity: submitDisabled || isSubmitting ? 0.6 : 1,
+            cursor: submitDisabled || isSubmitting ? "not-allowed" : "pointer",
           }}
           onClick={() => {
             void onSubmit?.();
           }}
         >
-          {t("submit")}
+          {isSubmitting ? t("submitting") : t("submit")}
         </button>
       </div>
     </div>

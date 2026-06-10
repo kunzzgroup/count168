@@ -34,6 +34,7 @@ export default function EditFormulaModal({
   formulaDataGridItems = [],
   usedAccountIds = [],
   saveDisabled = false,
+  saving = false,
   onClose,
   onSave,
   onFormChange,
@@ -391,10 +392,10 @@ export default function EditFormulaModal({
               type="button"
               id="editFormulaSaveBtn"
               className="btn btn-save"
-              disabled={saveDisabled}
+              disabled={saveDisabled || saving}
               onClick={onSave}
             >
-              {t("save")}
+              {saving ? t("saving") : t("save")}
             </button>
             <button type="button" className="btn btn-cancel" onClick={onClose}>
               {t("cancel")}

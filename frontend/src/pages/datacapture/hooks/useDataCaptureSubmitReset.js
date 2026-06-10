@@ -82,6 +82,8 @@ export function useDataCaptureSubmitReset({
   const { selectedDescriptions, clearSelectedDescriptions, gridRef, gridVersion, replaceGrid } =
     useDataCaptureContext();
   const [submitDisabled, setSubmitDisabled] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
   const restoreInFlightRef = useRef(false);
   const captureTypeRef = useRef(captureType);
   captureTypeRef.current = captureType;
@@ -120,6 +122,7 @@ export function useDataCaptureSubmitReset({
   }, [gridVersion, recomputeSubmitState]);
 
   const submit = useCallback(async () => {
+    if (submitInFlightRef.current) return;
     if (mutationsBlocked) {
       pushDataCaptureNotification(t("readOnlyBlocked"), "danger");
       return;
@@ -150,6 +153,8 @@ export function useDataCaptureSubmitReset({
     const formatSnapshotBeforeConvert =
       activeCaptureType === "2.Format" ? trimSnapshotToFilledRows(preConvertSnapshot) : null;
 
+    submitInFlightRef.current = true;
+    setIsSubmitting(true);
     try {
       const processData = buildProcessCapturePayload(form, activeCaptureType, form.currencies, selectedDescriptions);
       if (groupOnlyCapture && isGroupOnlyProcessId(processData.process)) {
@@ -199,6 +204,9 @@ export function useDataCaptureSubmitReset({
     } catch (error) {
       console.error("Error submitting data:", error);
       pushDataCaptureNotification(t("failedCaptureData"), "danger");
+    } finally {
+      submitInFlightRef.current = false;
+      setIsSubmitting(false);
     }
   }, [form, captureType, mutationsBlocked, navigate, t, requireDescriptions, groupOnlyCapture, selectedGroup, captureScope, selectedDescriptions, gridRef]);
 
@@ -309,6 +317,7 @@ export function useDataCaptureSubmitReset({
 
   return {
     submitDisabled,
+    isSubmitting,
     submit,
     reset,
     restoreFromStorage,

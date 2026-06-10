@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { accountCompanyPickerZIndex, accountModalOverlayZIndex } from "../../../components/ProcessModalPortal.jsx";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 /** Inline so first paint is 3-column even if extracted CSS applies one frame late */
 const modalBodyStyle = {
@@ -189,6 +190,7 @@ export default function UserModal({
   const [companySearchQuery, setCompanySearchQuery] = useState("");
   const [bulkSelectionSettling, setBulkSelectionSettling] = useState(false);
   const bulkSelectionTimerRef = useRef(null);
+  const { submitting, guardSubmit } = useSubmitGuard(open);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -414,7 +416,7 @@ export default function UserModal({
           <div ref={cardRef} className="user-modal-card" style={userModalCardStyle}>
             <div className="user-modal-col user-modal-col--info user-info-panel" style={userModalColStyle}>
               <h3 className="user-modal-col-title">{t("userInformation")}</h3>
-              <form id="userForm" onSubmit={onSave}>
+              <form id="userForm" onSubmit={guardSubmit(onSave)}>
               <div className="user-info-grid">
                 <div className="user-info-field-row">
                   <div className="form-group user-info-field">
@@ -671,7 +673,9 @@ export default function UserModal({
           </div>
         </div>
         <div className="user-modal-footer">
-          <button type="submit" form="userForm" className="btn btn-save" disabled={pageReadOnlyLock}>{t("save")}</button>
+          <button type="submit" form="userForm" className="btn btn-save" disabled={pageReadOnlyLock || submitting}>
+            {submitting ? t("saving") : t("save")}
+          </button>
           <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
         </div>
       </div>

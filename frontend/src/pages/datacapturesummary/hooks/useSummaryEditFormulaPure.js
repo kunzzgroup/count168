@@ -62,6 +62,8 @@ export function useSummaryEditFormulaPure({
   const [accounts, setAccounts] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const anchorRef = useRef(null);
+  const saveInFlightRef = useRef(false);
+  const [saving, setSaving] = useState(false);
 
   const usedAccountIds = useMemo(
     () =>
@@ -250,8 +252,13 @@ export function useSummaryEditFormulaPure({
   );
 
   const handleSave = useCallback(async () => {
+    if (saveInFlightRef.current) return;
     const anchor = anchorRef.current;
     if (!anchor || !form) return;
+
+    saveInFlightRef.current = true;
+    setSaving(true);
+    try {
 
     const result = buildFormulaSavePatchFromForm(form, anchor);
     if (!result.ok) {
@@ -324,6 +331,10 @@ export function useSummaryEditFormulaPure({
 
     pushSummaryNotification(t("success") || "Success", t("formulaSaved") || "Formula saved.", "success");
     closeEditFormula();
+    } finally {
+      saveInFlightRef.current = false;
+      setSaving(false);
+    }
   }, [
     form,
     rows,
@@ -350,6 +361,7 @@ export function useSummaryEditFormulaPure({
     rowDataOptions: descriptionCatalog.rowDataOptions,
     formulaDataGridItems,
     saveDisabled,
+    saving,
     rowKey: anchorRef.current?.key ?? null,
     productValue: anchorRef.current?.idProduct || "",
     showEditFormula,

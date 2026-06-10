@@ -191,6 +191,7 @@ export const BANK_PROCESS_I18N = {
 
     notePlaceholder: "Enter notes for this process...",
     save: "Save",
+    saving: "Saving...",
 
     deleteCol: "Delete",
     accountingDueColPost: "Post",
@@ -432,6 +433,7 @@ export const BANK_PROCESS_I18N = {
 
     notePlaceholder: "输入该流程备注...",
     save: "保存",
+    saving: "保存中...",
 
     deleteCol: "删除",
     accountingDueColPost: "入账",

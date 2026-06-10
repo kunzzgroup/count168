@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { accountModalOverlayZIndex, portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
 import { toUpper } from "../accountLogic.js";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 const confirmModalZIndex = accountModalOverlayZIndex + 50;
 
@@ -101,6 +102,7 @@ export function LinkAccountModal({
   onClose,
   t,
 }) {
+  const { submitting, runGuarded } = useSubmitGuard(open);
   if (!open) return null;
 
   const rows = useMemo(() => {
@@ -200,7 +202,9 @@ export function LinkAccountModal({
           </div>
         </div>
         <div className="account-form-actions link-account-form-actions">
-          <button type="button" className="btn btn-add" onClick={onSave}>{t("save")}</button>
+          <button type="button" className="btn btn-add" disabled={submitting} onClick={() => runGuarded(onSave)}>
+            {submitting ? t("saving") : t("save")}
+          </button>
           <button type="button" className="btn btn-currency-setting" onClick={onClose}>{t("cancel")}</button>
         </div>
       </div>
@@ -232,6 +236,7 @@ export function CurrencySettingModal({
 }) {
   const roleDropdownRef = useRef(null);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const { submitting, runGuarded } = useSubmitGuard(open);
 
   useEffect(() => {
     if (!open || !roleDropdownOpen) return undefined;
@@ -443,11 +448,11 @@ export function CurrencySettingModal({
           <button
             type="button"
             className="account-btn account-btn-save currency-setting-submit-btn"
-            disabled={!selectedCurrencyMatchesList}
+            disabled={!selectedCurrencyMatchesList || submitting}
             title={!selectedCurrencyMatchesList ? t("pleaseSelectCurrencyFirst") : undefined}
-            onClick={onSave}
+            onClick={() => runGuarded(onSave)}
           >
-            {t("save")}
+            {submitting ? t("saving") : t("save")}
           </button>
           <button type="button" className="account-btn account-btn-cancel currency-setting-cancel-btn" onClick={onClose}>
             {t("cancel")}

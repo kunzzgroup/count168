@@ -620,6 +620,7 @@ function DataCaptureSummaryPureInner() {
         formulaDataGridItems={editFormula.formulaDataGridItems}
 
         saveDisabled={editFormula.saveDisabled}
+        saving={editFormula.saving}
 
         usedAccountIds={editFormula.usedAccountIds}
 

@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { accountModalOverlayZIndex, accountCompanyPickerZIndex } from "./ProcessModalPortal.jsx";
+import { useSubmitGuard } from "../hooks/useSubmitGuard.js";
 
 function upper(v) {
   return String(v || "").toUpperCase();
@@ -50,8 +51,7 @@ export default function AccountModal({
   const [companySearchQuery, setCompanySearchQuery] = useState("");
   /** Draft selection inside company picker; committed only on Done */
   const [draftCompanyIds, setDraftCompanyIds] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
-  const submittingRef = useRef(false);
+  const { submitting, guardSubmit, reset: resetSubmitGuard } = useSubmitGuard(open);
 
   const closeCompanyPicker = () => {
     setCompanyPickerOpen(false);
@@ -61,21 +61,11 @@ export default function AccountModal({
   useEffect(() => {
     if (!open) {
       closeCompanyPicker();
-      submittingRef.current = false;
-      setSubmitting(false);
+      resetSubmitGuard();
     }
-  }, [open]);
+  }, [open, resetSubmitGuard]);
 
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    if (submittingRef.current) return;
-    submittingRef.current = true;
-    setSubmitting(true);
-    Promise.resolve(onSubmit?.(e)).finally(() => {
-      submittingRef.current = false;
-      setSubmitting(false);
-    });
-  };
+  const handleFormSubmit = guardSubmit(onSubmit);
 
   useEffect(() => {
     if (companyPickerOpen) {

@@ -45,6 +45,7 @@ export const ANNOUNCEMENT_I18N = {
     editAnnouncement: "Edit Announcement",
     close: "Close",
     saveChanges: "Save Changes",
+    saving: "Saving...",
     editMaintenanceContent: "Edit Maintenance Content",
   },
   zh: {
@@ -91,6 +92,7 @@ export const ANNOUNCEMENT_I18N = {
     editAnnouncement: "编辑公告",
     close: "关闭",
     saveChanges: "保存更改",
+    saving: "保存中...",
     editMaintenanceContent: "编辑维护内容",
   },
 };

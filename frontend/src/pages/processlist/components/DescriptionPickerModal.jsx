@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import ConfirmDeleteModal, { CONFIRM_DELETE_NESTED_Z_INDEX } from "../../../components/ConfirmDeleteModal.jsx";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { normalizeDescriptionName } from "../processListHelpers.js";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 export default function DescriptionPickerModal({
   descriptions,
@@ -14,6 +15,7 @@ export default function DescriptionPickerModal({
   t,
 }) {
   const ro = Boolean(readOnly);
+  const { submitting: addingDesc, guardSubmit } = useSubmitGuard(true);
   const [search, setSearch] = useState("");
   const [newDescName, setNewDescName] = useState("");
   const [localSelected, setLocalSelected] = useState(() => [...(form.selected_descriptions || [])]);
@@ -91,7 +93,7 @@ export default function DescriptionPickerModal({
             <div className="available-descriptions-section">
               <div className="add-description-bar">
                 <h3>{t("addNewDescription")}</h3>
-                <form className="add-description-form" onSubmit={handleAdd}>
+                <form className="add-description-form" onSubmit={guardSubmit(handleAdd)}>
                   <div className="add-description-input-group">
                     <input
                       type="text"
@@ -102,8 +104,8 @@ export default function DescriptionPickerModal({
                       style={{ textTransform: "uppercase" }}
                       required
                     />
-                    <button type="submit" className="btn btn-save" disabled={ro}>
-                      {t("add")}
+                    <button type="submit" className="btn btn-save" disabled={ro || addingDesc}>
+                      {addingDesc ? t("saving") : t("add")}
                     </button>
                   </div>
                 </form>

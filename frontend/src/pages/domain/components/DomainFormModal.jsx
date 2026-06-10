@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifySessionRefreshRequested } from "../../../utils/company/companySessionEvents.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 import CompanySettingsModal from "./CompanySettingsModal.jsx";
 import GroupSettingsModal from "./GroupSettingsModal.jsx";
 import {
@@ -87,6 +88,7 @@ export default function DomainFormModal({
   const [secondaryPassword, setSecondaryPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showSecondaryPassword, setShowSecondaryPassword] = useState(false);
+  const { submitting, guardSubmit } = useSubmitGuard(true);
 
   // Company / Group management
   const [tempCompanies, setTempCompanies] = useState([]);
@@ -614,7 +616,7 @@ export default function DomainFormModal({
             <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
             <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
           </div>
-          <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={handleSubmit}>
+          <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={guardSubmit(handleSubmit)}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
             <div className="domain-form-modal-body px-9 py-6">
               {/* DOMAIN INFORMATION — 全宽上下布局（对齐设计图） */}
@@ -822,7 +824,9 @@ export default function DomainFormModal({
               </section>
             </div>
             <div className="dfm-footer-actions flex flex-wrap items-center justify-center border-t-[2.5px] border-blue-900 bg-white px-9 py-[18px]">
-              <button type="submit" className="dfm-footer-btn dfm-footer-btn--primary">{t("confirm")}</button>
+              <button type="submit" className="dfm-footer-btn dfm-footer-btn--primary" disabled={submitting}>
+                {submitting ? t("saving") : t("confirm")}
+              </button>
               <button type="button" className="dfm-footer-btn dfm-footer-btn--secondary" onClick={onClose}>{t("cancel")}</button>
             </div>
           </form>
