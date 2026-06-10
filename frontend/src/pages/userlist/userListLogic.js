@@ -135,6 +135,7 @@ export function getAvailableRolesForCreation(currentUserRole) {
   /** level < 5 可建账号：supervisor(4) 可建下级 */
   if (currentLevel >= 5) return [];
   return ALL_ROLE_OPTIONS.filter((role) => {
+    if (role.value === "company") return false;
     const roleLevel = ROLE_HIERARCHY[role.value] ?? 999;
     return roleLevel > currentLevel;
   });
