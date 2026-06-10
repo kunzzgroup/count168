@@ -4,7 +4,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
-import { runMaintenanceCompanySwitch, syncMaintenanceBootSidebar } from "../shared/maintenanceCompanySwitch.js";
+import {
+  runMaintenanceCompanySwitch,
+  syncMaintenanceBootSidebar,
+} from "../shared/maintenanceCompanySwitch.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import {
   companiesInGroupList,
@@ -128,7 +131,6 @@ export default function PaymentMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
-    pillCategory: "bank",
   });
 
   const paymentScope = useMemo(
@@ -219,17 +221,22 @@ export default function PaymentMaintenancePage() {
       if (!Number.isFinite(nextId) || nextId <= 0) return;
       if (nextId === Number(companyIdRef.current)) return;
 
-      const nextCode = String(data.company_code ?? data.companyCode ?? "").trim();
+      const row = companies.find((c) => Number(c.id) === nextId);
+      const nextCode = String(data.company_code ?? data.companyCode ?? row?.company_id ?? "").trim();
+      const newGroup = row?.group_id ? String(row.group_id).trim().toUpperCase() : selectedGroup;
+
       companyIdRef.current = nextId;
       setCompanyId(nextId);
       if (nextCode) setCompanyCode(nextCode);
+      if (newGroup) setSelectedGroup(newGroup);
+      persistDashboardFilterState(newGroup, nextId);
       setSelectedIds([]);
       setConfirmDelete(false);
     };
 
     window.addEventListener("eazycount:company-session-updated", handleSwitch);
     return () => window.removeEventListener("eazycount:company-session-updated", handleSwitch);
-  }, []);
+  }, [companies, selectedGroup]);
 
   // -- Boot Logic --
   useEffect(() => {
@@ -613,16 +620,42 @@ export default function PaymentMaintenancePage() {
 
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;
+    const nextId = Number(c.id);
     const nextCode = c.company_id || "";
+    const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
 
     try {
       const { redirected } = await runMaintenanceCompanySwitch({
         companyRow: c,
-        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : null,
+        viewGroup: newGroup,
         currentPath: location.pathname,
         navigate,
         updateSessionCompany,
         onStay: async () => {
+          suppressNextSearchEffectRef.current = true;
+          companyIdRef.current = nextId;
+          setCompanyId(nextId);
+          setCompanyCode(nextCode);
+          if (newGroup) setSelectedGroup(newGroup);
+          persistDashboardFilterState(newGroup, nextId);
+
+          const nextScope = resolvePaymentMaintenanceScope({
+            companies,
+            selectedGroup: newGroup,
+            companyId: nextId,
+          });
+          try {
+            const nextCurrency = await reloadScopeMeta(nextScope, nextCode);
+            await performSearch({
+              companyId: nextId,
+              selectedGroup: newGroup,
+              scope: nextScope,
+              currency: nextCurrency,
+            });
+          } catch (err) {
+            console.error("Company switch meta/search:", err);
+            notify(err.message || t("failedLoadCompanyMetadata"), "error");
+          }
           notify(t("switchedTo", { company: nextCode }), "success");
         },
       });

@@ -90,12 +90,20 @@ export function resolveMaintenanceRedirectForSession(sessionData, currentPath) {
 
   if (isBankOnlyCategoryFlags(flags)) {
     if (isBankOnlyAllowedMaintenancePath(path)) return null;
+    if (
+      path === "/transaction-maintenance" ||
+      path === "/capture-maintenance" ||
+      path === "/formula-maintenance"
+    ) {
+      return "/payment-maintenance";
+    }
     if (path === "/dashboard") return null;
     return "/dashboard";
   }
 
   if (isGamesOnlyCategoryFlags(flags)) {
     if (path === "/bankprocess-maintenance") return "/capture-maintenance";
+    if (path === "/payment-maintenance") return "/transaction-maintenance";
     return null;
   }
 

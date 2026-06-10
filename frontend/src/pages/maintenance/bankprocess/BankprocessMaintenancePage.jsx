@@ -480,7 +480,6 @@ export default function BankprocessMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: handleClearCompany,
-    pillCategory: "bank",
   });
 
   followGroupRef.current = () => {};
