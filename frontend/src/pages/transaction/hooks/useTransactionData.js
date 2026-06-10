@@ -14,7 +14,6 @@ import {
   resolveBootCompanyId,
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
-  normalizeCompanyGroupId,
   pickDefaultSubsidiaryForGroup,
   readPersistedDashboardGcFilter,
   resolveCompanyPickWhenSwitchingGroup,
@@ -776,22 +775,13 @@ export function useTransactionData({
       }
 
       const allowGroupOnly = canUseGroupOnlyMode(u, g);
-      const companies = snap.snapCompaniesAll || snap.snapCompanies || [];
-      const currentRow =
-        snap.companyId != null
-          ? companies.find((c) => Number(c.id) === Number(snap.companyId))
-          : null;
-      const currentInGroup =
-        currentRow &&
-        (normalizeCompanyGroupId(currentRow) === g ||
-          String(currentRow.link_source_group || "").trim().toUpperCase() === g);
-      const reopeningFromClosedGroup = Boolean(snap.groupFilterOptOut) || !currentInGroup;
 
-      if (allowGroupOnly && !reopeningFromClosedGroup && snap.companyId == null) {
+      if (allowGroupOnly) {
         await applyGroupOnlySelection(snap, g);
-      } else {
-        await applyCompanyGroupSelection(snap, g);
+        return;
       }
+
+      await applyCompanyGroupSelection(snap, g);
     },
     [applyGroupOnlySelection, applyCompanyGroupSelection, deselectGroupKeepCompany, u],
   );
