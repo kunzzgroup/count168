@@ -21,7 +21,6 @@ body.auto-renew-page-body .auto-renew-page-header {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  margin-bottom: clamp(12px, 1.04vw, 20px);
   overflow: visible;
 }
 
@@ -66,7 +65,7 @@ body.auto-renew-page-body .page-tab__label {
 body.auto-renew-page-body .auto-renew-tab-pending-badge {
   position: absolute;
   top: 50%;
-  right: 4px;
+  right: 10px;
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
