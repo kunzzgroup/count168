@@ -858,6 +858,259 @@ function dashboardMergeGroupRateMiddlemanIntoProfit(
     }
 }
 
+/**
+ * Native subsidiaries under a group tab (excludes group-entity placeholder rows).
+ *
+ * @return list<int>
+ */
+function dashboardListGroupSubsidiaryCompanyIds(PDO $pdo, string $groupCode): array
+{
+    $g = reportNormalizeGroupId($groupCode);
+    if ($g === '') {
+        return [];
+    }
+
+    require_once __DIR__ . '/../get_companies_helper.php';
+
+    $role = strtolower((string) ($_SESSION['role'] ?? ''));
+    if ($role === 'owner') {
+        $ownerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0);
+        $companies = $ownerId > 0 ? getCompaniesByOwner($pdo, $ownerId, true) : [];
+    } else {
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        $companies = $userId > 0 ? getCompaniesByUser($pdo, $userId, true) : [];
+    }
+
+    $ids = [];
+    foreach ($companies as $row) {
+        $nativeG = strtoupper(trim((string) ($row['native_group_id'] ?? $row['group_id'] ?? '')));
+        $code = strtoupper(trim((string) ($row['company_id'] ?? '')));
+        $id = (int) ($row['id'] ?? 0);
+        if ($id <= 0 || $nativeG !== $g || $code === '' || $code === $g) {
+            continue;
+        }
+        $ids[$id] = $id;
+    }
+
+    return array_values($ids);
+}
+
+/**
+ * company_ownership (owner_type=group) → partner group percentage, month-aware.
+ *
+ * @param list<int> $companyIds
+ * @return array<int, string> company_id => percentage (money string)
+ */
+function dashboardLoadCompanyEquityToGroup(
+    PDO $pdo,
+    array $companyIds,
+    string $targetGroupCode,
+    string $effectiveMonth,
+    bool $useHistory
+): array {
+    if ($companyIds === []) {
+        return [];
+    }
+
+    $g = reportNormalizeGroupId($targetGroupCode);
+    if ($g === '') {
+        return [];
+    }
+
+    $in = implode(',', array_fill(0, count($companyIds), '?'));
+    $rows = [];
+
+    if ($useHistory) {
+        require_once __DIR__ . '/../includes/ownership_history.php';
+        ownership_history_ensure_tables($pdo);
+        if ($pdo->query("SHOW TABLES LIKE 'company_ownership_history'")->rowCount() < 1) {
+            return [];
+        }
+        $stmt = $pdo->prepare("
+            SELECT company_id, percentage
+            FROM company_ownership_history
+            WHERE company_id IN ($in)
+              AND owner_type = 'group'
+              AND percentage > 0
+              AND partner_group_id IS NOT NULL
+              AND TRIM(partner_group_id) <> ''
+              AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+              AND effective_month = ?
+        ");
+        $stmt->execute(array_merge($companyIds, [$g, $effectiveMonth]));
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $schema = dashboardCompanyOwnershipSchema($pdo);
+        if (!$schema['table']) {
+            return [];
+        }
+        $stmt = $pdo->prepare("
+            SELECT company_id, percentage
+            FROM company_ownership
+            WHERE company_id IN ($in)
+              AND owner_type = 'group'
+              AND percentage > 0
+              AND partner_group_id IS NOT NULL
+              AND TRIM(partner_group_id) <> ''
+              AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+        ");
+        $stmt->execute(array_merge($companyIds, [$g]));
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    $map = [];
+    foreach ($rows as $row) {
+        $cid = (int) ($row['company_id'] ?? 0);
+        if ($cid <= 0) {
+            continue;
+        }
+        $map[$cid] = money_out($row['percentage'] ?? '0', 2);
+    }
+
+    return $map;
+}
+
+/** Align with frontend computeKpiMetrics net profit (period profit + signed expenses). */
+function dashboardCompanyPeriodNetProfitFromPayload(array $data): string
+{
+    $profit = (string) ($data['period_total']['profit'] ?? $data['profit'] ?? '0');
+    $expenses = (string) ($data['period_total']['expenses'] ?? '0');
+    $expSigned = money_cmp($expenses, '0') > 0 ? dashboardMoneySub('0', $expenses) : $expenses;
+
+    return dashboardMoneyAdd($profit, $expSigned);
+}
+
+/**
+ * @param array<string, mixed> $dailyData
+ * @return array<string, string>
+ */
+function dashboardCompanyNetProfitDailyFromPayload(array $dailyData): array
+{
+    $profitDaily = is_array($dailyData['profit'] ?? null) ? $dailyData['profit'] : [];
+    $expensesDaily = is_array($dailyData['expenses'] ?? null) ? $dailyData['expenses'] : [];
+    $dates = array_unique(array_merge(array_keys($profitDaily), array_keys($expensesDaily)));
+    $out = [];
+    foreach ($dates as $date) {
+        $d = (string) $date;
+        if ($d === '') {
+            continue;
+        }
+        $profit = (string) ($profitDaily[$d] ?? '0');
+        $expenses = (string) ($expensesDaily[$d] ?? '0');
+        $expSigned = money_cmp($expenses, '0') > 0 ? dashboardMoneySub('0', $expenses) : $expenses;
+        $out[$d] = dashboardMoneyAdd($profit, $expSigned);
+    }
+
+    return $out;
+}
+
+/**
+ * Add subsidiary net-profit × ownership% into group profit (PROFIT role ledger flow unchanged).
+ *
+ * @param array<string, mixed> $groupResult
+ */
+function dashboardMergeGroupOwnershipProfitShare(
+    PDO $pdo,
+    array &$groupResult,
+    string $groupLedgerCode,
+    string $dateFromDisplay,
+    string $dateToDisplay,
+    ?string $filterCurrencyCode,
+    bool $kpiOnly
+): bool {
+    if (empty($groupResult['profit'])) {
+        return false;
+    }
+
+    require_once __DIR__ . '/../includes/ownership_history.php';
+
+    $companyIds = dashboardListGroupSubsidiaryCompanyIds($pdo, $groupLedgerCode);
+    if ($companyIds === []) {
+        return false;
+    }
+
+    $monthKey = date('Y-m', strtotime($dateToDisplay));
+    $parsedMonth = ownership_history_parse_month_param($monthKey);
+    $useHistory = $parsedMonth !== null && ownership_history_is_past_month($parsedMonth['month_key']);
+    $effectiveMonth = $parsedMonth['effective_month'] ?? ownership_history_effective_month_from_now();
+    $equityMap = dashboardLoadCompanyEquityToGroup(
+        $pdo,
+        $companyIds,
+        $groupLedgerCode,
+        $effectiveMonth,
+        $useHistory
+    );
+    if ($equityMap === []) {
+        return false;
+    }
+
+    $periodShareTotal = dashboardMoneyZero();
+    $dailyShare = [];
+
+    dashboard_api_begin_bootstrap_batch();
+    try {
+        foreach ($equityMap as $companyId => $pctStr) {
+            if (money_cmp($pctStr, '0') <= 0) {
+                continue;
+            }
+
+            $captureParams = [
+                'company_id' => (string) $companyId,
+                'view_group' => $groupLedgerCode,
+                'date_from' => $dateFromDisplay,
+                'date_to' => $dateToDisplay,
+            ];
+            if ($filterCurrencyCode !== null && trim($filterCurrencyCode) !== '') {
+                $captureParams['currency'] = $filterCurrencyCode;
+            }
+            if ($kpiOnly) {
+                $captureParams['kpi_only'] = '1';
+            }
+
+            $cap = dashboard_api_capture($captureParams);
+            if (empty($cap['success']) || !is_array($cap['data'] ?? null)) {
+                continue;
+            }
+
+            $data = $cap['data'];
+            $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
+            $share = money_mul($netProfit, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
+            $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
+
+            if (!$kpiOnly) {
+                $netDaily = dashboardCompanyNetProfitDailyFromPayload($data['daily_data'] ?? []);
+                foreach ($netDaily as $d => $net) {
+                    $dayShare = money_mul($net, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
+                    dashboardAddDailyAmount($dailyShare, $d, $dayShare);
+                }
+            }
+        }
+    } finally {
+        dashboard_api_end_bootstrap_batch();
+    }
+
+    if (money_cmp(money_abs($periodShareTotal), '0.0000001') <= 0 && $dailyShare === []) {
+        return true;
+    }
+
+    // NOTE: Ownership net-profit share is merged into group profit daily_data for the trend chart.
+    // Product may drop per-day ownership allocation later; keep period_total merge either way.
+    $groupResult['profit']['period_total'] = dashboardOut(
+        dashboardMoneyAdd($groupResult['profit']['period_total'] ?? '0', $periodShareTotal)
+    );
+    $groupResult['profit']['total_balance'] = dashboardOut(
+        dashboardMoneyAdd($groupResult['profit']['total_balance'] ?? '0', $periodShareTotal)
+    );
+    if (!$kpiOnly && $dailyShare !== []) {
+        foreach ($dailyShare as $d => $amt) {
+            dashboardAddDailyAmount($groupResult['profit']['daily_data'], $d, $amt);
+        }
+        $groupResult['profit']['daily_data'] = dashboardOutMap($groupResult['profit']['daily_data']);
+    }
+
+    return true;
+}
+
 function dashboardBuildGroupScopedSummary(
     PDO $pdo,
     string $dateFrom,
@@ -2578,6 +2831,15 @@ try {
             $groupScopeId,
             $filter_currency_code
         );
+        $hasGroupOwnershipProfit = dashboardMergeGroupOwnershipProfitShare(
+            $pdo,
+            $groupResult,
+            $groupLedgerCode,
+            (string) $date_from,
+            (string) $date_to,
+            $filter_currency_code,
+            $kpiOnly
+        );
         echo json_encode([
             'success' => true,
             'data' => [
@@ -2585,7 +2847,7 @@ try {
                 'expenses' => $groupResult['expenses']['period_total'],
                 'profit' => $groupResult['profit']['total_balance'],
                 'ownership_percentage' => 0,
-                'has_ownership_setup' => false,
+                'has_ownership_setup' => $hasGroupOwnershipProfit,
                 'group_equity_percentage' => 0,
                 'group_account_percentage' => 0,
                 'has_group_ownership' => false,
@@ -3505,6 +3767,11 @@ try {
 function dashboard_api_capture(array $queryParams): array
 {
     $backupGet = $_GET;
+    $backupGlobals = [
+        'DASHBOARD_KPI_ONLY' => $GLOBALS['DASHBOARD_KPI_ONLY'] ?? null,
+        'DASHBOARD_EARNINGS_ONLY' => $GLOBALS['DASHBOARD_EARNINGS_ONLY'] ?? null,
+        'DASHBOARD_SUBSIDIARY_LEDGER' => $GLOBALS['DASHBOARD_SUBSIDIARY_LEDGER'] ?? null,
+    ];
     foreach ($queryParams as $key => $value) {
         if ($value === null || $value === '') {
             unset($_GET[$key]);
@@ -3514,9 +3781,19 @@ function dashboard_api_capture(array $queryParams): array
     }
 
     ob_start();
-    dashboard_api_main();
+    try {
+        dashboard_api_main();
+    } finally {
+        $_GET = $backupGet;
+        foreach ($backupGlobals as $key => $value) {
+            if ($value === null) {
+                unset($GLOBALS[$key]);
+            } else {
+                $GLOBALS[$key] = $value;
+            }
+        }
+    }
     $raw = ob_get_clean();
-    $_GET = $backupGet;
     http_response_code(200);
 
     $decoded = json_decode($raw, true);
