@@ -76,7 +76,9 @@ import {
   readUserListGroupFilterOptOut,
   resolveUserListFetchScopeKey,
   resolveUserListInlinePickerCompanies,
+  resolveUserListMutationScopeCompanyId,
   shouldLoadUserListData,
+  userListHasMutationScope,
 } from "./userListLogic.js";
 
 // Components
@@ -746,6 +748,36 @@ export default function UserListPage() {
     const sessionId = me?.company_id != null ? Number(me.company_id) : Number.NaN;
     return Number.isFinite(sessionId) && sessionId > 0 ? sessionId : null;
   }, [companyId, groupOnlyUserList, anchorCompanyId, selectedGroup, companies, me]);
+
+  /** Add User: active group ledger or company pill in picker — no session-only fallback. */
+  const mutationScopeCompanyId = useMemo(
+    () =>
+      resolveUserListMutationScopeCompanyId({
+        companyId,
+        selectedGroup,
+        groupOnlyUserList,
+        anchorCompanyId,
+        groupsAllMode,
+        groupAllMode,
+        scopeCompanyId,
+        companies,
+        groupIds,
+        companiesForPicker,
+        groupFilterOptOut: readUserListGroupFilterOptOut(),
+      }),
+    [
+      companyId,
+      selectedGroup,
+      groupOnlyUserList,
+      anchorCompanyId,
+      groupsAllMode,
+      groupAllMode,
+      scopeCompanyId,
+      companies,
+      groupIds,
+      companiesForPicker,
+    ],
+  );
 
   /** Group-only list/add-user: group entity only (e.g. AP), not subsidiaries (e.g. C168). */
   const groupScopedModalCompanies = useMemo(() => {
@@ -1797,10 +1829,10 @@ export default function UserListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    if (!scopeCompanyId) return;
-    const modalCacheKey = resolveModalAccessCacheKey(scopeCompanyId, groupOnlyUserList, selectedGroup);
+    if (!mutationScopeCompanyId) return;
+    const modalCacheKey = resolveModalAccessCacheKey(mutationScopeCompanyId, groupOnlyUserList, selectedGroup);
     if (!modalAccessCacheRef.current.has(modalCacheKey)) {
-      await fetchModalAccountsProcesses(scopeCompanyId);
+      await fetchModalAccountsProcesses(mutationScopeCompanyId);
     }
     const avail = getAvailableRolesForCreation(currentUserRole);
     if (avail.length === 0) { notify(t("noPermissionCreateAccounts"), "danger"); return; }
@@ -1812,7 +1844,10 @@ export default function UserListPage() {
     const allP = new Set(PERMISSION_KEYS.filter((k) => !permDisabledMap[k])); setPermSelected(allP);
     void loadCompaniesForModal();
     const cachedAccess = modalAccessCacheRef.current.get(modalCacheKey);
-    const currentAccess = Number(modalAccessCompanyIdRef.current) === Number(scopeCompanyId) ? { accounts: modalAccounts, processes: modalProcesses } : null;
+    const currentAccess =
+      Number(modalAccessCompanyIdRef.current) === Number(mutationScopeCompanyId)
+        ? { accounts: modalAccounts, processes: modalProcesses }
+        : null;
     const initialAccess = cachedAccess || currentAccess || { accounts: [], processes: [] };
     if (!cachedAccess && !currentAccess) { setModalAccounts([]); setModalProcesses([]); }
     setSelectedAccountIds(new Set(initialAccess.accounts.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(initialAccess.processes.map((p) => Number(p.id))));
@@ -1852,7 +1887,7 @@ export default function UserListPage() {
       }
     }
     setModalOpen(true);
-    void fetchModalAccountsProcesses(scopeCompanyId, true).then(({ accounts: accList, processes: procList }) => {
+    void fetchModalAccountsProcesses(mutationScopeCompanyId, true).then(({ accounts: accList, processes: procList }) => {
       if (loadSeq !== modalLoadSeqRef.current) return;
       setSelectedAccountIds(new Set(accList.map((a) => Number(a.id)))); setSelectedProcessIds(new Set(procList.map((p) => Number(p.id))));
     });
@@ -2131,7 +2166,12 @@ export default function UserListPage() {
             <div className="action-buttons" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 {canCreateUser ? (
-                <button type="button" className="btn btn-add" onClick={openAdd} disabled={bootLoading || userMutationsBlocked}>
+                <button
+                  type="button"
+                  className="btn btn-add"
+                  onClick={openAdd}
+                  disabled={bootLoading || userMutationsBlocked || !userListHasMutationScope(mutationScopeCompanyId)}
+                >
                   <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>

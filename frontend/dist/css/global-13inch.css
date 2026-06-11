@@ -802,17 +802,15 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex: 0 1 auto !important;
         min-height: 0 !important;
         padding-bottom: 0 !important;
-        overflow: hidden !important;
+        overflow: visible !important;
     }
 
     body.process-page.process-page--show-all:not(.process-page--bank) .process-cards:not(.bank-virtual-scroll) {
         display: block !important;
-        flex: 1 1 auto !important;
+        flex: none !important;
         min-height: 0 !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-gutter: stable;
+        overflow: visible !important;
+        scrollbar-gutter: auto;
     }
 
     body.process-page.process-page--show-all:not(.process-page--bank) .process-card.games-process-row {

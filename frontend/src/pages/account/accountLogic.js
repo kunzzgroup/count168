@@ -217,6 +217,11 @@ export function shouldLoadAccountListData({
   return false;
 }
 
+/** Whether Add / list mutations have a resolvable company or group ledger scope. */
+export function accountListHasMutationScope(scopeCompanyId) {
+  return scopeCompanyId != null && Number(scopeCompanyId) > 0;
+}
+
 export function readAccountListGroupFilterOptOut() {
   return (
     typeof sessionStorage !== "undefined" &&

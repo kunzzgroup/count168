@@ -392,14 +392,18 @@ function getProcesses() {
             $params[] = "%$searchTerm%";
         }
         
-        // 根据 showAll 和 showInactive 参数过滤状态
-        if ($showAll) {
-            // Show All：显示 active + inactive（不追加状态条件）
+        // 根据 showAll / showInactive 过滤状态：
+        // - 默认 / 仅分页：active
+        // - showInactive：inactive（分页）
+        // - showAll：全部 active（不分页由前端控制）
+        // - showAll + showInactive：全部 inactive
+        if ($showAll && $showInactive) {
+            $conditions[] = "p.status = 'inactive'";
+        } elseif ($showAll) {
+            $conditions[] = "p.status = 'active'";
         } elseif ($showInactive) {
-            // 勾选 showInactive 时，只显示 inactive 流程
             $conditions[] = "p.status = 'inactive'";
         } else {
-            // 未勾选时，只显示 active 流程（分页）
             $conditions[] = "p.status = 'active'";
         }
         
