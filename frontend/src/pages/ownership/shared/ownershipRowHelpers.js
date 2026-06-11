@@ -87,8 +87,21 @@ export function accountsForRowPicker(accounts, currentAccountId = "") {
   });
 }
 
+export function calcAllocationTotal(rows, excludeIdx = -1) {
+  return (rows || []).reduce((sum, r, i) => {
+    if (i === excludeIdx || isExternalPartnerRow(r)) return sum;
+    return sum + (parseFloat(r.percentage) || 0);
+  }, 0);
+}
+
 export function calcOwnershipTotal(rows) {
-  return rows.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
+  return calcAllocationTotal(rows);
+}
+
+/** Max percentage this row may hold without pushing group total over 100%. */
+export function maxAllowedOwnershipPct(rows, idx) {
+  const other = calcAllocationTotal(rows, idx);
+  return Math.max(0, Math.round((100 - other) * 100) / 100);
 }
 export function fmtOwnershipPct(n) {
   return `${(parseFloat(n) || 0).toFixed(2)}%`;
@@ -102,7 +115,7 @@ export const EMPTY_OWNERSHIP_ROW = {
   read_only: 1,
 };
 
-export function applyOwnershipRowFieldUpdate(row, field, val, accounts) {
+export function applyOwnershipRowFieldUpdate(row, field, val, accounts, allRows, rowIdx) {
   const r = { ...row };
   if (field === "account_id") {
     r.account_id = val;
@@ -119,12 +132,21 @@ export function applyOwnershipRowFieldUpdate(row, field, val, accounts) {
       r.is_external_partner = false;
       r.ownership_id = null;
     }
-  } else if (field === "percent_input") {
-    let p = parseFloat(String(val).replace("%", ""));
-    if (isNaN(p)) p = 0;
-    r.percentage = Math.max(0, Math.min(100, p));
-  } else if (field === "slider") {
-    r.percentage = parseFloat(val);
+  } else if (field === "percent_input" || field === "slider") {
+    if (isExternalPartnerRow(r)) {
+      r.percentage = 0;
+    } else {
+      let p =
+        field === "percent_input"
+          ? parseFloat(String(val).replace("%", ""))
+          : parseFloat(val);
+      if (isNaN(p)) p = 0;
+      p = Math.max(0, Math.min(100, p));
+      if (Array.isArray(allRows) && rowIdx >= 0) {
+        p = Math.min(p, maxAllowedOwnershipPct(allRows, rowIdx));
+      }
+      r.percentage = Math.round(p * 100) / 100;
+    }
   } else if (field === "read_only") {
     r.read_only = val;
   }

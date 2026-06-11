@@ -1,6 +1,7 @@
 import React from "react";
 import AccountEditorRow from "../../shared/components/AccountEditorRow.jsx";
 import GePartnerSection from "./GePartnerSection.jsx";
+import { maxAllowedOwnershipPct } from "../../shared/ownershipRowHelpers.js";
 
 export default function GroupEarningCard({
   grp,
@@ -119,6 +120,7 @@ export default function GroupEarningCard({
                     idx={idx}
                     row={row}
                     accounts={st.accounts}
+                    maxPercentage={maxAllowedOwnershipPct(st.rows, idx)}
                     enableDrag={false}
                     onUpdate={(i, f, v) => onUpdateRow(gid, i, f, v)}
                     onRemove={(i) => onRemoveRow(gid, i)}

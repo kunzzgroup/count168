@@ -2,11 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import OwnAccountSelect from "./OwnAccountSelect.jsx";
 import { accountsForRowPicker } from "../ownershipRowHelpers.js";
 
-function applySliderBg(sliderEl, value) {
+function applySliderBg(sliderEl, value, max = 100) {
   if (!sliderEl) return;
   const min = Number(sliderEl.min) || 0;
-  const max = Number(sliderEl.max) || 100;
-  const pct = ((Number(value) || 0) - min) / (max - min || 1);
+  const rangeMax = Number(max) || 100;
+  const pct = ((Number(value) || 0) - min) / (rangeMax - min || 1);
   const p = Math.max(0, Math.min(100, pct * 100));
   sliderEl.style.background = `linear-gradient(to right, var(--own-primary-blue) ${p}%, var(--own-gray-border) ${p}%)`;
 }
@@ -16,6 +16,7 @@ export default function AccountEditorRow({
   idx,
   row,
   accounts,
+  maxPercentage = 100,
   onUpdate,
   onRemove,
   onDragStart,
@@ -31,8 +32,8 @@ export default function AccountEditorRow({
   const [dragEnabled, setDragEnabled] = useState(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => applySliderBg(sliderRef.current, row.percentage));
-  }, [row.percentage]);
+    requestAnimationFrame(() => applySliderBg(sliderRef.current, pctValue, pctMax));
+  }, [pctValue, pctMax]);
 
   useEffect(() => {
     if (!dragEnabled) return undefined;
@@ -43,6 +44,8 @@ export default function AccountEditorRow({
 
   const isPartnership = String(row.role || "").toLowerCase() === "partnership";
   const showRo = isPartnership || row.is_external_partner;
+  const pctMax = Math.max(0, Math.min(100, Number(maxPercentage) || 0));
+  const pctValue = Math.min(parseFloat(row.percentage) || 0, pctMax);
 
   const clearDragStyles = () => {
     const el = rowRef.current;
@@ -136,8 +139,8 @@ export default function AccountEditorRow({
           className="own-percent-input"
           id={`input-${companyId}-${idx}`}
           key={`pi-${companyId}-${idx}-${row.percentage}`}
-          defaultValue={`${row.percentage}%`}
-          disabled={readOnlyMode}
+          defaultValue={`${pctValue}%`}
+          disabled={readOnlyMode || row.is_external_partner}
           onBlur={(e) => onUpdate(idx, "percent_input", e.target.value)}
         />
         <div className="own-slider-container">
@@ -147,10 +150,10 @@ export default function AccountEditorRow({
             className="own-slider"
             id={`slider-${companyId}-${idx}`}
             min={0}
-            max={100}
+            max={pctMax}
             step={1}
-            value={row.percentage}
-            disabled={readOnlyMode}
+            value={pctValue}
+            disabled={readOnlyMode || row.is_external_partner || pctMax <= 0}
             onInput={(e) => onUpdate(idx, "slider", e.target.value)}
           />
           <div className="own-slider-labels">
