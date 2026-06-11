@@ -1095,14 +1095,14 @@ body.process-page.process-page--bank.process-page--bank-show-all .bank-process-l
     /* Country / Insurance / Customer 列设最小像素宽，保证表头英文标题+排序角标完整显示 */
     --bank-virtual-grid-columns:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
-        minmax(max-content, 1.08fr) minmax(0, 1.35fr)
-        minmax(max-content, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
+        minmax(max-content, 1.08fr) minmax(120px, 1.52fr)
+        minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
         minmax(0, 0.6fr) minmax(0, 0.56fr) max-content;
     --bank-virtual-grid-columns-with-select:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
-        minmax(max-content, 1.08fr) minmax(0, 1.35fr)
-        minmax(max-content, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
+        minmax(max-content, 1.08fr) minmax(120px, 1.52fr)
+        minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
         minmax(0, 0.6fr) minmax(0, 0.56fr) max-content max-content;
     --bank-virtual-grid-active: var(--bank-virtual-grid-columns);
@@ -2558,10 +2558,10 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     text-overflow: ellipsis;
 }
 
-/* 宽屏：单行省略；<1700px 由下方 media 放开行高与 Bank/Owner 两行 */
+/* 宽屏：除 Bank / Card Owner 外单行省略；Owner 见下方多行规则 */
 @media (min-width: 1700px) {
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-virtual-cell {
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col:not(.bank-col-owner):not(.bank-col-bank),
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-virtual-cell:not(.bank-col-owner):not(.bank-col-bank) {
         white-space: nowrap !important;
         word-break: normal !important;
         overflow-wrap: normal !important;
@@ -2683,52 +2683,45 @@ body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.b
     min-width: 0;
 }
 
-/* Card Owner：桌面列宽略窄于 Bank；<1700px 由 media query 加宽以完整显示 */
+/* Card Owner：长公司名最多 3 行完整展示（全视口） */
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell--wrap,
+body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell--wrap,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner {
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    height: auto !important;
+    min-height: var(--bank-list-cell-min-height) !important;
+    max-height: none !important;
+    align-self: stretch !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    -webkit-box-align: start;
+    -webkit-box-pack: start;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: var(--bank-list-cell-line-height, 1.35) !important;
+    text-align: left;
+}
+
+/* Card Owner：列宽与内边距 */
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
     padding-left: clamp(3px, 0.24vw, 5px);
-    padding-right: clamp(2px, 0.12vw, 3px);
+    padding-right: clamp(4px, 0.28vw, 8px);
     min-width: 0;
-}
-
-@media (min-width: 1700px) {
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner {
-        white-space: nowrap !important;
-        word-break: normal !important;
-        overflow-wrap: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-        justify-content: flex-start;
-    }
 }
 
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
     justify-content: flex-start;
     max-width: none;
-}
-
-/* Contract：列宽随徽章内容；单元格/药丸勿 overflow 裁切 */
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-contract.bank-virtual-cell,
-body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-contract-cell.bank-virtual-cell {
-    overflow: visible !important;
-    text-overflow: clip !important;
-}
-
-body.process-page.process-page--bank .bank-col-contract .contract-badge,
-body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-contract .contract-badge {
-    display: inline-flex !important;
-    align-items: center !important;
-    flex-shrink: 0;
-    width: max-content;
-    max-width: none;
-    overflow: visible;
-    text-overflow: clip;
-    white-space: nowrap !important;
-    word-break: keep-all !important;
-    box-sizing: border-box;
-    padding: 1px clamp(5px, 0.42vw, 8px);
-    line-height: 1.2;
 }
 
 /* Contract：紧贴 Card Owner，徽章列宽略收 */
@@ -2964,6 +2957,14 @@ body.process-page.process-page--bank .bank-col-contract {
     overflow: visible;
 }
 
+body.process-page.process-page--bank .bank-col-contract .contract-badge,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-contract .contract-badge {
+    flex-shrink: 0;
+    max-width: 100%;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+}
+
 body.process-page.process-page--bank .bank-col-status,
 body.process-page.process-page--bank .bank-status-cell.bank-col-status {
     overflow: hidden !important;
@@ -3017,13 +3018,13 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         --bank-header-th-font-size: clamp(10px, 0.7vw, 12px);
         --bank-virtual-grid-columns:
             minmax(30px, 0.16fr) minmax(70px, 0.4fr) minmax(max-content, 0.3fr)
-            minmax(108px, 0.82fr) minmax(128px, 1.42fr)
+            minmax(108px, 0.82fr) minmax(132px, 1.55fr)
             minmax(max-content, 0.4fr) minmax(max-content, 0.34fr) minmax(max-content, 0.32fr)
             minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
             minmax(56px, 0.48fr) minmax(90px, 0.54fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(30px, 0.16fr) minmax(70px, 0.4fr) minmax(max-content, 0.3fr)
-            minmax(108px, 0.82fr) minmax(128px, 1.42fr)
+            minmax(108px, 0.82fr) minmax(132px, 1.55fr)
             minmax(max-content, 0.4fr) minmax(max-content, 0.34fr) minmax(max-content, 0.32fr)
             minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
             minmax(56px, 0.48fr) minmax(90px, 0.54fr) max-content max-content;
@@ -3193,8 +3194,9 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         overflow-wrap: break-word !important;
     }
 
-    /* Bank / Card Owner：最多 2 行换行（无 bank-cell-display 时用 line-clamp） */
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-virtual-cell.bank-virtual-cell--wrap:not(:has(.bank-cell-display--typed)) {
+    /* Bank / Card Owner：最多 2 行换行（Bank 无 type 时；Owner 全视口规则见上方 3 行） */
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-bank.bank-virtual-cell--wrap:not(:has(.bank-cell-display--typed)),
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-virtual-cell.bank-virtual-cell--wrap:not(.bank-col-owner):not(:has(.bank-cell-display--typed)) {
         display: -webkit-box !important;
         -webkit-box-orient: vertical !important;
         -webkit-line-clamp: 2;
@@ -3215,6 +3217,8 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         -webkit-box-align: start;
     }
 
+    /* Card Owner 全视口 3 行规则已覆盖；此处仅保留 Bank 列补充 */
+
     /* 金额 / 日期 / 短码：强制单行，避免 2500.00 被拆成两行 */
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-virtual-cell.bank-virtual-cell--single-line {
         display: flex !important;
@@ -3230,6 +3234,7 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     }
 
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-no.bank-virtual-cell--single-line,
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-contract.bank-virtual-cell--single-line,
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-insurance.bank-virtual-cell--single-line,
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-customer.bank-virtual-cell--single-line,
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-cost.bank-virtual-cell--single-line,
@@ -3287,26 +3292,6 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
 
     body.process-page.process-page--bank .bank-cell-display--typed .bank-cell-display__type {
         margin-left: 0;
-    }
-
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell--wrap {
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        overflow-wrap: break-word !important;
-    }
-
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell--wrap {
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        overflow-wrap: break-word !important;
     }
 
     /* Contract：单行徽章完整显示（如 6 MONTHS），勿裁切药丸背景 */
@@ -3679,14 +3664,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     }
 }
 
-/* 宽屏完整显示 Card Owner；< 1700px 由上方 media 改为 hidden，避免盖住 Bank 列 */
-@media (min-width: 1700px) {
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
-    body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner {
-        overflow: visible !important;
-        text-overflow: clip !important;
-    }
-}
+/* Card Owner 多行展示见上方全视口规则 */
 
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-th,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-contract.bank-virtual-cell {
