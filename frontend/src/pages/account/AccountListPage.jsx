@@ -267,6 +267,8 @@ export default function AccountListPage() {
   const bootForUserRef = useRef(null);
   const onSwitchCompanyRef = useRef(null);
   const gcScopeRef = useRef({});
+  const listFiltersRef = useRef({ showInactive: false, showAll: false, searchTerm: "" });
+  listFiltersRef.current = { showInactive, showAll, searchTerm };
 
   const accountModalCurrencies = useMemo(() => {
     const hidden = new Set(hiddenCurrencyIds.map(Number));
@@ -385,6 +387,15 @@ export default function AccountListPage() {
     [markAccountsFetchKeyApplied],
   );
 
+  const matchesLiveListFilters = useCallback((requested) => {
+    const live = listFiltersRef.current;
+    return (
+      live.showInactive === requested.showInactive &&
+      live.showAll === requested.showAll &&
+      String(live.searchTerm || "").trim() === String(requested.searchTerm || "").trim()
+    );
+  }, []);
+
   const fetchAccounts = useCallback(
     async (gcScope, { silent = false, groupOnly = null, trustRequestScope = false } = {}) => {
       const scope = gcScope || {};
@@ -399,6 +410,7 @@ export default function AccountListPage() {
       } = scope;
       if (!ready) return;
 
+      const requestedFilters = { showInactive, showAll, searchTerm };
       const useGroupOnly = groupOnly ?? resolveGroupOnlyFetch(scope);
       const scopeKey = resolveAccountScopeKey({
         companyId: cid,
@@ -411,6 +423,7 @@ export default function AccountListPage() {
       if (pending) {
         try {
           const rows = await pending;
+          if (!matchesLiveListFilters(requestedFilters)) return;
           if (Array.isArray(rows)) {
             applyAccountListResult(cacheKey, rows, { silent, gcScope: scope });
           }
@@ -512,6 +525,7 @@ export default function AccountListPage() {
         const nextAccounts = await loadPromise;
         if (isStaleResponse()) return;
         if (nextAccounts == null) return;
+        if (!matchesLiveListFilters(requestedFilters)) return;
         if (!trustRequestScope && !matchesLiveListScope()) return;
         applyAccountListResult(cacheKey, nextAccounts, { silent, gcScope: scope });
       } catch (e) {
@@ -523,7 +537,7 @@ export default function AccountListPage() {
         }
       }
     },
-    [companies, searchTerm, showInactive, showAll, applyAccountListResult, notifyApi, resolveGroupOnlyFetch],
+    [companies, searchTerm, showInactive, showAll, applyAccountListResult, notifyApi, resolveGroupOnlyFetch, matchesLiveListFilters],
   );
 
   const applyAccountListCache = useCallback(
@@ -1702,7 +1716,10 @@ export default function AccountListPage() {
       lastAccountsFetchKeyRef.current = fetchKey;
       return;
     }
-    applyAccountListCache(gcScopeRef.current);
+    const cacheHit = applyAccountListCache(gcScopeRef.current);
+    if (!cacheHit) {
+      setAccounts([]);
+    }
     void fetchAccounts(gcScopeRef.current, { silent: true });
   }, [accountsListFetchScopeKey, searchTerm, showInactive, showAll, fetchAccounts, applyAccountListCache]);
 
@@ -1835,11 +1852,15 @@ export default function AccountListPage() {
       const json = await res.json();
       if (json.success) {
         const next = json.newStatus || json.data?.newStatus;
-        setAccounts(prev => {
-          const updated = prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a);
-          return updated.filter(a => accountRowVisibleAfterStatusChange(a.status, { showInactive, showAll }));
+        setAccounts((prev) => {
+          const updated = prev.map((a) => (Number(a.id) === Number(id) ? { ...a, status: next } : a));
+          const visible = updated.filter((a) =>
+            accountRowVisibleAfterStatusChange(a.status, { showInactive, showAll }),
+          );
+          return visible;
         });
-        refreshAccountList();
+        lastAccountsFetchKeyRef.current = "";
+        refreshAccountList({ silent: true });
       }
     } catch { notify(t("toggleFailed"), "danger"); }
   };
