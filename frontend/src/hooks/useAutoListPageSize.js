@@ -2,11 +2,10 @@ import { useLayoutEffect, useState } from "react";
 
 const DEFAULT_FALLBACK_ROW_HEIGHT = 30;
 const DEFAULT_FALLBACK_PAGE_SIZE = 15;
-const PAGINATION_RESERVE_PX = 56;
-const VIEWPORT_BOTTOM_GAP_PX = 8;
-const CLIP_BOTTOM_GAP_PX = 6;
+const PAGINATION_RESERVE_PX = 52;
+const VIEWPORT_BOTTOM_GAP_PX = 6;
 const ABSOLUTE_ROW_HEIGHT_CAP = 72;
-const ROW_HEIGHT_BUFFER_PX = 2;
+const FIT_FUDGE_PX = 1;
 const MIN_ROWS = 4;
 const MAX_ROWS = 80;
 
@@ -33,59 +32,76 @@ function dataRowEstimate(region) {
   return est > 0 ? est : cellMinHeight(region);
 }
 
-function measureRowHeight(region, rowSelector) {
-  const cellMin = cellMinHeight(region);
-  const rowEstimate = dataRowEstimate(region);
-
-  const rows = region.querySelectorAll(rowSelector);
-  if (rows.length > 0) {
-    let total = 0;
-    let count = 0;
-    rows.forEach((row, idx) => {
-      if (idx >= 5) return;
-      const rawH = row.getBoundingClientRect().height;
-      const h = rawH > 0 ? Math.min(rawH, ABSOLUTE_ROW_HEIGHT_CAP) : 0;
-      if (h > 0) {
-        total += h;
-        count += 1;
-      }
-    });
-    if (count > 0) {
-      return Math.max(cellMin, rowEstimate, total / count) + ROW_HEIGHT_BUFFER_PX;
-    }
-  }
-
-  return Math.max(cellMin, rowEstimate) + ROW_HEIGHT_BUFFER_PX;
+function rowHeightPx(row) {
+  const h = row.getBoundingClientRect().height;
+  if (h <= 0) return 0;
+  return Math.min(h, ABSOLUTE_ROW_HEIGHT_CAP);
 }
 
-/** 优先用裁剪区实际高度；其次表头到分页条之间；最后视口估算 */
+/** 表头下沿 → 分页条上沿；其次 clip 高度；最后视口估算 */
 function measureBudget(region, headerSelector) {
-  const clip = region.querySelector(".bank-virtual-scroll-clip");
-  if (clip) {
-    const clipH = clip.getBoundingClientRect().height;
-    if (clipH >= cellMinHeight(region)) {
-      return Math.max(0, clipH - CLIP_BOTTOM_GAP_PX);
-    }
-  }
-
   const header = region.querySelector(headerSelector);
-  if (!header) return 0;
+  const headerBottom = header?.getBoundingClientRect().bottom ?? 0;
 
-  const headerBottom = header.getBoundingClientRect().bottom;
   const listBody = region.closest(".bank-process-list-body");
   const pagination = listBody?.querySelector(".pagination-container");
-  if (pagination) {
+  let pagBudget = 0;
+  if (pagination && headerBottom > 0) {
     const pagTop = pagination.getBoundingClientRect().top;
     if (pagTop > headerBottom) {
-      return Math.max(0, pagTop - headerBottom - CLIP_BOTTOM_GAP_PX);
+      pagBudget = pagTop - headerBottom;
     }
   }
 
+  const clip = region.querySelector(".bank-virtual-scroll-clip");
+  const clipBudget = clip?.getBoundingClientRect().height ?? 0;
+
+  const minH = cellMinHeight(region);
+  if (pagBudget >= minH && clipBudget >= minH) {
+    return Math.min(pagBudget, clipBudget);
+  }
+  if (pagBudget >= minH) return pagBudget;
+  if (clipBudget >= minH) return clipBudget;
+
+  if (!header) return 0;
   const viewportH = window.visualViewport?.height ?? window.innerHeight;
-  return Math.max(
-    0,
-    viewportH - headerBottom - PAGINATION_RESERVE_PX - VIEWPORT_BOTTOM_GAP_PX,
-  );
+  return Math.max(0, viewportH - headerBottom - PAGINATION_RESERVE_PX - VIEWPORT_BOTTOM_GAP_PX);
+}
+
+/**
+ * 用已渲染行的实测高度累加，填满 budget；无数据时用 CSS 估算。
+ * 比 budget/rowH 更准，避免 rowEstimate 偏大导致少算行数。
+ */
+function computePageSize(region, budget, rowSelector, minRows, maxRows) {
+  const safeBudget = Math.max(0, budget - FIT_FUDGE_PX);
+  const fallbackH = Math.max(cellMinHeight(region), dataRowEstimate(region));
+  const rows = [...region.querySelectorAll(rowSelector)];
+
+  if (rows.length === 0) {
+    return Math.max(minRows, Math.min(maxRows, Math.floor(safeBudget / fallbackH)));
+  }
+
+  let used = 0;
+  let fit = 0;
+  let totalMeasured = 0;
+
+  for (const row of rows) {
+    const h = rowHeightPx(row);
+    if (h <= 0) continue;
+    if (used + h > safeBudget) break;
+    used += h;
+    totalMeasured += h;
+    fit += 1;
+  }
+
+  const avgH = fit > 0 ? totalMeasured / fit : fallbackH;
+
+  while (fit < maxRows && used + avgH <= safeBudget) {
+    used += avgH;
+    fit += 1;
+  }
+
+  return Math.max(minRows, Math.min(maxRows, fit));
 }
 
 /**
@@ -115,10 +131,7 @@ export function useAutoListPageSize({
       const budget = measureBudget(el, headerSelector);
       if (budget < cellMinHeight(el)) return;
 
-      const rowH = Math.max(1, measureRowHeight(el, rowSelector));
-      const rows = Math.floor(budget / rowH);
-
-      const next = Math.max(minRows, Math.min(maxRows, rows));
+      const next = computePageSize(el, budget, rowSelector, minRows, maxRows);
       setPageSize((prev) => (prev === next ? prev : next));
     };
 
@@ -134,6 +147,10 @@ export function useAutoListPageSize({
     if (wrapper) ro.observe(wrapper);
     const clip = region.querySelector(".bank-virtual-scroll-clip");
     if (clip) ro.observe(clip);
+
+    const listBody = region.closest(".bank-process-list-body");
+    const pagination = listBody?.querySelector(".pagination-container");
+    if (pagination) ro.observe(pagination);
 
     const onWindow = () => measure();
     window.addEventListener("resize", onWindow);
