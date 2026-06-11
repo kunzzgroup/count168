@@ -252,7 +252,6 @@ export default function AccountListPage() {
   const bootFetchedAccountsKeyRef = useRef(null);
   const postBootEmptyRetryRef = useRef(false);
   const accountListCacheRef = useRef(new Map());
-  const accountListFetchPendingRef = useRef(new Map());
   const listFetchAbortRef = useRef(null);
   const listFetchGenRef = useRef(0);
   const companySwitchGenRef = useRef(0);
@@ -268,7 +267,9 @@ export default function AccountListPage() {
   const onSwitchCompanyRef = useRef(null);
   const gcScopeRef = useRef({});
   const listFiltersRef = useRef({ showInactive: false, showAll: false, searchTerm: "" });
+  const accountsLenRef = useRef(0);
   listFiltersRef.current = { showInactive, showAll, searchTerm };
+  accountsLenRef.current = accounts.length;
 
   const accountModalCurrencies = useMemo(() => {
     const hidden = new Set(hiddenCurrencyIds.map(Number));
@@ -419,23 +420,6 @@ export default function AccountListPage() {
       });
       const cacheKey = resolveAccountListCacheKey(scopeKey, searchTerm, showInactive, showAll);
 
-      const pending = accountListFetchPendingRef.current.get(cacheKey);
-      if (pending) {
-        try {
-          const rows = await pending;
-          if (!matchesLiveListFilters(requestedFilters)) return;
-          if (Array.isArray(rows)) {
-            applyAccountListResult(cacheKey, rows, { silent, gcScope: scope });
-          }
-          return;
-        } catch (e) {
-          if (accountListFetchPendingRef.current.get(cacheKey) === pending) {
-            accountListFetchPendingRef.current.delete(cacheKey);
-          }
-          if (e?.name === "AbortError") return;
-        }
-      }
-
       listFetchAbortRef.current?.abort();
       const ac = new AbortController();
       listFetchAbortRef.current = ac;
@@ -519,8 +503,6 @@ export default function AccountListPage() {
         return nextAccounts;
       })();
 
-      accountListFetchPendingRef.current.set(cacheKey, loadPromise);
-
       try {
         const nextAccounts = await loadPromise;
         if (isStaleResponse()) return;
@@ -531,10 +513,6 @@ export default function AccountListPage() {
       } catch (e) {
         if (isStaleResponse() || e?.name === "AbortError") return;
         if (!silent) notifyApi(e?.message, "failedToLoadAccounts", "danger");
-      } finally {
-        if (accountListFetchPendingRef.current.get(cacheKey) === loadPromise) {
-          accountListFetchPendingRef.current.delete(cacheKey);
-        }
       }
     },
     [companies, searchTerm, showInactive, showAll, applyAccountListResult, notifyApi, resolveGroupOnlyFetch, matchesLiveListFilters],
@@ -1716,12 +1694,28 @@ export default function AccountListPage() {
       lastAccountsFetchKeyRef.current = fetchKey;
       return;
     }
-    const cacheHit = applyAccountListCache(gcScopeRef.current);
+    postBootEmptyRetryRef.current = false;
+    const scope = gcScopeRef.current;
+    const cacheHit = applyAccountListCache(scope);
     if (!cacheHit) {
       setAccounts([]);
     }
-    void fetchAccounts(gcScopeRef.current, { silent: true });
-  }, [accountsListFetchScopeKey, searchTerm, showInactive, showAll, fetchAccounts, applyAccountListCache]);
+    void fetchAccounts(scope, { silent: true });
+    const settleRetryTimer = window.setTimeout(() => {
+      if (!matchesLiveListFilters({ showInactive, showAll, searchTerm })) return;
+      if (accountsLenRef.current > 0) return;
+      void fetchAccounts(gcScopeRef.current, { silent: true, trustRequestScope: true });
+    }, 320);
+    return () => window.clearTimeout(settleRetryTimer);
+  }, [
+    accountsListFetchScopeKey,
+    searchTerm,
+    showInactive,
+    showAll,
+    fetchAccounts,
+    applyAccountListCache,
+    matchesLiveListFilters,
+  ]);
 
   useEffect(() => {
     if (bootLoading) {
