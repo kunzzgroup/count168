@@ -1,9 +1,6 @@
 ﻿import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  useMaintenanceCyclicScrollExtent,
-  useMaintenanceCyclicScrollObserver,
-} from "../../shared/useMaintenanceCyclicVirtualScroll.js";
+import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import BankprocessVirtualDataRow from "./BankprocessVirtualDataRow.jsx";
 
 function pickOverscan(count) {
@@ -16,6 +13,50 @@ function isRowDeleted(row) {
   return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
 }
 
+function BankprocessVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, disableSelectAll }) {
+  const labels = [
+    m.tblNo,
+    m.tblDtsCreated,
+    m.tblAccount,
+    m.tblFrom,
+    m.tblAmount,
+    m.tblDescription,
+    m.tblRemark,
+    m.tblSubmittedBy,
+  ];
+
+  return (
+    <div className="maintenance-virtual-thead" role="rowgroup">
+      <div className="maintenance-virtual-head-row bankprocess-virtual-head-row" role="row">
+        {labels.map((label, i) => (
+          <div
+            key={label}
+            role="columnheader"
+            className={`maintenance-virtual-th bankprocess-virtual-th--left${i === 0 ? " bankprocess-virtual-th--no" : ""}${i === 4 ? " maintenance-header-amount" : ""}`}
+          >
+            {label}
+          </div>
+        ))}
+        <div
+          role="columnheader"
+          className="maintenance-virtual-th bankprocess-virtual-th-checkbox maintenance-select-all-header"
+        >
+          <input
+            type="checkbox"
+            id={disableSelectAll ? undefined : "select_all_bankprocess"}
+            ref={disableSelectAll ? undefined : selectAllRef}
+            className="maintenance-row-checkbox maintenance-select-all-checkbox"
+            checked={selectAll}
+            onChange={toggleSelectAll}
+            title={m.selectAll}
+            disabled={disableSelectAll}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BankprocessVirtualRows({
   rows,
   rowHeight,
@@ -23,9 +64,13 @@ export default function BankprocessVirtualRows({
   selectedSet,
   onToggleRow,
   alreadyDeletedTitle,
+  selectAllRef,
+  selectAll,
+  toggleSelectAll,
+  m,
+  disableSelectAll = false,
 }) {
   const scrollRef = useRef(null);
-  const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
   const sizeCacheRef = useRef(new Map());
   const rowsRef = useRef(rows);
 
@@ -66,11 +111,9 @@ export default function BankprocessVirtualRows({
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
-    observeElementOffset,
   });
 
   useLayoutEffect(() => {
-    contentOffsetRef.current = 0;
     scrollRef.current?.scrollTo(0, 0);
     sizeCacheRef.current.clear();
     rowVirtualizer.measure();
@@ -78,17 +121,23 @@ export default function BankprocessVirtualRows({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceCyclicScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
     resetDeps: [rows],
-    contentOffsetRef,
   });
 
   return (
     <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
+      <BankprocessVirtualTableHead
+        selectAllRef={selectAllRef}
+        selectAll={selectAll}
+        toggleSelectAll={toggleSelectAll}
+        m={m}
+        disableSelectAll={disableSelectAll}
+      />
       <div className="maintenance-virtual-spacer" style={{ height: displayTotalH, position: "relative", width: "100%" }}>
         {vItems.map((virtualRow) => {
           const row = rows[virtualRow.index];
@@ -126,4 +175,3 @@ export default function BankprocessVirtualRows({
     </div>
   );
 }
-
