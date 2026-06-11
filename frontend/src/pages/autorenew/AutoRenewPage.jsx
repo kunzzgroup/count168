@@ -44,7 +44,7 @@ import "../../../public/css/transaction.css";
 function TabPendingBadge({ count, label }) {
   if (!count || count <= 0) return null;
   return (
-    <span className="auto-renew-tab-pending-badge" aria-label={label}>
+    <span className="auto-renew-tab-pending-badge" aria-label={label} title={label}>
       {count}
     </span>
   );
@@ -485,7 +485,7 @@ export default function AutoRenewPage() {
                 type="button"
                 role="tab"
                 aria-selected={entityTab === "company"}
-                className={`page-tab${entityTab === "company" ? " active" : ""}`}
+                className={`page-tab${entityTab === "company" ? " active" : ""}${tabPendingCounts.company > 0 ? " has-pending-badge" : ""}`}
                 onClick={() => setEntityTab("company")}
               >
                 <span className="page-tab__label">{t("companyTab")}</span>
@@ -498,7 +498,7 @@ export default function AutoRenewPage() {
                 type="button"
                 role="tab"
                 aria-selected={entityTab === "group"}
-                className={`page-tab${entityTab === "group" ? " active" : ""}`}
+                className={`page-tab${entityTab === "group" ? " active" : ""}${tabPendingCounts.group > 0 ? " has-pending-badge" : ""}`}
                 onClick={() => setEntityTab("group")}
               >
                 <span className="page-tab__label">{t("groupTab")}</span>
