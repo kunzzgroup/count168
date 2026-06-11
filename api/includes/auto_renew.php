@@ -222,45 +222,283 @@ if (!function_exists('auto_renew_table_has_column')) {
     }
 }
 
+function auto_renew_has_groups_table(PDO $pdo): bool
+{
+    try {
+        $stmt = $pdo->query("SHOW TABLES LIKE 'groups'");
+        return $stmt && $stmt->fetch(PDO::FETCH_NUM) !== false;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+function auto_renew_normalize_entity_type(?string $entityType): string
+{
+    $type = strtolower(trim((string) ($entityType ?? 'company')));
+    return $type === 'group' ? 'group' : 'company';
+}
+
+function auto_renew_request_table_has_index(PDO $pdo, string $indexName): bool
+{
+    try {
+        $stmt = $pdo->query('SHOW INDEX FROM `company_auto_renew_request`');
+        $rows = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+        foreach ($rows as $row) {
+            if (strcasecmp((string) ($row['Key_name'] ?? ''), $indexName) === 0) {
+                return true;
+            }
+        }
+    } catch (Exception $e) {
+        return false;
+    }
+    return false;
+}
+
+function auto_renew_request_table_has_foreign_key(PDO $pdo, string $fkName): bool
+{
+    try {
+        $stmt = $pdo->query("
+            SELECT CONSTRAINT_NAME
+            FROM information_schema.TABLE_CONSTRAINTS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'company_auto_renew_request'
+              AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+              AND CONSTRAINT_NAME = " . $pdo->quote($fkName) . '
+            LIMIT 1
+        ');
+        return $stmt && $stmt->fetchColumn() !== false;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+function auto_renew_drop_request_foreign_key(PDO $pdo, string $fkName): void
+{
+    if (!auto_renew_request_table_has_foreign_key($pdo, $fkName)) {
+        return;
+    }
+    try {
+        $pdo->exec('ALTER TABLE `company_auto_renew_request` DROP FOREIGN KEY `' . str_replace('`', '', $fkName) . '`');
+    } catch (Exception $e) {
+        // ignore
+    }
+}
+
+/**
+ * MySQL UNIQUE treats NULLs as distinct — dedupe before split unique keys.
+ */
+function auto_renew_dedupe_request_rows(PDO $pdo): void
+{
+    try {
+        $pdo->exec("
+            DELETE r1 FROM company_auto_renew_request r1
+            INNER JOIN company_auto_renew_request r2
+              ON r1.entity_type = 'company'
+             AND r2.entity_type = 'company'
+             AND r1.company_id = r2.company_id
+             AND r1.expiration_snapshot = r2.expiration_snapshot
+             AND r1.id > r2.id
+        ");
+        $pdo->exec("
+            DELETE r1 FROM company_auto_renew_request r1
+            INNER JOIN company_auto_renew_request r2
+              ON r1.entity_type = 'group'
+             AND r2.entity_type = 'group'
+             AND r1.group_id = r2.group_id
+             AND r1.expiration_snapshot = r2.expiration_snapshot
+             AND r1.id > r2.id
+        ");
+    } catch (Exception $e) {
+        // best effort
+    }
+}
+
+function auto_renew_ensure_request_unique_keys(PDO $pdo): void
+{
+    auto_renew_dedupe_request_rows($pdo);
+
+    if (auto_renew_request_table_has_index($pdo, 'uq_auto_renew_tenant_exp')) {
+        try {
+            $pdo->exec('ALTER TABLE `company_auto_renew_request` DROP INDEX `uq_auto_renew_tenant_exp`');
+        } catch (Exception $e) {
+            // ignore
+        }
+    }
+
+    if (!auto_renew_request_table_has_index($pdo, 'uq_auto_renew_company_exp')) {
+        try {
+            $pdo->exec("
+                ALTER TABLE `company_auto_renew_request`
+                ADD UNIQUE KEY `uq_auto_renew_company_exp` (`company_id`, `expiration_snapshot`)
+            ");
+        } catch (Exception $e) {
+            // ignore
+        }
+    }
+
+    if (!auto_renew_request_table_has_index($pdo, 'uq_auto_renew_group_exp')) {
+        try {
+            $pdo->exec("
+                ALTER TABLE `company_auto_renew_request`
+                ADD UNIQUE KEY `uq_auto_renew_group_exp` (`group_id`, `expiration_snapshot`)
+            ");
+        } catch (Exception $e) {
+            // ignore
+        }
+    }
+}
+
+function auto_renew_ensure_request_table_columns(PDO $pdo): void
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+    if (!auto_renew_table_has_column($pdo, 'company_auto_renew_request', 'entity_type')) {
+        $pdo->exec("
+            ALTER TABLE `company_auto_renew_request`
+            ADD COLUMN `entity_type` ENUM('company','group') NOT NULL DEFAULT 'company'
+                COMMENT 'Tenant type: company or group'
+                AFTER `id`
+        ");
+    }
+    if (!auto_renew_table_has_column($pdo, 'company_auto_renew_request', 'group_id')) {
+        $pdo->exec("
+            ALTER TABLE `company_auto_renew_request`
+            ADD COLUMN `group_id` BIGINT UNSIGNED NULL
+                COMMENT 'FK groups.id when entity_type=group'
+                AFTER `company_id`
+        ");
+    }
+    try {
+        $pdo->exec("
+            ALTER TABLE `company_auto_renew_request`
+            MODIFY COLUMN `company_id` INT UNSIGNED NULL
+                COMMENT 'FK company.id when entity_type=company'
+        ");
+    } catch (Exception $e) {
+        // may already be nullable
+    }
+    if (auto_renew_request_table_has_index($pdo, 'uq_auto_renew_tenant_exp')) {
+        auto_renew_drop_request_foreign_key($pdo, 'fk_car_company');
+        if (!auto_renew_request_table_has_index($pdo, 'idx_auto_renew_company')) {
+            try {
+                $pdo->exec('ALTER TABLE `company_auto_renew_request` ADD KEY `idx_auto_renew_company` (`company_id`)');
+            } catch (Exception $e) {
+                // ignore
+            }
+        }
+    }
+    auto_renew_ensure_request_unique_keys($pdo);
+    if (!auto_renew_request_table_has_index($pdo, 'idx_auto_renew_group')) {
+        try {
+            $pdo->exec('ALTER TABLE `company_auto_renew_request` ADD KEY `idx_auto_renew_group` (`group_id`)');
+        } catch (Exception $e) {
+            // ignore
+        }
+    }
+    if (!auto_renew_request_table_has_foreign_key($pdo, 'fk_car_company')) {
+        try {
+            $pdo->exec("
+                ALTER TABLE `company_auto_renew_request`
+                ADD CONSTRAINT `fk_car_company` FOREIGN KEY (`company_id`) REFERENCES `company` (`id`)
+                    ON DELETE CASCADE ON UPDATE CASCADE
+            ");
+        } catch (Exception $e) {
+            // ignore
+        }
+    }
+    if (auto_renew_has_groups_table($pdo) && !auto_renew_request_table_has_foreign_key($pdo, 'fk_car_group')) {
+        try {
+            $pdo->exec("
+                ALTER TABLE `company_auto_renew_request`
+                ADD CONSTRAINT `fk_car_group` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`)
+                    ON DELETE CASCADE ON UPDATE CASCADE
+            ");
+        } catch (Exception $e) {
+            // ignore
+        }
+    }
+    $ensured = true;
+}
+
 function auto_renew_ensure_request_table(PDO $pdo): void
 {
     static $ensured = false;
     if ($ensured) {
         return;
     }
+    $tableExists = false;
     try {
         $stmt = $pdo->query("SHOW TABLES LIKE 'company_auto_renew_request'");
-        if ($stmt && $stmt->fetch(PDO::FETCH_NUM) !== false) {
-            $ensured = true;
-            return;
-        }
+        $tableExists = $stmt && $stmt->fetch(PDO::FETCH_NUM) !== false;
     } catch (Exception $e) {
-        // continue to create
+        $tableExists = false;
     }
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS `company_auto_renew_request` (
-          `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
-          `company_id` int(10) UNSIGNED NOT NULL,
-          `expiration_snapshot` date NOT NULL,
-          `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
-          `period` varchar(20) DEFAULT NULL,
-          `price` decimal(25,8) DEFAULT NULL,
-          `from_account_id` int(11) DEFAULT NULL,
-          `to_account_id` int(11) DEFAULT NULL,
-          `transaction_id` int(11) DEFAULT NULL,
-          `new_expiration_date` date DEFAULT NULL,
-          `processed_by` varchar(50) DEFAULT NULL,
-          `processed_at` datetime DEFAULT NULL,
-          `reject_reason` varchar(255) DEFAULT NULL,
-          `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-          `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-          PRIMARY KEY (`id`),
-          UNIQUE KEY `uq_auto_renew_company_exp` (`company_id`,`expiration_snapshot`),
-          KEY `idx_auto_renew_status` (`status`),
-          KEY `idx_auto_renew_company` (`company_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ");
+    if (!$tableExists) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `company_auto_renew_request` (
+              `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+              `entity_type` enum('company','group') NOT NULL DEFAULT 'company',
+              `company_id` int(10) UNSIGNED NULL,
+              `group_id` bigint UNSIGNED NULL,
+              `expiration_snapshot` date NOT NULL,
+              `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+              `period` varchar(20) DEFAULT NULL,
+              `price` decimal(25,8) DEFAULT NULL,
+              `from_account_id` int(11) DEFAULT NULL,
+              `to_account_id` int(11) DEFAULT NULL,
+              `transaction_id` int(11) DEFAULT NULL,
+              `new_expiration_date` date DEFAULT NULL,
+              `processed_by` varchar(50) DEFAULT NULL,
+              `processed_at` datetime DEFAULT NULL,
+              `reject_reason` varchar(255) DEFAULT NULL,
+              `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+              `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_auto_renew_company_exp` (`company_id`,`expiration_snapshot`),
+              UNIQUE KEY `uq_auto_renew_group_exp` (`group_id`,`expiration_snapshot`),
+              KEY `idx_auto_renew_status` (`status`),
+              KEY `idx_auto_renew_company` (`company_id`),
+              KEY `idx_auto_renew_group` (`group_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    } else {
+        auto_renew_ensure_request_table_columns($pdo);
+    }
     $ensured = true;
+}
+
+function auto_renew_build_fee_sms(string $entityType, string $tenantCode, string $expirationSnapshot): string
+{
+    $code = strtoupper(trim($tenantCode));
+    if (auto_renew_normalize_entity_type($entityType) === 'group') {
+        return '[AUTO_RENEW|GROUP|' . $code . '|' . $expirationSnapshot . ']';
+    }
+    return '[AUTO_RENEW|' . $code . '|' . $expirationSnapshot . ']';
+}
+
+/**
+ * @return array{entity_type:string, tenant_code:string, expiration_snapshot:string}|null
+ */
+function auto_renew_parse_fee_sms(string $sms): ?array
+{
+    $sms = trim($sms);
+    if (preg_match('/^\[AUTO_RENEW\|GROUP\|([^|\]]+)\|([^|\]]+)/i', $sms, $m)) {
+        return [
+            'entity_type' => 'group',
+            'tenant_code' => strtoupper(trim((string) $m[1])),
+            'expiration_snapshot' => trim((string) $m[2]),
+        ];
+    }
+    if (preg_match('/^\[AUTO_RENEW\|([^|\]]+)\|([^|\]]+)/i', $sms, $m)) {
+        return [
+            'entity_type' => 'company',
+            'tenant_code' => strtoupper(trim((string) $m[1])),
+            'expiration_snapshot' => trim((string) $m[2]),
+        ];
+    }
+    return null;
 }
 
 function auto_renew_get_c168_pk(PDO $pdo): ?int
@@ -566,25 +804,29 @@ function auto_renew_fee_settings_for_api(PDO $pdo): array
     ];
 }
 
-/** Auto renew always bills Company Price (never Group Price). */
-function auto_renew_resolve_price_for_period(PDO $pdo, ?string $period): ?string
+/** Resolve renewal price by tenant type and period (company → Company Price, group → Group Price). */
+function auto_renew_resolve_price_for_period(PDO $pdo, ?string $period, string $feeKind = 'company'): ?string
 {
     $period = auto_renew_normalize_period($period);
     if (!$period) {
         return null;
     }
+    $feeKind = auto_renew_normalize_entity_type($feeKind);
     $settings = auto_renew_fetch_domain_fee_settings($pdo);
-    $cp = $settings['company_period_prices'][$period] ?? null;
-    if ($cp !== null && $cp !== '' && money_cmp($cp, '0') > 0) {
-        return money_normalize($cp);
+    $prices = $feeKind === 'group'
+        ? ($settings['group_period_prices'] ?? [])
+        : ($settings['company_period_prices'] ?? []);
+    $price = $prices[$period] ?? null;
+    if ($price !== null && $price !== '' && money_cmp($price, '0') > 0) {
+        return money_normalize($price);
     }
     return null;
 }
 
 function auto_renew_resolve_price_for_company(PDO $pdo): ?string
 {
-    return auto_renew_resolve_price_for_period($pdo, '6months')
-        ?? auto_renew_resolve_price_for_period($pdo, '1year');
+    return auto_renew_resolve_price_for_period($pdo, '6months', 'company')
+        ?? auto_renew_resolve_price_for_period($pdo, '1year', 'company');
 }
 
 function auto_renew_resolve_c168_company_code_account(PDO $pdo, int $c168Pk, string $companyCode, int $excludeAccountId = 0): ?int
@@ -732,6 +974,7 @@ function auto_renew_company_in_window(?string $expirationDate): bool
 function auto_renew_sync_window_requests(PDO $pdo): void
 {
     auto_renew_ensure_request_table($pdo);
+    auto_renew_dedupe_request_rows($pdo);
     $stmt = $pdo->query("
         SELECT id, expiration_date
         FROM company
@@ -740,33 +983,74 @@ function auto_renew_sync_window_requests(PDO $pdo): void
           AND expiration_date <> ''
     ");
     $companies = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    $insert = $pdo->prepare("
-        INSERT IGNORE INTO company_auto_renew_request (company_id, expiration_snapshot, status)
-        VALUES (?, ?, 'pending')
+    $insertCompany = $pdo->prepare("
+        INSERT IGNORE INTO company_auto_renew_request (entity_type, company_id, expiration_snapshot, status)
+        VALUES ('company', ?, ?, 'pending')
     ");
     foreach ($companies as $row) {
         $exp = (string) ($row['expiration_date'] ?? '');
         if (!auto_renew_company_in_window($exp)) {
             continue;
         }
-        $insert->execute([(int) $row['id'], $exp]);
+        $insertCompany->execute([(int) $row['id'], $exp]);
+    }
+
+    if (!auto_renew_has_groups_table($pdo)) {
+        return;
+    }
+    $groupStmt = $pdo->query("
+        SELECT id, expiration_date
+        FROM `groups`
+        WHERE expiration_date IS NOT NULL
+          AND expiration_date <> ''
+          AND (status IS NULL OR LOWER(TRIM(status)) = 'active')
+    ");
+    $groups = $groupStmt ? ($groupStmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+    $insertGroup = $pdo->prepare("
+        INSERT IGNORE INTO company_auto_renew_request (entity_type, group_id, expiration_snapshot, status)
+        VALUES ('group', ?, ?, 'pending')
+    ");
+    foreach ($groups as $row) {
+        $exp = (string) ($row['expiration_date'] ?? '');
+        if (!auto_renew_company_in_window($exp)) {
+            continue;
+        }
+        $insertGroup->execute([(int) $row['id'], $exp]);
     }
 }
 
 function auto_renew_count_pending(PDO $pdo): int
 {
     auto_renew_sync_window_requests($pdo);
+    $windowDays = (int) AUTO_RENEW_WINDOW_DAYS;
+    $companyCnt = 0;
     $stmt = $pdo->query("
         SELECT COUNT(*)
         FROM company_auto_renew_request r
         INNER JOIN company c ON c.id = r.company_id
-        WHERE r.status = 'pending'
+        WHERE r.entity_type = 'company'
+          AND r.status = 'pending'
           AND r.expiration_snapshot = c.expiration_date
           AND UPPER(TRIM(c.company_id)) <> 'C168'
           AND c.expiration_date IS NOT NULL
-          AND DATEDIFF(c.expiration_date, CURDATE()) <= " . (int) AUTO_RENEW_WINDOW_DAYS . '
-    ');
-    return (int) ($stmt->fetchColumn() ?: 0);
+          AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
+    ");
+    $companyCnt = (int) ($stmt->fetchColumn() ?: 0);
+
+    if (!auto_renew_has_groups_table($pdo)) {
+        return $companyCnt;
+    }
+    $groupStmt = $pdo->query("
+        SELECT COUNT(*)
+        FROM company_auto_renew_request r
+        INNER JOIN `groups` g ON g.id = r.group_id
+        WHERE r.entity_type = 'group'
+          AND r.status = 'pending'
+          AND r.expiration_snapshot = g.expiration_date
+          AND g.expiration_date IS NOT NULL
+          AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
+    ");
+    return $companyCnt + (int) ($groupStmt->fetchColumn() ?: 0);
 }
 
 /**
@@ -778,25 +1062,54 @@ function auto_renew_count_pending(PDO $pdo): int
 function auto_renew_status_map(PDO $pdo): array
 {
     auto_renew_sync_window_requests($pdo);
+    $windowDays = (int) AUTO_RENEW_WINDOW_DAYS;
+    $map = [];
     $stmt = $pdo->query("
-        SELECT UPPER(TRIM(c.company_id)) AS company_code
+        SELECT UPPER(TRIM(c.company_id)) AS tenant_code
         FROM company_auto_renew_request r
         INNER JOIN company c ON c.id = r.company_id
-        WHERE UPPER(TRIM(c.company_id)) <> 'C168'
+        WHERE r.entity_type = 'company'
+          AND UPPER(TRIM(c.company_id)) <> 'C168'
           AND r.status = 'pending'
           AND r.expiration_snapshot = c.expiration_date
-          AND DATEDIFF(c.expiration_date, CURDATE()) <= " . (int) AUTO_RENEW_WINDOW_DAYS . "
+          AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
           AND NOT EXISTS (
             SELECT 1
             FROM company_auto_renew_request ap
-            WHERE ap.company_id = c.id
+            WHERE ap.entity_type = 'company'
+              AND ap.company_id = c.id
               AND ap.status = 'approved'
               AND ap.new_expiration_date = c.expiration_date
           )
     ");
-    $map = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
-        $code = (string) ($row['company_code'] ?? '');
+        $code = (string) ($row['tenant_code'] ?? '');
+        if ($code !== '') {
+            $map[$code] = 'pending';
+        }
+    }
+    if (!auto_renew_has_groups_table($pdo)) {
+        return $map;
+    }
+    $groupStmt = $pdo->query("
+        SELECT UPPER(TRIM(g.group_code)) AS tenant_code
+        FROM company_auto_renew_request r
+        INNER JOIN `groups` g ON g.id = r.group_id
+        WHERE r.entity_type = 'group'
+          AND r.status = 'pending'
+          AND r.expiration_snapshot = g.expiration_date
+          AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
+          AND NOT EXISTS (
+            SELECT 1
+            FROM company_auto_renew_request ap
+            WHERE ap.entity_type = 'group'
+              AND ap.group_id = g.id
+              AND ap.status = 'approved'
+              AND ap.new_expiration_date = g.expiration_date
+          )
+    ");
+    foreach ($groupStmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+        $code = (string) ($row['tenant_code'] ?? '');
         if ($code !== '') {
             $map[$code] = 'pending';
         }
@@ -820,14 +1133,15 @@ function auto_renew_period_display_label(?string $period): string
     return $map[$period] ?? $period;
 }
 
-function auto_renew_format_payment_description(string $companyCode, ?string $period): string
+function auto_renew_format_payment_description(string $tenantCode, ?string $period, string $entityType = 'company'): string
 {
     $label = auto_renew_period_display_label($period);
-    $code = strtoupper(trim($companyCode));
+    $code = strtoupper(trim($tenantCode));
+    $prefix = auto_renew_normalize_entity_type($entityType) === 'group' ? 'Renew Group ' : 'Renew ';
     if ($label === '') {
-        return 'Renew ' . $code;
+        return $prefix . $code;
     }
-    return 'Renew ' . $code . ' | ' . $label;
+    return $prefix . $code . ' | ' . $label;
 }
 
 /**
@@ -851,6 +1165,7 @@ function auto_renew_parse_list_date_range(?string $dateFrom, ?string $dateTo): a
 
 function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array $accountsById): array
 {
+    $entityType = auto_renew_normalize_entity_type($row['entity_type'] ?? 'company');
     $companyCode = (string) ($row['company_code'] ?? '');
     $groupId = !empty($row['group_id']) ? (string) $row['group_id'] : null;
     $expirationDate = !empty($row['expiration_date']) ? (string) $row['expiration_date'] : null;
@@ -864,23 +1179,25 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
     if ($requestStatus !== 'pending' && $savedPrice !== null && $savedPrice !== '') {
         $price = money_normalize($savedPrice);
     } elseif ($period) {
-        $price = auto_renew_resolve_price_for_period($pdo, $period);
+        $price = auto_renew_resolve_price_for_period($pdo, $period, $entityType);
     } else {
         $price = null;
     }
     $fromId = !empty($row['from_account_id']) ? (int) $row['from_account_id'] : null;
     $toId = !empty($row['to_account_id']) ? (int) $row['to_account_id'] : null;
+    $accountLookupCode = $companyCode;
 
     if (!$fromId && $c168Pk > 0) {
-        $fromId = auto_renew_resolve_default_from_account($pdo, $c168Pk, $companyCode, (int) ($toId ?? 0));
+        $fromId = auto_renew_resolve_default_from_account($pdo, $c168Pk, $accountLookupCode, (int) ($toId ?? 0));
     }
 
     $defaultFrom = ($c168Pk > 0)
-        ? auto_renew_resolve_default_from_account($pdo, $c168Pk, $companyCode, (int) ($toId ?? 0))
+        ? auto_renew_resolve_default_from_account($pdo, $c168Pk, $accountLookupCode, (int) ($toId ?? 0))
         : null;
 
     return [
         'request_id' => (int) ($row['request_id'] ?? 0),
+        'entity_type' => $entityType,
         'deleted_payment_id' => !empty($row['deleted_payment_id']) ? (int) $row['deleted_payment_id'] : null,
         'is_payment_deleted' => !empty($row['is_payment_deleted']),
         'company_numeric_id' => (int) ($row['company_numeric_id'] ?? 0),
@@ -905,7 +1222,7 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
         'submitter_at' => $row['processed_at'] ?? null,
         'payment_description' => !empty($row['payment_description'])
             ? (string) $row['payment_description']
-            : ($period ? auto_renew_format_payment_description($companyCode, $period) : null),
+            : ($period ? auto_renew_format_payment_description($companyCode, $period, $entityType) : null),
         'reject_reason' => $row['reject_reason'] ?? null,
         'can_approve' => $requestStatus === 'pending'
             && $price !== null
@@ -915,6 +1232,298 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
             && !empty($row['transaction_id'])
             && empty($row['is_payment_deleted']),
     ];
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function auto_renew_fetch_company_approval_raw_rows(
+    PDO $pdo,
+    string $filter,
+    int $windowDays,
+    int $historyDays,
+    ?string $rangeFrom,
+    ?string $rangeTo,
+    bool $applyDateFilter
+): array {
+    $select = "
+        SELECT
+            r.id AS request_id,
+            'company' AS entity_type,
+            r.status AS request_status,
+            r.period AS request_period,
+            r.price AS request_price,
+            r.from_account_id,
+            r.to_account_id,
+            r.transaction_id,
+            r.new_expiration_date,
+            r.expiration_snapshot,
+            r.processed_by,
+            r.processed_at,
+            r.reject_reason,
+            c.id AS company_numeric_id,
+            c.company_id AS company_code,
+            c.group_id,
+            c.expiration_date,
+            COALESCE(o.name, '') AS owner_name
+    ";
+
+    if ($filter === 'approved' || $filter === 'rejected') {
+        $sql = $select . "
+            FROM company_auto_renew_request r
+            INNER JOIN company c ON c.id = r.company_id
+            LEFT JOIN owner o ON o.id = c.owner_id
+            WHERE r.entity_type = 'company'
+              AND r.status = ?
+              AND UPPER(TRIM(c.company_id)) <> 'C168'
+              AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
+        ";
+        $params = [$filter];
+        if ($applyDateFilter) {
+            $sql .= ' AND DATE(r.processed_at) >= ? AND DATE(r.processed_at) <= ?';
+            $params[] = $rangeFrom;
+            $params[] = $rangeTo;
+        }
+        $sql .= ' ORDER BY r.processed_at DESC, c.company_id ASC';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    if ($filter === 'all') {
+        $sql = $select . "
+            FROM company c
+            INNER JOIN company_auto_renew_request r
+                ON r.company_id = c.id
+               AND r.entity_type = 'company'
+               AND r.expiration_snapshot = c.expiration_date
+            LEFT JOIN owner o ON o.id = c.owner_id
+            WHERE UPPER(TRIM(c.company_id)) <> 'C168'
+              AND c.expiration_date IS NOT NULL
+              AND (
+                    (r.status = 'pending' AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays})
+                    OR (
+                        r.status IN ('approved','rejected')
+                        AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
+        ";
+        $params = [];
+        if ($applyDateFilter) {
+            $sql .= ' AND DATE(r.processed_at) >= ? AND DATE(r.processed_at) <= ?';
+            $params[] = $rangeFrom;
+            $params[] = $rangeTo;
+        }
+        $sql .= "
+                    )
+              )
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    $stmt = $pdo->query($select . "
+        FROM company c
+        INNER JOIN company_auto_renew_request r
+            ON r.company_id = c.id
+           AND r.entity_type = 'company'
+           AND r.expiration_snapshot = c.expiration_date
+        LEFT JOIN owner o ON o.id = c.owner_id
+        WHERE UPPER(TRIM(c.company_id)) <> 'C168'
+          AND c.expiration_date IS NOT NULL
+          AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
+          AND r.status = 'pending'
+    ");
+    return $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+}
+
+/**
+ * @return list<array<string, mixed>>
+ */
+function auto_renew_fetch_group_approval_raw_rows(
+    PDO $pdo,
+    string $filter,
+    int $windowDays,
+    int $historyDays,
+    ?string $rangeFrom,
+    ?string $rangeTo,
+    bool $applyDateFilter
+): array {
+    if (!auto_renew_has_groups_table($pdo)) {
+        return [];
+    }
+
+    $select = "
+        SELECT
+            r.id AS request_id,
+            'group' AS entity_type,
+            r.status AS request_status,
+            r.period AS request_period,
+            r.price AS request_price,
+            r.from_account_id,
+            r.to_account_id,
+            r.transaction_id,
+            r.new_expiration_date,
+            r.expiration_snapshot,
+            r.processed_by,
+            r.processed_at,
+            r.reject_reason,
+            g.id AS company_numeric_id,
+            g.group_code AS company_code,
+            NULL AS group_id,
+            g.expiration_date,
+            COALESCE(o.name, '') AS owner_name
+    ";
+
+    if ($filter === 'approved' || $filter === 'rejected') {
+        $sql = $select . "
+            FROM company_auto_renew_request r
+            INNER JOIN `groups` g ON g.id = r.group_id
+            LEFT JOIN owner o ON o.id = g.owner_id
+            WHERE r.entity_type = 'group'
+              AND r.status = ?
+              AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
+        ";
+        $params = [$filter];
+        if ($applyDateFilter) {
+            $sql .= ' AND DATE(r.processed_at) >= ? AND DATE(r.processed_at) <= ?';
+            $params[] = $rangeFrom;
+            $params[] = $rangeTo;
+        }
+        $sql .= ' ORDER BY r.processed_at DESC, g.group_code ASC';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    if ($filter === 'all') {
+        $sql = $select . "
+            FROM `groups` g
+            INNER JOIN company_auto_renew_request r
+                ON r.group_id = g.id
+               AND r.entity_type = 'group'
+               AND r.expiration_snapshot = g.expiration_date
+            LEFT JOIN owner o ON o.id = g.owner_id
+            WHERE g.expiration_date IS NOT NULL
+              AND (
+                    (r.status = 'pending' AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays})
+                    OR (
+                        r.status IN ('approved','rejected')
+                        AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
+        ";
+        $params = [];
+        if ($applyDateFilter) {
+            $sql .= ' AND DATE(r.processed_at) >= ? AND DATE(r.processed_at) <= ?';
+            $params[] = $rangeFrom;
+            $params[] = $rangeTo;
+        }
+        $sql .= "
+                    )
+              )
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    $stmt = $pdo->query($select . "
+        FROM `groups` g
+        INNER JOIN company_auto_renew_request r
+            ON r.group_id = g.id
+           AND r.entity_type = 'group'
+           AND r.expiration_snapshot = g.expiration_date
+        LEFT JOIN owner o ON o.id = g.owner_id
+        WHERE g.expiration_date IS NOT NULL
+          AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
+          AND r.status = 'pending'
+    ");
+    return $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+}
+
+function auto_renew_sort_merged_approval_raw_rows(array $rows, string $filter): array
+{
+    if ($filter === 'pending') {
+        usort($rows, static function (array $a, array $b): int {
+            $r = strcmp((string) ($a['expiration_date'] ?? ''), (string) ($b['expiration_date'] ?? ''));
+            if ($r !== 0) {
+                return $r;
+            }
+            $typeCmp = strcmp((string) ($a['entity_type'] ?? ''), (string) ($b['entity_type'] ?? ''));
+            if ($typeCmp !== 0) {
+                return $typeCmp;
+            }
+            return strcmp((string) ($a['company_code'] ?? ''), (string) ($b['company_code'] ?? ''));
+        });
+        return $rows;
+    }
+    if ($filter === 'all') {
+        usort($rows, static function (array $a, array $b): int {
+            $aPending = (($a['request_status'] ?? '') === 'pending') ? 0 : 1;
+            $bPending = (($b['request_status'] ?? '') === 'pending') ? 0 : 1;
+            if ($aPending !== $bPending) {
+                return $aPending - $bPending;
+            }
+            $at = (string) ($a['processed_at'] ?? '9999-12-31');
+            $bt = (string) ($b['processed_at'] ?? '9999-12-31');
+            if ($at !== $bt) {
+                return strcmp($bt, $at);
+            }
+            $r = strcmp((string) ($a['expiration_date'] ?? ''), (string) ($b['expiration_date'] ?? ''));
+            if ($r !== 0) {
+                return $r;
+            }
+            return strcmp((string) ($a['company_code'] ?? ''), (string) ($b['company_code'] ?? ''));
+        });
+        return $rows;
+    }
+    return $rows;
+}
+
+function auto_renew_count_window_requests(PDO $pdo, int $windowDays): array
+{
+    $companyStmt = $pdo->query("
+        SELECT
+            SUM(CASE WHEN r.status = 'pending' THEN 1 ELSE 0 END) AS pending_cnt,
+            SUM(CASE WHEN r.status = 'approved' THEN 1 ELSE 0 END) AS approved_cnt,
+            SUM(CASE WHEN r.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_cnt,
+            COUNT(*) AS total_cnt
+        FROM company c
+        INNER JOIN company_auto_renew_request r
+            ON r.company_id = c.id
+           AND r.entity_type = 'company'
+           AND r.expiration_snapshot = c.expiration_date
+        WHERE UPPER(TRIM(c.company_id)) <> 'C168'
+          AND c.expiration_date IS NOT NULL
+          AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
+    ");
+    $counts = $companyStmt ? ($companyStmt->fetch(PDO::FETCH_ASSOC) ?: []) : [
+        'pending_cnt' => 0,
+        'approved_cnt' => 0,
+        'rejected_cnt' => 0,
+        'total_cnt' => 0,
+    ];
+
+    if (auto_renew_has_groups_table($pdo)) {
+        $groupStmt = $pdo->query("
+            SELECT
+                SUM(CASE WHEN r.status = 'pending' THEN 1 ELSE 0 END) AS pending_cnt,
+                SUM(CASE WHEN r.status = 'approved' THEN 1 ELSE 0 END) AS approved_cnt,
+                SUM(CASE WHEN r.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_cnt,
+                COUNT(*) AS total_cnt
+            FROM `groups` g
+            INNER JOIN company_auto_renew_request r
+                ON r.group_id = g.id
+               AND r.entity_type = 'group'
+               AND r.expiration_snapshot = g.expiration_date
+            WHERE g.expiration_date IS NOT NULL
+              AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
+        ");
+        $groupCounts = $groupStmt ? ($groupStmt->fetch(PDO::FETCH_ASSOC) ?: []) : [];
+        foreach (['pending_cnt', 'approved_cnt', 'rejected_cnt', 'total_cnt'] as $key) {
+            $counts[$key] = (int) ($counts[$key] ?? 0) + (int) ($groupCounts[$key] ?? 0);
+        }
+    }
+
+    return $counts;
 }
 
 /**
@@ -978,28 +1587,51 @@ function auto_renew_list_deleted_payment_rows(
     $out = [];
     foreach ($deleted as $td) {
         $sms = (string) ($td['sms'] ?? '');
-        if (!preg_match('/^\[AUTO_RENEW\|([^|\]]+)\|([^|\]]+)/i', $sms, $m)) {
+        $parsed = auto_renew_parse_fee_sms($sms);
+        if ($parsed === null) {
             continue;
         }
-        $companyCode = strtoupper(trim((string) $m[1]));
-        $expSnapshot = trim((string) $m[2]);
-        if ($companyCode === '') {
+        $entityType = $parsed['entity_type'];
+        $tenantCode = $parsed['tenant_code'];
+        $expSnapshot = $parsed['expiration_snapshot'];
+        if ($tenantCode === '') {
             continue;
         }
 
-        $companyStmt = $pdo->prepare("
-            SELECT c.id, c.company_id, c.group_id, c.expiration_date, COALESCE(o.name, '') AS owner_name
-            FROM company c
-            LEFT JOIN owner o ON o.id = c.owner_id
-            WHERE UPPER(TRIM(c.company_id)) = ?
-            LIMIT 1
-        ");
-        $companyStmt->execute([$companyCode]);
-        $companyRow = $companyStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $companyRow = [];
+        if ($entityType === 'group' && auto_renew_has_groups_table($pdo)) {
+            $groupStmt = $pdo->prepare("
+                SELECT g.id, g.group_code, g.expiration_date, COALESCE(o.name, '') AS owner_name
+                FROM `groups` g
+                LEFT JOIN owner o ON o.id = g.owner_id
+                WHERE UPPER(TRIM(g.group_code)) = ?
+                LIMIT 1
+            ");
+            $groupStmt->execute([$tenantCode]);
+            $groupRow = $groupStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $companyRow = [
+                'id' => $groupRow['id'] ?? 0,
+                'company_id' => $tenantCode,
+                'group_id' => null,
+                'expiration_date' => $groupRow['expiration_date'] ?? null,
+                'owner_name' => $groupRow['owner_name'] ?? '',
+            ];
+        } else {
+            $companyStmt = $pdo->prepare("
+                SELECT c.id, c.company_id, c.group_id, c.expiration_date, COALESCE(o.name, '') AS owner_name
+                FROM company c
+                LEFT JOIN owner o ON o.id = c.owner_id
+                WHERE UPPER(TRIM(c.company_id)) = ?
+                LIMIT 1
+            ");
+            $companyStmt->execute([$tenantCode]);
+            $companyRow = $companyStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $entityType = 'company';
+        }
 
         $period = null;
         $desc = trim((string) ($td['description'] ?? ''));
-        if (preg_match('/^\s*Renew\s+[^|]+\|\s*(.+)$/i', $desc, $mPeriod)) {
+        if (preg_match('/^\s*Renew(?:\s+Group)?\s+[^|]+\|\s*(.+)$/i', $desc, $mPeriod)) {
             $periodLabel = trim((string) $mPeriod[1]);
             foreach (AUTO_RENEW_VALID_PERIODS as $p) {
                 if (strcasecmp(auto_renew_period_display_label($p), $periodLabel) === 0) {
@@ -1010,8 +1642,10 @@ function auto_renew_list_deleted_payment_rows(
         }
 
         $amount = $td['amount'] ?? null;
+        $displayCode = (string) ($companyRow['company_id'] ?? $tenantCode);
         $out[] = [
             'request_id' => 0,
+            'entity_type' => $entityType,
             'deleted_payment_id' => (int) ($td['transaction_id'] ?? 0),
             'is_payment_deleted' => true,
             'request_status' => 'approved',
@@ -1026,11 +1660,11 @@ function auto_renew_list_deleted_payment_rows(
             'processed_at' => $td['deleted_at'] ?? null,
             'reject_reason' => null,
             'company_numeric_id' => (int) ($companyRow['id'] ?? 0),
-            'company_code' => $companyCode,
+            'company_code' => $displayCode,
             'group_id' => $companyRow['group_id'] ?? null,
             'expiration_date' => !empty($companyRow['expiration_date']) ? (string) $companyRow['expiration_date'] : $expSnapshot,
             'owner_name' => (string) ($companyRow['owner_name'] ?? ''),
-            'payment_description' => $desc !== '' ? $desc : auto_renew_format_payment_description($companyCode, $period),
+            'payment_description' => $desc !== '' ? $desc : auto_renew_format_payment_description($displayCode, $period, $entityType),
         ];
     }
     return $out;
@@ -1055,124 +1689,12 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
     [$rangeFrom, $rangeTo] = auto_renew_parse_list_date_range($dateFrom, $dateTo);
     $applyDateFilter = $rangeFrom !== null && $rangeTo !== null && $filter !== 'pending';
 
-    if ($filter === 'approved' || $filter === 'rejected') {
-        $sql = "
-            SELECT
-                r.id AS request_id,
-                r.status AS request_status,
-                r.period AS request_period,
-                r.price AS request_price,
-                r.from_account_id,
-                r.to_account_id,
-                r.transaction_id,
-                r.new_expiration_date,
-                r.expiration_snapshot,
-                r.processed_by,
-                r.processed_at,
-                r.reject_reason,
-                c.id AS company_numeric_id,
-                c.company_id AS company_code,
-                c.group_id,
-                c.expiration_date,
-                COALESCE(o.name, '') AS owner_name
-            FROM company_auto_renew_request r
-            INNER JOIN company c ON c.id = r.company_id
-            LEFT JOIN owner o ON o.id = c.owner_id
-            WHERE r.status = ?
-              AND UPPER(TRIM(c.company_id)) <> 'C168'
-              AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
-        ";
-        $params = [$filter];
-        if ($applyDateFilter) {
-            $sql .= ' AND DATE(r.processed_at) >= ? AND DATE(r.processed_at) <= ?';
-            $params[] = $rangeFrom;
-            $params[] = $rangeTo;
-        }
-        $sql .= ' ORDER BY r.processed_at DESC, c.company_id ASC';
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-    } elseif ($filter === 'all') {
-        $sql = "
-            SELECT
-                r.id AS request_id,
-                r.status AS request_status,
-                r.period AS request_period,
-                r.price AS request_price,
-                r.from_account_id,
-                r.to_account_id,
-                r.transaction_id,
-                r.new_expiration_date,
-                r.expiration_snapshot,
-                r.processed_by,
-                r.processed_at,
-                r.reject_reason,
-                c.id AS company_numeric_id,
-                c.company_id AS company_code,
-                c.group_id,
-                c.expiration_date,
-                COALESCE(o.name, '') AS owner_name
-            FROM company c
-            INNER JOIN company_auto_renew_request r
-                ON r.company_id = c.id AND r.expiration_snapshot = c.expiration_date
-            LEFT JOIN owner o ON o.id = c.owner_id
-            WHERE UPPER(TRIM(c.company_id)) <> 'C168'
-              AND c.expiration_date IS NOT NULL
-              AND (
-                    (r.status = 'pending' AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays})
-                    OR (
-                        r.status IN ('approved','rejected')
-                        AND r.processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
-        ";
-        $params = [];
-        if ($applyDateFilter) {
-            $sql .= ' AND DATE(r.processed_at) >= ? AND DATE(r.processed_at) <= ?';
-            $params[] = $rangeFrom;
-            $params[] = $rangeTo;
-        }
-        $sql .= "
-                    )
-              )
-            ORDER BY
-                CASE WHEN r.status = 'pending' THEN 0 ELSE 1 END,
-                COALESCE(r.processed_at, '9999-12-31') DESC,
-                c.expiration_date ASC,
-                c.company_id ASC
-        ";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-    } else {
-        $stmt = $pdo->query("
-            SELECT
-                r.id AS request_id,
-                r.status AS request_status,
-                r.period AS request_period,
-                r.price AS request_price,
-                r.from_account_id,
-                r.to_account_id,
-                r.transaction_id,
-                r.new_expiration_date,
-                r.expiration_snapshot,
-                r.processed_by,
-                r.processed_at,
-                r.reject_reason,
-                c.id AS company_numeric_id,
-                c.company_id AS company_code,
-                c.group_id,
-                c.expiration_date,
-                COALESCE(o.name, '') AS owner_name
-            FROM company c
-            INNER JOIN company_auto_renew_request r
-                ON r.company_id = c.id AND r.expiration_snapshot = c.expiration_date
-            LEFT JOIN owner o ON o.id = c.owner_id
-            WHERE UPPER(TRIM(c.company_id)) <> 'C168'
-              AND c.expiration_date IS NOT NULL
-              AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
-              AND r.status = 'pending'
-            ORDER BY c.expiration_date ASC, c.company_id ASC
-        ");
-    }
+    $rawRows = array_merge(
+        auto_renew_fetch_company_approval_raw_rows($pdo, $filter, $windowDays, $historyDays, $rangeFrom, $rangeTo, $applyDateFilter),
+        auto_renew_fetch_group_approval_raw_rows($pdo, $filter, $windowDays, $historyDays, $rangeFrom, $rangeTo, $applyDateFilter)
+    );
+    $rawRows = auto_renew_sort_merged_approval_raw_rows($rawRows, $filter);
 
-    $rawRows = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
     $rows = [];
     foreach ($rawRows as $row) {
         $rows[] = auto_renew_format_approval_row($row, $pdo, $c168Pk, $accountsById);
@@ -1196,20 +1718,7 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
         });
     }
 
-    $countStmt = $pdo->query("
-        SELECT
-            SUM(CASE WHEN r.status = 'pending' THEN 1 ELSE 0 END) AS pending_cnt,
-            SUM(CASE WHEN r.status = 'approved' THEN 1 ELSE 0 END) AS approved_cnt,
-            SUM(CASE WHEN r.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_cnt,
-            COUNT(*) AS total_cnt
-        FROM company c
-        INNER JOIN company_auto_renew_request r
-            ON r.company_id = c.id AND r.expiration_snapshot = c.expiration_date
-        WHERE UPPER(TRIM(c.company_id)) <> 'C168'
-          AND c.expiration_date IS NOT NULL
-          AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
-    ");
-    $countsRow = $countStmt ? ($countStmt->fetch(PDO::FETCH_ASSOC) ?: []) : [];
+    $countsRow = auto_renew_count_window_requests($pdo, $windowDays);
 
     $approvedHist = $pdo->query("
         SELECT COUNT(*) FROM company_auto_renew_request
@@ -1237,11 +1746,33 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
 function auto_renew_get_request_row(PDO $pdo, int $requestId): ?array
 {
     $stmt = $pdo->prepare("
-        SELECT r.*, c.company_id AS company_code, c.group_id, c.expiration_date, c.id AS company_numeric_id,
-               COALESCE(o.name, '') AS owner_name
+        SELECT
+            r.id,
+            r.entity_type,
+            r.company_id,
+            r.group_id,
+            r.expiration_snapshot,
+            r.status,
+            r.period,
+            r.price,
+            r.from_account_id,
+            r.to_account_id,
+            r.transaction_id,
+            r.new_expiration_date,
+            r.processed_by,
+            r.processed_at,
+            r.reject_reason,
+            r.created_at,
+            r.updated_at,
+            CASE WHEN r.entity_type = 'group' THEN g.group_code ELSE c.company_id END AS company_code,
+            CASE WHEN r.entity_type = 'group' THEN NULL ELSE c.group_id END AS tenant_group_label,
+            CASE WHEN r.entity_type = 'group' THEN g.expiration_date ELSE c.expiration_date END AS expiration_date,
+            CASE WHEN r.entity_type = 'group' THEN g.id ELSE c.id END AS company_numeric_id,
+            COALESCE(o.name, '') AS owner_name
         FROM company_auto_renew_request r
-        INNER JOIN company c ON c.id = r.company_id
-        LEFT JOIN owner o ON o.id = c.owner_id
+        LEFT JOIN company c ON c.id = r.company_id AND r.entity_type = 'company'
+        LEFT JOIN `groups` g ON g.id = r.group_id AND r.entity_type = 'group'
+        LEFT JOIN owner o ON o.id = COALESCE(c.owner_id, g.owner_id)
         WHERE r.id = ?
         LIMIT 1
     ");
@@ -1279,11 +1810,12 @@ function auto_renew_create_fee_payment(
     string $amount,
     ?string $period,
     ?int $createdByUser,
-    ?int $createdByOwner
+    ?int $createdByOwner,
+    string $entityType = 'company'
 ): array {
     $out = ['created' => false, 'transaction_id' => null, 'skipped_duplicate' => false, 'error' => null];
     $custCodeU = strtoupper(trim($customerCompanyCode));
-    $feeSms = '[AUTO_RENEW|' . $custCodeU . '|' . $expirationSnapshot . ']';
+    $feeSms = auto_renew_build_fee_sms($entityType, $custCodeU, $expirationSnapshot);
     $dupStmt = $pdo->prepare("
         SELECT id FROM transactions
         WHERE company_id = ? AND transaction_type = 'PAYMENT'
@@ -1301,7 +1833,7 @@ function auto_renew_create_fee_payment(
     }
     $today = date('Y-m-d');
     $now = date('Y-m-d H:i:s');
-    $desc = auto_renew_format_payment_description($custCodeU, $period);
+    $desc = auto_renew_format_payment_description($custCodeU, $period, $entityType);
     $amountNorm = money_normalize($amount, 2);
 
     $hasCurrencyId = auto_renew_table_has_column($pdo, 'transactions', 'currency_id');
@@ -1377,8 +1909,9 @@ function auto_renew_save_draft(PDO $pdo, int $requestId, array $input, array $se
         throw new RuntimeException('Invalid to account');
     }
 
+    $entityType = auto_renew_normalize_entity_type($row['entity_type'] ?? 'company');
     $price = $period
-        ? auto_renew_resolve_price_for_period($pdo, $period)
+        ? auto_renew_resolve_price_for_period($pdo, $period, $entityType)
         : null;
 
     $upd = $pdo->prepare('
@@ -1398,6 +1931,7 @@ function auto_renew_save_draft(PDO $pdo, int $requestId, array $input, array $se
     $c168Pk = auto_renew_get_c168_pk($pdo) ?? 0;
     $formatted = auto_renew_format_approval_row([
         'request_id' => $updated['id'],
+        'entity_type' => $updated['entity_type'] ?? $entityType,
         'request_status' => $updated['status'],
         'request_period' => $updated['period'],
         'from_account_id' => $updated['from_account_id'],
@@ -1410,7 +1944,7 @@ function auto_renew_save_draft(PDO $pdo, int $requestId, array $input, array $se
         'reject_reason' => $updated['reject_reason'],
         'company_numeric_id' => $updated['company_numeric_id'],
         'company_code' => $updated['company_code'],
-        'group_id' => $updated['group_id'],
+        'group_id' => $updated['tenant_group_label'] ?? null,
         'expiration_date' => $updated['expiration_date'],
         'owner_name' => $updated['owner_name'],
     ], $pdo, $c168Pk, []);
@@ -1452,7 +1986,8 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
         throw new RuntimeException('Invalid account selection');
     }
 
-    $price = auto_renew_resolve_price_for_period($pdo, $period);
+    $entityType = auto_renew_normalize_entity_type($row['entity_type'] ?? 'company');
+    $price = auto_renew_resolve_price_for_period($pdo, $period, $entityType);
     if ($price === null || money_cmp($price, '0') <= 0) {
         throw new RuntimeException('Domain renewal price is not configured. Set it in Domain first.');
     }
@@ -1481,7 +2016,8 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
             $price,
             $period,
             $createdByUser,
-            $createdByOwner
+            $createdByOwner,
+            $entityType
         );
         if ($pay['skipped_duplicate']) {
             throw new RuntimeException('Renewal payment already exists for this cycle');
@@ -1490,8 +2026,13 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
             throw new RuntimeException('Failed to create renewal payment');
         }
 
-        $updCompany = $pdo->prepare('UPDATE company SET expiration_date = ? WHERE id = ?');
-        $updCompany->execute([$newExp, (int) $row['company_id']]);
+        if ($entityType === 'group') {
+            $updTenant = $pdo->prepare('UPDATE `groups` SET expiration_date = ? WHERE id = ?');
+            $updTenant->execute([$newExp, (int) $row['group_id']]);
+        } else {
+            $updTenant = $pdo->prepare('UPDATE company SET expiration_date = ? WHERE id = ?');
+            $updTenant->execute([$newExp, (int) $row['company_id']]);
+        }
 
         $updReq = $pdo->prepare("
             UPDATE company_auto_renew_request
@@ -1532,6 +2073,7 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
     $updated = auto_renew_get_request_row($pdo, $requestId);
     return auto_renew_format_approval_row([
         'request_id' => $updated['id'],
+        'entity_type' => $updated['entity_type'] ?? $entityType,
         'request_status' => $updated['status'],
         'request_period' => $updated['period'],
         'from_account_id' => $updated['from_account_id'],
@@ -1544,7 +2086,7 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
         'reject_reason' => $updated['reject_reason'],
         'company_numeric_id' => $updated['company_numeric_id'],
         'company_code' => $updated['company_code'],
-        'group_id' => $updated['group_id'],
+        'group_id' => $updated['tenant_group_label'] ?? null,
         'expiration_date' => $newExp,
         'owner_name' => $updated['owner_name'],
     ], $pdo, $c168Pk, []);
@@ -1578,6 +2120,7 @@ function auto_renew_reject(PDO $pdo, int $requestId, array $input, array $sessio
     $c168Pk = auto_renew_get_c168_pk($pdo) ?? 0;
     return auto_renew_format_approval_row([
         'request_id' => $updated['id'],
+        'entity_type' => $updated['entity_type'] ?? 'company',
         'request_status' => $updated['status'],
         'request_period' => $updated['period'],
         'from_account_id' => $updated['from_account_id'],
@@ -1590,7 +2133,7 @@ function auto_renew_reject(PDO $pdo, int $requestId, array $input, array $sessio
         'reject_reason' => $updated['reject_reason'],
         'company_numeric_id' => $updated['company_numeric_id'],
         'company_code' => $updated['company_code'],
-        'group_id' => $updated['group_id'],
+        'group_id' => $updated['tenant_group_label'] ?? null,
         'expiration_date' => $updated['expiration_date'],
         'owner_name' => $updated['owner_name'],
     ], $pdo, $c168Pk, []);
@@ -1622,6 +2165,7 @@ function auto_renew_delete(PDO $pdo, int $requestId, array $session): array
     if ($snapshot === '') {
         throw new RuntimeException('Missing expiration snapshot');
     }
+    $entityType = auto_renew_normalize_entity_type($row['entity_type'] ?? 'company');
 
     $pdo->beginTransaction();
     try {
@@ -1634,8 +2178,13 @@ function auto_renew_delete(PDO $pdo, int $requestId, array $session): array
             false
         );
 
-        $updCompany = $pdo->prepare('UPDATE company SET expiration_date = ? WHERE id = ?');
-        $updCompany->execute([$snapshot, (int) $row['company_id']]);
+        if ($entityType === 'group') {
+            $updTenant = $pdo->prepare('UPDATE `groups` SET expiration_date = ? WHERE id = ?');
+            $updTenant->execute([$snapshot, (int) $row['group_id']]);
+        } else {
+            $updTenant = $pdo->prepare('UPDATE company SET expiration_date = ? WHERE id = ?');
+            $updTenant->execute([$snapshot, (int) $row['company_id']]);
+        }
 
         $updReq = $pdo->prepare("
             UPDATE company_auto_renew_request
@@ -1668,6 +2217,7 @@ function auto_renew_delete(PDO $pdo, int $requestId, array $session): array
     $updated = auto_renew_get_request_row($pdo, $requestId);
     return auto_renew_format_approval_row([
         'request_id' => $updated['id'],
+        'entity_type' => $updated['entity_type'] ?? $entityType,
         'request_status' => $updated['status'],
         'request_period' => $updated['period'],
         'from_account_id' => $updated['from_account_id'],
@@ -1680,7 +2230,7 @@ function auto_renew_delete(PDO $pdo, int $requestId, array $session): array
         'reject_reason' => $updated['reject_reason'],
         'company_numeric_id' => $updated['company_numeric_id'],
         'company_code' => $updated['company_code'],
-        'group_id' => $updated['group_id'],
+        'group_id' => $updated['tenant_group_label'] ?? null,
         'expiration_date' => $snapshot,
         'owner_name' => $updated['owner_name'],
     ], $pdo, $c168Pk, []);

@@ -176,7 +176,8 @@ export function rowStableKey(row) {
   if (row?.is_payment_deleted && row.deleted_payment_id) {
     return `deleted-${row.deleted_payment_id}`;
   }
-  return String(row?.request_id ?? "");
+  const entity = row?.entity_type === "group" ? "group" : "company";
+  return `${entity}-${String(row?.request_id ?? "")}`;
 }
 
 export function resolveAutoRenewDisplayPrice(row, drafts, feeSettings) {
@@ -189,7 +190,8 @@ export function resolveAutoRenewDisplayPrice(row, drafts, feeSettings) {
   const { period } = getRowDraftValues(row, drafts);
   if (!period || !feeSettings) return 0;
 
-  return resolveDomainFeePriceForPeriod(feeSettings, period, "company");
+  const feeKind = row?.entity_type === "group" ? "group" : "company";
+  return resolveDomainFeePriceForPeriod(feeSettings, period, feeKind);
 }
 
 export function canApproveRow(row, drafts, feeSettings) {
