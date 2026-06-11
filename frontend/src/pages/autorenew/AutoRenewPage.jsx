@@ -280,12 +280,13 @@ export default function AutoRenewPage() {
       });
       if (ac.signal.aborted) return;
       storeEntityListData(requestEntity, data, { resetDrafts: true });
-      if (entityTabRef.current !== requestEntity) return;
-      setListRefreshing(false);
     } catch (err) {
       if (ac.signal.aborted || err?.name === "AbortError") return;
-      if (entityTabRef.current === requestEntity) setListRefreshing(false);
       notify(t("loadFailed", { message: err.message }), "error");
+    } finally {
+      if (listFetchAbortRef.current === ac) {
+        setListRefreshing(false);
+      }
     }
   }, [dateFrom, dateTo, notify, statusFilter, storeEntityListData, t]);
 
@@ -338,6 +339,7 @@ export default function AutoRenewPage() {
     const key = listFetchKey(statusFilter, { dateFrom, dateTo }, entityTab);
     if (bootFetchedListKeyRef.current === key) {
       bootFetchedListKeyRef.current = null;
+      setListRefreshing(false);
       return;
     }
     void fetchList();
