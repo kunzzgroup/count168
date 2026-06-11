@@ -19,6 +19,14 @@ export function stashAutoRenewPrefetch(status, range, data) {
   cache.set(cacheKey(status, range?.dateFrom, range?.dateTo, range?.entityType), data);
 }
 
+export function peekAutoRenewListCache(status, { dateFrom, dateTo, entityType = "company" } = {}) {
+  return cache.get(cacheKey(status, dateFrom, dateTo, entityType)) ?? null;
+}
+
+export function rememberAutoRenewListCache(status, { dateFrom, dateTo, entityType = "company" } = {}, data) {
+  cache.set(cacheKey(status, dateFrom, dateTo, entityType), data);
+}
+
 export async function prefetchAutoRenewApprovals(status = "pending", range = {}) {
   const key = cacheKey(status, range.dateFrom, range.dateTo, range.entityType);
   if (cache.has(key)) return cache.get(key);

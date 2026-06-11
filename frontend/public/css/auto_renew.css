@@ -13,7 +13,35 @@ body.auto-renew-page-body .auto-renew-page .content,
 body.auto-renew-page-body.user-page .container,
 body.auto-renew-page-body.user-page .content {
   max-width: 100%;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all {
+  overflow-y: auto !important;
+  height: auto;
+  min-height: 100vh;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .container {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: visible;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .content {
+  height: auto;
+  min-height: calc(100vh - var(--layout-page-top-inset));
   overflow: visible;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .user-table-wrapper.auto-renew-table {
+  flex: 0 1 auto;
+  overflow: visible;
+  padding-bottom: 72px;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .user-table-wrapper.auto-renew-table .user-cards.auto-renew-cards {
+  max-height: none;
+  overflow-y: visible;
 }
 
 /* Company / Group tabs — same pattern as Announcement page */
@@ -32,7 +60,6 @@ body.auto-renew-page-body .page-tabs {
 }
 
 body.auto-renew-page-body .page-tab {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -40,6 +67,7 @@ body.auto-renew-page-body .page-tab {
   width: var(--auto-renew-tab-width);
   min-width: var(--auto-renew-tab-width);
   box-sizing: border-box;
+  gap: 6px;
   margin: 0;
   appearance: none;
   -webkit-appearance: none;
@@ -54,7 +82,6 @@ body.auto-renew-page-body .page-tab {
   cursor: pointer;
   transition: color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  overflow: visible;
 }
 
 body.auto-renew-page-body .page-tab__label {
@@ -63,30 +90,28 @@ body.auto-renew-page-body .page-tab__label {
 }
 
 body.auto-renew-page-body .auto-renew-tab-pending-badge {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 16px;
   height: 16px;
-  padding: 0 4px;
+  padding: 0 5px;
   border-radius: 999px;
-  background: #f59e0b;
+  background: #dc2626;
   color: #fff;
   font-size: 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   pointer-events: none;
-  z-index: 1;
-  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.35);
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.35);
 }
 
 body.auto-renew-page-body .page-tab.active .auto-renew-tab-pending-badge {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 body.auto-renew-page-body .page-tab:hover {
@@ -195,7 +220,7 @@ body.auto-renew-page-body .auto-renew-date-range-group #date-range-display {
   flex: 1 1 auto;
   min-width: 0;
   color: #64748b;
-  font-size: var(--drp-trigger-text, var(--text-small, 13px));
+  font-size: var(--text-medium);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -290,10 +315,38 @@ body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-t
     minmax(88px, 0.82fr);
 }
 
-body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner.auto-renew-table-inner {
+  overflow: visible;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .user-list-table.auto-renew-table {
+  --auto-renew-table-min-width: 1100px;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll__track {
+  min-width: var(--auto-renew-table-min-width);
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll .auto-renew-table-hscroll__track {
+  transition: opacity 0.15s ease;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll.is-refreshing .auto-renew-table-hscroll__track {
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll .table-header.user-list-table-header.auto-renew-table-header {
+  overflow: hidden;
+  transform: translateZ(0);
 }
 
 /* Header / row share same horizontal inset so grid columns line up */
@@ -826,7 +879,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
     padding: 10px 14px;
   }
 
-  body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+  body.auto-renew-page-body .auto-renew-table-hscroll__track {
     min-width: max(100%, 1120px);
   }
 
@@ -971,10 +1024,8 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
     padding-bottom: clamp(20px, 3vw, 36px);
   }
 
-  body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+  body.auto-renew-page-body .auto-renew-table-hscroll__track {
     min-width: max(100%, 1000px);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,
