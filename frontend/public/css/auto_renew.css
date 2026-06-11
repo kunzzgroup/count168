@@ -13,7 +13,35 @@ body.auto-renew-page-body .auto-renew-page .content,
 body.auto-renew-page-body.user-page .container,
 body.auto-renew-page-body.user-page .content {
   max-width: 100%;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all {
+  overflow-y: auto !important;
+  height: auto;
+  min-height: 100vh;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .container {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: visible;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .content {
+  height: auto;
+  min-height: calc(100vh - var(--layout-page-top-inset));
   overflow: visible;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .user-table-wrapper.auto-renew-table {
+  flex: 0 1 auto;
+  overflow: visible;
+  padding-bottom: 72px;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .user-table-wrapper.auto-renew-table .user-cards.auto-renew-cards {
+  max-height: none;
+  overflow-y: visible;
 }
 
 /* Company / Group tabs — same pattern as Announcement page */

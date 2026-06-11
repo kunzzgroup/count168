@@ -163,10 +163,24 @@ export default function AutoRenewPage() {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page", "auto-renew-page-body");
     return () => {
-      document.body.classList.remove("user-page", "auto-renew-page-body");
+      document.body.classList.remove("user-page", "auto-renew-page-body", "user-page--show-all");
       document.body.classList.add("dashboard-page");
     };
   }, []);
+
+  const showAll = statusFilter === "all";
+
+  useEffect(() => {
+    if (showAll) {
+      document.body.classList.add("user-page--show-all");
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: "auto" });
+      });
+    } else {
+      document.body.classList.remove("user-page--show-all");
+    }
+    return () => document.body.classList.remove("user-page--show-all");
+  }, [showAll]);
 
   const applyListData = useCallback((data) => {
     setRows(Array.isArray(data?.rows) ? data.rows : []);
@@ -365,6 +379,11 @@ export default function AutoRenewPage() {
   const pagination = useMemo(
     () => paginateRows(filteredRows, currentPage, AUTO_RENEW_PAGE_SIZE),
     [filteredRows, currentPage],
+  );
+
+  const displayRows = useMemo(
+    () => (showAll ? filteredRows : pagination.rows),
+    [showAll, filteredRows, pagination.rows],
   );
 
   const renderSortIcon = (column) => (
@@ -599,11 +618,13 @@ export default function AutoRenewPage() {
               </div>
 
               <div className="user-cards auto-renew-cards" aria-busy={Boolean(busyRequestId)}>
-                {pagination.rows.length === 0 ? (
+                {displayRows.length === 0 ? (
                   <EmptyState statusFilter={statusFilter} searchTerm={searchTerm} t={t} />
                 ) : (
-                  pagination.rows.map((row, idx) => {
-                    const globalIdx = (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
+                  displayRows.map((row, idx) => {
+                    const globalIdx = showAll
+                      ? idx + 1
+                      : (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
                     const isPendingEditable = row.status === "pending" && canEditGlobal && !row.is_payment_deleted;
                     const draft = getRowDraftValues(row, rowDrafts);
                     const displayPrice = resolveAutoRenewDisplayPrice(row, rowDrafts, feeSettings);
@@ -688,7 +709,7 @@ export default function AutoRenewPage() {
             </div>
           </div>
 
-          {filteredRows.length > 0 && (
+          {filteredRows.length > 0 && !showAll && (
             <div className="pagination-container">
               <button
                 type="button"
