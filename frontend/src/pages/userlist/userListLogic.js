@@ -428,6 +428,57 @@ export function shouldLoadUserListData({
   return false;
 }
 
+/** Whether Add / list mutations have a resolvable company or group ledger scope. */
+export function userListHasMutationScope(scopeCompanyId) {
+  return scopeCompanyId != null && Number(scopeCompanyId) > 0;
+}
+
+/**
+ * Stricter scope for Add User: requires an active group (group-only) or a company pill
+ * visible in the inline picker — never falls back to PHP session company alone.
+ */
+export function resolveUserListMutationScopeCompanyId({
+  companyId = null,
+  selectedGroup = null,
+  groupOnlyUserList = false,
+  anchorCompanyId = null,
+  groupsAllMode = false,
+  groupAllMode = false,
+  scopeCompanyId = null,
+  companies = [],
+  groupIds = [],
+  companiesForPicker = null,
+  groupFilterOptOut = false,
+} = {}) {
+  if (groupsAllMode || groupAllMode) {
+    const id = scopeCompanyId != null ? Number(scopeCompanyId) : Number.NaN;
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+  if (groupOnlyUserList && anchorCompanyId != null) {
+    const id = Number(anchorCompanyId);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+  const cid = companyId != null ? Number(companyId) : Number.NaN;
+  if (Number.isFinite(cid) && cid > 0) {
+    if (
+      isCompanyInUserListPicker(
+        {
+          companies,
+          groupIds,
+          selectedGroup,
+          preferredCompanyId: companyId,
+          companiesForPickerFromHook: companiesForPicker,
+          groupFilterOptOut,
+        },
+        cid,
+      )
+    ) {
+      return cid;
+    }
+  }
+  return null;
+}
+
 export function readUserListGroupFilterOptOut() {
   return (
     typeof sessionStorage !== "undefined" &&

@@ -72,6 +72,7 @@ import {
   buildAccountsUrl,
   buildGroupAccountsUrl,
   fetchMergedAccounts,
+  accountListHasMutationScope,
   isCompanyInAccountListPicker,
   pickDefaultAddCurrencyIds,
   readAccountListGroupFilterOptOut,
@@ -756,6 +757,11 @@ export default function AccountListPage() {
           resolvedCompanyId = null;
           stripCompanyIdFromUrl();
           persistDashboardSelectedCompany(null);
+        }
+
+        if (groupFilterOptOut && resolvedCompanyId == null && !groupOnlyBoot) {
+          const pick = resolveCompanyWhenClosingGroup(rows, null, bootGroupIds);
+          if (pick?.id != null) resolvedCompanyId = Number(pick.id);
         }
 
         const shouldLoadList = shouldLoadAccountListData({
@@ -1905,6 +1911,7 @@ export default function AccountListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
+    if (!accountListHasMutationScope(scopeCompanyId)) return;
     setIsEditMode(false); setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]); setCurrencyInput("");
     setInitialEditCurrencyIds([]);
@@ -1923,6 +1930,7 @@ export default function AccountListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
+    if (!accountListHasMutationScope(scopeCompanyId)) return;
     syncModalLedgerScope(null);
     setCurrencySettingOpen(true);
     void loadSelectionMeta(null, false, { forcePageLedgerScope: true });
@@ -2570,7 +2578,12 @@ export default function AccountListPage() {
             <div className="action-buttons">
               <div className="account-toolbar-top-row">
                 <div className="action-controls-row account-toolbar-primary">
-                <button type="button" className="btn btn-add" disabled={accountMutationsBlocked} onClick={openAdd}>
+                <button
+                  type="button"
+                  className="btn btn-add"
+                  disabled={accountMutationsBlocked || !accountListHasMutationScope(scopeCompanyId)}
+                  onClick={openAdd}
+                >
                   <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>
@@ -2637,7 +2650,12 @@ export default function AccountListPage() {
                 </div>
                 </div>
                 <div className="user-toolbar-actions-right">
-                  <button type="button" className="btn btn-currency-setting" disabled={accountMutationsBlocked} onClick={openCurrencySetting}>
+                  <button
+                    type="button"
+                    className="btn btn-currency-setting"
+                    disabled={accountMutationsBlocked || !accountListHasMutationScope(scopeCompanyId)}
+                    onClick={openCurrencySetting}
+                  >
                     {t("currencySetting")}
                   </button>
                   <button
