@@ -338,10 +338,6 @@ export default function BankProcessListPage() {
             <div className="bank-process-toolbar-main">
               <div className="bank-process-toolbar-top-row">
                 <div className="action-controls-row bank-process-toolbar-primary" style={{ display: "flex", alignItems: "center" }}>
-                  <button type="button" className="btn btn-add" onClick={openAdd} title={t("addProcess")}>
-                    <AddProcessIcon />
-                    {t("addProcess")}
-                  </button>
                   <div className="process-list-date-filter transaction-date-range-group" id="processListDateFilter" style={{ display: "inline-flex" }}>
                     <div
                       className="date-range-picker"
@@ -476,7 +472,11 @@ export default function BankProcessListPage() {
                     </div>
                   </div>
                 </div>
-                <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                <div className="user-toolbar-actions-right bank-process-toolbar-actions-right">
+                  <button type="button" className="btn btn-add" onClick={openAdd} title={t("addProcess")}>
+                    <AddProcessIcon />
+                    {t("addProcess")}
+                  </button>
                   <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
                 </div>
               </div>

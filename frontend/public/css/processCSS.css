@@ -1571,19 +1571,47 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
 }
 
 /* Bank Process List 顶栏：日期 / Search / filter chip / Delete·Add 同一行 */
+body.process-page.process-page--bank {
+    --bank-filter-toggle-size: 34px;
+}
+
 body.process-page.process-page--bank .action-buttons {
     align-items: center;
 }
 
-body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-add,
-body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-delete {
+body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right.bank-process-toolbar-actions-right {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.5vw, 10px);
+    flex-shrink: 0;
+    margin-left: clamp(4px, 0.35vw, 8px);
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right.bank-process-toolbar-actions-right .btn-add,
+body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right.bank-process-toolbar-actions-right .btn-delete {
     box-sizing: border-box;
     align-self: center;
-    flex-shrink: 0;
+    flex: 0 0 auto;
     margin: 0;
+    min-width: var(--userlist-btn-add-width);
+    width: var(--userlist-btn-add-width);
+    max-width: var(--userlist-btn-add-width);
     min-height: auto;
     height: auto;
-    width: auto;
+    padding: clamp(6px, 0.42vw, 8px) 12px;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right.bank-process-toolbar-actions-right .btn-add {
+    gap: clamp(4px, 0.35vw, 6px);
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right.bank-process-toolbar-actions-right .btn-add .btn-add__icon {
+    width: clamp(12px, 0.95vw, 16px);
+    height: clamp(12px, 0.95vw, 16px);
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled,
@@ -1738,10 +1766,10 @@ body.process-page.process-page--bank .bank-process-filter-toggle.bank-process-fi
     position: relative;
     justify-content: center;
     align-items: center;
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
-    min-height: 34px;
+    width: var(--bank-filter-toggle-size, 34px);
+    min-width: var(--bank-filter-toggle-size, 34px);
+    height: var(--bank-filter-toggle-size, 34px);
+    min-height: var(--bank-filter-toggle-size, 34px);
     padding: 0;
     gap: 0;
     background: var(--color-surface, #ffffff);
@@ -1868,7 +1896,7 @@ body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-
     content: "";
     position: absolute;
     top: -5px;
-    left: 14px;
+    left: calc(var(--bank-filter-toggle-size, 34px) / 2 - 5px);
     right: auto;
     width: 10px;
     height: 10px;
@@ -1924,8 +1952,11 @@ body.process-page.process-page--bank .action-buttons-container {
     overflow: visible;
 }
 
-body.process-page.process-page--bank .action-buttons-container:has(.bank-process-filter-panel--dropdown.is-open) .user-gc-inline-panel {
-    margin-top: clamp(44px, 3.2vw, 52px);
+/* Filter 下拉浮在 panel 上方，不撑高 action-buttons-container */
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown {
+    flex: none;
+    min-width: 0;
+    min-height: 0;
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
@@ -2246,15 +2277,36 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
         pointer-events: none;
     }
 
-    /* 窄屏：Add + Delete 成组在右侧，高度与日期/搜索/Filter 药丸一致 */
+    /* 窄屏：Add + Delete 成组在右侧，尺寸与 User List 顶栏一致 */
     body.process-page.process-page--bank {
         --bank-toolbar-control-height: clamp(36px, 2.6vw, 40px);
+        --bank-filter-toggle-size: clamp(36px, 2.6vw, 40px);
         --bank-toolbar-calendar-min: 220px;
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right {
         gap: clamp(6px, 0.5vw, 10px);
         margin-left: clamp(4px, 0.35vw, 8px);
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-add,
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-delete {
+        min-height: var(--bank-toolbar-control-height);
+        padding: clamp(6px, 0.42vw, 8px) clamp(12px, 1vw, 20px);
+        font-size: var(--text-medium);
+        font-weight: var(--font-weight-semibold);
+        line-height: 1.1;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-add {
+        min-width: var(--userlist-btn-add-width);
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-delete {
+        min-width: var(--userlist-btn-delete-width);
+        width: var(--userlist-btn-delete-width);
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker,
