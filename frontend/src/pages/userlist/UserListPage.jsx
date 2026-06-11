@@ -58,7 +58,6 @@ import {
   PAGE_SIZE,
   PERMISSION_KEYS,
   applyUserFilters,
-  userRowVisibleAfterStatusChange,
   computeRowCapabilities,
   formatLastLogin,
   getAvailableRolesForCreation,
@@ -1962,12 +1961,20 @@ export default function UserListPage() {
       const res = await fetch(buildApiUrl("api/users/toggle_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json(); const newStatus = json?.data?.newStatus || json?.newStatus;
       if (!json.success || !newStatus) { notifyApi(json.message, "toggleFailed", "danger"); return; }
-      const shouldShow = userRowVisibleAfterStatusChange(newStatus, { showInactive, showAll });
-      if (!shouldShow) {
-        setUsersRaw((prev) => prev.filter((u) => Number(u.id) !== Number(row.id)));
-      } else {
-        setUsersRaw((prev) => prev.map((u) => (Number(u.id) === Number(row.id) ? { ...u, status: newStatus } : u)));
-      }
+      setUsersRaw((prev) => {
+        const next = prev.map((u) => (Number(u.id) === Number(row.id) ? { ...u, status: newStatus } : u));
+        const s = userListScopeRef.current;
+        const cacheKey = resolveUserListCacheKey(
+          s.companyId,
+          s.groupOnlyUserList,
+          s.selectedGroup,
+          s.aggregateUserList,
+          s.groupsAllMode,
+          s.groupAllMode,
+        );
+        if (cacheKey) userListCacheRef.current.set(cacheKey, next);
+        return next;
+      });
       if (normRole(newStatus) === "active") {
         setSelectedDeleteIds((prev) => {
           const next = new Set(prev);
