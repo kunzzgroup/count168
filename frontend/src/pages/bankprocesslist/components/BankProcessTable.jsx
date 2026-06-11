@@ -311,7 +311,7 @@ export default function BankProcessTable({
                                 d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6"
                                 fill="none"
                                 stroke="currentColor"
-                                strokeWidth="2"
+                                strokeWidth="1.8"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />
@@ -339,7 +339,7 @@ export default function BankProcessTable({
                                   d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
                                   fill="none"
                                   stroke="currentColor"
-                                  strokeWidth="2"
+                                  strokeWidth="1.75"
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                 />
@@ -347,7 +347,7 @@ export default function BankProcessTable({
                                   d="M3 3v5h5"
                                   fill="none"
                                   stroke="currentColor"
-                                  strokeWidth="2"
+                                  strokeWidth="1.75"
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                 />
@@ -396,7 +396,7 @@ export default function BankProcessTable({
                               d="M6 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4h8M8 11h6"
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth="2"
+                              strokeWidth="1.8"
                               strokeLinecap="round"
                               strokeLinejoin="round"
                             />
@@ -415,7 +415,7 @@ export default function BankProcessTable({
                                 d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
                                 fill="none"
                                 stroke="currentColor"
-                                strokeWidth="2"
+                                strokeWidth="1.75"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />
@@ -423,7 +423,7 @@ export default function BankProcessTable({
                                 d="M3 3v5h5"
                                 fill="none"
                                 stroke="currentColor"
-                                strokeWidth="2"
+                                strokeWidth="1.75"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />
