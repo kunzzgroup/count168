@@ -1478,8 +1478,19 @@ function auto_renew_sort_merged_approval_raw_rows(array $rows, string $filter): 
     return $rows;
 }
 
-function auto_renew_count_window_requests(PDO $pdo, int $windowDays): array
+function auto_renew_count_window_requests(PDO $pdo, int $windowDays, ?string $entityType = null): array
 {
+    $entityFilter = $entityType !== null ? auto_renew_normalize_entity_type($entityType) : null;
+    $counts = [
+        'pending_cnt' => 0,
+        'approved_cnt' => 0,
+        'rejected_cnt' => 0,
+        'total_cnt' => 0,
+    ];
+
+    if ($entityFilter !== null && $entityFilter !== 'company') {
+        // skip company counts
+    } else {
     $companyStmt = $pdo->query("
         SELECT
             SUM(CASE WHEN r.status = 'pending' THEN 1 ELSE 0 END) AS pending_cnt,
@@ -1495,12 +1506,15 @@ function auto_renew_count_window_requests(PDO $pdo, int $windowDays): array
           AND c.expiration_date IS NOT NULL
           AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
     ");
-    $counts = $companyStmt ? ($companyStmt->fetch(PDO::FETCH_ASSOC) ?: []) : [
-        'pending_cnt' => 0,
-        'approved_cnt' => 0,
-        'rejected_cnt' => 0,
-        'total_cnt' => 0,
-    ];
+    $companyCounts = $companyStmt ? ($companyStmt->fetch(PDO::FETCH_ASSOC) ?: []) : [];
+    foreach (['pending_cnt', 'approved_cnt', 'rejected_cnt', 'total_cnt'] as $key) {
+        $counts[$key] = (int) ($companyCounts[$key] ?? 0);
+    }
+    }
+
+    if ($entityFilter !== null && $entityFilter !== 'group') {
+        return $counts;
+    }
 
     if (auto_renew_has_groups_table($pdo)) {
         $groupStmt = $pdo->query("
@@ -1536,8 +1550,10 @@ function auto_renew_list_deleted_payment_rows(
     int $c168Pk,
     ?string $rangeFrom,
     ?string $rangeTo,
-    bool $applyDateFilter
+    bool $applyDateFilter,
+    ?string $entityType = null
 ): array {
+    $entityFilter = $entityType !== null ? auto_renew_normalize_entity_type($entityType) : null;
     if ($c168Pk <= 0) {
         return [];
     }
@@ -1591,7 +1607,10 @@ function auto_renew_list_deleted_payment_rows(
         if ($parsed === null) {
             continue;
         }
-        $entityType = $parsed['entity_type'];
+        $rowEntityType = auto_renew_normalize_entity_type($parsed['entity_type']);
+        if ($entityFilter !== null && $rowEntityType !== $entityFilter) {
+            continue;
+        }
         $tenantCode = $parsed['tenant_code'];
         $expSnapshot = $parsed['expiration_snapshot'];
         if ($tenantCode === '') {
@@ -1599,7 +1618,7 @@ function auto_renew_list_deleted_payment_rows(
         }
 
         $companyRow = [];
-        if ($entityType === 'group' && auto_renew_has_groups_table($pdo)) {
+        if ($rowEntityType === 'group' && auto_renew_has_groups_table($pdo)) {
             $groupStmt = $pdo->prepare("
                 SELECT g.id, g.group_code, g.expiration_date, COALESCE(o.name, '') AS owner_name
                 FROM `groups` g
@@ -1626,7 +1645,7 @@ function auto_renew_list_deleted_payment_rows(
             ");
             $companyStmt->execute([$tenantCode]);
             $companyRow = $companyStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-            $entityType = 'company';
+            $rowEntityType = 'company';
         }
 
         $period = null;
@@ -1645,7 +1664,7 @@ function auto_renew_list_deleted_payment_rows(
         $displayCode = (string) ($companyRow['company_id'] ?? $tenantCode);
         $out[] = [
             'request_id' => 0,
-            'entity_type' => $entityType,
+            'entity_type' => $rowEntityType,
             'deleted_payment_id' => (int) ($td['transaction_id'] ?? 0),
             'is_payment_deleted' => true,
             'request_status' => 'approved',
@@ -1664,17 +1683,40 @@ function auto_renew_list_deleted_payment_rows(
             'group_id' => $companyRow['group_id'] ?? null,
             'expiration_date' => !empty($companyRow['expiration_date']) ? (string) $companyRow['expiration_date'] : $expSnapshot,
             'owner_name' => (string) ($companyRow['owner_name'] ?? ''),
-            'payment_description' => $desc !== '' ? $desc : auto_renew_format_payment_description($displayCode, $period, $entityType),
+            'payment_description' => $desc !== '' ? $desc : auto_renew_format_payment_description($displayCode, $period, $rowEntityType),
         ];
     }
     return $out;
 }
 
+function auto_renew_history_status_count(PDO $pdo, string $status, int $historyDays, ?string $entityType = null): int
+{
+    $entityFilter = $entityType !== null ? auto_renew_normalize_entity_type($entityType) : null;
+    $sql = "
+        SELECT COUNT(*) FROM company_auto_renew_request
+        WHERE status = ?
+          AND processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
+    ";
+    $params = [$status];
+    if ($entityFilter !== null) {
+        $sql .= ' AND entity_type = ?';
+        $params[] = $entityFilter;
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return (int) ($stmt->fetchColumn() ?: 0);
+}
+
 /**
  * @return array{rows: list<array>, counts: array{pending:int, approved:int, rejected:int, total:int}}
  */
-function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?string $dateFrom = null, ?string $dateTo = null): array
-{
+function auto_renew_list_approvals(
+    PDO $pdo,
+    ?string $statusFilter = null,
+    ?string $dateFrom = null,
+    ?string $dateTo = null,
+    ?string $entityType = null
+): array {
     auto_renew_sync_window_requests($pdo);
     $c168Pk = auto_renew_get_c168_pk($pdo) ?? 0;
     $accounts = auto_renew_list_c168_accounts($pdo, $c168Pk);
@@ -1683,16 +1725,26 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
         $accountsById[(int) $acc['id']] = $acc;
     }
 
+    $entityFilter = $entityType !== null ? auto_renew_normalize_entity_type($entityType) : null;
     $windowDays = (int) AUTO_RENEW_WINDOW_DAYS;
     $historyDays = (int) AUTO_RENEW_HISTORY_DAYS;
     $filter = strtolower(trim((string) ($statusFilter ?? 'pending')));
     [$rangeFrom, $rangeTo] = auto_renew_parse_list_date_range($dateFrom, $dateTo);
     $applyDateFilter = $rangeFrom !== null && $rangeTo !== null && $filter !== 'pending';
 
-    $rawRows = array_merge(
-        auto_renew_fetch_company_approval_raw_rows($pdo, $filter, $windowDays, $historyDays, $rangeFrom, $rangeTo, $applyDateFilter),
-        auto_renew_fetch_group_approval_raw_rows($pdo, $filter, $windowDays, $historyDays, $rangeFrom, $rangeTo, $applyDateFilter)
-    );
+    $rawRows = [];
+    if ($entityFilter === null || $entityFilter === 'company') {
+        $rawRows = array_merge(
+            $rawRows,
+            auto_renew_fetch_company_approval_raw_rows($pdo, $filter, $windowDays, $historyDays, $rangeFrom, $rangeTo, $applyDateFilter)
+        );
+    }
+    if ($entityFilter === null || $entityFilter === 'group') {
+        $rawRows = array_merge(
+            $rawRows,
+            auto_renew_fetch_group_approval_raw_rows($pdo, $filter, $windowDays, $historyDays, $rangeFrom, $rangeTo, $applyDateFilter)
+        );
+    }
     $rawRows = auto_renew_sort_merged_approval_raw_rows($rawRows, $filter);
 
     $rows = [];
@@ -1701,7 +1753,7 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
     }
 
     if ($filter === 'approved' || $filter === 'all') {
-        $deletedRows = auto_renew_list_deleted_payment_rows($pdo, $c168Pk, $rangeFrom, $rangeTo, $applyDateFilter);
+        $deletedRows = auto_renew_list_deleted_payment_rows($pdo, $c168Pk, $rangeFrom, $rangeTo, $applyDateFilter, $entityFilter);
         foreach ($deletedRows as $row) {
             $rows[] = auto_renew_format_approval_row($row, $pdo, $c168Pk, $accountsById);
         }
@@ -1718,26 +1770,18 @@ function auto_renew_list_approvals(PDO $pdo, ?string $statusFilter = null, ?stri
         });
     }
 
-    $countsRow = auto_renew_count_window_requests($pdo, $windowDays);
+    $countsRow = auto_renew_count_window_requests($pdo, $windowDays, $entityFilter);
 
-    $approvedHist = $pdo->query("
-        SELECT COUNT(*) FROM company_auto_renew_request
-        WHERE status = 'approved'
-          AND processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
-    ");
-    $rejectedHist = $pdo->query("
-        SELECT COUNT(*) FROM company_auto_renew_request
-        WHERE status = 'rejected'
-          AND processed_at >= DATE_SUB(NOW(), INTERVAL {$historyDays} DAY)
-    ");
+    $approvedHist = auto_renew_history_status_count($pdo, 'approved', $historyDays, $entityFilter);
+    $rejectedHist = auto_renew_history_status_count($pdo, 'rejected', $historyDays, $entityFilter);
 
     return [
         'rows' => $rows,
         'accounts' => $accounts,
         'counts' => [
             'pending' => (int) ($countsRow['pending_cnt'] ?? 0),
-            'approved' => max((int) ($countsRow['approved_cnt'] ?? 0), (int) ($approvedHist->fetchColumn() ?: 0)),
-            'rejected' => max((int) ($countsRow['rejected_cnt'] ?? 0), (int) ($rejectedHist->fetchColumn() ?: 0)),
+            'approved' => max((int) ($countsRow['approved_cnt'] ?? 0), $approvedHist),
+            'rejected' => max((int) ($countsRow['rejected_cnt'] ?? 0), $rejectedHist),
             'total' => (int) ($countsRow['total_cnt'] ?? 0),
         ],
     ];

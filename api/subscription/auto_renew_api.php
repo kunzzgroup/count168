@@ -65,7 +65,14 @@ try {
         $statusFilter = strtolower(trim((string) ($input['status'] ?? 'pending')));
         $dateFrom = trim((string) ($input['date_from'] ?? ''));
         $dateTo = trim((string) ($input['date_to'] ?? ''));
-        $result = auto_renew_list_approvals($pdo, $statusFilter, $dateFrom !== '' ? $dateFrom : null, $dateTo !== '' ? $dateTo : null);
+        $entityType = trim((string) ($input['entity_type'] ?? 'company'));
+        $result = auto_renew_list_approvals(
+            $pdo,
+            $statusFilter,
+            $dateFrom !== '' ? $dateFrom : null,
+            $dateTo !== '' ? $dateTo : null,
+            $entityType !== '' ? $entityType : 'company'
+        );
         session_write_close();
         auto_renew_json_response(true, 'success', [
             'rows' => $result['rows'],

@@ -29,8 +29,11 @@ async function postAutoRenew(body, { signal } = {}) {
   return json.data;
 }
 
-export async function fetchAutoRenewApprovals(status = "pending", { dateFrom, dateTo, signal } = {}) {
-  const body = { action: "list", status };
+export async function fetchAutoRenewApprovals(
+  status = "pending",
+  { dateFrom, dateTo, entityType = "company", signal } = {},
+) {
+  const body = { action: "list", status, entity_type: entityType === "group" ? "group" : "company" };
   if (dateFrom) body.date_from = dateFrom;
   if (dateTo) body.date_to = dateTo;
   return postAutoRenew(body, { signal });
