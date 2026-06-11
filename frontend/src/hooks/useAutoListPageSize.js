@@ -5,13 +5,10 @@ const DEFAULT_FALLBACK_PAGE_SIZE = 15;
 const PAGINATION_RESERVE_PX = 52;
 const VIEWPORT_BOTTOM_GAP_PX = 6;
 const ABSOLUTE_ROW_HEIGHT_CAP = 72;
-const PAGINATION_TOP_GAP_PX = 4;
+const PAGINATION_TOP_GAP_PX = 8;
+const BUDGET_SAFETY_PX = 4;
 const MIN_ROWS = 4;
 const MAX_ROWS = 80;
-/** 末行可略挤进分页条上方；仅最后一行使用容差，多出的行进下一页 */
-const LAST_ROW_SQUEEZE_PX = 22;
-const LAST_ROW_SQUEEZE_RATIO = 0.52;
-const ROW_OVERFLOW_TOLERANCE_PX = 1;
 
 function readCssPx(el, varName, fallback) {
   if (!el || typeof window === "undefined") return fallback;
@@ -46,73 +43,71 @@ function compactStride(region, rows) {
   return Math.max(cellMin, Math.min(p25, cellMin * 1.1));
 }
 
-function lastRowSqueezeAllowance(stride) {
-  return Math.max(LAST_ROW_SQUEEZE_PX, stride * LAST_ROW_SQUEEZE_RATIO);
+/**
+ * 可见数据区下沿：取 clip 底与分页条上沿中更靠上的（更严格），避免 fixed 分页条导致多算行数。
+ */
+function rowDisplayLimitBottom(region) {
+  const limits = [];
+
+  const clip = region.querySelector(".bank-virtual-scroll-clip");
+  const clipBottom = clip?.getBoundingClientRect().bottom;
+  if (clipBottom && clipBottom > 0) limits.push(clipBottom);
+
+  const listBody = region.closest(".bank-process-list-body");
+  const pagination = listBody?.querySelector(".pagination-container");
+  if (pagination) {
+    limits.push(pagination.getBoundingClientRect().top - PAGINATION_TOP_GAP_PX);
+  }
+
+  if (limits.length === 0) return null;
+  return Math.min(...limits);
 }
 
-/** 表头下沿 → 分页条上沿，尽量填满一屏（末行允许略挤） */
+/** 表头下沿 → 可见区下沿 */
 function measureBudget(region, headerSelector) {
   const minH = cellMinHeight(region);
   const header = region.querySelector(headerSelector);
   const headerBottom = header?.getBoundingClientRect().bottom ?? 0;
-  const listBody = region.closest(".bank-process-list-body");
-  const pagination = listBody?.querySelector(".pagination-container");
+  const limitBottom = rowDisplayLimitBottom(region);
 
-  if (pagination && headerBottom > 0) {
-    const pagTop = pagination.getBoundingClientRect().top;
-    if (pagTop > headerBottom) {
-      return Math.max(0, pagTop - headerBottom - PAGINATION_TOP_GAP_PX);
-    }
+  if (headerBottom > 0 && limitBottom != null && limitBottom > headerBottom) {
+    return Math.max(0, limitBottom - headerBottom - BUDGET_SAFETY_PX);
   }
 
   const clip = region.querySelector(".bank-virtual-scroll-clip");
   const clipBudget = clip?.getBoundingClientRect().height ?? 0;
-  if (clipBudget >= minH) return clipBudget;
+  if (clipBudget >= minH) return Math.max(0, clipBudget - BUDGET_SAFETY_PX);
 
   if (!header) return 0;
   const viewportH = window.visualViewport?.height ?? window.innerHeight;
-  return Math.max(0, viewportH - headerBottom - PAGINATION_RESERVE_PX - VIEWPORT_BOTTOM_GAP_PX);
+  return Math.max(0, viewportH - headerBottom - PAGINATION_RESERVE_PX - VIEWPORT_BOTTOM_GAP_PX - BUDGET_SAFETY_PX);
 }
 
-/** 数据区下沿：分页条上沿优先，否则用 clip 底 */
-function rowDisplayLimitBottom(region) {
-  const listBody = region.closest(".bank-process-list-body");
-  const pagination = listBody?.querySelector(".pagination-container");
-  if (pagination) {
-    return pagination.getBoundingClientRect().top - PAGINATION_TOP_GAP_PX;
-  }
-
-  const clip = region.querySelector(".bank-virtual-scroll-clip");
-  const clipBottom = clip?.getBoundingClientRect().bottom;
-  return clipBottom && clipBottom > 0 ? clipBottom : null;
-}
-
-function lastRowOverflows(region, rowSelector) {
+/** 当前 DOM 中完整可见的行数（任一行底沿超出可见区则停止） */
+function countRowsFullyVisible(region, rowSelector) {
   const limit = rowDisplayLimitBottom(region);
-  if (limit == null) return false;
+  if (limit == null) return 0;
 
   const rows = [...region.querySelectorAll(rowSelector)];
-  if (rows.length === 0) return false;
+  let count = 0;
 
-  const lastBottom = rows[rows.length - 1].getBoundingClientRect().bottom;
-  return lastBottom > limit + ROW_OVERFLOW_TOLERANCE_PX;
-}
+  for (const row of rows) {
+    const bottom = row.getBoundingClientRect().bottom;
+    if (bottom > limit) break;
+    count += 1;
+  }
 
-function maxFitRows(budget, stride, squeeze) {
-  const strict = Math.floor(budget / stride);
-  if ((strict + 1) * stride <= budget + squeeze) return strict + 1;
-  return strict;
+  return count;
 }
 
 function computePageSize(region, budget, rowSelector, minRows, maxRows) {
   const cellMin = cellMinHeight(region);
   const rows = [...region.querySelectorAll(rowSelector)];
   const stride = rows.length > 0 ? compactStride(region, rows) : cellMin;
-  const squeeze = lastRowSqueezeAllowance(stride);
-  const cap = maxFitRows(budget, stride, squeeze);
+  const cap = Math.max(0, Math.floor(budget / stride));
 
   if (rows.length === 0) {
-    return Math.max(minRows, Math.min(maxRows, cap));
+    return Math.max(minRows, Math.min(maxRows, cap || minRows));
   }
 
   let used = 0;
@@ -126,17 +121,9 @@ function computePageSize(region, budget, rowSelector, minRows, maxRows) {
     fit += 1;
   }
 
-  while (fit < cap) {
-    if (used + stride <= budget) {
-      used += stride;
-      fit += 1;
-      continue;
-    }
-    if (fit < cap && used + stride <= budget + squeeze) {
-      used += stride;
-      fit += 1;
-    }
-    break;
+  while (fit < cap && used + stride <= budget) {
+    used += stride;
+    fit += 1;
   }
 
   return Math.max(minRows, Math.min(maxRows, fit, cap));
@@ -144,6 +131,7 @@ function computePageSize(region, budget, rowSelector, minRows, maxRows) {
 
 /**
  * Fit as many table rows as the list region can show without vertical scroll (non-Show-All).
+ * Any row that would be clipped goes to the next page.
  */
 export function useAutoListPageSize({
   listRegionRef,
@@ -174,8 +162,12 @@ export function useAutoListPageSize({
       const prev = pageSizeRef.current;
       let next = computePageSize(el, budget, rowSelector, minRows, maxRows);
 
-      if (rows.length > 0 && lastRowOverflows(el, rowSelector)) {
-        next = Math.min(next, Math.max(minRows, rows.length - 1));
+      const visible = countRowsFullyVisible(el, rowSelector);
+      if (visible > 0) {
+        next = Math.min(next, visible);
+        if (next > rows.length && visible >= rows.length) {
+          next = Math.min(next, rows.length + 1);
+        }
       }
 
       const isPartialPage = rows.length > 0 && rows.length < prev - 1;
