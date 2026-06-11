@@ -1645,7 +1645,6 @@ body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
 }
 
 body.process-page.process-page--bank .bank-process-filter-toggle {
-    display: none;
     align-items: center;
     gap: 6px;
     padding: 4px 12px 4px 10px;
@@ -1722,6 +1721,195 @@ body.process-page.process-page--bank .bank-process-filter-panel.is-open .userlis
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 1px;
+}
+
+/* Bank Process：filter chips 一律收进 Filter 图标按钮（5 个 chip 顶栏内联会挤占 Delete） */
+body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
+    position: relative;
+    flex: 0 0 auto;
+    align-items: center;
+    min-width: 0;
+    gap: 0;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle,
+body.process-page.process-page--bank .bank-process-filter-toggle.bank-process-filter-toggle--icon-only {
+    display: inline-flex;
+    position: relative;
+    justify-content: center;
+    align-items: center;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    gap: 0;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 999px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    box-sizing: border-box;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle__label {
+    display: none;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle__icon {
+    width: 100%;
+    height: 100%;
+    color: #64748b;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle__icon svg {
+    width: clamp(14px, 1vw, 16px);
+    height: clamp(14px, 1vw, 16px);
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.1);
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle:hover .bank-process-filter-toggle__icon {
+    color: #475569;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle.is-open,
+body.process-page.process-page--bank .bank-process-filter-toggle.has-active-filters {
+    border-color: rgba(59, 130, 246, 0.55);
+    background: #eff6ff;
+    color: #2563eb;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.14);
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle.is-open .bank-process-filter-toggle__icon,
+body.process-page.process-page--bank .bank-process-filter-toggle.has-active-filters .bank-process-filter-toggle__icon {
+    color: #2563eb;
+}
+
+body.process-page.process-page--bank .bank-process-filter-toggle.has-active-filters::after {
+    content: "";
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: 1.5px solid #ffffff;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: auto;
+    right: 0;
+    z-index: 140;
+    display: block;
+    grid-template-columns: unset;
+    flex: none;
+    width: max-content;
+    min-width: 0;
+    max-width: min(calc(100vw - 16px), calc(100% + 520px));
+    overflow: visible;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transform-origin: top right;
+    transition:
+        opacity 0.18s ease,
+        transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1),
+        visibility 0.18s ease;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown.is-open {
+    pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown {
+    position: relative;
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    margin: 0;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(203, 213, 225, 0.85);
+    border-radius: 14px;
+    box-shadow:
+        0 14px 36px rgba(15, 23, 42, 0.11),
+        0 4px 10px rgba(15, 23, 42, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    overflow: visible;
+    width: max-content;
+    max-width: min(calc(100vw - 16px), 720px);
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown::before {
+    content: "";
+    position: absolute;
+    top: -5px;
+    left: auto;
+    right: 14px;
+    width: 10px;
+    height: 10px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-top: 1px solid rgba(203, 213, 225, 0.85);
+    border-left: 1px solid rgba(203, 213, 225, 0.85);
+    transform: rotate(45deg);
+    box-shadow: -2px -2px 4px rgba(15, 23, 42, 0.03);
+    pointer-events: none;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear {
+    display: inline-flex;
+    align-items: center;
+    align-self: stretch;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0 10px 0 12px;
+    border: none;
+    border-left: 1px solid #dbe3ec;
+    border-radius: 0;
+    background: transparent;
+    color: #64748b;
+    font-family: inherit;
+    font-size: clamp(10px, 0.68vw, 11px);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear:hover {
+    background: rgba(239, 246, 255, 0.65);
+    color: #2563eb;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown > .bank-process-filter-dropdown,
+body.process-page.process-page--bank .bank-process-filter-panel--dropdown > .bank-process-filter-dropdown > .userlist-filter-chips--bank-process {
+    opacity: 1;
+    transform: none;
+    overflow: visible;
 }
 
 body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar {
@@ -1949,76 +2137,14 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
     border-radius: 6px;
 }
 
-/* Bank Process 窄屏（<1700px）：日期加长、Search/Filter 图标药丸，filter 收进按钮 */
+/* Bank Process 窄屏（<1700px）：日期加长、Search 图标药丸 */
 @media (max-width: 1699px) {
     body.process-page.process-page--bank .bank-process-filter-toggle,
     body.process-page.process-page--bank .bank-process-filter-toggle.bank-process-filter-toggle--icon-only {
-        display: inline-flex;
-        position: relative;
-        justify-content: center;
-        align-items: center;
         width: clamp(36px, 2.6vw, 40px);
         min-width: clamp(36px, 2.6vw, 40px);
         height: clamp(36px, 2.6vw, 40px);
         min-height: clamp(36px, 2.6vw, 40px);
-        padding: 0;
-        gap: 0;
-        background: var(--color-surface, #ffffff);
-        border: 1px solid var(--color-border, #e5e7eb);
-        border-radius: 999px;
-        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
-        box-sizing: border-box;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toggle__label {
-        display: none;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toggle__icon {
-        width: 100%;
-        height: 100%;
-        color: #64748b;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toggle__icon svg {
-        width: clamp(14px, 1vw, 16px);
-        height: clamp(14px, 1vw, 16px);
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toggle:hover {
-        border-color: #cbd5e1;
-        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.1);
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toggle:hover .bank-process-filter-toggle__icon {
-        color: #475569;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toggle.is-open,
-    body.process-page.process-page--bank .bank-process-filter-toggle.has-active-filters {
-        border-color: rgba(59, 130, 246, 0.55);
-        background: #eff6ff;
-        color: #2563eb;
-        box-shadow: 0 2px 10px rgba(37, 99, 235, 0.14);
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toggle.is-open .bank-process-filter-toggle__icon,
-    body.process-page.process-page--bank .bank-process-filter-toggle.has-active-filters .bank-process-filter-toggle__icon {
-        color: #2563eb;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toggle.has-active-filters::after {
-        content: "";
-        position: absolute;
-        top: 7px;
-        right: 7px;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #2563eb;
-        border: 1.5px solid #ffffff;
-        box-sizing: border-box;
-        pointer-events: none;
     }
 
     /* 顶栏日期宽度见上方全局 --bank-toolbar-date-floor / max(...) 规则 */
@@ -2102,124 +2228,6 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
         padding-right: 0 !important;
         opacity: 0;
         pointer-events: none;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
-        position: relative;
-        flex: 0 0 auto;
-        align-items: center;
-        min-width: 0;
-        gap: 0;
-    }
-
-    /* 窄屏：自 filter 按钮向左锚点，向右下横向浮层展开 */
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown {
-        position: absolute;
-        top: calc(100% + 6px);
-        left: 0;
-        right: auto;
-        z-index: 140;
-        display: block;
-        grid-template-columns: unset;
-        flex: none;
-        width: max-content;
-        min-width: 0;
-        max-width: min(calc(100vw - 16px), calc(100% + 520px));
-        overflow: visible;
-        pointer-events: none;
-        opacity: 0;
-        visibility: hidden;
-        transform: translateY(-4px);
-        transform-origin: top left;
-        transition:
-            opacity 0.18s ease,
-            transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1),
-            visibility 0.18s ease;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown.is-open {
-        pointer-events: auto;
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown {
-        position: relative;
-        display: inline-flex;
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px;
-        padding: 6px;
-        margin: 0;
-        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-        border: 1px solid rgba(203, 213, 225, 0.85);
-        border-radius: 14px;
-        box-shadow:
-            0 14px 36px rgba(15, 23, 42, 0.11),
-            0 4px 10px rgba(15, 23, 42, 0.05),
-            inset 0 1px 0 rgba(255, 255, 255, 0.9);
-        overflow: visible;
-        width: max-content;
-        max-width: min(calc(100vw - 16px), 720px);
-        min-width: 0;
-        box-sizing: border-box;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown::before {
-        content: "";
-        position: absolute;
-        top: -5px;
-        left: 14px;
-        width: 10px;
-        height: 10px;
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border-top: 1px solid rgba(203, 213, 225, 0.85);
-        border-left: 1px solid rgba(203, 213, 225, 0.85);
-        transform: rotate(45deg);
-        box-shadow: -2px -2px 4px rgba(15, 23, 42, 0.03);
-        pointer-events: none;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear {
-        display: inline-flex;
-        align-items: center;
-        align-self: stretch;
-        flex-shrink: 0;
-        margin: 0;
-        padding: 0 10px 0 12px;
-        border: none;
-        border-left: 1px solid #dbe3ec;
-        border-radius: 0;
-        background: transparent;
-        color: #64748b;
-        font-family: inherit;
-        font-size: clamp(10px, 0.68vw, 11px);
-        font-weight: 600;
-        line-height: 1.2;
-        letter-spacing: 0.01em;
-        white-space: nowrap;
-        cursor: pointer;
-        transition: color 0.15s ease, background-color 0.15s ease;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear:hover {
-        background: rgba(239, 246, 255, 0.65);
-        color: #2563eb;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown .bank-process-filter-dropdown__clear:focus-visible {
-        outline: 2px solid #6366f1;
-        outline-offset: 2px;
-        border-radius: 6px;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown > .bank-process-filter-dropdown,
-    body.process-page.process-page--bank .bank-process-filter-panel--dropdown > .bank-process-filter-dropdown > .userlist-filter-chips--bank-process {
-        opacity: 1;
-        transform: none;
-        overflow: visible;
     }
 
     /* 窄屏：Add + Delete 成组在右侧，高度与日期/搜索/Filter 药丸一致 */
@@ -2336,36 +2344,11 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     line-height: 1.1;
 }
 
-/* Bank Process 宽屏（≥1700px）：日期适中、Search 略长，filter 居中并略加宽 */
+/* Bank Process 宽屏（≥1700px）：日期适中、Search 略长 */
 @media (min-width: 1700px) {
     /* 宽屏：date range 与 search bar 间距更紧凑 */
     body.process-page.process-page--bank .bank-process-toolbar-primary {
         gap: 2px !important;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-toolbar-slot {
-        display: contents;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel {
-        display: contents;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-dropdown {
-        display: contents;
-    }
-
-    /* 宽屏：filter chips 常驻展示（不依赖 is-open / filter 按钮） */
-    body.process-page.process-page--bank .bank-process-filter-panel {
-        pointer-events: auto;
-        overflow: visible;
-    }
-
-    body.process-page.process-page--bank .bank-process-filter-panel > .bank-process-filter-dropdown > .userlist-filter-chips--bank-process {
-        opacity: 1;
-        transform: none;
-        overflow: visible;
-        visibility: visible;
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
@@ -2393,16 +2376,6 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
         min-width: 210px;
         width: clamp(210px, 12vw, 260px) !important;
         max-width: 260px !important;
-    }
-
-    body.process-page.process-page--bank .bank-process-toolbar-primary .userlist-filter-chips--bank-process {
-        flex: 1 1 auto;
-        min-width: 0;
-        margin-left: 0;
-        justify-content: left;
-        padding-left: clamp(8px, 0.75vw, 16px);
-        padding-right: clamp(8px, 0.75vw, 16px);
-        gap: clamp(6px, 0.5vw, 10px);
     }
 }
 

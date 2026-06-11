@@ -273,7 +273,7 @@ export default function BankProcessListPage() {
   }, [searchExpanded, isNarrowToolbar]);
 
   useEffect(() => {
-    if (!filterPanelOpen || !isNarrowToolbar) return undefined;
+    if (!filterPanelOpen) return undefined;
     const onDoc = (e) => {
       if (filterToolbarRef.current?.contains(e.target)) return;
       setFilterPanelOpen(false);
@@ -287,7 +287,7 @@ export default function BankProcessListPage() {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, [filterPanelOpen, isNarrowToolbar]);
+  }, [filterPanelOpen]);
 
   const handleFilterToggleClick = (e) => {
     if (e.detail > 1) return;
@@ -421,9 +421,9 @@ export default function BankProcessListPage() {
                       type="button"
                       className={[
                         "bank-process-filter-toggle",
+                        "bank-process-filter-toggle--icon-only",
                         filterPanelOpen ? "is-open" : "",
                         hasActiveFilters ? "has-active-filters" : "",
-                        isNarrowToolbar ? "bank-process-filter-toggle--icon-only" : "",
                       ].filter(Boolean).join(" ")}
                       aria-expanded={filterPanelOpen}
                       aria-controls="bank-process-filter-panel"
@@ -443,14 +443,14 @@ export default function BankProcessListPage() {
                       id="bank-process-filter-panel"
                       className={[
                         "bank-process-filter-panel",
+                        "bank-process-filter-panel--dropdown",
                         filterPanelOpen ? "is-open" : "",
-                        isNarrowToolbar ? "bank-process-filter-panel--dropdown" : "",
                       ].filter(Boolean).join(" ")}
                     >
                       <div className="bank-process-filter-dropdown">
                         <BankProcessFilterChips
                           t={t}
-                          layout={isNarrowToolbar ? "dropdown" : "inline"}
+                          layout="dropdown"
                           showInactive={showInactive}
                           setShowInactive={setShowInactive}
                           showAll={showAll}
@@ -462,7 +462,7 @@ export default function BankProcessListPage() {
                           showBlock={showBlock}
                           setShowBlock={setShowBlock}
                         />
-                        {isNarrowToolbar && hasActiveFilters ? (
+                        {hasActiveFilters ? (
                           <button
                             type="button"
                             className="bank-process-filter-dropdown__clear"
