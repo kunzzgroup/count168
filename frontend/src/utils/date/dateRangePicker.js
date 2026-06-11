@@ -3,20 +3,9 @@
  * `window.changeMonth`, `window.selectQuickRange`, `window.toggleQuickSelectDropdown` for DOM markup (#date-range-picker, #calendar-popup, …).
  */
 const CALENDAR_POPUP_ID = "calendar-popup";
-/** Bank Process 顶栏：药丸宽度下限（须容纳完整日期范围文字） */
+/** Bank Process 顶栏：药丸与日历 dropdown 统一宽度下限（须容纳完整 dd/mm/yyyy - dd/mm/yyyy） */
 const BANK_TOOLBAR_CALENDAR_MIN_PX = 292;
-const BANK_TOOLBAR_CALENDAR_POPUP_MIN_PX = 316;
-const BANK_TOOLBAR_CALENDAR_POPUP_MAX_PX = 336;
 const BANK_TOOLBAR_DATE_RANGE_SAMPLE = "01/01/2026 - 31/12/2026";
-const BANK_TOOLBAR_DATE_RANGE_SAMPLE_ZH = "2026年06月01日 - 2026年06月30日";
-
-function getBankToolbarCalendarPopupWidth() {
-  if (typeof window === "undefined") return BANK_TOOLBAR_CALENDAR_POPUP_MIN_PX;
-  return Math.min(
-    Math.max(Math.round(window.innerWidth * 0.22), BANK_TOOLBAR_CALENDAR_POPUP_MIN_PX),
-    BANK_TOOLBAR_CALENDAR_POPUP_MAX_PX,
-  );
-}
 
 function measureBankToolbarTextWidth(text, referenceEl) {
   if (typeof document === "undefined") return 0;
@@ -48,12 +37,7 @@ function getBankToolbarUnifiedBlockWidth() {
   }
 
   const display = picker.querySelector("#date-range-display");
-  const displayRaw = (display?.textContent || "").trim();
-  const useZhSample =
-    displayRaw.includes("年") ||
-    (typeof document !== "undefined" && document.documentElement.lang?.toLowerCase().startsWith("zh"));
-  const fallbackSample = useZhSample ? BANK_TOOLBAR_DATE_RANGE_SAMPLE_ZH : BANK_TOOLBAR_DATE_RANGE_SAMPLE;
-  const displayText = displayRaw || fallbackSample;
+  const displayText = (display?.textContent || "").trim() || BANK_TOOLBAR_DATE_RANGE_SAMPLE;
   const textW = measureBankToolbarTextWidth(displayText, display);
 
   const pickerStyle = getComputedStyle(picker);
@@ -88,7 +72,7 @@ export function closeMaintenanceCalendarPopup() {
   if (!popup || popup.getAttribute("data-open") !== "true") return;
   popup.removeAttribute("data-open");
   popup.setAttribute("aria-hidden", "true");
-  popup.classList.remove("calendar-popup--match-anchor", "calendar-popup--bank-toolbar-wide");
+  popup.classList.remove("calendar-popup--match-anchor");
   popup.style.display = "none";
   document.body.style.removeProperty("--bank-toolbar-date-width");
   const bankFooter = document.getElementById("calendar-popup-bank-footer");
@@ -165,8 +149,6 @@ export function ensureMaintenanceDateRangePicker() {
     selectEndDateHint: "Select end date",
     clearDateLabel: "Clear",
     monthLabels,
-    /** "zh" → 2026年06月01日；hidden input 仍为 dd/mm/yyyy */
-    displayDateLocale: "en",
   };
 
   /** Which hidden inputs + display span the shared #calendar-popup edits (multi-trigger support). */
@@ -205,21 +187,11 @@ export function ensureMaintenanceDateRangePicker() {
     notifyActivePickerChanged();
   }
 
-  function formatDateStorage(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${day}/${month}/${year}`;
-  }
-
   function formatDateDisplay(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
-    if (config.displayDateLocale === "zh") {
-      return `${year}年${month}月${day}日`;
-    }
-    return formatDateStorage(date);
+    return `${day}/${month}/${year}`;
   }
 
   function formatRangeDisplayText(fromText, toText) {
@@ -397,8 +369,8 @@ export function ensureMaintenanceDateRangePicker() {
   function syncToHiddenInputs() {
     const fromEl = document.getElementById(activeRangeBinding.dateFromId);
     const toEl = document.getElementById(activeRangeBinding.dateToId);
-    if (fromEl) fromEl.value = calendarStartDate ? formatDateStorage(calendarStartDate) : "";
-    if (toEl) toEl.value = calendarEndDate ? formatDateStorage(calendarEndDate) : "";
+    if (fromEl) fromEl.value = calendarStartDate ? formatDateDisplay(calendarStartDate) : "";
+    if (toEl) toEl.value = calendarEndDate ? formatDateDisplay(calendarEndDate) : "";
   }
 
   function parseDmy(val) {
@@ -809,9 +781,9 @@ export function ensureMaintenanceDateRangePicker() {
         rect = bankWrap.getBoundingClientRect();
         barWidth = rect.width;
       } else if (matchToolbarDateAnchor) {
-        const anchorEl =
-          picker.closest(".report-outlined-shell") ||
-          (picker.classList?.contains("date-range-picker") ? picker : bankListDateAnchor);
+        const anchorEl = picker.classList?.contains("date-range-picker")
+          ? picker
+          : bankListDateAnchor;
         rect = anchorEl.getBoundingClientRect();
         syncBankToolbarDatePillWidth();
         const blockWidth = getBankToolbarUnifiedBlockWidth();
@@ -836,15 +808,8 @@ export function ensureMaintenanceDateRangePicker() {
       }
       if (popup.classList.contains("calendar-popup--transaction-range")) {
         if (bankWrap || matchToolbarDateAnchor) {
-          const anchorWidth = matchToolbarDateAnchor
-            ? getBankToolbarCalendarPopupWidth()
-            : Math.max(1, Math.round(barWidth));
+          const anchorWidth = Math.max(1, Math.round(barWidth));
           popup.classList.add("calendar-popup--match-anchor");
-          if (matchToolbarDateAnchor) {
-            popup.classList.add("calendar-popup--bank-toolbar-wide");
-          } else {
-            popup.classList.remove("calendar-popup--bank-toolbar-wide");
-          }
           const popupLeft = matchToolbarDateAnchor
             ? Math.max(12, Math.min(rect.left, window.innerWidth - anchorWidth - 12))
             : rect.left;
@@ -967,9 +932,6 @@ export function ensureMaintenanceDateRangePicker() {
         }
       }
       updateDateRangeDisplay(config.rangeDisplayId || "date-range-display");
-      if (partial.displayDateLocale != null) {
-        syncBankToolbarDatePillWidth();
-      }
       if (partial.clearDateLabel) {
         const btn = document.getElementById("calendar-popup-clear-btn");
         if (btn) btn.textContent = partial.clearDateLabel;
