@@ -185,6 +185,20 @@ export default function FormulaMaintenancePage() {
     [formulaScope],
   );
 
+  const formulaSearchQueryKey = useMemo(
+    () =>
+      JSON.stringify([
+        formulaScopeKey,
+        activePermission,
+        selectedProcess === null
+          ? "__unset__"
+          : selectedProcess === ""
+            ? "__all__"
+            : String(selectedProcess),
+      ]),
+    [formulaScopeKey, activePermission, selectedProcess],
+  );
+
   const listQueryEnabled =
     filtersReady && formulaMaintenanceScopeIsReady(formulaScope) && selectedProcess !== null;
 
@@ -687,7 +701,8 @@ export default function FormulaMaintenancePage() {
       category,
       effectiveProcess === "" ? "__all__" : String(effectiveProcess),
     ]);
-    const filtersChanged = effectiveSearchKey !== lastSearchQueryKeyRef.current;
+    const filtersChanged =
+      overrides.process !== undefined || effectiveSearchKey !== lastSearchQueryKeyRef.current;
     if (overrides.scope || filtersChanged) {
       scopeKeyRef.current = searchScopeKey;
     }
@@ -786,7 +801,7 @@ export default function FormulaMaintenancePage() {
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-  }, [listQueryEnabled, formulaScopeKey, activePermission, selectedProcess, performSearch]);
+  }, [listQueryEnabled, formulaSearchQueryKey, performSearch]);
 
   // -- Handlers --
   const handleClearCompany = useCallback(
@@ -913,16 +928,26 @@ export default function FormulaMaintenancePage() {
     setConfirmDelete(false);
   };
 
-  const handleSetSelectedProcess = useCallback((value) => {
-    startTransition(() => {
+  const handleSetSelectedProcess = useCallback(
+    (value) => {
+      if (value === null || value === undefined) {
+        setSelectedProcess(null);
+        clearFormulaList();
+        lastSearchQueryKeyRef.current = "";
+        return;
+      }
       setSelectedProcess(value);
-    });
-  }, []);
+      if (!filtersReady || !formulaMaintenanceScopeIsReady(formulaScope)) return;
+      suppressNextSearchEffectRef.current = true;
+      lastSearchQueryKeyRef.current = "";
+      void performSearchRef.current({ process: value });
+    },
+    [filtersReady, formulaScope, clearFormulaList],
+  );
 
-  const handleClearFilters = () => {
-    setSelectedProcess(null);
-    clearFormulaList();
-  };
+  const handleClearFilters = useCallback(() => {
+    handleSetSelectedProcess(null);
+  }, [handleSetSelectedProcess]);
 
   const isRowSelected = useCallback(
     (id) => {
