@@ -103,7 +103,6 @@ export function LinkAccountModal({
   t,
 }) {
   const { submitting, runGuarded } = useSubmitGuard(open);
-  if (!open) return null;
 
   const rows = useMemo(() => {
     const q = String(searchTerm || "").trim().toLowerCase();
@@ -115,6 +114,8 @@ export function LinkAccountModal({
         return text.includes(q);
       });
   }, [accounts, currentAccountId, searchTerm]);
+
+  if (!open) return null;
 
   return portalToDocumentBody(
     <div id="linkAccountModal" className="account-modal" style={{ display: "block", zIndex: accountModalOverlayZIndex }}>
