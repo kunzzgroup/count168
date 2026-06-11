@@ -468,7 +468,7 @@ export default function BankProcessFormModal({
                       <button type="button" id="bank_remark_btn" className="btn btn-save bank-note-open-btn" onClick={() => onOpenBankFormNoteModal("remark")}>{t("remark")}</button>
                     </div>
                     {(form.sop || form.remark) ? (
-                      <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>{[form.sop && t("sopFilled"), form.remark && t("remarkFilled")].filter(Boolean).join(" · ")}</p>
+                      <p className="bank-remark-filled-hint">{[form.sop && t("sopFilled"), form.remark && t("remarkFilled")].filter(Boolean).join(" · ")}</p>
                     ) : null}
                   </div>
                 </div>

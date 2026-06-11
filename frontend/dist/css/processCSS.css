@@ -2305,15 +2305,21 @@ body.process-page.process-page--show-all:not(.process-page--bank) .process-table
 }
 
 body.process-page.process-page--show-all:not(.process-page--bank) .process-cards {
+    /* block 堆叠行，避免 flex 子项在 Show All 长列表里被压扁导致 INACTIVE 药丸变细线 */
+    display: block !important;
     flex: 1 1 auto;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
 }
 
-body.process-page.process-page--show-all:not(.process-page--bank) .process-card {
-    flex-shrink: 0;
+body.process-page.process-page--show-all:not(.process-page--bank) .process-card.games-process-row {
+    flex: none !important;
+    flex-shrink: 0 !important;
+    min-height: 26px;
+    align-items: center;
 }
 
 /* Process Cards - legacy；Games 分页一屏见下方 body.process-page 规则 */
@@ -4093,6 +4099,19 @@ body.process-page.process-page--show-all:not(.process-page--bank) .pagination-co
 
 .process-page:not(.process-page--bank) .games-process-row {
     padding: 0 22px;
+}
+
+/* Status 药丸勿被 card-item 单行裁切（Show All 长列表偶发压扁时仍完整显示） */
+.process-page:not(.process-page--bank) .games-process-row .card-item:has(.role-badge) {
+    overflow: visible;
+    text-overflow: clip;
+    flex-shrink: 0;
+    min-width: min-content;
+}
+
+.process-page:not(.process-page--bank) .games-process-row .role-badge {
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .process-page:not(.process-page--bank) .process-table-wrapper--select-col.games-process-table .games-process-table-header,
