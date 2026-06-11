@@ -1515,9 +1515,9 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .search-conta
     flex-shrink: 0;
 }
 
-/* Bank Process 顶栏日期：药丸与日历 dropdown 同宽（--bank-toolbar-date-pill-width = 250px） */
+/* Bank Process 顶栏日期：药丸与日历 dropdown 同宽（JS 按内容测量，CSS 下限须容纳完整范围文字） */
 body.process-page.process-page--bank {
-    --bank-toolbar-calendar-min: 250px;
+    --bank-toolbar-calendar-min: 292px;
     --bank-toolbar-date-pill-width: var(--bank-toolbar-calendar-min);
 }
 
@@ -1543,6 +1543,7 @@ body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-
 body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group #date-range-display {
     flex: 1 1 auto;
     min-width: 0;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: var(--drp-trigger-text, var(--text-small));
