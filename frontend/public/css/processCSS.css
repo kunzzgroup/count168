@@ -1095,13 +1095,13 @@ body.process-page.process-page--bank.process-page--bank-show-all .bank-process-l
     /* Country / Insurance / Customer 列设最小像素宽，保证表头英文标题+排序角标完整显示 */
     --bank-virtual-grid-columns:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
-        minmax(max-content, 1.08fr) minmax(120px, 1.52fr)
+        minmax(max-content, 1.08fr) minmax(140px, 1.68fr)
         minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
         minmax(0, 0.6fr) minmax(0, 0.56fr) max-content;
     --bank-virtual-grid-columns-with-select:
         minmax(0, 0.34fr) minmax(0, 0.62fr) minmax(max-content, 0.44fr)
-        minmax(max-content, 1.08fr) minmax(120px, 1.52fr)
+        minmax(max-content, 1.08fr) minmax(140px, 1.68fr)
         minmax(0, 0.6fr) minmax(max-content, 0.56fr) minmax(max-content, 0.5fr)
         minmax(0, 0.56fr) minmax(0, 0.56fr) minmax(0, 0.56fr)
         minmax(0, 0.6fr) minmax(0, 0.56fr) max-content max-content;
@@ -2692,8 +2692,8 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner {
     display: -webkit-box !important;
     -webkit-box-orient: vertical !important;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
     height: auto !important;
     min-height: var(--bank-list-cell-min-height) !important;
     max-height: none !important;
@@ -2706,7 +2706,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     word-break: break-word !important;
     overflow-wrap: break-word !important;
     overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    text-overflow: clip !important;
     line-height: var(--bank-list-cell-line-height, 1.35) !important;
     text-align: left;
 }
@@ -3018,13 +3018,13 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         --bank-header-th-font-size: clamp(10px, 0.7vw, 12px);
         --bank-virtual-grid-columns:
             minmax(30px, 0.16fr) minmax(70px, 0.4fr) minmax(max-content, 0.3fr)
-            minmax(108px, 0.82fr) minmax(132px, 1.55fr)
+            minmax(108px, 0.82fr) minmax(148px, 1.68fr)
             minmax(max-content, 0.4fr) minmax(max-content, 0.34fr) minmax(max-content, 0.32fr)
             minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
             minmax(56px, 0.48fr) minmax(90px, 0.54fr) max-content;
         --bank-virtual-grid-columns-with-select:
             minmax(30px, 0.16fr) minmax(70px, 0.4fr) minmax(max-content, 0.3fr)
-            minmax(108px, 0.82fr) minmax(132px, 1.55fr)
+            minmax(108px, 0.82fr) minmax(148px, 1.68fr)
             minmax(max-content, 0.4fr) minmax(max-content, 0.34fr) minmax(max-content, 0.32fr)
             minmax(42px, 0.36fr) minmax(46px, 0.36fr) minmax(48px, 0.36fr)
             minmax(56px, 0.48fr) minmax(90px, 0.54fr) max-content max-content;
