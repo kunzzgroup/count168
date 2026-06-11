@@ -20,6 +20,23 @@ body {
     overflow-y: auto;
 }
 
+/* Keep maintenance pages scrollable under dashboard layout. */
+html,
+body.dashboard-page.maintenance-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+}
+
+body.dashboard-page.maintenance-page .container {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
 .container {
     max-width: none;
     margin: 0;
@@ -484,6 +501,8 @@ body {
     margin-top: 10px;
     max-width: 1600px;
     width: 100%;
+    max-height: none;
+    overflow: visible;
     margin-left: auto;
     margin-right: auto;
     box-sizing: border-box;
@@ -1245,54 +1264,9 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
     text-decoration: none;
 }
 
-/* 与 Payment Maintenance 一致：页面内滚动 + 表格占满剩余视口 */
-body.maintenance-page .bankprocess-maintenance-page-root {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    max-height: 100dvh;
-    min-height: 0;
-}
-
-body.maintenance-page .bankprocess-maintenance-page-root .customer-report-filter-container {
-    flex: 0 0 auto;
-}
-
-body.maintenance-page .bankprocess-maintenance-table-region {
+/* 与 Payment Maintenance 一致：静默刷新顶栏细条 + 表体略灰 */
+.bankprocess-maintenance-table-region {
     position: relative;
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-body.maintenance-page .bankprocess-maintenance-table-region .maintenance-list-container,
-body.maintenance-page .bankprocess-maintenance-table-region .empty-state-container {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 0;
-}
-
-body.maintenance-page .bankprocess-maintenance-page-root .bankprocess-virtual-table {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-body.maintenance-page .bankprocess-maintenance-page-root .bankprocess-virtual-table-inner {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-body.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: none !important;
 }
 
 .bankprocess-maintenance-table-region .bankprocess-maintenance-sync-track {

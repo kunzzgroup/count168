@@ -6,50 +6,6 @@ import {
 } from "../../shared/useMaintenanceCyclicVirtualScroll.js";
 import BankprocessVirtualDataRow from "./BankprocessVirtualDataRow.jsx";
 
-function BankprocessVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, disableSelectAll }) {
-  const labels = [
-    m.tblNo,
-    m.tblDtsCreated,
-    m.tblAccount,
-    m.tblFrom,
-    m.tblAmount,
-    m.tblDescription,
-    m.tblRemark,
-    m.tblSubmittedBy,
-  ];
-
-  return (
-    <div className="maintenance-virtual-thead" role="rowgroup">
-      <div className="maintenance-virtual-head-row bankprocess-virtual-head-row" role="row">
-        {labels.map((label, i) => (
-          <div
-            key={label}
-            role="columnheader"
-            className={`maintenance-virtual-th bankprocess-virtual-th--left${i === 0 ? " bankprocess-virtual-th--no" : ""}${i === 4 ? " maintenance-header-amount" : ""}`}
-          >
-            {label}
-          </div>
-        ))}
-        <div
-          role="columnheader"
-          className="maintenance-virtual-th bankprocess-virtual-th-checkbox maintenance-select-all-header"
-        >
-          <input
-            type="checkbox"
-            id={disableSelectAll ? undefined : "select_all_bankprocess"}
-            ref={disableSelectAll ? undefined : selectAllRef}
-            className="maintenance-row-checkbox maintenance-select-all-checkbox"
-            checked={selectAll}
-            onChange={toggleSelectAll}
-            title={m.selectAll}
-            disabled={disableSelectAll}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function pickOverscan(count) {
   if (count > 2000) return 2;
   if (count > 800) return 3;
@@ -67,11 +23,6 @@ export default function BankprocessVirtualRows({
   selectedSet,
   onToggleRow,
   alreadyDeletedTitle,
-  selectAllRef,
-  selectAll,
-  toggleSelectAll,
-  m,
-  disableSelectAll = false,
 }) {
   const scrollRef = useRef(null);
   const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
@@ -138,13 +89,6 @@ export default function BankprocessVirtualRows({
 
   return (
     <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
-      <BankprocessVirtualTableHead
-        selectAllRef={selectAllRef}
-        selectAll={selectAll}
-        toggleSelectAll={toggleSelectAll}
-        m={m}
-        disableSelectAll={disableSelectAll}
-      />
       <div className="maintenance-virtual-spacer" style={{ height: displayTotalH, position: "relative", width: "100%" }}>
         {vItems.map((virtualRow) => {
           const row = rows[virtualRow.index];

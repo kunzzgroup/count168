@@ -7,6 +7,50 @@ function isRowDeleted(row) {
   return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
 }
 
+function BankprocessVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, disableSelectAll }) {
+  const labels = [
+    m.tblNo,
+    m.tblDtsCreated,
+    m.tblAccount,
+    m.tblFrom,
+    m.tblAmount,
+    m.tblDescription,
+    m.tblRemark,
+    m.tblSubmittedBy,
+  ];
+
+  return (
+    <div className="maintenance-virtual-thead" role="rowgroup">
+      <div className="maintenance-virtual-head-row bankprocess-virtual-head-row" role="row">
+        {labels.map((label, i) => (
+          <div
+            key={label}
+            role="columnheader"
+            className={`maintenance-virtual-th bankprocess-virtual-th--left${i === 0 ? " bankprocess-virtual-th--no" : ""}${i === 4 ? " maintenance-header-amount" : ""}`}
+          >
+            {label}
+          </div>
+        ))}
+        <div
+          role="columnheader"
+          className="maintenance-virtual-th bankprocess-virtual-th-checkbox maintenance-select-all-header"
+        >
+          <input
+            type="checkbox"
+            id={disableSelectAll ? undefined : "select_all_bankprocess"}
+            ref={disableSelectAll ? undefined : selectAllRef}
+            className="maintenance-row-checkbox maintenance-select-all-checkbox"
+            checked={selectAll}
+            onChange={toggleSelectAll}
+            title={m.selectAll}
+            disabled={disableSelectAll}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BankprocessMaintenanceTable({
   loading,
   listSyncing = false,
@@ -84,6 +128,13 @@ export default function BankprocessMaintenanceTable({
       id="tableContainer"
     >
       <div className="maintenance-virtual-table-inner bankprocess-virtual-table-inner" role="table">
+        <BankprocessVirtualTableHead
+          selectAllRef={selectAllRef}
+          selectAll={selectAll}
+          toggleSelectAll={onToggleSelectAll}
+          m={m}
+          disableSelectAll={false}
+        />
         <BankprocessVirtualRows
           rows={data}
           rowHeight={ROW_HEIGHT}
@@ -91,11 +142,6 @@ export default function BankprocessMaintenanceTable({
           selectedSet={selectedSet}
           onToggleRow={onToggleRow}
           alreadyDeletedTitle={m.alreadyDeleted}
-          selectAllRef={selectAllRef}
-          selectAll={selectAll}
-          toggleSelectAll={onToggleSelectAll}
-          m={m}
-          disableSelectAll={false}
         />
       </div>
     </div>
