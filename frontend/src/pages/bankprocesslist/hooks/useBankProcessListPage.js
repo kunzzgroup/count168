@@ -2256,6 +2256,7 @@ export function useBankProcessListPage() {
     listRegionRef,
     enabled: !showAll,
     maxRows: PAGE_SIZE_MAX,
+    totalRowCount: visibleRows.length,
     remeasureDeps: [visibleRows.length, tableLoading, lang, cssReady],
   });
 
@@ -2274,6 +2275,8 @@ export function useBankProcessListPage() {
     const p = Math.min(currentPage, totalPages);
     return visibleRows.slice((p - 1) * pageSize, p * pageSize);
   }, [visibleRows, showAll, currentPage, totalPages, pageSize]);
+
+  const fillPageRows = !showAll && pageRows.length > 0 && pageRows.length < pageSize;
 
   return {
     navigate,
@@ -2485,6 +2488,7 @@ export function useBankProcessListPage() {
     visibleRows,
     totalPages,
     pageRows,
+    fillPageRows,
     pageSize,
     PAGE_SIZE: pageSize,
     listRegionRef,
