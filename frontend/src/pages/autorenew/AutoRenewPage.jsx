@@ -41,6 +41,15 @@ import "../../../public/css/auto_renew.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/transaction.css";
 
+function TabPendingBadge({ count, label }) {
+  if (!count || count <= 0) return null;
+  return (
+    <span className="auto-renew-tab-pending-badge" aria-label={label} title={label}>
+      {count}
+    </span>
+  );
+}
+
 function FilterChip({ active, label, count, onClick }) {
   return (
     <button type="button" className={`user-filter-chip${active ? " is-selected" : ""}`} aria-pressed={active} onClick={onClick}>
@@ -128,7 +137,9 @@ export default function AutoRenewPage() {
   const [feeSettings, setFeeSettings] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
+  const [tabPendingCounts, setTabPendingCounts] = useState({ company: 0, group: 0 });
   const [canEditGlobal, setCanEditGlobal] = useState(false);
+  const [entityTab, setEntityTab] = useState("company");
   const [statusFilter, setStatusFilter] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState("expiration");
@@ -161,12 +172,17 @@ export default function AutoRenewPage() {
     setFeeSettings(normalizeDomainFeeSettingsFromApi(data?.fee_settings));
     setAccounts(Array.isArray(data?.accounts) ? data.accounts : []);
     setCounts(data?.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
+    const tpc = data?.tab_pending_counts;
+    setTabPendingCounts({
+      company: Number(tpc?.company) || 0,
+      group: Number(tpc?.group) || 0,
+    });
     setCanEditGlobal(Boolean(data?.can_edit));
     setRowDrafts({});
   }, []);
 
   const listFetchKey = useCallback(
-    (status, range) => `${status}|${range?.dateFrom || ""}|${range?.dateTo || ""}`,
+    (status, range, entity) => `${entity}|${status}|${range?.dateFrom || ""}|${range?.dateTo || ""}`,
     [],
   );
 
@@ -179,6 +195,7 @@ export default function AutoRenewPage() {
       const data = await fetchAutoRenewApprovals(statusFilter, {
         dateFrom,
         dateTo,
+        entityType: entityTab,
         signal: ac.signal,
       });
       if (ac.signal.aborted) return;
@@ -187,7 +204,7 @@ export default function AutoRenewPage() {
       if (ac.signal.aborted || err?.name === "AbortError") return;
       notify(t("loadFailed", { message: err.message }), "error");
     }
-  }, [applyListData, dateFrom, dateTo, notify, statusFilter, t]);
+  }, [applyListData, dateFrom, dateTo, entityTab, notify, statusFilter, t]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -202,16 +219,17 @@ export default function AutoRenewPage() {
       }
 
       try {
-        const cached = consumeAutoRenewPrefetch(statusFilter, { dateFrom, dateTo });
+        const cached = consumeAutoRenewPrefetch(statusFilter, { dateFrom, dateTo, entityType: entityTab });
         const data =
           cached ||
           (await fetchAutoRenewApprovals(statusFilter, {
             dateFrom,
             dateTo,
+            entityType: entityTab,
           }));
         if (cancelled) return;
         applyListData(data);
-        bootFetchedListKeyRef.current = listFetchKey(statusFilter, { dateFrom, dateTo });
+        bootFetchedListKeyRef.current = listFetchKey(statusFilter, { dateFrom, dateTo }, entityTab);
       } catch (err) {
         if (cancelled) return;
         setLoadError(err.message || "load");
@@ -227,19 +245,21 @@ export default function AutoRenewPage() {
 
   useEffect(() => {
     if (bootLoading || !sessionReady || !me) return;
-    const key = listFetchKey(statusFilter, { dateFrom, dateTo });
+    const key = listFetchKey(statusFilter, { dateFrom, dateTo }, entityTab);
     if (bootFetchedListKeyRef.current === key) {
       bootFetchedListKeyRef.current = null;
       return;
     }
     void fetchList();
-  }, [bootLoading, dateFrom, dateTo, fetchList, listFetchKey, me, sessionReady, statusFilter]);
+  }, [bootLoading, dateFrom, dateTo, entityTab, fetchList, listFetchKey, me, sessionReady, statusFilter]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, sortColumn, sortDirection]);
+  }, [entityTab, searchTerm, statusFilter, sortColumn, sortDirection]);
+
+  const tenantColumnLabel = entityTab === "group" ? t("colGroup") : t("colCompany");
 
   const updateDraft = useCallback((requestId, patch) => {
     setRowDrafts((prev) => ({
@@ -459,6 +479,37 @@ export default function AutoRenewPage() {
 
       <div className="container">
         <div className="content">
+          <div className="auto-renew-page-header">
+            <div className="page-tabs" role="tablist" aria-label={t("filterGroupLabel")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entityTab === "company"}
+                className={`page-tab${entityTab === "company" ? " active" : ""}${tabPendingCounts.company > 0 ? " has-pending-badge" : ""}`}
+                onClick={() => setEntityTab("company")}
+              >
+                <span className="page-tab__label">{t("companyTab")}</span>
+                <TabPendingBadge
+                  count={tabPendingCounts.company}
+                  label={t("tabPendingBadgeCompany", { count: tabPendingCounts.company })}
+                />
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entityTab === "group"}
+                className={`page-tab${entityTab === "group" ? " active" : ""}${tabPendingCounts.group > 0 ? " has-pending-badge" : ""}`}
+                onClick={() => setEntityTab("group")}
+              >
+                <span className="page-tab__label">{t("groupTab")}</span>
+                <TabPendingBadge
+                  count={tabPendingCounts.group}
+                  label={t("tabPendingBadgeGroup", { count: tabPendingCounts.group })}
+                />
+              </button>
+            </div>
+          </div>
+
           <div className="action-buttons-container" style={{ marginBottom: 20 }}>
             <div
               className="action-buttons auto-renew-toolbar-row"
@@ -534,7 +585,7 @@ export default function AutoRenewPage() {
             <div className="user-list-table-inner">
               <div className="table-header user-list-table-header auto-renew-table-header">
                 {renderHeader("no", t("colNo"))}
-                {renderHeader("company", t("colCompany"))}
+                {renderHeader("company", tenantColumnLabel)}
                 {renderHeader("name", t("colName"))}
                 {renderHeader("price", t("colPrice"))}
                 {renderHeader("expiration", t("colExpiration"))}

@@ -2,13 +2,13 @@ import { fetchAutoRenewApprovals } from "./autoRenewLogic.js";
 
 const cache = new Map();
 
-function cacheKey(status, dateFrom, dateTo) {
-  return `${status}|${dateFrom || ""}|${dateTo || ""}`;
+function cacheKey(status, dateFrom, dateTo, entityType = "company") {
+  return `${entityType}|${status}|${dateFrom || ""}|${dateTo || ""}`;
 }
 
 /** Read warm list payload from sidebar hover prefetch (same shape as fetchAutoRenewApprovals). */
-export function consumeAutoRenewPrefetch(status, { dateFrom, dateTo } = {}) {
-  const key = cacheKey(status, dateFrom, dateTo);
+export function consumeAutoRenewPrefetch(status, { dateFrom, dateTo, entityType = "company" } = {}) {
+  const key = cacheKey(status, dateFrom, dateTo, entityType);
   const hit = cache.get(key);
   if (!hit) return null;
   cache.delete(key);
@@ -16,11 +16,11 @@ export function consumeAutoRenewPrefetch(status, { dateFrom, dateTo } = {}) {
 }
 
 export function stashAutoRenewPrefetch(status, range, data) {
-  cache.set(cacheKey(status, range?.dateFrom, range?.dateTo), data);
+  cache.set(cacheKey(status, range?.dateFrom, range?.dateTo, range?.entityType), data);
 }
 
 export async function prefetchAutoRenewApprovals(status = "pending", range = {}) {
-  const key = cacheKey(status, range.dateFrom, range.dateTo);
+  const key = cacheKey(status, range.dateFrom, range.dateTo, range.entityType);
   if (cache.has(key)) return cache.get(key);
   const data = await fetchAutoRenewApprovals(status, range);
   cache.set(key, data);
