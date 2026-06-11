@@ -32,11 +32,13 @@ export default function AccountEditorRow({
   const [dragEnabled, setDragEnabled] = useState(false);
 
   const pctMax = Math.max(0, Math.min(100, Number(maxPercentage) || 0));
-  const pctValue = Math.min(parseFloat(row.percentage) || 0, pctMax);
+  const storedPct = parseFloat(row.percentage) || 0;
+  // Slider max must be >= stored value so other rows don't visually shift when a sibling is edited.
+  const sliderMax = Math.max(pctMax, storedPct);
 
   useEffect(() => {
-    requestAnimationFrame(() => applySliderBg(sliderRef.current, pctValue, pctMax));
-  }, [pctValue, pctMax]);
+    requestAnimationFrame(() => applySliderBg(sliderRef.current, storedPct, sliderMax));
+  }, [storedPct, sliderMax]);
 
   useEffect(() => {
     if (!dragEnabled) return undefined;
@@ -140,7 +142,7 @@ export default function AccountEditorRow({
           className="own-percent-input"
           id={`input-${companyId}-${idx}`}
           key={`pi-${companyId}-${idx}-${row.percentage}`}
-          defaultValue={`${pctValue}%`}
+          defaultValue={`${storedPct}%`}
           disabled={readOnlyMode || row.is_external_partner}
           onBlur={(e) => onUpdate(idx, "percent_input", e.target.value)}
         />
@@ -151,10 +153,10 @@ export default function AccountEditorRow({
             className="own-slider"
             id={`slider-${companyId}-${idx}`}
             min={0}
-            max={pctMax}
+            max={sliderMax}
             step={1}
-            value={pctValue}
-            disabled={readOnlyMode || row.is_external_partner || pctMax <= 0}
+            value={storedPct}
+            disabled={readOnlyMode || row.is_external_partner || (pctMax <= 0 && storedPct <= 0)}
             onInput={(e) => onUpdate(idx, "slider", e.target.value)}
           />
           <div className="own-slider-labels">
