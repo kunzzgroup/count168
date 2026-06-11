@@ -186,6 +186,12 @@ export function useBankProcessListPage() {
     setShowOfficial(false);
     setShowEInvoice(false);
     setShowBlock(false);
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, []);
+
+  const notifyBankListLayoutChanged = useCallback(() => {
+    window.dispatchEvent(new Event("ec:bank-list-layout-changed"));
   }, []);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -890,10 +896,14 @@ export function useBankProcessListPage() {
     void loadCurrencyMeta(companyId);
   }, [companyId, loading, loadCurrencyMeta]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (showAll) document.body.classList.add("process-page--bank-show-all");
     else document.body.classList.remove("process-page--bank-show-all");
-  }, [showAll]);
+    const raf = window.requestAnimationFrame(() => {
+      notifyBankListLayoutChanged();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [showAll, notifyBankListLayoutChanged]);
 
   useEffect(() => {
     if (!modalOpen || !companyId) return;
@@ -1216,7 +1226,24 @@ export function useBankProcessListPage() {
     syncUrl();
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [companyId, loading, showAll, showInactive, showOfficial, showEInvoice, showBlock, dateFrom, dateTo, currencyFilterCode, syncUrl]);
+    const raf = window.requestAnimationFrame(() => {
+      notifyBankListLayoutChanged();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [
+    companyId,
+    loading,
+    showAll,
+    showInactive,
+    showOfficial,
+    showEInvoice,
+    showBlock,
+    dateFrom,
+    dateTo,
+    currencyFilterCode,
+    syncUrl,
+    notifyBankListLayoutChanged,
+  ]);
 
   const loadAccountingInbox = useCallback(async (opts = {}) => {
     const silent = !!opts.silent;
@@ -2264,7 +2291,19 @@ export function useBankProcessListPage() {
     enabled: !showAll,
     minRows: PAGE_SIZE_MIN,
     maxRows: PAGE_SIZE_MAX,
-    remeasureDeps: [visibleRows.length, tableLoading, lang, cssReady, currentPage, currencyFilterCode],
+    remeasureDeps: [
+      visibleRows.length,
+      tableLoading,
+      lang,
+      cssReady,
+      currentPage,
+      currencyFilterCode,
+      showAll,
+      showInactive,
+      showOfficial,
+      showEInvoice,
+      showBlock,
+    ],
   });
 
   const totalPages = useMemo(

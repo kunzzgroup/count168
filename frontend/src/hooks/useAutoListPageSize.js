@@ -159,20 +159,11 @@ export function useAutoListPageSize({
       if (budget < cellMinHeight(el)) return;
 
       const rows = [...el.querySelectorAll(rowSelector)];
-      const prev = pageSizeRef.current;
       let next = computePageSize(el, budget, rowSelector, minRows, maxRows);
 
       const visible = countRowsFullyVisible(el, rowSelector);
       if (visible > 0) {
         next = Math.min(next, visible);
-        if (next > rows.length && visible >= rows.length) {
-          next = Math.min(next, rows.length + 1);
-        }
-      }
-
-      const isPartialPage = rows.length > 0 && rows.length < prev - 1;
-      if (isPartialPage && next < prev) {
-        next = prev;
       }
 
       pageSizeRef.current = next;
@@ -202,6 +193,7 @@ export function useAutoListPageSize({
     const onWindow = () => measure();
     window.addEventListener("resize", onWindow);
     window.addEventListener("ec:sidebar-layout-changed", onWindow);
+    window.addEventListener("ec:bank-list-layout-changed", onWindow);
     window.visualViewport?.addEventListener("resize", onWindow);
     window.visualViewport?.addEventListener("scroll", onWindow);
 
@@ -210,6 +202,7 @@ export function useAutoListPageSize({
       ro.disconnect();
       window.removeEventListener("resize", onWindow);
       window.removeEventListener("ec:sidebar-layout-changed", onWindow);
+      window.removeEventListener("ec:bank-list-layout-changed", onWindow);
       window.visualViewport?.removeEventListener("resize", onWindow);
       window.visualViewport?.removeEventListener("scroll", onWindow);
     };
