@@ -1,6 +1,6 @@
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { mergeCurrencyCodesWithSavedOrder } from "../../utils/company/currencyDisplayOrder.js";
-import { normalizeRows as normalizeGamesProcessRows, processListCacheHasRows } from "./processListHelpers.js";
+import { normalizeRows as normalizeGamesProcessRows, processListCacheHasEntry, processListCacheHasRows } from "./processListHelpers.js";
 import { normalizeRows as normalizeBankProcessRows } from "../bankprocesslist/lib/bankProcessHelpers.js";
 
 const processListRouteWarmCache = new Map();
@@ -18,7 +18,7 @@ export function warmProcessListRouteCache(companyId, opts = {}) {
   if (processListRouteWarmCache.has(key) || processListRouteWarmInflight.has(key)) return;
   const promise = fetchGamesProcessListSlice(cid, opts)
     .then((slice) => {
-      if (processListCacheHasRows(slice)) processListRouteWarmCache.set(key, slice);
+      if (processListCacheHasEntry(slice)) processListRouteWarmCache.set(key, slice);
       return slice;
     })
     .finally(() => {
@@ -43,13 +43,13 @@ export async function resolveProcessListRouteCache(companyId, opts = {}) {
     return { rows: null, currencyCodes: null };
   }
   const cached = consumeProcessListRouteCache(cid, opts);
-  if (processListCacheHasRows(cached)) return cached;
+  if (processListCacheHasEntry(cached)) return cached;
   const key = processListRouteCacheKey(cid, opts);
   const inflight = processListRouteWarmInflight.get(key);
   if (inflight) {
     try {
       const slice = await inflight;
-      if (processListCacheHasRows(slice)) return slice;
+      if (processListCacheHasEntry(slice)) return slice;
     } catch {
       /* fall through to fetch */
     }

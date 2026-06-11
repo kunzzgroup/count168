@@ -35,6 +35,7 @@ function ProcessSortIcon({ column, sortColumn, sortDirection }) {
 export default function ProcessTable({
   showAll,
   showSelectColumn,
+  suppressEmpty = false,
   pageRows,
   currentPage,
   PAGE_SIZE,
@@ -106,13 +107,13 @@ export default function ProcessTable({
         ) : null}
       </div>
       <div className="process-cards" id="processTableBody">
-        {pageRows.length === 0 && (
+        {pageRows.length === 0 && !suppressEmpty ? (
           <div className="process-card">
             <div className="card-item" style={{ textAlign: "left", padding: 20, gridColumn: "1 / -1" }}>
               {t("noProcessData")}
             </div>
           </div>
-        )}
+        ) : null}
         {pageRows.map((row, idx) => {
           const statusKey = normalizeProcessStatus(row.status);
           return (

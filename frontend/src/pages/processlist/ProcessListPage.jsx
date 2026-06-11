@@ -35,6 +35,7 @@ import {
   notifyTransactionDataChanged,
   parseRemarkForForm,
   buildEditDescriptionSelection,
+  processListCacheHasEntry,
   processListCacheHasRows,
 } from "./processListHelpers.js";
 import {
@@ -103,6 +104,7 @@ export default function ProcessListPage() {
   const [showInactive, setShowInactive] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [rows, setRows] = useState([]);
+  const [awaitingRows, setAwaitingRows] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortColumn, setSortColumn] = useState("processId");
@@ -131,6 +133,8 @@ export default function ProcessListPage() {
   /** Prevent session refresh from re-running boot and resetting GroupID ALL / follow UI. */
   const processListInitDoneRef = useRef(false);
   const rowsRef = useRef([]);
+  const fetchGenRef = useRef(0);
+  const activeCompanyIdRef = useRef(null);
   const companySessionAbortRef = useRef(null);
 
   const [existingProcesses, setExistingProcesses] = useState([]);
@@ -287,7 +291,7 @@ export default function ProcessListPage() {
           setDays(Array.isArray(prefetchedMeta.days) ? prefetchedMeta.days : []);
           setExistingProcesses(Array.isArray(prefetchedMeta.existingProcesses) ? prefetchedMeta.existingProcesses : []);
 
-          if (processListCacheHasRows(routePrefetch) && resolvedCompanyId != null) {
+          if (processListCacheHasEntry(routePrefetch) && resolvedCompanyId != null) {
             const prefRows = normalizeRows(routePrefetch.rows);
             setRows(prefRows);
             skipNextFetchRef.current = true;
@@ -412,7 +416,7 @@ export default function ProcessListPage() {
             showInactive: showInactiveChecked,
             showAll: showAllChecked,
           });
-          if (processListCacheHasRows(slice)) {
+          if (processListCacheHasEntry(slice)) {
             const cacheKey = resolveProcessListCacheKey(
               effectiveCompany,
               normalizedSearch,
@@ -464,10 +468,11 @@ export default function ProcessListPage() {
       if (!Number.isFinite(id) || id <= 0) return false;
       const cacheKey = resolveProcessListCacheKey(id, debouncedSearch, showInactive, showAll);
       const cached = processListCacheRef.current.get(cacheKey);
-      if (!processListCacheHasRows(cached)) return false;
+      if (!processListCacheHasEntry(cached)) return false;
       setRows((prev) =>
         processRowsFingerprint(prev) === processRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
+      setAwaitingRows(false);
       return true;
     },
     [debouncedSearch, showInactive, showAll],
@@ -476,36 +481,59 @@ export default function ProcessListPage() {
   const warmProcessListCompanyCache = useCallback(
     (cid) => {
       const id = Number(cid);
-      if (!Number.isFinite(id) || id <= 0) return;
+      if (!Number.isFinite(id) || id <= 0) return null;
       const cacheKey = resolveProcessListCacheKey(id, debouncedSearch, showInactive, showAll);
-      if (processListCacheRef.current.has(cacheKey) || processListWarmInflightRef.current.has(cacheKey)) {
-        return;
+      if (processListCacheRef.current.has(cacheKey)) {
+        return null;
       }
-      const ac = new AbortController();
-      processListWarmInflightRef.current.set(cacheKey, ac);
-      void (async () => {
+      const existing = processListWarmInflightRef.current.get(cacheKey);
+      if (existing) return existing;
+
+      const promise = (async () => {
         try {
           const slice = await fetchGamesProcessListSlice(id, {
             search: debouncedSearch,
             showInactive,
             showAll,
-            signal: ac.signal,
           });
-          if (ac.signal.aborted || !slice.rows) return;
-          processListCacheRef.current.set(cacheKey, {
-            rows: slice.rows,
-            currencyCodes: slice.currencyCodes,
-          });
+          if (Array.isArray(slice.rows)) {
+            processListCacheRef.current.set(cacheKey, {
+              rows: slice.rows,
+              currencyCodes: slice.currencyCodes,
+            });
+          }
+          return slice;
         } catch {
-          /* ignore warm failures */
+          return null;
         } finally {
-          if (processListWarmInflightRef.current.get(cacheKey) === ac) {
+          if (processListWarmInflightRef.current.get(cacheKey) === promise) {
             processListWarmInflightRef.current.delete(cacheKey);
           }
         }
       })();
+      processListWarmInflightRef.current.set(cacheKey, promise);
+      return promise;
     },
     [debouncedSearch, showInactive, showAll],
+  );
+
+  const hydrateProcessListCompanyCache = useCallback(
+    async (cid) => {
+      if (applyProcessListCache(cid)) return true;
+      const id = Number(cid);
+      if (!Number.isFinite(id) || id <= 0) return false;
+      const cacheKey = resolveProcessListCacheKey(id, debouncedSearch, showInactive, showAll);
+      const inflight = processListWarmInflightRef.current.get(cacheKey);
+      if (inflight) {
+        try {
+          await inflight;
+        } catch {
+          /* ignore warm failures */
+        }
+      }
+      return applyProcessListCache(cid);
+    },
+    [applyProcessListCache, debouncedSearch, showInactive, showAll],
   );
 
   const fetchRows = useCallback(
@@ -513,6 +541,11 @@ export default function ProcessListPage() {
       const silent = !!opts.silent;
       const cid = opts.companyId != null ? Number(opts.companyId) : Number(companyId);
       if (!Number.isFinite(cid) || cid <= 0) return;
+
+      const fetchGen = ++fetchGenRef.current;
+      const shouldAwaitEmpty = rowsRef.current.length === 0;
+      if (shouldAwaitEmpty) setAwaitingRows(true);
+
       if (fetchAbortRef.current) fetchAbortRef.current.abort();
       const ac = new AbortController();
       fetchAbortRef.current = ac;
@@ -523,11 +556,13 @@ export default function ProcessListPage() {
           showAll,
           signal: ac.signal,
         });
-        if (ac.signal.aborted) return;
-        if (!slice.rows) {
+        if (ac.signal.aborted || fetchGen !== fetchGenRef.current) return;
+        if (!Array.isArray(slice.rows)) {
           if (!silent) notify(t("failedLoadProcessList"), "danger");
           return;
         }
+        if (Number(activeCompanyIdRef.current) !== cid) return;
+
         const nextRows = slice.rows;
         const cacheKey = resolveProcessListCacheKey(cid, debouncedSearch, showInactive, showAll);
         processListCacheRef.current.set(cacheKey, {
@@ -546,8 +581,12 @@ export default function ProcessListPage() {
           syncUrl({ companyId: cid });
         }
       } catch (err) {
-        if (ac.signal.aborted || err?.name === "AbortError") return;
+        if (ac.signal.aborted || err?.name === "AbortError" || fetchGen !== fetchGenRef.current) return;
         if (!silent) notify(t("failedLoadProcessList"), "danger");
+      } finally {
+        if (fetchGen === fetchGenRef.current) {
+          setAwaitingRows(false);
+        }
       }
     },
     [
@@ -680,6 +719,11 @@ export default function ProcessListPage() {
   );
 
   useEffect(() => {
+    activeCompanyIdRef.current = activeCompanyId;
+    if (!activeCompanyId) setAwaitingRows(false);
+  }, [activeCompanyId]);
+
+  useEffect(() => {
     if (loading || !activeCompanyId) return;
     if (skipNextFetchRef.current) {
       skipNextFetchRef.current = false;
@@ -689,8 +733,13 @@ export default function ProcessListPage() {
       skipCompanyFetchEffectRef.current = false;
       return;
     }
-    void fetchRows({ companyId: activeCompanyId, silent: rowsRef.current.length > 0 });
-  }, [loading, activeCompanyId, debouncedSearch, showInactive, showAll, fetchRows]);
+    void (async () => {
+      const hydrated = await hydrateProcessListCompanyCache(activeCompanyId);
+      if (!hydrated) {
+        await fetchRows({ companyId: activeCompanyId, silent: rowsRef.current.length > 0 });
+      }
+    })();
+  }, [loading, activeCompanyId, debouncedSearch, showInactive, showAll, fetchRows, hydrateProcessListCompanyCache]);
 
   useEffect(() => {
     if (loading) return;
@@ -756,6 +805,13 @@ export default function ProcessListPage() {
       }),
     [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]
   );
+
+  useEffect(() => {
+    if (loading) return;
+    for (const c of companyButtons) {
+      warmProcessListCompanyCache(c.id);
+    }
+  }, [loading, companyButtons, warmProcessListCompanyCache, debouncedSearch, showInactive, showAll]);
 
   const sortedDisplayRows = useMemo(
     () => sortProcessTableRows(rows, sortColumn, sortDirection),
@@ -826,10 +882,13 @@ export default function ProcessListPage() {
           /* fall through to session sync */
         }
 
-        const runFetch = () => void fetchRows({ companyId: nextId, silent: true });
+        const runFetch = async () => {
+          await hydrateProcessListCompanyCache(nextId);
+          await fetchRows({ companyId: nextId, silent: true });
+        };
 
         if (sessionCompanyId === nextId) {
-          runFetch();
+          void runFetch();
           return;
         }
 
@@ -837,6 +896,8 @@ export default function ProcessListPage() {
         companySessionAbortRef.current?.abort();
         const sessionAc = new AbortController();
         companySessionAbortRef.current = sessionAc;
+
+        void runFetch();
 
         try {
           const res = await fetch(
@@ -899,6 +960,7 @@ export default function ProcessListPage() {
       companies,
       companyId,
       fetchRows,
+      hydrateProcessListCompanyCache,
       loadFormMeta,
       navigate,
       notify,
@@ -926,10 +988,7 @@ export default function ProcessListPage() {
         setGroupFilterKind("follow");
         if (nextGroup) setSelectedGroup(nextGroup);
         setCompanyId(nextId);
-        if (!hadCache) {
-          setRows([]);
-          setSelectedIds(new Set());
-        }
+        if (hadCache) setSelectedIds(new Set());
       });
 
       syncUrl({ companyId: nextId });
@@ -992,10 +1051,7 @@ export default function ProcessListPage() {
         const hadCache = applyProcessListCache(nextCompanyId);
         flushSync(() => {
           setCompanyId(nextCompanyId);
-          if (!hadCache) {
-            setRows([]);
-            setSelectedIds(new Set());
-          }
+          if (hadCache) setSelectedIds(new Set());
         });
         persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
         notifyDashboardGroupFilterChanged(g, nextCompanyId, {
@@ -1453,6 +1509,7 @@ export default function ProcessListPage() {
         <ProcessTable
           showAll={showAll}
           showSelectColumn={showInactive || showAll}
+          suppressEmpty={awaitingRows || loading}
           pageRows={pageRows}
           currentPage={currentPage}
           PAGE_SIZE={PAGE_SIZE}
