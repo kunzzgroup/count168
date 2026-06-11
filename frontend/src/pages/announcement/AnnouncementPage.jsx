@@ -179,9 +179,9 @@ export default function AnnouncementPage() {
     <>
       <div className="container announcement-page-container">
         <div className="page-header">
-          <div className="page-tabs">
-            <button type="button" className={`page-tab${activeTab === "announcement" ? " active" : ""}`} onClick={() => setActiveTab("announcement")}>{t("announcementTab")}</button>
-            <button type="button" className={`page-tab${activeTab === "maintenance" ? " active" : ""}`} onClick={() => setActiveTab("maintenance")}>{t("maintenanceTab")}</button>
+          <div className="page-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={activeTab === "announcement"} className={`page-tab${activeTab === "announcement" ? " active" : ""}`} onClick={() => setActiveTab("announcement")}>{t("announcementTab")}</button>
+            <button type="button" role="tab" aria-selected={activeTab === "maintenance"} className={`page-tab${activeTab === "maintenance" ? " active" : ""}`} onClick={() => setActiveTab("maintenance")}>{t("maintenanceTab")}</button>
           </div>
         </div>
         {activeTab === "announcement" && <AnnouncementPanel t={t} announcements={announcements} onEdit={handleAnnouncementEdit} onDelete={handleAnnouncementDelete} />}

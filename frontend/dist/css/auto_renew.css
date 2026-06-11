@@ -1,4 +1,5 @@
 /* Auto Renew approval page */
+@import url("./page-pill-tabs.css");
 
 body.auto-renew-page-body {
   overflow-y: auto !important;
@@ -7,8 +8,6 @@ body.auto-renew-page-body {
   --auto-renew-control-height: 24px;
   --auto-renew-toolbar-control-height: clamp(32px, 2.45vw, 38px);
   --auto-renew-row-padding-y: 4px;
-  --auto-renew-tab-width: clamp(112px, 9vw, 132px);
-  --auto-renew-tab-track-padding: 3px;
 }
 
 body.auto-renew-page-body .auto-renew-page .content,
@@ -46,57 +45,12 @@ body.auto-renew-page-body.user-page.user-page--show-all .user-table-wrapper.auto
   overflow-y: visible;
 }
 
-/* Company / Group tabs — pill track + floating capsule for active */
+/* Company / Group tabs — see page-pill-tabs.css */
 body.auto-renew-page-body .auto-renew-page-header {
   display: flex;
   align-items: center;
   flex-shrink: 0;
   overflow: visible;
-}
-
-body.auto-renew-page-body .page-tabs {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  width: fit-content;
-  gap: 2px;
-  padding: var(--auto-renew-tab-track-padding);
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  background: #f1f5f9;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
-}
-
-body.auto-renew-page-body .page-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 var(--auto-renew-tab-width);
-  width: var(--auto-renew-tab-width);
-  min-width: var(--auto-renew-tab-width);
-  min-height: 30px;
-  box-sizing: border-box;
-  gap: 5px;
-  margin: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  padding: clamp(5px, 0.45vw, 7px) clamp(10px, 0.9vw, 14px);
-  font-size: clamp(12px, 0.85vw, 14px);
-  font-weight: 700;
-  font-family: var(--font-heading-page);
-  color: #475569;
-  background: transparent;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  line-height: 1.25;
-  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
-  box-shadow: none;
-}
-
-body.auto-renew-page-body .page-tab__label {
-  line-height: 1.25;
-  text-align: center;
 }
 
 body.auto-renew-page-body .auto-renew-tab-pending-badge {
@@ -122,35 +76,6 @@ body.auto-renew-page-body .page-tab.active .auto-renew-tab-pending-badge {
   background: rgba(255, 255, 255, 0.32);
   color: #fff;
   box-shadow: none;
-}
-
-body.auto-renew-page-body .page-tab:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.72);
-  color: #0d60ff;
-}
-
-body.auto-renew-page-body .page-tab:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px #6366f1;
-  position: relative;
-  z-index: 1;
-}
-
-body.auto-renew-page-body .page-tab.active {
-  background: linear-gradient(180deg, #63c4ff 0%, #0d60ff 100%);
-  color: #ffffff;
-  box-shadow:
-    0 2px 8px rgba(13, 96, 255, 0.32),
-    0 1px 2px rgba(13, 96, 255, 0.2);
-}
-
-body.auto-renew-page-body .page-tab.active:hover {
-  background: linear-gradient(180deg, #4db8ff 0%, #0a56e8 100%);
-  color: #ffffff;
-  transform: translateY(-0.5px);
-  box-shadow:
-    0 4px 12px rgba(13, 96, 255, 0.36),
-    0 1px 3px rgba(13, 96, 255, 0.22);
 }
 
 /* Toolbar — reuse user-page action-buttons-container; no extra card wrapper */
