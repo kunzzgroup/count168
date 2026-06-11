@@ -206,10 +206,10 @@ export default function AutoRenewPage() {
   }, []);
 
   const storeEntityListData = useCallback(
-    (entity, data, { resetDrafts = false } = {}) => {
+    (entity, data, { resetDrafts = false, status = statusFilter } = {}) => {
       setEntitySnapshots((prev) => ({ ...prev, [entity]: normalizeEntityListSnapshot(data) }));
       applyTabPendingCounts(data);
-      rememberAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: entity }, data);
+      rememberAutoRenewListCache(status, { dateFrom, dateTo, entityType: entity }, data);
       if (resetDrafts && entityTabRef.current === entity) setRowDrafts({});
     },
     [applyTabPendingCounts, dateFrom, dateTo, statusFilter],
@@ -237,6 +237,27 @@ export default function AutoRenewPage() {
       setRowDrafts({});
     },
     [dateFrom, dateTo, entitySnapshots, entityTab, statusFilter, storeEntityListData],
+  );
+
+  const handleStatusFilterChange = useCallback(
+    (next) => {
+      if (next === statusFilter) return;
+      setEntitySnapshots({ company: null, group: null });
+      setRowDrafts({});
+      setStatusFilter(next);
+
+      const cached = peekAutoRenewListCache(next, { dateFrom, dateTo, entityType: entityTab });
+      if (cached) {
+        storeEntityListData(entityTab, cached, { resetDrafts: true, status: next });
+        setListRefreshing(false);
+        bootFetchedListKeyRef.current = listFetchKey(next, { dateFrom, dateTo }, entityTab);
+        return;
+      }
+
+      bootFetchedListKeyRef.current = null;
+      setListRefreshing(true);
+    },
+    [dateFrom, dateTo, entityTab, listFetchKey, statusFilter, storeEntityListData],
   );
 
   const listFetchKey = useCallback(
@@ -303,12 +324,14 @@ export default function AutoRenewPage() {
     return () => {
       cancelled = true;
     };
-  }, [me, navigate, sessionReady, storeEntityListData]);
+  }, [me, navigate, sessionReady]);
 
   useEffect(() => {
     setEntitySnapshots({ company: null, group: null });
     setRowDrafts({});
-  }, [dateFrom, dateTo, statusFilter]);
+    bootFetchedListKeyRef.current = null;
+    setListRefreshing(true);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     if (bootLoading || !sessionReady || !me) return;
@@ -645,25 +668,25 @@ export default function AutoRenewPage() {
                       active={statusFilter === "pending"}
                       label={t("filterPending")}
                       count={counts.pending}
-                      onClick={() => setStatusFilter("pending")}
+                      onClick={() => handleStatusFilterChange("pending")}
                     />
                     <FilterChip
                       active={statusFilter === "approved"}
                       label={t("filterApproved")}
                       count={counts.approved}
-                      onClick={() => setStatusFilter("approved")}
+                      onClick={() => handleStatusFilterChange("approved")}
                     />
                     <FilterChip
                       active={statusFilter === "rejected"}
                       label={t("filterRejected")}
                       count={counts.rejected}
-                      onClick={() => setStatusFilter("rejected")}
+                      onClick={() => handleStatusFilterChange("rejected")}
                     />
                     <FilterChip
                       active={statusFilter === "all"}
                       label={t("filterShowAll")}
                       count={counts.total}
-                      onClick={() => setStatusFilter("all")}
+                      onClick={() => handleStatusFilterChange("all")}
                     />
                   </div>
                 </div>

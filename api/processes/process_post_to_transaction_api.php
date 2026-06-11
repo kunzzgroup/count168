@@ -15,6 +15,7 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../bankprocess_maintenance/maintenance_accounting_resend_lib.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/ensure_bank_process_day_end_monthly_cap_column.php';
+require_once __DIR__ . '/../includes/transaction_approval.php';
 require_once __DIR__ . '/contract_billing_addon.php';
 
 if (isset($pdo) && $pdo instanceof PDO) {
@@ -63,6 +64,33 @@ function insertTransactionRow(PDO $pdo, array $data): int
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_values($data));
     return (int) $pdo->lastInsertId();
+}
+
+/** Accounting Due 入账：写入审批字段（一律 APPROVED；含 PARTNER 账户或 partnership 用户提交）。 */
+function applyBankProcessPostApprovalFields(
+    PDO $pdo,
+    array &$txn,
+    array $process,
+    int $accountId,
+    string $userRole,
+    ?int $createdByUser,
+    $ownerId,
+    string $ledgerDateYmd
+): void {
+    $approved = true;
+    $approverUser = null;
+    $approverOwner = null;
+    if ($approved) {
+        if ($createdByUser !== null && $createdByUser > 0) {
+            $approverUser = $createdByUser;
+        }
+        if ($ownerId !== null && (int) $ownerId > 0) {
+            $approverOwner = (int) $ownerId;
+        }
+    }
+    foreach (tx_apply_transaction_approval_fields($pdo, $approved, $approverUser, $approverOwner) as $key => $value) {
+        $txn[$key] = $value;
+    }
 }
 
 /**
@@ -1196,6 +1224,7 @@ try {
     $isOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner';
     $owner_id = $isOwner ? ($_SESSION['owner_id'] ?? $_SESSION['user_id']) : null;
     $created_by_user = $isOwner ? null : $_SESSION['user_id'];
+    $postUserRole = isset($_SESSION['role']) ? strtolower((string) $_SESSION['role']) : '';
 
     $uniqueIds = array_values(array_unique(array_column($pairs, 'id')));
     $processesById = fetchBankProcessesByIds($pdo, $uniqueIds, $company_id);
@@ -1592,15 +1621,6 @@ try {
         if ($has_source_bank_process_period_type) {
             $baseTxn['source_bank_process_period_type'] = $periodType;
         }
-        if ($has_approval_status) {
-            $baseTxn['approval_status'] = 'APPROVED';
-            if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
-                $baseTxn['approved_at'] = date('Y-m-d H:i:s');
-            }
-            if (tableHasColumn($pdo, 'transactions', 'approved_by_owner')) {
-                $baseTxn['approved_by_owner'] = $ownerId;
-            }
-        }
 
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : ($periodType === 'day_end_tail' ? ' (day end tail)' : ($periodType === 'resend_consolidated_range' ? ' (resend consolidated)' : ($periodType === 'once_one_off' ? ' (once)' : ($periodType === 'daily_consolidated' ? ' (daily consolidated)' : ($periodType === 'daily' ? ' (daily)' : '')))));
         $resendEndMarker = '';
@@ -1630,6 +1650,18 @@ try {
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($cost))
                 : ("Process: Buy Price for $processLabel" . $suffix . $resendEndMarker . $dailyRangeMarker);
+            if ($has_approval_status) {
+                applyBankProcessPostApprovalFields(
+                    $pdo,
+                    $txn,
+                    $p,
+                    (int) $p['card_merchant_id'],
+                    $postUserRole,
+                    $created_by_user !== null ? (int) $created_by_user : null,
+                    $ownerId,
+                    $ledgerDate
+                );
+            }
             insertTransactionRow($pdo, $txn);
             $createdCount++;
             $pairPostedTxn = true;
@@ -1643,6 +1675,18 @@ try {
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($price))
                 : ("Process: Sell Price for $processLabel" . $suffix . $resendEndMarker . $dailyRangeMarker);
+            if ($has_approval_status) {
+                applyBankProcessPostApprovalFields(
+                    $pdo,
+                    $txn,
+                    $p,
+                    (int) $p['customer_id'],
+                    $postUserRole,
+                    $created_by_user !== null ? (int) $created_by_user : null,
+                    $ownerId,
+                    $ledgerDate
+                );
+            }
             insertTransactionRow($pdo, $txn);
             $createdCount++;
             $pairPostedTxn = true;
@@ -1697,6 +1741,18 @@ try {
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($profit))
                 : ("Process: Profit for $processLabel" . $suffix . $resendEndMarker . $dailyRangeMarker);
+            if ($has_approval_status) {
+                applyBankProcessPostApprovalFields(
+                    $pdo,
+                    $txn,
+                    $p,
+                    (int) $p['profit_account_id'],
+                    $postUserRole,
+                    $created_by_user !== null ? (int) $created_by_user : null,
+                    $ownerId,
+                    $ledgerDate
+                );
+            }
             insertTransactionRow($pdo, $txn);
             $createdCount++;
             $pairPostedTxn = true;
@@ -1708,6 +1764,18 @@ try {
             $txn['description'] = $isManualInactiveCompensation
                 ? ("Compensation " . $compMonthLabel . ' ' . txnDescriptionAmount($ps['amount']))
                 : ("Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . money_out($ps['amount'], 2) . ')' . $suffix . $resendEndMarker . $dailyRangeMarker);
+            if ($has_approval_status) {
+                applyBankProcessPostApprovalFields(
+                    $pdo,
+                    $txn,
+                    $p,
+                    (int) $ps['account_id'],
+                    $postUserRole,
+                    $created_by_user !== null ? (int) $created_by_user : null,
+                    $ownerId,
+                    $ledgerDate
+                );
+            }
             insertTransactionRow($pdo, $txn);
             $createdCount++;
             $pairPostedTxn = true;
