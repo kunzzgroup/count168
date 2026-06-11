@@ -2750,7 +2750,7 @@ body.account-page .account-pagination-info {
     border-radius: 4px;
     background-color: white;
     cursor: pointer;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: var(--drp-trigger-text, var(--text-small));
     color: #374151;
     transition: all 0.2s ease;
     min-height: 32px;
@@ -2766,7 +2766,7 @@ body.account-page .account-pagination-info {
 
 .report-date-range-picker i {
     color: #007AFF;
-    font-size: clamp(9px, 0.73vw, 13px);
+    font-size: var(--drp-trigger-icon, var(--text-small));
 }
 
 .report-date-range-input {

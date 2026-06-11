@@ -45,7 +45,7 @@ body.maintenance-page .customer-report-filters .report-outlined-inner .transacti
 }
 
 body.maintenance-page .customer-report-filters .report-outlined-inner .date-range-picker span {
-    font-size: var(--text-small);
+    font-size: var(--drp-trigger-text, var(--text-small));
     font-weight: 500;
     font-family: var(--font-heading-page);
     color: #374151;

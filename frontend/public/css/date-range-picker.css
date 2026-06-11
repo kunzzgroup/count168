@@ -1,4 +1,10 @@
 ﻿/* Shared date range picker - same as dashboard */
+:root {
+    --drp-trigger-text: var(--text-small);
+    --drp-trigger-icon: var(--text-small);
+    --drp-trigger-chevron: var(--text-tiny);
+}
+
 .date-range-picker {
     display: flex;
     align-items: center;
@@ -23,13 +29,13 @@
 
 .date-range-picker i {
     color: #3b82f6;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: var(--drp-trigger-icon);
     margin: 0 clamp(2px, 0.32vw, 6px);
 }
 
 .date-range-picker span {
     color: #374151;
-    font-size: var(--text-small);
+    font-size: var(--drp-trigger-text);
     font-weight: 500;
 }
 

@@ -2506,16 +2506,16 @@ body.process-page .calendar-popup--match-anchor .calendar-month-trigger,
 body.process-page .calendar-popup--match-anchor .calendar-year-trigger {
     min-height: 28px;
     padding: 4px 6px;
-    font-size: clamp(10px, 0.72vw, 12px);
+    font-size: var(--drp-trigger-text, var(--text-small));
 }
 
 body.process-page .calendar-popup--match-anchor .calendar-weekday {
-    font-size: clamp(9px, 0.65vw, 11px);
+    font-size: var(--text-tiny);
 }
 
 body.process-page .calendar-popup--match-anchor .calendar-day {
     min-height: 22px;
-    font-size: clamp(9px, 0.65vw, 11px);
+    font-size: var(--text-tiny);
     border-radius: 5px;
 }
 
