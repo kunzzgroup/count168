@@ -31,7 +31,13 @@ import {
   resolveSavedCurrencyOrder,
 } from "../../../utils/company/currencyDisplayOrder.js";
 import { saveUserCurrencyOrder, getUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
-import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../../account/accountLogic.js";
+import {
+  DEFAULT_FORM as ACCOUNT_DEFAULT_FORM,
+  getAccountModalOrderedRoles,
+  normalizeAlertAmount,
+  pickDefaultAddCurrencyIds,
+  toUpper,
+} from "../../account/accountLogic.js";
 import { getAccountText } from "../../../translateFile/pages/accountTranslate.js";
 import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessage } from "../../../translateFile/pages/bankProcessTranslate.js";
 // Helper imports
@@ -288,7 +294,7 @@ export function useBankProcessListPage() {
     t("readOnlyActionBlocked")
   );
 
-  const accountModalOrderedRoles = useMemo(() => getOrderedRoles(rolesList), [rolesList]);
+  const accountModalOrderedRoles = useMemo(() => getAccountModalOrderedRoles(rolesList), [rolesList]);
 
   const getAccountIdForPlusTarget = useCallback(
     (target) => {
@@ -378,7 +384,7 @@ export function useBankProcessListPage() {
             setAccountModalSelectedCurrencyIds(ids);
             setAccountModalInitialCurrencyIds(ids);
           } else {
-            setAccountModalSelectedCurrencyIds([]);
+            setAccountModalSelectedCurrencyIds(pickDefaultAddCurrencyIds(curJ.data));
             setAccountModalInitialCurrencyIds([]);
           }
         }

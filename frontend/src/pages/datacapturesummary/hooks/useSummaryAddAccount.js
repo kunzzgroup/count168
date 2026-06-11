@@ -9,7 +9,7 @@ import {
 } from "../../../utils/company/tenantLedgerParams.js";
 import {
   DEFAULT_FORM,
-  getOrderedRoles,
+  getAccountModalOrderedRoles,
   normalizeAlertAmount,
   pickDefaultAddCurrencyIds,
   toUpper,
@@ -140,7 +140,7 @@ export function useSummaryAddAccount({
   );
 
   const modalPickerCompanies = ledgerCtx.groupOnlyAccountMode ? groupPickerCompanies : companyButtons;
-  const orderedRoles = useMemo(() => getOrderedRoles(roles), [roles]);
+  const orderedRoles = useMemo(() => getAccountModalOrderedRoles(roles), [roles]);
 
   useEffect(() => {
     if (ledgerCtx.groupOnlyAccountMode || !ledgerCtx.companyId) return undefined;

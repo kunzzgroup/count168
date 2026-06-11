@@ -65,6 +65,7 @@ import {
   roleSortOrder,
   PAGE_SIZE,
   DEFAULT_FORM,
+  getAccountModalOrderedRoles,
   getOrderedRoles,
   normalizeCompanyRow,
   isVirtualGroupLinkCompanyRow,
@@ -1776,7 +1777,7 @@ export default function AccountListPage() {
     if (form.role && String(form.role).trim()) {
       merged.push(String(form.role).trim());
     }
-    return getOrderedRoles(merged);
+    return getAccountModalOrderedRoles(merged);
   }, [roles, form.role]);
 
   const filteredForMode = useMemo(() => {

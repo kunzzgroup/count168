@@ -802,6 +802,7 @@ export default function BankProcessListPage() {
         onRemoveCurrency={removeAccountModalCurrency}
         onSubmit={submitAccountModal}
         onClose={closeAccountModal}
+        currencyDeleteOnlyWhenDeselected
         t={tAccount}
       />
       {typeof document !== "undefined"
