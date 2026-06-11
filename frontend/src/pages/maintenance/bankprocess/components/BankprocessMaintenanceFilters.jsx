@@ -150,6 +150,7 @@ export default function BankprocessMaintenanceFilters({
               currencyList={currencies}
               showAllCurrencies={allCurrenciesSelected}
               selectedCurrencies={selectedCurrencies}
+              toggleAllCurrencies={onCurrencySelectAll}
               toggleCurrency={onCurrencyToggle}
               t={(key) => {
                 if (key === "groupId") return m.groupId;
