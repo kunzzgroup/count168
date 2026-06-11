@@ -189,6 +189,17 @@ export default function AuthenticatedLayout() {
     };
   }, []);
 
+  /* Process 路由：父级 layout 阶段即挂上 body class，避免 SPA 切入时 Global Unlock 先撑出双 scrollbar */
+  useLayoutEffect(() => {
+    if (location.pathname === "/bank-process-list") {
+      document.body.classList.remove("dashboard-page");
+      document.body.classList.add("process-page", "process-page--bank");
+    } else if (location.pathname === "/process-list") {
+      document.body.classList.remove("dashboard-page", "process-page--bank", "process-page--bank-show-all");
+      document.body.classList.add("process-page");
+    }
+  }, [location.pathname]);
+
   useLayoutEffect(() => {
     const scopeClass = loginScopeBodyClass(me);
     document.body.classList.toggle("ec-login-scope-group", scopeClass === "ec-login-scope-group");

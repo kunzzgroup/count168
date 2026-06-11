@@ -878,15 +878,41 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     border: 0.0625rem solid #e0e0e0;
 }
 
-/* Bank Process List：整页单一纵向滚动（避免 body 锁 100vh + 列表撑高 → html/body 双 scrollbar） */
-html:has(body.process-page.process-page--bank) {
+/* Bank Process（非 Show All）：桌面一屏，禁止整页纵向滚动 */
+html:has(body.process-page.process-page--bank:not(.process-page--bank-show-all)) {
+    height: 100%;
+    overflow: hidden;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all),
+body.dashboard-page.process-page.process-page--bank:not(.process-page--bank-show-all),
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) #root,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .ec-page-shell,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .ec-page-shell__content {
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+}
+
+/* Bank Show All：整页可滚动 */
+html:has(body.process-page.process-page--bank.process-page--bank-show-all) {
     height: auto;
     overflow-x: hidden;
     overflow-y: visible;
 }
 
-body.process-page.process-page--bank,
-body.dashboard-page.process-page.process-page--bank {
+body.process-page.process-page--bank.process-page--bank-show-all,
+body.dashboard-page.process-page.process-page--bank.process-page--bank-show-all,
+body.ec-auth-shell.process-page.process-page--bank.process-page--bank-show-all {
     overflow-x: hidden !important;
     overflow-y: auto !important;
     height: auto !important;
@@ -894,15 +920,15 @@ body.dashboard-page.process-page.process-page--bank {
     max-height: none !important;
 }
 
-body.process-page.process-page--bank #root,
-body.process-page.process-page--bank .ec-page-shell,
-body.process-page.process-page--bank .ec-page-shell__content {
+body.process-page.process-page--bank.process-page--bank-show-all #root,
+body.process-page.process-page--bank.process-page--bank-show-all .ec-page-shell,
+body.process-page.process-page--bank.process-page--bank-show-all .ec-page-shell__content {
     height: auto !important;
     min-height: 0;
     overflow: visible !important;
 }
 
-body.process-page.process-page--bank #root {
+body.process-page.process-page--bank.process-page--bank-show-all #root {
     min-height: 100vh !important;
 }
 
@@ -925,12 +951,27 @@ body.process-page.process-page--bank #root {
 .process-page.process-page--bank .container {
     display: flex;
     flex-direction: column;
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
+    padding-left: var(--layout-main-offset);
+    box-sizing: border-box;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .container,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .container,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) #root > .container {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .container {
     overflow: visible !important;
     height: auto !important;
     min-height: 100vh;
     max-height: none !important;
     padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
-    padding-left: var(--layout-main-offset);
 }
 
 @media (max-width: 1200px) {
@@ -946,8 +987,15 @@ body.process-page.process-page--bank #root {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: visible;
     max-width: 100%;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .content {
+    overflow: hidden !important;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .content {
+    overflow: visible;
 }
 
 .process-page.process-page--bank .content > div:first-child,
@@ -961,25 +1009,45 @@ body.process-page.process-page--bank #root {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: visible;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
 }
 
-/* 列表区随内容增高，不在此层产生 nested scrollbar */
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
+    overflow: hidden !important;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-body,
+body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-scroll-region {
+    overflow: visible;
+}
+
 .process-page.process-page--bank .bank-process-list-scroll-region {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: visible;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
 }
 
-.process-page.process-page--bank .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region {
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: 100%;
+    width: 100%;
+    align-self: stretch;
+    overflow: hidden !important;
+}
+
+body.process-page.process-page--bank.process-page--bank-show-all .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region {
     flex: 0 1 auto;
     min-height: 0;
     height: auto;
@@ -1112,7 +1180,7 @@ body.process-page.process-page--bank #root {
     }
 }
 
-/* 数据区：不嵌套滚动，由浏览器默认 scrollbar 承担纵向滚动 */
+/* 数据区：非 Show All 裁剪在一屏内；Show All 由整页滚动承担 */
 .process-page.process-page--bank .bank-virtual-scroll-clip {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -1133,6 +1201,34 @@ body.process-page.process-page--bank #root {
     max-width: 100%;
     margin-right: 0;
     padding-right: 0;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
+body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+    flex: 1 1 auto;
+    max-height: 100%;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
 }
 
 .process-page.process-page--bank .bank-virtual-scroll-shell {

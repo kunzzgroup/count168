@@ -1,7 +1,8 @@
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 
-export const PAGE_SIZE = 25;
+/** 桌面一屏展示行数（用户反馈：普通 desktop 不要整页滚动） */
+export const PAGE_SIZE = 18;
 
 /** Bank Process 金额：固定两位小数（如 300.00）. */
 export function isValidBankMoneyInput(value) {

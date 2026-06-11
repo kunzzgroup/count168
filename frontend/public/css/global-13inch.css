@@ -677,6 +677,41 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         overflow: hidden !important;
     }
 
+    /* Bank Process（非 Show All）：覆盖下方 Global Unlock，桌面一屏无整页滚动 */
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) {
+        height: 100vh !important;
+        min-height: 100vh !important;
+        max-height: 100vh !important;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .container,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) #root > .container {
+        height: 100vh !important;
+        min-height: 0 !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+        padding-bottom: 0 !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+        overflow: hidden !important;
+        max-height: none !important;
+    }
+
     /* 2. Remove all internal scrolling constraints on table wrappers (No vertical nested scrollbars) */
     body.ec-auth-shell .table-container,
     body.ec-auth-shell .account-cards,
@@ -698,6 +733,20 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         max-height: none !important;
         overflow: visible !important;
         /* This forces the data to completely render out, triggering the global browser scrollbar */
+    }
+
+    /* Bank Process（非 Show All）：覆盖上方 Unlock 对列表容器的 overflow:visible */
+    html:has(body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all)) {
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .process-table-wrapper.bank-process-table-region {
+        overflow: hidden !important;
     }
 
     body.user-page:not(.user-page--show-all) .user-cards {
