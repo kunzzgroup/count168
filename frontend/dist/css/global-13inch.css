@@ -495,11 +495,11 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex-direction: column;
     }
 
-    /*.modal-body,
+    /* .modal-body,
     .transaction-modal-body,
     .form-container {
         padding-bottom: 90px !important;
-    }
+    } */
 }
 
 /* 3. Interactive Polish (Micro-animations) */
@@ -821,8 +821,6 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex-direction: column !important;
         min-height: 0 !important;
     }
-
-}
 
 /* ==========================================================================
    Chips with Overflow Component Styles

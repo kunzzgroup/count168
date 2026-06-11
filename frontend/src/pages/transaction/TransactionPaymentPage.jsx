@@ -22,6 +22,7 @@ import "../../../public/css/userlist.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 import { transactionScopeApiParams } from "./lib/transactionScope.js";
+import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
 const ROUTE_BODY_CLASSES_TO_CLEAR = [
@@ -146,6 +147,7 @@ export default function TransactionPaymentPage() {
   const applyTransactionBodyClasses = useCallback(() => {
     document.body.classList.remove(...ROUTE_BODY_CLASSES_TO_CLEAR, "bg");
     document.body.classList.add("dashboard-page", "transaction-page");
+    clearInlineScrollLock();
   }, []);
 
   useLayoutEffect(() => {

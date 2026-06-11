@@ -26,10 +26,9 @@ export default function TransactionHistoryModal({
   // `position: fixed` and centers the modal against the full page height instead of the viewport.
   useEffect(() => {
     if (!history.open) return undefined;
-    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prevOverflow;
+      document.body.style.removeProperty("overflow");
     };
   }, [history.open]);
 
