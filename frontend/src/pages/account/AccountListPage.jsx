@@ -344,8 +344,31 @@ export default function AccountListPage() {
     gcFilterSwitchGenRef.current += 1;
   }, []);
 
+  const markAccountsFetchKeyApplied = useCallback(
+    (gcScope) => {
+      const {
+        companyId: cid,
+        selectedGroup: sg,
+        groupsAllMode: gAll,
+        groupAllMode: cAll,
+        isListScopeReady: ready,
+      } = gcScope || {};
+      const useGroupOnly = resolveGroupOnlyFetch(gcScope);
+      const scopeKey = resolveAccountsListFetchScopeKey({
+        companyId: cid,
+        selectedGroup: sg,
+        groupsAllMode: gAll,
+        groupAllMode: cAll,
+        isListScopeReady: ready,
+        groupOnlyMode: useGroupOnly,
+      });
+      lastAccountsFetchKeyRef.current = buildAccountsFetchKey(scopeKey, searchTerm, showInactive, showAll);
+    },
+    [searchTerm, showInactive, showAll, resolveGroupOnlyFetch],
+  );
+
   const applyAccountListResult = useCallback(
-    (cacheKey, nextAccounts, { silent = false } = {}) => {
+    (cacheKey, nextAccounts, { silent = false, gcScope = null } = {}) => {
       accountListCacheRef.current.set(cacheKey, nextAccounts);
       setAccounts((prev) => {
         if (silent && accountRowsFingerprint(prev) === accountRowsFingerprint(nextAccounts)) {
@@ -357,9 +380,9 @@ export default function AccountListPage() {
         setSelectedDeleteIds(new Set());
         setCurrentPage(1);
       }
-      syncUrl();
+      if (gcScope) markAccountsFetchKeyApplied(gcScope);
     },
-    [syncUrl],
+    [markAccountsFetchKeyApplied],
   );
 
   const fetchAccounts = useCallback(
@@ -389,7 +412,7 @@ export default function AccountListPage() {
         try {
           const rows = await pending;
           if (Array.isArray(rows)) {
-            applyAccountListResult(cacheKey, rows, { silent });
+            applyAccountListResult(cacheKey, rows, { silent, gcScope: scope });
           }
           return;
         } catch (e) {
@@ -490,7 +513,7 @@ export default function AccountListPage() {
         if (isStaleResponse()) return;
         if (nextAccounts == null) return;
         if (!trustRequestScope && !matchesLiveListScope()) return;
-        applyAccountListResult(cacheKey, nextAccounts, { silent });
+        applyAccountListResult(cacheKey, nextAccounts, { silent, gcScope: scope });
       } catch (e) {
         if (isStaleResponse() || e?.name === "AbortError") return;
         if (!silent) notifyApi(e?.message, "failedToLoadAccounts", "danger");
@@ -1658,6 +1681,11 @@ export default function AccountListPage() {
   }, [bootLoading, accountsListFetchScopeKey, isListScopeReady]);
 
   useEffect(() => {
+    if (bootLoading) return;
+    syncUrl();
+  }, [bootLoading, syncUrl]);
+
+  useEffect(() => {
     if (!accountsListFetchScopeKey) return;
     const fetchKey = buildAccountsFetchKey(
       accountsListFetchScopeKey,
@@ -1674,10 +1702,9 @@ export default function AccountListPage() {
       lastAccountsFetchKeyRef.current = fetchKey;
       return;
     }
-    if (lastAccountsFetchKeyRef.current === fetchKey) return;
-    lastAccountsFetchKeyRef.current = fetchKey;
+    applyAccountListCache(gcScopeRef.current);
     void fetchAccounts(gcScopeRef.current, { silent: true });
-  }, [accountsListFetchScopeKey, searchTerm, showInactive, showAll, fetchAccounts]);
+  }, [accountsListFetchScopeKey, searchTerm, showInactive, showAll, fetchAccounts, applyAccountListCache]);
 
   useEffect(() => {
     if (bootLoading) {
