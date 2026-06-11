@@ -878,6 +878,34 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     border: 0.0625rem solid #e0e0e0;
 }
 
+/* Bank Process List：整页单一纵向滚动（避免 body 锁 100vh + 列表撑高 → html/body 双 scrollbar） */
+html:has(body.process-page.process-page--bank) {
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: visible;
+}
+
+body.process-page.process-page--bank,
+body.dashboard-page.process-page.process-page--bank {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+}
+
+body.process-page.process-page--bank #root,
+body.process-page.process-page--bank .ec-page-shell,
+body.process-page.process-page--bank .ec-page-shell__content {
+    height: auto !important;
+    min-height: 0;
+    overflow: visible !important;
+}
+
+body.process-page.process-page--bank #root {
+    min-height: 100vh !important;
+}
+
 /* Bank Process List：表头固定，数据区在视口内纵向滚动（分页固定右下角） */
 .process-page.process-page--bank {
     --bank-process-scroll-max: 100%;
@@ -897,10 +925,10 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
 .process-page.process-page--bank .container {
     display: flex;
     flex-direction: column;
-    overflow: visible;
-    height: auto;
+    overflow: visible !important;
+    height: auto !important;
     min-height: 100vh;
-    max-height: none;
+    max-height: none !important;
     padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
     padding-left: var(--layout-main-offset);
 }
@@ -7258,20 +7286,7 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
     padding-bottom: 0;
 }
 
-/* Bank Show All：整页纵向滚动，列表随内容增高（对齐 Games process-page--show-all） */
-body.process-page.process-page--bank.process-page--bank-show-all {
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    height: auto !important;
-    min-height: 100vh !important;
-    max-height: none !important;
-}
-
-html:has(body.process-page.process-page--bank.process-page--bank-show-all) {
-    height: auto;
-    overflow: visible;
-}
-
+/* Bank Show All：列表区随内容增高（滚动策略见上方整页单 scrollbar 规则） */
 body.process-page.process-page--bank.process-page--bank-show-all .container {
     height: auto !important;
     min-height: 100vh !important;
