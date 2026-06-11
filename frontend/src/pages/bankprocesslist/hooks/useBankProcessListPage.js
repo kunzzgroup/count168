@@ -2165,6 +2165,8 @@ export function useBankProcessListPage() {
     userSelectedAllCurrenciesRef.current = true;
     clearDashboardSelectedCurrency();
     setCurrencyFilterCode("");
+    setCurrentPage(1);
+    setSelectedIds(new Set());
   }, []);
 
   const handlePickCurrency = useCallback(
@@ -2172,6 +2174,8 @@ export function useBankProcessListPage() {
       userSelectedAllCurrenciesRef.current = false;
       const cur = String(code || "").trim().toUpperCase();
       setCurrencyFilterCode(cur);
+      setCurrentPage(1);
+      setSelectedIds(new Set());
       if (cur) {
         notifyDashboardCurrencyFilterChanged(
           cur,
@@ -2191,6 +2195,8 @@ export function useBankProcessListPage() {
     onApplyCode: (code) => {
       userSelectedAllCurrenciesRef.current = false;
       setCurrencyFilterCode(code);
+      setCurrentPage(1);
+      setSelectedIds(new Set());
     },
     respectEmptyRef: userSelectedAllCurrenciesRef,
   });

@@ -159,11 +159,16 @@ export function useAutoListPageSize({
       if (budget < cellMinHeight(el)) return;
 
       const rows = [...el.querySelectorAll(rowSelector)];
-      let next = computePageSize(el, budget, rowSelector, minRows, maxRows);
+      const budgetFit = computePageSize(el, budget, rowSelector, minRows, maxRows);
+      let next = budgetFit;
 
       const visible = countRowsFullyVisible(el, rowSelector);
       if (visible > 0) {
-        next = Math.min(next, visible);
+        // Currency 等筛选后 DOM 可能只有 1 行，勿把 pageSize 锁死；数据变多后应信任预算重算
+        const domUnderfilled = rows.length > 0 && rows.length < budgetFit;
+        if (!domUnderfilled) {
+          next = Math.min(next, visible);
+        }
       }
 
       pageSizeRef.current = next;
