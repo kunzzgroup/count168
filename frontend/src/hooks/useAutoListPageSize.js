@@ -8,10 +8,10 @@ const ABSOLUTE_ROW_HEIGHT_CAP = 72;
 const PAGINATION_TOP_GAP_PX = 4;
 const MIN_ROWS = 4;
 const MAX_ROWS = 80;
-/** 末行可略挤进分页条上方；最多 2 行使用容差 */
+/** 末行可略挤进分页条上方；仅最后一行使用容差，多出的行进下一页 */
 const LAST_ROW_SQUEEZE_PX = 22;
 const LAST_ROW_SQUEEZE_RATIO = 0.52;
-const MAX_SQUEEZE_ROWS = 2;
+const ROW_OVERFLOW_TOLERANCE_PX = 1;
 
 function readCssPx(el, varName, fallback) {
   if (!el || typeof window === "undefined") return fallback;
@@ -74,15 +74,45 @@ function measureBudget(region, headerSelector) {
   return Math.max(0, viewportH - headerBottom - PAGINATION_RESERVE_PX - VIEWPORT_BOTTOM_GAP_PX);
 }
 
+/** 数据区下沿：分页条上沿优先，否则用 clip 底 */
+function rowDisplayLimitBottom(region) {
+  const listBody = region.closest(".bank-process-list-body");
+  const pagination = listBody?.querySelector(".pagination-container");
+  if (pagination) {
+    return pagination.getBoundingClientRect().top - PAGINATION_TOP_GAP_PX;
+  }
+
+  const clip = region.querySelector(".bank-virtual-scroll-clip");
+  const clipBottom = clip?.getBoundingClientRect().bottom;
+  return clipBottom && clipBottom > 0 ? clipBottom : null;
+}
+
+function lastRowOverflows(region, rowSelector) {
+  const limit = rowDisplayLimitBottom(region);
+  if (limit == null) return false;
+
+  const rows = [...region.querySelectorAll(rowSelector)];
+  if (rows.length === 0) return false;
+
+  const lastBottom = rows[rows.length - 1].getBoundingClientRect().bottom;
+  return lastBottom > limit + ROW_OVERFLOW_TOLERANCE_PX;
+}
+
+function maxFitRows(budget, stride, squeeze) {
+  const strict = Math.floor(budget / stride);
+  if ((strict + 1) * stride <= budget + squeeze) return strict + 1;
+  return strict;
+}
+
 function computePageSize(region, budget, rowSelector, minRows, maxRows) {
   const cellMin = cellMinHeight(region);
   const rows = [...region.querySelectorAll(rowSelector)];
   const stride = rows.length > 0 ? compactStride(region, rows) : cellMin;
   const squeeze = lastRowSqueezeAllowance(stride);
+  const cap = maxFitRows(budget, stride, squeeze);
 
   if (rows.length === 0) {
-    const fit = Math.floor((budget + squeeze * MAX_SQUEEZE_ROWS) / stride);
-    return Math.max(minRows, Math.min(maxRows, fit));
+    return Math.max(minRows, Math.min(maxRows, cap));
   }
 
   let used = 0;
@@ -96,27 +126,20 @@ function computePageSize(region, budget, rowSelector, minRows, maxRows) {
     fit += 1;
   }
 
-  let squeezeUsed = 0;
-
-  while (fit < maxRows) {
+  while (fit < cap) {
     if (used + stride <= budget) {
       used += stride;
       fit += 1;
       continue;
     }
-    if (squeezeUsed < MAX_SQUEEZE_ROWS && used + stride <= budget + squeeze) {
+    if (fit < cap && used + stride <= budget + squeeze) {
       used += stride;
       fit += 1;
-      squeezeUsed += 1;
-      continue;
     }
     break;
   }
 
-  const floorFit = Math.floor((budget + squeeze * MAX_SQUEEZE_ROWS) / stride);
-  fit = Math.max(fit, Math.min(floorFit, maxRows));
-
-  return Math.max(minRows, Math.min(maxRows, fit));
+  return Math.max(minRows, Math.min(maxRows, fit, cap));
 }
 
 /**
@@ -150,6 +173,10 @@ export function useAutoListPageSize({
       const rows = [...el.querySelectorAll(rowSelector)];
       const prev = pageSizeRef.current;
       let next = computePageSize(el, budget, rowSelector, minRows, maxRows);
+
+      if (rows.length > 0 && lastRowOverflows(el, rowSelector)) {
+        next = Math.min(next, Math.max(minRows, rows.length - 1));
+      }
 
       const isPartialPage = rows.length > 0 && rows.length < prev - 1;
       if (isPartialPage && next < prev) {
