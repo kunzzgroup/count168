@@ -6,6 +6,7 @@ body.auto-renew-page-body {
   --auto-renew-toolbar-date-width: clamp(316px, 22vw, 336px);
   --auto-renew-control-height: 20px;
   --auto-renew-row-padding-y: 5px;
+  --auto-renew-tab-width: clamp(104px, 8.5vw, 120px);
 }
 
 body.auto-renew-page-body .auto-renew-page .content,
@@ -36,10 +37,14 @@ body.auto-renew-page-body .page-tab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 var(--auto-renew-tab-width);
+  width: var(--auto-renew-tab-width);
+  min-width: var(--auto-renew-tab-width);
+  box-sizing: border-box;
   margin: 0;
   appearance: none;
   -webkit-appearance: none;
-  padding: clamp(5px, 0.45vw, 7px) clamp(14px, 1.1vw, 18px);
+  padding: clamp(5px, 0.45vw, 7px) clamp(22px, 1.6vw, 28px) clamp(5px, 0.45vw, 7px) clamp(10px, 0.85vw, 14px);
   font-size: clamp(12px, 0.85vw, 14px);
   font-weight: 700;
   font-family: var(--font-heading-page);
@@ -53,12 +58,9 @@ body.auto-renew-page-body .page-tab {
   overflow: visible;
 }
 
-body.auto-renew-page-body .page-tab.has-pending-badge {
-  padding-right: clamp(24px, 1.8vw, 30px);
-}
-
 body.auto-renew-page-body .page-tab__label {
   line-height: 1.2;
+  text-align: center;
 }
 
 body.auto-renew-page-body .auto-renew-tab-pending-badge {
