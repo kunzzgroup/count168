@@ -31,6 +31,9 @@ export default function AccountEditorRow({
   const rowRef = useRef(null);
   const [dragEnabled, setDragEnabled] = useState(false);
 
+  const pctMax = Math.max(0, Math.min(100, Number(maxPercentage) || 0));
+  const pctValue = Math.min(parseFloat(row.percentage) || 0, pctMax);
+
   useEffect(() => {
     requestAnimationFrame(() => applySliderBg(sliderRef.current, pctValue, pctMax));
   }, [pctValue, pctMax]);
@@ -44,8 +47,6 @@ export default function AccountEditorRow({
 
   const isPartnership = String(row.role || "").toLowerCase() === "partnership";
   const showRo = isPartnership || row.is_external_partner;
-  const pctMax = Math.max(0, Math.min(100, Number(maxPercentage) || 0));
-  const pctValue = Math.min(parseFloat(row.percentage) || 0, pctMax);
 
   const clearDragStyles = () => {
     const el = rowRef.current;
