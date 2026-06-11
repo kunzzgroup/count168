@@ -13,6 +13,7 @@ import {
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
   fetchOwnerCompaniesAll,
+  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { findOwnerCompanyById } from "../../utils/company/sharedCompanyFilter.js";
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
@@ -29,6 +30,7 @@ import {
   normalizeRows,
   dedupeCompanyRowsForSwitcher,
   filterProcessPageCompanyButtons,
+  resolveProcessListActiveCompanyId,
   sortProcessTableRows,
   notifyTransactionDataChanged,
   parseRemarkForForm,
@@ -56,6 +58,14 @@ function filterSearchInput(raw) {
 
 function resolveProcessListCacheKey(companyId, debouncedSearch, showInactive, showAll) {
   return `company:${Number(companyId)}|${String(debouncedSearch || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
+}
+
+function processRowVisibleAfterStatusChange(newStatus, { showInactive, showAll }) {
+  const status = String(newStatus || "").toLowerCase();
+  if (showAll && showInactive) return status === "inactive";
+  if (showAll) return status === "active";
+  if (showInactive) return status === "inactive";
+  return status === "active";
 }
 
 function processRowsFingerprint(rows) {
@@ -243,18 +253,32 @@ export default function ProcessListPage() {
             selectedGroup: prefBootGroup,
             loginMe: layoutMe,
           });
-          setCompanyId(resolvedPrefetchId);
-          {
-            const pfGfk = routePrefetch.groupFilterKind;
-            setGroupFilterKind(pfGfk === "ungrouped" ? "ungrouped" : "follow");
-          }
+          const pfGfk = routePrefetch.groupFilterKind;
+          const ungroupedBoot =
+            pfGfk === "ungrouped" || sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+          const prefetchGroupIds = [
+            ...new Set(
+              prefetchedCompanies
+                .map((c) => String(c.group_id || "").trim().toUpperCase())
+                .filter(Boolean),
+            ),
+          ].sort();
+          const resolvedCompanyId = ungroupedBoot
+            ? resolveProcessListActiveCompanyId(resolvedPrefetchId, prefetchedCompanies, {
+                groupFilterKind: "ungrouped",
+                groupIds: prefetchGroupIds,
+              })
+            : resolvedPrefetchId;
+          setCompanyId(resolvedCompanyId);
+          setGroupFilterKind(ungroupedBoot ? "ungrouped" : "follow");
+          if (ungroupedBoot) setSelectedGroup(null);
 
           const normalizedSearch = filterSearchInput(currentUrl.searchParams.get("search") || "");
           setSearch(normalizedSearch);
           setDebouncedSearch(normalizedSearch);
 
           const showAllChecked = currentUrl.searchParams.has("showAll");
-          const showInactiveChecked = !showAllChecked && currentUrl.searchParams.has("showInactive");
+          const showInactiveChecked = currentUrl.searchParams.has("showInactive");
           setShowAll(showAllChecked);
           setShowInactive(showInactiveChecked);
 
@@ -263,31 +287,32 @@ export default function ProcessListPage() {
           setDays(Array.isArray(prefetchedMeta.days) ? prefetchedMeta.days : []);
           setExistingProcesses(Array.isArray(prefetchedMeta.existingProcesses) ? prefetchedMeta.existingProcesses : []);
 
-          if (processListCacheHasRows(routePrefetch)) {
+          if (processListCacheHasRows(routePrefetch) && resolvedCompanyId != null) {
             const prefRows = normalizeRows(routePrefetch.rows);
             setRows(prefRows);
             skipNextFetchRef.current = true;
-            if (resolvedPrefetchId != null) {
-              const cacheKey = resolveProcessListCacheKey(
-                resolvedPrefetchId,
-                normalizedSearch,
-                showInactiveChecked,
-                showAllChecked,
-              );
-              processListCacheRef.current.set(cacheKey, {
-                rows: prefRows,
-                currencyCodes: Array.isArray(routePrefetch.currencyCodes)
-                  ? routePrefetch.currencyCodes
-                  : null,
-              });
-            }
+            const cacheKey = resolveProcessListCacheKey(
+              resolvedCompanyId,
+              normalizedSearch,
+              showInactiveChecked,
+              showAllChecked,
+            );
+            processListCacheRef.current.set(cacheKey, {
+              rows: prefRows,
+              currencyCodes: Array.isArray(routePrefetch.currencyCodes)
+                ? routePrefetch.currencyCodes
+                : null,
+            });
+          } else if (ungroupedBoot && resolvedCompanyId == null) {
+            setRows([]);
+            skipNextFetchRef.current = true;
           }
-          setSelectedGroup(prefBootGroup);
-          const resolvedRow = prefetchedCompanies.find((c) => Number(c.id) === Number(resolvedPrefetchId));
-          if (resolvedPrefetchId != null) {
-            persistDashboardFilterState(prefBootGroup, resolvedPrefetchId, { allowGroupOnly: false });
+          if (!ungroupedBoot) setSelectedGroup(prefBootGroup);
+          const resolvedRow = prefetchedCompanies.find((c) => Number(c.id) === Number(resolvedCompanyId));
+          if (resolvedCompanyId != null) {
+            persistDashboardFilterState(prefBootGroup, resolvedCompanyId, { allowGroupOnly: false });
           }
-          await ensureCrossPageCompanySelection(resolvedPrefetchId, {
+          await ensureCrossPageCompanySelection(resolvedCompanyId, {
             companies: prefetchedCompanies,
             selectedGroup: prefBootGroup,
             companyRow: resolvedRow,
@@ -348,9 +373,23 @@ export default function ProcessListPage() {
           }
         }
 
-        setSelectedGroup(bootGroup);
+        const bootGroupIds = [
+          ...new Set(cs.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean)),
+        ].sort();
+        const isUngroupedBoot = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
+        if (isUngroupedBoot) {
+          setGroupFilterKind("ungrouped");
+          setSelectedGroup(null);
+          effectiveCompany = resolveProcessListActiveCompanyId(effectiveCompany, cs, {
+            groupFilterKind: "ungrouped",
+            groupIds: bootGroupIds,
+          });
+        } else {
+          setSelectedGroup(bootGroup);
+          setGroupFilterKind("follow");
+        }
+
         setCompanyId(effectiveCompany);
-        setGroupFilterKind("follow");
         if (effectiveCompany != null) {
           persistDashboardFilterState(bootGroup, effectiveCompany, { allowGroupOnly: false });
         }
@@ -361,29 +400,34 @@ export default function ProcessListPage() {
         setDebouncedSearch(normalizedSearch);
 
         const showAllChecked = url.searchParams.has("showAll");
-        const showInactiveChecked = !showAllChecked && url.searchParams.has("showInactive");
+        const showInactiveChecked = url.searchParams.has("showInactive");
         setShowAll(showAllChecked);
         setShowInactive(showInactiveChecked);
 
         void loadFormMeta(effectiveCompany);
 
-        const slice = await resolveProcessListRouteCache(effectiveCompany, {
-          search: normalizedSearch,
-          showInactive: showInactiveChecked,
-          showAll: showAllChecked,
-        });
-        if (processListCacheHasRows(slice)) {
-          const cacheKey = resolveProcessListCacheKey(
-            effectiveCompany,
-            normalizedSearch,
-            showInactiveChecked,
-            showAllChecked,
-          );
-          processListCacheRef.current.set(cacheKey, {
-            rows: slice.rows,
-            currencyCodes: slice.currencyCodes,
+        if (effectiveCompany != null) {
+          const slice = await resolveProcessListRouteCache(effectiveCompany, {
+            search: normalizedSearch,
+            showInactive: showInactiveChecked,
+            showAll: showAllChecked,
           });
-          setRows(slice.rows);
+          if (processListCacheHasRows(slice)) {
+            const cacheKey = resolveProcessListCacheKey(
+              effectiveCompany,
+              normalizedSearch,
+              showInactiveChecked,
+              showAllChecked,
+            );
+            processListCacheRef.current.set(cacheKey, {
+              rows: slice.rows,
+              currencyCodes: slice.currencyCodes,
+            });
+            setRows(slice.rows);
+            skipNextFetchRef.current = true;
+          }
+        } else if (isUngroupedBoot) {
+          setRows([]);
           skipNextFetchRef.current = true;
         }
 
@@ -413,11 +457,6 @@ export default function ProcessListPage() {
     },
     [companyId, debouncedSearch, showInactive, showAll],
   );
-
-  useEffect(() => {
-    if (loading || !companyId) return;
-    syncUrl();
-  }, [loading, companyId, syncUrl]);
 
   const applyProcessListCache = useCallback(
     (cid) => {
@@ -521,19 +560,6 @@ export default function ProcessListPage() {
       t,
     ],
   );
-
-  useEffect(() => {
-    if (loading || !companyId) return;
-    if (skipNextFetchRef.current) {
-      skipNextFetchRef.current = false;
-      return;
-    }
-    if (skipCompanyFetchEffectRef.current) {
-      skipCompanyFetchEffectRef.current = false;
-      return;
-    }
-    void fetchRows({ silent: rowsRef.current.length > 0 });
-  }, [loading, companyId, debouncedSearch, showInactive, showAll, fetchRows]);
 
   const reloadDescriptions = async () => {
     if (!companyId) return;
@@ -644,6 +670,33 @@ export default function ProcessListPage() {
       [...new Set(allCompanyButtons.map((c) => String(c.group_id || "").trim().toUpperCase()).filter(Boolean))].sort(),
     [allCompanyButtons]
   );
+  const activeCompanyId = useMemo(
+    () =>
+      resolveProcessListActiveCompanyId(companyId, companies, {
+        groupFilterKind,
+        groupIds,
+      }),
+    [companyId, companies, groupFilterKind, groupIds],
+  );
+
+  useEffect(() => {
+    if (loading || !activeCompanyId) return;
+    if (skipNextFetchRef.current) {
+      skipNextFetchRef.current = false;
+      return;
+    }
+    if (skipCompanyFetchEffectRef.current) {
+      skipCompanyFetchEffectRef.current = false;
+      return;
+    }
+    void fetchRows({ companyId: activeCompanyId, silent: rowsRef.current.length > 0 });
+  }, [loading, activeCompanyId, debouncedSearch, showInactive, showAll, fetchRows]);
+
+  useEffect(() => {
+    if (loading) return;
+    syncUrl({ companyId: activeCompanyId });
+  }, [loading, activeCompanyId, syncUrl]);
+
   const selectedCompany = useMemo(
     () => allCompanyButtons.find((c) => Number(c.id) === Number(pickerCompanyId)) || null,
     [allCompanyButtons, pickerCompanyId]
@@ -899,9 +952,28 @@ export default function ProcessListPage() {
 
       // Process list is company-scoped: re-click active group hides the group row (ungrouped).
       if (groupFilterKind === "follow" && g === selectedGroupKey && companyId != null) {
-        setGroupFilterKind("ungrouped");
-        setSelectedGroup(null);
-        clearDashboardGroupFilterKeepCompany(companyId);
+        const nextCompanyId = resolveProcessListActiveCompanyId(companyId, companies, {
+          groupFilterKind: "ungrouped",
+          groupIds,
+        });
+        skipCompanyFetchEffectRef.current = true;
+        if (fetchAbortRef.current) fetchAbortRef.current.abort();
+        flushSync(() => {
+          setGroupFilterKind("ungrouped");
+          setSelectedGroup(null);
+          setCompanyId(nextCompanyId);
+          if (!nextCompanyId) {
+            setRows([]);
+            setSelectedIds(new Set());
+          }
+        });
+        if (nextCompanyId != null) {
+          clearDashboardGroupFilterKeepCompany(nextCompanyId);
+          syncUrl({ companyId: nextCompanyId });
+        } else {
+          clearDashboardGroupFilterKeepCompany(null);
+          syncUrl({ companyId: null });
+        }
         return;
       }
 
@@ -946,8 +1018,10 @@ export default function ProcessListPage() {
       companies,
       companyId,
       groupFilterKind,
+      groupIds,
       selectedGroupKey,
       sessionMe,
+      syncUrl,
     ],
   );
 
@@ -956,6 +1030,7 @@ export default function ProcessListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
+    if (!activeCompanyId) return;
     setEditMode(false);
     setForm({ ...EMPTY_FORM, existingProcesses });
     setDescriptionPickerOpen(false);
@@ -1233,7 +1308,7 @@ export default function ProcessListPage() {
         return;
       }
 
-      const shouldShow = showAll ? true : showInactive ? newStatus === "inactive" : newStatus === "active";
+      const shouldShow = processRowVisibleAfterStatusChange(newStatus, { showInactive, showAll });
 
       if (!shouldShow) {
         setRows((prev) => prev.filter((r) => Number(r.id) !== Number(row.id)));
@@ -1265,7 +1340,7 @@ export default function ProcessListPage() {
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-add" disabled={processMutationsBlocked} onClick={openAdd}>
+              <button type="button" className="btn btn-add" disabled={processMutationsBlocked || !activeCompanyId} onClick={openAdd}>
                 <AddProcessIcon />
                 {t("addProcess")}
               </button>
@@ -1286,18 +1361,12 @@ export default function ProcessListPage() {
               <div className="userlist-filter-chips" role="group">
                 <button
                   type="button"
-                  className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
-                  aria-pressed={showInactive && !showAll}
-                  onClick={() => {
-                    if (showInactive && !showAll) setShowInactive(false);
-                    else {
-                      setShowInactive(true);
-                      setShowAll(false);
-                    }
-                  }}
+                  className={`user-filter-chip${showInactive ? " is-selected" : ""}`}
+                  aria-pressed={showInactive}
+                  onClick={() => setShowInactive((prev) => !prev)}
                 >
                   <span className="user-filter-chip__dot" aria-hidden>
-                    {showInactive && !showAll ? (
+                    {showInactive ? (
                       <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M6 12l4 4 8-8" />
                       </svg>
@@ -1309,13 +1378,7 @@ export default function ProcessListPage() {
                   type="button"
                   className={`user-filter-chip${showAll ? " is-selected" : ""}`}
                   aria-pressed={showAll}
-                  onClick={() => {
-                    if (showAll) setShowAll(false);
-                    else {
-                      setShowAll(true);
-                      setShowInactive(false);
-                    }
-                  }}
+                  onClick={() => setShowAll((prev) => !prev)}
                 >
                   <span className="user-filter-chip__dot" aria-hidden>
                     {showAll ? (
@@ -1366,7 +1429,7 @@ export default function ProcessListPage() {
               <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                 <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
                   {companyButtons.map((c) => {
-                    const active = Number(c.id) === Number(pickerCompanyId);
+                    const active = Number(c.id) === Number(activeCompanyId);
                     return (
                       <button
                         key={c.id}
