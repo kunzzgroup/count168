@@ -1239,47 +1239,6 @@ body.process-page.process-page--bank:not(.process-page--bank-show-all) .process-
     display: contents;
 }
 
-/* 单页数据不足 pageSize 时：行均分剩余高度，消除表底大段空白 */
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table--fill-page {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table--fill-page .bank-virtual-table-inner {
-    grid-template-rows: auto minmax(0, 1fr);
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table--fill-page .bank-virtual-scroll-clip {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden !important;
-}
-
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table--fill-page .bank-virtual-scroll-shell {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    min-height: 0;
-}
-
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll.bank-process-fill-rows {
-    flex: 1 1 auto;
-    min-height: 0;
-    height: auto;
-    align-self: stretch;
-    grid-auto-rows: minmax(var(--bank-list-cell-min-height), 1fr);
-}
-
-body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll.bank-process-fill-rows .bank-virtual-data-row.process-card {
-    align-items: stretch;
-}
-
 .process-page.process-page--bank .bank-virtual-scroll.process-cards {
     grid-column: 1 / -1;
     grid-row: 1;
@@ -3427,6 +3386,61 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
     body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-ccy.bank-virtual-cell {
         padding-left: clamp(4px, 0.32vw, 6px) !important;
         padding-right: clamp(4px, 0.28vw, 6px) !important;
+    }
+
+    /* 非 Show All + auto 分页：保留一屏 flex 链与 subgrid（上方 flex:0 / overflow:visible 会破坏窄屏布局） */
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-body,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-process-list-scroll-region .process-table-wrapper.bank-process-table-region,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-table-inner {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        grid-template-rows: auto minmax(0, 1fr) !important;
+        overflow: hidden !important;
+    }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll-clip {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        display: grid !important;
+        grid-template-columns: subgrid !important;
+        grid-template-rows: auto !important;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
+    }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll.process-cards,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-scroll.process-cards {
+        display: grid !important;
+        grid-template-columns: subgrid !important;
+        grid-auto-rows: auto !important;
+    }
+
+    body.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-data-row.process-card,
+    body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-all) .bank-virtual-data-row.process-card {
+        display: grid !important;
+        grid-column: 1 / -1 !important;
+        grid-template-columns: subgrid !important;
     }
 }
 

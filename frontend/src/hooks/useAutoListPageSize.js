@@ -3,8 +3,8 @@ import { useLayoutEffect, useState } from "react";
 const DEFAULT_FALLBACK_ROW_HEIGHT = 30;
 const DEFAULT_FALLBACK_PAGE_SIZE = 15;
 const HEADER_MARGIN_TOP_PX = 12;
-const PAGINATION_RESERVE_PX = 56;
-const VIEWPORT_BOTTOM_GAP_PX = 12;
+const PAGINATION_RESERVE_PX = 44;
+const VIEWPORT_BOTTOM_GAP_PX = 6;
 const TABLE_TOP_MARGIN_PX = 0;
 const ABSOLUTE_ROW_HEIGHT_CAP = 52;
 const MIN_ROWS = 4;
@@ -28,13 +28,14 @@ function cellMinHeight(region) {
   return readCssPx(region, "--bank-list-cell-min-height", DEFAULT_FALLBACK_ROW_HEIGHT);
 }
 
+function dataRowEstimate(region) {
+  const est = readCssPx(region, "--bank-list-data-row-estimate", 0);
+  return est > 0 ? est : cellMinHeight(region);
+}
+
 function measureRowHeight(region, rowSelector) {
   const cellMin = cellMinHeight(region);
-
-  /** 拉伸行会把 DOM 撑满视口；只用 cell-min-height，不用 data-row-estimate（平板会偏大） */
-  if (region.querySelector(".bank-process-fill-rows")) {
-    return cellMin;
-  }
+  const rowEstimate = dataRowEstimate(region);
 
   const rows = region.querySelectorAll(rowSelector);
   if (rows.length > 0) {
@@ -50,11 +51,11 @@ function measureRowHeight(region, rowSelector) {
       }
     });
     if (count > 0) {
-      return Math.max(cellMin * 0.88, total / count);
+      return Math.max(cellMin * 0.88, rowEstimate * 0.92, total / count);
     }
   }
 
-  return cellMin;
+  return Math.max(cellMin, rowEstimate * 0.92);
 }
 
 /** 用视口剩余高度（表头下方 → 屏幕底），避免 flex 容器 clientHeight 跟内容一起缩 */
@@ -99,9 +100,9 @@ export function useAutoListPageSize({
       if (budget < cellMinHeight(el)) return;
 
       const rowH = Math.max(1, measureRowHeight(el, rowSelector));
-      let rows = Math.floor(budget / rowH);
+      let rows = Math.floor(budget / rowH + 0.4);
 
-      while (rows < maxRows && (rows + 1) * rowH <= budget + 1) {
+      while (rows < maxRows && (rows + 1) * rowH <= budget + rowH * 0.2) {
         rows += 1;
       }
 

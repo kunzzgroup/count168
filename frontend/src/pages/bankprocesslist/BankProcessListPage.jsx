@@ -232,7 +232,6 @@ export default function BankProcessListPage() {
     visibleRows,
     totalPages,
     pageRows,
-    fillPageRows,
     PAGE_SIZE,
     listRegionRef,
   } = useBankProcessListPage();
@@ -580,7 +579,6 @@ export default function BankProcessListPage() {
             showAll={showAll}
             showSelectColumn={showAll || showInactive || showOfficial || showEInvoice || showBlock || hasDeletableRows}
             pageRows={pageRows}
-            fillPageRows={fillPageRows}
             currentPage={currentPage}
             PAGE_SIZE={PAGE_SIZE}
             selectedIds={selectedIds}

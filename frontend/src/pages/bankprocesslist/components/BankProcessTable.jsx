@@ -70,7 +70,6 @@ export default function BankProcessTable({
   showAll,
   showSelectColumn,
   pageRows,
-  fillPageRows = false,
   currentPage,
   PAGE_SIZE,
   selectedIds,
@@ -204,9 +203,7 @@ export default function BankProcessTable({
     );
   };
 
-  const tableShellClass = `bank-virtual-table${showSelectColumn ? " bank-virtual-table--select-col" : ""}${
-    fillPageRows ? " bank-virtual-table--fill-page" : ""
-  }`;
+  const tableShellClass = `bank-virtual-table${showSelectColumn ? " bank-virtual-table--select-col" : ""}`;
   /** Last N visible rows: status menu opens upward to avoid pagination/footer overlap. */
   const STATUS_MENU_UP_LAST_ROWS = 3;
 
@@ -251,7 +248,7 @@ export default function BankProcessTable({
           </div>
           <div className="bank-virtual-scroll-clip">
             <div className="bank-virtual-scroll-shell">
-            <div className={`process-cards bank-mode bank-virtual-scroll${fillPageRows ? " bank-process-fill-rows" : ""}`}>
+            <div className="process-cards bank-mode bank-virtual-scroll">
             {tableLoading && pageRows.length === 0 && (
               <div className="process-card bank-virtual-data-row bank-virtual-data-row--message">
                 <div className="card-item bank-virtual-cell bank-virtual-cell--message">{t("loadData")}</div>

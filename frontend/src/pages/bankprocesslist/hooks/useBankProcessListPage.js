@@ -2258,7 +2258,7 @@ export function useBankProcessListPage() {
     enabled: !showAll,
     minRows: PAGE_SIZE_MIN,
     maxRows: PAGE_SIZE_MAX,
-    remeasureDeps: [visibleRows.length, tableLoading, lang, cssReady, currentPage],
+    remeasureDeps: [visibleRows.length, tableLoading, lang, cssReady, currentPage, currencyFilterCode],
   });
 
   const totalPages = useMemo(
@@ -2276,10 +2276,6 @@ export function useBankProcessListPage() {
     const p = Math.min(currentPage, totalPages);
     return visibleRows.slice((p - 1) * pageSize, p * pageSize);
   }, [visibleRows, showAll, currentPage, totalPages, pageSize]);
-
-  /** 仅「全部数据在一页」时拉伸行高；多页时末页不启用，避免破坏 subgrid */
-  const fillPageRows =
-    !showAll && totalPages === 1 && pageRows.length > 0 && pageRows.length < pageSize;
 
   return {
     navigate,
@@ -2491,7 +2487,6 @@ export function useBankProcessListPage() {
     visibleRows,
     totalPages,
     pageRows,
-    fillPageRows,
     pageSize,
     PAGE_SIZE: pageSize,
     listRegionRef,
