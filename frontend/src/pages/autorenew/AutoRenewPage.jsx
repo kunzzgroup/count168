@@ -41,6 +41,15 @@ import "../../../public/css/auto_renew.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/transaction.css";
 
+function TabPendingBadge({ count, label }) {
+  if (!count || count <= 0) return null;
+  return (
+    <span className="auto-renew-tab-pending-badge" aria-label={label}>
+      {count}
+    </span>
+  );
+}
+
 function FilterChip({ active, label, count, onClick }) {
   return (
     <button type="button" className={`user-filter-chip${active ? " is-selected" : ""}`} aria-pressed={active} onClick={onClick}>
@@ -128,6 +137,7 @@ export default function AutoRenewPage() {
   const [feeSettings, setFeeSettings] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
+  const [tabPendingCounts, setTabPendingCounts] = useState({ company: 0, group: 0 });
   const [canEditGlobal, setCanEditGlobal] = useState(false);
   const [entityTab, setEntityTab] = useState("company");
   const [statusFilter, setStatusFilter] = useState("pending");
@@ -162,6 +172,11 @@ export default function AutoRenewPage() {
     setFeeSettings(normalizeDomainFeeSettingsFromApi(data?.fee_settings));
     setAccounts(Array.isArray(data?.accounts) ? data.accounts : []);
     setCounts(data?.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
+    const tpc = data?.tab_pending_counts;
+    setTabPendingCounts({
+      company: Number(tpc?.company) || 0,
+      group: Number(tpc?.group) || 0,
+    });
     setCanEditGlobal(Boolean(data?.can_edit));
     setRowDrafts({});
   }, []);
@@ -473,7 +488,11 @@ export default function AutoRenewPage() {
                 className={`page-tab${entityTab === "company" ? " active" : ""}`}
                 onClick={() => setEntityTab("company")}
               >
-                {t("companyTab")}
+                <span className="page-tab__label">{t("companyTab")}</span>
+                <TabPendingBadge
+                  count={tabPendingCounts.company}
+                  label={t("tabPendingBadgeCompany", { count: tabPendingCounts.company })}
+                />
               </button>
               <button
                 type="button"
@@ -482,7 +501,11 @@ export default function AutoRenewPage() {
                 className={`page-tab${entityTab === "group" ? " active" : ""}`}
                 onClick={() => setEntityTab("group")}
               >
-                {t("groupTab")}
+                <span className="page-tab__label">{t("groupTab")}</span>
+                <TabPendingBadge
+                  count={tabPendingCounts.group}
+                  label={t("tabPendingBadgeGroup", { count: tabPendingCounts.group })}
+                />
               </button>
             </div>
           </div>

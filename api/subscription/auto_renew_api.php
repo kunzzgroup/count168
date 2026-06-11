@@ -78,6 +78,7 @@ try {
             'rows' => $result['rows'],
             'accounts' => $result['accounts'],
             'counts' => $result['counts'],
+            'tab_pending_counts' => $result['tab_pending_counts'] ?? ['company' => 0, 'group' => 0],
             'can_edit' => $canEdit,
             'fee_settings' => auto_renew_fee_settings_for_api($pdo),
         ]);

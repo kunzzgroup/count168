@@ -1019,11 +1019,13 @@ function auto_renew_sync_window_requests(PDO $pdo): void
     }
 }
 
-function auto_renew_count_pending(PDO $pdo): int
+/**
+ * @return array{company:int, group:int}
+ */
+function auto_renew_count_pending_by_entity(PDO $pdo): array
 {
     auto_renew_sync_window_requests($pdo);
     $windowDays = (int) AUTO_RENEW_WINDOW_DAYS;
-    $companyCnt = 0;
     $stmt = $pdo->query("
         SELECT COUNT(*)
         FROM company_auto_renew_request r
@@ -1036,21 +1038,32 @@ function auto_renew_count_pending(PDO $pdo): int
           AND DATEDIFF(c.expiration_date, CURDATE()) <= {$windowDays}
     ");
     $companyCnt = (int) ($stmt->fetchColumn() ?: 0);
+    $groupCnt = 0;
 
-    if (!auto_renew_has_groups_table($pdo)) {
-        return $companyCnt;
+    if (auto_renew_has_groups_table($pdo)) {
+        $groupStmt = $pdo->query("
+            SELECT COUNT(*)
+            FROM company_auto_renew_request r
+            INNER JOIN `groups` g ON g.id = r.group_id
+            WHERE r.entity_type = 'group'
+              AND r.status = 'pending'
+              AND r.expiration_snapshot = g.expiration_date
+              AND g.expiration_date IS NOT NULL
+              AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
+        ");
+        $groupCnt = (int) ($groupStmt->fetchColumn() ?: 0);
     }
-    $groupStmt = $pdo->query("
-        SELECT COUNT(*)
-        FROM company_auto_renew_request r
-        INNER JOIN `groups` g ON g.id = r.group_id
-        WHERE r.entity_type = 'group'
-          AND r.status = 'pending'
-          AND r.expiration_snapshot = g.expiration_date
-          AND g.expiration_date IS NOT NULL
-          AND DATEDIFF(g.expiration_date, CURDATE()) <= {$windowDays}
-    ");
-    return $companyCnt + (int) ($groupStmt->fetchColumn() ?: 0);
+
+    return [
+        'company' => $companyCnt,
+        'group' => $groupCnt,
+    ];
+}
+
+function auto_renew_count_pending(PDO $pdo): int
+{
+    $byEntity = auto_renew_count_pending_by_entity($pdo);
+    return $byEntity['company'] + $byEntity['group'];
 }
 
 /**
@@ -1775,6 +1788,8 @@ function auto_renew_list_approvals(
     $approvedHist = auto_renew_history_status_count($pdo, 'approved', $historyDays, $entityFilter);
     $rejectedHist = auto_renew_history_status_count($pdo, 'rejected', $historyDays, $entityFilter);
 
+    $tabPendingCounts = auto_renew_count_pending_by_entity($pdo);
+
     return [
         'rows' => $rows,
         'accounts' => $accounts,
@@ -1784,6 +1799,7 @@ function auto_renew_list_approvals(
             'rejected' => max((int) ($countsRow['rejected_cnt'] ?? 0), $rejectedHist),
             'total' => (int) ($countsRow['total_cnt'] ?? 0),
         ],
+        'tab_pending_counts' => $tabPendingCounts,
     ];
 }
 

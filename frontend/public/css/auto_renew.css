@@ -26,6 +26,9 @@ body.auto-renew-page-body .page-tabs {
 }
 
 body.auto-renew-page-body .page-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: clamp(4px, 0.4vw, 6px) clamp(12px, 1vw, 16px);
   font-size: clamp(12px, 0.85vw, 14px);
   font-weight: 700;
@@ -37,6 +40,32 @@ body.auto-renew-page-body .page-tab {
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+body.auto-renew-page-body .page-tab__label {
+  line-height: 1.2;
+}
+
+body.auto-renew-page-body .auto-renew-tab-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+body.auto-renew-page-body .page-tab.active .auto-renew-tab-pending-badge {
+  background: #f59e0b;
+  color: #fff;
 }
 
 body.auto-renew-page-body .page-tab:hover {
