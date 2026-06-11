@@ -1405,7 +1405,10 @@ export default function AccountListPage() {
         if (nextGroup) setSelectedGroup(nextGroup);
         setCompanyId(nextCompanyId);
         gcScopeRef.current = fetchScope;
-        applySwitchListPreview(fetchScope);
+        bootFetchedAccountsKeyRef.current = null;
+        if (!applySwitchListPreview(fetchScope)) {
+          setAccounts([]);
+        }
       });
 
       const url = new URL(window.location.href);
@@ -1678,6 +1681,10 @@ export default function AccountListPage() {
   }, [bootLoading, syncUrl]);
 
   useEffect(() => {
+    bootFetchedAccountsKeyRef.current = null;
+  }, [showInactive, showAll, searchTerm]);
+
+  useEffect(() => {
     if (!accountsListFetchScopeKey) return;
     const fetchKey = buildAccountsFetchKey(
       accountsListFetchScopeKey,
@@ -1692,6 +1699,10 @@ export default function AccountListPage() {
     if (bootFetchedAccountsKeyRef.current === fetchKey) {
       bootFetchedAccountsKeyRef.current = null;
       lastAccountsFetchKeyRef.current = fetchKey;
+      const bootCacheHit = applyAccountListCache(gcScopeRef.current);
+      if (!bootCacheHit) {
+        void fetchAccounts(gcScopeRef.current, { silent: true, trustRequestScope: true });
+      }
       return;
     }
     postBootEmptyRetryRef.current = false;
