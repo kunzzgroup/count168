@@ -6,7 +6,10 @@ const PORTAL_GAP = 2;
 const PROCESS_SEARCH_RESERVE = 52;
 const PORTAL_DROPDOWN_CAP = 300;
 
-function layoutProcessPortalDropdown(buttonEl, { searchReserve = PROCESS_SEARCH_RESERVE, minMenu = 160, dropdownCap = PORTAL_DROPDOWN_CAP }) {
+function layoutProcessPortalDropdown(
+  buttonEl,
+  { searchReserve = PROCESS_SEARCH_RESERVE, minMenu = 160, dropdownCap = PORTAL_DROPDOWN_CAP } = {},
+) {
   const rect = buttonEl.getBoundingClientRect();
   const width = rect.width;
   const spaceBelow = window.innerHeight - rect.bottom - PORTAL_EDGE_PAD;
