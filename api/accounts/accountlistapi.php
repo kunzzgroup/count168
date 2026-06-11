@@ -177,6 +177,26 @@ function accountListTableExists(PDO $pdo, string $table): bool
     }
 }
 
+/**
+ * 与 processlist 一致的状态筛选：
+ * - 默认 / 仅分页：active
+ * - showInactive：inactive（分页）
+ * - showAll：全部 active（不分页由前端控制）
+ * - showAll + showInactive：全部 inactive
+ */
+function appendAccountStatusSqlFilter(string &$sql, bool $showInactive, bool $showAll): void
+{
+    if ($showAll && $showInactive) {
+        $sql .= " AND a.status = 'inactive'";
+    } elseif ($showAll) {
+        $sql .= " AND a.status = 'active'";
+    } elseif ($showInactive) {
+        $sql .= " AND a.status = 'inactive'";
+    } else {
+        $sql .= " AND a.status = 'active'";
+    }
+}
+
 function fetchAccountsForGroupScope(
     PDO $pdo,
     int $groupScopePk,
@@ -251,13 +271,7 @@ function fetchAccountsForGroupScope(
         $params[] = $searchParam;
     }
 
-    if (!$showAll) {
-        if ($showInactive) {
-            $sql .= " AND a.status = 'inactive'";
-        } else {
-            $sql .= " AND a.status = 'active'";
-        }
-    }
+    appendAccountStatusSqlFilter($sql, $showInactive, $showAll);
 
     $sql .= ' ORDER BY a.account_id ASC, a.id ASC';
     $stmt = $pdo->prepare($sql);
@@ -392,13 +406,7 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
         $params[] = $searchParam;
     }
 
-    if ($showAll) {
-        // Show All: include both active and inactive (no status constraint)
-    } elseif ($showInactive) {
-        $sql .= " AND a.status = 'inactive'";
-    } else {
-        $sql .= " AND a.status = 'active'";
-    }
+    appendAccountStatusSqlFilter($sql, $showInactive, $showAll);
 
     $sql .= " ORDER BY a.account_id ASC, a.id ASC";
     $stmt = $pdo->prepare($sql);

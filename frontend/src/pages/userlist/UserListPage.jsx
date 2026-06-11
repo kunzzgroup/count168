@@ -58,6 +58,7 @@ import {
   PAGE_SIZE,
   PERMISSION_KEYS,
   applyUserFilters,
+  userRowVisibleAfterStatusChange,
   computeRowCapabilities,
   formatLastLogin,
   getAvailableRolesForCreation,
@@ -344,9 +345,12 @@ export default function UserListPage() {
     if (companyId) url.searchParams.set("company_id", String(companyId));
     else url.searchParams.delete("company_id");
     if (search.trim()) url.searchParams.set("search", search.trim()); else url.searchParams.delete("search");
-    if (showAll) url.searchParams.set("showAll", "1"); else url.searchParams.delete("showAll");
+    if (showInactive) url.searchParams.set("showInactive", "1");
+    else url.searchParams.delete("showInactive");
+    if (showAll) url.searchParams.set("showAll", "1");
+    else url.searchParams.delete("showAll");
     window.history.replaceState(null, "", url.pathname + url.search);
-  }, [companyId, search, showAll]);
+  }, [companyId, search, showInactive, showAll]);
 
   useEffect(() => { if (!bootLoading) syncUrl(); }, [bootLoading, syncUrl]);
 
@@ -382,6 +386,12 @@ export default function UserListPage() {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (showAll) document.body.classList.add("user-page--show-all");
+    else document.body.classList.remove("user-page--show-all");
+    return () => document.body.classList.remove("user-page--show-all");
+  }, [showAll]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -614,6 +624,7 @@ export default function UserListPage() {
         setCompanyId(groupOnlyBoot ? null : effectiveNum);
         setSelectedGroup(bootGroup);
         setSearch(String(url.searchParams.get("search") || ""));
+        setShowInactive(url.searchParams.get("showInactive") === "1");
         setShowAll(url.searchParams.get("showAll") === "1");
 
         const syncCompanyId =
@@ -1951,7 +1962,20 @@ export default function UserListPage() {
       const res = await fetch(buildApiUrl("api/users/toggle_status_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json(); const newStatus = json?.data?.newStatus || json?.newStatus;
       if (!json.success || !newStatus) { notifyApi(json.message, "toggleFailed", "danger"); return; }
-      setUsersRaw((prev) => prev.map((u) => (Number(u.id) === Number(row.id) ? { ...u, status: newStatus } : u))); notify(t("statusUpdated"), "success");
+      const shouldShow = userRowVisibleAfterStatusChange(newStatus, { showInactive, showAll });
+      if (!shouldShow) {
+        setUsersRaw((prev) => prev.filter((u) => Number(u.id) !== Number(row.id)));
+      } else {
+        setUsersRaw((prev) => prev.map((u) => (Number(u.id) === Number(row.id) ? { ...u, status: newStatus } : u)));
+      }
+      if (normRole(newStatus) === "active") {
+        setSelectedDeleteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(row.id);
+          return next;
+        });
+      }
+      notify(t("statusUpdated"), "success");
     } catch { notify(t("toggleFailed"), "danger"); }
   };
 
@@ -2196,18 +2220,12 @@ export default function UserListPage() {
                 <div className="userlist-filter-chips" role="group">
                   <button
                     type="button"
-                    className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
-                    aria-pressed={showInactive && !showAll}
-                    onClick={() => {
-                      if (showInactive && !showAll) setShowInactive(false);
-                      else {
-                        setShowInactive(true);
-                        setShowAll(false);
-                      }
-                    }}
+                    className={`user-filter-chip${showInactive ? " is-selected" : ""}`}
+                    aria-pressed={showInactive}
+                    onClick={() => setShowInactive((prev) => !prev)}
                   >
                     <span className="user-filter-chip__dot" aria-hidden>
-                      {showInactive && !showAll ? (
+                      {showInactive ? (
                         <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M6 12l4 4 8-8" />
                         </svg>
@@ -2219,13 +2237,7 @@ export default function UserListPage() {
                     type="button"
                     className={`user-filter-chip${showAll ? " is-selected" : ""}`}
                     aria-pressed={showAll}
-                    onClick={() => {
-                      if (showAll) setShowAll(false);
-                      else {
-                        setShowAll(true);
-                        setShowInactive(false);
-                      }
-                    }}
+                    onClick={() => setShowAll((prev) => !prev)}
                   >
                     <span className="user-filter-chip__dot" aria-hidden>
                       {showAll ? (

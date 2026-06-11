@@ -68,6 +68,11 @@ export function processListCacheHasRows(cached) {
   return Array.isArray(cached?.rows) && cached.rows.length > 0;
 }
 
+/** Cache entry exists (including confirmed-empty lists for the same filter key). */
+export function processListCacheHasEntry(cached) {
+  return cached != null && Array.isArray(cached.rows);
+}
+
 /**
  * Process list API scope: in ungrouped mode only independent companies (no group_id) may load rows.
  */
