@@ -35,8 +35,9 @@ import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAm
 import { getAccountText } from "../../../translateFile/pages/accountTranslate.js";
 import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessage } from "../../../translateFile/pages/bankProcessTranslate.js";
 // Helper imports
+import { useAutoListPageSize } from "../../../hooks/useAutoListPageSize.js";
 import {
-  PAGE_SIZE,
+  PAGE_SIZE_MAX,
   normalizeRows,
   isoToDmy,
   dmyToIso,
@@ -259,6 +260,7 @@ export function useBankProcessListPage() {
   const companySessionAbortRef = useRef(null);
   const rowsRef = useRef([]);
   const bankDatePickerInitRef = useRef(false);
+  const listRegionRef = useRef(null);
   const contractSyncKeysRef = useRef({ day_start: "", contract: "", frequency: "" });
 
   const seedContractSyncKeys = useCallback((f) => {
@@ -2250,12 +2252,29 @@ export function useBankProcessListPage() {
     currencyFilterCode,
   ]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE)), [visibleRows]);
+  const pageSize = useAutoListPageSize({
+    listRegionRef,
+    enabled: !showAll,
+    maxRows: PAGE_SIZE_MAX,
+    remeasureDeps: [visibleRows.length, tableLoading, lang, cssReady],
+  });
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(visibleRows.length / pageSize)),
+    [visibleRows.length, pageSize],
+  );
+
+  useEffect(() => {
+    if (showAll) return;
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [showAll, totalPages, pageSize]);
+
   const pageRows = useMemo(() => {
     if (showAll) return visibleRows;
     const p = Math.min(currentPage, totalPages);
-    return visibleRows.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
-  }, [visibleRows, showAll, currentPage, totalPages]);
+    return visibleRows.slice((p - 1) * pageSize, p * pageSize);
+  }, [visibleRows, showAll, currentPage, totalPages, pageSize]);
+
   return {
     navigate,
     location,
@@ -2466,7 +2485,9 @@ export function useBankProcessListPage() {
     visibleRows,
     totalPages,
     pageRows,
-    PAGE_SIZE,
+    pageSize,
+    PAGE_SIZE: pageSize,
+    listRegionRef,
     mutationsBlocked,
   };
 }

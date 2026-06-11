@@ -233,6 +233,7 @@ export default function BankProcessListPage() {
     totalPages,
     pageRows,
     PAGE_SIZE,
+    listRegionRef,
   } = useBankProcessListPage();
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
@@ -567,7 +568,12 @@ export default function BankProcessListPage() {
         </div>
 
         <div className="bank-process-list-body">
-        <div className="bank-process-list-scroll-region" role="region" aria-label={t("bankProcessList")}>
+        <div
+          ref={listRegionRef}
+          className="bank-process-list-scroll-region"
+          role="region"
+          aria-label={t("bankProcessList")}
+        >
           <BankProcessTable
             tableLoading={tableLoading}
             showAll={showAll}
