@@ -1572,7 +1572,31 @@ body.ec-auth-shell.process-page.process-page--bank:not(.process-page--bank-show-
 
 /* Bank Process List 顶栏：日期 / Search / filter chip / Delete·Add 同一行 */
 body.process-page.process-page--bank .action-buttons {
-    align-items: stretch;
+    align-items: center;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-add,
+body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-delete {
+    box-sizing: border-box;
+    height: 34px;
+    min-height: 34px;
+    padding-top: 0;
+    padding-bottom: 0;
+    align-self: center;
+    flex-shrink: 0;
+    margin: 0;
+}
+
+body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled,
+body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled:hover,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled:hover {
+    background: linear-gradient(180deg, #efb4b4 0%, #d66a6a 100%) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    transform: none !important;
+    opacity: 0.72;
+    cursor: not-allowed;
 }
 
 body.process-page.process-page--bank .action-buttons .bank-process-toolbar-main {
@@ -2196,6 +2220,99 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
         opacity: 1;
         transform: none;
         overflow: visible;
+    }
+
+    /* 窄屏：Add + Delete 成组在右侧，高度与日期/搜索/Filter 药丸一致 */
+    body.process-page.process-page--bank {
+        --bank-toolbar-control-height: clamp(36px, 2.6vw, 40px);
+        --bank-toolbar-calendar-min: 220px;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right {
+        gap: clamp(6px, 0.5vw, 10px);
+        margin-left: clamp(4px, 0.35vw, 8px);
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-add,
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-delete {
+        height: var(--bank-toolbar-control-height);
+        min-height: var(--bank-toolbar-control-height);
+        max-height: var(--bank-toolbar-control-height);
+        padding: 0 clamp(10px, 0.75vw, 14px);
+        font-size: clamp(11px, 0.72vw, 13px);
+        line-height: 1;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-add.bank-process-toolbar-add--compact {
+        position: relative;
+        width: var(--bank-toolbar-control-height);
+        min-width: var(--bank-toolbar-control-height);
+        max-width: var(--bank-toolbar-control-height);
+        padding: 0;
+        gap: 0;
+        justify-content: center;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-add.bank-process-toolbar-add--compact .bank-process-toolbar-add-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-add.bank-process-toolbar-add--compact .btn-add__icon {
+        width: clamp(14px, 1vw, 16px);
+        height: clamp(14px, 1vw, 16px);
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .btn-delete {
+        width: auto;
+        min-width: clamp(64px, 5vw, 84px);
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled,
+    body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled:hover,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled:hover {
+        background: linear-gradient(180deg, #efb4b4 0%, #d66a6a 100%) !important;
+        color: #ffffff !important;
+        box-shadow: none !important;
+        transform: none !important;
+        opacity: 0.72;
+        cursor: not-allowed;
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker {
+        min-height: var(--bank-toolbar-control-height);
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker i.fa-calendar-alt,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+        width: var(--bank-toolbar-control-height);
+        min-width: var(--bank-toolbar-control-height);
+        height: var(--bank-toolbar-control-height);
+        min-height: var(--bank-toolbar-control-height);
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-collapsed,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-collapsed,
+    body.process-page.process-page--bank .bank-process-filter-toggle,
+    body.process-page.process-page--bank .bank-process-filter-toggle.bank-process-filter-toggle--icon-only {
+        width: var(--bank-toolbar-control-height);
+        min-width: var(--bank-toolbar-control-height);
+        height: var(--bank-toolbar-control-height);
+        min-height: var(--bank-toolbar-control-height);
+    }
+
+    body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-expanded,
+    body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar.is-expanded {
+        min-height: var(--bank-toolbar-control-height) !important;
     }
 }
 
