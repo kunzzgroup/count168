@@ -1,7 +1,7 @@
 import React from "react";
 import AccountEditorRow from "../../shared/components/AccountEditorRow.jsx";
 import PartnerLinkSection from "./PartnerLinkSection.jsx";
-import { ownershipRowClientId } from "../../shared/ownershipRowHelpers.js";
+import { ownershipRowClientId, maxAllowedOwnershipPct } from "../../shared/ownershipRowHelpers.js";
 
 export default function CompanyCard({
   comp,
@@ -201,6 +201,7 @@ export default function CompanyCard({
                     idx={idx}
                     row={row}
                     accounts={st.accounts}
+                    maxPercentage={maxAllowedOwnershipPct(st.rows, idx)}
                     dragContextRef={dragRef}
                     onUpdate={(i, f, v) => onUpdateRow(id, i, f, v)}
                     onRemove={(i) => onRemoveRow(id, i)}

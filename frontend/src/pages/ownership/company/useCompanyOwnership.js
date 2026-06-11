@@ -204,7 +204,7 @@ export function useCompanyOwnership(shell) {
       const st = prev[cid];
       if (!st) return prev;
       const rows = [...st.rows];
-      rows[idx] = applyOwnershipRowFieldUpdate(rows[idx], field, val, st.accounts);
+      rows[idx] = applyOwnershipRowFieldUpdate(rows[idx], field, val, st.accounts, rows, idx);
       return { ...prev, [cid]: { ...st, rows } };
     });
   }, []);

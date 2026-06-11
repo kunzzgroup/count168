@@ -22,6 +22,7 @@ export default function AccountEditorRow({
   idx,
   row,
   accounts,
+  maxPercentage = 100,
   onUpdate,
   onRemove,
   onDragStart,
@@ -36,6 +37,7 @@ export default function AccountEditorRow({
   const rowRef = useRef(null);
   const [dragEnabled, setDragEnabled] = useState(false);
   const rowClientId = ownershipRowClientId(row, idx);
+  const pctMax = Math.max(0, Math.min(100, Number(maxPercentage) || 0));
   const storedPct = normalizePct(row.percentage);
   const [displayPct, setDisplayPct] = useState(storedPct);
   const [inputValue, setInputValue] = useState(() => `${storedPct}%`);
@@ -62,11 +64,14 @@ export default function AccountEditorRow({
   const showRo = isPartnership || row.is_external_partner;
 
   const commitSliderPct = (raw) => {
-    const next = normalizePct(raw);
+    const next = Math.min(normalizePct(raw), pctMax);
     setDisplayPct(next);
     setInputValue(`${next}%`);
     onUpdate(idx, "slider", next);
   };
+
+  const sliderDisabled =
+    readOnlyMode || row.is_external_partner || (pctMax <= 0 && storedPct <= 0);
 
   const clearDragStyles = () => {
     const el = rowRef.current;
@@ -166,17 +171,17 @@ export default function AccountEditorRow({
           className="own-percent-input"
           id={`input-${companyId}-${rowClientId}`}
           value={inputValue}
-          disabled={readOnlyMode || row.is_external_partner}
+          disabled={readOnlyMode || row.is_external_partner || (pctMax <= 0 && storedPct <= 0)}
           onFocus={() => {
             isEditingPctRef.current = true;
           }}
           onChange={(e) => setInputValue(e.target.value)}
           onBlur={(e) => {
             isEditingPctRef.current = false;
-            const next = normalizePct(e.target.value);
+            const next = Math.min(normalizePct(e.target.value), pctMax);
             setDisplayPct(next);
             setInputValue(`${next}%`);
-            onUpdate(idx, "percent_input", e.target.value);
+            onUpdate(idx, "percent_input", next);
           }}
         />
         <div className="own-slider-container">
@@ -189,7 +194,7 @@ export default function AccountEditorRow({
             max={100}
             step={1}
             value={displayPct}
-            disabled={readOnlyMode || row.is_external_partner}
+            disabled={sliderDisabled}
             onPointerDown={() => {
               isEditingPctRef.current = true;
             }}

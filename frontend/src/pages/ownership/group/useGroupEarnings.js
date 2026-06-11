@@ -175,7 +175,7 @@ export function useGroupEarnings(shell) {
       const st = prev[gid];
       if (!st) return prev;
       const rows = [...st.rows];
-      rows[idx] = applyOwnershipRowFieldUpdate(rows[idx], field, val, st.accounts);
+      rows[idx] = applyOwnershipRowFieldUpdate(rows[idx], field, val, st.accounts, rows, idx);
       return { ...prev, [gid]: { ...st, rows } };
     });
   }, []);
