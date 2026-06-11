@@ -13,8 +13,6 @@ import AddProcessIcon from "../processlist/components/AddProcessIcon.jsx";
 import BankProcessTable from "./components/BankProcessTable.jsx";
 import BankProcessFilterChips from "./components/BankProcessFilterChips.jsx";
 import BankProcessFormModal from "./components/BankProcessFormModal.jsx";
-
-const BANK_TOOLBAR_NARROW_MQ = "(max-width: 1899px)";
 import CountrySelectionModal from "./components/CountrySelectionModal.jsx";
 import BankSelectionModal from "./components/BankSelectionModal.jsx";
 import ProfitSharingModal from "./components/ProfitSharingModal.jsx";
@@ -239,13 +237,11 @@ export default function BankProcessListPage() {
   } = useBankProcessListPage();
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [gcPanelOpen, setGcPanelOpen] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [isNarrowToolbar, setIsNarrowToolbar] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(BANK_TOOLBAR_NARROW_MQ).matches,
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 1699px)").matches,
   );
   const filterToolbarRef = useRef(null);
-  const gcPanelRef = useRef(null);
   const searchBarRef = useRef(null);
   const searchInputRef = useRef(null);
   const hasActiveFilters = showInactive || showAll || showOfficial || showEInvoice || showBlock;
@@ -257,13 +253,12 @@ export default function BankProcessListPage() {
   );
 
   useEffect(() => {
-    const mq = window.matchMedia(BANK_TOOLBAR_NARROW_MQ);
+    const mq = window.matchMedia("(max-width: 1699px)");
     const onChange = () => {
       setIsNarrowToolbar(mq.matches);
       if (!mq.matches) {
         setSearchExpanded(false);
         setFilterPanelOpen(false);
-        setGcPanelOpen(false);
       }
     };
     onChange();
@@ -293,32 +288,6 @@ export default function BankProcessListPage() {
       document.removeEventListener("keydown", onKey);
     };
   }, [filterPanelOpen, isNarrowToolbar]);
-
-  useEffect(() => {
-    if (!gcPanelOpen || !isNarrowToolbar) return undefined;
-    const onDoc = (e) => {
-      if (gcPanelRef.current?.contains(e.target)) return;
-      setGcPanelOpen(false);
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") setGcPanelOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [gcPanelOpen, isNarrowToolbar]);
-
-  const gcToolbarSummary = useMemo(() => {
-    const parts = [];
-    if (selectedGroupKey) parts.push(selectedGroupKey);
-    const activeCo = companyButtons.find((c) => Number(c.id) === Number(companyId));
-    if (activeCo) parts.push(String(activeCo.company_id || "").toUpperCase());
-    parts.push(currencyFilterCode || t("groupFilterAll"));
-    return parts.join(" · ");
-  }, [selectedGroupKey, companyButtons, companyId, currencyFilterCode, t]);
 
   const handleFilterToggleClick = (e) => {
     if (e.detail > 1) return;
@@ -526,115 +495,88 @@ export default function BankProcessListPage() {
               </div>
             </div>
           </div>
-          <div
-            ref={gcPanelRef}
-            className={[
-              "user-gc-inline-panel",
-              isNarrowToolbar ? "bank-process-gc-panel--collapsible" : "",
-              isNarrowToolbar && gcPanelOpen ? "is-open" : "",
-            ].filter(Boolean).join(" ")}
-          >
-            {isNarrowToolbar ? (
-              <button
-                type="button"
-                className={["bank-process-gc-toggle", gcPanelOpen ? "is-open" : ""].filter(Boolean).join(" ")}
-                aria-expanded={gcPanelOpen}
-                aria-label={t("groupId")}
-                title={gcToolbarSummary}
-                onClick={() => setGcPanelOpen((open) => !open)}
-              >
-                <span className="bank-process-gc-toggle__icon" aria-hidden="true">
-                  <svg fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M4.25 6h15.5c.41 0 .64.47.4.8L14 13.2v5.3a.75.75 0 0 1-1.1.67l-2.9-1.45a.75.75 0 0 1-.4-.67v-4.3L3.85 6.8a.75.75 0 0 1 .4-1.2z" />
-                  </svg>
-                </span>
-                <span className="bank-process-gc-toggle__summary">{gcToolbarSummary}</span>
-                <i className="fas fa-chevron-down bank-process-gc-toggle__caret" aria-hidden="true" />
-              </button>
-            ) : null}
-            <div className={isNarrowToolbar ? "bank-process-gc-dropdown" : "bank-process-gc-dropdown bank-process-gc-dropdown--passthrough"}>
-              {groupIds.length > 0 && (
-                <div className="user-gc-inline-row">
-                  <span className="user-gc-inline-label">{t("groupId")}</span>
-                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                    <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
-                      {groupIds.map((g) => (
-                        <button
-                          key={g}
-                          type="button"
-                          className={`user-gc-segment${groupFilterKind === "follow" && g === selectedGroupKey ? " is-on" : ""}`}
-                          onClick={() => handlePickGroup(g)}
-                        >
-                          {g}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+          <div className="user-gc-inline-panel">
+            {groupIds.length > 0 && (
               <div className="user-gc-inline-row">
-                <span className="user-gc-inline-label">{t("company")}</span>
+                <span className="user-gc-inline-label">{t("groupId")}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                  <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
-                    {companyButtons.map((c) => {
-                      const active = Number(c.id) === Number(companyId);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className={`user-gc-segment${active ? " is-on" : ""}`}
-                          onMouseEnter={() => warmBankProcessListCompanyCache(c.id)}
-                          onFocus={() => warmBankProcessListCompanyCache(c.id)}
-                          onClick={() => onPickCompanyPill(c)}
-                        >
-                          {String(c.company_id || "").toUpperCase()}
-                        </button>
-                      );
-                    })}
+                  <div className="user-gc-segment-group" role="group" aria-label={t("groupId")}>
+                    {groupIds.map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        className={`user-gc-segment${groupFilterKind === "follow" && g === selectedGroupKey ? " is-on" : ""}`}
+                        onClick={() => handlePickGroup(g)}
+                      >
+                        {g}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
-              {currencyListOrdered.length > 0 && (
-                <div className="user-gc-inline-row">
-                  <span className="user-gc-inline-label">{t("currency")}</span>
-                  <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
-                    <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
+            )}
+            <div className="user-gc-inline-row">
+              <span className="user-gc-inline-label">{t("company")}</span>
+              <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
+                  {companyButtons.map((c) => {
+                    const active = Number(c.id) === Number(companyId);
+                    return (
                       <button
+                        key={c.id}
                         type="button"
-                        className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
-                        onClick={handlePickAllCurrencies}
+                        className={`user-gc-segment${active ? " is-on" : ""}`}
+                        onMouseEnter={() => warmBankProcessListCompanyCache(c.id)}
+                        onFocus={() => warmBankProcessListCompanyCache(c.id)}
+                        onClick={() => onPickCompanyPill(c)}
                       >
-                        {t("groupFilterAll")}
+                        {String(c.company_id || "").toUpperCase()}
                       </button>
-                      {currencyPillCodes.map((code) => (
-                        <button
-                          key={code}
-                          type="button"
-                          draggable
-                          title={t("currencyDragHint")}
-                          className={`user-gc-segment user-gc-segment--draggable-pill${currencyFilterCode === code ? " is-on" : ""}`}
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", code);
-                            e.dataTransfer.effectAllowed = "move";
-                          }}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => { void onCurrencyPillDrop(e, code); }}
-                          onClick={() => {
-                            if (skipNextCurrencyPillClickRef.current) {
-                              skipNextCurrencyPillClickRef.current = false;
-                              return;
-                            }
-                            handlePickCurrency(code);
-                          }}
-                        >
-                          {code}
-                        </button>
-                      ))}
-                    </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            {currencyListOrdered.length > 0 && (
+              <div className="user-gc-inline-row">
+                <span className="user-gc-inline-label">{t("currency")}</span>
+                <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
+                  <div className="user-gc-segment-group" role="group" aria-label={t("currency")}>
+                    <button
+                      type="button"
+                      className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
+                      onClick={handlePickAllCurrencies}
+                    >
+                      {t("groupFilterAll")}
+                    </button>
+                    {currencyPillCodes.map((code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        draggable
+                        title={t("currencyDragHint")}
+                        className={`user-gc-segment user-gc-segment--draggable-pill${currencyFilterCode === code ? " is-on" : ""}`}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", code);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => { void onCurrencyPillDrop(e, code); }}
+                        onClick={() => {
+                          if (skipNextCurrencyPillClickRef.current) {
+                            skipNextCurrencyPillClickRef.current = false;
+                            return;
+                          }
+                          handlePickCurrency(code);
+                        }}
+                      >
+                        {code}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
