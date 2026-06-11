@@ -316,10 +316,38 @@ body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-t
     minmax(88px, 0.82fr);
 }
 
-body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner.auto-renew-table-inner {
+  overflow: visible;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .user-list-table.auto-renew-table {
+  --auto-renew-table-min-width: 1100px;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll__track {
+  min-width: var(--auto-renew-table-min-width);
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll .auto-renew-table-hscroll__track {
+  transition: opacity 0.15s ease;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll.is-refreshing .auto-renew-table-hscroll__track {
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll .table-header.user-list-table-header.auto-renew-table-header {
+  overflow: hidden;
+  transform: translateZ(0);
 }
 
 /* Header / row share same horizontal inset so grid columns line up */
@@ -852,7 +880,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
     padding: 10px 14px;
   }
 
-  body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+  body.auto-renew-page-body .auto-renew-table-hscroll__track {
     min-width: max(100%, 1120px);
   }
 
@@ -997,10 +1025,8 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
     padding-bottom: clamp(20px, 3vw, 36px);
   }
 
-  body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+  body.auto-renew-page-body .auto-renew-table-hscroll__track {
     min-width: max(100%, 1000px);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,

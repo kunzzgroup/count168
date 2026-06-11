@@ -16,7 +16,11 @@ import {
   invalidateTransactionListCache,
   rejectAutoRenew,
 } from "./autoRenewLogic.js";
-import { consumeAutoRenewPrefetch } from "./autoRenewRoutePrefetch.js";
+import {
+  consumeAutoRenewPrefetch,
+  peekAutoRenewListCache,
+  rememberAutoRenewListCache,
+} from "./autoRenewRoutePrefetch.js";
 import {
   useAutoRenewDateRange,
   useAutoRenewDateRangeState,
@@ -96,6 +100,18 @@ function EmptyState({ statusFilter, searchTerm, t }) {
   );
 }
 
+const EMPTY_COUNTS = { pending: 0, approved: 0, rejected: 0, total: 0 };
+
+function normalizeEntityListSnapshot(data) {
+  return {
+    rows: Array.isArray(data?.rows) ? data.rows : [],
+    feeSettings: normalizeDomainFeeSettingsFromApi(data?.fee_settings),
+    accounts: Array.isArray(data?.accounts) ? data.accounts : [],
+    counts: data?.counts || EMPTY_COUNTS,
+    canEditGlobal: Boolean(data?.can_edit),
+  };
+}
+
 function AccountSelect({ value, accounts, placeholder, disabled, onChange }) {
   return (
     <select
@@ -124,6 +140,8 @@ export default function AutoRenewPage() {
   const [loadError, setLoadError] = useState("");
   const bootFetchedListKeyRef = useRef(null);
   const listFetchAbortRef = useRef(null);
+  const entityTabRef = useRef("company");
+  const [listRefreshing, setListRefreshing] = useState(false);
   const { dateFrom, setDateFrom, dateTo, setDateTo } = useAutoRenewDateRangeState();
   const { periodPresets } = useAutoRenewDateRange({
     me,
@@ -134,12 +152,8 @@ export default function AutoRenewPage() {
     setDateFrom,
     setDateTo,
   });
-  const [rows, setRows] = useState([]);
-  const [feeSettings, setFeeSettings] = useState(null);
-  const [accounts, setAccounts] = useState([]);
-  const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
+  const [entitySnapshots, setEntitySnapshots] = useState({ company: null, group: null });
   const [tabPendingCounts, setTabPendingCounts] = useState({ company: 0, group: 0 });
-  const [canEditGlobal, setCanEditGlobal] = useState(false);
   const [entityTab, setEntityTab] = useState("company");
   const [statusFilter, setStatusFilter] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
@@ -182,19 +196,48 @@ export default function AutoRenewPage() {
     return () => document.body.classList.remove("user-page--show-all");
   }, [showAll]);
 
-  const applyListData = useCallback((data) => {
-    setRows(Array.isArray(data?.rows) ? data.rows : []);
-    setFeeSettings(normalizeDomainFeeSettingsFromApi(data?.fee_settings));
-    setAccounts(Array.isArray(data?.accounts) ? data.accounts : []);
-    setCounts(data?.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
+  const applyTabPendingCounts = useCallback((data) => {
     const tpc = data?.tab_pending_counts;
+    if (!tpc) return;
     setTabPendingCounts({
       company: Number(tpc?.company) || 0,
       group: Number(tpc?.group) || 0,
     });
-    setCanEditGlobal(Boolean(data?.can_edit));
-    setRowDrafts({});
   }, []);
+
+  const storeEntityListData = useCallback(
+    (entity, data, { resetDrafts = false } = {}) => {
+      setEntitySnapshots((prev) => ({ ...prev, [entity]: normalizeEntityListSnapshot(data) }));
+      applyTabPendingCounts(data);
+      rememberAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: entity }, data);
+      if (resetDrafts && entityTabRef.current === entity) setRowDrafts({});
+    },
+    [applyTabPendingCounts, dateFrom, dateTo, statusFilter],
+  );
+
+  entityTabRef.current = entityTab;
+
+  const activeSnapshot = entitySnapshots[entityTab];
+  const rows = activeSnapshot?.rows ?? [];
+  const feeSettings = activeSnapshot?.feeSettings ?? null;
+  const accounts = activeSnapshot?.accounts ?? [];
+  const counts = activeSnapshot?.counts ?? EMPTY_COUNTS;
+  const canEditGlobal = Boolean(activeSnapshot?.canEditGlobal);
+
+  const handleEntityTabChange = useCallback(
+    (tab) => {
+      if (tab === entityTab) return;
+      const memorySnapshot = entitySnapshots[tab];
+      const cached = memorySnapshot || peekAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: tab });
+      if (cached && !memorySnapshot) {
+        storeEntityListData(tab, cached);
+      }
+      setListRefreshing(!cached);
+      setEntityTab(tab);
+      setRowDrafts({});
+    },
+    [dateFrom, dateTo, entitySnapshots, entityTab, statusFilter, storeEntityListData],
+  );
 
   const listFetchKey = useCallback(
     (status, range, entity) => `${entity}|${status}|${range?.dateFrom || ""}|${range?.dateTo || ""}`,
@@ -205,21 +248,25 @@ export default function AutoRenewPage() {
     listFetchAbortRef.current?.abort();
     const ac = new AbortController();
     listFetchAbortRef.current = ac;
+    const requestEntity = entityTabRef.current;
 
     try {
       const data = await fetchAutoRenewApprovals(statusFilter, {
         dateFrom,
         dateTo,
-        entityType: entityTab,
+        entityType: requestEntity,
         signal: ac.signal,
       });
       if (ac.signal.aborted) return;
-      applyListData(data);
+      storeEntityListData(requestEntity, data, { resetDrafts: true });
+      if (entityTabRef.current !== requestEntity) return;
+      setListRefreshing(false);
     } catch (err) {
       if (ac.signal.aborted || err?.name === "AbortError") return;
+      if (entityTabRef.current === requestEntity) setListRefreshing(false);
       notify(t("loadFailed", { message: err.message }), "error");
     }
-  }, [applyListData, dateFrom, dateTo, entityTab, notify, statusFilter, t]);
+  }, [dateFrom, dateTo, notify, statusFilter, storeEntityListData, t]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -243,7 +290,7 @@ export default function AutoRenewPage() {
             entityType: entityTab,
           }));
         if (cancelled) return;
-        applyListData(data);
+        storeEntityListData(entityTab, data, { resetDrafts: true });
         bootFetchedListKeyRef.current = listFetchKey(statusFilter, { dateFrom, dateTo }, entityTab);
       } catch (err) {
         if (cancelled) return;
@@ -256,7 +303,12 @@ export default function AutoRenewPage() {
     return () => {
       cancelled = true;
     };
-  }, [me, navigate, sessionReady, applyListData]);
+  }, [me, navigate, sessionReady, storeEntityListData]);
+
+  useEffect(() => {
+    setEntitySnapshots({ company: null, group: null });
+    setRowDrafts({});
+  }, [dateFrom, dateTo, statusFilter]);
 
   useEffect(() => {
     if (bootLoading || !sessionReady || !me) return;
@@ -267,6 +319,29 @@ export default function AutoRenewPage() {
     }
     void fetchList();
   }, [bootLoading, dateFrom, dateTo, entityTab, fetchList, listFetchKey, me, sessionReady, statusFilter]);
+
+  useEffect(() => {
+    if (bootLoading || !sessionReady || !me) return;
+
+    let cancelled = false;
+    const prefetchEntity = (entity) => {
+      if (peekAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: entity })) {
+        return Promise.resolve();
+      }
+      return fetchAutoRenewApprovals(statusFilter, { dateFrom, dateTo, entityType: entity })
+        .then((data) => {
+          if (cancelled) return;
+          storeEntityListData(entity, data);
+        })
+        .catch(() => {});
+    };
+
+    void Promise.all([prefetchEntity("company"), prefetchEntity("group")]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, dateFrom, dateTo, me, sessionReady, statusFilter, storeEntityListData]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
@@ -506,7 +581,7 @@ export default function AutoRenewPage() {
                 role="tab"
                 aria-selected={entityTab === "company"}
                 className={`page-tab${entityTab === "company" ? " active" : ""}${tabPendingCounts.company > 0 ? " has-pending-badge" : ""}`}
-                onClick={() => setEntityTab("company")}
+                onClick={() => handleEntityTabChange("company")}
               >
                 <span className="page-tab__label">{t("companyTab")}</span>
                 <TabPendingBadge
@@ -519,7 +594,7 @@ export default function AutoRenewPage() {
                 role="tab"
                 aria-selected={entityTab === "group"}
                 className={`page-tab${entityTab === "group" ? " active" : ""}${tabPendingCounts.group > 0 ? " has-pending-badge" : ""}`}
-                onClick={() => setEntityTab("group")}
+                onClick={() => handleEntityTabChange("group")}
               >
                 <span className="page-tab__label">{t("groupTab")}</span>
                 <TabPendingBadge
@@ -602,7 +677,9 @@ export default function AutoRenewPage() {
           <div
             className={`user-table-wrapper user-list-table auto-renew-table${showSubmitterColumn ? " auto-renew-table--with-submitter" : ""}`}
           >
-            <div className="user-list-table-inner">
+            <div className="user-list-table-inner auto-renew-table-inner">
+              <div className={`auto-renew-table-hscroll${listRefreshing ? " is-refreshing" : ""}`}>
+                <div className="auto-renew-table-hscroll__track">
               <div className="table-header user-list-table-header auto-renew-table-header">
                 {renderHeader("no", t("colNo"))}
                 {renderHeader("company", tenantColumnLabel)}
@@ -617,7 +694,7 @@ export default function AutoRenewPage() {
                 {showSubmitterColumn ? renderHeader("submitter", t("colSubmitter")) : null}
               </div>
 
-              <div className="user-cards auto-renew-cards" aria-busy={Boolean(busyRequestId)}>
+              <div className="user-cards auto-renew-cards" aria-busy={listRefreshing || Boolean(busyRequestId)}>
                 {displayRows.length === 0 ? (
                   <EmptyState statusFilter={statusFilter} searchTerm={searchTerm} t={t} />
                 ) : (
@@ -705,6 +782,8 @@ export default function AutoRenewPage() {
                     );
                   })
                 )}
+              </div>
+                </div>
               </div>
             </div>
           </div>
