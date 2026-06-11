@@ -1004,29 +1004,93 @@ function dashboardCompanyNetProfitDailyFromPayload(array $dailyData): array
     return $out;
 }
 
+/** @return array{user_id:int, owner_type:string} */
+function dashboardResolveViewerOwnerType(): array
+{
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    $userType = (string) ($_SESSION['user_type'] ?? '');
+    $ownerTypeStr = 'account';
+    if ($userType === 'owner') {
+        $ownerTypeStr = 'owner';
+    } elseif ($userType === 'user') {
+        $ownerTypeStr = 'user';
+    }
+
+    return ['user_id' => $userId, 'owner_type' => $ownerTypeStr];
+}
+
+/** Current viewer's allocation % in a group ledger (group_ownership). */
+function dashboardLoadViewerGroupAccountPercentage(PDO $pdo, string $groupLedgerCode): array
+{
+    $out = ['percentage' => 0.0, 'has' => false];
+    $g = reportNormalizeGroupId($groupLedgerCode);
+    if ($g === '') {
+        return $out;
+    }
+    try {
+        if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() < 1) {
+            return $out;
+        }
+    } catch (Throwable $e) {
+        return $out;
+    }
+
+    $viewer = dashboardResolveViewerOwnerType();
+    if ($viewer['user_id'] <= 0) {
+        return $out;
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT percentage FROM group_ownership
+        WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?))
+          AND account_id = ?
+          AND owner_type = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$g, $viewer['user_id'], $viewer['owner_type']]);
+    $pct = $stmt->fetchColumn();
+    if ($pct !== false) {
+        $out['percentage'] = (float) $pct;
+        $out['has'] = true;
+    }
+
+    return $out;
+}
+
+/** Group ledger period net profit (profit role + signed expenses), before subsidiary merge. */
+function dashboardGroupPeriodNetProfitFromSummary(array $groupResult): string
+{
+    $profit = (string) ($groupResult['profit']['period_total'] ?? '0');
+    $expenses = (string) ($groupResult['expenses']['period_total'] ?? '0');
+    $expSigned = money_cmp($expenses, '0') > 0 ? dashboardMoneySub('0', $expenses) : $expenses;
+
+    return dashboardMoneyAdd($profit, $expSigned);
+}
+
 /**
- * Add subsidiary net-profit × ownership% into group profit (PROFIT role ledger flow unchanged).
+ * Sum subsidiary net-profit × company equity % to the group.
  *
- * @param array<string, mixed> $groupResult
+ * @return array{period_total:string, daily:array<string,string>, has_equity:bool}
  */
-function dashboardMergeGroupOwnershipProfitShare(
+function dashboardComputeSubsidiaryEarningsTotal(
     PDO $pdo,
-    array &$groupResult,
     string $groupLedgerCode,
     string $dateFromDisplay,
     string $dateToDisplay,
     ?string $filterCurrencyCode,
     bool $kpiOnly
-): bool {
-    if (empty($groupResult['profit'])) {
-        return false;
-    }
+): array {
+    $empty = [
+        'period_total' => dashboardMoneyZero(),
+        'daily' => [],
+        'has_equity' => false,
+    ];
 
     require_once __DIR__ . '/../includes/ownership_history.php';
 
     $companyIds = dashboardListGroupSubsidiaryCompanyIds($pdo, $groupLedgerCode);
     if ($companyIds === []) {
-        return false;
+        return $empty;
     }
 
     $monthKey = date('Y-m', strtotime($dateToDisplay));
@@ -1041,7 +1105,7 @@ function dashboardMergeGroupOwnershipProfitShare(
         $useHistory
     );
     if ($equityMap === []) {
-        return false;
+        return $empty;
     }
 
     $periodShareTotal = dashboardMoneyZero();
@@ -1087,6 +1151,48 @@ function dashboardMergeGroupOwnershipProfitShare(
         }
     } finally {
         dashboard_api_end_bootstrap_batch();
+    }
+
+    return [
+        'period_total' => $periodShareTotal,
+        'daily' => $dailyShare,
+        'has_equity' => money_cmp($periodShareTotal, '0') !== 0 || $dailyShare !== [],
+    ];
+}
+
+/**
+ * Add subsidiary net-profit × ownership% into group profit (PROFIT role ledger flow unchanged).
+ *
+ * @param array<string, mixed> $groupResult
+ * @param array{period_total:string,daily:array<string,string>,has_equity:bool}|null $precomputed
+ */
+function dashboardMergeGroupOwnershipProfitShare(
+    PDO $pdo,
+    array &$groupResult,
+    string $groupLedgerCode,
+    string $dateFromDisplay,
+    string $dateToDisplay,
+    ?string $filterCurrencyCode,
+    bool $kpiOnly,
+    ?array $precomputed = null
+): bool {
+    if (empty($groupResult['profit'])) {
+        return false;
+    }
+
+    $computed = $precomputed ?? dashboardComputeSubsidiaryEarningsTotal(
+        $pdo,
+        $groupLedgerCode,
+        $dateFromDisplay,
+        $dateToDisplay,
+        $filterCurrencyCode,
+        $kpiOnly
+    );
+    $periodShareTotal = $computed['period_total'];
+    $dailyShare = $computed['daily'];
+
+    if (!$computed['has_equity']) {
+        return false;
     }
 
     if (money_cmp(money_abs($periodShareTotal), '0.0000001') <= 0 && $dailyShare === []) {
@@ -2831,6 +2937,16 @@ try {
             $groupScopeId,
             $filter_currency_code
         );
+        $groupLedgerNetProfit = dashboardGroupPeriodNetProfitFromSummary($groupResult);
+        $subsidiaryEarnings = dashboardComputeSubsidiaryEarningsTotal(
+            $pdo,
+            $groupLedgerCode,
+            (string) $date_from,
+            (string) $date_to,
+            $filter_currency_code,
+            $kpiOnly
+        );
+        $viewerGroupShare = dashboardLoadViewerGroupAccountPercentage($pdo, $groupLedgerCode);
         $hasGroupOwnershipProfit = dashboardMergeGroupOwnershipProfitShare(
             $pdo,
             $groupResult,
@@ -2838,8 +2954,11 @@ try {
             (string) $date_from,
             (string) $date_to,
             $filter_currency_code,
-            $kpiOnly
+            $kpiOnly,
+            $subsidiaryEarnings
         );
+        $groupAccountPct = (float) ($viewerGroupShare['percentage'] ?? 0);
+        $hasGroupAccountOwnership = !empty($viewerGroupShare['has']);
         echo json_encode([
             'success' => true,
             'data' => [
@@ -2847,10 +2966,14 @@ try {
                 'expenses' => $groupResult['expenses']['period_total'],
                 'profit' => $groupResult['profit']['total_balance'],
                 'ownership_percentage' => 0,
-                'has_ownership_setup' => $hasGroupOwnershipProfit,
+                'has_ownership_setup' => $hasGroupOwnershipProfit || $hasGroupAccountOwnership
+                    || money_cmp($subsidiaryEarnings['period_total'], '0') !== 0,
                 'group_equity_percentage' => 0,
-                'group_account_percentage' => 0,
-                'has_group_ownership' => false,
+                'group_account_percentage' => $groupAccountPct,
+                'has_group_ownership' => $hasGroupAccountOwnership,
+                'group_ledger_net_profit' => dashboardOut($groupLedgerNetProfit),
+                'subsidiary_earnings_total' => dashboardOut($subsidiaryEarnings['period_total']),
+                '_group_aggregate_earnings' => true,
                 'period_total' => [
                     'capital' => $groupResult['capital']['period_total'],
                     'expenses' => $groupResult['expenses']['period_total'],

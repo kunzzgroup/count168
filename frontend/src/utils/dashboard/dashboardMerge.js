@@ -1,8 +1,32 @@
+import { netProfitFromDashboardPayload } from "../../pages/dashboard/lib/dashboardKpi.js";
+
 function mergeDailyMap(target, source) {
   if (!source || typeof source !== "object") return;
   Object.keys(source).forEach((date) => {
     target[date] = (target[date] || 0) + parseFloat(source[date] || 0);
   });
+}
+
+/** Attach group ledger fields for Group Earning = Σ subsidiary earnings × account % + group net profit. */
+export function attachGroupAggregateEarningsFields(mergedSubsidiaries, groupLedgerPayload) {
+  if (!mergedSubsidiaries) return mergedSubsidiaries;
+  const subsidiaryTotal =
+    parseFloat(mergedSubsidiaries._subsidiary_earnings_total) ||
+    parseFloat(mergedSubsidiaries.subsidiary_earnings_total) ||
+    0;
+  const groupLedgerNetProfit =
+    groupLedgerPayload?.group_ledger_net_profit != null
+      ? parseFloat(groupLedgerPayload.group_ledger_net_profit) || 0
+      : netProfitFromDashboardPayload(groupLedgerPayload);
+  return {
+    ...mergedSubsidiaries,
+    subsidiary_earnings_total: subsidiaryTotal,
+    group_ledger_net_profit: groupLedgerNetProfit,
+    group_account_percentage: parseFloat(groupLedgerPayload?.group_account_percentage) || 0,
+    has_group_ownership: !!groupLedgerPayload?.has_group_ownership,
+    has_ownership_setup: true,
+    _group_aggregate_earnings: true,
+  };
 }
 
 /**
@@ -69,6 +93,9 @@ export function mergeGroupData(dataList, dateRange) {
       effectivePct = linkMul * viewerGroupShare;
     } else if (directPct > 0) {
       effectivePct = directPct;
+    } else if (grpPct > 0) {
+      // Group subsidiary merge: net profit × company's equity % to the group.
+      effectivePct = grpPct / 100;
     } else {
       const chainPct = hasGrp ? (grpPct / 100) * (grpAccPct / 100) : 0;
       effectivePct = chainPct === 0 ? 1 : chainPct;
@@ -111,6 +138,8 @@ export function mergeGroupData(dataList, dateRange) {
     has_group_ownership: false,
     group_equity_percentage: 0,
     group_account_percentage: 0,
+    _subsidiary_earnings_total: totalEarnings,
+    subsidiary_earnings_total: totalEarnings,
   };
 }
 

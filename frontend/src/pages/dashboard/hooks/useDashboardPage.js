@@ -19,7 +19,11 @@ import {
   setDashboardCache,
   setDashboardPayloadCache,
 } from "../../../utils/dashboard/dashboardCache.js";
-import { mergeEarningsByCurrency, mergeGroupData } from "../../../utils/dashboard/dashboardMerge.js";
+import {
+  attachGroupAggregateEarningsFields,
+  mergeEarningsByCurrency,
+  mergeGroupData,
+} from "../../../utils/dashboard/dashboardMerge.js";
 import {
   convertToBaseAmount,
   fetchFrankfurterRates,
@@ -605,6 +609,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (companyId == null || groupsAllMode || groupAllMode || !selectedGroup) return false;
     return !usesGroupLedgerDashboard;
   }, [companyId, selectedGroup, groupsAllMode, groupAllMode, usesGroupLedgerDashboard]);
+
+  /** KPI earnings: group aggregate or subsidiary drill-down ownership multipliers. */
+  const resolveKpiOwnershipOpts = useCallback(
+    (cid = companyId, grp = selectedGroup) => {
+      if (groupAllMode && grp) return { groupAggregateEarnings: true };
+      if (!groupAllMode && !groupsAllMode && grp) {
+        if (cid == null) return { groupAggregateEarnings: true };
+        const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
+        if (companyRowIsGroupEntity(row, grp)) return { groupAggregateEarnings: true };
+      }
+      if (cid == null || groupsAllMode || groupAllMode || !grp) return {};
+      const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
+      if (companyRowIsGroupEntity(row, grp)) return {};
+      return { subsidiaryGroupDrillDown: true };
+    },
+    [companyId, selectedGroup, groupsAllMode, groupAllMode, companies]
+  );
 
   /** Group-login only: Group All with no company = AP+IG ledger KPI aggregate. Company login uses company picker instead. */
   const groupsAllGroupLevel =
@@ -3006,12 +3027,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         earnings: payload
           ? computeKpiMetrics(
               applyDashboardPayloadAdjustments(payload, cid, grp),
-              grp
+              grp,
+              resolveKpiOwnershipOpts(cid, grp)
             )?.earnings ?? 0
           : 0,
       }));
     },
-    [applyDashboardPayloadAdjustments, companyId, selectedGroup]
+    [applyDashboardPayloadAdjustments, companyId, selectedGroup, resolveKpiOwnershipOpts]
   );
 
   const seedDashboardPayloadCacheForCompany = useCallback(
@@ -3724,6 +3746,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [companies, groupIds, selectedGroup, fetchMergedCompanyDashboards]
   );
 
+  const enrichGroupAllMergedDashboard = useCallback(
+    async (merged, rangeFrom, rangeTo, currencyOverride, groupKey, useActiveScopeAbort = true) => {
+      if (!merged || !groupKey) return merged;
+      const ledger = await fetchGroupDashboardPayload(
+        rangeFrom,
+        rangeTo,
+        currencyOverride,
+        groupKey,
+        useActiveScopeAbort,
+        { earningsOnly: true }
+      );
+      return attachGroupAggregateEarningsFields(merged, ledger);
+    },
+    [fetchGroupDashboardPayload]
+  );
+
   const loadMergedDashboard = useCallback(
     async (rangeFrom, rangeTo, currencyOverride, { useActiveScopeAbort, earningsOnly = false } = {}) => {
       const mergeAbort =
@@ -3748,10 +3786,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           });
         }
         if (selectedGroup) {
-          return fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
+          const merged = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
             groupKey: selectedGroup,
             useActiveScopeAbort: mergeAbort,
           });
+          return enrichGroupAllMergedDashboard(
+            merged,
+            rangeFrom,
+            rangeTo,
+            currencyOverride,
+            selectedGroup,
+            mergeAbort
+          );
         }
       }
 
@@ -3804,6 +3850,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       companies,
       fetchGroupDashboardPayload,
       fetchGroupAllMergedDashboard,
+      enrichGroupAllMergedDashboard,
       fetchMergedCompanyDashboards,
       i18n.failedToLoadDashboard,
       me,
@@ -3817,11 +3864,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       return (
         computeKpiMetrics(
           applyDashboardPayloadAdjustments(merged, companyId, grp),
-          grp
+          grp,
+          resolveKpiOwnershipOpts(companyId, grp)
         )?.earnings ?? 0
       );
     },
-    [applyDashboardPayloadAdjustments, companyId, selectedGroup]
+    [applyDashboardPayloadAdjustments, companyId, selectedGroup, resolveKpiOwnershipOpts]
   );
 
   const buildSeededEarningsRows = useCallback((codes, primaryCode, primaryEarnings) => {
@@ -3986,11 +4034,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
 
       try {
-        const current = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, cur, {
+        let current = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, cur, {
           groupKey: g,
           groupsAllMerge,
           useActiveScopeAbort: false,
         });
+        if (!groupsAllMerge && g) {
+          current = await enrichGroupAllMergedDashboard(
+            current,
+            rangeFrom,
+            rangeTo,
+            cur,
+            g,
+            false
+          );
+        }
         const codes =
           currenciesByGroupRef.current.get(groupsAllMerge ? "GROUPS:ALL" : `${g}:ALL`) ??
           currenciesRef.current;
@@ -3998,13 +4056,26 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (codes?.length > 1) {
           const rows = await Promise.all(
             codes.map(async (code) => {
-              const data = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, code, {
+              let data = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, code, {
                 groupKey: g,
                 groupsAllMerge,
               });
+              if (!groupsAllMerge && g) {
+                data = await enrichGroupAllMergedDashboard(
+                  data,
+                  rangeFrom,
+                  rangeTo,
+                  code,
+                  g,
+                  false
+                );
+              }
               return {
                 code,
-                earnings: computeKpiMetrics(data, groupsAllMerge ? null : g)?.earnings ?? 0,
+                earnings:
+                  computeKpiMetrics(data, groupsAllMerge ? null : g, {
+                    groupAggregateEarnings: !groupsAllMerge && !!g,
+                  })?.earnings ?? 0,
               };
             })
           );
@@ -4022,6 +4093,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       resolveDashboardScopeKey,
       tryBuildGroupAllDashboardFromCompanyCaches,
       fetchGroupAllMergedDashboard,
+      enrichGroupAllMergedDashboard,
     ]
   );
 
@@ -4336,7 +4408,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const perCurrency = await Promise.all(
         currencies.map(async (code) => {
           const data = await loadMergedDashboard(rangeFrom, rangeTo, code);
-          const metrics = computeKpiMetrics(data, selectedGroup);
+          const metrics = computeKpiMetrics(data, selectedGroup, resolveKpiOwnershipOpts());
           return { code, data, metrics };
         })
       );
@@ -4350,7 +4422,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         perCurrency.find((row) => row.code === base) ?? perCurrency[0] ?? null;
       return { data: baseEntry?.data ?? null, metrics: aggregated };
     },
-    [conversionBaseCurrency, currencies, loadMergedDashboard, selectedGroup]
+    [conversionBaseCurrency, currencies, loadMergedDashboard, selectedGroup, resolveKpiOwnershipOpts]
   );
 
   const upgradeActiveScopeEarnings = useCallback(async () => {
@@ -4778,7 +4850,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             const primary = currencyCode;
             const codes = codesForEarnings || currenciesRef.current;
             const primaryEarnings =
-              computeKpiMetrics(current, selectedGroup)?.earnings ?? null;
+              computeKpiMetrics(current, selectedGroup, resolveKpiOwnershipOpts())?.earnings ??
+              null;
             setEarningsByCurrency(buildSeededEarningsRows(codes, primary, primaryEarnings));
             setEarningsByCurrencyLoading(true);
             void upgradeActiveScopeEarnings();
@@ -4861,14 +4934,26 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           try {
             const earningsRows = await Promise.all(
               codes.map(async (code) => {
-                const data = await fetchGroupAllMergedDashboard(dateFrom, dateTo, code, {
+                let data = await fetchGroupAllMergedDashboard(dateFrom, dateTo, code, {
                   groupKey: selectedGroup,
                   groupsAllMerge: groupsAllMode,
                   useActiveScopeAbort: false,
                 });
+                if (!groupsAllMode && selectedGroup) {
+                  data = await enrichGroupAllMergedDashboard(
+                    data,
+                    dateFrom,
+                    dateTo,
+                    code,
+                    selectedGroup,
+                    false
+                  );
+                }
                 return {
                   code,
-                  earnings: computeKpiMetrics(data, selectedGroup)?.earnings ?? 0,
+                  earnings:
+                    computeKpiMetrics(data, selectedGroup, resolveKpiOwnershipOpts())?.earnings ??
+                    0,
                 };
               })
             );
@@ -5412,8 +5497,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       comparisons: null,
     };
     const useAggregated = showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi;
-    const ownershipCurrent = computeKpiMetrics(dashboardData, selectedGroup);
-    const ownershipPrevious = computeKpiMetrics(dashboardDataPrev, selectedGroup);
+    const ownershipCurrent = computeKpiMetrics(
+      dashboardData,
+      selectedGroup,
+      resolveKpiOwnershipOpts()
+    );
+    const ownershipPrevious = computeKpiMetrics(
+      dashboardDataPrev,
+      selectedGroup,
+      resolveKpiOwnershipOpts()
+    );
     let current = useAggregated
       ? multiCurrencyKpi
       : ownershipCurrent;
@@ -5449,6 +5542,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     canShowAllCurrencies,
     multiCurrencyKpi,
     multiCurrencyKpiPrev,
+    resolveKpiOwnershipOpts,
   ]);
 
   const chartAggregateByMonth = useMemo(
@@ -5459,9 +5553,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const chartRows = useMemo(
     () =>
       dashboardData
-        ? buildChartRows(dashboardData, dateFrom, dateTo, i18n.locale, selectedGroup)
+        ? buildChartRows(
+            dashboardData,
+            dateFrom,
+            dateTo,
+            i18n.locale,
+            selectedGroup,
+            resolveKpiOwnershipOpts()
+          )
         : [],
-    [dashboardData, dateFrom, dateTo, i18n.locale, selectedGroup]
+    [dashboardData, dateFrom, dateTo, i18n.locale, selectedGroup, resolveKpiOwnershipOpts]
   );
 
   const chartMonthSpanCount = useMemo(

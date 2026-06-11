@@ -24,9 +24,46 @@ export function buildKpiCompare(current, previous) {
   };
 }
 
-/** Ownership multiplier for Earnings (KPI + chart), 0–1. */
-export function resolveEffectiveOwnershipPct(dashboardData, selectedGroup) {
+/** Net profit from dashboard_api payload (period profit + signed expenses). */
+export function netProfitFromDashboardPayload(dashboardData) {
   if (!dashboardData) return 0;
+  const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
+  const rawExpenses = parseFloat(dashboardData?.period_total?.expenses ?? dashboardData.expenses) || 0;
+  const displayExpenses = rawExpenses > 0 ? -rawExpenses : rawExpenses;
+  return rawProfit + displayExpenses;
+}
+
+/** Group earning = Σ subsidiary earnings × viewer group % + group ledger net profit. */
+export function computeGroupAggregateEarningsAmount(dashboardData) {
+  if (!dashboardData) return 0;
+  const subEarn = parseFloat(dashboardData.subsidiary_earnings_total) || 0;
+  const grpNp =
+    dashboardData.group_ledger_net_profit != null
+      ? parseFloat(dashboardData.group_ledger_net_profit) || 0
+      : 0;
+  const accPct = parseFloat(dashboardData.group_account_percentage) || 0;
+  const accountMul = accPct > 0 ? accPct / 100 : 1;
+  return subEarn * accountMul + grpNp;
+}
+
+export function isGroupAggregateEarningsPayload(dashboardData, options = {}) {
+  if (!dashboardData) return false;
+  if (options.groupAggregateEarnings || dashboardData._group_aggregate_earnings) return true;
+  return (
+    dashboardData.subsidiary_earnings_total != null &&
+    dashboardData.group_ledger_net_profit != null
+  );
+}
+
+/** Ownership multiplier for Earnings (KPI + chart), 0–1. */
+export function resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options = {}) {
+  if (!dashboardData) return 0;
+  if (isGroupAggregateEarningsPayload(dashboardData, options)) {
+    const netProfit = netProfitFromDashboardPayload(dashboardData);
+    if (!netProfit) return 0;
+    return computeGroupAggregateEarningsAmount(dashboardData) / netProfit;
+  }
+  const subsidiaryGroupDrillDown = !!options.subsidiaryGroupDrillDown;
   const ownershipPercentage = parseFloat(dashboardData?.ownership_percentage) || 0;
   const groupEquityPercentage = parseFloat(dashboardData?.group_equity_percentage) || 0;
   const groupAccountPercentage = parseFloat(dashboardData?.group_account_percentage) || 0;
@@ -40,6 +77,10 @@ export function resolveEffectiveOwnershipPct(dashboardData, selectedGroup) {
     return linkMul * viewerGroupShare;
   }
   if (directPct > 0) return directPct;
+  // K-account subsidiary drill-down: net profit × company's equity % to the group only.
+  if (subsidiaryGroupDrillDown && groupEquityPercentage > 0) {
+    return groupEquityPercentage / 100;
+  }
   if (hasGroupOwnership) {
     return (groupEquityPercentage / 100) * (groupAccountPercentage / 100);
   }
@@ -57,6 +98,9 @@ export function mergeDashboardOwnershipFields(payload, ownershipSource) {
     group_account_percentage: ownershipSource.group_account_percentage,
     has_group_ownership: ownershipSource.has_group_ownership,
     _link_multiplier: ownershipSource._link_multiplier,
+    subsidiary_earnings_total: ownershipSource.subsidiary_earnings_total,
+    group_ledger_net_profit: ownershipSource.group_ledger_net_profit,
+    _group_aggregate_earnings: ownershipSource._group_aggregate_earnings,
   };
 }
 
@@ -87,7 +131,7 @@ export function dashboardEarningsRowsLookStale(
   return allNearZero || !Number.isFinite(activeVal) || Math.abs(activeVal - kpi) > 0.02;
 }
 
-export function computeKpiMetrics(dashboardData, selectedGroup) {
+export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   if (!dashboardData) return null;
   const rawProfit = parseFloat(dashboardData?.period_total?.profit ?? dashboardData.profit) || 0;
   // Expenses KPI = 本期 Win/Loss + Cr/Dr（与 Transaction List / Payment History 一致，不含 CLEAR）。
@@ -95,12 +139,17 @@ export function computeKpiMetrics(dashboardData, selectedGroup) {
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
   const netProfitDisplay = displayProfitNum + displayExpensesNum;
-  const effectivePct = resolveEffectiveOwnershipPct(dashboardData, selectedGroup);
-  const earningsDisplay = netProfitDisplay * effectivePct;
+  const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
+  const earningsDisplay = groupAggregate
+    ? computeGroupAggregateEarningsAmount(dashboardData)
+    : netProfitDisplay * resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);
   const linkMul = parseFloat(dashboardData?._link_multiplier || 0) || 0;
   const hasLinkOwnership = linkMul > 0 && linkMul !== 1;
   const showEarnings =
-    !!dashboardData?.has_ownership_setup || hasLinkOwnership || !!selectedGroup;
+    groupAggregate ||
+    !!dashboardData?.has_ownership_setup ||
+    hasLinkOwnership ||
+    !!selectedGroup;
   return {
     profit: displayProfitNum,
     expenses: displayExpensesNum,

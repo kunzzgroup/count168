@@ -63,10 +63,17 @@ function buildChartMetricRow(date, label, dailyData, earningsMultiplier) {
   };
 }
 
-export function buildChartRows(data, startYmd, endYmd, locale = "en-US", selectedGroup = null) {
+export function buildChartRows(
+  data,
+  startYmd,
+  endYmd,
+  locale = "en-US",
+  selectedGroup = null,
+  options = {}
+) {
   if (!data?.daily_data) return [];
   const dailyData = data.daily_data;
-  const earningsMultiplier = resolveEffectiveOwnershipPct(data, selectedGroup);
+  const earningsMultiplier = resolveEffectiveOwnershipPct(data, selectedGroup, options);
   const rangeStart = parseYmd(startYmd);
   const rangeEnd = parseYmd(endYmd);
 
