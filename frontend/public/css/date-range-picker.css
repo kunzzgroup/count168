@@ -3,6 +3,7 @@
     --drp-trigger-text: var(--text-small);
     --drp-trigger-icon: var(--text-small);
     --drp-trigger-chevron: var(--text-tiny);
+    --drp-popup-width: clamp(316px, 22vw, 336px);
 }
 
 .date-range-picker {
@@ -394,7 +395,7 @@ body.maintenance-page .calendar-popup.calendar-popup--transaction-range , body.d
     display: none;
     grid-template-columns: clamp(76px, 5.6vw, 96px) 1fr;
     gap: 0;
-    width: clamp(316px, 22vw, 336px);
+    width: var(--drp-popup-width);
     max-width: calc(100vw - 24px);
     max-height: none;
     padding: 0;
@@ -699,12 +700,20 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day.start-dat
     border-radius: 6px;
 }
 
-/* Align Date Range Input Shell Width with Calendar Popup Width */
+/* 触发器描边外壳与日历弹层同宽 */
 .report-date-range-picker-container,
-.report-date-range-picker-container .report-outlined-shell {
-    min-width: clamp(316px, 22vw, 336px) !important;
-    width: clamp(316px, 22vw, 336px) !important;
+.report-date-range-picker-container .report-outlined-shell,
+body.transaction-page .transaction-category-date-row .transaction-outlined-field-col--date,
+body.transaction-page .transaction-category-date-row .transaction-outlined-field-col--date .report-outlined-shell {
+    min-width: var(--drp-popup-width) !important;
+    width: var(--drp-popup-width) !important;
     max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* 弹层 match-anchor：与描边外壳同宽（JS 写入 inline width 时保留 grid 布局） */
+.calendar-popup.calendar-popup--transaction-range.calendar-popup--match-anchor {
+    box-sizing: border-box;
 }
 
 /* Centered Date Range Typography and Balanced Spacing */

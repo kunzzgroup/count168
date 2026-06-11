@@ -781,9 +781,9 @@ export function ensureMaintenanceDateRangePicker() {
         rect = bankWrap.getBoundingClientRect();
         barWidth = rect.width;
       } else if (matchToolbarDateAnchor) {
-        const anchorEl = picker.classList?.contains("date-range-picker")
-          ? picker
-          : bankListDateAnchor;
+        const anchorEl =
+          picker.closest(".report-outlined-shell") ||
+          (picker.classList?.contains("date-range-picker") ? picker : bankListDateAnchor);
         rect = anchorEl.getBoundingClientRect();
         syncBankToolbarDatePillWidth();
         const blockWidth = getBankToolbarUnifiedBlockWidth();
@@ -807,12 +807,14 @@ export function ensureMaintenanceDateRangePicker() {
         }
       }
       if (popup.classList.contains("calendar-popup--transaction-range")) {
-        if (bankWrap || matchToolbarDateAnchor) {
+        const matchOutlinedShell = !!shell && !bankWrap;
+        if (bankWrap || matchToolbarDateAnchor || matchOutlinedShell) {
           const anchorWidth = Math.max(1, Math.round(barWidth));
           popup.classList.add("calendar-popup--match-anchor");
-          const popupLeft = matchToolbarDateAnchor
-            ? Math.max(12, Math.min(rect.left, window.innerWidth - anchorWidth - 12))
-            : rect.left;
+          const popupLeft =
+            matchToolbarDateAnchor || matchOutlinedShell
+              ? Math.max(12, Math.min(rect.left, window.innerWidth - anchorWidth - 12))
+              : rect.left;
           popup.style.left = `${popupLeft}px`;
           popup.style.width = `${anchorWidth}px`;
           popup.style.minWidth = `${anchorWidth}px`;

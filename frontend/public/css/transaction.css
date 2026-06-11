@@ -509,6 +509,11 @@ body.transaction-page .transaction-search-section .transaction-category-date-row
     flex-direction: column;
 }
 
+body.transaction-page .transaction-search-section .transaction-category-date-row .transaction-outlined-field-col--date {
+    flex: 0 1 var(--drp-popup-width, clamp(316px, 22vw, 336px));
+    min-width: var(--drp-popup-width, clamp(316px, 22vw, 336px));
+}
+
 body.transaction-page .transaction-search-section .transaction-category-date-row .report-outlined-shell {
     flex: 1 1 auto;
     display: flex;
@@ -568,12 +573,12 @@ body.transaction-page .transaction-category-date-row .transaction-category-multi
 }
 
 .transaction-page .transaction-date-range-group {
-    min-width: clamp(316px, 22vw, 336px);
+    min-width: var(--drp-popup-width, clamp(316px, 22vw, 336px));
     flex: 0 0 auto;
 }
 
 body.transaction-page .transaction-date-range-group .date-range-picker {
-    min-width: clamp(316px, 22vw, 336px);
+    min-width: var(--drp-popup-width, clamp(316px, 22vw, 336px));
     min-height: clamp(32px, 2.45vw, 38px);
     gap: clamp(8px, 0.7vw, 12px);
     padding: 0 clamp(9px, 0.85vw, 14px) 0 0;
@@ -672,7 +677,7 @@ body.dashboard-page.report-page .calendar-popup.calendar-popup--transaction-rang
     display: none;
     grid-template-columns: clamp(76px, 5.6vw, 96px) 1fr;
     gap: 0;
-    width: clamp(316px, 22vw, 336px);
+    width: var(--drp-popup-width, clamp(316px, 22vw, 336px));
     max-width: calc(100vw - 24px);
     max-height: none;
     padding: 0;
