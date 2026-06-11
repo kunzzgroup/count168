@@ -62,6 +62,7 @@ import DataCaptureContextMenus from "./components/DataCaptureContextMenus.jsx";
 import DataCaptureDeleteDialog from "./components/DataCaptureDeleteDialog.jsx";
 import DataCaptureTableSection from "./components/DataCaptureTableSection.jsx";
 import DescriptionSelectionModal from "./components/DescriptionSelectionModal.jsx";
+import DataCaptureProcessSelect from "./components/DataCaptureProcessSelect.jsx";
 import ProcessNotificationContainer from "./components/ProcessNotificationContainer.jsx";
 import { useDataCaptureCategoryPermissions } from "./hooks/useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./hooks/useDataCaptureFormEngine.js";
@@ -936,72 +937,22 @@ function DataCapturePageContent() {
                 <div className="form-group">
                   <label htmlFor="capture_process">{t("process")}</label>
                   {isCompanySelected ? (
-                    <div className="custom-select-wrapper">
-                      <button
-                        type="button"
-                        className={`custom-select-button${form.processOpen ? " open" : ""}`.trim()}
-                        id="capture_process"
-                        data-placeholder={t("selectProcess")}
-                        name="process"
-                        {...(form.selectedProcess?.id
-                          ? {
-                              "data-value": form.selectedProcess.id,
-                              "data-process-code": form.selectedProcess.process_id || "",
-                              ...(form.selectedProcess.description_name
-                                ? { "data-description-name": form.selectedProcess.description_name }
-                                : {}),
-                            }
-                          : {})}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTableActive(false);
-                          form.setProcessOpen((o) => !o);
-                        }}
-                      >
-                        {form.selectedProcess?.displayText || t("selectProcess")}
-                      </button>
-                      <div
-                        className={`custom-select-dropdown${form.processOpen ? " show" : ""}`.trim()}
-                        id="capture_process_dropdown"
-                      >
-                        <div className="custom-select-search">
-                          <input
-                            ref={form.processSearchInputRef}
-                            type="text"
-                            placeholder={t("searchProcess")}
-                            autoComplete="off"
-                            value={form.processFilter}
-                            onChange={(e) => form.setProcessFilter(e.target.value.toUpperCase())}
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") {
-                                form.setProcessOpen(false);
-                              } else if (e.key === "Enter") {
-                                e.preventDefault();
-                                const first = form.filteredProcesses[0];
-                                if (first) void form.selectProcessRow(first);
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="custom-select-options dc-react-process-options">
-                          {form.processListTruncated ? (
-                            <div className="custom-select-option custom-select-option--hint" style={{ cursor: "default", opacity: 0.85 }}>
-                              {t("typeToSearchProcesses", { count: form.processRowsCount })}
-                            </div>
-                          ) : null}
-                          {form.visibleProcesses.map((row) => (
-                            <div
-                              key={row.id}
-                              role="presentation"
-                              className="custom-select-option"
-                              onClick={() => void form.selectProcessRow(row)}
-                            >
-                              {form.displayTextFromProcessRow(row)}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                    <DataCaptureProcessSelect
+                      t={t}
+                      processOpen={form.processOpen}
+                      setProcessOpen={form.setProcessOpen}
+                      selectedProcess={form.selectedProcess}
+                      processFilter={form.processFilter}
+                      setProcessFilter={form.setProcessFilter}
+                      processSearchInputRef={form.processSearchInputRef}
+                      processListTruncated={form.processListTruncated}
+                      processRowsCount={form.processRowsCount}
+                      visibleProcesses={form.visibleProcesses}
+                      filteredProcesses={form.filteredProcesses}
+                      selectProcessRow={form.selectProcessRow}
+                      displayTextFromProcessRow={form.displayTextFromProcessRow}
+                      onBeforeToggle={() => setTableActive(false)}
+                    />
                   ) : (
                     <select
                       id="capture_process"
