@@ -33,7 +33,6 @@ body.auto-renew-page-body .page-tabs {
 }
 
 body.auto-renew-page-body .page-tab {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -41,6 +40,7 @@ body.auto-renew-page-body .page-tab {
   width: var(--auto-renew-tab-width);
   min-width: var(--auto-renew-tab-width);
   box-sizing: border-box;
+  gap: 6px;
   margin: 0;
   appearance: none;
   -webkit-appearance: none;
@@ -55,7 +55,6 @@ body.auto-renew-page-body .page-tab {
   cursor: pointer;
   transition: color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  overflow: visible;
 }
 
 body.auto-renew-page-body .page-tab__label {
@@ -64,30 +63,28 @@ body.auto-renew-page-body .page-tab__label {
 }
 
 body.auto-renew-page-body .auto-renew-tab-pending-badge {
-  position: absolute;
-  top: 50%;
-  right: 4px;
-  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 16px;
   height: 16px;
-  padding: 0 4px;
+  padding: 0 5px;
   border-radius: 999px;
-  background: #f59e0b;
+  background: #dc2626;
   color: #fff;
   font-size: 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   pointer-events: none;
-  z-index: 1;
-  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.35);
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.35);
 }
 
 body.auto-renew-page-body .page-tab.active .auto-renew-tab-pending-badge {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 body.auto-renew-page-body .page-tab:hover {
@@ -196,7 +193,7 @@ body.auto-renew-page-body .auto-renew-date-range-group #date-range-display {
   flex: 1 1 auto;
   min-width: 0;
   color: #64748b;
-  font-size: var(--drp-trigger-text, var(--text-small, 13px));
+  font-size: var(--text-medium);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;

@@ -25,6 +25,7 @@ import {
   AUTO_RENEW_PAGE_SIZE,
   canApproveRow,
   filterAutoRenewRows,
+  formatAutoRenewAccountLabel,
   formatRemainingForRow,
   formatSubmitterAt,
   getRowDraftValues,
@@ -106,7 +107,7 @@ function AccountSelect({ value, accounts, placeholder, disabled, onChange }) {
       <option value="">{placeholder}</option>
       {(accounts || []).map((acc) => (
         <option key={acc.id} value={acc.id}>
-          {acc.account_code}{acc.name ? ` — ${acc.name}` : ""}
+          {formatAutoRenewAccountLabel(acc)}
         </option>
       ))}
     </select>
@@ -656,7 +657,7 @@ export default function AutoRenewPage() {
                             />
                           ) : (
                             <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                              {accounts.find((a) => a.id === row.from_account_id)?.account_code || "-"}
+                              {formatAutoRenewAccountLabel(accounts.find((a) => a.id === row.from_account_id)) || "-"}
                             </span>
                           )}
                         </div>
@@ -671,7 +672,7 @@ export default function AutoRenewPage() {
                             />
                           ) : (
                             <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                              {accounts.find((a) => a.id === row.to_account_id)?.account_code || "-"}
+                              {formatAutoRenewAccountLabel(accounts.find((a) => a.id === row.to_account_id)) || "-"}
                             </span>
                           )}
                         </div>

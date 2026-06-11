@@ -200,3 +200,10 @@ export function canApproveRow(row, drafts, feeSettings) {
   const price = resolveAutoRenewDisplayPrice(row, drafts, feeSettings);
   return Boolean(period && fromAccountId && toAccountId && price > 0);
 }
+
+export function formatAutoRenewAccountLabel(acc) {
+  const code = String(acc?.account_code ?? "").trim();
+  const name = String(acc?.name ?? "").trim();
+  if (code && name) return `${code} (${name})`;
+  return code || name || "";
+}
