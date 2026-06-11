@@ -1268,6 +1268,20 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     text-align: center;
 }
 
+.formula-maintenance-page-root .maintenance-virtual-stale-hint {
+    padding: clamp(6px, 0.55vw, 10px) clamp(12px, 1vw, 18px);
+    font-size: clamp(11px, 0.92vw, 14px);
+    font-weight: 600;
+    color: #1e40af;
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+    text-align: center;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-empty-loading {
+    min-height: clamp(120px, 22vh, 280px);
+}
+
 .formula-maintenance-page-root .formula-virtual-table {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;

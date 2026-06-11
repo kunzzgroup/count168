@@ -135,6 +135,7 @@ export default function FormulaMaintenancePage() {
   const companyIdRef = useRef(null);
   const scopeKeyRef = useRef("");
   const initialFormulaSearchDoneRef = useRef(false);
+  const lastSearchQueryKeyRef = useRef("");
   const suppressNextSearchEffectRef = useRef(false);
   const skipMetaAfterBootRef = useRef(false);
   const handledMetaScopeKeyRef = useRef("");
@@ -681,6 +682,15 @@ export default function FormulaMaintenancePage() {
     const searchScopeKey = formulaMaintenanceScopeCacheKey(effectiveScope);
     const searchCompanyId = Number(effectiveScope.scopeCompanyId);
     const category = overrides.category ?? activePermission;
+    const effectiveSearchKey = JSON.stringify([
+      searchScopeKey,
+      category,
+      effectiveProcess === "" ? "__all__" : String(effectiveProcess),
+    ]);
+    const filtersChanged = effectiveSearchKey !== lastSearchQueryKeyRef.current;
+    if (overrides.scope || filtersChanged) {
+      scopeKeyRef.current = searchScopeKey;
+    }
     const quietRefresh = initialFormulaSearchDoneRef.current;
     const seq = ++searchSeqRef.current;
 
@@ -689,7 +699,15 @@ export default function FormulaMaintenancePage() {
       progressiveRafRef.current = null;
     }
 
-    if (!quietRefresh) {
+    if (filtersChanged || overrides.scope) {
+      if (!quietRefresh) {
+        setLoading(true);
+        setListHydrating(false);
+      } else {
+        setLoading(false);
+        setListSyncing(true);
+      }
+    } else if (!quietRefresh) {
       setLoading(true);
       setListHydrating(false);
     } else {
@@ -710,8 +728,9 @@ export default function FormulaMaintenancePage() {
       setConfirmDelete(false);
       setFormulaDataSourceCompanyId(formulaMaintenanceScopeCacheCompanyKey(effectiveScope));
       hydrateFormulaList(data, { ensureRowId: restoreRowId });
+      lastSearchQueryKeyRef.current = effectiveSearchKey;
 
-      if (!quietRefresh) {
+      if ((filtersChanged || overrides.scope) && !quietRefresh) {
         if (data.length === 0) {
           notify(t("noDataAdjustSearch"), "info");
         } else if (data.length <= LARGE_RESULT_TOAST_THRESHOLD) {
@@ -763,7 +782,7 @@ export default function FormulaMaintenancePage() {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       performSearch();
-    }, 300);
+    }, 0);
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
@@ -773,10 +792,11 @@ export default function FormulaMaintenancePage() {
   const handleClearCompany = useCallback(
     (groupForPersist) => {
       const g = groupForPersist ?? selectedGroup;
+      suppressNextSearchEffectRef.current = true;
       companyIdRef.current = null;
       setCompanyId(null);
       setCompanyCode("");
-      setSelectedProcess(null);
+      setSelectedProcess("");
       clearFormulaList();
       persistDashboardFilterState(g, null);
       void (async () => {
@@ -794,16 +814,26 @@ export default function FormulaMaintenancePage() {
           setActivePermission(meta.activePermission);
           setProcesses(procList);
           if (scope?.scopeCompanyId) {
-            setAccounts(await fetchAccounts(scope.scopeCompanyId, scope));
+            void fetchAccounts(scope.scopeCompanyId, scope)
+              .then((accList) => setAccounts(accList))
+              .catch(() => setAccounts([]));
           } else {
             setAccounts([]);
+          }
+          if (scope && formulaMaintenanceScopeIsReady(scope)) {
+            await performSearchRef.current({
+              scope,
+              category: meta.activePermission,
+              selectedGroup: g,
+              companyId: null,
+            });
           }
         } catch (err) {
           console.error("Meta bootstrap after clear company:", err);
         }
       })();
     },
-    [companies, selectedGroup, clearFormulaList],
+    [companies, selectedGroup, clearFormulaList, groupsAllMode, groupAllMode],
   );
 
   const onPrepareCompanySelect = useCallback(
@@ -819,6 +849,7 @@ export default function FormulaMaintenancePage() {
         groupAllMode,
       });
       suppressNextSearchEffectRef.current = true;
+      scopeKeyRef.current = formulaMaintenanceScopeCacheKey(nextScope);
       companyIdRef.current = nextId;
       setCompanyId(nextId);
       setCompanyCode(c.company_id || "");
@@ -826,7 +857,18 @@ export default function FormulaMaintenancePage() {
       persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
       resetSelection();
-      void performSearch({ companyId: nextId, selectedGroup: newGroup, scope: nextScope });
+      void (async () => {
+        try {
+          await performSearch({
+            companyId: nextId,
+            selectedGroup: newGroup,
+            scope: nextScope,
+            skipStaleGuard: true,
+          });
+        } catch (err) {
+          console.error("Company select search:", err);
+        }
+      })();
     },
     [companies, groupAllMode, groupsAllMode, performSearch, resetSelection],
   );
@@ -1013,7 +1055,8 @@ export default function FormulaMaintenancePage() {
     setScrollRestoreRowId(null);
   }, []);
 
-  const tableLoading = loading;
+  const bootPending = !filtersReady;
+  const tableLoading = loading || bootPending;
 
   return (
     <div className="formula-maintenance-page-root container">
@@ -1087,6 +1130,7 @@ export default function FormulaMaintenancePage() {
         m={m}
         inputMethodOptions={inputMethodOptions}
         awaitingProcessSelection={selectedProcess === null}
+        bootPending={bootPending}
       />
       </div>
 
