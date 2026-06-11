@@ -1258,30 +1258,3 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     text-align: right;
 }
 
-body.maintenance-page .payment-maintenance-page-root.container {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 0 !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    box-sizing: border-box !important;
-}
-
-body.maintenance-page .payment-maintenance-page-root .payment-virtual-table-inner {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-}
-
-body.maintenance-page .payment-maintenance-page-root .maintenance-virtual-scroll {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    height: 0 !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-}
-

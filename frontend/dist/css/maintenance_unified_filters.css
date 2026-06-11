@@ -430,28 +430,9 @@ body.dashboard-page.maintenance-page {
 }
 
 body.maintenance-page #root {
-    display: flex !important;
-    flex-direction: column !important;
     overflow: hidden !important;
     height: 100% !important;
     max-height: 100dvh !important;
-    min-height: 0 !important;
-}
-
-body.maintenance-page .ec-page-shell {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-}
-
-body.maintenance-page .ec-page-shell__content {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
 }
 
 body.maintenance-page .container,
@@ -499,81 +480,12 @@ body.maintenance-page .maintenance-virtual-scroll--body {
     -ms-overflow-style: auto !important;
 }
 
-/*
- * Payment + Bank Process: filters on top, table fills remaining viewport.
- * Overrides fixed max-height on .maintenance-virtual-scroll for these pages.
- */
-body.maintenance-page .payment-maintenance-page-root,
-body.maintenance-page .bankprocess-maintenance-page-root {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 0 !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-}
-
-body.maintenance-page .payment-maintenance-page-root > .customer-report-filter-container,
-body.maintenance-page .bankprocess-maintenance-page-root > .bankprocess-maintenance-filters-shell,
-body.maintenance-page .bankprocess-maintenance-filters-shell > .maintenance-header {
-    flex: 0 0 auto;
-}
-
-body.maintenance-page .payment-maintenance-table-region,
-body.maintenance-page .bankprocess-maintenance-table-region {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-body.maintenance-page .payment-maintenance-table-region .maintenance-list-container,
-body.maintenance-page .payment-maintenance-table-region .empty-state-container,
-body.maintenance-page .bankprocess-maintenance-table-region .maintenance-list-container,
-body.maintenance-page .bankprocess-maintenance-table-region .empty-state-container {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 0;
-}
-
-body.maintenance-page .payment-maintenance-page-root .payment-virtual-table,
-body.maintenance-page .bankprocess-maintenance-page-root .bankprocess-virtual-table {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-body.maintenance-page .payment-maintenance-page-root .payment-virtual-table-inner,
-body.maintenance-page .bankprocess-maintenance-page-root .bankprocess-virtual-table-inner {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-body.maintenance-page .payment-maintenance-page-root .maintenance-virtual-scroll,
+/* Bank Process 筛选区更高，表格滚动区略减顶栏预留 */
 body.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    height: 0 !important;
-    max-height: none !important;
-    box-sizing: border-box;
-    overflow-x: hidden !important;
+    max-height: min(72vh, calc(100dvh - 300px), 900px) !important;
     overflow-y: auto !important;
     padding-bottom: clamp(8px, 0.6vw, 12px);
-}
-
-/* Fallback when flex chain is unavailable: explicit scroll viewport */
-@supports not (height: 0) {
-    body.maintenance-page .payment-maintenance-page-root .maintenance-virtual-scroll,
-    body.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
-        height: auto !important;
-        max-height: min(72vh, calc(100dvh - 280px), 900px) !important;
-    }
+    box-sizing: border-box;
 }
 
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

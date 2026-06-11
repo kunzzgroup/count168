@@ -1287,35 +1287,6 @@ body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .mainten
     pointer-events: none;
 }
 
-/* Override generic .container rules that break in-page table scroll (loads after unified filters). */
-body.maintenance-page .bankprocess-maintenance-page-root.container {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 0 !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-    box-sizing: border-box !important;
-}
-
 body.maintenance-page .bankprocess-maintenance-filters-shell {
-    flex: 0 0 auto;
     width: 100%;
-}
-
-body.maintenance-page .bankprocess-maintenance-page-root .bankprocess-virtual-table-inner {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-}
-
-body.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    height: 0 !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
 }
