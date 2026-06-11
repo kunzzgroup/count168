@@ -646,7 +646,8 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.ec-auth-shell:not(.datacapture-page) .content,
     body.ec-auth-shell:not(.datacapture-page) .transaction-container,
     body.ec-auth-shell:not(.datacapture-page) .datacapture-container,
-    body.ec-auth-shell:not(.datacapture-page) .dashboard-container {
+    body.ec-auth-shell:not(.datacapture-page) .dashboard-container,
+    body.ec-auth-shell:not(.datacapture-page) .own-container {
         height: auto !important;
         min-height: 100vh !important;
         max-height: none !important;
@@ -688,7 +689,10 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.ec-auth-shell .dashboard-content,
     body.ec-auth-shell .transaction-main-content,
     body.ec-auth-shell .transaction-table-wrapper,
-    body.ec-auth-shell .datacapture-table-wrapper {
+    body.ec-auth-shell .datacapture-table-wrapper,
+    body.ec-auth-shell .own-container,
+    body.ec-auth-shell #companyCardsContainer,
+    body.ec-auth-shell #groupEarningsContainer {
         height: auto !important;
         min-height: 0 !important;
         max-height: none !important;

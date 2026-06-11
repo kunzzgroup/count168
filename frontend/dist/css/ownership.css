@@ -23,6 +23,33 @@ body.ownership-page {
     overflow-x: hidden;
 }
 
+/* 覆盖 dashboard-page 的 100vh / overflow:hidden，整页统一滚动（与 announcement / domain 一致） */
+body.dashboard-page.ownership-page {
+    height: auto !important;
+    min-height: 100vh;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+body.dashboard-page.ownership-page #root {
+    height: auto !important;
+    min-height: 100vh;
+    overflow: visible !important;
+}
+
+body.dashboard-page.ownership-page .own-container {
+    height: auto !important;
+    min-height: 100vh;
+    overflow: visible !important;
+}
+
+body.dashboard-page.ownership-page #companyCardsContainer,
+body.dashboard-page.ownership-page #groupEarningsContainer,
+body.dashboard-page.ownership-page .own-tab-panel {
+    overflow: visible !important;
+    max-height: none !important;
+}
+
 .own-container *,
 .own-container *::before,
 .own-container *::after {
@@ -40,6 +67,7 @@ body.ownership-page {
     color: var(--color-body-strong);
     display: flex;
     flex-direction: column;
+    overflow: visible;
 }
 
 /* Separator Line extending beyond container */
