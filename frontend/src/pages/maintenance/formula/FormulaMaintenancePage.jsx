@@ -111,7 +111,7 @@ export default function FormulaMaintenancePage() {
   useMaintenanceBankOnlyGuard(companyId);
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [selectedProcess, setSelectedProcess] = useState("");
+  const [selectedProcess, setSelectedProcess] = useState(null);
   const [activePermission, setActivePermission] = useState("");
   const [processes, setProcesses] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -139,7 +139,6 @@ export default function FormulaMaintenancePage() {
   const suppressNextSearchEffectRef = useRef(false);
   const skipMetaAfterBootRef = useRef(false);
   const handledMetaScopeKeyRef = useRef("");
-  const pendingBootSearchRef = useRef(null);
   const switchPermsCacheRef = useRef(null);
   const performSearchRef = useRef(async () => {});
   const followGroupRef = useRef(() => {});
@@ -220,8 +219,6 @@ export default function FormulaMaintenancePage() {
   const [selectAllActive, setSelectAllActive] = useState(false);
   const [deselectedIds, setDeselectedIds] = useState(() => new Set());
 
-  const INITIAL_DISPLAY_ROWS = 80;
-  const DISPLAY_BATCH_ROWS = 150;
   const LARGE_RESULT_TOAST_THRESHOLD = 800;
 
   const notify = useCallback((message, type = "success") => {
@@ -311,10 +308,9 @@ export default function FormulaMaintenancePage() {
     return () => window.removeEventListener("eazycount:company-session-updated", handleSwitch);
   }, [resetSelection]);
 
-  /** 先展示前 N 行，其余用 rAF 分批追加，避免一次性渲染卡住 UI */
+  /** 虚拟列表负责大表渲染；一次性写入 state，不显示分批进度 */
   const hydrateFormulaList = useCallback(
-    (fullList, options = {}) => {
-      const { ensureRowId = null } = options;
+    (fullList) => {
       if (progressiveRafRef.current) {
         cancelAnimationFrame(progressiveRafRef.current);
         progressiveRafRef.current = null;
@@ -323,52 +319,9 @@ export default function FormulaMaintenancePage() {
       const full = prepareFormulaRowsForDisplay(Array.isArray(fullList) ? fullList : []);
       formulaDataFullRef.current = full;
       setTotalRowCount(full.length);
+      setListHydrating(false);
       resetSelection();
-
-      const applySlice = (count, defer = true) => {
-        const next = full.slice(0, count);
-        if (defer) {
-          startTransition(() => setFormulaData(next));
-        } else {
-          setFormulaData(next);
-        }
-      };
-
-      let firstSliceEnd = INITIAL_DISPLAY_ROWS;
-      if (ensureRowId != null) {
-        const anchorIdx = full.findIndex((r) => formulaRowIdsMatch(r.id, ensureRowId));
-        if (anchorIdx >= 0) {
-          applySlice(full.length, false);
-          setListHydrating(false);
-          return;
-        }
-      }
-
-      if (full.length <= firstSliceEnd) {
-        applySlice(full.length, false);
-        setListHydrating(false);
-        return;
-      }
-
-      applySlice(firstSliceEnd, false);
-      setListHydrating(true);
-
-      let end = firstSliceEnd;
-      const tick = () => {
-        if (listScrollActiveRef.current) {
-          progressiveRafRef.current = requestAnimationFrame(tick);
-          return;
-        }
-        end = Math.min(end + DISPLAY_BATCH_ROWS, full.length);
-        applySlice(end);
-        if (end < full.length) {
-          progressiveRafRef.current = requestAnimationFrame(tick);
-        } else {
-          setListHydrating(false);
-          progressiveRafRef.current = null;
-        }
-      };
-      progressiveRafRef.current = requestAnimationFrame(tick);
+      startTransition(() => setFormulaData(full));
     },
     [resetSelection],
   );
@@ -467,7 +420,6 @@ export default function FormulaMaintenancePage() {
           setPermissions(meta.permissions);
           setActivePermission(meta.activePermission);
           setProcesses(procList);
-          pendingBootSearchRef.current = { scope: bootScope, category: meta.activePermission };
           if (bootScope?.scopeCompanyId) {
             void fetchAccounts(bootScope.scopeCompanyId, bootScope)
               .then((accList) => {
@@ -539,7 +491,6 @@ export default function FormulaMaintenancePage() {
           const initialActive =
             savedPerm && permList.includes(savedPerm) ? savedPerm : permList.length > 0 ? permList[0] : "";
           setActivePermission(initialActive);
-          pendingBootSearchRef.current = { scope: bootScope, category: initialActive };
           switchPermsCacheRef.current = { companyCode: code, perms: permList };
           skipMetaAfterBootRef.current = true;
           handledMetaScopeKeyRef.current = buildFormulaMetaEffectKey(
@@ -568,17 +519,8 @@ export default function FormulaMaintenancePage() {
         }
       } finally {
         if (!cancelled) {
-          const pending = pendingBootSearchRef.current;
-          pendingBootSearchRef.current = null;
           setBootLoading(false);
           setFiltersReady(true);
-          if (pending?.scope) {
-            suppressNextSearchEffectRef.current = true;
-            await performSearchRef.current({
-              scope: pending.scope,
-              category: pending.category,
-            });
-          }
         }
       }
     })();
@@ -679,7 +621,7 @@ export default function FormulaMaintenancePage() {
   );
 
   const performSearch = useCallback(async (overrides = {}) => {
-    const { scrollRestoreRowId: restoreRowId = null, skipStaleGuard = false } = overrides;
+    const { skipStaleGuard = false } = overrides;
     const effectiveScope =
       overrides.scope ??
       resolveFormulaMaintenanceScope({
@@ -742,7 +684,7 @@ export default function FormulaMaintenancePage() {
 
       setConfirmDelete(false);
       setFormulaDataSourceCompanyId(formulaMaintenanceScopeCacheCompanyKey(effectiveScope));
-      hydrateFormulaList(data, { ensureRowId: restoreRowId });
+      hydrateFormulaList(data);
       lastSearchQueryKeyRef.current = effectiveSearchKey;
 
       if ((filtersChanged || overrides.scope) && !quietRefresh) {
@@ -811,8 +753,9 @@ export default function FormulaMaintenancePage() {
       companyIdRef.current = null;
       setCompanyId(null);
       setCompanyCode("");
-      setSelectedProcess("");
+      setSelectedProcess(null);
       clearFormulaList();
+      lastSearchQueryKeyRef.current = "";
       persistDashboardFilterState(g, null);
       void (async () => {
         try {
@@ -834,14 +777,6 @@ export default function FormulaMaintenancePage() {
               .catch(() => setAccounts([]));
           } else {
             setAccounts([]);
-          }
-          if (scope && formulaMaintenanceScopeIsReady(scope)) {
-            await performSearchRef.current({
-              scope,
-              category: meta.activePermission,
-              selectedGroup: g,
-              companyId: null,
-            });
           }
         } catch (err) {
           console.error("Meta bootstrap after clear company:", err);
@@ -871,21 +806,12 @@ export default function FormulaMaintenancePage() {
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
       followGroupRef.current();
+      setSelectedProcess(null);
+      clearFormulaList();
+      lastSearchQueryKeyRef.current = "";
       resetSelection();
-      void (async () => {
-        try {
-          await performSearch({
-            companyId: nextId,
-            selectedGroup: newGroup,
-            scope: nextScope,
-            skipStaleGuard: true,
-          });
-        } catch (err) {
-          console.error("Company select search:", err);
-        }
-      })();
     },
-    [companies, groupAllMode, groupsAllMode, performSearch, resetSelection],
+    [companies, groupAllMode, groupsAllMode, clearFormulaList, resetSelection],
   );
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
@@ -923,8 +849,9 @@ export default function FormulaMaintenancePage() {
       (selectedGroup ? companiesNativeInGroupList(companies, selectedGroup)[0]?.company_id : "") ||
       "";
     if (permCode) localStorage.setItem(`selectedPermission_${permCode}`, p);
-    setSelectedProcess("");
+    setSelectedProcess(null);
     clearFormulaList();
+    lastSearchQueryKeyRef.current = "";
     setConfirmDelete(false);
   };
 

@@ -279,21 +279,13 @@ export default function FormulaMaintenanceTable({
     />
   );
 
-  const hydrateHint =
-    listHydrating && totalRowCount > data.length ? (
-      <div className="formula-list-hydrate-hint" role="status" aria-live="polite">
-        {m.loading} ({data.length} / {totalRowCount})
-      </div>
-    ) : null;
-
   if (useVirtualList) {
     return (
       <div
         className={`maintenance-list-container maintenance-virtual-table formula-virtual-table${
-          listHydrating ? " formula-list-container--hydrating" : ""
-        }${listSyncing ? " formula-list-container--syncing" : ""}`}
+          listSyncing ? " formula-list-container--syncing" : ""
+        }`}
       >
-        {hydrateHint}
         <div className="maintenance-virtual-table-inner formula-virtual-table-inner" role="table">
           <FormulaVirtualRows
             rows={data}
@@ -324,11 +316,7 @@ export default function FormulaMaintenanceTable({
   }
 
   return (
-    <div
-      className={`maintenance-list-container${listHydrating ? " formula-list-container--hydrating" : ""}`}
-      style={{ display: "block" }}
-    >
-      {hydrateHint}
+    <div className="maintenance-list-container" style={{ display: "block" }}>
       <table className="maintenance-table">
         <thead>
           <tr>
