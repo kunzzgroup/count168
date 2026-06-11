@@ -3,10 +3,11 @@ import { useLayoutEffect, useState } from "react";
 const DEFAULT_FALLBACK_ROW_HEIGHT = 30;
 const DEFAULT_FALLBACK_PAGE_SIZE = 15;
 const HEADER_MARGIN_TOP_PX = 12;
-const PAGINATION_RESERVE_PX = 52;
-const TABLE_TOP_MARGIN_PX = 6;
-const MIN_BUDGET_PX = 120;
-const MIN_ROWS = 6;
+const PAGINATION_RESERVE_PX = 56;
+const VIEWPORT_BOTTOM_GAP_PX = 12;
+const TABLE_TOP_MARGIN_PX = 0;
+const ABSOLUTE_ROW_HEIGHT_CAP = 52;
+const MIN_ROWS = 4;
 const MAX_ROWS = 80;
 
 function readCssPx(el, varName, fallback) {
@@ -23,48 +24,50 @@ function readCssPx(el, varName, fallback) {
   return px > 0 ? px : fallback;
 }
 
-function cssRowEstimate(region, rowHeightVar) {
-  return (
-    readCssPx(region, rowHeightVar, 0) ||
-    readCssPx(region, "--bank-list-cell-min-height", DEFAULT_FALLBACK_ROW_HEIGHT)
-  );
+function cellMinHeight(region) {
+  return readCssPx(region, "--bank-list-cell-min-height", DEFAULT_FALLBACK_ROW_HEIGHT);
 }
 
-function measureRowHeight(region, rowSelector, rowHeightVar) {
-  const cssEstimate = cssRowEstimate(region, rowHeightVar);
-  /** 拉伸行（fill-page）会把 DOM 高度撑满视口，必须用 CSS 估算避免 pageSize 塌缩为 1 */
+function measureRowHeight(region, rowSelector) {
+  const cellMin = cellMinHeight(region);
+
+  /** 拉伸行会把 DOM 撑满视口；只用 cell-min-height，不用 data-row-estimate（平板会偏大） */
   if (region.querySelector(".bank-process-fill-rows")) {
-    return cssEstimate;
+    return cellMin;
   }
 
-  const rowCap = Math.max(cssEstimate * 1.5, DEFAULT_FALLBACK_ROW_HEIGHT);
   const rows = region.querySelectorAll(rowSelector);
   if (rows.length > 0) {
     let total = 0;
     let count = 0;
     rows.forEach((row, idx) => {
-      if (idx >= 3) return;
+      if (idx >= 5) return;
       const rawH = row.getBoundingClientRect().height;
-      const h = rawH > 0 ? Math.min(rawH, rowCap) : 0;
+      const h = rawH > 0 ? Math.min(rawH, ABSOLUTE_ROW_HEIGHT_CAP) : 0;
       if (h > 0) {
         total += h;
         count += 1;
       }
     });
-    if (count > 0) return Math.max(total / count, DEFAULT_FALLBACK_ROW_HEIGHT * 0.85);
+    if (count > 0) {
+      return Math.max(cellMin * 0.88, total / count);
+    }
   }
-  return cssEstimate;
+
+  return cellMin;
 }
 
+/** 用视口剩余高度（表头下方 → 屏幕底），避免 flex 容器 clientHeight 跟内容一起缩 */
 function measureBudget(region, headerSelector) {
-  if (region.clientHeight < MIN_BUDGET_PX) return 0;
-
   const header = region.querySelector(headerSelector);
-  const headerH = header ? header.getBoundingClientRect().height + HEADER_MARGIN_TOP_PX : 48;
+  if (!header) return 0;
+
+  const headerBottom = header.getBoundingClientRect().bottom;
+  const viewportH = window.visualViewport?.height ?? window.innerHeight;
 
   return Math.max(
     0,
-    region.clientHeight - headerH - PAGINATION_RESERVE_PX - TABLE_TOP_MARGIN_PX,
+    viewportH - headerBottom - PAGINATION_RESERVE_PX - VIEWPORT_BOTTOM_GAP_PX - TABLE_TOP_MARGIN_PX,
   );
 }
 
@@ -76,7 +79,6 @@ export function useAutoListPageSize({
   enabled = true,
   rowSelector = ".bank-virtual-data-row:not(.bank-virtual-data-row--message)",
   headerSelector = ".bank-virtual-head-row.table-header",
-  rowHeightVar = "--bank-list-data-row-estimate",
   minRows = MIN_ROWS,
   maxRows = MAX_ROWS,
   remeasureDeps = [],
@@ -94,9 +96,9 @@ export function useAutoListPageSize({
       if (!el) return;
 
       const budget = measureBudget(el, headerSelector);
-      if (budget <= 0) return;
+      if (budget < cellMinHeight(el)) return;
 
-      const rowH = Math.max(1, measureRowHeight(el, rowSelector, rowHeightVar));
+      const rowH = Math.max(1, measureRowHeight(el, rowSelector));
       let rows = Math.floor(budget / rowH);
 
       while (rows < maxRows && (rows + 1) * rowH <= budget + 1) {
@@ -121,14 +123,18 @@ export function useAutoListPageSize({
     const onWindow = () => measure();
     window.addEventListener("resize", onWindow);
     window.addEventListener("ec:sidebar-layout-changed", onWindow);
+    window.visualViewport?.addEventListener("resize", onWindow);
+    window.visualViewport?.addEventListener("scroll", onWindow);
 
     return () => {
       window.cancelAnimationFrame(raf1);
       ro.disconnect();
       window.removeEventListener("resize", onWindow);
       window.removeEventListener("ec:sidebar-layout-changed", onWindow);
+      window.visualViewport?.removeEventListener("resize", onWindow);
+      window.visualViewport?.removeEventListener("scroll", onWindow);
     };
-  }, [enabled, listRegionRef, headerSelector, rowSelector, rowHeightVar, minRows, maxRows, ...remeasureDeps]);
+  }, [enabled, listRegionRef, headerSelector, rowSelector, minRows, maxRows, ...remeasureDeps]);
 
   return enabled ? pageSize : maxRows;
 }
