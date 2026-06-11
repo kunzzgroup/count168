@@ -224,6 +224,11 @@ export default function AutoRenewPage() {
   const counts = activeSnapshot?.counts ?? EMPTY_COUNTS;
   const canEditGlobal = Boolean(activeSnapshot?.canEditGlobal);
 
+  const listFetchKey = useCallback(
+    (status, range, entity) => `${entity}|${status}|${range?.dateFrom || ""}|${range?.dateTo || ""}`,
+    [],
+  );
+
   const handleEntityTabChange = useCallback(
     (tab) => {
       if (tab === entityTab) return;
@@ -258,11 +263,6 @@ export default function AutoRenewPage() {
       setListRefreshing(true);
     },
     [dateFrom, dateTo, entityTab, listFetchKey, statusFilter, storeEntityListData],
-  );
-
-  const listFetchKey = useCallback(
-    (status, range, entity) => `${entity}|${status}|${range?.dateFrom || ""}|${range?.dateTo || ""}`,
-    [],
   );
 
   const fetchList = useCallback(async () => {
