@@ -3,7 +3,10 @@ import { useLayoutEffect, useState } from "react";
 const DEFAULT_FALLBACK_ROW_HEIGHT = 30;
 const DEFAULT_FALLBACK_PAGE_SIZE = 15;
 const HEADER_MARGIN_TOP_PX = 12;
-const MIN_ROWS = 1;
+const PAGINATION_RESERVE_PX = 52;
+const TABLE_TOP_MARGIN_PX = 6;
+const MIN_BUDGET_PX = 120;
+const MIN_ROWS = 6;
 const MAX_ROWS = 80;
 
 function readCssPx(el, varName, fallback) {
@@ -20,37 +23,49 @@ function readCssPx(el, varName, fallback) {
   return px > 0 ? px : fallback;
 }
 
-function measureRowHeight(region, rowSelector, rowHeightVar) {
-  const rows = region.querySelectorAll(rowSelector);
-  if (rows.length > 0) {
-    let total = 0;
-    let count = 0;
-    rows.forEach((row, idx) => {
-      if (idx >= 3) return;
-      const h = row.getBoundingClientRect().height;
-      if (h > 0) {
-        total += h;
-        count += 1;
-      }
-    });
-    if (count > 0) return total / count;
-  }
+function cssRowEstimate(region, rowHeightVar) {
   return (
     readCssPx(region, rowHeightVar, 0) ||
     readCssPx(region, "--bank-list-cell-min-height", DEFAULT_FALLBACK_ROW_HEIGHT)
   );
 }
 
+function measureRowHeight(region, rowSelector, rowHeightVar) {
+  const cssEstimate = cssRowEstimate(region, rowHeightVar);
+  /** 拉伸行（fill-page）会把 DOM 高度撑满视口，必须用 CSS 估算避免 pageSize 塌缩为 1 */
+  if (region.querySelector(".bank-process-fill-rows")) {
+    return cssEstimate;
+  }
+
+  const rowCap = Math.max(cssEstimate * 1.5, DEFAULT_FALLBACK_ROW_HEIGHT);
+  const rows = region.querySelectorAll(rowSelector);
+  if (rows.length > 0) {
+    let total = 0;
+    let count = 0;
+    rows.forEach((row, idx) => {
+      if (idx >= 3) return;
+      const rawH = row.getBoundingClientRect().height;
+      const h = rawH > 0 ? Math.min(rawH, rowCap) : 0;
+      if (h > 0) {
+        total += h;
+        count += 1;
+      }
+    });
+    if (count > 0) return Math.max(total / count, DEFAULT_FALLBACK_ROW_HEIGHT * 0.85);
+  }
+  return cssEstimate;
+}
+
 function measureBudget(region, headerSelector) {
-  const wrapper = region.querySelector(".process-table-wrapper.bank-process-table-region");
-  if (!wrapper || wrapper.clientHeight <= 0) return 0;
+  if (region.clientHeight < MIN_BUDGET_PX) return 0;
 
   const header = region.querySelector(headerSelector);
-  const headerH = header ? header.getBoundingClientRect().height + HEADER_MARGIN_TOP_PX : 0;
-  const padBottom = parseFloat(getComputedStyle(wrapper).paddingBottom) || 0;
-  const wrapperMarginTop = parseFloat(getComputedStyle(wrapper).marginTop) || 0;
+  const headerH = header ? header.getBoundingClientRect().height + HEADER_MARGIN_TOP_PX : 48;
 
-  return Math.max(0, wrapper.clientHeight - headerH - padBottom - wrapperMarginTop);
+  return Math.max(
+    0,
+    region.clientHeight - headerH - PAGINATION_RESERVE_PX - TABLE_TOP_MARGIN_PX,
+  );
 }
 
 /**
@@ -64,7 +79,6 @@ export function useAutoListPageSize({
   rowHeightVar = "--bank-list-data-row-estimate",
   minRows = MIN_ROWS,
   maxRows = MAX_ROWS,
-  totalRowCount = 0,
   remeasureDeps = [],
 }) {
   const [pageSize, setPageSize] = useState(DEFAULT_FALLBACK_PAGE_SIZE);
@@ -77,7 +91,7 @@ export function useAutoListPageSize({
 
     const measure = () => {
       const el = listRegionRef.current;
-      if (!el || el.clientHeight <= 0) return;
+      if (!el) return;
 
       const budget = measureBudget(el, headerSelector);
       if (budget <= 0) return;
@@ -85,7 +99,7 @@ export function useAutoListPageSize({
       const rowH = Math.max(1, measureRowHeight(el, rowSelector, rowHeightVar));
       let rows = Math.floor(budget / rowH);
 
-      while (rows < maxRows && rows < totalRowCount && (rows + 1) * rowH <= budget + 0.5) {
+      while (rows < maxRows && (rows + 1) * rowH <= budget + 1) {
         rows += 1;
       }
 
@@ -94,7 +108,10 @@ export function useAutoListPageSize({
     };
 
     measure();
-    const raf = window.requestAnimationFrame(measure);
+    const raf1 = window.requestAnimationFrame(() => {
+      measure();
+      window.requestAnimationFrame(measure);
+    });
 
     const ro = new ResizeObserver(() => measure());
     ro.observe(region);
@@ -106,22 +123,12 @@ export function useAutoListPageSize({
     window.addEventListener("ec:sidebar-layout-changed", onWindow);
 
     return () => {
-      window.cancelAnimationFrame(raf);
+      window.cancelAnimationFrame(raf1);
       ro.disconnect();
       window.removeEventListener("resize", onWindow);
       window.removeEventListener("ec:sidebar-layout-changed", onWindow);
     };
-  }, [
-    enabled,
-    listRegionRef,
-    headerSelector,
-    rowSelector,
-    rowHeightVar,
-    minRows,
-    maxRows,
-    totalRowCount,
-    ...remeasureDeps,
-  ]);
+  }, [enabled, listRegionRef, headerSelector, rowSelector, rowHeightVar, minRows, maxRows, ...remeasureDeps]);
 
   return enabled ? pageSize : maxRows;
 }

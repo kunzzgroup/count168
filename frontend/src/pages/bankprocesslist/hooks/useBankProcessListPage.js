@@ -38,6 +38,7 @@ import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessag
 import { useAutoListPageSize } from "../../../hooks/useAutoListPageSize.js";
 import {
   PAGE_SIZE_MAX,
+  PAGE_SIZE_MIN,
   normalizeRows,
   isoToDmy,
   dmyToIso,
@@ -2255,9 +2256,9 @@ export function useBankProcessListPage() {
   const pageSize = useAutoListPageSize({
     listRegionRef,
     enabled: !showAll,
+    minRows: PAGE_SIZE_MIN,
     maxRows: PAGE_SIZE_MAX,
-    totalRowCount: visibleRows.length,
-    remeasureDeps: [visibleRows.length, tableLoading, lang, cssReady],
+    remeasureDeps: [visibleRows.length, tableLoading, lang, cssReady, currentPage],
   });
 
   const totalPages = useMemo(

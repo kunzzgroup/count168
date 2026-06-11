@@ -2,7 +2,7 @@ import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 
 /** Auto page size bounds (actual count from useAutoListPageSize). */
-export const PAGE_SIZE_MIN = 1;
+export const PAGE_SIZE_MIN = 6;
 export const PAGE_SIZE_MAX = 80;
 
 /** Bank Process 金额：固定两位小数（如 300.00）. */
