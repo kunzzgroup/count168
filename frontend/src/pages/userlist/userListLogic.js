@@ -245,6 +245,21 @@ export function formatLastLogin(raw) {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
+/**
+ * Status visibility after toggle — aligned with processlist / account list:
+ * - default: active (paginated)
+ * - showInactive: inactive (paginated)
+ * - showAll: all active (no pagination)
+ * - showAll + showInactive: all inactive
+ */
+export function userRowVisibleAfterStatusChange(newStatus, { showInactive, showAll }) {
+  const status = normRole(newStatus);
+  if (showAll && showInactive) return status === "inactive";
+  if (showAll) return status === "active";
+  if (showInactive) return status === "inactive";
+  return status === "active";
+}
+
 export function applyUserFilters(users, { search, showInactive, showAll, viewerRole }) {
   const vr = normRole(viewerRole);
   let rows = users.map((u) => ({ ...u }));
@@ -255,8 +270,11 @@ export function applyUserFilters(users, { search, showInactive, showAll, viewerR
   if (q) {
     rows = rows.filter((u) => `${u.login_id || ""} ${u.name || ""} ${u.email || ""}`.toLowerCase().includes(q));
   }
-  if (showAll) return rows;
-  if (showInactive) {
+  if (showAll && showInactive) {
+    rows = rows.filter((u) => normRole(u.status) === "inactive");
+  } else if (showAll) {
+    rows = rows.filter((u) => normRole(u.status) === "active");
+  } else if (showInactive) {
     rows = rows.filter((u) => normRole(u.status) === "inactive");
   } else {
     rows = rows.filter((u) => normRole(u.status) === "active");

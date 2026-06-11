@@ -21,6 +21,13 @@ date_default_timezone_set('Asia/Kuala_Lumpur');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
+// Local XAMPP overrides (gitignored): includes/config.local.php
+$localConfig = __DIR__ . '/config.local.php';
+if (is_file($localConfig)) {
+    require $localConfig;
+}
+
+
 $pdo = null;
 
 try {

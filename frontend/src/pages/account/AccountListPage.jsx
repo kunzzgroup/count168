@@ -103,6 +103,14 @@ function resolveAccountListCacheKey(scopeKey, searchTerm, showInactive, showAll)
   return `${scopeKey}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
 }
 
+function accountRowVisibleAfterStatusChange(newStatus, { showInactive, showAll }) {
+  const status = String(newStatus || "").toLowerCase();
+  if (showAll && showInactive) return status === "inactive";
+  if (showAll) return status === "active";
+  if (showInactive) return status === "inactive";
+  return status === "active";
+}
+
 function resolveAccountScopeKey({ companyId: cid, selectedGroup: sg, groupOnly = false }) {
   const g = String(sg || "").trim().toUpperCase();
   if (cid != null && Number(cid) > 0) {
@@ -1802,9 +1810,7 @@ export default function AccountListPage() {
         const next = json.newStatus || json.data?.newStatus;
         setAccounts(prev => {
           const updated = prev.map(a => Number(a.id) === Number(id) ? { ...a, status: next } : a);
-          if (showInactive) return updated.filter(a => String(a.status || "").toLowerCase() === "inactive");
-          if (!showAll) return updated.filter(a => String(a.status || "").toLowerCase() === "active");
-          return updated;
+          return updated.filter(a => accountRowVisibleAfterStatusChange(a.status, { showInactive, showAll }));
         });
         refreshAccountList();
       }
@@ -2607,18 +2613,12 @@ export default function AccountListPage() {
                 <div className="userlist-filter-chips" role="group">
                   <button
                     type="button"
-                    className={`user-filter-chip${showInactive && !showAll ? " is-selected" : ""}`}
-                    aria-pressed={showInactive && !showAll}
-                    onClick={() => {
-                      if (showInactive && !showAll) setShowInactive(false);
-                      else {
-                        setShowInactive(true);
-                        setShowAll(false);
-                      }
-                    }}
+                    className={`user-filter-chip${showInactive ? " is-selected" : ""}`}
+                    aria-pressed={showInactive}
+                    onClick={() => setShowInactive((prev) => !prev)}
                   >
                     <span className="user-filter-chip__dot" aria-hidden>
-                      {showInactive && !showAll ? (
+                      {showInactive ? (
                         <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M6 12l4 4 8-8" />
                         </svg>
@@ -2630,13 +2630,7 @@ export default function AccountListPage() {
                     type="button"
                     className={`user-filter-chip${showAll ? " is-selected" : ""}`}
                     aria-pressed={showAll}
-                    onClick={() => {
-                      if (showAll) setShowAll(false);
-                      else {
-                        setShowAll(true);
-                        setShowInactive(false);
-                      }
-                    }}
+                    onClick={() => setShowAll((prev) => !prev)}
                   >
                     <span className="user-filter-chip__dot" aria-hidden>
                       {showAll ? (
