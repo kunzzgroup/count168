@@ -171,8 +171,9 @@ export function isBankInactiveLike(status, issueFlag) {
 
 /**
  * Bank list client-side row filter (legacy bank_process_list.js matchesCurrentBankFilters).
- * - showAll: keep everything (date-range still applied by caller)
- * - any of showInactive/showOfficial/showEInvoice/showBlock: union of those exact buckets
+ * - showAll only: default visible active rows
+ * - showAll + sub-filters: union of selected buckets (inactive / official / e_invoice / block)
+ * - no showAll, sub-filters only: union of those buckets (paginated mode)
  * - none: only "default visible" rows = active AND issue_flag NOT IN (official, e_invoice, block)
  *
  * "Plain inactive" means status==='inactive' AND issue_flag NOT IN (official, e_invoice, block).
@@ -203,21 +204,24 @@ export function filterBankProcessRowsBySearch(rows, searchTerm) {
 export function matchesCurrentBankFilters(row, filters) {
   if (!row) return false;
   const { showAll, showInactive, showOfficial, showEInvoice, showBlock } = filters || {};
-  if (showAll) return true;
   const status = normalizeBankProcessStatus(row.status);
   const issueFlag = normalizeBankIssueFlag(row.issue_flag);
   const isPlainInactive =
     status === "inactive" && issueFlag !== "official" && issueFlag !== "e_invoice" && issueFlag !== "block";
+  const isDefaultActive =
+    status === "active" && issueFlag !== "official" && issueFlag !== "e_invoice" && issueFlag !== "block";
   const matches = [];
   if (showInactive) matches.push(isPlainInactive);
   if (showOfficial) matches.push(issueFlag === "official");
   if (showEInvoice) matches.push(issueFlag === "e_invoice");
   if (showBlock) matches.push(issueFlag === "block");
-  if (matches.length === 0) {
-    return (
-      status === "active" && issueFlag !== "official" && issueFlag !== "e_invoice" && issueFlag !== "block"
-    );
+
+  if (showAll) {
+    if (matches.length === 0) return isDefaultActive;
+    return matches.some(Boolean);
   }
+
+  if (matches.length === 0) return isDefaultActive;
   return matches.some(Boolean);
 }
 
