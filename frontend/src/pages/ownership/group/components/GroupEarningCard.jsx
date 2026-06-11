@@ -1,6 +1,7 @@
 import React from "react";
 import AccountEditorRow from "../../shared/components/AccountEditorRow.jsx";
 import GePartnerSection from "./GePartnerSection.jsx";
+import { ownershipRowClientId } from "../../shared/ownershipRowHelpers.js";
 
 export default function GroupEarningCard({
   grp,
@@ -114,7 +115,7 @@ export default function GroupEarningCard({
               <div id={`ge-rows-container-${gid}`}>
                 {st.rows.map((row, idx) => (
                   <AccountEditorRow
-                    key={`ge-${gid}-${idx}-${String(row.account_id)}-${row.ownership_id ?? "n"}`}
+                    key={ownershipRowClientId(row, idx)}
                     companyId={`ge-${gid}`}
                     idx={idx}
                     row={row}

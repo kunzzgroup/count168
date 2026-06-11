@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import OwnAccountSelect from "./OwnAccountSelect.jsx";
-import { accountsForRowPicker } from "../ownershipRowHelpers.js";
+import { accountsForRowPicker, ownershipRowClientId } from "../ownershipRowHelpers.js";
+
+function normalizePct(value) {
+  const p = parseFloat(value);
+  if (!Number.isFinite(p)) return 0;
+  return Math.max(0, Math.min(100, p));
+}
 
 function applySliderBg(sliderEl, value) {
   if (!sliderEl) return;
@@ -29,11 +35,21 @@ export default function AccountEditorRow({
   const sliderRef = useRef(null);
   const rowRef = useRef(null);
   const [dragEnabled, setDragEnabled] = useState(false);
-  const pct = parseFloat(row.percentage) || 0;
+  const rowClientId = ownershipRowClientId(row, idx);
+  const storedPct = normalizePct(row.percentage);
+  const [displayPct, setDisplayPct] = useState(storedPct);
+  const [inputValue, setInputValue] = useState(() => `${storedPct}%`);
+  const isEditingPctRef = useRef(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => applySliderBg(sliderRef.current, pct));
-  }, [pct]);
+    if (isEditingPctRef.current) return;
+    setDisplayPct(storedPct);
+    setInputValue(`${storedPct}%`);
+  }, [rowClientId, storedPct]);
+
+  useEffect(() => {
+    requestAnimationFrame(() => applySliderBg(sliderRef.current, displayPct));
+  }, [displayPct]);
 
   useEffect(() => {
     if (!dragEnabled) return undefined;
@@ -44,6 +60,13 @@ export default function AccountEditorRow({
 
   const isPartnership = String(row.role || "").toLowerCase() === "partnership";
   const showRo = isPartnership || row.is_external_partner;
+
+  const commitSliderPct = (raw) => {
+    const next = normalizePct(raw);
+    setDisplayPct(next);
+    setInputValue(`${next}%`);
+    onUpdate(idx, "slider", next);
+  };
 
   const clearDragStyles = () => {
     const el = rowRef.current;
@@ -57,6 +80,7 @@ export default function AccountEditorRow({
     <div
       ref={rowRef}
       className="own-account-row"
+      data-row-id={rowClientId}
       data-index={idx}
       data-group-entry={String(row.account_id || "").startsWith("G_") ? "true" : undefined}
       draggable={!readOnlyMode && enableDrag && dragEnabled}
@@ -131,28 +155,51 @@ export default function AccountEditorRow({
         t={t}
         onChange={(id) => onUpdate(idx, "account_id", id)}
       />
-      <div className="own-ownership-input-group">
+      <div
+        className="own-ownership-input-group"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <input
           type="text"
           className="own-percent-input"
-          id={`input-${companyId}-${idx}`}
-          key={`pi-${companyId}-${idx}-${row.percentage}`}
-          defaultValue={`${pct}%`}
+          id={`input-${companyId}-${rowClientId}`}
+          value={inputValue}
           disabled={readOnlyMode || row.is_external_partner}
-          onBlur={(e) => onUpdate(idx, "percent_input", e.target.value)}
+          onFocus={() => {
+            isEditingPctRef.current = true;
+          }}
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={(e) => {
+            isEditingPctRef.current = false;
+            const next = normalizePct(e.target.value);
+            setDisplayPct(next);
+            setInputValue(`${next}%`);
+            onUpdate(idx, "percent_input", e.target.value);
+          }}
         />
         <div className="own-slider-container">
           <input
             ref={sliderRef}
             type="range"
             className="own-slider"
-            id={`slider-${companyId}-${idx}`}
+            id={`slider-${companyId}-${rowClientId}`}
             min={0}
             max={100}
             step={1}
-            value={pct}
+            value={displayPct}
             disabled={readOnlyMode || row.is_external_partner}
-            onInput={(e) => onUpdate(idx, "slider", e.target.value)}
+            onPointerDown={() => {
+              isEditingPctRef.current = true;
+            }}
+            onPointerUp={() => {
+              isEditingPctRef.current = false;
+            }}
+            onPointerCancel={() => {
+              isEditingPctRef.current = false;
+            }}
+            onInput={(e) => commitSliderPct(e.target.value)}
           />
           <div className="own-slider-labels">
             <span>0%</span>

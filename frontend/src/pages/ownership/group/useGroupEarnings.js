@@ -5,6 +5,7 @@ import { formatOwnershipSavedAt } from "../shared/ownershipMonthHelpers.js";
 import {
   applyOwnershipRowFieldUpdate,
   calcOwnershipTotal,
+  createEmptyOwnershipRow,
   EMPTY_OWNERSHIP_ROW,
   fmtOwnershipPct,
   validateOwnershipRowsForSave,
@@ -187,7 +188,7 @@ export function useGroupEarnings(shell) {
         if (!st) return prev;
         return {
           ...prev,
-          [gid]: { ...st, rows: [...st.rows, { ...EMPTY_OWNERSHIP_ROW }] },
+          [gid]: { ...st, rows: [...st.rows, createEmptyOwnershipRow()] },
         };
       });
     },

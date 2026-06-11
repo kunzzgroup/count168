@@ -19,7 +19,7 @@ export function rowsToSavePayload(rows) {
 }
 
 export function mapOwnerApiRows(data) {
-  return (Array.isArray(data) ? data : []).map((o) => {
+  return (Array.isArray(data) ? data : []).map((o, index) => {
     const role = String(o.role || "").toUpperCase();
     const accountName = o.account_name || "";
     const name = o.name || "";
@@ -29,6 +29,7 @@ export function mapOwnerApiRows(data) {
     } else if (role === "GROUP" && accountName) {
       account_label = accountName;
     }
+    const ownership_id = o.ownership_id || null;
     return {
       account_id: o.account_id,
       account_label,
@@ -37,7 +38,8 @@ export function mapOwnerApiRows(data) {
       percentage: parseFloat(o.percentage),
       role: o.role || "",
       user_raw_id: o.user_raw_id || null,
-      ownership_id: o.ownership_id || null,
+      ownership_id,
+      clientRowId: ownership_id ? `own-${ownership_id}` : `api-${o.account_id}-${index}`,
       is_external_partner: parseInt(o.is_external_partner, 10) === 1,
       read_only: o.read_only !== null ? parseInt(o.read_only, 10) : 1,
     };
@@ -110,6 +112,23 @@ export const EMPTY_OWNERSHIP_ROW = {
   read_only: 1,
 };
 
+let emptyRowSeq = 0;
+
+export function createEmptyOwnershipRow() {
+  emptyRowSeq += 1;
+  return {
+    ...EMPTY_OWNERSHIP_ROW,
+    clientRowId: `new-${Date.now()}-${emptyRowSeq}`,
+  };
+}
+
+export function ownershipRowClientId(row, fallbackIdx = 0) {
+  if (row?.clientRowId) return row.clientRowId;
+  if (row?.ownership_id) return `own-${row.ownership_id}`;
+  if (row?.account_id) return `acct-${row.account_id}-${fallbackIdx}`;
+  return `row-${fallbackIdx}`;
+}
+
 export function applyOwnershipRowFieldUpdate(row, field, val, accounts) {
   const r = { ...row };
   if (field === "account_id") {
@@ -132,7 +151,9 @@ export function applyOwnershipRowFieldUpdate(row, field, val, accounts) {
     if (isNaN(p)) p = 0;
     r.percentage = Math.max(0, Math.min(100, p));
   } else if (field === "slider") {
-    r.percentage = parseFloat(val);
+    let p = parseFloat(val);
+    if (isNaN(p)) p = 0;
+    r.percentage = Math.max(0, Math.min(100, p));
   } else if (field === "read_only") {
     r.read_only = val;
   }
