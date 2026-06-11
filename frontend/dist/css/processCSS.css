@@ -3923,6 +3923,59 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     vertical-align: middle;
 }
 
+/* Bank 列表 Action：统一图标尺寸与点击区域（全视口） */
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools {
+    --bank-action-icon-size: clamp(14px, 0.9vw, 15px);
+    --bank-action-btn-size: clamp(24px, 1.55vw, 26px);
+    gap: 0 !important;
+    align-items: center !important;
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools .edit-btn,
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools .remark-action-btn,
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools .bank-resend-btn,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools .edit-btn,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools .remark-action-btn,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools .bank-resend-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: var(--bank-action-btn-size) !important;
+    height: var(--bank-action-btn-size) !important;
+    min-width: var(--bank-action-btn-size) !important;
+    min-height: var(--bank-action-btn-size) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+    box-sizing: border-box !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools .edit-btn img,
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools .remark-action-btn svg,
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools .bank-resend-btn svg,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools .edit-btn img,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools .remark-action-btn svg,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools .bank-resend-btn svg {
+    width: var(--bank-action-icon-size) !important;
+    height: var(--bank-action-icon-size) !important;
+    min-width: var(--bank-action-icon-size) !important;
+    min-height: var(--bank-action-icon-size) !important;
+    display: block !important;
+    flex-shrink: 0 !important;
+    object-fit: contain !important;
+    filter: none !important;
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools .remark-action-btn svg path,
+body.process-page.process-page--bank .bank-process-table-region .bank-action-tools .bank-resend-btn svg path,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools .remark-action-btn svg path,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-action-tools .bank-resend-btn svg path {
+    stroke-width: 2;
+}
+
 .process-page .bank-action-tools .remark-action-btn {
     margin-left: 0;
 }
