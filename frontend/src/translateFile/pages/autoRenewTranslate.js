@@ -3,7 +3,7 @@ import { interpolate } from "../shared/i18nHelpers.js";
 export const AUTO_RENEW_I18N = {
   en: {
     pageTitle: "Auto Renew",
-    pageSubtitle: "Review and approve subscription renewals for companies expiring within 30 days.",
+    pageSubtitle: "Review and approve subscription renewals for companies and groups expiring within 30 days.",
     company: "Company",
     expirationDate: "Expiration Date",
     timeRemaining: "Time Remaining",
@@ -78,7 +78,7 @@ export const AUTO_RENEW_I18N = {
   },
   zh: {
     pageTitle: "自动续费审批",
-    pageSubtitle: "审批 30 天内到期的客户公司续费申请。",
+    pageSubtitle: "审批 30 天内到期的客户公司与分组续费申请。",
     company: "公司",
     expirationDate: "到期日",
     timeRemaining: "剩余时间",
