@@ -50,6 +50,8 @@ export const DASHBOARD_SELECTED_COMPANY_KEY = "dashboard_selected_company_id";
 /** Cross-page currency pill / dropdown selection (scoped by company or group). */
 export const DASHBOARD_SELECTED_CURRENCY_KEY = "dashboard_selected_currency_code";
 export const DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY = "dashboard_selected_currency_scope";
+/** Per company/group scope → last selected currency code (session JSON map). */
+export const DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY = "dashboard_selected_currency_by_scope";
 /** Prevents re-applying login defaults on refresh while the same login session is active. */
 export const DASHBOARD_LOGIN_FILTER_APPLIED_KEY = "dashboard_login_filter_applied";
 /** Linked group ids (AP+IG) from get_owner_companies_api for company login filter pills. */
@@ -70,6 +72,7 @@ export function clearDashboardFilterSession() {
   sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
+  sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY);
   sessionStorage.removeItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY);
   sessionStorage.removeItem(DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY);
 }
@@ -103,12 +106,51 @@ function pickCurrencyIfAllowed(code, allowedCodes) {
   return cur;
 }
 
+function readDashboardCurrencyScopeMap() {
+  try {
+    const raw = sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDashboardCurrencyScopeMap(map) {
+  try {
+    sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Last currency the user picked for a specific company or group scope. */
+export function readDashboardScopedCurrency(scopeKey, availableCodes = null) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  if (!key) return null;
+  const allowed = normalizeCurrencyCodeList(availableCodes);
+  const fromMap = pickCurrencyIfAllowed(readDashboardCurrencyScopeMap()[key], allowed);
+  if (fromMap) return fromMap;
+  try {
+    if (sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY) !== key) return null;
+    return pickCurrencyIfAllowed(sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_KEY), allowed);
+  } catch {
+    return null;
+  }
+}
+
 export function persistDashboardSelectedCurrency(scopeKey, code) {
   const key = scopeKey ? String(scopeKey).trim() : "";
   const cur = code ? String(code).trim().toUpperCase() : "";
   if (!cur) return;
   try {
-    if (key) sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY, key);
+    if (key) {
+      sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY, key);
+      const map = readDashboardCurrencyScopeMap();
+      map[key] = cur;
+      writeDashboardCurrencyScopeMap(map);
+    }
     sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_KEY, cur);
   } catch {
     /* ignore */
@@ -120,27 +162,27 @@ export function clearDashboardSelectedCurrency() {
   try {
     sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
     sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
+    sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY);
   } catch {
     /* ignore */
   }
 }
 
-/** Last cross-page currency (global; not scoped to a single company). */
+/** Last cross-page currency for a scope; falls back to global last when scopeOnly is false. */
 export function readDashboardSelectedCurrency(scopeKey, options = {}) {
   const allowed = normalizeCurrencyCodeList(options.availableCodes);
   const scopeOnly = options.scopeOnly === true;
-  if (!scopeOnly) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  if (key) {
+    const scoped = readDashboardScopedCurrency(key, allowed);
+    if (scoped) return scoped;
+  }
+  const isCompanyScope = key.startsWith("company:");
+  if (!scopeOnly && !isCompanyScope) {
     const last = pickCurrencyIfAllowed(readLastDashboardSelectedCurrency(), allowed);
     if (last) return last;
   }
-  const key = scopeKey ? String(scopeKey).trim() : "";
-  if (!key) return null;
-  try {
-    if (sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY) !== key) return null;
-    return pickCurrencyIfAllowed(sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_KEY), allowed);
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 /** Persist + broadcast so every currency-filter page stays in sync. */
@@ -160,7 +202,7 @@ export function notifyDashboardCurrencyFilterChanged(currencyCode, scopeKey = nu
   );
 }
 
-/** Boot / navigation: global last currency wins over stale URL params. */
+/** Boot / navigation: per-scope memory wins, then global last, then URL/default. */
 export function resolveCrossPageCurrencyPreference({
   scopeKey = null,
   availableCodes = [],
@@ -169,7 +211,13 @@ export function resolveCrossPageCurrencyPreference({
 } = {}) {
   const allowed = normalizeCurrencyCodeList(availableCodes) ?? [];
   const url = String(urlCurrency || "").trim().toUpperCase();
-  if (!scopeOnly) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  if (key) {
+    const scoped = readDashboardScopedCurrency(key, allowed.length ? allowed : null);
+    if (scoped) return scoped;
+  }
+  const isCompanyScope = key.startsWith("company:");
+  if (!scopeOnly && !isCompanyScope) {
     const global = pickCurrencyIfAllowed(
       readLastDashboardSelectedCurrency(),
       allowed.length ? allowed : null,
@@ -177,7 +225,6 @@ export function resolveCrossPageCurrencyPreference({
     if (global) return global;
   }
   return (
-    readDashboardSelectedCurrency(scopeKey, { availableCodes: allowed, scopeOnly: true }) ||
     pickCurrencyIfAllowed(url, allowed.length ? allowed : null) ||
     allowed[0] ||
     ""
