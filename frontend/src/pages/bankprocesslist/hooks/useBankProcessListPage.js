@@ -2276,7 +2276,9 @@ export function useBankProcessListPage() {
     return visibleRows.slice((p - 1) * pageSize, p * pageSize);
   }, [visibleRows, showAll, currentPage, totalPages, pageSize]);
 
-  const fillPageRows = !showAll && pageRows.length > 0 && pageRows.length < pageSize;
+  /** 仅「全部数据在一页」时拉伸行高；多页时末页不启用，避免破坏 subgrid */
+  const fillPageRows =
+    !showAll && totalPages === 1 && pageRows.length > 0 && pageRows.length < pageSize;
 
   return {
     navigate,
