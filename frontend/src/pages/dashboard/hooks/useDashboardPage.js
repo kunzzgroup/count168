@@ -468,7 +468,8 @@ function resolveDashboardActiveCurrency({
   const persisted = resolveCrossPageCurrencyPreference({ scopeKey, availableCodes: codes });
   if (persisted && codes.includes(persisted)) return persisted;
   if (isCompanyOnlyScope) return codes[0] || "";
-  if (prev && codes.includes(prev)) return prev;
+  const isCompanyScope = scopeKey && String(scopeKey).startsWith("company:");
+  if (!isCompanyScope && prev && codes.includes(prev)) return prev;
   return codes[0] || "";
 }
 
