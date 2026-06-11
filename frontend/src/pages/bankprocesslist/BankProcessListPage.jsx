@@ -341,20 +341,32 @@ export default function BankProcessListPage() {
                     <AddProcessIcon />
                     {t("addProcess")}
                   </button>
-                  <div className="process-list-date-filter transaction-date-range-group" id="processListDateFilter" style={{ display: "inline-flex" }}>
-                    <div
-                      className="date-range-picker"
-                      id="date-range-picker"
-                      role="button"
-                      tabIndex={0}
-                      data-drp-hide-presets="true"
-                      aria-label={t("selectDateRange")}
-                    >
-                      <i className="fas fa-calendar-alt" aria-hidden="true" />
-                      {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
-                      <span id="date-range-display" aria-live="polite" />
-                      <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")}>&times;</button>
-                      <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                  <div
+                    className="process-list-date-filter transaction-date-range-group bank-process-date-outlined report-outlined-anchor"
+                    id="processListDateFilter"
+                    style={{ display: "inline-flex" }}
+                  >
+                    <div className="report-outlined-shell">
+                      <span className="report-outlined-label" id="bank-process-date-range-label">
+                        {t("dateRangeLabel")}
+                      </span>
+                      <div className="report-outlined-inner">
+                        <div
+                          className="date-range-picker"
+                          id="date-range-picker"
+                          role="button"
+                          tabIndex={0}
+                          data-drp-hide-presets="true"
+                          aria-labelledby="bank-process-date-range-label"
+                          aria-label={t("selectDateRange")}
+                        >
+                          <i className="fas fa-calendar-alt" aria-hidden="true" />
+                          {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
+                          <span id="date-range-display" aria-live="polite" />
+                          <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")}>&times;</button>
+                          <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
+                        </div>
+                      </div>
                     </div>
                     <input
                       type="hidden"

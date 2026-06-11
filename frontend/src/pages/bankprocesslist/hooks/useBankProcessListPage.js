@@ -640,6 +640,7 @@ export function useBankProcessListPage() {
         selectEndDateHint: t("selectEndDate"),
         clearDateLabel: t("clearDate"),
         monthLabels: bpLocale.monthsShort,
+        displayDateLocale: lang === "zh" ? "zh" : "en",
         onChange: handleDatePickerChange,
       });
       requestAnimationFrame(() => {
@@ -677,6 +678,7 @@ export function useBankProcessListPage() {
       selectEndDateHint: t("selectEndDate"),
       clearDateLabel: t("clearDate"),
       monthLabels: bpLocale.monthsShort,
+      displayDateLocale: lang === "zh" ? "zh" : "en",
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
 
