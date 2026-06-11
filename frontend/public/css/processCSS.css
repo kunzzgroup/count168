@@ -2683,32 +2683,32 @@ body.process-page.process-page--bank .bank-process-table-region .bank-col-bank.b
     min-width: 0;
 }
 
-/* Card Owner：长公司名最多 3 行完整展示（全视口） */
+/* Card Owner：单行省略，完整名称见单元格 title 悬停 */
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell--wrap,
 body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell--wrap,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .card-item.bank-col-owner {
-    display: -webkit-box !important;
-    -webkit-box-orient: vertical !important;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    align-self: stretch !important;
+    justify-content: flex-start !important;
     height: auto !important;
     min-height: var(--bank-list-cell-min-height) !important;
     max-height: none !important;
-    align-self: stretch !important;
-    align-items: flex-start !important;
-    justify-content: flex-start !important;
-    -webkit-box-align: start;
-    -webkit-box-pack: start;
-    white-space: normal !important;
-    word-break: break-word !important;
-    overflow-wrap: break-word !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
     overflow: hidden !important;
-    text-overflow: clip !important;
+    text-overflow: ellipsis !important;
     line-height: var(--bank-list-cell-line-height, 1.35) !important;
     text-align: left;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
 }
 
 /* Card Owner：列宽与内边距 */
@@ -3211,13 +3211,12 @@ body.process-page.process-page--bank .bank-process-table-region .bank-virtual-da
         text-align: left;
     }
 
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-bank.bank-virtual-cell--wrap,
-    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-owner.bank-virtual-cell--wrap {
+    body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-col-bank.bank-virtual-cell--wrap {
         justify-content: flex-start;
         -webkit-box-align: start;
     }
 
-    /* Card Owner 全视口 3 行规则已覆盖；此处仅保留 Bank 列补充 */
+    /* Card Owner：单行省略见全视口规则 */
 
     /* 金额 / 日期 / 短码：强制单行，避免 2500.00 被拆成两行 */
     body.process-page.process-page--bank .bank-process-table-region .bank-virtual-data-row > .bank-virtual-cell.bank-virtual-cell--single-line {

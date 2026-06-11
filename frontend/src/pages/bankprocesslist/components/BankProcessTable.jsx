@@ -103,8 +103,8 @@ export default function BankProcessTable({
 
   const bankColClass = (key) => `bank-col bank-col-${key}`;
 
-  /** <1700px：Bank / Card Owner 最多两行（Bank 有 type 时用 bank-cell-display 两行，无 type 时靠 --wrap） */
-  const bankNameWrapKeys = new Set(["bank", "owner"]);
+  /** <1700px：Bank 最多两行；Card Owner 单行省略 + title 悬停 */
+  const bankNameWrapKeys = new Set(["bank"]);
   /** <1600px：金额/日期/短码强制单行 */
   const bankSingleLineKeys = new Set([
     "no",
