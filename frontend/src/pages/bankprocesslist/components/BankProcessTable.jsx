@@ -266,8 +266,11 @@ export default function BankProcessTable({
                   <div className={cellClass("supplier")}>{r.card_lower || "-"}</div>
                   <div className={cellClass("ccy")}>{r.country || "-"}</div>
                   <div className={cellClass("bank")}>{renderBankCell(r.bank, r.type)}</div>
-                  <div className={cellClass("owner")} title={String(r.supplier || "").trim() || undefined}>
-                    {r.supplier || "-"}
+                  <div
+                    className={cellClass("owner")}
+                    title={String(r.supplier || "").trim() || undefined}
+                  >
+                    <span className="bank-owner-text">{r.supplier || "-"}</span>
                   </div>
                   <div className={cellClass("contract", "bank-contract-cell")}>
                     {renderBankContract(r.contract, r.day_start || r.date, r.day_end, lang)}

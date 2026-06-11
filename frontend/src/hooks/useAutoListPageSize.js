@@ -8,9 +8,10 @@ const ABSOLUTE_ROW_HEIGHT_CAP = 72;
 const PAGINATION_TOP_GAP_PX = 4;
 const MIN_ROWS = 4;
 const MAX_ROWS = 80;
-/** 末行可略挤进分页条上方（约 1/3 行高或 14px） */
-const LAST_ROW_SQUEEZE_PX = 14;
-const LAST_ROW_SQUEEZE_RATIO = 0.38;
+/** 末行可略挤进分页条上方；最多 2 行使用容差 */
+const LAST_ROW_SQUEEZE_PX = 22;
+const LAST_ROW_SQUEEZE_RATIO = 0.52;
+const MAX_SQUEEZE_ROWS = 2;
 
 function readCssPx(el, varName, fallback) {
   if (!el || typeof window === "undefined") return fallback;
@@ -80,8 +81,7 @@ function computePageSize(region, budget, rowSelector, minRows, maxRows) {
   const squeeze = lastRowSqueezeAllowance(stride);
 
   if (rows.length === 0) {
-    let fit = Math.floor(budget / stride);
-    while (fit > minRows && fit * stride > budget + squeeze) fit -= 1;
+    const fit = Math.floor((budget + squeeze * MAX_SQUEEZE_ROWS) / stride);
     return Math.max(minRows, Math.min(maxRows, fit));
   }
 
@@ -96,17 +96,25 @@ function computePageSize(region, budget, rowSelector, minRows, maxRows) {
     fit += 1;
   }
 
+  let squeezeUsed = 0;
+
   while (fit < maxRows) {
     if (used + stride <= budget) {
       used += stride;
       fit += 1;
       continue;
     }
-    if (used + stride <= budget + squeeze) {
+    if (squeezeUsed < MAX_SQUEEZE_ROWS && used + stride <= budget + squeeze) {
+      used += stride;
       fit += 1;
+      squeezeUsed += 1;
+      continue;
     }
     break;
   }
+
+  const floorFit = Math.floor((budget + squeeze * MAX_SQUEEZE_ROWS) / stride);
+  fit = Math.max(fit, Math.min(floorFit, maxRows));
 
   return Math.max(minRows, Math.min(maxRows, fit));
 }
@@ -155,7 +163,10 @@ export function useAutoListPageSize({
     measure();
     const raf1 = window.requestAnimationFrame(() => {
       measure();
-      window.requestAnimationFrame(measure);
+      window.requestAnimationFrame(() => {
+        measure();
+        window.requestAnimationFrame(measure);
+      });
     });
 
     const ro = new ResizeObserver(() => measure());
