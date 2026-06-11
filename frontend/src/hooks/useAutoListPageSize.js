@@ -2,11 +2,11 @@ import { useLayoutEffect, useState } from "react";
 
 const DEFAULT_FALLBACK_ROW_HEIGHT = 30;
 const DEFAULT_FALLBACK_PAGE_SIZE = 15;
-const HEADER_MARGIN_TOP_PX = 12;
-const PAGINATION_RESERVE_PX = 44;
-const VIEWPORT_BOTTOM_GAP_PX = 6;
-const TABLE_TOP_MARGIN_PX = 0;
-const ABSOLUTE_ROW_HEIGHT_CAP = 52;
+const PAGINATION_RESERVE_PX = 56;
+const VIEWPORT_BOTTOM_GAP_PX = 8;
+const CLIP_BOTTOM_GAP_PX = 6;
+const ABSOLUTE_ROW_HEIGHT_CAP = 72;
+const ROW_HEIGHT_BUFFER_PX = 2;
 const MIN_ROWS = 4;
 const MAX_ROWS = 80;
 
@@ -51,24 +51,40 @@ function measureRowHeight(region, rowSelector) {
       }
     });
     if (count > 0) {
-      return Math.max(cellMin * 0.88, rowEstimate * 0.92, total / count);
+      return Math.max(cellMin, rowEstimate, total / count) + ROW_HEIGHT_BUFFER_PX;
     }
   }
 
-  return Math.max(cellMin, rowEstimate * 0.92);
+  return Math.max(cellMin, rowEstimate) + ROW_HEIGHT_BUFFER_PX;
 }
 
-/** 用视口剩余高度（表头下方 → 屏幕底），避免 flex 容器 clientHeight 跟内容一起缩 */
+/** 优先用裁剪区实际高度；其次表头到分页条之间；最后视口估算 */
 function measureBudget(region, headerSelector) {
+  const clip = region.querySelector(".bank-virtual-scroll-clip");
+  if (clip) {
+    const clipH = clip.getBoundingClientRect().height;
+    if (clipH >= cellMinHeight(region)) {
+      return Math.max(0, clipH - CLIP_BOTTOM_GAP_PX);
+    }
+  }
+
   const header = region.querySelector(headerSelector);
   if (!header) return 0;
 
   const headerBottom = header.getBoundingClientRect().bottom;
-  const viewportH = window.visualViewport?.height ?? window.innerHeight;
+  const listBody = region.closest(".bank-process-list-body");
+  const pagination = listBody?.querySelector(".pagination-container");
+  if (pagination) {
+    const pagTop = pagination.getBoundingClientRect().top;
+    if (pagTop > headerBottom) {
+      return Math.max(0, pagTop - headerBottom - CLIP_BOTTOM_GAP_PX);
+    }
+  }
 
+  const viewportH = window.visualViewport?.height ?? window.innerHeight;
   return Math.max(
     0,
-    viewportH - headerBottom - PAGINATION_RESERVE_PX - VIEWPORT_BOTTOM_GAP_PX - TABLE_TOP_MARGIN_PX,
+    viewportH - headerBottom - PAGINATION_RESERVE_PX - VIEWPORT_BOTTOM_GAP_PX,
   );
 }
 
@@ -100,11 +116,7 @@ export function useAutoListPageSize({
       if (budget < cellMinHeight(el)) return;
 
       const rowH = Math.max(1, measureRowHeight(el, rowSelector));
-      let rows = Math.floor(budget / rowH + 0.4);
-
-      while (rows < maxRows && (rows + 1) * rowH <= budget + rowH * 0.2) {
-        rows += 1;
-      }
+      const rows = Math.floor(budget / rowH);
 
       const next = Math.max(minRows, Math.min(maxRows, rows));
       setPageSize((prev) => (prev === next ? prev : next));
@@ -120,6 +132,8 @@ export function useAutoListPageSize({
     ro.observe(region);
     const wrapper = region.querySelector(".process-table-wrapper.bank-process-table-region");
     if (wrapper) ro.observe(wrapper);
+    const clip = region.querySelector(".bank-virtual-scroll-clip");
+    if (clip) ro.observe(clip);
 
     const onWindow = () => measure();
     window.addEventListener("resize", onWindow);
