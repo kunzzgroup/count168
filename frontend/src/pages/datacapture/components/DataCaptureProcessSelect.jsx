@@ -1,37 +1,50 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const PORTAL_EDGE_PAD = 16;
+const CONTAINER_EDGE_PAD = 8;
 const PORTAL_GAP = 2;
 const PROCESS_SEARCH_RESERVE = 52;
-const PORTAL_DROPDOWN_CAP = 300;
+const PORTAL_DROPDOWN_CAP = 280;
+const MIN_DROPDOWN_HEIGHT = 120;
 
 function layoutProcessPortalDropdown(
   buttonEl,
-  { searchReserve = PROCESS_SEARCH_RESERVE, minMenu = 160, dropdownCap = PORTAL_DROPDOWN_CAP } = {},
+  containerEl,
+  { searchReserve = PROCESS_SEARCH_RESERVE, minMenu = MIN_DROPDOWN_HEIGHT, dropdownCap = PORTAL_DROPDOWN_CAP } = {},
 ) {
-  const rect = buttonEl.getBoundingClientRect();
-  const width = rect.width;
-  const spaceBelow = window.innerHeight - rect.bottom - PORTAL_EDGE_PAD;
-  const spaceAbove = rect.top - PORTAL_EDGE_PAD;
+  const btnRect = buttonEl.getBoundingClientRect();
+  const bounds = containerEl?.getBoundingClientRect();
+
+  const boundTop = bounds ? bounds.top + CONTAINER_EDGE_PAD : 0;
+  const boundBottom = bounds ? bounds.bottom - CONTAINER_EDGE_PAD : window.innerHeight;
+  const boundLeft = bounds ? bounds.left + CONTAINER_EDGE_PAD : 0;
+  const boundRight = bounds ? bounds.right - CONTAINER_EDGE_PAD : window.innerWidth;
+
+  const width = btnRect.width;
+  let left = btnRect.left;
+  if (left + width > boundRight) left = Math.max(boundLeft, boundRight - width);
+  if (left < boundLeft) left = boundLeft;
+
+  const spaceBelow = Math.max(0, boundBottom - btnRect.bottom - PORTAL_GAP);
+  const spaceAbove = Math.max(0, btnRect.top - PORTAL_GAP - boundTop);
   const openBelow = spaceBelow >= minMenu || spaceBelow >= spaceAbove;
-  const viewportFit = Math.max(minMenu, openBelow ? spaceBelow : spaceAbove);
-  const dropdownMaxHeight = Math.min(dropdownCap, viewportFit);
-  const optionsMaxHeight = Math.max(100, dropdownMaxHeight - searchReserve);
+  const available = openBelow ? spaceBelow : spaceAbove;
+  const dropdownMaxHeight = Math.min(dropdownCap, Math.max(80, available));
+  const optionsMaxHeight = Math.max(60, dropdownMaxHeight - searchReserve);
 
   return {
     optionsMaxHeight,
     menuStyle: {
       position: "fixed",
-      left: `${rect.left}px`,
+      left: `${left}px`,
       width: `${width}px`,
       minWidth: `${width}px`,
       maxWidth: `${width}px`,
       maxHeight: `${dropdownMaxHeight}px`,
       display: "flex",
       flexDirection: "column",
-      top: openBelow ? `${rect.bottom + PORTAL_GAP}px` : "auto",
-      bottom: openBelow ? "auto" : `${window.innerHeight - rect.top + PORTAL_GAP}px`,
+      top: openBelow ? `${btnRect.bottom + PORTAL_GAP}px` : "auto",
+      bottom: openBelow ? "auto" : `${window.innerHeight - btnRect.top + PORTAL_GAP}px`,
       zIndex: 9000,
     },
   };
@@ -62,7 +75,11 @@ export default function DataCaptureProcessSelect({
   const positionMenu = useCallback(() => {
     const btn = buttonRef.current;
     if (!btn) return;
-    const { menuStyle: nextMenuStyle, optionsMaxHeight: nextOptionsMaxHeight } = layoutProcessPortalDropdown(btn);
+    const containerEl = btn.closest(".form-container");
+    const { menuStyle: nextMenuStyle, optionsMaxHeight: nextOptionsMaxHeight } = layoutProcessPortalDropdown(
+      btn,
+      containerEl,
+    );
     setOptionsMaxHeight(nextOptionsMaxHeight);
     setMenuStyle(nextMenuStyle);
   }, []);

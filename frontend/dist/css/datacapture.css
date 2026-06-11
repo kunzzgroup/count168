@@ -720,7 +720,7 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     font-size: 14px;
 }
 
-/* Process dropdown: portal to body so it is not clipped by .form-container scroll */
+/* Process dropdown: portal to body, height/position clamped to .form-container */
 .custom-select-dropdown.custom-select-dropdown-portal.dc-process-select-portal {
     display: flex !important;
     flex-direction: column;
@@ -730,7 +730,6 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
     background: #ffffff;
     overflow: hidden;
-    max-height: min(300px, calc(100vh - 32px));
     z-index: 9000;
 }
 
