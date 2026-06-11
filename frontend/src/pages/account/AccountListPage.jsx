@@ -1825,6 +1825,16 @@ export default function AccountListPage() {
     return entity?.id ? Number(entity.id) : null;
   }, [companyId, groupOnlyAccountMode, selectedGroup, allCompanyButtons]);
 
+  const hasAccountMutationScope = useMemo(
+    () =>
+      accountListHasMutationScope(scopeCompanyId, {
+        groupOnly: groupOnlyAccountMode,
+        selectedGroup,
+        canUseGroupLedger: canUseGroupOnlyMode(sessionMe, selectedGroup, companies),
+      }),
+    [scopeCompanyId, groupOnlyAccountMode, selectedGroup, sessionMe, companies],
+  );
+
   useEffect(() => {
     if (!showInactive && !showAll) setSelectedDeleteIds(new Set());
   }, [showInactive, showAll]);
@@ -1971,7 +1981,7 @@ export default function AccountListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    if (!accountListHasMutationScope(scopeCompanyId)) return;
+    if (!hasAccountMutationScope) return;
     setIsEditMode(false); setForm({ ...DEFAULT_FORM, payment_alert: "0" });
     setSelectedCurrencyIds([]); setCurrencyInput("");
     setInitialEditCurrencyIds([]);
@@ -1990,7 +2000,7 @@ export default function AccountListPage() {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
-    if (!accountListHasMutationScope(scopeCompanyId)) return;
+    if (!hasAccountMutationScope) return;
     syncModalLedgerScope(null);
     setCurrencySettingOpen(true);
     void loadSelectionMeta(null, false, { forcePageLedgerScope: true });
@@ -2641,7 +2651,7 @@ export default function AccountListPage() {
                 <button
                   type="button"
                   className="btn btn-add"
-                  disabled={accountMutationsBlocked || !accountListHasMutationScope(scopeCompanyId)}
+                  disabled={accountMutationsBlocked || !hasAccountMutationScope}
                   onClick={openAdd}
                 >
                   <svg className="btn-add__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -2701,7 +2711,7 @@ export default function AccountListPage() {
                   <button
                     type="button"
                     className="btn btn-currency-setting"
-                    disabled={accountMutationsBlocked || !accountListHasMutationScope(scopeCompanyId)}
+                    disabled={accountMutationsBlocked || !hasAccountMutationScope}
                     onClick={openCurrencySetting}
                   >
                     {t("currencySetting")}

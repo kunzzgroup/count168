@@ -233,8 +233,14 @@ export function shouldLoadAccountListData({
 }
 
 /** Whether Add / list mutations have a resolvable company or group ledger scope. */
-export function accountListHasMutationScope(scopeCompanyId) {
-  return scopeCompanyId != null && Number(scopeCompanyId) > 0;
+export function accountListHasMutationScope(
+  scopeCompanyId,
+  { groupOnly = false, selectedGroup = null, canUseGroupLedger = false } = {},
+) {
+  const cid = scopeCompanyId != null ? Number(scopeCompanyId) : Number.NaN;
+  if (Number.isFinite(cid) && cid > 0) return true;
+  const gid = String(selectedGroup || "").trim().toUpperCase();
+  return Boolean(groupOnly && gid && canUseGroupLedger);
 }
 
 export function readAccountListGroupFilterOptOut() {
