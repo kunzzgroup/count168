@@ -43,18 +43,8 @@ export default function ProfitSharingModal({
     setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: formatted } : r)));
   };
 
-  const clearRow = (idx) => {
-    setProfitShareRows((rows) =>
-      rows.map((r, i) => (i === idx ? { accountId: "", accountLabel: "", amount: "" } : r))
-    );
-  };
-
   const removeRow = (idx) => {
-    // 第一行始终保留：仅清空 Account / Amount；其余行删除整行
-    if (idx === 0) {
-      clearRow(idx);
-      return;
-    }
+    if (idx <= 0) return;
     setProfitShareRows((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -68,7 +58,10 @@ export default function ProfitSharingModal({
         </div>
         <div className="modal-body">
           <div className="bank-form" style={{ display: "block", width: "100%" }}>
-            <div id="profitSharingRowsContainer">
+            <div
+              id="profitSharingRowsContainer"
+              className={profitShareRows.length > 7 ? "profit-sharing-rows-scroll" : undefined}
+            >
               {profitShareRows.map((row, idx) => (
                 <div key={`ps-${idx}`} className="form-row profit-sharing-row">
                   <label className="profit-sharing-label profit-sharing-label-account">{t("account")}</label>
@@ -102,9 +95,19 @@ export default function ProfitSharingModal({
                         onChange={(e) => setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: sanitizeBankMoneyTyping(e.target.value) } : r)))}
                         onBlur={(e) => blurAmount(idx, e.target.value)}
                       />
-                      <button type="button" className="profit-sharing-delete-row-btn" onClick={() => removeRow(idx)} title={t("removeRow")} aria-label={t("removeRow")}>
-                        <ProfitSharingDeleteIcon />
-                      </button>
+                      {idx > 0 ? (
+                        <button
+                          type="button"
+                          className="profit-sharing-delete-row-btn"
+                          onClick={() => removeRow(idx)}
+                          title={t("removeRow")}
+                          aria-label={t("removeRow")}
+                        >
+                          <ProfitSharingDeleteIcon />
+                        </button>
+                      ) : profitShareRows.length > 1 ? (
+                        <span className="profit-sharing-delete-row-spacer" aria-hidden="true" />
+                      ) : null}
                     </div>
                   </div>
                 </div>
