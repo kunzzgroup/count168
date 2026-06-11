@@ -3,6 +3,23 @@ import ProcessModalPortal, { processModalBackdropStyle } from "../../../componen
 import { BankSearchableAccountPick } from "./bankProcessFormFields.jsx";
 import { formatBankMoneyFixed2, sanitizeBankMoneyTyping } from "../lib/bankProcessHelpers.js";
 
+function ProfitSharingAddIcon() {
+  return (
+    <svg className="profit-sharing-inline-add-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ProfitSharingDeleteIcon() {
+  return (
+    <svg className="profit-sharing-delete-row-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 3h6l1 2h5v2H3V5h5l1-2z" fill="currentColor" opacity="0.92" />
+      <path d="M5 9h14l-1 12H6L5 9z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export default function ProfitSharingModal({
   profitShareRows,
   setProfitShareRows,
@@ -26,7 +43,18 @@ export default function ProfitSharingModal({
     setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: formatted } : r)));
   };
 
+  const clearRow = (idx) => {
+    setProfitShareRows((rows) =>
+      rows.map((r, i) => (i === idx ? { accountId: "", accountLabel: "", amount: "" } : r))
+    );
+  };
+
   const removeRow = (idx) => {
+    // 第一行始终保留：仅清空 Account / Amount；其余行删除整行
+    if (idx === 0) {
+      clearRow(idx);
+      return;
+    }
     setProfitShareRows((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -43,8 +71,9 @@ export default function ProfitSharingModal({
             <div id="profitSharingRowsContainer">
               {profitShareRows.map((row, idx) => (
                 <div key={`ps-${idx}`} className="form-row profit-sharing-row">
-                  <div className="form-group">
-                    <label>{t("account")}</label>
+                  <label className="profit-sharing-label profit-sharing-label-account">{t("account")}</label>
+                  <label className="profit-sharing-label profit-sharing-label-amount">{t("amount")}</label>
+                  <div className="profit-sharing-control profit-sharing-control-account">
                     <div className="account-select-with-buttons">
                       <BankSearchableAccountPick
                         value={row.accountId}
@@ -56,11 +85,12 @@ export default function ProfitSharingModal({
                         disabled={false}
                         t={t}
                       />
-                      <button type="button" className="bank-add-btn" title={t("addAccount")} onClick={() => onOpenAddAccountForField({ type: "profitRow", index: idx })}>+</button>
+                      <button type="button" className="profit-sharing-inline-add-btn" title={t("addAccount")} aria-label={t("addAccount")} onClick={() => onOpenAddAccountForField({ type: "profitRow", index: idx })}>
+                        <ProfitSharingAddIcon />
+                      </button>
                     </div>
                   </div>
-                  <div className="form-group">
-                    <label>{t("amount")}</label>
+                  <div className="profit-sharing-control profit-sharing-control-amount">
                     <div className="profit-sharing-amount-field">
                       <input
                         type="text"
@@ -72,17 +102,18 @@ export default function ProfitSharingModal({
                         onChange={(e) => setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, amount: sanitizeBankMoneyTyping(e.target.value) } : r)))}
                         onBlur={(e) => blurAmount(idx, e.target.value)}
                       />
-                      <span className="profit-sharing-amount-spacer" aria-hidden="true" />
+                      <button type="button" className="profit-sharing-delete-row-btn" onClick={() => removeRow(idx)} title={t("removeRow")} aria-label={t("removeRow")}>
+                        <ProfitSharingDeleteIcon />
+                      </button>
                     </div>
-                  </div>
-                  <div className="form-group profit-sharing-delete-cell">
-                    <button type="button" className="profit-sharing-delete-row-btn" onClick={() => removeRow(idx)} aria-label={t("removeRow")}>×</button>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="profit-sharing-add-row-wrap" style={{ marginTop: 10 }}>
-              <button type="button" className="bank-add-btn" title={t("addAnotherAccountAmount")} onClick={addRow}>+</button>
+            <div className="profit-sharing-add-row-wrap">
+              <button type="button" className="profit-sharing-add-account-btn" onClick={addRow}>
+                {t("addAccountInline")}
+              </button>
             </div>
             <div className="form-actions bank-actions" style={{ marginTop: 16 }}>
               <button type="button" className="btn btn-save profit-sharing-modal-btn" onClick={onConfirm}>{t("add")}</button>

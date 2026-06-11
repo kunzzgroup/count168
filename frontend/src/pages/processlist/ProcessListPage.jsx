@@ -141,10 +141,15 @@ export default function ProcessListPage() {
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page");
     return () => {
-      document.body.classList.remove("process-page");
+      document.body.classList.remove("process-page", "process-page--show-all");
       document.body.classList.add("dashboard-page");
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (showAll) document.body.classList.add("process-page--show-all");
+    else document.body.classList.remove("process-page--show-all");
+  }, [showAll]);
 
   useEffect(() => {
     const onStorage = (e) => {
@@ -610,12 +615,6 @@ export default function ProcessListPage() {
       notify(t("failedDeleteDescription"), "danger");
     }
   };
-
-  useEffect(() => {
-    if (showAll) document.body.classList.add("process-page--show-all");
-    else document.body.classList.remove("process-page--show-all");
-    return () => document.body.classList.remove("process-page--show-all");
-  }, [showAll]);
 
   useEffect(() => {
     return () => {
@@ -1262,7 +1261,7 @@ export default function ProcessListPage() {
 
   return (
     <div className="container">
-      <div className="content" style={showAll ? { height: "auto", overflow: "visible" } : undefined}>
+      <div className="content">
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

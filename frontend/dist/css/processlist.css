@@ -1888,6 +1888,61 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     overflow: visible;
 }
 
+/* Bank Add/Edit Process：主/分区副标题保持原色；字段小标题黑色；输入内容与 Day start/end 占位同色 */
+#addBankModal .bank-form {
+    --bank-form-field-text: #94a3b8;
+}
+
+#addBankModal .bank-form .form-group label,
+#addBankModal .bank-form .bank-day-end-label-row > label,
+#addBankModal .bank-form .form-date-label-row.bank-day-end-label-row > label {
+    color: #0f172a !important;
+}
+
+#addBankModal .bank-form .bank-section-title {
+    color: #002C49 !important;
+}
+
+#addBankModal .bank-form .bank-profit-sharing-header h3 {
+    color: #1e293b !important;
+}
+
+#addBankModal .bank-form .bank-chinese,
+#addBankModal .bank-form .no-profit-sharing,
+#addBankModal .bank-form .no-profit-sharing p,
+#addBankModal .bank-form .ps-account-name,
+#addBankModal .bank-form .ps-amount-value,
+#addBankModal .bank-form .bank-remark-filled-hint {
+    color: var(--bank-form-field-text) !important;
+}
+
+#addBankModal .bank-form .bank-remark-filled-hint {
+    margin: 8px 0 0;
+    font-size: 12px;
+}
+
+#addBankModal .bank-form .bank-input,
+#addBankModal .bank-form .bank-select,
+#addBankModal .bank-form .bank-form-datepicker-input,
+#addBankModal .bank-form .custom-select-button,
+#addBankModal .bank-form .account-select-with-buttons .custom-select-button {
+    color: var(--bank-form-field-text) !important;
+}
+
+#addBankModal .bank-form .bank-input::placeholder {
+    color: var(--bank-form-field-text) !important;
+    opacity: 1;
+}
+
+#addBankModal .bank-form .custom-select-button::after {
+    color: var(--bank-form-field-text) !important;
+}
+
+#addBankModal .bank-form .ps-amount-value {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
 .bank-chinese {
     font-size: 12px;
     color: #666;
@@ -2882,13 +2937,26 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
 
 /* Bank flow custom-select: trigger + list match Add Process / Account modal */
 #addBankModal .custom-select-button,
-#profitSharingModal .custom-select-button,
 .bank-modal .custom-select-button {
     font-size: var(--text-small) !important;
     font-family: var(--font-ui) !important;
     border: 1px solid #dbe3ee !important;
     border-radius: 0.52rem !important;
     min-height: 4rem !important;
+    box-sizing: border-box;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    padding: 0.625rem 2.75rem 0.625rem 0.875rem !important;
+    line-height: 1.4;
+}
+
+#profitSharingModal .custom-select-button {
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
+    border: 1px solid #dbe3ee !important;
+    border-radius: 0.52rem !important;
+    min-height: 3.3rem !important;
+    height: 3.3rem !important;
+    width: 100%;
     box-sizing: border-box;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
     padding: 0.625rem 2.75rem 0.625rem 0.875rem !important;
@@ -2962,6 +3030,17 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
 #profitSharingModal .modal-header {
     border-top-left-radius: 1rem;
     border-top-right-radius: 1rem;
+    /* 与 modal-body 左右内边距一致：标题对齐 Account，关闭按钮对齐 Amount 列右缘 */
+    padding: 3px 1.75rem !important;
+}
+
+#profitSharingModal .modal-header h2 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+#profitSharingModal .modal-header .close {
+    margin-right: 10px !important;
 }
 
 /* 弹窗及到下拉之间的所有祖先都允许溢出，让 Account 下拉可以溢出弹窗显示 */
@@ -3002,15 +3081,151 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     justify-content: center;
 }
 
-/* Profit Sharing 弹窗：三列（Account | Amount | 删除按钮），内容撑满整行 */
+/* + Add Account：与 Company Settings Share % 虚线胶囊按钮一致 */
+#profitSharingModal .profit-sharing-add-row-wrap {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    width: 100%;
+}
+
+#profitSharingModal .profit-sharing-add-account-btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 10px 14px;
+    background-color: rgba(13, 96, 255, 0.04);
+    color: #0d60ff;
+    border: 2px dashed rgba(13, 96, 255, 0.35);
+    border-radius: 12px;
+    font-size: var(--text-small);
+    font-family: var(--font-ui);
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+#profitSharingModal .profit-sharing-add-account-btn:hover {
+    background-color: rgba(13, 96, 255, 0.08);
+    border-color: rgba(13, 96, 255, 0.55);
+    transform: translateY(-1px);
+}
+
+#profitSharingModal .profit-sharing-add-account-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(13, 96, 255, 0.15);
+}
+
+/* Profit Sharing 弹窗：Account 列略宽；Amount+删除铺满右侧 */
 #profitSharingModal #profitSharingRowsContainer .profit-sharing-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 32px;
-    gap: 15px;
-    align-items: end;
+    grid-template-columns: minmax(0, 1.2fr) 15px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    row-gap: 6px;
+    align-items: center;
     margin-bottom: 15px;
     width: 100%;
     box-sizing: border-box;
+}
+
+#profitSharingModal .profit-sharing-label {
+    margin: 0;
+    font-size: var(--text-medium);
+    font-weight: 600;
+    font-family: var(--font-heading-page);
+    letter-spacing: 0.015em;
+    color: #0f172a;
+}
+
+#profitSharingModal .profit-sharing-label-account {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+#profitSharingModal .profit-sharing-label-amount {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+#profitSharingModal .profit-sharing-control {
+    min-width: 0;
+    width: 100%;
+}
+
+#profitSharingModal .profit-sharing-control-account {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+#profitSharingModal .profit-sharing-control-amount {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+#profitSharingModal .profit-sharing-amount-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+#profitSharingModal .profit-sharing-amount-field .bank-input.profit-sharing-amount {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+}
+
+#profitSharingModal .profit-sharing-control-account .account-select-with-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
+
+#profitSharingModal .profit-sharing-control-account .account-select-with-buttons .custom-select-wrapper {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+
+/* Account 旁新增：与删除按钮同尺寸，浅色描边方钮（替代小圆渐变 +） */
+#profitSharingModal .profit-sharing-inline-add-btn {
+    width: 3.3rem;
+    height: 3.3rem;
+    min-width: 3.3rem;
+    padding: 0;
+    border-radius: 0.52rem;
+    border: 1px solid rgba(13, 96, 255, 0.28);
+    background: rgba(13, 96, 255, 0.05);
+    color: #0d60ff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+#profitSharingModal .profit-sharing-inline-add-icon {
+    display: block;
+    flex-shrink: 0;
+}
+
+#profitSharingModal .profit-sharing-inline-add-btn:hover {
+    background: rgba(13, 96, 255, 0.1);
+    border-color: rgba(13, 96, 255, 0.45);
+    color: #0b52db;
+    box-shadow: 0 1px 2px rgba(13, 96, 255, 0.12);
+}
+
+#profitSharingModal .profit-sharing-inline-add-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(13, 96, 255, 0.18);
 }
 
 /* Amount 与 Account 下拉同高：覆盖 process-page .form-group input 的较大 padding/字号 */
@@ -3047,27 +3262,6 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     appearance: textfield;
 }
 
-/* Amount 列与 Account 列同宽：右侧留与 + 按钮等宽的占位 */
-#profitSharingModal .profit-sharing-amount-field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    min-width: 0;
-}
-
-#profitSharingModal .profit-sharing-amount-field .bank-input.profit-sharing-amount {
-    flex: 1;
-    min-width: 0;
-    width: auto;
-}
-
-#profitSharingModal .profit-sharing-amount-spacer {
-    flex-shrink: 0;
-    width: clamp(22px, 1.45vw, 26px);
-    height: clamp(22px, 1.45vw, 26px);
-}
-
 #profitSharingModal .profit-sharing-modal-btn {
     width: clamp(90px, 7vw, 130px);
     min-height: 2.35rem;
@@ -3080,54 +3274,38 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     box-sizing: border-box;
 }
 
-#profitSharingModal .profit-sharing-delete-cell {
-    flex-direction: row;
-    align-items: center;
-    min-width: 0;
-    min-width: 28px;
-    max-width: 40px;
-    padding-bottom: 10px;
-}
-
-#profitSharingModal .profit-sharing-first-row-spacer {
-    min-width: 28px;
-    max-width: 40px;
-}
-
-#profitSharingModal .profit-sharing-delete-label {
-    width: 0;
-    overflow: hidden;
-    margin: 0;
-    padding: 0;
-    height: 0;
-}
-
 #profitSharingModal .profit-sharing-delete-row-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-    color: #6b7280;
-    font-size: 1.1rem;
-    line-height: 1;
+    width: 3.3rem;
+    height: 3.3rem;
+    min-width: 3.3rem;
+    padding: 0;
+    border-radius: 0.52rem;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #94a3b8;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+#profitSharingModal .profit-sharing-delete-row-icon {
+    display: block;
+    flex-shrink: 0;
 }
 
 #profitSharingModal .profit-sharing-delete-row-btn:hover {
     background: #fef2f2;
     color: #dc2626;
     border-color: #fecaca;
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.08);
 }
 
-#profitSharingModal .profit-sharing-delete-row-btn:focus {
+#profitSharingModal .profit-sharing-delete-row-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18);
 }
 
 /* SOP Modal：固定弹窗尺寸与底部按钮 */

@@ -770,6 +770,68 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         flex-direction: column !important;
     }
 
+    /* Games Process List Show All：小屏下覆盖 global unlock，整页可滚 */
+    body.process-page.process-page--show-all:not(.process-page--bank) {
+        overflow-y: auto !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+    }
+
+    body.process-page.process-page--show-all:not(.process-page--bank) .container {
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: block !important;
+        padding-bottom: 20px !important;
+    }
+
+    body.process-page.process-page--show-all:not(.process-page--bank) .content {
+        height: auto !important;
+        min-height: calc(100vh - var(--layout-page-top-inset)) !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: flex !important;
+        flex-direction: column !important;
+        flex: none !important;
+        padding-bottom: 0 !important;
+    }
+
+    body.process-page.process-page--show-all:not(.process-page--bank) .process-table-wrapper {
+        flex: 0 1 auto !important;
+        min-height: 0 !important;
+        padding-bottom: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.process-page.process-page--show-all:not(.process-page--bank) .process-cards:not(.bank-virtual-scroll) {
+        display: block !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
+    }
+
+    body.process-page.process-page--show-all:not(.process-page--bank) .process-card.games-process-row {
+        flex: none !important;
+        flex-shrink: 0 !important;
+        min-height: 26px !important;
+        align-items: center !important;
+    }
+
+    body.process-page.process-page--show-all:not(.process-page--bank) .pagination-container {
+        position: relative !important;
+        right: auto !important;
+        bottom: auto !important;
+        margin-top: 8px !important;
+        margin-left: auto !important;
+        z-index: 1 !important;
+        width: fit-content !important;
+    }
+
     body.process-page:not(.process-page--bank):not(.process-page--show-all) .games-process-table-header,
     body.process-page:not(.process-page--bank):not(.process-page--show-all) .process-table-wrapper > .table-header {
         flex-shrink: 0 !important;

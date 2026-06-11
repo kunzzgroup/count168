@@ -6,6 +6,23 @@ function upperCell(val) {
   return String(val).toUpperCase();
 }
 
+function normalizeProcessStatus(raw) {
+  return String(raw || "").trim().toLowerCase();
+}
+
+function processStatusBadgeClass(statusKey) {
+  if (statusKey === "active") return "status-active";
+  if (statusKey === "waiting") return "status-waiting";
+  return "status-inactive";
+}
+
+function processStatusLabel(statusKey) {
+  if (statusKey === "active") return "ACTIVE";
+  if (statusKey === "inactive") return "INACTIVE";
+  if (statusKey === "waiting") return "WAITING";
+  return statusKey ? statusKey.toUpperCase() : "INACTIVE";
+}
+
 function ProcessSortIcon({ column, sortColumn, sortDirection }) {
   return (
     <span className={`account-sort-icon${sortColumn === column ? ` is-active is-${sortDirection}` : ""}`} aria-hidden="true">
@@ -33,7 +50,7 @@ export default function ProcessTable({
   t,
 }) {
   const deletableRows = pageRows.filter(
-    (r) => String(r.status || "").toLowerCase() === "inactive" && !r.has_transactions
+    (r) => normalizeProcessStatus(r.status) === "inactive" && !r.has_transactions
   );
   const allDeletableSelected =
     deletableRows.length > 0 && deletableRows.every((r) => selectedIds.has(r.id));
@@ -60,7 +77,6 @@ export default function ProcessTable({
     <div
       className={`process-table-wrapper games-process-table${showSelectColumn ? " process-table-wrapper--select-col" : ""}`}
       id="processTableWrapper"
-      style={showAll ? { overflow: "visible" } : undefined}
     >
       <div className="table-header games-process-table-header" id="tableHeader">
         <div className="header-item gambling-header">
@@ -89,15 +105,7 @@ export default function ProcessTable({
           </div>
         ) : null}
       </div>
-      <div
-        className="process-cards"
-        id="processTableBody"
-        style={
-          showAll
-            ? { maxHeight: "none", overflowY: "visible", overflowX: "visible", display: "block" }
-            : undefined
-        }
-      >
+      <div className="process-cards" id="processTableBody">
         {pageRows.length === 0 && (
           <div className="process-card">
             <div className="card-item" style={{ textAlign: "left", padding: 20, gridColumn: "1 / -1" }}>
@@ -105,16 +113,13 @@ export default function ProcessTable({
             </div>
           </div>
         )}
-        {pageRows.map((row, idx) => (
+        {pageRows.map((row, idx) => {
+          const statusKey = normalizeProcessStatus(row.status);
+          return (
             <div
               className="process-card games-process-row"
               key={row.id}
               data-id={row.id}
-              style={
-                showAll
-                  ? { flex: "none", minHeight: 26, alignItems: "center" }
-                  : undefined
-              }
             >
               <div className="card-item">
                 {(showAll ? idx : (currentPage - 1) * PAGE_SIZE + idx) + 1}
@@ -123,15 +128,15 @@ export default function ProcessTable({
               <div className="card-item">{upperCell(row.description)}</div>
               <div className="card-item">
                 <span
-                  className={`role-badge ${
-                    row.status === "active" ? "status-active" : "status-inactive"
-                  }${mutationsBlocked ? "" : " status-clickable"}`}
+                  className={`role-badge ${processStatusBadgeClass(statusKey)}${
+                    mutationsBlocked ? "" : " status-clickable"
+                  }`}
                   title={mutationsBlocked ? t("readOnlyActionBlocked") : t("clickToggleStatus")}
                   onClick={mutationsBlocked ? undefined : () => toggleStatus(row)}
                   role="button"
                   style={mutationsBlocked ? { cursor: "not-allowed" } : undefined}
                 >
-                  {String(row.status || "").toUpperCase()}
+                  {processStatusLabel(statusKey)}
                 </span>
               </div>
               <div className="card-item">{upperCell(row.currency)}</div>
@@ -150,7 +155,7 @@ export default function ProcessTable({
               </div>
               {showSelectColumn ? (
                 <div className="card-item card-item--select">
-                  {String(row.status || "").toLowerCase() === "inactive" && !row.has_transactions ? (
+                  {statusKey === "inactive" && !row.has_transactions ? (
                     <input
                       type="checkbox"
                       className="row-checkbox"
@@ -166,7 +171,8 @@ export default function ProcessTable({
                 </div>
               ) : null}
             </div>
-          ))}
+          );
+        })}
       </div>
     </div>
   );
