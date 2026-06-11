@@ -2,10 +2,10 @@
 
 body.auto-renew-page-body {
   overflow-y: auto !important;
-  --auto-renew-toolbar-search-width: clamp(180px, 16vw, 260px);
-  --auto-renew-toolbar-date-width: clamp(200px, 15vw, 248px);
-  --auto-renew-control-height: 28px;
-  --auto-renew-row-padding-y: 7px;
+  --auto-renew-toolbar-search-width: clamp(180px, 16vw, 240px);
+  --auto-renew-toolbar-date-width: clamp(316px, 22vw, 336px);
+  --auto-renew-control-height: 20px;
+  --auto-renew-row-padding-y: 5px;
 }
 
 body.auto-renew-page-body .auto-renew-page .content,
@@ -63,8 +63,9 @@ body.auto-renew-page-body .page-tab__label {
 
 body.auto-renew-page-body .auto-renew-tab-pending-badge {
   position: absolute;
-  top: 3px;
+  top: 50%;
   right: 4px;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -147,7 +148,8 @@ body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker {
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  min-height: calc(18px + 12px + 2px);
+  min-height: var(--auto-renew-control-height);
+  height: var(--auto-renew-control-height);
   gap: clamp(4px, 0.4vw, 6px);
   padding: 0 clamp(24px, 2vw, 30px) 0 0;
   border: 1px solid rgba(148, 163, 184, 0.62);
@@ -177,8 +179,8 @@ body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker i.fa-c
   justify-content: center;
   align-self: stretch;
   width: clamp(30px, 2.2vw, 38px);
-  height: auto;
-  min-height: calc(18px + 12px + 2px);
+  height: 100%;
+  min-height: var(--auto-renew-control-height);
   margin: 0;
   border-radius: 11px 0 0 11px;
   color: #ffffff;

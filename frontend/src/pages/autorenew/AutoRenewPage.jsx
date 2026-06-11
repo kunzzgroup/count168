@@ -510,7 +510,7 @@ export default function AutoRenewPage() {
             </div>
           </div>
 
-          <div className="action-buttons-container" style={{ marginBottom: 20 }}>
+          <div className="action-buttons-container">
             <div
               className="action-buttons auto-renew-toolbar-row"
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
