@@ -1,35 +1,14 @@
+import { historyColumnDefs } from "../lib/transactionHistoryColumnWidths.js";
 import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../lib/transactionFormat.js";
 import TransactionWinLossCell from "./TransactionWinLossCell.jsx";
 
 function HistoryTableColgroup({ showDescriptionColumn }) {
-  if (showDescriptionColumn) {
-    return (
-      <colgroup>
-        <col className="transaction-history-col-date" />
-        <col className="transaction-history-col-product" />
-        <col className="transaction-history-col-currency" />
-        <col className="transaction-history-col-rate" />
-        <col className="transaction-history-col-winloss" />
-        <col className="transaction-history-col-crdr" />
-        <col className="transaction-history-col-balance" />
-        <col className="transaction-history-col-description" />
-        <col className="transaction-history-col-remark" />
-        <col className="transaction-history-col-created" />
-      </colgroup>
-    );
-  }
-
+  const columns = historyColumnDefs(showDescriptionColumn);
   return (
     <colgroup>
-      <col className="transaction-history-col-date" />
-      <col className="transaction-history-col-product" />
-      <col className="transaction-history-col-currency" />
-      <col className="transaction-history-col-rate" />
-      <col className="transaction-history-col-winloss" />
-      <col className="transaction-history-col-crdr" />
-      <col className="transaction-history-col-balance" />
-      <col className="transaction-history-col-remark" />
-      <col className="transaction-history-col-created" />
+      {columns.map((col) => (
+        <col key={col.key} className={col.className} style={{ width: `${col.width}px` }} />
+      ))}
     </colgroup>
   );
 }
@@ -91,13 +70,17 @@ export default function TransactionHistoryTable({ rows, histMoney, showDescripti
               String(createdRaw).toLowerCase() === "null"
                 ? "-"
                 : String(createdRaw);
+            const descriptionText = toUpperDisplay(r.description);
+            const remarkText = getHistoryRemark(r);
             return (
               <tr
                 key={r.id ?? `${idx}-${r.date || ""}-${r.balance || ""}`}
                 className={isBf ? "transaction-bf-row transaction-history-bf-row" : "transaction-table-row"}
               >
                 <td className="transaction-history-col-date">{r.date || "-"}</td>
-                <td className="transaction-history-col-product">{String(idProductDisplay)}</td>
+                <td className="transaction-history-col-product" title={String(idProductDisplay)}>
+                  {String(idProductDisplay)}
+                </td>
                 <td className="transaction-history-col-currency">{r.currency || "-"}</td>
                 <td className="transaction-history-col-rate">
                   {r.rate && r.rate !== "-" ? formatRateForHistoryDisplay(r.rate) : "-"}
@@ -112,10 +95,16 @@ export default function TransactionHistoryTable({ rows, histMoney, showDescripti
                   <TransactionWinLossCell value={r.balance} formatMoney={histMoney} />
                 </td>
                 {showDescriptionColumn ? (
-                  <td className="transaction-history-col-description text-uppercase">{toUpperDisplay(r.description)}</td>
+                  <td className="transaction-history-col-description text-uppercase" title={descriptionText}>
+                    {descriptionText}
+                  </td>
                 ) : null}
-                <td className="transaction-history-col-remark text-uppercase">{getHistoryRemark(r)}</td>
-                <td className="transaction-history-col-created">{createdByDisplay}</td>
+                <td className="transaction-history-col-remark text-uppercase" title={remarkText}>
+                  {remarkText}
+                </td>
+                <td className="transaction-history-col-created" title={createdByDisplay}>
+                  {createdByDisplay}
+                </td>
               </tr>
             );
           })}
