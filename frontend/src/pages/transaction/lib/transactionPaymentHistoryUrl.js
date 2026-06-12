@@ -49,6 +49,12 @@ export function resolvePaymentHistoryScope(searchParams, scopeApi = null) {
     if (filterCid) merged.companyId = filterCid;
   }
 
+  if (!merged.viewGroup && !merged.groupId) {
+    const persisted = readPersistedDashboardGcFilter();
+    const bootGroup = persisted?.selectedGroup || persisted?.sidebarAnchorGroup;
+    if (bootGroup) merged.viewGroup = String(bootGroup).trim().toUpperCase();
+  }
+
   if (merged.subsidiaryAccountsOnly || (merged.companyId && !merged.groupAggregate)) {
     merged.subsidiaryAccountsOnly = true;
   }
@@ -136,8 +142,9 @@ export function paymentHistoryParamsReady(params) {
   if (!params?.dateFrom || !params?.dateTo) return false;
   if (!params.accountDbId && !params.virtualCompanyCode) return false;
   if (params.companyId) return true;
-  if (params.subsidiaryAccountsOnly) return false;
-  return Boolean(params.viewGroup || params.groupId || params.groupAggregate);
+  // Group / aggregate ledger — view_group (or group_id) is enough without company_id.
+  if (params.viewGroup || params.groupId || params.groupAggregate) return true;
+  return false;
 }
 
 export function paymentHistoryScopeApiParams(scope) {

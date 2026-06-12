@@ -5,11 +5,12 @@
   --transaction-history-report-border: #334155;
   --transaction-history-report-grid: #64748b;
   --transaction-history-report-head-bg: #002c49;
-  --transaction-history-report-canvas: #e2e8f0;
+  --transaction-history-report-canvas: #a9a9a9;
 }
 
 body.transaction-payment-history-page,
-body.ec-payment-history-chromeless.transaction-payment-history-page {
+body.ec-payment-history-chromeless.transaction-payment-history-page,
+body.ec-payment-history-chromeless {
   background: var(--transaction-history-report-canvas) !important;
 }
 
@@ -62,6 +63,10 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   flex-shrink: 0;
   margin: 0;
   padding: clamp(12px, 1.1vw, 18px) clamp(14px, 1.5vw, 24px);
