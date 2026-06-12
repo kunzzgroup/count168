@@ -104,6 +104,16 @@ function isFrankfurterCacheComplete(baseCode, apiQuotes, cached) {
   return missingFrankfurterApiQuotes(baseCode, apiQuotes, cached.rates).length === 0;
 }
 
+/** True when every Frankfurter-eligible quote in `quoteCodes` has a rate in `payload`. */
+export function isFrankfurterRatesPayloadComplete(base, quoteCodes, payload) {
+  const baseCode = String(base || "").trim().toUpperCase();
+  const { apiQuotes } = partitionFrankfurterQuotes(baseCode, quoteCodes);
+  if (!apiQuotes.length) return true;
+  const rates = payload?.rates;
+  if (!rates?.[baseCode]) return false;
+  return missingFrankfurterApiQuotes(baseCode, apiQuotes, rates).length === 0;
+}
+
 /** Fetch each missing quote individually (historical date first, then latest). */
 async function backfillMissingFrankfurterQuotes(baseCode, apiQuotes, dateYmd, seed) {
   let merged = mergeFrankfurterRatePayload(baseCode, { rates: { [baseCode]: 1 } }, seed);
