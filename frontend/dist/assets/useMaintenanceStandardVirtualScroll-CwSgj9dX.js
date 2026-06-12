@@ -1,0 +1,1 @@
+import{h as o}from"./useProgressiveScrollExtent-Y4-vObF9.js";const a=60,s=5;function u({scrollRef:t,actualTotalH:e,rowCount:n,rowHeightEstimate:i,resetDeps:l=[]}){return{displayTotalH:o({scrollRef:t,actualTotalH:e,rowCount:n,rowHeightEstimate:i,resetDeps:l,minRows:a,initialViewportMultiplier:s,enableCyclicRebound:!1}).displayTotalH,cyclicRowOffset:0}}export{u};

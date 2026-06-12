@@ -420,25 +420,10 @@ export default function ProcessFormModal({
                   <h3 className="process-form-section-title">{t("processFormSectionRecord")}</h3>
                   <div className="form-row">
                     <div className="form-group">
-                      <label style={{ fontWeight: 600, color: "#666" }}>{t("dtsModified")}</label>
-                      <div
-                        id="edit_dts_modified"
-                        style={{
-                          backgroundColor: "#f5f5f5",
-                          marginTop: 5,
-                          padding: "8px 12px",
-                          border: "1px solid #ddd",
-                          borderRadius: 4,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          width: "100%",
-                          minHeight: 38,
-                          boxSizing: "border-box",
-                        }}
-                      >
+                      <label>{t("dtsModified")}</label>
+                      <div id="edit_dts_modified" className="process-form-dts-readonly">
                         <span id="edit_dts_modified_date">{form.dts_modified_display || ""}</span>
-                        <span id="edit_dts_modified_user" style={{ fontWeight: 600 }}>
+                        <span id="edit_dts_modified_user" className="process-form-dts-readonly-user">
                           {form.dts_modified_user_display || ""}
                         </span>
                       </div>
@@ -447,25 +432,10 @@ export default function ProcessFormModal({
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label style={{ fontWeight: 600, color: "#666" }}>{t("dtsCreated")}</label>
-                      <div
-                        id="edit_dts_created"
-                        style={{
-                          backgroundColor: "#f5f5f5",
-                          marginTop: 5,
-                          padding: "8px 12px",
-                          border: "1px solid #ddd",
-                          borderRadius: 4,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          width: "100%",
-                          minHeight: 38,
-                          boxSizing: "border-box",
-                        }}
-                      >
+                      <label>{t("dtsCreated")}</label>
+                      <div id="edit_dts_created" className="process-form-dts-readonly">
                         <span id="edit_dts_created_date">{form.dts_created || ""}</span>
-                        <span id="edit_dts_created_user" style={{ fontWeight: 600 }}>
+                        <span id="edit_dts_created_user" className="process-form-dts-readonly-user">
                           {form.created_by || ""}
                         </span>
                       </div>

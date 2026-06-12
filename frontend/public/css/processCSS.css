@@ -8230,13 +8230,11 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     }
 
     #editModal .process-form-section-title {
-        font-size: 0.9rem !important;
         margin-bottom: 0.4rem !important;
         padding-bottom: 0.25rem !important;
     }
 
     #editModal .process-form .form-group > label {
-        font-size: 0.82rem !important;
         margin-bottom: 0.2rem !important;
     }
 
@@ -8246,7 +8244,6 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     #editModal .custom-select-button {
         min-height: 2.1rem !important;
         padding: 0.3rem 0.55rem !important;
-        font-size: 0.8rem !important;
     }
 
     #editModal .process-form .form-group textarea {
@@ -8257,14 +8254,13 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
         margin-bottom: 0.25rem !important;
     }
 
-    #editModal .process-form-modal-footer {
-        padding: 0.5rem 0.85rem !important;
+    #editModal .process-form-modal-shell > .process-form-modal-footer {
+        padding-bottom: calc(var(--space-gap, 0.75rem) * 1.1) !important;
     }
 
     #editModal .process-form-modal-footer .btn {
         min-height: 2.15rem !important;
         height: 2.15rem !important;
-        font-size: 0.85rem !important;
     }
 }
 
@@ -8273,5 +8269,76 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     #editModal .process-form.add-grid {
         grid-template-columns: minmax(0, 1fr) !important;
     }
+}
+
+/* Edit Process — 字体统一（var(--font-ui) + design tokens） */
+#editModal .modal-content.process-form-modal {
+    font-family: var(--font-ui) !important;
+}
+
+#editModal .modal-content.process-form-modal .process-form-section-title {
+    font-family: var(--font-ui) !important;
+    font-size: var(--process-form-modal-section-size, var(--text-h3)) !important;
+    font-weight: var(--font-weight-semibold) !important;
+}
+
+#editModal .modal-content.process-form-modal .process-form .form-group > label {
+    font-family: var(--font-ui) !important;
+    font-size: var(--process-form-modal-label-size, var(--text-medium)) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    color: var(--color-body-strong, #0f172a) !important;
+}
+
+#editModal .modal-content.process-form-modal .process-form .form-group input,
+#editModal .modal-content.process-form-modal .process-form .form-group select,
+#editModal .modal-content.process-form-modal .process-form .form-group textarea,
+#editModal .modal-content.process-form-modal .custom-select-button,
+#editModal .process-form-dts-readonly,
+#editModal .process-form-dts-readonly span,
+#editModal .selected-description-tag,
+#editModal .field-help,
+#editModal .form-row small,
+#editModal .day-use-pill-heading,
+#editModal .day-use-pill-row .user-gc-segment {
+    font-family: var(--font-ui) !important;
+    font-size: var(--process-form-modal-control-size, var(--text-small)) !important;
+    line-height: 1.35 !important;
+}
+
+#editModal .modal-content.process-form-modal .field-help,
+#editModal .modal-content.process-form-modal .form-row small {
+    font-size: var(--process-form-modal-hint-size, var(--text-small)) !important;
+}
+
+#editModal .process-form-dts-readonly {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: calc(var(--space-gap, 0.75rem) * 0.25);
+    padding: calc(var(--space-gap, 0.75rem) * 0.35) calc(var(--space-gap, 0.75rem) * 0.5);
+    min-height: var(--process-form-modal-control-min-h, clamp(2.75rem, 2.25vw, 3.25rem));
+    background-color: var(--color-surface-gray-50, #f8fafc);
+    border: 1px solid var(--color-border-muted, #dbe3ee);
+    border-radius: calc(var(--process-form-modal-radius, 0.75rem) * 0.55);
+    color: var(--color-body-strong, #1f2937);
+}
+
+#editModal .process-form-dts-readonly-user {
+    font-weight: var(--font-weight-semibold) !important;
+}
+
+#editModal .process-form-modal-shell > .process-form-modal-footer {
+    padding-top: calc(var(--space-gap, 0.75rem) * 0.85) !important;
+    padding-right: var(--process-form-modal-pad, var(--space-card)) !important;
+    padding-left: var(--process-form-modal-pad, var(--space-card)) !important;
+    padding-bottom: var(--process-form-modal-pad, var(--space-card)) !important;
+}
+
+#editModal .process-form-modal-footer .btn {
+    font-family: var(--font-ui) !important;
+    font-size: var(--process-form-modal-label-size, var(--text-medium)) !important;
+    font-weight: var(--font-weight-semibold) !important;
 }
 
