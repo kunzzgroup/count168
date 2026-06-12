@@ -8342,3 +8342,13 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     font-weight: var(--font-weight-semibold) !important;
 }
 
+/* Edit Process 底栏：Update / Cancel 同宽同高 */
+#editModal .process-form-modal-footer .btn-save,
+#editModal .process-form-modal-footer .btn-cancel {
+    width: var(--process-form-modal-footer-btn-width, clamp(9.5rem, 20vw, 12.5rem)) !important;
+    min-width: var(--process-form-modal-footer-btn-width, clamp(9.5rem, 20vw, 12.5rem)) !important;
+    max-width: var(--process-form-modal-footer-btn-width, clamp(9.5rem, 20vw, 12.5rem)) !important;
+    flex: 0 0 auto !important;
+    box-sizing: border-box !important;
+}
+
