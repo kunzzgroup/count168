@@ -6474,10 +6474,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const sidebarGroup = groupsAllMode ? readGroupsAllSidebarGroup() : groupForPersist;
 
     if (groupAllMode && companyId == null) {
-      // Company login: Company All cannot be toggled off.
-      if (isCompanyLogin(me) && !isGroupLogin(me)) return;
+      // Company login without group-ledger access: keep Company All on.
+      if (
+        isCompanyLogin(me) &&
+        !isGroupLogin(me) &&
+        !canUseGroupOnlyMode(me, groupForPersist, companies)
+      ) {
+        return;
+      }
 
-      // Group login: fully close Company All (no subsidiary auto-pick).
+      // Group / privileged company login: fully close Company All (no subsidiary auto-pick).
       scopeInteractionGenRef.current += 1;
       setLoadError("");
       persistDashboardGroupAllMode(false);

@@ -136,7 +136,13 @@ export function useGcFilterWithAllModes({
     const groupForPersist = groupsAllMode ? null : selectedGroup;
 
     if (groupAllMode && !companyId) {
-      if (isCompanyLogin(me) && !isGroupLogin(me)) return;
+      if (
+        isCompanyLogin(me) &&
+        !isGroupLogin(me) &&
+        !canUseGroupOnlyMode(me, groupForPersist, companies)
+      ) {
+        return;
+      }
 
       setGroupAllMode(false);
       persistDashboardFilterState(groupForPersist, null, {
