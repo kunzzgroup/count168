@@ -202,7 +202,7 @@ export default function MemberPage() {
     [availableCurrencies, persistCurrencyOrder],
   );
 
-  const periodPresets = useMemo(() => buildMaintenancePeriodPresets(t), [t]);
+  const periodPresets = useMemo(() => buildMaintenancePeriodPresets(maintenanceLocale), [maintenanceLocale]);
 
   const handleDateRangeChange = useCallback(
     (start, end) => {
