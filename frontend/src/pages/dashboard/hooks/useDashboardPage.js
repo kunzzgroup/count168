@@ -5806,10 +5806,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       { idx: 0, label: i18n.profit, color: DASHBOARD_PROFIT_COLOR, dataKey: "profit", fill: "url(#gProfit)" },
       { idx: 1, label: i18n.expenses, color: "#ef4444", dataKey: "expenses", fill: "url(#gExp)" },
       { idx: 2, label: i18n.netProfitChart, color: "#10b981", dataKey: "netProfit", fill: "url(#gNet)" },
-      { idx: 3, label: i18n.earnings, color: "#f59e0b", dataKey: "earnings", fill: "url(#gEarn)" },
     ];
+    if (kpi.showEarnings) {
+      series.push({
+        idx: 3,
+        label: i18n.earnings,
+        color: "#f59e0b",
+        dataKey: "earnings",
+        fill: "url(#gEarn)",
+      });
+    }
     return series;
-  }, [i18n]);
+  }, [i18n, kpi.showEarnings]);
 
   const earningsCurrencyRows = useMemo(() => {
     const earningsRows = Array.isArray(earningsByCurrency) ? earningsByCurrency : [];
@@ -5921,13 +5929,33 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
 
-  /** Pie panel hero total — matches KPI for the active filter currency. */
+  /** Non-ownership viewers: summary panel shows net profit label + multi-currency converted total. */
+  const summaryUsesCurrencyTotal = !kpi.showEarnings;
+
+  const summaryPanelLabel = summaryUsesCurrencyTotal ? i18n.netProfit : i18n.earnings;
+
+  /** Pie panel hero total — ownership: active-currency earnings; non-ownership: converted currency sum. */
   const summaryEarningsValue = useMemo(() => {
     if (showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi) {
       return multiCurrencyKpi.earnings;
     }
+    if (summaryUsesCurrencyTotal) {
+      if (currencies.length > 1) {
+        return convertedEarningsTotal;
+      }
+      return kpi.netProfit;
+    }
     return kpi.earnings;
-  }, [showAllCurrencies, canShowAllCurrencies, multiCurrencyKpi, kpi.earnings]);
+  }, [
+    showAllCurrencies,
+    canShowAllCurrencies,
+    multiCurrencyKpi,
+    summaryUsesCurrencyTotal,
+    currencies.length,
+    convertedEarningsTotal,
+    kpi.netProfit,
+    kpi.earnings,
+  ]);
 
   const summaryConversionNote = useMemo(() => {
     if (!earningsBreakdownShowsRate) return "";
@@ -5987,7 +6015,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const scopeDataPending =
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
-  const summaryEarningsLoading = scopeDataPending || (loading && !dashboardData);
+  const summaryEarningsLoading =
+    scopeDataPending ||
+    (loading && !dashboardData) ||
+    (summaryUsesCurrencyTotal &&
+      currencies.length > 1 &&
+      (exchangeRatesLoading ||
+        earningsByCurrencyLoading ||
+        !allCurrencyEarningsReady ||
+        convertedEarningsTotal == null));
   const earningsPanelStable =
     currencies.length <= 1 ||
     (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
@@ -6791,6 +6827,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     earningsCurrencyRows,
     useConvertedEarnings,
     earningsBreakdownShowsRate,
+    summaryPanelLabel,
     summaryEarningsValue,
     summaryConversionNote,
     summaryEarningsLoading,

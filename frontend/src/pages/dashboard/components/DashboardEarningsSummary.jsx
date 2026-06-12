@@ -22,6 +22,7 @@ export function DashboardEarningsSummary({
   earningsCurrencyRows,
   useConvertedEarnings,
   earningsBreakdownShowsRate = false,
+  summaryPanelLabel,
   summaryEarningsValue,
   summaryConversionNote,
   summaryEarningsLoading,
@@ -210,7 +211,7 @@ export function DashboardEarningsSummary({
         <div className="dashboard-summary-left-col">
           <div className="dashboard-summary-hero dashboard-summary-hero--compact">
             <span className="dashboard-summary-hero-caption">
-              {i18n.earnings}
+              {summaryPanelLabel || i18n.earnings}
               {currencyCode ? ` · ${currencyCode}` : ""}
             </span>
             <div className="dashboard-summary-hero-value">
