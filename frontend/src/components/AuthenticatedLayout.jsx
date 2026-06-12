@@ -682,8 +682,20 @@ export default function AuthenticatedLayout() {
       });
     };
 
+    const runProcessListWarm = () => {
+      if (!me?.company_id) return;
+      void import("../pages/processlist/processRoutePrefetch.js").then((mod) => {
+        if (me.company_has_bank && !me.company_has_gambling) {
+          mod.warmBankProcessListRouteCache(me.company_id);
+        } else {
+          mod.warmProcessListRouteCache(me.company_id);
+        }
+      });
+    };
+
     const runIdleWarm = () => {
       runCompanies();
+      runProcessListWarm();
       if (path === "/dashboard" || path === "/account-list") {
         runAccountListWarm();
       }
@@ -712,6 +724,11 @@ export default function AuthenticatedLayout() {
         ) {
           void import("../pages/processlist/processRoutePrefetch.js").then(({ warmProcessListRouteCache }) => {
             warmProcessListRouteCache(me.company_id);
+          });
+        }
+        if (routePath === "/bank-process-list" && me?.company_id) {
+          void import("../pages/processlist/processRoutePrefetch.js").then(({ warmBankProcessListRouteCache }) => {
+            warmBankProcessListRouteCache(me.company_id);
           });
         }
         if (routePath === "/account-list") {

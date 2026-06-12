@@ -431,6 +431,15 @@ export function notifyTransactionDataChanged(sourceTag) {
 
 const bankCategoryCompanyCache = new Map();
 
+/** When session company matches, skip domain API for bank-only vs games routing. */
+export function resolveBankOnlyCategoryHint(sessionMe, companyNumericId) {
+  if (!sessionMe || companyNumericId == null) return null;
+  if (Number(sessionMe.company_id) !== Number(companyNumericId)) return null;
+  if (sessionMe.company_has_bank && !sessionMe.company_has_gambling) return true;
+  if (sessionMe.company_has_gambling) return false;
+  return null;
+}
+
 export async function isBankCategoryCompany(companyCode, buildApiUrl) {
   const cacheKey = String(companyCode || "").trim().toUpperCase();
   if (!cacheKey) return false;

@@ -53,6 +53,7 @@ import {
   notifyTransactionDataChanged,
   bankProcessStatusTargetPatch,
   isBankCategoryCompany,
+  resolveBankOnlyCategoryHint,
   parseProfitSharingToRows,
   serializeProfitSharingRows,
   calcBankNetProfitDisplay,
@@ -80,6 +81,8 @@ import {
 import {
   prefetchBankProcessListPayload,
   prefetchGamesProcessListPayload,
+  resolveBankProcessListRouteCache,
+  warmBankProcessListRouteCache,
 } from "../../processlist/processRoutePrefetch.js";
 
 function resolveBankProcessListCacheKey(companyId, search) {
@@ -717,6 +720,11 @@ export function useBankProcessListPage() {
     (async () => {
       let skipLoadingDone = false;
       try {
+        const bootUrl = new URL(window.location.href);
+        const bootSearch = bootUrl.searchParams.get("search") || "";
+        if (authMe?.company_id) {
+          warmBankProcessListRouteCache(authMe.company_id, { search: bootSearch });
+        }
         const routePrefetch = location.state?.bankProcessListPrefetch;
         const prefetchCompanyId = routePrefetch?.companyId ? Number(routePrefetch.companyId) : null;
         const currentUrl = new URL(window.location.href);
@@ -807,7 +815,11 @@ export function useBankProcessListPage() {
         const currentCompanyRow =
           effectiveNum != null ? cs.find((c) => Number(c.id) === Number(effectiveNum)) : null;
         if (currentCompanyRow?.company_id) {
-          const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
+          const bankOnlyHint = resolveBankOnlyCategoryHint(sessionUser, effectiveNum);
+          const bankCategory =
+            bankOnlyHint !== null
+              ? bankOnlyHint
+              : await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (!bankCategory) {
             const warm = await prefetchGamesProcessListPayload(effectiveNum);
             navigate(`/process-list?company_id=${effectiveNum}`, {
@@ -844,11 +856,32 @@ export function useBankProcessListPage() {
         setShowOfficial(url.searchParams.get("showOfficial") === "1");
         setShowEInvoice(url.searchParams.get("showEInvoice") === "1");
         setShowBlock(url.searchParams.get("showBlock") === "1");
+
+        if (effectiveNum != null) {
+          const searchVal = url.searchParams.get("search") || "";
+          const slice = await resolveBankProcessListRouteCache(effectiveNum, { search: searchVal });
+          if (Array.isArray(slice?.rows)) {
+            const cacheKey = resolveBankProcessListCacheKey(effectiveNum, searchVal);
+            bankProcessListCacheRef.current.set(cacheKey, {
+              rows: slice.rows,
+              currencyCodes: slice.currencyCodes,
+            });
+            setRows(slice.rows);
+            skipNextBankFetchRef.current = true;
+            setTableLoading(false);
+            if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
+              setCurrencyListOrdered(slice.currencyCodes);
+              setCurrencyPillDisplayOrder(null);
+            }
+          } else {
+            setTableLoading(true);
+          }
+        }
       } finally {
         if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [navigate, location.state]);
+  }, [navigate, location.state, authMe?.company_id]);
 
   useEffect(() => {
     if (!companyId || loading) return;
@@ -893,8 +926,9 @@ export function useBankProcessListPage() {
 
   useEffect(() => {
     if (!companyId || loading) return;
+    if (currencyListOrdered.length > 0) return;
     void loadCurrencyMeta(companyId);
-  }, [companyId, loading, loadCurrencyMeta]);
+  }, [companyId, loading, loadCurrencyMeta, currencyListOrdered.length]);
 
   useLayoutEffect(() => {
     if (showAll) document.body.classList.add("process-page--bank-show-all");
@@ -1100,10 +1134,11 @@ export function useBankProcessListPage() {
       if (!Number.isFinite(id) || id <= 0) return false;
       const cacheKey = resolveBankProcessListCacheKey(id, search);
       const cached = bankProcessListCacheRef.current.get(cacheKey);
-      if (!Array.isArray(cached?.rows) || cached.rows.length === 0) return false;
+      if (!Array.isArray(cached?.rows)) return false;
       setRows((prev) =>
         bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
+      setTableLoading(false);
       if (Array.isArray(cached.currencyCodes) && cached.currencyCodes.length) {
         const ordered = mergeCurrencyCodesWithSavedOrder(
           cached.currencyCodes,
@@ -1216,9 +1251,11 @@ export function useBankProcessListPage() {
       skipCompanyFetchEffectRef.current = false;
       return;
     }
-    const t = window.setTimeout(() => { void fetchRows(); }, 80);
-    return () => window.clearTimeout(t);
-  }, [companyId, loading, search, fetchRows]);
+    void (async () => {
+      if (applyBankProcessListCache(companyId)) return;
+      await fetchRows({ silent: rowsRef.current.length > 0 });
+    })();
+  }, [companyId, loading, search, fetchRows, applyBankProcessListCache]);
 
   // URL still reflects active filters even though they're applied client-side.
   useEffect(() => {

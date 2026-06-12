@@ -19,7 +19,7 @@ import { findOwnerCompanyById } from "../../utils/company/sharedCompanyFilter.js
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
-import { isBankCategoryCompany } from "../bankprocesslist/lib/bankProcessHelpers.js";
+import { isBankCategoryCompany, resolveBankOnlyCategoryHint } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
@@ -42,6 +42,7 @@ import {
   fetchGamesProcessListSlice,
   prefetchBankProcessListPayload,
   resolveProcessListRouteCache,
+  warmProcessListRouteCache,
 } from "./processRoutePrefetch.js";
 import ProcessTable from "./components/ProcessTable.jsx";
 import ProcessFormModal from "./components/ProcessFormModal.jsx";
@@ -237,8 +238,18 @@ export default function ProcessListPage() {
       let skipLoadingDone = false;
       try {
         const layoutMe = sessionMeFromLayout;
-        const prefetchCompanyId = routePrefetch?.companyId ? Number(routePrefetch.companyId) : null;
         const currentUrl = new URL(window.location.href);
+        const bootSearch = filterSearchInput(currentUrl.searchParams.get("search") || "");
+        const bootShowInactive = currentUrl.searchParams.has("showInactive");
+        const bootShowAll = currentUrl.searchParams.has("showAll");
+        if (layoutMe?.company_id) {
+          warmProcessListRouteCache(layoutMe.company_id, {
+            search: bootSearch,
+            showInactive: bootShowInactive,
+            showAll: bootShowAll,
+          });
+        }
+        const prefetchCompanyId = routePrefetch?.companyId ? Number(routePrefetch.companyId) : null;
         const prefetchQueryCompany = currentUrl.searchParams.get("company_id");
 
         if (routePrefetch && prefetchCompanyId && (!prefetchQueryCompany || Number(prefetchQueryCompany) === prefetchCompanyId)) {
@@ -357,7 +368,11 @@ export default function ProcessListPage() {
 
         const currentCompanyRow = cs.find((c) => Number(c.id) === Number(effectiveCompany));
         if (currentCompanyRow?.company_id) {
-          const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
+          const bankOnlyHint = resolveBankOnlyCategoryHint(layoutMe, effectiveCompany);
+          const bankCategory =
+            bankOnlyHint !== null
+              ? bankOnlyHint
+              : await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (bankCategory) {
             const warm = await prefetchBankProcessListPayload(effectiveCompany);
             navigate(`/bank-process-list?company_id=${effectiveCompany}`, {
