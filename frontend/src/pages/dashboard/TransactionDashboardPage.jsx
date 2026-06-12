@@ -101,6 +101,12 @@ export default function TransactionDashboardPage() {
               exchangeRateScopeKey={page.exchangeRateScopeKey}
               rateFootnoteText={page.rateFootnoteText}
               convertedEarningsTotal={page.convertedEarningsTotal}
+              showProfitChartTab={page.showProfitChartTab}
+              earningsPanelView={page.earningsPanelView}
+              onEarningsPanelViewChange={page.setEarningsPanelView}
+              companyBreakdownRows={page.companyBreakdownRows}
+              companyEarningsTotal={page.companyEarningsTotal}
+              companyGroupProfitTotal={page.companyGroupProfitTotal}
             />
           </div>
         </div>

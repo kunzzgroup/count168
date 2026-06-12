@@ -1068,9 +1068,40 @@ function dashboardGroupPeriodNetProfitFromSummary(array $groupResult): string
 }
 
 /**
+ * Display codes for company primary keys (subsidiary profit chart).
+ *
+ * @param list<int> $companyIds
+ * @return array<int, string>
+ */
+function dashboardLoadCompanyDisplayCodes(PDO $pdo, array $companyIds): array
+{
+    if ($companyIds === []) {
+        return [];
+    }
+
+    $in = implode(',', array_fill(0, count($companyIds), '?'));
+    $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE id IN ($in)");
+    $stmt->execute($companyIds);
+    $map = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id > 0) {
+            $map[$id] = (string) ($row['company_id'] ?? '');
+        }
+    }
+
+    return $map;
+}
+
+/**
  * Sum subsidiary net-profit × company equity % to the group.
  *
- * @return array{period_total:string, daily:array<string,string>, has_equity:bool}
+ * @return array{
+ *   period_total:string,
+ *   daily:array<string,string>,
+ *   has_equity:bool,
+ *   by_company:list<array<string, mixed>>
+ * }
  */
 function dashboardComputeSubsidiaryEarningsTotal(
     PDO $pdo,
@@ -1078,12 +1109,14 @@ function dashboardComputeSubsidiaryEarningsTotal(
     string $dateFromDisplay,
     string $dateToDisplay,
     ?string $filterCurrencyCode,
-    bool $kpiOnly
+    bool $kpiOnly,
+    float $accountPct = 0.0
 ): array {
     $empty = [
         'period_total' => dashboardMoneyZero(),
         'daily' => [],
         'has_equity' => false,
+        'by_company' => [],
     ];
 
     require_once __DIR__ . '/../includes/ownership_history.php';
@@ -1110,6 +1143,10 @@ function dashboardComputeSubsidiaryEarningsTotal(
 
     $periodShareTotal = dashboardMoneyZero();
     $dailyShare = [];
+    $byCompany = [];
+    $companyCodes = dashboardLoadCompanyDisplayCodes($pdo, array_keys($equityMap));
+    $accountMul = $accountPct > 0 ? money_div((string) $accountPct, '100', MONEY_SCALE) : '1';
+    $gNorm = reportNormalizeGroupId($groupLedgerCode);
 
     dashboard_api_begin_bootstrap_batch();
     try {
@@ -1139,7 +1176,20 @@ function dashboardComputeSubsidiaryEarningsTotal(
             $data = $cap['data'];
             $netProfit = dashboardCompanyPeriodNetProfitFromPayload($data);
             $share = money_mul($netProfit, money_div($pctStr, '100', MONEY_SCALE), MONEY_SCALE);
+            $myEarning = money_mul($share, $accountMul, MONEY_SCALE);
             $periodShareTotal = dashboardMoneyAdd($periodShareTotal, $share);
+
+            $displayCode = $companyCodes[$companyId] ?? (string) $companyId;
+            $byCompany[] = [
+                'company_pk' => $companyId,
+                'company_id' => $displayCode,
+                'group_id' => $gNorm,
+                'net_profit' => dashboardOut($netProfit),
+                'group_equity_pct' => dashboardOut($pctStr, 2),
+                'account_pct' => dashboardOut((string) $accountPct, 2),
+                'group_share' => dashboardOut($share),
+                'my_earning' => dashboardOut($myEarning),
+            ];
 
             if (!$kpiOnly) {
                 $netDaily = dashboardCompanyNetProfitDailyFromPayload($data['daily_data'] ?? []);
@@ -1153,10 +1203,15 @@ function dashboardComputeSubsidiaryEarningsTotal(
         dashboard_api_end_bootstrap_batch();
     }
 
+    usort($byCompany, static function (array $a, array $b): int {
+        return money_cmp((string) ($b['my_earning'] ?? '0'), (string) ($a['my_earning'] ?? '0'));
+    });
+
     return [
         'period_total' => $periodShareTotal,
         'daily' => $dailyShare,
-        'has_equity' => money_cmp($periodShareTotal, '0') !== 0 || $dailyShare !== [],
+        'has_equity' => money_cmp($periodShareTotal, '0') !== 0 || $dailyShare !== [] || $byCompany !== [],
+        'by_company' => $byCompany,
     ];
 }
 
@@ -2958,15 +3013,17 @@ try {
             $filter_currency_code
         );
         $groupLedgerNetProfit = dashboardGroupPeriodNetProfitFromSummary($groupResult);
+        $viewerGroupShare = dashboardLoadViewerGroupAccountPercentage($pdo, $groupLedgerCode);
+        $groupAccountPctForSubsidiaries = (float) ($viewerGroupShare['percentage'] ?? 0);
         $subsidiaryEarnings = dashboardComputeSubsidiaryEarningsTotal(
             $pdo,
             $groupLedgerCode,
             (string) $date_from,
             (string) $date_to,
             $filter_currency_code,
-            $kpiOnly
+            $kpiOnly,
+            $groupAccountPctForSubsidiaries
         );
-        $viewerGroupShare = dashboardLoadViewerGroupAccountPercentage($pdo, $groupLedgerCode);
         $hasGroupOwnershipProfit = dashboardMergeGroupOwnershipProfitShare(
             $pdo,
             $groupResult,
@@ -2993,6 +3050,7 @@ try {
                 'has_group_ownership' => $hasGroupAccountOwnership,
                 'group_ledger_net_profit' => dashboardOut($groupLedgerNetProfit),
                 'subsidiary_earnings_total' => dashboardOut($subsidiaryEarnings['period_total']),
+                'subsidiary_earnings_by_company' => $subsidiaryEarnings['by_company'] ?? [],
                 '_group_aggregate_earnings' => true,
                 'period_total' => [
                     'capital' => $groupResult['capital']['period_total'],
