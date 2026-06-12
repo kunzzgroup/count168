@@ -1192,6 +1192,64 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     padding-bottom: clamp(6px, 0.5vw, 10px);
 }
 
+.dashboard-summary-view-tabs {
+    display: inline-flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-bottom: clamp(6px, 0.5vw, 10px);
+    padding: 3px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    width: fit-content;
+    max-width: 100%;
+}
+
+.dashboard-summary-view-tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-family: var(--font-heading-page);
+    font-size: clamp(11px, 0.78vw, 12px);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dashboard-summary-view-tab.is-active {
+    background: #fff;
+    color: #1d4ed8;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.dashboard-summary-view-tab:not(.is-active):hover {
+    color: #334155;
+}
+
+.dashboard-summary-currency-list.is-company-profit .dashboard-summary-currency-list-head,
+.dashboard-summary-currency-list.is-company-profit .dashboard-summary-currency-row {
+    grid-template-columns: minmax(72px, 0.9fr) minmax(0, 1.2fr) minmax(52px, 0.7fr);
+}
+
+.dashboard-summary-currency-code-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.dashboard-summary-company-group {
+    font-size: clamp(10px, 0.72vw, 11px);
+    color: #94a3b8;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
 .dashboard-panel-card--summary {
     --summary-font: var(--font-heading-page);
     --summary-text-primary: #111827;
