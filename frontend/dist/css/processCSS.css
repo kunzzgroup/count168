@@ -8257,11 +8257,6 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     #editModal .process-form-modal-shell > .process-form-modal-footer {
         padding-bottom: calc(var(--space-gap, 0.75rem) * 1.1) !important;
     }
-
-    #editModal .process-form-modal-footer .btn {
-        min-height: 2.15rem !important;
-        height: 2.15rem !important;
-    }
 }
 
 @media (max-width: 768px) {
@@ -8329,26 +8324,11 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     font-weight: var(--font-weight-semibold) !important;
 }
 
-#editModal .process-form-modal-shell > .process-form-modal-footer {
-    padding-top: calc(var(--space-gap, 0.75rem) * 0.85) !important;
-    padding-right: var(--process-form-modal-pad, var(--space-card)) !important;
-    padding-left: var(--process-form-modal-pad, var(--space-card)) !important;
-    padding-bottom: var(--process-form-modal-pad, var(--space-card)) !important;
-}
-
-#editModal .process-form-modal-footer .btn {
-    font-family: var(--font-ui) !important;
-    font-size: var(--process-form-modal-label-size, var(--text-medium)) !important;
-    font-weight: var(--font-weight-semibold) !important;
-}
-
-/* Edit Process 底栏：Update / Cancel 同宽同高 */
-#editModal .process-form-modal-footer .btn-save,
-#editModal .process-form-modal-footer .btn-cancel {
-    width: var(--process-form-modal-footer-btn-width, clamp(9.5rem, 20vw, 12.5rem)) !important;
-    min-width: var(--process-form-modal-footer-btn-width, clamp(9.5rem, 20vw, 12.5rem)) !important;
-    max-width: var(--process-form-modal-footer-btn-width, clamp(9.5rem, 20vw, 12.5rem)) !important;
-    flex: 0 0 auto !important;
-    box-sizing: border-box !important;
+/* 底栏与 Account List 弹窗同款：account-form-actions / account-btn（见 accountCSS.css） */
+#editModal .process-form-modal-shell > .process-form-modal-footer.account-form-actions,
+#addModal .process-form-modal-shell > .process-form-modal-footer.account-form-actions {
+    padding: 16px 40px !important;
+    gap: 12px !important;
+    border-top: 1px solid #e5e7eb !important;
 }
 

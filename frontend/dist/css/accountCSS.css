@@ -2001,7 +2001,9 @@ body.account-page #confirmDeleteModal .confirm-delete {
 
 /* Form footer · tooltip: padding 16px 40px */
 #account-addModal .account-form-actions,
-#account-editModal .account-form-actions {
+#account-editModal .account-form-actions,
+#addModal .account-form-actions,
+#editModal .account-form-actions {
     margin-top: auto;
     padding: 16px 40px;
     border-radius: 0 0 0.875rem 0.875rem;
@@ -2026,7 +2028,11 @@ body.account-page #confirmDeleteModal .confirm-delete {
 #account-addModal .account-btn-save,
 #account-editModal .account-btn-save,
 #account-addModal .account-btn-cancel,
-#account-editModal .account-btn-cancel {
+#account-editModal .account-btn-cancel,
+#addModal .account-btn-save,
+#editModal .account-btn-save,
+#addModal .account-btn-cancel,
+#editModal .account-btn-cancel {
     min-width: var(--userlist-btn-add-width);
     width: auto;
     min-height: auto;
@@ -2050,19 +2056,27 @@ body.account-page #confirmDeleteModal .confirm-delete {
 #account-addModal .account-btn-save::after,
 #account-editModal .account-btn-save::after,
 #account-addModal .account-btn-cancel::after,
-#account-editModal .account-btn-cancel::after {
+#account-editModal .account-btn-cancel::after,
+#addModal .account-btn-save::after,
+#editModal .account-btn-save::after,
+#addModal .account-btn-cancel::after,
+#editModal .account-btn-cancel::after {
     display: none;
     content: none;
 }
 
 #account-addModal .account-btn-save,
-#account-editModal .account-btn-save {
+#account-editModal .account-btn-save,
+#addModal .account-btn-save,
+#editModal .account-btn-save {
     background: var(--btn-add-gradient);
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
 #account-addModal .account-btn-save:hover,
-#account-editModal .account-btn-save:hover {
+#account-editModal .account-btn-save:hover,
+#addModal .account-btn-save:hover,
+#editModal .account-btn-save:hover {
     background: var(--btn-add-gradient-hover);
     color: #ffffff;
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
@@ -2071,19 +2085,27 @@ body.account-page #confirmDeleteModal .confirm-delete {
 
 #account-addModal .account-btn-save:active,
 #account-editModal .account-btn-save:active,
+#addModal .account-btn-save:active,
+#editModal .account-btn-save:active,
 #account-addModal .account-btn-cancel:active,
-#account-editModal .account-btn-cancel:active {
+#account-editModal .account-btn-cancel:active,
+#addModal .account-btn-cancel:active,
+#editModal .account-btn-cancel:active {
     transform: translateY(0);
 }
 
 #account-addModal .account-btn-cancel,
-#account-editModal .account-btn-cancel {
+#account-editModal .account-btn-cancel,
+#addModal .account-btn-cancel,
+#editModal .account-btn-cancel {
     background: var(--gradient-domain-muted-action);
     box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
 }
 
 #account-addModal .account-btn-cancel:hover,
-#account-editModal .account-btn-cancel:hover {
+#account-editModal .account-btn-cancel:hover,
+#addModal .account-btn-cancel:hover,
+#editModal .account-btn-cancel:hover {
     background: var(--gradient-domain-muted-action-hover);
     color: #ffffff;
     box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);

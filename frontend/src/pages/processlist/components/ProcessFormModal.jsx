@@ -567,11 +567,11 @@ export default function ProcessFormModal({
             </div>
             </div>
           </div>
-          <div className="form-actions add-actions modal-footer process-form-modal-footer">
-            <button type="submit" className="btn btn-save" disabled={ro || submitting}>
+          <div className="form-actions add-actions modal-footer process-form-modal-footer account-form-actions">
+            <button type="submit" className="account-btn account-btn-save" disabled={ro || submitting}>
               {submitting ? t("saving") : editMode ? t("updateProcess") : t("addProcess")}
             </button>
-            <button type="button" className="btn btn-cancel" onClick={onClose}>
+            <button type="button" className="account-btn account-btn-cancel" onClick={onClose}>
               {t("cancel")}
             </button>
           </div>

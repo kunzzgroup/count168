@@ -8324,28 +8324,11 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     font-weight: var(--font-weight-semibold) !important;
 }
 
-#editModal .process-form-modal-shell > .process-form-modal-footer {
-    padding-top: calc(var(--space-gap, 0.75rem) * 0.85) !important;
-    padding-right: var(--process-form-modal-pad, var(--space-card)) !important;
-    padding-left: var(--process-form-modal-pad, var(--space-card)) !important;
-    padding-bottom: var(--process-form-modal-pad, var(--space-card)) !important;
-}
-
-/* Add/Edit Process 底栏按键 — 与 User List / Account / Description 弹窗同款 */
-#addModal .process-form-modal-footer .btn-save,
-#addModal .process-form-modal-footer .btn-cancel,
-#editModal .process-form-modal-footer .btn-save,
-#editModal .process-form-modal-footer .btn-cancel {
-    min-width: var(--userlist-btn-add-width) !important;
-    width: auto !important;
-    max-width: none !important;
-    min-height: auto !important;
-    height: auto !important;
-    padding: clamp(6px, 0.42vw, 8px) 20px !important;
-    font-size: var(--text-medium) !important;
-    font-family: var(--font-heading-page) !important;
-    font-weight: var(--font-weight-semibold) !important;
-    border-radius: 6px !important;
-    box-sizing: border-box !important;
+/* 底栏与 Account List 弹窗同款：account-form-actions / account-btn（见 accountCSS.css） */
+#editModal .process-form-modal-shell > .process-form-modal-footer.account-form-actions,
+#addModal .process-form-modal-shell > .process-form-modal-footer.account-form-actions {
+    padding: 16px 40px !important;
+    gap: 12px !important;
+    border-top: 1px solid #e5e7eb !important;
 }
 
