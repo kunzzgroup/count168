@@ -7910,10 +7910,7 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     flex: 1 1 auto;
     min-height: 0;
     padding: var(--process-form-modal-pad, var(--space-card));
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    overflow: hidden;
 }
 
 /* Multi-Process 区块：列表独占滚动，不把 modal-body 撑出纵向滚动条 */
@@ -8109,10 +8106,6 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     align-items: center;
     gap: var(--space-gap, 0.75rem);
     flex-wrap: nowrap;
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
-    box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.08);
 }
 
 .process-form-modal .process-form-modal-footer .btn,
@@ -8170,7 +8163,7 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     }
 }
 
-/* Edit/Add Process — 小屏/矮屏：居中弹窗、可滚动内容、底栏始终可见 */
+/* Edit/Add Process — 小屏/矮屏：整体紧凑适配，无内部滚动 */
 @media (max-width: 64rem), (max-height: 860px) {
     body.process-page > #editModal.modal:has(.process-form-modal),
     body.process-page > #addModal.modal:has(.process-form-modal) {
@@ -8179,24 +8172,150 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
         width: 100% !important;
         height: 100% !important;
         border-radius: 0 !important;
+        overflow: hidden !important;
     }
 
     #editModal .modal-content.process-form-modal,
     #addModal .modal-content.process-form-modal {
-        width: min(1040px, calc(100vw - 24px)) !important;
-        max-width: min(1040px, calc(100vw - 24px)) !important;
-        max-height: min(92vh, calc(100dvh - 16px)) !important;
-        margin: max(8px, 2vh) auto !important;
-        height: auto !important;
+        --process-form-modal-pad: clamp(0.5rem, 1.2vw, 0.75rem);
+        --process-form-modal-control-min-h: clamp(1.85rem, 3.2vh, 2.25rem);
+        --process-form-modal-title-size: clamp(0.95rem, 2.5vw, 1.125rem);
+        --process-form-modal-section-size: clamp(0.75rem, 1.8vw, 0.875rem);
+        --process-form-modal-label-size: clamp(0.7rem, 1.6vw, 0.8125rem);
+        --process-form-modal-control-size: clamp(0.65rem, 1.5vw, 0.75rem);
+        width: min(1040px, calc(100vw - 16px)) !important;
+        max-width: min(1040px, calc(100vw - 16px)) !important;
+        max-height: calc(100dvh - 12px) !important;
+        min-height: 0 !important;
+        margin: 6px auto !important;
+        overflow: hidden !important;
     }
 
     .process-page #editModal .modal-content.process-form-modal {
-        width: min(1040px, calc(100vw - 24px)) !important;
-        max-width: min(1040px, calc(100vw - 24px)) !important;
+        width: min(1040px, calc(100vw - 16px)) !important;
+        max-width: min(1040px, calc(100vw - 16px)) !important;
+        min-height: 0 !important;
         height: auto !important;
-        max-height: min(92vh, calc(100dvh - 16px)) !important;
+        max-height: calc(100dvh - 12px) !important;
         border-radius: var(--process-form-modal-radius, 0.75rem) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form-modal-header h2,
+    #addModal .modal-content.process-form-modal .process-form-modal-header h2 {
+        font-size: var(--process-form-modal-title-size) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form-modal-header,
+    #addModal .modal-content.process-form-modal .process-form-modal-header {
+        padding: calc(var(--process-form-modal-pad) * 0.85) var(--process-form-modal-pad) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .modal-body,
+    #addModal .modal-content.process-form-modal .modal-body {
+        padding: var(--process-form-modal-pad) !important;
         overflow: hidden !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form.add-grid,
+    #addModal .modal-content.process-form-modal .process-form.add-grid {
+        column-gap: clamp(0.5rem, 1.5vw, 0.85rem) !important;
+        row-gap: 0.25rem !important;
+        padding-bottom: 0 !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form.add-grid .add-col,
+    #addModal .modal-content.process-form-modal .process-form.add-grid .add-col {
+        padding: 0.25rem 0.35rem !important;
+    }
+
+    #editModal .modal-content.process-form-modal .add-col > .process-form-section:not(:last-child),
+    #addModal .modal-content.process-form-modal .add-col > .process-form-section:not(:last-child) {
+        margin-bottom: 0.45rem !important;
+        padding-bottom: 0.4rem !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form-section-title,
+    #addModal .modal-content.process-form-modal .process-form-section-title {
+        margin-bottom: 0.35rem !important;
+        padding-bottom: 0.25rem !important;
+        font-size: var(--process-form-modal-section-size) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form .form-group > label,
+    #addModal .modal-content.process-form-modal .process-form .form-group > label {
+        margin-bottom: 0.2rem !important;
+        font-size: var(--process-form-modal-label-size) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form .form-group input,
+    #editModal .modal-content.process-form-modal .process-form .form-group select,
+    #editModal .modal-content.process-form-modal .process-form .form-group textarea,
+    #addModal .modal-content.process-form-modal .process-form .form-group input,
+    #addModal .modal-content.process-form-modal .process-form .form-group select,
+    #addModal .modal-content.process-form-modal .process-form .form-group textarea {
+        min-height: var(--process-form-modal-control-min-h) !important;
+        height: auto !important;
+        padding: 0.25rem 0.45rem !important;
+        font-size: var(--process-form-modal-control-size) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form .form-group textarea,
+    #addModal .modal-content.process-form-modal .process-form .form-group textarea {
+        min-height: clamp(2.25rem, 5vh, 2.75rem) !important;
+        max-height: clamp(2.25rem, 5vh, 2.75rem) !important;
+    }
+
+    #editModal .process-form .form-group input,
+    #editModal .process-form .form-group select,
+    #editModal .process-form .form-group textarea {
+        min-height: var(--process-form-modal-control-min-h) !important;
+        padding: 0.25rem 0.45rem !important;
+    }
+
+    #editModal .process-form .form-group textarea {
+        min-height: clamp(2.25rem, 5vh, 2.75rem) !important;
+        max-height: clamp(2.25rem, 5vh, 2.75rem) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form .form-row,
+    #addModal .modal-content.process-form-modal .process-form .form-row {
+        margin-bottom: 0.25rem !important;
+        gap: 0.35rem !important;
+    }
+
+    #editModal .modal-content.process-form-modal #edit_day_checkboxes.day-checkboxes,
+    #addModal .modal-content.process-form-modal .day-checkboxes {
+        gap: 0.3rem 0.45rem !important;
+    }
+
+    #editModal .modal-content.process-form-modal .day-checkboxes .checkbox-item label,
+    #addModal .modal-content.process-form-modal .day-checkboxes .checkbox-item label {
+        font-size: clamp(0.6rem, 1.4vw, 0.7rem) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .day-checkboxes .checkbox-item input[type="checkbox"],
+    #addModal .modal-content.process-form-modal .day-checkboxes .checkbox-item input[type="checkbox"] {
+        width: 11px !important;
+        height: 11px !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form-modal-footer,
+    #addModal .modal-content.process-form-modal .process-form-modal-footer {
+        padding: calc(var(--process-form-modal-pad) * 0.75) var(--process-form-modal-pad) !important;
+        padding-top: calc(var(--process-form-modal-pad) * 0.65) !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form-modal-footer .btn,
+    #addModal .modal-content.process-form-modal .process-form-modal-footer .btn {
+        min-height: clamp(1.85rem, 3.5vh, 2.15rem) !important;
+        height: clamp(1.85rem, 3.5vh, 2.15rem) !important;
+        font-size: clamp(0.72rem, 1.6vw, 0.8125rem) !important;
+        padding: 0 0.65rem !important;
+    }
+
+    #editModal .modal-content.process-form-modal .custom-select-button {
+        min-height: var(--process-form-modal-control-min-h) !important;
+        font-size: var(--process-form-modal-control-size) !important;
     }
 }
 
@@ -8207,16 +8326,29 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     }
 }
 
-@media (max-height: 820px) {
-    #editModal .modal-content.process-form-modal .process-form .form-group textarea,
-    #addModal .modal-content.process-form-modal .process-form .form-group textarea {
-        min-height: 5rem !important;
-        max-height: 5rem !important;
+@media (max-height: 720px) {
+    #editModal .modal-content.process-form-modal,
+    #addModal .modal-content.process-form-modal {
+        --process-form-modal-pad: 0.45rem;
+        --process-form-modal-control-min-h: 1.75rem;
     }
 
+    #editModal .modal-content.process-form-modal .process-form.add-grid .add-col,
+    #addModal .modal-content.process-form-modal .process-form.add-grid .add-col {
+        padding: 0.15rem 0.25rem !important;
+    }
+
+    #editModal .modal-content.process-form-modal .add-col > .process-form-section:not(:last-child),
+    #addModal .modal-content.process-form-modal .add-col > .process-form-section:not(:last-child) {
+        margin-bottom: 0.3rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+
+    #editModal .modal-content.process-form-modal .process-form .form-group textarea,
+    #addModal .modal-content.process-form-modal .process-form .form-group textarea,
     #editModal .process-form .form-group textarea {
-        min-height: 5rem !important;
-        max-height: 5rem !important;
+        min-height: 2rem !important;
+        max-height: 2rem !important;
     }
 }
 
