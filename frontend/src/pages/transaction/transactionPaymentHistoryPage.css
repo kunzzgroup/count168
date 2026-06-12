@@ -96,9 +96,9 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   flex: 1 1 auto;
   min-height: 0;
   max-height: none !important;
-  overflow: auto;
-  scrollbar-gutter: stable;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
   margin: 0;
   padding: 0;
   background: #ffffff;
@@ -110,54 +110,53 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table {
   width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
   table-layout: fixed;
   border-collapse: collapse;
   border-spacing: 0;
   border: none !important;
   box-sizing: border-box;
-  font-size: clamp(11px, 0.72vw, 13px);
+  font-size: 13px;
   line-height: 1.35;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-table--with-desc,
-body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-table--with-desc {
-  min-width: 1140px;
-}
-
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-table--with-desc,
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-table--no-desc,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-table--no-desc {
-  min-width: 980px;
+  min-width: 0 !important;
 }
 
 /* colgroup：表头与数据列宽一致，避免跑位 */
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-date,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-date {
-  width: 8.5%;
+  width: 7%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-product,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-product {
-  width: 11%;
+  width: 10%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-currency,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-currency {
-  width: 6%;
+  width: 7%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-rate,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-rate {
-  width: 6.5%;
+  width: 6%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-winloss,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-winloss {
-  width: 9%;
+  width: 8%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-crdr,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-crdr {
-  width: 9%;
+  width: 8%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-balance,
@@ -167,7 +166,7 @@ body.ec-payment-history-chromeless .transaction-history-table--with-desc col.tra
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-description,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-description {
-  width: 28%;
+  width: 24%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-remark,
@@ -177,7 +176,7 @@ body.ec-payment-history-chromeless .transaction-history-table--with-desc col.tra
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-created,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-created {
-  width: 7%;
+  width: 11%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--no-desc col.transaction-history-col-date,
@@ -222,7 +221,7 @@ body.ec-payment-history-chromeless .transaction-history-table--no-desc col.trans
 
 body.transaction-payment-history-page .transaction-history-table--no-desc col.transaction-history-col-created,
 body.ec-payment-history-chromeless .transaction-history-table--no-desc col.transaction-history-col-created {
-  width: 8%;
+  width: 10%;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table th,
@@ -233,44 +232,48 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   min-width: 0 !important;
   max-width: none;
   width: auto;
-  padding: clamp(5px, 0.45vw, 8px) clamp(6px, 0.55vw, 10px) !important;
+  padding: 0 6px !important;
+  height: 40px;
   border: 1px solid var(--transaction-history-report-grid) !important;
   vertical-align: middle;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table thead th,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table thead th {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 10;
   background-color: var(--transaction-history-report-head-bg) !important;
   color: #ffffff;
   font-weight: 600;
-  font-size: clamp(10px, 0.68vw, 12px);
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
+  letter-spacing: 0.02em;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody td,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody td {
   color: #1e293b;
   font-weight: 600;
-  font-size: clamp(11px, 0.72vw, 13px);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-date,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-date {
+  text-align: left !important;
+  white-space: nowrap;
+}
+
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-product,
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-description,
-body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-date,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-product,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-description {
   text-align: left !important;
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: break-word;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-currency,
@@ -295,8 +298,20 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   white-space: nowrap;
 }
 
-body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-date,
-body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-date {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-product,
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-description,
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-remark,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-product,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-description,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-remark {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-created,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-created {
   white-space: nowrap;
 }
 
@@ -343,16 +358,6 @@ body.ec-payment-history-chromeless .transaction-payment-history-error {
   body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body,
   body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body {
     padding: 8px !important;
-  }
-
-  body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-table--with-desc,
-  body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-table--with-desc {
-    min-width: 1040px;
-  }
-
-  body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-table--no-desc,
-  body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-table--no-desc {
-    min-width: 900px;
   }
 }
 
