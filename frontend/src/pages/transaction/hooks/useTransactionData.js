@@ -302,51 +302,31 @@ export function useTransactionData({
       [];
     const orderCompanyId = resolveTransactionCurrencyOrderCompanyId(transactionScope, snapCompanies);
     (async () => {
-      try {
-        const c = await queryClient.fetchQuery({
-          queryKey: transactionQueryKeys.categories(),
-          queryFn: () => getCategories(),
-          staleTime: 5 * 60_000,
-          gcTime: 30 * 60_000,
-        });
-        const roles = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : [];
-        if (!cancelled) setCategories(roles.map((r) => String(r).toUpperCase()));
-      } catch {
-        if (!cancelled) setCategories([]);
-      }
-
-      try {
-        const ord = orderCompanyId
-          ? await queryClient.fetchQuery({
-              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
-              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
-              staleTime: 60_000,
-              gcTime: 10 * 60_000,
-            })
-          : { success: true, data: { order: null, company_id: null } };
-
+      const fetchScopeAccountsAndCurrencies = async () => {
         let accData = [];
         let curRows = [];
         if (transactionScope.mode === "aggregate" && transactionScope.mergeCompanyIds?.length) {
           const ids = transactionScope.mergeCompanyIds;
-          const accResults = await Promise.all(
-            ids.map((cid) =>
-              queryClient.fetchQuery({
-                queryKey: transactionQueryKeys.accounts(`${scopeCacheKey}:${cid}`),
-                queryFn: ({ signal }) => getAccounts({ companyId: cid, signal }),
-                staleTime: 60_000,
-              }),
+          const [accResults, curResults] = await Promise.all([
+            Promise.all(
+              ids.map((cid) =>
+                queryClient.fetchQuery({
+                  queryKey: transactionQueryKeys.accounts(`${scopeCacheKey}:${cid}`),
+                  queryFn: ({ signal }) => getAccounts({ companyId: cid, signal }),
+                  staleTime: 60_000,
+                }),
+              ),
             ),
-          );
-          const curResults = await Promise.all(
-            ids.map((cid) =>
-              queryClient.fetchQuery({
-                queryKey: transactionQueryKeys.companyCurrencies(`${scopeCacheKey}:${cid}`),
-                queryFn: ({ signal }) => getCompanyCurrencies({ companyId: cid, signal }),
-                staleTime: 60_000,
-              }),
+            Promise.all(
+              ids.map((cid) =>
+                queryClient.fetchQuery({
+                  queryKey: transactionQueryKeys.companyCurrencies(`${scopeCacheKey}:${cid}`),
+                  queryFn: ({ signal }) => getCompanyCurrencies({ companyId: cid, signal }),
+                  staleTime: 60_000,
+                }),
+              ),
             ),
-          );
+          ]);
           const accMap = new Map();
           for (const r of accResults) {
             for (const row of Array.isArray(r?.data) ? r.data : []) {
@@ -368,15 +348,30 @@ export function useTransactionData({
           transactionScope.aggregateGroupIds?.length
         ) {
           const gids = transactionScope.aggregateGroupIds;
-          const accResults = await Promise.all(
-            gids.map((gid) =>
-              queryClient.fetchQuery({
-                queryKey: transactionQueryKeys.accounts(`${scopeCacheKey}:group:${gid}`),
-                queryFn: ({ signal }) => getAccounts({ groupId: gid, signal }),
-                staleTime: 60_000,
-              }),
+          const snap = filterSnapshotRef.current?.snapCompaniesAll || filterSnapshotRef.current?.snapCompanies || [];
+          const ids = filterCompaniesWithDisplayId(snap)
+            .map((c) => Number(c.id))
+            .filter((id) => Number.isFinite(id) && id > 0);
+          const [accResults, curResults] = await Promise.all([
+            Promise.all(
+              gids.map((gid) =>
+                queryClient.fetchQuery({
+                  queryKey: transactionQueryKeys.accounts(`${scopeCacheKey}:group:${gid}`),
+                  queryFn: ({ signal }) => getAccounts({ groupId: gid, signal }),
+                  staleTime: 60_000,
+                }),
+              ),
             ),
-          );
+            Promise.all(
+              ids.map((cid) =>
+                queryClient.fetchQuery({
+                  queryKey: transactionQueryKeys.companyCurrencies(`${scopeCacheKey}:${cid}`),
+                  queryFn: ({ signal }) => getCompanyCurrencies({ companyId: cid, signal }),
+                  staleTime: 60_000,
+                }),
+              ),
+            ),
+          ]);
           const accMap = new Map();
           for (const r of accResults) {
             for (const row of Array.isArray(r?.data) ? r.data : []) {
@@ -385,19 +380,6 @@ export function useTransactionData({
             }
           }
           accData = [...accMap.values()];
-          const snap = filterSnapshotRef.current?.snapCompaniesAll || filterSnapshotRef.current?.snapCompanies || [];
-          const ids = filterCompaniesWithDisplayId(snap)
-            .map((c) => Number(c.id))
-            .filter((id) => Number.isFinite(id) && id > 0);
-          const curResults = await Promise.all(
-            ids.map((cid) =>
-              queryClient.fetchQuery({
-                queryKey: transactionQueryKeys.companyCurrencies(`${scopeCacheKey}:${cid}`),
-                queryFn: ({ signal }) => getCompanyCurrencies({ companyId: cid, signal }),
-                staleTime: 60_000,
-              }),
-            ),
-          );
           const curSet = new Map();
           for (const r of curResults) {
             for (const row of Array.isArray(r?.data) ? r.data : []) {
@@ -424,7 +406,33 @@ export function useTransactionData({
           accData = Array.isArray(acc?.data) ? acc.data : [];
           curRows = Array.isArray(cur?.data) ? cur.data : [];
         }
+        return { accData, curRows };
+      };
+
+      try {
+        const categoriesPromise = queryClient.fetchQuery({
+          queryKey: transactionQueryKeys.categories(),
+          queryFn: () => getCategories(),
+          staleTime: 5 * 60_000,
+          gcTime: 30 * 60_000,
+        });
+        const orderPromise = orderCompanyId
+          ? queryClient.fetchQuery({
+              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
+              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
+              staleTime: 60_000,
+              gcTime: 10 * 60_000,
+            })
+          : Promise.resolve({ success: true, data: { order: null, company_id: null } });
+        const scopePromise = fetchScopeAccountsAndCurrencies();
+
+        const [c, ord, scope] = await Promise.all([categoriesPromise, orderPromise, scopePromise]);
         if (cancelled || fetchScopeKey !== scopeCacheKeyRef.current) return;
+
+        const roles = Array.isArray(c?.data) ? c.data : Array.isArray(c) ? c : [];
+        setCategories(roles.map((r) => String(r).toUpperCase()));
+
+        const { accData, curRows } = scope;
         const ordered = orderCurrencyRows(curRows, ord, orderCompanyId);
         const codes = ordered.map((x) => String(x.code || x.currency || "").toUpperCase().trim()).filter(Boolean);
         if (orderCompanyId && codes.length) {
@@ -435,6 +443,7 @@ export function useTransactionData({
         setCurrencyOptions([...new Set(codes)]);
       } catch {
         if (!cancelled && fetchScopeKey === scopeCacheKeyRef.current) {
+          setCategories([]);
           setAccountOptions([]);
           setCurrencyOptions([]);
           setCurrencyScopeBundle({ scopeKey: null, rows: [] });

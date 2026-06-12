@@ -19,6 +19,7 @@ import {
 
 export function useCompanyOwnership(shell) {
   const {
+    activeTab,
     allCompanies,
     setAllCompanies,
     fetchCompanies,
@@ -77,7 +78,9 @@ export function useCompanyOwnership(shell) {
   }, [allCompanies, groupFilter, allGroupIds]);
 
   useEffect(() => {
-    if (!isHistoricalView || companiesData.length === 0) return undefined;
+    if (activeTab !== "account-ownership" || !isHistoricalView || companiesData.length === 0) {
+      return undefined;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -113,7 +116,7 @@ export function useCompanyOwnership(shell) {
     return () => {
       cancelled = true;
     };
-  }, [selectedMonth, isHistoricalView, companiesData, lang, setHistoryBanner, showToast]);
+  }, [activeTab, selectedMonth, isHistoricalView, companiesData, lang, setHistoryBanner, showToast]);
 
   useEffect(() => {
     if (groupFilter !== null) return;

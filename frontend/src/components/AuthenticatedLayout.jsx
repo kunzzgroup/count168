@@ -46,7 +46,11 @@ import { rememberCompanySessionFlags } from "../utils/company/companySessionFlag
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import AnimatedOutlet from "./AnimatedOutlet.jsx";
-import { prefetchAutoRenewList, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
+import {
+  prefetchAutoRenewList,
+  prefetchOwnershipCompanies,
+  prefetchRouteModule,
+} from "../utils/routing/routePrefetch.js";
 import { clearChunkReloadFlag } from "../utils/routing/lazyWithRetry.js";
 import {
   canAccessC168AutoRenew,
@@ -718,6 +722,7 @@ export default function AuthenticatedLayout() {
       if (routePath) {
         prefetchRouteModule(routePath);
         if (routePath === "/auto-renew") prefetchAutoRenewList();
+        if (routePath === "/ownership") prefetchOwnershipCompanies();
         if (
           (routePath === "/process-list" || routePath === "/games-process-list") &&
           me?.company_id

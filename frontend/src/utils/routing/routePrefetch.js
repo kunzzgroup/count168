@@ -103,6 +103,18 @@ export function prefetchRouteModule(pathname) {
   }
 }
 
+/** Warm ownership company list API so first paint is faster after navigation. */
+export function prefetchOwnershipCompanies() {
+  const key = "ownership:companies";
+  if (prefetchedData.has(key)) return;
+  prefetchedData.add(key);
+  import("../../pages/ownership/ownershipRoutePrefetch.js")
+    .then(({ prefetchOwnershipCompanies: prefetch }) => prefetch())
+    .catch(() => {
+      prefetchedData.delete(key);
+    });
+}
+
 /** Warm auto-renew list API so first paint is faster after navigation. */
 export function prefetchAutoRenewList() {
   const key = "auto-renew:pending";

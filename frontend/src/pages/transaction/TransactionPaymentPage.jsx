@@ -21,7 +21,7 @@ import "../../../public/css/transaction.css";
 import "../../../public/css/userlist.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
-import { transactionScopeApiParams } from "./lib/transactionScope.js";
+import { transactionScopeApiParams, transactionScopeCacheKey } from "./lib/transactionScope.js";
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
@@ -240,6 +240,12 @@ function TransactionPaymentPageMain() {
   }
 
   const booting = loading || !filterSnapshot;
+  const scopeCacheKey = transactionScopeCacheKey(transactionScope);
+  const scopeDataPending = Boolean(
+    filterSnapshot && scopeCacheKey && data.currencyScopeBundle?.scopeKey !== scopeCacheKey,
+  );
+  const tablesLoading = search.searchLoading || scopeDataPending;
+  const tablesVisible = search.tablesVisible || Boolean(filterSnapshot);
 
   return (
     <div className="container-fluid transaction-container">
@@ -257,9 +263,12 @@ function TransactionPaymentPageMain() {
         t={t}
       />
 
-      <main className="transaction-main">
-        {!booting ? (
-          <>
+      <main className={`transaction-main${booting ? " transaction-main--booting" : ""}`}>
+        {booting ? (
+          <div className="transaction-boot-loading" aria-live="polite" aria-busy="true">
+            {m.loadingData}
+          </div>
+        ) : null}
         {txWlTolBannerActive ? (
           <div
             className="transaction-tx-wl-tol-banner"
@@ -365,8 +374,8 @@ function TransactionPaymentPageMain() {
         </div>
 
         <TransactionTablesSection
-          tablesVisible={search.tablesVisible}
-          searchLoading={search.searchLoading}
+          tablesVisible={tablesVisible}
+          searchLoading={tablesLoading}
           tp={search.tablePresentation}
           searchState={search.searchState}
           getRoleClass={getRoleClass}
@@ -381,8 +390,6 @@ function TransactionPaymentPageMain() {
           m={m}
           t={t}
         />
-          </>
-        ) : null}
       </main>
 
       {/* Same date logic as legacy page, with Transaction-specific range picker layout. */}

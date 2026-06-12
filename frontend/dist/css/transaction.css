@@ -1424,6 +1424,33 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     flex: 1;
 }
 
+.transaction-page .transaction-main--booting .transaction-main-content {
+    opacity: 0.45;
+    pointer-events: none;
+    user-select: none;
+}
+
+.transaction-page .transaction-boot-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    margin: 0 0 12px 0;
+    color: #6b7280;
+    font-size: clamp(9px, 0.73vw, 14px);
+}
+
+.transaction-page .transaction-boot-loading::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #002C49;
+    border-radius: 50%;
+    animation: transaction-loading-spin 0.7s linear infinite;
+}
+
 .transaction-page .transaction-tables-section {
     display: flex;
     gap: 16px;
