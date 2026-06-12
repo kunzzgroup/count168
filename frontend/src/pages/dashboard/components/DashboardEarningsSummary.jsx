@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
-import {
-  computeDisplayConvertedAmount,
-  formatFrankfurterUnitRate,
-} from "../../../utils/dashboard/frankfurterRates.js";
+import { formatFrankfurterUnitRate } from "../../../utils/dashboard/frankfurterRates.js";
 import {
   buildEarningsPieSlices,
   buildEarningsShareByCode,
@@ -12,6 +9,7 @@ import {
   computeSectorTooltipPosition,
   getCurrencyColor,
   resolveEarningsPiePaddingAngle,
+  resolveEarningsRowDisplayAmounts,
 } from "../lib/dashboardEarnings.js";
 import { DASHBOARD_EARNINGS_PIE_MIN_ANGLE } from "../lib/dashboardConstants.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
@@ -172,20 +170,22 @@ export function DashboardEarningsSummary({
     const row = earningsCurrencyRows.find(
       (r) => String(r.code).toUpperCase() === String(slice?.code || "").toUpperCase()
     );
+    const { primary, native } = row
+      ? resolveEarningsRowDisplayAmounts(
+          row,
+          currencyCode,
+          exchangeRates.rates,
+          useConvertedEarnings
+        )
+      : { primary: slice?.earnings ?? null, native: slice?.originalEarnings ?? null };
     const sharePct = row ? computeCurrencySharePct(row, earningsShareByCode) : null;
-    const displayConverted =
-      row && useConvertedEarnings
-        ? computeDisplayConvertedAmount(
-            row.earnings,
-            row.code,
-            currencyCode,
-            exchangeRates.rates
-          )
-        : null;
+    const unitRateLabel = formatFrankfurterUnitRate(slice?.code, currencyCode, exchangeRates.rates);
     return {
       slice,
+      displayAmount: primary,
+      nativeAmount: native,
       sharePct,
-      displayConverted,
+      unitRateLabel,
       left: pos.left + pieShellLayout.left,
       top: pos.top + pieShellLayout.top,
       placeAbove: pos.placeAbove,
@@ -201,6 +201,8 @@ export function DashboardEarningsSummary({
     exchangeRates.rates,
     pieShellLayout,
   ]);
+
+  const showMultiCurrencyBreakdown = currencies.length > 1;
 
   return (
     <div className="dashboard-panel-card dashboard-panel-card--summary">
@@ -266,7 +268,11 @@ export function DashboardEarningsSummary({
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              {!summaryEarningsLoading && earningsPanelStable && earningsPieSlices.length > 0 && !hoveredPieTooltip && (
+              {!summaryEarningsLoading &&
+                earningsPanelStable &&
+                earningsPieSlices.length > 0 &&
+                !hoveredPieTooltip &&
+                showMultiCurrencyBreakdown && (
                 <div
                   key={pieAnimKey}
                   className="dashboard-summary-pie-center is-enter"
@@ -290,11 +296,13 @@ export function DashboardEarningsSummary({
               >
                 <EarningsPieSectorTooltip
                   slice={hoveredPieTooltip.slice}
+                  displayAmount={hoveredPieTooltip.displayAmount}
+                  nativeAmount={hoveredPieTooltip.nativeAmount}
                   sharePct={hoveredPieTooltip.sharePct}
-                  displayConverted={hoveredPieTooltip.displayConverted}
+                  unitRateLabel={hoveredPieTooltip.unitRateLabel}
                   baseCode={currencyCode}
-                  useConverted={useConvertedEarnings}
-                  convertedApproxTemplate={i18n.convertedApprox}
+                  rateOneUnitTemplate={i18n.rateOneUnit}
+                  nativeAmountTemplate={i18n.nativeAmountIn}
                   placeAbove={hoveredPieTooltip.placeAbove}
                 />
               </div>
@@ -303,20 +311,29 @@ export function DashboardEarningsSummary({
         </div>
         <div
           className={`dashboard-summary-currency-list${
-            currencies.length > 1 ? " is-multi-currency" : ""
+            showMultiCurrencyBreakdown ? " is-multi-currency" : ""
           }`}
           aria-label={i18n.currencyBreakdown}
         >
           <div className="dashboard-summary-currency-list-head" aria-hidden="true">
             <span>{i18n.breakdownCurrency}</span>
-            <span>{i18n.breakdownAmount}</span>
+            <span>
+              {showMultiCurrencyBreakdown && currencyCode
+                ? `${i18n.breakdownAmount} (${currencyCode})`
+                : i18n.breakdownAmount}
+            </span>
             <span>{earningsBreakdownShowsRate ? i18n.breakdownRate : i18n.breakdownShare}</span>
           </div>
           <div className="dashboard-summary-currency-list-body" role="list">
             {earningsCurrencyRows.map((row, index) => {
               const rowAmountLoading = isRowAmountLoading(row.code);
               const rowRateLoading = isRowRateLoading();
-              const sharePct = computeCurrencySharePct(row, earningsShareByCode);
+              const { primary, native } = resolveEarningsRowDisplayAmounts(
+                row,
+                currencyCode,
+                exchangeRates.rates,
+                useConvertedEarnings
+              );
               const unitRateLabel = earningsBreakdownShowsRate
                 ? formatFrankfurterUnitRate(row.code, currencyCode, exchangeRates.rates)
                 : null;
@@ -328,6 +345,10 @@ export function DashboardEarningsSummary({
                       base: currencyCode,
                     })
                   : undefined;
+              const showNativeSubtitle =
+                useConvertedEarnings &&
+                native != null &&
+                String(row.code).toUpperCase() !== String(currencyCode).toUpperCase();
               return (
                 <div
                   key={row.code}
@@ -354,33 +375,20 @@ export function DashboardEarningsSummary({
                   </div>
                   <div className="dashboard-summary-currency-amount-col">
                     <span className="dashboard-summary-currency-amount">
-                      {rowAmountLoading ? "…" : formatCurrency(row.earnings ?? 0)}
+                      {rowAmountLoading
+                        ? "…"
+                        : primary != null
+                          ? formatCurrency(primary)
+                          : "—"}
                     </span>
-                    {useConvertedEarnings &&
-                      !rowAmountLoading &&
-                      row.earningsConverted != null &&
-                      String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
-                        <span className="dashboard-summary-currency-converted">
-                          {formatI18nTemplate(i18n.convertedApprox, {
-                            amount: formatCurrency(
-                              computeDisplayConvertedAmount(
-                                row.earnings,
-                                row.code,
-                                currencyCode,
-                                exchangeRates.rates
-                              ) ?? row.earningsConverted
-                            ),
-                            code: currencyCode,
-                          })}
-                        </span>
-                      )}
-                    {earningsBreakdownShowsRate &&
-                      !useConvertedEarnings &&
-                      String(row.code).toUpperCase() !== String(currencyCode).toUpperCase() && (
-                        <span className="dashboard-summary-currency-converted is-placeholder" aria-hidden="true">
-                          &nbsp;
-                        </span>
-                      )}
+                    {showNativeSubtitle && (
+                      <span className="dashboard-summary-currency-converted">
+                        {formatI18nTemplate(i18n.nativeAmountIn, {
+                          amount: formatCurrency(native),
+                          code: row.code,
+                        })}
+                      </span>
+                    )}
                   </div>
                   <span className="dashboard-summary-currency-rate" title={unitRateTitle}>
                     {rowRateLoading
@@ -389,9 +397,7 @@ export function DashboardEarningsSummary({
                         ? unitRateLabel && unitRateLabel !== "—"
                           ? unitRateLabel
                           : "—"
-                        : rowAmountLoading
-                          ? "…"
-                          : `${sharePct.toFixed(1)}%`}
+                        : ""}
                   </span>
                 </div>
               );
@@ -399,7 +405,7 @@ export function DashboardEarningsSummary({
           </div>
         </div>
       </div>
-      {currencies.length > 1 && rateFootnoteText && (
+      {showMultiCurrencyBreakdown && rateFootnoteText && (
         <p
           className={`dashboard-summary-rate-footnote${
             exchangeRatesError || exchangeRates.unsupported?.length ? " is-warn" : ""

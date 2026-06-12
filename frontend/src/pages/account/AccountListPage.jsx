@@ -1945,7 +1945,13 @@ export default function AccountListPage() {
         notifyApi(curJ.message, "loadLinksFailed", "danger");
         return;
       }
-      const rows = curJ.data.map((c) => ({ id: c.id, code: c.code, is_linked: !!c.is_linked }));
+      const rows = curJ.data.map((c) => ({
+        id: c.id,
+        code: c.code,
+        is_linked: !!c.is_linked,
+        sync_source: c.sync_source,
+        deletable: c.deletable !== false,
+      }));
       setCurrencies(rows);
       const wantCode = selectCode ? toUpper(String(selectCode)).trim() : "";
       const matched = wantCode ? rows.find((c) => toUpper(c.code).trim() === wantCode) : null;
@@ -2336,6 +2342,11 @@ export default function AccountListPage() {
       return;
     }
     const id = Number(currencyId);
+    const currencyRow = currencies.find((c) => Number(c.id) === id);
+    if (currencyRow?.deletable === false) {
+      notify(t("apiCurrencySyncedFromSubsidiary"), "danger");
+      return;
+    }
     const accountId = isEditMode ? Number(form.id) : 0;
 
     if (selectedCurrencyIds.map(Number).includes(id)) {
