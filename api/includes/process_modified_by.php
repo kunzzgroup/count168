@@ -102,3 +102,16 @@ function processModifiedByBindParams(array $modifier): array
         $modifier['modified_by_owner_id'],
     ];
 }
+
+/** SQL expression: modified-by display name with legacy fallback to creator when audit fields are missing. */
+function processModifiedByLoginSql(): string
+{
+    return "COALESCE(
+        u_modified.login_id,
+        o_modified.owner_code,
+        CASE
+            WHEN p.dts_modified <> p.dts_created
+            THEN COALESCE(u_created.login_id, o_created.owner_code)
+        END
+    )";
+}

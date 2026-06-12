@@ -364,7 +364,7 @@ function getProcesses() {
                     p.replace_word_to,
                     p.remark,
                     p.dts_modified,
-                    COALESCE(u_modified.login_id, o_modified.owner_code) as modified_by_login,
+                    " . processModifiedByLoginSql() . " as modified_by_login,
                     p.dts_created,
                     COALESCE(u_created.login_id, o_created.owner_code) as created_by_login,
                     p.status" .
@@ -493,7 +493,7 @@ function getProcess() {
                     c.code as currency_code,
                     GROUP_CONCAT(pd.day_id ORDER BY pd.day_id SEPARATOR ',') as day_ids,
                     GROUP_CONCAT(day.day_name ORDER BY day.id SEPARATOR ',') as day_names,
-                    COALESCE(u_modified.login_id, o_modified.owner_code) as modified_by_login,
+                    " . processModifiedByLoginSql() . " as modified_by_login,
                     COALESCE(u_created.login_id, o_created.owner_code) as created_by_login
                 FROM process p
                 LEFT JOIN description d ON p.description_id = d.id
