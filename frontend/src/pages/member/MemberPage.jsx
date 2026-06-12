@@ -150,6 +150,11 @@ export default function MemberPage() {
     ? WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW
     : WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS;
 
+  /** 窄屏 Currency 每行格数与 Account 一致，宽度对齐；宽屏仍用 8 列 */
+  const currencyMaxPerBand = accountNarrowViewport
+    ? accountMaxPerBand
+    : WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
+
   /** Account 多段：每段最多 N 格，超出自动换行；窄屏减少每行格数以完整显示户名 */
   const accountFilterBands = useMemo(() => {
     const accounts = Array.isArray(linkedAccounts) ? linkedAccounts : [];
@@ -168,22 +173,21 @@ export default function MemberPage() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  /** Currency 多段：每段最多 8 格（含 All），满一行自动换到下一排 segment 白底条 */
+  /** Currency 多段：每段最多 N 格（含 All），满一行自动换到下一排 segment 白底条 */
   const currencyFilterBands = useMemo(() => {
     const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
     const showAllBtn = codes.length === 0 || codes.length > 1;
-    const maxPerBand = WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
 
     const cells = [];
     if (showAllBtn) cells.push({ type: "all" });
     codes.forEach((c) => cells.push({ type: "code", code: c }));
 
     const bands = [];
-    for (let i = 0; i < cells.length; i += maxPerBand) {
-      bands.push(cells.slice(i, i + maxPerBand));
+    for (let i = 0; i < cells.length; i += currencyMaxPerBand) {
+      bands.push(cells.slice(i, i + currencyMaxPerBand));
     }
     return bands;
-  }, [availableCurrencies]);
+  }, [availableCurrencies, currencyMaxPerBand]);
 
   const handleWinLossCurrencyCodeDrop = useCallback(
     (e) => {
@@ -460,8 +464,9 @@ export default function MemberPage() {
                       key={`member-ccy-band-${segIdx}`}
                       className="user-gc-segment-group member-winloss-currency-segments"
                       style={{
-                        width: `${(band.length / WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) * 100}%`,
-                        gridTemplateColumns: `repeat(${band.length}, minmax(0, 1fr))`,
+                        width: band.length >= currencyMaxPerBand ? "100%" : "fit-content",
+                        maxWidth: "100%",
+                        gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
                       }}
                     >
                       {band.map((cell) =>

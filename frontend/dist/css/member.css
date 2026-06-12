@@ -2907,6 +2907,15 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     }
 }
 
+/* 窄屏（≤1366）：Currency 与 Account 同列数换行，行尾圆角按 4 列计 */
+@media (max-width: 1366px) {
+    body.member-winloss-page #member_currency_buttons .member-winloss-currency-segments .user-gc-segment:nth-child(4n) {
+        border-right: none;
+        border-top-right-radius: clamp(8px, 0.7vw, 10px);
+        border-bottom-right-radius: clamp(8px, 0.7vw, 10px);
+    }
+}
+
 /* --- Laptop (1025–1366)：双栏紧凑，与 dashboard / global-13inch 对齐 --- */
 @media (min-width: 1025px) and (max-width: 1366px) {
     body.transaction-page.member-winloss-page .transaction-container {
