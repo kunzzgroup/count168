@@ -7134,35 +7134,58 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
         min-height: 0;
     }
 
-    /* Edit Process 弹窗：仅占侧栏右侧整块，随侧栏展开/收起贴合 */
+    /* Edit Process 弹窗：小屏全屏覆盖，底部 Update/Cancel 始终可见 */
     .process-page #editModal {
-        left: var(--layout-main-offset) !important;
-        width: calc(100vw - var(--layout-main-offset) - var(--layout-main-gap, 1.2rem)) !important;
-        top: 80px;
-        border-radius: 16px;
-        height: 500px;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100% !important;
+        height: 100dvh !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
     }
 
     .process-page .modal-content {
         overflow-y: hidden;
     }
 
-    .process-page #editModal .modal-content {
+    .process-page #editModal .modal-content,
+    .process-page #editModal .modal-content.process-form-modal,
+    body.process-page > #editModal.modal > .modal-content.process-form-modal,
+    #editModal .modal-content.process-form-modal {
         margin: 0 !important;
         width: 100% !important;
         max-width: none !important;
+        min-width: 0 !important;
         height: 100% !important;
-        max-height: 100% !important;
+        max-height: none !important;
+        min-height: 0 !important;
         border-radius: 0 !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
         box-sizing: border-box !important;
     }
 
     .process-page #editModal .modal-body {
-        padding: 0.75rem 1rem 1rem !important;
+        flex: 1 1 auto !important;
+        padding: 0.75rem 1rem 0 !important;
         overflow-x: hidden !important;
+        overflow-y: auto !important;
         min-height: 0 !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .process-page #editModal .process-form-modal-footer.add-actions {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 2 !important;
+        flex-shrink: 0 !important;
+        background: var(--color-surface, #fff) !important;
+        box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08) !important;
     }
 
     .process-page #editModal .process-form.add-grid {
@@ -8158,6 +8181,36 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
 
     .process-form-modal .process-form.add-grid,
     #addModal .modal-content.process-form-modal .process-form.add-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
+/* Edit Process：小屏全屏 — 覆盖文件后部 desktop 固定宽高规则 */
+@media (max-width: 1024px) {
+    .process-page #editModal .modal-content,
+    #editModal .modal-content {
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    .process-page #editModal .process-form.add-grid,
+    #editModal .process-form.add-grid {
+        padding-bottom: 0 !important;
+    }
+
+    .process-page #editModal .process-form .form-group textarea {
+        min-height: 4.5rem !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .process-page #editModal .process-form.add-grid,
+    #editModal .process-form.add-grid {
         grid-template-columns: minmax(0, 1fr) !important;
     }
 }
