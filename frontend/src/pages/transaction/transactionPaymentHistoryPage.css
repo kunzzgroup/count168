@@ -232,7 +232,7 @@ body.ec-payment-history-chromeless .transaction-history-table--with-desc col.tra
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-product,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-product {
-  width: 1%;
+  width: 17.5%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-currency,
@@ -242,7 +242,7 @@ body.ec-payment-history-chromeless .transaction-history-table--with-desc col.tra
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-rate,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-rate {
-  width: 5%;
+  width: 7.14%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-winloss,

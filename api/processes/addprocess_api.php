@@ -86,9 +86,20 @@ function getCurrentUserId(PDO $pdo): int {
 
 // ---------- 数据层：表单与列表 ----------
 function getCurrenciesByCompany(PDO $pdo, int $companyId): array {
-    $stmt = $pdo->prepare("SELECT id, code FROM currency WHERE company_id = ? ORDER BY code");
-    $stmt->execute([$companyId]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!function_exists('tenant_fetch_currencies')) {
+        require_once __DIR__ . '/../../includes/tenant_scope.php';
+    }
+    $rows = tenant_fetch_currencies($pdo, [
+        'mode' => 'company',
+        'company_id' => $companyId,
+    ]);
+
+    return array_map(static function (array $row): array {
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'code' => (string) ($row['code'] ?? ''),
+        ];
+    }, $rows);
 }
 
 function getProcessesForForm(PDO $pdo, int $companyId): array {
