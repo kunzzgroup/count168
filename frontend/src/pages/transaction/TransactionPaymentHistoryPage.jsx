@@ -1,5 +1,5 @@
-import { useLayoutEffect, useMemo } from "react";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { useCallback, useLayoutEffect, useMemo } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import TransactionHistoryTable from "./components/TransactionHistoryTable.jsx";
 import { formatHistoryMoney } from "./lib/transactionFormat.js";
@@ -19,10 +19,28 @@ import { TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
 
 export default function TransactionPaymentHistoryPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const scope = useMemo(() => resolvePaymentHistoryScope(searchParams), [searchParams]);
   const lang = useLoginLang();
   const m = useMemo(() => TRANSACTION_I18N[lang] || TRANSACTION_I18N.en, [lang]);
+
+  const onClose = useCallback(() => {
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.focus();
+      }
+    } catch {
+      /* ignore cross-origin opener */
+    }
+    window.close();
+    // Browsers block close() on user-opened tabs — fall back to in-app navigation.
+    window.setTimeout(() => {
+      if (!window.closed) {
+        navigate("/transaction", { replace: true });
+      }
+    }, 150);
+  }, [navigate]);
 
   useLayoutEffect(() => {
     document.body.classList.add("dashboard-page", "transaction-page", "transaction-payment-history-page");
@@ -101,6 +119,14 @@ export default function TransactionPaymentHistoryPage() {
         <div className="transaction-modal-content transaction-history-modal transaction-payment-history-panel">
           <div className="transaction-modal-header">
             <h3 id="modal_title">{title}</h3>
+            <button
+              type="button"
+              className="transaction-modal-close transaction-payment-history-close"
+              aria-label={m.close}
+              onClick={onClose}
+            >
+              &times;
+            </button>
           </div>
           <div className="transaction-modal-body" style={{ position: "relative" }}>
             {isLoading ? (

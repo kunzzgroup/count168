@@ -36,7 +36,8 @@ export function useTransactionUI() {
     (row, dateFrom, dateTo, scopeApi, opts = {}) => {
       if (!row || !scopeApiReady(scopeApi)) return;
       const url = buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts });
-      const win = window.open(url, "_blank", "noopener,noreferrer");
+      // Keep opener so Payment History × can focus the Transaction tab and window.close() this tab.
+      const win = window.open(url, "_blank");
       if (!win) {
         pushToast("Popup blocked — allow popups for this site", "error");
       }
