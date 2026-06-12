@@ -102,7 +102,7 @@ export default function TransactionPaymentHistoryPage() {
 
   return (
     <div className="transaction-payment-history-page-root">
-      <main className="transaction-payment-history-main">
+      <div className="transaction-payment-history-main">
         <div className="transaction-modal-content transaction-history-modal transaction-payment-history-panel">
           <div className="transaction-modal-header">
             <h3 id="modal_title">{title}</h3>
@@ -139,7 +139,7 @@ export default function TransactionPaymentHistoryPage() {
             )}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
