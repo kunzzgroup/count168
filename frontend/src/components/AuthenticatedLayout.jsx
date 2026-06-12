@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { isPaymentHistoryChromelessPath } from "../pages/transaction/lib/transactionPaymentHistoryUrl.js";
 import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
 import AppBootLoading from "./AppBootLoading.jsx";
@@ -116,6 +117,7 @@ export default function AuthenticatedLayout() {
     [navigate],
   );
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hoverSection, setHoverSection] = useState(null);
@@ -201,6 +203,13 @@ export default function AuthenticatedLayout() {
   }, [location.pathname]);
 
   useLayoutEffect(() => {
+    document.body.classList.toggle("ec-payment-history-chromeless", chromelessPaymentHistory);
+    return () => {
+      document.body.classList.remove("ec-payment-history-chromeless");
+    };
+  }, [chromelessPaymentHistory]);
+
+  useLayoutEffect(() => {
     const scopeClass = loginScopeBodyClass(me);
     document.body.classList.toggle("ec-login-scope-group", scopeClass === "ec-login-scope-group");
     document.body.classList.toggle("ec-login-scope-company", scopeClass === "ec-login-scope-company");
@@ -263,6 +272,7 @@ export default function AuthenticatedLayout() {
   };
 
   const path = location.pathname;
+  const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const hideProcessWhenGroupOnly = useMemo(
     () => shouldHideSidebarProcess(path),
     [path, sidebarGcTick],
@@ -846,6 +856,8 @@ export default function AuthenticatedLayout() {
   return (
     <AuthSessionProvider value={sessionContextValue}>
     <>
+      {!chromelessPaymentHistory ? (
+      <>
       <div
         className={`informationmenu-overlay sidebar-dismiss-overlay${sidebarTabletExpanded ? " show" : ""}`}
         onClick={collapseSidebar}
@@ -1266,6 +1278,9 @@ export default function AuthenticatedLayout() {
       </div>
 
       <div className={`notification-overlay ${showNotifications ? "show" : ""}`} id="notificationOverlay" onClick={toggleNotifications}></div>
+      </>
+      ) : null}
+      {!chromelessPaymentHistory ? (
       <div className={`notification-panel ${showNotifications ? "show" : ""}`} id="notificationPanel">
         <div className="notification-header">
             <h2>{i18n.announcements}</h2>
@@ -1301,6 +1316,7 @@ export default function AuthenticatedLayout() {
           )}
         </div>
       </div>
+      ) : null}
 
       <ExpirationReminderModal
         open={showExpirationModal}

@@ -54,6 +54,12 @@ export function isPaymentHistoryView(searchParams) {
   return searchParams?.get("ph") === "1";
 }
 
+export function isPaymentHistoryChromelessPath(pathname, searchParams) {
+  if (pathname === "/transaction/payment-history") return true;
+  if (pathname === "/transaction") return isPaymentHistoryView(searchParams);
+  return false;
+}
+
 export function parsePaymentHistoryParams(searchParams) {
   const get = (key) => {
     const value = searchParams.get(key);
