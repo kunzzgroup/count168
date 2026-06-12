@@ -444,7 +444,7 @@ body.dashboard-page .dashboard-filter-panel.action-buttons-container {
 
 /* 与 transaction-range 日历弹窗同宽（transaction.css / maintenanceDateRangePicker） */
 body.dashboard-page {
-    --dashboard-date-range-w: clamp(316px, 22vw, 336px);
+    --dashboard-date-range-w: var(--drp-popup-width, clamp(400px, 28vw, 440px));
 }
 
 /* 日期行：与 user-gc-inline-panel 同款 label 列 + 日期条 */

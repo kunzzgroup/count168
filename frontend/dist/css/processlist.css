@@ -2510,12 +2510,12 @@ body.process-page .calendar-popup--match-anchor .calendar-year-trigger {
 }
 
 body.process-page .calendar-popup--match-anchor .calendar-weekday {
-    font-size: var(--text-medium);
+    font-size: var(--drp-popup-text, var(--text-base));
 }
 
 body.process-page .calendar-popup--match-anchor .calendar-day {
-    min-height: 22px;
-    font-size: var(--text-medium);
+    min-height: var(--drp-day-min-h, clamp(32px, 2.3vw, 38px));
+    font-size: var(--drp-popup-text, var(--text-base));
     border-radius: 5px;
 }
 
