@@ -7910,7 +7910,10 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     flex: 1 1 auto;
     min-height: 0;
     padding: var(--process-form-modal-pad, var(--space-card));
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 /* Multi-Process 区块：列表独占滚动，不把 modal-body 撑出纵向滚动条 */
@@ -8106,6 +8109,10 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     align-items: center;
     gap: var(--space-gap, 0.75rem);
     flex-wrap: nowrap;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.08);
 }
 
 .process-form-modal .process-form-modal-footer .btn,
@@ -8157,8 +8164,59 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     }
 
     .process-form-modal .process-form.add-grid,
+    #addModal .modal-content.process-form-modal .process-form.add-grid,
+    #editModal .modal-content.process-form-modal .process-form.add-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
+/* Edit/Add Process — 小屏/矮屏：居中弹窗、可滚动内容、底栏始终可见 */
+@media (max-width: 64rem), (max-height: 860px) {
+    body.process-page > #editModal.modal:has(.process-form-modal),
+    body.process-page > #addModal.modal:has(.process-form-modal) {
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0 !important;
+    }
+
+    #editModal .modal-content.process-form-modal,
+    #addModal .modal-content.process-form-modal {
+        width: min(1040px, calc(100vw - 24px)) !important;
+        max-width: min(1040px, calc(100vw - 24px)) !important;
+        max-height: min(92vh, calc(100dvh - 16px)) !important;
+        margin: max(8px, 2vh) auto !important;
+        height: auto !important;
+    }
+
+    .process-page #editModal .modal-content.process-form-modal {
+        width: min(1040px, calc(100vw - 24px)) !important;
+        max-width: min(1040px, calc(100vw - 24px)) !important;
+        height: auto !important;
+        max-height: min(92vh, calc(100dvh - 16px)) !important;
+        border-radius: var(--process-form-modal-radius, 0.75rem) !important;
+        overflow: hidden !important;
+    }
+}
+
+@media (max-width: 48rem) {
+    #editModal .modal-content.process-form-modal .process-form.add-grid,
     #addModal .modal-content.process-form-modal .process-form.add-grid {
         grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
+@media (max-height: 820px) {
+    #editModal .modal-content.process-form-modal .process-form .form-group textarea,
+    #addModal .modal-content.process-form-modal .process-form .form-group textarea {
+        min-height: 5rem !important;
+        max-height: 5rem !important;
+    }
+
+    #editModal .process-form .form-group textarea {
+        min-height: 5rem !important;
+        max-height: 5rem !important;
     }
 }
 
