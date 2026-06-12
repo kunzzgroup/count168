@@ -22,6 +22,7 @@ export function useTransactionSync({
   forbidden,
   canApproveContra,
   refreshContraInboxBadge,
+  initialSearchDoneRef,
 }) {
   useEffect(() => {
     let retryTimer = null;
@@ -109,8 +110,28 @@ export function useTransactionSync({
       await refreshContraInboxBadge?.(scopeApi);
     };
 
-    const interval = setInterval(pollContra, 20000);
-    pollContra(); // initial
-    return () => clearInterval(interval);
-  }, [loading, forbidden, canApproveContra, transactionScope, refreshContraInboxBadge]);
+    let interval = null;
+    const startPolling = () => {
+      void pollContra();
+      interval = setInterval(pollContra, 20000);
+    };
+
+    if (initialSearchDoneRef?.current) {
+      startPolling();
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    }
+
+    const waitId = setInterval(() => {
+      if (!initialSearchDoneRef?.current) return;
+      clearInterval(waitId);
+      startPolling();
+    }, 150);
+
+    return () => {
+      clearInterval(waitId);
+      if (interval) clearInterval(interval);
+    };
+  }, [loading, forbidden, canApproveContra, transactionScope, refreshContraInboxBadge, initialSearchDoneRef]);
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import {
   TRANSACTION_CURRENCY_FILTER_KEY_PREFIX,
@@ -85,6 +85,7 @@ export function useTransactionSearch({
   /** Capture Date 变更后触发搜索；与「仅首次拉数」的 initial effect 分离，避免 initialSearchDoneRef 为 true 时改日期不请求 */
   const prevCaptureDateRangeKeyRef = useRef(null);
   const lastInitialSearchKeyRef = useRef("");
+  const earlyCurrencyScopeRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
 
   const categoryAllCheckboxRef = useRef(null);
@@ -514,10 +515,9 @@ export function useTransactionSearch({
           getTxSearchCache(requestKey) ?? (sessionKey ? readTxListFromSessionStorage(sessionKey) : null);
       }
 
-      const baseBlockOverlay = showBlockingOverlayOpt !== undefined ? showBlockingOverlayOpt : !silent;
-      let blockOverlay = baseBlockOverlay;
-      if (suppressBlockingOverlayOnceRef.current) {
-        if (baseBlockOverlay) blockOverlay = false;
+      let blockOverlay = showBlockingOverlayOpt !== undefined ? showBlockingOverlayOpt : !silent;
+      if (isInitialLoad || suppressBlockingOverlayOnceRef.current) {
+        blockOverlay = false;
         suppressBlockingOverlayOnceRef.current = false;
       }
 
@@ -530,8 +530,8 @@ export function useTransactionSearch({
       }
 
       let didSetBlockingLoading = false;
-      const hasExistingData = Boolean(rawSearchData);
-      const showLoadingIndicator = blockOverlay || (!instantData && !hasExistingData);
+      const hasExistingData = Boolean(instantData || rawSearchData);
+      const showLoadingIndicator = blockOverlay && !hasExistingData;
       if (showLoadingIndicator) {
         setSearchLoading(true);
         didSetBlockingLoading = true;
@@ -832,6 +832,27 @@ export function useTransactionSearch({
   /** 切换 scope（含 group/company 模式）：中止旧请求、清空列表，后台重搜。 */
   const scopeKey = transactionScopeCacheKey(transactionScope) || null;
 
+  /** Restore currency chips from localStorage before metadata API returns — unlocks earlier search. */
+  useLayoutEffect(() => {
+    if (!scopeReady || !scopeCacheCompanyKey || !scopeKey) return;
+    if (earlyCurrencyScopeRef.current === scopeKey) return;
+    earlyCurrencyScopeRef.current = scopeKey;
+
+    const saved = readTransactionCurrencyFilterState(scopeCacheCompanyKey);
+    if (!saved) return;
+    if (saved.showAll) {
+      setShowAllCurrencies(true);
+      setSelectedCurrencies([]);
+      return;
+    }
+    if (saved.currencies?.length) {
+      setShowAllCurrencies(false);
+      setSelectedCurrencies(
+        saved.currencies.map((c) => String(c || "").toUpperCase().trim()).filter(Boolean),
+      );
+    }
+  }, [scopeReady, scopeCacheCompanyKey, scopeKey]);
+
   useEffect(() => {
     const prev = prevScopeKeyForSearchRef.current;
     const scopeChanged = prev != null && prev !== scopeKey;
@@ -857,6 +878,7 @@ export function useTransactionSearch({
     }
 
     if (scopeChanged) {
+      earlyCurrencyScopeRef.current = null;
       currenciesBeforeAllRef.current = [];
       suppressBlockingOverlayOnceRef.current = true;
       prevCaptureDateRangeKeyRef.current = null;
@@ -892,11 +914,10 @@ export function useTransactionSearch({
     [selectedCategories],
   );
 
-  // Initial search / replay logic — wait until currency bundle matches scope (after restore in useLayoutEffect).
+  // Initial search — currency from localStorage can run before account/currency metadata finishes.
   useEffect(() => {
     if (!scopeReady) return;
-    if (!scopeKey || currencyScopeBundle?.scopeKey !== scopeKey) return;
-    if (currencyScopeBundle.rows.length === 0) return;
+    if (!scopeKey) return;
     if (!showAllCurrencies && selectedCurrencies.length === 0) return;
 
     const initSearchKey = [
@@ -941,15 +962,13 @@ export function useTransactionSearch({
     void runSearchRef.current?.({
       isInitialLoad: true,
       silent: hadReplay,
-      notifyErrors: true,
-      showBlockingOverlay: !hadReplay,
+      notifyErrors: !hadReplay,
+      showBlockingOverlay: false,
     });
   }, [
     scopeKey,
     scopeReady,
     scopeCacheCompanyKey,
-    currencyScopeBundle?.scopeKey,
-    currencyScopeBundle?.rows?.length,
     showAllCurrencies,
     selectedCurrenciesKey,
     effectiveDateFrom,

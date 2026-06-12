@@ -593,8 +593,9 @@ body.transaction-page .calendar-popup--transaction-range .calendar-weekdays, bod
     margin-bottom: 8px;
 }
 
-body.transaction-page .calendar-popup--transaction-range .calendar-weekday, body.maintenance-page .calendar-popup--transaction-range .calendar-weekday, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-weekday, body.domain-page .calendar-popup--transaction-range .calendar-weekday, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-weekday{
+body.transaction-page .calendar-popup--transaction-range .calendar-weekday, body.maintenance-page .calendar-popup--transaction-range .calendar-weekday, body.dashboard-page .calendar-popup--transaction-range .calendar-weekday, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-weekday, body.domain-page .calendar-popup--transaction-range .calendar-weekday, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-weekday{
     color: #8b95a5;
+    font-family: var(--font-heading-page);
     font-size: var(--drp-popup-text);
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -609,10 +610,12 @@ body.transaction-page .calendar-popup--transaction-range .calendar-days, body.ma
     gap: 2px;
 }
 
-body.transaction-page .calendar-popup--transaction-range .calendar-day, body.maintenance-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-day, body.domain-page .calendar-popup--transaction-range .calendar-day, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-day{
+body.transaction-page .calendar-popup--transaction-range .calendar-day, body.maintenance-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-day, body.domain-page .calendar-popup--transaction-range .calendar-day, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-day{
+    aspect-ratio: auto;
     min-height: var(--drp-day-min-h);
     border-radius: 8px;
     color: #111827;
+    font-family: var(--font-heading-page);
     font-size: var(--drp-popup-text);
     font-weight: 700;
     transition:

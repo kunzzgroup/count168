@@ -665,6 +665,12 @@ export default function AuthenticatedLayout() {
   useEffect(() => {
     if (loading || !me) return;
 
+    if (path === "/transaction") {
+      void import("../pages/transaction/transactionRoutePrefetch.js").then(({ warmTransactionRouteCache }) => {
+        warmTransactionRouteCache({ me });
+      });
+    }
+
     prefetchRouteModule(path);
     if (path !== "/dashboard" && canAccessPermission(me, "home")) {
       prefetchRouteModule("/dashboard");
@@ -697,11 +703,20 @@ export default function AuthenticatedLayout() {
       });
     };
 
+    const runTransactionWarm = () => {
+      void import("../pages/transaction/transactionRoutePrefetch.js").then(({ warmTransactionRouteCache }) => {
+        warmTransactionRouteCache({ me });
+      });
+    };
+
     const runIdleWarm = () => {
       runCompanies();
       runProcessListWarm();
       if (path === "/dashboard" || path === "/account-list") {
         runAccountListWarm();
+      }
+      if (path === "/transaction") {
+        runTransactionWarm();
       }
     };
 
@@ -746,6 +761,11 @@ export default function AuthenticatedLayout() {
             });
           });
         }
+        if (routePath === "/transaction" && me) {
+          void import("../pages/transaction/transactionRoutePrefetch.js").then(({ warmTransactionRouteCache }) => {
+            warmTransactionRouteCache({ me });
+          });
+        }
       }
     };
     root.addEventListener("pointerdown", warmRoute, { capture: true });
@@ -756,7 +776,7 @@ export default function AuthenticatedLayout() {
       root.removeEventListener("mouseover", warmRoute);
       root.removeEventListener("focusin", warmRoute);
     };
-  }, []);
+  }, [me]);
 
   // --- Notification Logic ---
   const toggleNotifications = async (e) => {

@@ -1424,10 +1424,18 @@ body.transaction-page .transaction-checkboxes.userlist-filter-chips .user-filter
     flex: 1;
 }
 
+.transaction-page .transaction-main-content {
+    transition: opacity 0.2s ease;
+}
+
 .transaction-page .transaction-main--booting .transaction-main-content {
-    opacity: 0.45;
+    opacity: 0.72;
     pointer-events: none;
     user-select: none;
+}
+
+.transaction-page .transaction-tables-section {
+    transition: opacity 0.2s ease;
 }
 
 .transaction-page .transaction-boot-loading {

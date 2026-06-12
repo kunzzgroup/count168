@@ -149,6 +149,7 @@ function TransactionPaymentPageMain() {
     forbidden,
     canApproveContra,
     refreshContraInboxBadge: ui.refreshContraInboxBadge,
+    initialSearchDoneRef: search.initialSearchDoneRef,
   });
 
   const applyTransactionBodyClasses = useCallback(() => {
@@ -264,7 +265,7 @@ function TransactionPaymentPageMain() {
       />
 
       <main className={`transaction-main${booting ? " transaction-main--booting" : ""}`}>
-        {booting ? (
+        {booting && !search.rawSearchData ? (
           <div className="transaction-boot-loading" aria-live="polite" aria-busy="true">
             {m.loadingData}
           </div>

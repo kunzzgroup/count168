@@ -1021,7 +1021,7 @@ try {
     // 超短时微缓存（按用户 + 查询条件），用于吸收短时间内重复请求，减轻数据库压力。
     // 仅缓存极短时间，兼顾实时性与加载速度。
     $cache_file = null;
-    $cache_ttl_seconds = 3;
+    $cache_ttl_seconds = 20;
     $cache_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache';
     if (!is_dir($cache_dir)) {
         @mkdir($cache_dir, 0777, true);

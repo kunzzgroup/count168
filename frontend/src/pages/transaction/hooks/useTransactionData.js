@@ -4,9 +4,9 @@ import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import {
-  dedupeOwnerCompaniesByCode,
   filterCompaniesWithDisplayId,
   fetchOwnerCompaniesAll,
+  getCachedOwnerCompanies,
   clearDashboardGroupFilterKeepCompany,
   DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   notifyDashboardGroupFilterChanged,
@@ -15,11 +15,8 @@ import {
   persistDashboardFilterState,
   persistDashboardGroupOnlyMode,
   pickDefaultSubsidiaryForGroup,
-  readPersistedDashboardGcFilter,
   resolveCompanyPickWhenSwitchingGroup,
   resolveCompanyWhenClosingGroup,
-  resolveGcFilterBootCompanyId,
-  resolveInitialSelectedGroupFromSession,
   resolveViewGroupForCompany,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
@@ -48,6 +45,11 @@ import {
 } from "../lib/transactionScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
 import { buildTransactionCompanyStripRows } from "../lib/transactionCompanyStrip.js";
+import {
+  applyTransactionBootPersistence,
+  buildTransactionBootSnapshot,
+  mergeOwnerCompaniesIntoSnapshot,
+} from "../lib/transactionBootSnapshot.js";
 
 export function useTransactionData({
   todayDmy,
@@ -135,24 +137,32 @@ export function useTransactionData({
     [u?.company_id],
   );
 
+  useLayoutEffect(() => {
+    if (!sessionReady || !u || bootOnceRef.current || filterSnapshotRef.current) return;
+    if (String(u.user_type || "").toLowerCase() === "member") return;
+    const perms = Array.isArray(u.permissions) ? u.permissions : [];
+    const hasFull = perms.length === 0;
+    const canPay = hasFull || perms.includes("payment");
+    if (!canPay) {
+      setForbidden(true);
+      setLoading(false);
+      return;
+    }
+    const cached = getCachedOwnerCompanies();
+    if (!cached?.length) return;
+    const queryCompany = new URL(window.location.href).searchParams.get("company_id");
+    const bootSnap = buildTransactionBootSnapshot(u, cached, { queryCompany });
+    if (!bootSnap) return;
+    bootOnceRef.current = true;
+    commitFilterSnapshot(bootSnap);
+    setLoading(false);
+  }, [sessionReady, u, commitFilterSnapshot]);
+
   useEffect(() => {
     if (!sessionReady) return;
     if (!u) {
       bootOnceRef.current = false;
       navigate("/login", { replace: true });
-      return;
-    }
-
-    if (bootOnceRef.current && filterSnapshotRef.current) {
-      setFilterSnapshot((prev) =>
-        prev
-          ? {
-              ...prev,
-              viewerRole: String(u.role || "").toLowerCase(),
-              mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
-            }
-          : prev,
-      );
       return;
     }
 
@@ -172,87 +182,61 @@ export function useTransactionData({
         }
 
         const rows = await fetchOwnerCompaniesAll();
+        if (cancelled) return;
 
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
-        const persisted = readPersistedDashboardGcFilter();
-        const bootGc = resolveGcFilterBootCompanyId({
-          urlCompanyId: queryCompany,
-          sessionCompanyId: u.company_id,
-          defaultRowId: rows[0]?.id,
-        });
-        let effective = bootGc.companyId;
-        const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u.company_id);
 
-        if (
-          effective != null &&
-          queryCompany &&
-          rows.some((c) => Number(c.id) === Number(queryCompany))
-        ) {
-          const sj = await syncCompanySessionApi(queryCompany);
-          if (!sj?.success) {
-            effective = u.company_id ? Number(u.company_id) : rows[0]?.id ? Number(rows[0].id) : null;
-          } else {
-            notifyCompanySessionUpdated();
+        if (filterSnapshotRef.current) {
+          const merged = mergeOwnerCompaniesIntoSnapshot(filterSnapshotRef.current, rows, u);
+          if (merged) commitFilterSnapshot(merged);
+          bootOnceRef.current = true;
+          if (
+            queryCompany &&
+            rows.some((c) => Number(c.id) === Number(queryCompany))
+          ) {
+            const sj = await syncCompanySessionApi(queryCompany);
+            if (sj?.success) notifyCompanySessionUpdated();
           }
-        }
-
-        const current =
-          effective != null ? snapRows.find((c) => Number(c.id) === Number(effective)) : null;
-        const groupFilterOptOut =
-          typeof sessionStorage !== "undefined" &&
-          sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1";
-        const selGroup = groupFilterOptOut
-          ? null
-          : bootGc.selectedGroup ||
-            persisted.selectedGroup ||
-            resolveInitialSelectedGroupFromSession(snapRows, current, u);
-
-        const allowBootGroupOnly = canUseGroupOnlyMode(u, selGroup);
-        let bootGroupOnly =
-          (bootGc.groupOnly || effective == null) && allowBootGroupOnly && !groupFilterOptOut;
-        if (!bootGroupOnly && effective == null && selGroup && !groupFilterOptOut) {
-          const pick = pickDefaultSubsidiaryForGroup(snapRows, selGroup, {
-            me: u,
-            preferredCompanyId: u?.company_id ?? null,
-          });
-          if (pick?.id) {
-            effective = Number(pick.id);
-          }
-        }
-        if (bootGroupOnly) {
-          persistDashboardGroupOnlyMode(true);
         } else {
-          persistDashboardGroupOnlyMode(false);
-        }
+          let bootSnap = buildTransactionBootSnapshot(u, rows, { queryCompany });
+          if (!bootSnap) return;
 
-        if (!cancelled && !filterSnapshotRef.current) {
-          const bootSnap = {
-            companyId: bootGroupOnly ? null : effective,
-            groupOnlyLedger: bootGroupOnly,
-            selectedGroup: selGroup,
-            groupFilterOptOut: groupFilterOptOut,
-            displayCompanyRow: bootGroupOnly ? null : current,
-            groupsAllMode: false,
-            groupAllMode: false,
-            snapCompanies: snapRows,
-            snapCompaniesAll: rows,
-            snapGroupIds: sortedUniqueGroupIds(snapRows),
-            viewerRole: String(u.role || "").toLowerCase(),
-            mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
-          };
-          bootSnap.companyStripRows = buildTransactionCompanyStripRows(bootSnap, {
-            selectedGroup: selGroup,
-            companyId: effective,
-            groupsAllMode: false,
-          });
-          bootOnceRef.current = true;
-          setFilterSnapshot(bootSnap);
-        } else if (!cancelled) {
-          bootOnceRef.current = true;
+          if (
+            bootSnap.companyId != null &&
+            queryCompany &&
+            rows.some((c) => Number(c.id) === Number(queryCompany))
+          ) {
+            const sj = await syncCompanySessionApi(queryCompany);
+            if (!sj?.success) {
+              const fallbackId = u.company_id ? Number(u.company_id) : rows[0]?.id ? Number(rows[0].id) : null;
+              if (fallbackId != null) {
+                bootSnap = {
+                  ...bootSnap,
+                  companyId: fallbackId,
+                  groupOnlyLedger: false,
+                  displayCompanyRow:
+                    bootSnap.snapCompanies?.find((c) => Number(c.id) === Number(fallbackId)) ?? null,
+                };
+                bootSnap.companyStripRows = buildTransactionCompanyStripRows(bootSnap, {
+                  selectedGroup: bootSnap.selectedGroup,
+                  companyId: fallbackId,
+                  groupsAllMode: false,
+                });
+              }
+            } else {
+              notifyCompanySessionUpdated();
+            }
+          }
+
+          if (!cancelled) {
+            applyTransactionBootPersistence(bootSnap);
+            bootOnceRef.current = true;
+            commitFilterSnapshot(bootSnap);
+          }
         }
       } catch {
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled && !filterSnapshotRef.current) navigate("/login", { replace: true });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -260,7 +244,7 @@ export function useTransactionData({
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, u, navigate]);
+  }, [sessionReady, u, navigate, commitFilterSnapshot]);
 
   useEffect(() => {
     if (!sessionReady || !u) return;
