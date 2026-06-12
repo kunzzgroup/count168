@@ -5486,14 +5486,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const kpiCompareLabel = i18n.thanLastMonth;
 
   const kpi = useMemo(() => {
-    const defaultShowEarnings =
-      !!selectedGroup || groupAllMode || groupsAllGroupLevel || usesGroupLedgerDashboard;
     const empty = {
       profit: 0,
       expenses: 0,
       netProfit: 0,
       earnings: 0,
-      showEarnings: defaultShowEarnings,
+      showEarnings: false,
       comparisons: null,
     };
     const useAggregated = showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi;
@@ -5515,19 +5513,27 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       current = {
         ...current,
         earnings: ownershipCurrent.earnings,
+        kpiCardEarnings: ownershipCurrent.kpiCardEarnings,
         showEarnings: ownershipCurrent.showEarnings,
       };
     }
     let previous = useAggregated ? multiCurrencyKpiPrev : ownershipPrevious;
     if (previous && ownershipPrevious) {
-      previous = { ...previous, earnings: ownershipPrevious.earnings };
+      previous = {
+        ...previous,
+        earnings: ownershipPrevious.earnings,
+        kpiCardEarnings: ownershipPrevious.kpiCardEarnings,
+      };
     }
     const comparisons = previous
       ? {
           profit: buildKpiCompare(current.profit, previous.profit),
           expenses: buildKpiCompare(current.expenses, previous.expenses),
           netProfit: buildKpiCompare(current.netProfit, previous.netProfit),
-          earnings: buildKpiCompare(current.earnings, previous.earnings),
+          earnings: buildKpiCompare(
+            current.kpiCardEarnings ?? current.earnings,
+            previous.kpiCardEarnings ?? previous.earnings
+          ),
         }
       : null;
     return { ...current, comparisons };
@@ -5628,12 +5634,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       { idx: 0, label: i18n.profit, color: DASHBOARD_PROFIT_COLOR, dataKey: "profit", fill: "url(#gProfit)" },
       { idx: 1, label: i18n.expenses, color: "#ef4444", dataKey: "expenses", fill: "url(#gExp)" },
       { idx: 2, label: i18n.netProfitChart, color: "#10b981", dataKey: "netProfit", fill: "url(#gNet)" },
+      { idx: 3, label: i18n.earnings, color: "#f59e0b", dataKey: "earnings", fill: "url(#gEarn)" },
     ];
-    if (kpi.showEarnings) {
-      series.push({ idx: 3, label: i18n.earnings, color: "#f59e0b", dataKey: "earnings", fill: "url(#gEarn)" });
-    }
     return series;
-  }, [i18n, kpi.showEarnings]);
+  }, [i18n]);
 
   const earningsCurrencyRows = useMemo(() => {
     const earningsRows = Array.isArray(earningsByCurrency) ? earningsByCurrency : [];

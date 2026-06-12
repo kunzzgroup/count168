@@ -1,4 +1,4 @@
-import { netProfitFromDashboardPayload } from "../../pages/dashboard/lib/dashboardKpi.js";
+import { netProfitFromDashboardPayload, viewerHasEarningsConfig } from "../../pages/dashboard/lib/dashboardKpi.js";
 
 function mergeDailyMap(target, source) {
   if (!source || typeof source !== "object") return;
@@ -24,7 +24,7 @@ export function attachGroupAggregateEarningsFields(mergedSubsidiaries, groupLedg
     group_ledger_net_profit: groupLedgerNetProfit,
     group_account_percentage: parseFloat(groupLedgerPayload?.group_account_percentage) || 0,
     has_group_ownership: !!groupLedgerPayload?.has_group_ownership,
-    has_ownership_setup: true,
+    has_ownership_setup: !!groupLedgerPayload?.has_group_ownership,
     _group_aggregate_earnings: true,
   };
 }
@@ -47,7 +47,7 @@ export function mergeGroupData(dataList, dateRange) {
   const dailyExpenses = {};
   const dailyProfit = {};
   const dailyProfitFlow = {};
-  let hasOwnershipSetup = false;
+  let hasViewerEarningsConfig = false;
 
   const companyEarnings = [];
 
@@ -72,8 +72,8 @@ export function mergeGroupData(dataList, dateRange) {
       mergeDailyMap(dailyProfit, d.daily_data.profit);
       mergeDailyMap(dailyProfitFlow, d.daily_data.profit_payment_flow_daily);
     }
-    if (d.has_ownership_setup) {
-      hasOwnershipSetup = true;
+    if (viewerHasEarningsConfig(d)) {
+      hasViewerEarningsConfig = true;
     }
 
     const pct = parseFloat(d.ownership_percentage || 0);
@@ -87,21 +87,17 @@ export function mergeGroupData(dataList, dateRange) {
     const linkMul = parseFloat(d?._link_multiplier || 0) || 0;
     const hasLink = linkMul > 0 && linkMul !== 1;
     const directPct = pct / 100;
-    let effectivePct;
+    let effectivePct = 0;
     if (hasLink) {
       const viewerGroupShare = grpAccPct > 0 ? grpAccPct / 100 : 1;
       effectivePct = linkMul * viewerGroupShare;
     } else if (directPct > 0) {
       effectivePct = directPct;
-    } else if (grpPct > 0) {
-      // Group subsidiary merge: net profit × company's equity % to the group.
-      effectivePct = grpPct / 100;
-    } else {
-      const chainPct = hasGrp ? (grpPct / 100) * (grpAccPct / 100) : 0;
-      effectivePct = chainPct === 0 ? 1 : chainPct;
+    } else if (hasGrp) {
+      effectivePct = (grpPct / 100) * (grpAccPct / 100);
     }
+    if (!viewerHasEarningsConfig(d)) return;
     const earningsVal = netProfit * effectivePct;
-    hasOwnershipSetup = true;
     companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
   });
 
@@ -134,8 +130,8 @@ export function mergeGroupData(dataList, dateRange) {
     },
     date_range: dataList[0]?.date_range || { from: dateRange.startDate, to: dateRange.endDate },
     ownership_percentage: effectiveOwnershipPct,
-    has_ownership_setup: hasOwnershipSetup,
-    has_group_ownership: false,
+    has_ownership_setup: hasViewerEarningsConfig,
+    has_group_ownership: dataList.some((d) => d.has_group_ownership),
     group_equity_percentage: 0,
     group_account_percentage: 0,
     _subsidiary_earnings_total: totalEarnings,
