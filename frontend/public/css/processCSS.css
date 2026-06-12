@@ -7179,15 +7179,6 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
         -webkit-overflow-scrolling: touch;
     }
 
-    .process-page #editModal .process-form-modal-footer.add-actions {
-        position: sticky !important;
-        bottom: 0 !important;
-        z-index: 2 !important;
-        flex-shrink: 0 !important;
-        background: var(--color-surface, #fff) !important;
-        box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08) !important;
-    }
-
     .process-page #editModal .process-form.add-grid {
         grid-template-columns: 1fr 1fr !important;
         padding: 0 0.5rem 0.5rem !important;
@@ -8185,25 +8176,81 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     }
 }
 
-/* Edit Process：小屏全屏 — 覆盖文件后部 desktop 固定宽高规则 */
-@media (max-width: 1024px) {
-    .process-page #editModal .modal-content,
-    #editModal .modal-content {
-        width: 100% !important;
-        max-width: none !important;
-        min-width: 0 !important;
-        min-height: 0 !important;
-        max-height: none !important;
-        margin: 0 !important;
+/* Add/Edit Process：表单壳层 — 中间可滚动，底栏固定在弹窗底部 */
+.process-form-modal .process-form-modal-shell,
+#addModal .process-form-modal-shell,
+#editModal .process-form-modal-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.process-form-modal .process-form-modal-shell > .modal-body,
+#addModal .process-form-modal-shell > .modal-body,
+#editModal .process-form-modal-shell > .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.process-form-modal .process-form-modal-shell > .process-form-modal-footer,
+#addModal .process-form-modal-shell > .process-form-modal-footer,
+#editModal .process-form-modal-shell > .process-form-modal-footer {
+    flex-shrink: 0;
+    grid-column: auto;
+}
+
+/* Edit Process：禁止 backdrop 滚动；受限视口全屏（含 MacBook 等宽>1024 矮屏） */
+body.process-page > #editModal.modal,
+.process-page #editModal.modal,
+#editModal.modal {
+    overflow: hidden !important;
+}
+
+@media (max-width: 1280px), (max-height: 960px) {
+    body.process-page > #editModal.modal,
+    .process-page #editModal.modal,
+    #editModal.modal {
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        display: flex !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        padding: 0 !important;
         border-radius: 0 !important;
     }
 
-    .process-page #editModal .process-form.add-grid,
-    #editModal .process-form.add-grid {
-        padding-bottom: 0 !important;
+    body.process-page > #editModal.modal > .modal-content.process-form-modal,
+    .process-page #editModal .modal-content,
+    .process-page #editModal .modal-content.process-form-modal,
+    #editModal .modal-content,
+    #editModal .modal-content.process-form-modal {
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        height: 100% !important;
+        max-height: 100dvh !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        box-sizing: border-box !important;
     }
 
-    .process-page #editModal .process-form .form-group textarea {
+    #editModal .process-form-modal-shell > .modal-body {
+        padding: 0.75rem 1rem 0 !important;
+    }
+
+    #editModal .process-form .form-group textarea {
         min-height: 4.5rem !important;
     }
 }
