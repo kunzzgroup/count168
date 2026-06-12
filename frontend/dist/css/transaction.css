@@ -3897,24 +3897,22 @@ body.ec-payment-history-chromeless #root {
     width: 100% !important;
     max-width: none !important;
     min-height: 100dvh !important;
-    height: auto !important;
+    height: 100dvh !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow: auto !important;
 }
 
 body.ec-payment-history-chromeless .ec-page-shell,
 body.ec-payment-history-chromeless .ec-page-shell__content {
     width: 100% !important;
     max-width: 100% !important;
-    height: auto !important;
+    height: 100dvh !important;
     min-height: 100dvh !important;
     max-height: none !important;
     padding: 0 !important;
     margin: 0 !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow: auto !important;
 }
 
 body.ec-payment-history-chromeless #root > .transaction-payment-history-page-root {
@@ -3926,7 +3924,6 @@ body.ec-payment-history-chromeless #root > .transaction-payment-history-page-roo
     height: auto !important;
     min-height: 100dvh !important;
     overflow: visible;
-    background: #ffffff;
 }
 
 .transaction-payment-history-page-root {
@@ -3934,23 +3931,30 @@ body.ec-payment-history-chromeless #root > .transaction-payment-history-page-roo
     min-height: 100dvh;
 }
 
-/* Beat legacy modal card rules */
+.transaction-payment-history-main {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 1320px;
+}
+
+/* Beat legacy modal card rules (body.transaction-page .transaction-modal-content.transaction-history-modal) */
 body.ec-payment-history-chromeless.transaction-page .transaction-modal-content.transaction-history-modal.transaction-payment-history-panel,
 body.ec-payment-history-chromeless .transaction-payment-history-panel.transaction-history-modal.transaction-modal-content,
 body.transaction-payment-history-page .transaction-payment-history-panel.transaction-history-modal.transaction-modal-content {
     width: 100% !important;
-    max-width: none !important;
-    height: auto !important;
+    max-width: 1320px !important;
+    height: 100% !important;
     min-height: 0 !important;
     max-height: none !important;
-    margin: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
     align-self: stretch !important;
     display: flex;
     flex-direction: column;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-    overflow: visible;
+    border-radius: 2px !important;
+    overflow: hidden;
     background: #ffffff;
 }
 
