@@ -1532,7 +1532,7 @@
     cursor: not-allowed;
 }
 
-/* Add / Edit Bank Process modal: match reference — left-aligned labels, larger controls, section title rules */
+/* Add / Edit Bank Process modal: match reference — left-aligned labels, larger controls, blue section rules */
 #addBankModal .bank-form.process-form {
     max-width: none;
     width: 100%;
@@ -1557,7 +1557,11 @@
 
 #addBankModal .bank-section-title {
     text-align: left;
-    border-bottom: 2px solid #002C49;
+    border-bottom: 2px solid #0D60FF;
+}
+
+#addBankModal .bank-profit-sharing-container {
+    border-top: 2px solid #0D60FF;
 }
 
 #addBankModal .bank-profit-sharing-header {
@@ -1705,7 +1709,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
     flex-shrink: 0;
     background: #ffffff;
     z-index: 10;
-    border-top: 1px solid #eee;
+    border-top: 2px solid #0D60FF;
 }
 
 /* Laptop screens: compact the form spacing */
@@ -2908,6 +2912,10 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
     margin-top: 20px;
     padding: 20px 0 30px 0; /* Add bottom padding */
     border-top: 1px solid #eee;
+}
+
+#addBankModal .bank-actions {
+    border-top: 2px solid #0D60FF;
 }
 
 /* Supplier/Customer/Company 下拉可溢出各层祖先显示（但不影响 modal-body / bank-form 的 overflow 控制） */
