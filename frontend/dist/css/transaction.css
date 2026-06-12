@@ -3883,3 +3883,52 @@ body.dashboard-page.transaction-page:not(.member-winloss-page) .transaction-tabl
     max-height: none !important;
 }
 
+body.transaction-payment-history-page {
+    background: #f1f5f9;
+}
+
+.transaction-payment-history-page-root {
+    min-height: 100%;
+}
+
+.transaction-payment-history-main {
+    box-sizing: border-box;
+    padding: clamp(12px, 2vh, 24px) clamp(12px, 2vw, 24px);
+    min-height: calc(100dvh - 48px);
+}
+
+body.transaction-payment-history-page .transaction-payment-history-panel {
+    width: min(1600px, 100%);
+    max-width: 100%;
+    min-height: calc(100dvh - 48px);
+    height: calc(100dvh - 48px);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    background: #ffffff;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-panel .transaction-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-panel .transaction-history-table-frame {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.transaction-payment-history-error {
+    margin: 0;
+    padding: 24px;
+    color: #b91c1c;
+    text-align: center;
+}
+

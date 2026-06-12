@@ -18,7 +18,6 @@ export function useTransactionSync({
   selectedCurrencies,
   lastSearchCommitMsRef,
   runSearch,
-  setHistory,
   loading,
   forbidden,
   canApproveContra,
@@ -45,7 +44,6 @@ export function useTransactionSync({
         queueRetry();
         return;
       }
-      setHistory((h) => (h.open ? { ...h, open: false } : h));
       clearTxSearchCache();
       try {
         const key = buildTxListSessionKey({
@@ -100,7 +98,6 @@ export function useTransactionSync({
     selectedCurrencies,
     lastSearchCommitMsRef,
     runSearch,
-    setHistory,
   ]);
 
   useEffect(() => {

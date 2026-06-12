@@ -2,10 +2,9 @@ import { useLayoutEffect, useMemo, useEffect, useCallback, useRef } from "react"
 import { Navigate, useLocation } from "react-router-dom";
 import TransactionAddSection from "./components/TransactionAddSection.jsx";
 import TransactionHeader from "./components/TransactionHeader.jsx";
-import TransactionHistoryModal from "./components/TransactionHistoryModal.jsx";
 import TransactionSearchSection from "./components/TransactionSearchSection.jsx";
 import TransactionTablesSection from "./components/TransactionTablesSection.jsx";
-import { formatDmy, formatHistoryMoney } from "./lib/transactionFormat.js";
+import { formatDmy } from "./lib/transactionFormat.js";
 import { useTransactionData } from "./hooks/useTransactionData.js";
 import { useTransactionUI } from "./hooks/useTransactionUI.js";
 import { useTransactionSearch } from "./hooks/useTransactionSearch.js";
@@ -14,7 +13,6 @@ import { useTransactionSync } from "./hooks/useTransactionSync.js";
 import { useTransactionDateRange } from "./hooks/useTransactionDateRange.js";
 import { useTransactionInitialization } from "./hooks/useTransactionInitialization.js";
 import { installTransactionExcelCopy } from "./lib/transactionExcelCopy.js";
-import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./lib/transactionPaymentPageUtils.js";
 import { getRoleClass } from "./lib/transactionPaymentLogic.js";
 import "../../../public/css/report-outlined-fields.css";
 import "../../../public/css/transaction.css";
@@ -137,7 +135,6 @@ export default function TransactionPaymentPage() {
     selectedCurrencies: search.selectedCurrencies,
     lastSearchCommitMsRef: search.lastSearchCommitMsRef,
     runSearch: search.runSearch,
-    setHistory: ui.setHistory,
     loading,
     forbidden,
     canApproveContra,
@@ -422,15 +419,6 @@ export default function TransactionPaymentPage() {
           <div className="calendar-days" id="calendar-days" />
         </div>
       </div>
-
-      <TransactionHistoryModal
-        history={ui.history}
-        setHistory={ui.setHistory}
-        histMoney={formatHistoryMoney}
-        showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
-        m={m}
-        t={t}
-      />
 
       <div id="notificationContainer" className="transaction-notification-container" aria-live="polite">
         {ui.toast.map((t) => {
