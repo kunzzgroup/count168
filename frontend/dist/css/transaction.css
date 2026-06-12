@@ -3953,7 +3953,7 @@ body.transaction-payment-history-page .transaction-payment-history-panel.transac
     align-self: stretch !important;
     display: flex;
     flex-direction: column;
-    border-radius: 2px !important;
+    border-radius: 14px !important;
     overflow: hidden;
     background: #ffffff;
 }
@@ -3971,7 +3971,6 @@ body.transaction-payment-history-page .transaction-payment-history-panel .transa
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: 0 !important;
 }
 
 .transaction-payment-history-error {
