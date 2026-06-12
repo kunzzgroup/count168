@@ -3954,7 +3954,7 @@ body.transaction-payment-history-page .transaction-payment-history-panel.transac
     align-self: stretch !important;
     display: flex;
     flex-direction: column;
-    border-radius: 3px !important;
+    border-radius: 2px !important;
     overflow: hidden;
     background: #ffffff;
 }

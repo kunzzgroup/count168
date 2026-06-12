@@ -2,7 +2,7 @@
 export const TRANSACTION_HISTORY_COL_PX = {
   date: 100,
   product: 180,
-  currency: 92,
+  currency: 88,
   rate: 80,
   winLoss: 100,
   crDr: 100,
@@ -26,7 +26,12 @@ export function historyColumnDefs(includeDescription) {
     { key: "balance", className: "transaction-history-col-balance", width: c.balance },
   ];
   if (includeDescription) {
-    cols.push({ key: "description", className: "transaction-history-col-description", width: c.description });
+    cols.push({
+      key: "description",
+      className: "transaction-history-col-description",
+      width: c.description,
+      flex: true,
+    });
   }
   cols.push(
     { key: "remark", className: "transaction-history-col-remark", width: c.remark },
