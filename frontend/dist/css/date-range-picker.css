@@ -3,8 +3,11 @@
     --drp-trigger-text: var(--text-medium);
     --drp-trigger-icon: var(--text-medium);
     --drp-trigger-chevron: var(--text-medium);
+    --drp-popup-text: var(--text-tiny);
     --drp-popup-width: clamp(316px, 22vw, 336px);
     --drp-preset-col: clamp(76px, 5.6vw, 96px);
+    --drp-day-min-h: 25px;
+    --drp-preset-min-h: 25px;
 }
 
 .date-range-picker {

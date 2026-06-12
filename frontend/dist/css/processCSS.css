@@ -2090,14 +2090,14 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
 
 body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekday,
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekday {
-    font-size: var(--drp-popup-text, var(--text-base));
+    font-size: var(--drp-popup-text);
     padding: 2px 0;
 }
 
 body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day,
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day {
-    min-height: var(--drp-day-min-h, clamp(30px, 2.2vw, 36px));
-    font-size: var(--drp-popup-text, var(--text-base));
+    min-height: var(--drp-day-min-h);
+    font-size: var(--drp-popup-text);
     font-weight: 700;
     border-radius: 6px;
 }

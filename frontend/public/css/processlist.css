@@ -2514,12 +2514,12 @@ body.process-page .calendar-popup--match-anchor .calendar-year-trigger {
 }
 
 body.process-page .calendar-popup--match-anchor .calendar-weekday {
-    font-size: var(--drp-popup-text, var(--text-base));
+    font-size: var(--drp-popup-text);
 }
 
 body.process-page .calendar-popup--match-anchor .calendar-day {
-    min-height: var(--drp-day-min-h, clamp(32px, 2.3vw, 38px));
-    font-size: var(--drp-popup-text, var(--text-base));
+    min-height: var(--drp-day-min-h);
+    font-size: var(--drp-popup-text);
     border-radius: 5px;
 }
 
