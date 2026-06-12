@@ -2248,7 +2248,7 @@ body.ec-auth-shell #root > :is(
     height: 16px;
     padding: 0 5px;
     border-radius: 999px;
-    background: #f59e0b;
+    background: #ef4444;
     color: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -2273,7 +2273,7 @@ body.ec-auth-shell #root > :is(
     height: 16px;
     padding: 0 5px;
     border-radius: 999px;
-    background: #f59e0b;
+    background: #ef4444;
     color: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -2283,7 +2283,7 @@ body.ec-auth-shell #root > :is(
 
 .informationmenu-section-title.current-page .sidebar-pending-badge,
 .informationmenu-section-title:hover .sidebar-pending-badge {
-    background: #f59e0b;
+    background: #ef4444;
 }
 
 /* Collapsed sidebar: badge on menu icon top-right */

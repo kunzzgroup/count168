@@ -1589,7 +1589,7 @@ body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar
 }
 
 /* 尺寸沿用 .process-page .content .btn-add / .btn-delete（与 User List、Process List 顶栏一致） */
-body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right.bank-process-toolbar-actions-right .btn-add,
+body.process-page.process-page--bank .bank-process-toolbar-top-row .bank-process-toolbar-primary .btn-add.bank-process-toolbar-add,
 body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right.bank-process-toolbar-actions-right .btn-delete {
     margin: 0;
     flex-shrink: 0;
@@ -1980,12 +1980,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     font-size: var(--drp-trigger-text, var(--text-medium));
     font-weight: 700;
     padding-right: 0;
-    color: #94a3b8;
-}
-
-body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker.has-selected-range #date-range-display,
-body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker.has-selected-range #date-range-display {
-    color: #64748b;
+    color: #000000;
 }
 
 /* 仅有完整日期范围时显示 ×；重新点选日历过程中保持图一样式 */
@@ -2258,7 +2253,7 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
         pointer-events: none;
     }
 
-    /* 窄屏：Add + Delete 成组在右侧，尺寸与 User List 顶栏一致 */
+    /* 窄屏：Add 在 Date range 左侧，Delete 在右侧，尺寸与 User List 顶栏一致 */
     body.process-page.process-page--bank {
         --bank-toolbar-control-height: clamp(36px, 2.6vw, 40px);
         --bank-filter-toggle-size: clamp(36px, 2.6vw, 40px);
