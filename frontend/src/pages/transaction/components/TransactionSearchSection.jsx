@@ -205,11 +205,11 @@ export default function TransactionSearchSection({
         })}
       </div>
 
-      {(fs.snapGroupIds.length > 0 || fs.snapCompanies.length > 0) && (
+      {fs && (fs.snapGroupIds?.length > 0 || fs.snapCompanies?.length > 0) && (
         <div className="transaction-bottom-filters">
           <GcInlineFilterPanel
             t={(key) => m[key] ?? key}
-            groupIds={fs.snapGroupIds}
+            groupIds={fs.snapGroupIds ?? []}
             groupsAllMode={Boolean(fs.groupsAllMode)}
             selectedGroup={fs.selectedGroup}
             onPickAllGroups={onPickAllGroups}
