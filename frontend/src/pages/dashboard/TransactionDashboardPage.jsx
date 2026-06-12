@@ -80,6 +80,7 @@ export default function TransactionDashboardPage() {
               onToggleSeries={page.toggleChartSeries}
               chartDateRangeText={page.chartDateRangeText}
               chartXAxisLayout={page.chartXAxisLayout}
+              chartDataStable={page.chartDataStable}
             />
             <DashboardEarningsSummary
               i18n={i18n}

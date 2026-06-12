@@ -1,5 +1,12 @@
 /** SVG defs + overlays for modern flowing chart animations. */
 
+export const DASHBOARD_TREND_FLOW_CYCLE = "2.8s";
+export const DASHBOARD_TREND_DRAW_BEGIN_MS = 80;
+export const DASHBOARD_TREND_DRAW_DURATION_MS = 1100;
+export const DASHBOARD_TREND_FLOW_LAYER_OFFSET_MS = 120;
+export const DASHBOARD_TREND_IDLE_DELAY_MS =
+  DASHBOARD_TREND_DRAW_BEGIN_MS + DASHBOARD_TREND_DRAW_DURATION_MS + 100;
+
 const TREND_FLOW_SERIES = [
   { id: "Profit", color: "#3b82f6" },
   { id: "Exp", color: "#ef4444" },
@@ -23,8 +30,18 @@ export function DashboardTrendFlowDefs() {
             <stop offset="50%" stopColor="#ffffff" stopOpacity="0.42" />
             <stop offset="62%" stopColor={color} stopOpacity="0.1" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-            <animate attributeName="x1" values="-240;520;-240" dur="2.6s" repeatCount="indefinite" />
-            <animate attributeName="x2" values="0;760;0" dur="2.6s" repeatCount="indefinite" />
+            <animate
+              attributeName="x1"
+              values="-240;520;-240"
+              dur={DASHBOARD_TREND_FLOW_CYCLE}
+              repeatCount="indefinite"
+            />
+            <animate
+              attributeName="x2"
+              values="0;760;0"
+              dur={DASHBOARD_TREND_FLOW_CYCLE}
+              repeatCount="indefinite"
+            />
           </linearGradient>
         </g>
       ))}
@@ -44,12 +61,17 @@ export function resolveTrendFlowFill(dataKey) {
   return FLOW_FILL_BY_DATA_KEY[dataKey] || null;
 }
 
+function isTrendBaseAreaItem(item) {
+  return String(item?.props?.className || "").includes("dashboard-trend-area-base");
+}
+
 export function DashboardChartSeriesPulse({ formattedGraphicalItems, flowActive }) {
   if (!flowActive || !formattedGraphicalItems?.length) return null;
 
   return (
     <g className="dashboard-chart-flow-pulses" aria-hidden="true">
       {formattedGraphicalItems.map((item) => {
+        if (!isTrendBaseAreaItem(item)) return null;
         const points = item?.props?.points;
         const stroke = item?.props?.stroke;
         const dataKey = item?.props?.dataKey;
@@ -62,8 +84,18 @@ export function DashboardChartSeriesPulse({ formattedGraphicalItems, flowActive 
         return (
           <g key={pulseKey} className="dashboard-chart-flow-pulse-group">
             <circle cx={last.x} cy={last.y} r={5} fill={stroke} fillOpacity="0.18">
-              <animate attributeName="r" values="4;13;4" dur="2.4s" repeatCount="indefinite" />
-              <animate attributeName="fill-opacity" values="0.22;0.04;0.22" dur="2.4s" repeatCount="indefinite" />
+              <animate
+                attributeName="r"
+                values="4;13;4"
+                dur={DASHBOARD_TREND_FLOW_CYCLE}
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="fill-opacity"
+                values="0.22;0.04;0.22"
+                dur={DASHBOARD_TREND_FLOW_CYCLE}
+                repeatCount="indefinite"
+              />
             </circle>
             <circle cx={last.x} cy={last.y} r={4.5} fill={stroke} stroke="#fff" strokeWidth={2} />
             <circle cx={last.x} cy={last.y} r={2} fill="#ffffff" fillOpacity="0.92" />
@@ -80,6 +112,7 @@ export function DashboardChartFlowTravelers({ formattedGraphicalItems, flowActiv
   return (
     <g className="dashboard-chart-flow-travelers" aria-hidden="true" key={chartAnimKey}>
       {formattedGraphicalItems.map((item) => {
+        if (!isTrendBaseAreaItem(item)) return null;
         const points = item?.props?.points;
         const stroke = item?.props?.stroke;
         const dataKey = item?.props?.dataKey;
@@ -97,7 +130,12 @@ export function DashboardChartFlowTravelers({ formattedGraphicalItems, flowActiv
           <g key={travelKey}>
             <path d={pathD} fill="none" stroke="transparent" strokeWidth={1} pathLength={100} id={`${travelKey}-path`} />
             <circle r={3.2} fill="#ffffff" stroke={stroke} strokeWidth={2}>
-              <animateMotion dur="3.2s" repeatCount="indefinite" rotate="auto" calcMode="linear">
+              <animateMotion
+                dur={DASHBOARD_TREND_FLOW_CYCLE}
+                repeatCount="indefinite"
+                rotate="auto"
+                calcMode="linear"
+              >
                 <mpath href={`#${travelKey}-path`} />
               </animateMotion>
             </circle>

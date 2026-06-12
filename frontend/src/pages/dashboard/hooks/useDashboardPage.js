@@ -6035,6 +6035,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const scopeDataPending =
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
+  const chartDataStable = useMemo(
+    () =>
+      !scopeDataPending &&
+      Boolean(dashboardData) &&
+      chartRows.length > 0 &&
+      !dashboardPayloadNeedsChartDaily(dashboardData),
+    [scopeDataPending, dashboardData, chartRows.length]
+  );
   const summaryEarningsLoading =
     scopeDataPending ||
     (loading && !dashboardData) ||
@@ -6848,6 +6856,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     toggleChartSeries,
     chartDateRangeText,
     chartXAxisLayout,
+    chartDataStable,
     earningsCurrencyRows,
     useConvertedEarnings,
     earningsBreakdownShowsRate,
