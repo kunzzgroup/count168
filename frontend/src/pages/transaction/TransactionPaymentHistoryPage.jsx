@@ -5,10 +5,11 @@ import TransactionHistoryTable from "./components/TransactionHistoryTable.jsx";
 import { formatHistoryMoney } from "./lib/transactionFormat.js";
 import { getHistory, transactionQueryKeys } from "./lib/transactionApi.js";
 import {
-  parsePaymentHistoryParams,
   paymentHistoryParamsReady,
   paymentHistoryTitle,
   resolveHistoryAccountName,
+  resolvePaymentHistoryScope,
+  paymentHistoryScopeApiParams,
 } from "./lib/transactionPaymentHistoryUrl.js";
 import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./lib/transactionPaymentPageUtils.js";
 import "../../../public/css/transaction.css";
@@ -19,7 +20,7 @@ import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.
 
 export default function TransactionPaymentHistoryPage() {
   const [searchParams] = useSearchParams();
-  const params = useMemo(() => parsePaymentHistoryParams(searchParams), [searchParams]);
+  const scope = useMemo(() => resolvePaymentHistoryScope(searchParams), [searchParams]);
   const lang = useLoginLang();
   const m = useMemo(() => TRANSACTION_I18N[lang] || TRANSACTION_I18N.en, [lang]);
 
@@ -34,21 +35,13 @@ export default function TransactionPaymentHistoryPage() {
   const initialTitle = useMemo(
     () =>
       paymentHistoryTitle({
-        accountCode: params.accountCode,
-        accountName: params.accountName,
+        accountCode: scope.accountCode,
+        accountName: scope.accountName,
       }),
-    [params.accountCode, params.accountName],
+    [scope.accountCode, scope.accountName],
   );
 
-  const scopeApi = useMemo(
-    () => ({
-      companyId: params.companyId,
-      viewGroup: params.viewGroup,
-      groupId: params.groupId,
-      groupAggregate: params.groupAggregate,
-    }),
-    [params.companyId, params.viewGroup, params.groupId, params.groupAggregate],
-  );
+  const scopeApi = useMemo(() => paymentHistoryScopeApiParams(scope), [scope]);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: transactionQueryKeys.history({
@@ -56,28 +49,29 @@ export default function TransactionPaymentHistoryPage() {
       viewGroup: scopeApi.viewGroup,
       groupId: scopeApi.groupId,
       groupAggregate: scopeApi.groupAggregate,
-      accountDbId: params.accountDbId,
-      dateFrom: params.dateFrom,
-      dateTo: params.dateTo,
-      currency: params.currency,
-      virtualCompanyCode: params.virtualCompanyCode,
+      accountDbId: scope.accountDbId,
+      dateFrom: scope.dateFrom,
+      dateTo: scope.dateTo,
+      currency: scope.currency,
+      virtualCompanyCode: scope.virtualCompanyCode,
+      subsidiaryAccountsOnly: scopeApi.subsidiaryAccountsOnly,
     }),
     queryFn: ({ signal }) =>
       getHistory({
         ...scopeApi,
-        accountId: params.accountDbId,
-        dateFrom: params.dateFrom,
-        dateTo: params.dateTo,
-        currency: params.currency,
-        virtualCompanyCode: params.virtualCompanyCode,
+        accountId: scope.accountDbId,
+        dateFrom: scope.dateFrom,
+        dateTo: scope.dateTo,
+        currency: scope.currency,
+        virtualCompanyCode: scope.virtualCompanyCode,
         signal,
       }),
-    enabled: paymentHistoryParamsReady(params),
+    enabled: paymentHistoryParamsReady(scope),
     staleTime: 30_000,
     gcTime: 5 * 60_000,
   });
 
-  if (!paymentHistoryParamsReady(params)) {
+  if (!paymentHistoryParamsReady(scope)) {
     return <Navigate to="/transaction" replace />;
   }
 
@@ -86,16 +80,16 @@ export default function TransactionPaymentHistoryPage() {
     ? {
         ...data.account,
         name: resolveHistoryAccountName({
-          accountName: params.accountName,
+          accountName: scope.accountName,
           accountMeta: data.account,
-          accountCode: params.accountCode,
+          accountCode: scope.accountCode,
         }),
       }
     : null;
   const title = accountMeta
     ? paymentHistoryTitle({
-        accountCode: params.accountCode,
-        accountName: params.accountName,
+        accountCode: scope.accountCode,
+        accountName: scope.accountName,
         accountMeta,
       })
     : initialTitle;

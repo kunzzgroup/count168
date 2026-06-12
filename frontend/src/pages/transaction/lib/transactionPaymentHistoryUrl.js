@@ -1,3 +1,5 @@
+import { readPersistedDashboardGcFilter } from "../../../utils/company/sharedCompanyFilter.js";
+
 export function resolveHistoryAccountName({ accountName, accountMeta, accountCode }) {
   const rowName = String(accountName ?? "").trim();
   const apiName = String(accountMeta?.name ?? "").trim();
@@ -13,13 +15,60 @@ export function paymentHistoryTitle({ accountCode, accountName, accountMeta }) {
   return `Payment History - ${code} (${name})`;
 }
 
+function readFilterCompanyId() {
+  try {
+    const saved = readPersistedDashboardGcFilter()?.companyId;
+    const cid = saved != null ? Number(saved) : 0;
+    return Number.isFinite(cid) && cid > 0 ? cid : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Merge URL params with dashboard filter — new tab has no React transaction scope state. */
+export function resolvePaymentHistoryScope(searchParams, scopeApi = null) {
+  const parsed = parsePaymentHistoryParams(searchParams);
+  const merged = {
+    companyId: parsed.companyId ?? scopeApi?.companyId,
+    viewGroup: parsed.viewGroup ?? scopeApi?.viewGroup,
+    groupId: parsed.groupId ?? scopeApi?.groupId,
+    groupAggregate: parsed.groupAggregate || scopeApi?.groupAggregate || false,
+    subsidiaryAccountsOnly:
+      parsed.subsidiaryAccountsOnly || scopeApi?.subsidiaryAccountsOnly || false,
+    accountDbId: parsed.accountDbId,
+    accountCode: parsed.accountCode,
+    accountName: parsed.accountName,
+    dateFrom: parsed.dateFrom,
+    dateTo: parsed.dateTo,
+    currency: parsed.currency,
+    virtualCompanyCode: parsed.virtualCompanyCode,
+  };
+
+  if ((!merged.companyId || merged.companyId <= 0) && (merged.subsidiaryAccountsOnly || merged.accountDbId)) {
+    const filterCid = readFilterCompanyId();
+    if (filterCid) merged.companyId = filterCid;
+  }
+
+  if (merged.subsidiaryAccountsOnly || (merged.companyId && !merged.groupAggregate)) {
+    merged.subsidiaryAccountsOnly = true;
+  }
+
+  return merged;
+}
+
 export function buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts = {} }) {
   const params = new URLSearchParams();
-  if (scopeApi?.companyId) params.set("company_id", String(scopeApi.companyId));
+  let companyId = scopeApi?.companyId != null ? Number(scopeApi.companyId) : undefined;
+  if (!Number.isFinite(companyId) || companyId <= 0) {
+    companyId = readFilterCompanyId();
+  }
+  if (Number.isFinite(companyId) && companyId > 0) params.set("company_id", String(companyId));
   if (scopeApi?.viewGroup) params.set("view_group", String(scopeApi.viewGroup));
   if (scopeApi?.groupId) params.set("group_id", String(scopeApi.groupId));
   if (scopeApi?.groupAggregate) params.set("group_aggregate", "1");
-  if (scopeApi?.subsidiaryAccountsOnly) params.set("subsidiary_accounts_only", "1");
+  if (scopeApi?.subsidiaryAccountsOnly || (companyId && !scopeApi?.groupAggregate)) {
+    params.set("subsidiary_accounts_only", "1");
+  }
 
   const accountDbId = row?.account_db_id ? String(row.account_db_id) : "";
   const accountCode = String(row?.account_id || "").trim();
@@ -87,5 +136,17 @@ export function paymentHistoryParamsReady(params) {
   if (!params?.dateFrom || !params?.dateTo) return false;
   if (!params.accountDbId && !params.virtualCompanyCode) return false;
   if (params.companyId) return true;
+  if (params.subsidiaryAccountsOnly) return false;
   return Boolean(params.viewGroup || params.groupId || params.groupAggregate);
+}
+
+export function paymentHistoryScopeApiParams(scope) {
+  if (!scope) return {};
+  return {
+    companyId: scope.companyId,
+    viewGroup: scope.viewGroup,
+    groupId: scope.groupId,
+    groupAggregate: scope.groupAggregate,
+    subsidiaryAccountsOnly: scope.subsidiaryAccountsOnly,
+  };
 }
