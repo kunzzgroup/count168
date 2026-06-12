@@ -1223,9 +1223,9 @@ body.transaction-page.member-winloss-page .member-dash-unified-bar > .member-das
 
 .member-winloss-page .member-dash-col-filters .member-winloss-date-field {
     flex: 0 0 auto;
-    width: 100%;
+    width: fit-content;
     max-width: 100%;
-    align-self: stretch;
+    align-self: flex-start;
     min-width: 0;
     overflow: visible;
 }
@@ -1493,18 +1493,17 @@ body.lang-zh.member-winloss-page .member-winloss-grid-account-filter > .user-gc-
 
 /* Date Range — 与 Capture Maintenance 同款（outlined 外框 + 内嵌白底条，非 Transaction 蓝块日历） */
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field {
-    --member-winloss-date-range-w: min(100%, var(--drp-popup-width, clamp(400px, 28vw, 440px)));
-    width: 100%;
+    --member-winloss-date-range-w: var(--drp-popup-width, clamp(400px, 28vw, 440px));
+    width: fit-content;
     max-width: 100%;
     min-width: 0;
-    align-self: stretch;
+    align-self: flex-start;
 }
 
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-anchor {
     gap: 0;
-    width: 100%;
-    max-width: var(--drp-popup-width, clamp(400px, 28vw, 440px));
-    min-width: 0;
+    width: var(--member-winloss-date-range-w);
+    max-width: 100%;
 }
 
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-shell {
@@ -1635,16 +1634,16 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .customer-report-filter-group {
     margin: 0;
     min-width: 0 !important;
-    width: 100% !important;
-    max-width: var(--drp-popup-width, clamp(400px, 28vw, 440px)) !important;
+    width: var(--member-winloss-date-range-w, var(--drp-popup-width, clamp(400px, 28vw, 440px))) !important;
+    max-width: 100% !important;
 }
 
 /* 与 transaction-range 日历弹窗同宽（date-range-picker.css / maintenanceDateRangePicker） */
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container,
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container.report-outlined-anchor {
-    width: 100% !important;
+    width: var(--member-winloss-date-range-w, var(--drp-popup-width, clamp(400px, 28vw, 440px))) !important;
     min-width: 0 !important;
-    max-width: var(--drp-popup-width, clamp(400px, 28vw, 440px)) !important;
+    max-width: 100% !important;
     box-sizing: border-box;
 }
 
@@ -2897,7 +2896,7 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
 }
 
 /* =============================================================================
-   Member Win/Loss responsive — Desktop ≥1367 | Laptop 1025–1366 | Tablet ≤1280
+   Member Win/Loss responsive — Desktop ≥1367 | Laptop 1025–1366 | Tablet ≤1024
    ============================================================================= */
 
 /* --- Desktop (≥1367)：宽屏双栏，略增筛选区上限 --- */
@@ -2965,8 +2964,8 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
     }
 }
 
-/* --- Tablet (≤1280，与 sidebar tablet 断点一致)：筛选与矩阵纵向堆叠，表格可横滑 --- */
-@media (max-width: 1280px) {
+/* --- Tablet (≤1024)：筛选与矩阵纵向堆叠，表格可横滑 --- */
+@media (max-width: 1024px) {
     body.transaction-page.member-winloss-page .transaction-container {
         padding-left: var(--layout-main-offset) !important;
         padding-right: clamp(10px, 1.2vw, 16px) !important;
@@ -3024,15 +3023,6 @@ body.member-winloss-page .member-winloss-grid-account-pills .user-gc-segment-gro
         padding: 0 0 10px;
         border-right: none;
         border-bottom: 1px solid #e8eef5;
-    }
-
-    body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field,
-    body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-outlined-anchor,
-    body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .customer-report-filter-group,
-    body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container {
-        width: 100% !important;
-        max-width: min(100%, var(--drp-popup-width, clamp(400px, 28vw, 440px))) !important;
-        min-width: 0 !important;
     }
 
     .member-winloss-page .member-dash-col-filters .member-winloss-gc-panel {
