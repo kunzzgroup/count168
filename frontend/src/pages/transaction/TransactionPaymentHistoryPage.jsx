@@ -23,10 +23,10 @@ export default function TransactionPaymentHistoryPage() {
   const m = useMemo(() => TRANSACTION_I18N[lang] || TRANSACTION_I18N.en, [lang]);
 
   useLayoutEffect(() => {
-    document.body.classList.add("dashboard-page", "transaction-page", "transaction-payment-history-page");
+    document.body.classList.add("transaction-payment-history-page");
     clearInlineScrollLock();
     return () => {
-      document.body.classList.remove("transaction-page", "transaction-payment-history-page", "page-ready");
+      document.body.classList.remove("transaction-payment-history-page", "page-ready");
     };
   }, []);
 
@@ -102,44 +102,32 @@ export default function TransactionPaymentHistoryPage() {
 
   return (
     <div className="transaction-payment-history-page-root">
-      <main className="transaction-payment-history-main">
-        <div className="transaction-modal-content transaction-history-modal transaction-payment-history-panel">
-          <div className="transaction-modal-header">
-            <h3 id="modal_title">{title}</h3>
+      <header className="transaction-payment-history-header">
+        <h1 className="transaction-payment-history-title">{title}</h1>
+      </header>
+      <div className="transaction-payment-history-body">
+        {isLoading ? (
+          <div className="transaction-payment-history-loading" aria-live="polite">
+            {m.loadingHistory}
           </div>
-          <div className="transaction-modal-body" style={{ position: "relative" }}>
-            {isLoading ? (
-              <div
-                className="transaction-tables-loading"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(255,255,255,0.75)",
-                  zIndex: 2,
-                }}
-                aria-live="polite"
-              >
-                {m.loadingHistory}
-              </div>
-            ) : null}
-            {errorMessage ? (
-              <p className="transaction-payment-history-error" role="alert">
-                {errorMessage}
-              </p>
-            ) : (
+        ) : null}
+        {errorMessage ? (
+          <p className="transaction-payment-history-error" role="alert">
+            {errorMessage}
+          </p>
+        ) : (
+          <div className="transaction-history-modal transaction-payment-history-table-shell">
+            <div className="transaction-modal-body">
               <TransactionHistoryTable
                 rows={rows}
                 histMoney={formatHistoryMoney}
                 showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
                 m={m}
               />
-            )}
+            </div>
           </div>
-        </div>
-      </main>
+        )}
+      </div>
     </div>
   );
 }
