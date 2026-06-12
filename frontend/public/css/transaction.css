@@ -3924,7 +3924,6 @@ body.ec-payment-history-chromeless #root > .transaction-payment-history-page-roo
     height: auto !important;
     min-height: 100dvh !important;
     overflow: visible;
-    background: transparent;
 }
 
 .transaction-payment-history-page-root {
@@ -3937,16 +3936,16 @@ body.ec-payment-history-chromeless #root > .transaction-payment-history-page-roo
     padding: 0;
     margin: 0 auto;
     width: 100%;
-    max-width: 1400px;
+    max-width: 1320px;
 }
 
-/* Beat legacy modal card rules */
+/* Beat legacy modal card rules (body.transaction-page .transaction-modal-content.transaction-history-modal) */
 body.ec-payment-history-chromeless.transaction-page .transaction-modal-content.transaction-history-modal.transaction-payment-history-panel,
 body.ec-payment-history-chromeless .transaction-payment-history-panel.transaction-history-modal.transaction-modal-content,
 body.transaction-payment-history-page .transaction-payment-history-panel.transaction-history-modal.transaction-modal-content {
     width: 100% !important;
-    max-width: 1400px !important;
-    height: auto !important;
+    max-width: 1320px !important;
+    height: 100% !important;
     min-height: 0 !important;
     max-height: none !important;
     margin-left: auto !important;
@@ -3966,10 +3965,10 @@ body.transaction-payment-history-page .transaction-payment-history-panel .transa
 
 body.ec-payment-history-chromeless .transaction-payment-history-panel .transaction-modal-body,
 body.transaction-payment-history-page .transaction-payment-history-panel .transaction-modal-body {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     min-height: 0;
     max-height: none !important;
-    overflow: visible;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     padding: 0 !important;
