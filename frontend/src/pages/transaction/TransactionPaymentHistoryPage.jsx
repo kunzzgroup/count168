@@ -117,8 +117,24 @@ export default function TransactionPaymentHistoryPage() {
     <div className="transaction-payment-history-page-root">
       <div className="transaction-payment-history-main">
         <div className="transaction-modal-content transaction-history-modal transaction-payment-history-panel">
-          <div className="transaction-modal-header">
-            <h3 id="modal_title">{title}</h3>
+          <div className="transaction-modal-header transaction-payment-history-header">
+            <div className="transaction-payment-history-header__brand">
+              <div className="transaction-payment-history-header__icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M15 3v5h5" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+                  <path d="M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="transaction-payment-history-header__text">
+                <h3 id="modal_title">{title}</h3>
+              </div>
+            </div>
             <button
               type="button"
               className="transaction-modal-close transaction-payment-history-close"
@@ -128,22 +144,11 @@ export default function TransactionPaymentHistoryPage() {
               &times;
             </button>
           </div>
-          <div className="transaction-modal-body" style={{ position: "relative" }}>
+          <div className="transaction-modal-body transaction-payment-history-body">
             {isLoading ? (
-              <div
-                className="transaction-tables-loading"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "rgba(255,255,255,0.75)",
-                  zIndex: 2,
-                }}
-                aria-live="polite"
-              >
-                {m.loadingHistory}
+              <div className="transaction-payment-history-loading" aria-live="polite">
+                <span className="transaction-payment-history-loading__spinner" aria-hidden="true" />
+                <span>{m.loadingHistory}</span>
               </div>
             ) : null}
             {errorMessage ? (
