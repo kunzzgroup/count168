@@ -13,6 +13,7 @@ import {
 } from "./lib/transactionPaymentHistoryUrl.js";
 import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./lib/transactionPaymentPageUtils.js";
 import "../../../public/css/transaction.css";
+import "../../../public/css/portal-tooltip.css";
 import "./transactionPaymentHistoryPage.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";

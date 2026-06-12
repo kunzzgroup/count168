@@ -395,21 +395,91 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   white-space: nowrap;
 }
 
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-date,
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-product,
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-description,
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-remark,
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-created,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-date,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-product,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-description,
-body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-remark {
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-remark,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-created {
+  max-width: 0;
+  overflow: hidden;
+}
+
+body.transaction-payment-history-page .transaction-history-ellipsis-cell,
+body.ec-payment-history-chromeless .transaction-history-ellipsis-cell {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  position: relative;
+}
+
+body.transaction-payment-history-page .transaction-history-ellipsis-cell--truncated,
+body.ec-payment-history-chromeless .transaction-history-ellipsis-cell--truncated {
+  cursor: pointer;
+}
+
+body.transaction-payment-history-page .transaction-history-cell-tooltip-anchor,
+body.ec-payment-history-chromeless .transaction-history-cell-tooltip-anchor {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+body.transaction-payment-history-page .transaction-history-cell-text,
+body.ec-payment-history-chromeless .transaction-history-cell-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 0;
 }
 
-body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-col-created,
-body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-col-created {
+body.transaction-payment-history-page .transaction-history-cell-text--expanded,
+body.ec-payment-history-chromeless .transaction-history-cell-text--expanded {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  z-index: 30;
+  width: max-content;
+  max-width: min(560px, 72vw);
+  padding: 5px 10px;
+  transform: translateY(-50%);
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow:
+    0 4px 14px rgba(15, 23, 42, 0.14),
+    0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody tr:has(.transaction-history-ellipsis-cell--expanded),
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody tr:has(.transaction-history-ellipsis-cell--expanded) {
+  position: relative;
+  z-index: 12;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody td:has(.transaction-history-ellipsis-cell--expanded),
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody td:has(.transaction-history-ellipsis-cell--expanded) {
+  overflow: visible;
+  position: relative;
+  z-index: 13;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-table-frame:has(.transaction-history-ellipsis-cell--expanded),
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-table-frame:has(.transaction-history-ellipsis-cell--expanded) {
+  overflow: visible;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody tr:nth-child(even) td,

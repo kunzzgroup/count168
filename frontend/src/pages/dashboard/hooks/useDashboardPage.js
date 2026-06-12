@@ -83,6 +83,7 @@ import {
   persistDashboardFilterState,
   resolveCrossPageCurrencyPreference,
   buildDashboardCurrencyScopeKey,
+  clearDashboardScopedCurrency,
   readDashboardSelectedCurrency,
   applyLoginScopeToSessionStorageIfNeeded,
   resolveBootCompanyId,
@@ -584,6 +585,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const currencyLoadGenRef = useRef(0);
   const loadCurrenciesRef = useRef(null);
   const skipNextCurrencyClickRef = useRef(false);
+  /** After company pill change, next currency resolve picks the first pill (MYR). */
+  const preferFirstCurrencyRef = useRef(false);
   const scopeCurrencyKeyRef = useRef("");
   const bootstrapGcOnceRef = useRef(false);
   const meRef = useRef(me);
@@ -1476,6 +1479,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (clearSubset) setMergedSubsetIds(null);
   }, []);
 
+  const resetCurrencyForCompanySwitch = useCallback((cid, group) => {
+    const scopeKey = buildDashboardCurrencyScopeKey({
+      companyId: cid,
+      selectedGroup: group,
+    });
+    if (scopeKey) clearDashboardScopedCurrency(scopeKey);
+    preferFirstCurrencyRef.current = true;
+  }, []);
+
+  const resolveActiveCurrencyForScope = useCallback((params) => {
+    if (preferFirstCurrencyRef.current) {
+      preferFirstCurrencyRef.current = false;
+      return params.codes?.[0] || "";
+    }
+    return resolveDashboardActiveCurrency(params);
+  }, []);
+
   const clearCompanySelection = useCallback((groupForPersist) => {
     const g =
       groupForPersist ??
@@ -1600,7 +1620,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !groupsAllMode &&
       !groupAllMode;
     setCurrencyCode((prev) =>
-      resolveDashboardActiveCurrency({
+      resolveActiveCurrencyForScope({
         codes: ordered,
         scopeKey,
         isCompanyOnlyScope,
@@ -1614,7 +1634,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         persistDashboardCurrencyDisplayOrder(currencyDisplayOrderByCompanyRef, cid, ordered);
       }
     }
-  }, [companyId, selectedGroup, groupsAllMode, groupAllMode, mergedSubsetIds, companies, me, companiesForPicker]);
+  }, [companyId, selectedGroup, groupsAllMode, groupAllMode, mergedSubsetIds, companies, me, companiesForPicker, resolveActiveCurrencyForScope]);
 
   /** Instant currency pills when switching group/company — uses in-memory cache from prior visits. */
   const primeCurrenciesFromCache = useCallback(
@@ -1755,7 +1775,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         companyId: Number.isFinite(singleCid) && singleCid > 0 ? singleCid : null,
         selectedGroup: groupKey,
       });
-      const nextCode = resolveDashboardActiveCurrency({
+      const nextCode = resolveActiveCurrencyForScope({
         codes: list,
         scopeKey,
         isCompanyOnlyScope,
@@ -1768,7 +1788,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
       return true;
     },
-    [companyId, selectedGroup, groupsAllMode, groupAllMode, companies, groupIds, me, companiesForPicker]
+    [companyId, selectedGroup, groupsAllMode, groupAllMode, companies, groupIds, me, companiesForPicker, resolveActiveCurrencyForScope]
   );
 
   const orderCurrencyCodes = useCallback(
@@ -1823,7 +1843,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         !groupsAllMode &&
         !groupAllMode &&
         !(mergedSubsetIds && mergedSubsetIds.length > 1);
-      const nextCode = resolveDashboardActiveCurrency({
+      const nextCode = resolveActiveCurrencyForScope({
         codes: list,
         scopeKey: currencyScopeKey,
         isCompanyOnlyScope,
@@ -6180,6 +6200,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setMergedSubsetIds(null);
       setSelectedGroup(g);
       persistDashboardGroupFilter(g);
+      resetCurrencyForCompanySwitch(id, g);
       applyCompanySelection(id);
       primeCurrenciesFromCache({
         companyId: id,
@@ -6209,6 +6230,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       primeCurrenciesFromCache,
       primeDashboardFromCache,
       resetAnchorSessionRef,
+      resetCurrencyForCompanySwitch,
     ]
   );
 
@@ -6300,6 +6322,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         id,
         buildDashboardSidebarNotifyOptions(c, persistGroup, { ignoreGroupOnly: true }),
       );
+      resetCurrencyForCompanySwitch(id, groupsAllMode ? null : gid);
       flushSync(() => {
         dashboardFetchInFlightScopeRef.current = "";
         dashboardBootstrapInFlightRef.current = "";
@@ -6365,6 +6388,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       prefetchDashboardCompany,
       shouldPrefetchCompanyScope,
       me,
+      resetCurrencyForCompanySwitch,
     ]
   );
 

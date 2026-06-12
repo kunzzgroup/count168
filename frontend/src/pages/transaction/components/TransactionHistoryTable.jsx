@@ -1,4 +1,5 @@
 import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../lib/transactionFormat.js";
+import TransactionHistoryEllipsisCell from "./TransactionHistoryEllipsisCell.jsx";
 import TransactionWinLossCell from "./TransactionWinLossCell.jsx";
 
 function HistoryTableColgroup({ showDescriptionColumn }) {
@@ -96,8 +97,12 @@ export default function TransactionHistoryTable({ rows, histMoney, showDescripti
                 key={r.id ?? `${idx}-${r.date || ""}-${r.balance || ""}`}
                 className={isBf ? "transaction-bf-row transaction-history-bf-row" : "transaction-table-row"}
               >
-                <td className="transaction-history-col-date">{r.date || "-"}</td>
-                <td className="transaction-history-col-product">{String(idProductDisplay)}</td>
+                <td className="transaction-history-col-date">
+                  <TransactionHistoryEllipsisCell value={r.date || "-"} />
+                </td>
+                <td className="transaction-history-col-product">
+                  <TransactionHistoryEllipsisCell value={idProductDisplay} />
+                </td>
                 <td className="transaction-history-col-currency">{r.currency || "-"}</td>
                 <td className="transaction-history-col-rate">
                   {r.rate && r.rate !== "-" ? formatRateForHistoryDisplay(r.rate) : "-"}
@@ -112,10 +117,16 @@ export default function TransactionHistoryTable({ rows, histMoney, showDescripti
                   <TransactionWinLossCell value={r.balance} formatMoney={histMoney} />
                 </td>
                 {showDescriptionColumn ? (
-                  <td className="transaction-history-col-description text-uppercase">{toUpperDisplay(r.description)}</td>
+                  <td className="transaction-history-col-description text-uppercase">
+                    <TransactionHistoryEllipsisCell value={toUpperDisplay(r.description)} />
+                  </td>
                 ) : null}
-                <td className="transaction-history-col-remark text-uppercase">{getHistoryRemark(r)}</td>
-                <td className="transaction-history-col-created">{createdByDisplay}</td>
+                <td className="transaction-history-col-remark text-uppercase">
+                  <TransactionHistoryEllipsisCell value={getHistoryRemark(r)} />
+                </td>
+                <td className="transaction-history-col-created">
+                  <TransactionHistoryEllipsisCell value={createdByDisplay} />
+                </td>
               </tr>
             );
           })}

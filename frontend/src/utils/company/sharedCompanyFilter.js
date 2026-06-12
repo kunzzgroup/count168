@@ -157,6 +157,25 @@ export function persistDashboardSelectedCurrency(scopeKey, code) {
   }
 }
 
+/** Drop persisted currency for one company/group scope (used when switching company pills). */
+export function clearDashboardScopedCurrency(scopeKey) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  if (!key) return;
+  try {
+    const map = readDashboardCurrencyScopeMap();
+    if (Object.prototype.hasOwnProperty.call(map, key)) {
+      delete map[key];
+      writeDashboardCurrencyScopeMap(map);
+    }
+    if (sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY) === key) {
+      sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
+      sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Clear cross-page currency pill selection (e.g. user picked ALL currencies). */
 export function clearDashboardSelectedCurrency() {
   try {
