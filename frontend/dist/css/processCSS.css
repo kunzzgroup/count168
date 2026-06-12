@@ -7134,49 +7134,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
         min-height: 0;
     }
 
-    /* Edit Process 弹窗：小屏全屏覆盖，底部 Update/Cancel 始终可见 */
-    .process-page #editModal {
-        left: 0 !important;
-        top: 0 !important;
-        width: 100vw !important;
-        height: 100% !important;
-        height: 100dvh !important;
-        border-radius: 0 !important;
-        padding: 0 !important;
-        display: flex !important;
-        align-items: stretch !important;
-        justify-content: stretch !important;
-    }
-
     .process-page .modal-content {
         overflow-y: hidden;
-    }
-
-    .process-page #editModal .modal-content,
-    .process-page #editModal .modal-content.process-form-modal,
-    body.process-page > #editModal.modal > .modal-content.process-form-modal,
-    #editModal .modal-content.process-form-modal {
-        margin: 0 !important;
-        width: 100% !important;
-        max-width: none !important;
-        min-width: 0 !important;
-        height: 100% !important;
-        max-height: none !important;
-        min-height: 0 !important;
-        border-radius: 0 !important;
-        overflow: hidden !important;
-        display: flex !important;
-        flex-direction: column !important;
-        box-sizing: border-box !important;
-    }
-
-    .process-page #editModal .modal-body {
-        flex: 1 1 auto !important;
-        padding: 0.75rem 1rem 0 !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        min-height: 0 !important;
-        -webkit-overflow-scrolling: touch;
     }
 
     .process-page #editModal .process-form.add-grid {
@@ -8204,54 +8163,108 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     grid-column: auto;
 }
 
-/* Edit Process：禁止 backdrop 滚动；受限视口全屏（含 MacBook 等宽>1024 矮屏） */
+/* Edit Process：居中浮层（非全屏），完整落在视口内，底栏固定可见 */
 body.process-page > #editModal.modal,
 .process-page #editModal.modal,
 #editModal.modal {
     overflow: hidden !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding:
+        max(0.75rem, env(safe-area-inset-top, 0px))
+        max(0.75rem, env(safe-area-inset-right, 0px))
+        max(0.75rem, env(safe-area-inset-bottom, 0px))
+        max(0.75rem, env(safe-area-inset-left, 0px)) !important;
+    box-sizing: border-box !important;
 }
 
-@media (max-width: 1280px), (max-height: 960px) {
-    body.process-page > #editModal.modal,
-    .process-page #editModal.modal,
-    #editModal.modal {
-        left: 0 !important;
-        top: 0 !important;
-        width: 100vw !important;
-        height: 100dvh !important;
-        max-height: 100dvh !important;
-        display: flex !important;
-        align-items: stretch !important;
-        justify-content: stretch !important;
-        padding: 0 !important;
-        border-radius: 0 !important;
-    }
+body.process-page > #editModal.modal > .modal-content.process-form-modal,
+.process-page #editModal .modal-content,
+.process-page #editModal .modal-content.process-form-modal,
+#editModal .modal-content,
+#editModal .modal-content.process-form-modal {
+    width: min(1120px, calc(100vw - 1.5rem)) !important;
+    max-width: min(1120px, calc(100vw - 1.5rem)) !important;
+    min-width: 0 !important;
+    max-height: calc(100dvh - 1.5rem) !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    border-radius: var(--process-form-modal-radius, 0.75rem) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-shrink: 1 !important;
+    box-sizing: border-box !important;
+}
 
+#editModal .process-form-modal-shell > .modal-body {
+    padding: 0.75rem 1rem 0 !important;
+}
+
+@media (max-width: 1280px), (max-height: 900px) {
     body.process-page > #editModal.modal > .modal-content.process-form-modal,
-    .process-page #editModal .modal-content,
-    .process-page #editModal .modal-content.process-form-modal,
-    #editModal .modal-content,
     #editModal .modal-content.process-form-modal {
-        width: 100% !important;
-        max-width: none !important;
-        min-width: 0 !important;
-        height: 100% !important;
-        max-height: 100dvh !important;
-        min-height: 0 !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        overflow: hidden !important;
-        display: flex !important;
-        flex-direction: column !important;
-        box-sizing: border-box !important;
+        width: min(1040px, calc(100vw - 1.25rem)) !important;
+        max-width: min(1040px, calc(100vw - 1.25rem)) !important;
+        max-height: calc(100dvh - 1.25rem) !important;
     }
 
     #editModal .process-form-modal-shell > .modal-body {
-        padding: 0.75rem 1rem 0 !important;
+        padding: 0.6rem 0.85rem 0 !important;
+    }
+
+    #editModal .process-form.add-grid {
+        column-gap: 0.65rem !important;
+        row-gap: 0.25rem !important;
+    }
+
+    #editModal .process-form.add-grid .add-col {
+        padding: 0.45rem 0.55rem !important;
+    }
+
+    #editModal .process-form.add-grid .add-col > .process-form-section:not(:last-child) {
+        margin-bottom: 0.45rem !important;
+        padding-bottom: 0.4rem !important;
+    }
+
+    #editModal .process-form-section-title {
+        font-size: 0.9rem !important;
+        margin-bottom: 0.4rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+
+    #editModal .process-form .form-group > label {
+        font-size: 0.82rem !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    #editModal .process-form .form-group input,
+    #editModal .process-form .form-group select,
+    #editModal .process-form .form-group textarea,
+    #editModal .custom-select-button {
+        min-height: 2.1rem !important;
+        padding: 0.3rem 0.55rem !important;
+        font-size: 0.8rem !important;
     }
 
     #editModal .process-form .form-group textarea {
-        min-height: 4.5rem !important;
+        min-height: 3rem !important;
+    }
+
+    #editModal .process-form .form-row {
+        margin-bottom: 0.25rem !important;
+    }
+
+    #editModal .process-form-modal-footer {
+        padding: 0.5rem 0.85rem !important;
+    }
+
+    #editModal .process-form-modal-footer .btn {
+        min-height: 2.15rem !important;
+        height: 2.15rem !important;
+        font-size: 0.85rem !important;
     }
 }
 
