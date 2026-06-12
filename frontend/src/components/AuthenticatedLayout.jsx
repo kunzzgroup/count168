@@ -118,6 +118,8 @@ export default function AuthenticatedLayout() {
   );
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const path = location.pathname;
+  const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hoverSection, setHoverSection] = useState(null);
@@ -271,8 +273,6 @@ export default function AuthenticatedLayout() {
     if (sidebarCollapsed) expandSidebar();
   };
 
-  const path = location.pathname;
-  const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const hideProcessWhenGroupOnly = useMemo(
     () => shouldHideSidebarProcess(path),
     [path, sidebarGcTick],
