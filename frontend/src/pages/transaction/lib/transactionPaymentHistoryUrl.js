@@ -44,8 +44,14 @@ export function buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts =
 
   if (!accountDbId && accountCode) params.set("virtual_company_code", accountCode.toUpperCase());
 
+  params.set("ph", "1");
+
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/transaction/payment-history?${params.toString()}`;
+  return `${origin}/transaction?${params.toString()}`;
+}
+
+export function isPaymentHistoryView(searchParams) {
+  return searchParams?.get("ph") === "1";
 }
 
 export function parsePaymentHistoryParams(searchParams) {

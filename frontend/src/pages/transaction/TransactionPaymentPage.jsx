@@ -1,5 +1,7 @@
 import { useLayoutEffect, useMemo, useEffect, useCallback, useRef } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
+import TransactionPaymentHistoryPage from "./TransactionPaymentHistoryPage.jsx";
+import { isPaymentHistoryView } from "./lib/transactionPaymentHistoryUrl.js";
 import TransactionAddSection from "./components/TransactionAddSection.jsx";
 import TransactionHeader from "./components/TransactionHeader.jsx";
 import TransactionSearchSection from "./components/TransactionSearchSection.jsx";
@@ -40,6 +42,14 @@ const ROUTE_BODY_CLASSES_TO_CLEAR = [
 ];
 
 export default function TransactionPaymentPage() {
+  const [searchParams] = useSearchParams();
+  if (isPaymentHistoryView(searchParams)) {
+    return <TransactionPaymentHistoryPage />;
+  }
+  return <TransactionPaymentPageMain />;
+}
+
+function TransactionPaymentPageMain() {
   const location = useLocation();
   const todayDmy = useMemo(() => formatDmy(new Date()), []);
   
