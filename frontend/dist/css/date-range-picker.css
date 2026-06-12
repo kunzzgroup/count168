@@ -1,8 +1,9 @@
 ﻿/* Shared date range picker - same as dashboard */
 :root {
-    --drp-trigger-text: var(--text-small);
-    --drp-trigger-icon: var(--text-small);
-    --drp-trigger-chevron: var(--text-tiny);
+    --drp-trigger-text: var(--text-medium);
+    --drp-trigger-icon: var(--text-medium);
+    --drp-trigger-chevron: var(--text-medium);
+    --drp-popup-text: var(--text-medium);
     --drp-popup-width: clamp(316px, 22vw, 336px);
 }
 
@@ -81,7 +82,7 @@
 
 .calendar-nav-btn i {
     color: #374151;
-    font-size: clamp(9px, 0.57vw, 11px);
+    font-size: var(--drp-popup-text);
 }
 
 .calendar-month-year {
@@ -94,7 +95,7 @@
     border: 1px solid #d1d5db;
     border-radius: 4px;
     padding: clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: var(--drp-popup-text);
     font-weight: 600;
     color: #000;
     background: white;
@@ -122,7 +123,7 @@
 
 .calendar-weekday {
     text-align: center;
-    font-size: var(--text-small);
+    font-size: var(--drp-popup-text);
     font-weight: 600;
     color: #898989;
     padding: clamp(2px, 0.21vw, 4px) 0;
@@ -141,7 +142,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    font-size: var(--text-tiny);
+    font-size: var(--drp-popup-text);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -232,7 +233,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: clamp(10px, 0.75vw, 14px);
+    font-size: var(--drp-popup-text);
     font-weight: bold;
     color: #000;
     font-family: var(--font-heading-page);
@@ -252,7 +253,7 @@ body:not(.maintenance-page) .quick-select-dropdown .dropdown-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: var(--drp-popup-text);
     gap: clamp(4px, 0.5vw, 6px);
     width: 100%;
     white-space: nowrap;
@@ -300,7 +301,7 @@ body:not(.maintenance-page) .quick-select-dropdown .dropdown-item {
     background: transparent;
     color: #374151;
     cursor: pointer;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: var(--drp-popup-text);
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
@@ -354,7 +355,7 @@ body.maintenance-page .quick-select-dropdown .dropdown-item {
     background: transparent;
     color: #374151;
     cursor: pointer;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: var(--drp-popup-text);
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
@@ -434,7 +435,7 @@ body.maintenance-page .transaction-calendar-preset , body.dashboard-page.report-
     background: transparent;
     color: #334155;
     font-family: var(--font-heading-page);
-    font-size: var(--text-tiny);
+    font-size: var(--drp-popup-text);
     font-weight: 700;
     text-align: left;
     cursor: pointer;
@@ -500,7 +501,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger,
     border-radius: 0;
     background: transparent;
     color: #334155;
-    font-size: var(--text-small);
+    font-size: var(--drp-popup-text);
     font-weight: 800;
     text-align: center;
     box-shadow: none;
@@ -590,7 +591,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-weekdays, bod
 
 body.transaction-page .calendar-popup--transaction-range .calendar-weekday, body.maintenance-page .calendar-popup--transaction-range .calendar-weekday, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-weekday, body.domain-page .calendar-popup--transaction-range .calendar-weekday, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-weekday{
     color: #8b95a5;
-    font-size: var(--text-tiny);
+    font-size: var(--drp-popup-text);
     font-weight: 700;
 }
 
@@ -605,7 +606,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day, body.mai
     min-height: 25px;
     border-radius: 6px;
     color: #111827;
-    font-size: var(--text-tiny);
+    font-size: var(--drp-popup-text);
     font-weight: 700;
     transition:
         background 0.14s ease,
@@ -629,7 +630,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-year-option, 
     background: #f8fafc;
     color: #334155;
     font-family: var(--font-heading-page);
-    font-size: var(--text-tiny);
+    font-size: var(--drp-popup-text);
     font-weight: 800;
     cursor: pointer;
     transition:

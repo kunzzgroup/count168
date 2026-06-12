@@ -168,7 +168,7 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     border-radius: 11px 0 0 11px;
     color: #ffffff;
     background: #3b82f6;
-    font-size: var(--drp-trigger-icon, var(--text-small));
+    font-size: var(--drp-trigger-icon, var(--text-medium));
     flex: 0 0 auto;
 }
 
@@ -176,7 +176,7 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     flex: 1 1 auto;
     min-width: 0;
     color: #64748b;
-    font-size: var(--drp-trigger-text, var(--text-small));
+    font-size: var(--drp-trigger-text, var(--text-medium));
     font-weight: 700;
     letter-spacing: 0.01em;
     white-space: nowrap;
@@ -191,7 +191,7 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     transform: translateY(-50%);
     margin: 0 !important;
     color: #64748b !important;
-    font-size: var(--drp-trigger-chevron, var(--text-tiny)) !important;
+    font-size: var(--drp-trigger-chevron, var(--text-medium)) !important;
     pointer-events: none;
     transition: color 0.16s ease, transform 0.16s ease;
 }
@@ -1977,7 +1977,7 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: var(--drp-trigger-text, var(--text-small));
+    font-size: var(--drp-trigger-text, var(--text-medium));
     font-weight: 700;
     padding-right: 0;
     color: #94a3b8;
@@ -2082,7 +2082,7 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
     min-width: 0 !important;
     min-height: 24px;
     padding: 3px 4px;
-    font-size: var(--drp-trigger-text, var(--text-small));
+    font-size: var(--drp-trigger-text, var(--text-medium));
     flex: 1 1 0;
 }
 
@@ -2095,14 +2095,14 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
 
 body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekday,
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-weekday {
-    font-size: var(--text-tiny);
+    font-size: var(--text-medium);
     padding: 2px 0;
 }
 
 body.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day,
 body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popup--transaction-range .calendar-day {
     min-height: 20px;
-    font-size: var(--text-tiny);
+    font-size: var(--text-medium);
     font-weight: 700;
     border-radius: 6px;
 }
@@ -2181,7 +2181,7 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
     body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
         width: clamp(28px, 2.1vw, 34px);
         border-radius: 10px 0 0 10px;
-        font-size: var(--drp-trigger-icon, var(--text-small));
+        font-size: var(--drp-trigger-icon, var(--text-medium));
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .date-range-picker,
@@ -2192,7 +2192,7 @@ body.ec-auth-shell.process-page.process-page--bank #calendar-popup.calendar-popu
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .transaction-date-range-chevron,
     body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-primary .transaction-date-range-group .transaction-date-range-chevron {
-        font-size: var(--drp-trigger-chevron, var(--text-tiny)) !important;
+        font-size: var(--drp-trigger-chevron, var(--text-medium)) !important;
     }
 
     body.process-page.process-page--bank .bank-process-toolbar-primary .search-container.userlist-search-bar.bank-process-search-bar,

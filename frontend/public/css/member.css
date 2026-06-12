@@ -1603,7 +1603,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     background: transparent !important;
     background-clip: border-box !important;
     box-shadow: none !important;
-    font-size: var(--drp-trigger-icon, var(--text-small)) !important;
+    font-size: var(--drp-trigger-icon, var(--text-medium)) !important;
     flex: 0 0 auto;
     position: relative;
     z-index: 5;
@@ -1618,7 +1618,7 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     justify-content: center;
     text-align: center;
     color: #1f2937;
-    font-size: var(--drp-trigger-text, var(--text-small, 13px));
+    font-size: var(--drp-trigger-text, var(--text-medium));
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;

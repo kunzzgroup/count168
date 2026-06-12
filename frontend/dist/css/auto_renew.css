@@ -155,7 +155,7 @@ body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker i.fa-c
   color: #ffffff;
   background: #3b82f6;
   box-shadow: none;
-  font-size: var(--drp-trigger-icon, var(--text-small, 13px));
+  font-size: var(--drp-trigger-icon, var(--text-medium));
   flex: 0 0 auto;
 }
 
@@ -163,7 +163,7 @@ body.auto-renew-page-body .auto-renew-date-range-group #date-range-display {
   flex: 1 1 auto;
   min-width: 0;
   color: #64748b;
-  font-size: var(--text-medium);
+  font-size: var(--drp-trigger-text);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -182,7 +182,7 @@ body.auto-renew-page-body .auto-renew-date-range-group .transaction-date-range-c
   top: 50%;
   margin: 0;
   color: #64748b;
-  font-size: var(--drp-trigger-chevron, var(--text-tiny, 11px));
+  font-size: var(--drp-trigger-chevron, var(--text-medium));
   flex: 0 0 auto;
   pointer-events: none;
   transform: translateY(-50%);

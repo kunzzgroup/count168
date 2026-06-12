@@ -266,14 +266,14 @@ body.dashboard-page {
     border-radius: 8px;
     min-height: 30px;
     padding: 2px 8px;
-    font-size: var(--drp-trigger-icon, var(--text-small));
+    font-size: var(--drp-trigger-icon, var(--text-medium));
 }
 
 .dashboard-date-range-bar__range {
     text-align: center;
     font-weight: 600;
     color: var(--scd-card-foreground);
-    font-size: var(--drp-trigger-text, var(--text-small));
+    font-size: var(--drp-trigger-text, var(--text-medium));
     line-height: 1.3;
     background: transparent;
     border: none;
@@ -341,7 +341,7 @@ body.dashboard-page {
 
 .dashboard-date-range-bar__range-line {
     display: block;
-    font-size: var(--drp-trigger-text, var(--text-small));
+    font-size: var(--drp-trigger-text, var(--text-medium));
 }
 
 @media (max-width: 640px) {
@@ -2396,7 +2396,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     user-select: none;
     background: transparent;
     border: 1px solid transparent;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     color: var(--scd-foreground);
     font-family: var(--font-heading-page);
 }
@@ -2414,7 +2414,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .date-separator {
     color: var(--scd-neutral-400);
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: 500;
     user-select: none;
     margin: 0 2px;
@@ -2485,7 +2485,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 #month-date-picker .year-grid .date-option {
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     padding: 8px 6px;
     min-width: 0;
     text-align: center;
@@ -2515,7 +2515,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     cursor: pointer;
     border-radius: clamp(4px, 0.31vw, 6px);
     transition: all 0.2s;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     color: var(--scd-foreground);
     background: transparent;
     border: 1px solid transparent;
@@ -2542,7 +2542,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .day-header {
     padding: clamp(2px, 0.21vw, 4px);
     text-align: center;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     color: var(--scd-muted-foreground);
     font-weight: 600;
     font-family: var(--font-heading-page);
@@ -2566,7 +2566,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     gap: clamp(4px, 0.5vw, 6px);
     width: 100%;
     white-space: nowrap;
@@ -2602,7 +2602,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     background: transparent;
     color: var(--scd-foreground);
     cursor: pointer;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
@@ -2626,7 +2626,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     border-radius: clamp(4px, 0.42vw, 8px);
     border: none;
     cursor: pointer;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     display: inline-flex;
     align-items: center;
     gap: clamp(4px, 0.6vw, 8px);
@@ -2657,7 +2657,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .form-label {
     display: block;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: var(--scd-black);
     margin-bottom: clamp(4px, 0.5vw, 8px);
@@ -2665,7 +2665,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .date-info {
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: var(--scd-muted-foreground);
     padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
@@ -2715,7 +2715,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .calendar-popup.calendar-popup--toolbar .calendar-nav-btn i {
     color: var(--scd-foreground);
-    font-size: clamp(9px, 0.57vw, 11px);
+    font-size: var(--text-medium);
 }
 
 .calendar-popup.calendar-popup--toolbar .calendar-month-year {
@@ -2728,7 +2728,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     border: 1px solid var(--scd-input-border);
     border-radius: 4px;
     padding: clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: 600;
     color: var(--scd-black);
     background: var(--scd-card);
@@ -2756,7 +2756,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .calendar-popup.calendar-popup--toolbar .calendar-weekday {
     text-align: center;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: 600;
     color: var(--scd-neutral-500);
     padding: clamp(2px, 0.21vw, 4px) 0;
@@ -2775,7 +2775,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -2855,7 +2855,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-date-info {
-    font-size: clamp(9px, 0.82vw, 15px);
+    font-size: var(--text-medium);
     font-weight: bold;
     color: var(--scd-muted-foreground);
     padding: clamp(4px, 0.4vw, 6px) clamp(6px, 0.63vw, 12px);
