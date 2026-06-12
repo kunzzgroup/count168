@@ -55,6 +55,13 @@ import {
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields } from "../lib/dashboardKpi.js";
 import {
+  mergeCompanyBreakdownRowLists,
+  normalizeSubsidiaryEarningsByCompany,
+  sortCompanyBreakdownRowsByPicker,
+  sumCompanyBreakdownAmount,
+  buildCompanyBreakdownRowsFromPairs,
+} from "../lib/dashboardCompanyProfit.js";
+import {
   canAccessGroupLedgerForGroup,
   canPrefetchCompanyScope,
   canUseGroupOnlyMode,
@@ -553,6 +560,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const [exchangeRatesLoading, setExchangeRatesLoading] = useState(false);
   const [exchangeRatesError, setExchangeRatesError] = useState("");
   const [chartVisible, setChartVisible] = useState([true, true, true, true]);
+  const [earningsPanelView, setEarningsPanelView] = useState("currency");
   const [companyAccessModal, setCompanyAccessModal] = useState({ open: false, message: "" });
   /** Matches `dashboardScopeKey` when `dashboardData` reflects the active filter scope. */
   const [displayScopeKey, setDisplayScopeKey] = useState("");
@@ -3786,19 +3794,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const settled = await Promise.allSettled(
         accessible.map((c) => {
           const cid = parseInt(c.id, 10);
+          const viewGroup = resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup);
           return fetchDashboardPayload(
             cid,
             rangeFrom,
             rangeTo,
             currencyOverride,
-            resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup),
+            viewGroup,
             useActiveScopeAbort
-          );
+          ).then((data) => ({ company: c, data, viewGroup }));
         })
       );
-      const results = settled
-        .filter((entry) => entry.status === "fulfilled" && entry.value)
+      const pairs = settled
+        .filter((entry) => entry.status === "fulfilled" && entry.value?.data)
         .map((entry) => entry.value);
+      const results = pairs.map((pair) => pair.data);
       if (!results.length) {
         const rejected = settled.find(
           (entry) => entry.status === "rejected" && !isBenignFetchError(entry.reason)
@@ -3812,7 +3822,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         }
         throw new Error(i18n.failedToLoadDashboard);
       }
-      return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
+      const merged = mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
+      const byCompany = buildCompanyBreakdownRowsFromPairs(
+        pairs,
+        viewGroupFallback ?? selectedGroup
+      );
+      if (byCompany.length) {
+        merged.subsidiary_earnings_by_company = byCompany;
+      }
+      return merged;
     },
     [fetchDashboardPayload, selectedGroup, companies, i18n.failedToLoadDashboard]
   );
@@ -3922,7 +3940,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             fetchGroupDashboardPayload(rangeFrom, rangeTo, currencyOverride, gid)
           )
         );
-        return mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
+        const merged = mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
+        const byCompany = mergeCompanyBreakdownRowLists(
+          results.map((r) => normalizeSubsidiaryEarningsByCompany(r?.subsidiary_earnings_by_company))
+        );
+        if (byCompany.length) {
+          merged.subsidiary_earnings_by_company = byCompany;
+        }
+        return merged;
       }
 
       if (mergedSubsetIds && mergedSubsetIds.length > 1) {
@@ -5982,6 +6007,49 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return i18n.earningsIncludesConversion;
   }, [earningsBreakdownShowsRate, i18n.earningsIncludesConversion]);
 
+  /**
+   * Company profit tab: group-level views only (All / group ledger / groups-all aggregate).
+   * Hidden on subsidiary drill-down (e.g. IG + 95) — currency panel only there.
+   */
+  const showProfitChartTab = useMemo(() => {
+    if (!dashboardData?.has_group_ownership) return false;
+    if (subsidiaryDashboardScope) return false;
+    return Boolean(groupAllMode || usesGroupLedgerDashboard || groupsAllGroupLevel);
+  }, [
+    dashboardData?.has_group_ownership,
+    subsidiaryDashboardScope,
+    groupAllMode,
+    usesGroupLedgerDashboard,
+    groupsAllGroupLevel,
+  ]);
+
+  const companyBreakdownRows = useMemo(() => {
+    if (!showProfitChartTab) return [];
+    const rows = normalizeSubsidiaryEarningsByCompany(
+      dashboardData?.subsidiary_earnings_by_company
+    );
+    return sortCompanyBreakdownRowsByPicker(rows, companiesForPicker);
+  }, [showProfitChartTab, dashboardData?.subsidiary_earnings_by_company, companiesForPicker]);
+
+  const companyEarningsTotal = useMemo(
+    () => sumCompanyBreakdownAmount(companyBreakdownRows, "earnings"),
+    [companyBreakdownRows]
+  );
+
+  const companyGroupProfitTotal = useMemo(
+    () => sumCompanyBreakdownAmount(companyBreakdownRows, "profit"),
+    [companyBreakdownRows]
+  );
+
+  useEffect(() => {
+    if (
+      !showProfitChartTab &&
+      (earningsPanelView === "earnings" || earningsPanelView === "profit")
+    ) {
+      setEarningsPanelView("currency");
+    }
+  }, [showProfitChartTab, earningsPanelView]);
+
   const exchangeRateScopeKey = useMemo(
     () =>
       [
@@ -6872,6 +6940,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     rateFootnoteText,
     exchangeRateScopeKey,
     convertedEarningsTotal,
+    showProfitChartTab,
+    earningsPanelView,
+    setEarningsPanelView,
+    companyBreakdownRows,
+    companyEarningsTotal,
+    companyGroupProfitTotal,
     handlePickGroup,
     handlePickAllGroups,
     handlePickCompany,
