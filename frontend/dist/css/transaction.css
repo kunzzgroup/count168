@@ -3968,7 +3968,6 @@ body.transaction-payment-history-page .transaction-payment-history-panel.transac
 body.ec-payment-history-chromeless .transaction-payment-history-panel .transaction-modal-header,
 body.transaction-payment-history-page .transaction-payment-history-panel .transaction-modal-header {
     flex-shrink: 0;
-    border-bottom: 1px solid #e2e8f0;
 }
 
 body.ec-payment-history-chromeless .transaction-payment-history-panel .transaction-modal-body,
@@ -3980,37 +3979,6 @@ body.transaction-payment-history-page .transaction-payment-history-panel .transa
     display: flex;
     flex-direction: column;
     padding: 0 !important;
-}
-
-body.ec-payment-history-chromeless .transaction-payment-history-panel .transaction-history-table-frame,
-body.transaction-payment-history-page .transaction-payment-history-panel .transaction-history-table-frame {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    border-top: 1px solid #cbd5e1 !important;
-}
-
-body.ec-payment-history-chromeless .transaction-payment-history-panel .transaction-table,
-body.transaction-payment-history-page .transaction-payment-history-panel .transaction-table {
-    width: 100%;
-    border-collapse: collapse;
-    border-spacing: 0;
-}
-
-body.ec-payment-history-chromeless .transaction-payment-history-panel .transaction-table th,
-body.ec-payment-history-chromeless .transaction-payment-history-panel .transaction-table td,
-body.transaction-payment-history-page .transaction-payment-history-panel .transaction-table th,
-body.transaction-payment-history-page .transaction-payment-history-panel .transaction-table td {
-    border: 1px solid #cbd5e1 !important;
-    padding: clamp(6px, 0.5vw, 10px) clamp(8px, 0.65vw, 12px);
-}
-
-body.ec-payment-history-chromeless .transaction-payment-history-panel .transaction-table-header th,
-body.transaction-payment-history-page .transaction-payment-history-panel .transaction-table-header th {
-    border-color: #94a3b8 !important;
 }
 
 .transaction-payment-history-error {

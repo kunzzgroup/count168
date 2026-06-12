@@ -1,6 +1,7 @@
-/* Payment History 新标签页 — 独立样式（不依赖 transaction.css 末尾规则是否被缓存覆盖） */
+/* Payment History 新标签页 — 独立样式（外围边框 + 单元格网格） */
 
-.transaction-payment-history-page-root {
+body.transaction-payment-history-page .transaction-payment-history-page-root,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -8,8 +9,10 @@
   background: #ffffff;
 }
 
-.transaction-payment-history-page-root .transaction-payment-history-main,
-.transaction-payment-history-page-root .transaction-payment-history-panel {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-main,
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-panel,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-main,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-panel {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -21,17 +24,20 @@
   border-radius: 0;
   box-shadow: none;
   background: #ffffff;
+  border: 3px solid #334155 !important;
 }
 
-.transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header {
   flex-shrink: 0;
   margin: 0;
   padding: clamp(10px, 0.95vw, 16px) clamp(12px, 1.35vw, 18px);
-  border-bottom: 2px solid #475569;
+  border-bottom: 2px solid #334155 !important;
   background: #ffffff;
 }
 
-.transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -40,42 +46,56 @@
   overflow: hidden;
 }
 
-.transaction-payment-history-page-root .transaction-history-table-frame {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-table-frame,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-table-frame {
   flex: 1 1 auto;
-  min-height: calc(100dvh - 52px);
+  min-height: calc(100dvh - 56px);
   overflow: auto;
-  border: 2px solid #475569;
-  border-top: none;
+  margin: 0;
+  padding: 0;
   background: #ffffff;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-.transaction-payment-history-page-root .transaction-table {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-table,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-table {
   width: 100%;
+  min-height: 100%;
   border-collapse: collapse;
   border-spacing: 0;
+  border: none !important;
+  box-sizing: border-box;
 }
 
-.transaction-payment-history-page-root .transaction-table th,
-.transaction-payment-history-page-root .transaction-table td {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-table th,
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-table td,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-table th,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-table td {
   border: 1px solid #64748b !important;
   padding: clamp(6px, 0.5vw, 10px) clamp(8px, 0.65vw, 12px);
 }
 
-.transaction-payment-history-page-root .transaction-table-header th {
-  border-color: #334155 !important;
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-table-header th,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-table-header th {
+  border-color: #475569 !important;
   background-color: #002c49;
   color: #ffffff;
 }
 
-.transaction-payment-history-page-root .transaction-table tbody tr:nth-child(even) td {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-table tbody tr:nth-child(even) td,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-table tbody tr:nth-child(even) td {
   background-color: #eef2ff;
 }
 
-.transaction-payment-history-page-root .transaction-table tbody tr:nth-child(odd) td {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-table tbody tr:nth-child(odd) td,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-table tbody tr:nth-child(odd) td {
   background-color: #ffffff;
 }
 
-.transaction-payment-history-page-root .transaction-table tbody .transaction-history-bf-row td,
-.transaction-payment-history-page-root .transaction-table tbody .transaction-bf-row td {
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-table tbody .transaction-history-bf-row td,
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-table tbody .transaction-bf-row td,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-table tbody .transaction-history-bf-row td,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-table tbody .transaction-bf-row td {
   background-color: #f0f0f0 !important;
 }
