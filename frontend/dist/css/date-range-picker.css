@@ -612,6 +612,8 @@ body.transaction-page .calendar-popup--transaction-range .calendar-days, body.ma
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-day, body.maintenance-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-day, body.domain-page .calendar-popup--transaction-range .calendar-day, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-day{
+    aspect-ratio: auto;
+    width: 100%;
     min-height: var(--drp-day-min-h);
     border-radius: 8px;
     color: #111827;
