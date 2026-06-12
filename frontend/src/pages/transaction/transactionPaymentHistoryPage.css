@@ -237,7 +237,7 @@ body.ec-payment-history-chromeless .transaction-history-table--with-desc col.tra
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-currency,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-currency {
-  width: 9%;
+  width: 9.15%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-rate,
