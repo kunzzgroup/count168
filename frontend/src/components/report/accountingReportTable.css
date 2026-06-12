@@ -1,0 +1,94 @@
+/* 统一 Accounting Report 表格布局（仅结构/尺寸，颜色由各页面主题覆盖） */
+
+.ec-accounting-report-page {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100dvh;
+}
+
+.ec-accounting-report-container {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+
+.ec-accounting-report-scroll {
+  box-sizing: border-box;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ec-accounting-report-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  box-sizing: border-box;
+}
+
+.ec-accounting-report-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  height: 40px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ec-accounting-report-table tbody td {
+  font-size: 13px;
+  height: 40px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.ec-accounting-report-table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.ec-accounting-report-table .ec-cell-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 0;
+}
+
+.ec-accounting-report-table .ec-cell-ellipsis > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .ec-accounting-report-container {
+    padding: 12px 16px;
+  }
+}
+
+@media print {
+  .ec-accounting-report-container {
+    max-width: none;
+    padding: 0;
+  }
+
+  .ec-accounting-report-scroll {
+    overflow: visible;
+  }
+
+  .ec-accounting-report-table thead th {
+    position: static;
+  }
+}
