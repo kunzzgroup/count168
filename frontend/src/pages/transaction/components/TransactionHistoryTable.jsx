@@ -1,26 +1,82 @@
 import { getHistoryRemark, toUpperDisplay, formatRateForHistoryDisplay } from "../lib/transactionFormat.js";
 import TransactionWinLossCell from "./TransactionWinLossCell.jsx";
 
-export default function TransactionHistoryTable({ rows, histMoney, showDescriptionColumn, m }) {
+function HistoryTableColgroup({ showDescriptionColumn }) {
+  if (showDescriptionColumn) {
+    return (
+      <colgroup>
+        <col className="transaction-history-col-date" />
+        <col className="transaction-history-col-product" />
+        <col className="transaction-history-col-currency" />
+        <col className="transaction-history-col-rate" />
+        <col className="transaction-history-col-winloss" />
+        <col className="transaction-history-col-crdr" />
+        <col className="transaction-history-col-balance" />
+        <col className="transaction-history-col-description" />
+        <col className="transaction-history-col-remark" />
+        <col className="transaction-history-col-created" />
+      </colgroup>
+    );
+  }
+
   return (
-    <div className="transaction-history-table-frame">
-      <table
-        className={`transaction-table ${showDescriptionColumn ? "transaction-history-table--with-desc" : "transaction-history-table--no-desc"}`}
-      >
+    <colgroup>
+      <col className="transaction-history-col-date" />
+      <col className="transaction-history-col-product" />
+      <col className="transaction-history-col-currency" />
+      <col className="transaction-history-col-rate" />
+      <col className="transaction-history-col-winloss" />
+      <col className="transaction-history-col-crdr" />
+      <col className="transaction-history-col-balance" />
+      <col className="transaction-history-col-remark" />
+      <col className="transaction-history-col-created" />
+    </colgroup>
+  );
+}
+
+export default function TransactionHistoryTable({ rows, histMoney, showDescriptionColumn, m }) {
+  const tableClass = showDescriptionColumn
+    ? "transaction-history-table--with-desc"
+    : "transaction-history-table--no-desc";
+
+  return (
+    <div className="transaction-history-table-frame transaction-history-report-scroll" role="region" aria-label="Payment History">
+      <table className={`transaction-table transaction-history-report-table ${tableClass}`}>
+        <HistoryTableColgroup showDescriptionColumn={showDescriptionColumn} />
         <thead>
           <tr className="transaction-table-header">
-            <th className="transaction-history-col-date">{m.date}</th>
-            <th className="transaction-history-col-product">{m.idProduct}</th>
-            <th className="transaction-history-col-currency">{m.currency}</th>
-            <th className="transaction-history-col-rate">{m.rate}</th>
-            <th className="transaction-history-col-winloss">{m.winLossTable}</th>
-            <th className="transaction-history-col-crdr">{m.crDrTable}</th>
-            <th className="transaction-history-col-balance">{m.balanceTable}</th>
+            <th scope="col" className="transaction-history-col-date">
+              {m.date}
+            </th>
+            <th scope="col" className="transaction-history-col-product">
+              {m.idProduct}
+            </th>
+            <th scope="col" className="transaction-history-col-currency">
+              {m.currency}
+            </th>
+            <th scope="col" className="transaction-history-col-rate">
+              {m.rate}
+            </th>
+            <th scope="col" className="transaction-history-col-winloss">
+              {m.winLossTable}
+            </th>
+            <th scope="col" className="transaction-history-col-crdr">
+              {m.crDrTable}
+            </th>
+            <th scope="col" className="transaction-history-col-balance">
+              {m.balanceTable}
+            </th>
             {showDescriptionColumn ? (
-              <th className="transaction-history-col-description">{m.description}</th>
+              <th scope="col" className="transaction-history-col-description">
+                {m.description}
+              </th>
             ) : null}
-            <th className="transaction-history-col-remark">{m.remark}</th>
-            <th className="transaction-history-col-created">{m.createdBy}</th>
+            <th scope="col" className="transaction-history-col-remark">
+              {m.remark}
+            </th>
+            <th scope="col" className="transaction-history-col-created">
+              {m.createdBy}
+            </th>
           </tr>
         </thead>
         <tbody id="modal_tbody">
