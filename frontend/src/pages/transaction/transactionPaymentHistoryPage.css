@@ -1,17 +1,29 @@
-/* Payment History — A4 Accounting Report layout + responsive table */
+/* Payment History — card layout on Transaction page shell background */
 
 :root {
   --transaction-history-report-max-width: 1320px;
-  --transaction-history-report-border: #334155;
-  --transaction-history-report-grid: #64748b;
-  --transaction-history-report-head-bg: #002c49;
-  --transaction-history-report-canvas: #a9a9a9;
+  --transaction-history-report-border: #e2e8f0;
+  --transaction-history-report-grid: #e2e8f0;
+  --transaction-history-report-head-bg: #eff6ff;
+  --transaction-history-report-head-text: #1e3a5f;
+  --transaction-history-report-accent: #2563eb;
+  --transaction-history-page-bg: var(--color-page-bg, #e9f1ff);
+  --transaction-history-page-bg-image: var(
+    --app-shell-bg-image,
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
+    radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+    radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(145deg, #97bffc 0%, #aecffa 40%, #f9fbff 100%)
+  );
 }
 
 body.transaction-payment-history-page,
 body.ec-payment-history-chromeless.transaction-payment-history-page,
-body.ec-payment-history-chromeless {
-  background: var(--transaction-history-report-canvas) !important;
+body.ec-payment-history-chromeless.transaction-page {
+  background-color: var(--transaction-history-page-bg) !important;
+  background-image: var(--transaction-history-page-bg-image) !important;
+  background-blend-mode: screen, screen, multiply, screen, normal;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root,
@@ -21,11 +33,11 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root {
   height: 100%;
   min-height: 100dvh;
   margin: 0;
-  padding: clamp(8px, 1.2vw, 20px);
+  padding: clamp(16px, 2vw, 28px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: var(--transaction-history-report-canvas);
+  background: transparent;
   overflow: auto;
 }
 
@@ -54,10 +66,12 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   padding: 0;
   display: flex;
   flex-direction: column;
-  border-radius: 2px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.1);
+  border-radius: 14px !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 32px rgba(37, 99, 235, 0.08);
   background: #ffffff;
-  border: 2px solid var(--transaction-history-report-border) !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
   overflow: hidden;
 }
 
@@ -66,32 +80,109 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   flex-shrink: 0;
   margin: 0;
-  padding: clamp(12px, 1.1vw, 18px) clamp(14px, 1.5vw, 24px);
-  border-bottom: 2px solid var(--transaction-history-report-border) !important;
+  padding: clamp(16px, 1.4vw, 22px) clamp(18px, 1.8vw, 28px);
+  border-bottom: 1px solid var(--transaction-history-report-border) !important;
   background: #ffffff;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-header__brand,
+body.ec-payment-history-chromeless .transaction-payment-history-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-header__icon,
+body.ec-payment-history-chromeless .transaction-payment-history-header__icon {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+  color: var(--transaction-history-report-accent);
+  border: 1px solid #bfdbfe;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-header__text,
+body.ec-payment-history-chromeless .transaction-payment-history-header__text {
+  min-width: 0;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header h3,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-header h3 {
   margin: 0;
   color: #0f172a;
-  font-size: clamp(14px, 1.05vw, 18px);
+  font-size: var(--text-h2);
   font-weight: 700;
-  letter-spacing: 0.01em;
-  line-height: 1.35;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-close,
+body.ec-payment-history-chromeless .transaction-payment-history-close {
+  flex-shrink: 0;
+  align-self: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  font-size: 2rem;
+  line-height: 1;
+  color: #64748b;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body,
-body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body {
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-payment-history-panel .transaction-modal-body,
+body.transaction-payment-history-page .transaction-payment-history-body,
+body.ec-payment-history-chromeless .transaction-payment-history-body {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: clamp(8px, 1vw, 14px) clamp(8px, 1vw, 14px) clamp(10px, 1.1vw, 16px) !important;
+  padding: clamp(12px, 1.2vw, 18px) clamp(14px, 1.4vw, 22px) clamp(10px, 1vw, 14px) !important;
   overflow: hidden;
+  background: #ffffff;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-loading,
+body.ec-payment-history-chromeless .transaction-payment-history-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-loading__spinner,
+body.ec-payment-history-chromeless .transaction-payment-history-loading__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #dbeafe;
+  border-top-color: var(--transaction-history-report-accent);
+  border-radius: 50%;
+  animation: transaction-payment-history-spin 0.8s linear infinite;
+}
+
+@keyframes transaction-payment-history-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-scroll,
@@ -102,14 +193,14 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   min-height: 0;
   max-height: none !important;
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: visible;
   margin: 0;
   padding: 0;
   background: #ffffff;
-  border: 1px solid #94a3b8 !important;
-  border-radius: 2px;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--transaction-history-report-border) !important;
+  border-radius: 10px;
+  box-shadow: none;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table,
@@ -141,32 +232,32 @@ body.ec-payment-history-chromeless .transaction-history-table--with-desc col.tra
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-product,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-product {
-  width: 10%;
+  width: 1%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-currency,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-currency {
-  width: 7%;
+  width: 9%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-rate,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-rate {
-  width: 6%;
+  width: 5%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-winloss,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-winloss {
-  width: 8%;
+  width: 4%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-crdr,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-crdr {
-  width: 8%;
+  width: 4%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-balance,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-balance {
-  width: 9%;
+  width: 4%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-description,
@@ -176,7 +267,7 @@ body.ec-payment-history-chromeless .transaction-history-table--with-desc col.tra
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-remark,
 body.ec-payment-history-chromeless .transaction-history-table--with-desc col.transaction-history-col-remark {
-  width: 10%;
+  width: 14%;
 }
 
 body.transaction-payment-history-page .transaction-history-table--with-desc col.transaction-history-col-created,
@@ -237,9 +328,10 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   min-width: 0 !important;
   max-width: none;
   width: auto;
-  padding: 0 6px !important;
-  height: 40px;
-  border: 1px solid var(--transaction-history-report-grid) !important;
+  padding: 0 10px !important;
+  height: 44px;
+  border: none !important;
+  border-bottom: 1px solid var(--transaction-history-report-grid) !important;
   vertical-align: middle;
 }
 
@@ -249,21 +341,21 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   top: 0;
   z-index: 10;
   background-color: var(--transaction-history-report-head-bg) !important;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 12px;
+  color: var(--transaction-history-report-head-text);
+  font-weight: 700;
+  font-size: var(--text-base) !important;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
   white-space: nowrap !important;
   overflow: visible !important;
   text-overflow: clip !important;
+  border-bottom: 1px solid #dbeafe !important;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody td,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody td {
-  color: #1e293b;
-  font-weight: 600;
-  font-size: 13px;
+  color: #334155;
+  font-weight: 500;
+  font-size: var(--text-medium);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -334,13 +426,26 @@ body.transaction-payment-history-page .transaction-payment-history-page-root .tr
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody .transaction-bf-row td,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody .transaction-history-bf-row td,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody .transaction-bf-row td {
-  background-color: #f1f5f9 !important;
+  background-color: #eff6ff !important;
   font-weight: 700;
+  color: #1e3a5f;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody tr:hover td,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody tr:hover td {
-  filter: brightness(0.98);
+  background-color: #f1f5f9 !important;
+}
+
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-amount--pos,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-amount--pos {
+  color: #172a9f;
+  font-weight: var(--font-weight-bold);
+}
+
+body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-amount--neg,
+body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-amount--neg {
+  color: #dc2626;
+  font-weight: var(--font-weight-bold);
 }
 
 body.transaction-payment-history-page .transaction-payment-history-error,
