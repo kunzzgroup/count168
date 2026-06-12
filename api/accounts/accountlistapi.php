@@ -123,17 +123,30 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
     }
     $current_user_id = $_SESSION['user_id'];
     $current_user_role = $_SESSION['role'] ?? '';
+    $view_group = normalizeGroupId($_GET['group_id'] ?? $_GET['view_group'] ?? null);
     if ($current_user_role === 'owner') {
         $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
         $stmt->execute([$company_id, $owner_id]);
         if ($stmt->fetchColumn() == 0) {
+            if (
+                $view_group !== null
+                && gc_session_can_access_subsidiary_under_view_group($pdo, $company_id, $view_group)
+            ) {
+                return;
+            }
             throw new Exception('无权限访问该公司');
         }
     } else {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
         $stmt->execute([$current_user_id, $company_id]);
         if ($stmt->fetchColumn() == 0) {
+            if (
+                $view_group !== null
+                && gc_session_can_access_subsidiary_under_view_group($pdo, $company_id, $view_group)
+            ) {
+                return;
+            }
             throw new Exception('无权限访问该公司');
         }
     }
