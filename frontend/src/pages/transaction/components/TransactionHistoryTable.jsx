@@ -7,11 +7,7 @@ function HistoryTableColgroup({ showDescriptionColumn }) {
   return (
     <colgroup>
       {columns.map((col) => (
-        <col
-          key={col.key}
-          className={col.className}
-          style={col.flex ? undefined : { width: `${col.width}px` }}
-        />
+        <col key={col.key} className={col.className} style={{ width: `${col.widthPct}%` }} />
       ))}
     </colgroup>
   );
