@@ -1489,7 +1489,9 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 }
 
 body.account-page #confirmDeleteModal .confirm-cancel,
-body.account-page #confirmDeleteModal .confirm-delete {
+body.account-page #confirmDeleteModal .confirm-delete,
+body.account-page #forceDeleteCurrencyModal .confirm-cancel,
+body.account-page #forceDeleteCurrencyModal .confirm-delete {
     flex: 0 0 auto;
     min-width: clamp(90px, 7vw, 130px);
     display: flex;
@@ -3287,6 +3289,8 @@ body > #userModal.modal {
 body > #confirmModal.modal,
 body > #confirmDeleteModal.account-modal,
 body > #forceDeleteCurrencyModal.account-modal,
+body > #confirmDeleteModal.confirm-delete-modal-overlay,
+body > #forceDeleteCurrencyModal.confirm-delete-modal-overlay,
 body > #accountAlertModal.account-modal {
     z-index: 20100;
 }
