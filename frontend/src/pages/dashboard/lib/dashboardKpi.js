@@ -169,9 +169,11 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const panelMultiplier = resolvePanelEarningsPct(dashboardData, selectedGroup, options);
   const kpiMultiplier = resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);
-  const earningsDisplay = groupAggregate
-    ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false })
-    : netProfitDisplay * panelMultiplier;
+  const earningsDisplay = !showEarnings
+    ? netProfitDisplay
+    : groupAggregate
+      ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false })
+      : netProfitDisplay * panelMultiplier;
   const kpiCardEarnings = showEarnings
     ? groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: true })
