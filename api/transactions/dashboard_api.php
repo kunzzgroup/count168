@@ -2837,6 +2837,16 @@ try {
                 $stmt->execute([$requestedCompanyId, $owner_id]);
                 if ($stmt->fetchColumn()) {
                     $company_id = $requestedCompanyId;
+                } elseif (
+                    $viewGroupForAccess !== null
+                    && $viewGroupForAccess !== ''
+                    && gc_session_can_access_subsidiary_under_view_group(
+                        $pdo,
+                        $requestedCompanyId,
+                        $viewGroupForAccess
+                    )
+                ) {
+                    $company_id = $requestedCompanyId;
                 } else {
                     throw new Exception('无权访问该公司');
                 }
@@ -2847,6 +2857,16 @@ try {
                     $ucm_stmt = $pdo->prepare("SELECT 1 FROM user_company_map WHERE user_id = ? AND company_id = ? LIMIT 1");
                     $ucm_stmt->execute([$_SESSION['user_id'], $requestedCompanyId]);
                     if ($ucm_stmt->fetchColumn()) {
+                        $company_id = $requestedCompanyId;
+                    } elseif (
+                        $viewGroupForAccess !== null
+                        && $viewGroupForAccess !== ''
+                        && gc_session_can_access_subsidiary_under_view_group(
+                            $pdo,
+                            $requestedCompanyId,
+                            $viewGroupForAccess
+                        )
+                    ) {
                         $company_id = $requestedCompanyId;
                     } else {
                         throw new Exception('无权访问该公司');

@@ -677,7 +677,7 @@ export default function AuthenticatedLayout() {
       void import("../pages/account/accountRoutePrefetch.js").then(({ warmAccountListRouteCache }) => {
         warmAccountListRouteCache({
           companyId: groupOnly ? null : companyId,
-          groupId: groupOnly ? selectedGroup : null,
+          groupId: groupOnly ? selectedGroup : companyId && selectedGroup ? selectedGroup : null,
         });
       });
     };
@@ -720,7 +720,7 @@ export default function AuthenticatedLayout() {
           void import("../pages/account/accountRoutePrefetch.js").then(({ warmAccountListRouteCache }) => {
             warmAccountListRouteCache({
               companyId: groupOnly ? null : companyId,
-              groupId: groupOnly ? selectedGroup : null,
+              groupId: groupOnly ? selectedGroup : companyId && selectedGroup ? selectedGroup : null,
             });
           });
         }
