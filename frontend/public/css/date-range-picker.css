@@ -3,11 +3,11 @@
     --drp-trigger-text: var(--text-medium);
     --drp-trigger-icon: var(--text-medium);
     --drp-trigger-chevron: var(--text-medium);
-    --drp-popup-text: var(--text-medium);
+    --drp-popup-text: var(--text-small);
     --drp-popup-width: clamp(400px, 28vw, 440px);
-    --drp-preset-col: clamp(112px, 7.8vw, 132px);
-    --drp-day-min-h: clamp(30px, 2.2vw, 34px);
-    --drp-preset-min-h: clamp(28px, 2vw, 32px);
+    --drp-preset-col: clamp(96px, 6.8vw, 112px);
+    --drp-day-min-h: clamp(24px, 1.8vw, 28px);
+    --drp-preset-min-h: clamp(22px, 1.6vw, 26px);
 }
 
 .date-range-picker {
@@ -379,13 +379,13 @@ body.maintenance-page .calendar-popup.calendar-popup--transaction-range.calendar
 }
 
 body.transaction-page .calendar-popup--transaction-range.calendar-popup--no-presets .transaction-calendar-panel, body.maintenance-page .calendar-popup--transaction-range.calendar-popup--no-presets .transaction-calendar-panel, body.dashboard-page.report-page .calendar-popup--transaction-range.calendar-popup--no-presets .transaction-calendar-panel, body.domain-page .calendar-popup--transaction-range.calendar-popup--no-presets .transaction-calendar-panel, body.auto-renew-page-body .calendar-popup--transaction-range.calendar-popup--no-presets .transaction-calendar-panel{
-    padding: 12px 14px 14px;
+    padding: 10px 10px 12px;
 }
 
 body.transaction-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-header, body.maintenance-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-header, body.dashboard-page.report-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-header, body.domain-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-header, body.auto-renew-page-body .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-header{
     max-width: none;
     width: 100%;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 body.transaction-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-weekdays, body.maintenance-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-weekdays, body.dashboard-page.report-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-weekdays, body.domain-page .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-weekdays, body.auto-renew-page-body .calendar-popup--transaction-range.calendar-popup--no-presets .calendar-weekdays,
@@ -405,7 +405,7 @@ body.maintenance-page .calendar-popup.calendar-popup--transaction-range , body.d
     padding: 0;
     overflow: hidden;
     border: 1px solid rgba(203, 213, 225, 0.9);
-    border-radius: 12px;
+    border-radius: 10px;
     background: #ffffff;
     box-shadow: 0 16px 38px rgba(15, 23, 42, 0.16);
 }
@@ -419,8 +419,8 @@ body.transaction-page .transaction-calendar-presets,
 body.maintenance-page .transaction-calendar-presets , body.dashboard-page .transaction-calendar-presets , body.dashboard-page.report-page .transaction-calendar-presets , body.domain-page .transaction-calendar-presets , body.auto-renew-page-body .transaction-calendar-presets{
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 12px 8px;
+    gap: 4px;
+    padding: 9px 6px;
     border-right: 1px solid rgba(226, 232, 240, 0.95);
     background: linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
 }
@@ -432,9 +432,9 @@ body.maintenance-page .transaction-calendar-preset , body.dashboard-page.report-
     justify-content: space-between;
     width: 100%;
     min-height: var(--drp-preset-min-h);
-    padding: 6px 8px;
+    padding: 4px 6px;
     border: none;
-    border-radius: 6px;
+    border-radius: 5px;
     background: transparent;
     color: #334155;
     font-family: var(--font-heading-page);
@@ -467,7 +467,7 @@ body.maintenance-page .transaction-calendar-preset.is-active , body.dashboard-pa
 
 body.transaction-page .transaction-calendar-panel,
 body.maintenance-page .transaction-calendar-panel , body.dashboard-page .transaction-calendar-panel , body.dashboard-page.report-page .transaction-calendar-panel , body.domain-page .transaction-calendar-panel , body.auto-renew-page-body .transaction-calendar-panel{
-    padding: 12px 14px 14px;
+    padding: 10px 10px 12px;
     background: #ffffff;
 }
 
@@ -479,7 +479,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-header, body.
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     padding: 0;
     column-gap: 4px;
 }
@@ -490,7 +490,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-year, b
     align-items: center;
     justify-content: center;
     justify-self: center;
-    gap: 8px;
+    gap: 6px;
     overflow: visible;
     min-height: 0;
     border: none;
@@ -513,8 +513,8 @@ body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger,
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-year select, body.maintenance-page .calendar-popup--transaction-range .calendar-month-year select, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-month-year select, body.domain-page .calendar-popup--transaction-range .calendar-month-year select, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-month-year select{
-    min-height: 34px;
-    padding: 6px 8px;
+    min-height: 30px;
+    padding: 4px 8px;
     cursor: pointer;
     font-family: var(--font-heading-page);
 }
@@ -533,14 +533,14 @@ body.transaction-page .calendar-popup--transaction-range .calendar-month-trigger
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    min-width: 5.5rem;
-    min-height: 34px;
-    padding: 6px 10px;
+    gap: 4px;
+    min-width: 4.75rem;
+    min-height: 30px;
+    padding: 4px 8px;
     cursor: pointer;
     font-family: var(--font-heading-page);
     border: 1px solid rgba(203, 213, 225, 0.86);
-    border-radius: 10px;
+    border-radius: 8px;
     background: #f8fafc;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
@@ -549,14 +549,14 @@ body.transaction-page .calendar-popup--transaction-range .calendar-year-trigger,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    min-width: 4.5rem;
-    min-height: 34px;
-    padding: 6px 10px;
+    gap: 4px;
+    min-width: 3.75rem;
+    min-height: 30px;
+    padding: 4px 8px;
     cursor: pointer;
     font-family: var(--font-heading-page);
     border: 1px solid rgba(203, 213, 225, 0.86);
-    border-radius: 10px;
+    border-radius: 8px;
     background: #f8fafc;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
@@ -598,7 +598,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-nav-btn:hover
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-weekdays, body.maintenance-page .calendar-popup--transaction-range .calendar-weekdays, body.dashboard-page .calendar-popup--transaction-range .calendar-weekdays, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-weekdays, body.domain-page .calendar-popup--transaction-range .calendar-weekdays, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-weekdays{
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-weekday, body.maintenance-page .calendar-popup--transaction-range .calendar-weekday, body.dashboard-page .calendar-popup--transaction-range .calendar-weekday, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-weekday, body.domain-page .calendar-popup--transaction-range .calendar-weekday, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-weekday{
@@ -618,7 +618,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-days, body.ma
 
 body.transaction-page .calendar-popup--transaction-range .calendar-day, body.maintenance-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-day, body.domain-page .calendar-popup--transaction-range .calendar-day, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-day{
     min-height: var(--drp-day-min-h);
-    border-radius: 8px;
+    border-radius: 6px;
     color: #111827;
     font-size: var(--drp-popup-text);
     font-weight: 700;
@@ -632,15 +632,15 @@ body.transaction-page .calendar-popup--transaction-range .calendar-day, body.mai
 body.transaction-page .calendar-popup--transaction-range .calendar-days.calendar-month-grid, body.maintenance-page .calendar-popup--transaction-range .calendar-days.calendar-month-grid, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-days.calendar-month-grid, body.domain-page .calendar-popup--transaction-range .calendar-days.calendar-month-grid, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-days.calendar-month-grid,
 body.transaction-page .calendar-popup--transaction-range .calendar-days.calendar-year-grid, body.maintenance-page .calendar-popup--transaction-range .calendar-days.calendar-year-grid, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-days.calendar-year-grid, body.domain-page .calendar-popup--transaction-range .calendar-days.calendar-year-grid, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-days.calendar-year-grid{
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    padding: 8px 0 2px;
+    gap: 6px;
+    padding: 6px 0 2px;
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-month-option, body.maintenance-page .calendar-popup--transaction-range .calendar-month-option, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-month-option, body.domain-page .calendar-popup--transaction-range .calendar-month-option, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-month-option,
 body.transaction-page .calendar-popup--transaction-range .calendar-year-option, body.maintenance-page .calendar-popup--transaction-range .calendar-year-option, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-year-option, body.domain-page .calendar-popup--transaction-range .calendar-year-option, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-year-option{
-    min-height: 34px;
+    min-height: 28px;
     border: 1px solid transparent;
-    border-radius: 9px;
+    border-radius: 7px;
     background: #f8fafc;
     color: #334155;
     font-family: var(--font-heading-page);
