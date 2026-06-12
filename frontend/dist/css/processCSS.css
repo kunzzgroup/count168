@@ -7174,9 +7174,8 @@ body.ec-auth-shell #confirmBankResendModal .bank-resend-modal-actions .process-b
         flex: 1 1 auto !important;
         padding: 0.75rem 1rem 0 !important;
         overflow-x: hidden !important;
-        overflow-y: auto !important;
+        overflow-y: hidden !important;
         min-height: 0 !important;
-        -webkit-overflow-scrolling: touch;
     }
 
     .process-page #editModal .process-form.add-grid {
@@ -8246,18 +8245,153 @@ body.process-page > #editModal.modal,
         box-sizing: border-box !important;
     }
 
-    #editModal .process-form-modal-shell > .modal-body {
-        padding: 0.75rem 1rem 0 !important;
+    /* Edit Process 全屏紧凑：无滚动，一屏展示 */
+    #editModal .process-form-modal--viewport-fit .process-form-modal-shell > .modal-body {
+        overflow: hidden !important;
+        padding: 0.3rem 0.55rem 0 !important;
     }
 
-    #editModal .process-form .form-group textarea {
-        min-height: 4.5rem !important;
+    #editModal .process-form-modal--viewport-fit .modal-header {
+        padding: 0.35rem 0.65rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .modal-header h2 {
+        font-size: 1.05rem !important;
+        line-height: 1.2 !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .modal-header .close {
+        font-size: 1.35rem !important;
+        line-height: 1 !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form.add-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+        padding: 0 0.25rem !important;
+        column-gap: 0.45rem !important;
+        row-gap: 0.15rem !important;
+        align-content: start !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form.add-grid .add-col {
+        padding: 0.15rem 0.3rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form.add-grid .add-col > .process-form-section:not(:last-child) {
+        margin-bottom: 0.3rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form-section-title {
+        font-size: 0.78rem !important;
+        margin-bottom: 0.25rem !important;
+        padding-bottom: 0.15rem !important;
+        padding-left: 0.4rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form .form-group > label {
+        font-size: 0.75rem !important;
+        margin-bottom: 0.12rem !important;
+        line-height: 1.2 !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form .form-row {
+        margin-bottom: 0.12rem !important;
+        gap: 0.3rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form .form-group input,
+    #editModal .process-form-modal--viewport-fit .process-form .form-group select,
+    #editModal .process-form-modal--viewport-fit .process-form .form-group textarea,
+    #editModal .process-form-modal--viewport-fit .custom-select-button {
+        min-height: 1.85rem !important;
+        height: auto !important;
+        padding: 0.2rem 0.45rem !important;
+        font-size: 0.75rem !important;
+        line-height: 1.2 !important;
+        border-radius: 0.35rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form .form-group textarea {
+        min-height: 2.2rem !important;
+        max-height: 2.6rem !important;
+        resize: none !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .selected-descriptions {
+        padding: 0.2rem 0.35rem !important;
+        min-height: 0 !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .selected-description-tag {
+        padding: 0.1rem 0.35rem !important;
+        font-size: 0.7rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .add-icon {
+        width: 1.85rem !important;
+        height: 1.85rem !important;
+        min-width: 1.85rem !important;
+        font-size: 0.95rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit #edit_dts_modified,
+    #editModal .process-form-modal--viewport-fit #edit_dts_created {
+        min-height: 1.85rem !important;
+        margin-top: 0.12rem !important;
+        padding: 0.2rem 0.45rem !important;
+        font-size: 0.7rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit #edit_dts_modified span,
+    #editModal .process-form-modal--viewport-fit #edit_dts_created span {
+        font-size: 0.7rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .day-use-pill-row .user-gc-segment-group .user-gc-segment {
+        padding: 0.12rem 0.45rem !important;
+        font-size: 0.68rem !important;
+        min-height: 0 !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .day-use-pill-heading {
+        font-size: 0.75rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .field-help,
+    #editModal .process-form-modal--viewport-fit .form-row small {
+        font-size: 0.65rem !important;
+        margin-top: 0.05rem !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form-modal-footer {
+        padding: 0.35rem 0.65rem calc(0.35rem + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    #editModal .process-form-modal--viewport-fit .process-form-modal-footer .btn {
+        min-height: 2rem !important;
+        height: 2rem !important;
+        min-width: 6.5rem !important;
+        padding: 0 0.85rem !important;
+        font-size: 0.8rem !important;
+    }
+}
+
+@media (max-height: 820px) {
+    #editModal .process-form-modal--viewport-fit .process-form-modal-shell > .modal-body {
+        zoom: 0.92;
+    }
+}
+
+@media (max-height: 720px) {
+    #editModal .process-form-modal--viewport-fit .process-form-modal-shell > .modal-body {
+        zoom: 0.84;
     }
 }
 
 @media (max-width: 768px) {
-    .process-page #editModal .process-form.add-grid,
-    #editModal .process-form.add-grid {
+    .process-page #editModal:not(:has(.process-form-modal--viewport-fit)) .process-form.add-grid,
+    #editModal:not(:has(.process-form-modal--viewport-fit)) .process-form.add-grid {
         grid-template-columns: minmax(0, 1fr) !important;
     }
 }

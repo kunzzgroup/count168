@@ -98,7 +98,7 @@ export default function ProcessFormModal({
   return (
     <ProcessModalPortal>
     <div id={editMode ? "editModal" : "addModal"} className="modal" style={processModalBackdropStyle}>
-      <div className="modal-content process-form-modal">
+      <div className={`modal-content process-form-modal${editMode ? " process-form-modal--viewport-fit" : ""}`}>
         <div className="modal-header process-form-modal-header">
           <h2>{editMode ? t("editProcess") : t("addProcess")}</h2>
           <span className="close" onClick={onClose} role="presentation">
@@ -584,7 +584,7 @@ export default function ProcessFormModal({
                 <div className="form-group">
                   <label>{t("remarks")}</label>
                   <textarea
-                    rows={5}
+                    rows={editMode ? 2 : 5}
                     value={form.remark}
                     disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, remark: toProcessFormUpperInput(e.target.value) }))}
