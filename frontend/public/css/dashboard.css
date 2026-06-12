@@ -886,16 +886,19 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     padding: clamp(8px, 1vw, 12px) clamp(14px, 1.2vw, 24px);
 }
 
-/* KPI 網格：預設三欄；含 Earnings 時四欄 */
+/* KPI 網格：flex 單行，小屏不換行（3 或 4 張均分） */
 .dashboard-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
     gap: clamp(12px, 1.5vw, 20px);
     flex-shrink: 0;
+    min-width: 0;
 }
 
-.dashboard-kpi-grid--with-earnings {
-    grid-template-columns: repeat(4, 1fr);
+.dashboard-kpi-grid .dashboard-kpi-card {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 /* === KPI 卡片（图二：顶栏图标+标题 / 大号数值 / 底部说明） === */
@@ -2013,9 +2016,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
         gap: 12px;
     }
 
-    .dashboard-kpi-grid,
-    .dashboard-kpi-grid--with-earnings {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .dashboard-kpi-grid {
         gap: 10px;
     }
 
@@ -2096,10 +2097,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
         gap: var(--user-gc-inline-pills-gap, 4px);
     }
 
-    .dashboard-kpi-grid,
-    .dashboard-kpi-grid--with-earnings {
+    .dashboard-kpi-grid {
         gap: 10px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .dashboard-kpi-card {
@@ -2887,4 +2886,18 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
         z-index: 10;
         /* box-shadow: 0 4px 6px -1px #00000014; */
     }
+}
+
+/* KPI 單行：覆蓋舊版 grid 2 欄媒體查詢（2026-06） */
+body.dashboard-page .dashboard-content > .dashboard-kpi-grid,
+body.ec-auth-shell .dashboard-content > .dashboard-kpi-grid {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch;
+}
+
+body.dashboard-page .dashboard-content > .dashboard-kpi-grid .dashboard-kpi-card,
+body.ec-auth-shell .dashboard-content > .dashboard-kpi-grid .dashboard-kpi-card {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
 }
