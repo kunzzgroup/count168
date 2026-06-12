@@ -135,13 +135,18 @@
         const currentRole = memberTab.classList.contains('active') ? 'member' : 'admin';
         formData.append('login_role', currentRole);
 
+        const loginRetryKey = 'login_asset_retry';
+
         fetch('login_process.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            cache: 'no-store',
+            credentials: 'same-origin'
         })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
+                sessionStorage.removeItem(loginRetryKey);
                 window.location.href = data.redirect;
             } else {
                 showAlertModal('Notice', data.message);
@@ -149,6 +154,14 @@
         })
         .catch(error => {
             console.error('Error:', error);
+            if (!sessionStorage.getItem(loginRetryKey)) {
+                sessionStorage.setItem(loginRetryKey, '1');
+                const url = new URL(window.location.href);
+                url.searchParams.set('_', Date.now());
+                window.location.replace(url.toString());
+                return;
+            }
+            sessionStorage.removeItem(loginRetryKey);
             showAlertModal('Notice', 'An error occurred during login');
         });
     });

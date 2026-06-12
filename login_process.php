@@ -22,6 +22,9 @@ if (isset($_SESSION['last_activity']) && (time() - (int) $_SESSION['last_activit
 
 // 设置错误处理，确保返回 JSON
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 // 开启输出缓冲，防止意外输出（必须在 header 之后）
 ob_start();
