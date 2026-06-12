@@ -4,12 +4,10 @@
     --drp-trigger-icon: var(--text-medium);
     --drp-trigger-chevron: var(--text-small);
     --drp-popup-text: var(--text-base);
-    /* 固定上限 340px，避免桌面端随 vw 拉宽后与窄屏间距不一致 */
-    --drp-popup-width: clamp(292px, 92vw, 340px);
-    --drp-preset-col: 112px;
-    --drp-day-min-h: 34px;
-    --drp-preset-min-h: 30px;
-    --drp-day-gap: 4px;
+    --drp-popup-width: clamp(400px, 28vw, 440px);
+    --drp-preset-col: clamp(112px, 7.8vw, 132px);
+    --drp-day-min-h: clamp(34px, 2.5vw, 40px);
+    --drp-preset-min-h: clamp(30px, 2.2vw, 36px);
 }
 
 .date-range-picker {
@@ -608,12 +606,10 @@ body.transaction-page .calendar-popup--transaction-range .calendar-days, body.ma
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    gap: var(--drp-day-gap, 4px);
+    gap: 2px;
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-day, body.maintenance-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-day, body.domain-page .calendar-popup--transaction-range .calendar-day, body.auto-renew-page-body .calendar-popup--transaction-range .calendar-day{
-    aspect-ratio: auto;
-    width: 100%;
     min-height: var(--drp-day-min-h);
     border-radius: 8px;
     color: #111827;

@@ -73,7 +73,6 @@ export function closeMaintenanceCalendarPopup() {
   popup.removeAttribute("data-open");
   popup.setAttribute("aria-hidden", "true");
   popup.classList.remove("calendar-popup--match-anchor");
-  popup.classList.remove("calendar-popup--flip-up");
   popup.style.display = "none";
   document.body.style.removeProperty("--bank-toolbar-date-width");
   const bankFooter = document.getElementById("calendar-popup-bank-footer");
@@ -747,39 +746,6 @@ export function ensureMaintenanceDateRangePicker() {
     updateDateRangeDisplay();
   }
 
-  function positionCalendarPopup(popup, anchorRect) {
-    const gap = 8;
-    const viewportPad = 12;
-    const popupHeight = popup.offsetHeight;
-    let top = anchorRect.bottom + gap;
-    let flipUp = false;
-
-    const kpiGrid = document.querySelector(".dashboard-kpi-grid");
-    if (kpiGrid) {
-      const kpiTop = kpiGrid.getBoundingClientRect().top;
-      if (top + popupHeight > kpiTop - 4) {
-        flipUp = true;
-      }
-    }
-
-    if (!flipUp && top + popupHeight > window.innerHeight - viewportPad) {
-      const spaceAbove = anchorRect.top - viewportPad;
-      const spaceBelow = window.innerHeight - anchorRect.bottom - viewportPad;
-      if (spaceAbove >= popupHeight + gap || spaceAbove > spaceBelow) {
-        flipUp = true;
-      }
-    }
-
-    if (flipUp) {
-      top = Math.max(viewportPad, anchorRect.top - popupHeight - gap);
-      popup.classList.add("calendar-popup--flip-up");
-    } else {
-      popup.classList.remove("calendar-popup--flip-up");
-    }
-
-    popup.style.top = `${top}px`;
-  }
-
   function toggleCalendar(pickerEl) {
     const picker = pickerEl?.closest?.(".date-range-picker") || pickerEl || document.getElementById("date-range-picker");
     if (pickerEl || picker) setActiveRangeBindingFromTrigger(picker || pickerEl);
@@ -869,13 +835,13 @@ export function ensureMaintenanceDateRangePicker() {
         popup.style.minWidth = "";
         popup.style.maxWidth = "";
       }
+      popup.style.top = `${rect.bottom + 8}px`;
       popup.style.boxSizing = "border-box";
       popup.setAttribute("data-open", "true");
       popup.setAttribute("aria-hidden", "false");
       popup.style.display = "block";
       initCalendar();
       renderCalendar();
-      positionCalendarPopup(popup, rect);
       updateCalendarClearFooter();
       if (config.preserveDisplayUntilCommit) {
         paintDisplayFromDomHiddens(activeRangeBinding);

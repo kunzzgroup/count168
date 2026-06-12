@@ -884,12 +884,9 @@ body.transaction-page .calendar-popup--transaction-range .calendar-days, body.da
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    gap: var(--drp-day-gap, 4px);
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-day{
-    aspect-ratio: auto;
-    width: 100%;
     min-height: var(--drp-day-min-h, clamp(34px, 2.5vw, 40px));
     border-radius: 8px;
     color: #111827;
