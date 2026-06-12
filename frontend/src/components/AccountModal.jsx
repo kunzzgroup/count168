@@ -170,7 +170,7 @@ export default function AccountModal({
               <span className="currency-code-text">
                 {upper(c.code)}
               </span>
-              {(!currencyDeleteOnlyWhenDeselected || !selected) ? (
+              {(!currencyDeleteOnlyWhenDeselected || !selected) && c.deletable !== false ? (
                 <button
                   type="button"
                   className="currency-delete-btn"

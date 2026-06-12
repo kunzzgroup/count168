@@ -8,6 +8,8 @@ import { syncCompanySessionApi } from "../../../utils/company/companySessionSync
 import {
   bindDashboardSessionCache,
   buildDashboardCacheKey,
+  clearEarningsFromScopeKeys,
+  earningsRowsAreUsable,
   findSharedDashboardEarnings,
   getDashboardCache,
   getDashboardPayloadCache,
@@ -28,8 +30,8 @@ import {
   convertToBaseAmount,
   fetchFrankfurterRates,
   frankfurterMissingQuotes,
-  frankfurterRatesCoverQuotes,
   frankfurterRatesPartiallyUsable,
+  isFrankfurterRatesPayloadComplete,
   peekFrankfurterRatesCache,
   peekFrankfurterRatesCacheOrDerived,
   resolveFrankfurterDate,
@@ -353,21 +355,38 @@ function writeDashboardGroupCurrencyCaches(groupRef, { groupKey, groupsAllMode, 
   }
 }
 
-function mirrorDashboardEarningsAcrossCurrencies(earnings, currencies, resolveScopeKey) {
+function mirrorDashboardEarningsAcrossCurrencies(
+  earnings,
+  currencies,
+  resolveScopeKey,
+  primaryCode = null,
+  primaryEarnings = null
+) {
   if (!Array.isArray(earnings) || !earnings.length || !resolveScopeKey) return;
   const codes = [...new Set(
     (currencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean)
   )];
+  if (!earningsRowsAreUsable(earnings, codes, primaryCode, primaryEarnings)) return;
   for (const code of codes) {
     const key = resolveScopeKey({ currencyCode: code, showAllCurrencies: false });
     if (key) patchDashboardCache(key, { earnings });
   }
 }
 
-function dashboardEarningsRowsComplete(rows, codes) {
+function alignPrimaryEarningsInRows(rows, primaryCode, primaryEarnings) {
+  if (!Array.isArray(rows) || primaryEarnings == null) return rows;
+  const primary = String(primaryCode || "").trim().toUpperCase();
+  if (!primary || !Number.isFinite(Number(primaryEarnings))) return rows;
+  return rows.map((row) =>
+    String(row?.code || "").trim().toUpperCase() === primary
+      ? { ...row, earnings: Number(primaryEarnings) }
+      : row
+  );
+}
+
+function dashboardEarningsRowsComplete(rows, codes, primaryCode = null, primaryEarnings = null) {
   if (!Array.isArray(codes) || codes.length <= 1) return true;
-  if (!Array.isArray(rows) || rows.length !== codes.length) return false;
-  return rows.every((row) => row.earnings != null);
+  return earningsRowsAreUsable(rows, codes, primaryCode, primaryEarnings);
 }
 
 /** True when trend chart still needs a deferred chart bootstrap fetch. */
@@ -756,39 +775,58 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const resolveSharedDashboardEarnings = useCallback(
-    (codes = currencies) =>
-      findSharedDashboardEarnings(listCurrencyScopeKeys(codes), codes.length),
+    (codes = currencies, primaryCode = currencyCodeRef.current, primaryEarnings = null) =>
+      findSharedDashboardEarnings(
+        listCurrencyScopeKeys(codes),
+        codes,
+        primaryCode,
+        primaryEarnings
+      ),
     [listCurrencyScopeKeys, currencies]
   );
 
-  const cacheEntryHasFullEarnings = useCallback((entry, codes) => {
-    if (!Array.isArray(codes) || codes.length <= 1) return true;
-    const rows = entry?.earnings;
-    return (
-      rows?.length === codes.length && rows.every((row) => row.earnings != null)
-    );
-  }, []);
+  const cacheEntryHasFullEarnings = useCallback(
+    (entry, codes, primaryCode = null, primaryEarnings = null) => {
+      if (!Array.isArray(codes) || codes.length <= 1) return true;
+      return dashboardEarningsRowsComplete(entry?.earnings, codes, primaryCode, primaryEarnings);
+    },
+    []
+  );
 
   /** Complete per-currency earnings rows safe to apply to UI state (never undefined). */
-  const getCompleteCachedEarnings = useCallback((entry, codes) => {
-    if (!Array.isArray(codes) || codes.length <= 1) return null;
-    const rows = entry?.earnings;
-    if (!Array.isArray(rows) || rows.length !== codes.length) return null;
-    if (!rows.every((row) => row.earnings != null)) return null;
-    return rows;
-  }, []);
+  const getCompleteCachedEarnings = useCallback(
+    (entry, codes, primaryCode = null, primaryEarnings = null) => {
+      if (!Array.isArray(codes) || codes.length <= 1) return null;
+      const rows = entry?.earnings;
+      if (!dashboardEarningsRowsComplete(rows, codes, primaryCode, primaryEarnings)) return null;
+      return rows;
+    },
+    []
+  );
 
   /** Earnings for the active scope (exact cache key first, then sibling currency caches). */
   const resolveScopeDashboardEarnings = useCallback(
-    (codes = currencies, scopeKey = dashboardScopeKey) => {
+    (
+      codes = currencies,
+      scopeKey = dashboardScopeKey,
+      primaryCode = currencyCodeRef.current,
+      primaryEarnings = null
+    ) => {
       const list = Array.isArray(codes) ? codes : currencies;
       if (!Array.isArray(list) || !list.length) return null;
       const direct = scopeKey
-        ? getCompleteCachedEarnings(getDashboardCache(scopeKey), list)
+        ? getCompleteCachedEarnings(
+            getDashboardCache(scopeKey),
+            list,
+            primaryCode,
+            primaryEarnings
+          )
         : null;
       if (direct) return direct;
-      const shared = resolveSharedDashboardEarnings(list);
-      if (shared && dashboardEarningsRowsComplete(shared, list)) return shared;
+      const shared = resolveSharedDashboardEarnings(list, primaryCode, primaryEarnings);
+      if (shared && dashboardEarningsRowsComplete(shared, list, primaryCode, primaryEarnings)) {
+        return shared;
+      }
       return null;
     },
     [dashboardScopeKey, currencies, resolveSharedDashboardEarnings, getCompleteCachedEarnings]
@@ -3934,10 +3972,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         primaryPayload != null ? computeEarningsFromPayload(primaryPayload) : null;
 
       setEarningsByCurrency((prev) => {
-        if (dashboardEarningsRowsComplete(prev, codes)) return prev;
-        if (prev.length === codes.length && prev.some((row) => row.earnings != null)) {
-          return prev;
-        }
+        if (dashboardEarningsRowsComplete(prev, codes, primary, primaryEarnings)) return prev;
         return buildSeededEarningsRows(codes, primary, primaryEarnings);
       });
       setEarningsByCurrencyLoading(true);
@@ -3969,10 +4004,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         setEarningsByCurrency(rows);
 
         const scopeKey = cacheKey ?? dashboardScopeKey;
-        if (scopeKey && dashboardEarningsRowsComplete(rows, codes)) {
+        if (scopeKey && dashboardEarningsRowsComplete(rows, codes, primary, primaryEarnings)) {
           patchDashboardCache(scopeKey, { earnings: rows });
-          mirrorDashboardEarningsAcrossCurrencies(rows, codes, resolveDashboardScopeKey);
-        } else if (!dashboardEarningsRowsComplete(rows, codes)) {
+          mirrorDashboardEarningsAcrossCurrencies(
+            rows,
+            codes,
+            resolveDashboardScopeKey,
+            primary,
+            primaryEarnings
+          );
+        } else if (!dashboardEarningsRowsComplete(rows, codes, primary, primaryEarnings)) {
           scheduleIncompleteEarningsRetry(180);
         }
 
@@ -4253,6 +4294,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       currenciesScopeSig
     ) {
       earningsFetchGenRef.current += 1;
+      clearEarningsFromScopeKeys([
+        ...listCurrencyScopeKeys(currencies),
+        dashboardScopeKey,
+      ]);
     }
     prevEarningsCurrenciesSigRef.current = currenciesScopeSig;
 
@@ -4262,26 +4307,42 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setEarningsByCurrencyLoading(false);
       return;
     }
-    const scopeEarnings = resolveScopeDashboardEarnings(currencies);
+    const primary = currencyCodeRef.current;
+    const primaryEarnings = dashboardDataRef.current
+      ? computeEarningsFromPayload(dashboardDataRef.current)
+      : null;
+    const scopeEarnings = resolveScopeDashboardEarnings(
+      currencies,
+      dashboardScopeKey,
+      primary,
+      primaryEarnings
+    );
     if (scopeEarnings?.length === currencies.length) {
-      setEarningsByCurrency(scopeEarnings);
+      setEarningsByCurrency(
+        alignPrimaryEarningsInRows(scopeEarnings, primary, primaryEarnings)
+      );
       setEarningsByCurrencyPrev([]);
       setEarningsByCurrencyLoading(false);
       return;
     }
     const cached = dashboardScopeKey ? getDashboardCache(dashboardScopeKey) : null;
-    const readyEarnings = getCompleteCachedEarnings(cached, currencies);
+    const readyEarnings = getCompleteCachedEarnings(
+      cached,
+      currencies,
+      primary,
+      primaryEarnings
+    );
     if (readyEarnings) {
-      setEarningsByCurrency(readyEarnings);
+      setEarningsByCurrency(
+        alignPrimaryEarningsInRows(readyEarnings, primary, primaryEarnings)
+      );
       setEarningsByCurrencyPrev([]);
       setEarningsByCurrencyLoading(false);
       return;
     }
     if (dashboardDataRef.current) {
-      const primary = currencyCodeRef.current;
-      const primaryEarnings = computeEarningsFromPayload(dashboardDataRef.current);
       setEarningsByCurrency((prev) => {
-        if (dashboardEarningsRowsComplete(prev, currencies)) return prev;
+        if (dashboardEarningsRowsComplete(prev, currencies, primary, primaryEarnings)) return prev;
         return buildSeededEarningsRows(currencies, primary, primaryEarnings);
       });
       setEarningsByCurrencyLoading(true);
@@ -4300,6 +4361,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     getCompleteCachedEarnings,
     computeEarningsFromPayload,
     buildSeededEarningsRows,
+    listCurrencyScopeKeys,
   ]);
 
   useEffect(() => {
@@ -4328,10 +4390,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const gen = ++exchangeRatesFetchGenRef.current;
     const rateDate = resolveFrankfurterDate(dateTo);
     const cached = peekFrankfurterRatesCache(rateBase, currencies, rateDate);
-    const cachedReady =
+    const cachedPartial =
       cached && frankfurterRatesPartiallyUsable(rateBase, currencies, cached.rates);
+    const cachedComplete =
+      cachedPartial && isFrankfurterRatesPayloadComplete(rateBase, currencies, cached);
 
-    if (cachedReady) {
+    if (cachedPartial) {
       setExchangeRates({
         rates: cached.rates,
         date: cached.date,
@@ -4339,7 +4403,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         scopeKey: rateScopeKey,
       });
       setExchangeRatesError("");
-      setExchangeRatesLoading(false);
+      setExchangeRatesLoading(!cachedComplete);
     } else {
       setExchangeRates({ rates: { [rateBase]: 1 }, date: null, unsupported: [], scopeKey: "" });
       setExchangeRatesLoading(true);
@@ -4348,26 +4412,31 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     (async () => {
       try {
-        const { rates, date } = await fetchFrankfurterRates(rateBase, currencies, rateDate);
+        const { rates, date, unsupported } = await fetchFrankfurterRates(
+          rateBase,
+          currencies,
+          rateDate
+        );
         if (cancelled || gen !== exchangeRatesFetchGenRef.current) return;
 
-        const fullCoverage = frankfurterRatesCoverQuotes(rateBase, currencies, rates);
         const partialUsable = frankfurterRatesPartiallyUsable(rateBase, currencies, rates);
-        if (!partialUsable && cachedReady) {
+        if (!partialUsable && cachedPartial) {
           return;
         }
 
-        const ratesToUse = fullCoverage || partialUsable ? rates : cachedReady ? cached.rates : rates;
+        const ratesToUse = partialUsable ? rates : cachedPartial ? cached.rates : rates;
         setExchangeRates({
           rates: ratesToUse,
-          date: fullCoverage || partialUsable ? date : cachedReady ? cached.date : date,
-          unsupported: frankfurterMissingQuotes(rateBase, currencies, ratesToUse),
+          date: partialUsable ? date : cachedPartial ? cached.date : date,
+          unsupported: partialUsable
+            ? unsupported ?? frankfurterMissingQuotes(rateBase, currencies, ratesToUse)
+            : frankfurterMissingQuotes(rateBase, currencies, ratesToUse),
           scopeKey: rateScopeKey,
         });
-        setExchangeRatesError(partialUsable || cachedReady ? "" : "failed");
+        setExchangeRatesError(partialUsable || cachedPartial ? "" : "failed");
       } catch {
         if (cancelled || gen !== exchangeRatesFetchGenRef.current) return;
-        if (cachedReady) return;
+        if (cachedPartial) return;
         setExchangeRates({
           rates: { [rateBase]: 1 },
           date: null,
@@ -5641,18 +5710,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const earningsCurrencyRows = useMemo(() => {
     const earningsRows = Array.isArray(earningsByCurrency) ? earningsByCurrency : [];
-    const baseRows = earningsRows.length
+    const seededRows = earningsRows.length
       ? earningsRows
       : currencies.map((code) => ({
           code,
           earnings: code === currencyCode && dashboardData ? kpi.earnings : null,
         }));
+    const baseRows = alignPrimaryEarningsInRows(
+      seededRows,
+      currencyCode,
+      dashboardData ? kpi.earnings : null
+    );
 
     const base = String(displayCurrencyCode || "").toUpperCase();
     const rates = exchangeRates.rates || {};
     const canConvert =
       currencies.length > 1 &&
-      !exchangeRatesError &&
       !exchangeRatesLoading &&
       frankfurterRatesPartiallyUsable(base, currencies, rates);
 
@@ -5689,30 +5762,24 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const useConvertedEarnings = useMemo(
     () =>
       currencies.length > 1 &&
-      !exchangeRatesError &&
       !exchangeRatesLoading &&
       frankfurterRatesPartiallyUsable(
         displayCurrencyCode,
         currencies,
         exchangeRates.rates || {}
-      ) &&
-      (allCurrencyEarningsReady || (showAllCurrencies && canShowAllCurrencies)),
+      ),
     [
       currencies.length,
       displayCurrencyCode,
-      exchangeRatesError,
       exchangeRatesLoading,
       exchangeRates.rates,
-      allCurrencyEarningsReady,
-      showAllCurrencies,
-      canShowAllCurrencies,
     ]
   );
 
-  /** UI column mode: avoid flashing "Share" while rates/earnings still load (multi-currency). */
+  /** Multi-currency breakdown always uses the Rate column (never Share %). */
   const earningsBreakdownShowsRate = useMemo(
-    () => currencies.length > 1 && !exchangeRatesError,
-    [currencies.length, exchangeRatesError]
+    () => currencies.length > 1,
+    [currencies.length]
   );
 
   const convertedEarningsTotal = useMemo(() => {
@@ -5727,7 +5794,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const rates = exchangeRates.rates || {};
     const canConvert =
       currencies.length > 1 &&
-      !exchangeRatesError &&
       !exchangeRatesLoading &&
       frankfurterRatesPartiallyUsable(base, currencies, rates);
 
@@ -5752,23 +5818,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     return sumConvertedEarnings(earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates).total;
   }, [useConvertedEarnings, earningsCurrencyRowsPrev, currencyCode, exchangeRates.rates]);
 
-  /** Pie panel total only — includes multi-currency conversion when rates are available. */
+  /** Pie panel hero total — matches KPI for the active filter currency. */
   const summaryEarningsValue = useMemo(() => {
     if (showAllCurrencies && canShowAllCurrencies && multiCurrencyKpi) {
       return multiCurrencyKpi.earnings;
     }
-    if (useConvertedEarnings && convertedEarningsTotal != null) {
-      return convertedEarningsTotal;
-    }
     return kpi.earnings;
-  }, [
-    showAllCurrencies,
-    canShowAllCurrencies,
-    multiCurrencyKpi,
-    useConvertedEarnings,
-    convertedEarningsTotal,
-    kpi.earnings,
-  ]);
+  }, [showAllCurrencies, canShowAllCurrencies, multiCurrencyKpi, kpi.earnings]);
 
   const summaryConversionNote = useMemo(() => {
     if (!earningsBreakdownShowsRate) return "";
