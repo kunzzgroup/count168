@@ -128,8 +128,8 @@ export function DashboardTrendChart({
         </div>
       </div>
       <div className={chartBodyClassName}>
-        <ResponsiveContainer width="100%" height="100%">
-          {chartAnimArmed && animChartRows ? (
+        {chartAnimArmed && animChartRows ? (
+          <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               key={chartAnimKey}
               data={animChartRows}
@@ -211,8 +211,10 @@ export function DashboardTrendChart({
                 )}
               />
             </AreaChart>
-          ) : null}
-        </ResponsiveContainer>
+          </ResponsiveContainer>
+        ) : (
+          <div className="dashboard-panel-chart-placeholder" aria-hidden="true" />
+        )}
       </div>
     </div>
   );
