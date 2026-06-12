@@ -2,7 +2,6 @@ import { useLayoutEffect, useMemo } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import TransactionHistoryTable from "./components/TransactionHistoryTable.jsx";
-import { AccountingReportContainer, AccountingReportPage } from "../../components/report/AccountingReportTable.jsx";
 import { formatHistoryMoney } from "./lib/transactionFormat.js";
 import { getHistory, transactionQueryKeys } from "./lib/transactionApi.js";
 import {
@@ -98,46 +97,44 @@ export default function TransactionPaymentHistoryPage() {
 
   return (
     <div className="transaction-payment-history-page-root">
-      <AccountingReportPage>
-        <AccountingReportContainer className="transaction-payment-history-report">
-          <div className="transaction-modal-content transaction-history-modal transaction-payment-history-panel">
-            <div className="transaction-modal-header">
-              <h3 id="modal_title">{title}</h3>
-            </div>
-            <div className="transaction-modal-body" style={{ position: "relative" }}>
-              {isLoading ? (
-                <div
-                  className="transaction-tables-loading"
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "rgba(255,255,255,0.75)",
-                    zIndex: 2,
-                  }}
-                  aria-live="polite"
-                >
-                  {m.loadingHistory}
-                </div>
-              ) : null}
-              {errorMessage ? (
-                <p className="transaction-payment-history-error" role="alert">
-                  {errorMessage}
-                </p>
-              ) : (
-                <TransactionHistoryTable
-                  rows={rows}
-                  histMoney={formatHistoryMoney}
-                  showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
-                  m={m}
-                />
-              )}
-            </div>
+      <div className="transaction-payment-history-main">
+        <div className="transaction-modal-content transaction-history-modal transaction-payment-history-panel">
+          <div className="transaction-modal-header">
+            <h3 id="modal_title">{title}</h3>
           </div>
-        </AccountingReportContainer>
-      </AccountingReportPage>
+          <div className="transaction-modal-body" style={{ position: "relative" }}>
+            {isLoading ? (
+              <div
+                className="transaction-tables-loading"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(255,255,255,0.75)",
+                  zIndex: 2,
+                }}
+                aria-live="polite"
+              >
+                {m.loadingHistory}
+              </div>
+            ) : null}
+            {errorMessage ? (
+              <p className="transaction-payment-history-error" role="alert">
+                {errorMessage}
+              </p>
+            ) : (
+              <TransactionHistoryTable
+                rows={rows}
+                histMoney={formatHistoryMoney}
+                showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
+                m={m}
+              />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
