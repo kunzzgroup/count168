@@ -105,8 +105,12 @@ export default function ProcessFormModal({
             &times;
           </span>
         </div>
-        <div className="modal-body">
-          <form className="process-form add-grid" onSubmit={guardSubmit(onSubmit)}>
+        <form
+          className={`process-form-modal-form${editMode ? " process-form-modal-form--edit" : ""}`}
+          onSubmit={guardSubmit(onSubmit)}
+        >
+          <div className="modal-body">
+            <div className="process-form add-grid">
             <div className="add-col">
               <div className="process-form-section">
                 <h3 className="process-form-section-title">{t("processFormSectionBasic")}</h3>
@@ -583,7 +587,7 @@ export default function ProcessFormModal({
                 <div className="form-group">
                   <label>{t("remarks")}</label>
                   <textarea
-                    rows={5}
+                    rows={editMode ? 2 : 5}
                     value={form.remark}
                     disabled={ro}
                     onChange={(e) => setForm((prev) => ({ ...prev, remark: toProcessFormUpperInput(e.target.value) }))}
@@ -594,6 +598,8 @@ export default function ProcessFormModal({
               </div>
               </div>
             </div>
+            </div>
+          </div>
 
             <div className="form-actions add-actions modal-footer process-form-modal-footer">
               <button type="submit" className="btn btn-save" disabled={ro || submitting}>
@@ -604,7 +610,6 @@ export default function ProcessFormModal({
               </button>
             </div>
           </form>
-        </div>
       </div>
     </div>
     </ProcessModalPortal>
