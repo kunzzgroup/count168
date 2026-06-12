@@ -4,6 +4,7 @@ import {
   buildDateOptions,
   displayTextFromProcessRow,
   fetchAddProcessFormData,
+  dedupeCaptureCurrenciesByCode,
   fetchGroupCaptureCurrencies,
   fetchProcessDetail,
   fetchProcessesByDay,
@@ -38,7 +39,7 @@ import {
   unregisterDataCaptureRuntime,
 } from "../lib/dataCaptureRuntime.js";
 
-const PROCESS_PLACEHOLDER = "Select Process";
+const PROCESS_PLACEHOLDER = "SELECT PROCESS";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
 const PROCESS_OPTIONS_RENDER_CAP = 80;
 
@@ -164,10 +165,12 @@ export function useDataCaptureFormEngine(
       const result = await fetchAddProcessFormData(captureScope);
       if (!result.success) return [];
       const list = Array.isArray(result.currencies) ? result.currencies : [];
-      return list.map((c) => ({
-        id: String(c.id),
-        code: String(c.code || "").trim().toUpperCase(),
-      }));
+      return dedupeCaptureCurrenciesByCode(
+        list.map((c) => ({
+          id: String(c.id),
+          code: String(c.code || "").trim().toUpperCase(),
+        })),
+      );
     },
     enabled: Boolean(applyCompanyOnlyFields && companyId && dataCaptureScopeIsReady(captureScope)),
   });

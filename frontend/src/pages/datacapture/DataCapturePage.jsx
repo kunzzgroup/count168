@@ -108,7 +108,7 @@ class DataCaptureErrorBoundary extends Component {
           <p style={{ color: "#b91c1c", marginBottom: 12 }} role="alert">
             {msg}
           </p>
-          <p style={{ margin: 0, color: "#666", fontSize: 14 }}>
+          <p style={{ margin: 0, color: "#666", fontSize: "var(--text-small)" }}>
             {getDataCaptureText(lang, "renderFailedHint")}
           </p>
         </div>
