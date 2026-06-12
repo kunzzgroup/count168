@@ -884,6 +884,7 @@ body.transaction-page .calendar-popup--transaction-range .calendar-days, body.da
     width: 100%;
     margin-left: auto;
     margin-right: auto;
+    gap: var(--drp-day-gap, 4px);
 }
 
 body.transaction-page .calendar-popup--transaction-range .calendar-day, body.dashboard-page.report-page .calendar-popup--transaction-range .calendar-day{

@@ -11,8 +11,8 @@ body.transaction-page .transaction-category-date-row .report-outlined-anchor {
 /* Maintenance filter row: Process / Transaction Type — same width as Date Range container */
 body.maintenance-page .customer-report-filters > .customer-report-filter-group.report-outlined-anchor,
 body.maintenance-page .customer-report-filters > .customer-report-filter-group.report-outlined-anchor .report-outlined-shell {
-    min-width: var(--drp-popup-width, clamp(316px, 22vw, 336px)) !important;
-    width: var(--drp-popup-width, clamp(316px, 22vw, 336px)) !important;
+    min-width: var(--drp-popup-width, clamp(292px, 92vw, 340px)) !important;
+    width: var(--drp-popup-width, clamp(292px, 92vw, 340px)) !important;
     max-width: 100%;
     box-sizing: border-box;
 }

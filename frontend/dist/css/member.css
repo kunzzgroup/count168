@@ -1493,7 +1493,7 @@ body.lang-zh.member-winloss-page .member-winloss-grid-account-filter > .user-gc-
 
 /* Date Range — 与 Capture Maintenance 同款（outlined 外框 + 内嵌白底条，非 Transaction 蓝块日历） */
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field {
-    --member-winloss-date-range-w: var(--drp-popup-width, clamp(400px, 28vw, 440px));
+    --member-winloss-date-range-w: var(--drp-popup-width, clamp(292px, 92vw, 340px));
     width: fit-content;
     max-width: 100%;
     min-width: 0;
@@ -1634,14 +1634,14 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .customer-report-filter-group {
     margin: 0;
     min-width: 0 !important;
-    width: var(--member-winloss-date-range-w, var(--drp-popup-width, clamp(400px, 28vw, 440px))) !important;
+    width: var(--member-winloss-date-range-w, var(--drp-popup-width, clamp(292px, 92vw, 340px))) !important;
     max-width: 100% !important;
 }
 
 /* 与 transaction-range 日历弹窗同宽（date-range-picker.css / maintenanceDateRangePicker） */
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container,
 body.transaction-page.member-winloss-page .member-dash-col-filters .member-winloss-date-field .report-date-range-picker-container.report-outlined-anchor {
-    width: var(--member-winloss-date-range-w, var(--drp-popup-width, clamp(400px, 28vw, 440px))) !important;
+    width: var(--member-winloss-date-range-w, var(--drp-popup-width, clamp(292px, 92vw, 340px))) !important;
     min-width: 0 !important;
     max-width: 100% !important;
     box-sizing: border-box;
