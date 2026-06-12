@@ -88,6 +88,7 @@ export default function TransactionDashboardPage() {
               earningsCurrencyRows={page.earningsCurrencyRows}
               useConvertedEarnings={page.useConvertedEarnings}
               earningsBreakdownShowsRate={page.earningsBreakdownShowsRate}
+              summaryPanelLabel={page.summaryPanelLabel}
               summaryEarningsValue={page.summaryEarningsValue}
               summaryConversionNote={page.summaryConversionNote}
               summaryEarningsLoading={page.summaryEarningsLoading}
