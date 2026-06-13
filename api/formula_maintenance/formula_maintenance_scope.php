@@ -75,7 +75,7 @@ function formulaMaintenanceFetchPayrollProcessRows(PDO $pdo, int $companyId): ar
         LEFT JOIN currency c ON c.id = p.currency_id
         LEFT JOIN description d ON d.id = p.description_id
         WHERE p.company_id = ?
-          AND UPPER(TRIM(p.process_id)) IN ('SALARY', 'BONUS')
+          AND UPPER(TRIM(p.process_id)) IN (" . dcSqlQuotedGroupPayrollProcessCodes() . ")
         ORDER BY p.id ASC
     ");
     $stmt->execute([$companyId]);
@@ -120,6 +120,14 @@ function formulaMaintenanceRowLooksLikeGroupPayroll(array $row): bool
  */
 function formulaMaintenanceClassifyPayrollProcessIds(PDO $pdo, int $companyId): array
 {
+    static $cache = [];
+    if ($companyId <= 0) {
+        return ['group' => [], 'subsidiary' => []];
+    }
+    if (isset($cache[$companyId])) {
+        return $cache[$companyId];
+    }
+
     $rows = formulaMaintenanceFetchPayrollProcessRows($pdo, $companyId);
     $group = [];
     $subsidiary = [];
@@ -163,10 +171,12 @@ function formulaMaintenanceClassifyPayrollProcessIds(PDO $pdo, int $companyId): 
         }
     }
 
-    return [
+    $cache[$companyId] = [
         'group' => array_values(array_unique(array_filter($group, static fn (int $id): bool => $id > 0))),
         'subsidiary' => array_values(array_unique(array_filter($subsidiary, static fn (int $id): bool => $id > 0))),
     ];
+
+    return $cache[$companyId];
 }
 
 function formulaMaintenanceSqlProcessIdInList(array $ids, string $processAlias = 'p'): string
@@ -197,8 +207,8 @@ function formulaMaintenanceBuildScopeProcessSql(PDO $pdo, int $companyId, bool $
         return '';
     }
 
-    $sql = " AND (
-        UPPER(TRIM(p.process_id)) NOT IN ('SALARY', 'BONUS')";
+    $sql = ' AND (
+        UPPER(TRIM(p.process_id)) NOT IN (' . dcSqlQuotedGroupPayrollProcessCodes() . ')';
     if ($class['subsidiary'] !== []) {
         $sql .= ' OR p.id IN (' . implode(',', $class['subsidiary']) . ')';
     }
@@ -214,7 +224,7 @@ function formulaMaintenanceResolveScopedPayrollProcessId(
     bool $isGroupScope
 ): ?int {
     $code = strtoupper(trim($processCode));
-    if (!in_array($code, ['SALARY', 'BONUS'], true)) {
+    if (!dcIsGroupPayrollProcessCode($code)) {
         return null;
     }
     $class = formulaMaintenanceClassifyPayrollProcessIds($pdo, $companyId);
@@ -556,8 +566,8 @@ function formulaMaintenanceAssertProcessIdForScope(
     if ($code === '') {
         throw new Exception('Process not found for scope');
     }
-    if ($isGroupScope && !in_array($code, ['SALARY', 'BONUS'], true)) {
-        throw new Exception('集团范围仅支持 SALARY / BONUS Process');
+    if ($isGroupScope && !dcIsGroupPayrollProcessCode($code)) {
+        throw new Exception('集团范围仅支持 SALARY / COMMISSION / BONUS Process');
     }
 }
 
@@ -574,7 +584,7 @@ function formulaMaintenanceResolveProcessIdByCode(
     if ($code === '') {
         return null;
     }
-    if (in_array($code, ['SALARY', 'BONUS'], true)) {
+    if (dcIsGroupPayrollProcessCode($code)) {
         return formulaMaintenanceResolveScopedPayrollProcessId($pdo, $companyId, $code, $isGroupScope);
     }
     if ($isGroupScope) {
@@ -583,7 +593,7 @@ function formulaMaintenanceResolveProcessIdByCode(
     $stmt = $pdo->prepare("
         SELECT id FROM process
         WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?
-          AND UPPER(TRIM(process_id)) NOT IN ('SALARY', 'BONUS')
+          AND UPPER(TRIM(process_id)) NOT IN (" . dcSqlQuotedGroupPayrollProcessCodes() . ")
         ORDER BY id ASC
         LIMIT 1
     ");
@@ -618,7 +628,7 @@ function formulaMaintenanceResolveProcessFilter(
         if ($code === '') {
             throw new Exception('Process not found for scope');
         }
-        if (in_array($code, ['SALARY', 'BONUS'], true)) {
+        if (dcIsGroupPayrollProcessCode($code)) {
             $mapped = formulaMaintenanceResolveScopedPayrollProcessId($pdo, $companyId, $code, $isGroupScope);
             if ($mapped === null || $mapped <= 0) {
                 return ['process_id' => null, 'legacy_code' => $code];
@@ -640,8 +650,8 @@ function formulaMaintenanceResolveProcessFilter(
     if ($legacyCode === '') {
         return ['process_id' => null, 'legacy_code' => null];
     }
-    if ($isGroupScope && !in_array($legacyCode, ['SALARY', 'BONUS'], true)) {
-        throw new Exception('集团范围仅支持 SALARY / BONUS Process');
+    if ($isGroupScope && !dcIsGroupPayrollProcessCode($legacyCode)) {
+        throw new Exception('集团范围仅支持 SALARY / COMMISSION / BONUS Process');
     }
     $resolvedId = formulaMaintenanceResolveProcessIdByCode($pdo, $companyId, $legacyCode, $isGroupScope);
     if ($resolvedId === null || $resolvedId <= 0) {
@@ -675,7 +685,7 @@ function formulaMaintenanceFormatProcessDisplay(
     ?bool $isGroupScope = null
 ): string {
     $code = strtoupper(trim($processCode));
-    if (in_array($code, ['SALARY', 'BONUS'], true)) {
+    if (dcIsGroupPayrollProcessCode($code)) {
         $groupStyle = $isGroupScope !== null ? $isGroupScope : $processOnGroupEntity;
         if ($groupStyle) {
             return $code;
@@ -714,9 +724,9 @@ function formulaMaintenanceSqlTemplateProcessJoin(
 
     $class = formulaMaintenanceClassifyPayrollProcessIds($pdo, $companyId);
     $pool = $isGroupScope ? $class['group'] : $class['subsidiary'];
-    $poolSql = '1=0';
+    $poolInSql = '0';
     if ($pool !== []) {
-        $poolSql = 'p2.id IN (' . implode(',', array_map('intval', $pool)) . ')';
+        $poolInSql = implode(',', array_map('intval', $pool));
     }
 
     return "INNER JOIN process p ON p.company_id = dct.company_id
@@ -726,16 +736,8 @@ function formulaMaintenanceSqlTemplateProcessJoin(
                 dct.process_id NOT REGEXP '^[0-9]+$'
                 AND UPPER(TRIM(dct.process_id)) = UPPER(TRIM(p.process_id))
                 AND (
-                    UPPER(TRIM(dct.process_id)) NOT IN ('SALARY', 'BONUS')
-                    OR p.id = (
-                        SELECT p2.id
-                        FROM process p2
-                        WHERE p2.company_id = dct.company_id
-                          AND UPPER(TRIM(p2.process_id)) = UPPER(TRIM(dct.process_id))
-                          AND {$poolSql}
-                        ORDER BY p2.id ASC
-                        LIMIT 1
-                    )
+                    UPPER(TRIM(dct.process_id)) NOT IN (" . dcSqlQuotedGroupPayrollProcessCodes() . ")
+                    OR p.id IN ({$poolInSql})
                 )
             )
         )";

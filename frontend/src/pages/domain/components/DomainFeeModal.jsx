@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 import {
   formatDomainFeeEdit2,
   DOMAIN_FEE_PERIOD_KEYS,
@@ -104,6 +105,7 @@ export default function DomainFeeModal({ onClose, onFeeSaved, lang = "en" }) {
   const t = (key, params) => getDomainText(lang, key, params);
   const [companyPeriodPrices, setCompanyPeriodPrices] = useState(() => defaultDomainFeeSettings().company);
   const [groupPeriodPrices, setGroupPeriodPrices] = useState(() => defaultDomainFeeSettings().group);
+  const { submitting, runGuarded } = useSubmitGuard(true);
 
   useEffect(() => {
     fetch(buildApiUrl("api/domain/domain_api.php"), {
@@ -211,8 +213,8 @@ export default function DomainFeeModal({ onClose, onFeeSaved, lang = "en" }) {
             <button type="button" className="btn btn-cancel" onClick={onClose}>
               {t("cancel")}
             </button>
-            <button type="button" className="btn btn-save" onClick={handleSave}>
-              {t("save")}
+            <button type="button" className="btn btn-save" disabled={submitting} onClick={() => runGuarded(handleSave)}>
+              {submitting ? t("saving") : t("save")}
             </button>
           </div>
         </div>

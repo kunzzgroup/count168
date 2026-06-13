@@ -5,7 +5,7 @@ import {
   parseYmd,
   shouldAggregateChartByMonth,
 } from "./dashboardDateUtils.js";
-import { resolveEffectiveOwnershipPct } from "./dashboardKpi.js";
+import { resolvePanelEarningsPct, viewerHasEarningsConfig } from "./dashboardKpi.js";
 
 /** 按天模式：1 个自然月每天；2 个月隔 2 天；≤14 天每天；更长区间按宽度跳日 */
 export function resolveDailyChartXAxisTicks(dayCount, monthSpan) {
@@ -63,10 +63,19 @@ function buildChartMetricRow(date, label, dailyData, earningsMultiplier) {
   };
 }
 
-export function buildChartRows(data, startYmd, endYmd, locale = "en-US", selectedGroup = null) {
+export function buildChartRows(
+  data,
+  startYmd,
+  endYmd,
+  locale = "en-US",
+  selectedGroup = null,
+  options = {}
+) {
   if (!data?.daily_data) return [];
   const dailyData = data.daily_data;
-  const earningsMultiplier = resolveEffectiveOwnershipPct(data, selectedGroup);
+  const earningsMultiplier = viewerHasEarningsConfig(data)
+    ? resolvePanelEarningsPct(data, selectedGroup, options)
+    : 1;
   const rangeStart = parseYmd(startYmd);
   const rangeEnd = parseYmd(endYmd);
 

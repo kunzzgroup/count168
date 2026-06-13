@@ -5,16 +5,21 @@ import { formatOwnershipSavedAt } from "../shared/ownershipMonthHelpers.js";
 import {
   applyOwnershipRowFieldUpdate,
   calcOwnershipTotal,
+  createEmptyOwnershipRow,
   EMPTY_OWNERSHIP_ROW,
   fmtOwnershipPct,
   reorderOwnershipRows,
   validateOwnershipRowsForSave,
   mapOwnerApiRows,
   accountsFromOwnerRows,
+  mergeEditorAccounts,
+  rowsToSavePayload,
+  allocationRowsForSave,
 } from "../shared/ownershipRowHelpers.js";
 
 export function useCompanyOwnership(shell) {
   const {
+    activeTab,
     allCompanies,
     setAllCompanies,
     fetchCompanies,
@@ -73,7 +78,9 @@ export function useCompanyOwnership(shell) {
   }, [allCompanies, groupFilter, allGroupIds]);
 
   useEffect(() => {
-    if (!isHistoricalView || companiesData.length === 0) return undefined;
+    if (activeTab !== "account-ownership" || !isHistoricalView || companiesData.length === 0) {
+      return undefined;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -109,7 +116,7 @@ export function useCompanyOwnership(shell) {
     return () => {
       cancelled = true;
     };
-  }, [selectedMonth, isHistoricalView, companiesData, lang, setHistoryBanner, showToast]);
+  }, [activeTab, selectedMonth, isHistoricalView, companiesData, lang, setHistoryBanner, showToast]);
 
   useEffect(() => {
     if (groupFilter !== null) return;
@@ -117,6 +124,70 @@ export function useCompanyOwnership(shell) {
     if (independent.length > 0 || allGroupIds.length === 0) return;
     setGroupFilter(allGroupIds[0]);
   }, [groupFilter, allCompanies, allGroupIds]);
+
+  const loadCompanyState = useCallback(
+    async (cid, { force = false } = {}) => {
+      if (!force) {
+        let cached = null;
+        setCompanyStates((prev) => {
+          if (prev[cid]) cached = prev[cid];
+          return prev;
+        });
+        if (cached) return cached;
+      }
+
+      setLoadingCompanyId(cid);
+      try {
+        const compData = allCompanies.find((c) => Number(c.id) === cid);
+        const compGid = compData?.group_id || "";
+        const ownersUrl = isHistoricalView
+          ? `api/ownership/get_owners_api.php?company_id=${cid}&month=${encodeURIComponent(selectedMonth)}`
+          : `api/ownership/get_owners_api.php?company_id=${cid}`;
+        const [aRes, oRes] = await Promise.all([
+          fetch(buildApiUrl(`api/ownership/get_available_accounts_api.php?company_id=${cid}`), {
+            credentials: "include",
+          }).then((r) => r.json()),
+          fetch(buildApiUrl(ownersUrl), {
+            credentials: "include",
+          }).then((r) => r.json()),
+        ]);
+        const accounts = aRes.status === "success" ? aRes.data : [];
+        if (compGid && !accounts.some((a) => String(a.id) === `G_${compGid}`)) {
+          accounts.push({
+            id: `G_${compGid}`,
+            account_name: `Group: ${compGid}`,
+            name: `Group Equity`,
+            role: "GROUP",
+            type: "group",
+            is_main_owner: 0,
+          });
+        }
+        const rows = mapOwnerApiRows(oRes.status === "success" ? oRes.data : []);
+        const stateAccounts = mergeEditorAccounts(accounts, rows);
+        const meta = oRes.meta || {};
+        if (isHistoricalView) {
+          setHistoryBanner({
+            empty: meta.has_snapshot === false,
+            savedAt: formatOwnershipSavedAt(meta.saved_at, lang),
+          });
+        } else {
+          setHistoryBanner(null);
+        }
+        const nextState = { accounts: stateAccounts, rows };
+        setCompanyStates((prev) => ({
+          ...prev,
+          [cid]: nextState,
+        }));
+        return nextState;
+      } catch {
+        showToast("Error loading data", "error");
+        return null;
+      } finally {
+        setLoadingCompanyId(null);
+      }
+    },
+    [allCompanies, isHistoricalView, selectedMonth, setHistoryBanner, lang, showToast],
+  );
 
   const toggleCard = useCallback(
     async (cid) => {
@@ -126,59 +197,9 @@ export function useCompanyOwnership(shell) {
         return;
       }
       setExpandedCompanyId(cid);
-      if (!companyStates[cid]) {
-        setLoadingCompanyId(cid);
-        try {
-          const compData = allCompanies.find((c) => Number(c.id) === cid);
-          const compGid = compData?.group_id || "";
-          const ownersUrl = isHistoricalView
-            ? `api/ownership/get_owners_api.php?company_id=${cid}&month=${encodeURIComponent(selectedMonth)}`
-            : `api/ownership/get_owners_api.php?company_id=${cid}`;
-          const [aRes, oRes] = await Promise.all([
-            fetch(buildApiUrl(`api/ownership/get_available_accounts_api.php?company_id=${cid}`), {
-              credentials: "include",
-            }).then((r) => r.json()),
-            fetch(buildApiUrl(ownersUrl), {
-              credentials: "include",
-            }).then((r) => r.json()),
-          ]);
-          const accounts = aRes.status === "success" ? aRes.data : [];
-          if (compGid && !accounts.some((a) => String(a.id) === `G_${compGid}`)) {
-            accounts.push({
-              id: `G_${compGid}`,
-              account_name: `Group: ${compGid}`,
-              name: `Group Equity`,
-              role: "GROUP",
-              type: "group",
-              is_main_owner: 0,
-            });
-          }
-          const rows = mapOwnerApiRows(oRes.status === "success" ? oRes.data : []);
-          const stateAccounts = isHistoricalView ? accountsFromOwnerRows(rows) : accounts;
-          const meta = oRes.meta || {};
-          if (isHistoricalView) {
-            setHistoryBanner({
-              empty: meta.has_snapshot === false,
-              savedAt: formatOwnershipSavedAt(meta.saved_at, lang),
-            });
-          } else {
-            setHistoryBanner(null);
-          }
-          setCompanyStates((prev) => ({
-            ...prev,
-            [cid]: {
-              accounts: stateAccounts,
-              rows,
-            },
-          }));
-        } catch {
-          showToast("Error loading data", "error");
-        } finally {
-          setLoadingCompanyId(null);
-        }
-      }
+      await loadCompanyState(cid);
     },
-    [allCompanies, companyStates, expandedCompanyId, showToast, isHistoricalView, selectedMonth, setHistoryBanner, lang],
+    [expandedCompanyId, isHistoricalView, loadCompanyState, setHistoryBanner],
   );
 
   const updateRow = useCallback((cid, idx, field, val) => {
@@ -186,7 +207,7 @@ export function useCompanyOwnership(shell) {
       const st = prev[cid];
       if (!st) return prev;
       const rows = [...st.rows];
-      rows[idx] = applyOwnershipRowFieldUpdate(rows[idx], field, val, st.accounts);
+      rows[idx] = applyOwnershipRowFieldUpdate(rows[idx], field, val, st.accounts, rows, idx);
       return { ...prev, [cid]: { ...st, rows } };
     });
   }, []);
@@ -199,7 +220,7 @@ export function useCompanyOwnership(shell) {
         if (!st) return prev;
         return {
           ...prev,
-          [cid]: { ...st, rows: [...st.rows, { ...EMPTY_OWNERSHIP_ROW }] },
+          [cid]: { ...st, rows: [...st.rows, createEmptyOwnershipRow()] },
         };
       });
     },
@@ -207,17 +228,39 @@ export function useCompanyOwnership(shell) {
   );
 
   const removeRow = useCallback(
-    (cid, idx) => {
+    async (cid, idx) => {
       if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      const st = companyStates[cid];
+      if (!st) return;
+      const row = st.rows[idx];
+      if (row?.ownership_id) {
+        try {
+          const body = new FormData();
+          body.append("ownership_id", String(row.ownership_id));
+          const res = await fetch(buildApiUrl("api/ownership/remove_owner_api.php"), {
+            method: "POST",
+            credentials: "include",
+            body,
+          });
+          const json = await res.json();
+          if (!isApiSuccess(json)) {
+            showToast(getApiMessage(json, "Remove failed"), "error");
+            return;
+          }
+        } catch {
+          showToast("Server error", "error");
+          return;
+        }
+      }
       setCompanyStates((prev) => {
-        const st = prev[cid];
-        if (!st) return prev;
-        const rows = [...st.rows];
+        const cur = prev[cid];
+        if (!cur) return prev;
+        const rows = [...cur.rows];
         rows.splice(idx, 1);
-        return { ...prev, [cid]: { ...st, rows } };
+        return { ...prev, [cid]: { ...cur, rows } };
       });
     },
-    [viewOnlyMode, showToast],
+    [companyStates, viewOnlyMode, showToast],
   );
 
   const reorderRows = useCallback((cid, from, to, insertAfter) => {
@@ -244,8 +287,7 @@ export function useCompanyOwnership(shell) {
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(getApiMessage(json, "Partner linked successfully"), "success");
-          setExpandedCompanyId(null);
-          window.setTimeout(() => void toggleCard(cid), 300);
+          await loadCompanyState(cid, { force: true });
           return true;
         }
         if (isApiConflict(json)) {
@@ -259,7 +301,7 @@ export function useCompanyOwnership(shell) {
         return false;
       }
     },
-    [viewOnlyMode, setConflict, showToast, toggleCard],
+    [viewOnlyMode, setConflict, showToast, loadCompanyState],
   );
 
   const confirmCompany = useCallback(
@@ -277,7 +319,7 @@ export function useCompanyOwnership(shell) {
         showToast(err, "error");
         return;
       }
-      const total = calcOwnershipTotal(rows);
+      const total = calcOwnershipTotal(allocationRowsForSave(rows));
       setSavingCompanyId(cid);
       try {
         const res = await fetch(buildApiUrl("api/ownership/batch_save_owners_api.php"), {
@@ -286,11 +328,7 @@ export function useCompanyOwnership(shell) {
           credentials: "include",
           body: JSON.stringify({
             company_id: cid,
-            owners: rows.map((r) => ({
-              account_id: r.account_id,
-              percentage: r.percentage,
-              read_only: r.read_only,
-            })),
+            owners: rowsToSavePayload(rows),
           }),
         });
         const json = await res.json();
@@ -299,6 +337,7 @@ export function useCompanyOwnership(shell) {
           setAllCompanies((prev) =>
             prev.map((c) => (Number(c.id) === cid ? { ...c, allocated_percentage: total } : c)),
           );
+          await loadCompanyState(cid, { force: true });
           setExpandedCompanyId(null);
         } else showToast(getApiMessage(json, "Save failed"), "error");
       } catch {
@@ -307,7 +346,7 @@ export function useCompanyOwnership(shell) {
         setSavingCompanyId(null);
       }
     },
-    [companyStates, viewOnlyMode, setAllCompanies, showToast],
+    [companyStates, viewOnlyMode, setAllCompanies, showToast, loadCompanyState],
   );
 
   const joinGroup = useCallback(

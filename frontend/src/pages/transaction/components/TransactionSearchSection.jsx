@@ -20,13 +20,20 @@ export default function TransactionSearchSection({
   onPickAllInGroup,
   allowCompanyDeselect = false,
   currencyRowsOrdered,
+  showAllCurrencies,
   selectedCurrencies,
   onCurrencyDragStart,
   onCurrencyDropOn,
   toggleCurrencyBtn,
+  toggleAllCurrenciesBtn,
   m,
   t,
 }) {
+  const selectedCurrencySet = useMemo(
+    () => new Set((selectedCurrencies || []).map((x) => String(x || "").toUpperCase().trim())),
+    [selectedCurrencies],
+  );
+
   const displayFilterChips = useMemo(() => [
     { id: "show_name", key: "showName", label: m.showName },
     { id: "show_capture_only", key: "showCaptureOnly", label: m.showCaptureOnly },
@@ -198,11 +205,11 @@ export default function TransactionSearchSection({
         })}
       </div>
 
-      {(fs.snapGroupIds.length > 0 || fs.snapCompanies.length > 0) && (
+      {fs && (fs.snapGroupIds?.length > 0 || fs.snapCompanies?.length > 0) && (
         <div className="transaction-bottom-filters">
           <GcInlineFilterPanel
             t={(key) => m[key] ?? key}
-            groupIds={fs.snapGroupIds}
+            groupIds={fs.snapGroupIds ?? []}
             groupsAllMode={Boolean(fs.groupsAllMode)}
             selectedGroup={fs.selectedGroup}
             onPickAllGroups={onPickAllGroups}
@@ -219,13 +226,22 @@ export default function TransactionSearchSection({
                 <span className="user-gc-inline-label">{m.currencyLabel}</span>
                 <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
                   <div id="currency-buttons-container" className="user-gc-segment-group" role="group" aria-label="Currency">
+                    <button
+                      type="button"
+                      className={`user-gc-segment${showAllCurrencies ? " is-on" : ""}`}
+                      data-currency-code="ALL"
+                      onClick={toggleAllCurrenciesBtn}
+                    >
+                      {m.all}
+                    </button>
                     {currencyRowsOrdered.map((c) => {
-                      const code = c.code;
+                      const code = String(c.code || "").toUpperCase().trim();
+                      const on = showAllCurrencies || selectedCurrencySet.has(code);
                       return (
                         <button
                           key={code}
                           type="button"
-                          className={`user-gc-segment${selectedCurrencies.includes(code) ? " is-on" : ""}`}
+                          className={`user-gc-segment user-gc-segment--draggable-pill${on ? " is-on" : ""}`}
                           data-currency-code={code}
                           draggable
                           onDragStart={() => onCurrencyDragStart(code)}

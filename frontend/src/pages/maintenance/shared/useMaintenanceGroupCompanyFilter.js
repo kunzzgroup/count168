@@ -21,6 +21,10 @@ import {
   resolveCompanyWhenClosingGroup,
   sortedUniqueGroupIds,
 } from "../../../utils/company/sharedCompanyFilter.js";
+import {
+  filterCompaniesForBankOnlyPills,
+  filterCompaniesForGamesPills,
+} from "../../../utils/company/companyCategoryFlags.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
 
 function isGroupFilterOptOut() {
@@ -44,6 +48,8 @@ export function useMaintenanceGroupCompanyFilter({
   onClearCompany,
   switchingCompany = false,
   enableGroupAnchorSession = true,
+  /** "games" — hide bank-only (CX); "bank" — hide games-only; payment/process list omit this. */
+  pillCategory = null,
 }) {
   const { me } = useAuthSession();
   const [groupFilterOptOutTick, setGroupFilterOptOutTick] = useState(0);
@@ -115,6 +121,34 @@ export function useMaintenanceGroupCompanyFilter({
     selectedGroup,
     groupFilterOptOutTick,
   ]);
+
+  const bankCompaniesForGroup = useCallback(
+    (gid) => {
+      const g = String(gid || "").trim().toUpperCase();
+      if (!g) return [];
+      const inGroup = dedupeOwnerCompaniesByCode(
+        companiesForCompanyPicker(companies, g, groupIds),
+        companyId,
+      );
+      return filterCompaniesForBankOnlyPills(inGroup, companyId);
+    },
+    [companies, companyId, groupIds],
+  );
+
+  const categoryScopedCompanies = useMemo(() => {
+    if (pillCategory === "games") {
+      return filterCompaniesForGamesPills(visibleCompanies, companyId);
+    }
+    if (pillCategory === "bank") {
+      return filterCompaniesForBankOnlyPills(visibleCompanies, companyId);
+    }
+    return visibleCompanies;
+  }, [visibleCompanies, pillCategory, companyId]);
+
+  const scopedGroupIds = useMemo(() => {
+    if (pillCategory !== "bank") return groupIds;
+    return groupIds.filter((gid) => bankCompaniesForGroup(gid).length > 0);
+  }, [groupIds, pillCategory, bankCompaniesForGroup]);
 
   const deselectGroupKeepCompany = useCallback(async () => {
     if (switchingCompany) return;
@@ -194,8 +228,8 @@ export function useMaintenanceGroupCompanyFilter({
   );
 
   return {
-    snapGroupIds: groupIds,
-    visibleCompanies,
+    snapGroupIds: pillCategory === "bank" ? scopedGroupIds : groupIds,
+    visibleCompanies: categoryScopedCompanies,
     handleGroupClick,
     handlePickCompany: gc.handlePickCompany,
     handlePickAllGroups: gc.handlePickAllGroups,

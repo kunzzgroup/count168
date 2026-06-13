@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
+import ConfirmDeleteModal, { CONFIRM_DELETE_NESTED_Z_INDEX } from "../../../components/ConfirmDeleteModal.jsx";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { normalizeDescriptionName } from "../processListHelpers.js";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 export default function DescriptionPickerModal({
   descriptions,
@@ -13,6 +15,7 @@ export default function DescriptionPickerModal({
   t,
 }) {
   const ro = Boolean(readOnly);
+  const { submitting: addingDesc, guardSubmit } = useSubmitGuard(true);
   const [search, setSearch] = useState("");
   const [newDescName, setNewDescName] = useState("");
   const [localSelected, setLocalSelected] = useState(() => [...(form.selected_descriptions || [])]);
@@ -90,7 +93,7 @@ export default function DescriptionPickerModal({
             <div className="available-descriptions-section">
               <div className="add-description-bar">
                 <h3>{t("addNewDescription")}</h3>
-                <form className="add-description-form" onSubmit={handleAdd}>
+                <form className="add-description-form" onSubmit={guardSubmit(handleAdd)}>
                   <div className="add-description-input-group">
                     <input
                       type="text"
@@ -101,8 +104,8 @@ export default function DescriptionPickerModal({
                       style={{ textTransform: "uppercase" }}
                       required
                     />
-                    <button type="submit" className="btn btn-save" disabled={ro}>
-                      {t("add")}
+                    <button type="submit" className="btn btn-save" disabled={ro || addingDesc}>
+                      {addingDesc ? t("saving") : t("add")}
                     </button>
                   </div>
                 </form>
@@ -164,22 +167,17 @@ export default function DescriptionPickerModal({
         </div>
       </div>
 
-      {deleteConfirmId != null && (
-        <div className="process-modal" style={{ display: "block", zIndex: 10060 }} role="dialog" aria-modal="true">
-          <div className="process-confirm-modal-content" style={{ maxWidth: 420 }}>
-            <h2 className="process-confirm-title">{t("deleteDescriptionTitle")}</h2>
-            <p className="process-confirm-message">{t("deleteDescriptionConfirm")}</p>
-            <div className="process-confirm-actions">
-              <button type="button" className="process-btn process-btn-cancel" onClick={() => setDeleteConfirmId(null)}>
-                {t("cancel")}
-              </button>
-              <button type="button" className="process-btn process-btn-delete" disabled={ro} onClick={() => !ro && void runDelete()}>
-                {t("delete")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        open={deleteConfirmId != null}
+        title={t("deleteDescriptionTitle")}
+        message={t("deleteDescriptionConfirm")}
+        cancelLabel={t("cancel")}
+        confirmLabel={t("delete")}
+        zIndex={CONFIRM_DELETE_NESTED_Z_INDEX}
+        confirmDisabled={ro}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={() => void runDelete()}
+      />
     </div>
     </ProcessModalPortal>
   );

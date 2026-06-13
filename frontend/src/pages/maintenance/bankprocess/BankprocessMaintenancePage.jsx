@@ -80,6 +80,7 @@ export default function BankprocessMaintenancePage() {
   const [bankprocessListEpoch, setBankprocessListEpoch] = useState(0);
   const [bankprocessDataSourceCompanyId, setBankprocessDataSourceCompanyId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [listSyncing, setListSyncing] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -308,6 +309,10 @@ export default function BankprocessMaintenancePage() {
     const seq = ++searchSeqRef.current;
 
     if (!quietRefresh) setLoading(true);
+    else {
+      setLoading(false);
+      setListSyncing(true);
+    }
     setSelectedIds([]);
 
     const currencyKey = allCurrenciesSelected ? "ALL" : selectedCurrencies.slice().sort().join(",");
@@ -355,6 +360,7 @@ export default function BankprocessMaintenancePage() {
       if (seq === searchSeqRef.current) {
         initialBankprocessSearchDoneRef.current = true;
         setLoading(false);
+        setListSyncing(false);
       }
     }
   }, [
@@ -474,11 +480,40 @@ export default function BankprocessMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: handleClearCompany,
+    pillCategory: "bank",
   });
 
   followGroupRef.current = () => {};
 
   const groupedIds = groupedIdsFromHook;
+
+  // 纯 Bank 组：无 Bank 公司的组不显示；当前组无公司时自动切组并选中首个 Bank 公司。
+  useEffect(() => {
+    if (bootLoading || !companies.length) return;
+
+    if (visibleCompanies.length > 0) {
+      const cid = Number(companyId);
+      const activeOk = visibleCompanies.some((c) => Number(c.id) === cid);
+      if (!activeOk) void handlePickCompany(visibleCompanies[0]);
+      return;
+    }
+
+    if (!groupedIds.length) return;
+    const fallbackGroup = groupedIds[0];
+    if (!fallbackGroup) return;
+    if (String(selectedGroup || "").trim().toUpperCase() !== fallbackGroup) {
+      void onGroupClick(fallbackGroup);
+    }
+  }, [
+    bootLoading,
+    companies.length,
+    groupedIds,
+    visibleCompanies,
+    companyId,
+    selectedGroup,
+    onGroupClick,
+    handlePickCompany,
+  ]);
 
   const toggleBankprocessCurrency = useCallback((code) => {
     if (!code) return;
@@ -545,7 +580,11 @@ export default function BankprocessMaintenancePage() {
   };
 
   const tableLoading =
-    loading || bootLoading || !currenciesReady || (!hasSearched && Boolean(companyId));
+    loading ||
+    bootLoading ||
+    ((!currenciesReady || !hasSearched) &&
+      Boolean(companyId) &&
+      !initialBankprocessSearchDoneRef.current);
 
   return (
     <div className="bankprocess-maintenance-page-root container">
@@ -584,19 +623,27 @@ export default function BankprocessMaintenancePage() {
         m={m}
       />
 
-      <BankprocessMaintenanceTable
-        key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
-        loading={tableLoading}
-        rows={rows}
-        hasSearched={hasSearched}
-        listEpoch={bankprocessListEpoch}
-        rowKeyCompanyId={bankprocessDataSourceCompanyId ?? companyId}
-        selectedIds={selectedIds}
-        onToggleRow={onToggleRow}
-        selectAll={selectAll}
-        onToggleSelectAll={onToggleSelectAll}
-        m={m}
-      />
+      <div className="bankprocess-maintenance-table-region">
+        {listSyncing && (
+          <div className="bankprocess-maintenance-sync-track" aria-hidden>
+            <div className="bankprocess-maintenance-sync-bar" />
+          </div>
+        )}
+        <BankprocessMaintenanceTable
+          key={bankprocessDataSourceCompanyId ?? companyId ?? "no-company"}
+          loading={tableLoading}
+          listSyncing={listSyncing}
+          rows={rows}
+          hasSearched={hasSearched}
+          listEpoch={bankprocessListEpoch}
+          rowKeyCompanyId={bankprocessDataSourceCompanyId ?? companyId}
+          selectedIds={selectedIds}
+          onToggleRow={onToggleRow}
+          selectAll={selectAll}
+          onToggleSelectAll={onToggleSelectAll}
+          m={m}
+        />
+      </div>
 
       <div id="notificationContainer" className="maintenance-notification-container">
         {toasts.map((toast) => (

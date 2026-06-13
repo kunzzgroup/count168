@@ -34,6 +34,10 @@ function resolveSavedCurrencyPrefs(companyCacheKey, memoryStore) {
     };
   }
 
+  if (fromStorage?.showAll) {
+    return { showAll: true, currencies: [] };
+  }
+
   return fromStorage;
 }
 
@@ -155,8 +159,8 @@ export function useTransactionInitialization({
     let nextSel = [];
 
     if (saved?.showAll) {
-      nextShowAll = false;
-      nextSel = rows.map((c) => String(c.code || "").toUpperCase().trim()).filter(Boolean);
+      nextShowAll = true;
+      nextSel = [];
     } else if (saved?.currencies?.length) {
       const valid = saved.currencies.filter((code) => rows.some((c) => String(c.code) === String(code)));
       if (valid.length > 0) nextSel = valid;

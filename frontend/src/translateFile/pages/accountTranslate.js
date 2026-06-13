@@ -14,6 +14,9 @@ export const ACCOUNT_I18N = {
     paymentAlertRequiredFields: "When Payment Alert is enabled, both Alert Type and Start Date are required",
     saveFailed: "Save failed",
     accountSavedSuccessfully: "Account saved successfully",
+    accountAddedToFormulaList: "Account {accountId} added and ready to select",
+    notifSuccess: "Success",
+    notifError: "Error",
     createFailed: "Create failed",
     failedDeleteCurrency: "Failed to delete currency",
     currencyDeleted: "Currency deleted",
@@ -33,7 +36,7 @@ export const ACCOUNT_I18N = {
     showAll: "Show All",
     currencySetting: "Currency Setting",
     deleteWithCount: "Delete ({count})",
-    groupId: "GroupID:",
+    groupId: "Group ID:",
     groupFilterAll: "ALL",
     company: "Company:",
     companyRequiredMark: "Company *",
@@ -96,6 +99,7 @@ export const ACCOUNT_I18N = {
     newCurrencyPlaceholder: "Enter new currency code (e.g., EUR, JPY, GBP)",
     createCurrency: "Create Currency",
     updateAccount: "Update Account",
+    saving: "Saving...",
     save: "Save",
     back: "Back",
     addCurrency: "Add Currency :",
@@ -174,6 +178,13 @@ export const ACCOUNT_I18N = {
     apiReadOnlyCannotAdd: "Read-only account cannot add accounts",
     apiReadOnlyCannotDelete: "Read-only account cannot delete accounts",
     apiCurrencyInUse: "Currency is in use and cannot be deleted",
+    apiCurrencySyncedFromSubsidiary:
+      "This currency was synced from subsidiary companies and cannot be deleted while subsidiaries still use it.",
+    apiCurrencyBlockedByHistory:
+      "Cannot delete currency — historical records still reference it ({detail}). Remove related Data Capture / Transaction records first.",
+    forceDeleteCurrency: "Force delete",
+    forceDeleteCurrencyConfirm:
+      "Currency {code} is still referenced by historical records ({detail}). Force delete will remove the currency and reassign Process / Data Capture rows to another currency in this company. Continue?",
     currencyInUseTitle: "Cannot delete currency",
     currencyInUseMessage: "Currency {code} is still used by the following account(s):",
     ok: "OK",
@@ -191,6 +202,9 @@ export const ACCOUNT_I18N = {
     paymentAlertRequiredFields: "启用 Payment Alert 时，Alert Type 和 Start Date 均为必填",
     saveFailed: "保存失败",
     accountSavedSuccessfully: "账号保存成功",
+    accountAddedToFormulaList: "账号 {accountId} 已添加，可在列表中选择",
+    notifSuccess: "成功",
+    notifError: "错误",
     createFailed: "创建失败",
     failedDeleteCurrency: "删除货币失败",
     currencyDeleted: "货币已删除",
@@ -273,6 +287,7 @@ export const ACCOUNT_I18N = {
     newCurrencyPlaceholder: "输入新货币代码（例如 EUR、JPY、GBP）",
     createCurrency: "创建货币",
     updateAccount: "更新账号",
+    saving: "保存中...",
     save: "保存",
     back: "返回",
     addCurrency: "新增货币：",
@@ -351,6 +366,12 @@ export const ACCOUNT_I18N = {
     apiReadOnlyCannotAdd: "只读账号无法添加账户",
     apiReadOnlyCannotDelete: "只读账号无法删除账户",
     apiCurrencyInUse: "货币正在使用中，无法删除",
+    apiCurrencySyncedFromSubsidiary: "该货币由旗下子公司同步，子公司仍在使用时无法删除。",
+    apiCurrencyBlockedByHistory:
+      "无法删除货币，仍有历史业务数据引用（{detail}）。请先在 Data Capture / Transaction 中清理相关记录。",
+    forceDeleteCurrency: "强制删除",
+    forceDeleteCurrencyConfirm:
+      "货币 {code} 仍被历史业务数据引用（{detail}）。强制删除会移除该货币，并将 Process / Data Capture 等记录改绑到本公司其他货币。是否继续？",
     currencyInUseTitle: "无法删除货币",
     currencyInUseMessage: "货币 {code} 仍被以下账号使用：",
     ok: "确定",
@@ -459,6 +480,8 @@ const ACCOUNT_API_MESSAGE_KEYS = {
   [normAccountApiMessage("创建失败")]: "createFailed",
   [normAccountApiMessage("Failed to delete currency")]: "failedDeleteCurrency",
   [normAccountApiMessage("删除货币失败")]: "failedDeleteCurrency",
+  [normAccountApiMessage("Cannot delete currency synced from subsidiary companies")]:
+    "apiCurrencySyncedFromSubsidiary",
   [normAccountApiMessage("Failed to switch company")]: "failedToSwitchCompany",
   [normAccountApiMessage("切换公司失败")]: "failedToSwitchCompany",
   [normAccountApiMessage("Network error")]: "networkError",
@@ -484,7 +507,7 @@ function formatAccountInUseLabel(acc) {
 /** Parse account labels from delete_currency_api English message. */
 export function parseAccountsFromCurrencyDeleteMessage(message) {
   const raw = String(message || "").trim();
-  const m = raw.match(/following accounts are using it:\s*(.+)$/i);
+  const m = raw.match(/following accounts are using it:\s*(.+?)(?:\s*\[Debug:|$)/i);
   if (!m) return [];
   return m[1]
     .split(",")
@@ -497,6 +520,41 @@ export function parseAccountsFromCurrencyDeleteMessage(message) {
       }
       return { name: label, account_id: label };
     });
+}
+
+/** Parse non-account usage summary from delete_currency_api message (transactions, data captures, etc.). */
+export function parseCurrencyUsageDetailFromMessage(message) {
+  const raw = String(message || "").trim();
+  const m = raw.match(/being used by:\s*(.+?)(?:\s*\[Debug:|$)/i);
+  return m ? m[1].trim() : "";
+}
+
+/** True when delete failed only due to historical records, not linked accounts. */
+export function isHistoricalOnlyCurrencyDeleteBlock(message, accountsInUse = []) {
+  if (Array.isArray(accountsInUse) && accountsInUse.length > 0) return false;
+  const detail = parseCurrencyUsageDetailFromMessage(message);
+  if (!detail) return false;
+  return !/\baccount\(s\)/i.test(detail);
+}
+
+export function formatCurrencyUsageDetail(lang, message) {
+  const detail = parseCurrencyUsageDetailFromMessage(message);
+  if (!detail) return "";
+  return translateCurrencyUsageDetail(toLocale(lang), detail);
+}
+
+function translateCurrencyUsageDetail(lang, detail) {
+  const locale = toLocale(lang);
+  if (locale !== "zh") return detail;
+  return detail
+    .replace(/\bdata capture template\(s\)/gi, "数据采集模板")
+    .replace(/\bdata capture detail\(s\)/gi, "数据采集明细")
+    .replace(/\bdata capture\(s\)/gi, "数据采集")
+    .replace(/\brate transaction detail\(s\)/gi, "汇率交易明细")
+    .replace(/\brate transaction\(s\)/gi, "汇率交易")
+    .replace(/\btransaction\(s\)/gi, "交易")
+    .replace(/\bprocess\(es\)/gi, "流程")
+    .replace(/\baccount\(s\)/gi, "账号");
 }
 
 function translateAccountDynamicApiMessage(lang, message, data = null) {
@@ -529,6 +587,15 @@ function translateAccountDynamicApiMessage(lang, message, data = null) {
     if (labels.length > 0) {
       return getAccountText(lang, "apiCurrencyInUse") + ": " + labels.join(", ");
     }
+  }
+  const usageDetail = parseCurrencyUsageDetailFromMessage(raw);
+  if (usageDetail) {
+    const localized = translateCurrencyUsageDetail(lang, usageDetail);
+    const isHistoricalOnly = !/\baccount\(s\)|账号/i.test(localized);
+    if (isHistoricalOnly) {
+      return getAccountText(lang, "apiCurrencyBlockedByHistory", { detail: localized });
+    }
+    return getAccountText(lang, "apiCurrencyInUse") + ": " + localized;
   }
   m = raw.match(/^(?:Currency is being used|正在使用|Cannot delete).*currency/i);
   if (m || /being used|正在使用/i.test(raw)) return getAccountText(lang, "apiCurrencyInUse");

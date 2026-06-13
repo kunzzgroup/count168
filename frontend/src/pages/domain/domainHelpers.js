@@ -231,8 +231,9 @@ export function domainCompanyRowIsGroupEntity(company) {
 
 /** 将 tempCompany 对象映射为 API payload entry */
 export function companyToDomainPayloadEntry(c) {
-  return {
-    company_id: c.company_id,
+  const companyId = String(c.company_id ?? "").trim().toUpperCase();
+  const entry = {
+    company_id: companyId,
     expiration_date: c.expiration_date,
     permissions: Array.isArray(c.permissions) ? c.permissions : [],
     group_id: c.group_id || null,
@@ -240,6 +241,11 @@ export function companyToDomainPayloadEntry(c) {
     apply_commission_payments_on_domain_save:
       !!c.apply_commission_payments_on_domain_save,
   };
+  const previousId = String(c.previous_company_id ?? "").trim().toUpperCase();
+  if (previousId && previousId !== companyId) {
+    entry.previous_company_id = previousId;
+  }
+  return entry;
 }
 
 export function createEmptyGroup(groupCode) {
@@ -279,14 +285,20 @@ export function groupFromApiRow(row) {
 }
 
 export function groupToDomainPayloadEntry(g) {
-  return {
-    group_code: g.group_code,
+  const groupCode = String(g.group_code ?? "").trim().toUpperCase();
+  const entry = {
+    group_code: groupCode,
     expiration_date: g.expiration_date,
     permissions: Array.isArray(g.permissions) ? g.permissions : [],
     fee_share_allocations: normalizeFeeShareFromServer(g.fee_share_allocations),
     apply_commission_payments_on_domain_save:
       !!g.apply_commission_payments_on_domain_save,
   };
+  const previousCode = String(g.previous_group_code ?? "").trim().toUpperCase();
+  if (previousCode && previousCode !== groupCode) {
+    entry.previous_group_code = previousCode;
+  }
+  return entry;
 }
 
 export function tempGroupCode(groupOrCode) {
@@ -341,7 +353,9 @@ function normalizeSinglePeriodPricesFromApi(raw, kind) {
 
   let source = null;
   if (kind === "company") {
-    if (raw.company_period_prices && typeof raw.company_period_prices === "object") {
+    if (raw.company && typeof raw.company === "object" && !raw.company_period_prices) {
+      source = raw.company;
+    } else if (raw.company_period_prices && typeof raw.company_period_prices === "object") {
       source = raw.company_period_prices;
     } else if (raw.period_prices && typeof raw.period_prices === "object") {
       if (raw.period_prices.company && typeof raw.period_prices.company === "object") {
@@ -350,6 +364,8 @@ function normalizeSinglePeriodPricesFromApi(raw, kind) {
         source = raw.period_prices;
       }
     }
+  } else if (raw.group && typeof raw.group === "object" && !raw.group_period_prices) {
+    source = raw.group;
   } else if (raw.group_period_prices && typeof raw.group_period_prices === "object") {
     source = raw.group_period_prices;
   } else if (raw.period_prices?.group && typeof raw.period_prices.group === "object") {

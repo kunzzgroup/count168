@@ -241,7 +241,7 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
 
 .domain-report-card-item.domain-report-amount.win,
 .domain-report-total .domain-report-amount.win {
-    color: #0b2557;
+    color: #172a9f;
 }
 
 .domain-report-card-item.domain-report-amount.lose,
@@ -250,7 +250,7 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
 }
 
 .domain-report-win-lose-positive {
-    color: #0b2557;
+    color: #172a9f;
     /* font-weight: bold; */
 }
 

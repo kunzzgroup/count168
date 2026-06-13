@@ -13,7 +13,7 @@ function pickOverscan(count) {
   return 4;
 }
 
-function FormulaVirtualTableHead({ selectAllRef, selectAllChecked, onToggleSelectAll, m }) {
+export function FormulaVirtualTableHead({ selectAllRef, selectAllChecked, onToggleSelectAll, m, disableSelectAll = false }) {
   const headerLabels = [
     m.tblNo,
     m.tblProcess,
@@ -31,9 +31,10 @@ function FormulaVirtualTableHead({ selectAllRef, selectAllChecked, onToggleSelec
       type="checkbox"
       ref={selectAllRef}
       className="maintenance-row-checkbox"
-      checked={selectAllChecked}
+      checked={disableSelectAll ? false : selectAllChecked}
       onChange={onToggleSelectAll}
       title={m.selectAll}
+      disabled={disableSelectAll}
     />
   );
 

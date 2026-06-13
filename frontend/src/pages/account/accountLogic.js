@@ -1,6 +1,16 @@
 /** Account List Logic Helpers */
 
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
+import {
+  companiesForCompanyPicker,
+  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
+  dedupeOwnerCompaniesByCode,
+  excludeGroupLabelsFromCompanyPicker,
+  filterCompaniesWithDisplayId,
+  independentCompaniesForPicker,
+  isDashboardGroupOnlyMode,
+  normalizeCompanyGroupId,
+} from "../../utils/company/sharedCompanyFilter.js";
 
 export const PAGE_SIZE = 25;
 
@@ -60,6 +70,17 @@ export function getOrderedRoles(roles) {
   return [...out, ...Array.from(map.values()).sort((a, b) => a.localeCompare(b))];
 }
 
+/** Add/Edit Account modal：DB 未建 role 时仍展示的核心角色 */
+const ACCOUNT_MODAL_FALLBACK_ROLES = ["DEBTOR"];
+
+export function getAccountModalOrderedRoles(roles) {
+  const merged = [...(roles || [])];
+  ACCOUNT_MODAL_FALLBACK_ROLES.forEach((role) => {
+    if (!merged.some((r) => toUpper(r) === role)) merged.push(role);
+  });
+  return getOrderedRoles(merged);
+}
+
 export function normalizeCompanyRow(row) {
   if (!row || typeof row !== "object") return row;
   return {
@@ -79,9 +100,11 @@ export function buildAccountsFetchKey(companyId, searchTerm, showInactive, showA
   return `${companyId || ""}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
 }
 
-export function buildAccountsUrl(companyId, searchTerm, showInactive, showAll) {
+export function buildAccountsUrl(companyId, searchTerm, showInactive, showAll, { groupId = null } = {}) {
   const url = new URL(buildApiUrl("api/accounts/accountlistapi.php"));
   url.searchParams.set("company_id", String(companyId));
+  const gid = groupId ? String(groupId).trim().toUpperCase() : "";
+  if (gid) url.searchParams.set("group_id", gid);
   if (String(searchTerm || "").trim()) url.searchParams.set("search", String(searchTerm || "").trim());
   if (showInactive) url.searchParams.set("showInactive", "1");
   if (showAll) url.searchParams.set("showAll", "1");
@@ -144,8 +167,92 @@ export async function fetchMergedAccounts({
   return { success: true, accounts: mergeAccountRows(results) };
 }
 
-/** Add Account：列表中有 MYR 时默认勾选 */
+/** Add Account：列表中有 MYR 时默认勾选，否则默认第一个 currency */
 export function pickDefaultAddCurrencyIds(currencies) {
-  const myr = (currencies || []).find((c) => toUpper(c.code) === "MYR");
-  return myr ? [Number(myr.id)] : [];
+  const list = Array.isArray(currencies) ? currencies : [];
+  if (!list.length) return [];
+  const myr = list.find((c) => toUpper(c.code) === "MYR");
+  if (myr) return [Number(myr.id)];
+  const first = list[0];
+  return first?.id != null ? [Number(first.id)] : [];
+}
+
+/** Company pills shown in Account List inline filter (matches AccountListPage useMemo). */
+export function resolveAccountListInlinePickerCompanies({
+  companies = [],
+  groupIds = [],
+  selectedGroup = null,
+  preferredCompanyId = null,
+  companiesForPickerFromHook = null,
+  groupFilterOptOut = false,
+} = {}) {
+  const independentPicker = () => {
+    const list = independentCompaniesForPicker(companies, groupIds);
+    if (list.length) {
+      return dedupeOwnerCompaniesByCode(list, preferredCompanyId);
+    }
+    return excludeGroupLabelsFromCompanyPicker(
+      dedupeOwnerCompaniesByCode(filterCompaniesWithDisplayId(companies), preferredCompanyId),
+      groupIds,
+    ).filter((c) => !normalizeCompanyGroupId(c));
+  };
+
+  if (!selectedGroup || groupFilterOptOut) {
+    return independentPicker();
+  }
+
+  if (Array.isArray(companiesForPickerFromHook) && companiesForPickerFromHook.length > 0) {
+    return companiesForPickerFromHook;
+  }
+
+  const effectiveGroup = String(selectedGroup).trim().toUpperCase();
+  return dedupeOwnerCompaniesByCode(
+    companiesForCompanyPicker(companies, effectiveGroup, groupIds),
+    preferredCompanyId,
+  );
+}
+
+export function isCompanyInAccountListPicker(options, companyId) {
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return false;
+  return resolveAccountListInlinePickerCompanies(options).some((c) => Number(c.id) === cid);
+}
+
+/** List fetch is allowed only with an active company pill or explicit group-only mode. */
+export function shouldLoadAccountListData({
+  companyId = null,
+  selectedGroup = null,
+  groupOnlyMode = false,
+  groupsAllMode = false,
+  groupAllMode = false,
+} = {}) {
+  if (groupsAllMode || groupAllMode) return true;
+  if (companyId != null && Number(companyId) > 0) return true;
+  if (groupOnlyMode && selectedGroup) return true;
+  return false;
+}
+
+/** Whether Add / list mutations have a resolvable company or group ledger scope. */
+export function accountListHasMutationScope(
+  scopeCompanyId,
+  { groupOnly = false, selectedGroup = null, canUseGroupLedger = false } = {},
+) {
+  const cid = scopeCompanyId != null ? Number(scopeCompanyId) : Number.NaN;
+  if (Number.isFinite(cid) && cid > 0) return true;
+  const gid = String(selectedGroup || "").trim().toUpperCase();
+  return Boolean(groupOnly && gid && canUseGroupLedger);
+}
+
+export function readAccountListGroupFilterOptOut() {
+  return (
+    typeof sessionStorage !== "undefined" &&
+    sessionStorage.getItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY) === "1"
+  );
+}
+
+export function resolveAccountListGroupOnlyFetch(selectedGroup, companyId, groupsAllMode, groupAllMode) {
+  const sg = String(selectedGroup || "").trim().toUpperCase();
+  const cid = companyId != null ? Number(companyId) : null;
+  if (!sg || (cid != null && cid > 0) || groupAllMode || groupsAllMode) return false;
+  return isDashboardGroupOnlyMode();
 }

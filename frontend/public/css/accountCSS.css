@@ -126,10 +126,11 @@ body.account-page .action-controls-row {
 
 body.account-page .action-buttons-container .user-gc-inline-panel {
     flex: 0 0 auto;
-    padding: 12px 18px 14px 18px;
+    padding: 12px 20px 14px;
     column-gap: var(--user-gc-inline-column-gap, 4px);
     row-gap: var(--user-gc-inline-row-gap, 4px);
 }
+
 
 body.account-page .account-table-wrapper {
     flex: 1 1 auto;
@@ -147,6 +148,7 @@ body.account-page .account-table-wrapper {
     margin-top: 12px;
     width: 100%;
     box-sizing: border-box;
+    font-family: inherit;
 }
 
 /*
@@ -1352,6 +1354,7 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 
 /* Confirm Delete Modal — match userlist #confirmModal (flex center, compact card) */
 #confirmDeleteModal.account-modal,
+#forceDeleteCurrencyModal.account-modal,
 #accountAlertModal.account-modal {
     display: flex;
     align-items: center;
@@ -1486,7 +1489,9 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 }
 
 body.account-page #confirmDeleteModal .confirm-cancel,
-body.account-page #confirmDeleteModal .confirm-delete {
+body.account-page #confirmDeleteModal .confirm-delete,
+body.account-page #forceDeleteCurrencyModal .confirm-cancel,
+body.account-page #forceDeleteCurrencyModal .confirm-delete {
     flex: 0 0 auto;
     min-width: clamp(90px, 7vw, 130px);
     display: flex;
@@ -1998,7 +2003,9 @@ body.account-page #confirmDeleteModal .confirm-delete {
 
 /* Form footer · tooltip: padding 16px 40px */
 #account-addModal .account-form-actions,
-#account-editModal .account-form-actions {
+#account-editModal .account-form-actions,
+#addModal .account-form-actions,
+#editModal .account-form-actions {
     margin-top: auto;
     padding: 16px 40px;
     border-radius: 0 0 0.875rem 0.875rem;
@@ -2023,7 +2030,11 @@ body.account-page #confirmDeleteModal .confirm-delete {
 #account-addModal .account-btn-save,
 #account-editModal .account-btn-save,
 #account-addModal .account-btn-cancel,
-#account-editModal .account-btn-cancel {
+#account-editModal .account-btn-cancel,
+#addModal .account-btn-save,
+#editModal .account-btn-save,
+#addModal .account-btn-cancel,
+#editModal .account-btn-cancel {
     min-width: var(--userlist-btn-add-width);
     width: auto;
     min-height: auto;
@@ -2047,19 +2058,27 @@ body.account-page #confirmDeleteModal .confirm-delete {
 #account-addModal .account-btn-save::after,
 #account-editModal .account-btn-save::after,
 #account-addModal .account-btn-cancel::after,
-#account-editModal .account-btn-cancel::after {
+#account-editModal .account-btn-cancel::after,
+#addModal .account-btn-save::after,
+#editModal .account-btn-save::after,
+#addModal .account-btn-cancel::after,
+#editModal .account-btn-cancel::after {
     display: none;
     content: none;
 }
 
 #account-addModal .account-btn-save,
-#account-editModal .account-btn-save {
+#account-editModal .account-btn-save,
+#addModal .account-btn-save,
+#editModal .account-btn-save {
     background: var(--btn-add-gradient);
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
 }
 
 #account-addModal .account-btn-save:hover,
-#account-editModal .account-btn-save:hover {
+#account-editModal .account-btn-save:hover,
+#addModal .account-btn-save:hover,
+#editModal .account-btn-save:hover {
     background: var(--btn-add-gradient-hover);
     color: #ffffff;
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
@@ -2068,19 +2087,27 @@ body.account-page #confirmDeleteModal .confirm-delete {
 
 #account-addModal .account-btn-save:active,
 #account-editModal .account-btn-save:active,
+#addModal .account-btn-save:active,
+#editModal .account-btn-save:active,
 #account-addModal .account-btn-cancel:active,
-#account-editModal .account-btn-cancel:active {
+#account-editModal .account-btn-cancel:active,
+#addModal .account-btn-cancel:active,
+#editModal .account-btn-cancel:active {
     transform: translateY(0);
 }
 
 #account-addModal .account-btn-cancel,
-#account-editModal .account-btn-cancel {
+#account-editModal .account-btn-cancel,
+#addModal .account-btn-cancel,
+#editModal .account-btn-cancel {
     background: var(--gradient-domain-muted-action);
     box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
 }
 
 #account-addModal .account-btn-cancel:hover,
-#account-editModal .account-btn-cancel:hover {
+#account-editModal .account-btn-cancel:hover,
+#addModal .account-btn-cancel:hover,
+#editModal .account-btn-cancel:hover {
     background: var(--gradient-domain-muted-action-hover);
     color: #ffffff;
     box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
@@ -2747,7 +2774,7 @@ body.account-page .account-pagination-info {
     border-radius: 4px;
     background-color: white;
     cursor: pointer;
-    font-size: clamp(9px, 0.73vw, 14px);
+    font-size: var(--drp-trigger-text, var(--text-medium));
     color: #374151;
     transition: all 0.2s ease;
     min-height: 32px;
@@ -2763,7 +2790,7 @@ body.account-page .account-pagination-info {
 
 .report-date-range-picker i {
     color: #007AFF;
-    font-size: clamp(9px, 0.73vw, 13px);
+    font-size: var(--drp-trigger-icon, var(--text-medium));
 }
 
 .report-date-range-input {
@@ -2976,7 +3003,7 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     }
 
     body.account-page .action-buttons-container .user-gc-inline-panel {
-        padding: 8px 16px 12px 16px;
+        padding: 8px 20px 12px;
         column-gap: var(--user-gc-inline-column-gap, 4px);
         row-gap: var(--user-gc-inline-row-gap, 4px);
     }
@@ -3261,6 +3288,9 @@ body > #userModal.modal {
 
 body > #confirmModal.modal,
 body > #confirmDeleteModal.account-modal,
+body > #forceDeleteCurrencyModal.account-modal,
+body > #confirmDeleteModal.confirm-delete-modal-overlay,
+body > #forceDeleteCurrencyModal.confirm-delete-modal-overlay,
 body > #accountAlertModal.account-modal {
     z-index: 20100;
 }
@@ -3272,5 +3302,69 @@ body > .account-notification-container {
 body > .user-modal-company-picker-root--above-modals,
 body > .user-modal-permission-picker-root--above-modals {
     z-index: 25500;
+}
+
+/* Add/Edit Account — Companies picker: compact width, 4-col grid, smaller chips */
+.user-modal-company-picker--account {
+    width: min(400px, calc(100vw - 32px));
+    max-height: min(68vh, 460px);
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-header {
+    padding: 12px 14px;
+    font-size: 14px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-filter-row {
+    padding: 10px 14px 0;
+    gap: 6px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-search {
+    padding: 7px 10px 7px 32px;
+    font-size: 12px;
+    border-radius: 8px;
+    background-position: 9px center;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-select-all {
+    padding: 6px 10px;
+    font-size: 11px;
+    border-radius: 8px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-body {
+    flex: 0 1 auto;
+    max-height: min(36vh, 280px);
+    padding: 6px 6px 2px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    padding: 0 4px 8px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-label {
+    padding: 5px 6px;
+    gap: 5px;
+    font-size: 11px;
+    border-radius: 7px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-label input[type="checkbox"],
+.user-modal-company-picker--account .user-modal-company-picker-label input[type="radio"] {
+    width: 13px;
+    height: 13px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-footer {
+    padding: 10px 14px 12px;
+}
+
+.user-modal-company-picker--account .user-modal-company-picker-done {
+    padding: 9px 12px;
+    font-size: 13px;
+    border-radius: 8px;
 }
 

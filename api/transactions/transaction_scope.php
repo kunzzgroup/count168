@@ -34,12 +34,15 @@ function tx_resolve_group_anchor_company_id(PDO $pdo, string $groupId): int
 
 function tx_request_has_group_only_scope(array $params): bool
 {
-    if (isset($params['group_aggregate']) && (string) $params['group_aggregate'] === '1') {
-        return true;
+    if (isset($params['subsidiary_accounts_only']) && (string) $params['subsidiary_accounts_only'] === '1') {
+        return false;
     }
     $requestedRaw = $params['company_id'] ?? null;
     if ($requestedRaw !== null && trim((string) $requestedRaw) !== '') {
         return false;
+    }
+    if (isset($params['group_aggregate']) && (string) $params['group_aggregate'] === '1') {
+        return true;
     }
     $viewGroup = tx_normalize_view_group(isset($params['view_group']) ? (string) $params['view_group'] : null);
     $groupScope = tx_normalize_view_group(isset($params['group_id']) ? (string) $params['group_id'] : null);
@@ -128,14 +131,28 @@ function tx_sql_transaction_company_ledger_only(string $alias = 't'): string
 function tx_search_transaction_filter(PDO $pdo, array $scope, string $alias = 't'): array
 {
     $isGroup = (($scope['mode'] ?? '') === 'group');
-    $sql = tx_sql_transaction_scope_where($scope, $alias);
-    if (!$isGroup && tx_table_has_scope_column($pdo, 'transactions')) {
-        $sql .= tx_sql_transaction_company_ledger_only($alias);
+    $companyId = (int) ($scope['company_id'] ?? 0);
+    if (
+        !$isGroup
+        && $companyId > 0
+        && function_exists('tenant_dual_tenant_enabled')
+        && tenant_dual_tenant_enabled($pdo)
+        && tx_table_has_scope_column($pdo, 'transactions')
+    ) {
+        $sql = "COALESCE(NULLIF({$alias}.scope_id, 0), {$alias}.company_id) = ?"
+            . tx_sql_transaction_company_ledger_only($alias);
+        $bind = $companyId;
+    } else {
+        $sql = tx_sql_transaction_scope_where($scope, $alias);
+        if (!$isGroup && tx_table_has_scope_column($pdo, 'transactions')) {
+            $sql .= tx_sql_transaction_company_ledger_only($alias);
+        }
+        $bind = tx_bind_transaction_scope_id($scope);
     }
 
     return [
         'sql' => $sql,
-        'bind' => tx_bind_transaction_scope_id($scope),
+        'bind' => $bind,
         'is_group' => $isGroup,
         'perm_company_id' => tx_permission_company_id_for_scope($pdo, $scope),
     ];

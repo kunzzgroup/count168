@@ -102,6 +102,7 @@ RewriteRule ^domainapi\.php$ /api/domain/domain_api.php [L,NC,QSA]
 RewriteRule ^datacapture$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^datacapturesummary$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^transaction$ /frontend/dist/index.html [L,NC,QSA]
+RewriteRule ^transaction/payment-history$ /frontend/dist/index.html [L,NC,QSA]
 RewriteRule ^transcation$ /transaction [R=302,L,NC]
 RewriteRule ^logout$ /api/session/logout_api.php [L,NC,QSA]
 
@@ -111,4 +112,4 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 # SPA routes handled by React app build
-RewriteRule ^(login|member|reset-password|dashboard|domain|announcement|auto-renew|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|useraccess|ownership|owner-secondary-password|user-secondary-password|datacapture|datacapturesummary|transaction|customer-report|domain-report|capture-maintenance|transaction-maintenance|formula-maintenance|bankprocess-maintenance|payment-maintenance|deleted-log)$ /frontend/dist/index.html [L,NC]
+RewriteRule ^(login|member|reset-password|dashboard|domain|announcement|auto-renew|account-list|add-account|process-list|games-process-list|bank-process-list|userlist|useraccess|ownership|owner-secondary-password|user-secondary-password|datacapture|datacapturesummary|transaction|transaction/payment-history|customer-report|domain-report|capture-maintenance|transaction-maintenance|formula-maintenance|bankprocess-maintenance|payment-maintenance|deleted-log)$ /frontend/dist/index.html [L,NC,QSA]

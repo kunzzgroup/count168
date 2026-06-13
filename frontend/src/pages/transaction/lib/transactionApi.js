@@ -5,6 +5,7 @@ export const transactionQueryKeys = {
   search: ({
     companyId,
     viewGroup,
+    subsidiaryAccountsOnly,
     dateFrom,
     dateTo,
     showInactive,
@@ -17,6 +18,7 @@ export const transactionQueryKeys = {
     {
       companyId: Number(companyId ?? 0),
       viewGroup: viewGroup ? String(viewGroup).trim().toUpperCase() : "",
+      subsidiaryAccountsOnly: !!subsidiaryAccountsOnly,
       dateFrom: String(dateFrom || ""),
       dateTo: String(dateTo || ""),
       showInactive: !!showInactive,
@@ -214,6 +216,8 @@ export async function searchTransactions({
   companyId,
   viewGroup,
   groupId,
+  groupAggregate,
+  subsidiaryAccountsOnly,
   dateFrom,
   dateTo,
   showInactive,
@@ -224,7 +228,13 @@ export async function searchTransactions({
   signal,
 } = {}) {
   const params = new URLSearchParams();
-  appendTransactionScope(params, { companyId, viewGroup, groupId });
+  appendTransactionScope(params, {
+    companyId,
+    viewGroup,
+    groupId,
+    groupAggregate,
+    subsidiaryAccountsOnly,
+  });
   params.set("date_from", String(dateFrom || ""));
   params.set("date_to", String(dateTo || ""));
   params.set("show_inactive", showInactive ? "1" : "0");
@@ -276,6 +286,7 @@ export async function getHistory({
   viewGroup,
   groupId,
   groupAggregate,
+  subsidiaryAccountsOnly,
   accountId,
   dateFrom,
   dateTo,
@@ -284,7 +295,13 @@ export async function getHistory({
   signal,
 } = {}) {
   const params = new URLSearchParams();
-  appendTransactionScope(params, { companyId, viewGroup, groupId, groupAggregate });
+  appendTransactionScope(params, {
+    companyId,
+    viewGroup,
+    groupId,
+    groupAggregate,
+    subsidiaryAccountsOnly,
+  });
   if (accountId != null && accountId !== "") params.set("account_id", String(accountId));
   if (dateFrom) params.set("date_from", String(dateFrom));
   if (dateTo) params.set("date_to", String(dateTo));

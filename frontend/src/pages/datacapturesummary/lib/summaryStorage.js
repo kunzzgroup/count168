@@ -1,8 +1,10 @@
 import {
   captureSessionMatchesScope,
   loadActiveCaptureSession,
+  loadCaptureSession,
   CAPTURE_SCOPE_POINTER_KEY,
 } from "../../datacapture/lib/dataCaptureStorage.js";
+import { resolveDataCaptureScopeFromSessionMeta } from "../../datacapture/lib/dataCaptureScope.js";
 import { dataCaptureScopeCacheCompanyKey } from "../../datacapture/lib/dataCaptureScope.js";
 export const SUMMARY_CAPTURE_STORAGE_KEYS = [
   "capturedTableData",
@@ -11,8 +13,10 @@ export const SUMMARY_CAPTURE_STORAGE_KEYS = [
   "capturedFormatPreviewHtml",
   "captured655PreviewHtml",
   "capturedTableRateValues",
+  "capturedTableRateValuesByProductId",
   "capturedTableFormulaSourceForRefresh",
   "capturedCaptureId",
+  "summarySuppressedRowKeys",
 ];
 
 export const SUMMARY_RATE_VALUES_KEY = "capturedTableRateValues";
@@ -84,8 +88,42 @@ export function stripSummarySuccessParamFromUrl() {
   }
 }
 
+/**
+ * Load capture session for Summary — tries pointer/active scope, then explicit scope, then legacy keys.
+ */
+export function loadSummaryCaptureSession(captureScope = null) {
+  const active = loadActiveCaptureSession();
+  if (active?.tableData && active?.processData) {
+    return active;
+  }
+
+  if (captureScope) {
+    const scoped = loadCaptureSession(captureScope);
+    if (scoped?.tableData && scoped?.processData) {
+      return scoped;
+    }
+  }
+
+  const legacy = loadCaptureSession(null);
+  if (legacy?.tableData && legacy?.processData) {
+    return legacy;
+  }
+
+  if (active?.processData) {
+    const fromMeta = resolveDataCaptureScopeFromSessionMeta(active.processData);
+    if (fromMeta) {
+      const metaScoped = loadCaptureSession(fromMeta);
+      if (metaScoped?.tableData && metaScoped?.processData) {
+        return metaScoped;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function readCaptureSessionFromStorage(expectedScope = null) {
-  const session = loadActiveCaptureSession();
+  const session = loadSummaryCaptureSession(expectedScope);
   if (!session) return null;
   if (expectedScope && !captureSessionMatchesScope(session, expectedScope)) {
     return null;

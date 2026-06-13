@@ -58,7 +58,7 @@ function resolveDomainReportCaptureScope(PDO $pdo, array $resolved, array $get):
     return $ctx;
 }
 
-/** Group entity scope: SALARY/BONUS only (same rules as Data Capture). */
+/** Group entity scope: SALARY/COMMISSION/BONUS only (same rules as Data Capture). */
 function resolveDomainReportGroupScope(PDO $pdo, array $resolved, int $companyId): bool
 {
     unset($pdo, $companyId);
@@ -75,11 +75,11 @@ function resolveDomainReportGroupScope(PDO $pdo, array $resolved, int $companyId
     return dcIsGroupScopeHint($resolved);
 }
 
-/** Group Domain Report: ensure SALARY + BONUS on entity, then return both rows. */
+/** Group Domain Report: ensure SALARY + COMMISSION + BONUS on entity, then return rows. */
 function fetchGroupDomainProcesses(PDO $pdo, int $company_id, string $groupId): array
 {
     $g = reportNormalizeGroupId($groupId);
-    foreach (['SALARY', 'BONUS'] as $code) {
+    foreach (dcGroupPayrollProcessCodes() as $code) {
         dcEnsureProcessIdByCode($pdo, $company_id, $code, true, $g !== '' ? $g : null);
     }
     return fetchProcesses($pdo, $company_id, true);
@@ -100,7 +100,7 @@ function fetchProcesses(PDO $pdo, int $company_id, bool $groupScope = false) {
     } else {
         $sql .= dcSqlCompanyProcessFilter('p');
     }
-    $sql .= " ORDER BY FIELD(UPPER(TRIM(p.process_id)), 'SALARY', 'BONUS'), p.process_id ASC";
+    $sql .= ' ' . dcSqlOrderByGroupPayrollProcessField('UPPER(TRIM(p.process_id))') . ', p.process_id ASC';
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -233,7 +233,7 @@ function fetchDomainReportRows(
         $sql .= " AND p.id = ? ";
         $params[] = $process_id;
     }
-    $sql .= " GROUP BY p.id, p.process_id, d.name ORDER BY FIELD(UPPER(TRIM(p.process_id)), 'SALARY', 'BONUS'), p.process_id ASC ";
+    $sql .= ' GROUP BY p.id, p.process_id, d.name ' . dcSqlOrderByGroupPayrollProcessField('UPPER(TRIM(p.process_id))') . ', p.process_id ASC ';
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);

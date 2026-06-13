@@ -480,4 +480,12 @@ body.maintenance-page .maintenance-virtual-scroll--body {
     -ms-overflow-style: auto !important;
 }
 
+/* Bank Process 筛选区更高，表格滚动区略减顶栏预留 */
+body.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
+    max-height: min(72vh, calc(100dvh - 300px), 900px) !important;
+    overflow-y: auto !important;
+    padding-bottom: clamp(8px, 0.6vw, 12px);
+    box-sizing: border-box;
+}
+
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

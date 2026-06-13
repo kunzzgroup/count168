@@ -35,13 +35,18 @@ function domainApiNormalizeGroupsPayload($groups): array
         if ($code === '') {
             continue;
         }
-        $out[] = [
+        $entry = [
             'group_code' => $code,
             'expiration_date' => !empty($row['expiration_date']) ? $row['expiration_date'] : null,
             'permissions' => (isset($row['permissions']) && is_array($row['permissions'])) ? $row['permissions'] : [],
             'fee_share_allocations' => $row['fee_share_allocations'] ?? null,
             'apply_commission_payments_on_domain_save' => !empty($row['apply_commission_payments_on_domain_save']),
         ];
+        $prev = strtoupper(trim((string) ($row['previous_group_code'] ?? '')));
+        if ($prev !== '' && $prev !== $code) {
+            $entry['previous_group_code'] = $prev;
+        }
+        $out[] = $entry;
     }
     return $out;
 }
@@ -283,15 +288,37 @@ function domainApiSaveOwnerGroups(PDO $pdo, int $ownerId, array $groupsData, str
         'UPDATE `groups` SET expiration_date = ?, permissions = ?, fee_share_allocations = ? WHERE id = ?'
     );
 
+    $renameGroupCode = $pdo->prepare(
+        'UPDATE `groups` SET group_code = ?, expiration_date = ?, permissions = ?, fee_share_allocations = ? WHERE id = ?'
+    );
+    $renameCompanyGroupId = $pdo->prepare(
+        "UPDATE company SET group_id = ? WHERE owner_id = ? AND UPPER(TRIM(group_id)) = ?"
+    );
+
     foreach ($groupsData as $g) {
         $code = strtoupper(trim((string) ($g['group_code'] ?? '')));
         if ($code === '') {
             continue;
         }
+        $prevCode = strtoupper(trim((string) ($g['previous_group_code'] ?? '')));
         $newCodes[$code] = true;
         $permsJson = !empty($g['permissions']) && is_array($g['permissions']) ? json_encode($g['permissions']) : null;
         $feeJson = feeShareAllocationsToJson(normalizeFeeShareAllocationsInput($g['fee_share_allocations'] ?? null));
         $exp = !empty($g['expiration_date']) ? $g['expiration_date'] : null;
+
+        if ($prevCode !== '' && $prevCode !== $code && isset($existingByCode[$prevCode])) {
+            $groupPk = $existingByCode[$prevCode];
+            $renameGroupCode->execute([$code, $exp, $permsJson, $feeJson, $groupPk]);
+            unset($existingByCode[$prevCode]);
+            $existingByCode[$code] = $groupPk;
+            $renameCompanyGroupId->execute([$code, $ownerId, $prevCode]);
+            if (function_exists('domainApiRenameC168MemberAccountCode')) {
+                if (function_exists('domainApiRenameC168MemberAccountCode')) {
+                domainApiRenameC168MemberAccountCode($pdo, $prevCode, $code);
+            }
+            }
+            continue;
+        }
 
         if (isset($existingByCode[$code])) {
             $update->execute([$exp, $permsJson, $feeJson, $existingByCode[$code]]);

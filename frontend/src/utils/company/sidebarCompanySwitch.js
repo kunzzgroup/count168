@@ -90,12 +90,20 @@ export function resolveMaintenanceRedirectForSession(sessionData, currentPath) {
 
   if (isBankOnlyCategoryFlags(flags)) {
     if (isBankOnlyAllowedMaintenancePath(path)) return null;
+    if (
+      path === "/transaction-maintenance" ||
+      path === "/capture-maintenance" ||
+      path === "/formula-maintenance"
+    ) {
+      return "/payment-maintenance";
+    }
     if (path === "/dashboard") return null;
     return "/dashboard";
   }
 
   if (isGamesOnlyCategoryFlags(flags)) {
     if (path === "/bankprocess-maintenance") return "/capture-maintenance";
+    // Payment Maintenance 与 Process 共用公司 pills，切换 Games 公司时不跳转。
     return null;
   }
 

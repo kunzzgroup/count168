@@ -1,15 +1,81 @@
 /* Auto Renew approval page */
+@import url("./page-pill-tabs.css");
 
 body.auto-renew-page-body {
   overflow-y: auto !important;
-  --auto-renew-toolbar-search-width: clamp(180px, 16vw, 260px);
-  --auto-renew-toolbar-date-width: clamp(200px, 15vw, 248px);
-  --auto-renew-control-height: 28px;
-  --auto-renew-row-padding-y: 7px;
+  --auto-renew-toolbar-search-width: clamp(180px, 16vw, 240px);
+  --auto-renew-toolbar-date-width: clamp(316px, 22vw, 336px);
+  --auto-renew-control-height: 24px;
+  --auto-renew-toolbar-control-height: clamp(32px, 2.45vw, 38px);
+  --auto-renew-row-padding-y: 4px;
 }
 
-body.auto-renew-page-body .auto-renew-page .content {
+body.auto-renew-page-body .auto-renew-page .content,
+body.auto-renew-page-body.user-page .container,
+body.auto-renew-page-body.user-page .content {
   max-width: 100%;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all {
+  overflow-y: auto !important;
+  height: auto;
+  min-height: 100vh;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .container {
+  height: auto;
+  min-height: 100vh;
+  overflow-y: visible;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .content {
+  height: auto;
+  min-height: calc(100vh - var(--layout-page-top-inset));
+  overflow: visible;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .user-table-wrapper.auto-renew-table {
+  flex: 0 1 auto;
+  overflow: visible;
+  padding-bottom: 72px;
+}
+
+body.auto-renew-page-body.user-page.user-page--show-all .user-table-wrapper.auto-renew-table .user-cards.auto-renew-cards {
+  max-height: none;
+  overflow-y: visible;
+}
+
+/* Company / Group tabs — see page-pill-tabs.css */
+body.auto-renew-page-body .auto-renew-page-header {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+body.auto-renew-page-body .auto-renew-tab-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(239, 68, 68, 0.28);
+}
+
+body.auto-renew-page-body .page-tab.active .auto-renew-tab-pending-badge {
+  background: rgba(255, 255, 255, 0.32);
+  color: #fff;
+  box-shadow: none;
 }
 
 /* Toolbar — reuse user-page action-buttons-container; no extra card wrapper */
@@ -52,8 +118,8 @@ body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker {
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  min-height: calc(18px + 12px + 2px);
-  gap: clamp(4px, 0.4vw, 6px);
+  min-height: var(--auto-renew-toolbar-control-height);
+  gap: clamp(8px, 0.7vw, 12px);
   padding: 0 clamp(24px, 2vw, 30px) 0 0;
   border: 1px solid rgba(148, 163, 184, 0.62);
   border-radius: 12px;
@@ -81,15 +147,15 @@ body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker i.fa-c
   align-items: center;
   justify-content: center;
   align-self: stretch;
-  width: clamp(30px, 2.2vw, 38px);
+  width: clamp(34px, 2.45vw, 42px);
   height: auto;
-  min-height: calc(18px + 12px + 2px);
+  min-height: 0;
   margin: 0;
   border-radius: 11px 0 0 11px;
   color: #ffffff;
   background: #3b82f6;
   box-shadow: none;
-  font-size: var(--text-small, 13px);
+  font-size: var(--drp-trigger-icon, var(--text-medium));
   flex: 0 0 auto;
 }
 
@@ -97,7 +163,7 @@ body.auto-renew-page-body .auto-renew-date-range-group #date-range-display {
   flex: 1 1 auto;
   min-width: 0;
   color: #64748b;
-  font-size: var(--text-small, 13px);
+  font-size: var(--drp-trigger-text);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -116,7 +182,7 @@ body.auto-renew-page-body .auto-renew-date-range-group .transaction-date-range-c
   top: 50%;
   margin: 0;
   color: #64748b;
-  font-size: var(--text-tiny, 11px);
+  font-size: var(--drp-trigger-chevron, var(--text-medium));
   flex: 0 0 auto;
   pointer-events: none;
   transform: translateY(-50%);
@@ -192,10 +258,38 @@ body.lang-zh.auto-renew-page-body .user-list-table.auto-renew-table.auto-renew-t
     minmax(88px, 0.82fr);
 }
 
-body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner.auto-renew-table-inner {
+  overflow: visible;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .user-list-table.auto-renew-table {
+  --auto-renew-table-min-width: 1100px;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
+  min-width: 0;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll__track {
+  min-width: var(--auto-renew-table-min-width);
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll .auto-renew-table-hscroll__track {
+  transition: opacity 0.15s ease;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll.is-refreshing .auto-renew-table-hscroll__track {
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+body.auto-renew-page-body .auto-renew-table-hscroll .table-header.user-list-table-header.auto-renew-table-header {
+  overflow: hidden;
+  transform: translateZ(0);
 }
 
 /* Header / row share same horizontal inset so grid columns line up */
@@ -256,6 +350,12 @@ body.auto-renew-page-body .auto-renew-col-control > .auto-renew-cell-readonly {
 
 body.auto-renew-page-body .auto-renew-col-control--status {
   justify-content: flex-start;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+body.auto-renew-page-body .auto-renew-col-control--status > .auto-renew-action-btns {
+  overflow: visible;
 }
 
 body.auto-renew-page-body .auto-renew-col-control--status > .auto-renew-action-btns,
@@ -561,15 +661,15 @@ body.auto-renew-page-body .auto-renew-btn {
   cursor: pointer;
   border: none;
   white-space: nowrap;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  transition: transform 0.12s ease, background 0.12s ease, opacity 0.12s ease;
 }
 
 body.auto-renew-page-body .auto-renew-btn--sm {
-  height: var(--auto-renew-control-height);
   min-height: var(--auto-renew-control-height);
-  min-width: 0;
-  padding: 0 10px;
-  font-size: var(--text-medium);
+  height: auto;
+  padding: 5px 10px;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 body.auto-renew-page-body .auto-renew-btn:not(:disabled):active {
@@ -577,30 +677,28 @@ body.auto-renew-page-body .auto-renew-btn:not(:disabled):active {
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--btn-add-gradient);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+  box-shadow: none;
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary:not(:disabled):hover {
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  background: var(--btn-add-gradient-hover);
 }
 
 body.auto-renew-page-body .auto-renew-btn-primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary {
-  background: #fff;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: var(--gradient-domain-muted-action, linear-gradient(180deg, #bcbcbc 0%, #585858 100%));
+  color: #fff;
+  border: none;
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary:not(:disabled):hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: var(--gradient-domain-muted-action-hover, linear-gradient(180deg, #585858 0%, #bcbcbc 100%));
 }
 
 body.auto-renew-page-body .auto-renew-btn-secondary:disabled {
@@ -724,7 +822,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
     padding: 10px 14px;
   }
 
-  body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+  body.auto-renew-page-body .auto-renew-table-hscroll__track {
     min-width: max(100%, 1120px);
   }
 
@@ -869,10 +967,8 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
     padding-bottom: clamp(20px, 3vw, 36px);
   }
 
-  body.auto-renew-page-body .user-table-wrapper.auto-renew-table .user-list-table-inner {
+  body.auto-renew-page-body .auto-renew-table-hscroll__track {
     min-width: max(100%, 1000px);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table,

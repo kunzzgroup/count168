@@ -4,6 +4,7 @@ import {
   filterCompaniesWithDisplayId,
   isDashboardGroupOnlyMode,
   isVirtualGroupLinkCompanyRow,
+  pickGroupAnchorCompany,
   resolveViewGroupForCompany,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { groupIdsForGroupsAllAggregate } from "../../../utils/company/useGcFilterWithAllModes.js";
@@ -36,9 +37,10 @@ export function resolveTransactionScope(filterSnapshot) {
   const uiCompanyIdRaw = filterSnapshot.companyId;
   const hasExplicitCompany =
     uiCompanyIdRaw != null && Number(uiCompanyIdRaw) > 0;
-  // Explicit company pill wins over cross-page group-only session flag (prevents IG currencies leaking into 95).
+  // Explicit company pill always wins — never treat subsidiary drill-down as group ledger
+  // (prevents IG group CR/DR leaking into company 95 when dashboard group-only flag is set).
   const groupOnlyLedger = hasExplicitCompany
-    ? Boolean(filterSnapshot.groupOnlyLedger)
+    ? false
     : Boolean(filterSnapshot.groupOnlyLedger) ||
       (selectedGroup && isDashboardGroupOnlyMode());
   const uiCompanyId = groupOnlyLedger
@@ -103,6 +105,18 @@ export function resolveTransactionScope(filterSnapshot) {
     }
   } else if (!scopeCompanyId && uiCompanyId) {
     scopeCompanyId = uiCompanyId;
+  }
+
+  // Explicit company pill (95, C168, …) always uses subsidiary scope — never group ledger.
+  if (hasExplicitCompany && uiCompanyId > 0) {
+    const scopeRow = snapCompanies.find((c) => Number(c.id) === uiCompanyId) || null;
+    return {
+      mode: "company",
+      scopeCompanyId: uiCompanyId,
+      viewGroup: resolveViewGroupForCompany(scopeRow, selectedGroup) || selectedGroup || null,
+      selectedGroup,
+      uiCompanyId,
+    };
   }
 
   if (!scopeCompanyId || scopeCompanyId <= 0) {
@@ -214,4 +228,24 @@ export function transactionScopeCacheKey(scope) {
   if (!scope) return "";
   const companyKey = transactionScopeCacheCompanyKey(scope) ?? "";
   return `${companyKey}:${scope.viewGroup || ""}:${scope.mode}:${scope.uiCompanyId ?? ""}`;
+}
+
+/** company_id for user_currency_order_api (per subsidiary / group anchor). */
+export function resolveTransactionCurrencyOrderCompanyId(scope, snapCompanies = []) {
+  if (!scope) return null;
+  const ui = Number(scope.uiCompanyId);
+  if (Number.isFinite(ui) && ui > 0) return ui;
+  const scopeCid = Number(scope.scopeCompanyId);
+  if (Number.isFinite(scopeCid) && scopeCid > 0) return scopeCid;
+  const g = scope.selectedGroup ? String(scope.selectedGroup).trim().toUpperCase() : "";
+  if (g && snapCompanies?.length) {
+    const anchor = pickGroupAnchorCompany(snapCompanies, g);
+    const aid = Number(anchor?.id);
+    if (Number.isFinite(aid) && aid > 0) return aid;
+  }
+  if (scope.mergeCompanyIds?.length) {
+    const first = Number(scope.mergeCompanyIds[0]);
+    if (Number.isFinite(first) && first > 0) return first;
+  }
+  return null;
 }

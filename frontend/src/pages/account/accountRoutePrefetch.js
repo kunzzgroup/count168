@@ -42,7 +42,7 @@ async function fetchAccountListSlice({
   const gid = groupId ? String(groupId).trim().toUpperCase() : "";
   const url =
     cid != null && Number.isFinite(cid) && cid > 0
-      ? buildAccountsUrl(cid, search, showInactive, showAll)
+      ? buildAccountsUrl(cid, search, showInactive, showAll, { groupId: gid || null })
       : gid
         ? buildGroupAccountsUrl(gid, search, showInactive, showAll)
         : null;

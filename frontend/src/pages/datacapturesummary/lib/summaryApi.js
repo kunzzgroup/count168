@@ -11,9 +11,10 @@ function withCaptureScope(url, captureScope) {
 }
 
 function withCompany(url, companyId) {
-  if (companyId == null || companyId === "") return url;
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return url;
   const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}company_id=${encodeURIComponent(String(companyId))}`;
+  return `${url}${sep}company_id=${encodeURIComponent(String(cid))}`;
 }
 
 async function parseJsonResponse(response) {
@@ -22,18 +23,6 @@ async function parseJsonResponse(response) {
     throw new Error(json?.message || json?.error || `HTTP ${response.status}`);
   }
   return json;
-}
-
-/** GET api/session/current_user_api.php */
-export async function fetchSummarySessionUser() {
-  const response = await fetch(buildApiUrl("api/session/current_user_api.php"), {
-    credentials: "include",
-  });
-  const json = await parseJsonResponse(response);
-  if (!json.success || !json.data) {
-    throw new Error(json.message || "Session unavailable");
-  }
-  return json.data;
 }
 
 /** Default load: currencies + accounts for Edit Formula / Add Account */
@@ -63,21 +52,6 @@ export async function fetchSummaryServerState({ captureScope, processId, process
     return json.data;
   }
   return null;
-}
-
-/** POST ?action=save_summary_state (fire-and-forget friendly) */
-export async function saveSummaryServerState(captureScope, payload) {
-  const url = withCaptureScope(
-    buildApiUrl("api/datacapture_summary/summary_api.php?action=save_summary_state"),
-    captureScope,
-  );
-  const response = await fetch(url, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return response.json();
 }
 
 /** POST ?action=submit — returns parsed JSON or throws with { status, message, isSizeError }. */
@@ -133,9 +107,91 @@ export async function submitSummaryPayload(captureScope, payload) {
   return json;
 }
 
-/** Backward-compatible alias when only numeric company id is known. */
-export function companyScopeFromId(companyId) {
-  const id = Number(companyId);
-  if (!Number.isFinite(id) || id <= 0) return null;
-  return { mode: "company", scopeCompanyId: id, uiCompanyId: id, groupId: null, viewGroup: null };
+/** GET accounts list (same as legacy fetchSummaryAccountList). */
+export async function fetchSummaryAccountList(captureScope) {
+  const json = await fetchSummaryFormCatalog(captureScope);
+  return Array.isArray(json.accounts) ? json.accounts : [];
+}
+
+/** POST ?action=templates — load maintenance templates for id products. */
+export async function fetchSummaryTemplates({
+  captureScope,
+  companyId,
+  idProducts,
+  processId,
+  captureId = null,
+}) {
+  const params = new URLSearchParams({ action: "templates" });
+  const base = withCaptureScope(
+    withCompany(buildApiUrl("api/datacapture_summary/summary_api.php"), companyId),
+    captureScope,
+  );
+  const url = base.includes("?") ? `${base}&${params}` : `${base}?${params}`;
+
+  const body = {
+    idProducts: [...new Set((idProducts || []).map((v) => String(v || "").trim()).filter(Boolean))],
+    processId,
+  };
+  if (companyId != null && Number(companyId) > 0) {
+    body.company_id = Number(companyId);
+  }
+  if (captureId != null && !Number.isNaN(Number(captureId)) && Number(captureId) > 0) {
+    body.captureId = Number(captureId);
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await parseJsonResponse(response);
+  if (!json.success) {
+    throw new Error(json.message || json.error || "Failed to load templates");
+  }
+  return {
+    templates: json.templates && typeof json.templates === "object" ? json.templates : {},
+    subsByParent:
+      json.subsByParent && typeof json.subsByParent === "object" ? json.subsByParent : null,
+    diagnostics: json.diagnostics ?? null,
+  };
+}
+
+/** POST ?action=delete_template — remove saved formula template (legacy deleteSelectedRows). */
+export async function deleteSummaryTemplate({
+  captureScope,
+  companyId,
+  processId,
+  templateKey,
+  productType = "main",
+  templateId = null,
+  formulaVariant = null,
+}) {
+  if (!templateKey) {
+    return { success: false, message: "Missing template key" };
+  }
+
+  const url = withCaptureScope(
+    withCompany(buildApiUrl("api/datacapture_summary/summary_api.php?action=delete_template"), companyId),
+    captureScope,
+  );
+
+  const body = {
+    template_key: templateKey,
+    product_type: productType,
+  };
+  if (companyId != null && Number(companyId) > 0) {
+    body.company_id = Number(companyId);
+  }
+  if (templateId != null && templateId !== "") body.template_id = templateId;
+  if (formulaVariant != null && formulaVariant !== "") body.formula_variant = formulaVariant;
+  if (processId != null && processId !== "") body.process_id = processId;
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseJsonResponse(response);
 }

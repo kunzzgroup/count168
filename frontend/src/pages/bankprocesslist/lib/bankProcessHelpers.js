@@ -1,7 +1,9 @@
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 
-export const PAGE_SIZE = 25;
+/** Auto page size bounds (actual count from useAutoListPageSize). */
+export const PAGE_SIZE_MIN = 4;
+export const PAGE_SIZE_MAX = 80;
 
 /** Bank Process 金额：固定两位小数（如 300.00）. */
 export function isValidBankMoneyInput(value) {
@@ -114,7 +116,7 @@ export function formatBankAccountDisplay(codeRaw, nameRaw, fallbackRaw) {
  * 全列 minmax(0, fr)：铺满容器、无横向滚动。
  */
 export const BANK_GRID_TEMPLATE_COLUMNS =
-  "minmax(0,0.34fr) minmax(0,0.62fr) minmax(0,0.44fr) minmax(0,1.52fr) minmax(0,1.31fr) minmax(0,0.68fr) minmax(0,0.58fr) minmax(0,0.52fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.62fr) minmax(0,0.58fr) minmax(0,0.54fr)";
+  "minmax(0,0.34fr) minmax(0,0.62fr) minmax(0,0.44fr) minmax(max-content,1.08fr) minmax(0,1.35fr) minmax(0,0.68fr) minmax(0,0.58fr) minmax(0,0.52fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.58fr) minmax(0,0.62fr) minmax(0,0.58fr) minmax(0,0.54fr)";
 
 /** Bank Process 列表：BANK (TYPE)，如 RHB (BUSINESS) */
 export function formatBankWithTypeDisplay(bank, type) {
@@ -169,8 +171,9 @@ export function isBankInactiveLike(status, issueFlag) {
 
 /**
  * Bank list client-side row filter (legacy bank_process_list.js matchesCurrentBankFilters).
- * - showAll: keep everything (date-range still applied by caller)
- * - any of showInactive/showOfficial/showEInvoice/showBlock: union of those exact buckets
+ * - showAll only: default visible active rows
+ * - showAll + sub-filters: union of selected buckets (inactive / official / e_invoice / block)
+ * - no showAll, sub-filters only: union of those buckets (paginated mode)
  * - none: only "default visible" rows = active AND issue_flag NOT IN (official, e_invoice, block)
  *
  * "Plain inactive" means status==='inactive' AND issue_flag NOT IN (official, e_invoice, block).
@@ -201,21 +204,24 @@ export function filterBankProcessRowsBySearch(rows, searchTerm) {
 export function matchesCurrentBankFilters(row, filters) {
   if (!row) return false;
   const { showAll, showInactive, showOfficial, showEInvoice, showBlock } = filters || {};
-  if (showAll) return true;
   const status = normalizeBankProcessStatus(row.status);
   const issueFlag = normalizeBankIssueFlag(row.issue_flag);
   const isPlainInactive =
     status === "inactive" && issueFlag !== "official" && issueFlag !== "e_invoice" && issueFlag !== "block";
+  const isDefaultActive =
+    status === "active" && issueFlag !== "official" && issueFlag !== "e_invoice" && issueFlag !== "block";
   const matches = [];
   if (showInactive) matches.push(isPlainInactive);
   if (showOfficial) matches.push(issueFlag === "official");
   if (showEInvoice) matches.push(issueFlag === "e_invoice");
   if (showBlock) matches.push(issueFlag === "block");
-  if (matches.length === 0) {
-    return (
-      status === "active" && issueFlag !== "official" && issueFlag !== "e_invoice" && issueFlag !== "block"
-    );
+
+  if (showAll) {
+    if (matches.length === 0) return isDefaultActive;
+    return matches.some(Boolean);
   }
+
+  if (matches.length === 0) return isDefaultActive;
   return matches.some(Boolean);
 }
 
@@ -425,6 +431,15 @@ export function notifyTransactionDataChanged(sourceTag) {
 
 const bankCategoryCompanyCache = new Map();
 
+/** When session company matches, skip domain API for bank-only vs games routing. */
+export function resolveBankOnlyCategoryHint(sessionMe, companyNumericId) {
+  if (!sessionMe || companyNumericId == null) return null;
+  if (Number(sessionMe.company_id) !== Number(companyNumericId)) return null;
+  if (sessionMe.company_has_bank && !sessionMe.company_has_gambling) return true;
+  if (sessionMe.company_has_gambling) return false;
+  return null;
+}
+
 export async function isBankCategoryCompany(companyCode, buildApiUrl) {
   const cacheKey = String(companyCode || "").trim().toUpperCase();
   if (!cacheKey) return false;
@@ -553,9 +568,11 @@ export const EMPTY_BANK_FORM = {
   sop: "",
 };
 
-/** @returns {'monthly'|'once'|'1st_of_every_month'} */
+/** @returns {'monthly'|'week'|'day'|'once'|'1st_of_every_month'} */
 export function bankProcessFrequencyNormalized(v) {
   if (v === "monthly") return "monthly";
+  if (v === "week") return "week";
+  if (v === "day") return "day";
   if (v === "once") return "once";
   return "1st_of_every_month";
 }
@@ -718,9 +735,20 @@ export const contractBillingEndYmdForBankForm = (startYmd, termMonths, frequency
 /** Matches legacy processlist.js / bank_process_list.js Accounting Due row period_types. */
 export function accountingDuePeriodType(r) {
   if (r.is_once_one_off) return "once_one_off";
+  if (r.is_weekly) return "weekly";
+  if (r.is_daily && r.is_daily_consolidated) return "daily_consolidated";
+  if (r.is_daily) return "daily";
   if (r.is_manual_inactive) return "manual_inactive";
   if (r.is_resend_consolidated_range) return "resend_consolidated_range";
   if (r.is_partial_first_month) return "partial_first_month";
   if (r.is_day_end_tail) return "day_end_tail";
   return "monthly";
+}
+
+/** Accounting Due 入账/删除时传给后端的 billing_months[] 锚点。 */
+export function accountingDueBillingMonth(r) {
+  if (r.is_daily || r.is_daily_consolidated) {
+    return String(r.monthly_billing_month || r.daily_billing_start || "").trim();
+  }
+  return String(r.weekly_billing_start || r.monthly_billing_month || "").trim();
 }

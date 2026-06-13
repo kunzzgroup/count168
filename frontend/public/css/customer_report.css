@@ -83,6 +83,11 @@ body.dashboard-page.report-page .customer-report-quick-and-showall {
     min-width: clamp(150px, 12.5vw, 240px);
 }
 
+body.dashboard-page.report-page .customer-report-filters .customer-report-filter-group.report-date-range-picker-container,
+body.dashboard-page.report-page .domain-report-filters .customer-report-filter-group.report-date-range-picker-container {
+    min-width: var(--drp-popup-width, clamp(316px, 22vw, 336px));
+}
+
 .customer-report-filter-group label {
     font-size: clamp(11px, 0.85vw, 13px);
     font-weight: 600;
@@ -391,7 +396,7 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
 }
 
 .customer-report-total-win {
-    color: #0b2557;
+    color: #172a9f;
 }
 
 .customer-report-total-lose {
@@ -405,7 +410,7 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
 
 .customer-report-card-item.customer-report-amount.win,
 .customer-report-amount.win {
-    color: #0b2557;
+    color: #172a9f;
 }
 
 .customer-report-card-item.customer-report-amount.lose,

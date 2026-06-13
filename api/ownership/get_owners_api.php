@@ -3,6 +3,7 @@ require_once '../../includes/session_check.php';
 require_once '../../includes/config.php';
 require_once '../includes/money_decimal.php';
 require_once '../includes/ownership_history.php';
+require_once '../includes/ownership_schema.php';
 
 header('Content-Type: application/json');
 
@@ -23,14 +24,14 @@ $parsedMonth = ownership_history_parse_month_param($monthRaw);
 $useHistory = $parsedMonth !== null && ownership_history_is_past_month($parsedMonth['month_key']);
 
 try {
-    $tableExists = $pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() > 0;
+    $tableExists = ownership_table_exists($pdo, 'company_ownership');
 
     if (!$tableExists) {
         echo json_encode(['status' => 'success', 'data' => [], 'meta' => ['is_historical' => false]]);
         exit();
     }
 
-    $hasOwnerType = $pdo->query("SHOW COLUMNS FROM company_ownership LIKE 'owner_type'")->rowCount() > 0;
+    $hasOwnerType = ownership_column_exists($pdo, 'company_ownership', 'owner_type');
 
     if ($useHistory) {
         ownership_history_ensure_tables($pdo);
@@ -95,7 +96,7 @@ try {
             LEFT JOIN user u ON coh.account_id = u.id AND coh.owner_type = 'user'
             LEFT JOIN company comp ON comp.id = coh.company_id
             WHERE coh.company_id = ? AND coh.effective_month = ? AND coh.owner_type != 'account'
-            ORDER BY coh.percentage DESC
+            ORDER BY coh.id ASC
         ");
         $stmt->execute([$company_id, $effectiveMonth]);
         $owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -119,10 +120,7 @@ try {
     }
 
     if ($hasOwnerType) {
-        try {
-            $pdo->exec("ALTER TABLE company_ownership ADD COLUMN read_only TINYINT(1) NOT NULL DEFAULT 1");
-        } catch (Exception $e) {
-        }
+        ownership_ensure_sort_order_column($pdo, 'company_ownership');
 
         $stmt = $pdo->prepare("
             SELECT co.id as ownership_id, co.percentage, co.owner_type,
@@ -168,7 +166,7 @@ try {
             LEFT JOIN user u ON co.account_id = u.id AND co.owner_type = 'user'
             LEFT JOIN company comp ON comp.id = co.company_id
             WHERE co.company_id = ? AND co.owner_type != 'account'
-            ORDER BY co.percentage DESC
+            ORDER BY co.sort_order ASC, co.id ASC
         ");
     } else {
         $stmt = $pdo->prepare("

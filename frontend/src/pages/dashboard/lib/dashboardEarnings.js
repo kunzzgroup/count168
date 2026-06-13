@@ -1,4 +1,8 @@
 import {
+  computeDisplayConvertedAmount,
+  formatFrankfurterUnitRate,
+} from "../../../utils/dashboard/frankfurterRates.js";
+import {
   DASHBOARD_CURRENCY_COLORS,
   DASHBOARD_CURRENCY_FALLBACK_PALETTE,
 } from "./dashboardConstants.js";
@@ -14,19 +18,30 @@ export function buildEarningsPieSlices(rows, { useConverted = false } = {}) {
     .filter((row) => row.earnings != null)
     .map((row, index) => {
       const originalEarnings = row.earnings;
-      const earnings =
-        useConverted && row.earningsConverted != null ? row.earningsConverted : row.earnings;
+      const earnings = useConverted
+        ? row.earningsConverted != null
+          ? row.earningsConverted
+          : null
+        : row.earnings;
+      if (earnings == null) return null;
       return {
         code: row.code,
         earnings,
         originalEarnings,
         earningsConverted: row.earningsConverted,
         value: Math.abs(earnings),
-        fill: getCurrencyColor(row.code, index),
+        fill: getCurrencyColor(row.code),
       };
     })
-    .filter((row) => row.value > 0)
+    .filter((row) => row && row.value > 0)
     .sort((a, b) => b.value - a.value);
+}
+
+/** Gap between donut sectors; tighter when several small slices need room. */
+export function resolveEarningsPiePaddingAngle(sliceCount) {
+  if (sliceCount <= 1) return 0;
+  if (sliceCount >= 4) return 2;
+  return 3;
 }
 
 const PIE_RADIAN = Math.PI / 180;
@@ -82,42 +97,93 @@ export function computeSectorTooltipPosition(sector, shellWidth, shellHeight) {
   return { left, top, placeAbove: top <= cy, radial: true };
 }
 
-/** Denominator for share %: algebraic converted total, or sum of abs native amounts. */
-export function resolveEarningsShareDenominator(rows, { useConverted = false, convertedTotal = null } = {}) {
-  if (useConverted && convertedTotal != null && Number.isFinite(convertedTotal)) {
-    return convertedTotal;
+function resolveRowShareAmount(row, useConverted) {
+  if (useConverted) {
+    if (row.earningsConverted == null) return null;
+    return parseFloat(row.earningsConverted) || 0;
   }
-  return (rows || []).reduce((sum, row) => {
-    if (row.earnings == null) return sum;
-    return sum + Math.abs(parseFloat(row.earnings) || 0);
-  }, 0);
+  if (row.earnings == null) return null;
+  return parseFloat(row.earnings) || 0;
 }
 
-export function computePieCenterMetrics(rows, selectedCode, { useConverted = false, shareTotal = null } = {}) {
+/**
+ * Share % by currency code.
+ * Non-base currencies: abs(amount) / sum(abs) × 100.
+ * Base (display) currency: 100% − sum(other shares), capped at 0 — never exceeds 100%.
+ */
+export function buildEarningsShareByCode(rows, baseCode, { useConverted = false } = {}) {
+  const base = String(baseCode || "").toUpperCase();
+  const entries = (rows || [])
+    .map((row) => {
+      const code = String(row.code || "").toUpperCase();
+      const amount = resolveRowShareAmount(row, useConverted);
+      if (amount == null) return null;
+      return { code, abs: Math.abs(amount) };
+    })
+    .filter(Boolean);
+
+  const shareByCode = {};
+  for (const row of rows || []) {
+    shareByCode[String(row.code || "").toUpperCase()] = 0;
+  }
+
+  const absTotal = entries.reduce((sum, entry) => sum + entry.abs, 0);
+  if (!absTotal) return shareByCode;
+
+  let othersSum = 0;
+  for (const { code, abs } of entries) {
+    if (code === base) continue;
+    const pct = (abs / absTotal) * 100;
+    shareByCode[code] = pct;
+    othersSum += pct;
+  }
+
+  if (entries.some((entry) => entry.code === base)) {
+    shareByCode[base] = Math.max(0, 100 - othersSum);
+  }
+
+  return shareByCode;
+}
+
+export function computePieCenterMetrics(rows, selectedCode, { useConverted = false } = {}) {
   const selected = String(selectedCode || "").toUpperCase();
   const match = (rows || []).find((row) => String(row.code || "").toUpperCase() === selected);
-  const total = resolveEarningsShareDenominator(rows, {
-    useConverted,
-    convertedTotal: shareTotal,
-  });
-  if (!match || !total || total === 0) {
-    return { pct: "0", code: selected || match?.code || "—" };
-  }
-  const val =
-    useConverted && match.earningsConverted != null
-      ? parseFloat(match.earningsConverted) || 0
-      : parseFloat(match.earnings) || 0;
-  const pct = ((val / total) * 100).toFixed(1);
+  const shareByCode = buildEarningsShareByCode(rows, selectedCode, { useConverted });
+  const pct = (shareByCode[selected] ?? 0).toFixed(1);
   return { pct, code: selected || match?.code || "—" };
 }
 
-export function computeCurrencySharePct(row, total, useConverted) {
-  const val =
-    useConverted && row.earningsConverted != null
-      ? parseFloat(row.earningsConverted) || 0
-      : parseFloat(row.earnings) || 0;
-  if (!total || total === 0) return 0;
-  return (val / total) * 100;
+/** Pie center badge: unit rate of the active filter currency vs display base. */
+export function computePieCenterRateMetrics(selectedCode, baseCode, rates) {
+  const selected = String(selectedCode || "").toUpperCase();
+  const base = String(baseCode || "").toUpperCase();
+  const code = selected || base || "—";
+  const rateLabel = formatFrankfurterUnitRate(code, base, rates);
+  return { rate: rateLabel, code };
+}
+
+/**
+ * Primary amount in the display (filter) currency; optional native subtitle when converted.
+ */
+export function resolveEarningsRowDisplayAmounts(row, baseCode, rates, useConverted) {
+  const code = String(row?.code || "").toUpperCase();
+  const base = String(baseCode || "").toUpperCase();
+  const native = row?.earnings;
+  if (native == null) return { primary: null, native: null };
+  if (!useConverted || code === base) {
+    return { primary: native, native: null };
+  }
+  const converted =
+    row.earningsConverted != null
+      ? row.earningsConverted
+      : computeDisplayConvertedAmount(native, code, base, rates);
+  if (converted == null) return { primary: null, native };
+  return { primary: converted, native };
+}
+
+export function computeCurrencySharePct(row, shareByCode) {
+  const code = String(row?.code || "").toUpperCase();
+  return shareByCode?.[code] ?? 0;
 }
 
 export function companiesInGroupList(companies, gid) {

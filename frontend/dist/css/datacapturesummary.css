@@ -696,8 +696,8 @@
             background: white;
             border-radius: 8px;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-            z-index: 10000;
-            min-width: 300px;
+            z-index: 26000;
+            min-width: 280px;
             max-width: 400px;
             opacity: 0;
             transform: translateX(100%);
@@ -731,6 +731,10 @@
             align-items: center;
             padding: 12px 16px;
             border-bottom: 1px solid #e9ecef;
+        }
+
+        .notification-header--solo {
+            border-bottom: none;
         }
 
         .notification-title {
@@ -957,6 +961,8 @@
             display: flex;
             flex-direction: column;
             gap: clamp(6px, 0.52vw, 10px);
+            position: relative;
+            z-index: 2;
         }
         
         
@@ -968,10 +974,12 @@
         
         .edit-formula-form-container .form-left-column .account-select-with-buttons {
             width: 100%;
+            min-width: 0;
+            flex: 1;
         }
         
         .edit-formula-form-container .form-left-column .account-select-with-buttons .custom-select-wrapper {
-            width: 100%;
+            flex: 1;
             min-width: 0;
         }
         
@@ -1055,7 +1063,7 @@
             padding-left: 0px;
             box-sizing: border-box;
             position: relative;
-            z-index: 2;
+            z-index: 1;
         }
         
         .edit-formula-form-container .form-middle-column .form-group {
@@ -1582,7 +1590,11 @@
             border-top: 4px solid #007bff;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin-bottom: 20px;
+            margin-bottom: 0;
+        }
+
+        .loading-container--compact {
+            padding: 24px 20px;
         }
 
         @keyframes spin {
@@ -1612,15 +1624,22 @@
         }
         
         /* Ensure account dropdown wrapper allows overflow */
+        #editFormulaModal .account-form-row {
+            position: relative;
+            z-index: 5;
+        }
+
         #editFormulaModal .account-select-with-buttons .custom-select-wrapper {
             overflow: visible;
-            z-index: 10002;
+            z-index: 1;
         }
         
         #editFormulaModal .account-select-with-buttons {
             overflow: visible;
             position: relative;
-            z-index: 10002;
+            z-index: 1;
+            min-width: 0;
+            flex: 1;
         }
 
         /* Custom Select Styles for Account */
@@ -1757,6 +1776,12 @@
 
         #editFormulaModal .account-add-btn {
             pointer-events: auto;
+            position: relative;
+            z-index: 6;
+            min-width: 28px;
+            min-height: 28px;
+            width: 28px;
+            height: 28px;
         }
 
         .account-add-btn:hover {

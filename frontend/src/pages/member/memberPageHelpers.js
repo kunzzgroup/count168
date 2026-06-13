@@ -15,7 +15,7 @@ export function winLossMiniMatrixNeedsAccountScroll() {
 export const WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS = 7;
 /** 视口较窄（<1410px）时每行更少格，多账户换行展示完整户 名 */
 export const WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW = 4;
-export const WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ = "(max-width: 1409px)";
+export const WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ = "(max-width: 1366px)";
 
 /** Win/Loss Currency：每条 segment 白底带最多按钮数（含第一段的「All」占位），多出的自动再开新带 */
 export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS = 8;

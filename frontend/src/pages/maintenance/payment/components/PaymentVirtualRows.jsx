@@ -1,9 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  useMaintenanceCyclicScrollExtent,
-  useMaintenanceCyclicScrollObserver,
-} from "../../shared/useMaintenanceCyclicVirtualScroll.js";
+import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import PaymentVirtualDataRow from "./PaymentVirtualDataRow.jsx";
 import { isPaymentMaintenanceRowSelectable } from "../paymentMaintenanceLogic.js";
 
@@ -71,7 +68,6 @@ export default function PaymentVirtualRows({
   disableSelectAll,
 }) {
   const scrollRef = useRef(null);
-  const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
   const sizeCacheRef = useRef(new Map());
   const rowsRef = useRef(rows);
 
@@ -112,11 +108,9 @@ export default function PaymentVirtualRows({
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
-    observeElementOffset,
   });
 
   useLayoutEffect(() => {
-    contentOffsetRef.current = 0;
     scrollRef.current?.scrollTo(0, 0);
     sizeCacheRef.current.clear();
     rowVirtualizer.measure();
@@ -124,13 +118,12 @@ export default function PaymentVirtualRows({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceCyclicScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
     resetDeps: [rows],
-    contentOffsetRef,
   });
 
   return (

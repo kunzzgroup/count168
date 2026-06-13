@@ -218,6 +218,17 @@ function countDataCaptureTemplatesUsage(PDO $pdo, int $currencyId, int $companyI
     return (int) $stmt->fetchColumn();
 }
 
+function countProcessCurrencyUsage(PDO $pdo, int $currencyId, int $companyId): int
+{
+    if (!tableExists($pdo, 'process') || !columnExists($pdo, 'process', 'currency_id')) {
+        return 0;
+    }
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM process WHERE currency_id = ? AND company_id = ?');
+    $stmt->execute([$currencyId, $companyId]);
+
+    return (int) $stmt->fetchColumn();
+}
+
 function countDataCaptureTemplatesUsageViaProcess(PDO $pdo, int $currencyId, int $companyId, bool $processIdIsInt): int
 {
     if ($processIdIsInt) {
@@ -322,6 +333,17 @@ function collectCurrencyUsage(PDO $pdo, int $currencyId, array $ctx, string $cur
     }
 
     try {
+        if (tableExists($pdo, 'process') && columnExists($pdo, 'process', 'currency_id')) {
+            $n = countProcessCurrencyUsage($pdo, $currencyId, $companyId);
+            if ($n > 0) {
+                $usageMessages[] = $n . ' process(es)';
+            }
+        }
+    } catch (PDOException $e) {
+        // ignore
+    }
+
+    try {
         if (tableExists($pdo, 'data_capture_templates') && columnExists($pdo, 'data_capture_templates', 'currency_id')) {
             if (columnExists($pdo, 'data_capture_templates', 'company_id')) {
                 $n = countDataCaptureTemplatesUsage($pdo, $currencyId, $companyId);
@@ -342,6 +364,132 @@ function collectCurrencyUsage(PDO $pdo, int $currencyId, array $ctx, string $cur
     }
 
     return [$usageMessages, $debugInfo];
+}
+
+/**
+ * Resolve another currency in the same scope to reassign NOT NULL FK rows before delete.
+ */
+function resolveFallbackCurrencyIdForDetach(PDO $pdo, int $currencyId, array $ctx): ?int
+{
+    foreach (tenant_fetch_currencies($pdo, $ctx) as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id > 0 && $id !== $currencyId) {
+            return $id;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * On force delete: detach historical references so FK constraints allow currency row removal.
+ *
+ * @return string|null Error message when detach cannot complete
+ */
+function detachCurrencyHistoricalReferences(PDO $pdo, int $currencyId, array $ctx): ?string
+{
+    $companyId = (int) ($ctx['company_id'] ?? 0);
+    if ($companyId <= 0) {
+        return 'Missing company scope';
+    }
+
+    $fallbackId = resolveFallbackCurrencyIdForDetach($pdo, $currencyId, $ctx);
+
+    $reassignCompanyScoped = static function (PDO $pdo, string $table, int $currencyId, int $companyId, ?int $fallbackId) use (&$blockingError): bool {
+        if (!tableExists($pdo, $table) || !columnExists($pdo, $table, 'currency_id') || !columnExists($pdo, $table, 'company_id')) {
+            return true;
+        }
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `{$table}` WHERE currency_id = ? AND company_id = ?");
+        $countStmt->execute([$currencyId, $companyId]);
+        $n = (int) $countStmt->fetchColumn();
+        if ($n === 0) {
+            return true;
+        }
+        if ($fallbackId === null) {
+            $blockingError = 'Cannot force delete: ' . $n . ' ' . $table . ' record(s) require another currency in this company';
+
+            return false;
+        }
+        $upd = $pdo->prepare("UPDATE `{$table}` SET currency_id = ? WHERE currency_id = ? AND company_id = ?");
+        $upd->execute([$fallbackId, $currencyId, $companyId]);
+
+        return true;
+    };
+
+    $blockingError = null;
+    foreach (['process', 'data_captures', 'data_capture_details', 'data_capture_templates'] as $table) {
+        if (!$reassignCompanyScoped($pdo, $table, $currencyId, $companyId, $fallbackId)) {
+            return $blockingError;
+        }
+    }
+
+    try {
+        if (columnExists($pdo, 'transactions', 'currency_id')) {
+            $stmt = $pdo->prepare('UPDATE transactions SET currency_id = NULL WHERE currency_id = ? AND company_id = ?');
+            $stmt->execute([$currencyId, $companyId]);
+        }
+    } catch (PDOException $e) {
+        return 'Failed to detach transactions: ' . $e->getMessage();
+    }
+
+    try {
+        if (tableExists($pdo, 'transactions_rate')) {
+            if ($fallbackId === null) {
+                $chk = $pdo->prepare("
+                    SELECT COUNT(*)
+                    FROM transactions_rate tr
+                    INNER JOIN transactions t ON tr.transaction_id = t.id
+                    WHERE (tr.rate_from_currency_id = ? OR tr.rate_to_currency_id = ?) AND t.company_id = ?
+                ");
+                $chk->execute([$currencyId, $currencyId, $companyId]);
+                if ((int) $chk->fetchColumn() > 0) {
+                    return 'Cannot force delete: rate transactions require another currency in this company';
+                }
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE transactions_rate tr
+                    INNER JOIN transactions t ON tr.transaction_id = t.id
+                    SET tr.rate_from_currency_id = CASE WHEN tr.rate_from_currency_id = ? THEN ? ELSE tr.rate_from_currency_id END,
+                        tr.rate_to_currency_id = CASE WHEN tr.rate_to_currency_id = ? THEN ? ELSE tr.rate_to_currency_id END
+                    WHERE (tr.rate_from_currency_id = ? OR tr.rate_to_currency_id = ?) AND t.company_id = ?
+                ");
+                $stmt->execute([$currencyId, $fallbackId, $currencyId, $fallbackId, $currencyId, $currencyId, $companyId]);
+            }
+        }
+    } catch (PDOException $e) {
+        return 'Failed to detach rate transactions: ' . $e->getMessage();
+    }
+
+    try {
+        if (tableExists($pdo, 'transactions_rate_details') && columnExists($pdo, 'transactions_rate_details', 'currency_id')) {
+            if ($fallbackId === null) {
+                $chk = $pdo->prepare("
+                    SELECT COUNT(*)
+                    FROM transactions_rate_details trd
+                    INNER JOIN transactions_rate tr ON trd.rate_group_id = tr.rate_group_id
+                    INNER JOIN transactions t ON tr.transaction_id = t.id
+                    WHERE trd.currency_id = ? AND t.company_id = ?
+                ");
+                $chk->execute([$currencyId, $companyId]);
+                if ((int) $chk->fetchColumn() > 0) {
+                    return 'Cannot force delete: rate transaction details require another currency in this company';
+                }
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE transactions_rate_details trd
+                    INNER JOIN transactions_rate tr ON trd.rate_group_id = tr.rate_group_id
+                    INNER JOIN transactions t ON tr.transaction_id = t.id
+                    SET trd.currency_id = ?
+                    WHERE trd.currency_id = ? AND t.company_id = ?
+                ");
+                $stmt->execute([$fallbackId, $currencyId, $companyId]);
+            }
+        }
+    } catch (PDOException $e) {
+        return 'Failed to detach rate transaction details: ' . $e->getMessage();
+    }
+
+    return null;
 }
 
 try {
@@ -398,11 +546,25 @@ try {
         exit;
     }
 
+    if (
+        ($currencyCtx['mode'] ?? '') === 'group'
+        && tenant_table_has_sync_source_column($pdo)
+        && strtolower(trim((string) ($currency['sync_source'] ?? 'manual'))) === 'subsidiary'
+    ) {
+        jsonResponse(
+            false,
+            'Cannot delete currency synced from subsidiary companies',
+            ['sync_source' => 'subsidiary', 'deletable' => false]
+        );
+        exit;
+    }
+
     [$usageMessages, $debugInfo] = collectCurrencyUsage($pdo, $currencyId, $currencyCtx, (string) $currency['code']);
 
+    // force=true: skip historical usage (data capture, transactions, templates); still block on linked accounts.
     if ($forceDelete) {
         $usageMessages = array_filter($usageMessages, static function ($msg) {
-            return strpos($msg, 'account(s)') === false;
+            return strpos($msg, 'account(s)') !== false;
         });
     }
 
@@ -432,6 +594,14 @@ try {
         exit;
     }
 
+    if ($forceDelete) {
+        $detachError = detachCurrencyHistoricalReferences($pdo, $currencyId, $currencyCtx);
+        if ($detachError !== null) {
+            jsonResponse(false, $detachError, null);
+            exit;
+        }
+    }
+
     deletedLog(
         $pdo,
         '',
@@ -451,6 +621,14 @@ try {
             jsonResponse(false, 'Failed to delete currency. Please check database constraints or permissions.', null);
         }
         exit;
+    }
+
+    if (($currencyCtx['mode'] ?? '') === 'company') {
+        tenant_reconcile_groups_after_company_currency_deleted(
+            $pdo,
+            (int) ($currencyCtx['company_id'] ?? $company_id),
+            (string) ($currency['code'] ?? '')
+        );
     }
 
     jsonResponse(true, 'Currency deleted successfully', null);

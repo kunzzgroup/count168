@@ -7,6 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../includes/partnership_audit_readonly.php';
+require_once __DIR__ . '/../includes/process_modified_by.php';
 require_once __DIR__ . '/../deleted_log/deleted_log.php';
 require_once __DIR__ . '/../api_response.php';
 if (session_status() === PHP_SESSION_NONE) {
@@ -204,9 +205,17 @@ try {
     // 这里改为软删除（status: inactive -> waiting），不执行物理 DELETE。
     // processlist API 仅展示 active / inactive，因此 waiting 不会在列表中出现。
     $pdo->beginTransaction();
+    $modifier = resolveProcessModifierFromSession($pdo);
     $softDeletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
-    $stmt = $pdo->prepare("UPDATE process SET status = 'waiting' WHERE id IN ($softDeletePlaceholders) AND status = 'inactive'");
-    $stmt->execute($processIds);
+    $stmt = $pdo->prepare(
+        "UPDATE process SET status = 'waiting'"
+        . processModifiedBySqlSuffix()
+        . " WHERE id IN ($softDeletePlaceholders) AND status = 'inactive'"
+    );
+    $stmt->execute(array_merge(
+        processModifiedByBindParams($modifier),
+        $processIds
+    ));
     $deletedCount = $stmt->rowCount();
     $pdo->commit();
     api_success(

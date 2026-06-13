@@ -1,39 +1,37 @@
-import { memo, useLayoutEffect } from "react";
-import { resolveDataCaptureGridDimensions } from "../grid/dataCaptureGridMeta.js";
+import { memo, useCallback, useLayoutEffect } from "react";
+import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
+import { useDataCapturePureReactGridInteraction } from "../hooks/useDataCapturePureReactGridInteraction.js";
+import { applyPendingGridCellFocus } from "../grid/gridCellInteraction.js";
+import DataCaptureGridCell from "./DataCaptureGridCell.jsx";
 
-/**
- * Stable grid shell — React builds and manages #dataTable rows/cells.
- */
-function DataCaptureGrid({ groupOnly = false }) {
+function attachColumnHeaderListeners(header) {
+  if (!header) return;
+  header.style.cursor = "pointer";
+}
+
+function attachRowHeaderListeners(rowHeader) {
+  if (!rowHeader) return;
+  rowHeader.style.cursor = "pointer";
+}
+
+function DataCaptureGrid({ engineReady = false }) {
+  const { grid, gridVersion } = useDataCaptureContext();
+  const gridEvents = useDataCapturePureReactGridInteraction(engineReady);
+
+  const bindColumnHeader = useCallback((el) => {
+    attachColumnHeaderListeners(el);
+  }, []);
+
+  const bindRowHeader = useCallback((el) => {
+    attachRowHeaderListeners(el);
+  }, []);
+
   useLayoutEffect(() => {
-    let cancelled = false;
-    let attempts = 0;
-    const { rows, cols } = resolveDataCaptureGridDimensions(groupOnly);
+    applyPendingGridCellFocus();
+  }, [gridVersion, grid?.rows]);
 
-    const tryEnsure = () => {
-      if (cancelled) return;
-      if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
-        window.__DC_ENSURE_GRID_READY__(rows, cols);
-        const dims =
-          typeof window.__DC_GET_GRID_DIMENSIONS__ === "function"
-            ? window.__DC_GET_GRID_DIMENSIONS__()
-            : { rows: 0, cols: 0 };
-        if (dims.rows >= 1 && dims.cols >= 1) return;
-      }
-      attempts += 1;
-      if (attempts < 60) {
-        setTimeout(tryEnsure, 50);
-      }
-    };
-
-    tryEnsure();
-    return () => {
-      cancelled = true;
-    };
-  }, [groupOnly]);
-
-  return (
-    <>
+  if (!grid) {
+    return (
       <table className="excel-table" id="dataTable">
         <thead id="tableHeader">
           <tr>
@@ -42,22 +40,59 @@ function DataCaptureGrid({ groupOnly = false }) {
         </thead>
         <tbody id="tableBody" />
       </table>
-      <div id="tablePreviewFormat" className="table-preview-format" style={{ display: "none" }}>
-        <iframe
-          id="tablePreviewFrameFormat"
-          className="table-preview-frame-format"
-          title="Format Table Preview"
-        />
-      </div>
-      <div
-        id="pasteAreaFormat"
-        className="paste-area-format"
-        style={{ display: "none" }}
-        contentEditable
-        suppressContentEditableWarning
-        data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."
-      />
-    </>
+    );
+  }
+
+  const gridStructureKey = `dc-grid-${grid.rows}-${grid.cols}-v${gridVersion}`;
+
+  return (
+    <table className="excel-table" id="dataTable" key={gridStructureKey}>
+      <thead id="tableHeader">
+        <tr>
+          <th />
+          {Array.from({ length: grid.cols }, (_, colIndex) => (
+            <th
+              key={`col-h-${colIndex}`}
+              ref={bindColumnHeader}
+              onMouseDown={gridEvents.onColumnHeaderMouseDown}
+              onMouseOver={gridEvents.onColumnHeaderMouseOver}
+              onContextMenu={gridEvents.onColumnHeaderContextMenu}
+            >
+              {colIndex + 1}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        {grid.cells.map((row, rowIndex) => (
+          <tr key={`row-${rowIndex}`}>
+            <td
+              ref={bindRowHeader}
+              className="row-header"
+              onMouseDown={gridEvents.onRowHeaderMouseDown}
+              onMouseOver={gridEvents.onRowHeaderMouseOver}
+              onContextMenu={gridEvents.onRowHeaderContextMenu}
+            >
+              {grid.rowLabels[rowIndex]}
+            </td>
+            {row.map((cell, colIndex) => (
+              <DataCaptureGridCell
+                key={`cell-${rowIndex}-${colIndex}`}
+                rowIndex={rowIndex}
+                colIndex={colIndex}
+                cell={cell}
+                gridVersion={gridVersion}
+                onMouseDown={gridEvents.onCellMouseDown}
+                onMouseOver={gridEvents.onCellMouseOver}
+                onClick={gridEvents.onCellClick}
+                onKeyDown={gridEvents.onCellKeyDown}
+                onContextMenu={gridEvents.onCellContextMenu}
+              />
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

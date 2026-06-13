@@ -120,7 +120,40 @@ function dashboard_bootstrap_slim_payload(?array $data): ?array
     return $data;
 }
 
+/**
+ * Memoize identical in-process captures (e.g. earnings scope re-fetch).
+ *
+ * @param array<string, string|null> $params
+ * @return array{success:bool,message?:string,data?:mixed,error?:string}
+ */
+function dashboard_bootstrap_capture(array $params): array
+{
+    static $cache = [];
+    ksort($params);
+    $key = http_build_query($params);
+    if (isset($cache[$key])) {
+        return $cache[$key];
+    }
+    $cache[$key] = dashboard_api_capture($params);
+
+    return $cache[$key];
+}
+
+/** Attach kpi_only for fast KPI paths (skip daily GROUP BY on server). */
+function dashboard_bootstrap_capture_scoped(array $params, string $bootstrapScope): array
+{
+    if (in_array($bootstrapScope, ['kpi', 'previous', 'earnings'], true)) {
+        $params['kpi_only'] = '1';
+    }
+    if ($bootstrapScope === 'earnings') {
+        $params['earnings_only'] = '1';
+    }
+
+    return dashboard_bootstrap_capture($params);
+}
+
 try {
+    dashboard_api_begin_bootstrap_batch();
     $baseParams = dashboard_bootstrap_base_params();
     if ($baseParams === []) {
         throw new Exception('Missing dashboard scope');
@@ -149,7 +182,7 @@ try {
     $prevRange = dashboard_bootstrap_previous_period($dateFrom, $dateTo);
 
     $bootstrapScope = isset($_GET['bootstrap_scope']) ? strtolower(trim((string) $_GET['bootstrap_scope'])) : 'full';
-    if (!in_array($bootstrapScope, ['full', 'kpi', 'earnings'], true)) {
+    if (!in_array($bootstrapScope, ['full', 'kpi', 'earnings', 'previous', 'chart'], true)) {
         $bootstrapScope = 'full';
     }
     $isPrefetch = isset($_GET['prefetch']) && (string) $_GET['prefetch'] === '1';
@@ -157,12 +190,14 @@ try {
     $currentJson = null;
     $previousData = null;
 
-    if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi') {
+    if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi' || $bootstrapScope === 'chart') {
         $currentParams = $baseParams;
         if ($primaryCurrency !== '') {
             $currentParams['currency'] = $primaryCurrency;
         }
-        $currentJson = dashboard_api_capture($currentParams);
+        $currentJson = $bootstrapScope === 'chart'
+            ? dashboard_bootstrap_capture($currentParams)
+            : dashboard_bootstrap_capture_scoped($currentParams, $bootstrapScope);
         if (empty($currentJson['success']) || !is_array($currentJson['data'])) {
             $failMsg = $currentJson['message'] ?? $currentJson['error'] ?? 'Failed to load dashboard';
             if ($isPrefetch) {
@@ -177,13 +212,27 @@ try {
             throw new Exception($failMsg);
         }
 
+        // kpi: current only — previous period loads in a follow-up request so first paint is ~2× faster.
+        if ($bootstrapScope === 'full') {
+            $prevParams = $baseParams;
+            $prevParams['date_from'] = $prevRange['from'];
+            $prevParams['date_to'] = $prevRange['to'];
+            if ($primaryCurrency !== '') {
+                $prevParams['currency'] = $primaryCurrency;
+            }
+            $previousJson = dashboard_bootstrap_capture_scoped($prevParams, 'previous');
+            $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
+                ? $previousJson['data']
+                : null;
+        }
+    } elseif ($bootstrapScope === 'previous') {
         $prevParams = $baseParams;
         $prevParams['date_from'] = $prevRange['from'];
         $prevParams['date_to'] = $prevRange['to'];
         if ($primaryCurrency !== '') {
             $prevParams['currency'] = $primaryCurrency;
         }
-        $previousJson = dashboard_api_capture($prevParams);
+        $previousJson = dashboard_bootstrap_capture_scoped($prevParams, 'previous');
         $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
             ? $previousJson['data']
             : null;
@@ -198,20 +247,10 @@ try {
             if ($primaryCurrency !== '') {
                 $currentParams['currency'] = $primaryCurrency;
             }
-            $currentJson = dashboard_api_capture($currentParams);
+            $currentJson = dashboard_bootstrap_capture_scoped($currentParams, 'kpi');
         }
-        if ($bootstrapScope === 'earnings' && $previousData === null) {
-            $prevParams = $baseParams;
-            $prevParams['date_from'] = $prevRange['from'];
-            $prevParams['date_to'] = $prevRange['to'];
-            if ($primaryCurrency !== '') {
-                $prevParams['currency'] = $primaryCurrency;
-            }
-            $previousJson = dashboard_api_capture($prevParams);
-            $previousData = (!empty($previousJson['success']) && is_array($previousJson['data']))
-                ? $previousJson['data']
-                : null;
-        }
+
+        $skipEarningsPrevious = ($bootstrapScope === 'earnings');
 
         foreach ($currencyCodes as $code) {
             if ($code === $primaryCurrency) {
@@ -220,30 +259,39 @@ try {
                     'code' => $code,
                     'payload' => dashboard_bootstrap_slim_payload($primaryCurrent),
                 ];
-                $earningsPrevious[] = [
-                    'code' => $code,
-                    'payload' => dashboard_bootstrap_slim_payload($previousData),
-                ];
+                if (!$skipEarningsPrevious) {
+                    $earningsPrevious[] = [
+                        'code' => $code,
+                        'payload' => dashboard_bootstrap_slim_payload($previousData),
+                    ];
+                }
                 continue;
             }
 
             $curParams = $baseParams;
             $curParams['currency'] = $code;
-            $curJson = dashboard_api_capture($curParams);
+            $curJson = $bootstrapScope === 'earnings'
+                ? dashboard_bootstrap_capture_scoped($curParams, 'earnings')
+                : dashboard_bootstrap_capture($curParams);
             $curPayload = (!empty($curJson['success']) && is_array($curJson['data']))
                 ? dashboard_bootstrap_slim_payload($curJson['data'])
                 : null;
+
+            $earningsCurrent[] = ['code' => $code, 'payload' => $curPayload];
+
+            if ($skipEarningsPrevious) {
+                continue;
+            }
 
             $prevCurParams = $baseParams;
             $prevCurParams['date_from'] = $prevRange['from'];
             $prevCurParams['date_to'] = $prevRange['to'];
             $prevCurParams['currency'] = $code;
-            $prevCurJson = dashboard_api_capture($prevCurParams);
+            $prevCurJson = dashboard_bootstrap_capture($prevCurParams);
             $prevCurPayload = (!empty($prevCurJson['success']) && is_array($prevCurJson['data']))
                 ? dashboard_bootstrap_slim_payload($prevCurJson['data'])
                 : null;
 
-            $earningsCurrent[] = ['code' => $code, 'payload' => $curPayload];
             $earningsPrevious[] = ['code' => $code, 'payload' => $prevCurPayload];
         }
     }
@@ -261,8 +309,10 @@ try {
         'bootstrap_scope' => $bootstrapScope,
     ];
 
-    if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi') {
+    if ($bootstrapScope === 'full' || $bootstrapScope === 'kpi' || $bootstrapScope === 'chart') {
         $responseData['current'] = $currentJson['data'] ?? null;
+        $responseData['previous'] = $bootstrapScope === 'full' ? $previousData : null;
+    } elseif ($bootstrapScope === 'previous') {
         $responseData['previous'] = $previousData;
     }
 
@@ -279,4 +329,6 @@ try {
         'data' => null,
         'error' => $e->getMessage(),
     ], JSON_UNESCAPED_UNICODE);
+} finally {
+    dashboard_api_end_bootstrap_batch();
 }

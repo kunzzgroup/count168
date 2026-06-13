@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import OwnAccountSelect from "./OwnAccountSelect.jsx";
+import { accountsForRowPicker, ownershipRowClientId } from "../ownershipRowHelpers.js";
+
+function normalizePct(value) {
+  const p = parseFloat(value);
+  if (!Number.isFinite(p)) return 0;
+  return Math.max(0, Math.min(100, p));
+}
 
 function applySliderBg(sliderEl, value) {
   if (!sliderEl) return;
@@ -15,6 +22,7 @@ export default function AccountEditorRow({
   idx,
   row,
   accounts,
+  maxPercentage = 100,
   onUpdate,
   onRemove,
   onDragStart,
@@ -28,10 +36,22 @@ export default function AccountEditorRow({
   const sliderRef = useRef(null);
   const rowRef = useRef(null);
   const [dragEnabled, setDragEnabled] = useState(false);
+  const rowClientId = ownershipRowClientId(row, idx);
+  const pctMax = Math.max(0, Math.min(100, Number(maxPercentage) || 0));
+  const storedPct = normalizePct(row.percentage);
+  const [displayPct, setDisplayPct] = useState(storedPct);
+  const [inputValue, setInputValue] = useState(() => `${storedPct}%`);
+  const isEditingPctRef = useRef(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => applySliderBg(sliderRef.current, row.percentage));
-  }, [row.percentage]);
+    if (isEditingPctRef.current) return;
+    setDisplayPct(storedPct);
+    setInputValue(`${storedPct}%`);
+  }, [rowClientId, storedPct]);
+
+  useEffect(() => {
+    requestAnimationFrame(() => applySliderBg(sliderRef.current, displayPct));
+  }, [displayPct]);
 
   useEffect(() => {
     if (!dragEnabled) return undefined;
@@ -42,6 +62,16 @@ export default function AccountEditorRow({
 
   const isPartnership = String(row.role || "").toLowerCase() === "partnership";
   const showRo = isPartnership || row.is_external_partner;
+
+  const commitSliderPct = (raw) => {
+    const next = Math.min(normalizePct(raw), pctMax);
+    setDisplayPct(next);
+    setInputValue(`${next}%`);
+    onUpdate(idx, "slider", next);
+  };
+
+  const sliderDisabled =
+    readOnlyMode || row.is_external_partner || (pctMax <= 0 && storedPct <= 0);
 
   const clearDragStyles = () => {
     const el = rowRef.current;
@@ -55,6 +85,7 @@ export default function AccountEditorRow({
     <div
       ref={rowRef}
       className="own-account-row"
+      data-row-id={rowClientId}
       data-index={idx}
       data-group-entry={String(row.account_id || "").startsWith("G_") ? "true" : undefined}
       draggable={!readOnlyMode && enableDrag && dragEnabled}
@@ -123,33 +154,57 @@ export default function AccountEditorRow({
       </div>
       <OwnAccountSelect
         value={row.account_id}
-        accounts={accounts}
-        disabled={readOnlyMode}
+        accounts={accountsForRowPicker(accounts, row.account_id)}
+        displayLabel={row.account_label}
+        disabled={readOnlyMode || row.is_external_partner}
         t={t}
         onChange={(id) => onUpdate(idx, "account_id", id)}
       />
-      <div className="own-ownership-input-group">
+      <div
+        className="own-ownership-input-group"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <input
           type="text"
           className="own-percent-input"
-          id={`input-${companyId}-${idx}`}
-          key={`pi-${companyId}-${idx}-${row.percentage}`}
-          defaultValue={`${row.percentage}%`}
-          disabled={readOnlyMode}
-          onBlur={(e) => onUpdate(idx, "percent_input", e.target.value)}
+          id={`input-${companyId}-${rowClientId}`}
+          value={inputValue}
+          disabled={readOnlyMode || row.is_external_partner || (pctMax <= 0 && storedPct <= 0)}
+          onFocus={() => {
+            isEditingPctRef.current = true;
+          }}
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={(e) => {
+            isEditingPctRef.current = false;
+            const next = Math.min(normalizePct(e.target.value), pctMax);
+            setDisplayPct(next);
+            setInputValue(`${next}%`);
+            onUpdate(idx, "percent_input", next);
+          }}
         />
         <div className="own-slider-container">
           <input
             ref={sliderRef}
             type="range"
             className="own-slider"
-            id={`slider-${companyId}-${idx}`}
+            id={`slider-${companyId}-${rowClientId}`}
             min={0}
             max={100}
             step={1}
-            value={row.percentage}
-            disabled={readOnlyMode}
-            onInput={(e) => onUpdate(idx, "slider", e.target.value)}
+            value={displayPct}
+            disabled={sliderDisabled}
+            onPointerDown={() => {
+              isEditingPctRef.current = true;
+            }}
+            onPointerUp={() => {
+              isEditingPctRef.current = false;
+            }}
+            onPointerCancel={() => {
+              isEditingPctRef.current = false;
+            }}
+            onInput={(e) => commitSliderPct(e.target.value)}
           />
           <div className="own-slider-labels">
             <span>0%</span>

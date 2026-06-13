@@ -1,5 +1,71 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
-import { dataCaptureScopeApiParams } from "./dataCaptureScope.js";
+import { dataCaptureScopeApiParams, dataCaptureScopeCacheKey } from "./dataCaptureScope.js";
+
+/** One option per currency code (subsidiary + group rows can share company_id). */
+export function dedupeCaptureCurrenciesByCode(rows) {
+  const byCode = new Map();
+  for (const row of rows || []) {
+    const code = String(row.code || "").trim().toUpperCase();
+    if (!code) continue;
+    const id = String(row.id);
+    const existing = byCode.get(code);
+    if (!existing || Number(id) < Number(existing.id)) {
+      byCode.set(code, { id, code });
+    }
+  }
+  return Array.from(byCode.values()).sort((a, b) => a.code.localeCompare(b.code));
+}
+
+export const dataCaptureQueryKeys = {
+  root: () => ["dataCapture"],
+  permissions: (companyCode) => [
+    ...dataCaptureQueryKeys.root(),
+    "permissions",
+    companyCode ?? "none",
+  ],
+  submissions: (scopeKey, captureDate) => [
+    ...dataCaptureQueryKeys.root(),
+    "submissions",
+    scopeKey || "none",
+    captureDate || "",
+  ],
+  companyFormCatalog: (scopeKey) => [
+    ...dataCaptureQueryKeys.root(),
+    "companyFormCatalog",
+    scopeKey || "none",
+  ],
+  groupCurrencies: (viewGroup) => [
+    ...dataCaptureQueryKeys.root(),
+    "groupCurrencies",
+    viewGroup || "none",
+  ],
+  processesByDay: (scopeKey, date) => [
+    ...dataCaptureQueryKeys.root(),
+    "processesByDay",
+    scopeKey || "none",
+    date || "",
+  ],
+  processesForScope: (scopeKey) => [
+    ...dataCaptureQueryKeys.root(),
+    "processesByDay",
+    scopeKey || "none",
+  ],
+  processDetail: (scopeKey, processId) => [
+    ...dataCaptureQueryKeys.root(),
+    "processDetail",
+    scopeKey || "none",
+    String(processId ?? ""),
+  ],
+  descriptionCatalog: (companyId) => [
+    ...dataCaptureQueryKeys.root(),
+    "descriptionCatalog",
+    String(companyId ?? ""),
+  ],
+};
+
+export function dataCaptureScopeQueryKey(scope) {
+  return dataCaptureScopeCacheKey(scope);
+}
 
 /** YYYY-MM-DD in local timezone */
 export function getLocalDateString(date = null) {
@@ -20,7 +86,7 @@ export function buildDateOptions() {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const dateString = `${year}-${month}-${day}`;
-    const weekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const weekdayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
     const weekday = weekdayNames[date.getDay()];
     opts.push({
       value: dateString,
@@ -55,9 +121,10 @@ function withScope(url, scope) {
 }
 
 function withCompany(url, companyId) {
-  if (!companyId) return url;
+  const cid = Number(companyId);
+  if (!Number.isFinite(cid) || cid <= 0) return url;
   const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}company_id=${encodeURIComponent(companyId)}`;
+  return `${url}${sep}company_id=${encodeURIComponent(String(cid))}`;
 }
 
 /** Same as legacy loadFormData: GET api/processes/addprocess_api.php */
@@ -96,12 +163,12 @@ export async function fetchGroupCaptureCurrencies(viewGroup) {
     );
     const json = await response.json();
     if (!response.ok || !json.success || !Array.isArray(json.data)) return [];
-    return json.data
-      .map((r) => ({
+    return dedupeCaptureCurrenciesByCode(
+      json.data.map((r) => ({
         id: String(r.id),
         code: String(r.code || "").trim().toUpperCase(),
-      }))
-      .sort((a, b) => a.code.localeCompare(b.code));
+      })),
+    );
   } catch {
     return [];
   }
@@ -285,6 +352,18 @@ export function displayTextFromProcessRow(process) {
     return `${process.process_id} (${process.description_name})`;
   }
   return process.process_id;
+}
+
+/** Group submitted list: SALARY(1), SALARY(2) when API provides same_day_seq / process_display. */
+export function formatGroupSubmittedProcessLabel(process) {
+  const display = process?.process_display != null ? String(process.process_display).trim() : "";
+  if (display) return display;
+  const code = String(process?.process_code ?? process?.process_id ?? "").trim().toUpperCase();
+  const seq = Number(process?.same_day_seq);
+  if (code && Number.isFinite(seq) && seq > 1) {
+    return `${code}(${seq})`;
+  }
+  return code;
 }
 
 /** GET addprocess_api.php — returns `descriptions` at top level (and under `data`). */

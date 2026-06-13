@@ -6,6 +6,7 @@ import {
   isDashboardGroupOnlyMode,
   normalizeNativeCompanyGroupId,
   readAccessibleGroupIds,
+  resolveViewGroupForCompany,
 } from "./sharedCompanyFilter.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
 import { buildSidebarExpirationFields } from "../expiration/expirationReminder.js";
@@ -139,18 +140,104 @@ export function getAssignedCompanyIds(me) {
 }
 
 /**
+ * May the session call transaction scope APIs for this company_id?
+ * Mirrors tx_resolve_request_company_id / gc_session_can_access_company_id (frontend-safe).
+ *
+ * @param {string|null|undefined} [viewGroup] AP/IG when querying a subsidiary under a group tab.
+ */
+export function canPrefetchCompanyScope(me, companyId, companies = [], viewGroup = null) {
+  const id = Number(companyId);
+  if (!Number.isFinite(id) || id <= 0 || !me) return false;
+
+  const list = Array.isArray(companies) ? companies : [];
+  const row = list.find((c) => Number(c.id) === id) ?? null;
+  const vg =
+    viewGroup != null && String(viewGroup).trim() !== ""
+      ? String(viewGroup).trim().toUpperCase()
+      : null;
+
+  if (isGroupLogin(me)) {
+    if (!row || !companyMatchesLoginScope(row, me, list)) return false;
+    if (vg) {
+      const native = normalizeNativeCompanyGroupId(row);
+      const link = row.link_source_group
+        ? String(row.link_source_group).trim().toUpperCase()
+        : "";
+      return native === vg || link === vg || canAccessGroupLedgerForGroup(me, vg, list);
+    }
+    return true;
+  }
+
+  const role = String(me.role || "").trim().toLowerCase();
+  const userType = String(me.user_type || "").trim().toLowerCase();
+
+  if (role === "owner") {
+    return row != null;
+  }
+
+  if (userType === "member") {
+    return Number(me.company_id) === id;
+  }
+
+  if (Number(me.company_id) === id) return true;
+
+  const assignedIds = getAssignedCompanyIds(me);
+  if (assignedIds.includes(id)) return true;
+
+  if (vg) {
+    if (!canAccessGroupLedgerForGroup(me, vg, list)) return false;
+    if (!row) return false;
+    if (companyLoginHasGroupLedgerPrivilege(me)) return true;
+    if (userHasAssignedGroupLedger(me) && getAssignedGroupCodes(me).includes(vg)) {
+      return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+/**
+ * Rows that dashboard_api will accept for this user (user_company_map / assigned ids).
+ * Owner and group-login users keep the full list.
+ */
+export function filterCompaniesForDashboardApiAccess(
+  me,
+  companyRows,
+  companies = [],
+  viewGroup = null
+) {
+  if (!Array.isArray(companyRows) || !companyRows.length || !me) return [];
+  const list = Array.isArray(companies) && companies.length ? companies : companyRows;
+  const role = String(me.role || "").trim().toLowerCase();
+  if (role === "owner" || isGroupLogin(me)) {
+    return companyRows;
+  }
+  const groupCtx =
+    viewGroup != null && String(viewGroup).trim() !== ""
+      ? String(viewGroup).trim().toUpperCase()
+      : null;
+  return companyRows.filter((row) => {
+    const id = Number(row?.id);
+    if (!Number.isFinite(id) || id <= 0) return false;
+    const vg = groupCtx ?? resolveViewGroupForCompany(row, null);
+    return canPrefetchCompanyScope(me, id, list, vg);
+  });
+}
+
+/**
  * Admin assigned group ledger (user_group_map) — NOT login_scope.
  */
 export function userHasAssignedGroupLedger(me) {
   return getAssignedGroupCodes(me).length > 0;
 }
 
-/** Company login: owner / admin may enter group-only without user_group_map (manage all groups they can see). */
+/** Company login: owner may enter group-only without user_group_map (manage all groups they can see). */
 export function companyLoginHasGroupLedgerPrivilege(me) {
   if (!isCompanyLogin(me)) return false;
   const role = String(me?.role || "").trim().toLowerCase();
   const userType = String(me?.user_type || "").trim().toLowerCase();
-  return role === "admin" || role === "owner" || userType === "owner";
+  return role === "owner" || userType === "owner";
 }
 
 function resolveCompanyLoginAccessibleGroupSet(me, companies = []) {
@@ -171,8 +258,8 @@ export function userCanUseGroupLedger(me) {
 /**
  * Permission: may this user access group ledger for a specific group code?
  * - Group login: login scope + linked groups
- * - Company login owner/admin: any accessible group pill (session accessible_group_ids)
- * - Company login others: Admin User modal Groups row (assigned_group_codes)
+ * - Company login owner: any accessible group pill (session accessible_group_ids)
+ * - Company login admin/others: Admin User modal Groups row (assigned_group_codes)
  */
 export function canAccessGroupLedgerForGroup(me, groupCode, companies = []) {
   if (!me || groupCode == null || String(groupCode).trim() === "") return false;

@@ -1,5 +1,6 @@
 import React from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 import {
   BankFormDateField,
   BankSearchableAccountPick,
@@ -35,13 +36,17 @@ export default function BankProcessFormModal({
   lang,
   t,
 }) {
+  const { submitting, guardSubmit } = useSubmitGuard(true);
   const dayStart = String(form.day_start || "").trim();
   const contract = String(form.contract || "").trim();
   const frequency = bankProcessFrequencyNormalized(form.day_start_frequency);
   const isOnce = frequency === "once";
+  const isWeek = frequency === "week";
+  const isDay = frequency === "day";
   const showCapSwitch = editMode && frequency === "1st_of_every_month";
   const capOn = !!form.day_end_monthly_cap_enabled;
   const dayEndLockedByCap = showCapSwitch && capOn;
+  const dayEndDisabled = isOnce || isWeek || isDay || dayEndLockedByCap;
   const profitSharingRows = parseProfitSharingToRows(form.profit_sharing, accounts);
 
   const profitSharingDisplayLabel = (row) => {
@@ -66,7 +71,7 @@ export default function BankProcessFormModal({
   };
 
   let dayEndMin = dayStart || undefined;
-  if (!isOnce && frequency !== "monthly" && dayStart && contract) {
+  if (!isOnce && !isWeek && !isDay && frequency !== "monthly" && dayStart && contract) {
     const term = parseBankContractRentalMonthsForDayEnd(contract);
     const calculated = term ? contractBillingEndYmdForBankForm(dayStart, term, frequency) : null;
     if (calculated) {
@@ -83,7 +88,7 @@ export default function BankProcessFormModal({
           <span className="close" onClick={onClose} role="presentation">&times;</span>
         </div>
         <div className="modal-body">
-          <form id="addBankProcessForm" className="process-form bank-form" onSubmit={onSubmit}>
+          <form id="addBankProcessForm" className="process-form bank-form" onSubmit={guardSubmit(onSubmit)}>
             <input type="hidden" name="id" value={form.id} />
             <div className="bank-form-fields-scroll">
               <div className="bank-form-row">
@@ -297,12 +302,12 @@ export default function BankProcessFormModal({
                         ) : null
                       }
                       value={form.day_end}
-                      disabled={isOnce || dayEndLockedByCap}
-                      minYmd={isOnce ? undefined : dayEndMin}
+                      disabled={dayEndDisabled}
+                      minYmd={isOnce || isWeek || isDay ? undefined : dayEndMin}
                       placeholder={t("pickDate")}
                       clearLabel={t("clearDate")}
                       wrapClassName="bank-day-end-input-wrap"
-                      className={`bank-day-end-field-group${isOnce || dayEndLockedByCap ? " bank-day-end-input-wrap--muted" : ""}`}
+                      className={`bank-day-end-field-group${dayEndDisabled ? " bank-day-end-input-wrap--muted" : ""}`}
                     />
                   </div>
                 </div>
@@ -352,6 +357,8 @@ export default function BankProcessFormModal({
                       options={[
                         { value: "1st_of_every_month", label: t("firstOfEveryMonth") },
                         { value: "monthly", label: t("monthly") },
+                        { value: "week", label: t("weekFrequency") },
+                        { value: "day", label: t("dayFrequency") },
                         { value: "once", label: t("onceFrequency") },
                       ]}
                       onChange={(next) => {
@@ -364,6 +371,24 @@ export default function BankProcessFormModal({
                               day_end: "",
                               contract: "",
                               insurance: "",
+                              day_end_monthly_cap_enabled: false,
+                            };
+                          }
+                          if (next === "week" && prevNorm !== "week") {
+                            return {
+                              ...prev,
+                              day_start_frequency: next,
+                              day_end: "",
+                              contract: "",
+                              day_end_monthly_cap_enabled: false,
+                            };
+                          }
+                          if (next === "day" && prevNorm !== "day") {
+                            return {
+                              ...prev,
+                              day_start_frequency: next,
+                              day_end: "",
+                              contract: "",
                               day_end_monthly_cap_enabled: false,
                             };
                           }
@@ -424,7 +449,7 @@ export default function BankProcessFormModal({
                         id="bank_contract"
                         value={form.contract}
                         placeholder={t("contract")}
-                        disabled={isOnce}
+                        disabled={isOnce || isWeek || isDay}
                         options={BANK_PROCESS_CONTRACT_OPTIONS.map((opt) => ({
                           value: opt.value,
                           label: formatBankProcessContractLabel(lang, opt.value),
@@ -443,14 +468,16 @@ export default function BankProcessFormModal({
                       <button type="button" id="bank_remark_btn" className="btn btn-save bank-note-open-btn" onClick={() => onOpenBankFormNoteModal("remark")}>{t("remark")}</button>
                     </div>
                     {(form.sop || form.remark) ? (
-                      <p style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>{[form.sop && t("sopFilled"), form.remark && t("remarkFilled")].filter(Boolean).join(" · ")}</p>
+                      <p className="bank-remark-filled-hint">{[form.sop && t("sopFilled"), form.remark && t("remarkFilled")].filter(Boolean).join(" · ")}</p>
                     ) : null}
                   </div>
                 </div>
               </div>
             </div>
             <div className="form-actions bank-actions">
-              <button type="submit" className="btn btn-save" id="bankSubmitBtn">{editMode ? t("updateProcess") : t("addProcess")}</button>
+              <button type="submit" className="btn btn-save" id="bankSubmitBtn" disabled={submitting}>
+                {submitting ? t("saving") : editMode ? t("updateProcess") : t("addProcess")}
+              </button>
               <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
             </div>
           </form>

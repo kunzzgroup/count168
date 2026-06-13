@@ -7,6 +7,11 @@ $dbname = 'u857194726_c168site';
 $dbuser = 'admin';
 $dbpass = 'C168_site';
 
+$configLocal = __DIR__ . '/config.local.php';
+if (is_readable($configLocal)) {
+    require $configLocal;
+}
+
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
 

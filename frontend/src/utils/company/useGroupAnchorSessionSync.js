@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { notifyCompanySessionUpdated } from "./companySessionEvents.js";
 import { syncCompanySessionApi } from "./companySessionSync.js";
 import {
+  buildDashboardSidebarNotifyOptions,
   companyRowIsGroupEntity,
   dashboardGcFiltersEqual,
   notifyDashboardGroupFilterChanged,
@@ -32,6 +33,8 @@ export function useGroupAnchorSessionSync({
   sessionCompanyId = null,
   enabled = true,
   notifyOnSync = true,
+  /** When false, skip layout filter broadcast (page owns cross-page notify). */
+  broadcastFilterChanged = true,
 }) {
   const ref = useRef({ group: null, companyId: null });
   const prevCompanyIdRef = useRef(parsePositiveCompanyId(companyId));
@@ -129,10 +132,13 @@ export function useGroupAnchorSessionSync({
       if (json?.success) {
         ref.current = { group: g, companyId: anchorId };
         const data = json.data ?? {};
-        notifyDashboardGroupFilterChanged(g, null, {
-          hasGambling: data.has_gambling,
-          hasBank: data.has_bank,
-        });
+        if (broadcastFilterChanged) {
+          notifyDashboardGroupFilterChanged(
+            g,
+            null,
+            buildDashboardSidebarNotifyOptions(null, g),
+          );
+        }
         if (notifyOnSync) {
           notifyCompanySessionUpdated(data);
         }
@@ -142,7 +148,15 @@ export function useGroupAnchorSessionSync({
     return () => {
       cancelled = true;
     };
-  }, [needsAnchorSession, anchorId, selectedGroup, companies, applyReadyFromRef, notifyOnSync]);
+  }, [
+    needsAnchorSession,
+    anchorId,
+    selectedGroup,
+    companies,
+    applyReadyFromRef,
+    notifyOnSync,
+    broadcastFilterChanged,
+  ]);
 
   const resetAnchorSessionRef = useCallback(() => {
     ref.current = { group: null, companyId: null };

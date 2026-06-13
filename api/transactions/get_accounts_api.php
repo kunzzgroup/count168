@@ -64,8 +64,9 @@ try {
             $params = array_merge($params, $accountIds);
         }
     } else {
-        $where_conditions[] = 'ac.company_id = ?';
-        $params[] = $company_id;
+        $acSubsidiaryWhere = tenant_account_company_subsidiary_where($pdo, $company_id, 'ac');
+        $where_conditions[] = $acSubsidiaryWhere['sql'];
+        $params = array_merge($params, $acSubsidiaryWhere['params']);
     }
     if ($role) {
         $where_conditions[] = "a.role = ?";

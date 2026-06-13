@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { notifySessionRefreshRequested } from "../../../utils/company/companySessionEvents.js";
 import { showDomainAlert } from "./DomainNotification.jsx";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 import FormDateField from "../../../components/FormDateField.jsx";
 import MaintenanceCalendarPopup from "../../../components/MaintenanceCalendarPopup.jsx";
 import {
@@ -24,6 +25,7 @@ import {
   computeShareTotals,
   formatShareRowAmount2,
   resolveDomainFeePriceForPeriod,
+  forceUppercaseValue,
 } from "../domainHelpers.js";
 import AddAccountModal from "./AddAccountModal.jsx";
 import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
@@ -54,6 +56,9 @@ const WEEKDAYS_ZH = ["日", "一", "二", "三", "四", "五", "六"];
  *   domainPeriodPrices — { 7days, 1month, … } for share amount by selected period
  *   sessionCompanyId — fallback if company.company_id is missing
  *   sessionCompanyCode — used for adding accounts
+ *   excludeOwnerId — edit domain: exclude current owner from global code check
+ *   siblingGroupCodes — other group IDs in the form (for local rename validation)
+ *   siblingCompanyCodes — other company IDs in the form (for local rename validation)
  *   onSave(updatedCompany) — callback with updated company data
  *   onClose()
  */
@@ -64,13 +69,19 @@ export default function CompanySettingsModal({
   domainPeriodPrices,
   sessionCompanyId,
   sessionCompanyCode,
+  excludeOwnerId = null,
+  siblingGroupCodes = [],
+  siblingCompanyCodes = [],
   onSave,
   onClose,
 }) {
   const isGroup = tenantType === "group";
-  const entityCode = isGroup
+  const originalEntityCode = isGroup
     ? String(initCompany?.group_code ?? initCompany?.company_id ?? "").trim().toUpperCase()
     : String(initCompany?.company_id ?? "").trim().toUpperCase();
+  const renameLocked = originalEntityCode === "C168";
+  const { submitting, runGuarded } = useSubmitGuard(true);
+  const [entityCodeInput, setEntityCodeInput] = useState(originalEntityCode);
   const isZh = lang === "zh";
   const t = (key, params) => getDomainText(lang, key, params);
   // Local copy of company being edited
@@ -82,7 +93,9 @@ export default function CompanySettingsModal({
     return ymd || new Date().toISOString().split("T")[0];
   });
   const [expDisplay, setExpDisplay] = useState(initCompany.expiration_date ? formatDate(initCompany.expiration_date) : t("notSet"));
-  const [permissions, setPermissions] = useState(Array.isArray(initCompany.permissions) ? initCompany.permissions : []);
+  const [permissions, setPermissions] = useState(
+    isGroup ? [] : (Array.isArray(initCompany.permissions) ? initCompany.permissions : [])
+  );
   const [chargeOnSave, setChargeOnSave] = useState(!!initCompany.apply_commission_payments_on_domain_save);
   const startDateHandlerRef = useRef(null);
 
@@ -210,8 +223,91 @@ export default function CompanySettingsModal({
     }
   }
 
+  async function validateEntityCodeForSave() {
+    const newCode = entityCodeInput.trim().toUpperCase();
+    if (!newCode) {
+      showDomainAlert(isGroup ? t("pleaseEnterGroupId") : t("pleaseEnterCompanyId"), "danger");
+      return null;
+    }
+    if (renameLocked) {
+      if (newCode !== originalEntityCode) {
+        showDomainAlert(t("cannotRenameC168"), "danger");
+      }
+      return originalEntityCode;
+    }
+    if (newCode === "C168") {
+      showDomainAlert(t("cannotRenameToC168"), "danger");
+      return null;
+    }
+    if (newCode === originalEntityCode) {
+      return newCode;
+    }
+
+    const groupSet = new Set((siblingGroupCodes || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean));
+    const companySet = new Set((siblingCompanyCodes || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean));
+
+    if (isGroup) {
+      if (companySet.has(newCode)) {
+        showDomainAlert(t("cannotAddGroupUsesCompanyId", { id: newCode }), "danger");
+        return null;
+      }
+      if (groupSet.has(newCode)) {
+        showDomainAlert(t("groupIdAlreadyExists"), "danger");
+        return null;
+      }
+    } else {
+      if (groupSet.has(newCode)) {
+        showDomainAlert(t("cannotAddCompanyUsesGroupId", { id: newCode }), "danger");
+        return null;
+      }
+      if (companySet.has(newCode)) {
+        showDomainAlert(t("companyIdAlreadyAdded"), "danger");
+        return null;
+      }
+    }
+
+    try {
+      const payload = {
+        action: "validate_domain_code",
+        code: newCode,
+      };
+      if (excludeOwnerId !== undefined && excludeOwnerId !== null && excludeOwnerId !== "") {
+        payload.exclude_owner_id = Number(excludeOwnerId);
+      }
+      const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        showDomainAlert(json.message || t("operationFailed"), "danger");
+        return null;
+      }
+    } catch {
+      showDomainAlert(t("validateDomainCodeUnavailable"), "danger");
+      return null;
+    }
+
+    return newCode;
+  }
+
+  function buildRenameFields(newCode) {
+    if (newCode === originalEntityCode) {
+      return {};
+    }
+    const renameFrom = String(
+      (isGroup ? initCompany?.previous_group_code : initCompany?.previous_company_id) ?? originalEntityCode
+    ).trim().toUpperCase();
+    return isGroup
+      ? { previous_group_code: renameFrom }
+      : { previous_company_id: renameFrom };
+  }
+
   function handleReset() {
     const today = new Date().toISOString().split("T")[0];
+    setEntityCodeInput(originalEntityCode);
     setStartDate(today);
     setPeriod("");
     setExpDisplay(t("notSet"));
@@ -225,19 +321,26 @@ export default function CompanySettingsModal({
     setFsa(defaultFeeShareAllocations());
     setChargeOnSave(false);
     setExpandedCards({});
-    if (SINGLE_CATEGORY_MODE) {
+    if (isGroup) {
+      setPermissions([]);
+    } else if (SINGLE_CATEGORY_MODE) {
       setPermissions(["Games"]);
     } else {
       setPermissions(["Games", "Bank", "Loan", "Rate", "Money"]);
     }
   }
 
-  function handleSave() {
-    // Validate permissions
-    if (SINGLE_CATEGORY_MODE) {
+  async function handleSave() {
+    // Validate permissions (company only — groups do not use Process List / Data Capture categories)
+    if (!isGroup && SINGLE_CATEGORY_MODE) {
       if (permissions.length === 0) { showDomainAlert(t("pleaseSelectOneCategory"), "danger"); return; }
       if (permissions.length > 1)  { showDomainAlert(t("onlyOneCategoryAtTime"), "danger"); return; }
     }
+
+    const newEntityCode = await validateEntityCodeForSave();
+    if (!newEntityCode) return;
+    const apiEntityCode = originalEntityCode;
+    const renameFields = buildRenameFields(newEntityCode);
 
     let expDate = company.expiration_date || null;
     if (period) {
@@ -250,13 +353,15 @@ export default function CompanySettingsModal({
     if (isGroup) {
       const updated = {
         ...company,
-        group_code: entityCode,
+        group_code: newEntityCode,
+        company_id: newEntityCode,
+        ...renameFields,
         expiration_date: expDate,
         selectedPeriod: period || company.selectedPeriod,
         startDate,
         isExtending: company.isExtending,
         originalExpirationDate: company.originalExpirationDate,
-        permissions: [...permissions],
+        permissions: [],
         fee_share_allocations: cleanFsa,
         apply_commission_payments_on_domain_save: chargeOnSave,
       };
@@ -272,7 +377,7 @@ export default function CompanySettingsModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "update_company_permissions",
-        company_id: company.company_id,
+        company_id: apiEntityCode,
         permissions,
         expiration_date: expDate || null,
       }),
@@ -284,7 +389,7 @@ export default function CompanySettingsModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "save_company_share_settings",
-        company_id: company.company_id,
+        company_id: apiEntityCode,
         fee_share_allocations: cleanFsa,
         apply_commission_payments: chargeOnSave,
       }),
@@ -310,6 +415,8 @@ export default function CompanySettingsModal({
         }
         onSave({
           ...company,
+          company_id: newEntityCode,
+          ...renameFields,
           expiration_date: expDate,
           selectedPeriod: period || company.selectedPeriod,
           startDate,
@@ -323,7 +430,14 @@ export default function CompanySettingsModal({
       })
       .catch(() => {
         showDomainAlert(t("serverUnreachableChangesKept"), "danger");
-        onSave({ ...company, permissions: [...permissions], fee_share_allocations: pruneEmptyShareRows(fsa), apply_commission_payments_on_domain_save: chargeOnSave });
+        onSave({
+          ...company,
+          company_id: newEntityCode,
+          ...renameFields,
+          permissions: [...permissions],
+          fee_share_allocations: pruneEmptyShareRows(fsa),
+          apply_commission_payments_on_domain_save: chargeOnSave,
+        });
       });
   }
 
@@ -405,8 +519,8 @@ export default function CompanySettingsModal({
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div className="company-settings-react-modal modal-content company-settings-modal-content--split relative mx-auto mt-[2%] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
-        <div className="modal-header company-settings-modal-header border-b border-slate-200 bg-slate-50 px-[clamp(22px,1.67vw,32px)] py-[clamp(10px,1.04vw,20px)]">
-          <h2 className="m-0 text-[clamp(14px,1.25vw,24px)] font-bold text-slate-800">
+        <div className="modal-header company-settings-modal-header">
+          <h2 className="m-0 bg-transparent p-0">
             {isGroup ? t("groupSettings") : t("companySettings")}
           </h2>
           <button
@@ -424,10 +538,18 @@ export default function CompanySettingsModal({
                 {isGroup ? t("groupSettingsLower") : t("companySettingsLower")}
               </h3>
               <div className="mb-[clamp(6px,0.625vw,12px)]">
-                <label id="expDateCompanyName" className="company-settings-company-name-label">
-                  {isGroup ? t("groupPrefix") : t("companyPrefix")}
-                  {entityCode}
+                <label htmlFor="entityCodeRename" className="cs-company-field-label">
+                  {isGroup ? t("groupIdLabel") : t("companyIdLabel")}
                 </label>
+                <input
+                  id="entityCodeRename"
+                  type="text"
+                  className="company-settings-date-row-control company-settings-rename-input"
+                  value={entityCodeInput}
+                  disabled={renameLocked}
+                  placeholder={t("renameIdPlaceholder")}
+                  onChange={(e) => setEntityCodeInput(forceUppercaseValue(e.target.value))}
+                />
               </div>
               {/* Start Date + Period */}
               <div className="company-settings-date-row">
@@ -478,8 +600,9 @@ export default function CompanySettingsModal({
                   {expDisplay}
                 </div>
               </div>
-              {/* Permissions */}
-              <div className="mb-2">
+              {/* Permissions — company only */}
+              {!isGroup && (
+              <div className="company-settings-permissions-block">
                 <label className="cs-company-field-label company-settings-permissions-label">{t("permissionsLabel")}</label>
                 <div className="permission-toggle-row">
                   {PERMISSION_LIST.map(({ value, id, labelSuffix }) => (
@@ -503,6 +626,7 @@ export default function CompanySettingsModal({
                 </div>
                 <p className="company-settings-permissions-hint">{t("permissionsHintLine")}</p>
               </div>
+              )}
             </div>
 
             <div className="company-settings-split-divider" role="separator" aria-orientation="vertical" aria-hidden="true" />
@@ -674,7 +798,7 @@ export default function CompanySettingsModal({
               </div>
 
               {shareAccounts.length === 0 && shareAccountsProfit.length === 0 && (
-                <div style={{ display: "block", color: "#64748b", fontSize: 12, marginTop: 8 }}>
+                <div className="company-settings-empty-hint">
                   {t("noLinkedAccounts")}
                 </div>
               )}
@@ -683,7 +807,9 @@ export default function CompanySettingsModal({
 
           {/* Footer actions — 与量测图：Save 蓝 / Reset 红 / Cancel 灰 */}
           <div className="form-actions company-settings-form-actions">
-            <button type="button" className="btn btn-save" onClick={handleSave}>{t("save")}</button>
+            <button type="button" className="btn btn-save" disabled={submitting} onClick={() => runGuarded(handleSave)}>
+              {submitting ? t("saving") : t("save")}
+            </button>
             <button type="button" className="btn btn-reset-company" onClick={handleReset}>{t("reset")}</button>
             <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
           </div>

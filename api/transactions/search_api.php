@@ -82,6 +82,48 @@ function searchApiDcdCompanyId(): int
     return searchApiTxnWhereBind() > 0 ? searchApiTxnWhereBind() : (int) ($GLOBALS['SEARCH_API_PERM_COMPANY_ID'] ?? 0);
 }
 
+/**
+ * Bulk DCD 查询的 ledger 隔离（与 history_api / dcBuildCaptureLedgerFilter 对齐）。
+ * Group ledger 使用 anchor company_id；dual-tenant 再按 scope_type/scope_id 过滤。
+ *
+ * @param array<string, mixed> $listScope
+ * @return array{sql: string, params: array<int|string>}
+ */
+function searchApiDcdBulkLedgerWhere(PDO $pdo, bool $isGroupLedger, array $listScope): array
+{
+    $companyId = searchApiDcdCompanyId();
+    $sql = 'dcd.company_id = ? AND dc.company_id = ?';
+    $params = [$companyId, $companyId];
+
+    if (tenant_table_has_scope_columns($pdo, 'data_captures')) {
+        if ($isGroupLedger) {
+            $groupScopeId = (int) ($listScope['group_scope_id'] ?? 0);
+            if ($groupScopeId > 0) {
+                $sql .= ' AND dc.scope_type = ? AND dc.scope_id = ?'
+                     . ' AND dcd.scope_type = ? AND dcd.scope_id = ?';
+                $params[] = 'group';
+                $params[] = $groupScopeId;
+                $params[] = 'group';
+                $params[] = $groupScopeId;
+            }
+        } else {
+            $sql .= " AND (COALESCE(dc.scope_type, '') = '' OR dc.scope_type = 'company')"
+                 . " AND (COALESCE(dcd.scope_type, '') = '' OR dcd.scope_type = 'company')";
+        }
+
+        return ['sql' => $sql, 'params' => $params];
+    }
+
+    if ($isGroupLedger && $companyId > 0) {
+        require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
+        if (dcCompanyIdIsGroupEntity($pdo, $companyId)) {
+            $sql .= dcSqlCaptureOnGroupEntityCompany('dc');
+        }
+    }
+
+    return ['sql' => $sql, 'params' => $params];
+}
+
 function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
 {
     if (!hasContraApprovalColumns($pdo)) {
@@ -920,8 +962,27 @@ try {
     $search_txn_where = $search_txn_filter['sql'];
     $search_txn_bind = (int) $search_txn_filter['bind'];
     $search_is_group_ledger = (bool) $search_txn_filter['is_group'];
+    // Belt-and-suspenders: explicit company_id in request never uses group ledger account list.
+    if ($company_id > 0 && isset($_GET['company_id']) && trim((string) $_GET['company_id']) !== '') {
+        $search_is_group_ledger = false;
+        if (($search_list_scope['mode'] ?? '') === 'group') {
+            $search_list_scope['mode'] = 'company';
+            $search_list_scope['company_id'] = $company_id;
+            $search_txn_filter = tx_search_transaction_filter($pdo, $search_list_scope, 't');
+            searchApiSetTransactionScopeFilter($search_txn_filter);
+            $search_txn_where = $search_txn_filter['sql'];
+            $search_txn_bind = (int) $search_txn_filter['bind'];
+        }
+    }
     if ($search_is_group_ledger) {
         $company_id = 0;
+    }
+    $search_dcd_process_join = '';
+    $search_dcd_process_filter = '';
+    if ($search_is_group_ledger) {
+        require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
+        $search_dcd_process_join = ' INNER JOIN process p ON dc.process_id = p.id ';
+        $search_dcd_process_filter = dcSqlGroupProcessFilter('p');
     }
 
     // Member：target_account_id 仅可为当前会话账号在同公司的关联闭包内 id，防止越权查询他人余额
@@ -960,7 +1021,7 @@ try {
     // 超短时微缓存（按用户 + 查询条件），用于吸收短时间内重复请求，减轻数据库压力。
     // 仅缓存极短时间，兼顾实时性与加载速度。
     $cache_file = null;
-    $cache_ttl_seconds = 3;
+    $cache_ttl_seconds = 20;
     $cache_dir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'count168_tx_search_cache';
     if (!is_dir($cache_dir)) {
         @mkdir($cache_dir, 0777, true);
@@ -971,6 +1032,8 @@ try {
             'user_type' => strtolower((string) ($_SESSION['user_type'] ?? '')),
             'role' => strtolower((string) ($_SESSION['role'] ?? '')),
             'company_id' => (int) $company_id,
+            'scope_mode' => $search_is_group_ledger ? 'group' : 'company',
+            'scope_bind' => $search_txn_bind,
             'date_from' => $date_from_db,
             'date_to' => $date_to_db,
             'show_inactive' => (int) $show_inactive,
@@ -1017,8 +1080,9 @@ try {
             $params = array_merge($params, $groupAccountIds);
         }
     } else {
-        $where_conditions[] = 'ac.company_id = ?';
-        $params[] = $company_id;
+        $acSubsidiaryWhere = tenant_account_company_subsidiary_where($pdo, $company_id, 'ac');
+        $where_conditions[] = $acSubsidiaryWhere['sql'];
+        $params = array_merge($params, $acSubsidiaryWhere['params']);
     }
 
     if (!empty($target_account_ids)) {
@@ -1183,6 +1247,7 @@ try {
         $params[] = $search_txn_bind;
         $params[] = $date_from_db;
         $params[] = $date_to_db;
+        $params[] = $search_txn_bind;
         if (!$search_is_group_ledger) {
             $params[] = $company_id;
         }
@@ -1294,9 +1359,9 @@ try {
         }
     }
 
-    // 付方（from_account）若未加入本公司的 account_company，原列表不会包含该账户，导致 CONTRA/PAYMENT 等只在「对方公司」建档的付方不出现在左侧。
-    // 合并：在本公司 transactions 中作为 from_account 出现、且落在查询日期与币别范围内的账户（member 限定单账户时不合并，避免泄露他人）。
-    if (empty($target_account_ids)) {
+    // Group ledger only: merge from_account rows not linked via account_company (e.g. contra counterparty on anchor FK).
+    // Subsidiary drill-down (company 95, C168, …) must NOT merge other companies' accounts — that leaks cross-company bills.
+    if (empty($target_account_ids) && $search_is_group_ledger) {
         $existingAccountIds = [];
         foreach ($accounts as $accRow) {
             $existingAccountIds[(int) $accRow['id']] = true;
@@ -1479,7 +1544,8 @@ try {
     if (!empty($accounts)) {
         $all_ids = array_column($accounts, 'id');
         $all_ph = implode(',', array_fill(0, count($all_ids), '?'));
-        $bulk_cur_company_id = (int) ($search_txn_filter['perm_company_id'] ?? 0);
+        $bulk_cur_company_id = searchApiDcdCompanyId();
+        $dcd_ledger_where = searchApiDcdBulkLedgerWhere($pdo, $search_is_group_ledger, $search_list_scope);
         $bulk_txn_scope_sql = $search_txn_where;
         $bulk_txn_scope_bind = $search_txn_bind;
 
@@ -1568,13 +1634,14 @@ try {
                 SELECT DISTINCT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str,
                        dcd.currency_id, UPPER(c.code) AS currency_code
                 FROM data_capture_details dcd
-                INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+                INNER JOIN data_captures dc ON dcd.capture_id = dc.id{$search_dcd_process_join}
                 INNER JOIN currency c ON dcd.currency_id = c.id
-                WHERE dcd.company_id = ? AND dc.company_id = ? AND c.company_id = ?
+                WHERE {$dcd_ledger_where['sql']}
+                  AND c.company_id = ?
                   AND dc.capture_date <= ?
-                  AND dcd.currency_id IS NOT NULL
+                  AND dcd.currency_id IS NOT NULL{$search_dcd_process_filter}
             ");
-            $st->execute([$bulk_cur_company_id, $bulk_cur_company_id, $bulk_cur_company_id, $date_to_db]);
+            $st->execute(array_merge($dcd_ledger_where['params'], [$bulk_cur_company_id, $date_to_db]));
             while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
                 $bulk_dcd_cur[$r['acc_str']][(int) $r['currency_id']] = strtoupper($r['currency_code']);
             }
@@ -1611,6 +1678,16 @@ try {
             if (searchApiTxnHasCurrencyId($pdo)) {
                 foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
+                // 补充：仅有 Data Capture（如 Group SALARY/BONUS）而无交易的币别
+                foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
+                $acc_code_str = trim((string) ($account['account_id'] ?? ''));
+                if ($acc_code_str !== '' && $acc_code_str !== $acc_str) {
+                    foreach ($bulk_dcd_cur[$acc_code_str] ?? [] as $cid => $code) {
+                        addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                    }
                 }
             } elseif (!empty($filter_currency_codes)) {
                 // 旧环境：从 DCD 本期数据补充
@@ -1707,22 +1784,26 @@ try {
         $contra_where_t = contraApprovedWhere($pdo, 't');
 
         $dcdQ = dcd_processed_amount_sql_quant2('dcd.processed_amount');
-        // wl_count / up_to_count 只统计「量化后金额非 0」的明细行，避免空占位 DCD 让 has_win_loss_* 虚高，
-        // 进而在未勾选 Show 0 balance 时仍被前端 rowPassesHideZeroBalanceFilter 保留。
+        // wl_count：本期所有 Data Capture 明细行（含金额为 0 的账单，供 Show Win/Loss Only 展示）。
+        // up_to_count 仍只计金额非 0 的历史行。
         $sql = "SELECT TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')) AS acc_str, dcd.currency_id, 
                        SUM(CASE WHEN dc.capture_date < ? THEN {$dcdQ} ELSE 0 END) AS bf_total,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN {$dcdQ} ELSE 0 END) AS wl_total,
-                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? AND ABS({$dcdQ}) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                       SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
                        SUM(CASE WHEN dc.capture_date BETWEEN ? AND ? 
                                 AND (TRIM(COALESCE(dcd.id_product_main,'')) <> '' OR TRIM(COALESCE(dcd.id_product_sub,'')) <> '')
                                 THEN 1 ELSE 0 END) AS id_product_rows_period,
                        SUM(CASE WHEN ABS({$dcdQ}) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_count
                 FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ? AND dc.company_id = ? AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL
+                JOIN data_captures dc ON dcd.capture_id = dc.id{$search_dcd_process_join}
+                WHERE {$dcd_ledger_where['sql']} AND dc.capture_date <= ? AND dcd.currency_id IS NOT NULL{$search_dcd_process_filter}
                 GROUP BY TRIM(COALESCE(CAST(dcd.account_id AS CHAR), '')), dcd.currency_id";
         $stmt_bulk = $pdo->prepare($sql);
-        $stmt_bulk->execute([$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $company_id, $company_id, $date_to_db]);
+        $stmt_bulk->execute(array_merge(
+            [$date_from_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db, $date_from_db, $date_to_db],
+            $dcd_ledger_where['params'],
+            [$date_to_db]
+        ));
         while ($r = $stmt_bulk->fetch(PDO::FETCH_ASSOC)) {
             $bulk['dcd'][$r['acc_str']][$r['currency_id']] = [
                 'bf' => searchBulkAgg8($r['bf_total'] ?? '0'),
@@ -1760,7 +1841,7 @@ try {
             }
         }
 
-        // 与 SUM(wl_total) 同行口径：笔数只计「该行对 Win/Loss 的贡献非 0」，避免 0 金额 WIN/LOSE 仍令 has_win_loss_* 为真（Payment History 无实质行但列表仍显示）。
+        // wl_count：本期所有 WIN/LOSE/ADJUSTMENT 笔数（含金额为 0，供 Show Win/Loss Only）。
         // 与 DCD 一致：每笔 transaction 金额先 quant2 再 SUM（dcd_processed_amount_sql_quant2）。
         $txnWlRowContributionSql = '(CASE 
                         WHEN t.transaction_type = \'WIN\' AND (t.description LIKE \'Process: %\' OR t.description LIKE \'Inactive Compensation %\' OR t.description LIKE \'Compensation %\') THEN ' . searchApiWlTxnAmountSqlQuant2('t.amount') . '
@@ -1779,7 +1860,7 @@ try {
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
                     $txnWlRowContributionSql
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlRowWinLoseAdj) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
                  SUM(CASE WHEN $wlDateExpr <= ? THEN 
                     CASE WHEN ABS((CASE 
                       WHEN $wlDateExpr < ? THEN $txnWlRowWinLoseAdj
@@ -1816,7 +1897,7 @@ try {
                  SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN (
                     $txnWlFromInner
                  ) ELSE 0 END) AS wl_total,
-                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? AND ABS($txnWlFromInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_count,
+                 SUM(CASE WHEN $wlDateExpr BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_count,
                  SUM(CASE WHEN $wlDateExpr <= ? THEN 
                     CASE WHEN ABS((CASE 
                       WHEN $wlDateExpr < ? THEN $txnWlFromInner
@@ -1889,7 +1970,7 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
-                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? AND ABS($crdrToPeriodInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_txn_count
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
                 FROM transactions t
                 WHERE {$search_txn_where}
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
@@ -1929,7 +2010,7 @@ try {
                         ELSE 0 
                     END
                  ) ELSE 0 END) AS wl_cr_dr,
-                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? AND ABS($crdrFromPeriodInner) > 0.0000001 THEN 1 ELSE 0 END) AS wl_txn_count
+                 SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS wl_txn_count
                 FROM transactions t
                 WHERE {$search_txn_where} AND t.from_account_id IS NOT NULL
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLEAR', 'CLAIM')
@@ -1967,7 +2048,7 @@ try {
                     END
                  ) ELSE 0 END) AS bf_total,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN $rateMmAmtQuant2 ELSE 0 END) AS wl_rate_mm,
-                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS($rateMmAmtQuant2) > 0.0000001 THEN 1 ELSE 0 END) AS wl_rate_mm_count,
+                 SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type = 'RATE_MIDDLEMAN' THEN 1 ELSE 0 END) AS wl_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date <= ? AND e.entry_type = 'RATE_MIDDLEMAN' AND ABS($rateMmAmtQuant2) > 0.0000001 THEN 1 ELSE 0 END) AS up_to_rate_mm_count,
                  SUM(CASE WHEN h.transaction_date BETWEEN ? AND ? AND e.entry_type <> 'RATE_MIDDLEMAN' THEN (
                     CASE
@@ -2177,6 +2258,12 @@ try {
         );
         if ($dispAccountId === '') {
             $dispAccountId = (string) ($account['account_id'] ?? '');
+        }
+
+        // Default list: omit balance 0.00 unless Show Payment Only (show_inactive) is on.
+        // Show Win/Loss Only / Show 0 balance are applied on the client; hide_zero_balance=0 skips this.
+        if ($hide_zero_balance && !$show_inactive && !searchMoneyNonZero($balance)) {
+            continue;
         }
 
         $results[] = [
@@ -3041,6 +3128,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
         $has_rate_mm = ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
         $has_rate_mm_up_to = ($bulk['entry'][$account_id][$currency_id]['wl_mm_up_to_count'] ?? 0) > 0;
+        // Show Win/Loss Only：本期有 W/L 账单即可（含金额为 0 的 Data Capture / WIN/LOSE / RATE_MIDDLEMAN）。
         $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm || $id_product_rows_period > 0;
         $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
         $win_loss_full = money_normalize($win_loss, 8);
@@ -3086,7 +3174,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     // 1. 日期范围内的 Data Capture（按 currency 过滤）
     $dcdQwl = dcd_processed_amount_sql_quant2('dcd.processed_amount');
     $sql = "SELECT COALESCE(SUM({$dcdQwl}), 0) as total,
-                   SUM(CASE WHEN ABS({$dcdQwl}) > 0.0000001 THEN 1 ELSE 0 END) AS cnt
+                   COUNT(*) AS cnt
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
@@ -3262,13 +3350,13 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
 
         $entry = $bulk['entry'][$account_id][$currency_id] ?? ['cr_dr' => '0', 'cr_dr_count' => 0, 'cr_dr_rows_period' => 0];
         $cr_dr = money_add($cr_dr, $entry['cr_dr'], 8); // RATE 分录金额仍纳入 cr_dr 计算（影响 Cr/Dr 列显示）
-        // Show Payment Only：本期若有换汇 Cr/Dr 分录（RATE_*，不含 RATE_MIDDLEMAN），含金额为 0 仍视为有流水。
+        // Show Payment Only：本期若有 PAYMENT/RECEIVE/… 或换汇 Cr/Dr 分录（RATE_*），金额为 0 仍视为有流水。
 
         $cr_dr_disp = trunc2($cr_dr);
         $rateCrDrRows = (int) ($entry['cr_dr_rows_period'] ?? 0);
         return [
             'value' => $cr_dr_disp,
-            'has_transactions' => $payment_txn_count > 0 || searchMoneyNonZero($cr_dr_disp) || $rateCrDrRows > 0,
+            'has_transactions' => $payment_txn_count > 0 || $rateCrDrRows > 0 || searchMoneyNonZero($cr_dr_disp),
         ];
     }
 

@@ -19,6 +19,7 @@ const BankProcessListPage = lazyWithRetry(() => import("./pages/bankprocesslist/
 const DataCapturePage = lazyWithRetry(() => import("./pages/datacapture/DataCapturePage.jsx"));
 const DataCaptureSummaryPage = lazyWithRetry(() => import("./pages/datacapturesummary/DataCaptureSummaryPage.jsx"));
 const TransactionPaymentPage = lazyWithRetry(() => import("./pages/transaction/TransactionPaymentPage.jsx"));
+const TransactionPaymentHistoryPage = lazyWithRetry(() => import("./pages/transaction/TransactionPaymentHistoryPage.jsx"));
 const CustomerReportPage = lazyWithRetry(() => import("./pages/report/customer/CustomerReportPage.jsx"));
 const DomainReportPage = lazyWithRetry(() => import("./pages/report/domain/DomainReportPage.jsx"));
 const CaptureMaintenancePage = lazyWithRetry(() => import("./pages/maintenance/capture/CaptureMaintenancePage.jsx"));
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/datacapture" element={<DataCapturePage />} />
         <Route path="/datacapturesummary" element={<DataCaptureSummaryPage />} />
         <Route path="/transaction" element={<TransactionPaymentPage />} />
+        <Route path="/transaction/payment-history" element={<TransactionPaymentHistoryPage />} />
         <Route path="/customer-report" element={<CustomerReportPage />} />
         <Route path="/domain-report" element={<DomainReportPage />} />
         <Route path="/capture-maintenance" element={<CaptureMaintenancePage />} />

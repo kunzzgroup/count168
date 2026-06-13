@@ -26,6 +26,8 @@ export function dismissAllPortalTooltips() {
  *   enabled?: boolean,
  *   placement?: "top" | "below" | "right" | "auto-top",
  *   anchorClassName?: string,
+ *   showOnFocus?: boolean,
+ *   dismissOnPress?: boolean,
  *   children: import("react").ReactNode,
  * }} props
  */
@@ -34,6 +36,8 @@ export default function PortalTooltip({
   enabled = true,
   placement = "auto-top",
   anchorClassName = "",
+  showOnFocus = true,
+  dismissOnPress = false,
   children,
 }) {
   const anchorRef = useRef(null);
@@ -134,8 +138,9 @@ export default function PortalTooltip({
         className={anchorClass}
         onMouseEnter={showTooltip}
         onMouseLeave={hideTooltip}
-        onFocus={showTooltip}
-        onBlur={hideTooltip}
+        onFocus={showOnFocus ? showTooltip : undefined}
+        onBlur={showOnFocus ? hideTooltip : undefined}
+        onPointerDown={dismissOnPress ? hideTooltip : undefined}
       >
         {children}
       </span>

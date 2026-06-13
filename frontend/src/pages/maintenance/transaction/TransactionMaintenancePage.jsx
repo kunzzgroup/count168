@@ -185,6 +185,7 @@ export default function TransactionMaintenancePage() {
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     enableGroupAnchorSession: false,
+    pillCategory: "games",
   });
 
   const transactionScope = useMemo(
@@ -313,12 +314,18 @@ export default function TransactionMaintenancePage() {
       const ac = new AbortController();
       maintenanceAbortRef.current = ac;
       const seq = ++maintenanceSeqRef.current;
+      const quietRefresh = initialSearchDoneRef.current;
       if (filtersChanged || overrides.scope) {
-        setTransactionData([]);
-        setMaintenanceDataComplete(false);
-        setListLoading(true);
-        setListSyncing(false);
-      } else if (!initialSearchDoneRef.current) {
+        if (!quietRefresh) {
+          setTransactionData([]);
+          setMaintenanceDataComplete(false);
+          setListLoading(true);
+          setListSyncing(false);
+        } else {
+          setListLoading(false);
+          setListSyncing(true);
+        }
+      } else if (!quietRefresh) {
         setListLoading(true);
       } else {
         setListLoading(false);
@@ -345,7 +352,7 @@ export default function TransactionMaintenancePage() {
         setTransactionData(rows);
         setMaintenanceDataComplete(true);
         lastSearchQueryKeyRef.current = effectiveSearchKey;
-        if (filtersChanged || overrides.scope) {
+        if ((filtersChanged || overrides.scope) && !quietRefresh) {
           if (rows.length > 0) {
             notify(t("foundRecords", { n: rows.length }), "success");
           } else {
@@ -868,10 +875,16 @@ export default function TransactionMaintenancePage() {
     const nextTo = formatDmyFromYmd(end);
     if (!nextFrom || !nextTo) return;
     if (nextFrom === dateFrom && nextTo === dateTo) return;
-    setTransactionData([]);
-    setMaintenanceDataComplete(false);
-    setListLoading(true);
-    setListSyncing(false);
+    const quietRefresh = initialSearchDoneRef.current;
+    if (!quietRefresh) {
+      setTransactionData([]);
+      setMaintenanceDataComplete(false);
+      setListLoading(true);
+      setListSyncing(false);
+    } else {
+      setListLoading(false);
+      setListSyncing(true);
+    }
     setSearchError(null);
     setDateFrom(nextFrom);
     setDateTo(nextTo);
@@ -942,23 +955,19 @@ export default function TransactionMaintenancePage() {
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-    const nextScope = resolveTransactionMaintenanceScope({
-      companies,
-      selectedGroup: newGroup,
-      companyId: nextCompanyId,
-      groupsAllMode,
-      groupAllMode,
-    });
     switchPermsCacheRef.current = null;
     resetAnchorSessionRef();
     suppressNextSearchEffectRef.current = true;
+    if (initialSearchDoneRef.current) {
+      setListLoading(false);
+      setListSyncing(true);
+    }
     setSelectedGroup(newGroup);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
     persistDashboardFilterState(newGroup, nextCompanyId);
-    void performMaintenanceSearch({ scope: nextScope });
-  }, [companies, groupsAllMode, groupAllMode, performMaintenanceSearch, resetAnchorSessionRef]);
+  }, [resetAnchorSessionRef]);
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
 
@@ -968,6 +977,11 @@ export default function TransactionMaintenancePage() {
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
     const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
+
+    if (initialSearchDoneRef.current) {
+      setListLoading(false);
+      setListSyncing(true);
+    }
 
     try {
       const { redirected } = await runMaintenanceCompanySwitch({
@@ -999,14 +1013,19 @@ export default function TransactionMaintenancePage() {
             await performMaintenanceSearch({ scope: nextScope, category: nextActive });
           } catch (err) {
             console.error("Process list load error:", err);
+            setListSyncing(false);
           }
 
           followGroupRef.current();
           notify(t("switchedTo", { company: c.company_id }), "success");
         },
       });
-      if (redirected) return;
+      if (redirected) {
+        setListSyncing(false);
+        return;
+      }
     } catch (err) {
+      setListSyncing(false);
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
         navigate("/dashboard", { replace: true });
@@ -1014,7 +1033,7 @@ export default function TransactionMaintenancePage() {
       }
       notify(err.message || t("switchFailed"), "error");
     }
-  }, [companies, groupsAllMode, groupAllMode, location.pathname, navigate, notify, performMaintenanceSearch, selectedGroup, t]);
+  }, [companies, groupsAllMode, groupAllMode, location.pathname, navigate, notify, performMaintenanceSearch, t]);
 
   switchCompanyRef.current = handleSwitchCompany;
   onClearCompanyRef.current = handleClearCompany;
@@ -1026,9 +1045,7 @@ export default function TransactionMaintenancePage() {
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
   };
 
-  const listSyncingUi =
-    listSyncing && (listRowCount > 0 || !maintenanceDataComplete);
-  const showTopLoadingBar = listLoading || listSyncingUi;
+  const showTopLoadingBar = listLoading;
 
   return (
     <div className="container">
@@ -1080,16 +1097,23 @@ export default function TransactionMaintenancePage() {
           m={m}
         />
 
-        <TransactionMaintenanceTable
-          data={transactionData}
-          showSkeleton={showListSkeleton && !listSyncingUi}
-          showEmptyState={showNoDataEmpty}
-          statusMessage={listStatusMessage}
-          showTopLoading={showTopLoadingBar}
-          topLoadingLabel={listStatusMessage || t("loading")}
-          isPlaceholderData={listSyncingUi}
-          m={m}
-        />
+        <div className="transaction-maintenance-table-region">
+          {listSyncing && (
+            <div className="transaction-maintenance-sync-track" aria-hidden>
+              <div className="transaction-maintenance-sync-bar" />
+            </div>
+          )}
+          <TransactionMaintenanceTable
+            data={transactionData}
+            showSkeleton={showListSkeleton && !listSyncing}
+            showEmptyState={showNoDataEmpty}
+            statusMessage={listStatusMessage}
+            showTopLoading={showTopLoadingBar}
+            topLoadingLabel={listStatusMessage || t("loading")}
+            listSyncing={listSyncing}
+            m={m}
+          />
+        </div>
       </div>
 
       {/* Notifications */}

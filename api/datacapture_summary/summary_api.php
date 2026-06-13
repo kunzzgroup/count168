@@ -254,6 +254,70 @@ function ensureSummaryStateTable(PDO $pdo) {
     }
 }
 
+/** Ensure data_capture_summary_state has scope_type / scope_id (idempotent). */
+function dcEnsureSummaryStateScopeColumns(PDO $pdo): bool
+{
+    static $checked = false;
+    static $hasScope = false;
+    if ($checked) {
+        return $hasScope;
+    }
+    $checked = true;
+    try {
+        ensureSummaryStateTable($pdo);
+        if ($pdo->query("SHOW COLUMNS FROM data_capture_summary_state LIKE 'scope_type'")->rowCount() > 0) {
+            $hasScope = true;
+            return true;
+        }
+        $pdo->exec("
+            ALTER TABLE data_capture_summary_state
+              ADD COLUMN scope_type ENUM('company','group') NOT NULL DEFAULT 'company' AFTER company_id,
+              ADD COLUMN scope_id BIGINT UNSIGNED NULL AFTER scope_type
+        ");
+        $pdo->exec("
+            UPDATE data_capture_summary_state
+            SET scope_type = 'company', scope_id = company_id
+            WHERE scope_id IS NULL OR scope_id = 0
+        ");
+        try {
+            $pdo->exec("ALTER TABLE data_capture_summary_state DROP INDEX uk_company_process");
+        } catch (Exception $dropException) {
+            error_log('Summary state drop legacy unique key: ' . $dropException->getMessage());
+        }
+        try {
+            $pdo->exec("
+                ALTER TABLE data_capture_summary_state
+                ADD UNIQUE KEY uk_company_process_scope (company_id, process_key, scope_type, scope_id)
+            ");
+        } catch (Exception $addException) {
+            error_log('Summary state add scoped unique key: ' . $addException->getMessage());
+        }
+        $hasScope = true;
+    } catch (Exception $e) {
+        error_log('dcEnsureSummaryStateScopeColumns: ' . $e->getMessage());
+    }
+    return $hasScope;
+}
+
+/** Scope bind values for summary state read/write. */
+function resolveSummaryStateScopeBind(?array $captureScopeCtx, int $companyId): array
+{
+    if (is_array($captureScopeCtx) && $captureScopeCtx !== []) {
+        $ctx = $captureScopeCtx;
+        $ctx['dual_tenant'] = true;
+        $insert = dcCaptureScopeInsertValues($ctx);
+        return [
+            'scope_type' => (string) ($insert['scope_type'] ?? 'company'),
+            'scope_id' => (int) ($insert['scope_id'] ?? $companyId),
+        ];
+    }
+
+    return [
+        'scope_type' => 'company',
+        'scope_id' => $companyId,
+    ];
+}
+
 /**
  * 快速提交队列（用于“先立即回前端，再后台处理”）。
  */
@@ -566,6 +630,66 @@ function syncDeleteTemplateToMultiUseProcesses(PDO $pdo, int $sourceProcessId, s
     }
 }
 
+/**
+ * Scope columns for data_capture_templates — aligns with Submit / Formula Maintenance ledger filter.
+ *
+ * @return array{scope_type: ?string, scope_id: ?int}|null null when table has no scope columns
+ */
+function resolveTemplateScopeInsertForSave(PDO $pdo, int $companyId): ?array
+{
+    if (!tenant_table_has_scope_columns($pdo, 'data_capture_templates')) {
+        return null;
+    }
+
+    global $capture_scope_ctx;
+    $scopeCtx = is_array($capture_scope_ctx) && $capture_scope_ctx !== []
+        ? $capture_scope_ctx
+        : [
+            'company_id' => $companyId,
+            'is_group_scope' => false,
+        ];
+    $scopeCtx['dual_tenant'] = true;
+
+    $insert = dcCaptureScopeInsertValues($scopeCtx);
+
+    return [
+        'scope_type' => $insert['scope_type'],
+        'scope_id' => $insert['scope_id'] !== null ? (int) $insert['scope_id'] : null,
+    ];
+}
+
+/** Backfill templates saved before scope columns were populated (company or group ledger). */
+function backfillTemplateScope(PDO $pdo, int $companyId, ?array $scopeInsert): void
+{
+    if ($scopeInsert === null) {
+        return;
+    }
+
+    $scopeType = (string) ($scopeInsert['scope_type'] ?? '');
+    $scopeId = (int) ($scopeInsert['scope_id'] ?? 0);
+    if ($scopeId <= 0 || !in_array($scopeType, ['company', 'group'], true)) {
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE data_capture_templates
+            SET scope_type = :scope_type,
+                scope_id = :scope_id
+            WHERE company_id = :company_id
+              AND (scope_type IS NULL OR TRIM(scope_type) = '')
+              AND (scope_id IS NULL OR scope_id = 0)
+        ");
+        $stmt->execute([
+            ':scope_type' => $scopeType,
+            ':scope_id' => $scopeId,
+            ':company_id' => $companyId,
+        ]);
+    } catch (Exception $e) {
+        error_log('Template scope backfill warning: ' . $e->getMessage());
+    }
+}
+
 function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     // Ensure required keys exist
     if (empty($row['id_product']) || empty($row['account_id'])) {
@@ -610,6 +734,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         }
     }
     $hasProcessId = $processId !== null && $processId > 0;
+    $templateScopeInsert = resolveTemplateScopeInsertForSave($pdo, $companyId);
     $dataCaptureId = isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null;
     
     // Get formula_display to determine formula_variant
@@ -948,6 +1073,10 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         $existingId = $existingRecord['id'];
         error_log("Found duplicate template record (ID: $existingId) - product_type=$productType, id_product=" . ($row['id_product'] ?? 'NULL') . ", account_id=" . ($row['account_id'] ?? 'NULL') . ", formula_variant=$formulaVariant, process_id=" . ($processId ?? 'NULL') . ", data_capture_id=" . ($dataCaptureId ?? 'NULL') . " - Updating instead of inserting");
         
+        $scopeUpdateSql = $templateScopeInsert !== null
+            ? "scope_type = :scope_type,\n                scope_id = :scope_id,\n                "
+            : '';
+
         $stmt = $pdo->prepare("
             UPDATE data_capture_templates SET
                 id_product = :id_product,
@@ -974,11 +1103,11 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 row_index = :row_index,
                 sub_order = :sub_order,
                 formula_variant = :formula_variant,
-                updated_at = CURRENT_TIMESTAMP
+                {$scopeUpdateSql}updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
         ");
-        
-        $stmt->execute([
+
+        $updateParams = [
             ':id' => $existingId,
             ':id_product' => $row['id_product'],
             ':parent_id_product' => $parentIdProduct,
@@ -1005,7 +1134,13 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
             ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null,
             ':formula_variant' => $formulaVariant,
-        ]);
+        ];
+        if ($templateScopeInsert !== null) {
+            $updateParams[':scope_type'] = $templateScopeInsert['scope_type'];
+            $updateParams[':scope_id'] = $templateScopeInsert['scope_id'];
+        }
+
+        $stmt->execute($updateParams);
         
         // 如果当前 Process 是源 Process，同步 Formula 到所有关联的 Multi-use Processes
         if ($hasProcessId && $processId) {
@@ -1038,10 +1173,16 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         ]; // Return template info after update
     }
 
+    $scopeInsertColumns = $templateScopeInsert !== null ? "scope_type,\n            scope_id,\n            " : '';
+    $scopeInsertValues = $templateScopeInsert !== null ? ":scope_type,\n            :scope_id,\n            " : '';
+    $scopeDuplicateUpdate = $templateScopeInsert !== null
+        ? "scope_type = VALUES(scope_type),\n            scope_id = VALUES(scope_id),\n            "
+        : '';
+
     $stmt = $pdo->prepare("
         INSERT INTO data_capture_templates (
             company_id,
-            id_product,
+            {$scopeInsertColumns}id_product,
             product_type,
             parent_id_product,
             template_key,
@@ -1068,7 +1209,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             formula_variant
         ) VALUES (
             :company_id,
-            :id_product,
+            {$scopeInsertValues}:id_product,
             :product_type,
             :parent_id_product,
             :template_key,
@@ -1119,10 +1260,10 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             row_index = VALUES(row_index),
             sub_order = VALUES(sub_order),
             formula_variant = VALUES(formula_variant),
-            updated_at = CURRENT_TIMESTAMP
+            {$scopeDuplicateUpdate}updated_at = CURRENT_TIMESTAMP
     ");
 
-    $stmt->execute([
+    $insertParams = [
         ':company_id' => $companyId,
         ':id_product' => $row['id_product'],
         ':product_type' => $productType,
@@ -1149,7 +1290,13 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
         ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null,
         ':formula_variant' => $formulaVariant,
-    ]);
+    ];
+    if ($templateScopeInsert !== null) {
+        $insertParams[':scope_type'] = $templateScopeInsert['scope_type'];
+        $insertParams[':scope_id'] = $templateScopeInsert['scope_id'];
+    }
+
+    $stmt->execute($insertParams);
     
     $templateId = $pdo->lastInsertId();
     
@@ -1403,6 +1550,60 @@ function mergeDetailOnlyTemplates(PDO $pdo, int $companyId, int $captureId, arra
         }
     }
     return $templates;
+}
+
+/**
+ * Apply account display labels from group ledger accounts (not subsidiary company).
+ */
+function resolveAccountDisplayInTemplatesForGroup(PDO $pdo, string $groupCode, array &$templates): void
+{
+    $accounts = dcSummaryLoadAccountsForGroup($pdo, $groupCode);
+    if ($accounts === []) {
+        return;
+    }
+    $map = [];
+    foreach ($accounts as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id <= 0) {
+            continue;
+        }
+        $code = isset($row['account_id']) ? trim((string) $row['account_id']) : '';
+        $name = isset($row['name']) ? trim((string) $row['name']) : '';
+        $label = ($code !== '' && $name !== '') ? ($code . ' [' . $name . ']') : ($code !== '' ? $code : (string) $id);
+        $map[$id] = $map[(string) $id] = $label;
+    }
+    foreach ($templates as $key => &$group) {
+        if (!empty($group['main']['account_id'])) {
+            $aid = $group['main']['account_id'];
+            $sid = is_numeric($aid) ? (int) $aid : $aid;
+            if (isset($map[$sid]) || isset($map[(string) $aid])) {
+                $group['main']['account_display'] = $map[$sid] ?? $map[(string) $aid];
+            }
+        }
+        if (!empty($group['allMains']) && is_array($group['allMains'])) {
+            foreach ($group['allMains'] as $i => $m) {
+                if (!empty($m['account_id'])) {
+                    $aid = $m['account_id'];
+                    $sid = is_numeric($aid) ? (int) $aid : $aid;
+                    if (isset($map[$sid]) || isset($map[(string) $aid])) {
+                        $templates[$key]['allMains'][$i]['account_display'] = $map[$sid] ?? $map[(string) $aid];
+                    }
+                }
+            }
+        }
+        if (!empty($group['subs']) && is_array($group['subs'])) {
+            foreach ($group['subs'] as $i => $s) {
+                if (!empty($s['account_id'])) {
+                    $aid = $s['account_id'];
+                    $sid = is_numeric($aid) ? (int) $aid : $aid;
+                    if (isset($map[$sid]) || isset($map[(string) $aid])) {
+                        $templates[$key]['subs'][$i]['account_display'] = $map[$sid] ?? $map[(string) $aid];
+                    }
+                }
+            }
+        }
+    }
+    unset($group);
 }
 
 /**
@@ -1787,6 +1988,8 @@ function inheritFormulasToSubAccounts(PDO $pdo, int $companyId, array $templates
 }
 
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null, ?array &$rawSubRowsOut = null) {
+    global $company_id, $capture_scope_group, $capture_scope_ctx, $scopeParams;
+
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
     }
@@ -1809,79 +2012,100 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null, ?array &$r
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $lowerIds = array_map('strtolower', $ids);
 
-    // 获取 company_id（从全局变量或函数参数）
-    $companyId = $company_id ?? null;
-    if (!$companyId) {
-        // 如果函数被调用时没有传入 company_id，尝试从 session 获取
-        if (isset($_SESSION['company_id'])) {
-            $companyId = $_SESSION['company_id'];
-        } else {
+    $ledgerSql = ' AND dct.company_id = ? ';
+    $ledgerParams = [];
+
+    if (!empty($capture_scope_ctx) && is_array($capture_scope_ctx)) {
+        require_once __DIR__ . '/../formula_maintenance/formula_maintenance_scope.php';
+        $ledger = formulaMaintenanceBuildTemplateLedgerFilter($pdo, $capture_scope_ctx, 'dct');
+        $ledgerSql = $ledger['sql'];
+        $ledgerParams = $ledger['params'];
+    } elseif (!empty($capture_scope_group)) {
+        $groupCode = dcNormalizeGroupId($scopeParams['view_group'] ?? $scopeParams['group_id'] ?? '');
+        $templateCompanyId = $groupCode !== '' ? dcResolveGroupCaptureCompanyId($pdo, $groupCode) : 0;
+        if ($templateCompanyId <= 0) {
+            $templateCompanyId = (int) ($company_id ?? 0);
+        }
+        if ($templateCompanyId <= 0) {
             throw new Exception('缺少公司信息');
         }
+        $ledgerSql = ' AND dct.company_id = ? ' . dcSqlCaptureOnGroupEntityCompany('dct');
+        $ledgerParams = [$templateCompanyId];
+    } else {
+        $companyId = (int) ($company_id ?? 0);
+        if ($companyId <= 0) {
+            if (isset($_SESSION['company_id'])) {
+                $companyId = (int) $_SESSION['company_id'];
+            } else {
+                throw new Exception('缺少公司信息');
+            }
+        }
+        $ledgerSql = ' AND dct.company_id = ? ' . dcSqlCaptureOnSubsidiaryCompany('dct');
+        $ledgerParams = [$companyId];
     }
-    
+
     // 前端传的是 normalize 后的 id（如 ALLBET95MS、MY EARNINGS），库里有完整 id（如 ALLBET95MS(SV)MYR、MY EARNINGS : (RINGGIT...)），
     // 需同时按「前缀」匹配；括号前带 " : " 的 id 再按「去掉尾部空格和冒号」匹配，与前端一致。
     $stmt = $pdo->prepare("
         SELECT
-            id,
-            id_product,
-            product_type,
-            parent_id_product,
-            template_key,
-            description,
-            account_id,
-            account_display,
-            currency_id,
-            currency_display,
-            source_columns,
-            formula_operators,
-            source_percent,
-            enable_source_percent,
-            input_method,
-            enable_input_method,
-            batch_selection,
-            columns_display,
-            formula_display,
-            last_source_value,
-            last_processed_amount,
-            process_id,
-            data_capture_id,
-            row_index,
-            sub_order,
-            formula_variant,
-            updated_at
-        FROM data_capture_templates
-        WHERE company_id = ?
-          AND process_id = ?
+            dct.id,
+            dct.id_product,
+            dct.product_type,
+            dct.parent_id_product,
+            dct.template_key,
+            dct.description,
+            dct.account_id,
+            dct.account_display,
+            dct.currency_id,
+            dct.currency_display,
+            dct.source_columns,
+            dct.formula_operators,
+            dct.source_percent,
+            dct.enable_source_percent,
+            dct.input_method,
+            dct.enable_input_method,
+            dct.batch_selection,
+            dct.columns_display,
+            dct.formula_display,
+            dct.last_source_value,
+            dct.last_processed_amount,
+            dct.process_id,
+            dct.data_capture_id,
+            dct.row_index,
+            dct.sub_order,
+            dct.formula_variant,
+            dct.updated_at
+        FROM data_capture_templates dct
+        WHERE dct.process_id = ?
+          {$ledgerSql}
           AND (
-            (product_type = 'main' AND (
-                LOWER(id_product) IN ($placeholders)
-                OR LOWER(TRIM(SUBSTRING(id_product, 1, IF(LOCATE('(', id_product) > 0, LOCATE('(', id_product) - 1, LENGTH(id_product))))) IN ($placeholders)
-                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(id_product, 1, IF(LOCATE('(', id_product) > 0, LOCATE('(', id_product) - 1, LENGTH(id_product))))))) IN ($placeholders)
+            (dct.product_type = 'main' AND (
+                LOWER(dct.id_product) IN ($placeholders)
+                OR LOWER(TRIM(SUBSTRING(dct.id_product, 1, IF(LOCATE('(', dct.id_product) > 0, LOCATE('(', dct.id_product) - 1, LENGTH(dct.id_product))))) IN ($placeholders)
+                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(dct.id_product, 1, IF(LOCATE('(', dct.id_product) > 0, LOCATE('(', dct.id_product) - 1, LENGTH(dct.id_product))))))) IN ($placeholders)
             ))
-            OR (product_type = 'sub' AND (
-                LOWER(parent_id_product) IN ($placeholders)
-                OR LOWER(TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))) IN ($placeholders)
-                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))))) IN ($placeholders)
+            OR (dct.product_type = 'sub' AND (
+                LOWER(dct.parent_id_product) IN ($placeholders)
+                OR LOWER(TRIM(SUBSTRING(dct.parent_id_product, 1, IF(LOCATE('(', dct.parent_id_product) > 0, LOCATE('(', dct.parent_id_product) - 1, LENGTH(dct.parent_id_product))))) IN ($placeholders)
+                OR LOWER(TRIM(TRIM(TRAILING ':' FROM TRIM(SUBSTRING(dct.parent_id_product, 1, IF(LOCATE('(', dct.parent_id_product) > 0, LOCATE('(', dct.parent_id_product) - 1, LENGTH(dct.parent_id_product))))))) IN ($placeholders)
             ))
           )
-        ORDER BY CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
-                 row_index ASC,
-                 process_id DESC,
+        ORDER BY CASE WHEN dct.row_index IS NULL THEN 1 ELSE 0 END,
+                 dct.row_index ASC,
+                 dct.process_id DESC,
                  CASE 
-                     WHEN product_type = 'main' THEN COALESCE(id_product, '')
-                     WHEN product_type = 'sub' THEN COALESCE(parent_id_product, '')
-                     ELSE COALESCE(id_product, '')
+                     WHEN dct.product_type = 'main' THEN COALESCE(dct.id_product, '')
+                     WHEN dct.product_type = 'sub' THEN COALESCE(dct.parent_id_product, '')
+                     ELSE COALESCE(dct.id_product, '')
                  END ASC,
-                 product_type ASC,
-                 CASE WHEN sub_order IS NULL THEN 1 ELSE 0 END,
-                 sub_order ASC,
-                 formula_variant ASC,
-                 id ASC
+                 dct.product_type ASC,
+                 CASE WHEN dct.sub_order IS NULL THEN 1 ELSE 0 END,
+                 dct.sub_order ASC,
+                 dct.formula_variant ASC,
+                 dct.id ASC
     ");
 
-    $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds);
+    $params = array_merge([$processId], $ledgerParams, $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds, $lowerIds);
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -2153,6 +2377,14 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         $templateResult = saveTemplateRow($pdo, $templatePayload, $company_id);
+
+        if ($templateResult !== null) {
+            backfillTemplateScope(
+                $pdo,
+                (int) $company_id,
+                resolveTemplateScopeInsertForSave($pdo, (int) $company_id)
+            );
+        }
         
         // Handle both old format (string) and new format (array) for backward compatibility
         $templateKey = is_array($templateResult) ? $templateResult['template_key'] : $templateResult;
@@ -2388,11 +2620,35 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($action === 'get_summary_state') {
     try {
         ensureSummaryStateTable($pdo);
+        $hasScopeColumns = dcEnsureSummaryStateScopeColumns($pdo);
+        global $capture_scope_ctx;
+        $scopeBind = resolveSummaryStateScopeBind(
+            is_array($capture_scope_ctx) ? $capture_scope_ctx : null,
+            (int) $company_id
+        );
         $processId = isset($_GET['process_id']) && $_GET['process_id'] !== '' && is_numeric($_GET['process_id']) ? (int)$_GET['process_id'] : null;
         $processCode = isset($_GET['process_code']) ? trim((string)$_GET['process_code']) : '';
         $processKey = $processId !== null ? ('pid_' . $processId) : ('code_' . ($processCode !== '' ? $processCode : 'none'));
-        $stmt = $pdo->prepare("SELECT state_json FROM data_capture_summary_state WHERE company_id = ? AND process_key = ? LIMIT 1");
-        $stmt->execute([$company_id, $processKey]);
+        if ($hasScopeColumns) {
+            $stmt = $pdo->prepare("
+                SELECT state_json
+                FROM data_capture_summary_state
+                WHERE company_id = ?
+                  AND process_key = ?
+                  AND scope_type = ?
+                  AND scope_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([
+                $company_id,
+                $processKey,
+                $scopeBind['scope_type'],
+                $scopeBind['scope_id'],
+            ]);
+        } else {
+            $stmt = $pdo->prepare("SELECT state_json FROM data_capture_summary_state WHERE company_id = ? AND process_key = ? LIMIT 1");
+            $stmt->execute([$company_id, $processKey]);
+        }
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $data = null;
         if ($row && !empty($row['state_json'])) {
@@ -2419,6 +2675,12 @@ if ($action === 'save_summary_state' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         ensureSummaryStateTable($pdo);
+        $hasScopeColumns = dcEnsureSummaryStateScopeColumns($pdo);
+        global $capture_scope_ctx;
+        $scopeBind = resolveSummaryStateScopeBind(
+            is_array($capture_scope_ctx) ? $capture_scope_ctx : null,
+            (int) $company_id
+        );
         $processId = isset($payload['processId']) && $payload['processId'] !== null && $payload['processId'] !== '' && is_numeric($payload['processId']) ? (int)$payload['processId'] : null;
         $processCode = isset($payload['processCode']) ? trim((string)$payload['processCode']) : '';
         $processKey = $processId !== null ? ('pid_' . $processId) : ('code_' . ($processCode !== '' ? $processCode : 'none'));
@@ -2434,12 +2696,28 @@ if ($action === 'save_summary_state' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'rateValuesByRateFingerprint' => $payload['rateValuesByRateFingerprint'] ?? [],
             'savedAt' => $payload['savedAt'] ?? null,
         ]);
-        $stmt = $pdo->prepare("
-            INSERT INTO data_capture_summary_state (company_id, process_key, state_json, updated_at)
-            VALUES (?, ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE state_json = VALUES(state_json), updated_at = NOW()
-        ");
-        $stmt->execute([$company_id, $processKey, $stateJson]);
+        if ($hasScopeColumns) {
+            $stmt = $pdo->prepare("
+                INSERT INTO data_capture_summary_state
+                    (company_id, scope_type, scope_id, process_key, state_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE state_json = VALUES(state_json), updated_at = NOW()
+            ");
+            $stmt->execute([
+                $company_id,
+                $scopeBind['scope_type'],
+                $scopeBind['scope_id'],
+                $processKey,
+                $stateJson,
+            ]);
+        } else {
+            $stmt = $pdo->prepare("
+                INSERT INTO data_capture_summary_state (company_id, process_key, state_json, updated_at)
+                VALUES (?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE state_json = VALUES(state_json), updated_at = NOW()
+            ");
+            $stmt->execute([$company_id, $processKey, $stateJson]);
+        }
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
         error_log('save_summary_state error: ' . $e->getMessage());
@@ -2506,19 +2784,29 @@ if ($action === 'templates') {
             throw new Exception('Process ID is required');
         }
 
-        dcAssertProcessIdInCaptureScope($pdo, (int) $processId, (int) $company_id, (bool) $capture_scope_group);
+        $processCompanyId = !empty($capture_scope_ctx)
+            ? dcCaptureProcessCompanyId($capture_scope_ctx)
+            : (int) $company_id;
+        dcAssertProcessIdInCaptureScope($pdo, (int) $processId, (int) $processCompanyId, (bool) $capture_scope_group);
 
         // 在 Data Capture 选择的 Process 下设置的 formula 只在该 Process 显示；若该 Process 有 sync 到其他 Process 则同步显示
         // Summary 的 formula 仅来自 Maintenance（data_capture_templates）；Process 在 Maintenance 无记录则不显示 formula
         $rawSubRowsFromSql = [];
         $templates = fetchTemplates($pdo, $ids, $processId, $rawSubRowsFromSql);
 
-        if ($captureId !== null && $captureId > 0 && $company_id) {
+        if ($captureId !== null && $captureId > 0 && $company_id && empty($capture_scope_group)) {
             $templates = mergeDetailOnlyTemplates($pdo, (int)$company_id, $captureId, $ids, $templates);
         }
 
         // 用 account 表统一解析 account_display，与 Maintenance - Formula 的 Account 列一致
-        if ($company_id) {
+        if (!empty($capture_scope_group)) {
+            $groupCodeForTpl = dcNormalizeGroupId(
+                $scopeParams['view_group'] ?? $scopeParams['group_id'] ?? ($groupIdForAccess ?? '')
+            );
+            if ($groupCodeForTpl !== '') {
+                resolveAccountDisplayInTemplatesForGroup($pdo, $groupCodeForTpl, $templates);
+            }
+        } elseif ($company_id) {
             resolveAccountDisplayInTemplates($pdo, (int)$company_id, $templates);
         }
 

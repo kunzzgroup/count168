@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { formatPaymentHistoryMoneyHalfUp, toUpperDisplay } from "../lib/transactionFormat.js";
+import { formatTransactionGridMoneyHalfUp, toUpperDisplay } from "../lib/transactionFormat.js";
 
 function formatContraDate(raw) {
   if (!raw || raw === "-") return "-";
@@ -208,7 +208,7 @@ export default function TransactionHeader({
                         {toUpperDisplay(it.currency || "-")}
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--amount" role="cell">
-                        {formatPaymentHistoryMoneyHalfUp(it.amount)}
+                        {formatTransactionGridMoneyHalfUp(it.amount)}
                       </div>
                       <div className="contra-inbox-grid-cell contra-inbox-grid-cell--submitter" role="cell">
                         {submittedBy}

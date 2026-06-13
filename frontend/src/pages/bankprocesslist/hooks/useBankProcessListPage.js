@@ -13,8 +13,8 @@ import {
   resolveInitialSelectedGroupFromSession,
   resolveSubsidiaryBootCompanyId,
   buildDashboardCurrencyScopeKey,
+  clearDashboardSelectedCurrency,
   notifyDashboardCurrencyFilterChanged,
-  resolveCrossPageCurrencyPreference,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { useGroupAnchorSessionSync } from "../../../utils/company/useGroupAnchorSessionSync.js";
@@ -25,13 +25,26 @@ import {
 } from "../../../utils/date/dateRangePicker.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { isCapitalLettersOnly, sanitizeCapitalLettersOnly } from "../../../utils/input/sanitizeCapitalLettersOnly.js";
-import { saveUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
-import { DEFAULT_FORM as ACCOUNT_DEFAULT_FORM, getOrderedRoles, normalizeAlertAmount, toUpper } from "../../account/accountLogic.js";
+import {
+  mergeCurrencyCodesWithSavedOrder,
+  persistCurrencyDisplayOrder,
+  resolveSavedCurrencyOrder,
+} from "../../../utils/company/currencyDisplayOrder.js";
+import { saveUserCurrencyOrder, getUserCurrencyOrder } from "../../transaction/lib/transactionApi.js";
+import {
+  DEFAULT_FORM as ACCOUNT_DEFAULT_FORM,
+  getAccountModalOrderedRoles,
+  normalizeAlertAmount,
+  pickDefaultAddCurrencyIds,
+  toUpper,
+} from "../../account/accountLogic.js";
 import { getAccountText } from "../../../translateFile/pages/accountTranslate.js";
 import { getBankProcessLocale, getBankProcessText, translateBankProcessApiMessage } from "../../../translateFile/pages/bankProcessTranslate.js";
 // Helper imports
+import { useAutoListPageSize } from "../../../hooks/useAutoListPageSize.js";
 import {
-  PAGE_SIZE,
+  PAGE_SIZE_MAX,
+  PAGE_SIZE_MIN,
   normalizeRows,
   isoToDmy,
   dmyToIso,
@@ -40,6 +53,7 @@ import {
   notifyTransactionDataChanged,
   bankProcessStatusTargetPatch,
   isBankCategoryCompany,
+  resolveBankOnlyCategoryHint,
   parseProfitSharingToRows,
   serializeProfitSharingRows,
   calcBankNetProfitDisplay,
@@ -55,6 +69,7 @@ import {
   filterBankProcessRowsBySearch,
   sortBankProcessTableRows,
   accountingDuePeriodType,
+  accountingDueBillingMonth,
   checkBankResendLockFromBackend,
   isBankResendScheduleLockedToday,
   normalizeBankResendDayStartYmd,
@@ -66,6 +81,8 @@ import {
 import {
   prefetchBankProcessListPayload,
   prefetchGamesProcessListPayload,
+  resolveBankProcessListRouteCache,
+  warmBankProcessListRouteCache,
 } from "../../processlist/processRoutePrefetch.js";
 
 function resolveBankProcessListCacheKey(companyId, search) {
@@ -75,6 +92,16 @@ function resolveBankProcessListCacheKey(companyId, search) {
 function bankProcessRowsFingerprint(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return "0";
   return rows.map((r) => Number(r.id)).join(",");
+}
+
+function resolveBankProcessBootCurrency() {
+  return "";
+}
+
+function resolveBankProcessListCurrencyAfterFetch(prev, ordered, userSelectedAllRef) {
+  if (userSelectedAllRef.current && !prev) return "";
+  if (prev && ordered.includes(prev)) return prev;
+  return "";
 }
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
@@ -139,12 +166,6 @@ export function useBankProcessListPage() {
     const toDmy = document.getElementById(b.dateToId)?.value?.trim() || "";
     setDateFrom(dmyToIso(fromDmy));
     setDateTo(dmyToIso(toDmy));
-    const clearBtn = document.getElementById("processListDateClearBtn");
-    if (clearBtn) {
-      const nextFrom = dmyToIso(fromDmy);
-      const nextTo = dmyToIso(toDmy);
-      clearBtn.style.display = nextFrom || nextTo ? "inline-flex" : "none";
-    }
   }, []);
   const [cssReady, setCssReady] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -168,6 +189,12 @@ export function useBankProcessListPage() {
     setShowOfficial(false);
     setShowEInvoice(false);
     setShowBlock(false);
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, []);
+
+  const notifyBankListLayoutChanged = useCallback(() => {
+    window.dispatchEvent(new Event("ec:bank-list-layout-changed"));
   }, []);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -236,6 +263,7 @@ export function useBankProcessListPage() {
   const [currencyFilterCode, setCurrencyFilterCode] = useState("");
   const [currencyPillDisplayOrder, setCurrencyPillDisplayOrder] = useState(null);
   const skipNextCurrencyPillClickRef = useRef(false);
+  const userSelectedAllCurrenciesRef = useRef(false);
 
   const toastTimerRef = useRef(null);
   const listAbortRef = useRef(null);
@@ -248,6 +276,7 @@ export function useBankProcessListPage() {
   const companySessionAbortRef = useRef(null);
   const rowsRef = useRef([]);
   const bankDatePickerInitRef = useRef(false);
+  const listRegionRef = useRef(null);
   const contractSyncKeysRef = useRef({ day_start: "", contract: "", frequency: "" });
 
   const seedContractSyncKeys = useCallback((f) => {
@@ -274,7 +303,7 @@ export function useBankProcessListPage() {
     t("readOnlyActionBlocked")
   );
 
-  const accountModalOrderedRoles = useMemo(() => getOrderedRoles(rolesList), [rolesList]);
+  const accountModalOrderedRoles = useMemo(() => getAccountModalOrderedRoles(rolesList), [rolesList]);
 
   const getAccountIdForPlusTarget = useCallback(
     (target) => {
@@ -289,6 +318,33 @@ export function useBankProcessListPage() {
     },
     [form.card_merchant_id, form.customer_id, form.profit_account_id, profitShareRows]
   );
+
+  const isPickableAccountId = useCallback((id, pickList = accounts) => {
+    const num = Number(id);
+    if (!Number.isFinite(num) || num <= 0) return false;
+    return pickList.some((a) => Number(a.id) === num);
+  }, [accounts]);
+
+  const clearFormFieldForPlusTarget = useCallback((target) => {
+    if (target === "card_merchant_id") {
+      setForm((f) => ({ ...f, card_merchant_id: "" }));
+      return;
+    }
+    if (target === "customer_id") {
+      setForm((f) => ({ ...f, customer_id: "" }));
+      return;
+    }
+    if (target === "profit_account_id") {
+      setForm((f) => ({ ...f, profit_account_id: "" }));
+      return;
+    }
+    if (target && typeof target === "object" && target.type === "profitRow") {
+      const idx = target.index;
+      setProfitShareRows((rows) =>
+        rows.map((r, i) => (i === idx ? { ...r, accountId: "", accountLabel: "" } : r)),
+      );
+    }
+  }, []);
 
   const mergeAccountModalCurrency = useCallback((currencyRow) => {
     if (!currencyRow?.id || !currencyRow?.code) return;
@@ -337,7 +393,7 @@ export function useBankProcessListPage() {
             setAccountModalSelectedCurrencyIds(ids);
             setAccountModalInitialCurrencyIds(ids);
           } else {
-            setAccountModalSelectedCurrencyIds([]);
+            setAccountModalSelectedCurrencyIds(pickDefaultAddCurrencyIds(curJ.data));
             setAccountModalInitialCurrencyIds([]);
           }
         }
@@ -381,7 +437,7 @@ export function useBankProcessListPage() {
 
   const fetchAccountDetailJson = useCallback(async (accountId) => {
     const url = new URL(buildApiUrl("api/accounts/getaccount_api.php"));
-    url.searchParams.set("account_id", String(accountId));
+    url.searchParams.set("id", String(accountId));
     if (companyId) url.searchParams.set("company_id", String(companyId));
     url.searchParams.set("_", String(Date.now()));
     const res = await fetch(url.toString(), {
@@ -597,11 +653,15 @@ export function useBankProcessListPage() {
       if (toH) toH.value = dtIso && /^\d{4}-\d{2}-\d{2}$/.test(dtIso) ? isoToDmy(dtIso) : "";
       window.MaintenanceDateRangePicker.init({
         allowEmpty: true,
+        preserveDisplayUntilCommit: true,
         placeholder: t("selectDateRange"),
         selectEndDateHint: t("selectEndDate"),
         clearDateLabel: t("clearDate"),
         monthLabels: bpLocale.monthsShort,
         onChange: handleDatePickerChange,
+      });
+      requestAnimationFrame(() => {
+        window.MaintenanceDateRangePicker?.syncBankToolbarDatePillWidth?.();
       });
       const clearBtn = document.getElementById("processListDateClearBtn");
       if (clearBtn) {
@@ -638,11 +698,11 @@ export function useBankProcessListPage() {
     });
   }, [lang, loading, cssReady, t, bpLocale.monthsShort]);
 
+  /* React state 为 date range 唯一来源；hidden input 受控同步，避免再次打开日历时丢失已选范围 */
   useEffect(() => {
-    const clearBtn = document.getElementById("processListDateClearBtn");
-    if (!clearBtn) return;
-    clearBtn.style.display = dateFrom || dateTo ? "inline-flex" : "none";
-  }, [dateFrom, dateTo]);
+    if (loading || !cssReady || !bankDatePickerInitRef.current) return;
+    window.MaintenanceDateRangePicker?.refreshInputsDisplay?.();
+  }, [dateFrom, dateTo, loading, cssReady, lang]);
 
   useEffect(() => {
     if (loading || !companyId || groupFilterKind !== "follow") return;
@@ -660,6 +720,11 @@ export function useBankProcessListPage() {
     (async () => {
       let skipLoadingDone = false;
       try {
+        const bootUrl = new URL(window.location.href);
+        const bootSearch = bootUrl.searchParams.get("search") || "";
+        if (authMe?.company_id) {
+          warmBankProcessListRouteCache(authMe.company_id, { search: bootSearch });
+        }
         const routePrefetch = location.state?.bankProcessListPrefetch;
         const prefetchCompanyId = routePrefetch?.companyId ? Number(routePrefetch.companyId) : null;
         const currentUrl = new URL(window.location.href);
@@ -681,18 +746,10 @@ export function useBankProcessListPage() {
             prefetchedCompanies,
             prefetchedRowEarly,
           );
-          setCurrencyFilterCode(
-            resolveCrossPageCurrencyPreference({
-              scopeKey: buildDashboardCurrencyScopeKey({
-                companyId: prefetchCompanyId,
-                selectedGroup: prefBootGroupEarly,
-              }),
-              availableCodes: Array.isArray(routePrefetch.currencyCodes)
-                ? routePrefetch.currencyCodes
-                : [],
-              urlCurrency: currentUrl.searchParams.get("currency") || "",
-            }),
-          );
+          {
+            userSelectedAllCurrenciesRef.current = true;
+            setCurrencyFilterCode(resolveBankProcessBootCurrency());
+          }
           setDateFrom(currentUrl.searchParams.get("date_from") || "");
           setDateTo(currentUrl.searchParams.get("date_to") || "");
           setShowAll(currentUrl.searchParams.get("showAll") === "1");
@@ -758,7 +815,11 @@ export function useBankProcessListPage() {
         const currentCompanyRow =
           effectiveNum != null ? cs.find((c) => Number(c.id) === Number(effectiveNum)) : null;
         if (currentCompanyRow?.company_id) {
-          const bankCategory = await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
+          const bankOnlyHint = resolveBankOnlyCategoryHint(sessionUser, effectiveNum);
+          const bankCategory =
+            bankOnlyHint !== null
+              ? bankOnlyHint
+              : await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (!bankCategory) {
             const warm = await prefetchGamesProcessListPayload(effectiveNum);
             navigate(`/process-list?company_id=${effectiveNum}`, {
@@ -784,15 +845,10 @@ export function useBankProcessListPage() {
           persistDashboardFilterState(bootGroup, effectiveNum, { allowGroupOnly: false });
         }
         setSearch(url.searchParams.get("search") || "");
-        setCurrencyFilterCode(
-          resolveCrossPageCurrencyPreference({
-            scopeKey: buildDashboardCurrencyScopeKey({
-              companyId: effectiveNum,
-              selectedGroup: bootGroup,
-            }),
-            urlCurrency: url.searchParams.get("currency") || "",
-          }),
-        );
+        {
+          userSelectedAllCurrenciesRef.current = true;
+          setCurrencyFilterCode(resolveBankProcessBootCurrency());
+        }
         setDateFrom(url.searchParams.get("date_from") || "");
         setDateTo(url.searchParams.get("date_to") || "");
         setShowAll(url.searchParams.get("showAll") === "1");
@@ -800,11 +856,32 @@ export function useBankProcessListPage() {
         setShowOfficial(url.searchParams.get("showOfficial") === "1");
         setShowEInvoice(url.searchParams.get("showEInvoice") === "1");
         setShowBlock(url.searchParams.get("showBlock") === "1");
+
+        if (effectiveNum != null) {
+          const searchVal = url.searchParams.get("search") || "";
+          const slice = await resolveBankProcessListRouteCache(effectiveNum, { search: searchVal });
+          if (Array.isArray(slice?.rows)) {
+            const cacheKey = resolveBankProcessListCacheKey(effectiveNum, searchVal);
+            bankProcessListCacheRef.current.set(cacheKey, {
+              rows: slice.rows,
+              currencyCodes: slice.currencyCodes,
+            });
+            setRows(slice.rows);
+            skipNextBankFetchRef.current = true;
+            setTableLoading(false);
+            if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
+              setCurrencyListOrdered(slice.currencyCodes);
+              setCurrencyPillDisplayOrder(null);
+            }
+          } else {
+            setTableLoading(true);
+          }
+        }
       } finally {
         if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [navigate, location.state]);
+  }, [navigate, location.state, authMe?.company_id]);
 
   useEffect(() => {
     if (!companyId || loading) return;
@@ -821,49 +898,46 @@ export function useBankProcessListPage() {
     })();
   }, [companyId, loading]);
 
-  const loadCurrencyMeta = useCallback(async () => {
-    if (!companyId) return;
+  const loadCurrencyMeta = useCallback(async (targetCompanyId) => {
+    const cid = Number(targetCompanyId ?? companyId);
+    if (!Number.isFinite(cid) || cid <= 0) return;
     try {
-      const [curRes, ordRes] = await Promise.all([
-        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${companyId}`), { credentials: "include" }),
-        fetch(buildApiUrl(`api/transactions/user_currency_order_api.php?_t=${Date.now()}`), { credentials: "include" }).catch(() => null),
+      const [curRes, ordJson] = await Promise.all([
+        fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${cid}`), {
+          credentials: "include",
+        }),
+        getUserCurrencyOrder({ companyId: cid }).catch(() => null),
       ]);
       const curJson = await curRes.json();
       if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
-        setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : []));
+        setCurrencyListOrdered([]);
         return;
       }
-      let codes = curJson.data.map((r) => String(r.code).toUpperCase());
-      if (ordRes) {
-        const ordJson = await ordRes.json();
-        const order = ordJson?.data?.order;
-        if (Array.isArray(order) && order.length) {
-          const set = new Set(codes);
-          const ordered = [...order.map((c) => String(c).toUpperCase()).filter((c) => set.has(c))];
-          const rest = codes.filter((c) => !ordered.includes(c));
-          codes = [...ordered, ...rest];
-        }
-      }
-      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : codes));
+      const codes = curJson.data.map((r) => String(r.code).toUpperCase());
+      const savedOrder = resolveSavedCurrencyOrder(cid, ordJson?.data?.order);
+      const ordered = mergeCurrencyCodesWithSavedOrder(codes, savedOrder);
+      persistCurrencyDisplayOrder(cid, ordered);
+      setCurrencyListOrdered(ordered);
+      setCurrencyPillDisplayOrder(null);
     } catch {
-      setCurrencyListOrdered((prev) => (prev.length > 0 ? prev : []));
+      setCurrencyListOrdered([]);
     }
   }, [companyId]);
 
   useEffect(() => {
     if (!companyId || loading) return;
     if (currencyListOrdered.length > 0) return;
-    void loadCurrencyMeta();
+    void loadCurrencyMeta(companyId);
   }, [companyId, loading, loadCurrencyMeta, currencyListOrdered.length]);
 
-  useEffect(() => {
-    setCurrencyPillDisplayOrder(null);
-  }, [companyId]);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (showAll) document.body.classList.add("process-page--bank-show-all");
     else document.body.classList.remove("process-page--bank-show-all");
-  }, [showAll]);
+    const raf = window.requestAnimationFrame(() => {
+      notifyBankListLayoutChanged();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [showAll, notifyBankListLayoutChanged]);
 
   useEffect(() => {
     if (!modalOpen || !companyId) return;
@@ -960,7 +1034,7 @@ export function useBankProcessListPage() {
       return;
     }
     const frequencyNorm = bankProcessFrequencyNormalized(form.day_start_frequency);
-    if (frequencyNorm === "once" || frequencyNorm === "monthly") return;
+    if (frequencyNorm === "once" || frequencyNorm === "week" || frequencyNorm === "day" || frequencyNorm === "monthly") return;
 
     const start = String(form.day_start || "").trim();
     const contract = String(form.contract || "").trim();
@@ -997,10 +1071,11 @@ export function useBankProcessListPage() {
 
   useEffect(() => {
     if (!resendModalOpen) return;
-    if (bankProcessFrequencyNormalized(resendFrequency) !== "once") return;
+    const fq = bankProcessFrequencyNormalized(resendFrequency);
+    if (fq !== "once" && fq !== "week" && fq !== "day" && fq !== "monthly") return;
     if (!String(resendDayEnd || "").trim()) return;
     setResendDayEnd("");
-  }, [resendModalOpen, resendFrequency]);
+  }, [resendModalOpen, resendFrequency, resendDayEnd]);
 
   const refreshResendConfirmLock = useCallback(async () => {
     const id = resendTarget?.id;
@@ -1059,20 +1134,21 @@ export function useBankProcessListPage() {
       if (!Number.isFinite(id) || id <= 0) return false;
       const cacheKey = resolveBankProcessListCacheKey(id, search);
       const cached = bankProcessListCacheRef.current.get(cacheKey);
-      if (!Array.isArray(cached?.rows) || cached.rows.length === 0) return false;
+      if (!Array.isArray(cached?.rows)) return false;
       setRows((prev) =>
         bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
+      setTableLoading(false);
       if (Array.isArray(cached.currencyCodes) && cached.currencyCodes.length) {
-        setCurrencyListOrdered(cached.currencyCodes);
+        const ordered = mergeCurrencyCodesWithSavedOrder(
+          cached.currencyCodes,
+          resolveSavedCurrencyOrder(id, null),
+        );
+        setCurrencyListOrdered(ordered);
         setCurrencyPillDisplayOrder(null);
-        setCurrencyFilterCode((prev) => {
-          if (prev && cached.currencyCodes.includes(prev)) return prev;
-          return resolveCrossPageCurrencyPreference({
-            scopeKey: buildDashboardCurrencyScopeKey({ companyId: id, selectedGroup }),
-            availableCodes: cached.currencyCodes,
-          });
-        });
+        setCurrencyFilterCode((prev) =>
+          resolveBankProcessListCurrencyAfterFetch(prev, ordered, userSelectedAllCurrenciesRef),
+        );
       }
       return true;
     },
@@ -1142,15 +1218,15 @@ export function useBankProcessListPage() {
           return nextRows;
         });
         if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
-          setCurrencyListOrdered(slice.currencyCodes);
+          const ordered = mergeCurrencyCodesWithSavedOrder(
+            slice.currencyCodes,
+            resolveSavedCurrencyOrder(cid, null),
+          );
+          setCurrencyListOrdered(ordered);
           setCurrencyPillDisplayOrder(null);
-          setCurrencyFilterCode((prev) => {
-            if (prev && slice.currencyCodes.includes(prev)) return prev;
-            return resolveCrossPageCurrencyPreference({
-              scopeKey: buildDashboardCurrencyScopeKey({ companyId: cid, selectedGroup }),
-              availableCodes: slice.currencyCodes,
-            });
-          });
+          setCurrencyFilterCode((prev) =>
+            resolveBankProcessListCurrencyAfterFetch(prev, ordered, userSelectedAllCurrenciesRef),
+          );
         }
         if (!preserveSelection) setSelectedIds(new Set());
         if (!preservePage) setCurrentPage(1);
@@ -1175,9 +1251,11 @@ export function useBankProcessListPage() {
       skipCompanyFetchEffectRef.current = false;
       return;
     }
-    const t = window.setTimeout(() => { void fetchRows(); }, 80);
-    return () => window.clearTimeout(t);
-  }, [companyId, loading, search, fetchRows]);
+    void (async () => {
+      if (applyBankProcessListCache(companyId)) return;
+      await fetchRows({ silent: rowsRef.current.length > 0 });
+    })();
+  }, [companyId, loading, search, fetchRows, applyBankProcessListCache]);
 
   // URL still reflects active filters even though they're applied client-side.
   useEffect(() => {
@@ -1185,7 +1263,24 @@ export function useBankProcessListPage() {
     syncUrl();
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [companyId, loading, showAll, showInactive, showOfficial, showEInvoice, showBlock, dateFrom, dateTo, currencyFilterCode, syncUrl]);
+    const raf = window.requestAnimationFrame(() => {
+      notifyBankListLayoutChanged();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [
+    companyId,
+    loading,
+    showAll,
+    showInactive,
+    showOfficial,
+    showEInvoice,
+    showBlock,
+    dateFrom,
+    dateTo,
+    currencyFilterCode,
+    syncUrl,
+    notifyBankListLayoutChanged,
+  ]);
 
   const loadAccountingInbox = useCallback(async (opts = {}) => {
     const silent = !!opts.silent;
@@ -1325,7 +1420,6 @@ export function useBankProcessListPage() {
 
         if (sessionCompanyId === nextId) return;
 
-        const previousCompanyId = Number(companyId) === nextId ? sessionCompanyId : companyId;
         companySessionAbortRef.current?.abort();
         const sessionAc = new AbortController();
         companySessionAbortRef.current = sessionAc;
@@ -1338,38 +1432,12 @@ export function useBankProcessListPage() {
           const json = await res.json();
           if (sessionAc.signal.aborted) return;
           if (!res.ok || !json.success) {
-            if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
-              skipCompanyFetchEffectRef.current = true;
-              flushSync(() => {
-                setCompanyId(previousCompanyId);
-                applyBankProcessListCache(previousCompanyId);
-              });
-              void fetchRows({
-                companyId: previousCompanyId,
-                silent: true,
-                preservePage: true,
-                preserveSelection: true,
-              });
-            }
             notify(apiMsg(json, "switchCompanyFailed"), "danger");
             return;
           }
           notifyCompanySessionUpdated(json.data ?? null);
         } catch {
           if (sessionAc.signal.aborted) return;
-          if (previousCompanyId != null && Number(previousCompanyId) !== nextId) {
-            skipCompanyFetchEffectRef.current = true;
-            flushSync(() => {
-              setCompanyId(previousCompanyId);
-              applyBankProcessListCache(previousCompanyId);
-            });
-            void fetchRows({
-              companyId: previousCompanyId,
-              silent: true,
-              preservePage: true,
-              preserveSelection: true,
-            });
-          }
           notify(t("switchCompanyFailed"), "danger");
         } finally {
           if (companySessionAbortRef.current === sessionAc) {
@@ -1411,6 +1479,7 @@ export function useBankProcessListPage() {
 
       skipCompanyFetchEffectRef.current = hadCache;
       suppressCrossPageSyncRef.current = true;
+      userSelectedAllCurrenciesRef.current = false;
       listAbortRef.current?.abort();
       flushSync(() => {
         setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
@@ -1421,7 +1490,6 @@ export function useBankProcessListPage() {
         } else {
           setRows([]);
           setTableLoading(true);
-          setCurrencyFilterCode("");
           setCurrencyListOrdered([]);
           setCurrencyPillDisplayOrder(null);
         }
@@ -1621,12 +1689,26 @@ export function useBankProcessListPage() {
     const listJson = await listRes.json();
     const list = filterBankPickAccounts(Array.isArray(listJson?.data?.accounts) ? listJson.data.accounts : []);
     setAccounts(list);
-    if (newId && accountPlusTarget === "card_merchant_id") setForm((f) => ({ ...f, card_merchant_id: newId }));
-    if (newId && accountPlusTarget === "customer_id") setForm((f) => ({ ...f, customer_id: newId }));
-    if (newId && accountPlusTarget === "profit_account_id") setForm((f) => ({ ...f, profit_account_id: newId }));
-    if (newId && accountPlusTarget && typeof accountPlusTarget === "object" && accountPlusTarget.type === "profitRow") {
+    const pickable = newId && list.some((a) => Number(a.id) === Number(newId));
+    if (pickable && accountPlusTarget === "card_merchant_id") {
+      setForm((f) => ({ ...f, card_merchant_id: newId }));
+    }
+    if (pickable && accountPlusTarget === "customer_id") {
+      setForm((f) => ({ ...f, customer_id: newId }));
+    }
+    if (pickable && accountPlusTarget === "profit_account_id") {
+      setForm((f) => ({ ...f, profit_account_id: newId }));
+    }
+    if (
+      pickable &&
+      accountPlusTarget &&
+      typeof accountPlusTarget === "object" &&
+      accountPlusTarget.type === "profitRow"
+    ) {
       const idx = accountPlusTarget.index;
-      setProfitShareRows((rows) => rows.map((r, i) => (i === idx ? { ...r, accountId: newId, accountLabel: newAccountId } : r)));
+      setProfitShareRows((rows) =>
+        rows.map((r, i) => (i === idx ? { ...r, accountId: newId, accountLabel: newAccountId } : r)),
+      );
     }
     notifyTransactionDataChanged("bank-process-list-react");
     closeAccountModal();
@@ -1637,13 +1719,14 @@ export function useBankProcessListPage() {
     if (!companyId) return notify(t("missingCompanyContext"), "danger");
 
     const existingId = getAccountIdForPlusTarget(target);
+    const existingPickable = existingId && isPickableAccountId(existingId);
 
     try {
       const editRes = await fetch(buildApiUrl("api/editdata/editdata_api.php"), { credentials: "include" });
       const editJson = await editRes.json();
       setRolesList(Array.isArray(editJson?.data?.roles) ? editJson.data.roles : []);
 
-      if (existingId) {
+      if (existingPickable) {
         const accJson = await fetchAccountDetailJson(existingId);
         if (!accJson.success || !accJson.data) {
           notify(accJson.error || accJson.message || tAccount("failedToLoadAccount"), "danger");
@@ -1666,6 +1749,7 @@ export function useBankProcessListPage() {
         setAccountModalCurrencyInput("");
         await loadAccountModalSelectionMeta(existingId, true);
       } else {
+        if (existingId) clearFormFieldForPlusTarget(target);
         resetAccountModalToAdd();
         await loadAccountModalSelectionMeta(null, false);
       }
@@ -1721,6 +1805,8 @@ export function useBankProcessListPage() {
     if (guardWrite()) return;
     const rawFreq = bankProcessFrequencyNormalized(form.day_start_frequency);
     const isOnceSubmit = rawFreq === "once";
+    const isWeekSubmit = rawFreq === "week";
+    const isDaySubmit = rawFreq === "day";
     const dayStart = String(form.day_start || "").trim();
     const dayEnd = String(form.day_end || "").trim();
     if (dayStart && dayEnd && dayEnd < dayStart) {
@@ -1735,8 +1821,8 @@ export function useBankProcessListPage() {
       notify(t("dayEndRequiredForCap"), "danger");
       return;
     }
-    if (!isOnceSubmit && !String(form.contract || "").trim()) {
-      notify(t("contractRequiredUnlessOnce"), "danger");
+    if (!isOnceSubmit && !isWeekSubmit && !isDaySubmit && !String(form.contract || "").trim()) {
+      notify(t("contractRequiredUnlessOnceWeekOrDay"), "danger");
       return;
     }
     if (!editMode) {
@@ -1751,6 +1837,8 @@ export function useBankProcessListPage() {
     }
     let normalizedFreq;
     if (isOnceSubmit) normalizedFreq = "once";
+    else if (rawFreq === "week") normalizedFreq = "week";
+    else if (rawFreq === "day") normalizedFreq = "day";
     else if (rawFreq === "monthly") normalizedFreq = "monthly";
     else normalizedFreq = "1st_of_every_month";
     const moneyNormalized = {
@@ -1772,6 +1860,14 @@ export function useBankProcessListPage() {
         fd.append(k, "");
         return;
       }
+      if (isWeekSubmit && (k === "day_end" || k === "contract")) {
+        fd.append(k, "");
+        return;
+      }
+      if (isDaySubmit && (k === "day_end" || k === "contract")) {
+        fd.append(k, "");
+        return;
+      }
       fd.append(k, v ?? "");
     });
     if (editMode) {
@@ -1786,7 +1882,9 @@ export function useBankProcessListPage() {
       if (!res.ok || !json.success) return notify(apiMsg(json, "saveFailed"), "danger");
       notify(editMode ? t("bankProcessUpdated") : t("bankProcessAdded"));
       notifyTransactionDataChanged("bank-process-list-react");
-      setModalOpen(false); fetchRows();
+      setModalOpen(false);
+      void fetchRows();
+      void loadAccountingInbox({ silent: true });
     } catch { notify(t("saveFailed"), "danger"); }
   };
 
@@ -1797,7 +1895,7 @@ export function useBankProcessListPage() {
     try {
       const fd = new FormData();
       selected.forEach((r) => {
-        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", r.monthly_billing_month || "");
+        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", accountingDueBillingMonth(r));
       });
       fd.append("allow_future_monthly", "1");
       const res = await fetch(buildApiUrl("api/processes/process_post_to_transaction_api.php"), { method: "POST", body: fd, credentials: "include" });
@@ -1816,7 +1914,7 @@ export function useBankProcessListPage() {
     try {
       const fd = new FormData();
       selected.forEach((r) => {
-        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", r.monthly_billing_month || "");
+        fd.append("ids[]", r.id); fd.append("period_types[]", accountingDuePeriodType(r)); fd.append("billing_months[]", accountingDueBillingMonth(r));
       });
       const res = await fetch(buildApiUrl("api/processes/dismiss_accounting_due_api.php"), { method: "POST", body: fd, credentials: "include" });
       const json = await res.json();
@@ -1851,23 +1949,28 @@ export function useBankProcessListPage() {
     const dayStart = String(resendDayStart || "").trim();
     const dayEnd = String(resendDayEnd || "").trim();
     const fqEarly = bankProcessFrequencyNormalized(resendFrequency);
-    if (fqEarly !== "once" && dayStart && dayEnd && dayEnd < dayStart) {
+    const resendOmitsDayEnd = fqEarly === "once" || fqEarly === "week" || fqEarly === "day" || fqEarly === "monthly";
+    if (!resendOmitsDayEnd && dayStart && dayEnd && dayEnd < dayStart) {
       const msg = t("dayEndEarlierThanStart");
       setResendInlineError(msg);
       notify(msg, "danger");
       return;
     }
     const fq = bankProcessFrequencyNormalized(resendFrequency);
-    const dayEndTrim = fq === "once" ? "" : String(resendDayEnd || "").trim();
+    const omitDayEnd = fq === "once" || fq === "week" || fq === "day" || fq === "monthly";
+    const dayEndTrim = omitDayEnd ? "" : String(resendDayEnd || "").trim();
     const normalizedResendFrequency =
-      fq === "once" ? "once" : (fq === "monthly" ? "monthly" : "1st_of_every_month");
+      fq === "once" ? "once"
+        : (fq === "monthly" ? "monthly"
+          : (fq === "week" ? "week"
+            : (fq === "day" ? "day" : "1st_of_every_month")));
     try {
       const res = await fetch(buildApiUrl("api/bankprocess_maintenance/resend_accounting_due_api.php"), {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({
           bank_process_id: Number(resendTarget.id),
           day_start: resendDayStart || null,
-          day_end: fq === "once" ? null : (dayEndTrim || null),
+          day_end: omitDayEnd ? null : (dayEndTrim || null),
           day_start_frequency: normalizedResendFrequency,
         }),
       });
@@ -2095,10 +2198,21 @@ export function useBankProcessListPage() {
     [currencyPillDisplayOrder, baseCurrencyPills]
   );
 
+  const handlePickAllCurrencies = useCallback(() => {
+    userSelectedAllCurrenciesRef.current = true;
+    clearDashboardSelectedCurrency();
+    setCurrencyFilterCode("");
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, []);
+
   const handlePickCurrency = useCallback(
     (code) => {
+      userSelectedAllCurrenciesRef.current = false;
       const cur = String(code || "").trim().toUpperCase();
       setCurrencyFilterCode(cur);
+      setCurrentPage(1);
+      setSelectedIds(new Set());
       if (cur) {
         notifyDashboardCurrencyFilterChanged(
           cur,
@@ -2115,7 +2229,13 @@ export function useBankProcessListPage() {
     selectedGroup,
     availableCodes: currencyPillCodes,
     currentCode: currencyFilterCode,
-    onApplyCode: (code) => setCurrencyFilterCode(code),
+    onApplyCode: (code) => {
+      userSelectedAllCurrenciesRef.current = false;
+      setCurrencyFilterCode(code);
+      setCurrentPage(1);
+      setSelectedIds(new Set());
+    },
+    respectEmptyRef: userSelectedAllCurrenciesRef,
   });
 
   useEffect(() => {
@@ -2131,15 +2251,18 @@ export function useBankProcessListPage() {
 
   const persistOrderedCompanyCurrencies = useCallback(
     async (orderedPills) => {
+      const cid = Number(companyId);
+      if (!Number.isFinite(cid) || cid <= 0) return;
       const companySet = new Set(currencyListOrdered);
       const apiOrder = orderedPills.filter((c) => companySet.has(c));
       if (apiOrder.length === 0) return;
-      const json = await saveUserCurrencyOrder(apiOrder);
+      const json = await saveUserCurrencyOrder(apiOrder, { companyId: cid });
       if (!json?.success) return;
+      persistCurrencyDisplayOrder(cid, [...apiOrder, ...currencyListOrdered.filter((c) => !apiOrder.includes(c))]);
       const tail = currencyListOrdered.filter((c) => !apiOrder.includes(c));
       setCurrencyListOrdered([...apiOrder, ...tail]);
     },
-    [currencyListOrdered]
+    [companyId, currencyListOrdered],
   );
 
   const onCurrencyPillDrop = useCallback(
@@ -2156,9 +2279,13 @@ export function useBankProcessListPage() {
       const [moved] = next.splice(fromI, 1);
       next.splice(toI, 0, moved);
       setCurrencyPillDisplayOrder(next);
+      const cid = Number(companyId);
+      if (Number.isFinite(cid) && cid > 0) {
+        persistCurrencyDisplayOrder(cid, next);
+      }
       await persistOrderedCompanyCurrencies(next);
     },
-    [currencyPillCodes, persistOrderedCompanyCurrencies]
+    [currencyPillCodes, persistOrderedCompanyCurrencies, companyId],
   );
 
   useEffect(() => {
@@ -2202,12 +2329,42 @@ export function useBankProcessListPage() {
     currencyFilterCode,
   ]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE)), [visibleRows]);
+  const pageSize = useAutoListPageSize({
+    listRegionRef,
+    enabled: !showAll,
+    minRows: PAGE_SIZE_MIN,
+    maxRows: PAGE_SIZE_MAX,
+    remeasureDeps: [
+      visibleRows.length,
+      tableLoading,
+      lang,
+      cssReady,
+      currentPage,
+      currencyFilterCode,
+      showAll,
+      showInactive,
+      showOfficial,
+      showEInvoice,
+      showBlock,
+    ],
+  });
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(visibleRows.length / pageSize)),
+    [visibleRows.length, pageSize],
+  );
+
+  useEffect(() => {
+    if (showAll) return;
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [showAll, totalPages, pageSize]);
+
   const pageRows = useMemo(() => {
     if (showAll) return visibleRows;
     const p = Math.min(currentPage, totalPages);
-    return visibleRows.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
-  }, [visibleRows, showAll, currentPage, totalPages]);
+    return visibleRows.slice((p - 1) * pageSize, p * pageSize);
+  }, [visibleRows, showAll, currentPage, totalPages, pageSize]);
+
   return {
     navigate,
     location,
@@ -2414,10 +2571,13 @@ export function useBankProcessListPage() {
     persistOrderedCompanyCurrencies,
     onCurrencyPillDrop,
     handlePickCurrency,
+    handlePickAllCurrencies,
     visibleRows,
     totalPages,
     pageRows,
-    PAGE_SIZE,
+    pageSize,
+    PAGE_SIZE: pageSize,
+    listRegionRef,
     mutationsBlocked,
   };
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { isPaymentHistoryChromelessPath } from "../pages/transaction/lib/transactionPaymentHistoryUrl.js";
 import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
 import AppBootLoading from "./AppBootLoading.jsx";
@@ -45,7 +46,11 @@ import { rememberCompanySessionFlags } from "../utils/company/companySessionFlag
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import AnimatedOutlet from "./AnimatedOutlet.jsx";
-import { prefetchAutoRenewList, prefetchRouteModule } from "../utils/routing/routePrefetch.js";
+import {
+  prefetchAutoRenewList,
+  prefetchOwnershipCompanies,
+  prefetchRouteModule,
+} from "../utils/routing/routePrefetch.js";
 import { clearChunkReloadFlag } from "../utils/routing/lazyWithRetry.js";
 import {
   canAccessC168AutoRenew,
@@ -57,6 +62,7 @@ import {
   patchMeFromCompanyContext,
 } from "../utils/company/loginScope.js";
 import { categoryFlagsFromSession } from "../utils/company/sidebarCompanySwitch.js";
+import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import "../../public/css/modal-close-unified.css";
 
 function formatSidebarExpirationHint(hint, i18n) {
@@ -115,6 +121,9 @@ export default function AuthenticatedLayout() {
     [navigate],
   );
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const path = location.pathname;
+  const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hoverSection, setHoverSection] = useState(null);
@@ -188,6 +197,24 @@ export default function AuthenticatedLayout() {
     };
   }, []);
 
+  /* Process 路由：父级 layout 阶段即挂上 body class，避免 SPA 切入时 Global Unlock 先撑出双 scrollbar */
+  useLayoutEffect(() => {
+    if (location.pathname === "/bank-process-list") {
+      document.body.classList.remove("dashboard-page");
+      document.body.classList.add("process-page", "process-page--bank");
+    } else if (location.pathname === "/process-list") {
+      document.body.classList.remove("dashboard-page", "process-page--bank", "process-page--bank-show-all");
+      document.body.classList.add("process-page");
+    }
+  }, [location.pathname]);
+
+  useLayoutEffect(() => {
+    document.body.classList.toggle("ec-payment-history-chromeless", chromelessPaymentHistory);
+    return () => {
+      document.body.classList.remove("ec-payment-history-chromeless");
+    };
+  }, [chromelessPaymentHistory]);
+
   useLayoutEffect(() => {
     const scopeClass = loginScopeBodyClass(me);
     document.body.classList.toggle("ec-login-scope-group", scopeClass === "ec-login-scope-group");
@@ -250,7 +277,6 @@ export default function AuthenticatedLayout() {
     if (sidebarCollapsed) expandSidebar();
   };
 
-  const path = location.pathname;
   const hideProcessWhenGroupOnly = useMemo(
     () => shouldHideSidebarProcess(path),
     [path, sidebarGcTick],
@@ -339,17 +365,15 @@ export default function AuthenticatedLayout() {
           has_gambling: json.data.company_has_gambling,
           has_bank: json.data.company_has_bank,
         });
+        let appliedSessionToSidebar = false;
         setMe((prev) => {
           if (!prev) return json.data;
           if (shouldApplySessionToSidebar(json.data, filterNow)) {
+            appliedSessionToSidebar = true;
             if (filterNow.groupOnly && filterNow.selectedGroup) {
-              const groupFlags = resolveGroupCategoryFlagsForSidebar(filterNow.selectedGroup, {
-                includeBank: false,
-              });
               return patchMeFromCompanyContext(json.data, {
                 companyId: null,
                 companyCode: filterNow.selectedGroup,
-                hasGambling: groupFlags?.hasGambling ?? json.data.company_has_gambling,
                 hasBank: false,
                 expirationDate: resolveSidebarExpirationForFilter({
                   selectedGroup: filterNow.selectedGroup,
@@ -367,7 +391,9 @@ export default function AuthenticatedLayout() {
             days_until_expiration: json.data.days_until_expiration,
           };
         });
-        setSidebarGcTick((n) => n + 1);
+        if (appliedSessionToSidebar) {
+          setSidebarGcTick((n) => n + 1);
+        }
         return json.data;
       }
     } catch {
@@ -409,6 +435,7 @@ export default function AuthenticatedLayout() {
     (detail, options = {}) => {
       if (!detail) {
         applySidebarPatch(null);
+        setSidebarGcTick((n) => n + 1);
         scheduleRefreshSession();
         return;
       }
@@ -420,25 +447,25 @@ export default function AuthenticatedLayout() {
       lastSidebarFilterSigRef.current = sig;
 
       const cid = resolved.companyId;
-      const skipRefresh = options.skipSessionRefresh === true;
+      const skipRefresh = options.skipSessionRefresh === true || resolved.groupOnly;
       if (cid == null) {
         const patch = { companyId: null, companyCode: resolved.companyCode ?? "" };
         const includeBank = Boolean(resolved.groupAllMode) && !resolved.groupOnly;
         const groupFlags = resolved.selectedGroup
           ? resolveGroupCategoryFlagsForSidebar(resolved.selectedGroup, { includeBank })
           : null;
-        if (resolved.hasGambling != null) patch.hasGambling = Boolean(resolved.hasGambling);
-        else if (groupFlags) patch.hasGambling = groupFlags.hasGambling;
         if (resolved.groupOnly) {
           patch.hasBank = false;
-        } else if (resolved.hasBank != null) {
-          patch.hasBank = Boolean(resolved.hasBank);
-        } else if (groupFlags) {
-          patch.hasBank = groupFlags.hasBank;
+        } else {
+          if (resolved.hasGambling != null) patch.hasGambling = Boolean(resolved.hasGambling);
+          else if (groupFlags) patch.hasGambling = groupFlags.hasGambling;
+          if (resolved.hasBank != null) patch.hasBank = Boolean(resolved.hasBank);
+          else if (groupFlags) patch.hasBank = groupFlags.hasBank;
         }
         const expirationDate = resolveSidebarExpirationForFilter(resolved);
         patch.expirationDate = expirationDate !== undefined ? expirationDate : null;
         applySidebarPatch(patch);
+        setSidebarGcTick((n) => n + 1);
         if (!skipRefresh) scheduleRefreshSession();
         return;
       }
@@ -465,6 +492,7 @@ export default function AuthenticatedLayout() {
           : {}),
         expirationDate: expirationDate !== undefined ? expirationDate : null,
       });
+      setSidebarGcTick((n) => n + 1);
       if (!skipRefresh) scheduleRefreshSession();
     },
     [applySidebarPatch, scheduleRefreshSession],
@@ -502,29 +530,18 @@ export default function AuthenticatedLayout() {
       const filter = readPersistedDashboardGcFilter();
 
       if (filter.groupOnly && filter.selectedGroup) {
-        const groupOnlyExp = resolveSidebarExpirationForFilter({
-          selectedGroup: filter.selectedGroup,
-          companyId: null,
-        });
-        const groupFlags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup);
         if (data && typeof data === "object" && shouldApplySessionToSidebar(data, filter)) {
+          const groupOnlyExp = resolveSidebarExpirationForFilter({
+            selectedGroup: filter.selectedGroup,
+            companyId: null,
+          });
           applySidebarPatch({
             companyId: null,
             companyCode: filter.selectedGroup,
-            hasGambling: data.has_gambling,
             hasBank: false,
             ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
           });
-        } else {
-          applySidebarPatch({
-            companyId: null,
-            ...(groupFlags
-              ? { hasGambling: groupFlags.hasGambling, hasBank: false }
-              : {}),
-            ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
-          });
         }
-        scheduleRefreshSession();
         return;
       }
 
@@ -648,6 +665,12 @@ export default function AuthenticatedLayout() {
   useEffect(() => {
     if (loading || !me) return;
 
+    if (path === "/transaction") {
+      void import("../pages/transaction/transactionRoutePrefetch.js").then(({ warmTransactionRouteCache }) => {
+        warmTransactionRouteCache({ me });
+      });
+    }
+
     prefetchRouteModule(path);
     if (path !== "/dashboard" && canAccessPermission(me, "home")) {
       prefetchRouteModule("/dashboard");
@@ -669,10 +692,31 @@ export default function AuthenticatedLayout() {
       });
     };
 
+    const runProcessListWarm = () => {
+      if (!me?.company_id) return;
+      void import("../pages/processlist/processRoutePrefetch.js").then((mod) => {
+        if (me.company_has_bank && !me.company_has_gambling) {
+          mod.warmBankProcessListRouteCache(me.company_id);
+        } else {
+          mod.warmProcessListRouteCache(me.company_id);
+        }
+      });
+    };
+
+    const runTransactionWarm = () => {
+      void import("../pages/transaction/transactionRoutePrefetch.js").then(({ warmTransactionRouteCache }) => {
+        warmTransactionRouteCache({ me });
+      });
+    };
+
     const runIdleWarm = () => {
       runCompanies();
+      runProcessListWarm();
       if (path === "/dashboard" || path === "/account-list") {
         runAccountListWarm();
+      }
+      if (path === "/transaction") {
+        runTransactionWarm();
       }
     };
 
@@ -693,12 +737,18 @@ export default function AuthenticatedLayout() {
       if (routePath) {
         prefetchRouteModule(routePath);
         if (routePath === "/auto-renew") prefetchAutoRenewList();
+        if (routePath === "/ownership") prefetchOwnershipCompanies();
         if (
           (routePath === "/process-list" || routePath === "/games-process-list") &&
           me?.company_id
         ) {
           void import("../pages/processlist/processRoutePrefetch.js").then(({ warmProcessListRouteCache }) => {
             warmProcessListRouteCache(me.company_id);
+          });
+        }
+        if (routePath === "/bank-process-list" && me?.company_id) {
+          void import("../pages/processlist/processRoutePrefetch.js").then(({ warmBankProcessListRouteCache }) => {
+            warmBankProcessListRouteCache(me.company_id);
           });
         }
         if (routePath === "/account-list") {
@@ -711,6 +761,11 @@ export default function AuthenticatedLayout() {
             });
           });
         }
+        if (routePath === "/transaction" && me) {
+          void import("../pages/transaction/transactionRoutePrefetch.js").then(({ warmTransactionRouteCache }) => {
+            warmTransactionRouteCache({ me });
+          });
+        }
       }
     };
     root.addEventListener("pointerdown", warmRoute, { capture: true });
@@ -721,7 +776,7 @@ export default function AuthenticatedLayout() {
       root.removeEventListener("mouseover", warmRoute);
       root.removeEventListener("focusin", warmRoute);
     };
-  }, []);
+  }, [me]);
 
   // --- Notification Logic ---
   const toggleNotifications = async (e) => {
@@ -797,6 +852,7 @@ export default function AuthenticatedLayout() {
     } catch {
       // Even if request fails, clear client route to login.
     } finally {
+      resetDashboardSessionCaches();
       clearDashboardFilterSession();
       clearOwnerCompaniesCache();
       setLogoutLoading(false);
@@ -842,6 +898,8 @@ export default function AuthenticatedLayout() {
   return (
     <AuthSessionProvider value={sessionContextValue}>
     <>
+      {!chromelessPaymentHistory ? (
+      <>
       <div
         className={`informationmenu-overlay sidebar-dismiss-overlay${sidebarTabletExpanded ? " show" : ""}`}
         onClick={collapseSidebar}
@@ -1262,6 +1320,9 @@ export default function AuthenticatedLayout() {
       </div>
 
       <div className={`notification-overlay ${showNotifications ? "show" : ""}`} id="notificationOverlay" onClick={toggleNotifications}></div>
+      </>
+      ) : null}
+      {!chromelessPaymentHistory ? (
       <div className={`notification-panel ${showNotifications ? "show" : ""}`} id="notificationPanel">
         <div className="notification-header">
             <h2>{i18n.announcements}</h2>
@@ -1297,6 +1358,7 @@ export default function AuthenticatedLayout() {
           )}
         </div>
       </div>
+      ) : null}
 
       <ExpirationReminderModal
         open={showExpirationModal}

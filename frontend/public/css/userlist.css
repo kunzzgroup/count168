@@ -1,5 +1,6 @@
 ﻿body.user-page {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: var(--font-ui) !important;
+    font-size: var(--text-medium) !important;
     margin: 0;
     padding: 0;
     min-height: 100vh;
@@ -38,6 +39,12 @@ body.user-page:not(.user-page--show-all) {
     /* 添加这行 */
 }
 
+.user-page .container,
+.user-page .content {
+    font-family: inherit;
+    font-size: inherit;
+}
+
 @media (max-width: 1200px) {
     body.ec-auth-shell.user-page .container {
         padding-left: var(--layout-main-offset);
@@ -66,7 +73,7 @@ body.user-page:not(.user-page--show-all) {
 
 .user-page .user-table-wrapper .table-header {
     flex-shrink: 0;
-    margin-top: 8px;
+    margin-top: 12px;
 }
 
 /*
@@ -164,12 +171,13 @@ body.user-page .user-list-table.user-table-wrapper--bulk-delete-col .user-card.u
 .user-list-table .user-list-table-header,
 body.user-page .user-list-table .table-header.user-list-table-header {
     padding: var(--table-header-height) !important;
-    margin-top: 8px;
+    margin-top: 12px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
     font-weight: bold;
     color: white;
     font-size: var(--text-base);
+    font-family: inherit;
     min-width: 0;
 }
 
@@ -297,6 +305,13 @@ body.account-page .action-buttons-container {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     flex-shrink: 0;
+}
+
+/* 与 Games Process List：panel 底无额外 margin，表头 margin-top 12px */
+body.user-page .action-buttons-container .user-gc-inline-panel .user-gc-inline-label,
+body.account-page .action-buttons-container .user-gc-inline-panel .user-gc-inline-label {
+    text-align: left;
+    justify-self: start;
 }
 
 /* 顶栏白卡第一行：与 Admin User List 同高（抵消其它表对 .action-buttons 的 margin 叠加） */
@@ -814,7 +829,7 @@ body.datacapture-summary-page .btn-add {
     font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
     display: flex;
@@ -837,7 +852,7 @@ body.datacapture-summary-page .btn-add {
 body.datacapture-page .btn-add:hover,
 body.datacapture-summary-page .btn-add:hover {
     background: var(--btn-add-gradient-hover);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    box-shadow: var(--shadow-btn-add-page-hover);
     transform: translateY(-1px);
 }
 
@@ -1639,7 +1654,7 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 .user-modal-company-picker-list--groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .user-modal-company-picker-list {
@@ -1647,8 +1662,8 @@ label.user-modal-col-title.acc-proc-label {
     margin: 0;
     padding: 0 6px 10px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
     align-content: start;
 }
 
@@ -1660,12 +1675,12 @@ label.user-modal-col-title.acc-proc-label {
 .user-modal-company-picker-label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 10px;
-    border-radius: 10px;
+    gap: 6px;
+    padding: 7px 8px;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--color-page-fg);
     min-width: 0;
     border: 1.5px solid var(--account-select-card-border);
@@ -1710,8 +1725,8 @@ label.user-modal-col-title.acc-proc-label {
     appearance: none;
     -webkit-appearance: none;
     flex-shrink: 0;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     margin: 0;
     border: 2px solid #cbd5e1;
     border-radius: 4px;
@@ -2064,9 +2079,9 @@ label.user-modal-col-title.acc-proc-label {
     display: grid !important;
     /* Keep items readable inside 1/3-width modal columns */
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 10px;
+    gap: 8px;
     align-content: start;
-    padding: 10px 0;
+    padding: 8px 0;
 }
 
 .user-modal-col--account .account-control-buttons,
@@ -2504,7 +2519,7 @@ body.datacapture-summary-page .btn-save {
     font-weight: var(--font-weight-semibold);
     border: none;
     border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
     --sweep-color: rgba(255, 255, 255, 0.2);
     cursor: pointer;
     display: flex;
@@ -2518,7 +2533,7 @@ body.datacapture-summary-page .btn-save {
 body.datacapture-page .btn-save:hover,
 body.datacapture-summary-page .btn-save:hover {
     background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%) !important;
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    box-shadow: var(--shadow-btn-add-page-hover);
     transform: translateY(-1px);
 }
 
@@ -2952,6 +2967,76 @@ body.process-page.process-page--bank .userlist-filter-chips--bank-process .user-
 
 body.process-page.process-page--bank .userlist-filter-chips--bank-process .user-filter-chip:nth-child(5) {
     min-width: 6.25rem;
+}
+
+/* Bank Process 窄屏下拉：横列 chip 浮条，chip 之间留间距 */
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0;
+    margin: 0;
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip {
+    width: auto;
+    min-width: 0 !important;
+    max-width: none;
+    flex-shrink: 0;
+    justify-content: flex-start;
+    gap: 7px;
+    padding: 5px 12px 5px 6px;
+    border-radius: 999px;
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: none;
+    font-size: clamp(11px, 0.72vw, 12px);
+    font-weight: 600;
+    color: #475569;
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        color 0.15s ease,
+        transform 0.12s ease;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:hover {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    transform: translateY(-1px);
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip.is-selected {
+    background: #ffffff;
+    border-color: rgba(37, 99, 235, 0.42);
+    color: #1d4ed8;
+    box-shadow:
+        0 2px 10px rgba(37, 99, 235, 0.14),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip__dot {
+    width: 16px;
+    height: 16px;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip__check {
+    width: 10px;
+    height: 10px;
+}
+
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:nth-child(1),
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:nth-child(2),
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:nth-child(3),
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:nth-child(4),
+body.process-page.process-page--bank .userlist-filter-chips--bank-process-dropdown .user-filter-chip:nth-child(5) {
+    min-width: 0 !important;
 }
 
 @media (min-width: 1700px) {
@@ -3450,7 +3535,7 @@ body.user-page .pagination-container {
     background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    box-shadow: var(--shadow-btn-add-page);
 }
 
 /* Account and Process item hover styles */
@@ -3470,8 +3555,9 @@ body.user-page .pagination-container {
 
 /* User modal — Account / Process：未选中灰底灰边；选中时底/边/字色为你指定（checkbox 仅逻辑用） */
 #userModal .account-grid--four {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    grid-auto-rows: minmax(55px, auto);
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-auto-rows: minmax(48px, auto);
+    gap: 8px;
 }
 
 #userModal .user-modal-select-card {
@@ -3483,11 +3569,11 @@ body.user-page .pagination-container {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    min-height: 55px;
+    min-height: 48px;
     margin: 0;
     overflow: hidden;
-    border-radius: 10px;
-    padding: 8px 10px;
+    border-radius: 8px;
+    padding: 6px 8px;
     background: var(--account-select-card-bg);
     border: 1.5px solid var(--account-select-card-border);
     box-shadow: none;

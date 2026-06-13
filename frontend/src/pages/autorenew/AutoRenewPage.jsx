@@ -5,8 +5,9 @@ import { canAccessC168AutoRenew } from "../../utils/company/loginScope.js";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
-import { formatDate, formatDomainFeeDisplay2 } from "../domain/domainHelpers.js";
+import { formatDate, formatDomainFeeDisplay2, normalizeDomainFeeSettingsFromApi } from "../domain/domainHelpers.js";
 import { DashboardCalendarPopup } from "../dashboard/components/DashboardCalendarPopup.jsx";
+import ConfirmDeleteModal from "../../components/ConfirmDeleteModal.jsx";
 import {
   approveAutoRenew,
   AUTO_RENEW_PERIODS,
@@ -15,7 +16,11 @@ import {
   invalidateTransactionListCache,
   rejectAutoRenew,
 } from "./autoRenewLogic.js";
-import { consumeAutoRenewPrefetch } from "./autoRenewRoutePrefetch.js";
+import {
+  consumeAutoRenewPrefetch,
+  peekAutoRenewListCache,
+  rememberAutoRenewListCache,
+} from "./autoRenewRoutePrefetch.js";
 import {
   useAutoRenewDateRange,
   useAutoRenewDateRangeState,
@@ -24,11 +29,13 @@ import {
   AUTO_RENEW_PAGE_SIZE,
   canApproveRow,
   filterAutoRenewRows,
+  formatAutoRenewAccountLabel,
   formatRemainingForRow,
   formatSubmitterAt,
   getRowDraftValues,
   paginateRows,
   periodToLabelKey,
+  resolveAutoRenewDisplayPrice,
   rowStableKey,
   sortAutoRenewRows,
 } from "./autoRenewPageHelpers.js";
@@ -38,6 +45,15 @@ import "../../../public/css/admin-responsive.css";
 import "../../../public/css/auto_renew.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/transaction.css";
+
+function TabPendingBadge({ count, label }) {
+  if (!count || count <= 0) return null;
+  return (
+    <span className="auto-renew-tab-pending-badge" aria-label={label} title={label}>
+      {count}
+    </span>
+  );
+}
 
 function FilterChip({ active, label, count, onClick }) {
   return (
@@ -84,6 +100,18 @@ function EmptyState({ statusFilter, searchTerm, t }) {
   );
 }
 
+const EMPTY_COUNTS = { pending: 0, approved: 0, rejected: 0, total: 0 };
+
+function normalizeEntityListSnapshot(data) {
+  return {
+    rows: Array.isArray(data?.rows) ? data.rows : [],
+    feeSettings: normalizeDomainFeeSettingsFromApi(data?.fee_settings),
+    accounts: Array.isArray(data?.accounts) ? data.accounts : [],
+    counts: data?.counts || EMPTY_COUNTS,
+    canEditGlobal: Boolean(data?.can_edit),
+  };
+}
+
 function AccountSelect({ value, accounts, placeholder, disabled, onChange }) {
   return (
     <select
@@ -95,7 +123,7 @@ function AccountSelect({ value, accounts, placeholder, disabled, onChange }) {
       <option value="">{placeholder}</option>
       {(accounts || []).map((acc) => (
         <option key={acc.id} value={acc.id}>
-          {acc.account_code}{acc.name ? ` — ${acc.name}` : ""}
+          {formatAutoRenewAccountLabel(acc)}
         </option>
       ))}
     </select>
@@ -112,6 +140,8 @@ export default function AutoRenewPage() {
   const [loadError, setLoadError] = useState("");
   const bootFetchedListKeyRef = useRef(null);
   const listFetchAbortRef = useRef(null);
+  const entityTabRef = useRef("company");
+  const [listRefreshing, setListRefreshing] = useState(false);
   const { dateFrom, setDateFrom, dateTo, setDateTo } = useAutoRenewDateRangeState();
   const { periodPresets } = useAutoRenewDateRange({
     me,
@@ -122,10 +152,9 @@ export default function AutoRenewPage() {
     setDateFrom,
     setDateTo,
   });
-  const [rows, setRows] = useState([]);
-  const [accounts, setAccounts] = useState([]);
-  const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
-  const [canEditGlobal, setCanEditGlobal] = useState(false);
+  const [entitySnapshots, setEntitySnapshots] = useState({ company: null, group: null });
+  const [tabPendingCounts, setTabPendingCounts] = useState({ company: 0, group: 0 });
+  const [entityTab, setEntityTab] = useState("company");
   const [statusFilter, setStatusFilter] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState("expiration");
@@ -134,6 +163,9 @@ export default function AutoRenewPage() {
   const [rowDrafts, setRowDrafts] = useState({});
   const [busyRequestId, setBusyRequestId] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [deleteConfirmRow, setDeleteConfirmRow] = useState(null);
+  const [rejectConfirmRow, setRejectConfirmRow] = useState(null);
+  const [approveConfirmRow, setApproveConfirmRow] = useState(null);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -145,42 +177,118 @@ export default function AutoRenewPage() {
     document.body.classList.remove("bg");
     document.body.classList.add("user-page", "auto-renew-page-body");
     return () => {
-      document.body.classList.remove("user-page", "auto-renew-page-body");
+      document.body.classList.remove("user-page", "auto-renew-page-body", "user-page--show-all");
       document.body.classList.add("dashboard-page");
     };
   }, []);
 
-  const applyListData = useCallback((data) => {
-    setRows(Array.isArray(data?.rows) ? data.rows : []);
-    setAccounts(Array.isArray(data?.accounts) ? data.accounts : []);
-    setCounts(data?.counts || { pending: 0, approved: 0, rejected: 0, total: 0 });
-    setCanEditGlobal(Boolean(data?.can_edit));
-    setRowDrafts({});
+  const showAll = statusFilter === "all";
+
+  useEffect(() => {
+    if (showAll) {
+      document.body.classList.add("user-page--show-all");
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: "auto" });
+      });
+    } else {
+      document.body.classList.remove("user-page--show-all");
+    }
+    return () => document.body.classList.remove("user-page--show-all");
+  }, [showAll]);
+
+  const applyTabPendingCounts = useCallback((data) => {
+    const tpc = data?.tab_pending_counts;
+    if (!tpc) return;
+    setTabPendingCounts({
+      company: Number(tpc?.company) || 0,
+      group: Number(tpc?.group) || 0,
+    });
   }, []);
 
+  const storeEntityListData = useCallback(
+    (entity, data, { resetDrafts = false, status = statusFilter } = {}) => {
+      setEntitySnapshots((prev) => ({ ...prev, [entity]: normalizeEntityListSnapshot(data) }));
+      applyTabPendingCounts(data);
+      rememberAutoRenewListCache(status, { dateFrom, dateTo, entityType: entity }, data);
+      if (resetDrafts && entityTabRef.current === entity) setRowDrafts({});
+    },
+    [applyTabPendingCounts, dateFrom, dateTo, statusFilter],
+  );
+
+  entityTabRef.current = entityTab;
+
+  const activeSnapshot = entitySnapshots[entityTab];
+  const rows = activeSnapshot?.rows ?? [];
+  const feeSettings = activeSnapshot?.feeSettings ?? null;
+  const accounts = activeSnapshot?.accounts ?? [];
+  const counts = activeSnapshot?.counts ?? EMPTY_COUNTS;
+  const canEditGlobal = Boolean(activeSnapshot?.canEditGlobal);
+
   const listFetchKey = useCallback(
-    (status, range) => `${status}|${range?.dateFrom || ""}|${range?.dateTo || ""}`,
+    (status, range, entity) => `${entity}|${status}|${range?.dateFrom || ""}|${range?.dateTo || ""}`,
     [],
+  );
+
+  const handleEntityTabChange = useCallback(
+    (tab) => {
+      if (tab === entityTab) return;
+      const memorySnapshot = entitySnapshots[tab];
+      const cached = memorySnapshot || peekAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: tab });
+      if (cached && !memorySnapshot) {
+        storeEntityListData(tab, cached);
+      }
+      setListRefreshing(!cached);
+      setEntityTab(tab);
+      setRowDrafts({});
+    },
+    [dateFrom, dateTo, entitySnapshots, entityTab, statusFilter, storeEntityListData],
+  );
+
+  const handleStatusFilterChange = useCallback(
+    (next) => {
+      if (next === statusFilter) return;
+      setEntitySnapshots({ company: null, group: null });
+      setRowDrafts({});
+      setStatusFilter(next);
+
+      const cached = peekAutoRenewListCache(next, { dateFrom, dateTo, entityType: entityTab });
+      if (cached) {
+        storeEntityListData(entityTab, cached, { resetDrafts: true, status: next });
+        setListRefreshing(false);
+        bootFetchedListKeyRef.current = listFetchKey(next, { dateFrom, dateTo }, entityTab);
+        return;
+      }
+
+      bootFetchedListKeyRef.current = null;
+      setListRefreshing(true);
+    },
+    [dateFrom, dateTo, entityTab, listFetchKey, statusFilter, storeEntityListData],
   );
 
   const fetchList = useCallback(async () => {
     listFetchAbortRef.current?.abort();
     const ac = new AbortController();
     listFetchAbortRef.current = ac;
+    const requestEntity = entityTabRef.current;
 
     try {
       const data = await fetchAutoRenewApprovals(statusFilter, {
         dateFrom,
         dateTo,
+        entityType: requestEntity,
         signal: ac.signal,
       });
       if (ac.signal.aborted) return;
-      applyListData(data);
+      storeEntityListData(requestEntity, data, { resetDrafts: true });
     } catch (err) {
       if (ac.signal.aborted || err?.name === "AbortError") return;
       notify(t("loadFailed", { message: err.message }), "error");
+    } finally {
+      if (listFetchAbortRef.current === ac) {
+        setListRefreshing(false);
+      }
     }
-  }, [applyListData, dateFrom, dateTo, notify, statusFilter, t]);
+  }, [dateFrom, dateTo, notify, statusFilter, storeEntityListData, t]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -195,16 +303,17 @@ export default function AutoRenewPage() {
       }
 
       try {
-        const cached = consumeAutoRenewPrefetch(statusFilter, { dateFrom, dateTo });
+        const cached = consumeAutoRenewPrefetch(statusFilter, { dateFrom, dateTo, entityType: entityTab });
         const data =
           cached ||
           (await fetchAutoRenewApprovals(statusFilter, {
             dateFrom,
             dateTo,
+            entityType: entityTab,
           }));
         if (cancelled) return;
-        applyListData(data);
-        bootFetchedListKeyRef.current = listFetchKey(statusFilter, { dateFrom, dateTo });
+        storeEntityListData(entityTab, data, { resetDrafts: true });
+        bootFetchedListKeyRef.current = listFetchKey(statusFilter, { dateFrom, dateTo }, entityTab);
       } catch (err) {
         if (cancelled) return;
         setLoadError(err.message || "load");
@@ -216,23 +325,56 @@ export default function AutoRenewPage() {
     return () => {
       cancelled = true;
     };
-  }, [me, navigate, sessionReady, applyListData]);
+  }, [me, navigate, sessionReady]);
+
+  useEffect(() => {
+    setEntitySnapshots({ company: null, group: null });
+    setRowDrafts({});
+    bootFetchedListKeyRef.current = null;
+    setListRefreshing(true);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     if (bootLoading || !sessionReady || !me) return;
-    const key = listFetchKey(statusFilter, { dateFrom, dateTo });
+    const key = listFetchKey(statusFilter, { dateFrom, dateTo }, entityTab);
     if (bootFetchedListKeyRef.current === key) {
       bootFetchedListKeyRef.current = null;
+      setListRefreshing(false);
       return;
     }
     void fetchList();
-  }, [bootLoading, dateFrom, dateTo, fetchList, listFetchKey, me, sessionReady, statusFilter]);
+  }, [bootLoading, dateFrom, dateTo, entityTab, fetchList, listFetchKey, me, sessionReady, statusFilter]);
+
+  useEffect(() => {
+    if (bootLoading || !sessionReady || !me) return;
+
+    let cancelled = false;
+    const prefetchEntity = (entity) => {
+      if (peekAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: entity })) {
+        return Promise.resolve();
+      }
+      return fetchAutoRenewApprovals(statusFilter, { dateFrom, dateTo, entityType: entity })
+        .then((data) => {
+          if (cancelled) return;
+          storeEntityListData(entity, data);
+        })
+        .catch(() => {});
+    };
+
+    void Promise.all([prefetchEntity("company"), prefetchEntity("group")]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, dateFrom, dateTo, me, sessionReady, statusFilter, storeEntityListData]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, sortColumn, sortDirection]);
+  }, [entityTab, searchTerm, statusFilter, sortColumn, sortDirection]);
+
+  const tenantColumnLabel = entityTab === "group" ? t("colGroup") : t("colCompany");
 
   const updateDraft = useCallback((requestId, patch) => {
     setRowDrafts((prev) => ({
@@ -241,13 +383,19 @@ export default function AutoRenewPage() {
     }));
   }, []);
 
-  const handleApprove = useCallback(async (row) => {
+  const handleApprove = useCallback((row) => {
     if (!canEditGlobal || busyRequestId) return;
+    if (!canApproveRow(row, rowDrafts, feeSettings)) return;
+    setApproveConfirmRow(row);
+  }, [busyRequestId, canEditGlobal, feeSettings, rowDrafts]);
+
+  const confirmApproveRow = useCallback(async () => {
+    const row = approveConfirmRow;
+    if (!row || !canEditGlobal || busyRequestId) return;
+    if (!canApproveRow(row, rowDrafts, feeSettings)) return;
+
     const { period, fromAccountId, toAccountId } = getRowDraftValues(row, rowDrafts);
-    if (!canApproveRow(row, rowDrafts)) return;
-
-    if (!window.confirm(t("confirmApprove", { company: row.company_code }))) return;
-
+    setApproveConfirmRow(null);
     setBusyRequestId(row.request_id);
     try {
       await approveAutoRenew({
@@ -263,11 +411,17 @@ export default function AutoRenewPage() {
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, fetchList, notify, rowDrafts, t]);
+  }, [approveConfirmRow, busyRequestId, canEditGlobal, feeSettings, fetchList, notify, rowDrafts, t]);
 
-  const handleReject = useCallback(async (row) => {
+  const handleReject = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || row.is_payment_deleted) return;
-    if (!window.confirm(t("confirmReject", { company: row.company_code }))) return;
+    setRejectConfirmRow(row);
+  }, [busyRequestId, canEditGlobal]);
+
+  const confirmRejectRow = useCallback(async () => {
+    const row = rejectConfirmRow;
+    if (!row || !canEditGlobal || busyRequestId || row.is_payment_deleted) return;
+    setRejectConfirmRow(null);
 
     setBusyRequestId(row.request_id);
     try {
@@ -284,11 +438,17 @@ export default function AutoRenewPage() {
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, fetchList, notify, t]);
+  }, [busyRequestId, canEditGlobal, fetchList, notify, rejectConfirmRow, t]);
 
-  const handleDelete = useCallback(async (row) => {
+  const handleDelete = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || !row.can_delete) return;
-    if (!window.confirm(t("confirmDelete", { company: row.company_code }))) return;
+    setDeleteConfirmRow(row);
+  }, [busyRequestId, canEditGlobal]);
+
+  const confirmDeleteRow = useCallback(async () => {
+    const row = deleteConfirmRow;
+    if (!row || !canEditGlobal || busyRequestId || !row.can_delete) return;
+    setDeleteConfirmRow(null);
 
     setBusyRequestId(row.request_id);
     try {
@@ -301,7 +461,7 @@ export default function AutoRenewPage() {
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, fetchList, notify, t]);
+  }, [busyRequestId, canEditGlobal, deleteConfirmRow, fetchList, notify, t]);
 
   const handleSort = useCallback(
     (column) => {
@@ -319,6 +479,11 @@ export default function AutoRenewPage() {
   const pagination = useMemo(
     () => paginateRows(filteredRows, currentPage, AUTO_RENEW_PAGE_SIZE),
     [filteredRows, currentPage],
+  );
+
+  const displayRows = useMemo(
+    () => (showAll ? filteredRows : pagination.rows),
+    [showAll, filteredRows, pagination.rows],
   );
 
   const renderSortIcon = (column) => (
@@ -354,14 +519,15 @@ export default function AutoRenewPage() {
     }
 
     if (row.status === "pending" && canEditGlobal) {
-      const approveEnabled = canApproveRow(row, rowDrafts) && busyRequestId !== row.request_id;
+      const displayPrice = resolveAutoRenewDisplayPrice(row, rowDrafts, feeSettings);
+      const approveEnabled = canApproveRow(row, rowDrafts, feeSettings) && busyRequestId !== row.request_id;
       return (
         <div className="auto-renew-action-btns">
           <button
             type="button"
             className="auto-renew-btn auto-renew-btn-primary auto-renew-btn--sm"
             disabled={!approveEnabled}
-            title={!row.price ? t("noPriceHint") : undefined}
+            title={displayPrice <= 0 ? t("noPriceHint") : undefined}
             onClick={() => handleApprove(row)}
           >
             {busyRequestId === row.request_id ? t("processing") : t("approve")}
@@ -433,7 +599,38 @@ export default function AutoRenewPage() {
 
       <div className="container">
         <div className="content">
-          <div className="action-buttons-container" style={{ marginBottom: 20 }}>
+          <div className="auto-renew-page-header">
+            <div className="page-tabs" role="tablist" aria-label={t("filterGroupLabel")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entityTab === "company"}
+                className={`page-tab${entityTab === "company" ? " active" : ""}${tabPendingCounts.company > 0 ? " has-pending-badge" : ""}`}
+                onClick={() => handleEntityTabChange("company")}
+              >
+                <span className="page-tab__label">{t("companyTab")}</span>
+                <TabPendingBadge
+                  count={tabPendingCounts.company}
+                  label={t("tabPendingBadgeCompany", { count: tabPendingCounts.company })}
+                />
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entityTab === "group"}
+                className={`page-tab${entityTab === "group" ? " active" : ""}${tabPendingCounts.group > 0 ? " has-pending-badge" : ""}`}
+                onClick={() => handleEntityTabChange("group")}
+              >
+                <span className="page-tab__label">{t("groupTab")}</span>
+                <TabPendingBadge
+                  count={tabPendingCounts.group}
+                  label={t("tabPendingBadgeGroup", { count: tabPendingCounts.group })}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="action-buttons-container">
             <div
               className="action-buttons auto-renew-toolbar-row"
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
@@ -473,25 +670,25 @@ export default function AutoRenewPage() {
                       active={statusFilter === "pending"}
                       label={t("filterPending")}
                       count={counts.pending}
-                      onClick={() => setStatusFilter("pending")}
+                      onClick={() => handleStatusFilterChange("pending")}
                     />
                     <FilterChip
                       active={statusFilter === "approved"}
                       label={t("filterApproved")}
                       count={counts.approved}
-                      onClick={() => setStatusFilter("approved")}
+                      onClick={() => handleStatusFilterChange("approved")}
                     />
                     <FilterChip
                       active={statusFilter === "rejected"}
                       label={t("filterRejected")}
                       count={counts.rejected}
-                      onClick={() => setStatusFilter("rejected")}
+                      onClick={() => handleStatusFilterChange("rejected")}
                     />
                     <FilterChip
                       active={statusFilter === "all"}
                       label={t("filterShowAll")}
                       count={counts.total}
-                      onClick={() => setStatusFilter("all")}
+                      onClick={() => handleStatusFilterChange("all")}
                     />
                   </div>
                 </div>
@@ -505,10 +702,12 @@ export default function AutoRenewPage() {
           <div
             className={`user-table-wrapper user-list-table auto-renew-table${showSubmitterColumn ? " auto-renew-table--with-submitter" : ""}`}
           >
-            <div className="user-list-table-inner">
+            <div className="user-list-table-inner auto-renew-table-inner">
+              <div className={`auto-renew-table-hscroll${listRefreshing ? " is-refreshing" : ""}`}>
+                <div className="auto-renew-table-hscroll__track">
               <div className="table-header user-list-table-header auto-renew-table-header">
                 {renderHeader("no", t("colNo"))}
-                {renderHeader("company", t("colCompany"))}
+                {renderHeader("company", tenantColumnLabel)}
                 {renderHeader("name", t("colName"))}
                 {renderHeader("price", t("colPrice"))}
                 {renderHeader("expiration", t("colExpiration"))}
@@ -520,14 +719,17 @@ export default function AutoRenewPage() {
                 {showSubmitterColumn ? renderHeader("submitter", t("colSubmitter")) : null}
               </div>
 
-              <div className="user-cards auto-renew-cards" aria-busy={Boolean(busyRequestId)}>
-                {pagination.rows.length === 0 ? (
+              <div className="user-cards auto-renew-cards" aria-busy={listRefreshing || Boolean(busyRequestId)}>
+                {displayRows.length === 0 ? (
                   <EmptyState statusFilter={statusFilter} searchTerm={searchTerm} t={t} />
                 ) : (
-                  pagination.rows.map((row, idx) => {
-                    const globalIdx = (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
+                  displayRows.map((row, idx) => {
+                    const globalIdx = showAll
+                      ? idx + 1
+                      : (pagination.page - 1) * AUTO_RENEW_PAGE_SIZE + idx + 1;
                     const isPendingEditable = row.status === "pending" && canEditGlobal && !row.is_payment_deleted;
                     const draft = getRowDraftValues(row, rowDrafts);
+                    const displayPrice = resolveAutoRenewDisplayPrice(row, rowDrafts, feeSettings);
                     const rowBusy = busyRequestId === row.request_id;
                     const rowKey = rowStableKey(row);
 
@@ -540,7 +742,7 @@ export default function AutoRenewPage() {
                         <div className="card-item card-item--strong">{row.company_code}</div>
                         <div className="card-item">{row.owner_name || "-"}</div>
                         <div className="card-item">
-                          {row.price ? formatDomainFeeDisplay2(row.price) : <span className="auto-renew-table-muted">—</span>}
+                          {displayPrice > 0 ? formatDomainFeeDisplay2(displayPrice) : <span className="auto-renew-table-muted">—</span>}
                         </div>
                         <div className="card-item">{row.expiration_date ? formatDate(row.expiration_date) : "-"}</div>
                         <div className="card-item">
@@ -578,7 +780,7 @@ export default function AutoRenewPage() {
                             />
                           ) : (
                             <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                              {accounts.find((a) => a.id === row.from_account_id)?.account_code || "-"}
+                              {formatAutoRenewAccountLabel(accounts.find((a) => a.id === row.from_account_id)) || "-"}
                             </span>
                           )}
                         </div>
@@ -593,7 +795,7 @@ export default function AutoRenewPage() {
                             />
                           ) : (
                             <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                              {accounts.find((a) => a.id === row.to_account_id)?.account_code || "-"}
+                              {formatAutoRenewAccountLabel(accounts.find((a) => a.id === row.to_account_id)) || "-"}
                             </span>
                           )}
                         </div>
@@ -606,10 +808,12 @@ export default function AutoRenewPage() {
                   })
                 )}
               </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {filteredRows.length > 0 && (
+          {filteredRows.length > 0 && !showAll && (
             <div className="pagination-container">
               <button
                 type="button"
@@ -639,6 +843,47 @@ export default function AutoRenewPage() {
 
       {canAccessC168AutoRenew(me) ? (
         <DashboardCalendarPopup i18n={dashI18n} periodPresets={periodPresets} dateFrom={dateFrom} />
+      ) : null}
+
+      {deleteConfirmRow ? (
+        <ConfirmDeleteModal
+          open
+          title={t("confirmDeleteTitle")}
+          message={t("confirmDelete", { company: deleteConfirmRow.company_code })}
+          cancelLabel={t("cancel")}
+          confirmLabel={t("delete")}
+          confirmDisabled={Boolean(busyRequestId)}
+          onConfirm={() => void confirmDeleteRow()}
+          onClose={() => !busyRequestId && setDeleteConfirmRow(null)}
+        />
+      ) : null}
+
+      {rejectConfirmRow ? (
+        <ConfirmDeleteModal
+          open
+          title={t("confirmRejectTitle")}
+          message={t("confirmReject", { company: rejectConfirmRow.company_code })}
+          cancelLabel={t("cancel")}
+          confirmLabel={t("reject")}
+          confirmClassName="btn confirm-action"
+          confirmDisabled={Boolean(busyRequestId)}
+          onConfirm={() => void confirmRejectRow()}
+          onClose={() => !busyRequestId && setRejectConfirmRow(null)}
+        />
+      ) : null}
+
+      {approveConfirmRow ? (
+        <ConfirmDeleteModal
+          open
+          title={t("confirmApproveTitle")}
+          message={t("confirmApprove", { company: approveConfirmRow.company_code })}
+          cancelLabel={t("cancel")}
+          confirmLabel={t("approve")}
+          confirmClassName="btn confirm-approve"
+          confirmDisabled={Boolean(busyRequestId)}
+          onConfirm={() => void confirmApproveRow()}
+          onClose={() => !busyRequestId && setApproveConfirmRow(null)}
+        />
       ) : null}
     </>
   );

@@ -7,6 +7,7 @@ require_once '../../includes/session_check.php';
 require_once '../../includes/config.php';
 require_once '../includes/money_decimal.php';
 require_once '../includes/ownership_history.php';
+require_once '../includes/ownership_schema.php';
 
 header('Content-Type: application/json');
 
@@ -29,7 +30,7 @@ $useHistory = $parsedMonth !== null && ownership_history_is_past_month($parsedMo
 try {
     if ($useHistory) {
         ownership_history_ensure_tables($pdo);
-        $tableExists = $pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0;
+        $tableExists = ownership_table_exists($pdo, 'group_ownership_history');
         if (!$tableExists) {
             echo json_encode([
                 'status' => 'success',
@@ -105,11 +106,13 @@ try {
         exit();
     }
 
-    $tableExists = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+    $tableExists = ownership_table_exists($pdo, 'group_ownership');
     if (!$tableExists) {
         echo json_encode(['status' => 'success', 'data' => [], 'meta' => ['is_historical' => false]]);
         exit();
     }
+
+    ownership_ensure_sort_order_column($pdo, 'group_ownership');
 
     $stmt = $pdo->prepare("
         SELECT go.id as ownership_id,
@@ -145,7 +148,7 @@ try {
         LEFT JOIN owner o ON go.account_id = o.id AND go.owner_type = 'owner'
         LEFT JOIN user u ON go.account_id = u.id AND go.owner_type = 'user'
         WHERE go.group_id = ?
-        ORDER BY go.percentage DESC
+        ORDER BY go.sort_order ASC, go.id ASC
     ");
 
     $stmt->execute([$group_id]);

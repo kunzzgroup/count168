@@ -18,6 +18,12 @@ import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.
 import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
 import {
+  isMaintenanceGroupOnlyBoot,
+  isMaintenanceSessionGroupEntityBoot,
+  shouldSkipMaintenanceCategoryGuard,
+} from "../shared/maintenanceGroupBoot.js";
+import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
+import {
   companiesNativeInGroupList,
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
@@ -152,6 +158,7 @@ export default function CaptureMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
+    pillCategory: "games",
   });
 
   const captureScope = useMemo(
@@ -280,12 +287,20 @@ export default function CaptureMaintenancePage() {
         setSelectedGroup(bootGroup);
         const persistedGc = readPersistedDashboardGcFilter();
         const sessionGroup = readInitialMaintenanceSelectedGroup();
-        const groupOnlyBoot = groupFilterOptOut
-          ? false
-          : isDashboardGroupOnlyMode() ||
-            persistedGc.groupOnly ||
-            (bootGroup != null && initialUiCompanyId == null) ||
-            (sessionGroup != null && initialUiCompanyId == null);
+        let groupOnlyBoot = isMaintenanceGroupOnlyBoot({
+          groupFilterOptOut,
+          sessionGroup: bootGroup ?? sessionGroup,
+          initialUiCompanyId,
+          persistedGc,
+        });
+        if (
+          !groupOnlyBoot &&
+          !groupFilterOptOut &&
+          (isMaintenanceSessionGroupEntityBoot(currentComp, u) ||
+            (bootGroup && initialUiCompanyId == null && canUseGroupOnlyMode(u, bootGroup)))
+        ) {
+          groupOnlyBoot = true;
+        }
         if (groupOnlyBoot) {
           persistDashboardGroupOnlyMode(true);
           persistDashboardSelectedCompany(null);
@@ -293,21 +308,29 @@ export default function CaptureMaintenancePage() {
           setCompanyCode("");
           const bootScope = resolveCaptureMaintenanceScope({
             companies: rows,
-            selectedGroup: bootGroup,
+            selectedGroup: bootGroup ?? sessionGroup,
             companyId: null,
             groupsAllMode: false,
             groupAllMode: false,
           });
           const meta = await bootstrapCaptureMaintenanceMeta({
             companies: rows,
-            groupId: bootGroup,
+            groupId: bootGroup ?? sessionGroup,
           });
           if (cancelled) return;
-          const procList = bootScope ? await fetchProcesses(null, bootScope) : [];
+          let procList = [];
+          try {
+            procList = bootScope ? await fetchProcesses(null, bootScope) : [];
+          } catch (procErr) {
+            console.error("Group process list load error:", procErr);
+            notify(procErr.message || t("failedLoadProcesses"), "error");
+          }
           setProcesses(procList);
           setPermissions(meta.permissions);
           setActivePermission(meta.activePermission);
-          if (bootGroup) sessionStorage.setItem("dashboard_group_filter", bootGroup);
+          if (bootGroup ?? sessionGroup) {
+            sessionStorage.setItem("dashboard_group_filter", bootGroup ?? sessionGroup);
+          }
           return;
         }
         setCompanyId(initialCompanyId);
@@ -329,15 +352,25 @@ export default function CaptureMaintenancePage() {
           ]);
           if (cancelled) return;
 
-          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
-          const bankOnly = companyPerms.includes("Bank") && !hasGames;
-          if (bankOnly) {
-            navigate("/dashboard", { replace: true });
-            return;
-          }
-          if (!hasGames) {
-            navigate("/dashboard", { replace: true });
-            return;
+          const skipCategoryGuard = shouldSkipMaintenanceCategoryGuard({
+            groupOnlyBoot,
+            scope: bootScope,
+            me: u,
+            selectedGroup: bootGroup,
+            companyRow: currentComp,
+            companyId: initialCompanyId,
+          });
+          if (!skipCategoryGuard) {
+            const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
+            const bankOnly = companyPerms.includes("Bank") && !hasGames;
+            if (bankOnly) {
+              navigate("/dashboard", { replace: true });
+              return;
+            }
+            if (!hasGames) {
+              navigate("/dashboard", { replace: true });
+              return;
+            }
           }
 
           setProcesses(procList);
@@ -352,7 +385,9 @@ export default function CaptureMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled) {
+          notify(err.message || t("failedLoadProcesses"), "error");
+        }
       } finally {
         if (!cancelled) setBootLoading(false);
       }

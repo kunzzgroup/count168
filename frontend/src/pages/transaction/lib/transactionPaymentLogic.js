@@ -1,5 +1,6 @@
 import { parseBalanceValue } from "./transactionFormat.js";
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
+import { resolveSavedCurrencyOrder } from "../../../utils/company/currencyDisplayOrder.js";
 
 export const TRANSACTION_CURRENCY_FILTER_KEY_PREFIX = "transaction_currency_filter_v1_";
 export const TX_LIST_SESSION_PREFIX = "count168_txlist_v1_";
@@ -137,39 +138,21 @@ export function sanitizeSearchApiData(data) {
   };
 }
 
-export function rowPassesHideZeroBalanceFilter(showZero, row) {
-  if (showZero) return true;
+/** True when ending balance is non-zero (2dp display tolerance). */
+export function rowHasNonZeroBalance(row) {
   const num = parseBalanceValue(row.balance);
   if (num === null) return true;
   try {
-    if (MoneyDecimal.toDecimal(String(num), 0).abs().gt("0.00001")) return true;
+    return MoneyDecimal.toDecimal(String(num), 0).abs().gt("0.00001");
   } catch {
-    if (Math.abs(num) > 1e-5) return true;
+    return Math.abs(num) > 1e-5;
   }
-  const flagToBool = (v) => {
-    if (typeof v === "boolean") return v;
-    if (typeof v === "number") return v !== 0;
-    return parseInt(String(v || "0"), 10) !== 0;
-  };
-  const absVal = (v) => {
-    try {
-      return MoneyDecimal.toDecimal(String(v ?? "0").replace(/,/g, "").trim() || "0", 0).abs();
-    } catch {
-      return MoneyDecimal.toDecimal("0", 0).abs();
-    }
-  };
-  const eps = "0.00001";
-  const wlProbe =
-    row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== ""
-      ? String(row.win_loss_full).replace(/,/g, "").trim()
-      : String(row.win_loss || "0").replace(/,/g, "").trim();
-  const hasAnyMoneyColumn = absVal(row.bf).gt(eps) || absVal(wlProbe).gt(eps) || absVal(row.cr_dr).gt(eps);
-  if (hasAnyMoneyColumn) return true;
-  const hasTxnFlag =
-    flagToBool(row.has_win_loss_transactions) ||
-    flagToBool(row.has_crdr_transactions) ||
-    flagToBool(row.has_period_id_product_rows);
-  return hasTxnFlag;
+}
+
+/** @deprecated Prefer {@link applyZeroBalanceFilter} — kept for legacy callers. */
+export function rowPassesHideZeroBalanceFilter(showZero, row) {
+  if (showZero) return true;
+  return rowHasNonZeroBalance(row);
 }
 
 export function normalizeRateRowsByCrDr(leftRows, rightRows, isRate) {
@@ -298,14 +281,14 @@ export function applyZeroBalanceFilter(
   showZeroBalance,
   { showCaptureOnly = false, showPaymentOnly = false } = {},
 ) {
-  // Show Win/Loss Only（未勾 Show 0 balance）：已通过 W/L 筛选的行不再因 Balance=0 二次隐藏（与 PHP transaction.php 一致）。
-  if (showCaptureOnly && !showPaymentOnly && !showZeroBalance) {
+  // Any visibility toggle: keep upstream rows (incl. balance 0.00 when W/L or Payment filter matched).
+  if (showZeroBalance || showCaptureOnly || showPaymentOnly) {
     return { left: filteredLeft, right: filteredRight };
   }
-  const fn = (row) => rowPassesHideZeroBalanceFilter(showZeroBalance, row);
+  // Default: hide rows whose ending balance is 0.00.
   return {
-    left: filteredLeft.filter(fn),
-    right: filteredRight.filter(fn),
+    left: filteredLeft.filter(rowHasNonZeroBalance),
+    right: filteredRight.filter(rowHasNonZeroBalance),
   };
 }
 
@@ -453,20 +436,21 @@ export function dedupeCurrencyRowsByCode(rows) {
 /**
  * Apply saved API/global/local order to currency rows from get_company_currencies_api.
  */
-export function orderCurrencyRows(orderedData, orderData) {
+export function orderCurrencyRows(orderedData, orderData, explicitCompanyId = null) {
   let ordered = dedupeCurrencyRowsByCode(orderedData);
   try {
-    let saved = null;
-    if (orderData && orderData.success && Array.isArray(orderData.data?.order) && orderData.data.order.length > 0) {
-      saved = JSON.stringify(orderData.data.order);
-    }
-    if (!saved) return ordered;
-
-    const order = JSON.parse(saved);
-    if (!Array.isArray(order) || order.length === 0) return ordered;
+    const companyId =
+      explicitCompanyId != null && explicitCompanyId !== ""
+        ? Number(explicitCompanyId)
+        : orderData?.data?.company_id;
+    const savedOrder = resolveSavedCurrencyOrder(
+      companyId,
+      orderData?.success ? orderData?.data?.order : null,
+    );
+    if (!savedOrder?.length) return ordered;
 
     const normalized = [];
-    order.forEach((code) => {
+    savedOrder.forEach((code) => {
       const upper = String(code || "")
         .trim()
         .toUpperCase();

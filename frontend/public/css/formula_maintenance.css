@@ -312,9 +312,20 @@ body.dashboard-page.maintenance-page {
     border: none;
     color: #ef4444;
     cursor: pointer;
-    padding: 4px;
+    padding: 0;
     border-radius: 50%;
-    transition: opacity 0.2s ease;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.formula-clear-icon-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.formula-clear-icon-btn:active {
+    background: rgba(239, 68, 68, 0.18);
+    transform: scale(0.94);
 }
 
 .formula-search-input-container {
@@ -541,12 +552,12 @@ body.dashboard-page.maintenance-page {
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(4),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(4) {
-    width: 6.7%;
+    width: 7.2%;
 }
 
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table th:nth-child(5),
 .formula-maintenance-page-root .maintenance-list-container .maintenance-table td:nth-child(5) {
-    width: 6.5%;
+    width: 6%;
     text-align: left;
 }
 
@@ -1268,6 +1279,20 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     text-align: center;
 }
 
+.formula-maintenance-page-root .maintenance-virtual-stale-hint {
+    padding: clamp(6px, 0.55vw, 10px) clamp(12px, 1vw, 18px);
+    font-size: clamp(11px, 0.92vw, 14px);
+    font-weight: 600;
+    color: #1e40af;
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+    text-align: center;
+}
+
+.formula-maintenance-page-root .maintenance-virtual-empty-loading {
+    min-height: clamp(120px, 22vh, 280px);
+}
+
 .formula-maintenance-page-root .formula-virtual-table {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -1296,7 +1321,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     display: grid;
     /* 列宽与 table nth-child 比例对齐；第 7 列 Input Method 加宽 */
     grid-template-columns:
-        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(36px, 5fr) minmax(40px, 6fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr) minmax(48px, 7fr);
+        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(52px, 6.5fr) minmax(36px, 5.5fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr) minmax(48px, 7fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
@@ -1314,6 +1339,13 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Currency 列居中，避免表头文字与 Source 列重叠 */
+.formula-maintenance-page-root .formula-virtual-head-row .maintenance-virtual-th:nth-child(4) {
+    justify-content: center !important;
+    text-align: center !important;
 }
 
 .formula-maintenance-page-root .maintenance-virtual-th:first-child {
@@ -1418,6 +1450,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 .formula-maintenance-page-root .maintenance-virtual-data-row .maintenance-cell-currency {
     text-align: center;
     justify-content: center;
+    padding-right: clamp(6px, 0.55vw, 10px);
 }
 
 .formula-maintenance-page-root .formula-virtual-data-row--editing {
@@ -1469,11 +1502,12 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 .formula-process-control .custom-select-button {
     width: 100% !important;
     position: relative !important;
-    padding-right: 56px !important; /* Spaced to accommodate both chevron and clear button */
+    padding-right: 72px !important; /* room for clear button + chevron */
 }
 
 .formula-process-control .custom-select-button::after {
-    right: 14px !important;
+    right: 12px !important;
+    z-index: 1 !important;
 }
 
 /* Absolute position the clear icon button to prevent layout shifting/pushing */
@@ -1483,10 +1517,19 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 
 .formula-process-control .formula-clear-icon-btn {
     position: absolute !important;
-    right: 32px !important; /* Positioned nicely next to the dropdown arrow */
+    right: 30px !important;
     top: 50% !important;
     transform: translateY(-50%) !important;
-    z-index: 10 !important;
+    z-index: 30 !important;
     margin: 0 !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    box-sizing: border-box !important;
+}
+
+.formula-process-control .formula-clear-icon-btn:active {
+    transform: translateY(-50%) scale(0.94) !important;
 }
 

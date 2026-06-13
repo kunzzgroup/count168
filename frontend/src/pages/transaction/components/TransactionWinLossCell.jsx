@@ -1,4 +1,4 @@
-import { formatPaymentHistoryMoneyHalfUp } from "../lib/transactionFormat.js";
+import { formatTransactionGridMoneyHalfUp } from "../lib/transactionFormat.js";
 
 function parseMoneyNumber(value) {
   if (value === "-" || value === null || value === undefined) return null;
@@ -8,8 +8,8 @@ function parseMoneyNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Money column: positive #0b2557, negative #b91c1c (aligned with member-amount). */
-export default function TransactionWinLossCell({ value, formatMoney = formatPaymentHistoryMoneyHalfUp }) {
+/** Money column: positive #172a9f, negative #b91c1c. */
+export default function TransactionWinLossCell({ value, formatMoney = formatTransactionGridMoneyHalfUp }) {
   const display = formatMoney(value);
   const n = parseMoneyNumber(value);
   if (n === null || n === 0) return display;

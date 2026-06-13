@@ -80,6 +80,7 @@ export default function TransactionDashboardPage() {
               onToggleSeries={page.toggleChartSeries}
               chartDateRangeText={page.chartDateRangeText}
               chartXAxisLayout={page.chartXAxisLayout}
+              chartDataStable={page.chartDataStable}
             />
             <DashboardEarningsSummary
               i18n={i18n}
@@ -88,15 +89,24 @@ export default function TransactionDashboardPage() {
               earningsCurrencyRows={page.earningsCurrencyRows}
               useConvertedEarnings={page.useConvertedEarnings}
               earningsBreakdownShowsRate={page.earningsBreakdownShowsRate}
+              summaryPanelLabel={page.summaryPanelLabel}
               summaryEarningsValue={page.summaryEarningsValue}
               summaryConversionNote={page.summaryConversionNote}
               summaryEarningsLoading={page.summaryEarningsLoading}
+              earningsPanelStable={page.earningsPanelStable}
               earningsByCurrencyLoading={page.earningsByCurrencyLoading}
               exchangeRates={page.exchangeRates}
               exchangeRatesError={page.exchangeRatesError}
               exchangeRatesLoading={page.exchangeRatesLoading}
+              exchangeRateScopeKey={page.exchangeRateScopeKey}
               rateFootnoteText={page.rateFootnoteText}
               convertedEarningsTotal={page.convertedEarningsTotal}
+              showProfitChartTab={page.showProfitChartTab}
+              earningsPanelView={page.earningsPanelView}
+              onEarningsPanelViewChange={page.setEarningsPanelView}
+              companyBreakdownRows={page.companyBreakdownRows}
+              companyEarningsTotal={page.companyEarningsTotal}
+              companyGroupProfitTotal={page.companyGroupProfitTotal}
             />
           </div>
         </div>

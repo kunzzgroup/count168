@@ -16,7 +16,7 @@ import {
   formulaMaintenanceUsesGroupProcesses,
 } from "./formulaMaintenanceScope.js";
 
-const FORMULA_PAYROLL_PROCESS_CODES = new Set(["SALARY", "BONUS"]);
+const FORMULA_PAYROLL_PROCESS_CODES = new Set(["SALARY", "COMMISSION", "BONUS"]);
 
 /** ProcessSelect expects process_name; domain report rows use process / display_text. */
 export function mapProcessesForMaintenanceSelect(apiList, { groupPayrollShort = false } = {}) {
@@ -100,7 +100,9 @@ export async function bootstrapFormulaMaintenanceMeta({ companies, groupId = nul
     (Array.isArray(companies) ? companies[0] : null) ??
     null;
   const code = anchor?.company_id ? String(anchor.company_id) : "";
-  const rawPerms = code ? await fetchCompanyPermissionsRaw(code) : [];
+  const rawPerms = code
+    ? await fetchCompanyPermissionsRaw(code)
+    : ["Games", "Gambling", "Bank", "Loan", "Rate", "Money"];
   const companyPerms = rawPerms.filter((p) => p !== "Bank");
   const savedPerm = code ? localStorage.getItem(`selectedPermission_${code}`) : null;
   const initialActive =

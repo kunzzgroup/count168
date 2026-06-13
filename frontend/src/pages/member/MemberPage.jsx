@@ -5,6 +5,7 @@ import { applyLoginLang, useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { MAINTENANCE_I18N } from "../../translateFile/pages/maintenanceTranslate.js";
 import { formatMemberRowDescription, getMemberText } from "../../translateFile/pages/memberTranslate.js";
 import SidebarLangSwitch from "../../components/SidebarLangSwitch.jsx";
+import SidebarMenuTooltip from "../../components/SidebarMenuTooltip.jsx";
 import ReportDatePicker from "../report/common/ReportDatePicker.jsx";
 import {
   buildMaintenancePeriodPresets,
@@ -34,12 +35,22 @@ import {
 } from "./memberPageHelpers.js";
 import { useMemberWinLoss } from "./useMemberWinLoss.js";
 import { useMemberPageShell } from "./useMemberPageShell.js";
+import { useSidebarTabletCollapse } from "../../hooks/useSidebarTabletCollapse.js";
+import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
 
 export default function MemberPage() {
   const navigate = useNavigate();
   const lang = useLoginLang();
   const t = useCallback((key, params) => getMemberText(lang, key, params), [lang]);
   const maintenanceLocale = useMemo(() => MAINTENANCE_I18N[lang] || MAINTENANCE_I18N.en, [lang]);
+  const shellI18n = useMemo(() => DASHBOARD_I18N[lang] || DASHBOARD_I18N.en, [lang]);
+  const {
+    isTabletViewport,
+    sidebarIconOnly,
+    sidebarTabletExpanded,
+    collapseSidebar,
+    onHamburgerClick,
+  } = useSidebarTabletCollapse();
 
   const wlFiltersColRef = useRef(null);
   const wlMatrixColRef = useRef(null);
@@ -139,6 +150,11 @@ export default function MemberPage() {
     ? WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS_NARROW
     : WINLOSS_ACCOUNT_SEGMENT_MAX_BUTTONS;
 
+  /** 窄屏 Currency 每行格数与 Account 一致，宽度对齐；宽屏仍用 8 列 */
+  const currencyMaxPerBand = accountNarrowViewport
+    ? accountMaxPerBand
+    : WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
+
   /** Account 多段：每段最多 N 格，超出自动换行；窄屏减少每行格数以完整显示户名 */
   const accountFilterBands = useMemo(() => {
     const accounts = Array.isArray(linkedAccounts) ? linkedAccounts : [];
@@ -157,22 +173,21 @@ export default function MemberPage() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  /** Currency 多段：每段最多 8 格（含 All），每满一行新开一条 segment 白底条，列仍按 8 列对齐 */
+  /** Currency 多段：每段最多 N 格（含 All），满一行自动换到下一排 segment 白底条 */
   const currencyFilterBands = useMemo(() => {
     const codes = Array.isArray(availableCurrencies) ? availableCurrencies : [];
     const showAllBtn = codes.length === 0 || codes.length > 1;
-    const maxPerBand = WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS;
 
     const cells = [];
     if (showAllBtn) cells.push({ type: "all" });
     codes.forEach((c) => cells.push({ type: "code", code: c }));
 
     const bands = [];
-    for (let i = 0; i < cells.length; i += maxPerBand) {
-      bands.push(cells.slice(i, i + maxPerBand));
+    for (let i = 0; i < cells.length; i += currencyMaxPerBand) {
+      bands.push(cells.slice(i, i + currencyMaxPerBand));
     }
     return bands;
-  }, [availableCurrencies]);
+  }, [availableCurrencies, currencyMaxPerBand]);
 
   const handleWinLossCurrencyCodeDrop = useCallback(
     (e) => {
@@ -191,7 +206,7 @@ export default function MemberPage() {
     [availableCurrencies, persistCurrencyOrder],
   );
 
-  const periodPresets = useMemo(() => buildMaintenancePeriodPresets(t), [t]);
+  const periodPresets = useMemo(() => buildMaintenancePeriodPresets(maintenanceLocale), [maintenanceLocale]);
 
   const handleDateRangeChange = useCallback(
     (start, end) => {
@@ -226,7 +241,7 @@ export default function MemberPage() {
     }
     const filtersEl = wlFiltersColRef.current;
     const matrixEl = wlMatrixColRef.current;
-    const mq = window.matchMedia("(min-width: 1181px)");
+    const mq = window.matchMedia("(min-width: 1025px)");
     const update = () => {
       if (!showMiniRail || !mq.matches || !wlFiltersColRef.current) {
         setWlFiltersSyncPx(null);
@@ -252,6 +267,7 @@ export default function MemberPage() {
     lang,
     companies,
     linkedAccounts,
+    availableCurrencies,
     currencyFilterBands,
     dateFrom,
     dateTo,
@@ -268,10 +284,31 @@ export default function MemberPage() {
 
   return (
     <>
-      <div className="informationmenu-overlay" style={{ display: "none" }} />
-      <div className="informationmenu">
+      <div
+        className={`informationmenu-overlay sidebar-dismiss-overlay${sidebarTabletExpanded ? " show" : ""}`}
+        onClick={collapseSidebar}
+        aria-hidden={!sidebarTabletExpanded}
+      />
+      <div className={`informationmenu${sidebarIconOnly ? " is-collapsed" : ""}`} onClick={(e) => e.stopPropagation()}>
         <div className="informationmenu-header">
           <div className="header-logo-section">
+            {isTabletViewport && sidebarIconOnly && (
+              <SidebarMenuTooltip label={shellI18n.sidebarExpand} enabled={sidebarIconOnly}>
+                <button
+                  type="button"
+                  className="sidebar-hamburger-toggle"
+                  onClick={onHamburgerClick}
+                  aria-label={shellI18n.sidebarExpand}
+                  aria-expanded={false}
+                >
+                  <span className="sidebar-hamburger-box" aria-hidden="true">
+                    <span className="sidebar-hamburger-line" />
+                    <span className="sidebar-hamburger-line" />
+                    <span className="sidebar-hamburger-line" />
+                  </span>
+                </button>
+              </SidebarMenuTooltip>
+            )}
             <img src={assetUrl("images/count_whitelogo.png")} alt="EAZYCOUNT Logo" className="header-logo" />
             <div className={`notification-bell${expirationReminder.hasBellBadge ? " has-unread" : ""}`} title={t("notifications")} onClick={toggleNotifications}>
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -302,7 +339,14 @@ export default function MemberPage() {
         <div className="informationmenu-content">
           <div className="content-separator" />
           <div className="informationmenu-section">
-            <div className="informationmenu-section-title current-page">{t("winLoss")}</div>
+            <SidebarMenuTooltip label={t("winLoss")} enabled={sidebarIconOnly}>
+              <div className="informationmenu-section-title current-page">
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
+                </svg>
+                <span className="sidebar-menu-label">{t("winLoss")}</span>
+              </div>
+            </SidebarMenuTooltip>
           </div>
         </div>
         <div className="informationmenu-footer">
@@ -311,7 +355,17 @@ export default function MemberPage() {
             label={t("exp")}
             hint={me?.expiration_hint || "-"}
           />
-          <button className="btn logout-btn" onClick={() => setShowLogoutConfirm(true)} type="button">{t("logout")}</button>
+          <button className="btn logout-btn" onClick={() => setShowLogoutConfirm(true)} type="button">
+            {sidebarIconOnly ? (
+              <svg className="logout-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="16 17 21 12 16 7" strokeLinecap="round" strokeLinejoin="round" />
+                <line x1="21" y1="12" x2="9" y2="12" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              t("logout")
+            )}
+          </button>
         </div>
       </div>
 
@@ -374,7 +428,7 @@ export default function MemberPage() {
                         key={`member-acc-band-${segIdx}`}
                         className="user-gc-segment-group member-winloss-account-segments"
                         style={{
-                          width: `${(band.length / accountMaxPerBand) * 100}%`,
+                          width: band.length >= accountMaxPerBand ? "100%" : "fit-content",
                           maxWidth: "100%",
                           gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
                         }}
@@ -410,8 +464,9 @@ export default function MemberPage() {
                       key={`member-ccy-band-${segIdx}`}
                       className="user-gc-segment-group member-winloss-currency-segments"
                       style={{
-                        width: `${(band.length / WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS) * 100}%`,
-                        gridTemplateColumns: `repeat(${band.length}, minmax(0, 1fr))`,
+                        width: band.length >= currencyMaxPerBand ? "100%" : "fit-content",
+                        maxWidth: "100%",
+                        gridTemplateColumns: `repeat(${band.length}, minmax(max-content, 1fr))`,
                       }}
                     >
                       {band.map((cell) =>
@@ -430,7 +485,7 @@ export default function MemberPage() {
                             type="button"
                             draggable
                             data-currency={cell.code}
-                            className={`user-gc-segment user-gc-segment--draggable-pill${selectedCurrencies.includes(cell.code) ? " is-on" : ""}`}
+                            className={`user-gc-segment user-gc-segment--draggable-pill${isAllSelected || selectedCurrencies.includes(cell.code) ? " is-on" : ""}`}
                             onDragStart={(e) => {
                               e.dataTransfer.setData("text/plain", cell.code);
                               e.dataTransfer.effectAllowed = "move";
@@ -441,7 +496,7 @@ export default function MemberPage() {
                           >
                             {cell.code}
                           </button>
-                        )
+                        ),
                       )}
                     </div>
                   ))}

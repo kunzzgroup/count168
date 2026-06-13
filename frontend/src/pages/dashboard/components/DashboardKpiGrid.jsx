@@ -38,7 +38,7 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
         <DashboardKpiCard
           variant="earnings"
           label={i18n.earnings}
-          value={kpi.earnings}
+          value={kpi.kpiCardEarnings ?? kpi.earnings}
           compare={kpi.comparisons?.earnings}
           compareLabel={kpiCompareLabel}
           fallbackFoot={kpiFooter}

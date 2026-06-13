@@ -41,11 +41,17 @@ export const DASHBOARD_GROUP_FILTER_OPT_OUT_KEY = "dashboard_group_filter_opt_ou
 export const DASHBOARD_GROUP_ONLY_KEY = "dashboard_group_only";
 /** Set to "1" when Company row "All" aggregates subsidiaries in the current group scope. */
 export const DASHBOARD_GROUP_ALL_MODE_KEY = "dashboard_group_all_mode";
+/** Set to "1" when Group row "All" is active (every group — never sent as group_id). */
+export const DASHBOARD_GROUPS_ALL_MODE_KEY = "dashboard_groups_all_mode";
+/** Last AP/IG tab before Group "All" — sidebar menu follows this group while groups-all KPI scope is active. */
+export const DASHBOARD_GROUPS_ALL_SIDEBAR_GROUP_KEY = "dashboard_groups_all_sidebar_group";
 /** Last explicitly selected company id (SPA navigation; overrides stale PHP session when set). */
 export const DASHBOARD_SELECTED_COMPANY_KEY = "dashboard_selected_company_id";
 /** Cross-page currency pill / dropdown selection (scoped by company or group). */
 export const DASHBOARD_SELECTED_CURRENCY_KEY = "dashboard_selected_currency_code";
 export const DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY = "dashboard_selected_currency_scope";
+/** Per company/group scope → last selected currency code (session JSON map). */
+export const DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY = "dashboard_selected_currency_by_scope";
 /** Prevents re-applying login defaults on refresh while the same login session is active. */
 export const DASHBOARD_LOGIN_FILTER_APPLIED_KEY = "dashboard_login_filter_applied";
 /** Linked group ids (AP+IG) from get_owner_companies_api for company login filter pills. */
@@ -60,9 +66,13 @@ export function clearDashboardFilterSession() {
   sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_KEY);
   sessionStorage.removeItem(DASHBOARD_GROUP_FILTER_OPT_OUT_KEY);
   sessionStorage.removeItem(DASHBOARD_GROUP_ONLY_KEY);
+  sessionStorage.removeItem(DASHBOARD_GROUP_ALL_MODE_KEY);
+  sessionStorage.removeItem(DASHBOARD_GROUPS_ALL_MODE_KEY);
+  sessionStorage.removeItem(DASHBOARD_GROUPS_ALL_SIDEBAR_GROUP_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
   sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
+  sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY);
   sessionStorage.removeItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY);
   sessionStorage.removeItem(DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY);
 }
@@ -96,34 +106,102 @@ function pickCurrencyIfAllowed(code, allowedCodes) {
   return cur;
 }
 
-export function persistDashboardSelectedCurrency(scopeKey, code) {
-  const key = scopeKey ? String(scopeKey).trim() : "";
-  const cur = code ? String(code).trim().toUpperCase() : "";
-  if (!cur) return;
+function readDashboardCurrencyScopeMap() {
   try {
-    if (key) sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY, key);
-    sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_KEY, cur);
+    const raw = sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDashboardCurrencyScopeMap(map) {
+  try {
+    sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY, JSON.stringify(map));
   } catch {
     /* ignore */
   }
 }
 
-/** Last cross-page currency (global; not scoped to a single company). */
-export function readDashboardSelectedCurrency(scopeKey, options = {}) {
-  const allowed = normalizeCurrencyCodeList(options.availableCodes);
-  const scopeOnly = options.scopeOnly === true;
-  if (!scopeOnly) {
-    const last = pickCurrencyIfAllowed(readLastDashboardSelectedCurrency(), allowed);
-    if (last) return last;
-  }
+/** Last currency the user picked for a specific company or group scope. */
+export function readDashboardScopedCurrency(scopeKey, availableCodes = null) {
   const key = scopeKey ? String(scopeKey).trim() : "";
   if (!key) return null;
+  const allowed = normalizeCurrencyCodeList(availableCodes);
+  const fromMap = pickCurrencyIfAllowed(readDashboardCurrencyScopeMap()[key], allowed);
+  if (fromMap) return fromMap;
   try {
     if (sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY) !== key) return null;
     return pickCurrencyIfAllowed(sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_KEY), allowed);
   } catch {
     return null;
   }
+}
+
+export function persistDashboardSelectedCurrency(scopeKey, code) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  const cur = code ? String(code).trim().toUpperCase() : "";
+  if (!cur) return;
+  try {
+    if (key) {
+      sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY, key);
+      const map = readDashboardCurrencyScopeMap();
+      map[key] = cur;
+      writeDashboardCurrencyScopeMap(map);
+    }
+    sessionStorage.setItem(DASHBOARD_SELECTED_CURRENCY_KEY, cur);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Drop persisted currency for one company/group scope (used when switching company pills). */
+export function clearDashboardScopedCurrency(scopeKey) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  if (!key) return;
+  try {
+    const map = readDashboardCurrencyScopeMap();
+    if (Object.prototype.hasOwnProperty.call(map, key)) {
+      delete map[key];
+      writeDashboardCurrencyScopeMap(map);
+    }
+    if (sessionStorage.getItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY) === key) {
+      sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
+      sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Clear cross-page currency pill selection (e.g. user picked ALL currencies). */
+export function clearDashboardSelectedCurrency() {
+  try {
+    sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_KEY);
+    sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY);
+    sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Last cross-page currency for a scope; falls back to global last when scopeOnly is false. */
+export function readDashboardSelectedCurrency(scopeKey, options = {}) {
+  const allowed = normalizeCurrencyCodeList(options.availableCodes);
+  const scopeOnly = options.scopeOnly === true;
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  if (key) {
+    const scoped = readDashboardScopedCurrency(key, allowed);
+    if (scoped) return scoped;
+  }
+  const isCompanyScope = key.startsWith("company:");
+  if (!scopeOnly && !isCompanyScope) {
+    const last = pickCurrencyIfAllowed(readLastDashboardSelectedCurrency(), allowed);
+    if (last) return last;
+  }
+  return null;
 }
 
 /** Persist + broadcast so every currency-filter page stays in sync. */
@@ -143,7 +221,7 @@ export function notifyDashboardCurrencyFilterChanged(currencyCode, scopeKey = nu
   );
 }
 
-/** Boot / navigation: global last currency wins over stale URL params. */
+/** Boot / navigation: per-scope memory wins, then global last, then URL/default. */
 export function resolveCrossPageCurrencyPreference({
   scopeKey = null,
   availableCodes = [],
@@ -152,7 +230,13 @@ export function resolveCrossPageCurrencyPreference({
 } = {}) {
   const allowed = normalizeCurrencyCodeList(availableCodes) ?? [];
   const url = String(urlCurrency || "").trim().toUpperCase();
-  if (!scopeOnly) {
+  const key = scopeKey ? String(scopeKey).trim() : "";
+  if (key) {
+    const scoped = readDashboardScopedCurrency(key, allowed.length ? allowed : null);
+    if (scoped) return scoped;
+  }
+  const isCompanyScope = key.startsWith("company:");
+  if (!scopeOnly && !isCompanyScope) {
     const global = pickCurrencyIfAllowed(
       readLastDashboardSelectedCurrency(),
       allowed.length ? allowed : null,
@@ -160,7 +244,6 @@ export function resolveCrossPageCurrencyPreference({
     if (global) return global;
   }
   return (
-    readDashboardSelectedCurrency(scopeKey, { availableCodes: allowed, scopeOnly: true }) ||
     pickCurrencyIfAllowed(url, allowed.length ? allowed : null) ||
     allowed[0] ||
     ""
@@ -302,6 +385,50 @@ export function persistDashboardGroupAllMode(groupAll) {
   else sessionStorage.removeItem(DASHBOARD_GROUP_ALL_MODE_KEY);
 }
 
+export function isDashboardGroupsAllMode() {
+  return sessionStorage.getItem(DASHBOARD_GROUPS_ALL_MODE_KEY) === "1";
+}
+
+export function persistDashboardGroupsAllMode(groupsAll) {
+  if (groupsAll) sessionStorage.setItem(DASHBOARD_GROUPS_ALL_MODE_KEY, "1");
+  else {
+    sessionStorage.removeItem(DASHBOARD_GROUPS_ALL_MODE_KEY);
+    sessionStorage.removeItem(DASHBOARD_GROUPS_ALL_SIDEBAR_GROUP_KEY);
+  }
+}
+
+export function readGroupsAllSidebarGroup() {
+  const raw = sessionStorage.getItem(DASHBOARD_GROUPS_ALL_SIDEBAR_GROUP_KEY);
+  return raw ? String(raw).trim().toUpperCase() : null;
+}
+
+export function persistGroupsAllSidebarGroup(groupId) {
+  const g = groupId ? String(groupId).trim().toUpperCase() : "";
+  if (g) sessionStorage.setItem(DASHBOARD_GROUPS_ALL_SIDEBAR_GROUP_KEY, g);
+  else sessionStorage.removeItem(DASHBOARD_GROUPS_ALL_SIDEBAR_GROUP_KEY);
+}
+
+/** Group tab to keep for sidebar when entering Group "All" (current tab, then session, then prior anchor). */
+export function resolveGroupsAllSidebarAnchorGroup(selectedGroup = null) {
+  const fromArg = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
+  if (fromArg) return fromArg;
+  const fromFilter = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
+  if (fromFilter) return String(fromFilter).trim().toUpperCase();
+  return readGroupsAllSidebarGroup();
+}
+
+function resolveSidebarGroupFromPersistedFilter(filter) {
+  if (filter.groupsAllMode && filter.sidebarAnchorGroup) return filter.sidebarAnchorGroup;
+  return filter.selectedGroup;
+}
+
+/** Group All: sidebar gambling/bank follows the AP/IG tab user came from, not subsidiary company flags. */
+function resolveGroupsAllSidebarCategoryFlags(filter = readPersistedDashboardGcFilter()) {
+  if (!filter.groupsAllMode || !filter.sidebarAnchorGroup) return null;
+  const includeBank = Boolean(filter.groupAllMode) && !filter.groupOnly;
+  return resolveGroupCategoryFlagsForSidebar(filter.sidebarAnchorGroup, { includeBank });
+}
+
 export function persistDashboardSelectedCompany(companyId) {
   if (companyId == null || companyId === "" || !Number.isFinite(Number(companyId))) {
     sessionStorage.removeItem(DASHBOARD_SELECTED_COMPANY_KEY);
@@ -324,11 +451,15 @@ export function readPersistedDashboardGcFilter() {
   const savedCompanyId = readDashboardSelectedCompanyId();
   const groupOnly = isDashboardGroupOnlyMode() && savedCompanyId == null;
   const groupAllMode = isDashboardGroupAllMode() && savedCompanyId == null && !groupOnly;
+  const groupsAllMode = isDashboardGroupsAllMode() && !groupOnly;
+  const sidebarAnchorGroup = groupsAllMode ? readGroupsAllSidebarGroup() : null;
   return {
-    selectedGroup,
+    selectedGroup: groupsAllMode ? null : selectedGroup,
+    sidebarAnchorGroup,
     companyId: groupOnly || groupAllMode ? null : savedCompanyId,
     groupOnly,
     groupAllMode,
+    groupsAllMode,
   };
 }
 
@@ -403,6 +534,10 @@ export function shouldApplySessionToSidebar(sessionData, filter = readPersistedD
     return code === gid;
   }
 
+  if (filter.groupsAllMode && filter.sidebarAnchorGroup) {
+    return false;
+  }
+
   const expectedId =
     filter.companyId != null && filter.companyId !== "" ? Number(filter.companyId) : null;
   if (expectedId != null && Number.isFinite(expectedId)) {
@@ -463,7 +598,10 @@ export function persistDashboardFilterState(selectedGroup, companyId, options = 
   const allowGroupOnly = options.allowGroupOnly !== false;
   const companyAllMode = options.companyAllMode === true;
 
-  if (selectedGroup) persistDashboardGroupFilter(selectedGroup);
+  if (selectedGroup) {
+    persistDashboardGroupFilter(selectedGroup);
+    persistDashboardGroupsAllMode(false);
+  }
 
   if (noCompany) {
     if (companyAllMode) {
@@ -483,6 +621,11 @@ export function persistDashboardFilterState(selectedGroup, companyId, options = 
 
   persistDashboardGroupOnlyMode(false);
   persistDashboardGroupAllMode(false);
+  if (options.groupsAllMode === true) {
+    persistDashboardGroupsAllMode(true);
+  } else if (options.groupsAllMode === false || selectedGroup) {
+    persistDashboardGroupsAllMode(false);
+  }
   persistDashboardSelectedCompany(companyId);
 }
 
@@ -826,16 +969,19 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
   const groupAllMode =
     Boolean(persistedFilter.groupAllMode) && cid == null && !groupOnly;
   if (groupOnly && value) {
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: false });
-    if (groupFlags) {
-      if (hasGambling == null) hasGambling = groupFlags.hasGambling;
-      hasBank = false;
-    }
+    // Group-only: keep login-scope gambling flags on sidebar; only bank is cleared.
+    hasBank = false;
   } else if (groupAllMode && value) {
     const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: true });
     if (groupFlags) {
       if (hasGambling == null) hasGambling = groupFlags.hasGambling;
       if (hasBank == null) hasBank = groupFlags.hasBank;
+    }
+  } else if (persistedFilter.groupsAllMode && persistedFilter.sidebarAnchorGroup) {
+    const groupFlags = resolveGroupsAllSidebarCategoryFlags(persistedFilter);
+    if (groupFlags) {
+      hasGambling = groupFlags.hasGambling;
+      hasBank = groupFlags.hasBank;
     }
   }
   const persistedGroupOnly = isDashboardGroupOnlyMode() && readDashboardSelectedCompanyId() == null;
@@ -857,6 +1003,29 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
 /** Notify options for sidebar sync when dashboard Group / Company filter changes. */
 export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, extra = {}) {
   const opts = { ...extra };
+  const persisted = readPersistedDashboardGcFilter();
+  const anchorGroup =
+    persisted.groupsAllMode && persisted.sidebarAnchorGroup
+      ? persisted.sidebarAnchorGroup
+      : selectedGroup
+        ? String(selectedGroup).trim().toUpperCase()
+        : null;
+  if (persisted.groupsAllMode && anchorGroup) {
+    const groupFlags = resolveGroupsAllSidebarCategoryFlags({
+      ...persisted,
+      sidebarAnchorGroup: anchorGroup,
+    });
+    if (groupFlags) {
+      opts.hasGambling = groupFlags.hasGambling;
+      opts.hasBank = groupFlags.hasBank;
+    }
+    opts.expirationDate =
+      resolveSidebarExpirationForFilter({ selectedGroup: anchorGroup, companyId: null }) ?? null;
+    if (companyRow?.company_id) {
+      opts.companyCode = companyRow.company_id;
+    }
+    return opts;
+  }
   if (companyRow) {
     if (companyRow.company_id) opts.companyCode = companyRow.company_id;
     opts.expirationDate = companyRow.expiration_date ?? null;
@@ -876,12 +1045,13 @@ export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, ex
   }
   const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
   if (g) {
-    const persisted = readPersistedDashboardGcFilter();
     const includeBank = Boolean(persisted.groupAllMode) && !persisted.groupOnly;
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(g, { includeBank });
-    if (groupFlags) {
-      opts.hasGambling = groupFlags.hasGambling;
-      opts.hasBank = groupFlags.hasBank;
+    if (!persisted.groupOnly) {
+      const groupFlags = resolveGroupCategoryFlagsForSidebar(g, { includeBank });
+      if (groupFlags) {
+        opts.hasGambling = groupFlags.hasGambling;
+        opts.hasBank = groupFlags.hasBank;
+      }
     }
     opts.expirationDate =
       resolveSidebarExpirationForFilter({ selectedGroup: g, companyId: null }) ?? null;
@@ -892,7 +1062,7 @@ export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, ex
 /** Build sidebar event detail from sessionStorage (same shape as {@link notifyDashboardGroupFilterChanged}). */
 export function buildDashboardFilterEventDetailFromPersisted() {
   const filter = readPersistedDashboardGcFilter();
-  const selectedGroup = filter.selectedGroup;
+  const selectedGroup = resolveSidebarGroupFromPersistedFilter(filter);
   const groupOnly = filter.groupOnly;
   const cid =
     groupOnly || filter.companyId == null
@@ -930,10 +1100,12 @@ export function buildDashboardFilterEventDetailFromPersisted() {
   let hasGambling = notifyOpts.hasGambling ?? cachedFlags?.has_gambling;
   let hasBank = notifyOpts.hasBank ?? cachedFlags?.has_bank;
   const groupAllMode = isDashboardGroupAllMode() && effectiveCid == null && !groupOnly;
-  if ((groupOnly || groupAllMode) && value) {
-    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, {
-      includeBank: groupAllMode,
-    });
+  const groupsAllSidebarFlags = resolveGroupsAllSidebarCategoryFlags(filter);
+  if (groupsAllSidebarFlags) {
+    hasGambling = groupsAllSidebarFlags.hasGambling;
+    hasBank = groupsAllSidebarFlags.hasBank;
+  } else if (groupAllMode && value) {
+    const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: true });
     if (groupFlags) {
       if (hasGambling == null) hasGambling = groupFlags.hasGambling;
       if (hasBank == null) hasBank = groupFlags.hasBank;
@@ -994,9 +1166,10 @@ export function shouldHideSidebarProcess(pathname) {
  */
 export function shouldShowBankprocessMaintenanceInSidebar(me) {
   const filter = readPersistedDashboardGcFilter();
-  if (filter.groupOnly && filter.selectedGroup) return false;
-  if (filter.groupAllMode && filter.selectedGroup) {
-    const flags = resolveGroupCategoryFlagsForSidebar(filter.selectedGroup, { includeBank: true });
+  const sidebarGroup = resolveSidebarGroupFromPersistedFilter(filter);
+  if (filter.groupOnly && sidebarGroup) return false;
+  if (filter.groupAllMode && sidebarGroup) {
+    const flags = resolveGroupCategoryFlagsForSidebar(sidebarGroup, { includeBank: true });
     return Boolean(flags?.hasBank);
   }
   return Boolean(me?.company_has_bank);
@@ -1644,8 +1817,8 @@ export function resolveGroupsAllMergeCompanyList(companies, groupIds = null) {
 }
 
 /**
- * When GroupID "All" is selected: keep current company if it belongs to a group,
- * otherwise activate the first grouped company in picker order.
+ * Resolve a grouped company row for GroupID "All" contexts that still pick a subsidiary
+ * (e.g. other pages). Dashboard Group All aggregate leaves company unset instead.
  */
 export function resolveCompanyWhenPickingAllGroups(companies, currentCompanyId, groupIds = null) {
   const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);

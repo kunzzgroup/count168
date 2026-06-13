@@ -86,9 +86,20 @@ function getCurrentUserId(PDO $pdo): int {
 
 // ---------- 数据层：表单与列表 ----------
 function getCurrenciesByCompany(PDO $pdo, int $companyId): array {
-    $stmt = $pdo->prepare("SELECT id, code FROM currency WHERE company_id = ? ORDER BY code");
-    $stmt->execute([$companyId]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!function_exists('tenant_fetch_currencies')) {
+        require_once __DIR__ . '/../../includes/tenant_scope.php';
+    }
+    $rows = tenant_fetch_currencies($pdo, [
+        'mode' => 'company',
+        'company_id' => $companyId,
+    ]);
+
+    return array_map(static function (array $row): array {
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'code' => (string) ($row['code'] ?? ''),
+        ];
+    }, $rows);
 }
 
 function getProcessesForForm(PDO $pdo, int $companyId): array {
@@ -459,8 +470,14 @@ try {
             exit;
         }
         $day_start_frequency = trim($_POST['day_start_frequency'] ?? '1st_of_every_month');
-        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly', 'once'], true)) {
+        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly', 'week', 'day', 'once'], true)) {
             $day_start_frequency = '1st_of_every_month';
+        }
+        if ($day_start_frequency === 'once' || $day_start_frequency === 'week' || $day_start_frequency === 'day') {
+            $_POST['day_end'] = '';
+            if ($day_start_frequency === 'week' || $day_start_frequency === 'day') {
+                $_POST['contract'] = '';
+            }
         }
         $currentUserId = null;
         $createdByType = 'user';

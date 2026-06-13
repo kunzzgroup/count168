@@ -386,15 +386,22 @@ export default function MemberMiniGrid({
         grid.style.width = `${totalW}px`;
         grid.style.maxWidth = "none";
 
-        const containerW = matrixColEl?.clientWidth || scroll.clientWidth || 0;
-        const fits = containerW > 0 && totalW <= containerW;
+        const availableW = matrixColEl?.clientWidth || 0;
+        const fits = availableW > 0 && totalW <= availableW - 2;
         scroll.classList.toggle("member-dash-matrix-scroll--ccy-fits", fits);
         grid.classList.toggle("member-balance-mini-matrix--ccy-fits", fits);
 
-        const boxW = fits ? `${totalW}px` : "100%";
-        scroll.style.width = fits ? `${totalW}px` : "100%";
-        if (rail) rail.style.width = boxW;
-        if (wrap) wrap.style.width = boxW;
+        const boxW = fits || availableW <= 0 ? `${totalW}px` : `${availableW}px`;
+        scroll.style.width = boxW;
+        scroll.style.maxWidth = "100%";
+        if (rail) {
+          rail.style.width = boxW;
+          rail.style.maxWidth = "100%";
+        }
+        if (wrap) {
+          wrap.style.width = boxW;
+          wrap.style.maxWidth = "100%";
+        }
       };
 
       applyColumns(measureMatrixCurrencyColumnWidths(grid, rem, ncu));

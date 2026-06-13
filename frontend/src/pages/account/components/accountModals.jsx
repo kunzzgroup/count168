@@ -1,33 +1,33 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { accountModalOverlayZIndex, portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
+import ConfirmDeleteModal from "../../../components/ConfirmDeleteModal.jsx";
 import { toUpper } from "../accountLogic.js";
+import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 const confirmModalZIndex = accountModalOverlayZIndex + 50;
 
-export function AccountConfirmModal({ open, message, onConfirm, onClose, t }) {
-  if (!open) return null;
-  return portalToDocumentBody(
-    <div id="confirmDeleteModal" className="account-modal" role="dialog" aria-modal="true" style={{ zIndex: confirmModalZIndex }}>
-      <div className="account-confirm-modal-content">
-        <div className="account-confirm-icon-container">
-          <svg className="account-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
-        <h2 className="account-confirm-title">{t("confirmDelete")}</h2>
-        <p id="confirmDeleteMessage" className="account-confirm-message">
-          {message || t("actionCannotUndone")}
-        </p>
-        <div className="account-confirm-actions">
-          <button type="button" className="btn btn-cancel confirm-cancel" onClick={onClose}>
-            {t("cancel")}
-          </button>
-          <button type="button" className="btn btn-delete confirm-delete" onClick={onConfirm}>
-            {t("delete")}
-          </button>
-        </div>
-      </div>
-    </div>
+export function AccountConfirmModal({
+  open,
+  message,
+  onConfirm,
+  onClose,
+  t,
+  title,
+  confirmLabel,
+  modalId = "confirmDeleteModal",
+}) {
+  return (
+    <ConfirmDeleteModal
+      open={open}
+      modalId={modalId}
+      zIndex={confirmModalZIndex}
+      title={title || t("confirmDelete")}
+      message={message || t("actionCannotUndone")}
+      cancelLabel={t("cancel")}
+      confirmLabel={confirmLabel || t("delete")}
+      onConfirm={onConfirm}
+      onClose={onClose}
+    />
   );
 }
 
@@ -85,7 +85,7 @@ export function LinkAccountModal({
   onClose,
   t,
 }) {
-  if (!open) return null;
+  const { submitting, runGuarded } = useSubmitGuard(open);
 
   const rows = useMemo(() => {
     const q = String(searchTerm || "").trim().toLowerCase();
@@ -97,6 +97,8 @@ export function LinkAccountModal({
         return text.includes(q);
       });
   }, [accounts, currentAccountId, searchTerm]);
+
+  if (!open) return null;
 
   return portalToDocumentBody(
     <div id="linkAccountModal" className="account-modal" style={{ display: "block", zIndex: accountModalOverlayZIndex }}>
@@ -184,7 +186,9 @@ export function LinkAccountModal({
           </div>
         </div>
         <div className="account-form-actions link-account-form-actions">
-          <button type="button" className="btn btn-add" onClick={onSave}>{t("save")}</button>
+          <button type="button" className="btn btn-add" disabled={submitting} onClick={() => runGuarded(onSave)}>
+            {submitting ? t("saving") : t("save")}
+          </button>
           <button type="button" className="btn btn-currency-setting" onClick={onClose}>{t("cancel")}</button>
         </div>
       </div>
@@ -216,6 +220,7 @@ export function CurrencySettingModal({
 }) {
   const roleDropdownRef = useRef(null);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const { submitting, runGuarded } = useSubmitGuard(open);
 
   useEffect(() => {
     if (!open || !roleDropdownOpen) return undefined;
@@ -427,11 +432,11 @@ export function CurrencySettingModal({
           <button
             type="button"
             className="account-btn account-btn-save currency-setting-submit-btn"
-            disabled={!selectedCurrencyMatchesList}
+            disabled={!selectedCurrencyMatchesList || submitting}
             title={!selectedCurrencyMatchesList ? t("pleaseSelectCurrencyFirst") : undefined}
-            onClick={onSave}
+            onClick={() => runGuarded(onSave)}
           >
-            {t("save")}
+            {submitting ? t("saving") : t("save")}
           </button>
           <button type="button" className="account-btn account-btn-cancel currency-setting-cancel-btn" onClick={onClose}>
             {t("cancel")}

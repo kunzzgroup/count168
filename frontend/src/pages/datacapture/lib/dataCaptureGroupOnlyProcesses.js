@@ -1,6 +1,6 @@
 /** Fixed process choices when Group is selected without Company (Data Capture group-only mode). */
 
-export const GROUP_ONLY_PROCESS_IDS = new Set(["salary", "bonus"]);
+export const GROUP_ONLY_PROCESS_IDS = new Set(["salary", "commission", "bonus"]);
 
 export function isGroupOnlyProcessId(id) {
   return GROUP_ONLY_PROCESS_IDS.has(String(id || "").toLowerCase());
@@ -10,6 +10,7 @@ export function isGroupOnlyProcessId(id) {
 export function getGroupOnlyProcessOptions() {
   return [
     { id: "salary", process_id: "SALARY", displayText: "Salary" },
+    { id: "commission", process_id: "COMMISSION", displayText: "Commission" },
     { id: "bonus", process_id: "BONUS", displayText: "Bonus" },
   ];
 }

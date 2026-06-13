@@ -20,7 +20,7 @@ import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModa
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
 import MaintenanceCalendarPopup from "../../components/MaintenanceCalendarPopup.jsx";
-import { bankProcessFrequencyNormalized, normalizeBankProcessStatus } from "./lib/bankProcessHelpers.js";
+import { bankProcessFrequencyNormalized, normalizeBankProcessStatus, isoToDmy } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 
 export default function BankProcessListPage() {
@@ -168,6 +168,7 @@ export default function BankProcessListPage() {
     currencyFilterCode,
     setCurrencyFilterCode,
     handlePickCurrency,
+    handlePickAllCurrencies,
     currencyPillDisplayOrder,
     setCurrencyPillDisplayOrder,
     skipNextCurrencyPillClickRef,
@@ -232,6 +233,7 @@ export default function BankProcessListPage() {
     totalPages,
     pageRows,
     PAGE_SIZE,
+    listRegionRef,
   } = useBankProcessListPage();
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
@@ -254,7 +256,10 @@ export default function BankProcessListPage() {
     const mq = window.matchMedia("(max-width: 1699px)");
     const onChange = () => {
       setIsNarrowToolbar(mq.matches);
-      if (!mq.matches) setSearchExpanded(false);
+      if (!mq.matches) {
+        setSearchExpanded(false);
+        setFilterPanelOpen(false);
+      }
     };
     onChange();
     mq.addEventListener("change", onChange);
@@ -273,8 +278,15 @@ export default function BankProcessListPage() {
       if (filterToolbarRef.current?.contains(e.target)) return;
       setFilterPanelOpen(false);
     };
+    const onKey = (e) => {
+      if (e.key === "Escape") setFilterPanelOpen(false);
+    };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [filterPanelOpen]);
 
   const handleFilterToggleClick = (e) => {
@@ -326,7 +338,7 @@ export default function BankProcessListPage() {
             <div className="bank-process-toolbar-main">
               <div className="bank-process-toolbar-top-row">
                 <div className="action-controls-row bank-process-toolbar-primary" style={{ display: "flex", alignItems: "center" }}>
-                  <button type="button" className="btn btn-add" onClick={openAdd}>
+                  <button type="button" className="btn btn-add bank-process-toolbar-add" onClick={openAdd} title={t("addProcess")}>
                     <AddProcessIcon />
                     {t("addProcess")}
                   </button>
@@ -342,11 +354,21 @@ export default function BankProcessListPage() {
                       <i className="fas fa-calendar-alt" aria-hidden="true" />
                       {/* Text is driven by MaintenanceDateRangePicker (must not set React children or they overwrite picker + stale i18n). */}
                       <span id="date-range-display" aria-live="polite" />
-                      <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")} style={{ display: "none" }}>&times;</button>
+                      <button type="button" className="process-list-date-clear" id="processListDateClearBtn" title={t("clearDateRange")} aria-label={t("clearDateRange")}>&times;</button>
                       <i className="fas fa-chevron-down transaction-date-range-chevron" aria-hidden="true" />
                     </div>
-                    <input type="hidden" id="date_from" defaultValue="" />
-                    <input type="hidden" id="date_to" defaultValue="" />
+                    <input
+                      type="hidden"
+                      id="date_from"
+                      readOnly
+                      value={dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom) ? isoToDmy(dateFrom) : ""}
+                    />
+                    <input
+                      type="hidden"
+                      id="date_to"
+                      readOnly
+                      value={dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo) ? isoToDmy(dateTo) : ""}
+                    />
                   </div>
                   <div
                     ref={searchBarRef}
@@ -397,9 +419,9 @@ export default function BankProcessListPage() {
                       type="button"
                       className={[
                         "bank-process-filter-toggle",
+                        "bank-process-filter-toggle--icon-only",
                         filterPanelOpen ? "is-open" : "",
                         hasActiveFilters ? "has-active-filters" : "",
-                        isNarrowToolbar ? "bank-process-filter-toggle--icon-only" : "",
                       ].filter(Boolean).join(" ")}
                       aria-expanded={filterPanelOpen}
                       aria-controls="bank-process-filter-panel"
@@ -417,25 +439,44 @@ export default function BankProcessListPage() {
                     </button>
                     <div
                       id="bank-process-filter-panel"
-                      className={`bank-process-filter-panel${filterPanelOpen ? " is-open" : ""}`}
+                      className={[
+                        "bank-process-filter-panel",
+                        "bank-process-filter-panel--dropdown",
+                        filterPanelOpen ? "is-open" : "",
+                      ].filter(Boolean).join(" ")}
                     >
-                      <BankProcessFilterChips
-                        t={t}
-                        showInactive={showInactive}
-                        setShowInactive={setShowInactive}
-                        showAll={showAll}
-                        setShowAll={setShowAll}
-                        showOfficial={showOfficial}
-                        setShowOfficial={setShowOfficial}
-                        showEInvoice={showEInvoice}
-                        setShowEInvoice={setShowEInvoice}
-                        showBlock={showBlock}
-                        setShowBlock={setShowBlock}
-                      />
+                      <div className="bank-process-filter-dropdown">
+                        <BankProcessFilterChips
+                          t={t}
+                          layout="dropdown"
+                          showInactive={showInactive}
+                          setShowInactive={setShowInactive}
+                          showAll={showAll}
+                          setShowAll={setShowAll}
+                          showOfficial={showOfficial}
+                          setShowOfficial={setShowOfficial}
+                          showEInvoice={showEInvoice}
+                          setShowEInvoice={setShowEInvoice}
+                          showBlock={showBlock}
+                          setShowBlock={setShowBlock}
+                        />
+                        {hasActiveFilters ? (
+                          <button
+                            type="button"
+                            className="bank-process-filter-dropdown__clear"
+                            onClick={() => {
+                              clearBankProcessFilters();
+                              setFilterPanelOpen(false);
+                            }}
+                          >
+                            {t("filterClearAll")}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                <div className="user-toolbar-actions-right bank-process-toolbar-actions-right">
                   <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
                 </div>
               </div>
@@ -491,7 +532,7 @@ export default function BankProcessListPage() {
                     <button
                       type="button"
                       className={`user-gc-segment${!currencyFilterCode ? " is-on" : ""}`}
-                      onClick={() => setCurrencyFilterCode("")}
+                      onClick={handlePickAllCurrencies}
                     >
                       {t("groupFilterAll")}
                     </button>
@@ -527,7 +568,12 @@ export default function BankProcessListPage() {
         </div>
 
         <div className="bank-process-list-body">
-        <div className="bank-process-list-scroll-region" role="region" aria-label={t("bankProcessList")}>
+        <div
+          ref={listRegionRef}
+          className="bank-process-list-scroll-region"
+          role="region"
+          aria-label={t("bankProcessList")}
+        >
           <BankProcessTable
             tableLoading={tableLoading}
             showAll={showAll}
@@ -554,7 +600,9 @@ export default function BankProcessListPage() {
               setResendDayStart(String(row.day_start || row.date || "").slice(0, 10));
               const seedFq = bankProcessFrequencyNormalized(row.day_start_frequency);
               setResendFrequency(seedFq);
-              setResendDayEnd(seedFq === "once" ? "" : String(row.day_end || "").slice(0, 10));
+              setResendDayEnd(
+                seedFq === "once" || seedFq === "monthly" ? "" : String(row.day_end || "").slice(0, 10),
+              );
               setResendModalOpen(true);
             }}
             sortColumn={sortColumn}
@@ -754,6 +802,7 @@ export default function BankProcessListPage() {
         onRemoveCurrency={removeAccountModalCurrency}
         onSubmit={submitAccountModal}
         onClose={closeAccountModal}
+        currencyDeleteOnlyWhenDeselected
         t={tAccount}
       />
       {typeof document !== "undefined"
