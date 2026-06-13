@@ -936,10 +936,6 @@ function auto_renew_resolve_default_to_account(PDO $pdo, int $c168Pk, int $exclu
     if ($c168Pk <= 0) {
         return null;
     }
-    $ownerId = auto_renew_resolve_c168_owner_account($pdo, $c168Pk, $excludeAccountId);
-    if ($ownerId && $ownerId > 0) {
-        return $ownerId;
-    }
     try {
         $st = $pdo->prepare("
             SELECT a.id
@@ -953,10 +949,14 @@ function auto_renew_resolve_default_to_account(PDO $pdo, int $c168Pk, int $exclu
         ");
         $st->execute([$c168Pk, (int) $excludeAccountId]);
         $v = $st->fetchColumn();
-        return ($v !== false && $v !== null) ? (int) $v : null;
+        if ($v !== false && $v !== null) {
+            return (int) $v;
+        }
     } catch (PDOException $e) {
         return null;
     }
+
+    return auto_renew_resolve_c168_owner_account($pdo, $c168Pk, $excludeAccountId);
 }
 
 function auto_renew_account_code_from_map(?int $accountId, array $accountsById): ?string
