@@ -29,7 +29,7 @@ import {
   AUTO_RENEW_PAGE_SIZE,
   canApproveRow,
   filterAutoRenewRows,
-  formatAutoRenewAccountLabel,
+  formatAutoRenewRowAccountLabel,
   formatRemainingForRow,
   formatSubmitterAt,
   getRowDraftValues,
@@ -110,24 +110,6 @@ function normalizeEntityListSnapshot(data) {
     counts: data?.counts || EMPTY_COUNTS,
     canEditGlobal: Boolean(data?.can_edit),
   };
-}
-
-function AccountSelect({ value, accounts, placeholder, disabled, onChange }) {
-  return (
-    <select
-      className="auto-renew-inline-select"
-      value={value || ""}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : "")}
-    >
-      <option value="">{placeholder}</option>
-      {(accounts || []).map((acc) => (
-        <option key={acc.id} value={acc.id}>
-          {formatAutoRenewAccountLabel(acc)}
-        </option>
-      ))}
-    </select>
-  );
 }
 
 export default function AutoRenewPage() {
@@ -770,34 +752,14 @@ export default function AutoRenewPage() {
                           )}
                         </div>
                         <div className="card-item auto-renew-col-control">
-                          {isPendingEditable ? (
-                            <AccountSelect
-                              value={draft.fromAccountId}
-                              accounts={accounts}
-                              placeholder={t("selectFromAccount")}
-                              disabled={rowBusy}
-                              onChange={(val) => updateDraft(row.request_id, { fromAccountId: val })}
-                            />
-                          ) : (
-                            <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                              {formatAutoRenewAccountLabel(accounts.find((a) => a.id === row.from_account_id)) || "-"}
-                            </span>
-                          )}
+                          <span className="auto-renew-cell-readonly auto-renew-table-muted">
+                            {formatAutoRenewRowAccountLabel(row, draft.fromAccountId, accounts, "from") || "-"}
+                          </span>
                         </div>
                         <div className="card-item auto-renew-col-control">
-                          {isPendingEditable ? (
-                            <AccountSelect
-                              value={draft.toAccountId}
-                              accounts={accounts}
-                              placeholder={t("selectToAccount")}
-                              disabled={rowBusy}
-                              onChange={(val) => updateDraft(row.request_id, { toAccountId: val })}
-                            />
-                          ) : (
-                            <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                              {formatAutoRenewAccountLabel(accounts.find((a) => a.id === row.to_account_id)) || "-"}
-                            </span>
-                          )}
+                          <span className="auto-renew-cell-readonly auto-renew-table-muted">
+                            {formatAutoRenewRowAccountLabel(row, draft.toAccountId, accounts, "to") || "-"}
+                          </span>
                         </div>
                         <div className="card-item auto-renew-col-control auto-renew-col-control--status">{renderStatusCell(row)}</div>
                         {showSubmitterColumn ? (

@@ -905,6 +905,73 @@ function auto_renew_resolve_default_from_account(PDO $pdo, int $c168Pk, string $
     return null;
 }
 
+function auto_renew_resolve_c168_owner_account(PDO $pdo, int $c168Pk, int $excludeAccountId = 0): ?int
+{
+    if ($c168Pk <= 0) {
+        return null;
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT a.id
+            FROM company c
+            INNER JOIN owner o ON o.id = c.owner_id
+            INNER JOIN account a ON UPPER(TRIM(a.account_id)) = UPPER(TRIM(o.owner_code))
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE c.id = ?
+              AND ac.company_id = c.id
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            LIMIT 1
+        ");
+        $st->execute([$c168Pk, (int) $excludeAccountId]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null) ? (int) $v : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
+function auto_renew_resolve_default_to_account(PDO $pdo, int $c168Pk, int $excludeAccountId = 0): ?int
+{
+    if ($c168Pk <= 0) {
+        return null;
+    }
+    $ownerId = auto_renew_resolve_c168_owner_account($pdo, $c168Pk, $excludeAccountId);
+    if ($ownerId && $ownerId > 0) {
+        return $ownerId;
+    }
+    try {
+        $st = $pdo->prepare("
+            SELECT a.id
+            FROM account a
+            INNER JOIN account_company ac ON ac.account_id = a.id
+            WHERE ac.company_id = ?
+              AND UPPER(TRIM(COALESCE(a.account_id, ''))) = 'C168'
+              AND a.id <> ?
+              AND (a.status IS NULL OR LOWER(TRIM(a.status)) = 'active')
+            LIMIT 1
+        ");
+        $st->execute([$c168Pk, (int) $excludeAccountId]);
+        $v = $st->fetchColumn();
+        return ($v !== false && $v !== null) ? (int) $v : null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
+function auto_renew_account_code_from_map(?int $accountId, array $accountsById): ?string
+{
+    if (!$accountId || $accountId <= 0) {
+        return null;
+    }
+    $acc = $accountsById[$accountId] ?? null;
+    if (!is_array($acc)) {
+        return null;
+    }
+    $code = trim((string) ($acc['account_code'] ?? ''));
+    return $code !== '' ? $code : null;
+}
+
 function auto_renew_resolve_c168_default_currency_id(PDO $pdo, int $c168Pk): ?int
 {
     if ($c168Pk <= 0 || !auto_renew_table_has_column($pdo, 'transactions', 'currency_id')) {
@@ -1200,6 +1267,9 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
     $toId = !empty($row['to_account_id']) ? (int) $row['to_account_id'] : null;
     $accountLookupCode = $companyCode;
 
+    if (!$toId && $c168Pk > 0) {
+        $toId = auto_renew_resolve_default_to_account($pdo, $c168Pk, (int) ($fromId ?? 0));
+    }
     if (!$fromId && $c168Pk > 0) {
         $fromId = auto_renew_resolve_default_from_account($pdo, $c168Pk, $accountLookupCode, (int) ($toId ?? 0));
     }
@@ -1207,6 +1277,11 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
     $defaultFrom = ($c168Pk > 0)
         ? auto_renew_resolve_default_from_account($pdo, $c168Pk, $accountLookupCode, (int) ($toId ?? 0))
         : null;
+    $defaultTo = ($c168Pk > 0)
+        ? auto_renew_resolve_default_to_account($pdo, $c168Pk, (int) ($fromId ?? 0))
+        : null;
+
+    $accountsResolved = $fromId > 0 && $toId > 0 && $fromId !== $toId;
 
     return [
         'request_id' => (int) ($row['request_id'] ?? 0),
@@ -1227,6 +1302,9 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
         'from_account_id' => $fromId,
         'to_account_id' => $toId,
         'default_from_account_id' => $defaultFrom,
+        'default_to_account_id' => $defaultTo,
+        'from_account_code' => auto_renew_account_code_from_map($fromId, $accountsById),
+        'to_account_code' => auto_renew_account_code_from_map($toId, $accountsById),
         'transaction_id' => !empty($row['transaction_id']) ? (int) $row['transaction_id'] : null,
         'new_expiration_date' => !empty($row['new_expiration_date']) ? (string) $row['new_expiration_date'] : null,
         'processed_by' => $row['processed_by'] ?? null,
@@ -1240,7 +1318,8 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
         'can_approve' => $requestStatus === 'pending'
             && $price !== null
             && money_cmp($price, '0') > 0
-            && empty($row['is_payment_deleted']),
+            && empty($row['is_payment_deleted'])
+            && $accountsResolved,
         'can_delete' => $requestStatus === 'approved'
             && !empty($row['transaction_id'])
             && empty($row['is_payment_deleted']),
@@ -2031,6 +2110,19 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
     $c168Pk = auto_renew_get_c168_pk($pdo);
     if (!$c168Pk) {
         throw new RuntimeException('C168 company not found');
+    }
+
+    $companyCode = (string) ($row['company_code'] ?? '');
+    if ($toId <= 0) {
+        $toId = (int) (auto_renew_resolve_default_to_account($pdo, $c168Pk, $fromId > 0 ? $fromId : 0) ?? 0);
+    }
+    if ($fromId <= 0) {
+        $fromId = (int) (auto_renew_resolve_default_from_account(
+            $pdo,
+            $c168Pk,
+            $companyCode,
+            $toId > 0 ? $toId : 0
+        ) ?? 0);
     }
 
     if (!$period) {

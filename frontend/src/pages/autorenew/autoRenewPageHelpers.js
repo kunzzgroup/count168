@@ -155,7 +155,7 @@ export function getRowDraftValues(row, drafts) {
   return {
     period: draft.period ?? row.period ?? "",
     fromAccountId: draft.fromAccountId ?? row.from_account_id ?? row.default_from_account_id ?? "",
-    toAccountId: draft.toAccountId ?? row.to_account_id ?? "",
+    toAccountId: draft.toAccountId ?? row.to_account_id ?? row.default_to_account_id ?? "",
   };
 }
 
@@ -206,4 +206,15 @@ export function formatAutoRenewAccountLabel(acc) {
   const name = String(acc?.name ?? "").trim();
   if (code && name) return `${code} (${name})`;
   return code || name || "";
+}
+
+export function formatAutoRenewRowAccountLabel(row, accountId, accounts, kind = "from") {
+  const id = accountId != null && accountId !== "" ? Number(accountId) : null;
+  if (id) {
+    const acc = (accounts || []).find((a) => Number(a.id) === id);
+    if (acc) return formatAutoRenewAccountLabel(acc);
+  }
+  const code = kind === "to" ? row?.to_account_code : row?.from_account_code;
+  if (code) return String(code);
+  return "";
 }
