@@ -1599,11 +1599,11 @@ body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar
 body.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled:hover,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled,
 body.ec-auth-shell.process-page.process-page--bank .bank-process-toolbar-top-row .user-toolbar-actions-right .btn-delete:disabled:hover {
-    background: linear-gradient(180deg, #efb4b4 0%, #d66a6a 100%) !important;
-    color: #ffffff !important;
+    background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+    color: #f8fafc !important;
     box-shadow: none !important;
     transform: none !important;
-    opacity: 0.72;
+    opacity: 0.9;
     cursor: not-allowed;
 }
 
