@@ -72,9 +72,9 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
   const pd = data || {};
 
   if (applyCompanyOnlyFields) {
-    if (pd.remove_word) setRemoveWord(String(pd.remove_word).toUpperCase());
-    if (pd.replace_word_from) setReplaceFrom(String(pd.replace_word_from).toUpperCase());
-    if (pd.replace_word_to) setReplaceTo(String(pd.replace_word_to).toUpperCase());
+    if (pd.remove_word) setRemoveWord(String(pd.remove_word));
+    if (pd.replace_word_from) setReplaceFrom(String(pd.replace_word_from));
+    if (pd.replace_word_to) setReplaceTo(String(pd.replace_word_to));
 
     if (pd.description_names) {
       const arr = Array.isArray(pd.description_names) ? pd.description_names : [pd.description_names];
@@ -83,7 +83,7 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
     }
   }
 
-  if (pd.remarks) setRemark(String(pd.remarks).toUpperCase());
+  if (pd.remarks) setRemark(String(pd.remarks));
 
   const currencyIdStr = pd.currency_id != null ? String(pd.currency_id) : "";
   const list = currenciesSnapshot || [];
@@ -140,16 +140,16 @@ export function useDataCaptureFormEngine(
     return "";
   });
   const [replaceFrom, setReplaceFrom] = useState(() =>
-    restoredProcessData?.replaceWordFrom ? String(restoredProcessData.replaceWordFrom).toUpperCase() : "",
+    restoredProcessData?.replaceWordFrom ? String(restoredProcessData.replaceWordFrom) : "",
   );
   const [replaceTo, setReplaceTo] = useState(() =>
-    restoredProcessData?.replaceWordTo ? String(restoredProcessData.replaceWordTo).toUpperCase() : "",
+    restoredProcessData?.replaceWordTo ? String(restoredProcessData.replaceWordTo) : "",
   );
   const [removeWord, setRemoveWord] = useState(() =>
-    restoredProcessData?.removeWord ? String(restoredProcessData.removeWord).toUpperCase() : "",
+    restoredProcessData?.removeWord ? String(restoredProcessData.removeWord) : "",
   );
   const [remark, setRemark] = useState(() =>
-    restoredProcessData?.remark ? String(restoredProcessData.remark).toUpperCase() : "",
+    restoredProcessData?.remark ? String(restoredProcessData.remark) : "",
   );
   const [descriptionDisplay, setDescriptionDisplay] = useState(() =>
     Array.isArray(restoredProcessData?.descriptions) ? restoredProcessData.descriptions.join(", ") : "",
@@ -466,10 +466,10 @@ export function useDataCaptureFormEngine(
       if (!processData) return;
       if (processData.date) setCaptureDate(processData.date);
       if (processData.currency) setCurrencyId(String(processData.currency));
-      if (processData.removeWord != null) setRemoveWord(String(processData.removeWord).toUpperCase());
-      if (processData.replaceWordFrom != null) setReplaceFrom(String(processData.replaceWordFrom).toUpperCase());
-      if (processData.replaceWordTo != null) setReplaceTo(String(processData.replaceWordTo).toUpperCase());
-      if (processData.remark != null) setRemark(String(processData.remark).toUpperCase());
+      if (processData.removeWord != null) setRemoveWord(String(processData.removeWord));
+      if (processData.replaceWordFrom != null) setReplaceFrom(String(processData.replaceWordFrom));
+      if (processData.replaceWordTo != null) setReplaceTo(String(processData.replaceWordTo));
+      if (processData.remark != null) setRemark(String(processData.remark));
       if (processData.descriptions && Array.isArray(processData.descriptions)) {
         window.selectedDescriptions = [...processData.descriptions];
         setDescriptionDisplay(processData.descriptions.join(", "));

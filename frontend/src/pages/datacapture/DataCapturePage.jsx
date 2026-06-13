@@ -77,6 +77,7 @@ import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmit
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
 import { getDataCaptureText } from "../../translateFile/pages/dataCaptureTranslate.js";
+import { toEnglishDisplayCase } from "./lib/dataCaptureDisplayCase.js";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
@@ -921,7 +922,7 @@ export default function DataCapturePage() {
                   data-permission={p}
                   onClick={() => selectPermission(p)}
                 >
-                  {p}
+                  {toEnglishDisplayCase(p)}
                 </button>
               ))}
             </div>
@@ -952,6 +953,7 @@ export default function DataCapturePage() {
                   <GcInlineFilterPanel
                     embedded
                     t={t}
+                    segmentLabelFormat={toEnglishDisplayCase}
                     groupIds={groupIds}
                     groupsAllMode={groupsAllMode}
                     selectedGroup={selectedGroup}
@@ -1016,7 +1018,7 @@ export default function DataCapturePage() {
                             placeholder={t("searchProcess")}
                             autoComplete="off"
                             value={form.processFilter}
-                            onChange={(e) => form.setProcessFilter(e.target.value.toUpperCase())}
+                            onChange={(e) => form.setProcessFilter(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === "Escape") {
                                 form.setProcessOpen(false);
@@ -1130,7 +1132,7 @@ export default function DataCapturePage() {
                       name="remark"
                       placeholder={t("enterRemark")}
                       value={form.remark}
-                      onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
+                      onChange={(e) => form.setRemark(e.target.value)}
                     />
                   </div>
                 ) : null}
@@ -1147,7 +1149,7 @@ export default function DataCapturePage() {
                         name="replace_word_from"
                         placeholder={t("oldWord")}
                         value={form.replaceFrom}
-                        onChange={(e) => form.setReplaceFrom(e.target.value.toUpperCase())}
+                        onChange={(e) => form.setReplaceFrom(e.target.value)}
                       />
                       <span className="replace-arrow">→</span>
                       <input
@@ -1156,7 +1158,7 @@ export default function DataCapturePage() {
                         name="replace_word_to"
                         placeholder={t("newWord")}
                         value={form.replaceTo}
-                        onChange={(e) => form.setReplaceTo(e.target.value.toUpperCase())}
+                        onChange={(e) => form.setReplaceTo(e.target.value)}
                       />
                     </div>
                   </div>
@@ -1175,7 +1177,7 @@ export default function DataCapturePage() {
                       className="dc-remove-remark__input dc-remove-remark__input--rm"
                       placeholder={t("enterWordsToRemove")}
                       value={form.removeWord}
-                      onChange={(e) => form.setRemoveWord(e.target.value.toUpperCase())}
+                      onChange={(e) => form.setRemoveWord(e.target.value)}
                     />
                     <input
                       type="text"
@@ -1184,7 +1186,7 @@ export default function DataCapturePage() {
                       className="dc-remove-remark__input dc-remove-remark__input--mk"
                       placeholder={t("enterRemark")}
                       value={form.remark}
-                      onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
+                      onChange={(e) => form.setRemark(e.target.value)}
                     />
                     <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                       {t("removeWordHelp")}

@@ -558,15 +558,6 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     border-radius: 4px;
     font-size: clamp(10px, 0.74vw, 14px);
     box-sizing: border-box;
-    text-transform: uppercase;
-}
-
-/* Uppercase conversion for remove word, replace words, and remark */
-#capture_remove_word,
-#capture_replace_word_from,
-#capture_replace_word_to,
-#capture_remark {
-    text-transform: uppercase;
 }
 
 .replace-arrow {
@@ -668,7 +659,6 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     border-radius: 4px;
     font-size: 14px;
     box-sizing: border-box;
-    text-transform: uppercase;
 }
 
 .custom-select-options {
@@ -1190,7 +1180,6 @@ body.datacapture-page .bottom-section .form-actions {
     box-sizing: border-box;
     transition: all 0.2s;
     background-color: white;
-    text-transform: uppercase;
 }
 
 .description-search {
@@ -1209,7 +1198,6 @@ body.datacapture-page .bottom-section .form-actions {
     box-sizing: border-box;
     transition: all 0.2s;
     background-color: white;
-    text-transform: uppercase;
 }
 
 .description-list,
@@ -1566,7 +1554,6 @@ body.datacapture-page .excel-table-container {
     /* 添加这行 - 光标黑色 */
     color: #000000;
     /* 确保文字也是黑色 */
-    text-transform: uppercase;
 }
 
 /* 2.Format模式：确保粘贴的单元格内容样式不被覆盖 */

@@ -3,6 +3,7 @@ import ProcessModalPortal, { processModalBackdropStyle } from "../../../componen
 import { fetchDescriptionCatalog, postAddDescription, postDeleteDescription } from "../lib/dataCaptureApi.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
+import { toEnglishDisplayCase } from "../lib/dataCaptureDisplayCase.js";
 
 function normalizeCatalog(json) {
   const raw = json?.descriptions ?? json?.data?.descriptions ?? [];
@@ -10,7 +11,7 @@ function normalizeCatalog(json) {
   return raw
     .map((d) => ({
       id: d.id,
-      name: d.name != null ? String(d.name).trim().toUpperCase() : "",
+      name: d.name != null ? String(d.name).trim() : "",
     }))
     .filter((d) => d.name && d.id != null);
 }
@@ -51,7 +52,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
     if (!open) return;
     setPendingNames(
       (Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : []).map((n) =>
-        String(n).trim().toUpperCase(),
+        String(n).trim(),
       ),
     );
     setSearch("");
@@ -82,7 +83,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
   const handleAdd = useCallback(
     async (e) => {
       e.preventDefault();
-      const trimmed = newName.trim().toUpperCase();
+      const trimmed = newName.trim();
       if (!trimmed || !companyId) return;
       try {
         const result = await postAddDescription(companyId, trimmed);
@@ -182,7 +183,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                 ) : (
                   pendingNames.map((name) => (
                     <div key={name} className="selected-description-modal-item">
-                      <span>{String(name).toUpperCase()}</span>
+                      <span>{toEnglishDisplayCase(name)}</span>
                       <button type="button" className="remove-description-modal" onClick={() => removeSelected(name)}>
                         &times;
                       </button>
@@ -203,8 +204,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                       placeholder={t("enterNewDescriptionName")}
                       required
                       value={newName}
-                      onChange={(e) => setNewName(e.target.value.toUpperCase())}
-                      style={{ textTransform: "uppercase" }}
+                      onChange={(e) => setNewName(e.target.value)}
                     />
                     <button type="submit" className="btn btn-save">
                       {t("add")}
@@ -219,8 +219,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                   type="text"
                   placeholder={t("searchDescriptions")}
                   value={search}
-                  onChange={(e) => setSearch(e.target.value.toUpperCase())}
-                  style={{ textTransform: "uppercase" }}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
               <div className="description-list" id="existingDescriptions">
@@ -239,7 +238,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                           checked={pendingNames.includes(d.name)}
                           onChange={(e) => toggleName(d.name, e.target.checked)}
                         />
-                        <label htmlFor={`desc_${d.id}`}>{String(d.name).toUpperCase()}</label>
+                        <label htmlFor={`desc_${d.id}`}>{toEnglishDisplayCase(d.name)}</label>
                       </div>
                       <button
                         type="button"

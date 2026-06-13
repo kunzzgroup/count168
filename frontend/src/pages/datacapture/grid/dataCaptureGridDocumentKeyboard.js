@@ -317,12 +317,12 @@ const key = (e.key || '').toLowerCase();
                 setActiveCell(firstCell);
                 moveCaretToEnd(firstCell);
 
-                // Manually insert character (because we need to convert to uppercase)
+                // Manually insert character
                 const selection = window.getSelection();
                 if (selection && selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0);
                     range.deleteContents();
-                    const textNode = document.createTextNode(e.key.toUpperCase());
+                    const textNode = document.createTextNode(e.key);
                     range.insertNode(textNode);
                     range.setStartAfter(textNode);
                     range.collapse(true);
@@ -330,7 +330,7 @@ const key = (e.key || '').toLowerCase();
                     selection.addRange(range);
                 } else {
                     // If Selection API cannot be used, directly set text content
-                    firstCell.textContent = e.key.toUpperCase();
+                    firstCell.textContent = e.key;
                     moveCaretToEnd(firstCell);
                 }
 
