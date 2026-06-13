@@ -195,10 +195,20 @@ export function resolveAutoRenewDisplayPrice(row, drafts, feeSettings) {
 }
 
 export function canApproveRow(row, drafts, feeSettings) {
-  if (row.status !== "pending" || !row.can_approve) return false;
+  if (row.status !== "pending" || row.is_payment_deleted) return false;
   const { period, fromAccountId, toAccountId } = getRowDraftValues(row, drafts);
   const price = resolveAutoRenewDisplayPrice(row, drafts, feeSettings);
   return Boolean(period && fromAccountId && toAccountId && price > 0);
+}
+
+export function getAutoRenewApproveDisabledReason(row, drafts, feeSettings, t) {
+  if (row.status !== "pending" || row.is_payment_deleted) return "";
+  const { period, fromAccountId, toAccountId } = getRowDraftValues(row, drafts);
+  const price = resolveAutoRenewDisplayPrice(row, drafts, feeSettings);
+  if (!period) return t("selectPeriod");
+  if (!fromAccountId || !toAccountId) return t("accountsNotResolved");
+  if (price <= 0) return t("noPriceHint");
+  return "";
 }
 
 export function formatAutoRenewAccountLabel(acc) {

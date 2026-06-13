@@ -1316,8 +1316,6 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
             : ($period ? auto_renew_format_payment_description($companyCode, $period, $entityType) : null),
         'reject_reason' => $row['reject_reason'] ?? null,
         'can_approve' => $requestStatus === 'pending'
-            && $price !== null
-            && money_cmp($price, '0') > 0
             && empty($row['is_payment_deleted'])
             && $accountsResolved,
         'can_delete' => $requestStatus === 'approved'

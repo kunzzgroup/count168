@@ -32,6 +32,7 @@ import {
   formatAutoRenewRowAccountLabel,
   formatRemainingForRow,
   formatSubmitterAt,
+  getAutoRenewApproveDisabledReason,
   getRowDraftValues,
   paginateRows,
   periodToLabelKey,
@@ -503,13 +504,16 @@ export default function AutoRenewPage() {
     if (row.status === "pending" && canEditGlobal) {
       const displayPrice = resolveAutoRenewDisplayPrice(row, rowDrafts, feeSettings);
       const approveEnabled = canApproveRow(row, rowDrafts, feeSettings) && busyRequestId !== row.request_id;
+      const approveDisabledReason = approveEnabled
+        ? undefined
+        : getAutoRenewApproveDisabledReason(row, rowDrafts, feeSettings, t);
       return (
         <div className="auto-renew-action-btns">
           <button
             type="button"
             className="auto-renew-btn auto-renew-btn-primary auto-renew-btn--sm"
             disabled={!approveEnabled}
-            title={displayPrice <= 0 ? t("noPriceHint") : undefined}
+            title={approveDisabledReason || undefined}
             onClick={() => handleApprove(row)}
           >
             {busyRequestId === row.request_id ? t("processing") : t("approve")}
