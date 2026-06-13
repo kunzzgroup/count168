@@ -10,6 +10,7 @@ import {
   resolveEarningsShareDenominator,
 } from "../lib/dashboardEarnings.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
+import { DashboardAnimatedValue } from "./DashboardAnimatedValue.jsx";
 import { EarningsPieSectorTooltip } from "./EarningsPieSectorTooltip.jsx";
 
 export function DashboardEarningsSummary({
@@ -169,7 +170,15 @@ export function DashboardEarningsSummary({
               {currencyCode ? ` · ${currencyCode}` : ""}
             </span>
             <div className="dashboard-summary-hero-value">
-              {summaryEarningsLoading ? "…" : formatCurrency(summaryEarningsValue)}
+              {summaryEarningsLoading ? (
+                "…"
+              ) : (
+                <DashboardAnimatedValue
+                  value={summaryEarningsValue}
+                  active={!summaryEarningsLoading}
+                  className="dashboard-summary-hero-value-anim"
+                />
+              )}
             </div>
             {summaryConversionNote && (
               <span className="dashboard-summary-hero-conversion-note">{summaryConversionNote}</span>

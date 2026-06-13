@@ -1,5 +1,6 @@
+import { DashboardAnimatedValue } from "./DashboardAnimatedValue.jsx";
 import { KPI_CARD_ICONS } from "../lib/dashboardConstants.js";
-import { formatCurrency, formatSignedChange } from "../lib/dashboardFormat.js";
+import { formatSignedChange } from "../lib/dashboardFormat.js";
 
 export function DashboardKpiCard({
   variant,
@@ -27,7 +28,9 @@ export function DashboardKpiCard({
         <span className="kpi-card-head-label">{label}</span>
       </div>
       <div className="kpi-card-main">
-        <div className="kpi-card-value">{loading ? "…" : value}</div>
+        <div className="kpi-card-value">
+          {loading ? "…" : <DashboardAnimatedValue value={value} active={!loading} />}
+        </div>
         {showCompare && (
           <span className={`kpi-card-badge${badgeUp ? " is-up" : " is-down"}`}>
             <i className={`fas fa-arrow-${badgeUp ? "up" : "down"}`} aria-hidden="true" />

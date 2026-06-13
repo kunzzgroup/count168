@@ -1,5 +1,4 @@
 import { DashboardKpiCard } from "./DashboardKpiCard.jsx";
-import { formatCurrency } from "../lib/dashboardFormat.js";
 
 export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loading, dashboardData }) {
   const kpiLoading = loading && !dashboardData;
@@ -11,7 +10,7 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
       <DashboardKpiCard
         variant="profit"
         label={i18n.profit}
-        value={formatCurrency(kpi.profit)}
+        value={kpi.profit}
         compare={kpi.comparisons?.profit}
         compareLabel={kpiCompareLabel}
         fallbackFoot={kpiFooter}
@@ -20,7 +19,7 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
       <DashboardKpiCard
         variant="expense"
         label={i18n.expenses}
-        value={formatCurrency(kpi.expenses)}
+        value={kpi.expenses}
         compare={kpi.comparisons?.expenses}
         compareLabel={kpiCompareLabel}
         fallbackFoot={kpiFooter}
@@ -29,7 +28,7 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
       <DashboardKpiCard
         variant="net"
         label={i18n.netProfit}
-        value={formatCurrency(kpi.netProfit)}
+        value={kpi.netProfit}
         compare={kpi.comparisons?.netProfit}
         compareLabel={kpiCompareLabel}
         fallbackFoot={kpiFooter}
@@ -39,7 +38,7 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
         <DashboardKpiCard
           variant="earnings"
           label={i18n.earnings}
-          value={formatCurrency(kpi.earnings)}
+          value={kpi.earnings}
           compare={kpi.comparisons?.earnings}
           compareLabel={kpiCompareLabel}
           fallbackFoot={kpiFooter}
