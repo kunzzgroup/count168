@@ -23,8 +23,6 @@ export default function GcInlineFilterPanel({
   showCompanyRow = true,
   showAllOption = false,
   allLabelKey = "groupFilterAll",
-  /** Optional label formatter for group/company segment pills (default: uppercase). */
-  segmentLabelFormat = null,
   /** When true, render rows only (parent already provides .user-gc-inline-panel grid). */
   embedded = false,
   children = null,
@@ -32,11 +30,7 @@ export default function GcInlineFilterPanel({
   const selectedGroupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
   const allLabelRaw = typeof t === "function" ? t(allLabelKey) : allLabelKey;
   const allLabel =
-    allLabelRaw && allLabelRaw !== allLabelKey ? allLabelRaw : "All";
-  const formatSegmentLabel =
-    typeof segmentLabelFormat === "function"
-      ? segmentLabelFormat
-      : (value) => String(value || "").toUpperCase();
+    allLabelRaw && allLabelRaw !== allLabelKey ? allLabelRaw : "ALL";
 
   if (!showGroupRow && !showCompanyRow && !children) return null;
   if (!groupIds.length && !companiesForPicker.length && !children) return null;
@@ -64,7 +58,7 @@ export default function GcInlineFilterPanel({
                   className={`user-gc-segment${!groupsAllMode && gid === selectedGroupKey ? " is-on" : ""}`}
                   onClick={() => void onPickGroup?.(gid)}
                 >
-                  {formatSegmentLabel(gid)}
+                  {gid}
                 </button>
               ))}
             </div>
@@ -88,7 +82,7 @@ export default function GcInlineFilterPanel({
               {companiesForPicker.map((c) => {
                 const active = !groupAllMode && Number(pickerCompanyId) === Number(c.id);
                 const pending = switchingCompany && active;
-                const label = formatSegmentLabel(c.company_id || "");
+                const label = String(c.company_id || "").toUpperCase();
                 return (
                   <button
                     key={c.id}
