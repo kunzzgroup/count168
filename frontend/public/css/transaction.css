@@ -567,6 +567,32 @@ body.transaction-page .transaction-search-section .report-outlined-inner .catego
     align-content: center;
 }
 
+/* Category placeholder (--Select All--): center in field; chevron stays on the right */
+body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button:has(.category-placeholder:only-child) {
+    position: relative;
+    justify-content: center;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button:has(.category-placeholder:only-child) .category-selected-tags {
+    flex: 1 1 auto;
+    justify-content: center;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button:has(.category-placeholder:only-child) .category-placeholder {
+    width: 100%;
+    text-align: center;
+    padding-right: clamp(18px, 1.4vw, 22px);
+    box-sizing: border-box;
+}
+
+body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button:has(.category-placeholder:only-child) > .fas.fa-chevron-down {
+    position: absolute;
+    right: clamp(8px, 0.65vw, 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 0;
+}
+
 body.transaction-page .transaction-category-date-row .transaction-category-multiselect {
     min-width: 0;
     width: 100%;

@@ -483,7 +483,8 @@ export function dashboardGcFiltersEqual(a, b) {
     ga === gb &&
     ca === cb &&
     Boolean(a.groupOnly) === Boolean(b.groupOnly) &&
-    Boolean(a.groupAllMode) === Boolean(b.groupAllMode)
+    Boolean(a.groupAllMode) === Boolean(b.groupAllMode) &&
+    Boolean(a.groupsAllMode) === Boolean(b.groupsAllMode)
   );
 }
 
@@ -608,6 +609,11 @@ export function persistDashboardFilterState(selectedGroup, companyId, options = 
       persistDashboardGroupOnlyMode(false);
       persistDashboardGroupAllMode(true);
       persistDashboardSelectedCompany(null);
+      if (options.groupsAllMode === true) {
+        persistDashboardGroupsAllMode(true);
+      } else if (options.groupsAllMode === false) {
+        persistDashboardGroupsAllMode(false);
+      }
       stripCompanyIdFromUrl();
       return;
     }
@@ -662,9 +668,20 @@ export function resolveGcFilterBootCompanyId({
   if (persisted.groupAllMode) {
     return {
       companyId: null,
-      selectedGroup: persisted.selectedGroup,
+      selectedGroup: persisted.groupsAllMode ? null : persisted.selectedGroup,
       groupOnly: false,
       groupAllMode: true,
+      groupsAllMode: persisted.groupsAllMode,
+    };
+  }
+
+  if (persisted.groupsAllMode) {
+    return {
+      companyId: persisted.groupAllMode ? null : persisted.companyId,
+      selectedGroup: null,
+      groupOnly: false,
+      groupAllMode: persisted.groupAllMode,
+      groupsAllMode: true,
     };
   }
 
@@ -674,6 +691,7 @@ export function resolveGcFilterBootCompanyId({
       selectedGroup: persisted.selectedGroup,
       groupOnly: false,
       groupAllMode: false,
+      groupsAllMode: false,
     };
   }
 

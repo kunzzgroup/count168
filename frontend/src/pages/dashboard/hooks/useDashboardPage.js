@@ -1161,10 +1161,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           groupsAllMode: bootGroupsAllMode,
         });
       } else if (bootGroupsAllMode) {
-        persistDashboardGroupsAllMode(true);
-        persistDashboardGroupOnlyMode(false);
-        persistDashboardGroupAllMode(false);
-        persistDashboardSelectedCompany(null);
+        if (bootGroupAllMode) {
+          persistDashboardFilterState(null, null, {
+            allowGroupOnly: false,
+            companyAllMode: true,
+            groupsAllMode: true,
+          });
+        } else {
+          persistDashboardGroupsAllMode(true);
+          persistDashboardGroupOnlyMode(false);
+          persistDashboardGroupAllMode(false);
+          persistDashboardSelectedCompany(null);
+        }
       }
       if (bootCid == null) setLoading(false);
       bootstrapGcOnceRef.current = true;
@@ -6524,6 +6532,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     persistDashboardFilterState(groupForPersist, null, {
       allowGroupOnly: false,
       companyAllMode: true,
+      groupsAllMode,
     });
     flushSync(() => {
       setGroupAllMode(true);

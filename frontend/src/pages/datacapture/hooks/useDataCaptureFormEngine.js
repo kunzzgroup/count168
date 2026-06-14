@@ -16,7 +16,7 @@ import {
 import { selectedProcessFromGroupOnlySession } from "../lib/dataCaptureGroupOnlyProcesses.js";
 import { restoreGroupOnlyTableDraft, saveGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
-import { captureTableDataFromDom } from "../lib/dataCaptureTableSnapshot.js";
+import { captureTableSnapshot } from "../lib/dataCaptureTableSnapshot.js";
 
 const PROCESS_PLACEHOLDER = "Select Process";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
@@ -323,7 +323,7 @@ export function useDataCaptureFormEngine(
           ? window.__DC_GET_CAPTURE_TYPE__() || "1.Text"
           : "1.Text";
       saveGroupOnlyTableDraft(selectedGroupRef.current, prev.id, {
-        tableData: captureTableDataFromDom(activeCaptureType),
+        tableData: captureTableSnapshot(activeCaptureType),
         captureType: activeCaptureType,
       });
     }
