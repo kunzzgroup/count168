@@ -1688,17 +1688,9 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
     overflow: hidden !important;
 }
 
-/* Title bar — gray bg + separator, match Account / Process modals */
-#addBankModal .modal-header,
-body.process-page > #addBankModal.modal .modal-header {
-    flex-shrink: 0;
-    position: relative;
-    margin: 0;
-    padding: 3px 20px;
-    background: var(--color-surface-gray-50, #f8fafc);
+/* Title bar separator — match Account / Process form modals (not blue) */
+#addBankModal .modal-header {
     border-bottom: 1px solid var(--color-border-muted, #e2e8f0);
-    border-radius: 1rem 1rem 0 0;
-    box-sizing: border-box;
 }
 
 /* Bank modal body: flex column — scrollable field area + fixed action bar */
