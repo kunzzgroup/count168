@@ -1989,6 +1989,59 @@ function auto_renew_resolve_delete_target(PDO $pdo, int $requestId, array $input
     throw new RuntimeException('Request not found');
 }
 
+function auto_renew_transaction_is_active(PDO $pdo, int $companyId, int $transactionId): bool
+{
+    if ($companyId <= 0 || $transactionId <= 0) {
+        return false;
+    }
+    try {
+        $st = $pdo->prepare('SELECT 1 FROM transactions WHERE id = ? AND company_id = ? LIMIT 1');
+        $st->execute([$transactionId, $companyId]);
+        return $st->fetchColumn() !== false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
+function auto_renew_prepare_payment_delete_environment(PDO $pdo): void
+{
+    // DDL must run before beginTransaction — MySQL implicit commit breaks nested commits otherwise.
+    payment_delete_ensure_transactions_deleted_table($pdo);
+    if (function_exists('bmp_ensureMaintenanceResendPendingTable')) {
+        bmp_ensureMaintenanceResendPendingTable($pdo);
+    }
+}
+
+function auto_renew_revert_approved_renewal(PDO $pdo, array $row, int $requestId, string $snapshot, string $entityType): void
+{
+    if ($entityType === 'group') {
+        $updTenant = $pdo->prepare('UPDATE `groups` SET expiration_date = ? WHERE id = ?');
+        $updTenant->execute([$snapshot, (int) $row['group_id']]);
+    } else {
+        $updTenant = $pdo->prepare('UPDATE company SET expiration_date = ? WHERE id = ?');
+        $updTenant->execute([$snapshot, (int) $row['company_id']]);
+    }
+
+    $updReq = $pdo->prepare("
+        UPDATE company_auto_renew_request
+        SET status = 'pending',
+            period = NULL,
+            price = NULL,
+            from_account_id = NULL,
+            to_account_id = NULL,
+            transaction_id = NULL,
+            new_expiration_date = NULL,
+            processed_by = NULL,
+            processed_at = NULL,
+            reject_reason = NULL
+        WHERE id = ? AND status = 'approved'
+    ");
+    $updReq->execute([$requestId]);
+    if ($updReq->rowCount() === 0) {
+        throw new RuntimeException('Request was already changed');
+    }
+}
+
 function auto_renew_validate_account_in_c168(PDO $pdo, int $c168Pk, int $accountId): bool
 {
     if ($c168Pk <= 0 || $accountId <= 0) {
@@ -2389,45 +2442,26 @@ function auto_renew_delete(PDO $pdo, int $requestId, array $session, array $inpu
     }
     $entityType = auto_renew_normalize_entity_type($row['entity_type'] ?? 'company');
 
+    auto_renew_prepare_payment_delete_environment($pdo);
+
     $pdo->beginTransaction();
     try {
-        payment_delete_transactions_by_ids(
-            $pdo,
-            $c168Pk,
-            [$txnId],
-            $session,
-            '/api/subscription/auto_renew_api.php',
-            false
-        );
-
-        if ($entityType === 'group') {
-            $updTenant = $pdo->prepare('UPDATE `groups` SET expiration_date = ? WHERE id = ?');
-            $updTenant->execute([$snapshot, (int) $row['group_id']]);
-        } else {
-            $updTenant = $pdo->prepare('UPDATE company SET expiration_date = ? WHERE id = ?');
-            $updTenant->execute([$snapshot, (int) $row['company_id']]);
+        if (auto_renew_transaction_is_active($pdo, $c168Pk, $txnId)) {
+            payment_delete_transactions_by_ids(
+                $pdo,
+                $c168Pk,
+                [$txnId],
+                $session,
+                '/api/subscription/auto_renew_api.php',
+                false
+            );
         }
 
-        $updReq = $pdo->prepare("
-            UPDATE company_auto_renew_request
-            SET status = 'pending',
-                period = NULL,
-                price = NULL,
-                from_account_id = NULL,
-                to_account_id = NULL,
-                transaction_id = NULL,
-                new_expiration_date = NULL,
-                processed_by = NULL,
-                processed_at = NULL,
-                reject_reason = NULL
-            WHERE id = ? AND status = 'approved'
-        ");
-        $updReq->execute([$requestId]);
-        if ($updReq->rowCount() === 0) {
-            throw new RuntimeException('Request was already changed');
-        }
+        auto_renew_revert_approved_renewal($pdo, $row, $requestId, $snapshot, $entityType);
 
-        $pdo->commit();
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
         payment_delete_clear_tx_search_cache();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
