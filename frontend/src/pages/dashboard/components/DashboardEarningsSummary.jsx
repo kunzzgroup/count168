@@ -283,7 +283,7 @@ export function DashboardEarningsSummary({
       ? companyEarningsTotal
       : summaryEarningsValue;
   const showPieCenterBadge = isCompanyBreakdownView
-    ? companyBreakdownRows.length > 1
+    ? companyBreakdownRows.length > 0
     : showMultiCurrencyBreakdown;
 
   return (
@@ -337,7 +337,7 @@ export function DashboardEarningsSummary({
                 "…"
               ) : (
                 <DashboardAnimatedValue
-                  value={summaryEarningsValue}
+                  value={heroValue}
                   active={!summaryEarningsLoading}
                   className="dashboard-summary-hero-value-anim"
                 />

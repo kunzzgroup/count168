@@ -1,4 +1,12 @@
-import { netProfitFromDashboardPayload, viewerHasEarningsConfig } from "../../pages/dashboard/lib/dashboardKpi.js";
+import {
+  computeGroupAggregateEarningsAmount,
+  netProfitFromDashboardPayload,
+  viewerHasEarningsConfig,
+} from "../../pages/dashboard/lib/dashboardKpi.js";
+
+function isGroupLedgerDashboardPayload(d) {
+  return !!d?._group_aggregate_earnings || d?.group_ledger_net_profit != null;
+}
 
 function mergeDailyMap(target, source) {
   if (!source || typeof source !== "object") return;
@@ -25,6 +33,38 @@ export function attachGroupAggregateEarningsFields(mergedSubsidiaries, groupLedg
     group_account_percentage: parseFloat(groupLedgerPayload?.group_account_percentage) || 0,
     has_group_ownership: !!groupLedgerPayload?.has_group_ownership,
     has_ownership_setup: !!groupLedgerPayload?.has_group_ownership,
+    _group_aggregate_earnings: true,
+  };
+}
+
+/**
+ * After mergeGroupData for AP+IG group-ledger payloads, attach summed group earnings
+ * so KPI uses computeGroupAggregateEarningsAmount (not netProfit × ownership %).
+ */
+export function finalizeMergedGroupLedgerDashboard(merged, groupLedgerPayloads) {
+  if (!merged || !groupLedgerPayloads?.length) return merged;
+  const ledgerRows = groupLedgerPayloads.filter(isGroupLedgerDashboardPayload);
+  if (!ledgerRows.length) return merged;
+
+  let aggregateEarnings = 0;
+  let hasGroupOwnership = false;
+  let hasOwnershipSetup = false;
+  for (const d of ledgerRows) {
+    aggregateEarnings += computeGroupAggregateEarningsAmount(d, { requireViewerConfig: false });
+    if (d.has_group_ownership) hasGroupOwnership = true;
+    if (viewerHasEarningsConfig(d) || d.has_ownership_setup) hasOwnershipSetup = true;
+  }
+
+  return {
+    ...merged,
+    subsidiary_earnings_total: aggregateEarnings,
+    _subsidiary_earnings_total: aggregateEarnings,
+    group_ledger_net_profit: 0,
+    group_account_percentage: 0,
+    group_equity_percentage: 0,
+    ownership_percentage: 0,
+    has_group_ownership: hasGroupOwnership,
+    has_ownership_setup: hasOwnershipSetup || hasGroupOwnership || aggregateEarnings !== 0,
     _group_aggregate_earnings: true,
   };
 }
@@ -84,6 +124,12 @@ export function mergeGroupData(dataList, dateRange) {
     const rawE = parseFloat(d?.period_total?.expenses ?? d.expenses) || 0;
     const displayE = rawE > 0 ? -rawE : rawE;
     const netProfit = rawP + displayE;
+    if (isGroupLedgerDashboardPayload(d)) {
+      if (!viewerHasEarningsConfig(d)) return;
+      const earningsVal = computeGroupAggregateEarningsAmount(d, { requireViewerConfig: false });
+      companyEarnings.push({ netProfit, pct, grpPct, grpAccPct, hasGrp, earnings: earningsVal });
+      return;
+    }
     const linkMul = parseFloat(d?._link_multiplier || 0) || 0;
     const hasLink = linkMul > 0 && linkMul !== 1;
     const directPct = pct / 100;
