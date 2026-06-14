@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { canAccessC168AutoRenew } from "../../utils/company/loginScope.js";
+import {
+  AUTO_RENEW_PENDING_CHANGED_EVENT,
+  syncAutoRenewPendingCount,
+} from "../../utils/autoRenew/autoRenewPendingSync.js";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
@@ -140,6 +144,10 @@ export default function AutoRenewPage() {
   const [tabPendingCounts, setTabPendingCounts] = useState({ company: 0, group: 0 });
   const [entityTab, setEntityTab] = useState("company");
   const [statusFilter, setStatusFilter] = useState("pending");
+  const tabPendingCountsRef = useRef(tabPendingCounts);
+  tabPendingCountsRef.current = tabPendingCounts;
+  const statusFilterRef = useRef(statusFilter);
+  statusFilterRef.current = statusFilter;
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState("expiration");
   const [sortDirection, setSortDirection] = useState("asc");
@@ -183,10 +191,12 @@ export default function AutoRenewPage() {
   const applyTabPendingCounts = useCallback((data) => {
     const tpc = data?.tab_pending_counts;
     if (!tpc) return;
-    setTabPendingCounts({
+    const next = {
       company: Number(tpc?.company) || 0,
       group: Number(tpc?.group) || 0,
-    });
+    };
+    tabPendingCountsRef.current = next;
+    setTabPendingCounts(next);
   }, []);
 
   const storeEntityListData = useCallback(
@@ -274,6 +284,7 @@ export default function AutoRenewPage() {
     bootFetchedListKeyRef.current = null;
     setListRefreshing(true);
     await fetchList();
+    void syncAutoRenewPendingCount();
   }, [fetchList, invalidateListCaches]);
 
   useEffect(() => {
@@ -355,6 +366,23 @@ export default function AutoRenewPage() {
   }, [applyTabPendingCounts, bootLoading, dateFrom, dateTo, me, sessionReady, statusFilter, storeEntityListData]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!sessionReady || !me?.has_c168_auto_renew_access) return;
+
+    const onPendingChanged = (event) => {
+      if (statusFilterRef.current !== "pending") return;
+      const count = Number(event.detail?.pendingCount);
+      if (!Number.isFinite(count)) return;
+      const localTotal =
+        (tabPendingCountsRef.current.company || 0) + (tabPendingCountsRef.current.group || 0);
+      if (count === localTotal) return;
+      void refreshListAfterMutation();
+    };
+
+    window.addEventListener(AUTO_RENEW_PENDING_CHANGED_EVENT, onPendingChanged);
+    return () => window.removeEventListener(AUTO_RENEW_PENDING_CHANGED_EVENT, onPendingChanged);
+  }, [me?.has_c168_auto_renew_access, refreshListAfterMutation, sessionReady]);
 
   useEffect(() => {
     setCurrentPage(1);

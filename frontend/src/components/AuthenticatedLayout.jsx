@@ -12,6 +12,10 @@ import SidebarLangSwitch from "./SidebarLangSwitch.jsx";
 import { DASHBOARD_I18N } from "../translateFile/shell/dashboardTranslate.js";
 import { getExpirationReminderText } from "../translateFile/shell/expirationReminderTranslate.js";
 import { getAutoRenewText } from "../translateFile/pages/autoRenewTranslate.js";
+import {
+  AUTO_RENEW_PENDING_CHANGED_EVENT,
+  syncAutoRenewPendingCount,
+} from "../utils/autoRenew/autoRenewPendingSync.js";
 import { useExpirationReminder } from "../hooks/useExpirationReminder.js";
 import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
 import {
@@ -389,6 +393,7 @@ export default function AuthenticatedLayout() {
             expiration_status: json.data.expiration_status,
             expiration_date: json.data.expiration_date,
             days_until_expiration: json.data.days_until_expiration,
+            pending_auto_renew_count: Number(json.data.pending_auto_renew_count) || 0,
           };
         });
         if (appliedSessionToSidebar) {
@@ -579,6 +584,40 @@ export default function AuthenticatedLayout() {
       window.removeEventListener("eazycount:session-refresh-requested", onSessionRefresh);
     };
   }, [applySidebarPatch, scheduleRefreshSession]);
+
+  useEffect(() => {
+    if (!me?.has_c168_auto_renew_access) return;
+
+    const onPendingChanged = (event) => {
+      const count = Number(event.detail?.pendingCount);
+      if (!Number.isFinite(count)) return;
+      setMe((prev) => {
+        if (!prev || prev.pending_auto_renew_count === count) return prev;
+        return { ...prev, pending_auto_renew_count: count };
+      });
+    };
+
+    let cancelled = false;
+    const ac = new AbortController();
+
+    const tick = () => {
+      if (cancelled || document.visibilityState !== "visible") return;
+      void syncAutoRenewPendingCount({ signal: ac.signal }).catch(() => {});
+    };
+
+    window.addEventListener(AUTO_RENEW_PENDING_CHANGED_EVENT, onPendingChanged);
+    document.addEventListener("visibilitychange", tick);
+    tick();
+    const intervalId = window.setInterval(tick, 45000);
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+      window.clearInterval(intervalId);
+      window.removeEventListener(AUTO_RENEW_PENDING_CHANGED_EVENT, onPendingChanged);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [me?.has_c168_auto_renew_access]);
 
   const syncSidebarFromPersistedFilter = useCallback(
     (options = {}) => {
