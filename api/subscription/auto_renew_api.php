@@ -146,7 +146,7 @@ try {
             session_write_close();
             auto_renew_json_response(false, 'Invalid request_id', null, 400);
         }
-        $row = auto_renew_delete($pdo, $requestId, $_SESSION);
+        $row = auto_renew_delete($pdo, $requestId, $_SESSION, $input);
         session_write_close();
         auto_renew_json_response(true, 'Renewal deleted', $row);
     }

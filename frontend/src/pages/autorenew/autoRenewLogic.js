@@ -70,10 +70,12 @@ export async function rejectAutoRenew({ requestId }) {
   });
 }
 
-export async function deleteAutoRenew({ requestId }) {
+export async function deleteAutoRenew({ requestId, transactionId, entityType }) {
   return postAutoRenew({
     action: "delete",
     request_id: requestId,
+    transaction_id: transactionId || null,
+    entity_type: entityType === "group" ? "group" : "company",
   });
 }
 

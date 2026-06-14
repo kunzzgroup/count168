@@ -28,6 +28,7 @@ import {
 import {
   AUTO_RENEW_PAGE_SIZE,
   canApproveRow,
+  canDeleteRow,
   filterAutoRenewRows,
   formatAutoRenewRowAccountLabel,
   formatRemainingForRow,
@@ -424,23 +425,28 @@ export default function AutoRenewPage() {
   }, [busyRequestId, canEditGlobal, fetchList, notify, rejectConfirmRow, t]);
 
   const handleDelete = useCallback((row) => {
-    if (!canEditGlobal || busyRequestId || !row.can_delete) return;
+    if (!canEditGlobal || busyRequestId || !canDeleteRow(row)) return;
     setDeleteConfirmRow(row);
   }, [busyRequestId, canEditGlobal]);
 
   const confirmDeleteRow = useCallback(async () => {
     const row = deleteConfirmRow;
-    if (!row || !canEditGlobal || busyRequestId || !row.can_delete) return;
+    if (!row || !canEditGlobal || busyRequestId || !canDeleteRow(row)) return;
     setDeleteConfirmRow(null);
 
     setBusyRequestId(row.request_id);
     try {
-      await deleteAutoRenew({ requestId: row.request_id });
+      await deleteAutoRenew({
+        requestId: row.request_id,
+        transactionId: row.transaction_id,
+        entityType: row.entity_type,
+      });
       invalidateTransactionListCache("auto_renew_delete");
       notify(t("deletedSuccess"), "success");
       await fetchList();
     } catch (err) {
       notify(t("deleteFailed", { message: err.message }), "error");
+      await fetchList();
     } finally {
       setBusyRequestId(null);
     }
@@ -530,7 +536,7 @@ export default function AutoRenewPage() {
       );
     }
 
-    if (row.status === "approved" && row.can_delete && canEditGlobal) {
+    if (row.status === "approved" && canDeleteRow(row) && canEditGlobal) {
       return (
         <button
           type="button"

@@ -194,6 +194,15 @@ export function resolveAutoRenewDisplayPrice(row, drafts, feeSettings) {
   return resolveDomainFeePriceForPeriod(feeSettings, period, feeKind);
 }
 
+export function canDeleteRow(row) {
+  return (
+    row?.status === "approved" &&
+    Boolean(row?.can_delete) &&
+    Number(row?.request_id) > 0 &&
+    !row?.is_payment_deleted
+  );
+}
+
 export function canApproveRow(row, drafts, feeSettings) {
   if (row.status !== "pending" || row.is_payment_deleted) return false;
   const { period, fromAccountId, toAccountId } = getRowDraftValues(row, drafts);
