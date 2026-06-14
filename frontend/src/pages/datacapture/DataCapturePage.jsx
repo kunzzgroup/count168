@@ -1,10 +1,10 @@
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import {
-  buildDashboardSidebarNotifyOptions,
   companiesInGroupList,
   companyBelongsToGroup,
   dedupeOwnerCompaniesByCode,
@@ -24,8 +24,6 @@ import {
   filterCompaniesForLoginScope,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
-import { applySidebarForCompanySwitch } from "../../utils/company/sidebarCompanySwitch.js";
-import { filterCompaniesForGamesPills } from "../../utils/company/companyCategoryFlags.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
@@ -35,10 +33,7 @@ import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
 import "../../../public/css/datacapture.css";
 
-import {
-  formatGroupSubmittedProcessLabel,
-  formatSubmittedProcessDateTime,
-} from "./lib/dataCaptureApi.js";
+import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
 import { readCaptureSessionMeta } from "./lib/dataCaptureStorage.js";
 import {
   dataCaptureScopeCacheKey,
@@ -58,32 +53,65 @@ import {
   getGroupOnlyProcessOptions,
   isGroupOnlyProcessId,
 } from "./lib/dataCaptureGroupOnlyProcesses.js";
+import { resolveDataCaptureGridDimensions } from "./grid/dataCaptureGridMeta.js";
 import DataCaptureContextMenus from "./components/DataCaptureContextMenus.jsx";
 import DataCaptureDeleteDialog from "./components/DataCaptureDeleteDialog.jsx";
 import DataCaptureTableSection from "./components/DataCaptureTableSection.jsx";
 import DescriptionSelectionModal from "./components/DescriptionSelectionModal.jsx";
-import DataCaptureProcessSelect from "./components/DataCaptureProcessSelect.jsx";
 import ProcessNotificationContainer from "./components/ProcessNotificationContainer.jsx";
 import { useDataCaptureCategoryPermissions } from "./hooks/useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./hooks/useDataCaptureFormEngine.js";
 import { useDataCaptureGrid } from "./hooks/useDataCaptureGrid.js";
+import { useDataCaptureGridInteraction } from "./hooks/useDataCaptureGridInteraction.js";
 import { useDataCapturePaste } from "./hooks/useDataCapturePaste.js";
 import { useDataCaptureCaptureType } from "./hooks/useDataCaptureCaptureType.js";
-import { useDataCaptureFormat } from "./hooks/useDataCaptureFormat.js";
-import { useDataCapturePageLifecycle } from "./hooks/useDataCapturePageLifecycle.js";
-import { useDataCaptureDeleteDialog } from "./hooks/useDataCaptureDeleteDialog.js";
+import { useDataCaptureFormatPaste } from "./hooks/useDataCaptureFormatPaste.js";
+import { useDataCaptureFormatDisplay } from "./hooks/useDataCaptureFormatDisplay.js";
+import { useDataCaptureGlobalShims } from "./hooks/useDataCaptureGlobalShims.js";
+import { useDataCaptureGridHeader } from "./hooks/useDataCaptureGridHeader.js";
+import { useDataCaptureLegacyChrome } from "./hooks/useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
-import { useGroupOnlyTableDraftAutosave } from "./hooks/useGroupOnlyTableDraftAutosave.js";
-import { useGroupOnlyTableDraftFlush } from "./hooks/useGroupOnlyTableDraftFlush.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
+import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
 import { getDataCaptureText } from "../../translateFile/pages/dataCaptureTranslate.js";
-import { toEnglishDisplayCase } from "./lib/dataCaptureDisplayCase.js";
-import { DataCaptureProvider, useDataCaptureContext } from "./context/DataCaptureContext.jsx";
-import { callDataCaptureRuntime, getDataCaptureState } from "./lib/dataCaptureRuntime.js";
-import { updateActiveContextMenuPosition } from "./lib/dataCaptureContextMenu.js";
-import { setTableActive } from "./grid/dataCaptureGridMeta.js";
+import { DataCaptureProvider } from "./context/DataCaptureContext.jsx";
+
+/** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
+function loadScriptOnce(src, isAlreadyLoaded) {
+  return new Promise((resolve, reject) => {
+    const clean = src.split(/[?#]/)[0];
+    const finish = (node) => {
+      node.dataset.loaded = "1";
+      resolve();
+    };
+    const nodes = document.querySelectorAll("script[src]");
+    for (let i = 0; i < nodes.length; i += 1) {
+      const n = nodes[i];
+      const ns = n.getAttribute("src") || "";
+      if (ns.split(/[?#]/)[0] !== clean) continue;
+      if (n.dataset.loaded === "1") {
+        resolve();
+        return;
+      }
+      n.addEventListener("load", () => finish(n), { once: true });
+      n.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+      queueMicrotask(() => {
+        if (n.dataset.loaded === "1") return;
+        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) finish(n);
+      });
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = false;
+    s.onload = () => finish(s);
+    s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+    document.head.appendChild(s);
+  });
+}
 
 class DataCaptureErrorBoundary extends Component {
   constructor(props) {
@@ -109,7 +137,7 @@ class DataCaptureErrorBoundary extends Component {
           <p style={{ color: "#b91c1c", marginBottom: 12 }} role="alert">
             {msg}
           </p>
-          <p style={{ margin: 0, color: "#666", fontSize: "var(--text-small)" }}>
+          <p style={{ margin: 0, color: "#666", fontSize: 14 }}>
             {getDataCaptureText(lang, "renderFailedHint")}
           </p>
         </div>
@@ -119,9 +147,16 @@ class DataCaptureErrorBoundary extends Component {
   }
 }
 
+export default function DataCapturePage() {
+  return (
+    <DataCaptureProvider>
+      <DataCapturePageContent />
+    </DataCaptureProvider>
+  );
+}
+
 function DataCapturePageContent() {
   const navigate = useNavigate();
-  const { confirmDescriptions, clearSelectedDescriptions } = useDataCaptureContext();
   const [searchParams] = useSearchParams();
   const { me, sessionReady } = useAuthSession();
   const companyIdFromUrl = searchParams.get("company_id");
@@ -145,22 +180,30 @@ function DataCapturePageContent() {
   }, []);
 
   const [bootLoading, setBootLoading] = useState(true);
+  const [engineError, setEngineError] = useState("");
+  const [scriptsReady, setScriptsReady] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [companyId, setCompanyId] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [switchingCompany, setSwitchingCompany] = useState(false);
   const bootCompletedRef = useRef(false);
-  const companySwitchGenRef = useRef(0);
-  /** Synchronous guard so URL effect does not fight optimistic pill picks before React re-renders. */
-  const companySwitchInFlightRef = useRef(false);
+  const scriptsBootedRef = useRef(false);
   const prevGroupOnlyGroupRef = useRef(null);
   const prevProcessCompanyRef = useRef(undefined);
   const prevScopeKeyRef = useRef(null);
   /** Tracks anchor session sync per group (sidebar flags follow PHP session company). */
   const groupAnchorSessionRef = useRef({ group: null, companyId: null });
 
+  /** Set as soon as this route mounts (including Loading…), before scripts run — legacy uses it to skip DOM that React owns. */
   useLayoutEffect(() => {
+    window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = true;
     window.isNavigatingAwayByBackOrSubmit = false;
+    return () => {
+      try {
+        delete window.__DATA_CAPTURE_SPA_BOOTSTRAP__;
+      } catch {
+        window.__DATA_CAPTURE_SPA_BOOTSTRAP__ = undefined;
+      }
+    };
   }, []);
 
   const companiesNormalized = useMemo(() => companies.map(normalizeOwnerCompanyRow), [companies]);
@@ -214,7 +257,6 @@ function DataCapturePageContent() {
     enableGroupAnchorSession: false,
     autoPickCompanyWhenEmpty: false,
     broadcastFilterToLayout: false,
-    switchingCompany,
     me,
   });
 
@@ -254,19 +296,6 @@ function DataCapturePageContent() {
     [companiesDeduped, selectedGroup],
   );
 
-  const sidebarNotifyRow = useMemo(() => {
-    if (isCompanySelected) return currentCompanyRow;
-    if (groupOnlyTable && selectedGroup) return groupEntityRow ?? anchorCompanyRow;
-    return anchorCompanyRow;
-  }, [
-    isCompanySelected,
-    currentCompanyRow,
-    groupOnlyTable,
-    selectedGroup,
-    groupEntityRow,
-    anchorCompanyRow,
-  ]);
-
   /** API + storage company id (group entity vs subsidiary). */
   const effectiveCompanyId = scopeCompanyId;
 
@@ -274,11 +303,6 @@ function DataCapturePageContent() {
   const sessionSyncCompanyId = isCompanySelected
     ? companyId
     : groupEntityRow?.id ?? anchorCompanyRow?.id ?? null;
-
-  const engineReady = useMemo(
-    () => !bootLoading && !!me && dataCaptureScopeIsReady(captureScope),
-    [bootLoading, me, captureScope],
-  );
 
   const companyCode = useMemo(() => {
     if (isCompanySelected) {
@@ -296,15 +320,14 @@ function DataCapturePageContent() {
   const form = useDataCaptureFormEngine(captureScope, {
     applyCompanyOnlyFields: isCompanySelected,
     selectedGroup,
-    engineReady,
+    scriptsReady,
   });
 
   const groupOnlyProcessOptions = useMemo(() => getGroupOnlyProcessOptions(t), [t]);
 
-  const { submittedItems, refreshSubmitted } = useDataCaptureSubmittedList(captureScope, form.captureDate);
+  const { submittedItems } = useDataCaptureSubmittedList(captureScope, form.captureDate);
 
-  const topSectionRef = useRef(null);
-  const formColumnRef = useRef(null);
+  const { topSectionRef, formColumnRef } = useDataCaptureSubmittedPanelHeight();
 
   const { permissions, selectedPermission, selectPermission, showPermissionFilter } =
     useDataCaptureCategoryPermissions(companyCode);
@@ -313,7 +336,6 @@ function DataCapturePageContent() {
     captureType,
     citibetMode,
     formatGridReady,
-    applyCaptureType,
     handleCaptureTypeChange,
   } = useDataCaptureCaptureType();
 
@@ -323,7 +345,7 @@ function DataCapturePageContent() {
     setDeleteOption,
     handleConfirmDelete,
     closeDeleteDialog,
-  } = useDataCaptureDeleteDialog();
+  } = useDataCaptureLegacyChrome();
 
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
   const submitReset = useDataCaptureSubmitReset({
@@ -337,35 +359,24 @@ function DataCapturePageContent() {
     groupOnlyCapture: groupOnlyTable,
     selectedGroup,
   });
-  const { ensureGridReady } = useDataCaptureGrid(engineReady, groupOnlyTable);
-  useGroupOnlyTableDraftAutosave({
-    enabled: groupOnlyTable && !mutationsBlocked,
-    captureScope,
-    selectedGroup,
-    selectedProcessId: form.selectedProcess?.id,
-    currencyId: form.currencyId,
-    captureType,
-  });
-  useGroupOnlyTableDraftFlush({
-    enabled: groupOnlyTable && !mutationsBlocked,
-    captureScope,
-    selectedGroup,
-    selectedProcessId: form.selectedProcess?.id,
-    currencyId: form.currencyId,
-    captureType,
-  });
+  useDataCaptureGrid(scriptsReady, groupOnlyTable);
+  useDataCaptureGridInteraction(scriptsReady);
   useDataCapturePaste();
-  useDataCaptureFormat();
+  useDataCaptureFormatPaste();
+  useDataCaptureFormatDisplay();
+  useDataCaptureGlobalShims();
 
   useEffect(() => {
-    if (!engineReady) return;
+    if (!scriptsReady) return;
 
     const pageReadyTimer = setTimeout(() => {
       document.body.classList.add("page-ready");
     }, 50);
 
     const updateMenuPosition = () => {
-      updateActiveContextMenuPosition();
+      if (typeof window.updateActiveContextMenuPosition === "function") {
+        window.updateActiveContextMenuPosition();
+      }
     };
 
     const scrollContainer = document.querySelector(".excel-table-container");
@@ -377,7 +388,9 @@ function DataCapturePageContent() {
       scrollContainer?.removeEventListener("scroll", updateMenuPosition);
       window.removeEventListener("resize", updateMenuPosition);
     };
-  }, [engineReady]);
+  }, [scriptsReady]);
+  useDataCaptureGridHeader();
+
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
 
   const openDescriptionModal = useCallback(() => {
@@ -388,13 +401,33 @@ function DataCapturePageContent() {
   const closeDescriptionModal = useCallback(() => setDescriptionModalOpen(false), []);
 
   const handleDescriptionsConfirmed = useCallback((names) => {
-    confirmDescriptions(names);
-    callDataCaptureRuntime("onDescriptionsConfirmed", names);
+    window.selectedDescriptions = [...names];
+    if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === "function") {
+      window.__DC_ON_DESCRIPTIONS_CONFIRMED__(names);
+    }
     setTimeout(() => {
-      callDataCaptureRuntime("recomputeSubmitState");
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
     }, 0);
     setDescriptionModalOpen(false);
-  }, [confirmDescriptions]);
+  }, []);
+
+  useLayoutEffect(() => {
+    window.__DC_OPEN_DESCRIPTION_MODAL__ = openDescriptionModal;
+    window.__DC_CLOSE_DESCRIPTION_MODAL__ = closeDescriptionModal;
+    /** Legacy onclick / scripts expect expandDescription() */
+    window.expandDescription = openDescriptionModal;
+    return () => {
+      try {
+        delete window.__DC_OPEN_DESCRIPTION_MODAL__;
+        delete window.__DC_CLOSE_DESCRIPTION_MODAL__;
+        delete window.expandDescription;
+      } catch {
+        window.__DC_OPEN_DESCRIPTION_MODAL__ = undefined;
+        window.__DC_CLOSE_DESCRIPTION_MODAL__ = undefined;
+        window.expandDescription = undefined;
+      }
+    };
+  }, [openDescriptionModal, closeDescriptionModal]);
 
   useEffect(() => {
     if (!form.processOpen) return;
@@ -537,16 +570,14 @@ function DataCapturePageContent() {
 
   useEffect(() => {
     return () => {
+      scriptsBootedRef.current = false;
       bootCompletedRef.current = false;
       document.getElementById("dataCaptureForm")?.removeAttribute("data-dc-page-init");
     };
   }, []);
 
-  /** Apply deep-link / back-forward URL changes only — not optimistic pill picks (those update URL after session sync). */
   useEffect(() => {
-    if (bootLoading || companies.length === 0 || switchingCompany || companySwitchInFlightRef.current) {
-      return;
-    }
+    if (bootLoading || companies.length === 0) return;
     if (isDashboardGroupOnlyMode()) {
       if (companyIdFromUrl) {
         const params = new URLSearchParams(searchParams);
@@ -573,41 +604,29 @@ function DataCapturePageContent() {
     }
 
     let cancelled = false;
-    setSwitchingCompany(true);
     (async () => {
       persistDashboardGroupOnlyMode(false);
       persistDashboardSelectedCompany(id);
       try {
         const syncJson = await syncDataCaptureCompanySession(id);
-        if (!syncJson.success || cancelled) return;
+        if (!syncJson.success) return;
         if (syncJson.data?.has_gambling === false) {
           navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
           return;
         }
-        const vg = row.group_id ? String(row.group_id).trim().toUpperCase() : selectedGroup;
-        applySidebarForCompanySwitch(vg, row, syncJson.data ?? null);
-        notifyCompanySessionUpdated(syncJson.data ?? null);
       } catch {
         return;
       }
       if (!cancelled) {
         setCompanyId(id);
-        if (row.group_id) {
-          setSelectedGroup(String(row.group_id).trim().toUpperCase());
-        }
-        groupAnchorSessionRef.current = {
-          group: row.group_id ? String(row.group_id).trim().toUpperCase() : null,
-          companyId: id,
-        };
+        notifyCompanySessionUpdated();
       }
-    })().finally(() => {
-      if (!cancelled) setSwitchingCompany(false);
-    });
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, companyIdFromUrl, companies, companiesNormalized, selectedGroup, navigate, switchingCompany, searchParams]);
+  }, [bootLoading, companyIdFromUrl, companies, companiesNormalized, companyId, selectedGroup, navigate]);
 
   useEffect(() => {
     if (!companyId || !selectedGroup) return;
@@ -619,16 +638,18 @@ function DataCapturePageContent() {
     form.clearProcessSelection?.();
   }, [companyId, selectedGroup, currentCompanyRow, navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
 
-  /** Sidebar menu flags + expiry follow group/company filter (page-owned broadcast; avoids GC hook auto-pick loop). */
+  /** Sidebar menu flags follow group/company filter (page-owned broadcast; avoids GC hook auto-pick loop). */
   useLayoutEffect(() => {
     if (bootLoading) return;
-    const notifyCompanyId = isCompanySelected ? companyId : null;
-    notifyDashboardGroupFilterChanged(
-      selectedGroup,
-      notifyCompanyId,
-      buildDashboardSidebarNotifyOptions(sidebarNotifyRow, selectedGroup, { ignoreGroupOnly: true }),
-    );
-  }, [bootLoading, selectedGroup, companyId, isCompanySelected, sidebarNotifyRow]);
+    const code =
+      currentCompanyRow?.company_id != null && String(currentCompanyRow.company_id).trim() !== ""
+        ? String(currentCompanyRow.company_id).trim()
+        : null;
+    notifyDashboardGroupFilterChanged(selectedGroup, companyId, {
+      companyCode: code,
+      ignoreGroupOnly: true,
+    });
+  }, [bootLoading, selectedGroup, companyId, currentCompanyRow?.company_id]);
 
   /** Group-only UI: sync PHP session to group entity so Summary/API match scope. */
   useEffect(() => {
@@ -658,12 +679,7 @@ function DataCapturePageContent() {
           return;
         }
         groupAnchorSessionRef.current = { group: g, companyId: anchorId };
-        const anchorRow =
-          groupEntityRow ??
-          companiesNormalized.find((c) => Number(c.id) === anchorId) ??
-          null;
-        applySidebarForCompanySwitch(g, anchorRow, syncJson.data ?? null);
-        notifyCompanySessionUpdated(syncJson.data ?? null);
+        notifyCompanySessionUpdated();
       } catch {
         /* ignore */
       }
@@ -677,8 +693,6 @@ function DataCapturePageContent() {
     isCompanySelected,
     selectedGroup,
     sessionSyncCompanyId,
-    groupEntityRow,
-    companiesNormalized,
     me?.company_id,
     navigate,
   ]);
@@ -687,69 +701,42 @@ function DataCapturePageContent() {
     const scopeKey = dataCaptureScopeCacheKey(captureScope);
     const prev = prevScopeKeyRef.current;
     if (prev != null && prev !== scopeKey) {
-      callDataCaptureRuntime("clearCaptureTable");
-      callDataCaptureRuntime("reactFormReset");
-      clearSelectedDescriptions();
-      void callDataCaptureRuntime("refreshSubmittedProcesses");
+      window.__DC_CLEAR_CAPTURE_TABLE__?.();
+      window.__DC_REACT_FORM_RESET__?.();
+      window.selectedDescriptions = [];
+      void window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
     }
     prevScopeKeyRef.current = scopeKey || null;
-  }, [captureScope, clearSelectedDescriptions]);
+  }, [captureScope]);
 
-  const switchCompanySessionAndNavigate = useCallback(
-    async (nextCompanyId, companyRow) => {
-      const id = Number(nextCompanyId);
-      if (!id) return;
+  const switchCompanySessionAndNavigate = useCallback(async (nextCompanyId) => {
+    const id = Number(nextCompanyId);
+    if (!id) return;
 
-      const row =
-        companyRow ?? companiesNormalized.find((c) => Number(c.id) === id) ?? null;
-      const switchGen = ++companySwitchGenRef.current;
-      companySwitchInFlightRef.current = true;
-      setSwitchingCompany(true);
+    try {
+      const syncJson = await syncDataCaptureCompanySession(id);
+      if (!syncJson.success) return;
 
-      persistDashboardGroupOnlyMode(false);
-      persistDashboardSelectedCompany(id);
-      navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
+      notifyCompanySessionUpdated(syncJson.data ?? null);
 
-      try {
-        const syncJson = await syncDataCaptureCompanySession(id);
-        if (switchGen !== companySwitchGenRef.current) return;
-        if (!syncJson.success) return;
-
-        if (syncJson.data?.has_gambling === false) {
-          navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
-          return;
-        }
-
-        const vg =
-          selectedGroup != null && String(selectedGroup).trim() !== ""
-            ? String(selectedGroup).trim().toUpperCase()
-            : row?.group_id
-              ? String(row.group_id).trim().toUpperCase()
-              : null;
-        applySidebarForCompanySwitch(vg, row, syncJson.data ?? null);
-        notifyCompanySessionUpdated(syncJson.data ?? null);
-      } catch {
-        if (switchGen === companySwitchGenRef.current) {
-          navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
-        }
+      if (syncJson.data?.has_gambling === false) {
+        navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
         return;
-      } finally {
-        if (switchGen === companySwitchGenRef.current) {
-          companySwitchInFlightRef.current = false;
-          setSwitchingCompany(false);
-        }
       }
+    } catch {
+      navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
+      return;
+    }
 
-      if (switchGen !== companySwitchGenRef.current) return;
-
-      groupAnchorSessionRef.current = {
-        group: selectedGroup ? String(selectedGroup).trim().toUpperCase() : null,
-        companyId: id,
-      };
-      setCompanyId(id);
-    },
-    [navigate, selectedGroup, companiesNormalized],
-  );
+    persistDashboardGroupOnlyMode(false);
+    persistDashboardSelectedCompany(id);
+    groupAnchorSessionRef.current = {
+      group: selectedGroup ? String(selectedGroup).trim().toUpperCase() : null,
+      companyId: id,
+    };
+    setCompanyId(id);
+    navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
+  }, [navigate, selectedGroup]);
 
   const handleClearCompany = useCallback(() => {
     setCompanyId(null);
@@ -776,7 +763,7 @@ function DataCapturePageContent() {
   onClearCompanyRef.current = handleClearCompany;
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
   onSelectCompanyRef.current = async (comp) => {
-    if (comp?.id) void switchCompanySessionAndNavigate(comp.id, comp);
+    if (comp?.id) void switchCompanySessionAndNavigate(comp.id);
   };
 
   useEffect(() => {
@@ -785,7 +772,7 @@ function DataCapturePageContent() {
   }, [isCompanySelected, form.clearCompanyOnlyFields]);
 
   useEffect(() => {
-    if (getDataCaptureState().isRestoring) return;
+    if (window.__DC_IS_RESTORING__) return;
     if (new URLSearchParams(window.location.search).get("restore") === "1") return;
     const id = form.selectedProcess?.id;
     if (!id) return;
@@ -798,7 +785,7 @@ function DataCapturePageContent() {
 
   useEffect(() => {
     if (bootLoading) return;
-    if (getDataCaptureState().isRestoring) return;
+    if (window.__DC_IS_RESTORING__) return;
     if (new URLSearchParams(window.location.search).get("restore") === "1") return;
     const prev = prevProcessCompanyRef.current;
     if (prev === undefined) {
@@ -825,41 +812,101 @@ function DataCapturePageContent() {
   }, [selectedGroup, isCompanySelected, form.clearProcessSelection, form.clearCompanyOnlyFields]);
 
   useEffect(() => {
-    if (bootLoading || !me || !engineReady) return;
+    if (bootLoading || !me) return;
+
+    window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__ = async (rawId) => {
+      await switchCompanySessionAndNavigate(Number(rawId));
+    };
+
+    window.onSharedCompanyFilterChanged = (cid) => {
+      if (cid) window.switchDataCaptureCompany?.(Number(cid));
+    };
+
+    return () => {
+      try {
+        delete window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__;
+      } catch {
+        window.__DATA_CAPTURE_SPA_NAVIGATE_COMPANY__ = undefined;
+      }
+      try {
+        delete window.onSharedCompanyFilterChanged;
+      } catch {
+        window.onSharedCompanyFilterChanged = undefined;
+      }
+    };
+  }, [bootLoading, me, switchCompanySessionAndNavigate]);
+
+  useEffect(() => {
+    if (bootLoading || !me) return;
+
+    if (dataCaptureScopeIsReady(captureScope)) {
+      window.DATACAPTURE_COMPANY_ID = effectiveCompanyId;
+      window.DATACAPTURE_COMPANY_CODE = companyCode || String(effectiveCompanyId);
+      window.DATACAPTURE_CAPTURE_SCOPE = captureScope;
+    }
+    window.DATACAPTURE_USER_ROLE = String(me.role || "").toLowerCase();
 
     const syncCompanyContext = async () => {
+      if (!dataCaptureScopeIsReady(captureScope)) return;
       try {
-        await callDataCaptureRuntime("refreshSubmittedProcesses");
+        await window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
       } catch {
         /* ignore */
       }
-      callDataCaptureRuntime("recomputeSubmitState");
+      window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
     };
 
-    void syncCompanyContext();
-  }, [bootLoading, me, engineReady]);
+    if (scriptsBootedRef.current) {
+      void syncCompanyContext();
+      return;
+    }
 
-  useDataCapturePageLifecycle({
-    engineReady,
-    groupOnlyGrid: groupOnlyTable,
-    submit: submitReset.submit,
-    reset: submitReset.reset,
-    recomputeSubmitState: submitReset.recomputeSubmitState,
-    refreshSubmittedProcesses: refreshSubmitted,
-    applyGroupOnlyPersistedForm: () => callDataCaptureRuntime("applyGroupOnlyPersistedForm"),
-    applyCaptureType,
-    ensureGridReady,
-  });
+    if (!dataCaptureScopeIsReady(captureScope)) return;
+
+    let alive = true;
+    setEngineError("");
+
+    (async () => {
+      try {
+        await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
+        await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
+        if (!alive) return;
+        if (typeof window.__DC_SPA_INIT_PAGE__ === "function") {
+          await window.__DC_SPA_INIT_PAGE__();
+        }
+        if (!alive) return;
+        if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
+          const { rows, cols } = resolveDataCaptureGridDimensions(!isCompanySelected);
+          window.__DC_ENSURE_GRID_READY__(rows, cols);
+        }
+        scriptsBootedRef.current = true;
+        if (alive) setScriptsReady(true);
+        await syncCompanyContext();
+      } catch (e) {
+        if (!alive) return;
+        console.error(e);
+        setEngineError("Failed to load Data Capture scripts.");
+        scriptsBootedRef.current = false;
+        setScriptsReady(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [bootLoading, me, captureScope, effectiveCompanyId, companyCode, isCompanySelected]);
 
   useEffect(() => {
-    if (!engineReady) return;
+    if (!scriptsReady || !dataCaptureScopeIsReady(captureScope)) return;
     submitReset.restoreFromStorage();
-  }, [engineReady, submitReset.restoreFromStorage]);
+  }, [scriptsReady, captureScope, submitReset.restoreFromStorage]);
 
-  const list = filterCompaniesForGamesPills(
-    filterCompaniesWithDisplayId(companiesForPicker),
-    companyId
-  );
+  useEffect(() => {
+    if (!scriptsReady) return;
+    preloadSummaryLegacyScriptsInBackground();
+  }, [scriptsReady]);
+
+  const list = filterCompaniesWithDisplayId(companiesForPicker);
   const pageShellKey = dataCaptureScopeCacheKey(captureScope) || "pending";
 
   return (
@@ -883,13 +930,19 @@ function DataCapturePageContent() {
                   data-permission={p}
                   onClick={() => selectPermission(p)}
                 >
-                  {toEnglishDisplayCase(p)}
+                  {p}
                 </button>
               ))}
             </div>
           </div>
         </div>
       </div>
+
+      {engineError ? (
+        <div style={{ marginBottom: 12, color: "#b91c1c" }} role="alert">
+          {engineError}
+        </div>
+      ) : null}
 
       <div className="top-section" ref={topSectionRef}>
         <div className="form-column" ref={formColumnRef}>
@@ -908,7 +961,6 @@ function DataCapturePageContent() {
                   <GcInlineFilterPanel
                     embedded
                     t={t}
-                    segmentLabelFormat={toEnglishDisplayCase}
                     groupIds={groupIds}
                     groupsAllMode={groupsAllMode}
                     selectedGroup={selectedGroup}
@@ -919,7 +971,6 @@ function DataCapturePageContent() {
                     pickerCompanyId={companyId}
                     onPickAllInGroup={handlePickAllInGroup}
                     onPickCompany={handlePickCompany}
-                    switchingCompany={switchingCompany}
                   />
                 </div>
               )}
@@ -939,22 +990,78 @@ function DataCapturePageContent() {
                 <div className="form-group">
                   <label htmlFor="capture_process">{t("process")}</label>
                   {isCompanySelected ? (
-                    <DataCaptureProcessSelect
-                      t={t}
-                      processOpen={form.processOpen}
-                      setProcessOpen={form.setProcessOpen}
-                      selectedProcess={form.selectedProcess}
-                      processFilter={form.processFilter}
-                      setProcessFilter={form.setProcessFilter}
-                      processSearchInputRef={form.processSearchInputRef}
-                      processListTruncated={form.processListTruncated}
-                      processRowsCount={form.processRowsCount}
-                      visibleProcesses={form.visibleProcesses}
-                      filteredProcesses={form.filteredProcesses}
-                      selectProcessRow={form.selectProcessRow}
-                      displayTextFromProcessRow={form.displayTextFromProcessRow}
-                      onBeforeToggle={() => setTableActive(false)}
-                    />
+                    <div className="custom-select-wrapper">
+                      <button
+                        type="button"
+                        className={`custom-select-button${form.processOpen ? " open" : ""}`.trim()}
+                        id="capture_process"
+                        data-placeholder={t("selectProcess")}
+                        name="process"
+                        {...(form.selectedProcess?.id
+                          ? {
+                              "data-value": form.selectedProcess.id,
+                              "data-process-code": form.selectedProcess.process_id || "",
+                              ...(form.selectedProcess.description_name
+                                ? { "data-description-name": form.selectedProcess.description_name }
+                                : {}),
+                            }
+                          : {})}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (typeof window.tableActive !== "undefined") window.tableActive = false;
+                          form.setProcessOpen((o) => !o);
+                        }}
+                      >
+                        {form.selectedProcess?.displayText || t("selectProcess")}
+                      </button>
+                      <div
+                        className={`custom-select-dropdown${form.processOpen ? " show" : ""}`.trim()}
+                        id="capture_process_dropdown"
+                      >
+                        <div className="custom-select-search">
+                          <input
+                            ref={form.processSearchInputRef}
+                            type="text"
+                            placeholder={t("searchProcess")}
+                            autoComplete="off"
+                            value={form.processFilter}
+                            onChange={(e) => form.setProcessFilter(e.target.value.toUpperCase())}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                form.setProcessOpen(false);
+                              } else if (e.key === "Enter") {
+                                e.preventDefault();
+                                const first = form.filteredProcesses[0];
+                                if (first) void form.selectProcessRow(first);
+                              }
+                            }}
+                          />
+                        </div>
+                        {/* Legacy `loadProcessesByDate` clears the first `.custom-select-options` — keep an empty decoy. */}
+                        <div
+                          className="custom-select-options dc-legacy-process-options-host"
+                          aria-hidden="true"
+                          style={{ display: "none" }}
+                        />
+                        <div className="custom-select-options dc-react-process-options">
+                          {form.processListTruncated ? (
+                            <div className="custom-select-option custom-select-option--hint" style={{ cursor: "default", opacity: 0.85 }}>
+                              {t("typeToSearchProcesses", { count: form.processRowsCount })}
+                            </div>
+                          ) : null}
+                          {form.visibleProcesses.map((row) => (
+                            <div
+                              key={row.id}
+                              role="presentation"
+                              className="custom-select-option"
+                              onClick={() => void form.selectProcessRow(row)}
+                            >
+                              {form.displayTextFromProcessRow(row)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <select
                       id="capture_process"
@@ -1011,7 +1118,7 @@ function DataCapturePageContent() {
                     value={form.currencyId}
                     onChange={(e) => {
                       form.setCurrencyId(e.target.value);
-                      setTimeout(() => callDataCaptureRuntime("recomputeSubmitState"), 0);
+                      setTimeout(() => window.updateSubmitButtonState?.(), 0);
                     }}
                   >
                     <option value="">{t("selectCurrency")}</option>
@@ -1032,7 +1139,7 @@ function DataCapturePageContent() {
                       name="remark"
                       placeholder={t("enterRemark")}
                       value={form.remark}
-                      onChange={(e) => form.setRemark(e.target.value)}
+                      onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
                     />
                   </div>
                 ) : null}
@@ -1049,7 +1156,7 @@ function DataCapturePageContent() {
                         name="replace_word_from"
                         placeholder={t("oldWord")}
                         value={form.replaceFrom}
-                        onChange={(e) => form.setReplaceFrom(e.target.value)}
+                        onChange={(e) => form.setReplaceFrom(e.target.value.toUpperCase())}
                       />
                       <span className="replace-arrow">→</span>
                       <input
@@ -1058,7 +1165,7 @@ function DataCapturePageContent() {
                         name="replace_word_to"
                         placeholder={t("newWord")}
                         value={form.replaceTo}
-                        onChange={(e) => form.setReplaceTo(e.target.value)}
+                        onChange={(e) => form.setReplaceTo(e.target.value.toUpperCase())}
                       />
                     </div>
                   </div>
@@ -1077,7 +1184,7 @@ function DataCapturePageContent() {
                       className="dc-remove-remark__input dc-remove-remark__input--rm"
                       placeholder={t("enterWordsToRemove")}
                       value={form.removeWord}
-                      onChange={(e) => form.setRemoveWord(e.target.value)}
+                      onChange={(e) => form.setRemoveWord(e.target.value.toUpperCase())}
                     />
                     <input
                       type="text"
@@ -1086,7 +1193,7 @@ function DataCapturePageContent() {
                       className="dc-remove-remark__input dc-remove-remark__input--mk"
                       placeholder={t("enterRemark")}
                       value={form.remark}
-                      onChange={(e) => form.setRemark(e.target.value)}
+                      onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
                     />
                     <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                       {t("removeWordHelp")}
@@ -1103,6 +1210,8 @@ function DataCapturePageContent() {
           <div className="submitted-container">
             <h2 className="submitted-title">{t("submittedProcesses")}</h2>
             <div className="submitted-list">
+              {/* Legacy `renderSubmittedProcesses` sets innerHTML on `#submittedProcessesList` — decoy only. */}
+              <div id="submittedProcessesList" className="dc-legacy-submitted-host" aria-hidden="true" style={{ display: "none" }} />
               <div className="dc-react-submitted-list">
               {submittedItems.length === 0 ? (
                 <div className="no-data">{t("noProcessesSubmitted")}</div>
@@ -1110,11 +1219,9 @@ function DataCapturePageContent() {
                 submittedItems.map((process, index) => (
                   <div
                     key={
-                      process.capture_id != null
-                        ? `cap-${process.capture_id}`
-                        : process.id != null
-                          ? String(process.id)
-                          : `sub-${index}-${process.process_code}-${process.created_at || ""}-${process.submitted_by || ""}`
+                      process.id != null
+                        ? String(process.id)
+                        : `sub-${index}-${process.process_code}-${process.created_at || ""}-${process.submitted_by || ""}`
                     }
                     className="submitted-item"
                   >
@@ -1122,7 +1229,7 @@ function DataCapturePageContent() {
                       <div className="detail-row">
                         <strong>
                           {captureScope?.mode === "group"
-                            ? formatGroupSubmittedProcessLabel(process)
+                            ? process.process_code
                             : `${process.process_code}${process.description_name ? ` (${process.description_name})` : ""}`}
                         </strong>
                         <div className="submitted-meta">
@@ -1149,10 +1256,8 @@ function DataCapturePageContent() {
         groupOnlyTable={groupOnlyTable}
         onCaptureTypeChange={handleCaptureTypeChange}
         submitDisabled={submitReset.submitDisabled || mutationsBlocked}
-        isSubmitting={submitReset.isSubmitting}
         onSubmit={() => void submitReset.submit()}
         onReset={submitReset.reset}
-        engineReady={engineReady}
       />
 
       {isCompanySelected ? (
@@ -1179,13 +1284,5 @@ function DataCapturePageContent() {
       />
     </div>
     </DataCaptureErrorBoundary>
-  );
-}
-
-export default function DataCapturePage() {
-  return (
-    <DataCaptureProvider>
-      <DataCapturePageContent />
-    </DataCaptureProvider>
   );
 }

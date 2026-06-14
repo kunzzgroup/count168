@@ -1497,6 +1497,17 @@
     transform: none;
 }
 
+/* Disabled Delete：与顶栏 .btn-delete:disabled 同款灰色（盖过红色渐变） */
+.accounting-due-inbox-action-btn--delete:disabled,
+.accounting-due-inbox-action-btn--delete:disabled:hover {
+    background: linear-gradient(180deg, #d8d8d8 0%, #8e9baa 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
 .accounting-due-inbox-popover-footer {
     display: flex;
     align-items: center;
@@ -1557,11 +1568,11 @@
 
 #addBankModal .bank-section-title {
     text-align: left;
-    border-bottom: 2px solid #0D60FF;
+    border-bottom: 1px solid var(--color-border-muted, #e2e8f0);
 }
 
 #addBankModal .bank-profit-sharing-container {
-    border-top: 2px solid #0D60FF;
+    border-top: none;
 }
 
 #addBankModal .bank-profit-sharing-header {
@@ -1677,6 +1688,11 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
     overflow: hidden !important;
 }
 
+/* Title bar separator — match Account / Process form modals (not blue) */
+#addBankModal .modal-header {
+    border-bottom: 1px solid var(--color-border-muted, #e2e8f0);
+}
+
 /* Bank modal body: flex column — scrollable field area + fixed action bar */
 #addBankModal .modal-body {
     display: flex;
@@ -1709,7 +1725,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
     flex-shrink: 0;
     background: #ffffff;
     z-index: 10;
-    border-top: 2px solid #0D60FF;
+    border-top: 1px solid #e5e7eb;
 }
 
 /* Laptop screens: compact the form spacing */
@@ -2915,7 +2931,7 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
 }
 
 #addBankModal .bank-actions {
-    border-top: 2px solid #0D60FF;
+    border-top: 1px solid #e5e7eb;
 }
 
 /* Supplier/Customer/Company 下拉可溢出各层祖先显示（但不影响 modal-body / bank-form 的 overflow 控制） */

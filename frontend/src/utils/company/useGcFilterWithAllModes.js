@@ -10,6 +10,9 @@ import {
   notifyDashboardGroupFilterChanged,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
+  persistDashboardGroupsAllMode,
+  persistGroupsAllSidebarGroup,
+  resolveGroupsAllSidebarAnchorGroup,
   sortedUniqueGroupIds,
 } from "./sharedCompanyFilter.js";
 import {
@@ -123,13 +126,16 @@ export function useGcFilterWithAllModes({
 
   const handlePickAllGroups = useCallback(() => {
     if (groupsAllMode) return;
+    const sidebarAnchorGroup = resolveGroupsAllSidebarAnchorGroup(selectedGroup);
+    if (sidebarAnchorGroup) persistGroupsAllSidebarGroup(sidebarAnchorGroup);
     setGroupsAllMode(true);
     setGroupAllMode(false);
     setSelectedGroup(null);
+    persistDashboardGroupsAllMode(true);
     persistDashboardGroupFilter(null);
-    persistDashboardFilterState(null, companyId, { allowGroupOnly: false });
+    persistDashboardFilterState(null, companyId, { allowGroupOnly: false, groupsAllMode: true });
     notifyDashboardGroupFilterChanged(null, companyId);
-  }, [groupsAllMode, companyId, setSelectedGroup]);
+  }, [groupsAllMode, companyId, selectedGroup, setSelectedGroup]);
 
   const handlePickAllInGroup = useCallback(() => {
     const list = resolveMergeCompanyList();
@@ -158,6 +164,7 @@ export function useGcFilterWithAllModes({
     persistDashboardFilterState(groupForPersist, null, {
       allowGroupOnly: false,
       companyAllMode: true,
+      groupsAllMode,
     });
     onClearCompany?.(groupsAllMode ? null : selectedGroup);
     notifyDashboardGroupFilterChanged(groupsAllMode ? null : selectedGroup, null);

@@ -1,85 +1,58 @@
 /**
  * Document-level grid keyboard shortcuts — extracted from js/datacapture.js.
+ * Re-run: node frontend/scripts/extract-grid-document-keyboard.mjs
  */
 
-import {
-  clearBridgeCells,
-  gridClearAllSelections,
-  gridCopySelectedCells,
-  gridGetSelectedCellCount,
-  gridGetSelectedCells,
-  gridGetTableActive,
-  gridHasPasteHistory,
-  gridMoveCaretToEnd,
-  gridPasteToSelectedCells,
-  gridRecomputeSubmitState,
-  gridSelectAllCells,
-  gridSetActiveCell,
-  gridSetActiveCellWithoutFocus,
-  gridUndoLastPaste,
-  updateBridgeCell,
-} from "../lib/dataCaptureBridge.js";
-
 function isTableActive() {
-  return gridGetTableActive();
-}
-
-function cellPosition(cell) {
-  if (!cell?.parentNode?.parentNode) return null;
-  const row = cell.parentNode;
-  const table = row.parentNode;
-  const rowIndex = Array.from(table.children).indexOf(row);
-  const colIndex = Number.parseInt(cell.dataset.col, 10);
-  if (rowIndex < 0 || !Number.isFinite(colIndex)) return null;
-  return { rowIndex, colIndex };
+  return window.__DC_GET_TABLE_ACTIVE__?.() ?? false;
 }
 
 function hasPasteHistory() {
-  return gridHasPasteHistory();
+  return window.__DC_HAS_PASTE_HISTORY__?.() ?? false;
 }
 
 function undoLastPaste() {
-  gridUndoLastPaste();
+  window.__DC_UNDO_LAST_PASTE__?.();
 }
 
 function clearAllSelections() {
-  gridClearAllSelections();
+  window.__DC_CLEAR_ALL_SELECTIONS__?.();
 }
 
 function getSelectedCells() {
-  return gridGetSelectedCells();
+  return window.__DC_GET_SELECTED_CELLS__?.() ?? [];
 }
 
 function getSelectedCellCount() {
-  return gridGetSelectedCellCount();
+  return window.__DC_GET_SELECTED_CELL_COUNT__?.() ?? 0;
 }
 
 function setActiveCellWithoutFocus(cell) {
-  gridSetActiveCellWithoutFocus(cell);
+  window.__DC_SET_ACTIVE_CELL_WITHOUT_FOCUS__?.(cell);
 }
 
 function setActiveCell(cell) {
-  gridSetActiveCell(cell);
+  window.__DC_SET_ACTIVE_CELL__?.(cell);
 }
 
 function moveCaretToEnd(cell) {
-  gridMoveCaretToEnd(cell);
+  window.__DC_MOVE_CARET_TO_END__?.(cell);
 }
 
 function recomputeSubmitState() {
-  gridRecomputeSubmitState();
+  window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
 }
 
 function selectAllCells() {
-  gridSelectAllCells();
+  window.selectAllCells?.();
 }
 
 function copySelectedCells() {
-  gridCopySelectedCells();
+  window.copySelectedCells?.();
 }
 
 function pasteToSelectedCells() {
-  gridPasteToSelectedCells();
+  window.pasteToSelectedCells?.();
 }
 
 export function handleDocumentGridKeydown(e) {
@@ -292,19 +265,19 @@ const key = (e.key || '').toLowerCase();
     } else if (e.key === 'Delete') {
         if (getSelectedCellCount() > 0) {
             e.preventDefault();
-            const positions = getSelectedCells()
-                .map((cell) => cellPosition(cell))
-                .filter(Boolean);
-            if (positions.length) clearBridgeCells(positions);
+            getSelectedCells().forEach((cell) => {
+                if (cell?.contentEditable === 'true') {
+                    cell.textContent = '';
+                }
+            });
             recomputeSubmitState();
         }
     } else if (e.key === 'Backspace') {
         if (!isEditingCell && getSelectedCellCount() > 0) {
             e.preventDefault();
-            const positions = getSelectedCells()
-                .map((cell) => cellPosition(cell))
-                .filter(Boolean);
-            if (positions.length) clearBridgeCells(positions);
+            getSelectedCells().forEach(cell => {
+                cell.textContent = '';
+            });
             recomputeSubmitState();
         }
     } else if (e.ctrlKey && key === 'a') {
@@ -336,17 +309,35 @@ const key = (e.key || '').toLowerCase();
             e.key !== 'Escape' && e.key !== 'Delete' && e.key !== 'Backspace';
 
         if (isPrintableChar) {
+            // Get first selected cell
             const firstCell = getSelectedCells()[0];
             if (firstCell && firstCell.contentEditable === 'true') {
-                const pos = cellPosition(firstCell);
-                const typedChar = e.key.toUpperCase();
+                // Clear cell content and focus
+                firstCell.textContent = '';
                 setActiveCell(firstCell);
-                if (pos) {
-                    updateBridgeCell(pos.rowIndex, pos.colIndex, { value: typedChar });
-                }
-                firstCell.textContent = typedChar;
                 moveCaretToEnd(firstCell);
+
+                // Manually insert character (because we need to convert to uppercase)
+                const selection = window.getSelection();
+                if (selection && selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    range.deleteContents();
+                    const textNode = document.createTextNode(e.key.toUpperCase());
+                    range.insertNode(textNode);
+                    range.setStartAfter(textNode);
+                    range.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                } else {
+                    // If Selection API cannot be used, directly set text content
+                    firstCell.textContent = e.key.toUpperCase();
+                    moveCaretToEnd(firstCell);
+                }
+
+                // Prevent default behavior, because we've already manually handled the input
                 e.preventDefault();
+
+                // Update submit button state
                 recomputeSubmitState();
             }
         }

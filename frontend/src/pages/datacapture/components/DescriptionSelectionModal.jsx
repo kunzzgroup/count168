@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
-import ConfirmDeleteModal, { CONFIRM_DELETE_NESTED_Z_INDEX } from "../../../components/ConfirmDeleteModal.jsx";
 import { fetchDescriptionCatalog, postAddDescription, postDeleteDescription } from "../lib/dataCaptureApi.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { translateDataCaptureMessage } from "../../../translateFile/pages/dataCaptureTranslate.js";
-import { toEnglishDisplayCase } from "../lib/dataCaptureDisplayCase.js";
-import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
-import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 
 function normalizeCatalog(json) {
   const raw = json?.descriptions ?? json?.data?.descriptions ?? [];
@@ -14,19 +10,16 @@ function normalizeCatalog(json) {
   return raw
     .map((d) => ({
       id: d.id,
-      name: d.name != null ? String(d.name).trim() : "",
+      name: d.name != null ? String(d.name).trim().toUpperCase() : "",
     }))
     .filter((d) => d.name && d.id != null);
 }
 
 export default function DescriptionSelectionModal({ t, open, onClose, companyId, onConfirm }) {
-  const { selectedDescriptions, confirmDescriptions } = useDataCaptureContext();
-  const { submitting: addingDesc, guardSubmit } = useSubmitGuard(open);
   const [catalog, setCatalog] = useState([]);
   const [pendingNames, setPendingNames] = useState([]);
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const notify = useCallback(
     (message, type = "danger") => {
@@ -56,11 +49,15 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
 
   useEffect(() => {
     if (!open) return;
-    setPendingNames(selectedDescriptions.map((n) => String(n).trim().toUpperCase()));
+    setPendingNames(
+      (Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : []).map((n) =>
+        String(n).trim().toUpperCase(),
+      ),
+    );
     setSearch("");
     setNewName("");
     void loadCatalog();
-  }, [open, loadCatalog, selectedDescriptions]);
+  }, [open, loadCatalog]);
 
   const filteredCatalog = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -85,7 +82,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
   const handleAdd = useCallback(
     async (e) => {
       e.preventDefault();
-      const trimmed = newName.trim();
+      const trimmed = newName.trim().toUpperCase();
       if (!trimmed || !companyId) return;
       try {
         const result = await postAddDescription(companyId, trimmed);
@@ -116,9 +113,12 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
     [companyId, newName, loadCatalog, notify],
   );
 
-  const performDelete = useCallback(
+  const handleDelete = useCallback(
     async (id, name) => {
       if (!id) return;
+      if (!window.confirm(t("deleteDescriptionConfirm", { name }))) {
+        return;
+      }
       try {
         const result = await postDeleteDescription(id);
         if (!result.success) {
@@ -128,7 +128,13 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         setCatalog((prev) => prev.filter((d) => String(d.id) !== String(id)));
         setPendingNames((prev) => {
           const next = prev.filter((n) => n !== name);
-          confirmDescriptions(next);
+          window.selectedDescriptions = [...next];
+          if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === "function") {
+            window.__DC_ON_DESCRIPTIONS_CONFIRMED__(next);
+          }
+          setTimeout(() => {
+            if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+          }, 0);
           return next;
         });
         notify("Description deleted successfully", "success");
@@ -136,15 +142,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         notify("Failed to delete description");
       }
     },
-    [notify, confirmDescriptions],
-  );
-
-  const handleDelete = useCallback(
-    (id, name) => {
-      if (!id) return;
-      setDeleteTarget({ id, name });
-    },
-    [],
+    [t, notify],
   );
 
   const handleConfirm = useCallback(() => {
@@ -184,7 +182,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                 ) : (
                   pendingNames.map((name) => (
                     <div key={name} className="selected-description-modal-item">
-                      <span>{toEnglishDisplayCase(name)}</span>
+                      <span>{String(name).toUpperCase()}</span>
                       <button type="button" className="remove-description-modal" onClick={() => removeSelected(name)}>
                         &times;
                       </button>
@@ -197,7 +195,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
             <div className="available-descriptions-section">
               <div className="add-description-bar">
                 <h3>{t("addNewDescription")}</h3>
-                <form className="add-description-form" onSubmit={guardSubmit(handleAdd)}>
+                <form className="add-description-form" onSubmit={handleAdd}>
                   <div className="add-description-input-group">
                     <input
                       type="text"
@@ -205,10 +203,11 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                       placeholder={t("enterNewDescriptionName")}
                       required
                       value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
+                      onChange={(e) => setNewName(e.target.value.toUpperCase())}
+                      style={{ textTransform: "uppercase" }}
                     />
-                    <button type="submit" className="btn btn-save" disabled={addingDesc}>
-                      {addingDesc ? t("saving") : t("add")}
+                    <button type="submit" className="btn btn-save">
+                      {t("add")}
                     </button>
                   </div>
                 </form>
@@ -220,7 +219,8 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                   type="text"
                   placeholder={t("searchDescriptions")}
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => setSearch(e.target.value.toUpperCase())}
+                  style={{ textTransform: "uppercase" }}
                 />
               </div>
               <div className="description-list" id="existingDescriptions">
@@ -239,14 +239,14 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
                           checked={pendingNames.includes(d.name)}
                           onChange={(e) => toggleName(d.name, e.target.checked)}
                         />
-                        <label htmlFor={`desc_${d.id}`}>{toEnglishDisplayCase(d.name)}</label>
+                        <label htmlFor={`desc_${d.id}`}>{String(d.name).toUpperCase()}</label>
                       </div>
                       <button
                         type="button"
                         className="description-delete-btn"
                         title={t("deleteDescription")}
                         aria-label={t("deleteDescription")}
-                        onClick={() => handleDelete(d.id, d.name)}
+                        onClick={() => void handleDelete(d.id, d.name)}
                       >
                         &times;
                       </button>
@@ -267,22 +267,6 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         </div>
       </div>
     </div>
-    {deleteTarget ? (
-      <ConfirmDeleteModal
-        open
-        title={t("confirmDeleteTitle")}
-        message={t("deleteDescriptionConfirm", { name: deleteTarget.name })}
-        cancelLabel={t("cancel")}
-        confirmLabel={t("delete")}
-        zIndex={CONFIRM_DELETE_NESTED_Z_INDEX}
-        onConfirm={() => {
-          const target = deleteTarget;
-          setDeleteTarget(null);
-          void performDelete(target.id, target.name);
-        }}
-        onClose={() => setDeleteTarget(null)}
-      />
-    ) : null}
     </ProcessModalPortal>
   );
 }
