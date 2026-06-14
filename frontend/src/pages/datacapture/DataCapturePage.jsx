@@ -77,6 +77,7 @@ import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmit
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
 import { getDataCaptureText } from "../../translateFile/pages/dataCaptureTranslate.js";
+import { DataCaptureProvider } from "./context/DataCaptureContext.jsx";
 
 /** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
 function loadScriptOnce(src, isAlreadyLoaded) {
@@ -147,6 +148,14 @@ class DataCaptureErrorBoundary extends Component {
 }
 
 export default function DataCapturePage() {
+  return (
+    <DataCaptureProvider>
+      <DataCapturePageContent />
+    </DataCaptureProvider>
+  );
+}
+
+function DataCapturePageContent() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { me, sessionReady } = useAuthSession();
