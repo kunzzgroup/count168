@@ -69,7 +69,23 @@ export function useTransactionData({
   const scopeSwitchSeqRef = useRef(0);
   const scopeCacheKeyRef = useRef("");
   const bootOnceRef = useRef(false);
+  /** URL ?company_id= session sync — once per mount to avoid refresh ↔ sync loop. */
+  const bootUrlSessionSyncedRef = useRef(false);
+  /** Async boot completed for this user id (company list + initial session). */
+  const bootAsyncDoneForUserRef = useRef(null);
   const companySessionAbortRef = useRef(null);
+  const uRef = useRef(u);
+  uRef.current = u;
+
+  const authScopeKey = useMemo(
+    () =>
+      [
+        u?.user_id ?? "",
+        u?.user_type ?? "",
+        Array.isArray(u?.permissions) ? u.permissions.join(",") : "",
+      ].join("|"),
+    [u?.user_id, u?.user_type, u?.permissions],
+  );
 
   const commitFilterSnapshot = useCallback((nextSnap) => {
     filterSnapshotRef.current = nextSnap;
@@ -162,9 +178,14 @@ export function useTransactionData({
     if (!sessionReady) return;
     if (!u) {
       bootOnceRef.current = false;
+      bootUrlSessionSyncedRef.current = false;
+      bootAsyncDoneForUserRef.current = null;
       navigate("/login", { replace: true });
       return;
     }
+
+    const userId = u.user_id;
+    if (bootAsyncDoneForUserRef.current === userId) return;
 
     let cancelled = false;
     (async () => {
@@ -187,17 +208,20 @@ export function useTransactionData({
         const url = new URL(window.location.href);
         const queryCompany = url.searchParams.get("company_id");
 
+        const syncUrlCompanySessionOnce = async () => {
+          if (bootUrlSessionSyncedRef.current) return;
+          if (!queryCompany || !rows.some((c) => Number(c.id) === Number(queryCompany))) return;
+          bootUrlSessionSyncedRef.current = true;
+          const sj = await syncCompanySessionApi(queryCompany);
+          if (sj?.success) notifyCompanySessionUpdated(sj.data ?? null);
+        };
+
         if (filterSnapshotRef.current) {
           const merged = mergeOwnerCompaniesIntoSnapshot(filterSnapshotRef.current, rows, u);
-          if (merged) commitFilterSnapshot(merged);
-          bootOnceRef.current = true;
-          if (
-            queryCompany &&
-            rows.some((c) => Number(c.id) === Number(queryCompany))
-          ) {
-            const sj = await syncCompanySessionApi(queryCompany);
-            if (sj?.success) notifyCompanySessionUpdated();
+          if (merged !== filterSnapshotRef.current) {
+            commitFilterSnapshot(merged);
           }
+          await syncUrlCompanySessionOnce();
         } else {
           let bootSnap = buildTransactionBootSnapshot(u, rows, { queryCompany });
           if (!bootSnap) return;
@@ -208,6 +232,7 @@ export function useTransactionData({
             rows.some((c) => Number(c.id) === Number(queryCompany))
           ) {
             const sj = await syncCompanySessionApi(queryCompany);
+            bootUrlSessionSyncedRef.current = true;
             if (!sj?.success) {
               const fallbackId = u.company_id ? Number(u.company_id) : rows[0]?.id ? Number(rows[0].id) : null;
               if (fallbackId != null) {
@@ -225,15 +250,19 @@ export function useTransactionData({
                 });
               }
             } else {
-              notifyCompanySessionUpdated();
+              notifyCompanySessionUpdated(sj.data ?? null);
             }
           }
 
           if (!cancelled) {
             applyTransactionBootPersistence(bootSnap);
-            bootOnceRef.current = true;
             commitFilterSnapshot(bootSnap);
           }
+        }
+
+        if (!cancelled) {
+          bootOnceRef.current = true;
+          bootAsyncDoneForUserRef.current = userId;
         }
       } catch {
         if (!cancelled && !filterSnapshotRef.current) navigate("/login", { replace: true });
@@ -244,27 +273,27 @@ export function useTransactionData({
     return () => {
       cancelled = true;
     };
-  }, [sessionReady, u, navigate, commitFilterSnapshot]);
+  }, [sessionReady, u?.user_id, navigate, commitFilterSnapshot]);
 
   useEffect(() => {
-    if (!sessionReady || !u) return;
+    if (!sessionReady) return;
     const refreshSessionFlags = () => {
-      setFilterSnapshot((prev) =>
-        prev
-          ? {
-              ...prev,
-              viewerRole: String(u.role || "").toLowerCase(),
-              mutationsBlocked: isPartnershipAuditReadOnlyLocked(u),
-            }
-          : prev,
-      );
+      const me = uRef.current;
+      if (!me) return;
+      const viewerRole = String(me.role || "").toLowerCase();
+      const mutationsBlocked = isPartnershipAuditReadOnlyLocked(me);
+      setFilterSnapshot((prev) => {
+        if (!prev) return prev;
+        if (prev.viewerRole === viewerRole && prev.mutationsBlocked === mutationsBlocked) return prev;
+        return { ...prev, viewerRole, mutationsBlocked };
+      });
     };
     const onCompanySession = () => {
       refreshSessionFlags();
     };
     window.addEventListener("eazycount:company-session-updated", onCompanySession);
     return () => window.removeEventListener("eazycount:company-session-updated", onCompanySession);
-  }, [sessionReady, u]);
+  }, [sessionReady]);
 
   useEffect(() => {
     if (loading || forbidden || !transactionScope) return;
@@ -437,7 +466,7 @@ export function useTransactionData({
     return () => {
       cancelled = true;
     };
-  }, [loading, forbidden, scopeCacheKey, todayDmy, queryClient, transactionScope, u]);
+  }, [loading, forbidden, scopeCacheKey, todayDmy, queryClient, transactionScope, authScopeKey]);
 
   useEffect(() => {
     if (!filterSnapshot) return;
