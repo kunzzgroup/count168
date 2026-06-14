@@ -529,13 +529,14 @@ body.transaction-page .transaction-search-section .transaction-category-date-row
 }
 
 body.transaction-page .transaction-search-section .transaction-category-date-row .transaction-outlined-field-col--category .report-outlined-inner {
-    justify-content: flex-start;
+    justify-content: center;
 }
 
 body.transaction-page .transaction-search-section .transaction-category-date-row .category-dropdown {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     min-height: 0;
 }
 
@@ -546,7 +547,7 @@ body.transaction-page .transaction-search-section .report-outlined-inner .catego
     overflow: hidden;
     padding: 4px 10px;
     box-sizing: border-box;
-    align-items: stretch;
+    align-items: center;
 }
 
 body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button > .fas.fa-chevron-down {
@@ -565,32 +566,11 @@ body.transaction-page .transaction-search-section .report-outlined-inner .catego
     -webkit-overflow-scrolling: touch;
     align-items: center;
     align-content: center;
+    justify-content: flex-start;
 }
 
-/* Category placeholder (--Select All--): center in field; chevron stays on the right */
-body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button:has(.category-placeholder:only-child) {
-    position: relative;
-    justify-content: center;
-}
-
-body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button:has(.category-placeholder:only-child) .category-selected-tags {
-    flex: 1 1 auto;
-    justify-content: center;
-}
-
-body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button:has(.category-placeholder:only-child) .category-placeholder {
-    width: 100%;
-    text-align: center;
-    padding-right: clamp(18px, 1.4vw, 22px);
-    box-sizing: border-box;
-}
-
-body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button:has(.category-placeholder:only-child) > .fas.fa-chevron-down {
-    position: absolute;
-    right: clamp(8px, 0.65vw, 10px);
-    top: 50%;
-    transform: translateY(-50%);
-    margin-left: 0;
+body.transaction-page .transaction-search-section .report-outlined-inner .category-placeholder {
+    text-align: left;
 }
 
 body.transaction-page .transaction-category-date-row .transaction-category-multiselect {
