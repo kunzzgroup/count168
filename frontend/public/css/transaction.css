@@ -530,20 +530,24 @@ body.transaction-page .transaction-search-section .transaction-category-date-row
 
 body.transaction-page .transaction-search-section .transaction-category-date-row .transaction-outlined-field-col--category .report-outlined-inner {
     justify-content: center;
+    align-items: stretch;
 }
 
-body.transaction-page .transaction-search-section .transaction-category-date-row .category-dropdown {
+body.transaction-page .transaction-search-section .transaction-category-date-row .transaction-outlined-field-col--category .transaction-category-multiselect,
+body.transaction-page .transaction-search-section .transaction-category-date-row .transaction-outlined-field-col--category .category-dropdown {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     justify-content: center;
     min-height: 0;
+    width: 100%;
 }
 
 body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button {
+    flex: 1 1 auto;
     min-height: clamp(38px, 2.45vw, 40px);
-    max-height: clamp(38px, 2.45vw, 40px);
-    height: clamp(38px, 2.45vw, 40px);
+    height: 100%;
+    max-height: none;
     overflow: hidden;
     padding: 4px 10px;
     box-sizing: border-box;
@@ -557,9 +561,12 @@ body.transaction-page .transaction-search-section .report-outlined-inner .catego
 }
 
 body.transaction-page .transaction-search-section .report-outlined-inner .category-selected-tags {
+    display: flex;
     flex: 1 1 auto;
+    align-self: stretch;
     min-width: 0;
     min-height: 0;
+    height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-gutter: stable;
