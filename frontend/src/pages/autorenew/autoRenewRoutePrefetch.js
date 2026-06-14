@@ -27,6 +27,17 @@ export function rememberAutoRenewListCache(status, { dateFrom, dateTo, entityTyp
   cache.set(cacheKey(status, dateFrom, dateTo, entityType), data);
 }
 
+/** Drop cached list payloads so filter/tab switches always refetch after mutations. */
+export function clearAutoRenewListCache({ dateFrom, dateTo, entityType } = {}) {
+  const statuses = ["pending", "approved", "rejected", "all"];
+  const entities = entityType ? [entityType] : ["company", "group"];
+  for (const entity of entities) {
+    for (const status of statuses) {
+      cache.delete(cacheKey(status, dateFrom, dateTo, entity));
+    }
+  }
+}
+
 export async function prefetchAutoRenewApprovals(status = "pending", range = {}) {
   const key = cacheKey(status, range.dateFrom, range.dateTo, range.entityType);
   if (cache.has(key)) return cache.get(key);

@@ -1843,7 +1843,7 @@ function auto_renew_list_approvals(
         $rows[] = auto_renew_format_approval_row($row, $pdo, $c168Pk, $accountsById);
     }
 
-    if ($filter === 'approved' || $filter === 'all') {
+    if ($filter === 'all') {
         $deletedRows = auto_renew_list_deleted_payment_rows($pdo, $c168Pk, $rangeFrom, $rangeTo, $applyDateFilter, $entityFilter);
         foreach ($deletedRows as $row) {
             $rows[] = auto_renew_format_approval_row($row, $pdo, $c168Pk, $accountsById);

@@ -17,8 +17,8 @@ import {
   rejectAutoRenew,
 } from "./autoRenewLogic.js";
 import {
+  clearAutoRenewListCache,
   consumeAutoRenewPrefetch,
-  peekAutoRenewListCache,
   rememberAutoRenewListCache,
 } from "./autoRenewRoutePrefetch.js";
 import {
@@ -213,40 +213,34 @@ export default function AutoRenewPage() {
     [],
   );
 
+  const invalidateListCaches = useCallback(() => {
+    clearAutoRenewListCache({ dateFrom, dateTo });
+  }, [dateFrom, dateTo]);
+
   const handleEntityTabChange = useCallback(
     (tab) => {
       if (tab === entityTab) return;
-      const memorySnapshot = entitySnapshots[tab];
-      const cached = memorySnapshot || peekAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: tab });
-      if (cached && !memorySnapshot) {
-        storeEntityListData(tab, cached);
-      }
-      setListRefreshing(!cached);
+      invalidateListCaches();
+      setEntitySnapshots((prev) => ({ ...prev, [tab]: null }));
       setEntityTab(tab);
       setRowDrafts({});
+      bootFetchedListKeyRef.current = null;
+      setListRefreshing(true);
     },
-    [dateFrom, dateTo, entitySnapshots, entityTab, statusFilter, storeEntityListData],
+    [entityTab, invalidateListCaches],
   );
 
   const handleStatusFilterChange = useCallback(
     (next) => {
       if (next === statusFilter) return;
+      invalidateListCaches();
       setEntitySnapshots({ company: null, group: null });
       setRowDrafts({});
       setStatusFilter(next);
-
-      const cached = peekAutoRenewListCache(next, { dateFrom, dateTo, entityType: entityTab });
-      if (cached) {
-        storeEntityListData(entityTab, cached, { resetDrafts: true, status: next });
-        setListRefreshing(false);
-        bootFetchedListKeyRef.current = listFetchKey(next, { dateFrom, dateTo }, entityTab);
-        return;
-      }
-
       bootFetchedListKeyRef.current = null;
       setListRefreshing(true);
     },
-    [dateFrom, dateTo, entityTab, listFetchKey, statusFilter, storeEntityListData],
+    [invalidateListCaches, statusFilter],
   );
 
   const fetchList = useCallback(async () => {
@@ -273,6 +267,14 @@ export default function AutoRenewPage() {
       }
     }
   }, [dateFrom, dateTo, notify, statusFilter, storeEntityListData, t]);
+
+  const refreshListAfterMutation = useCallback(async () => {
+    invalidateListCaches();
+    setEntitySnapshots((prev) => ({ ...prev, [entityTabRef.current]: null }));
+    bootFetchedListKeyRef.current = null;
+    setListRefreshing(true);
+    await fetchList();
+  }, [fetchList, invalidateListCaches]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -333,24 +335,24 @@ export default function AutoRenewPage() {
     if (bootLoading || !sessionReady || !me) return;
 
     let cancelled = false;
-    const prefetchEntity = (entity) => {
-      if (peekAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: entity })) {
-        return Promise.resolve();
-      }
-      return fetchAutoRenewApprovals(statusFilter, { dateFrom, dateTo, entityType: entity })
+    const prefetchEntity = (entity) =>
+      fetchAutoRenewApprovals(statusFilter, { dateFrom, dateTo, entityType: entity })
         .then((data) => {
           if (cancelled) return;
+          if (entity !== entityTabRef.current) {
+            applyTabPendingCounts(data);
+            return;
+          }
           storeEntityListData(entity, data);
         })
         .catch(() => {});
-    };
 
-    void Promise.all([prefetchEntity("company"), prefetchEntity("group")]);
+    void prefetchEntity(entityTab === "company" ? "group" : "company");
 
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, dateFrom, dateTo, me, sessionReady, statusFilter, storeEntityListData]);
+  }, [applyTabPendingCounts, bootLoading, dateFrom, dateTo, me, sessionReady, statusFilter, storeEntityListData]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
 
@@ -389,13 +391,14 @@ export default function AutoRenewPage() {
         toAccountId,
       });
       notify(t("approvedSuccess"), "success");
-      await fetchList();
+      await refreshListAfterMutation();
     } catch (err) {
       notify(t("approveFailed", { message: err.message }), "error");
+      await refreshListAfterMutation();
     } finally {
       setBusyRequestId(null);
     }
-  }, [approveConfirmRow, busyRequestId, canEditGlobal, feeSettings, fetchList, notify, rowDrafts, t]);
+  }, [approveConfirmRow, busyRequestId, canEditGlobal, feeSettings, notify, refreshListAfterMutation, rowDrafts, t]);
 
   const handleReject = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || row.is_payment_deleted) return;
@@ -416,13 +419,14 @@ export default function AutoRenewPage() {
         return next;
       });
       notify(t("rejectedSuccess"), "success");
-      await fetchList();
+      await refreshListAfterMutation();
     } catch (err) {
       notify(t("rejectFailed", { message: err.message }), "error");
+      await refreshListAfterMutation();
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, fetchList, notify, rejectConfirmRow, t]);
+  }, [busyRequestId, canEditGlobal, notify, refreshListAfterMutation, rejectConfirmRow, t]);
 
   const handleDelete = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || !canDeleteRow(row)) return;
@@ -443,14 +447,14 @@ export default function AutoRenewPage() {
       });
       invalidateTransactionListCache("auto_renew_delete");
       notify(t("deletedSuccess"), "success");
-      await fetchList();
+      await refreshListAfterMutation();
     } catch (err) {
       notify(t("deleteFailed", { message: err.message }), "error");
-      await fetchList();
+      await refreshListAfterMutation();
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, deleteConfirmRow, fetchList, notify, t]);
+  }, [busyRequestId, canEditGlobal, deleteConfirmRow, notify, refreshListAfterMutation, t]);
 
   const handleSort = useCallback(
     (column) => {
