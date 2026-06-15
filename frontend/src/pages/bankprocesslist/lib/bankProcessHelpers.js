@@ -778,6 +778,11 @@ export function formatAccountingDueDisplayDate(raw) {
   return s;
 }
 
+/** Accounting Due：Start Date 固定为流程 day_start（DD/MM/YYYY）。 */
+export function formatAccountingDueProcessDayStart(row) {
+  return formatAccountingDueDisplayDate(row?.day_start) || "-";
+}
+
 /** Accounting Due：Billing Date 仅展示该笔账单开始日（DD/MM/YYYY）。 */
 export function formatAccountingDueBillingPeriod(row) {
   const start = String(row?.billing_period_start || "").trim();

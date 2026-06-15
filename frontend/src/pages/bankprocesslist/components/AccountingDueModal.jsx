@@ -3,7 +3,7 @@ import ProcessModalPortal, { processModalBackdropStyle } from "../../../componen
 import {
   formatBankProcessContractLabel,
   formatAccountingDueBillingPeriod,
-  formatAccountingDueDisplayDate,
+  formatAccountingDueProcessDayStart,
   accountingDueRowKey,
 } from "../lib/bankProcessHelpers.js";
 
@@ -172,8 +172,8 @@ export default function AccountingDueModal({
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--no" role="cell">
                   {idx + 1}
                 </div>
-                <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--date" role="cell">
-                  {formatAccountingDueDisplayDate(r.start_date || r.day_start) || "-"}
+                <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--date" role="cell" title={formatAccountingDueProcessDayStart(r)}>
+                  {formatAccountingDueProcessDayStart(r)}
                 </div>
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--period" role="cell" title={formatAccountingDueBillingPeriod(r)}>
                   {formatAccountingDueBillingPeriod(r)}

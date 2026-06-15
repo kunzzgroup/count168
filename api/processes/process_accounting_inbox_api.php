@@ -700,18 +700,6 @@ function dailyCollectUnpostedDaysInRange(
     return $days;
 }
 
-function inboxFormatYmdToDisplayDm(string $ymd): string
-{
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
-        return $ymd;
-    }
-    try {
-        return (new DateTimeImmutable($ymd))->format('d/m/Y');
-    } catch (Throwable $e) {
-        return $ymd;
-    }
-}
-
 /**
  * Accounting Due 行：计算本笔账单服务区间（含首尾日，Y-m-d）。
  *
@@ -859,6 +847,10 @@ function inboxEnrichNeedTodayBillingPeriods(array &$needToday, array $processByI
 {
     foreach ($needToday as &$row) {
         $process = $processById[(int) ($row['id'] ?? 0)] ?? [];
+        $processDayStart = $process['day_start'] ?? $row['day_start'] ?? null;
+        if ($processDayStart !== null && trim((string) $processDayStart) !== '') {
+            $row['day_start'] = $processDayStart;
+        }
         [$start, $end] = inboxComputeBillingPeriodRangeForItem($row, $process, $hasDayEndMonthlyCapCol, $hasFrequency);
         $row['billing_period_start'] = $start;
         $row['billing_period_end'] = $end;
@@ -891,7 +883,6 @@ function inboxAppendDailyNeedToday(
         'is_daily_consolidated' => false,
         'daily_billing_start' => $dailyBillingDay,
         'monthly_billing_month' => $dailyBillingDay,
-        'start_date' => inboxFormatYmdToDisplayDm($dailyBillingDay),
     ];
 }
 
@@ -923,7 +914,6 @@ function inboxAppendDailyConsolidatedNeedToday(
         'daily_billing_start' => $rangeStartYmd,
         'daily_billing_end' => $rangeEndYmd,
         'monthly_billing_month' => $rangeStartYmd . '|' . $rangeEndYmd,
-        'start_date' => inboxFormatYmdToDisplayDm($displayTodayYmd),
     ];
 }
 
