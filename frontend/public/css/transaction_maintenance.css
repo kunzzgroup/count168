@@ -1393,10 +1393,6 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
         --transaction-list-cell-min-height: clamp(32px, 2.2vw, 42px);
     }
 
-    .transaction-maintenance-page-root .maintenance-virtual-scroll--body {
-        max-height: min(68vh, 820px);
-    }
-
     .transaction-maintenance-page-root .maintenance-virtual-th {
         min-height: clamp(28px, 1.9vw, 34px);
     }
