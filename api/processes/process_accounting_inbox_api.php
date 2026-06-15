@@ -5,7 +5,7 @@
  * 规则：
  * - 1st of Every Month：首笔整月账单起，「何时出现在待算账」取 max(当月1号, dts_created)，避免 day_start 早于创建日时提前出现（旧数据不拿）；新建流程在「创建月」内且创建日晚于当月1号时，金额从创建日比例摊到当月末（忽略早于创建日的整月锚点）。Resend（accounting_resend_relax_created_floor）仍按应付日（1号）起算比例，与旧版一致。
  * - Maintenance 删交易后 Resend 成功：bank_process.accounting_resend_relax_created_floor=1 期间，上述「创建日门槛」与 day_start 取较早者，便于用户修正 day_start 后仍进 Accounting Due；从 Accounting Due 入账成功后清零。
- * - Week / 1st of Every Month / Monthly prepaid / Day：截至今日所有已到期且未入账（未跳过）的账期各列一行，无需等前一期入账后才展示下一期。Day 自 day_start 起每个自然日一行（不按创建日截断起算范围）。
+ * - Week / 1st of Every Month / Monthly prepaid / Day：截至今日所有已到期且未入账（未跳过）的账期各列一行，无需等前一期入账后才展示下一期。Day 自 max(day_start, 当月1号) 起至今日每个自然日一行（当月之前不补列；Resend 单期指定日除外）。
  * - Resend（accounting_resend_relax_created_floor）与日常流程均适用上述多期并列规则。
  * - Day start 为当月1号且与创建同月：仍自 day_start 当日起可入账（与上条后续整月不同）。
  * - 非1号 day_start：首月按比例从 day_start 起算；若创建日晚于该自然月末则整段跳过（旧数据不拿）；出现日 max(day_start, 创建日)。
@@ -1514,9 +1514,11 @@ try {
                     if ($periodEnd === null) {
                         break;
                     }
-                    // 未开始的周（起点 > 今天）不扫描后续
-                    if (!$resendRelax && $due > $today) {
-                        break;
+                    // 未开始的周（起点 > 今天）不扫描后续；Resend relax 只放宽「过去期」是否可入账，不能无上限扫向未来。
+                    if ($due > $today) {
+                        if ($onlyPeriodStart === null || $due !== $onlyPeriodStart) {
+                            break;
+                        }
                     }
                     if ($onlyPeriodStart !== null && $due !== $onlyPeriodStart) {
                         $next = weekPeriodNextStartYmd($due);
@@ -1574,7 +1576,13 @@ try {
                 }
                 continue;
             }
-            $effectiveStart = $startDate;
+            $monthFirstYmd = $today;
+            try {
+                $monthFirstYmd = (new DateTimeImmutable($today))->modify('first day of this month')->format('Y-m-d');
+            } catch (Throwable $e) {
+                // keep $today
+            }
+            $effectiveStart = max($startDate, $monthFirstYmd);
             $effectiveEnd = $today;
             if ($effectiveStart > $effectiveEnd) {
                 continue;
@@ -2045,7 +2053,7 @@ try {
             $deduped[] = $row;
         }
 
-        // 最终强去重：同 process + 同 day_start + 同金额（cost/price/profit）只保留一条，避免 UI 出现“同账单两行”。
+        // 最终强去重：同 process + 同账期锚点 + 同 day_start + 同金额只保留一条，避免 UI 出现“同账单两行”。
         $byFingerprint = [];
         foreach ($deduped as $row) {
             $pid = (int) ($row['id'] ?? 0);
@@ -2062,7 +2070,14 @@ try {
             if (!empty($row['is_daily'])) {
                 $dailyAnchor = trim((string) ($row['monthly_billing_month'] ?? $row['daily_billing_start'] ?? ''));
             }
-            $fp = $pid . '|' . $dsNorm . '|' . $weeklyAnchor . '|' . $dailyAnchor . '|' . $c . '|' . $p . '|' . $pr;
+            $monthlyAnchor = '';
+            if (empty($row['is_weekly']) && empty($row['is_daily'])) {
+                $monthlyAnchor = trim((string) ($row['monthly_billing_month'] ?? ''));
+                if ($monthlyAnchor === '' && !empty($row['is_resend_consolidated_range'])) {
+                    $monthlyAnchor = 'resend|' . $dsNorm;
+                }
+            }
+            $fp = $pid . '|' . $dsNorm . '|' . $weeklyAnchor . '|' . $dailyAnchor . '|' . $monthlyAnchor . '|' . $c . '|' . $p . '|' . $pr;
             if (!isset($byFingerprint[$fp]) || $rankOf($row) >= $rankOf($byFingerprint[$fp])) {
                 $byFingerprint[$fp] = $row;
             }
@@ -2104,4 +2119,8 @@ try {
     error_log('process_accounting_inbox_api: ' . $e->getMessage());
     http_response_code(500);
     jsonResponse(false, '服务器错误', null);
-} 
+} catch (Throwable $e) {
+    error_log('process_accounting_inbox_api: ' . $e->getMessage());
+    http_response_code(500);
+    jsonResponse(false, '服务器错误', null);
+}
