@@ -397,7 +397,7 @@ export function DashboardEarningsSummary({
                 showPieCenterBadge && (
                 <div
                   key={pieAnimKey}
-                  className="dashboard-summary-pie-center"
+                  className={`dashboard-summary-pie-center${summaryPieReady ? " is-enter" : ""}`}
                   aria-hidden="true"
                 >
                   <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
@@ -434,7 +434,9 @@ export function DashboardEarningsSummary({
         <div
           className={`dashboard-summary-currency-list${
             showMultiCurrencyBreakdown ? " is-multi-currency" : ""
-          }${isCompanyBreakdownView ? " is-company-profit" : ""}`}
+          }${earningsBreakdownShowsRate ? " is-with-original" : ""}${
+            isCompanyBreakdownView ? " is-company-profit" : ""
+          }`}
           aria-label={isCompanyBreakdownView ? i18n.companyBreakdown : i18n.currencyBreakdown}
         >
           <div className="dashboard-summary-currency-list-head" aria-hidden="true">
@@ -456,6 +458,9 @@ export function DashboardEarningsSummary({
                     ? `${i18n.breakdownAmount} (${currencyCode})`
                     : i18n.breakdownAmount}
                 </span>
+                {earningsBreakdownShowsRate && (
+                  <span>{i18n.breakdownOriginalAmount}</span>
+                )}
                 <span>{earningsBreakdownShowsRate ? i18n.breakdownRate : i18n.breakdownShare}</span>
               </>
             )}
@@ -526,9 +531,9 @@ export function DashboardEarningsSummary({
                       base: currencyCode,
                     })
                   : undefined;
-              const showNativeSubtitle =
+              const showOriginalAmount =
+                earningsBreakdownShowsRate &&
                 useConvertedEarnings &&
-                native != null &&
                 String(row.code).toUpperCase() !== String(currencyCode).toUpperCase();
               return (
                 <div
@@ -562,15 +567,18 @@ export function DashboardEarningsSummary({
                           ? formatCurrency(primary)
                           : "—"}
                     </span>
-                    {showNativeSubtitle && (
-                      <span className="dashboard-summary-currency-converted">
-                        {formatI18nTemplate(i18n.nativeAmountIn, {
-                          amount: formatCurrency(native),
-                          code: row.code,
-                        })}
-                      </span>
-                    )}
                   </div>
+                  {earningsBreakdownShowsRate && (
+                    <div className="dashboard-summary-currency-original-col">
+                      <span className="dashboard-summary-currency-original">
+                        {rowAmountLoading
+                          ? "…"
+                          : showOriginalAmount && native != null
+                            ? formatCurrency(native)
+                            : "—"}
+                      </span>
+                    </div>
+                  )}
                   <span className="dashboard-summary-currency-rate" title={unitRateTitle}>
                     {rowRateLoading
                       ? "…"

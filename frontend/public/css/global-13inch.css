@@ -1023,6 +1023,8 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.dashboard-home-page .dashboard-panel-card--summary {
+        --summary-pie-size: clamp(195px, 22vh, 240px) !important;
+        --summary-currency-max: clamp(120px, 20vh, 175px) !important;
         padding: clamp(10px, 1vh, 16px) !important;
     }
 
@@ -1069,9 +1071,9 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.dashboard-home-page .dashboard-summary-top-row .dashboard-summary-pie-wrap {
-        height: min(17vh, 200px) !important;
-        min-height: min(17vh, 200px) !important;
-        max-height: min(17vh, 200px) !important;
+        height: var(--summary-pie-size) !important;
+        min-height: var(--summary-pie-size) !important;
+        max-height: var(--summary-pie-size) !important;
     }
 
     body.dashboard-home-page .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
@@ -1081,9 +1083,9 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
 
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-top-row .dashboard-summary-pie-wrap {
         flex: none !important;
-        height: min(17vh, 200px) !important;
-        min-height: min(17vh, 200px) !important;
-        max-height: min(17vh, 200px) !important;
+        height: var(--summary-pie-size) !important;
+        min-height: var(--summary-pie-size) !important;
+        max-height: var(--summary-pie-size) !important;
     }
 
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
@@ -1100,7 +1102,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-row {
-        padding: 4px 6px 4px 10px !important;
+        padding: 3px 6px 3px 0 !important;
     }
 
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-rate-footnote {

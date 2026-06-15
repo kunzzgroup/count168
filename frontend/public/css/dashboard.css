@@ -223,6 +223,7 @@ body.dashboard-page {
     .dashboard-alert-modal-icon-wrap--orange,
     .dashboard-alert-modal-icon-wrap--critical,
     .expiration-reminder-modal-box.dashboard-alert-modal-box--critical,
+    .dashboard-summary-pie-center.is-enter,
     .dashboard-panel-chart-body.is-enter {
         animation: none;
     }
@@ -1268,7 +1269,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-summary-currency-list.is-company-profit .dashboard-summary-currency-list-head,
 .dashboard-summary-currency-list.is-company-profit .dashboard-summary-currency-row {
-    grid-template-columns: minmax(72px, 0.9fr) minmax(0, 1.2fr) minmax(52px, 0.7fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .dashboard-summary-currency-code-wrap {
@@ -1294,6 +1295,13 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     --summary-size-body: clamp(12px, 0.85vw, 14px);
     --summary-size-hero: clamp(24px, 1.85vw, 32px);
     --summary-size-pie-pct: clamp(22px, 1.65vw, 28px);
+    --summary-content-inset: clamp(8px, 0.65vw, 10px);
+    --summary-pie-size: clamp(210px, 26vh, 270px);
+    --summary-pie-col: minmax(150px, 48%);
+    --summary-currency-max: clamp(130px, 24vh, 200px);
+    --breakdown-cols-3: repeat(3, minmax(0, 1fr));
+    --breakdown-cols-4: repeat(4, minmax(0, 1fr));
+    --breakdown-col-gap: clamp(8px, 0.65vw, 10px);
     font-family: var(--summary-font);
     gap: clamp(8px, 0.65vw, 12px);
     padding: clamp(14px, 1.1vw, 18px) clamp(16px, 1.2vw, 20px);
@@ -1315,7 +1323,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-layout {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, min(var(--summary-currency-max), 1fr));
     gap: clamp(6px, 0.5vw, 10px) 0;
     flex: 1;
     min-height: 0;
@@ -1328,8 +1336,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     grid-row: 1;
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(130px, 42%);
-    grid-template-rows: min(20vh, 220px);
+    grid-template-columns: minmax(0, 1fr) var(--summary-pie-col);
+    grid-template-rows: min(var(--summary-pie-size));
     align-items: center;
     gap: 0 clamp(8px, 0.85vw, 14px);
     min-width: 0;
@@ -1339,11 +1347,11 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-top-row .dashboard-summary-view-tabs {
     position: absolute;
     top: 0;
-    left: 0;
+    left: var(--summary-content-inset);
     z-index: 2;
     margin-bottom: 0;
     width: fit-content;
-    max-width: calc(100% - clamp(130px, 42%, 200px));
+    max-width: calc(100% - clamp(150px, 48%, 280px));
 }
 
 .dashboard-summary-top-row .dashboard-summary-hero--compact {
@@ -1351,6 +1359,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     grid-row: 1;
     align-self: center;
     min-width: 0;
+    padding-left: var(--summary-content-inset);
 }
 
 .dashboard-summary-top-row .dashboard-summary-pie-wrap {
@@ -1360,9 +1369,9 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     align-self: center;
     justify-self: center;
     width: 100%;
-    height: min(20vh, 220px);
-    min-height: min(20vh, 220px);
-    max-height: min(20vh, 220px);
+    height: var(--summary-pie-size);
+    min-height: var(--summary-pie-size);
+    max-height: var(--summary-pie-size);
 }
 
 .dashboard-summary-hero--compact {
@@ -1371,6 +1380,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     gap: 2px;
     flex-shrink: 0;
     padding-bottom: clamp(4px, 0.35vw, 8px);
+    padding-left: var(--summary-content-inset);
 }
 
 .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
@@ -1396,8 +1406,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-summary-pie-chart-shell {
     position: relative;
-    width: min(100%, 20vh, 220px);
-    height: min(100%, 20vh, 220px);
+    width: min(100%, var(--summary-pie-size));
+    height: min(100%, var(--summary-pie-size));
     max-width: 100%;
     max-height: 100%;
     margin-inline: auto;
@@ -1514,6 +1524,25 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     text-align: center;
     pointer-events: none;
     z-index: 6;
+}
+
+.dashboard-summary-pie-center.is-enter {
+    animation: dashboard-pie-center-in 0.68s cubic-bezier(0.34, 1.35, 0.64, 1) 0.28s both;
+}
+
+@keyframes dashboard-pie-center-in {
+    0% {
+        opacity: 0;
+        transform: scale(0.62) rotate(-6deg);
+    }
+    65% {
+        opacity: 1;
+        transform: scale(1.08) rotate(2deg);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+    }
 }
 
 .dashboard-summary-pie-center-pct {
@@ -1718,7 +1747,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-currency-list {
-    --breakdown-cols: minmax(3.5rem, auto) minmax(0, 1fr) minmax(6.25rem, max-content);
+    --breakdown-cols: var(--breakdown-cols-3);
     grid-column: 1;
     grid-row: 2;
     flex: 1;
@@ -1733,11 +1762,15 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     align-self: stretch;
 }
 
+.dashboard-summary-currency-list.is-with-original {
+    --breakdown-cols: var(--breakdown-cols-4);
+}
+
 .dashboard-summary-currency-list-head {
     display: grid;
     grid-template-columns: var(--breakdown-cols);
-    column-gap: 10px;
-    padding: 0 8px 6px 10px;
+    column-gap: var(--breakdown-col-gap);
+    padding: 0 8px 6px var(--summary-content-inset);
     margin: 0;
     flex-shrink: 0;
     position: sticky;
@@ -1764,9 +1797,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 .dashboard-summary-currency-list-body {
     flex: 1;
     min-height: 0;
+    max-height: 100%;
     overflow-x: auto;
     overflow-y: auto;
-    padding: 4px 2px 0 10px;
+    padding: 2px 2px 0 var(--summary-content-inset);
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -1776,8 +1810,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     display: grid;
     grid-template-columns: var(--breakdown-cols);
     align-items: center;
-    column-gap: 10px;
-    padding: 6px 8px;
+    column-gap: var(--breakdown-col-gap);
+    padding: 4px 8px 4px 0;
     border-radius: var(--radius-panel, 8px);
     font-family: var(--summary-font);
     border-left: none;
@@ -1832,6 +1866,29 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     text-align: right;
 }
 
+.dashboard-summary-currency-original-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: right;
+}
+
+.dashboard-summary-currency-original {
+    font-size: var(--summary-size-body);
+    font-weight: 500;
+    color: var(--summary-text-secondary);
+    white-space: nowrap;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .dashboard-summary-currency-amount {
     font-size: var(--summary-size-body);
     font-weight: 600;
@@ -1862,8 +1919,9 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     visibility: hidden;
 }
 
-.dashboard-summary-currency-list.is-multi-currency .dashboard-summary-currency-row:not(.is-active) .dashboard-summary-currency-amount-col {
-    min-height: 2.45em;
+.dashboard-summary-currency-list.is-multi-currency .dashboard-summary-currency-row:not(.is-active) .dashboard-summary-currency-amount-col,
+.dashboard-summary-currency-list.is-multi-currency .dashboard-summary-currency-row:not(.is-active) .dashboard-summary-currency-original-col {
+    min-height: auto;
 }
 
 .dashboard-summary-currency-rate {
@@ -1874,11 +1932,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     text-align: right;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-    justify-self: end;
-    min-width: max-content;
+    justify-self: stretch;
+    min-width: 0;
     overflow: visible;
     text-overflow: clip;
-    padding-left: 4px;
 }
 
 .dashboard-summary-rate-footnote {
@@ -2049,27 +2106,16 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
         gap: clamp(6px, 0.5vw, 8px) 0;
     }
 
+    .dashboard-panel-card--summary {
+        --summary-pie-size: clamp(200px, 24vh, 250px);
+        --summary-currency-max: clamp(120px, 21vh, 180px);
+    }
+
     .dashboard-summary-top-row {
-        grid-template-columns: minmax(0, 1fr) minmax(118px, 40%);
+        grid-template-columns: minmax(0, 1fr) minmax(130px, 46%);
         gap: 0 10px;
     }
 
-    .dashboard-summary-pie-chart-shell {
-        width: min(100%, 196px);
-        height: clamp(156px, 14vw, 188px);
-    }
-
-    .dashboard-summary-pie-center-pct {
-        font-size: clamp(20px, 1.5vw, 24px);
-    }
-
-    .dashboard-summary-hero-value {
-        font-size: clamp(20px, 1.55vw, 26px);
-    }
-
-    .dashboard-summary-currency-list {
-        --breakdown-cols: minmax(3.25rem, auto) minmax(0, 1fr) minmax(5.75rem, max-content);
-    }
 }
 
 /* Tablet ≤1024：面板纵向堆叠，环图与列表同排 */
@@ -2142,6 +2188,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
     .dashboard-panel-card--summary {
         min-height: 0;
+        --summary-pie-size: clamp(180px, 22vh, 220px);
+        --summary-currency-max: clamp(118px, 19vh, 165px);
     }
 
     .dashboard-panel-chart-body {
@@ -2154,24 +2202,17 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     }
 
     .dashboard-summary-top-row {
-        grid-template-columns: minmax(0, 1fr) minmax(132px, 40%);
+        grid-template-columns: minmax(0, 1fr) minmax(120px, 44%);
         gap: 0 12px;
     }
 
     .dashboard-summary-top-row .dashboard-summary-pie-wrap {
-        min-height: min(20vh, 220px);
-        height: min(20vh, 220px);
-        max-height: none;
+        max-height: var(--summary-pie-size);
     }
 
     .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
         width: 100%;
         height: 100%;
-    }
-
-    .dashboard-summary-pie-chart-shell {
-        width: min(100%, 180px);
-        height: clamp(148px, 38vw, 176px);
     }
 
     .dashboard-summary-pie-center-pct {
@@ -2218,25 +2259,25 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 /* 窄平板 / 小屏：收益区上排略收紧 */
 @media (max-width: 900px) {
+    .dashboard-panel-card--summary {
+        --summary-pie-size: clamp(150px, 34vw, 180px);
+        --summary-currency-max: clamp(108px, 20vh, 150px);
+    }
+
     .dashboard-summary-top-row {
-        grid-template-columns: minmax(0, 1fr) minmax(140px, 42%);
+        grid-template-columns: minmax(0, 1fr) minmax(130px, 44%);
         gap: 12px 16px;
     }
 
     .dashboard-summary-top-row .dashboard-summary-pie-wrap {
-        min-height: 140px;
-        height: clamp(140px, 36vw, 168px);
-        max-height: none;
+        height: var(--summary-pie-size);
+        min-height: var(--summary-pie-size);
+        max-height: var(--summary-pie-size);
     }
 
     .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
         width: 100%;
         height: 100%;
-    }
-
-    .dashboard-summary-pie-chart-shell {
-        width: min(100%, 168px);
-        height: clamp(140px, 36vw, 168px);
     }
 
     .dashboard-summary-currency-list {
@@ -2986,14 +3027,19 @@ body.dashboard-home-page .dashboard-panel-chart-body {
     min-height: 0;
 }
 
+body.dashboard-home-page .dashboard-panel-card--summary {
+    --summary-pie-size: clamp(195px, 22vh, 240px);
+    --summary-currency-max: clamp(120px, 20vh, 175px);
+}
+
 body.dashboard-home-page .dashboard-summary-top-row {
-    grid-template-rows: min(17vh, 200px);
+    grid-template-rows: min(var(--summary-pie-size));
 }
 
 body.dashboard-home-page .dashboard-summary-top-row .dashboard-summary-pie-wrap {
-    height: min(17vh, 200px);
-    min-height: min(17vh, 200px);
-    max-height: min(17vh, 200px);
+    height: var(--summary-pie-size);
+    min-height: var(--summary-pie-size);
+    max-height: var(--summary-pie-size);
 }
 
 body.dashboard-home-page .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
@@ -3077,9 +3123,9 @@ body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-sum
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-top-row .dashboard-summary-pie-wrap {
     flex: none;
-    height: min(17vh, 200px);
-    min-height: min(17vh, 200px);
-    max-height: min(17vh, 200px);
+    height: var(--summary-pie-size);
+    min-height: var(--summary-pie-size);
+    max-height: var(--summary-pie-size);
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
@@ -3101,11 +3147,11 @@ body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-pan
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-list-head {
-    padding: 0 6px 4px 10px;
+    padding: 0 6px 4px var(--summary-content-inset);
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-row {
-    padding: 4px 6px 4px 10px;
+    padding: 3px 6px 3px 0;
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-rate-footnote {
