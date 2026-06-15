@@ -5,7 +5,7 @@
  */
 body.bg {
   /* Windows default I-beam（/images/cursors/text-ibeam.svg），避免深色模式下系统光标变白 */
-  --login-input-cursor: url("/frontend/dist/images/cursors/text-ibeam.svg") 16 16, text;
+  --login-input-cursor: url("/frontend/dist/images/cursors/text-ibeam.svg") 8 8, text;
 }
 
 body.bg .sc-login-input-row,
