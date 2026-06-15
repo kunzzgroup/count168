@@ -124,11 +124,8 @@ body.datacapture-page .container {
     }
 
     body.datacapture-page .excel-table-container--group-only {
-        min-height: 0;
-    }
-
-    body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
-        max-height: min(42vh, 360px);
+        align-self: start;
+        max-height: 100%;
     }
 
     body.datacapture-page .form-container {
@@ -899,6 +896,11 @@ body.datacapture-page .bottom-section .form-actions {
     border-top: none;
     justify-content: center !important;
     width: 100%;
+}
+
+body.datacapture-page .bottom-section:has(.excel-table-container--group-only) .form-actions {
+    flex: 0 0 auto;
+    margin-top: 0;
 }
 
 .input-with-icon {
@@ -1694,15 +1696,20 @@ body.datacapture-page .excel-table-container {
     white-space: nowrap;
 }
 
-/* Group-only: grow with rows; scroll inside list once viewport band is full; Submit stays below */
+/* Group-only: table card shrink-wraps to rows; Submit row fixed at bottom; scroll when rows exceed band */
 body.datacapture-page .bottom-section:has(.excel-table-container--group-only) {
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-content: stretch;
 }
 
 body.datacapture-page .excel-table-container--group-only {
-    flex: 0 1 auto;
+    align-self: start;
+    justify-self: stretch;
+    width: 100%;
     min-height: 0;
     max-height: 100%;
     display: flex;
@@ -1715,8 +1722,8 @@ body.datacapture-page .excel-table-container--group-only .excel-table-header {
 }
 
 body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
-    flex: 0 1 auto;
-    max-height: min(50vh, calc(100dvh - 380px));
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
