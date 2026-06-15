@@ -2244,6 +2244,22 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     max-width: min(1120px, 96vw);
 }
 
+.modal-content.company-settings-modal-content--commission-only {
+    width: min(640px, 96vw);
+    max-width: min(640px, 96vw);
+}
+
+.company-settings-modal-content--commission-only .company-settings-split-right {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-left: 0;
+    width: 100%;
+}
+
+.company-settings-modal-content--commission-only .company-settings-form-actions {
+    justify-content: flex-end;
+}
+
 /* 与 EDIT DOMAIN dfm-header 一致：整行背景含关闭按钮，勿用 .modal-content h2 单独铺底 */
 .company-settings-react-modal .company-settings-modal-header {
     box-sizing: border-box;

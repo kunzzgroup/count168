@@ -199,6 +199,7 @@ function auto_renew_format_row(array $row): array
 
 require_once __DIR__ . '/money_decimal.php';
 require_once __DIR__ . '/payment_delete_shared.php';
+require_once __DIR__ . '/auto_renew_share_billing.php';
 
 const AUTO_RENEW_WINDOW_DAYS = 30;
 const AUTO_RENEW_HISTORY_DAYS = 90;
@@ -2302,6 +2303,18 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
         if (!$pay['created']) {
             throw new RuntimeException('Failed to create renewal payment');
         }
+
+        auto_renew_apply_share_billing_on_approve(
+            $pdo,
+            $c168Pk,
+            $companyCode,
+            $snapshot,
+            $entityType,
+            money_normalize($price),
+            $fromId,
+            $createdByUser,
+            $createdByOwner
+        );
 
         if ($entityType === 'group') {
             $updTenant = $pdo->prepare('UPDATE `groups` SET expiration_date = ? WHERE id = ?');

@@ -323,13 +323,17 @@ export default function AutoRenewPage() {
         notify(t("commSettingsNotFound"), "error");
         return;
       }
-      setSettingsModal(payload);
+      const draft = getRowDraftValues(row, rowDrafts);
+      setSettingsModal({
+        ...payload,
+        sharePricePeriod: draft.period || row.period || "",
+      });
     } catch (err) {
       notify(t("commSettingsLoadFailed", { message: err.message }), "error");
     } finally {
       setCommLoadingKey(null);
     }
-  }, [busyRequestId, canEditGlobal, notify, t]);
+  }, [busyRequestId, canEditGlobal, notify, rowDrafts, t]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -963,6 +967,8 @@ export default function AutoRenewPage() {
           sessionCompanyId={me?.company_id ?? null}
           sessionCompanyCode={me?.company_code ?? null}
           excludeOwnerId={settingsModal.ownerId}
+          commissionOnly
+          sharePricePeriod={settingsModal.sharePricePeriod ?? ""}
           onSave={handleSettingsSaved}
           onClose={() => setSettingsModal(null)}
         />
@@ -976,7 +982,8 @@ export default function AutoRenewPage() {
           sessionCompanyId={me?.company_id ?? null}
           sessionCompanyCode={me?.company_code ?? null}
           excludeOwnerId={settingsModal.ownerId}
-          persistImmediately
+          commissionOnly
+          sharePricePeriod={settingsModal.sharePricePeriod ?? ""}
           onSave={handleSettingsSaved}
           onClose={() => setSettingsModal(null)}
         />
