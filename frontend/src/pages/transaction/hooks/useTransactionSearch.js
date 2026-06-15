@@ -155,11 +155,7 @@ export function useTransactionSearch({
     categoryChangedByUserRef.current = true;
   }, []);
 
-  const toggleDisplayFilter = useCallback((key) => {
-    setSearchState((s) => ({ ...s, [key]: !s[key] }));
-  }, []);
-
-  const scheduleAutoSearch = useCallback(({ isInitialLoad = false, delayMs = 260, forceRefresh = false } = {}) => {
+  const scheduleAutoSearch = useCallback(({ isInitialLoad = false, delayMs = 260 } = {}) => {
     if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
     autoSearchTimerRef.current = setTimeout(() => {
       autoSearchTimerRef.current = null;
@@ -168,7 +164,6 @@ export function useTransactionSearch({
         notifyErrors: true,
         showBlockingOverlay: false,
         isInitialLoad,
-        forceRefresh,
       });
     }, delayMs);
   }, []);
@@ -407,12 +402,6 @@ export function useTransactionSearch({
 
     if (!zeroBalanceChanged && !paymentTurnedOff && !captureTurnedOff) return;
 
-    if (zeroBalanceChanged) {
-      clearTxSearchCache();
-      scheduleAutoSearch({ delayMs: 80, forceRefresh: true });
-      return;
-    }
-
     scheduleAutoSearch({ delayMs: 80 });
   }, [
     searchState.showPaymentOnly,
@@ -493,7 +482,9 @@ export function useTransactionSearch({
 
       const showInactiveForQuery =
         searchState.showZeroBalance && searchState.showPaymentOnly ? false : searchState.showPaymentOnly;
-      // Win/Loss Only 始终在前端 applyPaymentWinLossFilters 过滤；后端 show_capture_only=1 会误删 balance=0 但有 W/L 的行。
+      // Win/Loss Only 始终在前端 applyPaymentWinLossFilters 过滤。
+      // 后端 show_capture_only=1 + hide_zero_balance=1 的 Layer 2 会误删「当日有 W/L 动账但 Balance=0」的组合行
+      //（与 PHP transaction.php 勾选后仍显示此类账号的行为不一致）。
       const showCaptureOnlyForQuery = false;
 
       const requestKey = JSON.stringify({
@@ -796,6 +787,12 @@ export function useTransactionSearch({
       if (!orderedCurrs.includes(code)) orderedCurrs.push(code);
     });
 
+    const activeCodes = rawSearchData.active_currency_codes;
+    if (searchState.showZeroBalance && Array.isArray(activeCodes) && activeCodes.length > 0) {
+      const activeSet = new Set(activeCodes.map((c) => String(c || "").toUpperCase()));
+      orderedCurrs = orderedCurrs.filter((code) => activeSet.has(String(code || "").toUpperCase()));
+    }
+
     if (!showAllCurrencies && selectedCurrencies.length > 1) {
       const selSet = new Set(selectedCurrencies.map((x) => String(x || "").toUpperCase().trim()));
       orderedCurrs = orderedCurrs.filter((code) => selSet.has(String(code || "").toUpperCase()));
@@ -929,6 +926,9 @@ export function useTransactionSearch({
       selectedCategoriesKey,
       effectiveDateFrom,
       effectiveDateTo,
+      searchState.showPaymentOnly ? "1" : "0",
+      searchState.showCaptureOnly ? "1" : "0",
+      searchState.showZeroBalance ? "1" : "0",
     ].join("|");
 
     if (lastInitialSearchKeyRef.current === initSearchKey) return;
@@ -974,6 +974,9 @@ export function useTransactionSearch({
     effectiveDateFrom,
     effectiveDateTo,
     selectedCategoriesKey,
+    searchState.showPaymentOnly,
+    searchState.showCaptureOnly,
+    searchState.showZeroBalance,
   ]);
 
   useEffect(() => {
@@ -1008,7 +1011,6 @@ export function useTransactionSearch({
     setSelectedCategories,
     searchState,
     setSearchState,
-    toggleDisplayFilter,
     showAllCurrencies,
     setShowAllCurrencies,
     selectedCurrencies,
