@@ -7,9 +7,7 @@ import {
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
 import { buildPaymentHistoryUrl } from "../lib/transactionPaymentHistoryUrl.js";
-
-const PAYMENT_HISTORY_POPUP_FEATURES =
-  "popup=yes,width=1320,height=860,left=96,top=48,resizable=yes,scrollbars=yes";
+import { buildPaymentHistoryPopupFeatures } from "../lib/transactionPaymentHistoryPopup.js";
 
 function scopeApiReady(scopeApi) {
   if (!scopeApi) return false;
@@ -39,8 +37,8 @@ export function useTransactionUI() {
     (row, dateFrom, dateTo, scopeApi, opts = {}) => {
       if (!row || !scopeApiReady(scopeApi)) return;
       const url = buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts });
-      // Always open a fresh popup tab/window — named targets can reuse a stale Dashboard window.
-      const win = window.open(url, "_blank", PAYMENT_HISTORY_POPUP_FEATURES);
+      const popupName = `payment_history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const win = window.open(url, popupName, buildPaymentHistoryPopupFeatures());
       if (win) {
         win.focus();
       } else {

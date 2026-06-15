@@ -18,6 +18,10 @@ import "./transactionPaymentHistoryPage.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
+import {
+  fitPaymentHistoryPopupToContent,
+  isPaymentHistoryPopupWindow,
+} from "./lib/transactionPaymentHistoryPopup.js";
 
 export default function TransactionPaymentHistoryPage() {
   const navigate = useNavigate();
@@ -45,9 +49,17 @@ export default function TransactionPaymentHistoryPage() {
 
   useLayoutEffect(() => {
     document.body.classList.add("dashboard-page", "transaction-page", "transaction-payment-history-page");
+    if (isPaymentHistoryPopupWindow()) {
+      document.body.classList.add("transaction-payment-history-page--popup");
+    }
     clearInlineScrollLock();
     return () => {
-      document.body.classList.remove("transaction-page", "transaction-payment-history-page", "page-ready");
+      document.body.classList.remove(
+        "transaction-page",
+        "transaction-payment-history-page",
+        "transaction-payment-history-page--popup",
+        "page-ready",
+      );
     };
   }, []);
 
@@ -90,10 +102,7 @@ export default function TransactionPaymentHistoryPage() {
     gcTime: 5 * 60_000,
   });
 
-  if (!paymentHistoryParamsReady(scope)) {
-    return <Navigate to="/transaction" replace />;
-  }
-
+  const paramsReady = paymentHistoryParamsReady(scope);
   const rows = data?.success && Array.isArray(data.data) ? data.data : [];
   const accountMeta = data?.account
     ? {
@@ -121,6 +130,22 @@ export default function TransactionPaymentHistoryPage() {
       document.title = prev;
     };
   }, [title]);
+
+  useLayoutEffect(() => {
+    if (isLoading || errorMessage || !isPaymentHistoryPopupWindow()) return undefined;
+    const runFit = () => fitPaymentHistoryPopupToContent();
+    runFit();
+    const t1 = window.setTimeout(runFit, 80);
+    const t2 = window.setTimeout(runFit, 280);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [rows.length, isLoading, errorMessage]);
+
+  if (!paramsReady) {
+    return <Navigate to="/transaction" replace />;
+  }
 
   return (
     <div className="transaction-payment-history-page-root">

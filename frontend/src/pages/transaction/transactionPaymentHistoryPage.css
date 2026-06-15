@@ -581,3 +581,59 @@ body.ec-payment-history-chromeless .transaction-payment-history-error {
     position: static;
   }
 }
+
+/* Popup window — shrink-wrap content so resizeTo() can fit all rows without inner scroll. */
+body.transaction-payment-history-page--popup,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup {
+  overflow: hidden !important;
+}
+
+body.transaction-payment-history-page--popup #root,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup #root {
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+body.transaction-payment-history-page--popup .ec-page-shell,
+body.transaction-payment-history-page--popup .ec-page-shell__content,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .ec-page-shell,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .ec-page-shell__content {
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+body.transaction-payment-history-page--popup .transaction-payment-history-page-root,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-page-root {
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 12px 16px;
+  overflow: visible;
+}
+
+body.transaction-payment-history-page--popup .transaction-payment-history-main,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-main {
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+body.transaction-payment-history-page--popup .transaction-payment-history-panel,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-panel {
+  height: auto !important;
+  flex: 0 1 auto;
+}
+
+body.transaction-payment-history-page--popup .transaction-payment-history-body,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-body {
+  overflow: visible !important;
+  flex: 0 1 auto;
+}
+
+body.transaction-payment-history-page--popup .transaction-history-table-frame,
+body.transaction-payment-history-page--popup .transaction-history-report-scroll,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-history-table-frame,
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-history-report-scroll {
+  overflow: visible !important;
+  max-height: none !important;
+}

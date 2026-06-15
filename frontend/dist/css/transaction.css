@@ -3618,6 +3618,12 @@ body.ec-payment-history-chromeless #root {
     overflow: auto !important;
 }
 
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup #root {
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
 body.ec-payment-history-chromeless .ec-page-shell,
 body.ec-payment-history-chromeless .ec-page-shell__content {
     width: 100% !important;
@@ -3639,6 +3645,10 @@ body.ec-payment-history-chromeless #root > .transaction-payment-history-page-roo
     height: auto !important;
     min-height: 100dvh !important;
     overflow: visible;
+}
+
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup #root > .transaction-payment-history-page-root {
+    min-height: 0 !important;
 }
 
 .transaction-payment-history-page-root {
