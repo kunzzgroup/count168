@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
+import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
 import PaymentVirtualDataRow from "./PaymentVirtualDataRow.jsx";
 import { isPaymentMaintenanceRowSelectable } from "../paymentMaintenanceLogic.js";
 
@@ -90,9 +91,7 @@ export default function PaymentVirtualRows({
     (el) => {
       if (!el) return rowHeight;
       const idx = Number(el.dataset?.index);
-      const inner = el.querySelector(".payment-virtual-data-row");
-      const target = inner ?? el;
-      const h = Math.max(rowHeight, Math.ceil(target.scrollHeight || target.getBoundingClientRect().height || rowHeight));
+      const h = measureMaintenanceVirtualRow(el, rowHeight, ".payment-virtual-data-row");
       if (Number.isFinite(idx)) {
         sizeCacheRef.current.set(idx, h);
       }

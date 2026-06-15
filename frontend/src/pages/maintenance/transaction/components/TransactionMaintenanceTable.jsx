@@ -7,6 +7,7 @@ import {
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 import { MAINTENANCE_REPORT_ROW_HEIGHT } from "../../shared/maintenanceReportRowMetrics.js";
+import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
 
 const ROW_HEIGHT = MAINTENANCE_REPORT_ROW_HEIGHT;
 
@@ -149,12 +150,7 @@ export default function TransactionMaintenanceTable({
   const measureElement = useCallback((el) => {
     if (!el) return ROW_HEIGHT;
     const idx = Number(el.dataset?.index);
-    const inner = el.querySelector(".transaction-virtual-data-row");
-    const target = inner ?? el;
-    const h = Math.max(
-      ROW_HEIGHT,
-      Math.ceil(target.scrollHeight || target.getBoundingClientRect().height || ROW_HEIGHT),
-    );
+    const h = measureMaintenanceVirtualRow(el, ROW_HEIGHT, ".transaction-virtual-data-row");
     if (Number.isFinite(idx)) {
       sizeCacheRef.current.set(idx, h);
     }

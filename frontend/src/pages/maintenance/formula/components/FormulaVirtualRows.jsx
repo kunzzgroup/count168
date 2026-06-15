@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
+import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
 import { formulaRowIdsMatch } from "../formulaMaintenanceLogic.js";
 import FormulaVirtualDataRow from "./FormulaVirtualDataRow.jsx";
 
@@ -102,9 +103,7 @@ export default function FormulaVirtualRows({
       const idx = Number(el.dataset?.index);
       const row = Number.isFinite(idx) ? rows[idx] : null;
       const minH = row?.id != null && formulaRowIdsMatch(row.id, editingId) ? editRowHeight : rowHeight;
-      const inner = el.querySelector(".formula-virtual-data-row");
-      const target = inner ?? el;
-      const h = Math.max(minH, Math.ceil(target.scrollHeight || target.getBoundingClientRect().height || minH));
+      const h = measureMaintenanceVirtualRow(el, minH, ".formula-virtual-data-row");
       if (Number.isFinite(idx)) {
         sizeCacheRef.current.set(idx, h);
       }

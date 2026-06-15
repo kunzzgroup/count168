@@ -324,6 +324,8 @@ body.dashboard-page.maintenance-page .maintenance-virtual-data-row:not(.formula-
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap {
     overflow: visible;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row,
@@ -332,9 +334,10 @@ body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .capture-virt
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .transaction-virtual-data-row,
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .bankprocess-virtual-data-row,
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-data-row {
-    height: auto !important;
-    min-height: var(--report-list-cell-min-height) !important;
+    height: 100% !important;
+    min-height: 100% !important;
     max-height: none !important;
+    box-sizing: border-box !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-cell,
@@ -355,7 +358,7 @@ body.maintenance-page .maintenance-created-at-display {
     display: inline-block;
     max-width: 100%;
     text-align: left;
-    line-height: 1.35;
+    line-height: normal;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
     overflow: hidden;
@@ -622,8 +625,8 @@ body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virt
     gap: var(--report-list-grid-gap) !important;
     padding: var(--report-list-row-padding-block) var(--report-list-row-padding-inline) !important;
     min-height: var(--report-list-cell-min-height) !important;
-    box-sizing: content-box !important;
-    align-items: center !important;
+    box-sizing: border-box !important;
+    align-items: stretch !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-cell,
@@ -684,9 +687,9 @@ body.maintenance-page .formula-maintenance-page-root {
     --formula-list-cell-line-height: normal;
 }
 
-/* Virtual 列表：与 .customer-report-card / .customer-report-card-item 一致 */
+/* Virtual 列表：行铺满槽位，单元格 stretch + flex 垂直居中（同 Report card-item） */
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-data-row"] {
-    align-items: center !important;
+    align-items: stretch !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-cell,
@@ -697,7 +700,9 @@ body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-vir
     padding: 0 !important;
     min-height: 0 !important;
     box-sizing: content-box !important;
-    align-self: center !important;
+    display: flex !important;
+    align-self: stretch !important;
+    align-items: center !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-data-row"] .maintenance-virtual-cell:nth-child(n) {

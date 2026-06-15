@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
+import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
 import CaptureVirtualDataRow from "./CaptureVirtualDataRow.jsx";
 
 function pickOverscan(count) {
@@ -95,9 +96,7 @@ export default function CaptureVirtualRows({
     (el) => {
       if (!el) return rowHeight;
       const idx = Number(el.dataset?.index);
-      const inner = el.querySelector(".capture-virtual-data-row");
-      const target = inner ?? el;
-      const h = Math.max(rowHeight, Math.ceil(target.scrollHeight || target.getBoundingClientRect().height || rowHeight));
+      const h = measureMaintenanceVirtualRow(el, rowHeight, ".capture-virtual-data-row");
       if (Number.isFinite(idx)) {
         sizeCacheRef.current.set(idx, h);
       }
