@@ -676,6 +676,39 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     overflow-y: auto;
 }
 
+/* Process portal dropdown — rendered on document.body, not clipped by form scroll */
+body.datacapture-page .custom-select-dropdown.custom-select-dropdown-portal,
+.custom-select-dropdown.dc-process-select-portal {
+    display: flex !important;
+    flex-direction: column;
+    box-sizing: border-box;
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+    background: #ffffff;
+    overflow: hidden;
+    max-height: min(280px, calc(100vh - 32px));
+    z-index: 9000;
+}
+
+body.datacapture-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-search,
+.custom-select-dropdown.dc-process-select-portal .custom-select-search {
+    flex-shrink: 0;
+}
+
+body.datacapture-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-options,
+.custom-select-dropdown.dc-process-select-portal .custom-select-options {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
+}
+
+body.datacapture-page.dc-process-dropdown-open .form-container .process-form,
+body.datacapture-page.dc-process-dropdown-open .form-container {
+    overflow: visible !important;
+}
+
 .custom-select-option {
     padding: 8px 12px;
     cursor: pointer;
