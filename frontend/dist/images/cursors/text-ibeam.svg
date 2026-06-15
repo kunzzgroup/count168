@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Windows default I-beam proportions: 1px stem, 9px serifs, hotspot 16 16 -->
+  <rect x="15" y="4" width="1" height="25" fill="#000000"/>
+  <rect x="11" y="4" width="9" height="1" fill="#000000"/>
+  <rect x="11" y="28" width="9" height="1" fill="#000000"/>
+</svg>

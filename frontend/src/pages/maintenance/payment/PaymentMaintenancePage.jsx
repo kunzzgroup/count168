@@ -434,6 +434,7 @@ export default function PaymentMaintenancePage() {
       if (!paymentMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
 
       const searchScopeKey = paymentMaintenanceScopeCacheKey(effectiveScope);
+      scopeKeyRef.current = searchScopeKey;
       const quietRefresh = initialPaymentSearchDoneRef.current;
 
       searchAbortRef.current?.abort();

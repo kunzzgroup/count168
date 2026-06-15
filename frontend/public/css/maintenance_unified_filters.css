@@ -286,11 +286,29 @@ body.dashboard-page.maintenance-page,
 body.dashboard-page.maintenance-page #root,
 body.dashboard-page.maintenance-page .ec-page-shell,
 body.dashboard-page.maintenance-page .ec-page-shell__content {
-    height: 100% !important;
+    height: 100dvh !important;
     min-height: 0 !important;
     max-height: 100dvh !important;
     overflow: hidden !important;
     box-sizing: border-box;
+}
+
+/* global-13inch @media unlock uses same specificity — maintenance must win when route is active */
+@media screen and (max-width: 1440px) {
+    html:has(body.ec-auth-shell.dashboard-page.maintenance-page),
+    body.ec-auth-shell.dashboard-page.maintenance-page {
+        height: 100dvh !important;
+        min-height: 0 !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body.ec-auth-shell.dashboard-page.maintenance-page .container {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
 }
 
 body.dashboard-page.maintenance-page .container,
@@ -329,6 +347,21 @@ body.dashboard-page.maintenance-page .formula-maintenance-table-region {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow: hidden !important;
+}
+
+body.dashboard-page.maintenance-page .transaction-maintenance-table-region > .empty-state-container,
+body.dashboard-page.maintenance-page .payment-maintenance-table-region > .empty-state-container,
+body.dashboard-page.maintenance-page .capture-maintenance-table-region > .empty-state-container,
+body.dashboard-page.maintenance-page .bankprocess-maintenance-table-region > .empty-state-container,
+body.dashboard-page.maintenance-page .formula-maintenance-table-region > .empty-state-container,
+body.dashboard-page.maintenance-page .transaction-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table),
+body.dashboard-page.maintenance-page .payment-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table),
+body.dashboard-page.maintenance-page .capture-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table),
+body.dashboard-page.maintenance-page .bankprocess-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table),
+body.dashboard-page.maintenance-page .formula-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table) {
+    flex: 1 1 auto !important;
+    min-height: 120px !important;
+    align-self: stretch !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-list-container {

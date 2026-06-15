@@ -495,6 +495,7 @@ export default function CaptureMaintenancePage() {
       if (!captureMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
 
       const searchScopeKey = captureMaintenanceScopeCacheKey(effectiveScope);
+      scopeKeyRef.current = searchScopeKey;
       captureAbortRef.current?.abort();
       const ac = new AbortController();
       captureAbortRef.current = ac;
