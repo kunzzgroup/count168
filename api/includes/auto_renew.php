@@ -2457,16 +2457,26 @@ function auto_renew_delete(PDO $pdo, int $requestId, array $session, array $inpu
         throw new RuntimeException('Missing expiration snapshot');
     }
     $entityType = auto_renew_normalize_entity_type($row['entity_type'] ?? 'company');
+    $companyCode = (string) ($row['company_code'] ?? '');
 
     auto_renew_prepare_payment_delete_environment($pdo);
 
     $pdo->beginTransaction();
     try {
+        $idsToDelete = [];
         if (auto_renew_transaction_is_active($pdo, $c168Pk, $txnId)) {
+            $idsToDelete[$txnId] = true;
+        }
+        foreach (auto_renew_find_share_billing_transaction_ids($pdo, $c168Pk, $companyCode, $snapshot, $entityType) as $shareTxnId) {
+            if (auto_renew_transaction_is_active($pdo, $c168Pk, $shareTxnId)) {
+                $idsToDelete[$shareTxnId] = true;
+            }
+        }
+        if ($idsToDelete !== []) {
             payment_delete_transactions_by_ids(
                 $pdo,
                 $c168Pk,
-                [$txnId],
+                array_keys($idsToDelete),
                 $session,
                 '/api/subscription/auto_renew_api.php',
                 false

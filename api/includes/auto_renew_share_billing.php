@@ -414,3 +414,99 @@ function auto_renew_apply_share_billing_on_approve(
         $createdByOwner
     );
 }
+
+/**
+ * @return list<string>
+ */
+function auto_renew_share_billing_sms_like_patterns(
+    string $entityType,
+    string $tenantCode,
+    string $expirationSnapshot
+): array {
+    $code = strtoupper(trim($tenantCode));
+    $exp = trim($expirationSnapshot);
+    if ($code === '' || $exp === '') {
+        return [];
+    }
+    if (auto_renew_normalize_entity_type($entityType) === 'group') {
+        return [
+            "[AUTO_RENEW|COMMISSION|GROUP|{$code}|{$exp}|%",
+            "[AUTO_RENEW|NET_PROFIT|GROUP|{$code}|{$exp}%",
+        ];
+    }
+    return [
+        "[AUTO_RENEW|COMMISSION|{$code}|{$exp}|%",
+        "[AUTO_RENEW|NET_PROFIT|{$code}|{$exp}%",
+    ];
+}
+
+/**
+ * Commission + net profit PAYMENT ids for one renewal cycle (expiration_snapshot).
+ *
+ * @return list<int>
+ */
+function auto_renew_find_share_billing_transaction_ids(
+    PDO $pdo,
+    int $c168Pk,
+    string $tenantCode,
+    string $expirationSnapshot,
+    string $entityType
+): array {
+    if ($c168Pk <= 0) {
+        return [];
+    }
+    $patterns = auto_renew_share_billing_sms_like_patterns($entityType, $tenantCode, $expirationSnapshot);
+    if ($patterns === []) {
+        return [];
+    }
+    $ids = [];
+    try {
+        foreach ($patterns as $pattern) {
+            $st = $pdo->prepare("
+                SELECT id FROM transactions
+                WHERE company_id = ? AND transaction_type = 'PAYMENT' AND sms LIKE ?
+            ");
+            $st->execute([$c168Pk, $pattern]);
+            while ($id = $st->fetchColumn()) {
+                $tid = (int) $id;
+                if ($tid > 0) {
+                    $ids[$tid] = true;
+                }
+            }
+        }
+    } catch (PDOException $e) {
+        return [];
+    }
+    return array_keys($ids);
+}
+
+/**
+ * Remove commission + net profit PAYMENT rows created on auto-renew approve.
+ */
+function auto_renew_delete_share_billing_payments(
+    PDO $pdo,
+    int $c168Pk,
+    string $tenantCode,
+    string $expirationSnapshot,
+    string $entityType,
+    array $session
+): void {
+    $ids = auto_renew_find_share_billing_transaction_ids(
+        $pdo,
+        $c168Pk,
+        $tenantCode,
+        $expirationSnapshot,
+        $entityType
+    );
+    if ($ids === []) {
+        return;
+    }
+    payment_delete_transactions_by_ids(
+        $pdo,
+        $c168Pk,
+        $ids,
+        $session,
+        '/api/subscription/auto_renew_api.php',
+        false
+    );
+}
