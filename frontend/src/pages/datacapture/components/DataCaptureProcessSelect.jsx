@@ -75,10 +75,9 @@ export default function DataCaptureProcessSelect({
   const positionMenu = useCallback(() => {
     const btn = buttonRef.current;
     if (!btn) return;
-    const containerEl = btn.closest(".form-container");
     const { menuStyle: nextMenuStyle, optionsMaxHeight: nextOptionsMaxHeight } = layoutProcessPortalDropdown(
       btn,
-      containerEl,
+      null,
     );
     setOptionsMaxHeight(nextOptionsMaxHeight);
     setMenuStyle(nextMenuStyle);
@@ -87,13 +86,16 @@ export default function DataCaptureProcessSelect({
   useLayoutEffect(() => {
     if (!processOpen) {
       setMenuStyle(null);
+      document.body.classList.remove("dc-process-dropdown-open");
       return undefined;
     }
+    document.body.classList.add("dc-process-dropdown-open");
     positionMenu();
     const onReflow = () => positionMenu();
     window.addEventListener("resize", onReflow);
     window.addEventListener("scroll", onReflow, true);
     return () => {
+      document.body.classList.remove("dc-process-dropdown-open");
       window.removeEventListener("resize", onReflow);
       window.removeEventListener("scroll", onReflow, true);
     };
@@ -160,6 +162,12 @@ export default function DataCaptureProcessSelect({
 
   return (
     <div className="custom-select-wrapper" ref={wrapRef}>
+      {/* Legacy `loadProcessesByDate` clears the first `.custom-select-options` — keep an empty decoy. */}
+      <div
+        className="custom-select-options dc-legacy-process-options-host"
+        aria-hidden="true"
+        style={{ display: "none" }}
+      />
       <button
         ref={buttonRef}
         type="button"
