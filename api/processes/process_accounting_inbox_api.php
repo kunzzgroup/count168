@@ -1514,9 +1514,11 @@ try {
                     if ($periodEnd === null) {
                         break;
                     }
-                    // 未开始的周（起点 > 今天）不扫描后续
-                    if (!$resendRelax && $due > $today) {
-                        break;
+                    // 未开始的周（起点 > 今天）不扫描后续；Resend relax 只放宽「过去期」是否可入账，不能无上限扫向未来。
+                    if ($due > $today) {
+                        if ($onlyPeriodStart === null || $due !== $onlyPeriodStart) {
+                            break;
+                        }
                     }
                     if ($onlyPeriodStart !== null && $due !== $onlyPeriodStart) {
                         $next = weekPeriodNextStartYmd($due);
@@ -2045,7 +2047,7 @@ try {
             $deduped[] = $row;
         }
 
-        // 最终强去重：同 process + 同 day_start + 同金额（cost/price/profit）只保留一条，避免 UI 出现“同账单两行”。
+        // 最终强去重：同 process + 同账期锚点 + 同 day_start + 同金额只保留一条，避免 UI 出现“同账单两行”。
         $byFingerprint = [];
         foreach ($deduped as $row) {
             $pid = (int) ($row['id'] ?? 0);
@@ -2062,7 +2064,14 @@ try {
             if (!empty($row['is_daily'])) {
                 $dailyAnchor = trim((string) ($row['monthly_billing_month'] ?? $row['daily_billing_start'] ?? ''));
             }
-            $fp = $pid . '|' . $dsNorm . '|' . $weeklyAnchor . '|' . $dailyAnchor . '|' . $c . '|' . $p . '|' . $pr;
+            $monthlyAnchor = '';
+            if (empty($row['is_weekly']) && empty($row['is_daily'])) {
+                $monthlyAnchor = trim((string) ($row['monthly_billing_month'] ?? ''));
+                if ($monthlyAnchor === '' && !empty($row['is_resend_consolidated_range'])) {
+                    $monthlyAnchor = 'resend|' . $dsNorm;
+                }
+            }
+            $fp = $pid . '|' . $dsNorm . '|' . $weeklyAnchor . '|' . $dailyAnchor . '|' . $monthlyAnchor . '|' . $c . '|' . $p . '|' . $pr;
             if (!isset($byFingerprint[$fp]) || $rankOf($row) >= $rankOf($byFingerprint[$fp])) {
                 $byFingerprint[$fp] = $row;
             }
@@ -2104,4 +2113,8 @@ try {
     error_log('process_accounting_inbox_api: ' . $e->getMessage());
     http_response_code(500);
     jsonResponse(false, '服务器错误', null);
-} 
+} catch (Throwable $e) {
+    error_log('process_accounting_inbox_api: ' . $e->getMessage());
+    http_response_code(500);
+    jsonResponse(false, '服务器错误', null);
+}
