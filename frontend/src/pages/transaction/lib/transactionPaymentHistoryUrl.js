@@ -62,16 +62,30 @@ export function resolvePaymentHistoryScope(searchParams, scopeApi = null) {
   return merged;
 }
 
-/** Build history scope from grid row + current filters (modal and URL share this). */
-export function buildPaymentHistoryScopeFromRow({ row, dateFrom, dateTo, scopeApi, opts = {} }) {
+export function buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts = {} }) {
+  const params = new URLSearchParams();
   let companyId = scopeApi?.companyId != null ? Number(scopeApi.companyId) : undefined;
   if (!Number.isFinite(companyId) || companyId <= 0) {
     companyId = readFilterCompanyId();
   }
+  if (Number.isFinite(companyId) && companyId > 0) params.set("company_id", String(companyId));
+  if (scopeApi?.viewGroup) params.set("view_group", String(scopeApi.viewGroup));
+  if (scopeApi?.groupId) params.set("group_id", String(scopeApi.groupId));
+  if (scopeApi?.groupAggregate) params.set("group_aggregate", "1");
+  if (scopeApi?.subsidiaryAccountsOnly || (companyId && !scopeApi?.groupAggregate)) {
+    params.set("subsidiary_accounts_only", "1");
+  }
 
   const accountDbId = row?.account_db_id ? String(row.account_db_id) : "";
   const accountCode = String(row?.account_id || "").trim();
+  if (accountDbId) params.set("account_db_id", accountDbId);
+  if (accountCode) params.set("account_code", accountCode);
+
   const accountName = String(row?.account_name || "").trim();
+  if (accountName) params.set("account_name", accountName);
+
+  if (dateFrom) params.set("date_from", String(dateFrom));
+  if (dateTo) params.set("date_to", String(dateTo));
 
   let currency = String(row?.currency || "").toUpperCase().trim();
   const { selectedCurrencies = [], showAllCurrencies = true } = opts;
@@ -81,45 +95,9 @@ export function buildPaymentHistoryScopeFromRow({ row, dateFrom, dateTo, scopeAp
       .filter(Boolean)
       .join(",");
   }
+  if (currency) params.set("currency", currency);
 
-  const scope = {
-    companyId: Number.isFinite(companyId) && companyId > 0 ? companyId : undefined,
-    viewGroup: scopeApi?.viewGroup ? String(scopeApi.viewGroup) : undefined,
-    groupId: scopeApi?.groupId ? String(scopeApi.groupId) : undefined,
-    groupAggregate: Boolean(scopeApi?.groupAggregate),
-    subsidiaryAccountsOnly:
-      Boolean(scopeApi?.subsidiaryAccountsOnly) || (Number.isFinite(companyId) && companyId > 0 && !scopeApi?.groupAggregate),
-    accountDbId: accountDbId || undefined,
-    accountCode: accountCode || undefined,
-    accountName: accountName || undefined,
-    dateFrom: dateFrom ? String(dateFrom) : undefined,
-    dateTo: dateTo ? String(dateTo) : undefined,
-    currency: currency || undefined,
-    virtualCompanyCode: !accountDbId && accountCode ? accountCode.toUpperCase() : undefined,
-  };
-
-  if (scope.subsidiaryAccountsOnly || (scope.companyId && !scope.groupAggregate)) {
-    scope.subsidiaryAccountsOnly = true;
-  }
-
-  return scope;
-}
-
-export function buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts = {} }) {
-  const scope = buildPaymentHistoryScopeFromRow({ row, dateFrom, dateTo, scopeApi, opts });
-  const params = new URLSearchParams();
-  if (scope.companyId) params.set("company_id", String(scope.companyId));
-  if (scope.viewGroup) params.set("view_group", scope.viewGroup);
-  if (scope.groupId) params.set("group_id", scope.groupId);
-  if (scope.groupAggregate) params.set("group_aggregate", "1");
-  if (scope.subsidiaryAccountsOnly) params.set("subsidiary_accounts_only", "1");
-  if (scope.accountDbId) params.set("account_db_id", scope.accountDbId);
-  if (scope.accountCode) params.set("account_code", scope.accountCode);
-  if (scope.accountName) params.set("account_name", scope.accountName);
-  if (scope.dateFrom) params.set("date_from", scope.dateFrom);
-  if (scope.dateTo) params.set("date_to", scope.dateTo);
-  if (scope.currency) params.set("currency", scope.currency);
-  if (scope.virtualCompanyCode) params.set("virtual_company_code", scope.virtualCompanyCode);
+  if (!accountDbId && accountCode) params.set("virtual_company_code", accountCode.toUpperCase());
 
   params.set("ph", "1");
 

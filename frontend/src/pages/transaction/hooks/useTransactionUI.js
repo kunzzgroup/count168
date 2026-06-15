@@ -22,7 +22,6 @@ export function useTransactionUI() {
   const queryClient = useQueryClient();
   const [toast, setToast] = useState([]);
   const [contraInbox, setContraInbox] = useState({ open: false, loading: false, items: [] });
-  const [historyModalScope, setHistoryModalScope] = useState(null);
   const closeToastTimer = useRef(null);
 
   const pushToast = useCallback((message, type = "info") => {
@@ -36,16 +35,18 @@ export function useTransactionUI() {
     }, 2500);
   }, []);
 
-  const onViewHistory = useCallback((row, dateFrom, dateTo, scopeApi, opts = {}) => {
-    if (!row || !scopeApiReady(scopeApi)) return;
-    const scope = buildPaymentHistoryScopeFromRow({ row, dateFrom, dateTo, scopeApi, opts });
-    if (!paymentHistoryParamsReady(scope)) return;
-    setHistoryModalScope(scope);
-  }, []);
-
-  const closeHistoryModal = useCallback(() => {
-    setHistoryModalScope(null);
-  }, []);
+  const onViewHistory = useCallback(
+    (row, dateFrom, dateTo, scopeApi, opts = {}) => {
+      if (!row || !scopeApiReady(scopeApi)) return;
+      const url = buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts });
+      // Keep opener so Payment History × can focus the Transaction tab and window.close() this tab.
+      const win = window.open(url, "_blank");
+      if (!win) {
+        pushToast("Popup blocked — allow popups for this site", "error");
+      }
+    },
+    [pushToast],
+  );
 
   const refreshContraInboxBadge = useCallback(
     async (scopeApi) => {
@@ -135,8 +136,6 @@ export function useTransactionUI() {
     setContraInbox,
     pushToast,
     onViewHistory,
-    historyModalScope,
-    closeHistoryModal,
     refreshContraInboxBadge,
     onApproveContra,
     onRejectContra,
