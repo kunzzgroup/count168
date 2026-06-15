@@ -93,6 +93,38 @@ function SidebarNavTip({ label, enabled, children, placement = "right" }) {
   );
 }
 
+function sidebarWebHref(path) {
+  if (typeof window === "undefined") return path;
+  return new URL(path, window.location.origin).href;
+}
+
+/** Plain left-click → SPA navigate; middle / modified click → browser default (new tab, etc.). */
+function handleSidebarSpaLinkClick(event, onNavigate) {
+  if (event.defaultPrevented) return;
+  if (event.button !== 0) return;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  onNavigate?.();
+}
+
+function SidebarSectionLink({ to, className, prefetchPath, onBeforeNavigate, goTo, children }) {
+  return (
+    <a
+      href={sidebarWebHref(to)}
+      className={className}
+      data-prefetch-path={prefetchPath ?? to}
+      onClick={(e) =>
+        handleSidebarSpaLinkClick(e, () => {
+          onBeforeNavigate?.();
+          goTo(to);
+        })
+      }
+    >
+      {children}
+    </a>
+  );
+}
+
 const AVATAR_MAP = {
   male1: assetUrl("images/avatar1.png"),
   male2: assetUrl("images/avatar2.png"),
@@ -876,7 +908,6 @@ export default function AuthenticatedLayout() {
   
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
-  const webHref = (path) => new URL(path, window.location.origin).href;
   const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
   const performLogout = async () => {
     if (logoutLoading) return;
@@ -996,43 +1027,59 @@ export default function AuthenticatedLayout() {
           {canAccess("home") && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarHome} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`} data-prefetch-path="/dashboard" onClick={() => goTo("/dashboard")} role="presentation">
+                <SidebarSectionLink
+                  to="/dashboard"
+                  goTo={goTo}
+                  className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`}
+                >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarHome}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {showC168DomainPages && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarDomain} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`} data-prefetch-path="/domain" onClick={() => goTo("/domain")} role="presentation">
+                <SidebarSectionLink
+                  to="/domain"
+                  goTo={goTo}
+                  className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`}
+                >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarDomain}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {showC168DomainPages && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarAnnouncement} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`} data-prefetch-path="/announcement" onClick={() => goTo("/announcement")} role="presentation">
+                <SidebarSectionLink
+                  to="/announcement"
+                  goTo={goTo}
+                  className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`}
+                >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarAnnouncement}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {showAutoRenewEntry && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarAutoRenew} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`} data-prefetch-path="/auto-renew" onClick={() => goTo("/auto-renew")} role="presentation">
+                <SidebarSectionLink
+                  to="/auto-renew"
+                  goTo={goTo}
+                  className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`}
+                >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
                   </svg>
@@ -1044,109 +1091,109 @@ export default function AuthenticatedLayout() {
                       </span>
                     ) : null}
                   </span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {canAccess("admin") && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarAdmin} enabled={sidebarIconOnly}>
-                <div className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`} data-prefetch-path="/userlist" onClick={() => goTo("/userlist")} role="presentation">
+                <SidebarSectionLink
+                  to="/userlist"
+                  goTo={goTo}
+                  className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`}
+                >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarAdmin}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {canAccess("account") && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarAccount} enabled={sidebarIconOnly}>
-                <div
+                <SidebarSectionLink
+                  to="/account-list"
+                  goTo={goTo}
                   className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
-                  data-prefetch-path="/account-list"
-                  onClick={() => goTo("/account-list")}
-                  role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarAccount}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {canAccess("ownership") && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarOwnership} enabled={sidebarIconOnly}>
-                <div
+                <SidebarSectionLink
+                  to="/ownership"
+                  goTo={goTo}
                   className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
-                  data-prefetch-path="/ownership"
-                  onClick={() => goTo("/ownership")}
-                  role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarOwnership}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {canAccess("process") && !hideProcessWhenGroupOnly && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarProcess} enabled={sidebarIconOnly}>
-                <div
+                <SidebarSectionLink
+                  to={processSpaPath}
+                  goTo={goTo}
+                  prefetchPath={processSpaPath}
                   className={`informationmenu-section-title ${isProcessPage ? "current-page" : "account-direct"}`}
-                  data-prefetch-path={processSpaPath}
-                  onClick={() => goTo(processSpaPath)}
-                  role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarProcess}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {canAccess("datacapture") && me?.company_has_gambling && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarDataCapture} enabled={sidebarIconOnly}>
-                <div
-                  className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
-                  data-prefetch-path="/datacapture"
-                  onClick={() => {
+                <SidebarSectionLink
+                  to="/datacapture"
+                  goTo={goTo}
+                  onBeforeNavigate={() => {
                     if (path === "/datacapturesummary") {
                       clearDataCaptureRoundLocalStorage();
                     }
-                    goTo("/datacapture");
                   }}
-                  role="presentation"
+                  className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarDataCapture}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
           {canAccess("payment") && (
             <div className="informationmenu-section informationmenu-section--transaction-payment">
               <SidebarNavTip label={i18n.sidebarTransactionPayment} enabled={sidebarIconOnly}>
-                <div
+                <SidebarSectionLink
+                  to="/transaction"
+                  goTo={goTo}
                   className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
-                  data-prefetch-path="/transaction"
-                  onClick={() => goTo("/transaction")}
-                  role="presentation"
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
                   </svg>
                   <span className="sidebar-menu-label">{i18n.sidebarTransactionPayment}</span>
-                </div>
+                </SidebarSectionLink>
               </SidebarNavTip>
             </div>
           )}
@@ -1186,24 +1233,18 @@ export default function AuthenticatedLayout() {
                 >
                   <div className="submenu-content">
                     <a
-                      href={webHref("/customer-report")}
+                      href={sidebarWebHref("/customer-report")}
                       className={`submenu-item ${path === "/customer-report" ? "current-page" : ""}`}
                       data-prefetch-path="/customer-report"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        goTo("/customer-report");
-                      }}
+                      onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/customer-report"))}
                     >
                       <span>{i18n.sidebarCustomerReport}</span>
                     </a>
                     <a
-                      href={webHref("/domain-report")}
+                      href={sidebarWebHref("/domain-report")}
                       className={`submenu-item ${path === "/domain-report" ? "current-page" : ""}`}
                       data-prefetch-path="/domain-report"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        goTo("/domain-report");
-                      }}
+                      onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/domain-report"))}
                     >
                       <span>{i18n.sidebarDomainReport}</span>
                     </a>
@@ -1249,65 +1290,50 @@ export default function AuthenticatedLayout() {
                   <div className="submenu-content">
                     {showFullMaintenanceMenu && me?.company_has_gambling && (
                       <a
-                        href={webHref("/capture-maintenance")}
+                        href={sidebarWebHref("/capture-maintenance")}
                         className={`submenu-item ${path === "/capture-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/capture-maintenance"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          goTo("/capture-maintenance");
-                        }}
+                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/capture-maintenance"))}
                       >
                         <span>{i18n.sidebarDataCapture}</span>
                       </a>
                     )}
                     {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
-                        href={webHref("/transaction-maintenance")}
+                        href={sidebarWebHref("/transaction-maintenance")}
                         className={`submenu-item ${path === "/transaction-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/transaction-maintenance"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          goTo("/transaction-maintenance");
-                        }}
+                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/transaction-maintenance"))}
                       >
                         <span>{i18n.sidebarTransaction}</span>
                       </a>
                     )}
                     {showFullMaintenanceMenu && (me?.company_has_gambling || me?.company_has_bank) && (
                       <a
-                        href={webHref("/payment-maintenance")}
+                        href={sidebarWebHref("/payment-maintenance")}
                         className={`submenu-item ${path === "/payment-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/payment-maintenance"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          goTo("/payment-maintenance");
-                        }}
+                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/payment-maintenance"))}
                       >
                         <span>{i18n.sidebarPayment}</span>
                       </a>
                     )}
                     {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
-                        href={webHref("/formula-maintenance")}
+                        href={sidebarWebHref("/formula-maintenance")}
                         className={`submenu-item ${path === "/formula-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/formula-maintenance"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          goTo("/formula-maintenance");
-                        }}
+                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/formula-maintenance"))}
                       >
                         <span>{i18n.sidebarFormula}</span>
                       </a>
                     )}
                     {showFullMaintenanceMenu && showBankprocessMaintenance && (
                       <a
-                        href={webHref("/bankprocess-maintenance")}
+                        href={sidebarWebHref("/bankprocess-maintenance")}
                         className={`submenu-item ${path === "/bankprocess-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/bankprocess-maintenance"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          goTo("/bankprocess-maintenance");
-                        }}
+                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/bankprocess-maintenance"))}
                       >
                         <span>{i18n.sidebarProcess}</span>
                       </a>

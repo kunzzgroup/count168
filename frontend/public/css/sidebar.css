@@ -770,6 +770,7 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     min-width: 0;
+    text-decoration: none;
 }
 
 .informationmenu-section-title:has(.section-arrow) {
