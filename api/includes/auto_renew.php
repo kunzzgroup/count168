@@ -2282,6 +2282,14 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
     $companyCode = (string) ($row['company_code'] ?? '');
     $snapshot = (string) ($row['expiration_snapshot'] ?? '');
 
+    $poolId = auto_renew_resolve_fee_pool_account_id($pdo, $c168Pk, $companyCode, $entityType, $toId);
+    if ($poolId <= 0) {
+        throw new RuntimeException('Renewal pool account is required');
+    }
+    if ($fromId === $poolId) {
+        throw new RuntimeException('From and pool accounts must differ');
+    }
+
     $pdo->beginTransaction();
     try {
         $pay = auto_renew_create_fee_payment(
@@ -2290,7 +2298,7 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
             $companyCode,
             $snapshot,
             $fromId,
-            $toId,
+            $poolId,
             $price,
             $period,
             $createdByUser,
@@ -2311,7 +2319,7 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
             $snapshot,
             $entityType,
             money_normalize($price),
-            $fromId,
+            $poolId,
             $createdByUser,
             $createdByOwner
         );
@@ -2341,7 +2349,7 @@ function auto_renew_approve(PDO $pdo, int $requestId, array $input, array $sessi
             $period,
             money_normalize($price),
             $fromId,
-            $toId,
+            $poolId,
             $pay['transaction_id'],
             $newExp,
             $processedBy,

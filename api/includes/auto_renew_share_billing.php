@@ -372,6 +372,24 @@ function auto_renew_create_net_profit_payment(
     return $out;
 }
 
+/**
+ * C168 资金池：与 Domain 一致，优先 Share% Profit 账号，否则用续费 To 账号。
+ */
+function auto_renew_resolve_fee_pool_account_id(
+    PDO $pdo,
+    int $c168Pk,
+    string $tenantCode,
+    string $entityType,
+    int $fallbackToAccountId
+): int {
+    $normalized = auto_renew_load_tenant_share_allocations($pdo, $entityType, $tenantCode);
+    $poolId = auto_renew_resolve_profit_target_account($pdo, $c168Pk, $normalized);
+    if ($poolId && $poolId > 0) {
+        return (int) $poolId;
+    }
+    return (int) $fallbackToAccountId;
+}
+
 function auto_renew_apply_share_billing_on_approve(
     PDO $pdo,
     int $c168Pk,
