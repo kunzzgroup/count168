@@ -1291,6 +1291,7 @@ function auto_renew_format_approval_row(array $row, PDO $pdo, int $c168Pk, array
         'company_numeric_id' => (int) ($row['company_numeric_id'] ?? 0),
         'company_code' => $companyCode,
         'owner_name' => (string) ($row['owner_name'] ?? ''),
+        'owner_id' => !empty($row['owner_id']) ? (int) $row['owner_id'] : null,
         'group_id' => $groupId,
         'price' => $price,
         'expiration_date' => $expirationDate,
@@ -1355,6 +1356,7 @@ function auto_renew_fetch_company_approval_raw_rows(
             c.id AS company_numeric_id,
             c.company_id AS company_code,
             c.group_id,
+            c.owner_id AS owner_id,
             c.expiration_date,
             COALESCE(o.name, '') AS owner_name
     ";
@@ -1461,6 +1463,7 @@ function auto_renew_fetch_group_approval_raw_rows(
             g.id AS company_numeric_id,
             g.group_code AS company_code,
             NULL AS group_id,
+            g.owner_id AS owner_id,
             g.expiration_date,
             COALESCE(o.name, '') AS owner_name
     ";

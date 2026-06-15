@@ -72,6 +72,7 @@ export default function CompanySettingsModal({
   excludeOwnerId = null,
   siblingGroupCodes = [],
   siblingCompanyCodes = [],
+  persistImmediately = false,
   onSave,
   onClose,
 }) {
@@ -365,6 +366,41 @@ export default function CompanySettingsModal({
         fee_share_allocations: cleanFsa,
         apply_commission_payments_on_domain_save: chargeOnSave,
       };
+
+      if (persistImmediately) {
+        await runGuarded(async () => {
+          const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
+            cache: "no-cache",
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "save_group_tenant_settings",
+              group_code: apiEntityCode,
+              expiration_date: expDate || null,
+              fee_share_allocations: cleanFsa,
+              apply_commission_payments: chargeOnSave,
+            }),
+          });
+          const json = await res.json();
+          if (!json.success) {
+            const msg = json.message || "";
+            if (msg.includes("not found") || msg.includes("save the domain first")) {
+              showDomainAlert(t("groupUpdatedShareAfterSave"));
+            } else {
+              showDomainAlert(msg || t("shareSaveFailed"), "danger");
+              return;
+            }
+          } else {
+            const hint = chargeOnSave ? t("feePostsHint") : "";
+            showDomainAlert(t("groupUpdatedSuccess") + hint);
+          }
+          onSave(updated);
+          notifySessionRefreshRequested();
+        });
+        return;
+      }
+
       showDomainAlert(t("groupUpdatedShareAfterSave"));
       onSave(updated);
       notifySessionRefreshRequested();

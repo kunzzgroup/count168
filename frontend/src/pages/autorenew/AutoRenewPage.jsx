@@ -10,6 +10,13 @@ import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
 import { formatDate, formatDomainFeeDisplay2, normalizeDomainFeeSettingsFromApi } from "../domain/domainHelpers.js";
+import CompanySettingsModal from "../domain/components/CompanySettingsModal.jsx";
+import GroupSettingsModal from "../domain/components/GroupSettingsModal.jsx";
+import DomainNotification from "../domain/components/DomainNotification.jsx";
+import {
+  fetchDomainFeeSettingsForAutoRenew,
+  loadAutoRenewTenantSettings,
+} from "./autoRenewTenantSettings.js";
 import { DashboardCalendarPopup } from "../dashboard/components/DashboardCalendarPopup.jsx";
 import ConfirmDeleteModal from "../../components/ConfirmDeleteModal.jsx";
 import {
@@ -34,7 +41,6 @@ import {
   canApproveRow,
   canDeleteRow,
   filterAutoRenewRows,
-  formatAutoRenewRowAccountLabel,
   formatRemainingForRow,
   formatSubmitterAt,
   getAutoRenewApproveDisabledReason,
@@ -49,6 +55,8 @@ import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import "../../../public/css/admin-responsive.css";
 import "../../../public/css/auto_renew.css";
+import "../../../public/css/domain.css";
+import "../../../public/css/date-range-picker.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/transaction.css";
 
@@ -158,6 +166,9 @@ export default function AutoRenewPage() {
   const [deleteConfirmRow, setDeleteConfirmRow] = useState(null);
   const [rejectConfirmRow, setRejectConfirmRow] = useState(null);
   const [approveConfirmRow, setApproveConfirmRow] = useState(null);
+  const [settingsModal, setSettingsModal] = useState(null);
+  const [commLoadingKey, setCommLoadingKey] = useState(null);
+  const [domainPeriodPrices, setDomainPeriodPrices] = useState(null);
 
   const notify = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -173,6 +184,13 @@ export default function AutoRenewPage() {
       document.body.classList.add("dashboard-page");
     };
   }, []);
+
+  useEffect(() => {
+    if (!sessionReady || !me || !canAccessC168AutoRenew(me)) return;
+    fetchDomainFeeSettingsForAutoRenew()
+      .then((data) => setDomainPeriodPrices(normalizeDomainFeeSettingsFromApi(data)))
+      .catch(() => {});
+  }, [sessionReady, me]);
 
   const showAll = statusFilter === "all";
 
@@ -214,7 +232,6 @@ export default function AutoRenewPage() {
   const activeSnapshot = entitySnapshots[entityTab];
   const rows = activeSnapshot?.rows ?? [];
   const feeSettings = activeSnapshot?.feeSettings ?? null;
-  const accounts = activeSnapshot?.accounts ?? [];
   const counts = activeSnapshot?.counts ?? EMPTY_COUNTS;
   const canEditGlobal = Boolean(activeSnapshot?.canEditGlobal);
 
@@ -286,6 +303,33 @@ export default function AutoRenewPage() {
     await fetchList();
     void syncAutoRenewPendingCount();
   }, [fetchList, invalidateListCaches]);
+
+  const handleSettingsSaved = useCallback(() => {
+    setSettingsModal(null);
+    void refreshListAfterMutation();
+  }, [refreshListAfterMutation]);
+
+  const handleOpenComm = useCallback(async (row) => {
+    const rowKey = rowStableKey(row);
+    if (!canEditGlobal || row.is_payment_deleted || busyRequestId) return;
+    if (!row.owner_id) {
+      notify(t("commSettingsNotFound"), "error");
+      return;
+    }
+    setCommLoadingKey(rowKey);
+    try {
+      const payload = await loadAutoRenewTenantSettings(row);
+      if (!payload) {
+        notify(t("commSettingsNotFound"), "error");
+        return;
+      }
+      setSettingsModal(payload);
+    } catch (err) {
+      notify(t("commSettingsLoadFailed", { message: err.message }), "error");
+    } finally {
+      setCommLoadingKey(null);
+    }
+  }, [busyRequestId, canEditGlobal, notify, t]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -532,6 +576,23 @@ export default function AutoRenewPage() {
     </div>
   );
 
+  const renderCommButton = (row) => {
+    if (!canEditGlobal || row.is_payment_deleted || !row.owner_id) return null;
+    const rowKey = rowStableKey(row);
+    const loading = commLoadingKey === rowKey;
+    return (
+      <button
+        type="button"
+        className="auto-renew-btn auto-renew-btn-comm auto-renew-btn--sm"
+        disabled={Boolean(busyRequestId) || loading}
+        title={t("commTooltip")}
+        onClick={() => void handleOpenComm(row)}
+      >
+        {loading ? t("processing") : t("comm")}
+      </button>
+    );
+  };
+
   const renderStatusCell = (row) => {
     if (row.is_payment_deleted) {
       return (
@@ -540,7 +601,6 @@ export default function AutoRenewPage() {
     }
 
     if (row.status === "pending" && canEditGlobal) {
-      const displayPrice = resolveAutoRenewDisplayPrice(row, rowDrafts, feeSettings);
       const approveEnabled = canApproveRow(row, rowDrafts, feeSettings) && busyRequestId !== row.request_id;
       const approveDisabledReason = approveEnabled
         ? undefined
@@ -564,25 +624,40 @@ export default function AutoRenewPage() {
           >
             {t("reject")}
           </button>
+          {renderCommButton(row)}
         </div>
       );
     }
 
     if (row.status === "approved" && canDeleteRow(row) && canEditGlobal) {
       return (
-        <button
-          type="button"
-          className="auto-renew-btn auto-renew-btn-danger auto-renew-btn--sm"
-          disabled={busyRequestId === row.request_id}
-          onClick={() => handleDelete(row)}
-        >
-          {busyRequestId === row.request_id ? t("processing") : t("delete")}
-        </button>
+        <div className="auto-renew-action-btns">
+          <button
+            type="button"
+            className="auto-renew-btn auto-renew-btn-danger auto-renew-btn--sm"
+            disabled={busyRequestId === row.request_id}
+            onClick={() => handleDelete(row)}
+          >
+            {busyRequestId === row.request_id ? t("processing") : t("delete")}
+          </button>
+          {renderCommButton(row)}
+        </div>
       );
     }
 
     const statusClass =
       row.status === "approved" ? "is-approved" : row.status === "rejected" ? "is-rejected" : "is-pending";
+    const commBtn = renderCommButton(row);
+    if (commBtn) {
+      return (
+        <div className="auto-renew-action-btns auto-renew-action-btns--with-badge">
+          <span className={`auto-renew-approval-badge ${statusClass}`}>
+            {t(`status${row.status.charAt(0).toUpperCase()}${row.status.slice(1)}`)}
+          </span>
+          {commBtn}
+        </div>
+      );
+    }
     return (
       <span className={`auto-renew-approval-badge ${statusClass}`}>
         {t(`status${row.status.charAt(0).toUpperCase()}${row.status.slice(1)}`)}
@@ -737,8 +812,6 @@ export default function AutoRenewPage() {
                 {renderHeader("expiration", t("colExpiration"))}
                 {renderHeader("remaining", t("colRemaining"))}
                 {renderHeader("period", t("colPeriod"), { controlCol: true })}
-                <div className="header-item auto-renew-col-control-header"><span className="header-item__label">{t("colFromAccount")}</span></div>
-                <div className="header-item auto-renew-col-control-header"><span className="header-item__label">{t("colToAccount")}</span></div>
                 {renderHeader("status", t("colStatus"), { controlCol: true })}
                 {showSubmitterColumn ? renderHeader("submitter", t("colSubmitter")) : null}
               </div>
@@ -792,16 +865,6 @@ export default function AutoRenewPage() {
                           ) : (
                             <span className="auto-renew-cell-readonly">{row.period ? t(periodToLabelKey(row.period)) : "-"}</span>
                           )}
-                        </div>
-                        <div className="card-item auto-renew-col-control">
-                          <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                            {formatAutoRenewRowAccountLabel(row, draft.fromAccountId, accounts, "from") || "-"}
-                          </span>
-                        </div>
-                        <div className="card-item auto-renew-col-control">
-                          <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                            {formatAutoRenewRowAccountLabel(row, draft.toAccountId, accounts, "to") || "-"}
-                          </span>
                         </div>
                         <div className="card-item auto-renew-col-control auto-renew-col-control--status">{renderStatusCell(row)}</div>
                         {showSubmitterColumn ? (
@@ -887,6 +950,35 @@ export default function AutoRenewPage() {
           confirmDisabled={Boolean(busyRequestId)}
           onConfirm={() => void confirmApproveRow()}
           onClose={() => !busyRequestId && setApproveConfirmRow(null)}
+        />
+      ) : null}
+
+      <DomainNotification />
+
+      {settingsModal?.type === "company" ? (
+        <CompanySettingsModal
+          lang={lang}
+          company={settingsModal.tenant}
+          domainPeriodPrices={domainPeriodPrices}
+          sessionCompanyId={me?.company_id ?? null}
+          sessionCompanyCode={me?.company_code ?? null}
+          excludeOwnerId={settingsModal.ownerId}
+          onSave={handleSettingsSaved}
+          onClose={() => setSettingsModal(null)}
+        />
+      ) : null}
+
+      {settingsModal?.type === "group" ? (
+        <GroupSettingsModal
+          lang={lang}
+          group={settingsModal.tenant}
+          domainPeriodPrices={domainPeriodPrices}
+          sessionCompanyId={me?.company_id ?? null}
+          sessionCompanyCode={me?.company_code ?? null}
+          excludeOwnerId={settingsModal.ownerId}
+          persistImmediately
+          onSave={handleSettingsSaved}
+          onClose={() => setSettingsModal(null)}
         />
       ) : null}
     </>
