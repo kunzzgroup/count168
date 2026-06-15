@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isPaymentHistoryChromelessPath } from "../pages/transaction/lib/transactionPaymentHistoryUrl.js";
-import { assetUrl, buildApiUrl } from "../utils/core/apiUrl.js";
+import { assetUrl, buildApiUrl, buildSpaPath } from "../utils/core/apiUrl.js";
 import { clearDataCaptureRoundLocalStorage } from "../utils/capture/dataCaptureRoundStorage.js";
 import AppBootLoading from "./AppBootLoading.jsx";
 import AvatarPickerModal from "./AvatarPickerModal.jsx";
@@ -28,6 +28,7 @@ import {
   applyLoginScopeToSessionStorageIfNeeded,
   clearDashboardFilterSession,
   clearOwnerCompaniesCache,
+  consumeDashboardFilterNewTabBootstrap,
   DASHBOARD_GROUP_FILTER_EVENT,
   dashboardFilterEventMatchesPersisted,
   dashboardGcFiltersEqual,
@@ -45,6 +46,7 @@ import {
   findOwnerCompanyById,
   resolveSidebarExpirationForFilter,
   resolveGroupCategoryFlagsForSidebar,
+  stashDashboardFilterForNewTab,
 } from "../utils/company/sharedCompanyFilter.js";
 import { rememberCompanySessionFlags } from "../utils/company/companySessionFlagsCache.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
@@ -95,16 +97,35 @@ function SidebarNavTip({ label, enabled, children, placement = "right" }) {
 
 function sidebarWebHref(path) {
   if (typeof window === "undefined") return path;
-  return new URL(path, window.location.origin).href;
+  const spaPath = buildSpaPath(path);
+  return new URL(spaPath, window.location.href).href;
 }
 
-/** Plain left-click → SPA navigate; middle / modified click → browser default (new tab, etc.). */
-function handleSidebarSpaLinkClick(event, onNavigate) {
+function sidebarOpensNewTab(event) {
+  return (
+    event.button === 1 ||
+    (event.button === 0 && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey))
+  );
+}
+
+/** Plain left-click → SPA navigate; middle / modified click → new tab at the route href. */
+function handleSidebarSpaLinkClick(event, path, onNavigate) {
   if (event.defaultPrevented) return;
+  if (sidebarOpensNewTab(event)) {
+    if (event.button === 1) return;
+    stashDashboardFilterForNewTab();
+    return;
+  }
   if (event.button !== 0) return;
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
   onNavigate?.();
+}
+
+function handleSidebarSpaAuxClick(event, path) {
+  if (event.button !== 1) return;
+  event.preventDefault();
+  stashDashboardFilterForNewTab();
+  window.open(buildSpaPath(path), "_blank", "noopener,noreferrer");
 }
 
 function SidebarSectionLink({ to, className, prefetchPath, onBeforeNavigate, goTo, children }) {
@@ -113,8 +134,12 @@ function SidebarSectionLink({ to, className, prefetchPath, onBeforeNavigate, goT
       href={sidebarWebHref(to)}
       className={className}
       data-prefetch-path={prefetchPath ?? to}
+      onPointerDown={(event) => {
+        if (sidebarOpensNewTab(event)) stashDashboardFilterForNewTab();
+      }}
+      onAuxClick={(event) => handleSidebarSpaAuxClick(event, to)}
       onClick={(e) =>
-        handleSidebarSpaLinkClick(e, () => {
+        handleSidebarSpaLinkClick(e, to, () => {
           onBeforeNavigate?.();
           goTo(to);
         })
@@ -123,6 +148,17 @@ function SidebarSectionLink({ to, className, prefetchPath, onBeforeNavigate, goT
       {children}
     </a>
   );
+}
+
+function sidebarSubmenuLinkProps(path, goTo) {
+  return {
+    href: sidebarWebHref(path),
+    onPointerDown: (event) => {
+      if (sidebarOpensNewTab(event)) stashDashboardFilterForNewTab();
+    },
+    onAuxClick: (event) => handleSidebarSpaAuxClick(event, path),
+    onClick: (event) => handleSidebarSpaLinkClick(event, path, () => goTo(path)),
+  };
 }
 
 const AVATAR_MAP = {
@@ -167,6 +203,10 @@ export default function AuthenticatedLayout() {
   const reportTitleRef = useRef(null);
   const maintenanceTitleRef = useRef(null);
   const menuContentRef = useRef(null);
+
+  useLayoutEffect(() => {
+    consumeDashboardFilterNewTabBootstrap();
+  }, []);
 
   // --- Notification Panel State ---
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1233,18 +1273,16 @@ export default function AuthenticatedLayout() {
                 >
                   <div className="submenu-content">
                     <a
-                      href={sidebarWebHref("/customer-report")}
+                      {...sidebarSubmenuLinkProps("/customer-report", goTo)}
                       className={`submenu-item ${path === "/customer-report" ? "current-page" : ""}`}
                       data-prefetch-path="/customer-report"
-                      onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/customer-report"))}
                     >
                       <span>{i18n.sidebarCustomerReport}</span>
                     </a>
                     <a
-                      href={sidebarWebHref("/domain-report")}
+                      {...sidebarSubmenuLinkProps("/domain-report", goTo)}
                       className={`submenu-item ${path === "/domain-report" ? "current-page" : ""}`}
                       data-prefetch-path="/domain-report"
-                      onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/domain-report"))}
                     >
                       <span>{i18n.sidebarDomainReport}</span>
                     </a>
@@ -1290,50 +1328,45 @@ export default function AuthenticatedLayout() {
                   <div className="submenu-content">
                     {showFullMaintenanceMenu && me?.company_has_gambling && (
                       <a
-                        href={sidebarWebHref("/capture-maintenance")}
+                        {...sidebarSubmenuLinkProps("/capture-maintenance", goTo)}
                         className={`submenu-item ${path === "/capture-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/capture-maintenance"
-                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/capture-maintenance"))}
                       >
                         <span>{i18n.sidebarDataCapture}</span>
                       </a>
                     )}
                     {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
-                        href={sidebarWebHref("/transaction-maintenance")}
+                        {...sidebarSubmenuLinkProps("/transaction-maintenance", goTo)}
                         className={`submenu-item ${path === "/transaction-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/transaction-maintenance"
-                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/transaction-maintenance"))}
                       >
                         <span>{i18n.sidebarTransaction}</span>
                       </a>
                     )}
                     {showFullMaintenanceMenu && (me?.company_has_gambling || me?.company_has_bank) && (
                       <a
-                        href={sidebarWebHref("/payment-maintenance")}
+                        {...sidebarSubmenuLinkProps("/payment-maintenance", goTo)}
                         className={`submenu-item ${path === "/payment-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/payment-maintenance"
-                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/payment-maintenance"))}
                       >
                         <span>{i18n.sidebarPayment}</span>
                       </a>
                     )}
                     {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
-                        href={sidebarWebHref("/formula-maintenance")}
+                        {...sidebarSubmenuLinkProps("/formula-maintenance", goTo)}
                         className={`submenu-item ${path === "/formula-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/formula-maintenance"
-                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/formula-maintenance"))}
                       >
                         <span>{i18n.sidebarFormula}</span>
                       </a>
                     )}
                     {showFullMaintenanceMenu && showBankprocessMaintenance && (
                       <a
-                        href={sidebarWebHref("/bankprocess-maintenance")}
+                        {...sidebarSubmenuLinkProps("/bankprocess-maintenance", goTo)}
                         className={`submenu-item ${path === "/bankprocess-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/bankprocess-maintenance"
-                        onClick={(e) => handleSidebarSpaLinkClick(e, () => goTo("/bankprocess-maintenance"))}
                       >
                         <span>{i18n.sidebarProcess}</span>
                       </a>
