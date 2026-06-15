@@ -70,6 +70,7 @@ import {
   sortBankProcessTableRows,
   accountingDuePeriodType,
   accountingDueBillingMonth,
+  accountingDueRowKey,
   checkBankResendLockFromBackend,
   isBankResendScheduleLockedToday,
   normalizeBankResendDayStartYmd,
@@ -1294,21 +1295,21 @@ export function useBankProcessListPage() {
       const list = Array.isArray(json?.data) ? json.data : [];
       setAccountingRows(list);
       if (!silent) {
-        setAccountingSelected(new Set(list.filter((x) => !x.already_posted_today).map((x) => Number(x.id))));
+        setAccountingSelected(new Set(list.filter((x) => !x.already_posted_today).map((x) => accountingDueRowKey(x)).filter(Boolean)));
         setAccountingDeleteSelected(new Set());
       } else {
-        const ids = new Set(list.map((x) => Number(x.id)));
+        const rowKeys = new Set(list.map((x) => accountingDueRowKey(x)).filter(Boolean));
         setAccountingSelected((prev) => {
           const next = new Set();
-          prev.forEach((id) => {
-            if (ids.has(id)) next.add(id);
+          prev.forEach((key) => {
+            if (rowKeys.has(key)) next.add(key);
           });
           return next;
         });
         setAccountingDeleteSelected((prev) => {
           const next = new Set();
-          prev.forEach((id) => {
-            if (ids.has(id)) next.add(id);
+          prev.forEach((key) => {
+            if (rowKeys.has(key)) next.add(key);
           });
           return next;
         });
@@ -1890,7 +1891,7 @@ export function useBankProcessListPage() {
 
   const postAccountingToTransaction = async () => {
     if (guardWrite()) return;
-    const selected = accountingRows.filter((r) => accountingSelected.has(Number(r.id)) && !r.already_posted_today);
+    const selected = accountingRows.filter((r) => accountingSelected.has(accountingDueRowKey(r)) && !r.already_posted_today);
     if (selected.length === 0) return notify(t("needOneDueItem"), "warning");
     try {
       const fd = new FormData();
@@ -1909,7 +1910,7 @@ export function useBankProcessListPage() {
 
   const dismissAccountingRows = async () => {
     if (guardWrite()) return;
-    const selected = accountingRows.filter((r) => accountingDeleteSelected.has(Number(r.id)));
+    const selected = accountingRows.filter((r) => accountingDeleteSelected.has(accountingDueRowKey(r)));
     if (selected.length === 0) return notify(t("tickDeleteRows"), "warning");
     try {
       const fd = new FormData();
