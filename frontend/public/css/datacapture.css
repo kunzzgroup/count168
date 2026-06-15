@@ -123,6 +123,14 @@ body.datacapture-page .container {
         min-height: min(42vh, 360px);
     }
 
+    body.datacapture-page .excel-table-container--group-only {
+        min-height: 0;
+    }
+
+    body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
+        max-height: min(42vh, 360px);
+    }
+
     body.datacapture-page .form-container {
         overflow: visible;
     }
@@ -1679,16 +1687,51 @@ body.datacapture-page .excel-table-container {
     white-space: nowrap;
 }
 
-.excel-table-container--group-only {
+/* Group-only: grow with rows; scroll inside list once viewport band is full; Submit stays below */
+body.datacapture-page .bottom-section:has(.excel-table-container--group-only) {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+body.datacapture-page .excel-table-container--group-only {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.excel-table-container--group-only .excel-table-scroll-body {
-    flex: 1 1 auto;
-    min-height: 0;
+body.datacapture-page .excel-table-container--group-only .excel-table-header {
+    flex-shrink: 0;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
+    flex: 0 1 auto;
+    max-height: min(50vh, calc(100dvh - 380px));
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f6f8fa;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table td.row-header {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: #f6f8fa;
+}
+
+body.datacapture-page .excel-table-container--group-only .excel-table thead th:first-child {
+    left: 0;
+    z-index: 3;
 }
 
 .dc-table-size {

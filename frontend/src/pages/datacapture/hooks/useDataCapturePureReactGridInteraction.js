@@ -50,7 +50,7 @@ function isGroupOnlyFixedGrid() {
   return getDataCaptureState().isGroupOnlyGrid === true;
 }
 
-/** Group-only: columns stay fixed; row insert/delete via context menu stays disabled. */
+/** Group-only: columns stay fixed; row context menu remains available. */
 function isGroupOnlyFixedColumns() {
   return isGroupOnlyFixedGrid();
 }
@@ -176,10 +176,14 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const insertRowAbove = () => {
-      if (isGroupOnlyFixedGrid()) return;
       const row = getContextMenuRowIndex();
       const grid = getGrid();
       if (row === null || row < 0 || !grid) return;
+      if (grid.rows >= MAX_GRID_ROWS) {
+        pushDataCaptureNotification("Cannot add more rows", "danger");
+        hideContextMenu();
+        return;
+      }
       apiRef.current.replaceGrid(insertRowInGrid(grid, row));
       hideContextMenu();
       clearAllSelections();
@@ -187,10 +191,14 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const insertRowBelow = () => {
-      if (isGroupOnlyFixedGrid()) return;
       const row = getContextMenuRowIndex();
       const grid = getGrid();
       if (row === null || row < 0 || !grid) return;
+      if (grid.rows >= MAX_GRID_ROWS) {
+        pushDataCaptureNotification("Cannot add more rows", "danger");
+        hideContextMenu();
+        return;
+      }
       apiRef.current.replaceGrid(insertRowInGrid(grid, row + 1));
       hideContextMenu();
       clearAllSelections();
@@ -198,7 +206,6 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     };
 
     const deleteRow = () => {
-      if (isGroupOnlyFixedGrid()) return;
       const grid = getGrid();
       if (!grid) return;
       const indices = getSelectedRowIndices();

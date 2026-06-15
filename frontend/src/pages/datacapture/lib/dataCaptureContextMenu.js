@@ -12,7 +12,7 @@ import {
 } from "./dataCaptureBridge.js";
 import { getDataCaptureState } from "./dataCaptureRuntime.js";
 
-function isGroupOnlyContextMenuDisabled() {
+function isGroupOnlyColumnContextMenuDisabled() {
   return getDataCaptureState().isGroupOnlyGrid === true;
 }
 
@@ -201,7 +201,7 @@ export function showContextMenu(e, cell) {
 export function showColumnContextMenu(e, headerEl) {
   e.preventDefault();
   e.stopPropagation();
-  if (isGroupOnlyContextMenuDisabled()) return;
+  if (isGroupOnlyColumnContextMenuDisabled()) return;
 
   const target = headerEl || e.target?.closest?.("#tableHeader th");
   if (!target || target.cellIndex <= 0) return;
@@ -223,7 +223,6 @@ export function showColumnContextMenu(e, headerEl) {
 export function showRowContextMenu(e, rowHeaderEl) {
   e.preventDefault();
   e.stopPropagation();
-  if (isGroupOnlyContextMenuDisabled()) return;
 
   const target = rowHeaderEl || e.target?.closest?.(".row-header");
   if (!target) return;

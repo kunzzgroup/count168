@@ -8,12 +8,8 @@ import {
 import { callDataCaptureRuntime } from "../lib/dataCaptureRuntime.js";
 
 const GROUP_ONLY_TABLE_SIZE_MAX_COLS = 50;
-
-function clampDimension(value, min, max) {
-  const n = Math.floor(Number(value));
-  if (!Number.isFinite(n)) return min;
-  return Math.min(max, Math.max(min, n));
-}
+const DEFAULT_ADD_ROWS_TEXT = "1";
+const DEFAULT_ADD_COLS_TEXT = "0";
 
 function readGridDimensions(gridRef, gridVersion) {
   void gridVersion;
@@ -24,14 +20,26 @@ function readGridDimensions(gridRef, gridVersion) {
   };
 }
 
+function parseAddCount(text, max) {
+  const trimmed = String(text).trim();
+  if (trimmed === "") {
+    return { valid: false, value: 0 };
+  }
+  const n = Math.floor(Number(trimmed));
+  if (!Number.isFinite(n) || n < 0) {
+    return { valid: false, value: 0 };
+  }
+  return { valid: true, value: Math.min(n, max) };
+}
+
 /**
- * Group-only table size picker — Apply resizes grid; Clear restores 11×11.
+ * Group-only add row/column control — Apply appends rows/cols; reset restores 11×11.
  */
 export default function GroupOnlyTableSizeControl({ t, engineReady = false }) {
   const { gridRef, gridVersion } = useDataCaptureContext();
   const [open, setOpen] = useState(false);
-  const [draftRows, setDraftRows] = useState(GROUP_ONLY_GRID_ROWS);
-  const [draftCols, setDraftCols] = useState(GROUP_ONLY_GRID_COLS);
+  const [draftAddRowsText, setDraftAddRowsText] = useState(DEFAULT_ADD_ROWS_TEXT);
+  const [draftAddColsText, setDraftAddColsText] = useState(DEFAULT_ADD_COLS_TEXT);
   const rootRef = useRef(null);
 
   const { rows: currentRows, cols: currentCols } = useMemo(
@@ -39,37 +47,51 @@ export default function GroupOnlyTableSizeControl({ t, engineReady = false }) {
     [gridRef, gridVersion],
   );
 
-  const syncDraftFromGrid = useCallback(() => {
-    const { rows, cols } = readGridDimensions(gridRef, gridVersion);
-    setDraftRows(rows);
-    setDraftCols(cols);
-  }, [gridRef, gridVersion]);
+  const maxAddRows = Math.max(0, MAX_GRID_ROWS - currentRows);
+  const maxAddCols = Math.max(0, GROUP_ONLY_TABLE_SIZE_MAX_COLS - currentCols);
 
-  const applySize = useCallback(
-    (rows, cols) => {
+  const parsedAddRows = parseAddCount(draftAddRowsText, maxAddRows);
+  const parsedAddCols = parseAddCount(draftAddColsText, maxAddCols);
+  const previewAddRows = parsedAddRows.valid ? parsedAddRows.value : 0;
+  const previewAddCols = parsedAddCols.valid ? parsedAddCols.value : 0;
+  const previewTotalRows = Math.min(currentRows + previewAddRows, MAX_GRID_ROWS);
+  const previewTotalCols = Math.min(currentCols + previewAddCols, GROUP_ONLY_TABLE_SIZE_MAX_COLS);
+
+  const canApply =
+    parsedAddRows.valid && parsedAddCols.valid && (previewAddRows > 0 || previewAddCols > 0);
+
+  const openPopover = useCallback(() => {
+    setDraftAddRowsText(DEFAULT_ADD_ROWS_TEXT);
+    setDraftAddColsText(DEFAULT_ADD_COLS_TEXT);
+    setOpen(true);
+  }, []);
+
+  const applyAddDimensions = useCallback(
+    (addRows, addCols) => {
       if (!engineReady) return;
-      const r = clampDimension(rows, 1, MAX_GRID_ROWS);
-      const c = clampDimension(cols, 1, GROUP_ONLY_TABLE_SIZE_MAX_COLS);
-      callDataCaptureRuntime("ensureGridReady", r, c);
-      setDraftRows(r);
-      setDraftCols(c);
+      const { rows: baseRows, cols: baseCols } = readGridDimensions(gridRef, gridVersion);
+      const nextRows = Math.min(baseRows + addRows, MAX_GRID_ROWS);
+      const nextCols = Math.min(baseCols + addCols, GROUP_ONLY_TABLE_SIZE_MAX_COLS);
+      callDataCaptureRuntime("ensureGridReady", nextRows, nextCols);
+      setDraftAddRowsText(DEFAULT_ADD_ROWS_TEXT);
+      setDraftAddColsText(DEFAULT_ADD_COLS_TEXT);
       setOpen(false);
     },
-    [engineReady],
+    [engineReady, gridRef, gridVersion],
   );
 
   const handleApply = useCallback(() => {
-    applySize(draftRows, draftCols);
-  }, [applySize, draftRows, draftCols]);
+    if (!canApply) return;
+    applyAddDimensions(previewAddRows, previewAddCols);
+  }, [applyAddDimensions, canApply, previewAddCols, previewAddRows]);
 
-  const handleClear = useCallback(() => {
-    applySize(GROUP_ONLY_GRID_ROWS, GROUP_ONLY_GRID_COLS);
-  }, [applySize]);
-
-  const openPopover = useCallback(() => {
-    syncDraftFromGrid();
-    setOpen(true);
-  }, [syncDraftFromGrid]);
+  const handleResetTable = useCallback(() => {
+    if (!engineReady) return;
+    callDataCaptureRuntime("ensureGridReady", GROUP_ONLY_GRID_ROWS, GROUP_ONLY_GRID_COLS);
+    setDraftAddRowsText(DEFAULT_ADD_ROWS_TEXT);
+    setDraftAddColsText(DEFAULT_ADD_COLS_TEXT);
+    setOpen(false);
+  }, [engineReady]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -80,8 +102,6 @@ export default function GroupOnlyTableSizeControl({ t, engineReady = false }) {
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open]);
-
-  const totalCells = draftRows * draftCols;
 
   return (
     <div className="dc-table-size" ref={rootRef}>
@@ -106,7 +126,7 @@ export default function GroupOnlyTableSizeControl({ t, engineReady = false }) {
           title={t("tableSizeResetTitle")}
           aria-label={t("tableSizeResetTitle")}
           disabled={!engineReady}
-          onClick={handleClear}
+          onClick={handleResetTable}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <path
@@ -133,42 +153,50 @@ export default function GroupOnlyTableSizeControl({ t, engineReady = false }) {
 
           <div className="dc-table-size-fields">
             <label className="dc-table-size-field">
-              <span className="dc-table-size-field-label">{t("tableSizeRows")}</span>
+              <span className="dc-table-size-field-label">{t("tableSizeAddRows")}</span>
               <input
-                type="number"
-                min={1}
-                max={MAX_GRID_ROWS}
-                value={draftRows}
-                onChange={(e) => setDraftRows(clampDimension(e.target.value, 1, MAX_GRID_ROWS))}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={draftAddRowsText}
+                disabled={maxAddRows < 1}
+                onChange={(e) => setDraftAddRowsText(e.target.value)}
               />
             </label>
             <label className="dc-table-size-field">
-              <span className="dc-table-size-field-label">{t("tableSizeColumns")}</span>
+              <span className="dc-table-size-field-label">{t("tableSizeAddColumns")}</span>
               <input
-                type="number"
-                min={1}
-                max={GROUP_ONLY_TABLE_SIZE_MAX_COLS}
-                value={draftCols}
-                onChange={(e) =>
-                  setDraftCols(clampDimension(e.target.value, 1, GROUP_ONLY_TABLE_SIZE_MAX_COLS))
-                }
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={draftAddColsText}
+                disabled={maxAddCols < 1}
+                onChange={(e) => setDraftAddColsText(e.target.value)}
               />
             </label>
           </div>
 
           <p className="dc-table-size-summary">
-            {t("tableSizeTotalCells", {
-              rows: draftRows,
-              cols: draftCols,
-              total: totalCells,
+            {t("tableSizeAddSummary", {
+              currentRows,
+              addRows: previewAddRows,
+              totalRows: previewTotalRows,
+              currentCols,
+              addCols: previewAddCols,
+              totalCols: previewTotalCols,
             })}
           </p>
 
           <div className="dc-table-size-actions">
-            <button type="button" className="btn btn-cancel dc-table-size-clear-btn" onClick={handleClear}>
+            <button type="button" className="btn btn-cancel dc-table-size-clear-btn" onClick={handleResetTable}>
               {t("clear")}
             </button>
-            <button type="button" className="btn btn-save dc-table-size-apply-btn" onClick={handleApply}>
+            <button
+              type="button"
+              className="btn btn-save dc-table-size-apply-btn"
+              disabled={!canApply}
+              onClick={handleApply}
+            >
               {t("apply")}
             </button>
           </div>
