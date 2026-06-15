@@ -6,6 +6,7 @@ import TransactionAddSection from "./components/TransactionAddSection.jsx";
 import TransactionHeader from "./components/TransactionHeader.jsx";
 import TransactionSearchSection from "./components/TransactionSearchSection.jsx";
 import TransactionTablesSection from "./components/TransactionTablesSection.jsx";
+import TransactionHistoryModal from "./components/TransactionHistoryModal.jsx";
 import { formatDmy } from "./lib/transactionFormat.js";
 import { useTransactionData } from "./hooks/useTransactionData.js";
 import { useTransactionUI } from "./hooks/useTransactionUI.js";
@@ -453,6 +454,8 @@ function TransactionPaymentPageMain() {
           );
         })}
       </div>
+
+      <TransactionHistoryModal scope={ui.historyModalScope} onClose={ui.closeHistoryModal} m={m} />
     </div>
   );
 }
