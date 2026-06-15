@@ -12,7 +12,7 @@ export default function TransactionSearchSection({
   onCategoryAllChange,
   toggleCategoryValue,
   searchState,
-  setSearchState,
+  toggleDisplayFilter,
   fs,
   onGroupButtonClick,
   onCompanyButtonClick,
@@ -190,7 +190,7 @@ export default function TransactionSearchSection({
               id={chip.id}
               className={`user-filter-chip${selected ? " is-selected" : ""}`}
               aria-pressed={selected}
-              onClick={() => setSearchState((s) => ({ ...s, [chip.key]: !s[chip.key] }))}
+              onClick={() => toggleDisplayFilter(chip.key)}
             >
               <span className="user-filter-chip__dot" aria-hidden>
                 {selected ? (

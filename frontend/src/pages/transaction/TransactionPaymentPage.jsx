@@ -296,7 +296,7 @@ function TransactionPaymentPageMain() {
             toggleCategoryValue={search.toggleCategoryValue}
             removeCategoryTag={search.removeCategoryTag}
             searchState={search.searchState}
-            setSearchState={search.setSearchState}
+            toggleDisplayFilter={search.toggleDisplayFilter}
             showAllCurrencies={search.showAllCurrencies}
             selectedCurrencies={search.selectedCurrencies}
             setSelectedCurrencies={search.setSelectedCurrencies}
