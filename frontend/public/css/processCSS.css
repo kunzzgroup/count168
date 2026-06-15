@@ -5711,7 +5711,10 @@ body.process-page > .process-modal {
 
 .process-form-modal .process-checkboxes .checkbox-item label,
 #addModal .modal-content.process-form-modal .process-checkboxes .checkbox-item label,
-#multi_use_processes .process-checkboxes .checkbox-item label {
+#editModal .modal-content.process-form-modal .process-checkboxes .checkbox-item label,
+#multi_use_processes .process-checkboxes .checkbox-item label,
+#addModal .modal-content.process-form-modal #multi_use_processes .process-checkboxes .checkbox-item label,
+#editModal .modal-content.process-form-modal #multi_use_processes .process-checkboxes .checkbox-item label {
     margin: 0 !important;
     margin-bottom: 0 !important;
     padding: 0 !important;
@@ -5719,7 +5722,7 @@ body.process-page > .process-modal {
     min-width: 0 !important;
     max-width: 100% !important;
     font-family: var(--font-ui) !important;
-    font-size: var(--process-form-modal-multi-list-text, var(--process-form-modal-control-size, var(--text-small))) !important;
+    font-size: var(--text-small) !important;
     font-weight: 400 !important;
     line-height: var(--process-form-modal-multi-item-line-height, 1.35) !important;
     cursor: pointer;

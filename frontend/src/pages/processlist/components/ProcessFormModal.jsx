@@ -1,7 +1,8 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
 import { toProcessFormUpperInput } from "../processListHelpers.js";
 import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
+import ProcessFormPortalSelect from "./ProcessFormPortalSelect.jsx";
 
 const DAY_NAME_MAP = {
   "MON": "dayMonday",
@@ -62,8 +63,6 @@ export default function ProcessFormModal({
   const [copyOpen, setCopyOpen] = useState(false);
   const [copySearch, setCopySearch] = useState("");
   const [currencyOpen, setCurrencyOpen] = useState(false);
-  const copyWrapRef = useRef(null);
-  const currencyWrapRef = useRef(null);
 
   const copyOptions = useMemo(() => sortedCopyFromOptions(form.existingProcesses), [form.existingProcesses]);
   const filteredCopy = useMemo(() => {
@@ -76,15 +75,6 @@ export default function ProcessFormModal({
   }, [copyOptions, copySearch]);
 
   const multiUseRows = useMemo(() => uniqueProcessesForMultiUse(form.existingProcesses), [form.existingProcesses]);
-
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (!copyWrapRef.current?.contains(e.target)) setCopyOpen(false);
-      if (!currencyWrapRef.current?.contains(e.target)) setCurrencyOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
 
   const descSummary =
     form.selected_descriptions?.length > 0
@@ -115,19 +105,19 @@ export default function ProcessFormModal({
                 <div className="form-row">
                   <div className="form-group">
                     <label>{t("copyFrom")}</label>
-                    <div className="custom-select-wrapper" ref={copyWrapRef}>
-                      <button
-                        type="button"
-                        className="custom-select-button"
-                        disabled={ro}
-                        onClick={() => !ro && setCopyOpen((o) => !o)}
-                      >
-                        {selectedCopyRow
+                    <ProcessFormPortalSelect
+                      open={copyOpen}
+                      onOpenChange={setCopyOpen}
+                      disabled={ro}
+                      hasSearch
+                      displayLabel={
+                        selectedCopyRow
                           ? `${selectedCopyRow.process_name || t("unknown")} - ${selectedCopyRow.description_name || t("noDescription")}`
-                          : placeholderBtn}
-                      </button>
-                      {copyOpen && (
-                        <div className="custom-select-dropdown" style={{ display: "block" }}>
+                          : placeholderBtn
+                      }
+                    >
+                      {({ optionsMaxHeight }) => (
+                        <>
                           <div className="custom-select-search">
                             <input
                               type="text"
@@ -138,7 +128,10 @@ export default function ProcessFormModal({
                               onChange={(e) => setCopySearch(e.target.value)}
                             />
                           </div>
-                          <div className="custom-select-options">
+                          <div
+                            className="custom-select-options"
+                            style={{ flex: "1 1 auto", minHeight: 0, maxHeight: optionsMaxHeight }}
+                          >
                             <div
                               className="custom-select-option"
                               role="button"
@@ -174,9 +167,9 @@ export default function ProcessFormModal({
                               </div>
                             ))}
                           </div>
-                        </div>
+                        </>
                       )}
-                    </div>
+                    </ProcessFormPortalSelect>
                   </div>
                 </div>
               )}
@@ -355,61 +348,59 @@ export default function ProcessFormModal({
               <div className="form-row">
                 <div className="form-group">
                   <label>{t("currencyColumn")}</label>
-                  <div className="custom-select-wrapper" ref={currencyWrapRef}>
-                    <button
-                      type="button"
-                      className={`custom-select-button${currencyOpen ? " open" : ""}`}
-                      disabled={ro}
-                      onClick={() => !ro && setCurrencyOpen((o) => !o)}
-                    >
-                      {selectedCurrency ? selectedCurrency.code : t("selectCurrency")}
-                    </button>
-                    {currencyOpen && (
-                      <div className="custom-select-dropdown" style={{ display: "block" }}>
-                        <div className="custom-select-options">
+                  <ProcessFormPortalSelect
+                    open={currencyOpen}
+                    onOpenChange={setCurrencyOpen}
+                    disabled={ro}
+                    displayLabel={selectedCurrency ? selectedCurrency.code : t("selectCurrency")}
+                  >
+                    {({ optionsMaxHeight }) => (
+                      <div
+                        className="custom-select-options"
+                        style={{ flex: "1 1 auto", minHeight: 0, maxHeight: optionsMaxHeight }}
+                      >
+                        <div
+                          className={`custom-select-option${!form.currency_id ? " selected" : ""}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, currency_id: "" }));
+                            setCurrencyOpen(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              setForm((prev) => ({ ...prev, currency_id: "" }));
+                              setCurrencyOpen(false);
+                            }
+                          }}
+                        >
+                          {t("selectCurrency")}
+                        </div>
+                        {currencies.map((c) => (
                           <div
-                            className={`custom-select-option${!form.currency_id ? " selected" : ""}`}
+                            key={c.id}
+                            className={`custom-select-option${
+                              String(c.id) === String(form.currency_id) ? " selected" : ""
+                            }`}
                             role="button"
                             tabIndex={0}
                             onClick={() => {
-                              setForm((prev) => ({ ...prev, currency_id: "" }));
+                              setForm((prev) => ({ ...prev, currency_id: String(c.id) }));
                               setCurrencyOpen(false);
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
-                                setForm((prev) => ({ ...prev, currency_id: "" }));
+                                setForm((prev) => ({ ...prev, currency_id: String(c.id) }));
                                 setCurrencyOpen(false);
                               }
                             }}
                           >
-                            {t("selectCurrency")}
+                            {c.code}
                           </div>
-                          {currencies.map((c) => (
-                            <div
-                              key={c.id}
-                              className={`custom-select-option${
-                                String(c.id) === String(form.currency_id) ? " selected" : ""
-                              }`}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => {
-                                setForm((prev) => ({ ...prev, currency_id: String(c.id) }));
-                                setCurrencyOpen(false);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  setForm((prev) => ({ ...prev, currency_id: String(c.id) }));
-                                  setCurrencyOpen(false);
-                                }
-                              }}
-                            >
-                              {c.code}
-                            </div>
-                          ))}
-                        </div>
+                        ))}
                       </div>
                     )}
-                  </div>
+                  </ProcessFormPortalSelect>
                 </div>
               </div>
 
