@@ -14,7 +14,11 @@ import {
   selectedProcessFromGroupOnlyPrefs,
 } from "../lib/dataCaptureGroupOnlyProcessPersistence.js";
 import { selectedProcessFromGroupOnlySession } from "../lib/dataCaptureGroupOnlyProcesses.js";
-import { restoreGroupOnlyTableDraft, saveGroupOnlyTableDraft } from "../lib/dataCaptureGroupOnlyTableDraft.js";
+import {
+  normalizeGroupOnlyDraftCurrencyId,
+  restoreGroupOnlyTableDraft,
+  saveGroupOnlyTableDraft,
+} from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
 import { toDataCaptureWordFieldCase } from "../lib/dataCaptureFormRules.js";
 import { captureTableSnapshot } from "../lib/dataCaptureTableSnapshot.js";
@@ -323,10 +327,16 @@ export function useDataCaptureFormEngine(
         typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
           ? window.__DC_GET_CAPTURE_TYPE__() || "1.Text"
           : "1.Text";
-      saveGroupOnlyTableDraft(selectedGroupRef.current, prev.id, {
-        tableData: captureTableSnapshot(activeCaptureType),
-        captureType: activeCaptureType,
-      });
+      saveGroupOnlyTableDraft(
+        selectedGroupRef.current,
+        prev.id,
+        currencyId,
+        {
+          tableData: captureTableSnapshot(activeCaptureType),
+          captureType: activeCaptureType,
+        },
+        { captureScope: captureScopeRef.current },
+      );
     }
     setSelectedProcess(next);
     saveGroupOnlyProcessPrefs(selectedGroupRef.current, {
@@ -338,7 +348,11 @@ export function useDataCaptureFormEngine(
     });
     setProcessOpen(false);
     setProcessFilter("");
-    void restoreGroupOnlyTableDraft(selectedGroupRef.current, next.id);
+    if (normalizeGroupOnlyDraftCurrencyId(currencyId)) {
+      void restoreGroupOnlyTableDraft(selectedGroupRef.current, next.id, currencyId, {
+        captureScope: captureScopeRef.current,
+      });
+    }
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
     }, 0);
@@ -392,11 +406,14 @@ export function useDataCaptureFormEngine(
     if (applyCompanyOnlyFieldsRef.current) return;
     const prefs = readGroupOnlyProcessPrefs(groupId);
     const proc = selectedProcessFromGroupOnlyPrefs(prefs);
+    const prefCurrency = prefs?.currency ? String(prefs.currency) : "";
     setSelectedProcess(proc);
-    if (prefs?.currency) setCurrencyId(String(prefs.currency));
+    if (prefCurrency) setCurrencyId(prefCurrency);
     if (prefs?.date) setCaptureDate(String(prefs.date));
-    if (proc?.id) {
-      void restoreGroupOnlyTableDraft(groupId, proc.id);
+    if (proc?.id && normalizeGroupOnlyDraftCurrencyId(prefCurrency)) {
+      void restoreGroupOnlyTableDraft(groupId, proc.id, prefCurrency, {
+        captureScope: captureScopeRef.current,
+      });
     }
     setTimeout(() => {
       if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
@@ -564,23 +581,27 @@ export function useDataCaptureFormEngine(
     persistGroupOnlyFormPrefs();
   }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, currencyId, captureDate, persistGroupOnlyFormPrefs]);
 
-  /** Restore saved group-only table draft when process is pre-selected or grid becomes ready. */
+  /** Restore saved group-only table draft when process/currency is set and grid is ready. */
   useEffect(() => {
     if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
     if (!scriptsReady) return;
-    if (typeof window.__DC_RESTORE_CAPTURE_TABLE__ !== "function") return;
+    if (!normalizeGroupOnlyDraftCurrencyId(currencyId)) return;
     if (window.__DC_IS_RESTORING__) return;
     try {
       if (new URLSearchParams(window.location.search).get("restore") === "1") return;
     } catch {
       /* ignore */
     }
-    void restoreGroupOnlyTableDraft(selectedGroup, selectedProcess.id);
+    void restoreGroupOnlyTableDraft(selectedGroup, selectedProcess.id, currencyId, {
+      captureScope,
+    });
   }, [
     applyCompanyOnlyFields,
     selectedGroup,
     selectedProcess?.id,
+    currencyId,
     scriptsReady,
+    captureScope,
   ]);
 
   const applyGroupOnlyPrefsForGroupRef = useRef(applyGroupOnlyPrefsForGroup);
