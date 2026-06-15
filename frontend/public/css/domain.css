@@ -119,7 +119,8 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel {
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-header h2 {
     font-family: var(--font-heading-page) !important;
-    font-size: var(--text-h3) !important;
+    font-size: var(--text-page-title);
+    letter-spacing: 0;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-form {
@@ -147,10 +148,15 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-body {
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
     flex-shrink: 0;
-    gap: clamp(16px, 3vw, 32px);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
     margin-top: 0 !important;
     padding: 18px 36px !important;
     background-color: var(--color-surface) !important;
+    border-top: 1px solid var(--color-border-slate) !important;
 }
 
 /* 设计图：DOMAIN / COMPANY 上下全宽堆叠，非左右分栏 */
@@ -488,9 +494,9 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-heading {
     margin: 0 !important;
     padding: 0 !important;
     font-family: var(--font-heading-page) !important;
-    font-size: var(--text-medium) !important;
+    font-size: var(--text-base);
     font-weight: 700 !important;
-    letter-spacing: 0.04em !important;
+    letter-spacing: 0;
     line-height: 1.35 !important;
     color: var(--color-body-strong) !important;
 }
@@ -501,9 +507,9 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label {
     font-family: var(--font-ui) !important;
     font-weight: 700 !important;
     color: var(--color-text-label) !important;
-    font-size: var(--text-small) !important;
+    font-size: var(--text-medium);
     line-height: 1.3 !important;
-    letter-spacing: 0 !important;
+    letter-spacing: 0;
     text-transform: none !important;
 }
 
@@ -529,7 +535,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-helper-text {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-empty-hint {
     color: var(--color-text-placeholder) !important;
     font-family: var(--font-ui) !important;
-    font-size: var(--text-tiny) !important;
+    font-size: var(--text-small) !important;
     line-height: 1.45 !important;
     font-weight: 500 !important;
 }
@@ -1241,44 +1247,57 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-adjoin-btn:active {
     filter: brightness(0.96);
 }
 
-/* 图二底部药丸按钮：压住全局 btn active 缩放 */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn {
-    box-sizing: border-box !important;
+/* Add/Edit Domain footer — 与 Company Settings / Price 弹窗 btn-save / btn-cancel 一致 */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-save,
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-cancel {
+    box-sizing: border-box;
+    width: 120px;
+    min-height: 35.5px;
+    padding: 8px 20px;
     margin: 0 !important;
-    min-height: 41px !important;
-    min-width: 130px !important;
-    padding: 12px 30px !important;
-    border: none !important;
-    border-radius: 9999px !important;
-    font-family: var(--font-ui) !important;
-    font-size: var(--text-medium) !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.04em;
-    cursor: pointer !important;
+    font-family: var(--font-heading-page);
+    font-size: var(--text-medium);
+    font-weight: 700;
+    line-height: 1;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--color-text-inverse);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-save {
+    background: var(--btn-add-gradient);
+    box-shadow: var(--shadow-btn-add-page);
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-save:hover:not(:disabled) {
+    background: var(--btn-add-gradient-hover);
+    box-shadow: 0 4px 8px rgba(1, 59, 153, 0.4);
+    transform: translateY(-1px);
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-save:disabled,
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-save:disabled:hover {
+    background: linear-gradient(180deg, #dde3e9 0%, #9aa5b1 100%) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
     transform: none !important;
-    transition: filter 0.15s ease, box-shadow 0.15s ease !important;
+    cursor: not-allowed;
+    opacity: 0.9;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn--primary {
-    color: var(--color-text-inverse) !important;
-    background: var(--btn-add-gradient) !important;
-    box-shadow: var(--shadow-btn-primary) !important;
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-cancel {
+    background: var(--gradient-domain-muted-action);
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn--secondary {
-    color: var(--color-text-inverse) !important;
-    background: var(--gradient-btn-secondary-footer) !important;
-    box-shadow: var(--shadow-footer-muted) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn:hover {
-    transform: none !important;
-    filter: brightness(1.05);
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-btn:active {
-    transform: none !important;
-    filter: brightness(0.96);
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-cancel:hover {
+    background: var(--gradient-domain-muted-action-hover);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
+    transform: translateY(-1px);
 }
 
 .btn:hover {
@@ -1509,6 +1528,7 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--periods.modal-c
     color: var(--color-ink-muted);
     font-size: var(--domain-text-24);
     font-weight: 700;
+    letter-spacing: 2px;
 }
 
 .domain-fee-react-modal .modal-header.domain-fee-modal-header .account-close {
@@ -1885,6 +1905,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     color: var(--color-ink-muted);
     font-size: clamp(14px, 1.25vw, 24px);
     font-weight: 700;
+    letter-spacing: 2px;
 }
 
 .company-expiration-react-modal .modal-header.company-expiration-modal-header .account-close {
@@ -2315,6 +2336,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     font-size: var(--domain-fluid-14-125-24);
     font-weight: bold;
     color: var(--color-ink-muted);
+    letter-spacing: 2px;
 }
 
 .company-settings-modal-body {
@@ -3758,6 +3780,10 @@ body.domain-page #account-addModal.account-modal {
     z-index: 2147483002 !important;
 }
 
+body.domain-page #account-addModal .account-modal-header h2 {
+    letter-spacing: 2px;
+}
+
 /* Company picker from Add Account — above #account-addModal (2147483002) */
 body.domain-page .user-modal-company-picker-root--above-modals {
     z-index: 2147483003 !important;
@@ -4866,7 +4892,7 @@ body.domain-page .domain-confirm-modal-content .confirm-title {
     font-size: var(--domain-text-40) !important;
     font-weight: 700 !important;
     line-height: 1 !important;
-    letter-spacing: -0.02em !important;
+    letter-spacing: 2px !important;
     color: var(--color-body-strong) !important;
 }
 
@@ -4929,7 +4955,7 @@ body.domain-page .domain-confirm-modal-content .confirm-actions {
 .modal-header-wide h2 {
     font-size: var(--domain-text-20);
     font-weight: 700;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
     color: var(--color-text-pure);
     margin: 0;
     background: transparent;

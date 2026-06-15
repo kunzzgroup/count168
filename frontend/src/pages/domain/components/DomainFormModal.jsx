@@ -619,7 +619,7 @@ export default function DomainFormModal({
       >
         <div className="domain-form-modal-panel relative mx-auto my-[1vh] flex w-[98%] max-w-[1400px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="dfm-header flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
-            <h2 className="m-0 bg-transparent p-0 text-xl font-bold tracking-[1.5px] text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
+            <h2 className="m-0 bg-transparent p-0 text-xl font-bold text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
             <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
           </div>
           <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={guardSubmit(handleSubmit)}>
@@ -841,11 +841,11 @@ export default function DomainFormModal({
                 </div>
               </section>
             </div>
-            <div className="dfm-footer-actions flex flex-wrap items-center justify-center border-t-[2.5px] border-blue-900 bg-white px-9 py-[18px]">
-              <button type="submit" className="dfm-footer-btn dfm-footer-btn--primary" disabled={submitting}>
+            <div className="dfm-footer-actions">
+              <button type="submit" className="btn btn-save" disabled={submitting}>
                 {submitting ? t("saving") : t("confirm")}
               </button>
-              <button type="button" className="dfm-footer-btn dfm-footer-btn--secondary" onClick={onClose}>{t("cancel")}</button>
+              <button type="button" className="btn btn-cancel" onClick={onClose}>{t("cancel")}</button>
             </div>
           </form>
         </div>
