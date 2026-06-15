@@ -659,18 +659,21 @@ export default function DomainFormModal({
                       <label htmlFor="df_password">{t("password")} {!isEditMode && "*"}</label>
                       <div className="dfm-password-wrap">
                         <input
-                          type={showPassword ? "text" : "password"}
+                          type="text"
                           id="df_password"
-                          className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          className={`min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10${showPassword ? "" : " dfm-password-masked"}`}
                           required={!isEditMode}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           autoComplete="new-password"
+                          spellCheck={false}
                         />
                         <button
                           type="button"
                           className="dfm-password-toggle"
                           aria-label={showPassword ? t("hidePassword") : t("showPassword")}
+                          aria-pressed={showPassword}
+                          onMouseDown={(e) => e.preventDefault()}
                           onClick={() => setShowPassword((v) => !v)}
                         >
                           <PasswordVisibilityIcon hidden={!showPassword} />
@@ -684,9 +687,9 @@ export default function DomainFormModal({
                         </label>
                         <div className="dfm-password-wrap">
                           <input
-                            type={showSecondaryPassword ? "text" : "password"}
+                            type="text"
                             id="df_secondary_pwd"
-                            className="min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10"
+                            className={`min-h-[42px] w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-[15px] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/10${showSecondaryPassword ? "" : " dfm-password-masked"}`}
                             maxLength={6}
                             pattern="[0-9]{6}"
                             placeholder={isEditMode ? t("leaveEmptyKeepCurrentPassword") : t("sixDigitsOnly")}
@@ -695,11 +698,14 @@ export default function DomainFormModal({
                             onChange={(e) => setSecondaryPassword(forceNumericValue(e.target.value))}
                             autoComplete="off"
                             inputMode="numeric"
+                            spellCheck={false}
                           />
                           <button
                             type="button"
                             className="dfm-password-toggle"
                             aria-label={showSecondaryPassword ? t("hidePassword") : t("showPassword")}
+                            aria-pressed={showSecondaryPassword}
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => setShowSecondaryPassword((v) => !v)}
                           >
                             <PasswordVisibilityIcon hidden={!showSecondaryPassword} />

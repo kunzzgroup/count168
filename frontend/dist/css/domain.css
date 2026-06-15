@@ -1122,6 +1122,13 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-wrap input[type="te
     padding-right: 42px !important;
 }
 
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-wrap input.dfm-password-masked {
+    -webkit-text-security: disc;
+    text-security: disc;
+    font-family: var(--font-ui) !important;
+    letter-spacing: 0 !important;
+}
+
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle {
     position: absolute;
     top: 50%;
@@ -1139,7 +1146,16 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle {
     color: var(--color-text-caption, #6b7280);
     cursor: pointer;
     transform: translateY(-50%);
+    flex-shrink: 0;
+    touch-action: manipulation;
     transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle:hover {
