@@ -136,8 +136,11 @@ export default function TransactionPaymentHistoryPage() {
     const runFit = () => fitPaymentHistoryPopupToContent();
     runFit();
     const timers = [80, 280, 600].map((ms) => window.setTimeout(runFit, ms));
+    const onResize = () => runFit();
+    window.addEventListener("resize", onResize);
     return () => {
       timers.forEach((id) => window.clearTimeout(id));
+      window.removeEventListener("resize", onResize);
     };
   }, [rows.length, isLoading, errorMessage]);
 

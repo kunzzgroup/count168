@@ -1,10 +1,11 @@
-const REPORT_CARD_MAX_WIDTH = 1320;
-const POPUP_ROOT_PAD_X = 56;
-const POPUP_MAX_WIDTH = 1520;
-const POPUP_MIN_WIDTH = 1180;
+const POPUP_ROOT_PAD_X = 48;
+const POPUP_MIN_WIDTH = 960;
 const POPUP_MIN_HEIGHT = 360;
-const POPUP_MARGIN = 16;
+const POPUP_MARGIN = 12;
 const POPUP_ROW_HEIGHT = 44;
+
+/** 10 列（含 Description）在 popup 中的参考最小总宽 — 用于测量不足时的兜底。 */
+const POPUP_TABLE_MIN_WIDTH_WITH_DESC = 1240;
 
 export function isPaymentHistoryPopupWindow() {
   try {
@@ -22,7 +23,14 @@ function screenAvailRect() {
   return { left, top, width, height };
 }
 
-/** Place popup beside the Transaction window when possible (matches reference layout). */
+function windowChromeSize() {
+  return {
+    w: Math.max(0, window.outerWidth - window.innerWidth),
+    h: Math.max(0, window.outerHeight - window.innerHeight),
+  };
+}
+
+/** Place popup beside the Transaction window when possible. */
 export function resolvePaymentHistoryPopupPosition(outerWidth, outerHeight) {
   const screen = screenAvailRect();
   let left = Math.round(screen.left + (screen.width - outerWidth) / 2);
@@ -52,13 +60,22 @@ export function resolvePaymentHistoryPopupPosition(outerWidth, outerHeight) {
   return { left, top };
 }
 
+/** Popup 宽度优先占满可用屏幕，让 10 列（含 Remark / Created by）都能放下。 */
+export function resolvePaymentHistoryPopupWidth(contentInnerWidth = 0) {
+  const screen = screenAvailRect();
+  const maxOuter = screen.width - POPUP_MARGIN * 2;
+  const neededInner = Math.max(
+    POPUP_TABLE_MIN_WIDTH_WITH_DESC,
+    Math.ceil(Number(contentInnerWidth) || 0),
+  );
+  const chrome = typeof window !== "undefined" ? windowChromeSize().w : 16;
+  const neededOuter = neededInner + POPUP_ROOT_PAD_X + chrome;
+  return Math.min(maxOuter, Math.max(POPUP_MIN_WIDTH, neededOuter));
+}
+
 export function buildPaymentHistoryPopupFeatures() {
   const screen = screenAvailRect();
-  const width = Math.min(
-    POPUP_MAX_WIDTH,
-    Math.max(POPUP_MIN_WIDTH, REPORT_CARD_MAX_WIDTH + POPUP_ROOT_PAD_X),
-    screen.width - POPUP_MARGIN * 2,
-  );
+  const width = resolvePaymentHistoryPopupWidth();
   const height = Math.max(POPUP_MIN_HEIGHT, screen.height - POPUP_MARGIN * 2);
   const { left, top } = resolvePaymentHistoryPopupPosition(width, height);
   return `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
@@ -71,18 +88,16 @@ function measurePaymentHistoryLayout() {
   if (!root || !panel) return null;
 
   const rootStyle = getComputedStyle(root);
-  const padX = parseFloat(rootStyle.paddingLeft) + parseFloat(rootStyle.paddingRight);
   const padY = parseFloat(rootStyle.paddingTop) + parseFloat(rootStyle.paddingBottom);
-  const tableWidth = table
-    ? Math.ceil(Math.max(table.scrollWidth, table.getBoundingClientRect().width))
-    : REPORT_CARD_MAX_WIDTH;
-  const contentWidth = Math.ceil(Math.max(tableWidth + padX, REPORT_CARD_MAX_WIDTH + padX));
+  const tableInnerWidth = table
+    ? Math.ceil(table.getBoundingClientRect().width)
+    : POPUP_TABLE_MIN_WIDTH_WITH_DESC;
   const contentHeight = Math.ceil(panel.getBoundingClientRect().height + padY);
 
-  return { contentWidth, contentHeight };
+  return { tableInnerWidth, contentHeight };
 }
 
-/** Fit popup outer size to the white card + table; keep full report width. */
+/** 宽度占满屏幕（或内容所需宽度）；高度随表格行数收缩。 */
 export function fitPaymentHistoryPopupToContent() {
   if (!isPaymentHistoryPopupWindow()) return;
 
@@ -91,17 +106,12 @@ export function fitPaymentHistoryPopupToContent() {
     if (!layout) return;
 
     const screen = screenAvailRect();
-    const chromeW = Math.max(0, window.outerWidth - window.innerWidth);
-    const chromeH = Math.max(0, window.outerHeight - window.innerHeight);
+    const chrome = windowChromeSize();
 
-    const nextW = Math.min(
-      POPUP_MAX_WIDTH,
-      screen.width - POPUP_MARGIN,
-      Math.max(POPUP_MIN_WIDTH, layout.contentWidth + chromeW),
-    );
+    const nextW = resolvePaymentHistoryPopupWidth(layout.tableInnerWidth);
     const nextH = Math.min(
       screen.height - POPUP_MARGIN,
-      Math.max(POPUP_MIN_HEIGHT, layout.contentHeight + chromeH),
+      Math.max(POPUP_MIN_HEIGHT, layout.contentHeight + chrome.h),
     );
 
     window.resizeTo(nextW, nextH);
@@ -115,7 +125,7 @@ export function fitPaymentHistoryPopupToContent() {
 export function estimatePaymentHistoryPopupHeight(rowCount) {
   const header = 78;
   const bodyPad = 36;
-  const rootPad = 56;
+  const rootPad = 48;
   const thead = 44;
   const rows = Math.max(1, Number(rowCount) || 1);
   return rootPad + header + bodyPad + thead + rows * POPUP_ROW_HEIGHT + 12;
