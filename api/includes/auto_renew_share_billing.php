@@ -418,24 +418,77 @@ function auto_renew_apply_share_billing_on_approve(
 /**
  * @return list<string>
  */
+function auto_renew_normalize_snapshot_date(string $snapshot): string
+{
+    $s = trim($snapshot);
+    if ($s === '') {
+        return '';
+    }
+    if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $s, $m)) {
+        return $m[1];
+    }
+
+    return $s;
+}
+
+/**
+ * Resolve tenant + expiration from the linked renewal fee PAYMENT sms when possible.
+ *
+ * @return array{tenant_code:string, expiration_snapshot:string, entity_type:string}
+ */
+function auto_renew_resolve_renewal_cycle_context(
+    PDO $pdo,
+    int $c168Pk,
+    int $feeTxnId,
+    string $fallbackCode,
+    string $fallbackSnapshot,
+    string $fallbackEntityType
+): array {
+    if ($feeTxnId > 0 && $c168Pk > 0) {
+        try {
+            $st = $pdo->prepare('SELECT sms FROM transactions WHERE id = ? AND company_id = ? LIMIT 1');
+            $st->execute([$feeTxnId, $c168Pk]);
+            $parsed = auto_renew_parse_fee_sms((string) ($st->fetchColumn() ?: ''));
+            if (is_array($parsed)) {
+                return [
+                    'tenant_code' => strtoupper(trim((string) ($parsed['tenant_code'] ?? ''))),
+                    'expiration_snapshot' => auto_renew_normalize_snapshot_date((string) ($parsed['expiration_snapshot'] ?? '')),
+                    'entity_type' => auto_renew_normalize_entity_type((string) ($parsed['entity_type'] ?? 'company')),
+                ];
+            }
+        } catch (PDOException $e) {
+            // fall through to request row values
+        }
+    }
+
+    return [
+        'tenant_code' => strtoupper(trim($fallbackCode)),
+        'expiration_snapshot' => auto_renew_normalize_snapshot_date($fallbackSnapshot),
+        'entity_type' => auto_renew_normalize_entity_type($fallbackEntityType),
+    ];
+}
+
+/**
+ * @return list<string>
+ */
 function auto_renew_share_billing_sms_like_patterns(
     string $entityType,
     string $tenantCode,
     string $expirationSnapshot
 ): array {
     $code = strtoupper(trim($tenantCode));
-    $exp = trim($expirationSnapshot);
+    $exp = auto_renew_normalize_snapshot_date($expirationSnapshot);
     if ($code === '' || $exp === '') {
         return [];
     }
     if (auto_renew_normalize_entity_type($entityType) === 'group') {
         return [
-            "[AUTO_RENEW|COMMISSION|GROUP|{$code}|{$exp}|%",
+            "[AUTO_RENEW|COMMISSION|GROUP|{$code}|{$exp}%",
             "[AUTO_RENEW|NET_PROFIT|GROUP|{$code}|{$exp}%",
         ];
     }
     return [
-        "[AUTO_RENEW|COMMISSION|{$code}|{$exp}|%",
+        "[AUTO_RENEW|COMMISSION|{$code}|{$exp}%",
         "[AUTO_RENEW|NET_PROFIT|{$code}|{$exp}%",
     ];
 }
@@ -455,11 +508,14 @@ function auto_renew_find_share_billing_transaction_ids(
     if ($c168Pk <= 0) {
         return [];
     }
-    $patterns = auto_renew_share_billing_sms_like_patterns($entityType, $tenantCode, $expirationSnapshot);
-    if ($patterns === []) {
+    $code = strtoupper(trim($tenantCode));
+    $exp = auto_renew_normalize_snapshot_date($expirationSnapshot);
+    if ($code === '' || $exp === '') {
         return [];
     }
+
     $ids = [];
+    $patterns = auto_renew_share_billing_sms_like_patterns($entityType, $code, $exp);
     try {
         foreach ($patterns as $pattern) {
             $st = $pdo->prepare("
@@ -474,9 +530,147 @@ function auto_renew_find_share_billing_transaction_ids(
                 }
             }
         }
+
+        // Broader fallback: any AUTO_RENEW commission/profit row for this tenant + cycle.
+        $needle = '%|' . $code . '|' . $exp . '%';
+        $st = $pdo->prepare("
+            SELECT id FROM transactions
+            WHERE company_id = ?
+              AND transaction_type = 'PAYMENT'
+              AND (
+                sms LIKE '[AUTO_RENEW|COMMISSION|%'
+                OR sms LIKE '[AUTO_RENEW|NET_PROFIT|%'
+              )
+              AND sms LIKE ?
+        ");
+        $st->execute([$c168Pk, $needle]);
+        while ($id = $st->fetchColumn()) {
+            $tid = (int) $id;
+            if ($tid > 0) {
+                $ids[$tid] = true;
+            }
+        }
     } catch (PDOException $e) {
         return [];
     }
+
+    return array_keys($ids);
+}
+
+/**
+ * Delete C168 renewal-related PAYMENT rows by id (no scope_type ledger filter).
+ *
+ * @return list<int> deleted ids
+ */
+function auto_renew_delete_c168_transaction_ids(
+    PDO $pdo,
+    int $c168Pk,
+    array $ids,
+    array $session,
+    string $pageTag = '/api/subscription/auto_renew_api.php'
+): array {
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn ($id) => $id > 0)));
+    if ($c168Pk <= 0 || $ids === []) {
+        return [];
+    }
+
+    $userRole = strtolower(trim((string) ($session['role'] ?? '')));
+    $userId = (int) ($session['user_id'] ?? 0);
+    $ownerId = isset($session['owner_id']) ? (int) $session['owner_id'] : null;
+    $deletedByUserId = null;
+    $deletedByOwnerId = null;
+    if ($userRole === 'owner') {
+        $deletedByOwnerId = $ownerId ?: $userId;
+    } else {
+        $deletedByUserId = $userId;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $hasDeletedScope = tx_table_has_scope_column($pdo, 'transactions_deleted')
+        && tx_table_has_scope_column($pdo, 'transactions');
+    $scopeCols = $hasDeletedScope ? ', scope_type, scope_id' : '';
+    $scopeSelect = $hasDeletedScope
+        ? ", COALESCE(NULLIF(TRIM(t.scope_type), ''), 'company') AS scope_type, t.scope_id"
+        : '';
+
+    $userTag = (string) ($session['login_id'] ?? $session['name'] ?? '');
+    foreach ($ids as $tid) {
+        $entryListStmt = $pdo->prepare('SELECT id FROM transaction_entry WHERE header_id = ?');
+        $entryListStmt->execute([(int) $tid]);
+        while ($eid = $entryListStmt->fetchColumn()) {
+            deletedLog($pdo, $userTag, $pageTag, 'transaction_entry', (string) $eid);
+        }
+        deletedLog($pdo, $userTag, $pageTag, 'transactions', (string) $tid);
+    }
+
+    bmp_recordResendPendingForTransactionIds($pdo, $c168Pk, $ids);
+
+    $backupSql = "
+        INSERT INTO transactions_deleted (
+            transaction_id, company_id{$scopeCols}, transaction_type, account_id, from_account_id,
+            amount, currency_id, transaction_date, description, sms, created_by, created_by_owner, created_at,
+            deleted_by_user_id, deleted_by_owner_id, deleted_at
+        )
+        SELECT
+            t.id AS transaction_id, t.company_id{$scopeSelect}, t.transaction_type, t.account_id, t.from_account_id,
+            t.amount, t.currency_id, t.transaction_date, t.description, t.sms, t.created_by, t.created_by_owner, t.created_at,
+            ?, ?, NOW()
+        FROM transactions t
+        WHERE t.id IN ($placeholders) AND t.company_id = ?
+    ";
+    $backupParams = array_merge([$deletedByUserId, $deletedByOwnerId], $ids, [$c168Pk]);
+    $backupStmt = $pdo->prepare($backupSql);
+    $backupStmt->execute($backupParams);
+
+    payment_delete_transaction_entries($pdo, $ids);
+
+    $deleteSql = "DELETE FROM transactions WHERE id IN ($placeholders) AND company_id = ?";
+    $deleteParams = array_merge($ids, [$c168Pk]);
+    $deleteStmt = $pdo->prepare($deleteSql);
+    $deleteStmt->execute($deleteParams);
+
+    return $ids;
+}
+
+/**
+ * Main renewal fee + commission + net profit ids for one approved cycle.
+ *
+ * @return list<int>
+ */
+function auto_renew_collect_renewal_billing_transaction_ids(
+    PDO $pdo,
+    int $c168Pk,
+    int $feeTxnId,
+    string $tenantCode,
+    string $expirationSnapshot,
+    string $entityType
+): array {
+    $cycle = auto_renew_resolve_renewal_cycle_context(
+        $pdo,
+        $c168Pk,
+        $feeTxnId,
+        $tenantCode,
+        $expirationSnapshot,
+        $entityType
+    );
+
+    $ids = [];
+    if ($feeTxnId > 0 && auto_renew_transaction_is_active($pdo, $c168Pk, $feeTxnId)) {
+        $ids[$feeTxnId] = true;
+    }
+
+    foreach (auto_renew_find_share_billing_transaction_ids(
+        $pdo,
+        $c168Pk,
+        $cycle['tenant_code'],
+        $cycle['expiration_snapshot'],
+        $cycle['entity_type']
+    ) as $shareTxnId) {
+        if (auto_renew_transaction_is_active($pdo, $c168Pk, $shareTxnId)) {
+            $ids[$shareTxnId] = true;
+        }
+    }
+
     return array_keys($ids);
 }
 
@@ -501,12 +695,5 @@ function auto_renew_delete_share_billing_payments(
     if ($ids === []) {
         return;
     }
-    payment_delete_transactions_by_ids(
-        $pdo,
-        $c168Pk,
-        $ids,
-        $session,
-        '/api/subscription/auto_renew_api.php',
-        false
-    );
+    auto_renew_delete_c168_transaction_ids($pdo, $c168Pk, $ids, $session);
 }

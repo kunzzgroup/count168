@@ -2463,24 +2463,16 @@ function auto_renew_delete(PDO $pdo, int $requestId, array $session, array $inpu
 
     $pdo->beginTransaction();
     try {
-        $idsToDelete = [];
-        if (auto_renew_transaction_is_active($pdo, $c168Pk, $txnId)) {
-            $idsToDelete[$txnId] = true;
-        }
-        foreach (auto_renew_find_share_billing_transaction_ids($pdo, $c168Pk, $companyCode, $snapshot, $entityType) as $shareTxnId) {
-            if (auto_renew_transaction_is_active($pdo, $c168Pk, $shareTxnId)) {
-                $idsToDelete[$shareTxnId] = true;
-            }
-        }
+        $idsToDelete = auto_renew_collect_renewal_billing_transaction_ids(
+            $pdo,
+            $c168Pk,
+            $txnId,
+            $companyCode,
+            $snapshot,
+            $entityType
+        );
         if ($idsToDelete !== []) {
-            payment_delete_transactions_by_ids(
-                $pdo,
-                $c168Pk,
-                array_keys($idsToDelete),
-                $session,
-                '/api/subscription/auto_renew_api.php',
-                false
-            );
+            auto_renew_delete_c168_transaction_ids($pdo, $c168Pk, $idsToDelete, $session);
         }
 
         auto_renew_revert_approved_renewal($pdo, $row, $requestId, $snapshot, $entityType);
