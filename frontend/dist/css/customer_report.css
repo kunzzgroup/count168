@@ -340,6 +340,7 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
     gap: var(--report-list-grid-gap);
     padding: var(--report-list-row-padding-block) var(--report-list-row-padding-inline);
     min-height: var(--report-list-cell-min-height);
+    box-sizing: content-box;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;

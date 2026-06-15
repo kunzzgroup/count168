@@ -322,7 +322,7 @@ body.dashboard-page.maintenance-page .maintenance-virtual-data-row:not(.formula-
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap {
-    overflow: hidden;
+    overflow: visible;
     box-sizing: border-box;
 }
 
@@ -332,8 +332,9 @@ body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .capture-virt
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .transaction-virtual-data-row,
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .bankprocess-virtual-data-row,
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-data-row {
-    height: 100%;
-    min-height: 100%;
+    height: auto !important;
+    min-height: var(--report-list-cell-min-height) !important;
+    max-height: none !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-cell,
@@ -621,7 +622,8 @@ body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virt
     gap: var(--report-list-grid-gap) !important;
     padding: var(--report-list-row-padding-block) var(--report-list-row-padding-inline) !important;
     min-height: var(--report-list-cell-min-height) !important;
-    box-sizing: border-box !important;
+    box-sizing: content-box !important;
+    align-items: center !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-cell,
@@ -629,6 +631,8 @@ body.dashboard-page.maintenance-page .maintenance-table tbody td,
 body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell {
     padding: 0 !important;
     min-height: 0 !important;
+    box-sizing: content-box !important;
+    align-items: center !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-table thead th {
