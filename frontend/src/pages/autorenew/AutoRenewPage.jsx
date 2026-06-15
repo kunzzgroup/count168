@@ -306,8 +306,7 @@ export default function AutoRenewPage() {
 
   const handleSettingsSaved = useCallback(() => {
     setSettingsModal(null);
-    void refreshListAfterMutation();
-  }, [refreshListAfterMutation]);
+  }, []);
 
   const handleOpenComm = useCallback(async (row) => {
     const rowKey = rowStableKey(row);
