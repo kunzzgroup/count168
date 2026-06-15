@@ -27,7 +27,8 @@ export function useGroupEarnings(shell) {
     lang,
   } = shell;
 
-  const viewOnlyMode = readOnlyMode || isHistoricalView;
+  const viewOnlyMode = readOnlyMode;
+  const adminLocked = readOnlyMode || isHistoricalView;
 
   const [geGroups, setGeGroups] = useState([]);
   const [geLoading, setGeLoading] = useState(false);
@@ -182,7 +183,7 @@ export function useGroupEarnings(shell) {
 
   const geAddRow = useCallback(
     (gid) => {
-      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       setGeStates((prev) => {
         const st = prev[gid];
         if (!st) return prev;
@@ -192,16 +193,16 @@ export function useGroupEarnings(shell) {
         };
       });
     },
-    [viewOnlyMode, showToast],
+    [readOnlyMode, showToast],
   );
 
   const geRemoveRow = useCallback(
     async (gid, idx) => {
-      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       const st = geStates[gid];
       if (!st) return;
       const row = st.rows[idx];
-      if (row?.ownership_id) {
+      if (row?.ownership_id && !isHistoricalView) {
         try {
           const body = new FormData();
           body.append("ownership_id", String(row.ownership_id));
@@ -228,7 +229,7 @@ export function useGroupEarnings(shell) {
         return { ...prev, [gid]: { ...cur, rows } };
       });
     },
-    [geStates, viewOnlyMode, showToast],
+    [geStates, readOnlyMode, isHistoricalView, showToast],
   );
 
   const geConfirm = useCallback(
@@ -282,7 +283,7 @@ export function useGroupEarnings(shell) {
 
   const geLinkPartner = useCallback(
     async (groupId, loginId, forceType = "") => {
-      if (viewOnlyMode) {
+      if (adminLocked) {
         showToast("Read-only: only owner can modify ownership", "error");
         return false;
       }
@@ -310,7 +311,7 @@ export function useGroupEarnings(shell) {
         return false;
       }
     },
-    [loadGroupState, viewOnlyMode, showToast],
+    [loadGroupState, adminLocked, showToast],
   );
 
   return {
@@ -324,7 +325,7 @@ export function useGroupEarnings(shell) {
     calcTotal: calcOwnershipTotal,
     fmtPct: fmtOwnershipPct,
     viewOnlyMode,
-    readOnlyMode,
+    adminLocked,
     isHistoricalView,
     geToggle,
     geUpdateRow,

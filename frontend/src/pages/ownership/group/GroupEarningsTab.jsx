@@ -49,7 +49,6 @@ export default function GroupEarningsTab({ shell, group }) {
               onLinkPartner={(login) => geLinkPartner(grp.group_id, login)}
               calcTotal={calcTotal}
               readOnlyMode={readOnlyMode}
-              structureLocked={viewOnlyMode}
               isHistoricalView={isHistoricalView}
               fmtPct={fmtPct}
               t={t}

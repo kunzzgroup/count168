@@ -22,6 +22,7 @@ export default function CompanyOwnershipTab({ shell, company }) {
     calcTotal,
     fmtPct,
     viewOnlyMode,
+    adminLocked,
     toggleCard,
     toggleCompanySelect,
     joinGroup,
@@ -61,7 +62,7 @@ export default function CompanyOwnershipTab({ shell, company }) {
           <button
             type="button"
             className={`own-select-mode-btn${selectionMode ? " active" : ""}`}
-            style={{ display: viewOnlyMode ? "none" : "" }}
+            style={{ display: adminLocked ? "none" : "" }}
             onClick={toggleSelectionMode}
           >
             {selectionMode ? (
@@ -121,7 +122,6 @@ export default function CompanyOwnershipTab({ shell, company }) {
               onCancel={() => setExpandedCompanyId(null)}
               calcTotal={calcTotal}
               readOnlyMode={readOnlyMode}
-              structureLocked={viewOnlyMode}
               isHistoricalView={isHistoricalView}
               fmtPct={fmtPct}
               t={t}
