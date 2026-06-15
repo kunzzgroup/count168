@@ -540,9 +540,9 @@ body.transaction-page .transaction-search-section .transaction-category-date-row
 }
 
 body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button {
-    min-height: clamp(38px, 2.45vw, 40px);
-    max-height: clamp(38px, 2.45vw, 40px);
-    height: clamp(38px, 2.45vw, 40px);
+    min-height: clamp(50px, 2.45vw, 50px);
+    max-height: clamp(50px, 2.45vw, 50px);
+    height: clamp(50px, 2.45vw, 50px);
     overflow: hidden;
     padding: 4px 10px;
     box-sizing: border-box;
