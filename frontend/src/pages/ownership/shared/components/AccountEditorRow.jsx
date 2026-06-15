@@ -31,6 +31,7 @@ export default function AccountEditorRow({
   dragContextRef,
   enableDrag = true,
   readOnlyMode = false,
+  structureLocked = false,
   t,
 }) {
   const sliderRef = useRef(null);
@@ -72,6 +73,7 @@ export default function AccountEditorRow({
 
   const sliderDisabled =
     readOnlyMode || row.is_external_partner || (pctMax <= 0 && storedPct <= 0);
+  const layoutLocked = readOnlyMode || structureLocked;
 
   const clearDragStyles = () => {
     const el = rowRef.current;
@@ -88,7 +90,7 @@ export default function AccountEditorRow({
       data-row-id={rowClientId}
       data-index={idx}
       data-group-entry={String(row.account_id || "").startsWith("G_") ? "true" : undefined}
-      draggable={!readOnlyMode && enableDrag && dragEnabled}
+      draggable={!layoutLocked && enableDrag && dragEnabled}
       onDragStart={(e) => {
         if (!enableDrag || !dragEnabled) {
           e.preventDefault();
@@ -143,10 +145,10 @@ export default function AccountEditorRow({
     >
       <div
         className="own-drag-handle"
-        style={{ display: readOnlyMode ? "none" : "" }}
+        style={{ display: layoutLocked ? "none" : "" }}
         onMouseDown={(e) => {
           e.stopPropagation();
-          if (!readOnlyMode && enableDrag) setDragEnabled(true);
+          if (!layoutLocked && enableDrag) setDragEnabled(true);
         }}
         onMouseLeave={() => setDragEnabled(false)}
       >
@@ -156,7 +158,7 @@ export default function AccountEditorRow({
         value={row.account_id}
         accounts={accountsForRowPicker(accounts, row.account_id)}
         displayLabel={row.account_label}
-        disabled={readOnlyMode || row.is_external_partner}
+        disabled={layoutLocked || row.is_external_partner}
         t={t}
         onChange={(id) => onUpdate(idx, "account_id", id)}
       />
@@ -220,13 +222,13 @@ export default function AccountEditorRow({
             <input
               type="checkbox"
               checked={row.read_only === 1}
-              disabled={readOnlyMode || !showRo}
+              disabled={layoutLocked || !showRo}
               onChange={(e) => onUpdate(idx, "read_only", e.target.checked ? 1 : 0)}
             />
             <span className="own-ro-slider" />
           </label>
         </div>
-        <button type="button" className="own-btn-square own-btn-delete" title={t("remove")} disabled={readOnlyMode} onClick={() => onRemove(idx)}>
+        <button type="button" className="own-btn-square own-btn-delete" title={t("remove")} disabled={layoutLocked} onClick={() => onRemove(idx)}>
           <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
             <path
               fillRule="evenodd"

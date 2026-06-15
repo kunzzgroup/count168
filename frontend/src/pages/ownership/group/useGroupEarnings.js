@@ -233,7 +233,7 @@ export function useGroupEarnings(shell) {
 
   const geConfirm = useCallback(
     async (groupId) => {
-      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       const st = geStates[groupId];
       if (!st) return;
       const { rows } = st;
@@ -249,21 +249,25 @@ export function useGroupEarnings(shell) {
       const total = calcOwnershipTotal(allocationRowsForSave(rows));
       setGeSavingGid(groupId);
       try {
+        const payload = {
+          group_id: groupId,
+          owners: rowsToSavePayload(rows),
+        };
+        if (isHistoricalView) payload.month = selectedMonth;
         const res = await fetch(buildApiUrl("api/ownership/batch_save_group_owners_api.php"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            group_id: groupId,
-            owners: rowsToSavePayload(rows),
-          }),
+          body: JSON.stringify(payload),
         });
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(getApiMessage(json, "Group ownership saved successfully"), "success");
-          setGeGroups((g) =>
-            g.map((x) => (x.group_id === groupId ? { ...x, allocated_percentage: total } : x)),
-          );
+          if (!isHistoricalView) {
+            setGeGroups((g) =>
+              g.map((x) => (x.group_id === groupId ? { ...x, allocated_percentage: total } : x)),
+            );
+          }
           await loadGroupState(groupId, { force: true });
           setGeExpanded(null);
         } else showToast(getApiMessage(json, "Save failed"), "error");
@@ -273,7 +277,7 @@ export function useGroupEarnings(shell) {
         setGeSavingGid(null);
       }
     },
-    [geStates, viewOnlyMode, showToast, loadGroupState],
+    [geStates, readOnlyMode, isHistoricalView, selectedMonth, showToast, loadGroupState],
   );
 
   const geLinkPartner = useCallback(
@@ -320,6 +324,7 @@ export function useGroupEarnings(shell) {
     calcTotal: calcOwnershipTotal,
     fmtPct: fmtOwnershipPct,
     viewOnlyMode,
+    readOnlyMode,
     isHistoricalView,
     geToggle,
     geUpdateRow,

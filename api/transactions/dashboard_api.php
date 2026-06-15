@@ -176,26 +176,65 @@ function dashboardCompanyOwnershipSchema(PDO $pdo): array
 }
 
 /**
+ * Resolve ownership snapshot month from dashboard date range end (same rule as subsidiary earnings).
+ *
+ * @return array{month_key:string,effective_month:string,use_history:bool}
+ */
+function dashboardResolveOwnershipMonthFromDate(string $dateToDisplay): array
+{
+    require_once __DIR__ . '/../includes/ownership_history.php';
+    $monthKey = date('Y-m', strtotime($dateToDisplay));
+    $parsedMonth = ownership_history_parse_month_param($monthKey);
+    $useHistory = $parsedMonth !== null && ownership_history_is_past_month($parsedMonth['month_key']);
+
+    return [
+        'month_key' => $parsedMonth['month_key'] ?? ownership_history_current_month_key(),
+        'effective_month' => $parsedMonth['effective_month'] ?? ownership_history_effective_month_from_now(),
+        'use_history' => $useHistory,
+    ];
+}
+
+/**
  * 多段 Group 链：从筛选的 view_group 反向经 group_ownership (owner_type=group) 再接到
  * company_ownership (owner_type=group)，得到进入当前 view 前的连乘比例 (0~1)。
  * 例：TT 10%→SS × SS 20%→AA = 0.02。无法解析时返回 null（改走原两段式逻辑）。
  */
-function dashboardResolveEarningsPathProduct(PDO $pdo, int $companyId, string $viewGroupTrim): ?float
-{
+function dashboardResolveEarningsPathProduct(
+    PDO $pdo,
+    int $companyId,
+    string $viewGroupTrim,
+    string $effectiveMonth = '',
+    bool $useHistory = false
+): ?float {
     $viewG = strtoupper(trim($viewGroupTrim));
     if ($viewG === '') {
         return null;
     }
     try {
-        if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() < 1) {
-            return null;
-        }
-        if ($pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() < 1) {
-            return null;
+        if ($useHistory) {
+            require_once __DIR__ . '/../includes/ownership_history.php';
+            ownership_history_ensure_tables($pdo);
+            if ($pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() < 1) {
+                return null;
+            }
+            if ($pdo->query("SHOW TABLES LIKE 'company_ownership_history'")->rowCount() < 1) {
+                return null;
+            }
+        } else {
+            if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() < 1) {
+                return null;
+            }
+            if ($pdo->query("SHOW TABLES LIKE 'company_ownership'")->rowCount() < 1) {
+                return null;
+            }
         }
     } catch (Throwable $e) {
         return null;
     }
+
+    $groupTable = $useHistory ? 'group_ownership_history' : 'group_ownership';
+    $companyTable = $useHistory ? 'company_ownership_history' : 'company_ownership';
+    $monthSql = $useHistory ? ' AND effective_month = ?' : '';
 
     $g = $viewG;
     $path = 1.0;
@@ -203,15 +242,16 @@ function dashboardResolveEarningsPathProduct(PDO $pdo, int $companyId, string $v
     while ($maxHops-- > 0) {
         $stmt = $pdo->prepare("
             SELECT group_id, percentage
-            FROM group_ownership
+            FROM {$groupTable}
             WHERE owner_type = 'group'
               AND percentage > 0
               AND partner_group_id IS NOT NULL
               AND TRIM(partner_group_id) <> ''
               AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+              {$monthSql}
             LIMIT 1
         ");
-        $stmt->execute([$g]);
+        $stmt->execute($useHistory ? [$g, $effectiveMonth] : [$g]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
             break;
@@ -226,24 +266,25 @@ function dashboardResolveEarningsPathProduct(PDO $pdo, int $companyId, string $v
 
     $stmtCo = $pdo->prepare("
         SELECT percentage
-        FROM company_ownership
+        FROM {$companyTable}
         WHERE company_id = ?
           AND owner_type = 'group'
           AND percentage > 0
           AND partner_group_id IS NOT NULL
           AND TRIM(partner_group_id) <> ''
           AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+          {$monthSql}
         LIMIT 1
     ");
-    $stmtCo->execute([$companyId, $g]);
+    $stmtCo->execute($useHistory ? [$companyId, $g, $effectiveMonth] : [$companyId, $g]);
     $coPct = $stmtCo->fetchColumn();
     if ($coPct !== false) {
         $path *= ((float) $coPct) / 100.0;
         return $path;
     }
 
-    $stmtHasGr = $pdo->prepare("SELECT 1 FROM company_ownership WHERE company_id = ? AND owner_type = 'group' LIMIT 1");
-    $stmtHasGr->execute([$companyId]);
+    $stmtHasGr = $pdo->prepare("SELECT 1 FROM {$companyTable} WHERE company_id = ? AND owner_type = 'group'{$monthSql} LIMIT 1");
+    $stmtHasGr->execute($useHistory ? [$companyId, $effectiveMonth] : [$companyId]);
     if ($stmtHasGr->fetchColumn()) {
         return null;
     }
@@ -1019,16 +1060,26 @@ function dashboardResolveViewerOwnerType(): array
     return ['user_id' => $userId, 'owner_type' => $ownerTypeStr];
 }
 
-/** Current viewer's allocation % in a group ledger (group_ownership). */
-function dashboardLoadViewerGroupAccountPercentage(PDO $pdo, string $groupLedgerCode): array
-{
+/** Viewer's allocation % in a group ledger (group_ownership), month-aware for past months. */
+function dashboardLoadViewerGroupAccountPercentage(
+    PDO $pdo,
+    string $groupLedgerCode,
+    string $effectiveMonth = '',
+    bool $useHistory = false
+): array {
     $out = ['percentage' => 0.0, 'has' => false];
     $g = reportNormalizeGroupId($groupLedgerCode);
     if ($g === '') {
         return $out;
     }
     try {
-        if ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() < 1) {
+        if ($useHistory) {
+            require_once __DIR__ . '/../includes/ownership_history.php';
+            ownership_history_ensure_tables($pdo);
+            if ($pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() < 1) {
+                return $out;
+            }
+        } elseif ($pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() < 1) {
             return $out;
         }
     } catch (Throwable $e) {
@@ -1040,14 +1091,21 @@ function dashboardLoadViewerGroupAccountPercentage(PDO $pdo, string $groupLedger
         return $out;
     }
 
+    $groupTable = $useHistory ? 'group_ownership_history' : 'group_ownership';
+    $monthSql = $useHistory ? ' AND effective_month = ?' : '';
     $stmt = $pdo->prepare("
-        SELECT percentage FROM group_ownership
+        SELECT percentage FROM {$groupTable}
         WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?))
           AND account_id = ?
           AND owner_type = ?
+          {$monthSql}
         LIMIT 1
     ");
-    $stmt->execute([$g, $viewer['user_id'], $viewer['owner_type']]);
+    $stmt->execute(
+        $useHistory
+            ? [$g, $viewer['user_id'], $viewer['owner_type'], $effectiveMonth]
+            : [$g, $viewer['user_id'], $viewer['owner_type']]
+    );
     $pct = $stmt->fetchColumn();
     if ($pct !== false) {
         $out['percentage'] = (float) $pct;
@@ -1055,6 +1113,231 @@ function dashboardLoadViewerGroupAccountPercentage(PDO $pdo, string $groupLedger
     }
 
     return $out;
+}
+
+/**
+ * Load dashboard ownership multipliers for a company viewer (direct + group chain).
+ *
+ * @return array{
+ *   ownership_percentage:float,
+ *   has_ownership_setup:bool,
+ *   group_equity_percentage:float,
+ *   group_account_percentage:float,
+ *   has_group_ownership:bool
+ * }
+ */
+function dashboardLoadCompanyDashboardOwnership(
+    PDO $pdo,
+    int $companyId,
+    string $dateToDisplay,
+    string $viewGroup = ''
+): array {
+    $result = [
+        'ownership_percentage' => 0.0,
+        'has_ownership_setup' => false,
+        'group_equity_percentage' => 0.0,
+        'group_account_percentage' => 0.0,
+        'has_group_ownership' => false,
+    ];
+
+    $monthCtx = dashboardResolveOwnershipMonthFromDate($dateToDisplay);
+    $effectiveMonth = $monthCtx['effective_month'];
+    $useHistory = $monthCtx['use_history'];
+    $companyTable = $useHistory ? 'company_ownership_history' : 'company_ownership';
+    $groupTable = $useHistory ? 'group_ownership_history' : 'group_ownership';
+    $monthSql = $useHistory ? ' AND effective_month = ?' : '';
+
+    try {
+        if ($useHistory) {
+            require_once __DIR__ . '/../includes/ownership_history.php';
+            ownership_history_ensure_tables($pdo);
+            if ($pdo->query("SHOW TABLES LIKE 'company_ownership_history'")->rowCount() < 1) {
+                return $result;
+            }
+        } else {
+            $ownershipSchema = dashboardCompanyOwnershipSchema($pdo);
+            if (!$ownershipSchema['table']) {
+                return $result;
+            }
+        }
+    } catch (Throwable $e) {
+        return $result;
+    }
+
+    try {
+        $stmtSetup = $pdo->prepare("SELECT 1 FROM {$companyTable} WHERE company_id = ?{$monthSql} LIMIT 1");
+        $stmtSetup->execute($useHistory ? [$companyId, $effectiveMonth] : [$companyId]);
+        if ($stmtSetup->fetchColumn() !== false) {
+            $result['has_ownership_setup'] = true;
+        }
+
+        $hasOwnerType = true;
+        if (!$useHistory) {
+            $hasOwnerType = dashboardCompanyOwnershipSchema($pdo)['owner_type_col'];
+        }
+
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        $userType = (string) ($_SESSION['user_type'] ?? '');
+
+        if ($hasOwnerType) {
+            $ownerTypeStr = 'account';
+            if ($userType === 'owner') {
+                $ownerTypeStr = 'owner';
+            } elseif ($userType === 'user') {
+                $ownerTypeStr = 'user';
+            }
+
+            $stmtPct = $pdo->prepare("
+                SELECT percentage FROM {$companyTable}
+                WHERE company_id = ? AND account_id = ? AND owner_type = ?{$monthSql}
+                LIMIT 1
+            ");
+            $stmtPct->execute(
+                $useHistory
+                    ? [$companyId, $userId, $ownerTypeStr, $effectiveMonth]
+                    : [$companyId, $userId, $ownerTypeStr]
+            );
+            $pct = $stmtPct->fetchColumn();
+            if ($pct !== false) {
+                $result['ownership_percentage'] = (float) $pct;
+            }
+        } elseif ($userType === 'member') {
+            $stmtPct = $pdo->prepare("
+                SELECT percentage FROM {$companyTable}
+                WHERE company_id = ? AND account_id = ?{$monthSql}
+                LIMIT 1
+            ");
+            $stmtPct->execute($useHistory ? [$companyId, $userId, $effectiveMonth] : [$companyId, $userId]);
+            $pct = $stmtPct->fetchColumn();
+            if ($pct !== false) {
+                $result['ownership_percentage'] = (float) $pct;
+            }
+        }
+
+        if ($hasOwnerType) {
+            $ownerTypeStr = $ownerTypeStr ?? 'owner';
+            $skipGroupChain = ((float) $result['ownership_percentage']) > 0.0;
+            $grpEquityRow = null;
+            $multiGroupPathResolved = false;
+
+            if (!$skipGroupChain && $viewGroup !== '') {
+                $pathDec = dashboardResolveEarningsPathProduct(
+                    $pdo,
+                    $companyId,
+                    $viewGroup,
+                    $effectiveMonth,
+                    $useHistory
+                );
+                if ($pathDec !== null) {
+                    $multiGroupPathResolved = true;
+                    $result['group_equity_percentage'] = $pathDec * 100.0;
+                    try {
+                        $hasGroupTable = $useHistory
+                            ? $pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0
+                            : $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+                        if ($hasGroupTable) {
+                            $stmtAccShare = $pdo->prepare("
+                                SELECT percentage FROM {$groupTable}
+                                WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?))
+                                  AND account_id = ?
+                                  AND owner_type = ?
+                                  {$monthSql}
+                                LIMIT 1
+                            ");
+                            $stmtAccShare->execute(
+                                $useHistory
+                                    ? [$viewGroup, $userId, $ownerTypeStr, $effectiveMonth]
+                                    : [$viewGroup, $userId, $ownerTypeStr]
+                            );
+                            $accSharePct = $stmtAccShare->fetchColumn();
+                            if ($accSharePct !== false) {
+                                $result['group_account_percentage'] = (float) $accSharePct;
+                                $result['has_group_ownership'] = true;
+                            } else {
+                                $result['group_equity_percentage'] = 0.0;
+                                $result['group_account_percentage'] = 0.0;
+                            }
+                        }
+                    } catch (Throwable $e) {
+                    }
+                }
+            }
+
+            if (!$result['has_group_ownership'] && !$multiGroupPathResolved) {
+                if ($viewGroup !== '') {
+                    $stmtGrpEquity = $pdo->prepare("
+                        SELECT partner_group_id, percentage
+                        FROM {$companyTable}
+                        WHERE company_id = ? AND owner_type = 'group'
+                          AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
+                          {$monthSql}
+                        LIMIT 1
+                    ");
+                    $stmtGrpEquity->execute(
+                        $useHistory
+                            ? [$companyId, $viewGroup, $effectiveMonth]
+                            : [$companyId, $viewGroup]
+                    );
+                    $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                    if (!$grpEquityRow) {
+                        $stmtGrpEquity = $pdo->prepare("
+                            SELECT partner_group_id, percentage
+                            FROM {$companyTable}
+                            WHERE company_id = ? AND owner_type = 'group'
+                            {$monthSql}
+                            LIMIT 1
+                        ");
+                        $stmtGrpEquity->execute($useHistory ? [$companyId, $effectiveMonth] : [$companyId]);
+                        $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                    }
+                } else {
+                    $stmtGrpEquity = $pdo->prepare("
+                        SELECT partner_group_id, percentage
+                        FROM {$companyTable}
+                        WHERE company_id = ? AND owner_type = 'group'
+                        {$monthSql}
+                        LIMIT 1
+                    ");
+                    $stmtGrpEquity->execute($useHistory ? [$companyId, $effectiveMonth] : [$companyId]);
+                    $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
+                }
+
+                if ($grpEquityRow && $grpEquityRow['partner_group_id']) {
+                    $companyGroupId = $grpEquityRow['partner_group_id'];
+                    $result['group_equity_percentage'] = (float) $grpEquityRow['percentage'];
+
+                    try {
+                        $hasGroupTable = $useHistory
+                            ? $pdo->query("SHOW TABLES LIKE 'group_ownership_history'")->rowCount() > 0
+                            : $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
+                        if ($hasGroupTable) {
+                            $stmtAccShare = $pdo->prepare("
+                                SELECT percentage FROM {$groupTable}
+                                WHERE group_id = ? AND account_id = ? AND owner_type = ?
+                                {$monthSql}
+                                LIMIT 1
+                            ");
+                            $stmtAccShare->execute(
+                                $useHistory
+                                    ? [$companyGroupId, $userId, $ownerTypeStr, $effectiveMonth]
+                                    : [$companyGroupId, $userId, $ownerTypeStr]
+                            );
+                            $accSharePct = $stmtAccShare->fetchColumn();
+                            if ($accSharePct !== false) {
+                                $result['group_account_percentage'] = (float) $accSharePct;
+                                $result['has_group_ownership'] = true;
+                            }
+                        }
+                    } catch (Throwable $e) {
+                    }
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore — tables may not exist yet
+    }
+
+    return $result;
 }
 
 /** Group ledger period net profit (profit role + signed expenses), before subsidiary merge. */
@@ -1126,10 +1409,9 @@ function dashboardComputeSubsidiaryEarningsTotal(
         return $empty;
     }
 
-    $monthKey = date('Y-m', strtotime($dateToDisplay));
-    $parsedMonth = ownership_history_parse_month_param($monthKey);
-    $useHistory = $parsedMonth !== null && ownership_history_is_past_month($parsedMonth['month_key']);
-    $effectiveMonth = $parsedMonth['effective_month'] ?? ownership_history_effective_month_from_now();
+    $monthCtx = dashboardResolveOwnershipMonthFromDate($dateToDisplay);
+    $useHistory = $monthCtx['use_history'];
+    $effectiveMonth = $monthCtx['effective_month'];
     $equityMap = dashboardLoadCompanyEquityToGroup(
         $pdo,
         $companyIds,
@@ -3050,7 +3332,13 @@ try {
             $filter_currency_code
         );
         $groupLedgerNetProfit = dashboardGroupPeriodNetProfitFromSummary($groupResult);
-        $viewerGroupShare = dashboardLoadViewerGroupAccountPercentage($pdo, $groupLedgerCode);
+        $ownershipMonth = dashboardResolveOwnershipMonthFromDate((string) $date_to);
+        $viewerGroupShare = dashboardLoadViewerGroupAccountPercentage(
+            $pdo,
+            $groupLedgerCode,
+            $ownershipMonth['effective_month'],
+            $ownershipMonth['use_history']
+        );
         $groupAccountPctForSubsidiaries = (float) ($viewerGroupShare['percentage'] ?? 0);
         $subsidiaryEarnings = dashboardComputeSubsidiaryEarningsTotal(
             $pdo,
@@ -3815,147 +4103,27 @@ try {
         );
 
     // 获取当前账户的 ownership_percentage（earnings_only 由前端从主币种 KPI 合并，此处跳过）
-    $ownership_percentage = 0;
-    $has_ownership_setup = false;
-    $group_equity_percentage = 0;
-    $group_account_percentage = 0;
-    $has_group_ownership = false;
+    $ownershipFields = [
+        'ownership_percentage' => 0.0,
+        'has_ownership_setup' => false,
+        'group_equity_percentage' => 0.0,
+        'group_account_percentage' => 0.0,
+        'has_group_ownership' => false,
+    ];
     if (!$earningsOnly) {
-    try {
-        $ownershipSchema = dashboardCompanyOwnershipSchema($pdo); // static 缓存
-        $hasCompanyOwnership = $ownershipSchema['table'];
-        if ($hasCompanyOwnership) {
-            $stmtSetup = $pdo->prepare("SELECT 1 FROM company_ownership WHERE company_id = ? LIMIT 1");
-            $stmtSetup->execute([$company_id]);
-            if ($stmtSetup->fetchColumn() !== false) {
-                $has_ownership_setup = true;
-            }
-
-            $hasOwnerType = $ownershipSchema['owner_type_col'];
-            $userId = $_SESSION['user_id'] ?? 0;
-            $userType = $_SESSION['user_type'] ?? '';
-
-            if ($hasOwnerType) {
-                $ownerTypeStr = 'account';
-                if ($userType === 'owner') {
-                    $ownerTypeStr = 'owner';
-                } elseif ($userType === 'user') {
-                    $ownerTypeStr = 'user';
-                }
-
-                // Direct ownership: JK's own share in this company
-                $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ? AND owner_type = ?");
-                $stmtPct->execute([$company_id, $userId, $ownerTypeStr]);
-                $pct = $stmtPct->fetchColumn();
-                if ($pct !== false) {
-                    $ownership_percentage = (float) $pct;
-                }
-            } else {
-                if ($userType === 'member') {
-                    $stmtPct = $pdo->prepare("SELECT percentage FROM company_ownership WHERE company_id = ? AND account_id = ?");
-                    $stmtPct->execute([$company_id, $userId]);
-                    $pct = $stmtPct->fetchColumn();
-                    if ($pct !== false) {
-                        $ownership_percentage = (float) $pct;
-                    }
-                }
-            }
-
-            // ── Group Equity ──
-            // 多段链：TT→SS% × SS→AA% (group_ownership) × AA 内用户% ；Earnings = 净利 × 链上连乘
-            // 有「直接」公司股权 (ownership_percentage>0) 时仅用直接%，避免与链重复（如 JK 90%）
-            // 原两段式：company group 行 × group_ownership
-            try {
-                $view_group = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : '';
-                $skipGroupChain = ((float) $ownership_percentage) > 0.0;
-                $grpEquityRow = null;
-                $multiGroupPathResolved = false;
-
-                if (!$skipGroupChain) {
-                    if ($view_group !== '') {
-                        $pathDec = dashboardResolveEarningsPathProduct($pdo, $company_id, $view_group);
-                        if ($pathDec !== null) {
-                            $multiGroupPathResolved = true;
-                            $group_equity_percentage = $pathDec * 100.0;
-                            $hasGroupTable = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
-                            if ($hasGroupTable) {
-                                $stmtAccShare = $pdo->prepare("
-                                    SELECT percentage FROM group_ownership
-                                    WHERE UPPER(TRIM(group_id)) = UPPER(TRIM(?)) AND account_id = ? AND owner_type = ?
-                                ");
-                                $stmtAccShare->execute([$view_group, $userId, $ownerTypeStr ?? 'owner']);
-                                $accSharePct = $stmtAccShare->fetchColumn();
-                                if ($accSharePct !== false) {
-                                    $group_account_percentage = (float) $accSharePct;
-                                    $has_group_ownership = true;
-                                } else {
-                                    $group_equity_percentage = 0.0;
-                                    $group_account_percentage = 0.0;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (!$has_group_ownership && !$multiGroupPathResolved) {
-                    if ($view_group !== '') {
-                        $stmtGrpEquity = $pdo->prepare("
-                            SELECT partner_group_id, percentage
-                            FROM company_ownership
-                            WHERE company_id = ? AND owner_type = 'group'
-                              AND UPPER(TRIM(partner_group_id)) = UPPER(TRIM(?))
-                            LIMIT 1
-                        ");
-                        $stmtGrpEquity->execute([$company_id, $view_group]);
-                        $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
-                        if (!$grpEquityRow) {
-                            $stmtGrpEquity = $pdo->prepare("
-                                SELECT partner_group_id, percentage
-                                FROM company_ownership
-                                WHERE company_id = ? AND owner_type = 'group'
-                                LIMIT 1
-                            ");
-                            $stmtGrpEquity->execute([$company_id]);
-                            $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
-                        }
-                    } else {
-                        $stmtGrpEquity = $pdo->prepare("
-                            SELECT partner_group_id, percentage
-                            FROM company_ownership
-                            WHERE company_id = ? AND owner_type = 'group'
-                            LIMIT 1
-                        ");
-                        $stmtGrpEquity->execute([$company_id]);
-                        $grpEquityRow = $stmtGrpEquity->fetch(PDO::FETCH_ASSOC);
-                    }
-
-                    if ($grpEquityRow && $grpEquityRow['partner_group_id']) {
-                        $companyGroupId = $grpEquityRow['partner_group_id'];
-                        $group_equity_percentage = (float) $grpEquityRow['percentage'];
-
-                        $hasGroupTable = $pdo->query("SHOW TABLES LIKE 'group_ownership'")->rowCount() > 0;
-                        if ($hasGroupTable) {
-                            $stmtAccShare = $pdo->prepare("
-                                SELECT percentage FROM group_ownership
-                                WHERE group_id = ? AND account_id = ? AND owner_type = ?
-                            ");
-                            $stmtAccShare->execute([$companyGroupId, $userId, $ownerTypeStr ?? 'owner']);
-                            $accSharePct = $stmtAccShare->fetchColumn();
-                            if ($accSharePct !== false) {
-                                $group_account_percentage = (float) $accSharePct;
-                                $has_group_ownership = true;
-                            }
-                        }
-                    }
-                }
-            } catch (Throwable $e) {
-                // ignore — group tables may not exist yet
-            }
-        }
-    } catch (Throwable $e) {
-        // ignore
+        $view_group = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : '';
+        $ownershipFields = dashboardLoadCompanyDashboardOwnership(
+            $pdo,
+            $company_id,
+            (string) $date_to,
+            $view_group
+        );
     }
-    }
+    $ownership_percentage = $ownershipFields['ownership_percentage'];
+    $has_ownership_setup = $ownershipFields['has_ownership_setup'];
+    $group_equity_percentage = $ownershipFields['group_equity_percentage'];
+    $group_account_percentage = $ownershipFields['group_account_percentage'];
+    $has_group_ownership = $ownershipFields['has_group_ownership'];
 
     // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
     echo json_encode([

@@ -18,6 +18,7 @@ export default function GroupEarningCard({
   onLinkPartner,
   calcTotal,
   readOnlyMode,
+  structureLocked = false,
   isHistoricalView,
   fmtPct,
   t,
@@ -125,14 +126,15 @@ export default function GroupEarningCard({
                     onUpdate={(i, f, v) => onUpdateRow(gid, i, f, v)}
                     onRemove={(i) => onRemoveRow(gid, i)}
                     readOnlyMode={readOnlyMode}
+                    structureLocked={structureLocked}
                     t={t}
                   />
                 ))}
               </div>
-              <button type="button" className="own-btn-add-account" data-action="add-row" disabled={readOnlyMode}>
+              <button type="button" className="own-btn-add-account" data-action="add-row" disabled={structureLocked}>
                 {t("addAccount")}
               </button>
-              <GePartnerSection groupId={gid} disabled={readOnlyMode} onLink={(login) => onLinkPartner(login)} t={t} />
+              <GePartnerSection groupId={gid} disabled={structureLocked} onLink={(login) => onLinkPartner(login)} t={t} />
               <div className="own-card-footer">
                 <div className="own-footer-left">
                   <div className={`own-warning-badge${warn.err ? " own-warning-error" : ""}`} style={{ display: warn.show ? "flex" : "none" }}>

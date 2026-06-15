@@ -306,7 +306,7 @@ export function useCompanyOwnership(shell) {
 
   const confirmCompany = useCallback(
     async (cid) => {
-      if (viewOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
+      if (readOnlyMode) return showToast("Read-only: only owner can modify ownership", "error");
       const st = companyStates[cid];
       if (!st) return;
       const { rows } = st;
@@ -322,21 +322,25 @@ export function useCompanyOwnership(shell) {
       const total = calcOwnershipTotal(allocationRowsForSave(rows));
       setSavingCompanyId(cid);
       try {
+        const payload = {
+          company_id: cid,
+          owners: rowsToSavePayload(rows),
+        };
+        if (isHistoricalView) payload.month = selectedMonth;
         const res = await fetch(buildApiUrl("api/ownership/batch_save_owners_api.php"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            company_id: cid,
-            owners: rowsToSavePayload(rows),
-          }),
+          body: JSON.stringify(payload),
         });
         const json = await res.json();
         if (isApiSuccess(json)) {
           showToast(getApiMessage(json, "Saved successfully"), "success");
-          setAllCompanies((prev) =>
-            prev.map((c) => (Number(c.id) === cid ? { ...c, allocated_percentage: total } : c)),
-          );
+          if (!isHistoricalView) {
+            setAllCompanies((prev) =>
+              prev.map((c) => (Number(c.id) === cid ? { ...c, allocated_percentage: total } : c)),
+            );
+          }
           await loadCompanyState(cid, { force: true });
           setExpandedCompanyId(null);
         } else showToast(getApiMessage(json, "Save failed"), "error");
@@ -346,7 +350,7 @@ export function useCompanyOwnership(shell) {
         setSavingCompanyId(null);
       }
     },
-    [companyStates, viewOnlyMode, setAllCompanies, showToast, loadCompanyState],
+    [companyStates, readOnlyMode, isHistoricalView, selectedMonth, setAllCompanies, showToast, loadCompanyState],
   );
 
   const joinGroup = useCallback(
@@ -499,6 +503,7 @@ export function useCompanyOwnership(shell) {
     calcTotal: calcOwnershipTotal,
     fmtPct: fmtOwnershipPct,
     viewOnlyMode,
+    readOnlyMode,
     isHistoricalView,
     toggleCard,
     updateRow,

@@ -29,6 +29,7 @@ export default function CompanyCard({
   onCancel,
   calcTotal,
   readOnlyMode,
+  structureLocked = false,
   isHistoricalView,
   fmtPct,
   t,
@@ -125,7 +126,7 @@ export default function CompanyCard({
           </div>
         </div>
         <div className="own-card-header-right">
-          {!readOnlyMode && allGroupIds.length > 0 && !gid ? (
+          {!structureLocked && allGroupIds.length > 0 && !gid ? (
             <div className="own-group-btn-wrap">
               <button
                 type="button"
@@ -155,7 +156,7 @@ export default function CompanyCard({
               </div>
             </div>
           ) : null}
-          {!readOnlyMode && allGroupIds.length > 0 && gid ? (
+          {!structureLocked && allGroupIds.length > 0 && gid ? (
             <button type="button" className="own-group-ungroup-btn" onClick={(e) => { e.stopPropagation(); onUngroup(id, comp.name); }}>
               {t("ungroup")}
             </button>
@@ -206,6 +207,7 @@ export default function CompanyCard({
                     onUpdate={(i, f, v) => onUpdateRow(id, i, f, v)}
                     onRemove={(i) => onRemoveRow(id, i)}
                     readOnlyMode={readOnlyMode}
+                    structureLocked={structureLocked}
                     onDragStart={() => {
                       dragRef.current = { companyId: id, idx };
                     }}
@@ -224,12 +226,12 @@ export default function CompanyCard({
                   />
                 ))}
               </div>
-              <button type="button" className="own-btn-add-account" disabled={readOnlyMode} onClick={(e) => { e.stopPropagation(); onAddRow(id); }}>
+              <button type="button" className="own-btn-add-account" disabled={structureLocked} onClick={(e) => { e.stopPropagation(); onAddRow(id); }}>
                 {t("addAccount")}
               </button>
               <PartnerLinkSection
                 inputId={`partner-login-${id}`}
-                disabled={readOnlyMode}
+                disabled={structureLocked}
                 onLink={async (login) => onLinkPartner(id, login)}
                 t={t}
               />

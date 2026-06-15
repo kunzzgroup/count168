@@ -74,6 +74,7 @@ export const OWNERSHIP_I18N = {
     historicalSnapshotSaved: "{month} snapshot (saved {savedAt})",
     noSnapshotShort: "No snapshot this month",
     snapshotSavedShort: "Saved {savedAt}",
+    historicalEditHint: "Percent can be adjusted; account structure is locked.",
   },
   zh: {
     accountOwnership: "账号归属",
@@ -148,6 +149,7 @@ export const OWNERSHIP_I18N = {
     historicalSnapshotSaved: "{month} 存档（保存于 {savedAt}）",
     noSnapshotShort: "该月无存档",
     snapshotSavedShort: "保存于 {savedAt}",
+    historicalEditHint: "可调整比例；账户结构不可更改。",
   },
 };
 
