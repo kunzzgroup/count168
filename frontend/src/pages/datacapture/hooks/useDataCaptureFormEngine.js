@@ -20,7 +20,7 @@ import {
   saveGroupOnlyTableDraft,
 } from "../lib/dataCaptureGroupOnlyTableDraft.js";
 import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
-import { toDataCaptureWordFieldCase } from "../lib/dataCaptureFormRules.js";
+import { isGroupPayrollCaptureSession } from "../../../utils/company/c168CaptureChannel.js";
 import { captureTableSnapshot } from "../lib/dataCaptureTableSnapshot.js";
 
 const PROCESS_PLACEHOLDER = "Select Process";
@@ -41,15 +41,17 @@ function readRestoredProcessData() {
   }
 }
 
-function readRestoredSelectedProcess(restoredProcessData, selectedGroup = null) {
-  if (restoredProcessData?.groupOnlyCapture) {
-    const groupKey =
+function readRestoredSelectedProcess(restoredProcessData, selectedGroup = null, payrollPrefsKey = null) {
+  if (isGroupPayrollCaptureSession(restoredProcessData)) {
+    const prefsKey =
+      payrollPrefsKey ||
+      restoredProcessData.payrollPrefsKey ||
       restoredProcessData.captureSelectedGroup ||
       selectedGroup ||
       null;
     return (
       selectedProcessFromGroupOnlySession(restoredProcessData) ||
-      selectedProcessFromGroupOnlyPrefs(readGroupOnlyProcessPrefs(groupKey))
+      selectedProcessFromGroupOnlyPrefs(readGroupOnlyProcessPrefs(prefsKey))
     );
   }
   if (!restoredProcessData?.process) return null;
@@ -106,15 +108,22 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
   }
 }
 
-function readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData) {
-  if (restoredProcessData?.groupOnlyCapture) return null;
+function readInitialGroupOnlyPrefs(payrollPrefsKey, restoredProcessData) {
+  if (isGroupPayrollCaptureSession(restoredProcessData)) return null;
   if (restoredProcessData?.process) return null;
-  return readGroupOnlyProcessPrefs(selectedGroup);
+  return readGroupOnlyProcessPrefs(payrollPrefsKey);
 }
 
 export function useDataCaptureFormEngine(
   captureScope,
-  { applyCompanyOnlyFields = true, selectedGroup = null, scriptsReady = false } = {},
+  {
+    applyCompanyOnlyFields = true,
+    companyPayrollUi = false,
+    payrollPrefsKey = null,
+    payrollDraftServerSync = true,
+    selectedGroup = null,
+    scriptsReady = false,
+  } = {},
 ) {
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
@@ -122,9 +131,9 @@ export function useDataCaptureFormEngine(
   const initialGroupOnlyPrefs = useMemo(
     () =>
       !applyCompanyOnlyFields
-        ? readInitialGroupOnlyPrefs(selectedGroup, restoredProcessData)
+        ? readInitialGroupOnlyPrefs(payrollPrefsKey || selectedGroup, restoredProcessData)
         : null,
-    [applyCompanyOnlyFields, selectedGroup, restoredProcessData]
+    [applyCompanyOnlyFields, payrollPrefsKey, selectedGroup, restoredProcessData]
   );
 
   const [captureDate, setCaptureDate] = useState(() => {
@@ -163,8 +172,11 @@ export function useDataCaptureFormEngine(
   const [processOpen, setProcessOpen] = useState(false);
   const [processFilter, setProcessFilter] = useState("");
   const [selectedProcess, setSelectedProcess] = useState(() =>
-    readRestoredSelectedProcess(restoredProcessData, selectedGroup)
+    readRestoredSelectedProcess(restoredProcessData, selectedGroup, payrollPrefsKey)
   );
+
+  const payrollPrefsKeyRef = useRef(payrollPrefsKey || selectedGroup);
+  payrollPrefsKeyRef.current = payrollPrefsKey || selectedGroup;
 
   const selectedGroupRef = useRef(selectedGroup);
   selectedGroupRef.current = selectedGroup;
@@ -179,6 +191,11 @@ export function useDataCaptureFormEngine(
 
   const applyCompanyOnlyFieldsRef = useRef(applyCompanyOnlyFields);
   applyCompanyOnlyFieldsRef.current = applyCompanyOnlyFields;
+  const companyPayrollUiRef = useRef(companyPayrollUi);
+  companyPayrollUiRef.current = companyPayrollUi;
+
+  const usesCompanyCurrencies = () =>
+    applyCompanyOnlyFieldsRef.current || companyPayrollUiRef.current;
 
   useLayoutEffect(() => {
     const url = new URLSearchParams(window.location.search);
@@ -222,7 +239,7 @@ export function useDataCaptureFormEngine(
   }, []);
 
   const loadInitialForm = useCallback(async () => {
-    if (!applyCompanyOnlyFieldsRef.current) return;
+    if (!usesCompanyCurrencies()) return;
     const cid = companyIdRef.current;
     const scope = captureScopeRef.current;
     if (!cid || !scope) return;
@@ -237,7 +254,7 @@ export function useDataCaptureFormEngine(
   }, []);
 
   const loadGroupOnlyCurrencies = useCallback(async () => {
-    if (applyCompanyOnlyFieldsRef.current) return;
+    if (usesCompanyCurrencies()) return;
     const viewGroup = selectedGroupRef.current
       ? String(selectedGroupRef.current).trim().toUpperCase()
       : "";
@@ -255,7 +272,7 @@ export function useDataCaptureFormEngine(
   }, []);
 
   useEffect(() => {
-    if (applyCompanyOnlyFields) {
+    if (usesCompanyCurrencies()) {
       if (!companyId) {
         setCurrencies([]);
         return;
@@ -267,6 +284,7 @@ export function useDataCaptureFormEngine(
   }, [
     companyId,
     applyCompanyOnlyFields,
+    companyPayrollUi,
     selectedGroup,
     loadInitialForm,
     loadGroupOnlyCurrencies,
@@ -302,7 +320,7 @@ export function useDataCaptureFormEngine(
       if (applyCompanyOnlyFieldsRef.current) return;
       const proc = processOverride || selectedProcess;
       if (!proc?.id) return;
-      saveGroupOnlyProcessPrefs(selectedGroupRef.current, {
+      saveGroupOnlyProcessPrefs(payrollPrefsKeyRef.current, {
         process: proc.id,
         processCode: proc.process_id,
         processName: proc.displayText,
@@ -328,18 +346,18 @@ export function useDataCaptureFormEngine(
           ? window.__DC_GET_CAPTURE_TYPE__() || "1.Text"
           : "1.Text";
       saveGroupOnlyTableDraft(
-        selectedGroupRef.current,
+        payrollPrefsKeyRef.current,
         prev.id,
         currencyId,
         {
           tableData: captureTableSnapshot(activeCaptureType),
           captureType: activeCaptureType,
         },
-        { captureScope: captureScopeRef.current },
+        { captureScope: captureScopeRef.current, serverSync: payrollDraftServerSync },
       );
     }
     setSelectedProcess(next);
-    saveGroupOnlyProcessPrefs(selectedGroupRef.current, {
+    saveGroupOnlyProcessPrefs(payrollPrefsKeyRef.current, {
       process: next.id,
       processCode: next.process_id,
       processName: next.displayText,
@@ -349,8 +367,9 @@ export function useDataCaptureFormEngine(
     setProcessOpen(false);
     setProcessFilter("");
     if (normalizeGroupOnlyDraftCurrencyId(currencyId)) {
-      void restoreGroupOnlyTableDraft(selectedGroupRef.current, next.id, currencyId, {
+      void restoreGroupOnlyTableDraft(payrollPrefsKeyRef.current, next.id, currencyId, {
         captureScope: captureScopeRef.current,
+        serverSync: payrollDraftServerSync,
       });
     }
     setTimeout(() => {
@@ -402,17 +421,18 @@ export function useDataCaptureFormEngine(
     }, 0);
   }, []);
 
-  const applyGroupOnlyPrefsForGroup = useCallback((groupId) => {
+  const applyGroupOnlyPrefsForGroup = useCallback((prefsKey) => {
     if (applyCompanyOnlyFieldsRef.current) return;
-    const prefs = readGroupOnlyProcessPrefs(groupId);
+    const prefs = readGroupOnlyProcessPrefs(prefsKey);
     const proc = selectedProcessFromGroupOnlyPrefs(prefs);
     const prefCurrency = prefs?.currency ? String(prefs.currency) : "";
     setSelectedProcess(proc);
     if (prefCurrency) setCurrencyId(prefCurrency);
     if (prefs?.date) setCaptureDate(String(prefs.date));
     if (proc?.id && normalizeGroupOnlyDraftCurrencyId(prefCurrency)) {
-      void restoreGroupOnlyTableDraft(groupId, proc.id, prefCurrency, {
+      void restoreGroupOnlyTableDraft(prefsKey, proc.id, prefCurrency, {
         captureScope: captureScopeRef.current,
+        serverSync: payrollDraftServerSync,
       });
     }
     setTimeout(() => {
@@ -498,14 +518,17 @@ export function useDataCaptureFormEngine(
       const pname = String(processData.processName || processData.process_name || "").trim();
       const rows = processRowsRef.current || [];
 
-      if (!applyCompanyOnlyFieldsRef.current && processData.groupOnlyCapture) {
-        const groupKey = processData.captureSelectedGroup || selectedGroupRef.current;
+      if (!applyCompanyOnlyFieldsRef.current && isGroupPayrollCaptureSession(processData)) {
+        const prefsKey =
+          processData.payrollPrefsKey ||
+          processData.captureSelectedGroup ||
+          selectedGroupRef.current;
         const proc =
           selectedProcessFromGroupOnlySession(processData) ||
-          selectedProcessFromGroupOnlyPrefs(readGroupOnlyProcessPrefs(groupKey));
+          selectedProcessFromGroupOnlyPrefs(readGroupOnlyProcessPrefs(prefsKey));
         if (proc) setSelectedProcess(proc);
         if (proc?.id) {
-          saveGroupOnlyProcessPrefs(groupKey, {
+          saveGroupOnlyProcessPrefs(prefsKey, {
             process: proc.id,
             processCode: proc.process_id || pcode,
             processName: proc.displayText || pname,
@@ -610,8 +633,8 @@ export function useDataCaptureFormEngine(
   useLayoutEffect(() => {
     window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__ = async () => {
       if (applyCompanyOnlyFieldsRef.current) return;
-      const groupId = selectedGroupRef.current;
-      if (groupId) applyGroupOnlyPrefsForGroupRef.current(groupId);
+      const prefsKey = payrollPrefsKeyRef.current;
+      if (prefsKey) applyGroupOnlyPrefsForGroupRef.current(prefsKey);
     };
     return () => {
       delete window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__;

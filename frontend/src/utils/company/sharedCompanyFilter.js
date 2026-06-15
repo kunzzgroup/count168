@@ -1163,10 +1163,9 @@ export function notifyDashboardGcBootstrapReady() {
 }
 
 /**
- * Sidebar Process: hidden while a group is selected with no company (group-only), except on process routes.
- * Group login with a subsidiary company selected (e.g. C168) keeps Process visible.
+ * Sidebar Process: hidden in group-only mode and while company C168 is selected (payroll channel).
  */
-export function shouldHideSidebarProcess(pathname) {
+export function shouldHideSidebarProcess(pathname, me = null) {
   if (
     pathname === "/process-list" ||
     pathname === "/bank-process-list" ||
@@ -1175,7 +1174,15 @@ export function shouldHideSidebarProcess(pathname) {
     return false;
   }
   const g = sessionStorage.getItem(DASHBOARD_GROUP_FILTER_KEY);
-  return Boolean(String(g || "").trim()) && isDashboardGroupOnlyMode();
+  if (Boolean(String(g || "").trim()) && isDashboardGroupOnlyMode()) return true;
+  if (me?.is_current_company_c168) return true;
+  const filter = readPersistedDashboardGcFilter();
+  if (!filter.groupOnly && filter.companyId != null) {
+    const row = findOwnerCompanyById(filter.companyId);
+    const code = row?.company_id ?? me?.company_code ?? "";
+    if (String(code).trim().toUpperCase() === "C168") return true;
+  }
+  return false;
 }
 
 /**

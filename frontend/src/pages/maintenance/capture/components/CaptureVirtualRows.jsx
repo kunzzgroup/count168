@@ -1,9 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  useMaintenanceCyclicScrollExtent,
-  useMaintenanceCyclicScrollObserver,
-} from "../../shared/useMaintenanceCyclicVirtualScroll.js";
+import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import CaptureVirtualDataRow from "./CaptureVirtualDataRow.jsx";
 
 function pickOverscan(count) {
@@ -76,7 +73,6 @@ export default function CaptureVirtualRows({
   disableSelectAll,
 }) {
   const scrollRef = useRef(null);
-  const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
   const sizeCacheRef = useRef(new Map());
   const rowsRef = useRef(rows);
 
@@ -117,22 +113,19 @@ export default function CaptureVirtualRows({
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
-    observeElementOffset,
   });
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceCyclicScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
     resetDeps: [rows],
-    contentOffsetRef,
   });
 
   useLayoutEffect(() => {
-    contentOffsetRef.current = 0;
     scrollRef.current?.scrollTo(0, 0);
     sizeCacheRef.current.clear();
     rowVirtualizer.measure();

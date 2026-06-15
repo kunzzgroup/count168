@@ -1,6 +1,7 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { fetchCompanyPermissionsForDataCapture } from "./dataCaptureApi.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
+import { isGroupLedgerCapture } from "../../../utils/company/c168CaptureChannel.js";
 
 /** Home route when the active company has no Games / Gambling category. */
 export const DATA_CAPTURE_HOME_PATH = "/dashboard";
@@ -74,10 +75,7 @@ export async function resolveCompanyGamesAccess({ companyId, companyCode, sessio
 }
 
 export function isGroupCaptureScope(captureScope, sessionProcessData = null) {
-  if (captureScope?.mode === "group") return true;
-  if (sessionProcessData?.groupOnlyCapture === true) return true;
-  if (captureScope?.resolveCompanyViaGroupId && captureScope?.groupId) return true;
-  return false;
+  return isGroupLedgerCapture(captureScope, sessionProcessData);
 }
 
 /** Summary page access: group ledger users or company with Games category. */

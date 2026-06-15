@@ -68,6 +68,7 @@ import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.js
 import FormulaMaintenanceTable from "./components/FormulaMaintenanceTable.jsx";
 import MaintenanceDeleteConfirmModal from "../shared/MaintenanceDeleteConfirmModal.jsx";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { isC168GroupCaptureChannel } from "../../../utils/company/c168CaptureChannel.js";
 
 function readInitialMaintenanceSelectedGroup() {
   try {
@@ -80,7 +81,9 @@ function readInitialMaintenanceSelectedGroup() {
 
 function readInitialMaintenanceCompanyId() {
   const persisted = readPersistedDashboardGcFilter();
-  if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
+  if (persisted.companyId != null) return persisted.companyId;
+  if (persisted.groupOnly) return null;
+  if (isDashboardGroupOnlyMode()) return null;
   const saved = readDashboardSelectedCompanyId();
   if (saved != null) return saved;
   if (persisted.selectedGroup) return null;
@@ -167,16 +170,43 @@ export default function FormulaMaintenancePage() {
     pillCategory: "games",
   });
 
+  const currentCompanyRow = useMemo(
+    () =>
+      companyId != null
+        ? companies.find((c) => Number(c.id) === Number(companyId)) ?? null
+        : null,
+    [companies, companyId],
+  );
+
+  const withC168Channel = useCallback(
+    (scope, companyRow = null) => {
+      if (!scope) return null;
+      const row =
+        companyRow ??
+        (() => {
+          const id = scope.uiCompanyId ?? scope.scopeCompanyId ?? companyId;
+          return id != null
+            ? companies.find((c) => Number(c.id) === Number(id)) ?? null
+            : null;
+        })();
+      return { ...scope, c168Channel: isC168GroupCaptureChannel(me, row) };
+    },
+    [companies, companyId, me],
+  );
+
   const formulaScope = useMemo(
     () =>
-      resolveFormulaMaintenanceScope({
-        companies,
-        selectedGroup,
-        companyId,
-        groupsAllMode,
-        groupAllMode,
-      }),
-    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
+      withC168Channel(
+        resolveFormulaMaintenanceScope({
+          companies,
+          selectedGroup,
+          companyId,
+          groupsAllMode,
+          groupAllMode,
+        }),
+        currentCompanyRow,
+      ),
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, withC168Channel, currentCompanyRow],
   );
 
   const formulaScopeKey = useMemo(
@@ -358,14 +388,14 @@ export default function FormulaMaintenancePage() {
           sessionCompanyId: u.company_id,
           defaultRowId: rows[0]?.id,
         });
-        if (groupFilterOptOut && initialUiCompanyId != null) {
+        if (initialUiCompanyId != null) {
+          initialCompanyId = initialUiCompanyId;
+        } else if (groupFilterOptOut && initialUiCompanyId != null) {
           initialCompanyId = initialUiCompanyId;
         } else if (groupFilterOptOut && initialCompanyId == null) {
           initialCompanyId = null;
         } else if (!groupFilterOptOut && (isDashboardGroupOnlyMode() || readPersistedDashboardGcFilter().groupOnly)) {
           initialCompanyId = null;
-        } else if (initialUiCompanyId != null) {
-          initialCompanyId = initialUiCompanyId;
         }
         const currentComp =
           initialCompanyId != null
@@ -386,8 +416,9 @@ export default function FormulaMaintenancePage() {
         if (
           !groupOnlyBoot &&
           !groupFilterOptOut &&
+          initialUiCompanyId == null &&
           (isMaintenanceSessionGroupEntityBoot(currentComp, u) ||
-            (bootGroup && initialUiCompanyId == null && canUseGroupOnlyMode(u, bootGroup)))
+            (bootGroup && canUseGroupOnlyMode(u, bootGroup)))
         ) {
           groupOnlyBoot = true;
         }
@@ -444,16 +475,24 @@ export default function FormulaMaintenancePage() {
         }
         setCompanyId(initialCompanyId);
         companyIdRef.current = initialCompanyId;
+        persistDashboardGroupOnlyMode(false);
+        if (initialCompanyId != null) {
+          persistDashboardSelectedCompany(initialCompanyId);
+        }
 
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
 
-          const bootScope = resolveFormulaMaintenanceScope({
-            companies: rows,
-            selectedGroup: bootGroup,
-            companyId: initialCompanyId,
-          });
+          const bootC168 = isC168GroupCaptureChannel(u, currentComp);
+          const bootScope = withC168Channel(
+            resolveFormulaMaintenanceScope({
+              companies: rows,
+              selectedGroup: bootGroup,
+              companyId: initialCompanyId,
+            }),
+            currentComp,
+          );
 
           const [rawPerms, procList] = await Promise.all([
             fetchCompanyPermissionsRaw(code),
@@ -622,8 +661,9 @@ export default function FormulaMaintenancePage() {
 
   const performSearch = useCallback(async (overrides = {}) => {
     const { skipStaleGuard = false } = overrides;
-    const effectiveScope =
+    const baseScope =
       overrides.scope ??
+      formulaScope ??
       resolveFormulaMaintenanceScope({
         companies,
         selectedGroup: overrides.selectedGroup ?? selectedGroup,
@@ -631,6 +671,7 @@ export default function FormulaMaintenancePage() {
         groupsAllMode,
         groupAllMode,
       });
+    const effectiveScope = withC168Channel(baseScope, overrides.companyRow ?? null);
     const effectiveProcess =
       overrides.process !== undefined ? overrides.process : selectedProcess;
     if (!formulaMaintenanceScopeIsReady(effectiveScope) || effectiveProcess === null) return;
@@ -721,6 +762,8 @@ export default function FormulaMaintenancePage() {
     t,
     hydrateFormulaList,
     resetSelection,
+    formulaScope,
+    withC168Channel,
   ]);
 
   performSearchRef.current = performSearch;
@@ -791,13 +834,16 @@ export default function FormulaMaintenancePage() {
       if (!c?.id) return;
       const nextId = Number(c.id);
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-      const nextScope = resolveFormulaMaintenanceScope({
-        companies,
-        selectedGroup: newGroup,
-        companyId: nextId,
-        groupsAllMode,
-        groupAllMode,
-      });
+      const nextScope = withC168Channel(
+        resolveFormulaMaintenanceScope({
+          companies,
+          selectedGroup: newGroup,
+          companyId: nextId,
+          groupsAllMode,
+          groupAllMode,
+        }),
+        c,
+      );
       suppressNextSearchEffectRef.current = true;
       scopeKeyRef.current = formulaMaintenanceScopeCacheKey(nextScope);
       companyIdRef.current = nextId;
@@ -805,13 +851,14 @@ export default function FormulaMaintenancePage() {
       setCompanyCode(c.company_id || "");
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
+      persistDashboardGroupOnlyMode(false);
       followGroupRef.current();
       setSelectedProcess(null);
       clearFormulaList();
       lastSearchQueryKeyRef.current = "";
       resetSelection();
     },
-    [companies, groupAllMode, groupsAllMode, clearFormulaList, resetSelection],
+    [companies, groupAllMode, groupsAllMode, clearFormulaList, resetSelection, withC168Channel],
   );
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;

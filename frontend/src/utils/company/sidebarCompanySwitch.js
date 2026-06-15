@@ -108,6 +108,10 @@ export function resolveMaintenanceRedirectForSession(sessionData, currentPath) {
   }
 
   if (!flags.hasGambling && !flags.hasBank) {
+    const code = String(sessionData?.company_code ?? "").trim().toUpperCase();
+    if (code === "C168" && (path === "/capture-maintenance" || path === "/formula-maintenance")) {
+      return null;
+    }
     return "/dashboard";
   }
 

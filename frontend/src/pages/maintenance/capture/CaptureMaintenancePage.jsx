@@ -59,6 +59,9 @@ import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import {
+  isC168GroupCaptureChannel,
+} from "../../../utils/company/c168CaptureChannel.js";
 
 function readInitialMaintenanceSelectedGroup() {
   try {
@@ -71,7 +74,9 @@ function readInitialMaintenanceSelectedGroup() {
 
 function readInitialMaintenanceCompanyId() {
   const persisted = readPersistedDashboardGcFilter();
-  if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
+  if (persisted.companyId != null) return persisted.companyId;
+  if (persisted.groupOnly) return null;
+  if (isDashboardGroupOnlyMode()) return null;
   const saved = readDashboardSelectedCompanyId();
   if (saved != null) return saved;
   if (persisted.selectedGroup) return null;
@@ -161,17 +166,40 @@ export default function CaptureMaintenancePage() {
     pillCategory: "games",
   });
 
-  const captureScope = useMemo(
+  const currentCompanyRow = useMemo(
     () =>
-      resolveCaptureMaintenanceScope({
-        companies,
-        selectedGroup,
-        companyId,
-        groupsAllMode,
-        groupAllMode,
-      }),
-    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
+      companyId != null
+        ? companies.find((c) => Number(c.id) === Number(companyId)) ?? null
+        : null,
+    [companies, companyId],
   );
+
+  const withC168Channel = useCallback(
+    (scope, companyRow = null) => {
+      if (!scope) return null;
+      const row =
+        companyRow ??
+        (() => {
+          const id = scope.uiCompanyId ?? scope.scopeCompanyId ?? companyId;
+          return id != null
+            ? companies.find((c) => Number(c.id) === Number(id)) ?? null
+            : null;
+        })();
+      return { ...scope, c168Channel: isC168GroupCaptureChannel(me, row) };
+    },
+    [companies, companyId, me],
+  );
+
+  const captureScope = useMemo(() => withC168Channel(
+    resolveCaptureMaintenanceScope({
+      companies,
+      selectedGroup,
+      companyId,
+      groupsAllMode,
+      groupAllMode,
+    }),
+    currentCompanyRow,
+  ), [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, withC168Channel, currentCompanyRow]);
 
   const captureScopeKey = useMemo(
     () => captureMaintenanceScopeCacheKey(captureScope),
@@ -267,7 +295,9 @@ export default function CaptureMaintenancePage() {
           defaultRowId: rows[0]?.id,
         });
         const initialUiCompanyId = readInitialMaintenanceCompanyId();
-        if (groupFilterOptOut && initialUiCompanyId != null) {
+        if (initialUiCompanyId != null) {
+          initialCompanyId = initialUiCompanyId;
+        } else if (groupFilterOptOut && initialUiCompanyId != null) {
           initialCompanyId = initialUiCompanyId;
         } else if (groupFilterOptOut && initialCompanyId == null) {
           const pick = resolveCompanyWhenClosingGroup(
@@ -296,8 +326,9 @@ export default function CaptureMaintenancePage() {
         if (
           !groupOnlyBoot &&
           !groupFilterOptOut &&
+          initialUiCompanyId == null &&
           (isMaintenanceSessionGroupEntityBoot(currentComp, u) ||
-            (bootGroup && initialUiCompanyId == null && canUseGroupOnlyMode(u, bootGroup)))
+            (bootGroup && canUseGroupOnlyMode(u, bootGroup)))
         ) {
           groupOnlyBoot = true;
         }
@@ -334,16 +365,24 @@ export default function CaptureMaintenancePage() {
           return;
         }
         setCompanyId(initialCompanyId);
+        persistDashboardGroupOnlyMode(false);
+        if (initialCompanyId != null) {
+          persistDashboardSelectedCompany(initialCompanyId);
+        }
 
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
 
-          const bootScope = resolveCaptureMaintenanceScope({
-            companies: rows,
-            selectedGroup: bootGroup,
-            companyId: initialCompanyId,
-          });
+          const bootC168 = isC168GroupCaptureChannel(u, currentComp);
+          const bootScope = {
+            ...resolveCaptureMaintenanceScope({
+              companies: rows,
+              selectedGroup: bootGroup,
+              companyId: initialCompanyId,
+            }),
+            c168Channel: bootC168,
+          };
 
           // Fetch initial metadata here to ensure the first query starts with the correct activePermission
           const [procList, companyPerms] = await Promise.all([
@@ -442,8 +481,9 @@ export default function CaptureMaintenancePage() {
   // -- Search Logic --
   const performSearch = useCallback(
     async (overrides = {}) => {
-      const effectiveScope =
+      const baseScope =
         overrides.scope ??
+        captureScope ??
         resolveCaptureMaintenanceScope({
           companies,
           selectedGroup: overrides.selectedGroup ?? selectedGroup,
@@ -451,6 +491,7 @@ export default function CaptureMaintenancePage() {
           groupsAllMode,
           groupAllMode,
         });
+      const effectiveScope = withC168Channel(baseScope, overrides.companyRow ?? null);
       if (!captureMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
 
       const searchScopeKey = captureMaintenanceScopeCacheKey(effectiveScope);
@@ -503,7 +544,7 @@ export default function CaptureMaintenancePage() {
         }
       }
     },
-    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, dateFrom, dateTo, selectedProcess, activePermission, notify, t],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, dateFrom, dateTo, selectedProcess, activePermission, notify, t, captureScope, withC168Channel],
   );
 
   // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
@@ -583,7 +624,8 @@ export default function CaptureMaintenancePage() {
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
-      void performSearch({ scope: nextScope });
+      persistDashboardGroupOnlyMode(false);
+      void performSearch({ scope: nextScope, companyRow: c });
     },
     [companies, performSearch, groupsAllMode, groupAllMode],
   );
@@ -609,7 +651,7 @@ export default function CaptureMaintenancePage() {
             groupsAllMode,
             groupAllMode,
           });
-          await performSearch({ scope: switchedScope });
+          await performSearch({ scope: switchedScope, companyRow: c });
           notify(t("switchedTo", { company: nextCode }), "success");
         },
       });
@@ -699,27 +741,6 @@ export default function CaptureMaintenancePage() {
 
   return (
     <div className="container">
-      {permissions.length > 1 ? (
-      <div className="maintenance-header">
-          <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
-            <span className="maintenance-company-label">{m.category}</span>
-            <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
-              {permissions.map(p => (
-                <button 
-                  key={p} 
-                  type="button" 
-                  className={`maintenance-company-btn ${p === activePermission ? 'active' : ''}`}
-                  onClick={() => handlePermissionSwitch(p)}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-      </div>
-      ) : null}
-
-      {/* Scope table CSS: other maintenance pages share .maintenance-* and win in bundle order */}
       <div className="capture-maintenance-page-root">
         <CaptureMaintenanceFilters
           processes={processes}

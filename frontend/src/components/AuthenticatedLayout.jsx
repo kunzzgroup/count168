@@ -282,8 +282,8 @@ export default function AuthenticatedLayout() {
   };
 
   const hideProcessWhenGroupOnly = useMemo(
-    () => shouldHideSidebarProcess(path),
-    [path, sidebarGcTick],
+    () => shouldHideSidebarProcess(path, me),
+    [path, sidebarGcTick, me],
   );
   const prevPathRef = useRef(path);
 

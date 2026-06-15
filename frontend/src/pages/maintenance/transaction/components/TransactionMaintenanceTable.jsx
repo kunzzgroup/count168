@@ -1,9 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  useMaintenanceCyclicScrollExtent,
-  useMaintenanceCyclicScrollObserver,
-} from "../../shared/useMaintenanceCyclicVirtualScroll.js";
+import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 
@@ -126,7 +123,6 @@ export default function TransactionMaintenanceTable({
   m,
 }) {
   const scrollRef = useRef(null);
-  const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
   const sizeCacheRef = useRef(new Map());
   const rowsRef = useRef([]);
   const rows = Array.isArray(data) ? data : [];
@@ -167,11 +163,9 @@ export default function TransactionMaintenanceTable({
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
-    observeElementOffset,
   });
 
   useLayoutEffect(() => {
-    contentOffsetRef.current = 0;
     scrollRef.current?.scrollTo(0, 0);
     sizeCacheRef.current.clear();
     rowVirtualizer.measure();
@@ -179,13 +173,12 @@ export default function TransactionMaintenanceTable({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceCyclicScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: ROW_HEIGHT,
     resetDeps: [rows],
-    contentOffsetRef,
   });
 
   if (rows.length === 0 && (showSkeleton || statusMessage)) {

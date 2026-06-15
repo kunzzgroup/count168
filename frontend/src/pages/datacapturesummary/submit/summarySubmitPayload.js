@@ -1,6 +1,8 @@
 export function buildSummarySubmitPayload(processData, summaryRows) {
   if (!processData) return null;
-  const groupOnly = processData.groupOnlyCapture === true;
+  const groupPayrollCapture = processData.groupPayrollCapture === true;
+  const groupLedger =
+    processData.groupOnlyCapture === true && !groupPayrollCapture;
   return {
     captureDate: processData.date,
     processId: processData.process,
@@ -9,11 +11,17 @@ export function buildSummarySubmitPayload(processData, summaryRows) {
     currencyId: processData.currency,
     currencyName: processData.currencyName,
     remark: processData.remark || "",
-    groupOnlyCapture: groupOnly,
-    captureSelectedGroup: groupOnly
+    groupPayrollUi: processData.groupPayrollUi === true || groupLedger || groupPayrollCapture,
+    groupPayrollCapture,
+    groupOnlyCapture: groupLedger,
+    captureSelectedGroup: groupLedger || groupPayrollCapture
       ? String(processData.captureSelectedGroup || "").trim().toUpperCase()
       : undefined,
-    captureScopeMode: groupOnly ? "group" : "company",
+    captureScopeMode: groupLedger ? "group" : "company",
+    scopeCompanyId:
+      processData.scopeCompanyId != null && Number(processData.scopeCompanyId) > 0
+        ? Number(processData.scopeCompanyId)
+        : undefined,
     summaryRows: Array.isArray(summaryRows) ? summaryRows : [],
   };
 }
