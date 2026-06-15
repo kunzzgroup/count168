@@ -131,19 +131,9 @@ export function DashboardEarningsSummary({
 
   /** Unique per page visit so pie enter animation replays when navigating back to Dashboard. */
   const [pieVisitKey] = useState(() => Date.now());
-  const [pieFlowIdle, setPieFlowIdle] = useState(false);
   const pieAnimKey = `${pieVisitKey}-${exchangeRateScopeKey || "scope"}-${
     summaryPieReady ? "ready" : "pending"
   }`;
-
-  useEffect(() => {
-    if (!summaryPieReady) {
-      setPieFlowIdle(false);
-      return undefined;
-    }
-    const timer = window.setTimeout(() => setPieFlowIdle(true), 920);
-    return () => window.clearTimeout(timer);
-  }, [pieAnimKey, summaryPieReady]);
 
   const isRowAmountLoading = useCallback(
     (code) => {
@@ -286,79 +276,84 @@ export function DashboardEarningsSummary({
     ? companyBreakdownRows.length > 0
     : showMultiCurrencyBreakdown;
 
-  return (
-    <div className="dashboard-panel-card dashboard-panel-card--summary">
-      {showProfitChartTab && (
-        <div className="dashboard-summary-view-tabs" role="tablist" aria-label={i18n.statistics}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={earningsPanelView === "currency"}
-            className={`dashboard-summary-view-tab${
-              earningsPanelView === "currency" ? " is-active" : ""
-            }`}
-            onClick={() => onEarningsPanelViewChange?.("currency")}
-          >
-            {i18n.earningsChartTab}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={earningsPanelView === "earnings"}
-            className={`dashboard-summary-view-tab${
-              earningsPanelView === "earnings" ? " is-active" : ""
-            }`}
-            onClick={() => onEarningsPanelViewChange?.("earnings")}
-          >
-            {i18n.earningsCompanyTab}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={earningsPanelView === "profit"}
-            className={`dashboard-summary-view-tab${
-              earningsPanelView === "profit" ? " is-active" : ""
-            }`}
-            onClick={() => onEarningsPanelViewChange?.("profit")}
-          >
-            {i18n.profitChartTab}
-          </button>
-        </div>
+  const summaryHero = (
+    <div className="dashboard-summary-hero dashboard-summary-hero--compact">
+      <span className="dashboard-summary-hero-caption">
+        {heroLabel}
+        {currencyCode ? ` · ${currencyCode}` : ""}
+      </span>
+      <div className="dashboard-summary-hero-value">
+        {summaryEarningsLoading ? (
+          "…"
+        ) : (
+          <DashboardAnimatedValue
+            value={heroValue}
+            active={!summaryEarningsLoading}
+            className="dashboard-summary-hero-value-anim"
+          />
+        )}
+      </div>
+      {!isCompanyBreakdownView && summaryConversionNote && (
+        <span className="dashboard-summary-hero-conversion-note">{summaryConversionNote}</span>
       )}
+    </div>
+  );
+
+  const summaryViewTabs = showProfitChartTab ? (
+    <div className="dashboard-summary-view-tabs" role="tablist" aria-label={i18n.statistics}>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={earningsPanelView === "currency"}
+        className={`dashboard-summary-view-tab${
+          earningsPanelView === "currency" ? " is-active" : ""
+        }`}
+        onClick={() => onEarningsPanelViewChange?.("currency")}
+      >
+        {i18n.earningsChartTab}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={earningsPanelView === "earnings"}
+        className={`dashboard-summary-view-tab${
+          earningsPanelView === "earnings" ? " is-active" : ""
+        }`}
+        onClick={() => onEarningsPanelViewChange?.("earnings")}
+      >
+        {i18n.earningsCompanyTab}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={earningsPanelView === "profit"}
+        className={`dashboard-summary-view-tab${
+          earningsPanelView === "profit" ? " is-active" : ""
+        }`}
+        onClick={() => onEarningsPanelViewChange?.("profit")}
+      >
+        {i18n.profitChartTab}
+      </button>
+    </div>
+  ) : null;
+
+  return (
+    <div
+      className={`dashboard-panel-card dashboard-panel-card--summary${
+        showProfitChartTab ? " dashboard-panel-card--summary-has-tabs" : ""
+      }`}
+    >
       <div className="dashboard-summary-layout">
-        <div className="dashboard-summary-left-col">
-          <div className="dashboard-summary-hero dashboard-summary-hero--compact">
-            <span className="dashboard-summary-hero-caption">
-              {heroLabel}
-              {currencyCode ? ` · ${currencyCode}` : ""}
-            </span>
-            <div className="dashboard-summary-hero-value">
-              {summaryEarningsLoading ? (
-                "…"
-              ) : (
-                <DashboardAnimatedValue
-                  value={heroValue}
-                  active={!summaryEarningsLoading}
-                  className="dashboard-summary-hero-value-anim"
-                />
-              )}
-            </div>
-            {!isCompanyBreakdownView && summaryConversionNote && (
-              <span className="dashboard-summary-hero-conversion-note">{summaryConversionNote}</span>
-            )}
-          </div>
+        <div className="dashboard-summary-top-row">
+          {summaryViewTabs}
+          {summaryHero}
           <div
             ref={pieAreaRef}
-            className={`dashboard-summary-pie-wrap${pieFlowIdle ? " is-flow-idle" : ""}`}
+            className="dashboard-summary-pie-wrap"
             aria-hidden={!earningsPanelStable && !earningsPieSlices.length}
             onMouseLeave={() => setHoveredPieSector(null)}
           >
-            <div
-              ref={pieShellRef}
-              className={`dashboard-summary-pie-chart-shell${
-                summaryPieReady ? " is-enter is-flow-active" : ""
-              }`}
-            >
+            <div ref={pieShellRef} className="dashboard-summary-pie-chart-shell">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                   <Pie
@@ -402,7 +397,7 @@ export function DashboardEarningsSummary({
                 showPieCenterBadge && (
                 <div
                   key={pieAnimKey}
-                  className="dashboard-summary-pie-center is-enter"
+                  className="dashboard-summary-pie-center"
                   aria-hidden="true"
                 >
                   <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
