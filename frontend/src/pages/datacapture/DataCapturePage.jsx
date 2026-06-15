@@ -1085,7 +1085,7 @@ function DataCapturePageContent() {
               </div>
 
               {showCompanyProcessUi ? (
-                <div className="dc-form-row dc-form-row--2col dc-form-row--stacked">
+                <div className="dc-form-aligned-2col">
                   <div className="form-group">
                     <label htmlFor="capture_description">{t("description")}</label>
                     <div className="input-with-icon">
@@ -1131,11 +1131,7 @@ function DataCapturePageContent() {
                       />
                     </div>
                   </div>
-                </div>
-              ) : null}
 
-              {showCompanyProcessUi ? (
-                <div className="dc-form-remove-remark-grid">
                   <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
                     {t("removeWord")}
                   </label>

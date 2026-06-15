@@ -120,7 +120,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel {
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-header h2 {
     font-family: var(--font-heading-page) !important;
     font-size: var(--text-page-title);
-    letter-spacing: 2px;
+    letter-spacing: 0;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-form {

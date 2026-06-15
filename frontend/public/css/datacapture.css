@@ -232,8 +232,28 @@ body.datacapture-page .submitted-list {
         grid-column: 1;
     }
 
+    body.datacapture-page .process-form .dc-form-aligned-2col,
     body.datacapture-page .process-form .dc-form-remove-remark-grid {
         grid-template-columns: 1fr;
+        grid-template-areas:
+            "desc_grp"
+            "replace_grp"
+            "lbl_rm"
+            "inp_rm"
+            "hlp_rm"
+            "lbl_mk"
+            "inp_mk";
+    }
+
+    body.datacapture-page .process-form .dc-form-aligned-2col > .form-group:first-child {
+        grid-area: desc_grp;
+    }
+
+    body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-word-group {
+        grid-area: replace_grp;
+    }
+
+    body.datacapture-page .process-form .dc-form-remove-remark-grid {
         grid-template-areas:
             "lbl_rm"
             "inp_rm"
@@ -357,6 +377,81 @@ body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked > 
     font-weight: 600;
 }
 
+body.datacapture-page .process-form .dc-form-aligned-2col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: clamp(12px, 1.35vw, 20px);
+    row-gap: clamp(4px, 0.38vw, 6px);
+    grid-template-areas:
+        "desc_grp replace_grp"
+        "lbl_rm lbl_mk"
+        "inp_rm inp_mk"
+        "hlp_rm slot_mk";
+    align-items: stretch;
+    margin-bottom: clamp(10px, 0.85vw, 14px);
+}
+
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group:first-child {
+    grid-area: desc_grp;
+}
+
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-word-group {
+    grid-area: replace_grp;
+}
+
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group {
+    margin-bottom: 0;
+    flex-direction: column;
+    align-items: stretch;
+    align-self: stretch;
+    gap: clamp(4px, 0.38vw, 6px);
+}
+
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group > label {
+    width: auto;
+    max-width: 100%;
+    align-self: flex-start;
+    text-align: left;
+    padding-right: 0;
+    margin-bottom: 0;
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+}
+
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group > .input-with-icon,
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group > .replace-word-fields {
+    width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+}
+
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group .input-with-icon input {
+    width: 100%;
+}
+
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-word-group.dc-replace-word-field {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(4px, 0.38vw, 6px);
+}
+
+body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-word-group .replace-word-fields input {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    min-height: 36px;
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    font-size: clamp(10px, 0.74vw, 14px);
+    font-weight: 600;
+    box-sizing: border-box;
+}
+
 body.datacapture-page .process-form .dc-form-remove-remark-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -395,8 +490,9 @@ body.datacapture-page .process-form .dc-remove-remark__label {
     line-height: 1.25;
 }
 
-body.datacapture-page .process-form .dc-remove-remark__label--rm {
+body.datacapture-page .process-form .dc-form-aligned-2col > .dc-remove-remark__label--rm {
     grid-area: lbl_rm;
+    margin-top: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-remove-remark__label--mk {
