@@ -270,7 +270,7 @@ export default function AutoRenewPage() {
     [invalidateListCaches, statusFilter],
   );
 
-  const fetchList = useCallback(async () => {
+  const fetchList = useCallback(async ({ resetDrafts = false } = {}) => {
     listFetchAbortRef.current?.abort();
     const ac = new AbortController();
     listFetchAbortRef.current = ac;
@@ -284,7 +284,7 @@ export default function AutoRenewPage() {
         signal: ac.signal,
       });
       if (ac.signal.aborted) return;
-      storeEntityListData(requestEntity, data, { resetDrafts: true });
+      storeEntityListData(requestEntity, data, { resetDrafts });
     } catch (err) {
       if (ac.signal.aborted || err?.name === "AbortError") return;
       notify(t("loadFailed", { message: err.message }), "error");
@@ -300,7 +300,7 @@ export default function AutoRenewPage() {
     setEntitySnapshots((prev) => ({ ...prev, [entityTabRef.current]: null }));
     bootFetchedListKeyRef.current = null;
     setListRefreshing(true);
-    await fetchList();
+    await fetchList({ resetDrafts: true });
     void syncAutoRenewPendingCount();
   }, [fetchList, invalidateListCaches]);
 
@@ -387,7 +387,7 @@ export default function AutoRenewPage() {
       return;
     }
     void fetchList();
-  }, [bootLoading, dateFrom, dateTo, entityTab, fetchList, listFetchKey, me, sessionReady, statusFilter]);
+  }, [bootLoading, dateFrom, dateTo, entityTab, fetchList, listFetchKey, sessionReady, statusFilter]);
 
   useEffect(() => {
     if (bootLoading || !sessionReady || !me) return;

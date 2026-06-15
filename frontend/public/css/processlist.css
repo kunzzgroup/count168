@@ -1527,6 +1527,61 @@
     color: #94a3b8;
 }
 
+/* Accounting Due — centered popup modal */
+#processAccountingDueModal .accounting-due-modal-content {
+    width: min(1040px, 94vw) !important;
+    max-width: min(1040px, 94vw) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    display: flex;
+    flex-direction: column;
+    height: auto !important;
+    min-height: min-content !important;
+    max-height: min(94vh, 56rem);
+    overflow: hidden;
+}
+
+#processAccountingDueModal .modal-header h2 {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: clamp(15px, 1.12vw, 19px);
+    font-weight: 800;
+    color: #000033;
+}
+
+#processAccountingDueModal .modal-body.accounting-due-modal-body {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    box-sizing: border-box;
+    gap: 0;
+    padding: 0;
+}
+
+#processAccountingDueModal .accounting-due-inbox-table-wrap {
+    flex: 0 1 auto;
+    min-height: auto;
+    max-height: min(calc(94vh - 16rem), 520px);
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: 12px 16px 8px;
+}
+
+#processAccountingDueModal .accounting-due-inbox-toolbar {
+    border-top: 1px solid #eef2f7;
+    padding: 12px 16px;
+}
+
+#processAccountingDueModal .accounting-due-inbox-popover-footer {
+    border-top: 1px solid #eef2f7;
+    border-radius: 0 0 1rem 1rem;
+}
+
 /* Bank Add Process 必填未填时红框 */
 #addBankModal .bank-field-error,
 #addBankModal .bank-select.bank-field-error,

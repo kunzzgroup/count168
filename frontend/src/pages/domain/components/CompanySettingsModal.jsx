@@ -363,7 +363,6 @@ export default function CompanySettingsModal({
           ...company,
           fee_share_allocations: cleanFsa,
         });
-        notifySessionRefreshRequested();
       } catch {
         showDomainAlert(t("shareSaveFailed"), "danger");
       }
