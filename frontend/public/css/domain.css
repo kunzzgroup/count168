@@ -2277,7 +2277,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
 .company-settings-split {
     display: flex;
     flex-direction: row;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 0;
     min-height: 0;
 }
@@ -2429,6 +2429,25 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     width: min(1120px, 96vw);
     max-width: min(1120px, 96vw);
     box-sizing: border-box;
+}
+
+/* Auto Renew / user-page 会套用 userlist.css 的 .user-page .modal-content { height:100% }，须覆盖为按内容高度 */
+body.user-page .company-settings-react-modal.modal-content,
+body.auto-renew-page-body .company-settings-react-modal.modal-content {
+    width: min(1120px, 96vw) !important;
+    max-width: min(1120px, 96vw) !important;
+    height: auto !important;
+    max-height: calc(100vh - 48px);
+    display: block;
+    overflow: hidden;
+    margin: 0 !important;
+}
+
+body.user-page .company-settings-react-modal.modal-content .company-settings-modal-body,
+body.auto-renew-page-body .company-settings-react-modal.modal-content .company-settings-modal-body {
+    flex: none;
+    height: auto;
+    min-height: 0;
 }
 
 /* 关闭按钮：与图二 DevTools 量测一致（父级已 position: relative） */
