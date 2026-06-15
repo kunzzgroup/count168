@@ -3735,6 +3735,12 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup .tran
     white-space: normal !important;
     overflow: visible !important;
     text-overflow: clip !important;
+    font-size: var(--txn-history-text-table) !important;
+}
+
+body.transaction-payment-history-page--popup .transaction-history-modal .transaction-modal-body .transaction-table thead th[class*="transaction-history-col-"],
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-history-modal .transaction-modal-body .transaction-table thead th[class*="transaction-history-col-"] {
+    font-size: var(--txn-history-text-table-head) !important;
 }
 
 .transaction-payment-history-error {
@@ -3742,5 +3748,6 @@ body.ec-payment-history-chromeless.transaction-payment-history-page--popup .tran
     padding: 24px;
     color: #b91c1c;
     text-align: center;
+    font-size: var(--txn-history-text-error);
 }
 
