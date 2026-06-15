@@ -19,7 +19,7 @@ import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
 import {
-  fitPaymentHistoryPopupToContent,
+  fitPaymentHistoryPopupHeightOnce,
   isPaymentHistoryPopupWindow,
 } from "./lib/transactionPaymentHistoryPopup.js";
 
@@ -133,15 +133,10 @@ export default function TransactionPaymentHistoryPage() {
 
   useLayoutEffect(() => {
     if (isLoading || errorMessage || !isPaymentHistoryPopupWindow()) return undefined;
-    const runFit = () => fitPaymentHistoryPopupToContent();
+    const runFit = () => fitPaymentHistoryPopupHeightOnce();
     runFit();
-    const timers = [80, 280, 600].map((ms) => window.setTimeout(runFit, ms));
-    const onResize = () => runFit();
-    window.addEventListener("resize", onResize);
-    return () => {
-      timers.forEach((id) => window.clearTimeout(id));
-      window.removeEventListener("resize", onResize);
-    };
+    const t = window.setTimeout(runFit, 120);
+    return () => window.clearTimeout(t);
   }, [rows.length, isLoading, errorMessage]);
 
   if (!paramsReady) {
