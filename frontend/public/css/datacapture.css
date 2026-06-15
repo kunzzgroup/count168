@@ -1265,6 +1265,8 @@ body.datacapture-page .bottom-section .form-actions {
     border-radius: 4px;
     padding: var(--desc-modal-list-pad, 0.5rem);
     background-color: #f8fafc;
+    font-size: var(--desc-modal-list-text, var(--text-small));
+    font-family: var(--font-ui);
 }
 
 .selected-descriptions-list,
@@ -1283,6 +1285,8 @@ body.datacapture-page .bottom-section .form-actions {
     border-radius: 4px;
     padding: var(--desc-modal-list-pad, 0.5rem);
     background-color: #f8fafc;
+    font-size: var(--desc-modal-list-text, var(--text-small));
+    font-family: var(--font-ui);
 }
 
 .modal-content.description-selection-modal .description-item,
@@ -1316,7 +1320,7 @@ body.datacapture-page .bottom-section .form-actions {
 .description-item label,
 .modal-content.description-selection-modal .description-item label {
     margin: 0;
-    font-size: var(--desc-modal-list-text, var(--text-tiny));
+    font-size: var(--desc-modal-list-text, var(--text-small));
     font-family: var(--font-ui);
     font-weight: var(--font-weight-normal);
     cursor: pointer;
@@ -1363,11 +1367,14 @@ body.datacapture-page .bottom-section .form-actions {
     margin-bottom: 0;
 }
 
+.modal-content.description-selection-modal .selected-description-modal-item span,
 .selected-description-modal-item span {
     flex: 1;
-    font-size: clamp(10px, 0.73vw, 14px);
-    color: #1976d2;
-    font-weight: 500;
+    font-size: var(--desc-modal-list-text, var(--text-small));
+    font-family: var(--font-ui);
+    color: var(--desc-modal-selected-fg, #1976d2);
+    font-weight: var(--font-weight-semibold, 600);
+    line-height: 1.35;
 }
 
 .remove-description-modal {

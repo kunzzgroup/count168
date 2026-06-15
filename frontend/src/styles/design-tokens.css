@@ -178,7 +178,7 @@
   --desc-modal-pad-inline: var(--process-form-modal-pad);
   --desc-modal-title-size: var(--process-form-modal-title-size);
   --desc-modal-section-size: var(--process-form-modal-section-size);
-  --desc-modal-list-text: var(--text-tiny);
+  --desc-modal-list-text: var(--text-small);
   --desc-modal-body-size: var(--text-tiny);
   --desc-modal-empty-size: var(--text-tiny);
   --desc-modal-control-text: var(--text-tiny);

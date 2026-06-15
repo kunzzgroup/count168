@@ -6074,7 +6074,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .process-page .selected-description-modal-item span,
 .modal-content.description-selection-modal .selected-description-modal-item span {
     flex: 1;
-    font-size: var(--desc-modal-list-text, var(--text-tiny));
+    font-size: var(--desc-modal-list-text, var(--text-small));
     font-family: var(--font-ui);
     color: var(--desc-modal-selected-fg);
     font-weight: var(--font-weight-semibold);
@@ -6123,7 +6123,7 @@ body.process-page > .modal.show:has(.description-selection-modal) {
 .modal-content.description-selection-modal .description-item label,
 .process-page .description-selection-modal .description-item label {
     margin: 0;
-    font-size: var(--desc-modal-list-text, var(--text-tiny));
+    font-size: var(--desc-modal-list-text, var(--text-small));
     font-family: var(--font-ui);
     font-weight: var(--font-weight-normal);
     cursor: pointer;
