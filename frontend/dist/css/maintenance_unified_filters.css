@@ -278,45 +278,84 @@ body.dashboard-page.maintenance-page .maintenance-table .maintenance-table-cell 
 }
 
 /*
- * 所有 maintenance 列表行高 / 表头高度与 Report（customer_report / domain_report）对齐。
+ * Maintenance 列表区域纵向填满主内容区（与 Report 页表格占位一致），行高保持各页原有样式。
  */
-body.maintenance-page {
-    --transaction-list-cell-padding-y: var(--report-list-row-padding-block);
-    --transaction-list-cell-padding-x: var(--report-list-row-padding-inline);
-    --transaction-list-cell-min-height: var(--report-list-cell-min-height);
-    --capture-list-cell-padding-y: var(--report-list-row-padding-block);
-    --capture-list-cell-padding-x: var(--report-list-row-padding-inline);
-    --capture-list-cell-min-height: var(--report-list-cell-min-height);
-    --payment-list-cell-padding-y: var(--report-list-row-padding-block);
-    --payment-list-cell-padding-x: var(--report-list-row-padding-inline);
-    --payment-list-cell-min-height: var(--report-list-cell-min-height);
-    --bankprocess-list-cell-padding-y: var(--report-list-row-padding-block);
-    --bankprocess-list-cell-padding-x: var(--report-list-row-padding-inline);
-    --bankprocess-list-cell-min-height: var(--report-list-cell-min-height);
-    --formula-list-cell-padding-y: var(--report-list-row-padding-block);
-    --formula-list-cell-padding-x: var(--report-list-row-padding-inline);
-    --formula-list-cell-min-height: var(--report-list-cell-min-height);
+body.maintenance-page .container {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
 }
 
-body.dashboard-page.maintenance-page .maintenance-table thead th {
-    padding-block: var(--report-list-header-padding-block-start) var(--report-list-header-padding-block-end) !important;
-    padding-inline: var(--report-list-header-padding-inline) !important;
-    min-height: var(--report-list-header-min-height) !important;
+body.maintenance-page .maintenance-header {
+    flex: 0 0 auto;
 }
 
-body.dashboard-page.maintenance-page .maintenance-virtual-th {
-    padding-block: var(--report-list-header-padding-block-start) var(--report-list-header-padding-block-end) !important;
-    padding-inline: var(--report-list-header-padding-inline) !important;
-    min-height: var(--report-list-header-min-height) !important;
+body.maintenance-page .customer-report-filter-container {
+    flex: 0 0 auto;
 }
 
-body.dashboard-page.maintenance-page .maintenance-virtual-cell,
-body.dashboard-page.maintenance-page .maintenance-table tbody td,
-body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell,
-body.dashboard-page.maintenance-page .maintenance-table .maintenance-table-cell {
-    padding-block: var(--report-list-row-padding-block) !important;
-    padding-inline: var(--report-list-row-padding-inline) !important;
-    min-height: var(--report-list-cell-min-height) !important;
+body.maintenance-page .capture-maintenance-page-root,
+body.maintenance-page .payment-maintenance-page-root,
+body.maintenance-page .transaction-maintenance-page-root,
+body.maintenance-page .formula-maintenance-page-root,
+body.maintenance-page .bankprocess-maintenance-page-root {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+body.maintenance-page .transaction-maintenance-table-region,
+body.maintenance-page .payment-maintenance-table-region,
+body.maintenance-page .capture-maintenance-table-region,
+body.maintenance-page .bankprocess-maintenance-table-region,
+body.maintenance-page .formula-maintenance-table-region {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+body.maintenance-page .maintenance-list-container {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+body.maintenance-page .maintenance-virtual-table,
+body.maintenance-page .payment-virtual-table,
+body.maintenance-page .formula-virtual-table,
+body.maintenance-page .transaction-virtual-table,
+body.maintenance-page .capture-virtual-table,
+body.maintenance-page .bankprocess-virtual-table {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+}
+
+body.maintenance-page .maintenance-virtual-table-inner,
+body.maintenance-page .payment-virtual-table-inner,
+body.maintenance-page .formula-virtual-table-inner,
+body.maintenance-page .transaction-virtual-table-inner,
+body.maintenance-page .capture-virtual-table-inner,
+body.maintenance-page .bankprocess-virtual-table-inner {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+}
+
+body.maintenance-page .maintenance-virtual-thead {
+    flex: 0 0 auto;
 }
 
 /* Delete confirmation modal — unified typography on all maintenance routes */
@@ -514,7 +553,10 @@ body.maintenance-page .maintenance-list-container {
 
 body.maintenance-page .maintenance-virtual-scroll,
 body.maintenance-page .maintenance-virtual-scroll--body {
-    max-height: min(72vh, calc(100dvh - 260px), 900px) !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    height: auto !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     scrollbar-gutter: stable;
@@ -522,9 +564,9 @@ body.maintenance-page .maintenance-virtual-scroll--body {
     -ms-overflow-style: auto !important;
 }
 
-/* Bank Process 筛选区更高，表格滚动区略减顶栏预留 */
+/* Bank Process 筛选区更高：仍用 flex 填满，仅保留底部内边距 */
 body.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
-    max-height: min(72vh, calc(100dvh - 300px), 900px) !important;
+    max-height: none !important;
     overflow-y: auto !important;
     padding-bottom: clamp(8px, 0.6vw, 12px);
     box-sizing: border-box;

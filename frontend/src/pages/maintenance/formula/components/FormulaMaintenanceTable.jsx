@@ -2,13 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { toUpperDisplay, syncEditFormSourcePercent, createFormulaEditFormFromRow } from "../formulaMaintenanceLogic.js";
 import { assetUrl } from "../../../../utils/core/apiUrl.js";
 import FormulaVirtualRows, { FormulaVirtualTableHead } from "./FormulaVirtualRows.jsx";
-import {
-  MAINTENANCE_LIST_EDIT_ROW_HEIGHT,
-  MAINTENANCE_LIST_ROW_HEIGHT,
-} from "../../shared/maintenanceListRowMetrics.js";
 
-const ROW_HEIGHT = MAINTENANCE_LIST_ROW_HEIGHT;
-const EDIT_ROW_HEIGHT = MAINTENANCE_LIST_EDIT_ROW_HEIGHT;
+const ROW_HEIGHT = 56;
+const EDIT_ROW_HEIGHT = 80;
 
 export default function FormulaMaintenanceTable({
   data,

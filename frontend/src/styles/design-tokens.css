@@ -224,18 +224,6 @@
   --table-header-height: 6px 22px;
 
   /*
-   * Report 列表行 / 表头（Customer / Domain Report）；Maintenance 虚拟列表与之对齐
-   */
-  --report-list-row-padding-block: 1px;
-  --report-list-row-padding-inline: 22px;
-  --report-list-cell-min-height: clamp(26px, 2.1vw, 34px);
-  --report-list-virtual-row-height: 32;
-  --report-list-header-padding-block-start: clamp(0px, 0.78vw, 15px);
-  --report-list-header-padding-block-end: 12px;
-  --report-list-header-padding-inline: 20px;
-  --report-list-header-min-height: clamp(30px, 2.4vw, 42px);
-
-  /*
    * Contra Inbox popover grid（Transaction Payment）
    * Header / cell 共用 --contra-inbox-text-cell，表头仅 uppercase + 字重区分
    */

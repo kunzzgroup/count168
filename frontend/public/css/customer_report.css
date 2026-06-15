@@ -276,7 +276,7 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
     display: grid;
     grid-template-columns: 1.35fr 1.45fr 0.72fr 0.82fr 0.72fr 1.05fr 1.05fr;
     gap: 15px;
-    padding: var(--report-list-header-padding-block-start) var(--report-list-header-padding-inline) var(--report-list-header-padding-block-end);
+    padding: clamp(0px, 0.78vw, 15px) 20px 12px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
     margin-top: 20px;
@@ -338,8 +338,7 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
     display: grid;
     grid-template-columns: 1.35fr 1.45fr 0.72fr 0.82fr 0.72fr 1.05fr 1.05fr;
     gap: 15px;
-    padding: var(--report-list-row-padding-block) var(--report-list-row-padding-inline);
-    min-height: var(--report-list-cell-min-height);
+    padding: 1px 22px;
     background: #f0e5fb;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
@@ -375,7 +374,7 @@ body.dashboard-page.report-page .customer-report-showall-group .user-filter-chip
     display: grid;
     grid-template-columns: 1.35fr 1.45fr 0.72fr 0.82fr 0.72fr 1.05fr 1.05fr;
     gap: 15px;
-    padding: var(--report-list-row-padding-block) var(--report-list-row-padding-inline);
+    padding: 1px 22px;
     background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
     border-top: 2px solid #0F61FF;
     border-radius: 0 0 8px 8px;

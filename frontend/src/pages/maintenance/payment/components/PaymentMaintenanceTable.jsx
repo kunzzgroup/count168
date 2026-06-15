@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { isPaymentMaintenanceRowSelectable } from "../paymentMaintenanceLogic.js";
 import PaymentVirtualRows from "./PaymentVirtualRows.jsx";
-import { MAINTENANCE_LIST_ROW_HEIGHT } from "../../shared/maintenanceListRowMetrics.js";
 
-const ROW_HEIGHT = MAINTENANCE_LIST_ROW_HEIGHT;
+const ROW_HEIGHT = 52;
 
 
 
