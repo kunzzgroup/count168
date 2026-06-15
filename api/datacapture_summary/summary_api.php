@@ -299,11 +299,20 @@ function computeTemplateKey(array $row): string {
             $parent = 'sub';
         }
 
-        // 与 main 一致：sub 的 template_key 使用 parent_id_product，并加上 account_id 区分同 parent 下多 account（避免 2 条 sub 共用一个 key 互相覆盖或产生重复）
+        // parent + account + sub_order（+ description）区分同账号多条 sub（红股/COMM/红利等）
         $baseKey = $parent !== '' ? $parent : ($subId !== '' ? $subId : '');
         $accountId = trim((string)($row['account_id'] ?? ''));
         if ($baseKey !== '') {
-            $key = $accountId !== '' ? $baseKey . '_' . $accountId : $baseKey;
+            $parts = [$baseKey];
+            if ($accountId !== '') {
+                $parts[] = $accountId;
+            }
+            if ($subOrder !== '') {
+                $parts[] = 'o' . $subOrder;
+            } elseif ($description !== '') {
+                $parts[] = $description;
+            }
+            $key = implode('_', $parts);
             return substr($key, 0, 250);
         }
 
@@ -1256,7 +1265,24 @@ function summaryIdMatchesAnyCapture(string $candidateId, array $capturedIds): bo
 }
 
 /**
- * sub 模板：parent 必须在 Capture 中精确出现；sub 的 id_product 须在 Capture 中或与 parent 相同。
+ * 去掉 Id Product 后附的说明（如 "IK-SPORT (红股)" → "IK-SPORT"），与前端 normalizeIdProductForKey 一致。
+ */
+function summaryIdProductBaseBeforeDescription(string $idProduct): string
+{
+    $s = trim($idProduct);
+    if ($s === '') {
+        return '';
+    }
+    $pos = strpos($s, ' (');
+    if ($pos !== false && $pos > 0) {
+        return trim(substr($s, 0, $pos));
+    }
+    return $s;
+}
+
+/**
+ * sub 模板：parent 必须在 Capture 中精确出现；sub 的 id_product 须在 Capture 中、与 parent 相同、
+ * 或为 parent 的说明后缀变体（如 IK-SPORT (红股) / IK-SPORT (COMM)）。
  */
 function summarySubTemplateAllowedForCapture(array $subRow, array $capturedIds): bool
 {
@@ -1276,6 +1302,11 @@ function summarySubTemplateAllowedForCapture(array $subRow, array $capturedIds):
         return false;
     }
     if ($subId === '' || strcasecmp($subId, $parent) === 0) {
+        return true;
+    }
+    // Sub 说明后缀：括号前可有空格（IK-SPORT (红股)），属于同一 Capture 父产品，不是独立 Id Product
+    $subBase = summaryIdProductBaseBeforeDescription($subId);
+    if ($subBase !== '' && strcasecmp($subBase, $parent) === 0) {
         return true;
     }
     return summaryIdMatchesAnyCapture($subId, $capturedIds);

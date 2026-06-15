@@ -306,7 +306,7 @@ function summaryCapturedParentIsExact(parentId, capturedIds) {
     );
 }
 
-/** sub 模板：parent 精确在 Capture 中；sub.id_product 须在 Capture 中或与 parent 相同 */
+/** sub 模板：parent 精确在 Capture 中；sub.id_product 须在 Capture 中、与 parent 相同、或为 parent 的说明后缀（如 IK-SPORT (红股)） */
 function summarySubTemplateAllowedForCapture(sub, capturedIds, parentId) {
     const captured = Array.isArray(capturedIds)
         ? capturedIds
@@ -315,6 +315,10 @@ function summarySubTemplateAllowedForCapture(sub, capturedIds, parentId) {
     const subId = (sub?.id_product || '').trim();
     if (!parent || !summaryCapturedParentIsExact(parent, captured)) return false;
     if (!subId || subId.toLowerCase() === parent.toLowerCase()) return true;
+    const subBase = typeof normalizeIdProductForKey === 'function'
+        ? normalizeIdProductForKey(subId)
+        : subId;
+    if (subBase && subBase.toLowerCase() === parent.toLowerCase()) return true;
     return summaryIdMatchesAnyCapture(subId, captured);
 }
 
@@ -15808,11 +15812,16 @@ function isInheritedAccountLinkMainTemplate(mainTemplate) {
 }
 
 function summarySubTemplateFingerprint(sub, parentExact) {
+    const templateId = sub?.id != null && sub?.id !== '' ? String(sub.id) : '';
+    if (templateId) {
+        return `id:${templateId}`;
+    }
     const parent = (sub?.parent_id_product || parentExact || '').trim();
     const accountId = sub?.account_id != null ? String(sub.account_id) : '';
     const subOrder = sub?.sub_order != null && sub?.sub_order !== '' ? String(Number(sub.sub_order)) : '0';
     const variant = sub?.formula_variant != null ? String(sub.formula_variant) : '1';
-    return `${parent}|${accountId}|${subOrder}|${variant}`;
+    const desc = (sub?.description || '').trim().toLowerCase();
+    return `${parent}|${accountId}|${subOrder}|${variant}|${desc}`;
 }
 
 function summaryCollectMainRowsForParent(parentIdProduct) {
@@ -15841,15 +15850,47 @@ function summaryFindMainRowForSubTemplate(parentIdProduct, subTemplate) {
     let mains = summaryCollectMainRowsForParent(parentExact);
     if (mains.length === 0) return null;
     if (mains.length === 1) return mains[0].row;
+
+    const templateAccountId = subTemplate?.account_id != null && String(subTemplate.account_id).trim() !== ''
+        ? String(subTemplate.account_id).trim()
+        : '';
+    if (templateAccountId) {
+        const normCode = (s) => {
+            const t = (s || '').trim();
+            const m = t.match(/^([A-Za-z0-9]+)/);
+            return m ? m[1].toUpperCase() : t.toUpperCase();
+        };
+        const templateDisplay = (subTemplate?.account_display || '').trim();
+        const templateCode = normCode(templateDisplay);
+        for (const info of mains) {
+            const accountCell = info.row.querySelector('td:nth-child(2)');
+            if (!accountCell) continue;
+            const rowAccountId = accountCell.getAttribute('data-account-id');
+            if (rowAccountId && rowAccountId === templateAccountId) {
+                return info.row;
+            }
+            const rowDisplay = (accountCell.textContent || '').trim();
+            if (templateDisplay && rowDisplay && rowDisplay.toUpperCase().indexOf(templateDisplay.toUpperCase()) >= 0) {
+                return info.row;
+            }
+            if (templateCode && normCode(rowDisplay) === templateCode) {
+                return info.row;
+            }
+        }
+    }
+
     const sortedMains = [...mains].sort((a, b) => a.rowIndex - b.rowIndex);
     const subRowIndex = subTemplate?.row_index != null && subTemplate?.row_index !== ''
         ? Number(subTemplate.row_index) : null;
     if (subRowIndex != null && !Number.isNaN(subRowIndex)) {
-        for (let i = 0; i < sortedMains.length; i++) {
-            const mainRowIndex = sortedMains[i].rowIndex;
-            const nextMainRowIndex = i < sortedMains.length - 1 ? sortedMains[i + 1].rowIndex : Number.POSITIVE_INFINITY;
-            if (subRowIndex >= mainRowIndex && subRowIndex < nextMainRowIndex) {
-                return sortedMains[i].row;
+        const distinctIndexes = [...new Set(sortedMains.map((m) => m.rowIndex))];
+        if (distinctIndexes.length > 1) {
+            for (let i = 0; i < sortedMains.length; i++) {
+                const mainRowIndex = sortedMains[i].rowIndex;
+                const nextMainRowIndex = i < sortedMains.length - 1 ? sortedMains[i + 1].rowIndex : Number.POSITIVE_INFINITY;
+                if (subRowIndex >= mainRowIndex && subRowIndex < nextMainRowIndex) {
+                    return sortedMains[i].row;
+                }
             }
         }
     }
@@ -18444,6 +18485,10 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 const rowSubOrderRaw = row.getAttribute('data-sub-order');
                 const rowSubOrder = (rowSubOrderRaw !== null && rowSubOrderRaw !== '') ? Number(rowSubOrderRaw) : null;
                 const subOrderMatch = (templateSubOrder === null && rowSubOrder === null) || (templateSubOrder !== null && rowSubOrder !== null && templateSubOrder === rowSubOrder);
+                const templateAccountId = template.account_id != null ? String(template.account_id) : '';
+                const rowAccountCell = row.querySelector('td:nth-child(2)');
+                const rowAccountDbId = rowAccountCell?.getAttribute('data-account-id') || '';
+                const accountMatch = !templateAccountId || !rowAccountDbId || rowAccountDbId === templateAccountId;
 
                 // Match by template_id (most precise)
                 if (parentRowMatch && templateId && rowTemplateId && rowTemplateId === String(templateId)) {
@@ -18454,7 +18499,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
                 // Match by template_key + formula_variant (if template_id not available)
                 // IMPORTANT: Also require sub_order to match so that first sub row is not overwritten by second sub template on refresh
-                if (!targetRow && parentRowMatch && templateKey && formulaVariant &&
+                if (!targetRow && parentRowMatch && accountMatch && templateKey && formulaVariant &&
                     rowTemplateKey === templateKey &&
                     rowFormulaVariant === String(formulaVariant) &&
                     subOrderMatch) {
@@ -18466,7 +18511,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 // Match by template_key only (fallback, less precise)
                 // Only use this if formula_variant is not available (for backward compatibility)
                 // Also require sub_order match to avoid collapsing multiple sub rows
-                if (!targetRow && parentRowMatch && templateKey && !formulaVariant && rowTemplateKey === templateKey && subOrderMatch) {
+                if (!targetRow && parentRowMatch && accountMatch && templateKey && !formulaVariant && rowTemplateKey === templateKey && subOrderMatch) {
                     targetRow = row;
                     console.log('Found existing sub row by template_key (no formula_variant):', templateKey);
                     break;
