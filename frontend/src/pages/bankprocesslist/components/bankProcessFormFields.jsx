@@ -188,11 +188,12 @@ export function BankSimpleSelect({
 
 /** Bank Process modal wrapper — same calendar as FormDateField, bank-specific CSS classes. */
 export function BankFormDateField(props) {
-  const { wrapClassName = "", ...rest } = props;
+  const { wrapClassName = "", disabled = false, ...rest } = props;
   return (
     <FormDateField
       {...rest}
-      wrapClassName={`bank-form-datepicker-wrap ${wrapClassName}`.trim()}
+      disabled={disabled}
+      wrapClassName={`bank-form-datepicker-wrap${disabled ? " bank-form-datepicker-wrap--disabled" : ""} ${wrapClassName}`.trim()}
       inputClassName="bank-input bank-form-datepicker-input"
       hitboxClassName="bank-form-datepicker-hitbox"
       clearClassName="bank-form-datepicker-clear"

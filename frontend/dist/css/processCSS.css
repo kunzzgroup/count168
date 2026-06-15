@@ -6909,9 +6909,6 @@ body.process-page > .modal.show:has(.description-selection-modal) {
     box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.35) !important;
 }
 
-#confirmBankResendModal .bank-resend-day-end-field--muted {
-    opacity: 0.55;
-}
 
 #confirmBankResendModal .bank-resend-field__note {
     margin: 6px 0 0;
