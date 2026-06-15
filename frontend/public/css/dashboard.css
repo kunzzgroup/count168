@@ -1737,7 +1737,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     display: grid;
     grid-template-columns: var(--breakdown-cols);
     column-gap: 10px;
-    padding: 0 8px 6px 0;
+    padding: 0 8px 6px 10px;
     margin: 0;
     flex-shrink: 0;
     position: sticky;
@@ -1766,7 +1766,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     min-height: 0;
     overflow-x: auto;
     overflow-y: auto;
-    padding: 4px 2px 0 0;
+    padding: 4px 2px 0 10px;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -1777,7 +1777,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     grid-template-columns: var(--breakdown-cols);
     align-items: center;
     column-gap: 10px;
-    padding: 6px 8px 6px 0;
+    padding: 6px 8px;
     border-radius: var(--radius-panel, 8px);
     font-family: var(--summary-font);
     border-left: none;
@@ -3101,11 +3101,11 @@ body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-pan
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-list-head {
-    padding-bottom: 4px;
+    padding: 0 6px 4px 10px;
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-row {
-    padding: 4px 6px;
+    padding: 4px 6px 4px 10px;
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-rate-footnote {

@@ -1027,14 +1027,14 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.dashboard-home-page .dashboard-summary-pie-wrap {
-        flex: 1 1 auto !important;
+        flex: none !important;
         min-height: 0 !important;
         max-height: 100% !important;
     }
 
     body.dashboard-home-page .dashboard-summary-pie-chart-shell {
-        width: min(100%, 17vh, 200px) !important;
-        height: min(100%, 17vh, 200px) !important;
+        width: 100% !important;
+        height: 100% !important;
         max-height: 100% !important;
     }
 
@@ -1062,52 +1062,45 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         overflow: hidden !important;
     }
 
-    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-left-col {
+    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-top-row {
         min-height: 0 !important;
         overflow: hidden !important;
+        flex-shrink: 0 !important;
     }
 
-    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-pie-wrap {
-        flex: 1 1 0 !important;
-        min-height: 0 !important;
-        max-height: 100% !important;
+    body.dashboard-home-page .dashboard-summary-top-row .dashboard-summary-pie-wrap {
+        height: min(17vh, 200px) !important;
+        min-height: min(17vh, 200px) !important;
+        max-height: min(17vh, 200px) !important;
+    }
+
+    body.dashboard-home-page .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-top-row .dashboard-summary-pie-wrap {
+        flex: none !important;
+        height: min(17vh, 200px) !important;
+        min-height: min(17vh, 200px) !important;
+        max-height: min(17vh, 200px) !important;
+    }
+
+    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-top-row .dashboard-summary-pie-chart-shell {
+        width: 100% !important;
+        height: 100% !important;
     }
 
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-pie-chart-shell {
         flex-shrink: 1 !important;
-        width: min(100%, 17vh, 200px) !important;
-        height: min(100%, 17vh, 200px) !important;
+        width: 100% !important;
+        height: 100% !important;
         max-width: 100% !important;
         max-height: 100% !important;
     }
 
-    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card--summary {
-        --summary-size-hero: clamp(24px, 1.85vw, 32px) !important;
-    }
-
-    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-hero-value {
-        font-size: var(--summary-size-hero) !important;
-        line-height: 1 !important;
-        min-height: 1em !important;
-    }
-
-    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-hero--compact {
-        gap: 0 !important;
-        padding-bottom: 0 !important;
-    }
-
-    body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-hero-conversion-note {
-        margin-top: 0 !important;
-        font-size: clamp(8px, 0.58vw, 9px) !important;
-        line-height: 1.1 !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        max-width: 100% !important;
-    }
-
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-row {
-        padding: 4px 6px !important;
+        padding: 4px 6px 4px 10px !important;
     }
 
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-rate-footnote {

@@ -1100,7 +1100,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-row {
-        padding: 4px 6px !important;
+        padding: 4px 6px 4px 10px !important;
     }
 
     body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-rate-footnote {
