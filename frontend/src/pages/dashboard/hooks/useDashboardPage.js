@@ -40,7 +40,7 @@ import {
   sumConvertedKpiMetrics,
   warmFrankfurterRatesForCurrencies,
 } from "../../../utils/dashboard/frankfurterRates.js";
-import { DASHBOARD_API, DASHBOARD_BOOTSTRAP_API, DASHBOARD_PROFIT_COLOR } from "../lib/dashboardConstants.js";
+import { DASHBOARD_API, DASHBOARD_BOOTSTRAP_API, DASHBOARD_PROFIT_COLOR, isDashboardHistoricalOwnershipMonth } from "../lib/dashboardConstants.js";
 import {
   buildChartRows,
   makeDashboardChartXTick,
@@ -2777,7 +2777,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           ? parseFloat(row.link_percentage)
           : NaN;
         const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
-        if (linkMultiplier !== 1) {
+        const useHistoricalOwnership = isDashboardHistoricalOwnershipMonth(rangeTo);
+        const apiHasGroupEquity = parseFloat(json.data?.group_equity_percentage) > 0;
+        if (linkMultiplier !== 1 && !useHistoricalOwnership && !apiHasGroupEquity) {
           data = { ...json.data, _link_multiplier: linkMultiplier };
         }
       }
@@ -2788,7 +2790,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const applyDashboardPayloadAdjustments = useCallback(
-    (data, cid, viewGroupOverride) => {
+    (data, cid, viewGroupOverride, rangeTo = dateToRef.current) => {
       if (!data || cid == null) return data;
       const viewGroup =
         viewGroupOverride ??
@@ -2806,7 +2808,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           ? parseFloat(row.link_percentage)
           : NaN;
       const linkMultiplier = Number.isFinite(pct) && pct >= 0 ? pct / 100 : 1;
-      if (linkMultiplier !== 1) {
+      const useHistoricalOwnership = isDashboardHistoricalOwnershipMonth(rangeTo);
+      const apiHasGroupEquity = parseFloat(data?.group_equity_percentage) > 0;
+      if (linkMultiplier !== 1 && !useHistoricalOwnership && !apiHasGroupEquity) {
         return { ...data, _link_multiplier: linkMultiplier };
       }
       return data;

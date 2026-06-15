@@ -1048,11 +1048,14 @@ function dashboardCompanyNetProfitDailyFromPayload(array $dailyData): array
 /** @return array{user_id:int, owner_type:string} */
 function dashboardResolveViewerOwnerType(): array
 {
-    $userId = (int) ($_SESSION['user_id'] ?? 0);
-    $userType = (string) ($_SESSION['user_type'] ?? '');
+    $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
+    $role = strtolower((string) ($_SESSION['role'] ?? ''));
     $ownerTypeStr = 'account';
-    if ($userType === 'owner') {
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+
+    if ($userType === 'owner' || $role === 'owner') {
         $ownerTypeStr = 'owner';
+        $userId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $userId);
     } elseif ($userType === 'user') {
         $ownerTypeStr = 'user';
     }
@@ -1176,17 +1179,12 @@ function dashboardLoadCompanyDashboardOwnership(
             $hasOwnerType = dashboardCompanyOwnershipSchema($pdo)['owner_type_col'];
         }
 
-        $userId = (int) ($_SESSION['user_id'] ?? 0);
-        $userType = (string) ($_SESSION['user_type'] ?? '');
+        $viewer = dashboardResolveViewerOwnerType();
+        $userId = $viewer['user_id'];
+        $ownerTypeStr = $viewer['owner_type'];
+        $userType = strtolower((string) ($_SESSION['user_type'] ?? ''));
 
         if ($hasOwnerType) {
-            $ownerTypeStr = 'account';
-            if ($userType === 'owner') {
-                $ownerTypeStr = 'owner';
-            } elseif ($userType === 'user') {
-                $ownerTypeStr = 'user';
-            }
-
             $stmtPct = $pdo->prepare("
                 SELECT percentage FROM {$companyTable}
                 WHERE company_id = ? AND account_id = ? AND owner_type = ?{$monthSql}
@@ -1198,6 +1196,14 @@ function dashboardLoadCompanyDashboardOwnership(
                     : [$companyId, $userId, $ownerTypeStr]
             );
             $pct = $stmtPct->fetchColumn();
+            if ($pct === false && $ownerTypeStr === 'owner' && $userId > 0) {
+                $stmtPct->execute(
+                    $useHistory
+                        ? [$companyId, $userId, 'user', $effectiveMonth]
+                        : [$companyId, $userId, 'user']
+                );
+                $pct = $stmtPct->fetchColumn();
+            }
             if ($pct !== false) {
                 $result['ownership_percentage'] = (float) $pct;
             }
@@ -4102,23 +4108,14 @@ try {
             dashboardHasContraApprovalColumns($pdo)
         );
 
-    // 获取当前账户的 ownership_percentage（earnings_only 由前端从主币种 KPI 合并，此处跳过）
-    $ownershipFields = [
-        'ownership_percentage' => 0.0,
-        'has_ownership_setup' => false,
-        'group_equity_percentage' => 0.0,
-        'group_account_percentage' => 0.0,
-        'has_group_ownership' => false,
-    ];
-    if (!$earningsOnly) {
-        $view_group = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : '';
-        $ownershipFields = dashboardLoadCompanyDashboardOwnership(
-            $pdo,
-            $company_id,
-            (string) $date_to,
-            $view_group
-        );
-    }
+    // 获取当前账户的 ownership_percentage（按 date_to 月份读取历史或 live）
+    $view_group = isset($_GET['view_group']) ? trim((string) $_GET['view_group']) : '';
+    $ownershipFields = dashboardLoadCompanyDashboardOwnership(
+        $pdo,
+        $company_id,
+        (string) $date_to,
+        $view_group
+    );
     $ownership_percentage = $ownershipFields['ownership_percentage'];
     $has_ownership_setup = $ownershipFields['has_ownership_setup'];
     $group_equity_percentage = $ownershipFields['group_equity_percentage'];
