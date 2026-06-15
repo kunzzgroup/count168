@@ -103,7 +103,7 @@ export default function AccountingDueModal({
               {t("startDate")}
             </div>
             <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--period" role="columnheader">
-              {t("billingPeriod")}
+              {t("billingDate")}
             </div>
             <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--owner" role="columnheader">
               {t("cardOwner")}
