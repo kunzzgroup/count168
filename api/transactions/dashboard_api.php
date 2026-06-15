@@ -1216,6 +1216,43 @@ function dashboardComputeSubsidiaryEarningsTotal(
 }
 
 /**
+ * Single-subsidiary group: fold group-ledger earnings into that row's my_earning so the
+ * earnings tab total matches the KPI group-aggregate card. Multi-subsidiary groups unchanged.
+ *
+ * @param array{by_company:list<array<string,mixed>>} $subsidiaryEarnings
+ */
+function dashboardApplySingleSubsidiaryGroupLedgerEarnings(
+    PDO $pdo,
+    array &$subsidiaryEarnings,
+    string $groupLedgerCode,
+    string $groupLedgerNetProfit,
+    float $accountPct
+): void {
+    $subsidiaryIds = dashboardListGroupSubsidiaryCompanyIds($pdo, $groupLedgerCode);
+    if (count($subsidiaryIds) !== 1) {
+        return;
+    }
+
+    $byCompany = $subsidiaryEarnings['by_company'] ?? [];
+    if (count($byCompany) !== 1) {
+        return;
+    }
+
+    if (money_cmp($groupLedgerNetProfit, '0') === 0) {
+        return;
+    }
+
+    $accountMul = $accountPct > 0
+        ? money_div((string) $accountPct, '100', MONEY_SCALE)
+        : '1';
+    $ledgerMyEarning = money_mul($groupLedgerNetProfit, $accountMul, MONEY_SCALE);
+    $current = (string) ($byCompany[0]['my_earning'] ?? '0');
+    $subsidiaryEarnings['by_company'][0]['my_earning'] = dashboardOut(
+        dashboardMoneyAdd($current, $ledgerMyEarning)
+    );
+}
+
+/**
  * Add subsidiary net-profit × ownership% into group profit (PROFIT role ledger flow unchanged).
  *
  * @param array<string, mixed> $groupResult
@@ -3022,6 +3059,13 @@ try {
             (string) $date_to,
             $filter_currency_code,
             $kpiOnly,
+            $groupAccountPctForSubsidiaries
+        );
+        dashboardApplySingleSubsidiaryGroupLedgerEarnings(
+            $pdo,
+            $subsidiaryEarnings,
+            $groupLedgerCode,
+            $groupLedgerNetProfit,
             $groupAccountPctForSubsidiaries
         );
         $hasGroupOwnershipProfit = dashboardMergeGroupOwnershipProfitShare(
