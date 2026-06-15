@@ -4,9 +4,9 @@
  * 与 public/css/style.css 保持同步，供 bundle 加载前的首屏绘制。
  */
 body.bg {
-  /* 强制黑色 I 形鼠标，避免 Windows 深色/高对比度下系统光标变白 */
-  --login-input-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Crect x='11' y='3' width='2' height='18' fill='%23000'/%3E%3Crect x='7' y='3' width='10' height='2' fill='%23000'/%3E%3Crect x='7' y='19' width='10' height='2' fill='%23000'/%3E%3C/svg%3E")
-    12 12,
+  /* 细线黑色 I 形鼠标（接近系统 default），避免 Windows 深色/高对比度下系统光标变白 */
+  --login-input-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='%23000'%3E%3Crect x='15.5' y='4' width='1' height='24'/%3E%3Crect x='13.5' y='4' width='5' height='1'/%3E%3Crect x='13.5' y='27' width='5' height='1'/%3E%3C/g%3E%3C/svg%3E")
+    16 16,
     text;
 }
 
