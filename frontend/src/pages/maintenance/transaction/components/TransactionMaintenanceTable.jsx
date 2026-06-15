@@ -1,10 +1,14 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
+import {
+  useMaintenanceCyclicScrollExtent,
+  useMaintenanceCyclicScrollObserver,
+} from "../../shared/useMaintenanceCyclicVirtualScroll.js";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
+import { MAINTENANCE_LIST_ROW_HEIGHT } from "../../shared/maintenanceListRowMetrics.js";
 
-const ROW_HEIGHT = 52;
+const ROW_HEIGHT = MAINTENANCE_LIST_ROW_HEIGHT;
 
 function pickOverscan(count) {
   if (count > 2000) return 2;
@@ -123,6 +127,7 @@ export default function TransactionMaintenanceTable({
   m,
 }) {
   const scrollRef = useRef(null);
+  const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
   const sizeCacheRef = useRef(new Map());
   const rowsRef = useRef([]);
   const rows = Array.isArray(data) ? data : [];
@@ -163,9 +168,11 @@ export default function TransactionMaintenanceTable({
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
+    observeElementOffset,
   });
 
   useLayoutEffect(() => {
+    contentOffsetRef.current = 0;
     scrollRef.current?.scrollTo(0, 0);
     sizeCacheRef.current.clear();
     rowVirtualizer.measure();
@@ -173,12 +180,13 @@ export default function TransactionMaintenanceTable({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceCyclicScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: ROW_HEIGHT,
     resetDeps: [rows],
+    contentOffsetRef,
   });
 
   if (rows.length === 0 && (showSkeleton || statusMessage)) {

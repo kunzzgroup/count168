@@ -213,7 +213,7 @@ body.maintenance-page .maintenance-actions .maintenance-confirm-filter-chips .us
 
 body.maintenance-page .maintenance-list-container {
     margin-bottom: clamp(20px, 1.67vw, 32px);
-    margin-top: 20px;
+    margin-top: 10px;
     max-width: none;
     width: 100%;
     margin-left: auto;
@@ -230,7 +230,7 @@ body.dashboard-page.maintenance-page .empty-state-container {
     border-radius: 8px !important;
     padding: clamp(40px, 3.33vw, 64px) !important;
     margin-bottom: clamp(20px, 1.67vw, 32px) !important;
-    margin-top: 20px !important;
+    margin-top: 10px !important;
     max-width: none !important;
     width: 100% !important;
     margin-left: auto !important;
@@ -278,145 +278,45 @@ body.dashboard-page.maintenance-page .maintenance-table .maintenance-table-cell 
 }
 
 /*
- * Maintenance 列表区域纵向填满主内容区（与 Report 页表格占位一致），行高保持各页原有样式。
- * 须在 *_maintenance.css 之后加载（见各 MaintenancePage import 顺序）。
+ * 所有 maintenance 列表行高 / 表头高度与 Report（customer_report / domain_report）对齐。
  */
-html:has(body.dashboard-page.maintenance-page),
-body.dashboard-page.maintenance-page,
-body.dashboard-page.maintenance-page #root,
-body.dashboard-page.maintenance-page .ec-page-shell,
-body.dashboard-page.maintenance-page .ec-page-shell__content {
-    height: 100dvh !important;
-    min-height: 0 !important;
-    max-height: 100dvh !important;
-    overflow: hidden !important;
-    box-sizing: border-box;
+body.maintenance-page {
+    --transaction-list-cell-padding-y: var(--report-list-row-padding-block);
+    --transaction-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --transaction-list-cell-min-height: var(--report-list-cell-min-height);
+    --capture-list-cell-padding-y: var(--report-list-row-padding-block);
+    --capture-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --capture-list-cell-min-height: var(--report-list-cell-min-height);
+    --payment-list-cell-padding-y: var(--report-list-row-padding-block);
+    --payment-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --payment-list-cell-min-height: var(--report-list-cell-min-height);
+    --bankprocess-list-cell-padding-y: var(--report-list-row-padding-block);
+    --bankprocess-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --bankprocess-list-cell-min-height: var(--report-list-cell-min-height);
+    --formula-list-cell-padding-y: var(--report-list-row-padding-block);
+    --formula-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --formula-list-cell-min-height: var(--report-list-cell-min-height);
 }
 
-/* global-13inch @media unlock uses same specificity — maintenance must win when route is active */
-@media screen and (max-width: 1440px) {
-    html:has(body.ec-auth-shell.dashboard-page.maintenance-page),
-    body.ec-auth-shell.dashboard-page.maintenance-page {
-        height: 100dvh !important;
-        min-height: 0 !important;
-        max-height: 100dvh !important;
-        overflow: hidden !important;
-    }
-
-    body.ec-auth-shell.dashboard-page.maintenance-page .container {
-        height: 100% !important;
-        min-height: 0 !important;
-        max-height: 100% !important;
-        overflow: hidden !important;
-    }
+body.dashboard-page.maintenance-page .maintenance-table thead th {
+    padding-block: var(--report-list-header-padding-block-start) var(--report-list-header-padding-block-end) !important;
+    padding-inline: var(--report-list-header-padding-inline) !important;
+    min-height: var(--report-list-header-min-height) !important;
 }
 
-body.dashboard-page.maintenance-page .container,
-body.dashboard-page.maintenance-page .capture-maintenance-page-root,
-body.dashboard-page.maintenance-page .payment-maintenance-page-root,
-body.dashboard-page.maintenance-page .transaction-maintenance-page-root,
-body.dashboard-page.maintenance-page .formula-maintenance-page-root,
-body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 auto !important;
-    height: 100% !important;
-    min-height: 0 !important;
-    max-height: 100% !important;
-    overflow: hidden !important;
-    box-sizing: border-box;
+body.dashboard-page.maintenance-page .maintenance-virtual-th {
+    padding-block: var(--report-list-header-padding-block-start) var(--report-list-header-padding-block-end) !important;
+    padding-inline: var(--report-list-header-padding-inline) !important;
+    min-height: var(--report-list-header-min-height) !important;
 }
 
-body.dashboard-page.maintenance-page .maintenance-header {
-    flex: 0 0 auto;
-}
-
-body.dashboard-page.maintenance-page .customer-report-filter-container,
-body.dashboard-page.maintenance-page .maintenance-filter-row,
-body.dashboard-page.maintenance-page .maintenance-actions-top {
-    flex: 0 0 auto;
-}
-
-body.dashboard-page.maintenance-page .transaction-maintenance-table-region,
-body.dashboard-page.maintenance-page .payment-maintenance-table-region,
-body.dashboard-page.maintenance-page .capture-maintenance-table-region,
-body.dashboard-page.maintenance-page .bankprocess-maintenance-table-region,
-body.dashboard-page.maintenance-page .formula-maintenance-table-region {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-}
-
-body.dashboard-page.maintenance-page .transaction-maintenance-table-region > .empty-state-container,
-body.dashboard-page.maintenance-page .payment-maintenance-table-region > .empty-state-container,
-body.dashboard-page.maintenance-page .capture-maintenance-table-region > .empty-state-container,
-body.dashboard-page.maintenance-page .bankprocess-maintenance-table-region > .empty-state-container,
-body.dashboard-page.maintenance-page .formula-maintenance-table-region > .empty-state-container,
-body.dashboard-page.maintenance-page .transaction-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table),
-body.dashboard-page.maintenance-page .payment-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table),
-body.dashboard-page.maintenance-page .capture-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table),
-body.dashboard-page.maintenance-page .bankprocess-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table),
-body.dashboard-page.maintenance-page .formula-maintenance-table-region > .maintenance-list-container:not(.maintenance-virtual-table) {
-    flex: 1 1 auto !important;
-    min-height: 120px !important;
-    align-self: stretch !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-list-container {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    margin-bottom: 0 !important;
-    overflow: hidden !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-virtual-table,
-body.dashboard-page.maintenance-page .payment-virtual-table,
-body.dashboard-page.maintenance-page .formula-virtual-table,
-body.dashboard-page.maintenance-page .transaction-virtual-table,
-body.dashboard-page.maintenance-page .capture-virtual-table,
-body.dashboard-page.maintenance-page .bankprocess-virtual-table {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-virtual-table-inner,
-body.dashboard-page.maintenance-page .payment-virtual-table-inner,
-body.dashboard-page.maintenance-page .formula-virtual-table-inner,
-body.dashboard-page.maintenance-page .transaction-virtual-table-inner,
-body.dashboard-page.maintenance-page .capture-virtual-table-inner,
-body.dashboard-page.maintenance-page .bankprocess-virtual-table-inner {
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-virtual-scroll,
-body.dashboard-page.maintenance-page .maintenance-virtual-scroll--body {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    height: auto !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    scrollbar-gutter: stable;
-    scrollbar-width: auto !important;
-    -ms-overflow-style: auto !important;
-}
-
-body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
-    max-height: none !important;
-    padding-bottom: clamp(8px, 0.6vw, 12px);
-    box-sizing: border-box;
+body.dashboard-page.maintenance-page .maintenance-virtual-cell,
+body.dashboard-page.maintenance-page .maintenance-table tbody td,
+body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell,
+body.dashboard-page.maintenance-page .maintenance-table .maintenance-table-cell {
+    padding-block: var(--report-list-row-padding-block) !important;
+    padding-inline: var(--report-list-row-padding-inline) !important;
+    min-height: var(--report-list-cell-min-height) !important;
 }
 
 /* Delete confirmation modal — unified typography on all maintenance routes */
@@ -433,85 +333,38 @@ body.dashboard-page.maintenance-page .maintenance-btn {
 }
 
 /*
- * Maintenance 列表表格视觉 — 与 Customer Report（customer_report.css）一致。
- * 本文件在各 *_maintenance.css 之后加载，用 body.dashboard-page.maintenance-page + !important 统一盖过各页 scoped 表规则。
+ * 所有 maintenance 列表数据区：行与行、列与列无缝衔接，无行间/列间空隙。
+ * 对齐 formula 列表：border-spacing 为 0，行无 box-shadow / hover 上浮。
  */
 body.dashboard-page.maintenance-page .maintenance-list-container .maintenance-table {
     border-spacing: 0 !important;
-    border-collapse: separate !important;
-}
-
-/* Legacy loading table — Report 同款表头与斑马纹 */
-body.dashboard-page.maintenance-page .maintenance-table thead tr {
-    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%) !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-table thead th {
-    color: #ffffff !important;
-    background: transparent !important;
-    border: none !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-table tbody tr {
-    transition: all 0.2s ease !important;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35) !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-table tbody tr:nth-child(odd) {
-    background: #ffffff !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-table tbody tr:nth-child(even) {
-    background: #cceeff99 !important;
+    box-shadow: none !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-table tbody tr:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-    transform: translateY(-1px) !important;
+    box-shadow: none !important;
+    transform: none !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-table tbody td,
 body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell {
     background-color: transparent !important;
-    color: #374151 !important;
 }
 
-/* Virtual table — Report 同款表头条 */
-body.dashboard-page.maintenance-page .maintenance-virtual-thead {
-    flex: 0 0 auto;
-    margin-bottom: 0 !important;
-    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%) !important;
-    border-radius: 8px 8px 0 0 !important;
-    overflow: hidden;
+body.dashboard-page.maintenance-page .maintenance-virtual-data-row:not(.formula-virtual-data-row--editing) {
     box-shadow: none !important;
 }
 
-body.dashboard-page.maintenance-page .maintenance-virtual-head-row {
-    gap: 15px !important;
-    padding: clamp(0px, 0.78vw, 15px) 20px 12px !important;
-    box-sizing: border-box !important;
-    background: transparent !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-virtual-th {
-    background: transparent !important;
-    color: #ffffff !important;
-    font-weight: bold !important;
-    font-size: var(--text-base) !important;
-    padding: 0 !important;
-    min-height: 0 !important;
-    border: none !important;
+body.dashboard-page.maintenance-page .maintenance-virtual-data-row:not(.formula-virtual-data-row--editing):hover {
     box-shadow: none !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-virtual-scroll,
-body.dashboard-page.maintenance-page .maintenance-virtual-scroll--body {
-    background: #ffffff !important;
-    border-radius: 0 0 8px 8px !important;
+    transform: none !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap {
-    overflow: visible;
+    overflow: hidden;
     box-sizing: border-box;
 }
 
@@ -523,43 +376,15 @@ body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .bankprocess-
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-data-row {
     height: 100%;
     min-height: 100%;
-    gap: 15px !important;
-    padding: 1px 22px !important;
-    box-sizing: border-box !important;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35) !important;
-    background: #ffffff !important;
-    transition: all 0.2s ease !important;
-    box-shadow: none !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-virtual-data-row--stripe,
-body.dashboard-page.maintenance-page .capture-virtual-data-row.maintenance-virtual-data-row--stripe,
-body.dashboard-page.maintenance-page .payment-virtual-data-row.maintenance-virtual-data-row--stripe,
-body.dashboard-page.maintenance-page .transaction-virtual-data-row.maintenance-virtual-data-row--stripe,
-body.dashboard-page.maintenance-page .bankprocess-virtual-data-row.maintenance-virtual-data-row--stripe,
-body.dashboard-page.maintenance-page .formula-virtual-data-row.maintenance-virtual-data-row--stripe {
-    background: #cceeff99 !important;
-}
-
-body.dashboard-page.maintenance-page .maintenance-virtual-data-row:not(.formula-virtual-data-row--editing):hover,
-body.dashboard-page.maintenance-page .capture-virtual-data-row:not(.formula-virtual-data-row--editing):hover,
-body.dashboard-page.maintenance-page .payment-virtual-data-row:not(.formula-virtual-data-row--editing):hover,
-body.dashboard-page.maintenance-page .transaction-virtual-data-row:not(.formula-virtual-data-row--editing):hover,
-body.dashboard-page.maintenance-page .bankprocess-virtual-data-row:not(.formula-virtual-data-row--editing):hover,
-body.dashboard-page.maintenance-page .formula-virtual-data-row:not(.formula-virtual-data-row--editing):hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-    transform: translateY(-1px) !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-cell,
 body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell {
-    padding: 0 !important;
-    min-height: 0 !important;
     border-bottom: none !important;
-    background: transparent !important;
-    color: #374151 !important;
-    font-size: var(--text-medium) !important;
-    font-weight: bold !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-thead {
+    margin-bottom: 0 !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-spacer {
@@ -639,19 +464,70 @@ body.maintenance-page .maintenance-table td.maintenance-table-cell {
 }
 
 /* All maintenance pages: no window scroll; list scrolls inside virtual table only */
-html:has(body.maintenance-page) {
-    height: 100% !important;
-    overflow: hidden !important;
-}
-
+html:has(body.maintenance-page),
 body.dashboard-page.maintenance-page {
     overflow: hidden !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
 }
 
 body.maintenance-page #root {
     overflow: hidden !important;
     height: 100% !important;
     max-height: 100dvh !important;
+}
+
+body.maintenance-page .container,
+body.maintenance-page .capture-maintenance-page-root,
+body.maintenance-page .payment-maintenance-page-root,
+body.maintenance-page .transaction-maintenance-page-root,
+body.maintenance-page .formula-maintenance-page-root,
+body.maintenance-page .bankprocess-maintenance-page-root {
+    overflow: hidden !important;
+    box-sizing: border-box;
+    max-height: 100dvh;
+}
+
+/* Wrapper scrolls horizontally only; vertical scroll lives on .maintenance-virtual-scroll */
+body.maintenance-page .maintenance-virtual-table,
+body.maintenance-page .payment-virtual-table,
+body.maintenance-page .formula-virtual-table,
+body.maintenance-page .transaction-virtual-table,
+body.maintenance-page .capture-virtual-table,
+body.maintenance-page .bankprocess-virtual-table {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+body.maintenance-page .maintenance-virtual-table-inner,
+body.maintenance-page .payment-virtual-table-inner,
+body.maintenance-page .formula-virtual-table-inner,
+body.maintenance-page .transaction-virtual-table-inner,
+body.maintenance-page .capture-virtual-table-inner,
+body.maintenance-page .bankprocess-virtual-table-inner {
+    overflow: hidden !important;
+}
+
+body.maintenance-page .maintenance-list-container {
+    overflow: hidden !important;
+}
+
+body.maintenance-page .maintenance-virtual-scroll,
+body.maintenance-page .maintenance-virtual-scroll--body {
+    max-height: min(72vh, calc(100dvh - 260px), 900px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto !important;
+    -ms-overflow-style: auto !important;
+}
+
+/* Bank Process 筛选区更高，表格滚动区略减顶栏预留 */
+body.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
+    max-height: min(72vh, calc(100dvh - 300px), 900px) !important;
+    overflow-y: auto !important;
+    padding-bottom: clamp(8px, 0.6vw, 12px);
+    box-sizing: border-box;
 }
 
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

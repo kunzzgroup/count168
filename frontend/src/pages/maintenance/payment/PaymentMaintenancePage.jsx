@@ -29,8 +29,8 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/customer_report.css";
 import "../../../../public/css/report-outlined-fields.css";
-import "../../../../public/css/payment_maintenance.css";
 import "../../../../public/css/maintenance_unified_filters.css";
+import "../../../../public/css/payment_maintenance.css";
 import {
   fetchCompanyPermissions,
   fetchCompanyCurrencies,
@@ -434,7 +434,6 @@ export default function PaymentMaintenancePage() {
       if (!paymentMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
 
       const searchScopeKey = paymentMaintenanceScopeCacheKey(effectiveScope);
-      scopeKeyRef.current = searchScopeKey;
       const quietRefresh = initialPaymentSearchDoneRef.current;
 
       searchAbortRef.current?.abort();

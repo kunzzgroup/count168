@@ -7,8 +7,8 @@ import "../../../../public/css/transaction.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/customer_report.css";
 import "../../../../public/css/report-outlined-fields.css";
-import "../../../../public/css/capture_maintenance.css";
 import "../../../../public/css/maintenance_unified_filters.css";
+import "../../../../public/css/capture_maintenance.css";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
@@ -59,9 +59,6 @@ import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import {
-  isC168GroupCaptureChannel,
-} from "../../../utils/company/c168CaptureChannel.js";
 
 function readInitialMaintenanceSelectedGroup() {
   try {
@@ -74,9 +71,7 @@ function readInitialMaintenanceSelectedGroup() {
 
 function readInitialMaintenanceCompanyId() {
   const persisted = readPersistedDashboardGcFilter();
-  if (persisted.companyId != null) return persisted.companyId;
-  if (persisted.groupOnly) return null;
-  if (isDashboardGroupOnlyMode()) return null;
+  if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
   const saved = readDashboardSelectedCompanyId();
   if (saved != null) return saved;
   if (persisted.selectedGroup) return null;
@@ -166,40 +161,17 @@ export default function CaptureMaintenancePage() {
     pillCategory: "games",
   });
 
-  const currentCompanyRow = useMemo(
+  const captureScope = useMemo(
     () =>
-      companyId != null
-        ? companies.find((c) => Number(c.id) === Number(companyId)) ?? null
-        : null,
-    [companies, companyId],
+      resolveCaptureMaintenanceScope({
+        companies,
+        selectedGroup,
+        companyId,
+        groupsAllMode,
+        groupAllMode,
+      }),
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
   );
-
-  const withC168Channel = useCallback(
-    (scope, companyRow = null) => {
-      if (!scope) return null;
-      const row =
-        companyRow ??
-        (() => {
-          const id = scope.uiCompanyId ?? scope.scopeCompanyId ?? companyId;
-          return id != null
-            ? companies.find((c) => Number(c.id) === Number(id)) ?? null
-            : null;
-        })();
-      return { ...scope, c168Channel: isC168GroupCaptureChannel(me, row) };
-    },
-    [companies, companyId, me],
-  );
-
-  const captureScope = useMemo(() => withC168Channel(
-    resolveCaptureMaintenanceScope({
-      companies,
-      selectedGroup,
-      companyId,
-      groupsAllMode,
-      groupAllMode,
-    }),
-    currentCompanyRow,
-  ), [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, withC168Channel, currentCompanyRow]);
 
   const captureScopeKey = useMemo(
     () => captureMaintenanceScopeCacheKey(captureScope),
@@ -295,9 +267,7 @@ export default function CaptureMaintenancePage() {
           defaultRowId: rows[0]?.id,
         });
         const initialUiCompanyId = readInitialMaintenanceCompanyId();
-        if (initialUiCompanyId != null) {
-          initialCompanyId = initialUiCompanyId;
-        } else if (groupFilterOptOut && initialUiCompanyId != null) {
+        if (groupFilterOptOut && initialUiCompanyId != null) {
           initialCompanyId = initialUiCompanyId;
         } else if (groupFilterOptOut && initialCompanyId == null) {
           const pick = resolveCompanyWhenClosingGroup(
@@ -326,9 +296,8 @@ export default function CaptureMaintenancePage() {
         if (
           !groupOnlyBoot &&
           !groupFilterOptOut &&
-          initialUiCompanyId == null &&
           (isMaintenanceSessionGroupEntityBoot(currentComp, u) ||
-            (bootGroup && canUseGroupOnlyMode(u, bootGroup)))
+            (bootGroup && initialUiCompanyId == null && canUseGroupOnlyMode(u, bootGroup)))
         ) {
           groupOnlyBoot = true;
         }
@@ -365,24 +334,16 @@ export default function CaptureMaintenancePage() {
           return;
         }
         setCompanyId(initialCompanyId);
-        persistDashboardGroupOnlyMode(false);
-        if (initialCompanyId != null) {
-          persistDashboardSelectedCompany(initialCompanyId);
-        }
 
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
 
-          const bootC168 = isC168GroupCaptureChannel(u, currentComp);
-          const bootScope = {
-            ...resolveCaptureMaintenanceScope({
-              companies: rows,
-              selectedGroup: bootGroup,
-              companyId: initialCompanyId,
-            }),
-            c168Channel: bootC168,
-          };
+          const bootScope = resolveCaptureMaintenanceScope({
+            companies: rows,
+            selectedGroup: bootGroup,
+            companyId: initialCompanyId,
+          });
 
           // Fetch initial metadata here to ensure the first query starts with the correct activePermission
           const [procList, companyPerms] = await Promise.all([
@@ -481,9 +442,8 @@ export default function CaptureMaintenancePage() {
   // -- Search Logic --
   const performSearch = useCallback(
     async (overrides = {}) => {
-      const baseScope =
+      const effectiveScope =
         overrides.scope ??
-        captureScope ??
         resolveCaptureMaintenanceScope({
           companies,
           selectedGroup: overrides.selectedGroup ?? selectedGroup,
@@ -491,11 +451,9 @@ export default function CaptureMaintenancePage() {
           groupsAllMode,
           groupAllMode,
         });
-      const effectiveScope = withC168Channel(baseScope, overrides.companyRow ?? null);
       if (!captureMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
 
       const searchScopeKey = captureMaintenanceScopeCacheKey(effectiveScope);
-      scopeKeyRef.current = searchScopeKey;
       captureAbortRef.current?.abort();
       const ac = new AbortController();
       captureAbortRef.current = ac;
@@ -545,7 +503,7 @@ export default function CaptureMaintenancePage() {
         }
       }
     },
-    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, dateFrom, dateTo, selectedProcess, activePermission, notify, t, captureScope, withC168Channel],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, dateFrom, dateTo, selectedProcess, activePermission, notify, t],
   );
 
   // Auto-search when filters change（defer 0ms；切换公司已手动 performSearch 时跳过一轮避免重复）
@@ -625,8 +583,7 @@ export default function CaptureMaintenancePage() {
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
       persistDashboardFilterState(newGroup, nextId);
-      persistDashboardGroupOnlyMode(false);
-      void performSearch({ scope: nextScope, companyRow: c });
+      void performSearch({ scope: nextScope });
     },
     [companies, performSearch, groupsAllMode, groupAllMode],
   );
@@ -652,7 +609,7 @@ export default function CaptureMaintenancePage() {
             groupsAllMode,
             groupAllMode,
           });
-          await performSearch({ scope: switchedScope, companyRow: c });
+          await performSearch({ scope: switchedScope });
           notify(t("switchedTo", { company: nextCode }), "success");
         },
       });
@@ -742,6 +699,27 @@ export default function CaptureMaintenancePage() {
 
   return (
     <div className="container">
+      {permissions.length > 1 ? (
+      <div className="maintenance-header">
+          <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
+            <span className="maintenance-company-label">{m.category}</span>
+            <div id="maintenance-permission-buttons" className="maintenance-company-buttons">
+              {permissions.map(p => (
+                <button 
+                  key={p} 
+                  type="button" 
+                  className={`maintenance-company-btn ${p === activePermission ? 'active' : ''}`}
+                  onClick={() => handlePermissionSwitch(p)}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+      </div>
+      ) : null}
+
+      {/* Scope table CSS: other maintenance pages share .maintenance-* and win in bundle order */}
       <div className="capture-maintenance-page-root">
         <CaptureMaintenanceFilters
           processes={processes}
