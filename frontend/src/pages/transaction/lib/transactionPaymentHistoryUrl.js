@@ -99,9 +99,10 @@ export function buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts =
 
   if (!accountDbId && accountCode) params.set("virtual_company_code", accountCode.toUpperCase());
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  params.set("ph", "1");
+
   const qs = params.toString();
-  return `${origin}/transaction/payment-history${qs ? `?${qs}` : ""}`;
+  return `/transaction?${qs}`;
 }
 
 export function isPaymentHistoryView(searchParams) {

@@ -39,10 +39,11 @@ export function useTransactionUI() {
     (row, dateFrom, dateTo, scopeApi, opts = {}) => {
       if (!row || !scopeApiReady(scopeApi)) return;
       const url = buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts });
-      const accountKey = String(row?.account_db_id || row?.account_id || "account").trim();
-      // Named popup keeps opener for × close → focus Transaction; reuse window per account.
-      const win = window.open(url, `payment_history_${accountKey}`, PAYMENT_HISTORY_POPUP_FEATURES);
-      if (!win) {
+      // Always open a fresh popup tab/window — named targets can reuse a stale Dashboard window.
+      const win = window.open(url, "_blank", PAYMENT_HISTORY_POPUP_FEATURES);
+      if (win) {
+        win.focus();
+      } else {
         pushToast("Popup blocked — allow popups for this site", "error");
       }
     },
