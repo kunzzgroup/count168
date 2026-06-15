@@ -493,6 +493,7 @@ body.dashboard-page.maintenance-page .maintenance-list-container.bankprocess-vir
     flex-direction: column !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    min-width: 0 !important;
     margin-bottom: 0 !important;
     margin-top: 10px !important;
     overflow: hidden !important;
@@ -524,7 +525,8 @@ body.dashboard-page.maintenance-page .bankprocess-virtual-table {
     flex-direction: column !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    overflow-x: auto !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
     overflow-y: hidden !important;
     -webkit-overflow-scrolling: touch;
 }
@@ -539,25 +541,33 @@ body.dashboard-page.maintenance-page .bankprocess-virtual-table-inner {
     flex-direction: column !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    overflow-x: visible !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
     overflow-y: hidden !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-thead {
     flex: 0 0 auto;
+    /* 与表体 scrollbar-gutter: stable 对齐，避免勾选列表头/行错位 */
+    padding-right: var(--maintenance-vscroll-gutter, 12px);
+    box-sizing: border-box;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll,
 body.dashboard-page.maintenance-page .maintenance-virtual-scroll--body {
     flex: 1 1 0 !important;
     min-height: 0 !important;
+    min-width: 0 !important;
+    width: 100% !important;
     max-height: none !important;
     height: auto !important;
-    overflow-x: hidden !important;
+    overflow-x: auto !important;
     overflow-y: auto !important;
     scrollbar-gutter: stable;
     scrollbar-width: auto !important;
     -ms-overflow-style: auto !important;
+    -webkit-overflow-scrolling: touch;
 }
 
 body.dashboard-page.maintenance-page .bankprocess-maintenance-page-root .maintenance-virtual-scroll {
@@ -590,7 +600,7 @@ body.maintenance-page {
 body.dashboard-page.maintenance-page .maintenance-virtual-thead {
     background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%) !important;
     border-radius: 8px 8px 0 0 !important;
-    overflow: hidden;
+    overflow: visible !important;
     box-shadow: none !important;
 }
 
@@ -612,6 +622,35 @@ body.dashboard-page.maintenance-page .maintenance-virtual-th {
     min-height: 0 !important;
     border: none !important;
     box-shadow: none !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+/* 表头文案与表体同列左对齐（覆盖各页 .maintenance-virtual-th { center }） */
+body.dashboard-page.maintenance-page .maintenance-virtual-head-row .maintenance-virtual-th:not([class*="-virtual-th-checkbox"]):not(.formula-virtual-th-actions):not(.maintenance-header-amount) {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-head-row .maintenance-virtual-th.maintenance-header-amount {
+    justify-content: flex-end !important;
+    text-align: right !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-cell:not([class*="-virtual-cell-checkbox"]):not(.formula-virtual-cell-actions):not(.maintenance-cell-amount) {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .payment-cell-text,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .capture-cell-text,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .bankprocess-cell-text,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .transaction-cell-clamp-2,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-cell-clamp-2 {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    text-align: left !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row,
@@ -713,16 +752,39 @@ body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-vir
     height: auto !important;
 }
 
-/* 勾选列：表头与表体列宽一致，checkbox 水平居中互相对齐 */
+/* 勾选列：固定列宽 + 贴右对齐，表头/表体 checkbox 垂直对齐 */
+body.dashboard-page.maintenance-page {
+    --maintenance-checkbox-col-width: 48px;
+    --maintenance-formula-actions-col-width: 80px;
+    --maintenance-vscroll-gutter: 12px;
+}
+
 body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
 body.dashboard-page.maintenance-page .maintenance-virtual-th.maintenance-select-all-header,
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell-checkbox"],
 body.dashboard-page.maintenance-page .maintenance-table > thead > tr > th.maintenance-select-all-header,
 body.dashboard-page.maintenance-page .maintenance-table > tbody > tr > td.maintenance-cell-checkbox {
     justify-content: center !important;
+    justify-self: end !important;
     text-align: center !important;
+    width: var(--maintenance-checkbox-col-width) !important;
+    min-width: var(--maintenance-checkbox-col-width) !important;
+    max-width: var(--maintenance-checkbox-col-width) !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-th.formula-virtual-th-actions,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-cell-actions {
+    justify-content: center !important;
+    justify-self: end !important;
+    width: var(--maintenance-formula-actions-col-width) !important;
+    min-width: var(--maintenance-formula-actions-col-width) !important;
+    max-width: var(--maintenance-formula-actions-col-width) !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-checkbox-cell-inner {
@@ -734,49 +796,55 @@ body.dashboard-page.maintenance-page .maintenance-checkbox-cell-inner {
     padding: 0 !important;
 }
 
-/*
- * 小屏 / 窄视口：勾选列、Formula 操作列固定在右侧，避免被 overflow 裁切；
- * 表格外层 .maintenance-virtual-table 可横向滚动查看其余列。
- */
-@media screen and (max-width: 1440px) {
-    body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
-    body.dashboard-page.maintenance-page .maintenance-virtual-th.formula-virtual-th-actions,
-    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell-checkbox"],
-    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-cell-actions {
-        position: sticky !important;
-        right: 0 !important;
-        z-index: 4 !important;
-        flex-shrink: 0 !important;
-        box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08);
-    }
+body.dashboard-page.maintenance-page .maintenance-virtual-thead {
+    width: max-content !important;
+    min-width: 100% !important;
+}
 
-    body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
-    body.dashboard-page.maintenance-page .maintenance-virtual-th.formula-virtual-th-actions {
-        z-index: 6 !important;
-        background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%) !important;
-    }
+body.dashboard-page.maintenance-page .maintenance-virtual-head-row,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-data-row"] {
+    width: max-content !important;
+    min-width: 100% !important;
+}
 
-    body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
-    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell-checkbox"] {
-        min-width: 48px !important;
-        max-width: 56px !important;
-    }
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap {
+    width: max-content !important;
+    min-width: 100% !important;
+}
 
-    body.dashboard-page.maintenance-page .maintenance-virtual-th.formula-virtual-th-actions,
-    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-cell-actions {
-        min-width: 72px !important;
-        max-width: 88px !important;
-    }
+body.dashboard-page.maintenance-page .maintenance-virtual-spacer {
+    width: max-content !important;
+    min-width: 100% !important;
+}
 
-    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row--stripe [class*="-virtual-cell-checkbox"],
-    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row--stripe .formula-virtual-cell-actions {
-        background: #cceeff99 !important;
-    }
+/* 勾选列 / 操作列：固定在可视区右侧（横向滚动时仍可见） */
+body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-th.maintenance-select-all-header,
+body.dashboard-page.maintenance-page .maintenance-virtual-th.formula-virtual-th-actions,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-cell-actions {
+    position: sticky !important;
+    right: 0 !important;
+    z-index: 4 !important;
+    flex-shrink: 0 !important;
+    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08);
+}
 
-    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row:not(.maintenance-virtual-data-row--stripe) [class*="-virtual-cell-checkbox"],
-    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row:not(.maintenance-virtual-data-row--stripe) .formula-virtual-cell-actions {
-        background: #ffffff !important;
-    }
+body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-th.maintenance-select-all-header,
+body.dashboard-page.maintenance-page .maintenance-virtual-th.formula-virtual-th-actions {
+    z-index: 6 !important;
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row--stripe [class*="-virtual-cell-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row--stripe .formula-virtual-cell-actions {
+    background: #cceeff99 !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row:not(.maintenance-virtual-data-row--stripe) [class*="-virtual-cell-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row:not(.maintenance-virtual-data-row--stripe) .formula-virtual-cell-actions {
+    background: #ffffff !important;
 }
 
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

@@ -40,16 +40,18 @@ function PaymentVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, 
           role="columnheader"
           className="maintenance-virtual-th payment-virtual-th-checkbox maintenance-select-all-header"
         >
-          <input
-            type="checkbox"
-            id={disableSelectAll ? undefined : "select_all_payment"}
-            ref={disableSelectAll ? undefined : selectAllRef}
-            className="maintenance-row-checkbox"
-            checked={selectAll}
-            onChange={toggleSelectAll}
-            title={m.selectAll}
-            disabled={disableSelectAll}
-          />
+          <span className="maintenance-checkbox-cell-inner">
+            <input
+              type="checkbox"
+              id={disableSelectAll ? undefined : "select_all_payment"}
+              ref={disableSelectAll ? undefined : selectAllRef}
+              className="maintenance-row-checkbox"
+              checked={selectAll}
+              onChange={toggleSelectAll}
+              title={m.selectAll}
+              disabled={disableSelectAll}
+            />
+          </span>
         </div>
       </div>
     </div>
@@ -150,12 +152,11 @@ export default function PaymentVirtualRows({
               className="maintenance-virtual-row-wrap"
               style={{
                 position: "absolute",
-                top: 0,
+                top: `${virtualRow.start - cyclicRowOffset}px`,
                 left: 0,
                 width: "100%",
                 height: `${virtualRow.size}px`,
                 minHeight: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start - cyclicRowOffset}px)`,
               }}
             >
               <PaymentVirtualDataRow
