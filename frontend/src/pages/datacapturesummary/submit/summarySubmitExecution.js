@@ -1,6 +1,7 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { appendDataCaptureScopeParams, fetchGroupProcessIdByCode } from "../../datacapture/lib/dataCaptureApi.js";
 import { normalizeGroupCaptureScope } from "../../datacapture/lib/dataCaptureScope.js";
+import { isGroupLedgerCapture } from "../../../utils/company/c168CaptureChannel.js";
 import { submitSummaryPayload } from "../lib/summaryApi.js";
 import { SUMMARY_SUBMIT_MAX_ROWS_PER_BATCH } from "./summarySubmitConstants.js";
 import { buildSummarySubmitPayload } from "./summarySubmitPayload.js";
@@ -15,7 +16,7 @@ function notify(title, message, type = "success") {
 }
 
 async function ensureGroupSubmitProcessId(effectiveScope, parsedProcessData, baseData) {
-  if (!baseData || effectiveScope?.mode !== "group") return baseData;
+  if (!baseData || !isGroupLedgerCapture(effectiveScope, parsedProcessData)) return baseData;
 
   const processCode = String(
     parsedProcessData?.processCode ||
@@ -46,8 +47,7 @@ async function ensureGroupSubmitProcessId(effectiveScope, parsedProcessData, bas
 }
 
 async function postSubmitBatch(captureScope, batchData, options = {}) {
-  const isGroup =
-    captureScope?.mode === "group" || batchData?.groupOnlyCapture === true;
+  const isGroup = isGroupLedgerCapture(captureScope, batchData);
   const payload = {
     ...batchData,
     immediateAck: options.immediateAck ? 1 : 0,

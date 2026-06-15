@@ -26,6 +26,11 @@ import {
 } from "../../utils/company/sharedCompanyFilter.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
+import {
+  isC168GroupCaptureChannel,
+  isGroupPayrollUi,
+  resolvePayrollDraftBucket,
+} from "../../utils/company/c168CaptureChannel.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 
@@ -232,7 +237,25 @@ function DataCapturePageContent() {
     return inGroup[0] ?? null;
   }, [isCompanySelected, currentCompanyRow, companiesDeduped, selectedGroup]);
 
-  const groupOnlyTable = !isCompanySelected && canUseGroupOnlyMode(me);
+  const c168Channel = useMemo(
+    () => isCompanySelected && isC168GroupCaptureChannel(me, currentCompanyRow),
+    [isCompanySelected, me, currentCompanyRow],
+  );
+
+  const groupLedgerScope = !isCompanySelected && canUseGroupOnlyMode(me);
+  const groupPayrollUi = isGroupPayrollUi(groupLedgerScope, c168Channel);
+  const payrollDraft = useMemo(
+    () =>
+      resolvePayrollDraftBucket({
+        c168Channel,
+        companyId,
+        selectedGroup,
+      }),
+    [c168Channel, companyId, selectedGroup],
+  );
+  const showCompanyProcessUi = isCompanySelected && !c168Channel;
+
+  const groupOnlyTable = groupPayrollUi;
 
   const onClearCompanyRef = useRef(() => {});
   const onSelectCompanyRef = useRef(async () => {});
@@ -267,11 +290,11 @@ function DataCapturePageContent() {
       companies: companiesNormalized,
       selectedGroup,
       companyId,
-      groupOnlyMode: groupOnlyTable,
+      groupOnlyMode: groupLedgerScope,
       groupsAllMode,
       groupAllMode,
     });
-    if (groupOnlyTable && resolved?.mode === "group") {
+    if (groupLedgerScope && resolved?.mode === "group") {
       return normalizeGroupCaptureScope(resolved, {
         groupOnlyCapture: true,
         captureSelectedGroup: selectedGroup,
@@ -282,7 +305,7 @@ function DataCapturePageContent() {
     companiesNormalized,
     selectedGroup,
     companyId,
-    groupOnlyTable,
+    groupLedgerScope,
     groupsAllMode,
     groupAllMode,
   ]);
@@ -320,7 +343,10 @@ function DataCapturePageContent() {
   }, [isCompanySelected, currentCompanyRow, groupOnlyTable, selectedGroup, anchorCompanyRow, scopeCompanyId]);
 
   const form = useDataCaptureFormEngine(captureScope, {
-    applyCompanyOnlyFields: isCompanySelected,
+    applyCompanyOnlyFields: showCompanyProcessUi,
+    companyPayrollUi: c168Channel,
+    payrollPrefsKey: payrollDraft.prefsKey,
+    payrollDraftServerSync: payrollDraft.serverSync,
     selectedGroup,
     scriptsReady,
   });
@@ -357,8 +383,12 @@ function DataCapturePageContent() {
     mutationsBlocked,
     navigate,
     t,
-    requireDescriptions: isCompanySelected,
-    groupOnlyCapture: groupOnlyTable,
+    requireDescriptions: showCompanyProcessUi,
+    groupPayrollUi,
+    groupLedgerCapture: groupLedgerScope,
+    groupPayrollCapture: c168Channel,
+    payrollDraftBucket: payrollDraft.bucket,
+    payrollDraftServerSync: payrollDraft.serverSync,
     selectedGroup,
   });
   useDataCaptureGrid(scriptsReady, groupOnlyTable);
@@ -481,7 +511,9 @@ function DataCapturePageContent() {
           allowGroupOnly &&
           !queryCompany &&
           (queryGroupOnly ||
-            (sessionMeta?.groupOnlyCapture && restoreFromUrl) ||
+            (sessionMeta?.groupOnlyCapture &&
+              !sessionMeta?.groupPayrollCapture &&
+              restoreFromUrl) ||
             (submittedFromUrl && queryGroupOnly) ||
             isDashboardGroupOnlyMode() ||
             persistedGc.groupOnly ||
@@ -778,9 +810,9 @@ function DataCapturePageContent() {
     if (new URLSearchParams(window.location.search).get("restore") === "1") return;
     const id = form.selectedProcess?.id;
     if (!id) return;
-    if (!isCompanySelected && !isGroupOnlyProcessId(id)) {
+    if (!isCompanySelected && !c168Channel && !isGroupOnlyProcessId(id)) {
       form.clearProcessSelection();
-    } else if (isCompanySelected && isGroupOnlyProcessId(id)) {
+    } else if (showCompanyProcessUi && isGroupOnlyProcessId(id)) {
       form.clearProcessSelection();
     }
   }, [isCompanySelected, form.selectedProcess?.id, form.clearProcessSelection]);
@@ -878,7 +910,7 @@ function DataCapturePageContent() {
         }
         if (!alive) return;
         if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
-          const { rows, cols } = resolveDataCaptureGridDimensions(!isCompanySelected);
+          const { rows, cols } = resolveDataCaptureGridDimensions(groupPayrollUi);
           window.__DC_ENSURE_GRID_READY__(rows, cols);
         }
         scriptsBootedRef.current = true;
@@ -896,7 +928,7 @@ function DataCapturePageContent() {
     return () => {
       alive = false;
     };
-  }, [bootLoading, me, captureScope, effectiveCompanyId, companyCode, isCompanySelected]);
+  }, [bootLoading, me, captureScope, effectiveCompanyId, companyCode, groupPayrollUi]);
 
   useEffect(() => {
     if (!scriptsReady || !dataCaptureScopeIsReady(captureScope)) return;
@@ -952,7 +984,7 @@ function DataCapturePageContent() {
             <form
               id="dataCaptureForm"
               data-ezc-spa="1"
-              className={`process-form${isCompanySelected ? "" : " dc-form--group-only"}`.trim()}
+              className={`process-form${groupPayrollUi ? " dc-form--group-only" : ""}`.trim()}
               method="POST"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -991,7 +1023,7 @@ function DataCapturePageContent() {
 
                 <div className="form-group">
                   <label htmlFor="capture_process">{t("process")}</label>
-                  {isCompanySelected ? (
+                  {showCompanyProcessUi ? (
                     <DataCaptureProcessSelect
                       t={t}
                       processOpen={form.processOpen}
@@ -1033,7 +1065,7 @@ function DataCapturePageContent() {
               </div>
 
               <div className="dc-form-two-col dc-form-two-col--stacked">
-                {isCompanySelected ? (
+                {showCompanyProcessUi ? (
                   <div className="form-group">
                     <label htmlFor="capture_description">{t("description")}</label>
                     <div className="input-with-icon">
@@ -1078,7 +1110,7 @@ function DataCapturePageContent() {
                   </select>
                 </div>
 
-                {!isCompanySelected ? (
+                {!showCompanyProcessUi ? (
                   <div className="form-group">
                     <label htmlFor="capture_remark">{t("remark")}</label>
                     <input
@@ -1093,7 +1125,7 @@ function DataCapturePageContent() {
                 ) : null}
               </div>
 
-              {isCompanySelected ? (
+              {showCompanyProcessUi ? (
               <div className="dc-form-bottom-block">
                   <div className="form-group replace-word-group dc-replace-word-field">
                     <label htmlFor="capture_replace_word_from">{t("replaceWord")}</label>
@@ -1176,7 +1208,7 @@ function DataCapturePageContent() {
                     <div className="submitted-details">
                       <div className="detail-row">
                         <strong>
-                          {captureScope?.mode === "group"
+                          {captureScope?.mode === "group" || c168Channel
                             ? process.process_code
                             : `${process.process_code}${process.description_name ? ` (${process.description_name})` : ""}`}
                         </strong>
@@ -1209,7 +1241,7 @@ function DataCapturePageContent() {
         onReset={submitReset.reset}
       />
 
-      {isCompanySelected ? (
+      {showCompanyProcessUi ? (
         <DescriptionSelectionModal
           t={t}
           open={descriptionModalOpen}

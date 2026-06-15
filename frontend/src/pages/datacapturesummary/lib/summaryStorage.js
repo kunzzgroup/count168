@@ -50,7 +50,11 @@ export function clearSummaryCaptureRoundStorage() {
     const session = loadActiveCaptureSession();
     const scopeKey = session?.processData
       ? dataCaptureScopeCacheCompanyKey({
-          mode: session.processData.groupOnlyCapture ? "group" : "company",
+          mode:
+            session.processData.captureScopeMode === "group" &&
+            session.processData.groupPayrollCapture !== true
+              ? "group"
+              : "company",
           scopeCompanyId: session.processData.scopeCompanyId,
           groupId: session.processData.captureSelectedGroup,
         })

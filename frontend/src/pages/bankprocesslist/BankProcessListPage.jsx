@@ -23,8 +23,10 @@ import MaintenanceCalendarPopup from "../../components/MaintenanceCalendarPopup.
 import { bankProcessFrequencyNormalized, normalizeBankProcessStatus, isoToDmy } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 import { useBankProcessFilterCollapse } from "./hooks/useBankProcessFilterCollapse.js";
+import { useC168ProcessRouteGuard } from "../processlist/useC168ProcessRouteGuard.js";
 
 export default function BankProcessListPage() {
+  useC168ProcessRouteGuard();
   const {
     navigate,
     location,

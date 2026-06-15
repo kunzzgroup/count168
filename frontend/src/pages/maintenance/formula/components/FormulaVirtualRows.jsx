@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  useMaintenanceCyclicScrollExtent,
-  useMaintenanceCyclicScrollObserver,
-} from "../../shared/useMaintenanceCyclicVirtualScroll.js";
+import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import { formulaRowIdsMatch } from "../formulaMaintenanceLogic.js";
 import FormulaVirtualDataRow from "./FormulaVirtualDataRow.jsx";
 
@@ -83,7 +80,6 @@ export default function FormulaVirtualRows({
   onToggleSelectAll,
 }) {
   const scrollRef = useRef(null);
-  const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
   const sizeCacheRef = useRef(new Map());
   const rowsRef = useRef(rows);
   const prevRowsRef = useRef(rows);
@@ -128,7 +124,6 @@ export default function FormulaVirtualRows({
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
-    observeElementOffset,
   });
 
   const hasScrollRestorePending = useCallback(() => {
@@ -142,13 +137,12 @@ export default function FormulaVirtualRows({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceCyclicScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
     resetDeps: [rows],
-    contentOffsetRef,
   });
 
   const scrollToRowId = useCallback(
@@ -202,7 +196,6 @@ export default function FormulaVirtualRows({
     rowVirtualizer.measure();
 
     if (rowsChanged) {
-      contentOffsetRef.current = 0;
       if (tryRestoreScrollAnchor("center")) {
         return;
       }

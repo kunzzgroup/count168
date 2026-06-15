@@ -51,6 +51,7 @@ import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.js
 import AddProcessIcon from "./components/AddProcessIcon.jsx";
 import { getProcessListText } from "../../translateFile/pages/processListTranslate.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { useC168ProcessRouteGuard } from "./useC168ProcessRouteGuard.js";
 
 function filterSearchInput(raw) {
   return String(raw || "")
@@ -94,6 +95,7 @@ export default function ProcessListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { me: sessionMeFromLayout, sessionReady } = useAuthSession();
+  useC168ProcessRouteGuard();
   const [lang, setLang] = useState(() => (localStorage.getItem("login_lang") === "zh" ? "zh" : "en"));
   const t = useCallback((key, params) => getProcessListText(lang, key, params), [lang]);
   const [companies, setCompanies] = useState([]);

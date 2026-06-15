@@ -16,6 +16,7 @@ import { saveSummaryRefreshStatePure } from "../lib/summaryRefreshStatePure.js";
 import { deleteSummaryTemplate } from "../lib/summaryApi.js";
 
 import { loadActiveCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
+import { isGroupLedgerCapture } from "../../../utils/company/c168CaptureChannel.js";
 
 import { useSummaryContext } from "../context/SummaryContext.jsx";
 
@@ -132,7 +133,7 @@ export function useSummaryPageActionsPure({
 
       const session = loadActiveCaptureSession();
 
-      const groupOnly = session?.processData?.groupOnlyCapture === true;
+      const groupOnly = isGroupLedgerCapture(captureScope, session?.processData);
 
       clearSummarySessionAfterSubmit({ groupOnly });
 
@@ -170,7 +171,7 @@ export function useSummaryPageActionsPure({
 
     const session = loadActiveCaptureSession();
 
-    const groupOnly = session?.processData?.groupOnlyCapture === true;
+    const groupOnly = isGroupLedgerCapture(captureScope, session?.processData);
 
     navigate(buildSummaryRestoreCapturePath(companyId, { groupOnly }), { replace: true });
 
