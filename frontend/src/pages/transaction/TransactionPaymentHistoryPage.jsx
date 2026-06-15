@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import TransactionHistoryTable from "./components/TransactionHistoryTable.jsx";
@@ -113,6 +113,14 @@ export default function TransactionPaymentHistoryPage() {
       })
     : initialTitle;
   const errorMessage = isError ? error?.message || "Failed to load history" : data?.success === false ? data?.message : null;
+
+  useEffect(() => {
+    const prev = document.title;
+    document.title = title;
+    return () => {
+      document.title = prev;
+    };
+  }, [title]);
 
   return (
     <div className="transaction-payment-history-page-root">

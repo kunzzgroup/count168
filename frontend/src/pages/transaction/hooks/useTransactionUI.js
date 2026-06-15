@@ -6,10 +6,10 @@ import {
   rejectContra as rejectContraApi,
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
-import {
-  buildPaymentHistoryScopeFromRow,
-  paymentHistoryParamsReady,
-} from "../lib/transactionPaymentHistoryUrl.js";
+import { buildPaymentHistoryUrl } from "../lib/transactionPaymentHistoryUrl.js";
+
+const PAYMENT_HISTORY_POPUP_FEATURES =
+  "popup=yes,width=1320,height=860,left=96,top=48,resizable=yes,scrollbars=yes";
 
 function scopeApiReady(scopeApi) {
   if (!scopeApi) return false;
@@ -39,8 +39,9 @@ export function useTransactionUI() {
     (row, dateFrom, dateTo, scopeApi, opts = {}) => {
       if (!row || !scopeApiReady(scopeApi)) return;
       const url = buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts });
-      // Keep opener so Payment History × can focus the Transaction tab and window.close() this tab.
-      const win = window.open(url, "_blank");
+      const accountKey = String(row?.account_db_id || row?.account_id || "account").trim();
+      // Named popup keeps opener for × close → focus Transaction; reuse window per account.
+      const win = window.open(url, `payment_history_${accountKey}`, PAYMENT_HISTORY_POPUP_FEATURES);
       if (!win) {
         pushToast("Popup blocked — allow popups for this site", "error");
       }
