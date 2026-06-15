@@ -60,6 +60,22 @@ export const DASHBOARD_GROUP_FILTER_EVENT = "eazycount:dashboard-group-filter-ch
 export const DASHBOARD_CURRENCY_FILTER_EVENT = "eazycount:dashboard-currency-filter-changed";
 /** Dashboard Group/Company bootstrap finished — layout replays sidebar sync (login may miss events). */
 export const DASHBOARD_GC_BOOTSTRAP_READY_EVENT = "eazycount:dashboard-gc-bootstrap-ready";
+/** One-shot localStorage handoff when opening an authenticated route in a new tab (sessionStorage is per-tab). */
+const DASHBOARD_TAB_BOOTSTRAP_KEY = "ec_dashboard_tab_bootstrap";
+const DASHBOARD_TAB_BOOTSTRAP_KEYS = [
+  DASHBOARD_GROUP_FILTER_KEY,
+  DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
+  DASHBOARD_GROUP_ONLY_KEY,
+  DASHBOARD_GROUP_ALL_MODE_KEY,
+  DASHBOARD_GROUPS_ALL_MODE_KEY,
+  DASHBOARD_GROUPS_ALL_SIDEBAR_GROUP_KEY,
+  DASHBOARD_SELECTED_COMPANY_KEY,
+  DASHBOARD_SELECTED_CURRENCY_KEY,
+  DASHBOARD_SELECTED_CURRENCY_SCOPE_KEY,
+  DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY,
+  DASHBOARD_LOGIN_FILTER_APPLIED_KEY,
+  DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY,
+];
 
 export function clearDashboardFilterSession() {
   clearCompanySessionFlagsCache();
@@ -75,6 +91,46 @@ export function clearDashboardFilterSession() {
   sessionStorage.removeItem(DASHBOARD_SELECTED_CURRENCY_BY_SCOPE_KEY);
   sessionStorage.removeItem(DASHBOARD_LOGIN_FILTER_APPLIED_KEY);
   sessionStorage.removeItem(DASHBOARD_ACCESSIBLE_GROUP_IDS_KEY);
+}
+
+/** Snapshot dashboard filter sessionStorage for a new browser tab (middle-click / modified click). */
+export function stashDashboardFilterForNewTab() {
+  if (typeof window === "undefined") return;
+  try {
+    const snapshot = {};
+    for (const key of DASHBOARD_TAB_BOOTSTRAP_KEYS) {
+      const value = sessionStorage.getItem(key);
+      if (value != null) snapshot[key] = value;
+    }
+    localStorage.setItem(DASHBOARD_TAB_BOOTSTRAP_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+/** Apply one-shot bootstrap in the new tab, if present. */
+export function consumeDashboardFilterNewTabBootstrap() {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(DASHBOARD_TAB_BOOTSTRAP_KEY);
+    if (!raw) return false;
+    localStorage.removeItem(DASHBOARD_TAB_BOOTSTRAP_KEY);
+    const snapshot = JSON.parse(raw);
+    if (!snapshot || typeof snapshot !== "object") return false;
+    for (const key of DASHBOARD_TAB_BOOTSTRAP_KEYS) {
+      const value = snapshot[key];
+      if (typeof value === "string") sessionStorage.setItem(key, value);
+      else sessionStorage.removeItem(key);
+    }
+    return true;
+  } catch {
+    try {
+      localStorage.removeItem(DASHBOARD_TAB_BOOTSTRAP_KEY);
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
 }
 
 export function buildDashboardCurrencyScopeKey({ companyId, selectedGroup } = {}) {

@@ -23,6 +23,7 @@ import DomainFormModal from "./components/DomainFormModal.jsx";
 import { getDomainText } from "../../translateFile/pages/domainTranslate.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { canAccessC168DomainPages } from "../../utils/company/loginScope.js";
+import { fetchOwnerCompaniesAll, readPersistedDashboardGcFilter } from "../../utils/company/sharedCompanyFilter.js";
 
 export default function DomainPage() {
   const navigate = useNavigate();
@@ -95,7 +96,15 @@ export default function DomainPage() {
     let cancelled = false;
     (async () => {
       try {
-        if (!canAccessC168DomainPages(me)) {
+        let allowed = canAccessC168DomainPages(me);
+        if (!allowed) {
+          const { companyId } = readPersistedDashboardGcFilter();
+          if (companyId != null) {
+            await fetchOwnerCompaniesAll();
+            allowed = canAccessC168DomainPages(me);
+          }
+        }
+        if (!allowed) {
           navigate("/dashboard", { replace: true });
           return;
         }
