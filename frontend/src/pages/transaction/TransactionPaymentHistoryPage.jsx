@@ -135,11 +135,9 @@ export default function TransactionPaymentHistoryPage() {
     if (isLoading || errorMessage || !isPaymentHistoryPopupWindow()) return undefined;
     const runFit = () => fitPaymentHistoryPopupToContent();
     runFit();
-    const t1 = window.setTimeout(runFit, 80);
-    const t2 = window.setTimeout(runFit, 280);
+    const timers = [80, 280, 600].map((ms) => window.setTimeout(runFit, ms));
     return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
+      timers.forEach((id) => window.clearTimeout(id));
     };
   }, [rows.length, isLoading, errorMessage]);
 
