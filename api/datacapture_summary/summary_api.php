@@ -2831,7 +2831,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             // Insert detail records
             // Check for duplicates before inserting to prevent duplicate data
             // For 'main' type: check id_product_main, account_id, currency_id, formula_variant (id_product_sub should be NULL or empty)
-            // For 'sub' type: check id_product_sub, id_product_main (as parent), account_id, currency_id, formula_variant
+            // For 'sub' type: check id_product_sub, id_product_main (as parent), account_id, currency_id, formula_variant,
+            //   formula, description_sub — 同账号多条 sub（对冲 + 红股等）共用 formula_variant 时仍须靠 formula/描述区分，避免 batch append 误 UPDATE 覆盖
             // Use COALESCE to handle NULL values properly in comparison
             $checkStmtMain = $pdo->prepare("
                 SELECT id FROM data_capture_details 
@@ -2856,6 +2857,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                   AND account_id = :account_id
                   AND currency_id = :currency_id
                   AND formula_variant = :formula_variant
+                  AND COALESCE(formula, '') = COALESCE(:formula, '')
+                  AND COALESCE(description_sub, '') = COALESCE(:description_sub, '')
                 LIMIT 1
             ");
             
@@ -3078,7 +3081,9 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         $parentIdProduct = $row['parentIdProduct'] ?? $row['idProductMain'] ?? null;
                         
                         // Debug log for sub type duplicate check
-                        error_log("Checking duplicate sub: capture_id=$captureId, id_product_sub=" . ($idProductSub ?? 'NULL') . ", parent_id_product=" . ($parentIdProduct ?? 'NULL') . ", account_id=" . $row['accountId'] . ", formula_variant=$formulaVariant");
+                        $rowFormulaForDup = (string)($row['formula'] ?? '');
+                        $rowDescriptionSubForDup = isset($row['descriptionSub']) ? (string)$row['descriptionSub'] : '';
+                        error_log("Checking duplicate sub: capture_id=$captureId, id_product_sub=" . ($idProductSub ?? 'NULL') . ", parent_id_product=" . ($parentIdProduct ?? 'NULL') . ", account_id=" . $row['accountId'] . ", formula_variant=$formulaVariant, formula=" . $rowFormulaForDup);
                         
                         $checkStmtSub->execute([
                             ':company_id' => $companyId,
@@ -3088,6 +3093,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                             ':account_id' => $row['accountId'],
                             ':currency_id' => $rowCurrencyId,
                             ':formula_variant' => $formulaVariant,
+                            ':formula' => $rowFormulaForDup,
+                            ':description_sub' => $rowDescriptionSubForDup !== '' ? $rowDescriptionSubForDup : null,
                         ]);
                         $existingRecord = $checkStmtSub->fetch();
                     }
