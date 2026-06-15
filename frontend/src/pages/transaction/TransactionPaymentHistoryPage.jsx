@@ -18,10 +18,7 @@ import "./transactionPaymentHistoryPage.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
-import {
-  fitPaymentHistoryPopupHeightOnce,
-  isPaymentHistoryPopupWindow,
-} from "./lib/transactionPaymentHistoryPopup.js";
+import { isPaymentHistoryPopupWindow } from "./lib/transactionPaymentHistoryPopup.js";
 
 export default function TransactionPaymentHistoryPage() {
   const navigate = useNavigate();
@@ -130,14 +127,6 @@ export default function TransactionPaymentHistoryPage() {
       document.title = prev;
     };
   }, [title]);
-
-  useLayoutEffect(() => {
-    if (isLoading || errorMessage || !isPaymentHistoryPopupWindow()) return undefined;
-    const runFit = () => fitPaymentHistoryPopupHeightOnce();
-    runFit();
-    const t = window.setTimeout(runFit, 120);
-    return () => window.clearTimeout(t);
-  }, [rows.length, isLoading, errorMessage]);
 
   if (!paramsReady) {
     return <Navigate to="/transaction" replace />;

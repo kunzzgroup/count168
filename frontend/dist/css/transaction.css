@@ -3620,8 +3620,8 @@ body.ec-payment-history-chromeless #root {
 
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup #root {
     min-height: 0 !important;
-    height: auto !important;
-    overflow: visible !important;
+    height: 100% !important;
+    overflow: hidden !important;
 }
 
 body.ec-payment-history-chromeless .ec-page-shell,
@@ -3649,29 +3649,31 @@ body.ec-payment-history-chromeless #root > .transaction-payment-history-page-roo
 
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup #root > .transaction-payment-history-page-root {
     min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
 }
 
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .ec-page-shell,
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .ec-page-shell__content {
-    height: auto !important;
+    height: 100% !important;
     min-height: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
 }
 
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-panel.transaction-history-modal.transaction-modal-content,
 body.transaction-payment-history-page--popup .transaction-payment-history-panel.transaction-history-modal.transaction-modal-content {
-    height: auto !important;
+    height: 100% !important;
     min-height: 0 !important;
     max-height: none !important;
-    max-width: 1320px !important;
+    max-width: none !important;
     width: 100% !important;
     overflow: hidden;
 }
 
 body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-panel .transaction-modal-body,
 body.transaction-payment-history-page--popup .transaction-payment-history-panel .transaction-modal-body {
-    overflow: visible !important;
-    flex: 0 1 auto !important;
+    overflow: hidden !important;
+    flex: 1 1 auto !important;
     min-height: 0 !important;
 }
 
