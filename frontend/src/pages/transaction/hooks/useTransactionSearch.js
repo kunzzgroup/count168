@@ -11,6 +11,7 @@ import {
   countDisplayedRows,
   normalizeRateRowsByCrDr,
   readTransactionCurrencyFilterState,
+  pickTransactionDefaultCurrency,
   readTxListFromSessionStorage,
   sortByRole,
   sanitizeSearchApiData,
@@ -25,7 +26,6 @@ import { clearTxSearchCache, getTxSearchCache, setTxSearchCache } from "../../..
 import {
   buildDashboardCurrencyScopeKey,
   notifyDashboardCurrencyFilterChanged,
-  resolveCrossPageCurrencyPreference,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import { persistCurrencyDisplayOrder } from "../../../utils/company/currencyDisplayOrder.js";
 import { useCrossPageCurrencySync } from "../../../utils/company/useCrossPageCurrencySync.js";
@@ -62,6 +62,9 @@ export function useTransactionSearch({
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   /** Block cross-page currency sync when All or multi-select is active (empty currentCode would re-apply MYR etc.). */
   const suppressCrossPageCurrencyRef = useRef(false);
+  /** Until user changes currency, keep MYR default on cold boot (ignore dashboard cross-page SGD etc.). */
+  const bootCurrencyDefaultRef = useRef(true);
+  const coldBootCurrencyAppliedRef = useRef(false);
   /** Snapshot of selected currencies immediately before entering All — restored when All is toggled off. */
   const currenciesBeforeAllRef = useRef([]);
   const [rawSearchData, setRawSearchData] = useState(null);
@@ -193,6 +196,7 @@ export function useTransactionSearch({
   );
 
   const toggleAllCurrenciesBtn = useCallback(() => {
+    bootCurrencyDefaultRef.current = false;
     if (showAllCurrencies) {
       const avail = new Set(txCurrencyCodes);
       const restored = currenciesBeforeAllRef.current
@@ -234,6 +238,7 @@ export function useTransactionSearch({
 
   const applyCrossPageCurrency = useCallback(
     (code) => {
+      if (bootCurrencyDefaultRef.current) return;
       const c = String(code || "").toUpperCase().trim();
       if (!c || suppressCrossPageCurrencyRef.current) return;
       setShowAllCurrencies(false);
@@ -270,6 +275,7 @@ export function useTransactionSearch({
 
   const toggleCurrencyBtn = useCallback(
     (code) => {
+      bootCurrencyDefaultRef.current = false;
       const c = String(code || "").toUpperCase().trim();
       if (!c) return;
 
@@ -832,25 +838,19 @@ export function useTransactionSearch({
   /** 切换 scope（含 group/company 模式）：中止旧请求、清空列表，后台重搜。 */
   const scopeKey = transactionScopeCacheKey(transactionScope) || null;
 
-  /** Restore currency chips from localStorage before metadata API returns — unlocks earlier search. */
+  /** Cold boot: pre-select MYR before metadata returns so initial search can start early. */
   useLayoutEffect(() => {
     if (!scopeReady || !scopeCacheCompanyKey || !scopeKey) return;
     if (earlyCurrencyScopeRef.current === scopeKey) return;
     earlyCurrencyScopeRef.current = scopeKey;
 
-    const saved = readTransactionCurrencyFilterState(scopeCacheCompanyKey);
-    if (!saved) return;
-    if (saved.showAll) {
-      setShowAllCurrencies(true);
-      setSelectedCurrencies([]);
-      return;
-    }
-    if (saved.currencies?.length) {
-      setShowAllCurrencies(false);
-      setSelectedCurrencies(
-        saved.currencies.map((c) => String(c || "").toUpperCase().trim()).filter(Boolean),
-      );
-    }
+    if (coldBootCurrencyAppliedRef.current) return;
+    coldBootCurrencyAppliedRef.current = true;
+
+    const defaultCode = pickTransactionDefaultCurrency(["MYR"]);
+    if (!defaultCode) return;
+    setShowAllCurrencies(false);
+    setSelectedCurrencies([defaultCode]);
   }, [scopeReady, scopeCacheCompanyKey, scopeKey]);
 
   useEffect(() => {
@@ -914,7 +914,7 @@ export function useTransactionSearch({
     [selectedCategories],
   );
 
-  // Initial search — currency from localStorage can run before account/currency metadata finishes.
+  // Initial search — MYR default can run before account/currency metadata finishes.
   useEffect(() => {
     if (!scopeReady) return;
     if (!scopeKey) return;
