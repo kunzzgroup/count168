@@ -1,4 +1,8 @@
-import { netProfitFromDashboardPayload } from "./dashboardKpi.js";
+import {
+  computeGroupAggregateEarningsAmount,
+  isGroupAggregateEarningsPayload,
+  netProfitFromDashboardPayload,
+} from "./dashboardKpi.js";
 import { getCurrencyColor } from "./dashboardEarnings.js";
 
 /** @typedef {'earnings' | 'profit'} CompanyBreakdownView */
@@ -59,6 +63,15 @@ export function normalizeSubsidiaryEarningsByCompany(apiRows) {
       };
     })
     .filter((row) => row.company_id);
+}
+
+/** Single-subsidiary group ledger: earnings tab row = full group-aggregate earnings (matches KPI card). */
+export function applySingleSubsidiaryGroupEarningsRows(rows, dashboardData, options = {}) {
+  if (!Array.isArray(rows) || rows.length !== 1 || !dashboardData) return rows;
+  if (!isGroupAggregateEarningsPayload(dashboardData, options)) return rows;
+  const full = computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false });
+  if (!Number.isFinite(full)) return rows;
+  return [{ ...rows[0], my_earning: full }];
 }
 
 export function buildCompanyBreakdownRowFromPayload(companyRow, data, viewGroup = "") {

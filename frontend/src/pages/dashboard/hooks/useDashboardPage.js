@@ -56,6 +56,7 @@ import {
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields } from "../lib/dashboardKpi.js";
 import {
+  applySingleSubsidiaryGroupEarningsRows,
   mergeCompanyBreakdownRowLists,
   normalizeSubsidiaryEarningsByCompany,
   sortCompanyBreakdownRowsByPicker,
@@ -6092,8 +6093,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const rows = normalizeSubsidiaryEarningsByCompany(
       dashboardData?.subsidiary_earnings_by_company
     );
-    return sortCompanyBreakdownRowsByPicker(rows, companiesForPicker);
-  }, [showProfitChartTab, dashboardData?.subsidiary_earnings_by_company, companiesForPicker]);
+    const sorted = sortCompanyBreakdownRowsByPicker(rows, companiesForPicker);
+    return applySingleSubsidiaryGroupEarningsRows(
+      sorted,
+      dashboardData,
+      resolveKpiOwnershipOpts()
+    );
+  }, [
+    showProfitChartTab,
+    dashboardData,
+    companiesForPicker,
+    resolveKpiOwnershipOpts,
+  ]);
 
   const companyEarningsTotal = useMemo(
     () => sumCompanyBreakdownAmount(companyBreakdownRows, "earnings"),
