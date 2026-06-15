@@ -302,7 +302,7 @@ button.sc-login-lang-seg.active {
   display: flex;
   align-items: center;
   min-width: 0;
-  cursor: var(--login-input-cursor, pointer);
+  cursor: var(--login-input-cursor, text);
 }
 
 .sc-login-input-icon {

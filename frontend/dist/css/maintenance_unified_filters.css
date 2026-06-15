@@ -277,6 +277,48 @@ body.dashboard-page.maintenance-page .maintenance-table .maintenance-table-cell 
     font-weight: var(--font-weight-bold) !important;
 }
 
+/*
+ * 所有 maintenance 列表行高 / 表头高度与 Report（customer_report / domain_report）对齐。
+ */
+body.maintenance-page {
+    --transaction-list-cell-padding-y: var(--report-list-row-padding-block);
+    --transaction-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --transaction-list-cell-min-height: var(--report-list-cell-min-height);
+    --capture-list-cell-padding-y: var(--report-list-row-padding-block);
+    --capture-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --capture-list-cell-min-height: var(--report-list-cell-min-height);
+    --payment-list-cell-padding-y: var(--report-list-row-padding-block);
+    --payment-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --payment-list-cell-min-height: var(--report-list-cell-min-height);
+    --bankprocess-list-cell-padding-y: var(--report-list-row-padding-block);
+    --bankprocess-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --bankprocess-list-cell-min-height: var(--report-list-cell-min-height);
+    --formula-list-cell-padding-y: var(--report-list-row-padding-block);
+    --formula-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --formula-list-cell-min-height: var(--report-list-cell-min-height);
+}
+
+body.dashboard-page.maintenance-page .maintenance-table thead th {
+    padding-block: var(--report-list-header-padding-block-start) var(--report-list-header-padding-block-end) !important;
+    padding-inline: var(--report-list-header-padding-inline) !important;
+    min-height: var(--report-list-header-min-height) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-th {
+    padding-block: var(--report-list-header-padding-block-start) var(--report-list-header-padding-block-end) !important;
+    padding-inline: var(--report-list-header-padding-inline) !important;
+    min-height: var(--report-list-header-min-height) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-cell,
+body.dashboard-page.maintenance-page .maintenance-table tbody td,
+body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell,
+body.dashboard-page.maintenance-page .maintenance-table .maintenance-table-cell {
+    padding-block: var(--report-list-row-padding-block) !important;
+    padding-inline: var(--report-list-row-padding-inline) !important;
+    min-height: var(--report-list-cell-min-height) !important;
+}
+
 /* Delete confirmation modal — unified typography on all maintenance routes */
 body.dashboard-page.maintenance-page .maintenance-confirm-title {
     font-size: var(--text-h1) !important;

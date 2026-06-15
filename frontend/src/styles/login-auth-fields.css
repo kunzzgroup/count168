@@ -4,7 +4,7 @@
  * 与 public/css/style.css 保持同步，供 bundle 加载前的首屏绘制。
  */
 body.bg {
-  --login-input-cursor: pointer;
+  --login-input-cursor: text;
 }
 
 body.bg .sc-login-input-row,
