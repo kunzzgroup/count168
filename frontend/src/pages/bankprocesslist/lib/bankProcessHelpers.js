@@ -1,5 +1,6 @@
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
+import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/date/dateUtils.js";
 
 /** Auto page size bounds (actual count from useAutoListPageSize). */
 export const PAGE_SIZE_MIN = 4;
@@ -751,4 +752,36 @@ export function accountingDueBillingMonth(r) {
     return String(r.monthly_billing_month || r.daily_billing_start || "").trim();
   }
   return String(r.weekly_billing_start || r.monthly_billing_month || "").trim();
+}
+
+/** Accounting Due 表格行唯一键（同 process 多账期可并列展示）。 */
+export function accountingDueRowKey(r) {
+  const id = Number(r?.id);
+  if (!Number.isFinite(id) || id <= 0) return "";
+  return `${id}|${accountingDuePeriodType(r)}|${accountingDueBillingMonth(r)}`;
+}
+
+/** Accounting Due 表格日期：统一 DD/MM/YYYY（与 Start Date 列一致）。 */
+export function formatAccountingDueDisplayDate(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = parseYmd(s.substring(0, 10));
+    return d ? formatDmy(d) : s;
+  }
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+  const ymd = parseDdMmYyyyToYmd(s);
+  if (ymd) {
+    const d = parseYmd(ymd);
+    return d ? formatDmy(d) : s;
+  }
+  return s;
+}
+
+/** Accounting Due：Billing Period 仅展示该笔账单开始日（DD/MM/YYYY）。 */
+export function formatAccountingDueBillingPeriod(row) {
+  const start = String(row?.billing_period_start || "").trim();
+  const end = String(row?.billing_period_end || "").trim();
+  const display = formatAccountingDueDisplayDate(start || end);
+  return display || "-";
 }

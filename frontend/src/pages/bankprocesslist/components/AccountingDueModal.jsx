@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
-import { formatBankProcessContractLabel } from "../lib/bankProcessHelpers.js";
+import {
+  formatBankProcessContractLabel,
+  formatAccountingDueBillingPeriod,
+  formatAccountingDueDisplayDate,
+  accountingDueRowKey,
+} from "../lib/bankProcessHelpers.js";
 
 export default function AccountingDueModal({
   isOpen,
@@ -22,8 +27,8 @@ export default function AccountingDueModal({
 
   const postableRows = accountingRows.filter((r) => !r.already_posted_today);
   const postableCount = postableRows.length;
-  const postAllChecked = postableRows.length > 0 && postableRows.every((r) => accountingSelected.has(Number(r.id)));
-  const deleteAllChecked = accountingRows.length > 0 && accountingRows.every((r) => accountingDeleteSelected.has(Number(r.id)));
+  const postAllChecked = postableRows.length > 0 && postableRows.every((r) => accountingSelected.has(accountingDueRowKey(r)));
+  const deleteAllChecked = accountingRows.length > 0 && accountingRows.every((r) => accountingDeleteSelected.has(accountingDueRowKey(r)));
 
   refreshRef.current = loadAccountingInbox;
 
@@ -79,9 +84,10 @@ export default function AccountingDueModal({
                       setAccountingSelected((prev) => {
                         const next = new Set(prev);
                         postableRows.forEach((r) => {
-                          const id = Number(r.id);
-                          if (checked) next.add(id);
-                          else next.delete(id);
+                          const rowKey = accountingDueRowKey(r);
+                          if (!rowKey) return;
+                          if (checked) next.add(rowKey);
+                          else next.delete(rowKey);
                         });
                         return next;
                       });
@@ -95,6 +101,9 @@ export default function AccountingDueModal({
             </div>
             <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--date" role="columnheader">
               {t("startDate")}
+            </div>
+            <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--period" role="columnheader">
+              {t("billingPeriod")}
             </div>
             <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--head accounting-due-inbox-grid-cell--owner" role="columnheader">
               {t("cardOwner")}
@@ -124,7 +133,7 @@ export default function AccountingDueModal({
                       const checked = e.target.checked;
                       setAccountingDeleteSelected(() => {
                         if (!checked) return new Set();
-                        return new Set(accountingRows.map((r) => Number(r.id)));
+                        return new Set(accountingRows.map((r) => accountingDueRowKey(r)).filter(Boolean));
                       });
                     }}
                   />
@@ -134,15 +143,15 @@ export default function AccountingDueModal({
           </div>
 
           {accountingRows.map((r, idx) => {
-            const id = Number(r.id);
-            const checked = accountingSelected.has(id);
-            const delChecked = accountingDeleteSelected.has(id);
+            const rowKey = accountingDueRowKey(r);
+            const checked = rowKey ? accountingSelected.has(rowKey) : false;
+            const delChecked = rowKey ? accountingDeleteSelected.has(rowKey) : false;
             const posted = !!r.already_posted_today;
             return (
               <div
                 className={`accounting-due-inbox-grid-row${posted ? " accounting-due-inbox-grid-row--posted" : ""}`}
                 role="row"
-                key={`${id}-${idx}`}
+                key={rowKey || `${r.id}-${idx}`}
               >
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--cb" role="cell">
                   <input
@@ -152,8 +161,9 @@ export default function AccountingDueModal({
                     onChange={(e) =>
                       setAccountingSelected((prev) => {
                         const n = new Set(prev);
-                        if (e.target.checked) n.add(id);
-                        else n.delete(id);
+                        if (!rowKey) return n;
+                        if (e.target.checked) n.add(rowKey);
+                        else n.delete(rowKey);
                         return n;
                       })
                     }
@@ -163,7 +173,10 @@ export default function AccountingDueModal({
                   {idx + 1}
                 </div>
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--date" role="cell">
-                  {r.start_date || r.day_start || "-"}
+                  {formatAccountingDueDisplayDate(r.start_date || r.day_start) || "-"}
+                </div>
+                <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--period" role="cell" title={formatAccountingDueBillingPeriod(r)}>
+                  {formatAccountingDueBillingPeriod(r)}
                 </div>
                 <div className="accounting-due-inbox-grid-cell accounting-due-inbox-grid-cell--owner" role="cell" title={r.card_owner || r.name || r.supplier || "-"}>
                   {r.card_owner || r.name || r.supplier || "-"}
@@ -181,8 +194,9 @@ export default function AccountingDueModal({
                     onChange={(e) =>
                       setAccountingDeleteSelected((prev) => {
                         const n = new Set(prev);
-                        if (e.target.checked) n.add(id);
-                        else n.delete(id);
+                        if (!rowKey) return n;
+                        if (e.target.checked) n.add(rowKey);
+                        else n.delete(rowKey);
                         return n;
                       })
                     }
