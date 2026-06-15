@@ -254,7 +254,7 @@ body.dashboard-page.maintenance-page .empty-state p {
 
 /*
  * 所有 maintenance 列表表：行 / 表头 / 数据格字号与字重统一。
- * 本文件先于各 *_maintenance.css 加载，故用 body.dashboard-page + !important 盖过各页 scoped 表规则。
+ * maintenance_unified_filters.css 在各页 *_maintenance.css 之后加载，盖过各页 scoped 表规则。
  */
 body.dashboard-page.maintenance-page .maintenance-table thead tr,
 body.dashboard-page.maintenance-page .maintenance-table tbody tr {
@@ -644,6 +644,70 @@ body.dashboard-page.maintenance-page .maintenance-table tbody td,
 body.dashboard-page.maintenance-page .maintenance-table tbody td.maintenance-table-cell {
     padding: var(--report-list-row-padding-block) var(--report-list-row-padding-inline) !important;
     min-height: var(--report-list-cell-min-height) !important;
+}
+
+/*
+ * 各页 page-root 会重新定义 --*-list-cell-*，须在 unified（最后加载）里再映射回 Report token。
+ */
+body.maintenance-page .capture-maintenance-page-root {
+    --capture-list-cell-padding-y: var(--report-list-row-padding-block);
+    --capture-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --capture-list-cell-min-height: var(--report-list-cell-min-height);
+    --capture-list-cell-line-height: normal;
+}
+
+body.maintenance-page .transaction-maintenance-page-root {
+    --transaction-list-cell-padding-y: var(--report-list-row-padding-block);
+    --transaction-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --transaction-list-cell-min-height: var(--report-list-cell-min-height);
+    --transaction-list-cell-line-height: normal;
+}
+
+body.maintenance-page .payment-maintenance-page-root {
+    --payment-list-cell-padding-y: var(--report-list-row-padding-block);
+    --payment-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --payment-list-cell-min-height: var(--report-list-cell-min-height);
+    --payment-list-cell-line-height: normal;
+}
+
+body.maintenance-page .bankprocess-maintenance-page-root {
+    --bankprocess-list-cell-padding-y: var(--report-list-row-padding-block);
+    --bankprocess-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --bankprocess-list-cell-min-height: var(--report-list-cell-min-height);
+    --bankprocess-list-cell-line-height: normal;
+}
+
+body.maintenance-page .formula-maintenance-page-root {
+    --formula-list-cell-padding-y: var(--report-list-row-padding-block);
+    --formula-list-cell-padding-x: var(--report-list-row-padding-inline);
+    --formula-list-cell-min-height: var(--report-list-cell-min-height);
+    --formula-list-cell-line-height: normal;
+}
+
+/* Virtual 列表：与 .customer-report-card / .customer-report-card-item 一致 */
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-data-row"] {
+    align-items: center !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-cell,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell"] {
+    font-size: var(--text-medium) !important;
+    font-weight: bold !important;
+    line-height: normal !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    box-sizing: content-box !important;
+    align-self: center !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-data-row"] .maintenance-virtual-cell:nth-child(n) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell--wrap"] {
+    min-height: 0 !important;
+    height: auto !important;
 }
 
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

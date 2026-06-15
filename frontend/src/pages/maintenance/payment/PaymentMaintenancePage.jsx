@@ -29,8 +29,8 @@ import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/date-range-picker.css";
 import "../../../../public/css/customer_report.css";
 import "../../../../public/css/report-outlined-fields.css";
-import "../../../../public/css/maintenance_unified_filters.css";
 import "../../../../public/css/payment_maintenance.css";
+import "../../../../public/css/maintenance_unified_filters.css";
 import {
   fetchCompanyPermissions,
   fetchCompanyCurrencies,
