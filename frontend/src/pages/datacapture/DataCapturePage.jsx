@@ -1134,39 +1134,52 @@ function DataCapturePageContent() {
                 </div>
               ) : null}
 
-              <div className="dc-form-row dc-form-row--2col dc-form-row--stacked">
-                {showCompanyProcessUi ? (
-                  <div className="dc-form-remove-remark-grid dc-form-remove-remark-grid--remove-only">
-                    <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
-                      {t("removeWord")}
-                    </label>
-                    <input
-                      type="text"
-                      id="capture_remove_word"
-                      name="remove_word"
-                      className="dc-remove-remark__input dc-remove-remark__input--rm"
-                      placeholder={t("enterWordsToRemove")}
-                      value={form.removeWord}
-                      onChange={(e) => form.setRemoveWord(toDataCaptureWordFieldCase(e.target.value))}
-                    />
-                    <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
-                      {t("removeWordHelp")}
-                    </small>
-                  </div>
-                ) : null}
-
-                <div className="form-group">
-                  <label htmlFor="capture_remark">{t("remark")}</label>
+              {showCompanyProcessUi ? (
+                <div className="dc-form-remove-remark-grid">
+                  <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
+                    {t("removeWord")}
+                  </label>
+                  <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
+                    {t("remark")}
+                  </label>
+                  <input
+                    type="text"
+                    id="capture_remove_word"
+                    name="remove_word"
+                    className="dc-remove-remark__input dc-remove-remark__input--rm"
+                    placeholder={t("enterWordsToRemove")}
+                    value={form.removeWord}
+                    onChange={(e) => form.setRemoveWord(toDataCaptureWordFieldCase(e.target.value))}
+                  />
                   <input
                     type="text"
                     id="capture_remark"
                     name="remark"
+                    className="dc-remove-remark__input dc-remove-remark__input--mk"
                     placeholder={t("enterRemark")}
                     value={form.remark}
                     onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
                   />
+                  <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
+                    {t("removeWordHelp")}
+                  </small>
+                  <div className="dc-remove-remark__slot" aria-hidden="true" />
                 </div>
-              </div>
+              ) : (
+                <div className="dc-form-row dc-form-row--2col dc-form-row--stacked">
+                  <div className="form-group">
+                    <label htmlFor="capture_remark">{t("remark")}</label>
+                    <input
+                      type="text"
+                      id="capture_remark"
+                      name="remark"
+                      placeholder={t("enterRemark")}
+                      value={form.remark}
+                      onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
+                    />
+                  </div>
+                </div>
+              )}
             </form>
           </div>
         </div>

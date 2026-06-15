@@ -231,6 +231,28 @@ body.datacapture-page .submitted-list {
     body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked:last-child > .form-group:only-child {
         grid-column: 1;
     }
+
+    body.datacapture-page .process-form .dc-form-remove-remark-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "lbl_rm"
+            "inp_rm"
+            "hlp_rm"
+            "lbl_mk"
+            "inp_mk";
+    }
+
+    body.datacapture-page .process-form .dc-remove-remark__label--mk {
+        grid-area: lbl_mk;
+    }
+
+    body.datacapture-page .process-form .dc-remove-remark__input--mk {
+        grid-area: inp_mk;
+    }
+
+    body.datacapture-page .process-form .dc-remove-remark__slot {
+        display: none;
+    }
 }
 
 body.datacapture-page .form-container .user-gc-inline-panel.dc-data-capture-gc-panel {
@@ -337,18 +359,27 @@ body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked > 
 
 body.datacapture-page .process-form .dc-form-remove-remark-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: clamp(12px, 1.35vw, 20px);
     row-gap: clamp(4px, 0.38vw, 6px);
     grid-template-areas:
-        "lbl_rm"
-        "inp_rm"
-        "hlp_rm";
+        "lbl_rm lbl_mk"
+        "inp_rm inp_mk"
+        "hlp_rm slot_mk";
     align-items: stretch;
-    align-self: stretch;
+    margin-bottom: clamp(10px, 0.85vw, 14px);
 }
 
-body.datacapture-page .process-form .dc-form-remove-remark-grid--remove-only {
-    min-width: 0;
+body.datacapture-page .process-form .dc-remove-remark__help {
+    grid-area: hlp_rm;
+    margin-top: 0;
+    line-height: 1.25;
+}
+
+body.datacapture-page .process-form .dc-remove-remark__slot {
+    grid-area: slot_mk;
+    min-height: 0;
+    pointer-events: none;
 }
 
 body.datacapture-page .process-form .dc-remove-remark__label {
@@ -392,12 +423,6 @@ body.datacapture-page .process-form .dc-remove-remark__input--mk {
     grid-area: inp_mk;
 }
 
-body.datacapture-page .process-form .dc-remove-remark__help {
-    grid-area: hlp_rm;
-    margin-top: 0;
-    line-height: 1.25;
-}
-
 body.datacapture-page .process-form .dc-form-row--stacked .replace-word-group.dc-replace-word-field {
     display: flex;
     flex-direction: column;
@@ -436,18 +461,6 @@ body.datacapture-page .process-form .dc-form-row--stacked .replace-word-fields i
     font-size: clamp(10px, 0.74vw, 14px);
     font-weight: 600;
     box-sizing: border-box;
-}
-
-body.datacapture-page .process-form .dc-form-row--stacked > .form-group > input#capture_remark {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    min-height: 36px;
-    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
-    border: 1px solid var(--dc-border, #e2e8f0);
-    border-radius: 6px;
-    font-size: clamp(10px, 0.74vw, 14px);
-    font-weight: 600;
 }
 
 body.datacapture-page .process-form .dc-form-row-full {
