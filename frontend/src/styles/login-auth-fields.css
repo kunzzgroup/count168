@@ -4,10 +4,7 @@
  * 与 public/css/style.css 保持同步，供 bundle 加载前的首屏绘制。
  */
 body.bg {
-  /*
-   * 自定义黑色 I 形 + text 后备：部分 Windows（深色模式/高对比度）系统 cursor:text 会变白看不见。
-   */
-  --login-input-cursor: url("/frontend/dist/images/cursors/text-ibeam.svg") 8 8, text;
+  --login-input-cursor: text;
 }
 
 body.bg .sc-login-input-row,
