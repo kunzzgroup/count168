@@ -25,15 +25,18 @@ body.domain-page .domain-react-page {
     box-sizing: border-box;
     overflow-x: hidden;
     overflow-y: visible;
+    display: flex;
+    flex-direction: column;
 }
 
 body.domain-page .domain-react-page .action-buttons {
-    /* 整块工具栏叠在下方 table 之上，避免兄弟层 late-paint 盖住 Add/Price 等按钮点击区 */
+    /* 保持工具栏可点，但不压盖下方首行数据 */
     position: relative;
-    z-index: 400;
+    z-index: 2;
+    flex-shrink: 0;
     background-color: transparent !important;
     padding: 0 !important;
-    margin-bottom: 0;
+    margin-bottom: clamp(10px, 1.04vw, 16px);
     display: flex;
     justify-content: space-between;
     align-items: start;
@@ -74,14 +77,16 @@ body.domain-page .domain-react-page .separator-line {
 
 body.domain-page .domain-react-page .table-container {
     position: relative;
-    z-index: 0;
-    isolation: isolate;
-    overflow-x: visible;
-    overflow-y: auto;
-    margin-top: 20px;
+    z-index: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin-top: 0;
     border: none;
     border-radius: 0;
-    max-height: calc(100vh - 200px);
+    max-height: none;
 }
 
 /*
@@ -4576,11 +4581,12 @@ body.domain-page .domain-react-page .table-header {
     background-image: none !important;
     border-radius: 8px;
     margin-top: 0 !important;
-    margin-bottom: 0px;
+    margin-bottom: 8px;
     font-weight: bold;
     color: var(--color-text-label) !important;
     font-size: var(--text-base);
     min-width: 0;
+    flex-shrink: 0;
     /* 允许内容收缩 */
 }
 
@@ -4592,11 +4598,14 @@ body.domain-page .domain-react-page .domain-cards {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: calc(100vh - 250px);
-    /* 添加这行 */
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100vh - var(--layout-page-top-inset) - clamp(148px, 12vw, 220px));
     overflow-y: auto;
-    /* 添加这行 */
     overflow-x: visible;
+    padding-top: 2px;
+    padding-bottom: 72px;
+    box-sizing: border-box;
     /* 允许 tooltip 显示 */
 }
 

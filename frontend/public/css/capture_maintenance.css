@@ -1283,7 +1283,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 .capture-maintenance-page-root .capture-virtual-data-row {
     display: grid;
     grid-template-columns:
-        minmax(32px, 4fr) minmax(88px, 8fr) minmax(64px, 15fr) minmax(64px, 13fr) minmax(56px, 10fr) minmax(80px, 15.5fr) minmax(80px, 10fr) minmax(100px, 16fr) var(--maintenance-checkbox-col-width, 48px);
+        minmax(32px, 4fr) minmax(88px, 8fr) minmax(64px, 15fr) minmax(64px, 13fr) minmax(56px, 10fr) minmax(80px, 15.5fr) minmax(80px, 10fr) minmax(100px, 16fr) minmax(40px, 6.5fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;

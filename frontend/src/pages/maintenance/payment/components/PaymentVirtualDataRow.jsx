@@ -102,15 +102,13 @@ const PaymentVirtualDataRow = memo(function PaymentVirtualDataRow({
         <span className="payment-cell-text">{deletedDisplay}</span>
       </div>
       <div role="cell" className="maintenance-virtual-cell maintenance-virtual-cell--left payment-virtual-cell-checkbox">
-        <span className="maintenance-checkbox-cell-inner">
-          <input
-            type="checkbox"
-            className="maintenance-row-checkbox"
-            checked={selected}
-            onChange={() => canSelect && onToggleRow(tid)}
-            disabled={isDeleted || !canSelect}
-          />
-        </span>
+        <input
+          type="checkbox"
+          className="maintenance-row-checkbox"
+          checked={selected}
+          onChange={() => canSelect && onToggleRow(tid)}
+          disabled={isDeleted || !canSelect}
+        />
       </div>
     </div>
   );

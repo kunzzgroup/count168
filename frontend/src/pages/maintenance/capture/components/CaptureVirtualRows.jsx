@@ -154,11 +154,12 @@ export default function CaptureVirtualRows({
               className="maintenance-virtual-row-wrap"
               style={{
                 position: "absolute",
-                top: `${virtualRow.start - cyclicRowOffset}px`,
+                top: 0,
                 left: 0,
                 width: "100%",
                 height: `${virtualRow.size}px`,
                 minHeight: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start - cyclicRowOffset}px)`,
               }}
             >
               <CaptureVirtualDataRow

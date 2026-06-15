@@ -235,11 +235,12 @@ export default function TransactionMaintenanceTable({
                     data-index={virtualRow.index}
                     style={{
                       position: "absolute",
-                      top: `${virtualRow.start - cyclicRowOffset}px`,
+                      top: 0,
                       left: 0,
                       width: "100%",
                       height: `${virtualRow.size}px`,
                       minHeight: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start - cyclicRowOffset}px)`,
                     }}
                   >
                     <VirtualDataRow row={row} index={virtualRow.index} />

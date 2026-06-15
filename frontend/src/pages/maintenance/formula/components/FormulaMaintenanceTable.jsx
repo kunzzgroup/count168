@@ -109,7 +109,7 @@ export default function FormulaMaintenanceTable({
     const rowStyle = virtualRow
       ? {
           position: "absolute",
-          top: `${virtualRow.start}px`,
+          top: 0,
           left: 0,
           width: "100%",
           height: `${virtualRow.size}px`,
@@ -117,6 +117,7 @@ export default function FormulaMaintenanceTable({
           display: "table",
           tableLayout: "fixed",
           boxSizing: "border-box",
+          transform: `translateY(${virtualRow.start}px)`,
         }
       : undefined;
 
