@@ -1009,7 +1009,7 @@ function DataCapturePageContent() {
                 </div>
               )}
 
-              <div className="dc-form-two-col dc-form-two-col--stacked">
+              <div className="dc-form-row dc-form-row--3col dc-form-row--stacked">
                 <div className="form-group">
                   <label htmlFor="capture_date">{t("date")}</label>
                   <select id="capture_date" name="capture_date" required value={form.captureDate} onChange={(e) => void form.onDateChange(e)}>
@@ -1062,10 +1062,30 @@ function DataCapturePageContent() {
                     </select>
                   )}
                 </div>
+
+                <div className="form-group">
+                  <label htmlFor="capture_currency">{t("currency")}</label>
+                  <select
+                    id="capture_currency"
+                    name="currency"
+                    value={form.currencyId}
+                    onChange={(e) => {
+                      form.setCurrencyId(e.target.value);
+                      setTimeout(() => window.updateSubmitButtonState?.(), 0);
+                    }}
+                  >
+                    <option value="">{t("selectCurrency")}</option>
+                    {form.currencies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.code}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div className="dc-form-two-col dc-form-two-col--stacked">
-                {showCompanyProcessUi ? (
+              {showCompanyProcessUi ? (
+                <div className="dc-form-row dc-form-row--2col dc-form-row--stacked">
                   <div className="form-group">
                     <label htmlFor="capture_description">{t("description")}</label>
                     <div className="input-with-icon">
@@ -1088,45 +1108,7 @@ function DataCapturePageContent() {
                       </button>
                     </div>
                   </div>
-                ) : null}
 
-                <div className="form-group">
-                  <label htmlFor="capture_currency">{t("currency")}</label>
-                  <select
-                    id="capture_currency"
-                    name="currency"
-                    value={form.currencyId}
-                    onChange={(e) => {
-                      form.setCurrencyId(e.target.value);
-                      setTimeout(() => window.updateSubmitButtonState?.(), 0);
-                    }}
-                  >
-                    <option value="">{t("selectCurrency")}</option>
-                    {form.currencies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.code}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {!showCompanyProcessUi ? (
-                  <div className="form-group">
-                    <label htmlFor="capture_remark">{t("remark")}</label>
-                    <input
-                      type="text"
-                      id="capture_remark"
-                      name="remark"
-                      placeholder={t("enterRemark")}
-                      value={form.remark}
-                      onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
-                    />
-                  </div>
-                ) : null}
-              </div>
-
-              {showCompanyProcessUi ? (
-              <div className="dc-form-bottom-block">
                   <div className="form-group replace-word-group dc-replace-word-field">
                     <label htmlFor="capture_replace_word_from">{t("replaceWord")}</label>
                     <div className="replace-word-fields">
@@ -1149,13 +1131,14 @@ function DataCapturePageContent() {
                       />
                     </div>
                   </div>
+                </div>
+              ) : null}
 
-                  <div className="dc-form-remove-remark-grid">
+              <div className="dc-form-row dc-form-row--2col dc-form-row--stacked">
+                {showCompanyProcessUi ? (
+                  <div className="dc-form-remove-remark-grid dc-form-remove-remark-grid--remove-only">
                     <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
                       {t("removeWord")}
-                    </label>
-                    <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
-                      {t("remark")}
                     </label>
                     <input
                       type="text"
@@ -1166,22 +1149,24 @@ function DataCapturePageContent() {
                       value={form.removeWord}
                       onChange={(e) => form.setRemoveWord(toDataCaptureWordFieldCase(e.target.value))}
                     />
-                    <input
-                      type="text"
-                      id="capture_remark"
-                      name="remark"
-                      className="dc-remove-remark__input dc-remove-remark__input--mk"
-                      placeholder={t("enterRemark")}
-                      value={form.remark}
-                      onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
-                    />
                     <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                       {t("removeWordHelp")}
                     </small>
-                    <div className="dc-remove-remark__slot" aria-hidden="true" />
                   </div>
+                ) : null}
+
+                <div className="form-group">
+                  <label htmlFor="capture_remark">{t("remark")}</label>
+                  <input
+                    type="text"
+                    id="capture_remark"
+                    name="remark"
+                    placeholder={t("enterRemark")}
+                    value={form.remark}
+                    onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
+                  />
+                </div>
               </div>
-              ) : null}
             </form>
           </div>
         </div>
