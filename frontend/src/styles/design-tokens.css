@@ -228,7 +228,7 @@
    */
   --report-list-row-padding-block: 1px;
   --report-list-row-padding-inline: 22px;
-  --report-list-cell-min-height: clamp(26px, 2.1vw, 34px);
+  --report-list-cell-min-height: clamp(20px, 2.1vw, 20px);
   --report-list-header-padding-block-start: clamp(0px, 0.78vw, 15px);
   --report-list-header-padding-block-end: 12px;
   --report-list-header-padding-inline: 20px;
