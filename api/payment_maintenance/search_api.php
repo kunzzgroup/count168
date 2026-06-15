@@ -308,11 +308,15 @@ function rowToItem(array $row, $is_deleted = 0, string $ownerCode = '', string $
         }
         $sourceCompany = '';
         if (stripos($remarkTrim, '[AUTO_RENEW|COMMISSION|') === 0) {
-            if (preg_match('/Commision\s+for\s+([A-Za-z0-9_-]+)/i', trim((string) $descriptionRaw), $mFor)) {
-                $sourceCompany = strtoupper(trim((string) $mFor[1]));
+            if (preg_match('/^\[AUTO_RENEW\|COMMISSION\|GROUP\|([^|\]]+)/i', $remarkTrim, $mAr)) {
+                $sourceCompany = strtoupper(trim((string) $mAr[1]));
+            } elseif (preg_match('/^\[AUTO_RENEW\|COMMISSION\|([^|\]]+)/i', $remarkTrim, $mAr)) {
+                $sourceCompany = strtoupper(trim((string) $mAr[1]));
             }
             if ($sourceCompany === '') {
-                $sourceCompany = strtoupper(trim((string) ($row['from_account_code'] ?? '')));
+                if (preg_match('/Commision\s+for\s+([A-Za-z0-9_-]+)/i', trim((string) $descriptionRaw), $mFor)) {
+                    $sourceCompany = strtoupper(trim((string) $mFor[1]));
+                }
             }
         } elseif (preg_match('/^\[DOMAIN_SHARE_COMMISSION\|([^|\]]+)/i', $remarkTrim, $mSrc)) {
             $sourceCompany = strtoupper(trim((string)$mSrc[1]));

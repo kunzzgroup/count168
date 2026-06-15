@@ -566,64 +566,20 @@ function historyParseAutoRenewCommissionTenantCode(string $sms): ?string
     return null;
 }
 
-function historyParseAutoRenewCommissionExpiration(string $sms): string
+/** Auto Renew 佣金来源：被续费公司（与 Domain「Commission From 客户公司」口径一致） */
+function historyResolveAutoRenewCommissionSourceCompany(string $smsText, string $descText): string
 {
-    $s = trim($sms);
-    if (preg_match('/^\[AUTO_RENEW\|COMMISSION\|GROUP\|[^|\]]+\|([^|\]]+)/i', $s, $m)) {
-        return trim((string) ($m[1] ?? ''));
+    $tenant = historyParseAutoRenewCommissionTenantCode($smsText);
+    if ($tenant !== null && $tenant !== '') {
+        return $tenant;
     }
-    if (preg_match('/^\[AUTO_RENEW\|COMMISSION\|[^|\]]+\|([^|\]]+)/i', $s, $m)) {
-        return trim((string) ($m[1] ?? ''));
-    }
-    return '';
-}
-
-/** 续费主单 from_account（出钱方）；无匹配时返回 null */
-function historyResolveAutoRenewFeePayerCompanyCode(PDO $pdo, int $companyId, string $commissionSms): ?string
-{
-    $tenant = historyParseAutoRenewCommissionTenantCode($commissionSms);
-    $exp = historyParseAutoRenewCommissionExpiration($commissionSms);
-    if ($tenant === null || $tenant === '' || $exp === '') {
-        return null;
-    }
-    $isGroup = stripos(trim($commissionSms), '[AUTO_RENEW|COMMISSION|GROUP|') === 0;
-    $feeLike = $isGroup
-        ? '[AUTO_RENEW|GROUP|' . $tenant . '|' . $exp . '%'
-        : '[AUTO_RENEW|' . $tenant . '|' . $exp . '%';
-    try {
-        $st = $pdo->prepare("
-            SELECT UPPER(TRIM(COALESCE(fa.account_id, ''))) AS payer_code
-            FROM transactions t
-            INNER JOIN account fa ON fa.id = t.from_account_id
-            WHERE t.company_id = ?
-              AND t.transaction_type = 'PAYMENT'
-              AND t.from_account_id IS NOT NULL
-              AND t.sms LIKE ?
-            ORDER BY t.id DESC
-            LIMIT 1
-        ");
-        $st->execute([$companyId, $feeLike]);
-        $code = strtoupper(trim((string) ($st->fetchColumn() ?: '')));
-        return $code !== '' ? $code : null;
-    } catch (PDOException $e) {
-        return null;
-    }
-}
-
-/** Auto Renew 佣金 Description：出钱公司（开单 Commision for C168 或续费付款 from 账户），不用 SMS 租户码 */
-function historyResolveAutoRenewCommissionPayerCompany(string $smsText, string $descText, PDO $pdo, int $companyId): string
-{
     if (preg_match('/Commision\s+for\s+([A-Za-z0-9_-]+)/i', $descText, $mFor)) {
         $code = strtoupper(trim((string) ($mFor[1] ?? '')));
         if ($code !== '') {
             return $code;
         }
     }
-    $fromFee = historyResolveAutoRenewFeePayerCompanyCode($pdo, $companyId, $smsText);
-    if ($fromFee !== null && $fromFee !== '') {
-        return $fromFee;
-    }
-    return 'C168';
+    return 'LAG';
 }
 
 /**
@@ -2322,7 +2278,7 @@ try {
         if ($isDomainShareCommission) {
             $roleLabel = historyResolveDomainShareRoleLabel((string) $description, $smsText);
             if (stripos($smsText, '[AUTO_RENEW|COMMISSION|') === 0) {
-                $srcCompany = historyResolveAutoRenewCommissionPayerCompany($smsText, $descText, $pdo, $company_id);
+                $srcCompany = historyResolveAutoRenewCommissionSourceCompany($smsText, $descText);
                 $description = $roleLabel . ' Commission From ' . $srcCompany;
                 $domainShareProductKind = 'Commission';
             } elseif ($roleLabel === 'PROFIT') {

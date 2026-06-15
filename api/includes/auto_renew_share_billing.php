@@ -179,6 +179,11 @@ function auto_renew_create_share_commission_payments(
         // keep default
     }
 
+    $tenantU = strtoupper(trim($tenantCode));
+    if ($tenantU === '') {
+        $tenantU = $ownerCode;
+    }
+
     $roleLabelMap = ['sales' => 'Sales', 'cs' => 'CS', 'it' => 'IT'];
     foreach (['sales', 'cs', 'it'] as $role) {
         $rows = $normalized[$role] ?? [];
@@ -186,7 +191,7 @@ function auto_renew_create_share_commission_payments(
             continue;
         }
         $roleLabel = $roleLabelMap[$role] ?? ucfirst($role);
-        $description = $roleLabel . ' Commision for ' . $ownerCode;
+        $description = $roleLabel . ' Commision for ' . $tenantU;
         foreach ($rows as $row) {
             $aid = isset($row['account_id']) ? (int) $row['account_id'] : 0;
             $pct = isset($row['percentage']) && money_is_valid($row['percentage'])
