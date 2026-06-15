@@ -4,12 +4,24 @@ const POPUP_MIN_WIDTH = 680;
 const POPUP_MIN_HEIGHT = 320;
 const POPUP_MARGIN = 12;
 
+/** 窄于此宽度视为分屏布局（紧凑表头、无横向滚动等）；更宽则恢复全页样式 */
+export const PAYMENT_HISTORY_SPLIT_MAX_WIDTH = 960;
+
 export function isPaymentHistoryPopupWindow() {
   try {
     return Boolean(window.opener && !window.opener.closed);
   } catch {
     return false;
   }
+}
+
+export function isPaymentHistorySplitScreenWidth(width = window.innerWidth) {
+  return width <= PAYMENT_HISTORY_SPLIT_MAX_WIDTH;
+}
+
+/** popup 窗口且当前宽度处于分屏区间 */
+export function isPaymentHistorySplitScreenLayout(width = window.innerWidth) {
+  return isPaymentHistoryPopupWindow() && isPaymentHistorySplitScreenWidth(width);
 }
 
 function screenAvailRect() {

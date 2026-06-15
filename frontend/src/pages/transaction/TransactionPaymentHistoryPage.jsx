@@ -18,7 +18,7 @@ import "./transactionPaymentHistoryPage.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
-import { isPaymentHistoryPopupWindow } from "./lib/transactionPaymentHistoryPopup.js";
+import { usePaymentHistoryLayoutMode } from "./hooks/usePaymentHistoryLayoutMode.js";
 
 export default function TransactionPaymentHistoryPage() {
   const navigate = useNavigate();
@@ -44,11 +44,11 @@ export default function TransactionPaymentHistoryPage() {
     }, 150);
   }, [navigate]);
 
-  const isPopup = isPaymentHistoryPopupWindow();
+  const { splitScreen, compactHeaders } = usePaymentHistoryLayoutMode();
 
   useLayoutEffect(() => {
     document.body.classList.add("dashboard-page", "transaction-page", "transaction-payment-history-page");
-    if (isPopup) {
+    if (splitScreen) {
       document.body.classList.add("transaction-payment-history-page--popup");
     }
     clearInlineScrollLock();
@@ -60,7 +60,7 @@ export default function TransactionPaymentHistoryPage() {
         "page-ready",
       );
     };
-  }, []);
+  }, [splitScreen]);
 
   const initialTitle = useMemo(
     () =>
@@ -182,7 +182,7 @@ export default function TransactionPaymentHistoryPage() {
                 histMoney={formatHistoryMoney}
                 showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
                 m={m}
-                compactHeaders={isPopup}
+                compactHeaders={compactHeaders}
               />
             )}
           </div>
