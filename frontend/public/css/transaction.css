@@ -3724,6 +3724,19 @@ body.transaction-payment-history-page .transaction-payment-history-panel .transa
     flex-direction: column;
 }
 
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-payment-history-panel.transaction-history-modal.transaction-modal-content,
+body.transaction-payment-history-page--popup .transaction-payment-history-panel.transaction-history-modal.transaction-modal-content {
+    max-width: none !important;
+}
+
+body.transaction-payment-history-page--popup .transaction-history-modal .transaction-modal-body .transaction-table [class*="transaction-history-col-"],
+body.ec-payment-history-chromeless.transaction-payment-history-page--popup .transaction-history-modal .transaction-modal-body .transaction-table [class*="transaction-history-col-"] {
+    min-width: 0 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+
 .transaction-payment-history-error {
     margin: 0;
     padding: 24px;
