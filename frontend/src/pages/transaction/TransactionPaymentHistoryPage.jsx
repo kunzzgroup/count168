@@ -44,9 +44,11 @@ export default function TransactionPaymentHistoryPage() {
     }, 150);
   }, [navigate]);
 
+  const isPopup = isPaymentHistoryPopupWindow();
+
   useLayoutEffect(() => {
     document.body.classList.add("dashboard-page", "transaction-page", "transaction-payment-history-page");
-    if (isPaymentHistoryPopupWindow()) {
+    if (isPopup) {
       document.body.classList.add("transaction-payment-history-page--popup");
     }
     clearInlineScrollLock();
@@ -180,6 +182,7 @@ export default function TransactionPaymentHistoryPage() {
                 histMoney={formatHistoryMoney}
                 showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
                 m={m}
+                compactHeaders={isPopup}
               />
             )}
           </div>

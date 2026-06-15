@@ -35,48 +35,54 @@ function HistoryTableColgroup({ showDescriptionColumn }) {
   );
 }
 
-export default function TransactionHistoryTable({ rows, histMoney, showDescriptionColumn, m }) {
+function historyHeadLabel(m, fullKey, compactKey, compactHeaders) {
+  if (compactHeaders && m[compactKey]) return m[compactKey];
+  return m[fullKey];
+}
+
+export default function TransactionHistoryTable({ rows, histMoney, showDescriptionColumn, m, compactHeaders = false }) {
   const tableClass = showDescriptionColumn
     ? "transaction-history-table--with-desc"
     : "transaction-history-table--no-desc";
+  const compactClass = compactHeaders ? " transaction-history-report-table--compact-head" : "";
 
   return (
     <div className="transaction-history-table-frame transaction-history-report-scroll" role="region" aria-label="Payment History">
-      <table className={`transaction-table transaction-history-report-table ${tableClass}`}>
+      <table className={`transaction-table transaction-history-report-table ${tableClass}${compactClass}`}>
         <HistoryTableColgroup showDescriptionColumn={showDescriptionColumn} />
         <thead>
           <tr className="transaction-table-header">
             <th scope="col" className="transaction-history-col-date">
-              {m.date}
+              {historyHeadLabel(m, "date", "date", compactHeaders)}
             </th>
             <th scope="col" className="transaction-history-col-product">
-              {m.idProduct}
+              {historyHeadLabel(m, "idProduct", "idProductCompact", compactHeaders)}
             </th>
             <th scope="col" className="transaction-history-col-currency">
-              {m.currency}
+              {historyHeadLabel(m, "currency", "currencyCompact", compactHeaders)}
             </th>
             <th scope="col" className="transaction-history-col-rate">
-              {m.rate}
+              {historyHeadLabel(m, "rate", "rate", compactHeaders)}
             </th>
             <th scope="col" className="transaction-history-col-winloss">
-              {m.winLossTable}
+              {historyHeadLabel(m, "winLossTable", "winLossTableCompact", compactHeaders)}
             </th>
             <th scope="col" className="transaction-history-col-crdr">
-              {m.crDrTable}
+              {historyHeadLabel(m, "crDrTable", "crDrTable", compactHeaders)}
             </th>
             <th scope="col" className="transaction-history-col-balance">
-              {m.balanceTable}
+              {historyHeadLabel(m, "balanceTable", "balanceTableCompact", compactHeaders)}
             </th>
             {showDescriptionColumn ? (
               <th scope="col" className="transaction-history-col-description">
-                {m.description}
+                {historyHeadLabel(m, "description", "descriptionCompact", compactHeaders)}
               </th>
             ) : null}
             <th scope="col" className="transaction-history-col-remark">
-              {m.remark}
+              {historyHeadLabel(m, "remark", "remark", compactHeaders)}
             </th>
             <th scope="col" className="transaction-history-col-created">
-              {m.createdBy}
+              {historyHeadLabel(m, "createdBy", "createdByCompact", compactHeaders)}
             </th>
           </tr>
         </thead>

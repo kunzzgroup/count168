@@ -250,6 +250,7 @@
   --txn-history-text-loading: var(--text-medium);
   --txn-history-text-table: var(--text-medium);
   --txn-history-text-table-head: var(--text-base);
+  --txn-history-text-table-head-compact: var(--text-small);
   --txn-history-text-error: var(--text-medium);
   --txn-history-line-height: 1.35;
   --txn-history-head-line-height: 1.3;
