@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import CaptureVirtualRows from "./CaptureVirtualRows.jsx";
-import { MAINTENANCE_LIST_ROW_HEIGHT } from "../../shared/maintenanceListRowMetrics.js";
 
-const ROW_HEIGHT = MAINTENANCE_LIST_ROW_HEIGHT;
+const ROW_HEIGHT = 52;
 
 function isRowDeleted(row) {
   return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;

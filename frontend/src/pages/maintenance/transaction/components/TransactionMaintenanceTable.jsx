@@ -6,9 +6,8 @@ import {
 } from "../../shared/useMaintenanceCyclicVirtualScroll.js";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
-import { MAINTENANCE_LIST_ROW_HEIGHT } from "../../shared/maintenanceListRowMetrics.js";
 
-const ROW_HEIGHT = MAINTENANCE_LIST_ROW_HEIGHT;
+const ROW_HEIGHT = 52;
 
 function pickOverscan(count) {
   if (count > 2000) return 2;
