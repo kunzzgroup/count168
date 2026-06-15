@@ -239,6 +239,7 @@ body.dashboard-page {
     padding: var(--layout-page-top-gap) clamp(12px, 1.5vw, 40px) clamp(8px, 1vw, 12px) var(--layout-main-offset);
     width: 100%;
     height: 100vh;
+    height: 100dvh;
     box-sizing: border-box;
     overflow: hidden;
     display: flex;
@@ -840,7 +841,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     flex: 1;
     min-height: 0;
     overflow-x: visible;
-    overflow-y: auto;
+    overflow-y: hidden;
     display: flex;
     flex-direction: column;
     --dashboard-section-gap: clamp(12px, 1.5vw, 20px);
@@ -1084,7 +1085,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 /* 图二：底部双卡片（Statistics + Period Summary） */
 .dashboard-panels-row {
     flex: 1;
-    min-height: 380px;
+    min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.75fr);
     gap: var(--dashboard-section-gap, clamp(12px, 1.5vw, 20px));
@@ -1176,7 +1177,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-panel-chart-body {
     flex: 1;
-    min-height: 260px;
+    min-height: 0;
     width: 100%;
 }
 
@@ -1188,6 +1189,10 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
 .dashboard-panel-chart-body.is-enter {
     animation: dashboard-trend-chart-in 0.76s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dashboard-panel-chart-body.is-scope-morph {
+    transition: opacity 0.28s ease;
 }
 
 .dashboard-panel-chart-body.is-flow-active .dashboard-trend-area-base .recharts-area-curve {
@@ -1346,23 +1351,26 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     flex: 1;
     width: 100%;
     min-width: 0;
-    min-height: clamp(140px, 12vw, 180px);
+    min-height: 0;
+    max-height: 100%;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: visible;
+    overflow: hidden;
     user-select: none;
 }
 
 .dashboard-summary-pie-chart-shell {
     position: relative;
-    width: min(100%, 220px);
-    height: clamp(172px, 16vw, 220px);
+    width: min(100%, 20vh, 220px);
+    height: min(100%, 20vh, 220px);
     max-width: 100%;
+    max-height: 100%;
     margin-inline: auto;
-    flex-shrink: 0;
-    overflow: visible;
+    flex-shrink: 1;
+    overflow: hidden;
+    container-type: size;
 }
 
 .dashboard-summary-pie-chart-shell::before {
@@ -1545,7 +1553,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-pie-center-pct {
-    font-size: var(--summary-size-pie-pct);
+    font-size: clamp(14px, 11cqmin, var(--summary-size-pie-pct, 28px));
     font-weight: 700;
     color: var(--summary-text-primary);
     font-family: var(--summary-font);
@@ -1555,7 +1563,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-pie-center-code {
-    font-size: var(--summary-size-caption);
+    font-size: clamp(9px, 4.8cqmin, var(--summary-size-caption, 12px));
     font-weight: 600;
     color: var(--summary-text-secondary);
     font-family: var(--summary-font);
@@ -1565,7 +1573,7 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-pie-center-caption {
-    font-size: var(--summary-size-caption);
+    font-size: clamp(9px, 4.2cqmin, var(--summary-size-caption, 12px));
     font-weight: 500;
     color: var(--summary-text-muted);
     font-family: var(--summary-font);
@@ -2121,12 +2129,12 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 
     .dashboard-panels-row {
         grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.82fr);
-        min-height: 320px;
+        min-height: 0;
         gap: 12px;
     }
 
     .dashboard-panel-chart-body {
-        min-height: 200px;
+        min-height: 0;
     }
 
     .dashboard-summary-layout {
@@ -2999,4 +3007,213 @@ body.dashboard-page .dashboard-content > .dashboard-kpi-grid .dashboard-kpi-card
 body.ec-auth-shell .dashboard-content > .dashboard-kpi-grid .dashboard-kpi-card {
     flex: 1 1 0 !important;
     min-width: 0 !important;
+}
+
+/* Dashboard home: fit one viewport — no document scroll */
+html:has(body.dashboard-home-page) {
+    height: 100%;
+    overflow: hidden;
+}
+
+body.dashboard-home-page {
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+}
+
+body.dashboard-home-page #root {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+body.dashboard-home-page .dashboard-container {
+    height: 100%;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    flex: 1 1 0;
+    padding-bottom: clamp(4px, 0.5vh, 8px);
+}
+
+body.dashboard-home-page .dashboard-content {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+    --dashboard-section-gap: clamp(6px, 0.85vh, 14px);
+}
+
+body.dashboard-home-page .dashboard-filter-panel {
+    flex-shrink: 0;
+}
+
+body.dashboard-home-page .dashboard-kpi-grid {
+    flex-shrink: 0;
+}
+
+body.dashboard-home-page .dashboard-panels-row {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+body.dashboard-home-page .dashboard-panel-card {
+    min-height: 0;
+    overflow: hidden;
+    padding: clamp(10px, 1vh, 16px);
+}
+
+body.dashboard-home-page .dashboard-panel-chart-body {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+body.dashboard-home-page .dashboard-summary-pie-wrap {
+    min-height: 0;
+    max-height: 100%;
+}
+
+body.dashboard-home-page .dashboard-summary-pie-chart-shell {
+    width: min(100%, 17vh, 200px);
+    height: min(100%, 17vh, 200px);
+}
+
+body.dashboard-home-page .dashboard-summary-currency-list-body {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Group-level summary tabs (Currency / Earnings / Profit): compact panels so bottoms are not clipped */
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs {
+    --dashboard-section-gap: clamp(4px, 0.55vh, 10px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card {
+    padding: clamp(8px, 0.8vh, 13px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-head {
+    margin-bottom: clamp(5px, 0.45vh, 8px);
+    gap: 6px 10px;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-title {
+    font-size: clamp(13px, 1vw, 16px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-legend-item {
+    font-size: clamp(11px, 0.78vw, 13px);
+    gap: 4px;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-period-pill {
+    padding: 4px 8px;
+    font-size: clamp(11px, 0.78vw, 12px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-view-tabs {
+    margin-bottom: 0;
+    padding: 2px;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-view-tab {
+    padding: 4px 10px;
+    font-size: clamp(10px, 0.72vw, 11px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card--summary {
+    --summary-size-hero: clamp(24px, 1.85vw, 32px);
+    overflow: hidden;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-hero-value {
+    font-size: var(--summary-size-hero);
+    line-height: 1;
+    min-height: 1em;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-hero--compact {
+    gap: 0;
+    padding-bottom: 0;
+    flex-shrink: 0;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-hero-caption {
+    font-size: clamp(10px, 0.7vw, 11px);
+    line-height: 1.1;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-hero-conversion-note {
+    margin-top: 0;
+    font-size: clamp(8px, 0.58vw, 9px);
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-layout {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    gap: 0 clamp(6px, 0.65vw, 10px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-left-col {
+    min-height: 0;
+    overflow: hidden;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-pie-wrap {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 100%;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-pie-chart-shell {
+    flex-shrink: 1;
+    width: min(100%, 17vh, 200px);
+    height: min(100%, 17vh, 200px);
+    max-width: 100%;
+    max-height: 100%;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card--summary {
+    padding: clamp(8px, 0.75vh, 12px) clamp(10px, 0.9vh, 14px);
+    gap: clamp(4px, 0.4vh, 8px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-list-head {
+    padding-bottom: 4px;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-currency-row {
+    padding: 4px 6px;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-rate-footnote {
+    padding: 3px 6px;
+    min-height: 0;
+    line-height: 1.25;
+    font-size: clamp(9px, 0.65vw, 10px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card--chart .dashboard-panel-head {
+    margin-bottom: clamp(4px, 0.35vh, 6px);
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card--chart .dashboard-panel-legend {
+    gap: 4px 8px;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-chart-body {
+    flex: 1 1 0;
+    min-height: clamp(100px, 14vh, 180px);
 }

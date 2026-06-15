@@ -71,7 +71,11 @@ export default function TransactionDashboardPage() {
             dashboardData={page.dashboardData}
           />
 
-          <div className="dashboard-panels-row">
+          <div
+            className={`dashboard-panels-row${
+              page.showProfitChartTab ? " dashboard-panels-row--with-summary-tabs" : ""
+            }`}
+          >
             <DashboardTrendChart
               i18n={i18n}
               chartRows={page.chartRows}
