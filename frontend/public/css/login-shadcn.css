@@ -1,4 +1,5 @@
 ﻿body.bg {
+  color-scheme: light;
   /* Latin + CJK in one stack so toggling zh/en does not swap entire font metrics */
   font-family:
     "Segoe UI",

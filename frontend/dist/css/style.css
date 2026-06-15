@@ -15,6 +15,7 @@
 }
 
 body.bg {
+    color-scheme: light;
     font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
     background: url('/images/count_bg.png') center/cover no-repeat;
     min-height: 100vh;
@@ -280,7 +281,10 @@ body.bg .login-container .input-group input {
     border-radius: var(--login-radius-pill);
     font-size: var(--text-base);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    color: var(--login-text);
+    color: var(--login-text, #333333);
+    /* Windows 深色模式 / 高对比度下，浅色输入框的插入符可能渲染成白色条块 */
+    color-scheme: light;
+    caret-color: var(--login-text, #333333);
 }
 
 body.bg .sc-login-input {
