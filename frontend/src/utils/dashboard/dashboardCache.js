@@ -123,15 +123,63 @@ export function earningsRowsMatchCodes(rows, codes) {
   return rows.every((row) => row.earnings != null && Number.isFinite(Number(row.earnings)));
 }
 
-/** Suspicious when 3+ currencies share the same earnings (stale mirrored cache). */
+/** Suspicious when 2+ currencies share the same earnings (stale mirrored cache). */
 export function earningsRowsLookUniform(rows) {
-  if (!Array.isArray(rows) || rows.length < 3) return false;
+  if (!Array.isArray(rows) || rows.length < 2) return false;
   const values = rows
     .map((row) => Number(row?.earnings))
     .filter((n) => Number.isFinite(n));
-  if (values.length < 3) return false;
+  if (values.length < 2) return false;
   const first = values[0];
   return values.every((n) => Math.abs(n - first) < 0.01);
+}
+
+/**
+ * Non-primary row copied from primary KPI (common stale seed when only 2 currencies).
+ */
+export function earningsRowsDuplicatePrimary(rows, primaryCode) {
+  if (!Array.isArray(rows) || rows.length < 2 || primaryCode == null) return false;
+  const primary = String(primaryCode).trim().toUpperCase();
+  if (!primary) return false;
+  const primaryRow = rows.find(
+    (r) => String(r?.code || "").trim().toUpperCase() === primary
+  );
+  if (primaryRow?.earnings == null || !Number.isFinite(Number(primaryRow.earnings))) {
+    return false;
+  }
+  const primaryValue = Number(primaryRow.earnings);
+  return rows.some((row) => {
+    const code = String(row?.code || "").trim().toUpperCase();
+    if (!code || code === primary || row.earnings == null) return false;
+    return Math.abs(Number(row.earnings) - primaryValue) < 0.02;
+  });
+}
+
+/** Clear non-primary rows that mirror the primary KPI so UI can refetch real values. */
+export function sanitizeDuplicateNonPrimaryEarnings(rows, primaryCode, primaryEarnings = null) {
+  if (!Array.isArray(rows) || rows.length < 2 || primaryCode == null) return rows;
+  const primary = String(primaryCode).trim().toUpperCase();
+  if (!primary) return rows;
+  let primaryValue = null;
+  if (primaryEarnings != null && Number.isFinite(Number(primaryEarnings))) {
+    primaryValue = Number(primaryEarnings);
+  } else {
+    const primaryRow = rows.find(
+      (r) => String(r?.code || "").trim().toUpperCase() === primary
+    );
+    if (primaryRow?.earnings != null && Number.isFinite(Number(primaryRow.earnings))) {
+      primaryValue = Number(primaryRow.earnings);
+    }
+  }
+  if (primaryValue == null) return rows;
+  return rows.map((row) => {
+    const code = String(row?.code || "").trim().toUpperCase();
+    if (!code || code === primary || row.earnings == null) return row;
+    if (Math.abs(Number(row.earnings) - primaryValue) < 0.02) {
+      return { ...row, earnings: null };
+    }
+    return row;
+  });
 }
 
 /**
@@ -151,6 +199,7 @@ export function earningsRowsPrimaryMatches(rows, primaryCode, primaryEarnings) {
 export function earningsRowsAreUsable(rows, codes, primaryCode = null, primaryEarnings = null) {
   if (!earningsRowsMatchCodes(rows, codes)) return false;
   if (earningsRowsLookUniform(rows)) return false;
+  if (earningsRowsDuplicatePrimary(rows, primaryCode)) return false;
   if (!earningsRowsPrimaryMatches(rows, primaryCode, primaryEarnings)) return false;
   return true;
 }
