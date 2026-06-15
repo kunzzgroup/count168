@@ -1382,6 +1382,7 @@
 .accounting-due-inbox-grid-cell--delete,
 .accounting-due-inbox-grid-cell--no,
 .accounting-due-inbox-grid-cell--date,
+.accounting-due-inbox-grid-cell--period,
 .accounting-due-inbox-grid-cell--bank,
 .accounting-due-inbox-grid-cell--contract {
     justify-content: center;
@@ -1404,7 +1405,8 @@
     text-align: left;
 }
 
-.accounting-due-inbox-grid-cell--date {
+.accounting-due-inbox-grid-cell--date,
+.accounting-due-inbox-grid-cell--period {
     white-space: nowrap;
 }
 
