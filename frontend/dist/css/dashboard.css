@@ -224,7 +224,6 @@ body.dashboard-page {
     .dashboard-alert-modal-icon-wrap--critical,
     .expiration-reminder-modal-box.dashboard-alert-modal-box--critical,
     .dashboard-summary-pie-chart-shell.is-enter,
-    .dashboard-summary-pie-chart-shell.is-enter::before,
     .dashboard-summary-pie-center.is-enter,
     .dashboard-panel-chart-body.is-enter,
     .dashboard-summary-pie-chart-shell.is-enter::after,
@@ -1420,22 +1419,8 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     container-type: size;
 }
 
-.dashboard-summary-pie-chart-shell::before {
-    content: "";
-    position: absolute;
-    inset: 20%;
-    border-radius: 50%;
-    border: 1px solid rgba(147, 197, 253, 0.55);
-    pointer-events: none;
-    z-index: 4;
-}
-
 .dashboard-summary-pie-chart-shell.is-enter {
     animation: dashboard-pie-shell-in 0.78s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.dashboard-summary-pie-chart-shell.is-enter::before {
-    animation: dashboard-pie-ring-pulse 0.92s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .dashboard-summary-pie-chart-shell.is-enter::after {
@@ -1614,24 +1599,6 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
         opacity: 1;
         transform: scale(1) rotate(0deg);
         filter: drop-shadow(0 6px 18px rgba(59, 130, 246, 0.12));
-    }
-}
-
-@keyframes dashboard-pie-ring-pulse {
-    0% {
-        opacity: 0;
-        transform: scale(0.62);
-        border-color: rgba(96, 165, 250, 0.15);
-    }
-    45% {
-        opacity: 1;
-        transform: scale(1.08);
-        border-color: rgba(96, 165, 250, 0.85);
-    }
-    100% {
-        opacity: 0.65;
-        transform: scale(1);
-        border-color: rgba(147, 197, 253, 0.55);
     }
 }
 
