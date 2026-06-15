@@ -2279,7 +2279,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     flex-direction: row;
     align-items: stretch;
     gap: 0;
-    min-height: min(48vh, 400px);
+    min-height: 0;
 }
 
 .company-settings-split-left {
@@ -2870,7 +2870,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
 }
 
 .company-settings-split-right .company-share-scroll {
-    flex: 1;
+    flex: 0 1 auto;
     min-height: 0;
     max-height: min(58vh, 520px);
 }

@@ -53,6 +53,7 @@ export const AUTO_RENEW_I18N = {
     commTooltip: "Open Company / Group Settings to configure share sync",
     commSettingsNotFound: "Could not load settings for this tenant",
     commSettingsLoadFailed: "Failed to open settings: {message}",
+    approve: "Approve",
     reject: "Reject",
     delete: "Delete",
     cancel: "Cancel",

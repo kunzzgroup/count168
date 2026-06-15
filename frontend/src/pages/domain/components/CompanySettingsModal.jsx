@@ -543,18 +543,21 @@ export default function CompanySettingsModal({
     <DomainModalPortal>
       <div
         style={{
-          display: "block",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-start",
           position: "fixed",
           inset: 0,
           zIndex: companySettingsOverlayZ,
           overflowY: "auto",
+          padding: "clamp(16px, 3vh, 32px) 12px",
           backgroundColor: "rgba(0, 0, 0, 0.5)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
         }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
-        <div className="company-settings-react-modal modal-content company-settings-modal-content--split relative mx-auto mt-[2%] overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
+        <div className="company-settings-react-modal modal-content company-settings-modal-content--split relative mx-auto shrink-0 overflow-hidden rounded-2xl border-0 bg-white shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1),0_10px_10px_-5px_rgba(0,0,0,0.04)]">
         <div className="modal-header company-settings-modal-header">
           <h2 className="m-0 bg-transparent p-0">
             {isGroup ? t("groupSettings") : t("companySettings")}
