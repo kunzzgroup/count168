@@ -341,7 +341,7 @@ export default function CompanySettingsModal({
     const apiEntityCode = originalEntityCode;
 
     if (commissionOnly) {
-      await runGuarded(async () => {
+      try {
         const action = isGroup ? "save_group_share_settings" : "save_company_share_settings";
         const payload = isGroup
           ? { action, group_code: apiEntityCode, fee_share_allocations: cleanFsa }
@@ -364,7 +364,9 @@ export default function CompanySettingsModal({
           fee_share_allocations: cleanFsa,
         });
         notifySessionRefreshRequested();
-      });
+      } catch {
+        showDomainAlert(t("shareSaveFailed"), "danger");
+      }
       return;
     }
 
@@ -401,7 +403,7 @@ export default function CompanySettingsModal({
       };
 
       if (persistImmediately) {
-        await runGuarded(async () => {
+        try {
           const res = await fetch(buildApiUrl("api/domain/domain_api.php"), {
             cache: "no-cache",
             method: "POST",
@@ -430,7 +432,9 @@ export default function CompanySettingsModal({
           }
           onSave(updated);
           notifySessionRefreshRequested();
-        });
+        } catch {
+          showDomainAlert(t("shareSaveFailed"), "danger");
+        }
         return;
       }
 
