@@ -43,7 +43,7 @@ export function viewerHasEarningsConfig(dashboardData) {
   return linkMul > 0 && linkMul !== 1;
 }
 
-/** Group earning = Σ subsidiary earnings × viewer group % + group ledger net profit. */
+/** Group earning = (subsidiary earnings + group ledger net profit) × viewer group %. */
 export function computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig = true } = {}) {
   if (!dashboardData) return 0;
   if (requireViewerConfig && !dashboardData.has_group_ownership) return 0;
@@ -54,7 +54,7 @@ export function computeGroupAggregateEarningsAmount(dashboardData, { requireView
       : 0;
   const accPct = parseFloat(dashboardData.group_account_percentage) || 0;
   const accountMul = accPct > 0 ? accPct / 100 : 1;
-  return subEarn * accountMul + grpNp;
+  return (subEarn + grpNp) * accountMul;
 }
 
 export function isGroupAggregateEarningsPayload(dashboardData, options = {}) {

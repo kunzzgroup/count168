@@ -53,6 +53,7 @@ import {
   getGroupOnlyProcessOptions,
   isGroupOnlyProcessId,
 } from "./lib/dataCaptureGroupOnlyProcesses.js";
+import { toDataCaptureWordFieldCase } from "./lib/dataCaptureFormRules.js";
 import { resolveDataCaptureGridDimensions } from "./grid/dataCaptureGridMeta.js";
 import DataCaptureContextMenus from "./components/DataCaptureContextMenus.jsx";
 import DataCaptureDeleteDialog from "./components/DataCaptureDeleteDialog.jsx";
@@ -1139,7 +1140,7 @@ function DataCapturePageContent() {
                       name="remark"
                       placeholder={t("enterRemark")}
                       value={form.remark}
-                      onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
+                      onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
                     />
                   </div>
                 ) : null}
@@ -1156,7 +1157,7 @@ function DataCapturePageContent() {
                         name="replace_word_from"
                         placeholder={t("oldWord")}
                         value={form.replaceFrom}
-                        onChange={(e) => form.setReplaceFrom(e.target.value.toUpperCase())}
+                        onChange={(e) => form.setReplaceFrom(toDataCaptureWordFieldCase(e.target.value))}
                       />
                       <span className="replace-arrow">→</span>
                       <input
@@ -1165,7 +1166,7 @@ function DataCapturePageContent() {
                         name="replace_word_to"
                         placeholder={t("newWord")}
                         value={form.replaceTo}
-                        onChange={(e) => form.setReplaceTo(e.target.value.toUpperCase())}
+                        onChange={(e) => form.setReplaceTo(toDataCaptureWordFieldCase(e.target.value))}
                       />
                     </div>
                   </div>
@@ -1184,7 +1185,7 @@ function DataCapturePageContent() {
                       className="dc-remove-remark__input dc-remove-remark__input--rm"
                       placeholder={t("enterWordsToRemove")}
                       value={form.removeWord}
-                      onChange={(e) => form.setRemoveWord(e.target.value.toUpperCase())}
+                      onChange={(e) => form.setRemoveWord(toDataCaptureWordFieldCase(e.target.value))}
                     />
                     <input
                       type="text"
@@ -1193,7 +1194,7 @@ function DataCapturePageContent() {
                       className="dc-remove-remark__input dc-remove-remark__input--mk"
                       placeholder={t("enterRemark")}
                       value={form.remark}
-                      onChange={(e) => form.setRemark(e.target.value.toUpperCase())}
+                      onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
                     />
                     <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                       {t("removeWordHelp")}
@@ -1254,6 +1255,7 @@ function DataCapturePageContent() {
         formatGridReady={formatGridReady}
         hideCaptureTypeSelector={groupOnlyTable}
         groupOnlyTable={groupOnlyTable}
+        engineReady={scriptsReady}
         onCaptureTypeChange={handleCaptureTypeChange}
         submitDisabled={submitReset.submitDisabled || mutationsBlocked}
         onSubmit={() => void submitReset.submit()}
