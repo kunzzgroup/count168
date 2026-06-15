@@ -16,7 +16,10 @@
 
 body.bg {
     color-scheme: light;
-    --login-input-cursor: text;
+    /*
+     * 自定义黑色 I 形 + text 后备：部分 Windows（深色模式/高对比度）系统 cursor:text 会变白看不见。
+     */
+    --login-input-cursor: url("/frontend/dist/images/cursors/text-ibeam.svg") 8 8, text;
     font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
     background: url('/images/count_bg.png') center/cover no-repeat;
     min-height: 100vh;

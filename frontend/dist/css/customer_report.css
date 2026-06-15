@@ -540,3 +540,100 @@ body.dashboard-page.report-page .content > .report-header:empty {
         transform: translateX(420%);
     }
 }
+
+/*
+ * Customer Report 一屏布局（与 org 一致）：筛选区在上，表格区填满剩余视口，列表在表格区内滚动。
+ * 仅作用于 report-page，不影响 Maintenance 及其他页面。
+ */
+html:has(body.dashboard-page.report-page),
+body.dashboard-page.report-page,
+body.dashboard-page.report-page #root,
+body.dashboard-page.report-page .ec-page-shell,
+body.dashboard-page.report-page .ec-page-shell__content {
+    height: 100dvh !important;
+    min-height: 0 !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
+}
+
+@media screen and (max-width: 1440px) {
+    html:has(body.ec-auth-shell.dashboard-page.report-page),
+    body.ec-auth-shell.dashboard-page.report-page {
+        height: 100dvh !important;
+        min-height: 0 !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body.ec-auth-shell.dashboard-page.report-page .container {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
+}
+
+body.dashboard-page.report-page .container {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+}
+
+body.dashboard-page.report-page .content {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+body.dashboard-page.report-page .customer-report-filter-container {
+    flex: 0 0 auto;
+}
+
+body.dashboard-page.report-page .customer-report-table-region {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+}
+
+body.dashboard-page.report-page .customer-report-list-container {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+body.dashboard-page.report-page .customer-report-table-header {
+    flex: 0 0 auto;
+    margin-top: 10px !important;
+}
+
+/* 单币种：表头 + 合计固定，中间行区域滚动 */
+body.dashboard-page.report-page .customer-report-list-container:not(#currency-grouped-reports-container) .customer-report-cards {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-gutter: stable;
+}
+
+body.dashboard-page.report-page .customer-report-list-container:not(#currency-grouped-reports-container) .customer-report-total {
+    flex: 0 0 auto;
+}
+
+/* 多币种分组：整块列表区域滚动 */
+body.dashboard-page.report-page #currency-grouped-reports-container {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-gutter: stable;
+}
