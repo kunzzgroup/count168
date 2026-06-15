@@ -2333,9 +2333,28 @@ body.process-page .calendar-popup-clear-btn:disabled {
     cursor: not-allowed;
 }
 
-#addBankModal .bank-day-end-input-wrap--muted,
-#confirmBankResendModal .bank-resend-day-end-field--muted {
-    opacity: 0.75;
+/* Bank Add/Edit + Resend — disabled fields match Contract gray fill + not-allowed cursor */
+#addBankModal .bank-form .custom-select-button:disabled,
+#addBankModal .bank-form .custom-select-button:disabled:hover,
+#addBankModal .bank-form .bank-input:disabled,
+#addBankModal .bank-form .bank-form-datepicker-wrap--disabled .bank-form-datepicker-input,
+#confirmBankResendModal .bank-form-datepicker-wrap--disabled .bank-form-datepicker-input {
+    background: #eceff3 !important;
+    color: var(--bank-form-field-text, #94a3b8) !important;
+    cursor: not-allowed !important;
+    opacity: 1;
+    box-shadow: none;
+}
+
+#addBankModal .bank-form .bank-form-datepicker-wrap--disabled,
+#confirmBankResendModal .bank-form-datepicker-wrap--disabled {
+    cursor: not-allowed;
+}
+
+#addBankModal .bank-form .bank-form-datepicker-wrap--disabled:focus-within .bank-form-datepicker-input,
+#confirmBankResendModal .bank-form-datepicker-wrap--disabled:focus-within .bank-form-datepicker-input {
+    border-color: #dbe3ee;
+    box-shadow: none;
 }
 
 body.process-page .calendar-popup.calendar-popup--transaction-range {
