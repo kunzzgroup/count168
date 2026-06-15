@@ -401,19 +401,12 @@ body.maintenance-page .maintenance-header-amount {
     text-align: left !important;
 }
 
-body.maintenance-page .maintenance-virtual-th-checkbox,
-body.maintenance-page .maintenance-virtual-cell-checkbox,
-body.maintenance-page .capture-virtual-cell-checkbox,
-body.maintenance-page .payment-virtual-cell-checkbox,
-body.maintenance-page .bankprocess-virtual-cell-checkbox,
 body.maintenance-page .formula-virtual-th-actions,
-body.maintenance-page .formula-virtual-cell-actions,
-body.maintenance-page .maintenance-select-all-header {
+body.maintenance-page .formula-virtual-cell-actions {
     justify-content: flex-start !important;
     text-align: left !important;
 }
 
-body.maintenance-page .maintenance-checkbox-cell-inner,
 body.maintenance-page .maintenance-formula-actions-inner {
     justify-content: flex-start;
 }
@@ -601,7 +594,10 @@ body.dashboard-page.maintenance-page .maintenance-virtual-thead {
 
 body.dashboard-page.maintenance-page .maintenance-virtual-head-row {
     gap: var(--report-list-grid-gap) !important;
-    padding: var(--report-list-header-padding-block-start) var(--report-list-header-padding-inline) var(--report-list-header-padding-block-end) !important;
+    padding-top: var(--report-list-header-padding-block-start) !important;
+    padding-bottom: var(--report-list-header-padding-block-end) !important;
+    padding-left: var(--report-list-row-padding-inline) !important;
+    padding-right: var(--report-list-row-padding-inline) !important;
     min-height: var(--report-list-header-min-height) !important;
     box-sizing: border-box !important;
     background: transparent !important;
@@ -713,6 +709,27 @@ body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-vir
 body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell--wrap"] {
     min-height: 0 !important;
     height: auto !important;
+}
+
+/* 勾选列：表头与表体列宽一致，checkbox 水平居中互相对齐 */
+body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-th.maintenance-select-all-header,
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-table > thead > tr > th.maintenance-select-all-header,
+body.dashboard-page.maintenance-page .maintenance-table > tbody > tr > td.maintenance-cell-checkbox {
+    justify-content: center !important;
+    text-align: center !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-checkbox-cell-inner {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

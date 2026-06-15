@@ -1244,7 +1244,7 @@
 }
 
 .accounting-due-inbox-table-wrap {
-    padding: 12px 14px 10px;
+    padding: 0 14px 10px;
 }
 
 .accounting-due-inbox-loading,
@@ -1264,8 +1264,9 @@
     width: 100%;
     min-width: 0;
     border: 1px solid var(--accounting-due-header-border);
+    border-top: none;
     border-radius: 10px;
-    overflow: hidden;
+    overflow: visible;
     background: #fff;
 }
 
@@ -1276,20 +1277,28 @@
 .accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head {
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 3;
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: var(--accounting-due-head-min-height);
     padding: var(--accounting-due-head-pad-y) var(--accounting-due-head-pad-x);
     background: var(--accounting-due-header-bg) !important;
+    border-top: 1px solid var(--accounting-due-header-border);
     border-bottom: 1px solid var(--accounting-due-header-border);
-    box-shadow: inset -1px 0 0 var(--accounting-due-header-divider);
+    box-shadow:
+        inset -1px 0 0 var(--accounting-due-header-divider),
+        0 2px 6px rgba(15, 23, 42, 0.06);
     text-align: center;
 }
 
+.accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head:first-child {
+    border-top-left-radius: 9px;
+}
+
 .accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head:last-child {
-    box-shadow: none;
+    border-top-right-radius: 9px;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
 }
 
 .accounting-due-inbox-grid-cell--head.accounting-due-inbox-grid-cell--cb,
@@ -1571,7 +1580,13 @@
     max-height: min(calc(94vh - 16rem), 520px);
     overflow-y: auto;
     overflow-x: auto;
-    padding: 12px 16px 8px;
+    padding: 0 16px 8px;
+    -webkit-overflow-scrolling: touch;
+}
+
+#processAccountingDueModal .accounting-due-inbox-grid-row--head .accounting-due-inbox-grid-cell--head {
+    top: 0;
+    z-index: 5;
 }
 
 #processAccountingDueModal .accounting-due-inbox-toolbar {
