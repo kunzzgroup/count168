@@ -15,7 +15,7 @@ function mergeDailyMap(target, source) {
   });
 }
 
-/** Attach group ledger fields for Group Earning = Σ subsidiary earnings × account % + group net profit. */
+/** Attach group ledger fields for Group Earning = (subsidiary earnings + group net profit) × account %. */
 export function attachGroupAggregateEarningsFields(mergedSubsidiaries, groupLedgerPayload) {
   if (!mergedSubsidiaries) return mergedSubsidiaries;
   const subsidiaryTotal =
@@ -39,7 +39,7 @@ export function attachGroupAggregateEarningsFields(mergedSubsidiaries, groupLedg
 
 /**
  * After mergeGroupData for AP+IG group-ledger payloads, attach summed group earnings
- * so KPI uses computeGroupAggregateEarningsAmount (not netProfit × ownership %).
+ * so KPI uses computeGroupAggregateEarningsAmount (net profit × viewer group ownership %).
  */
 export function finalizeMergedGroupLedgerDashboard(merged, groupLedgerPayloads) {
   if (!merged || !groupLedgerPayloads?.length) return merged;
