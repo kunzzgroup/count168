@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { MAINTENANCE_LIST_ROW_HEIGHT } from "./maintenanceListRowMetrics.js";
 
 /** Only shrink scrollbar progressively when the list is long enough to matter. */
 const DEFAULT_PROGRESSIVE_MIN_ROWS = 60;
@@ -61,7 +62,7 @@ export function useProgressiveScrollExtent({
   scrollRef,
   actualTotalH,
   rowCount,
-  rowHeightEstimate = 52,
+  rowHeightEstimate = MAINTENANCE_LIST_ROW_HEIGHT,
   resetDeps = [],
   minRows = DEFAULT_PROGRESSIVE_MIN_ROWS,
   initialViewportMultiplier = DEFAULT_INITIAL_VIEWPORT_MULTIPLIER,

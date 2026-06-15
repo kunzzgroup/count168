@@ -89,8 +89,8 @@ body.domain-page .domain-react-page .table-container {
  * 并重置 label 为块级（Tailwind preflight 关闭时 label 默认为 inline，易与输入框挤在同一行/重叠）。
  */
 body.ec-auth-shell .domain-form-modal-backdrop {
-    --dfm-selected-item-height: 34px;
-    --dfm-selected-item-gap: 5px;
+    --dfm-selected-item-height: 40px;
+    --dfm-selected-item-gap: 6px;
     --dfm-selected-action-height: 22px;
     --dfm-row1-control-height: 34px;
     --dfm-selected-visible-rows: 9;
@@ -376,12 +376,22 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list > .company-item {
-    min-height: 34px !important;
-    height: 34px !important;
-    margin: 0 0 5px 0 !important;
-    padding: 0 8px !important;
-    column-gap: 8px !important;
+    display: grid !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: var(--dfm-selected-item-height) !important;
+    height: var(--dfm-selected-item-height) !important;
+    max-height: var(--dfm-selected-item-height) !important;
+    margin: 0 0 var(--dfm-selected-item-gap) 0 !important;
+    padding: 6px 10px !important;
+    column-gap: 10px !important;
+    row-gap: 6px !important;
+    grid-template-columns: auto minmax(72px, 1fr) auto auto !important;
+    border: 1px solid var(--color-border) !important;
     border-radius: 6px !important;
+    background-color: var(--color-surface) !important;
+    box-shadow: var(--shadow-row-surface) !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item-left > span {
@@ -534,25 +544,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list {
     font-size: var(--text-base) !important;
 }
 
-/* Selected Companies 行 — 对齐图一：左公司名｜中区日期｜右 Set / Remove */
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list>.company-item {
-    display: grid !important;
-    align-items: center !important;
-    box-sizing: border-box !important;
-    width: 100% !important;
-    min-height: 44px !important;
-    margin: 0 0 8px 0 !important;
-    padding: 8px 14px !important;
-    column-gap: 14px !important;
-    row-gap: 6px !important;
-    grid-template-columns: auto minmax(72px, 1fr) auto auto !important;
-    border: 1px solid var(--color-border) !important;
-    border-radius: 8px !important;
-    background-color: var(--color-surface) !important;
-    box-shadow: var(--shadow-row-surface) !important;
-}
-
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list>.company-item:last-child {
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list > .company-item:last-child {
     margin-bottom: 0 !important;
 }
 

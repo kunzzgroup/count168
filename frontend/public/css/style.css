@@ -16,6 +16,10 @@
 
 body.bg {
     color-scheme: light;
+    /* 强制黑色 I 形鼠标，避免 Windows 深色/高对比度下系统光标变白 */
+    --login-input-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Crect x='11' y='3' width='2' height='18' fill='%23000'/%3E%3Crect x='7' y='3' width='10' height='2' fill='%23000'/%3E%3Crect x='7' y='19' width='10' height='2' fill='%23000'/%3E%3C/svg%3E")
+        12 12,
+        text;
     font-family: var(--font-ui, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
     background: url('/images/count_bg.png') center/cover no-repeat;
     min-height: 100vh;
@@ -264,6 +268,12 @@ body.bg::before {
     color: var(--login-bg-end);
     font-size: 15px;
     z-index: 2;
+    pointer-events: none;
+}
+
+body.bg .sc-login-input-row,
+body.bg .login-container .input-group {
+    cursor: var(--login-input-cursor);
 }
 
 /* LoginPage (.sc-login-input) + 二级密码 / reset (.login-container .input-group input) */
@@ -285,6 +295,7 @@ body.bg .login-container .input-group input {
     /* Windows 深色模式 / 高对比度下，浅色输入框的插入符可能渲染成白色条块 */
     color-scheme: light;
     caret-color: var(--login-text, #333333);
+    cursor: var(--login-input-cursor);
 }
 
 body.bg .sc-login-input {
