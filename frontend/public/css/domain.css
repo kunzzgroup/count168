@@ -1113,13 +1113,21 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-wrap {
     display: block;
     width: 100%;
     min-width: 0;
+    height: 43px;
+    contain: layout style;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-wrap input[type="password"],
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-wrap input[type="text"] {
     width: 100% !important;
     max-width: 100% !important;
+    height: 43px !important;
+    min-height: 43px !important;
+    max-height: 43px !important;
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
     padding-right: 42px !important;
+    line-height: 1.4 !important;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-wrap input.dfm-password-masked {
@@ -1131,7 +1139,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-wrap input.dfm-pass
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle {
     position: absolute;
-    top: 50%;
+    top: 6px;
     right: 8px;
     display: inline-flex;
     align-items: center;
@@ -1145,17 +1153,32 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle {
     background: transparent;
     color: var(--color-text-caption, #6b7280);
     cursor: pointer;
-    transform: translateY(-50%);
     flex-shrink: 0;
     touch-action: manipulation;
     transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle svg {
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle-icon {
+    position: relative;
     display: block;
     width: 18px;
     height: 18px;
     flex-shrink: 0;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle-icon svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    width: 18px;
+    height: 18px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle-icon svg.is-active {
+    opacity: 1;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-password-toggle:hover {
