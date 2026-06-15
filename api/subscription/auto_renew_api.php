@@ -89,13 +89,23 @@ try {
         $accounts = auto_renew_list_c168_accounts($pdo, $c168Pk);
         $companyCode = trim((string) ($input['company_code'] ?? ''));
         $defaultFrom = null;
+        $defaultTo = null;
         if ($companyCode !== '' && $c168Pk > 0) {
-            $defaultFrom = auto_renew_resolve_default_from_account($pdo, $c168Pk, $companyCode);
+            $defaultTo = auto_renew_resolve_default_to_account($pdo, $c168Pk);
+            $defaultFrom = auto_renew_resolve_default_from_account(
+                $pdo,
+                $c168Pk,
+                $companyCode,
+                (int) ($defaultTo ?? 0)
+            );
+        } elseif ($c168Pk > 0) {
+            $defaultTo = auto_renew_resolve_default_to_account($pdo, $c168Pk);
         }
         session_write_close();
         auto_renew_json_response(true, 'success', [
             'accounts' => $accounts,
             'default_from_account_id' => $defaultFrom,
+            'default_to_account_id' => $defaultTo,
         ]);
     }
 
@@ -136,7 +146,7 @@ try {
             session_write_close();
             auto_renew_json_response(false, 'Invalid request_id', null, 400);
         }
-        $row = auto_renew_delete($pdo, $requestId, $_SESSION);
+        $row = auto_renew_delete($pdo, $requestId, $_SESSION, $input);
         session_write_close();
         auto_renew_json_response(true, 'Renewal deleted', $row);
     }

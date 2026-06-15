@@ -20,6 +20,7 @@ import {
 } from "../lib/dashboardEarnings.js";
 import { DASHBOARD_EARNINGS_PIE_MIN_ANGLE } from "../lib/dashboardConstants.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
+import { DashboardAnimatedValue } from "./DashboardAnimatedValue.jsx";
 import { EarningsPieSectorTooltip } from "./EarningsPieSectorTooltip.jsx";
 
 export function DashboardEarningsSummary({
@@ -282,7 +283,7 @@ export function DashboardEarningsSummary({
       ? companyEarningsTotal
       : summaryEarningsValue;
   const showPieCenterBadge = isCompanyBreakdownView
-    ? companyBreakdownRows.length > 1
+    ? companyBreakdownRows.length > 0
     : showMultiCurrencyBreakdown;
 
   return (
@@ -332,7 +333,15 @@ export function DashboardEarningsSummary({
               {currencyCode ? ` · ${currencyCode}` : ""}
             </span>
             <div className="dashboard-summary-hero-value">
-              {summaryEarningsLoading ? "…" : formatCurrency(heroValue)}
+              {summaryEarningsLoading ? (
+                "…"
+              ) : (
+                <DashboardAnimatedValue
+                  value={heroValue}
+                  active={!summaryEarningsLoading}
+                  className="dashboard-summary-hero-value-anim"
+                />
+              )}
             </div>
             {!isCompanyBreakdownView && summaryConversionNote && (
               <span className="dashboard-summary-hero-conversion-note">{summaryConversionNote}</span>

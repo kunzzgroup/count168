@@ -963,6 +963,41 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     white-space: nowrap;
 }
 
+.dashboard-animated-value {
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-animated-value.is-rising {
+    animation: dashboard-value-rise 0.9s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
+.dashboard-animated-value.is-falling {
+    animation: dashboard-value-fall 0.9s var(--ease-out-soft, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+
+@keyframes dashboard-value-rise {
+    from {
+        transform: translateY(0.35em);
+        opacity: 0.55;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes dashboard-value-fall {
+    from {
+        transform: translateY(-0.35em);
+        opacity: 0.55;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
 .kpi-card-foot {
     display: flex;
     flex-wrap: wrap;

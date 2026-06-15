@@ -71,8 +71,17 @@ export function buildTransactionBootSnapshot(u, rows, { queryCompany = null } = 
   return bootSnap;
 }
 
+function ownerCompaniesSig(rows) {
+  return (rows || [])
+    .map((c) => [c.id, c.company_id ?? "", c.group_id ?? ""].join(":"))
+    .sort()
+    .join("|");
+}
+
 export function mergeOwnerCompaniesIntoSnapshot(prevSnap, rows, u) {
   if (!prevSnap || !Array.isArray(rows) || rows.length === 0) return prevSnap;
+  const sig = ownerCompaniesSig(rows);
+  if (prevSnap._ownerCompaniesSig === sig) return prevSnap;
   const effective = prevSnap.companyId ?? u?.company_id ?? rows[0]?.id ?? null;
   const snapRows = dedupeOwnerCompaniesByCode(rows, effective ?? u?.company_id);
   const next = {
@@ -80,6 +89,7 @@ export function mergeOwnerCompaniesIntoSnapshot(prevSnap, rows, u) {
     snapCompanies: snapRows,
     snapCompaniesAll: rows,
     snapGroupIds: sortedUniqueGroupIds(snapRows),
+    _ownerCompaniesSig: sig,
   };
   next.companyStripRows = buildTransactionCompanyStripRows(next, {
     selectedGroup: next.selectedGroup,

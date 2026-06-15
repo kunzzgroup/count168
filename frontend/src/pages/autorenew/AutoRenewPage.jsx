@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { canAccessC168AutoRenew } from "../../utils/company/loginScope.js";
+import {
+  AUTO_RENEW_PENDING_CHANGED_EVENT,
+  syncAutoRenewPendingCount,
+} from "../../utils/autoRenew/autoRenewPendingSync.js";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getAutoRenewText } from "../../translateFile/pages/autoRenewTranslate.js";
 import { DASHBOARD_I18N } from "../../translateFile/shell/dashboardTranslate.js";
@@ -17,8 +21,8 @@ import {
   rejectAutoRenew,
 } from "./autoRenewLogic.js";
 import {
+  clearAutoRenewListCache,
   consumeAutoRenewPrefetch,
-  peekAutoRenewListCache,
   rememberAutoRenewListCache,
 } from "./autoRenewRoutePrefetch.js";
 import {
@@ -28,10 +32,12 @@ import {
 import {
   AUTO_RENEW_PAGE_SIZE,
   canApproveRow,
+  canDeleteRow,
   filterAutoRenewRows,
-  formatAutoRenewAccountLabel,
+  formatAutoRenewRowAccountLabel,
   formatRemainingForRow,
   formatSubmitterAt,
+  getAutoRenewApproveDisabledReason,
   getRowDraftValues,
   paginateRows,
   periodToLabelKey,
@@ -112,24 +118,6 @@ function normalizeEntityListSnapshot(data) {
   };
 }
 
-function AccountSelect({ value, accounts, placeholder, disabled, onChange }) {
-  return (
-    <select
-      className="auto-renew-inline-select"
-      value={value || ""}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : "")}
-    >
-      <option value="">{placeholder}</option>
-      {(accounts || []).map((acc) => (
-        <option key={acc.id} value={acc.id}>
-          {formatAutoRenewAccountLabel(acc)}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 export default function AutoRenewPage() {
   const navigate = useNavigate();
   const { me, sessionReady } = useAuthSession();
@@ -156,6 +144,10 @@ export default function AutoRenewPage() {
   const [tabPendingCounts, setTabPendingCounts] = useState({ company: 0, group: 0 });
   const [entityTab, setEntityTab] = useState("company");
   const [statusFilter, setStatusFilter] = useState("pending");
+  const tabPendingCountsRef = useRef(tabPendingCounts);
+  tabPendingCountsRef.current = tabPendingCounts;
+  const statusFilterRef = useRef(statusFilter);
+  statusFilterRef.current = statusFilter;
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState("expiration");
   const [sortDirection, setSortDirection] = useState("asc");
@@ -199,10 +191,12 @@ export default function AutoRenewPage() {
   const applyTabPendingCounts = useCallback((data) => {
     const tpc = data?.tab_pending_counts;
     if (!tpc) return;
-    setTabPendingCounts({
+    const next = {
       company: Number(tpc?.company) || 0,
       group: Number(tpc?.group) || 0,
-    });
+    };
+    tabPendingCountsRef.current = next;
+    setTabPendingCounts(next);
   }, []);
 
   const storeEntityListData = useCallback(
@@ -229,40 +223,34 @@ export default function AutoRenewPage() {
     [],
   );
 
+  const invalidateListCaches = useCallback(() => {
+    clearAutoRenewListCache({ dateFrom, dateTo });
+  }, [dateFrom, dateTo]);
+
   const handleEntityTabChange = useCallback(
     (tab) => {
       if (tab === entityTab) return;
-      const memorySnapshot = entitySnapshots[tab];
-      const cached = memorySnapshot || peekAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: tab });
-      if (cached && !memorySnapshot) {
-        storeEntityListData(tab, cached);
-      }
-      setListRefreshing(!cached);
+      invalidateListCaches();
+      setEntitySnapshots((prev) => ({ ...prev, [tab]: null }));
       setEntityTab(tab);
       setRowDrafts({});
+      bootFetchedListKeyRef.current = null;
+      setListRefreshing(true);
     },
-    [dateFrom, dateTo, entitySnapshots, entityTab, statusFilter, storeEntityListData],
+    [entityTab, invalidateListCaches],
   );
 
   const handleStatusFilterChange = useCallback(
     (next) => {
       if (next === statusFilter) return;
+      invalidateListCaches();
       setEntitySnapshots({ company: null, group: null });
       setRowDrafts({});
       setStatusFilter(next);
-
-      const cached = peekAutoRenewListCache(next, { dateFrom, dateTo, entityType: entityTab });
-      if (cached) {
-        storeEntityListData(entityTab, cached, { resetDrafts: true, status: next });
-        setListRefreshing(false);
-        bootFetchedListKeyRef.current = listFetchKey(next, { dateFrom, dateTo }, entityTab);
-        return;
-      }
-
       bootFetchedListKeyRef.current = null;
       setListRefreshing(true);
     },
-    [dateFrom, dateTo, entityTab, listFetchKey, statusFilter, storeEntityListData],
+    [invalidateListCaches, statusFilter],
   );
 
   const fetchList = useCallback(async () => {
@@ -289,6 +277,15 @@ export default function AutoRenewPage() {
       }
     }
   }, [dateFrom, dateTo, notify, statusFilter, storeEntityListData, t]);
+
+  const refreshListAfterMutation = useCallback(async () => {
+    invalidateListCaches();
+    setEntitySnapshots((prev) => ({ ...prev, [entityTabRef.current]: null }));
+    bootFetchedListKeyRef.current = null;
+    setListRefreshing(true);
+    await fetchList();
+    void syncAutoRenewPendingCount();
+  }, [fetchList, invalidateListCaches]);
 
   useEffect(() => {
     if (!sessionReady || !me) return;
@@ -349,26 +346,43 @@ export default function AutoRenewPage() {
     if (bootLoading || !sessionReady || !me) return;
 
     let cancelled = false;
-    const prefetchEntity = (entity) => {
-      if (peekAutoRenewListCache(statusFilter, { dateFrom, dateTo, entityType: entity })) {
-        return Promise.resolve();
-      }
-      return fetchAutoRenewApprovals(statusFilter, { dateFrom, dateTo, entityType: entity })
+    const prefetchEntity = (entity) =>
+      fetchAutoRenewApprovals(statusFilter, { dateFrom, dateTo, entityType: entity })
         .then((data) => {
           if (cancelled) return;
+          if (entity !== entityTabRef.current) {
+            applyTabPendingCounts(data);
+            return;
+          }
           storeEntityListData(entity, data);
         })
         .catch(() => {});
-    };
 
-    void Promise.all([prefetchEntity("company"), prefetchEntity("group")]);
+    void prefetchEntity(entityTab === "company" ? "group" : "company");
 
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, dateFrom, dateTo, me, sessionReady, statusFilter, storeEntityListData]);
+  }, [applyTabPendingCounts, bootLoading, dateFrom, dateTo, me, sessionReady, statusFilter, storeEntityListData]);
 
   useEffect(() => () => listFetchAbortRef.current?.abort(), []);
+
+  useEffect(() => {
+    if (!sessionReady || !me?.has_c168_auto_renew_access) return;
+
+    const onPendingChanged = (event) => {
+      if (statusFilterRef.current !== "pending") return;
+      const count = Number(event.detail?.pendingCount);
+      if (!Number.isFinite(count)) return;
+      const localTotal =
+        (tabPendingCountsRef.current.company || 0) + (tabPendingCountsRef.current.group || 0);
+      if (count === localTotal) return;
+      void refreshListAfterMutation();
+    };
+
+    window.addEventListener(AUTO_RENEW_PENDING_CHANGED_EVENT, onPendingChanged);
+    return () => window.removeEventListener(AUTO_RENEW_PENDING_CHANGED_EVENT, onPendingChanged);
+  }, [me?.has_c168_auto_renew_access, refreshListAfterMutation, sessionReady]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -405,13 +419,14 @@ export default function AutoRenewPage() {
         toAccountId,
       });
       notify(t("approvedSuccess"), "success");
-      await fetchList();
+      await refreshListAfterMutation();
     } catch (err) {
       notify(t("approveFailed", { message: err.message }), "error");
+      await refreshListAfterMutation();
     } finally {
       setBusyRequestId(null);
     }
-  }, [approveConfirmRow, busyRequestId, canEditGlobal, feeSettings, fetchList, notify, rowDrafts, t]);
+  }, [approveConfirmRow, busyRequestId, canEditGlobal, feeSettings, notify, refreshListAfterMutation, rowDrafts, t]);
 
   const handleReject = useCallback((row) => {
     if (!canEditGlobal || busyRequestId || row.is_payment_deleted) return;
@@ -432,36 +447,42 @@ export default function AutoRenewPage() {
         return next;
       });
       notify(t("rejectedSuccess"), "success");
-      await fetchList();
+      await refreshListAfterMutation();
     } catch (err) {
       notify(t("rejectFailed", { message: err.message }), "error");
+      await refreshListAfterMutation();
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, fetchList, notify, rejectConfirmRow, t]);
+  }, [busyRequestId, canEditGlobal, notify, refreshListAfterMutation, rejectConfirmRow, t]);
 
   const handleDelete = useCallback((row) => {
-    if (!canEditGlobal || busyRequestId || !row.can_delete) return;
+    if (!canEditGlobal || busyRequestId || !canDeleteRow(row)) return;
     setDeleteConfirmRow(row);
   }, [busyRequestId, canEditGlobal]);
 
   const confirmDeleteRow = useCallback(async () => {
     const row = deleteConfirmRow;
-    if (!row || !canEditGlobal || busyRequestId || !row.can_delete) return;
+    if (!row || !canEditGlobal || busyRequestId || !canDeleteRow(row)) return;
     setDeleteConfirmRow(null);
 
     setBusyRequestId(row.request_id);
     try {
-      await deleteAutoRenew({ requestId: row.request_id });
+      await deleteAutoRenew({
+        requestId: row.request_id,
+        transactionId: row.transaction_id,
+        entityType: row.entity_type,
+      });
       invalidateTransactionListCache("auto_renew_delete");
       notify(t("deletedSuccess"), "success");
-      await fetchList();
+      await refreshListAfterMutation();
     } catch (err) {
       notify(t("deleteFailed", { message: err.message }), "error");
+      await refreshListAfterMutation();
     } finally {
       setBusyRequestId(null);
     }
-  }, [busyRequestId, canEditGlobal, deleteConfirmRow, fetchList, notify, t]);
+  }, [busyRequestId, canEditGlobal, deleteConfirmRow, notify, refreshListAfterMutation, t]);
 
   const handleSort = useCallback(
     (column) => {
@@ -521,13 +542,16 @@ export default function AutoRenewPage() {
     if (row.status === "pending" && canEditGlobal) {
       const displayPrice = resolveAutoRenewDisplayPrice(row, rowDrafts, feeSettings);
       const approveEnabled = canApproveRow(row, rowDrafts, feeSettings) && busyRequestId !== row.request_id;
+      const approveDisabledReason = approveEnabled
+        ? undefined
+        : getAutoRenewApproveDisabledReason(row, rowDrafts, feeSettings, t);
       return (
         <div className="auto-renew-action-btns">
           <button
             type="button"
             className="auto-renew-btn auto-renew-btn-primary auto-renew-btn--sm"
             disabled={!approveEnabled}
-            title={displayPrice <= 0 ? t("noPriceHint") : undefined}
+            title={approveDisabledReason || undefined}
             onClick={() => handleApprove(row)}
           >
             {busyRequestId === row.request_id ? t("processing") : t("approve")}
@@ -544,7 +568,7 @@ export default function AutoRenewPage() {
       );
     }
 
-    if (row.status === "approved" && row.can_delete && canEditGlobal) {
+    if (row.status === "approved" && canDeleteRow(row) && canEditGlobal) {
       return (
         <button
           type="button"
@@ -770,34 +794,14 @@ export default function AutoRenewPage() {
                           )}
                         </div>
                         <div className="card-item auto-renew-col-control">
-                          {isPendingEditable ? (
-                            <AccountSelect
-                              value={draft.fromAccountId}
-                              accounts={accounts}
-                              placeholder={t("selectFromAccount")}
-                              disabled={rowBusy}
-                              onChange={(val) => updateDraft(row.request_id, { fromAccountId: val })}
-                            />
-                          ) : (
-                            <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                              {formatAutoRenewAccountLabel(accounts.find((a) => a.id === row.from_account_id)) || "-"}
-                            </span>
-                          )}
+                          <span className="auto-renew-cell-readonly auto-renew-table-muted">
+                            {formatAutoRenewRowAccountLabel(row, draft.fromAccountId, accounts, "from") || "-"}
+                          </span>
                         </div>
                         <div className="card-item auto-renew-col-control">
-                          {isPendingEditable ? (
-                            <AccountSelect
-                              value={draft.toAccountId}
-                              accounts={accounts}
-                              placeholder={t("selectToAccount")}
-                              disabled={rowBusy}
-                              onChange={(val) => updateDraft(row.request_id, { toAccountId: val })}
-                            />
-                          ) : (
-                            <span className="auto-renew-cell-readonly auto-renew-table-muted">
-                              {formatAutoRenewAccountLabel(accounts.find((a) => a.id === row.to_account_id)) || "-"}
-                            </span>
-                          )}
+                          <span className="auto-renew-cell-readonly auto-renew-table-muted">
+                            {formatAutoRenewRowAccountLabel(row, draft.toAccountId, accounts, "to") || "-"}
+                          </span>
                         </div>
                         <div className="card-item auto-renew-col-control auto-renew-col-control--status">{renderStatusCell(row)}</div>
                         {showSubmitterColumn ? (

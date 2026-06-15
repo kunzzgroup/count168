@@ -22,6 +22,7 @@ import ResendModal from "./components/ResendModal.jsx";
 import MaintenanceCalendarPopup from "../../components/MaintenanceCalendarPopup.jsx";
 import { bankProcessFrequencyNormalized, normalizeBankProcessStatus, isoToDmy } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
+import { useBankProcessFilterCollapse } from "./hooks/useBankProcessFilterCollapse.js";
 
 export default function BankProcessListPage() {
   const {
@@ -247,6 +248,45 @@ export default function BankProcessListPage() {
   const hasActiveFilters = showInactive || showAll || showOfficial || showEInvoice || showBlock;
   const isSearchCollapsed = isNarrowToolbar && !searchExpanded && !search.trim();
 
+  const {
+    toolbarTopRowRef,
+    toolbarPrimaryRef,
+    deleteActionsRef,
+    filterMeasureRef,
+    isFilterCollapsed,
+  } = useBankProcessFilterCollapse({
+    remeasureDeps: [lang, isSearchCollapsed, searchExpanded, search, dateFrom, dateTo],
+  });
+
+  const filterChipsProps = useMemo(
+    () => ({
+      t,
+      showInactive,
+      setShowInactive,
+      showAll,
+      setShowAll,
+      showOfficial,
+      setShowOfficial,
+      showEInvoice,
+      setShowEInvoice,
+      showBlock,
+      setShowBlock,
+    }),
+    [
+      t,
+      showInactive,
+      setShowInactive,
+      showAll,
+      setShowAll,
+      showOfficial,
+      setShowOfficial,
+      showEInvoice,
+      setShowEInvoice,
+      showBlock,
+      setShowBlock,
+    ],
+  );
+
   const hasDeletableRows = useMemo(
     () => visibleRows.some((r) => normalizeBankProcessStatus(r.status) === "inactive" && !r.has_transactions),
     [visibleRows],
@@ -273,7 +313,11 @@ export default function BankProcessListPage() {
   }, [searchExpanded, isNarrowToolbar]);
 
   useEffect(() => {
-    if (!filterPanelOpen) return undefined;
+    if (!isFilterCollapsed) setFilterPanelOpen(false);
+  }, [isFilterCollapsed]);
+
+  useEffect(() => {
+    if (!filterPanelOpen || !isFilterCollapsed) return undefined;
     const onDoc = (e) => {
       if (filterToolbarRef.current?.contains(e.target)) return;
       setFilterPanelOpen(false);
@@ -287,7 +331,7 @@ export default function BankProcessListPage() {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, [filterPanelOpen]);
+  }, [filterPanelOpen, isFilterCollapsed]);
 
   const handleFilterToggleClick = (e) => {
     if (e.detail > 1) return;
@@ -336,8 +380,15 @@ export default function BankProcessListPage() {
         <div className="action-buttons-container">
           <div className="action-buttons">
             <div className="bank-process-toolbar-main">
-              <div className="bank-process-toolbar-top-row">
-                <div className="action-controls-row bank-process-toolbar-primary" style={{ display: "flex", alignItems: "center" }}>
+              <div ref={toolbarTopRowRef} className="bank-process-toolbar-top-row">
+                <div
+                  ref={toolbarPrimaryRef}
+                  className={[
+                    "action-controls-row bank-process-toolbar-primary",
+                    isFilterCollapsed ? "bank-process-toolbar-primary--filter-collapsed" : "",
+                  ].filter(Boolean).join(" ")}
+                  style={{ display: "flex", alignItems: "center" }}
+                >
                   <button type="button" className="btn btn-add bank-process-toolbar-add" onClick={openAdd} title={t("addProcess")}>
                     <AddProcessIcon />
                     {t("addProcess")}
@@ -415,68 +466,64 @@ export default function BankProcessListPage() {
                     )}
                   </div>
                   <div ref={filterToolbarRef} className="bank-process-filter-toolbar-slot">
-                    <button
-                      type="button"
-                      className={[
-                        "bank-process-filter-toggle",
-                        "bank-process-filter-toggle--icon-only",
-                        filterPanelOpen ? "is-open" : "",
-                        hasActiveFilters ? "has-active-filters" : "",
-                      ].filter(Boolean).join(" ")}
-                      aria-expanded={filterPanelOpen}
-                      aria-controls="bank-process-filter-panel"
-                      aria-label={t("filter")}
-                      title={hasActiveFilters ? t("filterDoubleClickClear") : t("filter")}
-                      onClick={handleFilterToggleClick}
-                      onDoubleClick={handleFilterToggleDoubleClick}
-                    >
-                      <span className="bank-process-filter-toggle__icon" aria-hidden="true">
-                        <svg fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M4.25 6h15.5c.41 0 .64.47.4.8L14 13.2v5.3a.75.75 0 0 1-1.1.67l-2.9-1.45a.75.75 0 0 1-.4-.67v-4.3L3.85 6.8a.75.75 0 0 1 .4-1.2z" />
-                        </svg>
-                      </span>
-                      <span className="bank-process-filter-toggle__label">{t("filter")}</span>
-                    </button>
-                    <div
-                      id="bank-process-filter-panel"
-                      className={[
-                        "bank-process-filter-panel",
-                        "bank-process-filter-panel--dropdown",
-                        filterPanelOpen ? "is-open" : "",
-                      ].filter(Boolean).join(" ")}
-                    >
-                      <div className="bank-process-filter-dropdown">
-                        <BankProcessFilterChips
-                          t={t}
-                          layout="dropdown"
-                          showInactive={showInactive}
-                          setShowInactive={setShowInactive}
-                          showAll={showAll}
-                          setShowAll={setShowAll}
-                          showOfficial={showOfficial}
-                          setShowOfficial={setShowOfficial}
-                          showEInvoice={showEInvoice}
-                          setShowEInvoice={setShowEInvoice}
-                          showBlock={showBlock}
-                          setShowBlock={setShowBlock}
-                        />
-                        {hasActiveFilters ? (
-                          <button
-                            type="button"
-                            className="bank-process-filter-dropdown__clear"
-                            onClick={() => {
-                              clearBankProcessFilters();
-                              setFilterPanelOpen(false);
-                            }}
-                          >
-                            {t("filterClearAll")}
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
+                    {isFilterCollapsed ? (
+                      <>
+                        <button
+                          type="button"
+                          className={[
+                            "bank-process-filter-toggle",
+                            "bank-process-filter-toggle--icon-only",
+                            filterPanelOpen ? "is-open" : "",
+                            hasActiveFilters ? "has-active-filters" : "",
+                          ].filter(Boolean).join(" ")}
+                          aria-expanded={filterPanelOpen}
+                          aria-controls="bank-process-filter-panel"
+                          aria-label={t("filter")}
+                          title={hasActiveFilters ? t("filterDoubleClickClear") : t("filter")}
+                          onClick={handleFilterToggleClick}
+                          onDoubleClick={handleFilterToggleDoubleClick}
+                        >
+                          <span className="bank-process-filter-toggle__icon" aria-hidden="true">
+                            <svg fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M4.25 6h15.5c.41 0 .64.47.4.8L14 13.2v5.3a.75.75 0 0 1-1.1.67l-2.9-1.45a.75.75 0 0 1-.4-.67v-4.3L3.85 6.8a.75.75 0 0 1 .4-1.2z" />
+                            </svg>
+                          </span>
+                          <span className="bank-process-filter-toggle__label">{t("filter")}</span>
+                        </button>
+                        <div
+                          id="bank-process-filter-panel"
+                          className={[
+                            "bank-process-filter-panel",
+                            "bank-process-filter-panel--dropdown",
+                            filterPanelOpen ? "is-open" : "",
+                          ].filter(Boolean).join(" ")}
+                        >
+                          <div className="bank-process-filter-dropdown">
+                            <BankProcessFilterChips {...filterChipsProps} layout="dropdown" />
+                            {hasActiveFilters ? (
+                              <button
+                                type="button"
+                                className="bank-process-filter-dropdown__clear"
+                                onClick={() => {
+                                  clearBankProcessFilters();
+                                  setFilterPanelOpen(false);
+                                }}
+                              >
+                                {t("filterClearAll")}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <BankProcessFilterChips {...filterChipsProps} layout="inline" />
+                    )}
+                  </div>
+                  <div ref={filterMeasureRef} className="bank-process-filter-measure" aria-hidden="true">
+                    <BankProcessFilterChips {...filterChipsProps} layout="inline" />
                   </div>
                 </div>
-                <div className="user-toolbar-actions-right bank-process-toolbar-actions-right">
+                <div ref={deleteActionsRef} className="user-toolbar-actions-right bank-process-toolbar-actions-right">
                   <button type="button" className="btn btn-delete" id="processDeleteSelectedBtn" disabled={!selectedIds.size} title={t("delete")} onClick={deleteSelected}>{t("delete")}</button>
                 </div>
               </div>
