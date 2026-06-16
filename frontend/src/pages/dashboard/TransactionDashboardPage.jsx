@@ -68,7 +68,6 @@ export default function TransactionDashboardPage() {
             kpiCompareLabel={page.kpiCompareLabel}
             kpiFooter={page.kpiFooter}
             loading={page.loading}
-            dashboardData={page.dashboardData}
           />
 
           <div

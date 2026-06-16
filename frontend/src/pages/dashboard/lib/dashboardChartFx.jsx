@@ -1,6 +1,6 @@
 /** Kunzzgroup KPI chart: static area gradients + zero-baseline draw helpers. */
 
-export const DASHBOARD_TREND_DRAW_DURATION_MS = 1000;
+export const DASHBOARD_TREND_DRAW_DURATION_MS = 650;
 
 const TREND_CHART_METRIC_KEYS = ["profit", "expenses", "netProfit", "earnings"];
 

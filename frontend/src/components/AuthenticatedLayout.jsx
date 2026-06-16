@@ -785,6 +785,9 @@ export default function AuthenticatedLayout() {
     prefetchRouteModule(path);
     if (path !== "/dashboard" && canAccessPermission(me, "home")) {
       prefetchRouteModule("/dashboard");
+      void import("../pages/dashboard/dashboardRoutePrefetch.js").then(({ warmDashboardRouteCache }) => {
+        warmDashboardRouteCache({ me });
+      });
     }
 
     const runCompanies = () => {

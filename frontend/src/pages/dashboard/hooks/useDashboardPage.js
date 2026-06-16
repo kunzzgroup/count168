@@ -104,6 +104,7 @@ import {
   resolveOwnerDashboardGroupIds,
   isVirtualGroupLinkCompanyRow,
   fetchOwnerCompaniesAll,
+  getCachedOwnerCompanies,
   fetchOwnerGroupsAll,
   pickDefaultSubsidiaryForGroup,
   resolveCompanyWhenClosingGroup,
@@ -473,8 +474,29 @@ function isBenignFetchError(err) {
   return msg.includes("abort");
 }
 
+/** Sync hydrate filter + companies so first paint can resolve scope/cache before bootstrap. */
+function readInitialDashboardPageState() {
+  try {
+    if (typeof sessionStorage === "undefined") {
+      return { companies: [], filter: null };
+    }
+    const persisted = readPersistedDashboardGcFilter();
+    return {
+      companies: getCachedOwnerCompanies() || [],
+      filter: {
+        companyId: persisted.groupOnly || persisted.groupAllMode ? null : persisted.companyId,
+        selectedGroup: persisted.groupsAllMode ? null : persisted.selectedGroup,
+        groupsAllMode: persisted.groupsAllMode,
+        groupAllMode: persisted.groupAllMode,
+      },
+    };
+  } catch {
+    return { companies: [], filter: null };
+  }
+}
+
 /** Coalesce rapid scope updates (company pick + currency hydrate) into one load. */
-const LOAD_DASHBOARD_DEBOUNCE_MS = 200;
+const LOAD_DASHBOARD_DEBOUNCE_MS = 0;
 const DASHBOARD_STALE_RETRY_MAX = 3;
 const EARNINGS_INCOMPLETE_RETRY_MAX = 5;
 const PREFETCH_WAIT_MAX_ROUNDS = 40;
@@ -570,12 +592,13 @@ function resolveDashboardActiveCurrency({
 export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const { me, sessionReady } = useAuthSession();
   const location = useLocation();
+  const initialPageState = useMemo(() => readInitialDashboardPageState(), []);
   const [loadError, setLoadError] = useState("");
-  const [companies, setCompanies] = useState([]);
-  const [companyId, setCompanyId] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [groupsAllMode, setGroupsAllMode] = useState(false);
-  const [groupAllMode, setGroupAllMode] = useState(false);
+  const [companies, setCompanies] = useState(initialPageState.companies);
+  const [companyId, setCompanyId] = useState(initialPageState.filter?.companyId ?? null);
+  const [selectedGroup, setSelectedGroup] = useState(initialPageState.filter?.selectedGroup ?? null);
+  const [groupsAllMode, setGroupsAllMode] = useState(Boolean(initialPageState.filter?.groupsAllMode));
+  const [groupAllMode, setGroupAllMode] = useState(Boolean(initialPageState.filter?.groupAllMode));
   const [mergedSubsetIds, setMergedSubsetIds] = useState(null);
   const [currencies, setCurrencies] = useState([]);
   const [currencyCode, setCurrencyCode] = useState("");
@@ -1284,6 +1307,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       ].join("|"),
     [me?.user_id, me?.id, me?.login_scope, me?.login_identifier]
   );
+
+  /** Returning visit: unlock loadDashboard before async bootstrap finishes. */
+  useLayoutEffect(() => {
+    if (!sessionReady || !me || !bootstrapSessionKey) return undefined;
+    bindDashboardSessionCache(bootstrapSessionKey);
+    if (isDashboardSessionBootstrapped(bootstrapSessionKey) && !bootstrapGcOnceRef.current) {
+      bootstrapGcOnceRef.current = true;
+      setGcBootstrapReady(true);
+    }
+    return undefined;
+  }, [sessionReady, me, bootstrapSessionKey]);
 
   useEffect(() => {
     if (!sessionReady || !bootstrapSessionKey) return undefined;
@@ -5405,15 +5439,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useLayoutEffect(() => {
     if (!sessionReady || !me) return undefined;
     const persisted = readPersistedDashboardGcFilter();
-    primeDashboardFromCache({
+    const scope = {
       companyId: persisted.groupOnly || persisted.groupAllMode ? null : persisted.companyId,
       selectedGroup: persisted.groupsAllMode ? null : persisted.selectedGroup,
       groupsAllMode: persisted.groupsAllMode,
       groupAllMode: persisted.groupAllMode,
       mergedSubsetIds: null,
-    });
+    };
+    primeCurrenciesFromCache({ ...scope, clearOnMiss: false });
+    primeDashboardFromCache(scope);
     return undefined;
-  }, [sessionReady, me?.user_id, me?.id, primeDashboardFromCache]);
+  }, [sessionReady, me?.user_id, me?.id, primeCurrenciesFromCache, primeDashboardFromCache]);
 
   /** On scope change after bootstrap, hydrate from cache before network. */
   useEffect(() => {
@@ -6240,7 +6276,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const earningsPanelStable =
     currencies.length <= 1 ||
     (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
-  const kpiLoading = scopeDataPending || (loading && !dashboardData);
+  const kpiLoading = loading && !dashboardData;
 
   useLayoutEffect(() => {
     if (

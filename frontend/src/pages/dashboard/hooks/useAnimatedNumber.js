@@ -5,7 +5,7 @@ function easeOutCubic(t) {
 }
 
 /** Interpolate a money metric from 0 toward `target` (positive rises, negative falls). */
-export function useAnimatedNumber(target, { duration = 900, active = true } = {}) {
+export function useAnimatedNumber(target, { duration = 550, active = true } = {}) {
   const safeTarget = Number.isFinite(Number(target)) ? Number(target) : 0;
   const [value, setValue] = useState(active ? 0 : safeTarget);
   const rafRef = useRef(0);
