@@ -1,7 +1,6 @@
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
 import {
@@ -39,7 +38,8 @@ import "../../../public/css/global-13inch.css";
 import "../../../public/css/datacapture.css";
 
 import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
-import { readCaptureSessionMeta } from "./lib/dataCaptureStorage.js";
+import { readCaptureSessionMeta, shouldRestoreFromUrl, loadCaptureSession, captureSessionMatchesScope } from "./lib/dataCaptureStorage.js";
+import { callDataCaptureRuntime, getDataCaptureState } from "./lib/dataCaptureRuntime.js";
 import {
   dataCaptureScopeCacheKey,
   dataCaptureScopeIsReady,
@@ -73,12 +73,12 @@ import { useDataCaptureGrid } from "./hooks/useDataCaptureGrid.js";
 import { useDataCaptureGridInteraction } from "./hooks/useDataCaptureGridInteraction.js";
 import { useDataCapturePaste } from "./hooks/useDataCapturePaste.js";
 import { useDataCaptureCaptureType } from "./hooks/useDataCaptureCaptureType.js";
-import { useDataCaptureFormatPaste } from "./hooks/useDataCaptureFormatPaste.js";
-import { useDataCaptureFormatDisplay } from "./hooks/useDataCaptureFormatDisplay.js";
+import { useDataCaptureFormat } from "./hooks/useDataCaptureFormat.js";
 import { useDataCaptureGlobalShims } from "./hooks/useDataCaptureGlobalShims.js";
 import { useDataCaptureGridHeader } from "./hooks/useDataCaptureGridHeader.js";
 import { useDataCaptureLegacyChrome } from "./hooks/useDataCaptureLegacyChrome.js";
 import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
+import { useDataCapturePageLifecycle } from "./hooks/useDataCapturePageLifecycle.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
 import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
@@ -86,40 +86,6 @@ import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
 import { getDataCaptureText } from "../../translateFile/pages/dataCaptureTranslate.js";
 import { DataCaptureProvider } from "./context/DataCaptureContext.jsx";
-
-/** Avoid hanging when a script tag already fired `load` before listeners attach (SPA revisit / cache). */
-function loadScriptOnce(src, isAlreadyLoaded) {
-  return new Promise((resolve, reject) => {
-    const clean = src.split(/[?#]/)[0];
-    const finish = (node) => {
-      node.dataset.loaded = "1";
-      resolve();
-    };
-    const nodes = document.querySelectorAll("script[src]");
-    for (let i = 0; i < nodes.length; i += 1) {
-      const n = nodes[i];
-      const ns = n.getAttribute("src") || "";
-      if (ns.split(/[?#]/)[0] !== clean) continue;
-      if (n.dataset.loaded === "1") {
-        resolve();
-        return;
-      }
-      n.addEventListener("load", () => finish(n), { once: true });
-      n.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
-      queueMicrotask(() => {
-        if (n.dataset.loaded === "1") return;
-        if (typeof isAlreadyLoaded === "function" && isAlreadyLoaded()) finish(n);
-      });
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = false;
-    s.onload = () => finish(s);
-    s.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-    document.head.appendChild(s);
-  });
-}
 
 class DataCaptureErrorBoundary extends Component {
   constructor(props) {
@@ -395,8 +361,7 @@ function DataCapturePageContent() {
   useDataCaptureGrid(scriptsReady, groupOnlyTable);
   useDataCaptureGridInteraction(scriptsReady);
   useDataCapturePaste();
-  useDataCaptureFormatPaste();
-  useDataCaptureFormatDisplay();
+  useDataCaptureFormat();
   useDataCaptureGlobalShims();
 
   useEffect(() => {
@@ -423,6 +388,16 @@ function DataCapturePageContent() {
     };
   }, [scriptsReady]);
   useDataCaptureGridHeader();
+
+  useDataCapturePageLifecycle({
+    engineReady: scriptsReady,
+    groupOnlyGrid: groupPayrollUi,
+    applyCaptureType: (type) => callDataCaptureRuntime("applyCaptureType", type),
+    ensureGridReady: (rows, cols) => callDataCaptureRuntime("ensureGridReady", rows, cols),
+    refreshSubmittedProcesses: () => callDataCaptureRuntime("refreshSubmittedProcesses"),
+    applyGroupOnlyPersistedForm: () => callDataCaptureRuntime("applyGroupOnlyPersistedForm"),
+    recomputeSubmitState: () => callDataCaptureRuntime("recomputeSubmitState"),
+  });
 
   const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
 
@@ -735,11 +710,16 @@ function DataCapturePageContent() {
   useEffect(() => {
     const scopeKey = dataCaptureScopeCacheKey(captureScope);
     const prev = prevScopeKeyRef.current;
-    if (prev != null && prev !== scopeKey) {
-      window.__DC_CLEAR_CAPTURE_TABLE__?.();
-      window.__DC_REACT_FORM_RESET__?.();
+    if (
+      prev != null &&
+      prev !== scopeKey &&
+      !getDataCaptureState().isRestoring &&
+      !shouldRestoreFromUrl()
+    ) {
+      callDataCaptureRuntime("clearCaptureTable");
+      callDataCaptureRuntime("reactFormReset");
       window.selectedDescriptions = [];
-      void window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
+      void callDataCaptureRuntime("refreshSubmittedProcesses");
     }
     prevScopeKeyRef.current = scopeKey || null;
   }, [captureScope]);
@@ -807,7 +787,7 @@ function DataCapturePageContent() {
   }, [isCompanySelected, form.clearCompanyOnlyFields]);
 
   useEffect(() => {
-    if (window.__DC_IS_RESTORING__) return;
+    if (getDataCaptureState().isRestoring) return;
     if (new URLSearchParams(window.location.search).get("restore") === "1") return;
     const id = form.selectedProcess?.id;
     if (!id) return;
@@ -820,18 +800,26 @@ function DataCapturePageContent() {
 
   useEffect(() => {
     if (bootLoading) return;
-    if (window.__DC_IS_RESTORING__) return;
-    if (new URLSearchParams(window.location.search).get("restore") === "1") return;
+    if (getDataCaptureState().isRestoring) return;
     const prev = prevProcessCompanyRef.current;
     if (prev === undefined) {
       prevProcessCompanyRef.current = companyId;
       return;
     }
     if (prev !== companyId) {
-      form.clearProcessSelection?.();
+      const session = dataCaptureScopeIsReady(captureScope) ? loadCaptureSession(captureScope) : null;
+      const restoringBack =
+        shouldRestoreFromUrl() ||
+        (prev == null &&
+          companyId != null &&
+          session?.processData &&
+          captureSessionMatchesScope(session, captureScope));
+      if (!restoringBack) {
+        form.clearProcessSelection?.();
+      }
       prevProcessCompanyRef.current = companyId;
     }
-  }, [bootLoading, companyId, form.clearProcessSelection]);
+  }, [bootLoading, companyId, captureScope, form.clearProcessSelection]);
 
   useEffect(() => {
     if (isCompanySelected) {
@@ -884,11 +872,11 @@ function DataCapturePageContent() {
     const syncCompanyContext = async () => {
       if (!dataCaptureScopeIsReady(captureScope)) return;
       try {
-        await window.__DC_REFRESH_SUBMITTED_PROCESSES__?.();
+        await callDataCaptureRuntime("refreshSubmittedProcesses");
       } catch {
         /* ignore */
       }
-      window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+      callDataCaptureRuntime("recomputeSubmitState");
     };
 
     if (scriptsBootedRef.current) {
@@ -903,24 +891,16 @@ function DataCapturePageContent() {
 
     (async () => {
       try {
-        await loadScriptOnce(buildApiUrl("js/decimal.min.js"), () => typeof window.Decimal !== "undefined");
-        await loadScriptOnce(buildApiUrl("js/money-decimal.js"), () => typeof window.MoneyDecimal !== "undefined");
+        const { rows, cols } = resolveDataCaptureGridDimensions(groupPayrollUi);
+        await callDataCaptureRuntime("ensureGridReady", rows, cols);
         if (!alive) return;
-        if (typeof window.__DC_SPA_INIT_PAGE__ === "function") {
-          await window.__DC_SPA_INIT_PAGE__();
-        }
-        if (!alive) return;
-        if (typeof window.__DC_ENSURE_GRID_READY__ === "function") {
-          const { rows, cols } = resolveDataCaptureGridDimensions(groupPayrollUi);
-          window.__DC_ENSURE_GRID_READY__(rows, cols);
-        }
         scriptsBootedRef.current = true;
-        if (alive) setScriptsReady(true);
+        setScriptsReady(true);
         await syncCompanyContext();
       } catch (e) {
         if (!alive) return;
         console.error(e);
-        setEngineError("Failed to load Data Capture scripts.");
+        setEngineError("Failed to initialize Data Capture.");
         scriptsBootedRef.current = false;
         setScriptsReady(false);
       }

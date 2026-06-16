@@ -24,6 +24,11 @@ import { isGroupPayrollCaptureSession } from "../../../utils/company/c168Capture
 import { captureTableSnapshot } from "../lib/dataCaptureTableSnapshot.js";
 import { toDataCaptureWordFieldCase } from "../lib/dataCaptureFormRules.js";
 import { parseRemoveWordChips, serializeRemoveWordChips } from "../lib/dataCaptureRemoveWordChips.js";
+import {
+  getDataCaptureState,
+  registerDataCaptureRuntime,
+  unregisterDataCaptureRuntime,
+} from "../lib/dataCaptureRuntime.js";
 
 function normalizeRemoveWordValue(value) {
   return serializeRemoveWordChips(parseRemoveWordChips(value));
@@ -206,7 +211,7 @@ export function useDataCaptureFormEngine(
   useLayoutEffect(() => {
     const url = new URLSearchParams(window.location.search);
     if (url.get("restore") === "1") {
-      window.__DC_IS_RESTORING__ = true;
+      getDataCaptureState().isRestoring = true;
       if (Array.isArray(restoredProcessData?.descriptions)) {
         window.selectedDescriptions = [...restoredProcessData.descriptions];
       }
@@ -226,7 +231,7 @@ export function useDataCaptureFormEngine(
     if (typeof window.syncProcessDataMapFromApiData === "function") {
       window.syncProcessDataMapFromApiData(rows);
     }
-    const restoring = window.__DC_IS_RESTORING__ === true;
+    const restoring = getDataCaptureState().isRestoring === true;
     if (!preserveSelection && !restoring) {
       setSelectedProcess(null);
       setCurrencyId("");
@@ -298,7 +303,7 @@ export function useDataCaptureFormEngine(
 
   useEffect(() => {
     if (!companyId || !applyCompanyOnlyFields) return;
-    if (window.__DC_IS_RESTORING__) return;
+    if (getDataCaptureState().isRestoring) return;
     const url = new URLSearchParams(window.location.search);
     if (url.get("restore") === "1") return;
     void reloadProcessesForDate(captureDate, { preserveSelection: false });
@@ -474,10 +479,117 @@ export function useDataCaptureFormEngine(
     clearProcessSelection();
   }, [clearProcessSelection, reloadProcessesForDate]);
 
+  const syncRestoreFormFromProcessData = useCallback(async (processData) => {
+    if (!processData) return;
+    if (processData.date) setCaptureDate(processData.date);
+    if (processData.currency) setCurrencyId(String(processData.currency));
+    if (processData.removeWord != null) setRemoveWord(normalizeRemoveWordValue(processData.removeWord));
+    if (processData.replaceWordFrom != null) {
+      setReplaceFrom(toDataCaptureWordFieldCase(processData.replaceWordFrom));
+    }
+    if (processData.replaceWordTo != null) setReplaceTo(toDataCaptureWordFieldCase(processData.replaceWordTo));
+    if (processData.remark != null) setRemark(toDataCaptureWordFieldCase(processData.remark));
+    if (processData.descriptions && Array.isArray(processData.descriptions)) {
+      window.selectedDescriptions = [...processData.descriptions];
+      setDescriptionDisplay(processData.descriptions.join(", "));
+    }
+
+    const pid = processData.process != null ? String(processData.process) : "";
+    const pcode = String(processData.processCode || processData.process_code || "").trim();
+    const pname = String(processData.processName || processData.process_name || "").trim();
+    const rows = processRowsRef.current || [];
+
+    if (!applyCompanyOnlyFieldsRef.current && isGroupPayrollCaptureSession(processData)) {
+      const prefsKey =
+        processData.payrollPrefsKey ||
+        processData.captureSelectedGroup ||
+        selectedGroupRef.current;
+      const proc =
+        selectedProcessFromGroupOnlySession(processData) ||
+        selectedProcessFromGroupOnlyPrefs(readGroupOnlyProcessPrefs(prefsKey));
+      if (proc) setSelectedProcess(proc);
+      if (proc?.id) {
+        saveGroupOnlyProcessPrefs(prefsKey, {
+          process: proc.id,
+          processCode: proc.process_id || pcode,
+          processName: proc.displayText || pname,
+          currency: processData.currency,
+          date: processData.date,
+        });
+      }
+    } else {
+      let row = null;
+      if (pid) row = rows.find((r) => String(r.id) === pid);
+      if (!row && pcode) row = rows.find((r) => String(r.process_id || "").trim() === pcode);
+      if (!row && pname) row = rows.find((r) => displayTextFromProcessRow(r) === pname);
+
+      if (row) {
+        setSelectedProcess({
+          id: String(row.id),
+          displayText: displayTextFromProcessRow(row),
+          process_id: row.process_id,
+          description_name: row.description_name || null,
+        });
+      } else if (pid || pcode || pname) {
+        setSelectedProcess({
+          id: pid || pcode,
+          displayText: pname || pcode || pid,
+          process_id: pcode,
+          description_name: null,
+        });
+      }
+    }
+
+    setTimeout(() => {
+      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
+    }, 0);
+  }, []);
+
+  const reloadProcesses = useCallback(async () => {
+    const restoring = getDataCaptureState().isRestoring === true;
+    const d =
+      captureDate || document.getElementById("capture_date")?.value || getLocalDateString();
+    await reloadProcessesForDate(d, { preserveSelection: restoring });
+  }, [captureDate, reloadProcessesForDate]);
+
+  const clearGroupOnlyProcessForTableReset = useCallback(() => {
+    setSelectedProcess(null);
+    setCurrencyId("");
+  }, []);
+
+  const applyGroupOnlyPrefsForGroupRef = useRef(() => {});
+
+  const formRuntimeRef = useRef({});
+  formRuntimeRef.current = {
+    syncRestoreFormFromProcessData,
+    reloadProcesses,
+    applyReactFormDefaults,
+    clearGroupOnlyProcessForTableReset,
+    applyGroupOnlyPersistedForm: async () => {
+      if (applyCompanyOnlyFieldsRef.current) return;
+      const prefsKey = payrollPrefsKeyRef.current;
+      if (prefsKey) applyGroupOnlyPrefsForGroupRef.current(prefsKey);
+    },
+  };
+
+  useLayoutEffect(() => {
+    const api = {
+      syncRestoreForm: (processData) => formRuntimeRef.current.syncRestoreFormFromProcessData(processData),
+      reloadProcesses: () => formRuntimeRef.current.reloadProcesses(),
+      reactFormReset: () => formRuntimeRef.current.applyReactFormDefaults(),
+      clearGroupOnlyProcessForTableReset: () =>
+        formRuntimeRef.current.clearGroupOnlyProcessForTableReset(),
+      applyGroupOnlyPersistedForm: () => formRuntimeRef.current.applyGroupOnlyPersistedForm(),
+    };
+    registerDataCaptureRuntime(api);
+    return () => unregisterDataCaptureRuntime(Object.keys(api));
+  }, []);
+
   const windowHooksRef = useRef({});
   windowHooksRef.current = {
     reloadProcessesForDate,
     applyReactFormDefaults,
+    syncRestoreFormFromProcessData,
   };
 
   useLayoutEffect(() => {
@@ -508,67 +620,7 @@ export function useDataCaptureFormEngine(
     };
 
     window.__DC_POST_LEGACY_RESTORE_SYNC__ = async (processData) => {
-      if (!processData) return;
-      if (processData.date) setCaptureDate(processData.date);
-      if (processData.currency) setCurrencyId(String(processData.currency));
-      if (processData.removeWord != null) setRemoveWord(normalizeRemoveWordValue(processData.removeWord));
-      if (processData.replaceWordFrom != null) setReplaceFrom(toDataCaptureWordFieldCase(processData.replaceWordFrom));
-      if (processData.replaceWordTo != null) setReplaceTo(toDataCaptureWordFieldCase(processData.replaceWordTo));
-      if (processData.remark != null) setRemark(toDataCaptureWordFieldCase(processData.remark));
-      if (processData.descriptions && Array.isArray(processData.descriptions)) {
-        window.selectedDescriptions = [...processData.descriptions];
-        setDescriptionDisplay(processData.descriptions.join(", "));
-      }
-
-      const pid = processData.process != null ? String(processData.process) : "";
-      const pcode = String(processData.processCode || processData.process_code || "").trim();
-      const pname = String(processData.processName || processData.process_name || "").trim();
-      const rows = processRowsRef.current || [];
-
-      if (!applyCompanyOnlyFieldsRef.current && isGroupPayrollCaptureSession(processData)) {
-        const prefsKey =
-          processData.payrollPrefsKey ||
-          processData.captureSelectedGroup ||
-          selectedGroupRef.current;
-        const proc =
-          selectedProcessFromGroupOnlySession(processData) ||
-          selectedProcessFromGroupOnlyPrefs(readGroupOnlyProcessPrefs(prefsKey));
-        if (proc) setSelectedProcess(proc);
-        if (proc?.id) {
-          saveGroupOnlyProcessPrefs(prefsKey, {
-            process: proc.id,
-            processCode: proc.process_id || pcode,
-            processName: proc.displayText || pname,
-            currency: processData.currency,
-            date: processData.date,
-          });
-        }
-      } else {
-        let row = null;
-        if (pid) row = rows.find((r) => String(r.id) === pid);
-        if (!row && pcode) row = rows.find((r) => String(r.process_id || "").trim() === pcode);
-        if (!row && pname) row = rows.find((r) => displayTextFromProcessRow(r) === pname);
-
-        if (row) {
-          setSelectedProcess({
-            id: String(row.id),
-            displayText: displayTextFromProcessRow(row),
-            process_id: row.process_id,
-            description_name: row.description_name || null,
-          });
-        } else if (pid || pcode || pname) {
-          setSelectedProcess({
-            id: pid || pcode,
-            displayText: pname || pcode || pid,
-            process_id: pcode,
-            description_name: null,
-          });
-        }
-      }
-
-      setTimeout(() => {
-        if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-      }, 0);
+      await windowHooksRef.current.syncRestoreFormFromProcessData(processData);
     };
 
     return () => {
@@ -607,7 +659,7 @@ export function useDataCaptureFormEngine(
 
   useEffect(() => {
     if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
-    if (window.__DC_IS_RESTORING__) return;
+    if (getDataCaptureState().isRestoring) return;
     persistGroupOnlyFormPrefs();
   }, [applyCompanyOnlyFields, selectedGroup, selectedProcess?.id, currencyId, captureDate, persistGroupOnlyFormPrefs]);
 
@@ -616,7 +668,7 @@ export function useDataCaptureFormEngine(
     if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
     if (!scriptsReady) return;
     if (!normalizeGroupOnlyDraftCurrencyId(currencyId)) return;
-    if (window.__DC_IS_RESTORING__) return;
+    if (getDataCaptureState().isRestoring) return;
     try {
       if (new URLSearchParams(window.location.search).get("restore") === "1") return;
     } catch {
@@ -634,19 +686,7 @@ export function useDataCaptureFormEngine(
     captureScope,
   ]);
 
-  const applyGroupOnlyPrefsForGroupRef = useRef(applyGroupOnlyPrefsForGroup);
   applyGroupOnlyPrefsForGroupRef.current = applyGroupOnlyPrefsForGroup;
-
-  useLayoutEffect(() => {
-    window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__ = async () => {
-      if (applyCompanyOnlyFieldsRef.current) return;
-      const prefsKey = payrollPrefsKeyRef.current;
-      if (prefsKey) applyGroupOnlyPrefsForGroupRef.current(prefsKey);
-    };
-    return () => {
-      delete window.__DC_APPLY_GROUP_ONLY_PERSISTED_FORM__;
-    };
-  }, []);
 
   return {
     dateOptions,

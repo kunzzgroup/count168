@@ -9,7 +9,13 @@ import { findMainRowForTemplate, findMainRowForSubTemplatePure } from "./summary
 import { fetchSummaryTemplates } from "../lib/summaryApi.js";
 import { normalizeSummaryIdProductText } from "../lib/summaryIdProductUtils.js";
 import { restoreRateValuesOnRows } from "../lib/summaryRefreshRestore.js";
-import { resolveSummaryRefreshSavedState } from "../lib/summaryRefreshStatePure.js";
+import {
+  applySavedRefreshRowToModel,
+  buildSummaryRowStableKey,
+  buildSummaryRowStableKeyBase,
+  buildSummaryRowStableKeyFromSaved,
+  resolveSummaryRefreshSavedState,
+} from "../lib/summaryRefreshStatePure.js";
 import {
   isParentRowSuppressed,
   isRowSuppressed,
@@ -256,47 +262,72 @@ function sortRowsByRowIndex(rows) {
   return result;
 }
 
+function findSavedRowForRestore(row, savedRows, usedSaved) {
+  if (!row || !Array.isArray(savedRows) || savedRows.length === 0) return null;
+
+  const rowKey = row.key ? String(row.key).trim() : "";
+  if (rowKey) {
+    const byKey = savedRows.find((s) => s.rowKey === rowKey && !usedSaved.has(s));
+    if (byKey) return byKey;
+  }
+
+  const stableKey = buildSummaryRowStableKey(row);
+  const stableBase = buildSummaryRowStableKeyBase(row);
+
+  for (const saved of savedRows) {
+    if (usedSaved.has(saved)) continue;
+    const savedStable = buildSummaryRowStableKeyFromSaved(saved);
+    if (savedStable === stableKey || savedStable === stableBase) return saved;
+    const savedBase = savedStable.split("\t").slice(0, 7).join("\t");
+    if (savedBase === stableBase) return saved;
+  }
+
+  const normId = normalizeSummaryIdProductText(row.idProduct);
+  const rowAccountId = row.accountId != null ? String(row.accountId) : "";
+  const rowAccount = String(row.account || "").trim();
+  const rowFv = row.formulaVariant != null ? String(row.formulaVariant) : "";
+  const rowSub = row.subOrder != null ? Number(row.subOrder) : 0;
+
+  for (const saved of savedRows) {
+    if (usedSaved.has(saved)) continue;
+    if (normalizeSummaryIdProductText(saved.idProduct || saved.id_product) !== normId) continue;
+
+    const savedAccountId = saved.accountId != null ? String(saved.accountId) : "";
+    if (rowAccountId && savedAccountId && rowAccountId !== savedAccountId) continue;
+    if (
+      !rowAccountId &&
+      !savedAccountId &&
+      rowAccount &&
+      saved.account &&
+      rowAccount !== String(saved.account).trim()
+    ) {
+      continue;
+    }
+
+    const savedFv = saved.formulaVariant != null ? String(saved.formulaVariant) : "";
+    if (rowFv && savedFv && rowFv !== savedFv) continue;
+
+    const savedSub = saved.subOrder != null ? Number(saved.subOrder) : 0;
+    if (row.productType === "sub" && savedSub !== rowSub) continue;
+
+    return saved;
+  }
+
+  return null;
+}
+
 function mergeServerStateRows(rows, serverRows, suppressed = loadSuppressedRowKeys()) {
   const byKey = new Map(rows.map((r) => [r.key, r]));
-  for (const saved of serverRows) {
-    const match = rows.find(
-      (r) =>
-        r.rowIndex === saved.displayOrder &&
-        normalizeSummaryIdProductText(r.idProduct) ===
-          normalizeSummaryIdProductText(saved.idProduct || saved.id_product || "")
-    );
-    if (!match || isRowSuppressed(match, suppressed)) continue;
-    byKey.set(match.key, {
-      ...match,
-      account: saved.account || saved.accountDisplay || match.account,
-      accountId: saved.accountId != null ? String(saved.accountId) : match.accountId,
-      currency: saved.currency || saved.currencyDisplay || match.currency,
-      currencyId: saved.currencyId != null ? String(saved.currencyId) : match.currencyId,
-      formulaOperators: saved.formulaOperators || match.formulaOperators,
-      formulaDisplay: saved.formula || saved.formulaDisplay || match.formulaDisplay,
-      sourceColumns: saved.sourceColumns || saved.columns || match.sourceColumns,
-      sourcePercent: saved.sourcePercent != null ? String(saved.sourcePercent) : match.sourcePercent,
-      enableSourcePercent:
-        saved.enableSourcePercent != null
-          ? !!saved.enableSourcePercent
-          : match.enableSourcePercent,
-      clickedColumns: saved.clickedColumns || match.clickedColumns,
-      inputMethod: saved.inputMethod || match.inputMethod,
-      enableInputMethod:
-        saved.enableInputMethod != null ? !!saved.enableInputMethod : match.enableInputMethod,
-      originalDescription: saved.originalDescription || saved.descriptionMain || match.originalDescription,
-      baseProcessedAmount:
-        saved.baseProcessedAmount != null
-          ? String(saved.baseProcessedAmount)
-          : match.baseProcessedAmount,
-      processedAmount:
-        saved.processedAmount != null ? String(saved.processedAmount) : match.processedAmount,
-      rateChecked: !!saved.rateChecked,
-      rateValue: saved.rateValue != null ? String(saved.rateValue) : match.rateValue,
-      selectChecked: saved.selectChecked != null ? !!saved.selectChecked : match.selectChecked,
-      subOrder: saved.subOrder != null ? Number(saved.subOrder) : match.subOrder,
-    });
+  const usedSaved = new Set();
+
+  for (const row of rows) {
+    if (isRowSuppressed(row, suppressed)) continue;
+    const saved = findSavedRowForRestore(row, serverRows, usedSaved);
+    if (!saved) continue;
+    usedSaved.add(saved);
+    byKey.set(row.key, applySavedRefreshRowToModel(row, saved));
   }
+
   return rows.map((r) => byKey.get(r.key) || r);
 }
 

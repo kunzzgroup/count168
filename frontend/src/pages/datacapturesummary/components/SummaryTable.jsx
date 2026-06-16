@@ -27,7 +27,7 @@ export default function SummaryTable({
 
   return (
     <>
-      <div className="table-wrapper">
+      <div className="summary-table-x-scroll">
         <table className="summary-table" id="summaryTable">
           <thead>
             <tr>

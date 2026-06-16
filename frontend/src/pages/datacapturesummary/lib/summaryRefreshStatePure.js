@@ -1,9 +1,161 @@
-import { summaryRefreshStorageKeys } from "./summaryRefreshStorageKeys.js";
+import { dataCaptureScopeCacheCompanyKey } from "../../datacapture/lib/dataCaptureScope.js";
+import { normalizeSummaryIdProductText } from "./summaryIdProductUtils.js";
+import { summaryRefreshStorageKeys, RATE_BY_PRODUCT_KEY } from "./summaryRefreshStorageKeys.js";
 import {
   SUMMARY_FORMULA_SOURCE_KEY,
   SUMMARY_RATE_VALUES_KEY,
 } from "./summaryStorage.js";
-import { RATE_BY_PRODUCT_KEY } from "./summaryRefreshStorageKeys.js";
+
+const SNAPSHOT_PREFIX = "summaryRowsSnapshot";
+
+function summaryAccountIdentity(row) {
+  const accountId = row?.accountId != null ? String(row.accountId).trim() : "";
+  const account = String(row?.account || "").trim().replace(/\s+/g, " ");
+  if (accountId) return `id:${accountId}`;
+  return `txt:${account}`;
+}
+
+/**
+ * Stable row key for refresh restore (aligned with legacy getSummaryRowStableKey).
+ * idProduct \t rowIndex \t account \t currency \t productType \t subOrder \t formulaVariant [\t rowKey]
+ */
+export function buildSummaryRowStableKey(row) {
+  const idProduct = normalizeSummaryIdProductText(row?.idProduct || "");
+  const rowIndex = row?.rowIndex != null && row.rowIndex !== "" ? String(row.rowIndex) : "";
+  const currency = String(row?.currency || "").trim().replace(/\s+/g, " ");
+  const productType = row?.productType || "main";
+  const subOrder =
+    row?.subOrder != null && row.subOrder !== ""
+      ? String(row.subOrder)
+      : productType === "sub"
+        ? "1"
+        : "0";
+  const formulaVariant =
+    row?.formulaVariant != null && row.formulaVariant !== "" ? String(row.formulaVariant) : "";
+  const base = [idProduct, rowIndex, summaryAccountIdentity(row), currency, productType, subOrder, formulaVariant].join(
+    "\t"
+  );
+  const rowKey = row?.key ? String(row.key).trim() : "";
+  return rowKey ? `${base}\t${rowKey}` : base;
+}
+
+/** Build stable key from a saved refresh payload row. */
+export function buildSummaryRowStableKeyFromSaved(saved) {
+  if (!saved || typeof saved !== "object") return "";
+  if (saved.stableKey && String(saved.stableKey).trim() !== "") {
+    return String(saved.stableKey).trim();
+  }
+  return buildSummaryRowStableKey({
+    idProduct: saved.idProduct || saved.id_product,
+    rowIndex: saved.displayOrder ?? saved.rowIndex,
+    accountId: saved.accountId,
+    account: saved.account || saved.accountDisplay,
+    currency: saved.currency || saved.currencyDisplay,
+    productType: saved.productType || "main",
+    subOrder: saved.subOrder,
+    formulaVariant: saved.formulaVariant,
+    key: saved.rowKey,
+  });
+}
+
+/** Base stable key without trailing React row.key segment. */
+export function buildSummaryRowStableKeyBase(row) {
+  const full = buildSummaryRowStableKey(row);
+  const parts = full.split("\t");
+  if (parts.length > 7) {
+    return parts.slice(0, 7).join("\t");
+  }
+  return full;
+}
+
+function summarySessionSnapshotKey(captureScope, processMeta) {
+  const scopeTag = dataCaptureScopeCacheCompanyKey(captureScope) ?? "global";
+  const pid = processMeta?.processId != null ? String(processMeta.processId) : "none";
+  const pcode = processMeta?.processCode
+    ? String(processMeta.processCode).trim().toUpperCase()
+    : "none";
+  return `${SNAPSHOT_PREFIX}:${scopeTag}:${pid}:${pcode}`;
+}
+
+/** Persist full row models for same-tab F5 (sessionStorage). */
+export function saveSummarySessionSnapshot(rows, processMeta, captureScope = null) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  try {
+    const payload = {
+      processId: processMeta?.processId ?? null,
+      processCode: processMeta?.processCode ?? "",
+      savedAt: Date.now(),
+      rows,
+    };
+    sessionStorage.setItem(summarySessionSnapshotKey(captureScope, processMeta), JSON.stringify(payload));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+/** Load session snapshot when process matches. */
+export function loadSummarySessionSnapshot(captureScope, processMeta = null) {
+  try {
+    const raw = sessionStorage.getItem(summarySessionSnapshotKey(captureScope, processMeta));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.rows) || parsed.rows.length === 0) return null;
+    if (processMeta?.processId != null && parsed.processId != null) {
+      if (String(parsed.processId) !== String(processMeta.processId)) return null;
+    }
+    if (processMeta?.processCode && parsed.processCode) {
+      if (
+        String(parsed.processCode).trim().toUpperCase() !==
+        String(processMeta.processCode).trim().toUpperCase()
+      ) {
+        return null;
+      }
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearSummarySessionSnapshot(captureScope, processMeta = null) {
+  try {
+    sessionStorage.removeItem(summarySessionSnapshotKey(captureScope, processMeta));
+  } catch {
+    /* ignore */
+  }
+}
+
+function serializeRowForRefresh(row) {  return {
+    rowKey: row.key,
+    stableKey: buildSummaryRowStableKey(row),
+    idProduct: row.idProduct,
+    displayOrder: row.rowIndex,
+    account: row.account,
+    accountId: row.accountId,
+    currency: row.currency,
+    currencyId: row.currencyId,
+    formula: row.formulaDisplay || row.formula,
+    formulaDisplay: row.formulaDisplay || row.formula,
+    formulaOperators: row.formulaOperators,
+    sourceColumns: row.sourceColumns,
+    sourcePercent: row.sourcePercent,
+    enableSourcePercent: row.enableSourcePercent,
+    clickedColumns: row.clickedColumns,
+    inputMethod: row.inputMethod,
+    enableInputMethod: row.enableInputMethod,
+    originalDescription: row.originalDescription,
+    processedAmount: row.processedAmount,
+    baseProcessedAmount: row.baseProcessedAmount,
+    rateChecked: row.rateChecked,
+    rateValue: row.rateValue,
+    selectChecked: row.selectChecked,
+    productType: row.productType,
+    subOrder: row.subOrder,
+    formulaVariant: row.formulaVariant,
+    templateId: row.templateId,
+    templateKey: row.templateKey,
+  };
+}
 
 /** Persist formula/rate draft before refresh or back (pure React, scoped by capture ledger). */
 export function saveSummaryRefreshStatePure(rows, processMeta, captureScope = null) {
@@ -15,24 +167,7 @@ export function saveSummaryRefreshStatePure(rows, processMeta, captureScope = nu
       rowOrder: rows.map((r) => r.key),
       rows: rows
         .filter((r) => r.account?.trim() || r.formulaOperators || r.formulaDisplay)
-        .map((row) => ({
-          idProduct: row.idProduct,
-          displayOrder: row.rowIndex,
-          account: row.account,
-          accountId: row.accountId,
-          currency: row.currency,
-          currencyId: row.currencyId,
-          formula: row.formulaDisplay || row.formula,
-          formulaOperators: row.formulaOperators,
-          sourcePercent: row.sourcePercent,
-          processedAmount: row.processedAmount,
-          baseProcessedAmount: row.baseProcessedAmount,
-          rateChecked: row.rateChecked,
-          rateValue: row.rateValue,
-          selectChecked: row.selectChecked,
-          productType: row.productType,
-          subOrder: row.subOrder,
-        })),
+        .map(serializeRowForRefresh),
     };
     localStorage.setItem(keys.formulaSource, JSON.stringify(payload));
 
@@ -42,19 +177,25 @@ export function saveSummaryRefreshStatePure(rows, processMeta, captureScope = nu
       if (!row.rateChecked && !row.rateValue) continue;
       const key = row.key;
       rateMap[key] = { checked: row.rateChecked, value: row.rateValue || "" };
+      const stableKey = buildSummaryRowStableKey(row);
+      if (stableKey) {
+        rateMap[stableKey] = rateMap[key];
+      }
       if (row.idProduct) {
         rateByProduct[row.idProduct] = { checked: row.rateChecked, value: row.rateValue || "" };
       }
     }
     localStorage.setItem(keys.rateValues, JSON.stringify(rateMap));
     localStorage.setItem(keys.rateByProduct, JSON.stringify(rateByProduct));
+
+    saveSummarySessionSnapshot(rows, processMeta, captureScope);
   } catch {
     /* ignore */
   }
 }
 
 /** Clear formula/rate refresh draft (fresh capture — avoid stale F5 restore). */
-export function clearSummaryRefreshDraftStorage(captureScope = null) {
+export function clearSummaryRefreshDraftStorage(captureScope = null, processMeta = null) {
   try {
     const keys = summaryRefreshStorageKeys(captureScope);
     localStorage.removeItem(keys.formulaSource);
@@ -63,6 +204,7 @@ export function clearSummaryRefreshDraftStorage(captureScope = null) {
     localStorage.removeItem(SUMMARY_FORMULA_SOURCE_KEY);
     localStorage.removeItem(SUMMARY_RATE_VALUES_KEY);
     localStorage.removeItem(RATE_BY_PRODUCT_KEY);
+    clearSummarySessionSnapshot(captureScope, processMeta);
   } catch {
     /* ignore */
   }
@@ -115,4 +257,43 @@ export function loadSummaryRefreshFormulaState(captureScope, processMeta = null)
     }
   }
   return null;
+}
+
+/** Merge one saved refresh row into a live row model. */
+export function applySavedRefreshRowToModel(row, saved) {
+  if (!row || !saved) return row;
+  const formulaDisplay = saved.formula || saved.formulaDisplay || row.formulaDisplay;
+  return {
+    ...row,
+    account: saved.account || saved.accountDisplay || row.account,
+    accountId: saved.accountId != null ? String(saved.accountId) : row.accountId,
+    currency: saved.currency || saved.currencyDisplay || row.currency,
+    currencyId: saved.currencyId != null ? String(saved.currencyId) : row.currencyId,
+    formulaOperators: saved.formulaOperators || row.formulaOperators,
+    formulaDisplay,
+    formula: formulaDisplay || row.formula,
+    sourceColumns: saved.sourceColumns || saved.columns || row.sourceColumns,
+    sourcePercent: saved.sourcePercent != null ? String(saved.sourcePercent) : row.sourcePercent,
+    enableSourcePercent:
+      saved.enableSourcePercent != null ? !!saved.enableSourcePercent : row.enableSourcePercent,
+    clickedColumns: saved.clickedColumns || row.clickedColumns,
+    inputMethod: saved.inputMethod || row.inputMethod,
+    enableInputMethod:
+      saved.enableInputMethod != null ? !!saved.enableInputMethod : row.enableInputMethod,
+    originalDescription:
+      saved.originalDescription || saved.descriptionMain || row.originalDescription,
+    baseProcessedAmount:
+      saved.baseProcessedAmount != null ? String(saved.baseProcessedAmount) : row.baseProcessedAmount,
+    processedAmount:
+      saved.processedAmount != null ? String(saved.processedAmount) : row.processedAmount,
+    rateChecked: saved.rateChecked != null ? !!saved.rateChecked : row.rateChecked,
+    rateValue: saved.rateValue != null ? String(saved.rateValue) : row.rateValue,
+    selectChecked: saved.selectChecked != null ? !!saved.selectChecked : row.selectChecked,
+    subOrder: saved.subOrder != null ? Number(saved.subOrder) : row.subOrder,
+    formulaVariant:
+      saved.formulaVariant != null ? Number(saved.formulaVariant) : row.formulaVariant,
+    templateId: saved.templateId != null ? Number(saved.templateId) : row.templateId,
+    templateKey: saved.templateKey || row.templateKey,
+    templateApplied: true,
+  };
 }

@@ -1,4 +1,6 @@
-/** Matches `convertBracketedToNegative` in `js/datacapture.js` (uses global MoneyDecimal). */
+import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
+
+/** Matches `convertBracketedToNegative` in `js/datacapture.js`. */
 export function convertBracketedToNegative(value) {
   if (!value || typeof value !== "string") return value;
 
@@ -20,8 +22,8 @@ export function convertBracketedToNegative(value) {
 
   const numberWithoutCommas = numberStr.replace(/,/g, "");
   try {
-    if (typeof window.MoneyDecimal?.toDecimal === "function") {
-      window.MoneyDecimal.toDecimal(numberWithoutCommas);
+    if (typeof MoneyDecimal?.toDecimal === "function") {
+      MoneyDecimal.toDecimal(numberWithoutCommas);
     }
     let formattedNumber = "";
     if (numberWithoutCommas.includes(".")) {
