@@ -65,7 +65,7 @@ export default function TransactionDashboardPage() {
           <DashboardKpiGrid
             i18n={i18n}
             kpi={page.kpi}
-            kpiCompareLabel={page.kpiCompareLabel}
+            kpiComparePeriodLabel={page.kpiComparePeriodLabel}
             kpiFooter={page.kpiFooter}
             loading={page.loading}
           />

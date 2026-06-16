@@ -1,6 +1,14 @@
 import { DashboardKpiCard } from "./DashboardKpiCard.jsx";
 
-export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loading }) {
+export function DashboardKpiGrid({
+  i18n,
+  kpi,
+  kpiComparePeriodLabel,
+  kpiFooter,
+  loading,
+}) {
+  const compareVsTemplate = i18n.kpiCompareVs;
+
   return (
     <div
       className={`dashboard-kpi-grid${kpi.showEarnings ? " dashboard-kpi-grid--with-earnings" : ""}`}
@@ -10,7 +18,8 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
         label={i18n.profit}
         value={kpi.profit}
         compare={kpi.comparisons?.profit}
-        compareLabel={kpiCompareLabel}
+        comparePeriodLabel={kpiComparePeriodLabel}
+        compareVsTemplate={compareVsTemplate}
         fallbackFoot={kpiFooter}
         loading={loading}
       />
@@ -19,7 +28,8 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
         label={i18n.expenses}
         value={kpi.expenses}
         compare={kpi.comparisons?.expenses}
-        compareLabel={kpiCompareLabel}
+        comparePeriodLabel={kpiComparePeriodLabel}
+        compareVsTemplate={compareVsTemplate}
         fallbackFoot={kpiFooter}
         loading={loading}
       />
@@ -28,7 +38,8 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
         label={i18n.netProfit}
         value={kpi.netProfit}
         compare={kpi.comparisons?.netProfit}
-        compareLabel={kpiCompareLabel}
+        comparePeriodLabel={kpiComparePeriodLabel}
+        compareVsTemplate={compareVsTemplate}
         fallbackFoot={kpiFooter}
         loading={loading}
       />
@@ -38,7 +49,8 @@ export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loadin
           label={i18n.earnings}
           value={kpi.kpiCardEarnings ?? kpi.earnings}
           compare={kpi.comparisons?.earnings}
-          compareLabel={kpiCompareLabel}
+          comparePeriodLabel={kpiComparePeriodLabel}
+          compareVsTemplate={compareVsTemplate}
           fallbackFoot={kpiFooter}
           loading={loading}
           id="earnings-card-wrapper"

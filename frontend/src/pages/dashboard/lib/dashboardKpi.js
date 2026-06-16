@@ -1,25 +1,80 @@
-const KPI_PCT_CAP = 999.9;
+/** |previous| below this → show × multiplier instead of %. */
+export const KPI_COMPARE_MIN_BASE = 100;
+export const KPI_PCT_DISPLAY_CAP = 999.9;
 
-/** Month-over-month % vs previous month's equivalent date range. */
-export function kpiPercentChange(current, previous) {
+/** Uncapped MoM % — delta / |previous| × 100. */
+export function kpiPercentChangeRaw(current, previous) {
   const c = parseFloat(current) || 0;
   const p = parseFloat(previous) || 0;
-  if (p === 0) {
+  if (p === 0) return null;
+  const raw = ((c - p) / Math.abs(p)) * 100;
+  return Number.isFinite(raw) ? raw : 0;
+}
+
+/** @deprecated Use kpiPercentChangeRaw — kept for callers expecting capped value. */
+export function kpiPercentChange(current, previous) {
+  const raw = kpiPercentChangeRaw(current, previous);
+  if (raw == null) {
+    const c = parseFloat(current) || 0;
     if (c === 0) return 0;
     return c > 0 ? 100 : -100;
   }
-  const raw = ((c - p) / Math.abs(p)) * 100;
-  if (!Number.isFinite(raw)) return 0;
-  return Math.max(-KPI_PCT_CAP, Math.min(KPI_PCT_CAP, Math.round(raw * 10) / 10));
+  return Math.max(-KPI_PCT_DISPLAY_CAP, Math.min(KPI_PCT_DISPLAY_CAP, Math.round(raw * 10) / 10));
 }
 
-export function buildKpiCompare(current, previous) {
+function formatMultiplierText(ratio) {
+  if (!Number.isFinite(ratio) || ratio <= 0) return "—";
+  if (ratio >= 100) return `${Math.round(ratio).toLocaleString("en-US")}×`;
+  if (ratio >= 10) return `${Math.round(ratio)}×`;
+  return `${(Math.round(ratio * 10) / 10).toFixed(1)}×`;
+}
+
+function formatPercentBadgeText(raw) {
+  if (raw == null) return "—";
+  const abs = Math.abs(Math.round(raw * 10) / 10);
+  if (abs > KPI_PCT_DISPLAY_CAP) return `>${KPI_PCT_DISPLAY_CAP}%`;
+  return `${abs.toFixed(1)}%`;
+}
+
+/**
+ * KPI period-over-period compare.
+ * @param {'default'|'expense'} [options.variant] — expense: less spending = green ↓
+ */
+export function buildKpiCompare(current, previous, { variant = "default" } = {}) {
   const c = parseFloat(current) || 0;
   const p = parseFloat(previous) || 0;
   const delta = c - p;
+  const isExpense = variant === "expense";
+  const isGood = isExpense ? delta > 0 : delta >= 0;
+  const badgeArrow = isExpense ? (isGood ? "down" : "up") : isGood ? "up" : "down";
+
+  const absP = Math.abs(p);
+  const absC = Math.abs(c);
+  let badgeMode = "none";
+  let badgeText = "—";
+
+  if (p === 0 && c === 0) {
+    badgeMode = "none";
+  } else if (absP > 0 && absP < KPI_COMPARE_MIN_BASE) {
+    badgeMode = "multiplier";
+    badgeText = formatMultiplierText(absC / absP);
+  } else if (p === 0) {
+    badgeMode = "none";
+  } else {
+    const raw = kpiPercentChangeRaw(current, previous);
+    badgeMode = "percent";
+    badgeText = formatPercentBadgeText(raw);
+  }
+
   return {
     delta,
-    pct: kpiPercentChange(current, previous),
+    previous: p,
+    pct: kpiPercentChangeRaw(current, previous) ?? 0,
+    badgeMode,
+    badgeText,
+    badgeArrow,
+    badgePositive: isGood,
+    deltaPositive: isGood,
     isUp: delta >= 0,
   };
 }

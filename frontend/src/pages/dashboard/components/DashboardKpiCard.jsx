@@ -1,6 +1,6 @@
 import { DashboardAnimatedValue } from "./DashboardAnimatedValue.jsx";
 import { KPI_CARD_ICONS } from "../lib/dashboardConstants.js";
-import { formatSignedChange } from "../lib/dashboardFormat.js";
+import { formatCurrency, formatI18nTemplate, formatSignedChange } from "../lib/dashboardFormat.js";
 
 export function DashboardKpiCard({
   variant,
@@ -10,13 +10,13 @@ export function DashboardKpiCard({
   id,
   tone,
   compare,
-  compareLabel,
+  comparePeriodLabel,
+  compareVsTemplate,
   fallbackFoot,
   footNote,
 }) {
   const showCompare = compare && !loading;
-  const badgeUp = compare?.pct >= 0;
-  const deltaUp = compare?.isUp;
+  const showBadge = showCompare && compare.badgeMode !== "none" && compare.badgeText !== "—";
 
   return (
     <div
@@ -31,20 +31,27 @@ export function DashboardKpiCard({
         <div className="kpi-card-value">
           <DashboardAnimatedValue value={value} />
         </div>
-        {showCompare && (
-          <span className={`kpi-card-badge${badgeUp ? " is-up" : " is-down"}`}>
-            <i className={`fas fa-arrow-${badgeUp ? "up" : "down"}`} aria-hidden="true" />
-            {Math.abs(compare.pct).toFixed(1)}%
+        {showBadge && (
+          <span className={`kpi-card-badge${compare.badgePositive ? " is-up" : " is-down"}`}>
+            <i className={`fas fa-arrow-${compare.badgeArrow}`} aria-hidden="true" />
+            {compare.badgeText}
           </span>
         )}
       </div>
       <div className="kpi-card-foot">
         {showCompare ? (
           <>
-            <span className={`kpi-card-delta${deltaUp ? " is-up" : " is-down"}`}>
+            <span className={`kpi-card-delta${compare.deltaPositive ? " is-up" : " is-down"}`}>
               {formatSignedChange(compare.delta)}
             </span>
-            <span className="kpi-card-foot-muted">{compareLabel}</span>
+            {comparePeriodLabel && compareVsTemplate ? (
+              <span className="kpi-card-foot-muted">
+                {formatI18nTemplate(compareVsTemplate, {
+                  period: comparePeriodLabel,
+                  amount: formatCurrency(compare.previous),
+                })}
+              </span>
+            ) : null}
           </>
         ) : (
           <span className="kpi-card-foot-muted">{fallbackFoot}</span>
