@@ -614,7 +614,10 @@ body.transaction-page .transaction-date-range-group .date-range-picker:focus-vis
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
 }
 
-body.transaction-page .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+body.transaction-page .transaction-date-range-group .date-range-picker i.fa-calendar-alt,
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt,
+body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt,
+body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
     display: inline-flex;
     align-items: center;
     justify-content: center;

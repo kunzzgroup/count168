@@ -114,7 +114,7 @@ body.maintenance-page .customer-report-filters .report-outlined-inner .transacti
     width: 100%;
     max-width: 100%;
     min-height: clamp(32px, 2.25vw, 36px) !important;
-    padding: clamp(4px, 0.3vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.3vw, 6px) 0;
+    padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
     border-radius: clamp(5px, 0.42vw, 7px);
     background: #ffffff !important;
     box-shadow: none !important;
@@ -136,26 +136,7 @@ body.maintenance-page .customer-report-filters .report-outlined-label--txn-captu
     left: clamp(46px, 3.35vw, 58px);
 }
 
-body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt,
-body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
-    position: relative;
-    z-index: 5;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    align-self: center;
-    width: auto;
-    height: auto;
-    margin: 0 0 0 clamp(8px, 0.6vw, 12px);
-    padding: 0;
-    border-radius: 0;
-    color: #3b82f6 !important;
-    background: transparent !important;
-    background-clip: border-box !important;
-    box-shadow: none !important;
-    font-size: var(--drp-trigger-icon, var(--text-medium));
-    flex: 0 0 auto;
-}
+/* Calendar icon pill — shared with dashboard via transaction.css */
 
 /* Match Transaction Capture Date: `date-range-picker.css` `.calendar-month-year select` */
 .customer-report-filter-group select,

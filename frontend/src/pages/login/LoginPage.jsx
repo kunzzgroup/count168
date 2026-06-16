@@ -7,6 +7,20 @@ import {
 } from "../../utils/company/sharedCompanyFilter.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 
+const LOGIN_ASSET_RETRY_KEY = "ec_login_asset_retry";
+
+function tryLoginPageReloadOnce() {
+  if (sessionStorage.getItem(LOGIN_ASSET_RETRY_KEY)) {
+    sessionStorage.removeItem(LOGIN_ASSET_RETRY_KEY);
+    return false;
+  }
+  sessionStorage.setItem(LOGIN_ASSET_RETRY_KEY, "1");
+  const url = new URL(window.location.href);
+  url.searchParams.set("_", String(Date.now()));
+  window.location.replace(url.toString());
+  return true;
+}
+
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text ?? "";
@@ -134,6 +148,10 @@ export default function LoginPage() {
 
     prevLangRef.current = lang;
   }, [lang]);
+
+  useEffect(() => {
+    sessionStorage.removeItem(LOGIN_ASSET_RETRY_KEY);
+  }, []);
 
   useEffect(() => {
     if (sessionStorage.getItem("ec_skip_session_bootstrap") === "1") {
@@ -270,7 +288,12 @@ export default function LoginPage() {
         if (rememberMe) fd.append("remember_me", "1");
       }
 
-      const res = await fetch("/api/session/login_api.php", { method: "POST", body: fd, credentials: "include" });
+      const res = await fetch("/api/session/login_api.php", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+        cache: "no-store",
+      });
       const raw = await res.text();
       let data = {};
       try {
@@ -279,10 +302,12 @@ export default function LoginPage() {
         const msg = res.ok
           ? i18n.loginInvalidResponse
           : i18n.loginServerError.replace("{status}", String(res.status));
+        if (tryLoginPageReloadOnce()) return;
         showNotice(msg);
         return;
       }
       if (data.status === "success" && data.redirect) {
+        sessionStorage.removeItem(LOGIN_ASSET_RETRY_KEY);
         clearDashboardFilterSession();
         const loginScope = String(data.login_scope || "").trim().toLowerCase();
         const loginIdentifier = String(data.login_identifier || companyId).trim().toUpperCase();
@@ -332,6 +357,7 @@ export default function LoginPage() {
       }
       showNotice(data.message || i18n.loginFailed);
     } catch {
+      if (tryLoginPageReloadOnce()) return;
       showNotice(i18n.loginError);
     } finally {
       setSubmitting(false);

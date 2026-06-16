@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { RESET_PASSWORD_I18N } from "../../translateFile/auth/authTranslate.js";
+import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 import { sendResetTac, submitResetPassword } from "./resetPassword.js";
 import { sanitizeEmailInput, validateEmail } from "../../utils/input/emailValidation.js";
@@ -44,6 +46,7 @@ function AlertModal({ open, title, message, confirmText, onClose }) {
 }
 
 export default function ResetPasswordPage() {
+  const navigate = useNavigate();
   const [lang, setLang] = useState(() => localStorage.getItem("login_lang") || "en");
   const [companyId, setCompanyId] = useState("");
   const [email, setEmail] = useState("");
@@ -181,9 +184,19 @@ export default function ResetPasswordPage() {
       });
 
       if (data.success) {
+        sessionStorage.setItem("ec_skip_session_bootstrap", "1");
+        try {
+          await fetch(buildApiUrl("api/session/logout_api.php"), {
+            method: "POST",
+            credentials: "include",
+            cache: "no-store",
+          });
+        } catch {
+          /* proceed to login even if logout request fails */
+        }
         showModal(i18n.success, i18n.resetSuccess);
         setTimeout(() => {
-          window.location.assign("/login");
+          navigate("/login", { replace: true });
         }, 1500);
         return;
       }

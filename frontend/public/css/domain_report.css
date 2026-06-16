@@ -82,7 +82,7 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .t
     width: 100%;
     max-width: 100%;
     min-height: clamp(32px, 2.25vw, 36px) !important;
-    padding: clamp(4px, 0.3vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.3vw, 6px) 0;
+    padding: 0 clamp(8px, 0.75vw, 12px) 0 0;
     border-radius: clamp(5px, 0.42vw, 7px);
     background: #ffffff !important;
     box-shadow: none !important;
@@ -101,12 +101,7 @@ body.dashboard-page.report-page .domain-report-filters .report-outlined-label--t
     left: clamp(46px, 3.35vw, 58px);
 }
 
-body.dashboard-page.report-page .domain-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
-    position: relative;
-    z-index: 5;
-    border-radius: clamp(5px, 0.42vw, 7px) 0 0 clamp(5px, 0.42vw, 7px);
-    box-shadow: none !important;
-}
+/* Calendar icon pill — shared with dashboard via transaction.css */
 
 /* Match Transaction Capture Date: `date-range-picker.css` `.calendar-month-year select` */
 .domain-report-filter-group select,
