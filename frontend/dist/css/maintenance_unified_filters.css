@@ -732,33 +732,54 @@ body.dashboard-page.maintenance-page .maintenance-checkbox-cell-inner {
     padding: 0 !important;
 }
 
-/*
- * 窄屏 / 平板：右栏勾选、Formula 操作列 sticky，横向滚动时仍可见（对齐 Capture）。
- */
-body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
-body.dashboard-page.maintenance-page .maintenance-virtual-th.maintenance-select-all-header,
-body.dashboard-page.maintenance-page .maintenance-virtual-th.formula-virtual-th-actions {
-    position: sticky !important;
-    right: 0 !important;
-    z-index: 5 !important;
-    min-width: clamp(40px, 5.5vw, 56px) !important;
-    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%) !important;
-    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.1) !important;
+/* 勾选 / 操作列：与 Capture 一致，不用 sticky（表头/表体会错位） */
+body.dashboard-page.maintenance-page .payment-virtual-th-checkbox,
+body.dashboard-page.maintenance-page .payment-virtual-cell-checkbox,
+body.dashboard-page.maintenance-page .capture-virtual-th-checkbox,
+body.dashboard-page.maintenance-page .capture-virtual-cell-checkbox,
+body.dashboard-page.maintenance-page .bankprocess-virtual-th-checkbox,
+body.dashboard-page.maintenance-page .bankprocess-virtual-cell-checkbox {
+    flex: 0 0 auto !important;
+    min-width: clamp(40px, 6.5vw, 56px) !important;
+    max-width: clamp(48px, 7vw, 64px) !important;
 }
 
-body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell-checkbox"],
-body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-cell-actions {
-    position: sticky !important;
-    right: 0 !important;
-    z-index: 2 !important;
-    min-width: clamp(40px, 5.5vw, 56px) !important;
-    background: #ffffff !important;
-    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08) !important;
+/* Formula 操作列：表头 placeholder + 勾选 与行内 编辑 + 勾选 同一布局 */
+body.dashboard-page.maintenance-page .formula-virtual-th-actions,
+body.dashboard-page.maintenance-page .formula-virtual-cell-actions {
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    min-width: clamp(64px, 7vw, 80px) !important;
+    max-width: clamp(80px, 8.5vw, 96px) !important;
+    gap: 0 !important;
 }
 
-body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row--stripe [class*="-virtual-cell-checkbox"],
-body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row--stripe .formula-virtual-cell-actions {
-    background: #cceeff99 !important;
+body.dashboard-page.maintenance-page .formula-virtual-th-actions .maintenance-formula-actions-inner,
+body.dashboard-page.maintenance-page .formula-virtual-cell-actions .maintenance-formula-actions-inner {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: clamp(10px, 0.9vw, 16px) !important;
+    width: auto !important;
+    margin: 0 auto !important;
+}
+
+body.dashboard-page.maintenance-page .formula-virtual-th-actions .maintenance-action-edit-placeholder {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: clamp(10px, 0.83vw, 16px) !important;
+    height: clamp(10px, 0.83vw, 16px) !important;
+    flex: 0 0 clamp(10px, 0.83vw, 16px) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+body.dashboard-page.maintenance-page .formula-virtual-cell-actions .maintenance-edit-btn {
+    flex: 0 0 clamp(10px, 0.83vw, 16px) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 0 !important;
 }
 
 body.dashboard-page.maintenance-page .container > .capture-maintenance-page-root,
@@ -769,6 +790,22 @@ body.dashboard-page.maintenance-page .container > .bankprocess-maintenance-page-
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow: hidden !important;
+}
+
+/* 平板：略减列间距，表格更易完整展示 */
+@media screen and (max-width: 1280px) {
+    body.dashboard-page.maintenance-page .maintenance-virtual-head-row,
+    body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-data-row"] {
+        gap: clamp(8px, 1.2vw, 12px) !important;
+    }
+
+    body.dashboard-page.maintenance-page .payment-virtual-table-inner,
+    body.dashboard-page.maintenance-page .formula-virtual-table-inner,
+    body.dashboard-page.maintenance-page .capture-virtual-table-inner,
+    body.dashboard-page.maintenance-page .bankprocess-virtual-table-inner,
+    body.dashboard-page.maintenance-page .transaction-virtual-table-inner {
+        min-width: min(100%, 1100px) !important;
+    }
 }
 
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

@@ -1330,7 +1330,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     display: grid;
     /* 列宽与 table nth-child 比例对齐；第 7 列 Input Method 加宽 */
     grid-template-columns:
-        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(52px, 6.5fr) minmax(36px, 5.5fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr) minmax(48px, 7fr);
+        minmax(28px, 4fr) minmax(64px, 13fr) minmax(52px, 9fr) minmax(52px, 6.5fr) minmax(36px, 5.5fr) minmax(52px, 8.5fr) minmax(180px, 26fr) minmax(96px, 18fr) minmax(56px, 10fr) minmax(72px, 7fr);
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
