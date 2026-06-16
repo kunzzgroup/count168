@@ -7,6 +7,16 @@ export const TX_LIST_SESSION_PREFIX = "count168_txlist_v1_";
 export const TX_LIST_INVALIDATE_LS_KEY = "count168_tx_invalidate_ts";
 export const TX_DATA_CHANGED_EVENT = "tx-data-changed";
 
+/** URL `show_zero_balance=1` — align with Account List → Transaction Payment entry. */
+export function readShowZeroBalanceFromUrl() {
+  try {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search || "").get("show_zero_balance") === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** @param {string|null|undefined} role */
 export function getRoleClass(role) {
   if (!role) return "";

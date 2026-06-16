@@ -2479,6 +2479,26 @@ export default function AccountListPage() {
     return payload;
   }, [selectedGroup, groupOnlyAccountMode, companyId, scopeCompanyId, sessionMe]);
 
+  const openTransactionPayment = useCallback(
+    (accountRow) => {
+      const params = new URLSearchParams();
+      const cid = companyId ?? scopeCompanyId;
+      if (cid != null && Number(cid) > 0) {
+        params.set("company_id", String(cid));
+      }
+      if (selectedGroup) {
+        params.set("group_id", String(selectedGroup).trim().toUpperCase());
+      }
+      params.set("show_zero_balance", "1");
+      const code = String(accountRow?.account_id || "").trim();
+      if (code) {
+        params.set("highlight_account", code);
+      }
+      navigate(`/transaction?${params.toString()}`);
+    },
+    [companyId, scopeCompanyId, selectedGroup, navigate],
+  );
+
   const openLink = async (id) => {
     if (accountMutationsBlocked) {
       notify(t("readOnlyActionBlocked"), "danger");
@@ -2786,6 +2806,20 @@ export default function AccountListPage() {
                     <div className="account-card-item">{toUpper(a.last_login)}</div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item">
+                      <button
+                        type="button"
+                        className="account-edit-btn"
+                        title={t("viewTransactionPaymentTitle")}
+                        aria-label={t("viewTransactionPaymentTitle")}
+                        onClick={() => openTransactionPayment(a)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <path
+                            d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.505 4.505 0 0 1 9.5 14Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </button>
                       <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
                       <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

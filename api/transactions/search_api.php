@@ -1754,6 +1754,16 @@ try {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
                 }
             }
+            // Show 0 balance：与 Account List 对齐，无 account_currency 时仍用公司币别占位
+            if (empty($account_currencies) && !$hide_zero_balance && !empty($currency_map)) {
+                foreach ($currency_map as $code => $cid) {
+                    $up = strtoupper((string) $code);
+                    if (!empty($filter_currency_codes) && !in_array($up, $filter_currency_codes, true)) {
+                        continue;
+                    }
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $cid, $up);
+                }
+            }
         } else {
             // === Legacy 路径：从 bulk_dcd_cur 批量数据读取 ===
             foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
@@ -2327,6 +2337,62 @@ try {
             'is_alert' => $is_alert ? 1 : 0,
             'is_rate_middleman' => $is_rate_middleman ? 1 : 0
         ];
+    }
+
+    // Show 0 balance：补齐 Account List 中已配置 account_currency、但本期全零未进入主循环的行
+    if (!$hide_zero_balance && $has_account_currency_table && !empty($bulk_ac)) {
+        $existing_combo_keys = [];
+        foreach ($results as $row) {
+            $existing_combo_keys[(int) ($row['account_db_id'] ?? 0) . '_' . strtoupper((string) ($row['currency'] ?? ''))] = true;
+        }
+        foreach ($accounts as $account) {
+            $account_id = (int) ($account['id'] ?? 0);
+            if ($account_id <= 0) {
+                continue;
+            }
+            $dispAccountId = domainProvisionedMemberAccountIdForDisplay(
+                (string) ($account['account_id'] ?? ''),
+                (string) ($account['role'] ?? ''),
+                isset($account['created_source']) ? (string) $account['created_source'] : null
+            );
+            if ($dispAccountId === '') {
+                $dispAccountId = (string) ($account['account_id'] ?? '');
+            }
+            foreach ($bulk_ac[$account_id] ?? [] as $currency_id => $currency_code) {
+                $currency_code = strtoupper((string) $currency_code);
+                if ($currency_code === '') {
+                    continue;
+                }
+                if (!empty($filter_currency_codes) && !in_array($currency_code, $filter_currency_codes, true)) {
+                    continue;
+                }
+                $combo_key = $account_id . '_' . $currency_code;
+                if (!empty($existing_combo_keys[$combo_key])) {
+                    continue;
+                }
+                $existing_combo_keys[$combo_key] = true;
+                $results[] = [
+                    'account_id' => $dispAccountId,
+                    'account_name' => $account['name'],
+                    'account_db_id' => $account_id,
+                    'role' => $account['role'],
+                    'currency' => $currency_code,
+                    'currency_id_debug' => (int) $currency_id,
+                    'bf' => '0.00',
+                    'win_loss' => '0.00',
+                    'win_loss_full' => '0.00',
+                    'cr_dr' => '0.00',
+                    'balance' => '0.00',
+                    'balance_full' => '0.00',
+                    'has_crdr_transactions' => 0,
+                    'has_win_loss_transactions' => 0,
+                    'has_win_loss_history' => 0,
+                    'has_period_id_product_rows' => 0,
+                    'is_alert' => 0,
+                    'is_rate_middleman' => 0,
+                ];
+            }
+        }
     }
 
     // 去重：按 account_id + currency 组合去重（防止重复）

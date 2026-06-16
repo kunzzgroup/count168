@@ -13,6 +13,7 @@ import {
   readTransactionCurrencyFilterState,
   pickTransactionDefaultCurrency,
   readTxListFromSessionStorage,
+  readShowZeroBalanceFromUrl,
   sortByRole,
   sanitizeSearchApiData,
   mergeSearchApiDataList,
@@ -53,12 +54,12 @@ export function useTransactionSearch({
   const [dateFrom, setDateFrom] = useState(null);
   const [dateTo, setDateTo] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [searchState, setSearchState] = useState({
+  const [searchState, setSearchState] = useState(() => ({
     showName: false,
     showCaptureOnly: false,
     showPaymentOnly: false,
-    showZeroBalance: false,
-  });
+    showZeroBalance: readShowZeroBalanceFromUrl(),
+  }));
   const [showAllCurrencies, setShowAllCurrencies] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   /** Block cross-page currency sync when All or multi-select is active (empty currentCode would re-apply MYR etc.). */
