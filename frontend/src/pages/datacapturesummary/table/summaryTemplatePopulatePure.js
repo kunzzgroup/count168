@@ -9,7 +9,7 @@ import { findMainRowForTemplate, findMainRowForSubTemplatePure } from "./summary
 import { fetchSummaryTemplates } from "../lib/summaryApi.js";
 import { normalizeSummaryIdProductText } from "../lib/summaryIdProductUtils.js";
 import { restoreRateValuesOnRows } from "../lib/summaryRefreshRestore.js";
-import { loadSummaryRefreshFormulaState } from "../lib/summaryRefreshStatePure.js";
+import { resolveSummaryRefreshSavedState } from "../lib/summaryRefreshStatePure.js";
 import {
   isParentRowSuppressed,
   isRowSuppressed,
@@ -215,9 +215,7 @@ export async function populateSummaryRowsPure({
     return row;
   });
 
-  if (!freshFromCapture && serverState?.rows && Array.isArray(serverState.rows)) {
-    rows = mergeServerStateRows(rows, serverState.rows, suppressed);
-  } else if (!freshFromCapture) {
+  if (!freshFromCapture) {
     rows = restoreRefreshStateRows(rows, serverState, suppressed, captureScope, {
       processId,
       processCode,
@@ -309,11 +307,8 @@ function restoreRefreshStateRows(
   captureScope = null,
   processMeta = null,
 ) {
-  let saved = serverState;
-  if (!saved) {
-    saved = loadSummaryRefreshFormulaState(captureScope, processMeta);
-  }
-  if (!saved || typeof saved !== "object" || !Array.isArray(saved.rows)) {
+  const saved = resolveSummaryRefreshSavedState(serverState, captureScope, processMeta);
+  if (!saved?.rows?.length) {
     return rows;
   }
   return mergeServerStateRows(rows, saved.rows, suppressed);

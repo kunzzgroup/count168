@@ -25,6 +25,8 @@ import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.j
 
 import { useSummaryTableModel } from "./hooks/useSummaryTableModel.js";
 
+import { useSummaryRefreshPersist } from "./hooks/useSummaryRefreshPersist.js";
+
 import { useSummaryPageActionsPure } from "./hooks/useSummaryPageActionsPure.js";
 
 import { useSummaryEditFormulaPure } from "./hooks/useSummaryEditFormulaPure.js";
@@ -152,6 +154,20 @@ function DataCaptureSummaryPureInner() {
     searchParams,
 
     t,
+
+  });
+
+
+
+  useSummaryRefreshPersist({
+
+    captureScope,
+
+    processId: capture.processId,
+
+    processCode: capture.processCode,
+
+    enabled: sessionReady && capture.hasCaptureData,
 
   });
 

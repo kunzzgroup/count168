@@ -16,6 +16,8 @@ import { useSummaryContext } from "../context/SummaryContext.jsx";
 
 import { stripSummarySuccessParamFromUrl } from "../lib/summaryStorage.js";
 
+import { saveSummaryRefreshStatePure, clearSummaryRefreshDraftStorage } from "../lib/summaryRefreshStatePure.js";
+
 import { pushSummaryNotification } from "../lib/summaryNotify.js";
 
 
@@ -102,6 +104,10 @@ export function useSummaryTableModel({
 
       try {
 
+        if (freshFromCapture) {
+          clearSummaryRefreshDraftStorage(captureScope);
+        }
+
         bindSummaryFormulaContext({
 
           tableData,
@@ -149,6 +155,8 @@ export function useSummaryTableModel({
 
         setAccounts(accounts);
         replaceRows(rows);
+
+        saveSummaryRefreshStatePure(rows, { processId, processCode }, captureScope);
 
         setTableChromeVisible(true);
 
