@@ -5,7 +5,7 @@ import {
 } from "./dashboardKpi.js";
 import { getCurrencyColor } from "./dashboardEarnings.js";
 
-/** @typedef {'earnings' | 'profit'} CompanyBreakdownView */
+/** @typedef {'earnings' | 'profit' | 'netProfit'} CompanyBreakdownView */
 
 /** Viewer multiplier for a single company dashboard payload (group ownership chain). */
 export function resolveCompanyProfitMultiplier(data) {
@@ -33,6 +33,9 @@ export function computeCompanyGroupShare(netProfit, groupEquityPct) {
 /** @param {CompanyBreakdownView} view */
 export function companyRowDisplayAmount(row, view = "earnings") {
   if (!row) return 0;
+  if (view === "netProfit") {
+    return parseFloat(row.net_profit) || 0;
+  }
   if (view === "profit") {
     const share = parseFloat(row.group_share);
     if (Number.isFinite(share)) return share;
@@ -72,6 +75,42 @@ export function applySingleSubsidiaryGroupEarningsRows(rows, dashboardData, opti
   const full = computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false });
   if (!Number.isFinite(full)) return rows;
   return [{ ...rows[0], my_earning: full }];
+}
+
+/** Net-profit row for group All merge — does not require ownership setup on payload. */
+export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup = "") {
+  if (!companyRow || !data) return null;
+  const netProfit = netProfitFromDashboardPayload(data);
+  const nativeG = companyRow?.group_id ? String(companyRow.group_id).trim().toUpperCase() : "";
+  const linkG = companyRow?.link_source_group
+    ? String(companyRow.link_source_group).trim().toUpperCase()
+    : "";
+  const groupId = (viewGroup || linkG || nativeG || "").toUpperCase();
+  const companyId = String(companyRow?.company_id || companyRow?.id || "").trim();
+  if (!companyId) return null;
+  return {
+    company_pk: parseInt(companyRow?.id, 10) || null,
+    company_id: companyId,
+    group_id: groupId,
+    net_profit: netProfit,
+    group_equity_pct: parseFloat(data.group_equity_percentage) || 0,
+    account_pct: parseFloat(data.group_account_percentage) || 0,
+    group_share: netProfit,
+    my_earning: 0,
+  };
+}
+
+export function buildCompanyNetProfitRowsFromPairs(pairs, viewGroupFallback = "") {
+  const rows = [];
+  for (const pair of pairs || []) {
+    const company = pair?.company;
+    const data = pair?.data;
+    if (!company || !data) continue;
+    const viewGroup = pair.viewGroup ?? viewGroupFallback;
+    const row = buildCompanyNetProfitRowFromPayload(company, data, viewGroup);
+    if (row) rows.push(row);
+  }
+  return sortCompanyBreakdownRows(rows, "netProfit");
 }
 
 export function buildCompanyBreakdownRowFromPayload(companyRow, data, viewGroup = "") {
@@ -120,6 +159,7 @@ export function mergeCompanyBreakdownRowLists(lists) {
       if (prev) {
         prev.my_earning = (parseFloat(prev.my_earning) || 0) + (parseFloat(row.my_earning) || 0);
         prev.group_share = (parseFloat(prev.group_share) || 0) + (parseFloat(row.group_share) || 0);
+        prev.net_profit = (parseFloat(prev.net_profit) || 0) + (parseFloat(row.net_profit) || 0);
       } else {
         map.set(key, { ...row });
       }

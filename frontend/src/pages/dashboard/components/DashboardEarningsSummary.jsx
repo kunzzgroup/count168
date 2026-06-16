@@ -45,13 +45,11 @@ export function DashboardEarningsSummary({
   earningsPanelView = "currency",
   onEarningsPanelViewChange,
   companyBreakdownRows = [],
-  companyEarningsTotal = 0,
-  companyGroupProfitTotal = 0,
+  companyNetProfitTotal = 0,
 }) {
-  const isEarningsCompanyView = showProfitChartTab && earningsPanelView === "earnings";
-  const isProfitCompanyView = showProfitChartTab && earningsPanelView === "profit";
-  const isCompanyBreakdownView = isEarningsCompanyView || isProfitCompanyView;
-  const companyBreakdownView = isProfitCompanyView ? "profit" : "earnings";
+  const isNetProfitCompanyView = showProfitChartTab && earningsPanelView === "netProfit";
+  const isCompanyBreakdownView = isNetProfitCompanyView;
+  const companyBreakdownView = "netProfit";
   const pieAreaRef = useRef(null);
   const pieShellRef = useRef(null);
   const [pieShellLayout, setPieShellLayout] = useState({
@@ -272,16 +270,10 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = !isCompanyBreakdownView && currencies.length > 1;
-  const heroLabel = isProfitCompanyView
-    ? i18n.profitChartCaption
-    : isEarningsCompanyView
-      ? i18n.earningsCompanyCaption
-      : summaryPanelLabel || i18n.earnings;
-  const heroValue = isProfitCompanyView
-    ? companyGroupProfitTotal
-    : isEarningsCompanyView
-      ? companyEarningsTotal
-      : summaryEarningsValue;
+  const heroLabel = isNetProfitCompanyView
+    ? i18n.netProfitCompanyCaption
+    : summaryPanelLabel || i18n.earnings;
+  const heroValue = isNetProfitCompanyView ? companyNetProfitTotal : summaryEarningsValue;
   const showPieCenterBadge = isCompanyBreakdownView
     ? companyBreakdownRows.length > 0
     : showMultiCurrencyBreakdown;
@@ -325,24 +317,13 @@ export function DashboardEarningsSummary({
       <button
         type="button"
         role="tab"
-        aria-selected={earningsPanelView === "earnings"}
+        aria-selected={earningsPanelView === "netProfit"}
         className={`dashboard-summary-view-tab${
-          earningsPanelView === "earnings" ? " is-active" : ""
+          earningsPanelView === "netProfit" ? " is-active" : ""
         }`}
-        onClick={() => onEarningsPanelViewChange?.("earnings")}
+        onClick={() => onEarningsPanelViewChange?.("netProfit")}
       >
-        {i18n.earningsCompanyTab}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={earningsPanelView === "profit"}
-        className={`dashboard-summary-view-tab${
-          earningsPanelView === "profit" ? " is-active" : ""
-        }`}
-        onClick={() => onEarningsPanelViewChange?.("profit")}
-      >
-        {i18n.profitChartTab}
+        {i18n.netProfitChartTab}
       </button>
     </div>
   ) : null;

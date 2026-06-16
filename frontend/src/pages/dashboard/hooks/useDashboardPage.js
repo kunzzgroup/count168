@@ -62,7 +62,7 @@ import {
   normalizeSubsidiaryEarningsByCompany,
   sortCompanyBreakdownRowsByPicker,
   sumCompanyBreakdownAmount,
-  buildCompanyBreakdownRowsFromPairs,
+  buildCompanyNetProfitRowsFromPairs,
 } from "../lib/dashboardCompanyProfit.js";
 import {
   canAccessGroupLedgerForGroup,
@@ -3895,7 +3895,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         throw new Error(i18n.failedToLoadDashboard);
       }
       const merged = mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
-      const byCompany = buildCompanyBreakdownRowsFromPairs(
+      const byCompany = buildCompanyNetProfitRowsFromPairs(
         pairs,
         viewGroupFallback ?? selectedGroup
       );
@@ -6116,16 +6116,24 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   }, [earningsBreakdownShowsRate, i18n.earningsIncludesConversion]);
 
   /**
-   * Company profit tab: group-level views only (All / group ledger / groups-all aggregate).
+   * Company net profit tab: group-level views only (Group All / company All / group ledger).
    * Hidden on subsidiary drill-down (e.g. IG + 95) — currency panel only there.
+   * Does not require has_group_ownership (admin / net-profit-only viewers still see tabs).
    */
   const showProfitChartTab = useMemo(() => {
-    if (!dashboardData?.has_group_ownership) return false;
     if (subsidiaryDashboardScope) return false;
-    return Boolean(groupAllMode || usesGroupLedgerDashboard || groupsAllGroupLevel);
+    if (!groupIds.length) return false;
+    return Boolean(
+      (groupsAllMode && companyId == null) ||
+      groupAllMode ||
+      usesGroupLedgerDashboard ||
+      groupsAllGroupLevel
+    );
   }, [
-    dashboardData?.has_group_ownership,
     subsidiaryDashboardScope,
+    groupIds.length,
+    groupsAllMode,
+    companyId,
     groupAllMode,
     usesGroupLedgerDashboard,
     groupsAllGroupLevel,
@@ -6149,21 +6157,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     resolveKpiOwnershipOpts,
   ]);
 
-  const companyEarningsTotal = useMemo(
-    () => sumCompanyBreakdownAmount(companyBreakdownRows, "earnings"),
-    [companyBreakdownRows]
-  );
-
-  const companyGroupProfitTotal = useMemo(
-    () => sumCompanyBreakdownAmount(companyBreakdownRows, "profit"),
+  const companyNetProfitTotal = useMemo(
+    () => sumCompanyBreakdownAmount(companyBreakdownRows, "netProfit"),
     [companyBreakdownRows]
   );
 
   useEffect(() => {
-    if (
-      !showProfitChartTab &&
-      (earningsPanelView === "earnings" || earningsPanelView === "profit")
-    ) {
+    if (!showProfitChartTab && earningsPanelView === "netProfit") {
       setEarningsPanelView("currency");
     }
   }, [showProfitChartTab, earningsPanelView]);
@@ -7081,8 +7081,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     earningsPanelView,
     setEarningsPanelView,
     companyBreakdownRows,
-    companyEarningsTotal,
-    companyGroupProfitTotal,
+    companyNetProfitTotal,
     handlePickGroup,
     handlePickAllGroups,
     handlePickCompany,
