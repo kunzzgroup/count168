@@ -31,17 +31,20 @@ export function makeDashboardChartXTick(compact) {
   };
 }
 
-export function DashboardChartBaseline({ offset, width, height }) {
-  if (!height || !width || offset?.bottom == null) return null;
-  const axisY = height - offset.bottom;
+export function DashboardChartBaseline({ offset, width, yAxisMap }) {
+  if (!width || !yAxisMap) return null;
+  const yAxis = yAxisMap[0] ?? yAxisMap[Object.keys(yAxisMap)[0]];
+  const zeroY = yAxis?.scale?.(0);
+  if (zeroY == null || Number.isNaN(zeroY)) return null;
   return (
     <line
       x1={offset?.left ?? 0}
-      y1={axisY}
+      y1={zeroY}
       x2={width - (offset?.right ?? 0)}
-      y2={axisY}
+      y2={zeroY}
       stroke="#94a3b8"
       strokeWidth={1}
+      className="dashboard-chart-zero-line"
     />
   );
 }

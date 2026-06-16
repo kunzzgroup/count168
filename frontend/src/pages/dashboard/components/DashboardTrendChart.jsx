@@ -16,8 +16,8 @@ import {
   DashboardTrendFlowDefs,
   DASHBOARD_TREND_DRAW_BEGIN_MS,
   DASHBOARD_TREND_DRAW_DURATION_MS,
-  DASHBOARD_TREND_FLOW_LAYER_OFFSET_MS,
   DASHBOARD_TREND_IDLE_DELAY_MS,
+  interpolateTrendChartRows,
   resolveTrendFlowFill,
 } from "../lib/dashboardChartFx.jsx";
 import { formatChartTooltipLabel } from "../lib/dashboardDateUtils.js";
@@ -68,20 +68,33 @@ export function DashboardTrendChart({
     }
 
     let cancelled = false;
-    let raf1 = 0;
-    let raf2 = 0;
-    raf1 = window.requestAnimationFrame(() => {
-      raf2 = window.requestAnimationFrame(() => {
-        if (cancelled) return;
-        setAnimChartRows(chartRowsRef.current);
-        setChartAnimArmed(true);
-      });
-    });
+    let rafId = 0;
+    let beginTimer = 0;
+    const targetRows = chartRowsRef.current;
+
+    setChartAnimArmed(true);
+    setAnimChartRows(interpolateTrendChartRows(targetRows, 0));
+
+    const tick = (now, startTime) => {
+      if (cancelled) return;
+      const elapsed = now - startTime;
+      const progress = Math.max(0, Math.min(1, elapsed / DASHBOARD_TREND_DRAW_DURATION_MS));
+      setAnimChartRows(interpolateTrendChartRows(targetRows, progress));
+      if (progress < 1) {
+        rafId = window.requestAnimationFrame((t) => tick(t, startTime));
+      }
+    };
+
+    beginTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      const startTime = performance.now();
+      rafId = window.requestAnimationFrame((t) => tick(t, startTime));
+    }, DASHBOARD_TREND_DRAW_BEGIN_MS);
 
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(raf1);
-      window.cancelAnimationFrame(raf2);
+      window.clearTimeout(beginTimer);
+      window.cancelAnimationFrame(rafId);
       setChartAnimArmed(false);
       setAnimChartRows(null);
       setFlowIdle(false);
@@ -133,6 +146,7 @@ export function DashboardTrendChart({
             <AreaChart
               key={chartAnimKey}
               data={animChartRows}
+              baseValue={0}
               margin={{ top: 8, right: 16, left: 0, bottom: chartXAxisLayout.marginBottom }}
             >
               <DashboardTrendFlowDefs />
@@ -171,10 +185,8 @@ export function DashboardTrendChart({
                     stroke={s.color}
                     fill={baseFill}
                     strokeWidth={2.5}
-                    isAnimationActive
-                    animationBegin={DASHBOARD_TREND_DRAW_BEGIN_MS}
-                    animationDuration={DASHBOARD_TREND_DRAW_DURATION_MS}
-                    animationEasing="ease-out"
+                    baseValue={0}
+                    isAnimationActive={false}
                     className="dashboard-trend-area-base"
                   />,
                 ];
@@ -190,10 +202,8 @@ export function DashboardTrendChart({
                       stroke="none"
                       fill={flowFill.flow}
                       fillOpacity={0.38}
-                      isAnimationActive
-                      animationBegin={DASHBOARD_TREND_DRAW_BEGIN_MS + DASHBOARD_TREND_FLOW_LAYER_OFFSET_MS}
-                      animationDuration={DASHBOARD_TREND_DRAW_DURATION_MS}
-                      animationEasing="ease-out"
+                      baseValue={0}
+                      isAnimationActive={false}
                       className="dashboard-trend-area-flow"
                     />
                   );

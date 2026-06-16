@@ -6,6 +6,34 @@ export const DASHBOARD_TREND_DRAW_DURATION_MS = 1100;
 export const DASHBOARD_TREND_FLOW_LAYER_OFFSET_MS = 120;
 export const DASHBOARD_TREND_IDLE_DELAY_MS =
   DASHBOARD_TREND_DRAW_BEGIN_MS + DASHBOARD_TREND_DRAW_DURATION_MS + 100;
+/** Share of the timeline used to stagger points left → right (wave). */
+export const DASHBOARD_TREND_WAVE_SPREAD = 0.62;
+
+export const TREND_CHART_METRIC_KEYS = ["profit", "expenses", "netProfit", "earnings"];
+
+export function easeOutCubic(t) {
+  const clamped = Math.max(0, Math.min(1, t));
+  return 1 - (1 - clamped) ** 3;
+}
+
+/** Interpolate each point from 0.00 with a left-to-right wave. */
+export function interpolateTrendChartRows(targetRows, progress) {
+  if (!targetRows?.length) return [];
+  const n = targetRows.length;
+  const waveWindow = Math.max(1 - DASHBOARD_TREND_WAVE_SPREAD, 0.12);
+
+  return targetRows.map((row, index) => {
+    const stagger = n <= 1 ? 0 : (index / (n - 1)) * DASHBOARD_TREND_WAVE_SPREAD;
+    const localT = easeOutCubic(Math.max(0, Math.min(1, (progress - stagger) / waveWindow)));
+    const next = { ...row };
+    TREND_CHART_METRIC_KEYS.forEach((key) => {
+      if (key in row) {
+        next[key] = (Number(row[key]) || 0) * localT;
+      }
+    });
+    return next;
+  });
+}
 
 const TREND_FLOW_SERIES = [
   { id: "Profit", color: "#3b82f6" },
