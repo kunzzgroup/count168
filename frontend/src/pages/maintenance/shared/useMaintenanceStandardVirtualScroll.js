@@ -15,6 +15,8 @@ export function useMaintenanceStandardVirtualScrollExtent({
   rowHeightEstimate,
   resetDeps = [],
   forceFullExtent = false,
+  /** 后台流式加载：滚动范围随已加载行数增长，滑块逐渐变短 */
+  expandWithLoadedContent = false,
 }) {
   const extent = useProgressiveScrollExtent({
     scrollRef,
@@ -26,6 +28,7 @@ export function useMaintenanceStandardVirtualScrollExtent({
     initialViewportMultiplier: STANDARD_INITIAL_VIEWPORT_MULTIPLIER,
     enableCyclicRebound: false,
     forceFullExtent,
+    expandWithLoadedContent,
   });
 
   return {

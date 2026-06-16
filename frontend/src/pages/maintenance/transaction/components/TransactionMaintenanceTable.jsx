@@ -171,7 +171,8 @@ export default function TransactionMaintenanceTable({
     rowCount: rows.length,
     rowHeightEstimate: ROW_HEIGHT,
     resetDeps: [scrollResetKey],
-    forceFullExtent: rows.length > 0,
+    /** 流式追加时滑块随已加载行数从长到短收缩（Facebook Feed 效果） */
+    expandWithLoadedContent: listSyncing,
   });
 
   if (rows.length === 0 && (showSkeleton || statusMessage)) {

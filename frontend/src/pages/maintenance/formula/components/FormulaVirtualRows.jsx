@@ -133,7 +133,6 @@ export default function FormulaVirtualRows({
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
     resetDeps: [scrollResetKey],
-    forceFullExtent: rows.length > 0,
   });
 
   const scrollToRowId = useCallback(

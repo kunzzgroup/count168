@@ -120,7 +120,6 @@ export default function BankprocessVirtualRows({
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
     resetDeps: [scrollResetKey],
-    forceFullExtent: rows.length > 0,
   });
 
   return (

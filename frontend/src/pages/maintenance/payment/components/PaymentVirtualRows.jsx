@@ -119,7 +119,6 @@ export default function PaymentVirtualRows({
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
     resetDeps: [scrollResetKey],
-    forceFullExtent: rows.length > 0,
   });
 
   return (

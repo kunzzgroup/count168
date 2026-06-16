@@ -122,7 +122,6 @@ export default function CaptureVirtualRows({
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
     resetDeps: [scrollResetKey],
-    forceFullExtent: rows.length > 0,
   });
 
   return (
