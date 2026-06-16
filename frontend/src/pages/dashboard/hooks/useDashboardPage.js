@@ -1317,7 +1317,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setGcBootstrapReady(true);
     }
     return undefined;
-  }, [sessionReady, me, bootstrapSessionKey]);
+  }, [sessionReady, me?.user_id, me?.id, bootstrapSessionKey]);
 
   useEffect(() => {
     if (!sessionReady || !bootstrapSessionKey) return undefined;
@@ -5435,21 +5435,22 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     };
   }, [gcBootstrapReady, loadDashboardTriggerKey, dashboardStructuralScopeKey, loadDashboard]);
 
+  const primeDashboardFromCacheRef = useRef(primeDashboardFromCache);
+  primeDashboardFromCacheRef.current = primeDashboardFromCache;
+
   /** Hydrate from session cache as early as possible (incl. when returning from other routes). */
   useLayoutEffect(() => {
     if (!sessionReady || !me) return undefined;
     const persisted = readPersistedDashboardGcFilter();
-    const scope = {
+    primeDashboardFromCacheRef.current({
       companyId: persisted.groupOnly || persisted.groupAllMode ? null : persisted.companyId,
       selectedGroup: persisted.groupsAllMode ? null : persisted.selectedGroup,
       groupsAllMode: persisted.groupsAllMode,
       groupAllMode: persisted.groupAllMode,
       mergedSubsetIds: null,
-    };
-    primeCurrenciesFromCache({ ...scope, clearOnMiss: false });
-    primeDashboardFromCache(scope);
+    });
     return undefined;
-  }, [sessionReady, me?.user_id, me?.id, primeCurrenciesFromCache, primeDashboardFromCache]);
+  }, [sessionReady, me?.user_id, me?.id]);
 
   /** On scope change after bootstrap, hydrate from cache before network. */
   useEffect(() => {
