@@ -19,6 +19,7 @@ import {
   resolveEarningsRowDisplayAmounts,
 } from "../lib/dashboardEarnings.js";
 import { DASHBOARD_EARNINGS_PIE_MIN_ANGLE } from "../lib/dashboardConstants.js";
+import { useAnimatedNumber } from "../hooks/useAnimatedNumber.js";
 import { formatCurrency, formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { DashboardAnimatedValue } from "./DashboardAnimatedValue.jsx";
 import { EarningsPieSectorTooltip } from "./EarningsPieSectorTooltip.jsx";
@@ -129,9 +130,24 @@ export function DashboardEarningsSummary({
 
   /** Unique per page visit so pie enter animation replays when navigating back to Dashboard. */
   const [pieVisitKey] = useState(() => Date.now());
+  const [pieFlowIdle, setPieFlowIdle] = useState(false);
   const pieAnimKey = `${pieVisitKey}-${exchangeRateScopeKey || "scope"}-${
     summaryPieReady ? "ready" : "pending"
   }`;
+
+  useEffect(() => {
+    if (!summaryPieReady) {
+      setPieFlowIdle(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setPieFlowIdle(true), 920);
+    return () => window.clearTimeout(timer);
+  }, [pieAnimKey, summaryPieReady]);
+
+  const animatedPiePct = useAnimatedNumber(Number(pieCenterMetrics.pct) || 0, {
+    duration: 920,
+    active: summaryPieReady,
+  });
 
   useEffect(() => {
     setHoveredPieSector(null);
@@ -153,10 +169,6 @@ export function DashboardEarningsSummary({
       (exchangeRateScopeKey && exchangeRates.scopeKey !== exchangeRateScopeKey)
     );
   }, [currencies.length, exchangeRatesLoading, exchangeRates.scopeKey, exchangeRateScopeKey]);
-
-  useEffect(() => {
-    setHoveredPieSector(null);
-  }, [currencyCode, earningsPanelView]);
 
   useLayoutEffect(() => {
     const wrap = pieAreaRef.current;
@@ -334,13 +346,15 @@ export function DashboardEarningsSummary({
           {summaryHero}
           <div
             ref={pieAreaRef}
-            className="dashboard-summary-pie-wrap"
+            className={`dashboard-summary-pie-wrap${pieFlowIdle ? " is-flow-idle" : ""}`}
             aria-hidden={!earningsPanelStable && !earningsPieSlices.length}
             onMouseLeave={() => setHoveredPieSector(null)}
           >
             <div
               ref={pieShellRef}
-              className={`dashboard-summary-pie-chart-shell${summaryPieReady ? " is-enter" : ""}`}
+              className={`dashboard-summary-pie-chart-shell${
+                summaryPieReady ? " is-enter is-flow-active" : ""
+              }`}
             >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
@@ -364,8 +378,8 @@ export function DashboardEarningsSummary({
                     label={false}
                     activeShape={false}
                     isAnimationActive={summaryPieReady}
-                    animationBegin={0}
-                    animationDuration={1000}
+                    animationBegin={80}
+                    animationDuration={920}
                     animationEasing="ease-out"
                     onMouseEnter={handlePieSectorEnter}
                     onMouseLeave={() => setHoveredPieSector(null)}
@@ -388,7 +402,7 @@ export function DashboardEarningsSummary({
                   className={`dashboard-summary-pie-center${summaryPieReady ? " is-enter" : ""}`}
                   aria-hidden="true"
                 >
-                  <span className="dashboard-summary-pie-center-pct">{pieCenterMetrics.pct}%</span>
+                  <span className="dashboard-summary-pie-center-pct">{animatedPiePct.toFixed(1)}%</span>
                   <span className="dashboard-summary-pie-center-code">{pieCenterMetrics.code}</span>
                   <span className="dashboard-summary-pie-center-caption">{i18n.shareOfTotal}</span>
                 </div>
