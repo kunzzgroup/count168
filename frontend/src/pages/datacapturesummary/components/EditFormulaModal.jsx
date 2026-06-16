@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EDIT_FORMULA_INPUT_METHODS, CALCULATOR_KEYPAD } from "../formula/editFormulaConstants.js";
 import { getSummaryInputMethodLabel } from "../../../translateFile/pages/dataCaptureSummaryTranslate.js";
+import { portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
 
 function CalcButton({ value, action, className = "", clearLabel = "Clr", onPress }) {
   const isOperator = ["/", "*", "-", "+"].includes(value);
@@ -106,7 +107,7 @@ export default function EditFormulaModal({
     });
   };
 
-  return (
+  return portalToDocumentBody(
     <div
       id="editFormulaModal"
       className="summary-modal"
