@@ -1066,24 +1066,30 @@ function DataCapturePageContent() {
 
                   <div className="form-group dc-form-company-layout__description">
                     <label htmlFor="capture_description">{t("description")}</label>
-                    <div className="input-with-icon">
+                    <div
+                      className="input-with-icon dc-description-input-wrap"
+                      role="button"
+                      tabIndex={0}
+                      title={t("selectDescriptions")}
+                      onClick={() => openDescriptionModal()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openDescriptionModal();
+                        }
+                      }}
+                    >
                       <input
                         type="text"
                         id="capture_description"
                         name="description"
                         required
                         readOnly
+                        tabIndex={-1}
                         placeholder={t("clickToSelectDescriptions")}
                         value={form.descriptionDisplay}
                       />
-                      <button
-                        type="button"
-                        className="add-icon"
-                        onClick={() => openDescriptionModal()}
-                        title={t("selectDescriptions")}
-                      >
-                        +
-                      </button>
+                      <i className="fas fa-list-ul dc-description-suffix-icon" aria-hidden="true" />
                     </div>
                   </div>
 
