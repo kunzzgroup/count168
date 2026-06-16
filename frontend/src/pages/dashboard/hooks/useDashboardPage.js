@@ -5889,7 +5889,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const comparisons = previous
       ? {
           profit: buildKpiCompare(current.profit, previous.profit),
-          expenses: buildKpiCompare(current.expenses, previous.expenses, { variant: "expense" }),
+          expenses: buildKpiCompare(current.expenses, previous.expenses),
           netProfit: buildKpiCompare(current.netProfit, previous.netProfit),
           earnings: buildKpiCompare(
             current.kpiCardEarnings ?? current.earnings,

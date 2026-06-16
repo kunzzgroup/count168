@@ -1,68 +1,25 @@
-/** |previous| below this — kept for reference; badge always uses %. */
-export const KPI_COMPARE_MIN_BASE = 100;
-export const KPI_PCT_DISPLAY_CAP = 999.9;
+const KPI_PCT_CAP = 999.9;
 
-/** Uncapped MoM % — delta / |previous| × 100. */
-export function kpiPercentChangeRaw(current, previous) {
+/** Month-over-month % vs previous month's equivalent date range. */
+export function kpiPercentChange(current, previous) {
   const c = parseFloat(current) || 0;
   const p = parseFloat(previous) || 0;
-  if (p === 0) return null;
-  const raw = ((c - p) / Math.abs(p)) * 100;
-  return Number.isFinite(raw) ? raw : 0;
-}
-
-/** @deprecated Use kpiPercentChangeRaw — kept for callers expecting capped value. */
-export function kpiPercentChange(current, previous) {
-  const raw = kpiPercentChangeRaw(current, previous);
-  if (raw == null) {
-    const c = parseFloat(current) || 0;
+  if (p === 0) {
     if (c === 0) return 0;
     return c > 0 ? 100 : -100;
   }
-  return Math.max(-KPI_PCT_DISPLAY_CAP, Math.min(KPI_PCT_DISPLAY_CAP, Math.round(raw * 10) / 10));
+  const raw = ((c - p) / Math.abs(p)) * 100;
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(-KPI_PCT_CAP, Math.min(KPI_PCT_CAP, Math.round(raw * 10) / 10));
 }
 
-function formatPercentBadgeText(raw) {
-  if (raw == null) return "—";
-  const abs = Math.abs(Math.round(raw * 10) / 10);
-  if (abs > KPI_PCT_DISPLAY_CAP) return `>${KPI_PCT_DISPLAY_CAP}%`;
-  return `${abs.toFixed(1)}%`;
-}
-
-/**
- * KPI period-over-period compare.
- * @param {'default'|'expense'} [options.variant] — expense: less spending = green ↓
- */
-export function buildKpiCompare(current, previous, { variant = "default" } = {}) {
+export function buildKpiCompare(current, previous) {
   const c = parseFloat(current) || 0;
   const p = parseFloat(previous) || 0;
   const delta = c - p;
-  const isExpense = variant === "expense";
-  const isGood = isExpense ? delta > 0 : delta >= 0;
-  const badgeArrow = isExpense ? (isGood ? "down" : "up") : isGood ? "up" : "down";
-
-  let badgeMode = "none";
-  let badgeText = "—";
-
-  if (p === 0 && c === 0) {
-    badgeMode = "none";
-  } else if (p === 0) {
-    badgeMode = "none";
-  } else {
-    const raw = kpiPercentChangeRaw(current, previous);
-    badgeMode = "percent";
-    badgeText = formatPercentBadgeText(raw);
-  }
-
   return {
     delta,
-    previous: p,
-    pct: kpiPercentChangeRaw(current, previous) ?? 0,
-    badgeMode,
-    badgeText,
-    badgeArrow,
-    badgePositive: isGood,
-    deltaPositive: isGood,
+    pct: kpiPercentChange(current, previous),
     isUp: delta >= 0,
   };
 }

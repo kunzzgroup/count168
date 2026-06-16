@@ -15,7 +15,8 @@ export function DashboardKpiCard({
   footNote,
 }) {
   const showCompare = compare && !loading;
-  const showBadge = showCompare && compare.badgeMode !== "none" && compare.badgeText !== "—";
+  const badgeUp = compare?.pct >= 0;
+  const deltaUp = compare?.isUp;
 
   return (
     <div
@@ -30,17 +31,17 @@ export function DashboardKpiCard({
         <div className="kpi-card-value">
           <DashboardAnimatedValue value={value} />
         </div>
-        {showBadge && (
-          <span className={`kpi-card-badge${compare.badgePositive ? " is-up" : " is-down"}`}>
-            <i className={`fas fa-arrow-${compare.badgeArrow}`} aria-hidden="true" />
-            {compare.badgeText}
+        {showCompare && (
+          <span className={`kpi-card-badge${badgeUp ? " is-up" : " is-down"}`}>
+            <i className={`fas fa-arrow-${badgeUp ? "up" : "down"}`} aria-hidden="true" />
+            {Math.abs(compare.pct).toFixed(1)}%
           </span>
         )}
       </div>
       <div className="kpi-card-foot">
         {showCompare ? (
           <>
-            <span className={`kpi-card-delta${compare.deltaPositive ? " is-up" : " is-down"}`}>
+            <span className={`kpi-card-delta${deltaUp ? " is-up" : " is-down"}`}>
               {formatSignedChange(compare.delta)}
             </span>
             <span className="kpi-card-foot-muted">{compareLabel}</span>
