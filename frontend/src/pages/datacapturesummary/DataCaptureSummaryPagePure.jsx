@@ -638,8 +638,6 @@ function DataCaptureSummaryPureInner() {
         saveDisabled={editFormula.saveDisabled}
         saving={editFormula.saving}
 
-        usedAccountIds={editFormula.usedAccountIds}
-
         onAccountSelect={editFormula.handleAccountSelect}
 
         onClose={editFormula.closeEditFormula}

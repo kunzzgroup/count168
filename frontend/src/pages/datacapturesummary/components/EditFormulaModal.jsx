@@ -33,7 +33,6 @@ export default function EditFormulaModal({
   idProductOptions = [],
   rowDataOptions = [],
   formulaDataGridItems = [],
-  usedAccountIds = [],
   saveDisabled = false,
   saving = false,
   onClose,
@@ -48,7 +47,6 @@ export default function EditFormulaModal({
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountSearch, setAccountSearch] = useState("");
   const accountWrapperRef = useRef(null);
-  const currentAccountId = form?.accountId ?? "";
 
   useEffect(() => {
     if (!accountOpen) return undefined;
@@ -61,21 +59,14 @@ export default function EditFormulaModal({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [accountOpen]);
 
-  const usedSet = useMemo(
-    () => new Set((usedAccountIds || []).map((id) => String(id))),
-    [usedAccountIds]
-  );
-
   const filteredAccounts = useMemo(() => {
     const q = accountSearch.trim().toLowerCase();
     return accounts.filter((acc) => {
-      const id = String(acc.id ?? "");
-      if (usedSet.has(id) && id !== String(currentAccountId || "")) return false;
       if (!q) return true;
       const label = String(acc.account_display || acc.account || acc.name || "").toLowerCase();
       return label.includes(q);
     });
-  }, [accounts, accountSearch, usedSet, currentAccountId]);
+  }, [accounts, accountSearch]);
 
   if (!open || !form) return null;
 
