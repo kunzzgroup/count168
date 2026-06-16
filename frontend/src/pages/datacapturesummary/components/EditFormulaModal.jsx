@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { EDIT_FORMULA_INPUT_METHODS, CALCULATOR_KEYPAD } from "../formula/editFormulaConstants.js";
 import { getSummaryInputMethodLabel } from "../../../translateFile/pages/dataCaptureSummaryTranslate.js";
 import { portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
+import { formatSummaryAccountDisplay } from "../lib/summaryAccountDisplay.js";
 
 function CalcButton({ value, action, className = "", clearLabel = "Clr", onPress }) {
   const isOperator = ["/", "*", "-", "+"].includes(value);
@@ -63,7 +64,7 @@ export default function EditFormulaModal({
     const q = accountSearch.trim().toLowerCase();
     return accounts.filter((acc) => {
       if (!q) return true;
-      const label = String(acc.account_display || acc.account || acc.name || "").toLowerCase();
+      const label = formatSummaryAccountDisplay(acc).toLowerCase();
       return label.includes(q);
     });
   }, [accounts, accountSearch]);
@@ -82,7 +83,7 @@ export default function EditFormulaModal({
 
   const selectAccount = (acc) => {
     const id = String(acc.id ?? "");
-    const label = String(acc.account_display || acc.account || acc.name || id);
+    const label = formatSummaryAccountDisplay(acc, id);
     setField({ accountId: id, accountText: label, currencyId: "", currencyLabel: "" });
     onAccountSelect?.(id);
     setAccountOpen(false);
@@ -166,7 +167,7 @@ export default function EditFormulaModal({
                                   if (e.key === "Enter" || e.key === " ") selectAccount(acc);
                                 }}
                               >
-                                {acc.account_display || acc.account || acc.name || acc.id}
+                                {formatSummaryAccountDisplay(acc)}
                               </div>
                             ))}
                           </div>

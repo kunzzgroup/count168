@@ -21,6 +21,7 @@ import {
   syncSubOrderTemplates,
 } from "../table/summarySubOrderResequence.js";
 import { pushSummaryNotification } from "../lib/summaryNotify.js";
+import { formatSummaryAccountDisplay } from "../lib/summaryAccountDisplay.js";
 import { removeSuppressedRow } from "../lib/summarySuppressedRows.js";
 import {
   applyTenantLedgerToParams,
@@ -191,7 +192,7 @@ export function useSummaryEditFormulaPure({
         const match = next.find((a) => String(a.id) === String(newAccountId));
         if (!match) return;
         const id = String(match.id);
-        const label = String(match.account_display || match.account || match.name || id);
+        const label = formatSummaryAccountDisplay(match, id);
         setForm((prev) => (prev ? { ...prev, accountId: id, accountText: label } : prev));
         void loadCurrenciesForAccount(id);
       } catch (e) {

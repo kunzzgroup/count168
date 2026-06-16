@@ -22,7 +22,23 @@ export const SUMMARY_CAPTURE_STORAGE_KEYS = [
 export const SUMMARY_RATE_VALUES_KEY = "capturedTableRateValues";
 export const SUMMARY_FORMULA_SOURCE_KEY = "capturedTableFormulaSourceForRefresh";
 export const SUMMARY_CAPTURE_ID_KEY = "capturedCaptureId";
+export const RATE_BY_PRODUCT_KEY = "capturedTableRateValuesByProductId";
 const SUMMARY_FRESH_NAV_KEY = "dc_summary_fresh_nav";
+
+function scopedRefreshStorageKey(base, captureScope) {
+  const tag = dataCaptureScopeCacheCompanyKey(captureScope);
+  if (tag == null) return base;
+  return `${base}:${tag}`;
+}
+
+/** Scoped localStorage keys for Summary refresh draft (formula / rate). */
+export function summaryRefreshStorageKeys(captureScope) {
+  return {
+    formulaSource: scopedRefreshStorageKey(SUMMARY_FORMULA_SOURCE_KEY, captureScope),
+    rateValues: scopedRefreshStorageKey(SUMMARY_RATE_VALUES_KEY, captureScope),
+    rateByProduct: scopedRefreshStorageKey(RATE_BY_PRODUCT_KEY, captureScope),
+  };
+}
 
 export function markSummaryFreshNavigation() {
   try {
