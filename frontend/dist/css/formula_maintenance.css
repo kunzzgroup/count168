@@ -1293,13 +1293,22 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     min-height: clamp(120px, 22vh, 280px);
 }
 
+.formula-maintenance-page-root .customer-report-filter-container,
+.formula-maintenance-page-root .formula-maintenance-table-region {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
 .formula-maintenance-page-root .formula-virtual-table {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
 
 .formula-maintenance-page-root .formula-virtual-table-inner {
-    min-width: 1280px;
+    min-width: 1100px;
     width: 100%;
     box-sizing: border-box;
 }

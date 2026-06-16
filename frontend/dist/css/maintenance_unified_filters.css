@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Shared maintenance filter chrome (aligned with Data Capture maintenance).
  * Loaded on all maintenance routes under body.maintenance-page.
  */
@@ -730,6 +730,45 @@ body.dashboard-page.maintenance-page .maintenance-checkbox-cell-inner {
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+}
+
+/*
+ * 窄屏 / 平板：右栏勾选、Formula 操作列 sticky，横向滚动时仍可见（对齐 Capture）。
+ */
+body.dashboard-page.maintenance-page .maintenance-virtual-th[class*="-virtual-th-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-th.maintenance-select-all-header,
+body.dashboard-page.maintenance-page .maintenance-virtual-th.formula-virtual-th-actions {
+    position: sticky !important;
+    right: 0 !important;
+    z-index: 5 !important;
+    min-width: clamp(40px, 5.5vw, 56px) !important;
+    background: linear-gradient(180deg, #60c1fe 0%, #0f61ff 100%) !important;
+    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.1) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap [class*="-virtual-cell-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .formula-virtual-cell-actions {
+    position: sticky !important;
+    right: 0 !important;
+    z-index: 2 !important;
+    min-width: clamp(40px, 5.5vw, 56px) !important;
+    background: #ffffff !important;
+    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08) !important;
+}
+
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row--stripe [class*="-virtual-cell-checkbox"],
+body.dashboard-page.maintenance-page .maintenance-virtual-row-wrap .maintenance-virtual-data-row--stripe .formula-virtual-cell-actions {
+    background: #cceeff99 !important;
+}
+
+body.dashboard-page.maintenance-page .container > .capture-maintenance-page-root,
+body.dashboard-page.maintenance-page .container > .payment-maintenance-page-root,
+body.dashboard-page.maintenance-page .container > .formula-maintenance-page-root,
+body.dashboard-page.maintenance-page .container > .transaction-maintenance-page-root,
+body.dashboard-page.maintenance-page .container > .bankprocess-maintenance-page-root {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }
 
 /* Scrollbars: app-wide — see dashboard-scrollbar.css (app-shell) */

@@ -726,7 +726,7 @@ export default function PaymentMaintenancePage() {
   const tableLoading = loading || bootLoading;
 
   return (
-    <div className="payment-maintenance-page-root container">
+    <div className="container">
       {permissions.length > 1 ? (
       <div className="maintenance-header">
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
@@ -747,6 +747,7 @@ export default function PaymentMaintenancePage() {
       </div>
       ) : null}
 
+      <div className="payment-maintenance-page-root">
       <PaymentMaintenanceFilters 
         transactionType={transactionType}
         setTransactionType={setTransactionType}
@@ -796,6 +797,7 @@ export default function PaymentMaintenancePage() {
           selectAll={selectAll}
           m={m}
         />
+      </div>
       </div>
 
       {/* Modal & Notifications */}

@@ -38,16 +38,18 @@ function PaymentVirtualTableHead({ selectAllRef, selectAll, toggleSelectAll, m, 
           role="columnheader"
           className="maintenance-virtual-th payment-virtual-th-checkbox maintenance-select-all-header"
         >
-          <input
-            type="checkbox"
-            id={disableSelectAll ? undefined : "select_all_payment"}
-            ref={disableSelectAll ? undefined : selectAllRef}
-            className="maintenance-row-checkbox"
-            checked={selectAll}
-            onChange={toggleSelectAll}
-            title={m.selectAll}
-            disabled={disableSelectAll}
-          />
+          <span className="maintenance-checkbox-cell-inner">
+            <input
+              type="checkbox"
+              id={disableSelectAll ? undefined : "select_all_payment"}
+              ref={disableSelectAll ? undefined : selectAllRef}
+              className="maintenance-row-checkbox"
+              checked={selectAll}
+              onChange={toggleSelectAll}
+              title={m.selectAll}
+              disabled={disableSelectAll}
+            />
+          </span>
         </div>
       </div>
     </div>

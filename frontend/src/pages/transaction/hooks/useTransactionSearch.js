@@ -22,7 +22,8 @@ import {
   saveUserCurrencyOrder,
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
-import { clearTxSearchCache, getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
+import { getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
+import { buildDefaultSearchApiParams } from "../lib/transactionScopePrefetch.js";
 import {
   buildDashboardCurrencyScopeKey,
   notifyDashboardCurrencyFilterChanged,
@@ -864,7 +865,6 @@ export function useTransactionSearch({
         prevServerSideFiltersRef.current = null;
         setRawSearchData(null);
         setSearchLoading(false);
-        clearTxSearchCache();
         lastCompletedSearchKeyRef.current = "";
         try {
           latestRunTokenRef.current += 1;
@@ -883,10 +883,50 @@ export function useTransactionSearch({
       suppressBlockingOverlayOnceRef.current = true;
       prevCaptureDateRangeKeyRef.current = null;
       prevServerSideFiltersRef.current = null;
-      setRawSearchData(null);
       setSearchLoading(false);
-      clearTxSearchCache();
       lastCompletedSearchKeyRef.current = "";
+
+      const date = effectiveDateFrom || todayDmy;
+      const { currencyPrefs, requestKey } = buildDefaultSearchApiParams(transactionScope, {
+        dateFrom: date,
+        dateTo: effectiveDateTo || date,
+      });
+      const instantReplay =
+        getTxSearchCache(requestKey) ??
+        (() => {
+          try {
+            const sessionKey = buildTxListSessionKey({
+              companyId: scopeCacheCompanyKey,
+              dateFrom: date,
+              dateTo: effectiveDateTo || date,
+              selectedCategories: [],
+              showInactive: false,
+              showCaptureOnly: false,
+              hideZeroBalance: true,
+              showAllCurrencies: currencyPrefs.showAll,
+              selectedCurrencies: currencyPrefs.currencies,
+            });
+            return sessionKey ? readTxListFromSessionStorage(sessionKey) : null;
+          } catch {
+            return null;
+          }
+        })();
+
+      if (instantReplay) {
+        setRawSearchData(instantReplay);
+        setTablesVisible(true);
+      } else {
+        setRawSearchData(null);
+      }
+
+      if (!currencyPrefs.showAll && currencyPrefs.currencies.length > 0) {
+        setShowAllCurrencies(false);
+        setSelectedCurrencies(currencyPrefs.currencies);
+      } else if (currencyPrefs.showAll) {
+        setShowAllCurrencies(true);
+        setSelectedCurrencies([]);
+      }
+
       try {
         latestRunTokenRef.current += 1;
         queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
@@ -902,7 +942,15 @@ export function useTransactionSearch({
       initialSearchDoneRef.current = false;
       lastInitialSearchKeyRef.current = "";
     }
-  }, [scopeKey, queryClient]);
+  }, [
+    scopeKey,
+    queryClient,
+    transactionScope,
+    scopeCacheCompanyKey,
+    effectiveDateFrom,
+    effectiveDateTo,
+    todayDmy,
+  ]);
 
   const selectedCategoriesKey = useMemo(
     () =>

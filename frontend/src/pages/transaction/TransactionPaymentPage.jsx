@@ -307,6 +307,7 @@ function TransactionPaymentPageMain() {
             fs={filterSnapshot}
             onGroupButtonClick={data.onGroupButtonClick}
             onCompanyButtonClick={data.onCompanyButtonClick}
+            onWarmCompany={data.onWarmCompany}
             onPickAllGroups={data.onPickAllGroups}
             onPickAllInGroup={data.onPickAllInGroup}
             allowCompanyDeselect={data.allowCompanyDeselect}

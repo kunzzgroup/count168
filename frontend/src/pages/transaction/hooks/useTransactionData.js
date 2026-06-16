@@ -50,6 +50,11 @@ import {
   buildTransactionBootSnapshot,
   mergeOwnerCompaniesIntoSnapshot,
 } from "../lib/transactionBootSnapshot.js";
+import {
+  hydrateTransactionScopeMetadataFromCache,
+  prefetchTransactionScopeBundle,
+  warmTransactionCompanyHover,
+} from "../lib/transactionScopePrefetch.js";
 
 export function useTransactionData({
   todayDmy,
@@ -111,11 +116,23 @@ export function useTransactionData({
     if (prevScopeCacheKeyRef.current === scopeCacheKey) return;
     prevScopeCacheKeyRef.current = scopeCacheKey;
     scopeCacheKeyRef.current = scopeCacheKey;
-    queryClient.removeQueries({ queryKey: ["tx-company-currencies"] });
+
+    const hydrated = hydrateTransactionScopeMetadataFromCache(
+      queryClient,
+      transactionScope,
+      filterSnapshotRef.current?.snapCompaniesAll || filterSnapshotRef.current?.snapCompanies || [],
+    );
+    if (hydrated) {
+      setAccountOptions(hydrated.accData);
+      setCurrencyScopeBundle({ scopeKey: hydrated.scopeCacheKey, rows: hydrated.ordered });
+      setCurrencyOptions(hydrated.codes);
+      return;
+    }
+
     setAccountOptions([]);
     setCurrencyOptions([]);
     setCurrencyScopeBundle({ scopeKey: null, rows: [] });
-  }, [scopeCacheKey, queryClient]);
+  }, [scopeCacheKey, queryClient, transactionScope]);
 
   const setCurrencyRowsOrdered = useCallback((next) => {
     setCurrencyScopeBundle((prev) => ({
@@ -480,6 +497,40 @@ export function useTransactionData({
     enabled: Boolean(filterSnapshot),
   });
 
+  useEffect(() => {
+    if (loading || forbidden || !filterSnapshot?.companyStripRows?.length) return;
+    const strip = filterSnapshot.companyStripRows;
+    const activeId = Number(filterSnapshot.companyId);
+    const schedule =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback
+        : (cb) => window.setTimeout(cb, 500);
+    const cancel =
+      typeof window.cancelIdleCallback === "function"
+        ? window.cancelIdleCallback
+        : window.clearTimeout;
+
+    const idleId = schedule(() => {
+      for (const row of strip) {
+        if (!row?.id || Number(row.id) === activeId) continue;
+        warmTransactionCompanyHover(queryClient, {
+          filterSnapshot: filterSnapshotRef.current,
+          company: row,
+          todayDmy,
+        });
+      }
+    });
+
+    return () => cancel(idleId);
+  }, [
+    loading,
+    forbidden,
+    filterSnapshot?.companyId,
+    filterSnapshot?.companyStripRows,
+    queryClient,
+    todayDmy,
+  ]);
+
   const applyGroupOnlySelection = useCallback(async (snap, groupId) => {
     const g = String(groupId || "").trim().toUpperCase();
     if (!g || !snap) return;
@@ -535,7 +586,6 @@ export function useTransactionData({
       }
 
       const numericCid = Number(pick.id);
-      const viewGroup = resolveViewGroupForCompany(pick, g);
       persistDashboardGroupFilter(g);
       const nextSnap = {
         ...snap,
@@ -552,48 +602,18 @@ export function useTransactionData({
         companyId: numericCid,
         groupsAllMode: false,
       });
-      const nextScope = resolveTransactionScope(nextSnap);
-      const nextScopeKey = transactionScopeCacheKey(nextScope);
-      const prefetchApi = transactionScopeApiParams(nextScope) || {
-        companyId: numericCid,
-        viewGroup,
-        subsidiaryAccountsOnly: true,
-      };
-      const orderCompanyId = resolveTransactionCurrencyOrderCompanyId(
-        nextScope,
-        nextSnap.snapCompaniesAll || nextSnap.snapCompanies,
-      );
 
       const url = new URL(window.location.href);
       url.searchParams.set("company_id", String(numericCid));
       window.history.replaceState(null, "", url.toString());
       persistDashboardGroupOnlyMode(false);
       persistDashboardFilterState(g, numericCid, { allowGroupOnly: false });
+
+      void prefetchTransactionScopeBundle(queryClient, { nextSnap, todayDmy });
       commitFilterSnapshot(nextSnap);
-
-      void Promise.all([
-        queryClient.prefetchQuery({
-          queryKey: transactionQueryKeys.accounts(nextScopeKey),
-          queryFn: ({ signal }) => getAccounts({ ...prefetchApi, signal }),
-          staleTime: 60_000,
-        }),
-        queryClient.prefetchQuery({
-          queryKey: transactionQueryKeys.companyCurrencies(nextScopeKey),
-          queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
-          staleTime: 60_000,
-        }),
-        orderCompanyId
-          ? queryClient.prefetchQuery({
-              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
-              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
-              staleTime: 60_000,
-            })
-          : Promise.resolve(),
-      ]);
-
       void syncPickerCompanySession(numericCid, seq);
     },
-    [applyGroupOnlySelection, commitFilterSnapshot, queryClient, syncPickerCompanySession, u],
+    [applyGroupOnlySelection, commitFilterSnapshot, queryClient, syncPickerCompanySession, todayDmy, u],
   );
 
   const onCompanyButtonClick = useCallback(
@@ -615,7 +635,6 @@ export function useTransactionData({
       const nextGroup = gid || snap.selectedGroup;
       const nextGroupNorm = String(nextGroup || "").trim().toUpperCase();
       const currGroupNorm = String(snap.selectedGroup || "").trim().toUpperCase();
-      const viewGroup = resolveViewGroupForCompany(comp, nextGroup);
       const stripUnchanged =
         nextGroupNorm === currGroupNorm &&
         !snap.groupFilterOptOut &&
@@ -640,17 +659,6 @@ export function useTransactionData({
               },
             ),
       };
-      const nextScope = resolveTransactionScope(nextSnap);
-      const nextScopeKey = transactionScopeCacheKey(nextScope);
-      const prefetchApi = transactionScopeApiParams(nextScope) || {
-        companyId: numericCid,
-        viewGroup,
-        subsidiaryAccountsOnly: true,
-      };
-      const orderCompanyId = resolveTransactionCurrencyOrderCompanyId(
-        nextScope,
-        nextSnap.snapCompaniesAll || nextSnap.snapCompanies,
-      );
 
       const url = new URL(window.location.href);
       url.searchParams.set("company_id", String(cid));
@@ -658,73 +666,30 @@ export function useTransactionData({
       if (gid) persistDashboardGroupFilter(gid);
       persistDashboardGroupOnlyMode(false);
       persistDashboardFilterState(nextGroup, numericCid);
+
+      void prefetchTransactionScopeBundle(queryClient, { nextSnap, todayDmy });
       commitFilterSnapshot(nextSnap);
-
-      void Promise.all([
-        queryClient.prefetchQuery({
-          queryKey: transactionQueryKeys.accounts(nextScopeKey),
-          queryFn: ({ signal }) => getAccounts({ ...prefetchApi, signal }),
-          staleTime: 60_000,
-        }),
-        queryClient.prefetchQuery({
-          queryKey: transactionQueryKeys.companyCurrencies(nextScopeKey),
-          queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
-          staleTime: 60_000,
-        }),
-        orderCompanyId
-          ? queryClient.prefetchQuery({
-              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
-              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
-              staleTime: 60_000,
-            })
-          : Promise.resolve(),
-      ]);
-
       void syncPickerCompanySession(cid, seq);
     },
-    [applyGroupOnlySelection, commitFilterSnapshot, queryClient, syncPickerCompanySession, u],
+    [applyGroupOnlySelection, commitFilterSnapshot, queryClient, syncPickerCompanySession, todayDmy, u],
   );
 
   const prefetchScopeData = useCallback(
-    (nextSnap, numericCid) => {
-      const nextScope = resolveTransactionScope(nextSnap);
-      const nextScopeKey = transactionScopeCacheKey(nextScope);
-      const viewGroup = resolveViewGroupForCompany(
-        nextSnap.displayCompanyRow ||
-          (nextSnap.snapCompanies || []).find((c) => Number(c.id) === Number(numericCid)),
-        nextSnap.selectedGroup,
-      );
-      const prefetchApi = transactionScopeApiParams(nextScope) || {
-        companyId: numericCid,
-        viewGroup,
-        subsidiaryAccountsOnly: true,
-      };
-      const orderCompanyId = resolveTransactionCurrencyOrderCompanyId(
-        nextScope,
-        nextSnap.snapCompaniesAll || nextSnap.snapCompanies,
-      );
-
-      void Promise.all([
-        queryClient.prefetchQuery({
-          queryKey: transactionQueryKeys.accounts(nextScopeKey),
-          queryFn: ({ signal }) => getAccounts({ ...prefetchApi, signal }),
-          staleTime: 60_000,
-        }),
-        queryClient.prefetchQuery({
-          queryKey: transactionQueryKeys.companyCurrencies(nextScopeKey),
-          queryFn: ({ signal }) => getCompanyCurrencies({ ...prefetchApi, signal }),
-          staleTime: 60_000,
-        }),
-        orderCompanyId
-          ? queryClient.prefetchQuery({
-              queryKey: [...transactionQueryKeys.userCurrencyOrder(), orderCompanyId],
-              queryFn: ({ signal }) => getUserCurrencyOrder({ companyId: orderCompanyId, signal }),
-              staleTime: 60_000,
-            })
-          : Promise.resolve(),
-      ]);
+    (nextSnap) => {
+      void prefetchTransactionScopeBundle(queryClient, { nextSnap, todayDmy });
     },
-    [queryClient],
+    [queryClient, todayDmy],
+  );
+
+  const onWarmCompany = useCallback(
+    (company) => {
+      warmTransactionCompanyHover(queryClient, {
+        filterSnapshot: filterSnapshotRef.current,
+        company,
+        todayDmy,
+      });
+    },
+    [queryClient, todayDmy],
   );
 
   const deselectGroupKeepCompany = useCallback(
@@ -776,7 +741,7 @@ export function useTransactionData({
       commitFilterSnapshot(nextSnap);
 
       if (nextCompanyId != null && Number.isFinite(nextCompanyId) && nextCompanyId > 0) {
-        prefetchScopeData(nextSnap, nextCompanyId);
+        prefetchScopeData(nextSnap);
         void syncPickerCompanySession(nextCompanyId, seq);
       }
     },
@@ -876,6 +841,7 @@ export function useTransactionData({
     setCurrencyRowsOrdered,
     onGroupButtonClick,
     onCompanyButtonClick,
+    onWarmCompany,
     onPickAllGroups,
     onPickAllInGroup,
     allowCompanyDeselect: canClearCompanySelection(u, filterSnapshot?.selectedGroup),

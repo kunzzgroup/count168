@@ -16,6 +16,7 @@ export default function TransactionSearchSection({
   fs,
   onGroupButtonClick,
   onCompanyButtonClick,
+  onWarmCompany,
   onPickAllGroups,
   onPickAllInGroup,
   allowCompanyDeselect = false,
@@ -219,6 +220,7 @@ export default function TransactionSearchSection({
             pickerCompanyId={fs.companyId}
             onPickAllInGroup={onPickAllInGroup}
             onPickCompany={onCompanyButtonClick}
+            onWarmCompany={onWarmCompany}
             allowCompanyDeselect={allowCompanyDeselect}
           >
             {currencyRowsOrdered.length > 0 && (

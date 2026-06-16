@@ -1011,7 +1011,7 @@ export default function FormulaMaintenancePage() {
   const tableLoading = loading || bootPending;
 
   return (
-    <div className="formula-maintenance-page-root container">
+    <div className="container">
       {permissions.length > 1 ? (
       <div className="maintenance-header">
           <div id="maintenance-permission-filter" className="maintenance-permission-filter-header">
@@ -1032,6 +1032,7 @@ export default function FormulaMaintenancePage() {
       </div>
       ) : null}
 
+      <div className="formula-maintenance-page-root">
       <FormulaMaintenanceFilters 
         processes={processes}
         selectedProcess={selectedProcess}
@@ -1085,6 +1086,7 @@ export default function FormulaMaintenancePage() {
         awaitingProcessSelection={selectedProcess === null}
         bootPending={bootPending}
       />
+      </div>
       </div>
 
       {/* Modal & Notifications */}
