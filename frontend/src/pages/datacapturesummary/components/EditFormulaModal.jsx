@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EDIT_FORMULA_INPUT_METHODS, CALCULATOR_KEYPAD } from "../formula/editFormulaConstants.js";
+import { formatSummaryAccountDisplay } from "../formula/editFormulaFormState.js";
 import { getSummaryInputMethodLabel } from "../../../translateFile/pages/dataCaptureSummaryTranslate.js";
 import { portalToDocumentBody } from "../../../components/ProcessModalPortal.jsx";
-import { formatSummaryAccountDisplay } from "../lib/summaryAccountDisplay.js";
 
 function CalcButton({ value, action, className = "", clearLabel = "Clr", onPress }) {
   const isOperator = ["/", "*", "-", "+"].includes(value);
