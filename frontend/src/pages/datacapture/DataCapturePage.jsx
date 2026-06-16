@@ -1089,7 +1089,18 @@ function DataCapturePageContent() {
                         placeholder={t("clickToSelectDescriptions")}
                         value={form.descriptionDisplay}
                       />
-                      <i className="fas fa-list-ul dc-description-suffix-icon" aria-hidden="true" />
+                      <button
+                        type="button"
+                        className="dc-description-add-tile"
+                        title={t("selectDescriptions")}
+                        aria-label={t("selectDescriptions")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDescriptionModal();
+                        }}
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
 
