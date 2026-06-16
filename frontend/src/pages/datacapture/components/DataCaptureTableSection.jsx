@@ -1,7 +1,9 @@
+import { useRef } from "react";
 import DataCaptureGrid from "./DataCaptureGrid.jsx";
 import GroupOnlyTableSizeControl from "./GroupOnlyTableSizeControl.jsx";
 import { CAPTURE_TYPE_OPTIONS } from "../lib/dataCaptureFormRules.js";
 import { callDataCaptureRuntime } from "../lib/dataCaptureRuntime.js";
+import { useDataCaptureGridViewportFit } from "../hooks/useDataCaptureGridViewportFit.js";
 
 function captureTypeLabel(opt, t) {
   if (opt === "1.Text") return t("captureTypeText");
@@ -28,6 +30,9 @@ export default function DataCaptureTableSection({
   onReset,
   engineReady = false,
 }) {
+  const tableAreaRef = useRef(null);
+  useDataCaptureGridViewportFit(groupOnlyTable, engineReady, tableAreaRef);
+
   const formatPasteMode = captureType === "2.Format" && !formatGridReady;
   const containerClass = [
     "excel-table-container",
@@ -63,7 +68,7 @@ export default function DataCaptureTableSection({
 
   return (
     <div className="bottom-section">
-      <div className={containerClass}>
+      <div className={containerClass} ref={groupOnlyTable ? null : tableAreaRef}>
         <div
           className={`excel-table-header dc-table-header-bar${hideCaptureTypeSelector ? " dc-table-header-bar--group-only" : ""}`.trim()}
         >
@@ -114,7 +119,13 @@ export default function DataCaptureTableSection({
             <GroupOnlyTableSizeControl t={t} engineReady={engineReady} />
           ) : null}
         </div>
-        {groupOnlyTable ? <div className="excel-table-scroll-body">{gridBody}</div> : gridBody}
+        {groupOnlyTable ? (
+          <div className="excel-table-scroll-body" ref={tableAreaRef}>
+            {gridBody}
+          </div>
+        ) : (
+          gridBody
+        )}
       </div>
 
       <div className="form-actions">
