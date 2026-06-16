@@ -60,6 +60,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
   const historyAbortRef = useRef(null);
   const gridAbortRef = useRef(null);
   const searchSeqRef = useRef(0);
+  const viewCacheRef = useRef(new Map());
   const linkedAccountsRef = useRef(linkedAccounts);
   linkedAccountsRef.current = linkedAccounts;
   const performMemberSearchRef = useRef(null);
@@ -84,6 +85,19 @@ export function useMemberWinLoss({ showNotification, lang }) {
     const b = (right || []).map((acc) => Number(acc.id)).filter(Boolean);
     return sameAccountIdList(a, b);
   }, [sameAccountIdList]);
+
+  const buildViewCacheKey = useCallback(
+    (viewId, compId, from, to, useAll, useSelected) =>
+      [
+        Number(viewId) || 0,
+        Number(compId) || 0,
+        String(from || ""),
+        String(to || ""),
+        useAll ? "all" : "sel",
+        useAll ? "" : (useSelected || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean).join(","),
+      ].join("|"),
+    [],
+  );
 
   const linkedAccountCurrenciesMapRef = useRef(linkedAccountCurrenciesMap);
   linkedAccountCurrenciesMapRef.current = linkedAccountCurrenciesMap;
@@ -560,6 +574,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         useAll = true;
         useSelected = [];
       }
+      const cacheKey = buildViewCacheKey(viewAccountId, companyId, dateFrom, dateTo, useAll, useSelected);
       const targetCurrencies = useAll ? availableCurrencies : [...useSelected];
       if (!targetCurrencies.length) {
         const params = new URLSearchParams({
@@ -583,8 +598,17 @@ export function useMemberWinLoss({ showNotification, lang }) {
             finishHistoryFetch(seq);
             return;
           }
-          setHistoryRows(Array.isArray(json.data?.history) ? json.data.history : []);
-          commitTableDisplayContext(useAll, useSelected, json.data?.history || [], availableCurrencies);
+          const history = Array.isArray(json.data?.history) ? json.data.history : [];
+          setHistoryRows(history);
+          commitTableDisplayContext(useAll, useSelected, history, availableCurrencies);
+          viewCacheRef.current.set(cacheKey, {
+            historyRows: history,
+            tableDisplayContext: {
+              isAllSelected: useAll,
+              selectedCurrencies: [...(useSelected || [])],
+              currencyOrder: (Array.isArray(availableCurrencies) && availableCurrencies.length ? availableCurrencies : []).slice(),
+            },
+          });
           finishHistoryFetch(seq);
           showNotification(t("queryCompleted"), "success");
         } catch (e) {
@@ -621,6 +645,14 @@ export function useMemberWinLoss({ showNotification, lang }) {
         const history = json.data?.history || [];
         setHistoryRows(history);
         commitTableDisplayContext(useAll, useSelected, history, availableCurrencies);
+        viewCacheRef.current.set(cacheKey, {
+          historyRows: history,
+          tableDisplayContext: {
+            isAllSelected: useAll,
+            selectedCurrencies: [...(useSelected || [])],
+            currencyOrder: (Array.isArray(availableCurrencies) && availableCurrencies.length ? availableCurrencies : []).slice(),
+          },
+        });
         finishHistoryFetch(seq);
         showNotification(t("queryCompleted"), "success");
       } catch (e) {
@@ -647,6 +679,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
       showNotification,
       notifyApi,
       commitTableDisplayContext,
+      buildViewCacheKey,
       t,
     ],
   );
@@ -731,13 +764,25 @@ export function useMemberWinLoss({ showNotification, lang }) {
     if (!viewAccountId || !companyId || !dateFrom || !dateTo) return;
     searchSeqRef.current += 1;
     const seq = searchSeqRef.current;
-    setLoadingTable(true);
-    setMiniGridLoading(true);
-    const emptyBalances = new Map();
-    miniGridBalancesRef.current = emptyBalances;
-    setMiniGridBalances(emptyBalances);
-    setMiniGridTotals(new Map());
-    setMiniGridHint("");
+    const preKey = buildViewCacheKey(viewAccountId, companyId, dateFrom, dateTo, isAllSelected, selectedCurrencies);
+    const cached = viewCacheRef.current.get(preKey);
+    if (cached?.historyRows) {
+      setHistoryRows(cached.historyRows);
+      if (cached.tableDisplayContext) setTableDisplayContext(cached.tableDisplayContext);
+      setLoadingTable(false);
+    } else {
+      setLoadingTable(true);
+    }
+    // Keep mini grid smooth too. We still refresh in background below.
+    setMiniGridLoading(!cached);
+    if (!cached) {
+      const emptyBalances = new Map();
+      miniGridBalancesRef.current = emptyBalances;
+      setMiniGridBalances(emptyBalances);
+      setMiniGridTotals(new Map());
+      setMiniGridHint("");
+      setMiniGridShell(true);
+    }
     try {
       const summaryOk = await fetchMemberSummary(seq);
       if (seq !== searchSeqRef.current) return;
@@ -750,7 +795,18 @@ export function useMemberWinLoss({ showNotification, lang }) {
         setLoadingTable(false);
       }
     }
-  }, [viewAccountId, companyId, dateFrom, dateTo, fetchMemberSummary, fetchMemberHistory, loadCurrencyOrder]);
+  }, [
+    viewAccountId,
+    companyId,
+    dateFrom,
+    dateTo,
+    isAllSelected,
+    selectedCurrencies,
+    fetchMemberSummary,
+    fetchMemberHistory,
+    loadCurrencyOrder,
+    buildViewCacheKey,
+  ]);
 
   performMemberSearchRef.current = performMemberSearch;
 
