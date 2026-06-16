@@ -262,8 +262,8 @@ body.datacapture-page .submitted-list {
         display: none;
     }
 
-    body.datacapture-page .process-form .dc-form-company-layout__replace-new-field .replace-arrow {
-        margin-left: 0;
+    body.datacapture-page .process-form .dc-form-company-layout__replace-old::after {
+        display: none;
     }
 }
 
@@ -365,8 +365,9 @@ body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked > 
     font-weight: 600;
 }
 
-/* Company form: 6-col grid — Date/Description/Remove = cols 1–2, Process/Old/Remark = 3–4, Currency/New = 5–6 */
+/* Company form: 6-col grid — each column pair matches Date / Process / Currency width */
 body.datacapture-page .process-form .dc-form-company-layout {
+    --dc-company-control-height: 36px;
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     column-gap: clamp(12px, 1.35vw, 20px);
@@ -404,6 +405,21 @@ body.datacapture-page .process-form .dc-form-company-layout__replace-old {
     grid-column: 3 / span 2;
     grid-row: 2;
     margin-top: clamp(6px, 0.55vw, 10px);
+    position: relative;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__replace-old::after {
+    content: '→';
+    position: absolute;
+    right: calc(-0.5 * clamp(12px, 1.35vw, 20px));
+    bottom: calc(var(--dc-company-control-height) / 2);
+    transform: translate(50%, 50%);
+    color: #666;
+    font-weight: bold;
+    font-size: clamp(12px, 0.83vw, 16px);
+    line-height: 1;
+    pointer-events: none;
+    z-index: 2;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__replace-new {
@@ -413,13 +429,13 @@ body.datacapture-page .process-form .dc-form-company-layout__replace-new {
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__remove {
-    grid-column: 1 / span 2;
+    grid-column: 1 / span 3;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__remark {
-    grid-column: 3 / span 4;
+    grid-column: 4 / span 3;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
@@ -467,56 +483,49 @@ body.datacapture-page .process-form .dc-form-company-layout > .form-group > labe
 
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > select,
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > .custom-select-wrapper,
-body.datacapture-page .process-form .dc-form-company-layout > .form-group > .input-with-icon,
-body.datacapture-page .process-form .dc-form-company-layout > .form-group > .dc-form-company-layout__replace-new-field {
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > .input-with-icon {
     width: 100%;
     min-width: 0;
     flex: 0 0 auto;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > input,
-body.datacapture-page .process-form .dc-form-company-layout > .form-group > select {
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > select,
+body.datacapture-page .process-form .dc-form-company-layout > .form-group .custom-select-button,
+body.datacapture-page .process-form .dc-form-company-layout > .form-group .input-with-icon {
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    min-height: 36px;
+    height: var(--dc-company-control-height);
+    min-height: var(--dc-company-control-height);
     padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
     border: 1px solid var(--dc-border, #e2e8f0);
     border-radius: 6px;
     font-size: clamp(10px, 0.74vw, 14px);
     font-weight: 600;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .form-group .input-with-icon {
+    display: flex;
+    align-items: stretch;
+    padding: 0;
+    border: none;
+    height: var(--dc-company-control-height);
+    min-height: var(--dc-company-control-height);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout > .form-group .input-with-icon input {
     width: 100%;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__replace-new-field {
-    display: flex;
-    align-items: center;
-    gap: clamp(4px, 0.42vw, 6px);
-    min-width: 0;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__replace-new-field .replace-arrow {
-    flex-shrink: 0;
-    color: #666;
-    font-weight: bold;
-    font-size: clamp(12px, 0.83vw, 16px);
-    margin-left: clamp(-10px, -0.8vw, -6px);
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__replace-new-field input {
-    flex: 1;
-    min-width: 0;
-    width: 100%;
-    min-height: 36px;
-    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    height: 100%;
+    min-height: 0;
     border: 1px solid var(--dc-border, #e2e8f0);
     border-radius: 6px;
-    font-size: clamp(10px, 0.74vw, 14px);
-    font-weight: 600;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
     box-sizing: border-box;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .form-group .custom-select-button {
+    padding-right: clamp(28px, 2vw, 36px);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__remove-help {
