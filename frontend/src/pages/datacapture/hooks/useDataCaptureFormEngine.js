@@ -22,6 +22,12 @@ import {
 import { loadActiveCaptureSession } from "../lib/dataCaptureStorage.js";
 import { isGroupPayrollCaptureSession } from "../../../utils/company/c168CaptureChannel.js";
 import { captureTableSnapshot } from "../lib/dataCaptureTableSnapshot.js";
+import { toDataCaptureWordFieldCase } from "../lib/dataCaptureFormRules.js";
+import { parseRemoveWordChips, serializeRemoveWordChips } from "../lib/dataCaptureRemoveWordChips.js";
+
+function normalizeRemoveWordValue(value) {
+  return serializeRemoveWordChips(parseRemoveWordChips(value));
+}
 
 const PROCESS_PLACEHOLDER = "Select Process";
 /** Cap initial option nodes when list is huge (e.g. Monday with 200+ processes). */
@@ -79,7 +85,7 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
   const pd = data || {};
 
   if (applyCompanyOnlyFields) {
-    if (pd.remove_word) setRemoveWord(toDataCaptureWordFieldCase(pd.remove_word));
+    if (pd.remove_word) setRemoveWord(normalizeRemoveWordValue(pd.remove_word));
     if (pd.replace_word_from) setReplaceFrom(toDataCaptureWordFieldCase(pd.replace_word_from));
     if (pd.replace_word_to) setReplaceTo(toDataCaptureWordFieldCase(pd.replace_word_to));
 
@@ -160,7 +166,7 @@ export function useDataCaptureFormEngine(
     restoredProcessData?.replaceWordTo ? toDataCaptureWordFieldCase(restoredProcessData.replaceWordTo) : "",
   );
   const [removeWord, setRemoveWord] = useState(() =>
-    restoredProcessData?.removeWord ? toDataCaptureWordFieldCase(restoredProcessData.removeWord) : "",
+    restoredProcessData?.removeWord ? normalizeRemoveWordValue(restoredProcessData.removeWord) : "",
   );
   const [remark, setRemark] = useState(() =>
     restoredProcessData?.remark ? toDataCaptureWordFieldCase(restoredProcessData.remark) : "",
@@ -388,6 +394,7 @@ export function useDataCaptureFormEngine(
     });
     setProcessOpen(false);
     setProcessFilter("");
+    setRemoveWord("");
     const cid = companyIdRef.current;
     const res = await fetchProcessDetail(row.id, cid);
     if (res.success && res.data) {
@@ -504,7 +511,7 @@ export function useDataCaptureFormEngine(
       if (!processData) return;
       if (processData.date) setCaptureDate(processData.date);
       if (processData.currency) setCurrencyId(String(processData.currency));
-      if (processData.removeWord != null) setRemoveWord(toDataCaptureWordFieldCase(processData.removeWord));
+      if (processData.removeWord != null) setRemoveWord(normalizeRemoveWordValue(processData.removeWord));
       if (processData.replaceWordFrom != null) setReplaceFrom(toDataCaptureWordFieldCase(processData.replaceWordFrom));
       if (processData.replaceWordTo != null) setReplaceTo(toDataCaptureWordFieldCase(processData.replaceWordTo));
       if (processData.remark != null) setRemark(toDataCaptureWordFieldCase(processData.remark));

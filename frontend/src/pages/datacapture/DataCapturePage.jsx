@@ -65,6 +65,7 @@ import DataCaptureContextMenus from "./components/DataCaptureContextMenus.jsx";
 import DataCaptureDeleteDialog from "./components/DataCaptureDeleteDialog.jsx";
 import DataCaptureTableSection from "./components/DataCaptureTableSection.jsx";
 import DescriptionSelectionModal from "./components/DescriptionSelectionModal.jsx";
+import RemoveWordChipInput from "./components/RemoveWordChipInput.jsx";
 import ProcessNotificationContainer from "./components/ProcessNotificationContainer.jsx";
 import { useDataCaptureCategoryPermissions } from "./hooks/useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./hooks/useDataCaptureFormEngine.js";
@@ -1137,13 +1138,13 @@ function DataCapturePageContent() {
 
                   <div className="form-group dc-form-company-layout__remove">
                     <label htmlFor="capture_remove_word">{t("removeWord")}</label>
-                    <input
-                      type="text"
-                      id="capture_remove_word"
-                      name="remove_word"
-                      placeholder={t("enterWordsToRemove")}
+                    <RemoveWordChipInput
                       value={form.removeWord}
-                      onChange={(e) => form.setRemoveWord(toDataCaptureWordFieldCase(e.target.value))}
+                      onChange={form.setRemoveWord}
+                      processId={form.selectedProcess?.id}
+                      scopeCompanyId={captureScope?.scopeCompanyId ?? companyId}
+                      placeholder={t("enterWordsToRemove")}
+                      removeChipAriaLabel={t("removeWordChipRemove")}
                     />
                     <small className="field-help dc-form-company-layout__remove-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
                       {t("removeWordHelp")}

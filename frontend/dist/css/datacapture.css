@@ -828,10 +828,87 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
 }
 
 /* Replace / remove / remark: sentence case (not all-caps) */
-#capture_remove_word,
 #capture_replace_word_from,
 #capture_replace_word_to,
 #capture_remark {
+    text-transform: none;
+}
+
+body.datacapture-page .dc-remove-word-chip-input {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 36px;
+    padding: 4px 8px;
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
+    background: #ffffff;
+    box-sizing: border-box;
+    cursor: text;
+}
+
+body.datacapture-page .dc-remove-word-chip-input:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+
+body.datacapture-page .dc-remove-word-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 2px 6px 2px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #f1f5f9;
+    color: #0f172a;
+    font-size: clamp(10px, 0.74vw, 14px);
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+body.datacapture-page .dc-remove-word-chip__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.datacapture-page .dc-remove-word-chip__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+body.datacapture-page .dc-remove-word-chip__remove:hover {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+body.datacapture-page .dc-remove-word-chip-input__field {
+    flex: 1 1 120px;
+    min-width: 80px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #0f172a;
+    font-size: clamp(10px, 0.74vw, 14px);
+    font-weight: 600;
+    line-height: 1.25;
+    padding: 2px 0;
     text-transform: none;
 }
 
