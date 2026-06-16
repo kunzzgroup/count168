@@ -381,10 +381,10 @@ body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked > 
     font-weight: 600;
 }
 
-/* Company form: 6-col grid — Date/Description/Remove = cols 1–2, Process/Old/Remark = 3–4, Currency/New = 5–6 */
+/* Company form: 12-col grid — thirds = 4 cols; row 3 splits at Old word center (col 7) */
 body.datacapture-page .process-form .dc-form-company-layout {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     column-gap: clamp(12px, 1.35vw, 20px);
     row-gap: clamp(4px, 0.38vw, 6px);
     align-items: start;
@@ -396,46 +396,46 @@ body.datacapture-page .process-form .dc-form-company-layout {
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__date {
-    grid-column: 1 / span 2;
+    grid-column: 1 / span 4;
     grid-row: 1;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__process {
-    grid-column: 3 / span 2;
+    grid-column: 5 / span 4;
     grid-row: 1;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__currency {
-    grid-column: 5 / span 2;
+    grid-column: 9 / span 4;
     grid-row: 1;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__description {
-    grid-column: 1 / span 2;
+    grid-column: 1 / span 4;
     grid-row: 2;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__replace-old {
-    grid-column: 3 / span 2;
+    grid-column: 5 / span 4;
     grid-row: 2;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__replace-new {
-    grid-column: 5 / span 2;
+    grid-column: 9 / span 4;
     grid-row: 2;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__remove {
-    grid-column: 1 / span 2;
+    grid-column: 1 / 7;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__remark {
-    grid-column: 3 / span 4;
+    grid-column: 7 / -1;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
