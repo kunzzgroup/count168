@@ -108,13 +108,16 @@ export function useSummaryPageScroll(rowsRevision) {
 export function useSummaryRefreshPersist({ captureScope, processId, processCode, enabled }) {
   const { rows, dataPopulating } = useSummaryContext();
   const rowsRef = useRef(rows);
+  const dataPopulatingRef = useRef(dataPopulating);
   rowsRef.current = rows;
+  dataPopulatingRef.current = dataPopulating;
 
   useEffect(() => {
     if (!enabled) return undefined;
 
     const persist = () => {
       if (window.isNavigatingAwayByBackOrSubmit) return;
+      if (dataPopulatingRef.current) return;
       const currentRows = rowsRef.current;
       if (!currentRows?.length) return;
       saveSummaryRefreshStatePure(currentRows, { processId, processCode }, captureScope);
@@ -132,6 +135,7 @@ export function useSummaryRefreshPersist({ captureScope, processId, processCode,
     if (!enabled || dataPopulating || !rows?.length) return undefined;
     const timer = window.setTimeout(() => {
       if (window.isNavigatingAwayByBackOrSubmit) return;
+      if (dataPopulatingRef.current) return;
       saveSummaryRefreshStatePure(rows, { processId, processCode }, captureScope);
     }, 400);
     return () => window.clearTimeout(timer);

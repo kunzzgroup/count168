@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 import {
   buildInitialSummaryRows,
@@ -19,15 +19,16 @@ import { stripSummarySuccessParamFromUrl } from "../lib/summaryStorage.js";
 import {
   saveSummaryRefreshStatePure,
   clearSummaryRefreshDraftStorage,
+  loadSummarySessionSnapshotWithFallback,
+  summaryRowsLookPopulated,
 } from "../lib/summaryRefreshStatePure.js";
-
-import { loadSummarySessionSnapshot } from "../lib/summaryRefreshStatePure.js";
 
 import { restoreRateValuesOnRows } from "../lib/summaryRefreshRestore.js";
 
 import { mapRowsWithAmountRecalc } from "../table/summaryRowAmount.js";
 
 import { pushSummaryNotification } from "../lib/summaryNotify.js";
+import { resolveDataCaptureScopeFromSessionMeta } from "../../datacapture/lib/dataCaptureScope.js";
 
 function readCaptureId() {
   try {
@@ -56,16 +57,29 @@ export function useSummaryTableModel({
   captureScope,
   freshFromCapture,
   serverState,
+  serverStateLoading = false,
+  serverStateQueryEnabled = false,
   searchParams,
   t,
 }) {
-  const { replaceRows, setDataPopulating, setAccounts, setTableChromeVisible } =
+  const { replaceRows, setDataPopulating, setAccounts, setTableChromeVisible, rows, dataPopulating } =
     useSummaryContext();
 
   const populateStartedRef = useRef(false);
   const populateChainRef = useRef(Promise.resolve());
+  const repopulateAttemptRef = useRef(0);
 
   const processMeta = { processId, processCode };
+
+  const snapshotScopeCandidates = useMemo(() => {
+    const candidates = [];
+    if (processData) {
+      const fromMeta = resolveDataCaptureScopeFromSessionMeta(processData);
+      if (fromMeta) candidates.push(fromMeta);
+    }
+    candidates.push(null);
+    return candidates;
+  }, [processData]);
 
   const executePopulate = useCallback(
     async () => {
@@ -92,13 +106,17 @@ export function useSummaryTableModel({
         const accounts = await consumePrefetchedAccounts(captureScope);
 
         if (!freshFromCapture) {
-          const snapshot = loadSummarySessionSnapshot(captureScope, processMeta);
+          const snapshot = loadSummarySessionSnapshotWithFallback(
+            captureScope,
+            processMeta,
+            snapshotScopeCandidates,
+          );
           if (snapshot?.rows?.length) {
-            let rows = restoreRateValuesOnRows(snapshot.rows, captureScope);
-            rows = mapRowsWithAmountRecalc(rows);
+            let restoredRows = restoreRateValuesOnRows(snapshot.rows, captureScope);
+            restoredRows = mapRowsWithAmountRecalc(restoredRows);
             setAccounts(accounts);
-            replaceRows(rows);
-            saveSummaryRefreshStatePure(rows, processMeta, captureScope);
+            replaceRows(restoredRows);
+            saveSummaryRefreshStatePure(restoredRows, processMeta, captureScope);
             setTableChromeVisible(true);
             document.body.classList.add("page-ready");
             return true;
@@ -106,7 +124,7 @@ export function useSummaryTableModel({
         }
 
         const captureId = readCaptureId();
-        const rows = await populateSummaryRowsPure({
+        const populatedRows = await populateSummaryRowsPure({
           tableData,
           processId,
           processCode,
@@ -126,9 +144,11 @@ export function useSummaryTableModel({
         });
 
         setAccounts(accounts);
-        replaceRows(rows);
+        replaceRows(populatedRows);
 
-        saveSummaryRefreshStatePure(rows, processMeta, captureScope);
+        if (summaryRowsLookPopulated(populatedRows)) {
+          saveSummaryRefreshStatePure(populatedRows, processMeta, captureScope);
+        }
 
         setTableChromeVisible(true);
 
@@ -138,7 +158,7 @@ export function useSummaryTableModel({
           stripSummarySuccessParamFromUrl();
         }
 
-        return true;
+        return summaryRowsLookPopulated(populatedRows);
       } catch (error) {
         console.error("Pure summary populate failed:", error);
 
@@ -169,6 +189,7 @@ export function useSummaryTableModel({
       setAccounts,
       setDataPopulating,
       setTableChromeVisible,
+      snapshotScopeCandidates,
     ]
   );
 
@@ -180,6 +201,7 @@ export function useSummaryTableModel({
 
   useLayoutEffect(() => {
     if (!enabled || !hasCaptureData || !tableData) return;
+    if (!freshFromCapture && serverStateQueryEnabled && serverStateLoading) return;
     if (populateStartedRef.current) return;
 
     populateStartedRef.current = true;
@@ -191,7 +213,41 @@ export function useSummaryTableModel({
     setTableChromeVisible(true);
 
     void runPopulate();
-  }, [enabled, hasCaptureData, tableData, runPopulate, replaceRows, setTableChromeVisible]);
+  }, [
+    enabled,
+    hasCaptureData,
+    tableData,
+    freshFromCapture,
+    serverStateQueryEnabled,
+    serverStateLoading,
+    runPopulate,
+    replaceRows,
+    setTableChromeVisible,
+  ]);
+
+  useEffect(() => {
+    if (!enabled || !hasCaptureData || !tableData || dataPopulating) return;
+    if (summaryRowsLookPopulated(rows)) return;
+    if (!freshFromCapture && serverStateQueryEnabled && serverStateLoading) return;
+    if (repopulateAttemptRef.current >= 3) return;
+
+    const timer = window.setTimeout(() => {
+      repopulateAttemptRef.current += 1;
+      void runPopulate();
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    enabled,
+    hasCaptureData,
+    tableData,
+    dataPopulating,
+    rows,
+    freshFromCapture,
+    serverStateQueryEnabled,
+    serverStateLoading,
+    runPopulate,
+  ]);
 
   return { runPopulate };
 }
