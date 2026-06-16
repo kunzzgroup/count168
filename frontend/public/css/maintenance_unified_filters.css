@@ -597,11 +597,15 @@ body.dashboard-page.maintenance-page .maintenance-virtual-head-row {
     padding-top: var(--report-list-header-padding-block-start) !important;
     padding-bottom: var(--report-list-header-padding-block-end) !important;
     padding-left: var(--report-list-row-padding-inline) !important;
-    /* Match body scrollbar-gutter: stable so header columns line up with data rows */
-    padding-right: calc(var(--report-list-row-padding-inline) + var(--dash-scrollbar-size, 12px)) !important;
+    padding-right: var(--report-list-row-padding-inline) !important;
     min-height: var(--report-list-header-min-height) !important;
     box-sizing: border-box !important;
     background: transparent !important;
+}
+
+/* Thead 在 scroll 外（如 formula 骨架屏）时，为旁侧 scroll 的 scrollbar-gutter 留白 */
+body.dashboard-page.maintenance-page .maintenance-virtual-table-inner > .maintenance-virtual-thead .maintenance-virtual-head-row {
+    padding-right: calc(var(--report-list-row-padding-inline) + var(--dash-scrollbar-size, 12px)) !important;
 }
 
 body.dashboard-page.maintenance-page .maintenance-virtual-th {
@@ -733,16 +737,17 @@ body.dashboard-page.maintenance-page .maintenance-checkbox-cell-inner {
     padding: 0 !important;
 }
 
-/* 勾选 / 操作列：与 Capture 一致，不用 sticky（表头/表体会错位） */
+/* 勾选 / 操作列：填满 grid track，checkbox 在列内居中 */
 body.dashboard-page.maintenance-page .payment-virtual-th-checkbox,
 body.dashboard-page.maintenance-page .payment-virtual-cell-checkbox,
 body.dashboard-page.maintenance-page .capture-virtual-th-checkbox,
 body.dashboard-page.maintenance-page .capture-virtual-cell-checkbox,
 body.dashboard-page.maintenance-page .bankprocess-virtual-th-checkbox,
 body.dashboard-page.maintenance-page .bankprocess-virtual-cell-checkbox {
-    flex: 0 0 auto !important;
-    min-width: clamp(40px, 6.5vw, 56px) !important;
-    max-width: clamp(48px, 7vw, 64px) !important;
+    justify-self: stretch !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
 }
 
 /* Formula 操作列：表头 placeholder + 勾选 与行内 编辑 + 勾选 同一布局 */
