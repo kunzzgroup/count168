@@ -1,6 +1,6 @@
 import { DashboardAnimatedValue } from "./DashboardAnimatedValue.jsx";
 import { KPI_CARD_ICONS } from "../lib/dashboardConstants.js";
-import { formatCurrency, formatI18nTemplate, formatSignedChange } from "../lib/dashboardFormat.js";
+import { formatSignedChange } from "../lib/dashboardFormat.js";
 
 export function DashboardKpiCard({
   variant,
@@ -10,8 +10,7 @@ export function DashboardKpiCard({
   id,
   tone,
   compare,
-  comparePeriodLabel,
-  compareVsTemplate,
+  compareLabel,
   fallbackFoot,
   footNote,
 }) {
@@ -44,14 +43,7 @@ export function DashboardKpiCard({
             <span className={`kpi-card-delta${compare.deltaPositive ? " is-up" : " is-down"}`}>
               {formatSignedChange(compare.delta)}
             </span>
-            {comparePeriodLabel && compareVsTemplate ? (
-              <span className="kpi-card-foot-muted">
-                {formatI18nTemplate(compareVsTemplate, {
-                  period: comparePeriodLabel,
-                  amount: formatCurrency(compare.previous),
-                })}
-              </span>
-            ) : null}
+            <span className="kpi-card-foot-muted">{compareLabel}</span>
           </>
         ) : (
           <span className="kpi-card-foot-muted">{fallbackFoot}</span>

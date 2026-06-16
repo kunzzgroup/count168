@@ -1,4 +1,4 @@
-/** |previous| below this → show × multiplier instead of %. */
+/** |previous| below this — kept for reference; badge always uses %. */
 export const KPI_COMPARE_MIN_BASE = 100;
 export const KPI_PCT_DISPLAY_CAP = 999.9;
 
@@ -22,13 +22,6 @@ export function kpiPercentChange(current, previous) {
   return Math.max(-KPI_PCT_DISPLAY_CAP, Math.min(KPI_PCT_DISPLAY_CAP, Math.round(raw * 10) / 10));
 }
 
-function formatMultiplierText(ratio) {
-  if (!Number.isFinite(ratio) || ratio <= 0) return "—";
-  if (ratio >= 100) return `${Math.round(ratio).toLocaleString("en-US")}×`;
-  if (ratio >= 10) return `${Math.round(ratio)}×`;
-  return `${(Math.round(ratio * 10) / 10).toFixed(1)}×`;
-}
-
 function formatPercentBadgeText(raw) {
   if (raw == null) return "—";
   const abs = Math.abs(Math.round(raw * 10) / 10);
@@ -48,16 +41,11 @@ export function buildKpiCompare(current, previous, { variant = "default" } = {})
   const isGood = isExpense ? delta > 0 : delta >= 0;
   const badgeArrow = isExpense ? (isGood ? "down" : "up") : isGood ? "up" : "down";
 
-  const absP = Math.abs(p);
-  const absC = Math.abs(c);
   let badgeMode = "none";
   let badgeText = "—";
 
   if (p === 0 && c === 0) {
     badgeMode = "none";
-  } else if (absP > 0 && absP < KPI_COMPARE_MIN_BASE) {
-    badgeMode = "multiplier";
-    badgeText = formatMultiplierText(absC / absP);
   } else if (p === 0) {
     badgeMode = "none";
   } else {

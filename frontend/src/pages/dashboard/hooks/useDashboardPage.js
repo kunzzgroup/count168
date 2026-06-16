@@ -53,7 +53,6 @@ import {
   parseYmd,
   previousMonthEquivalentRange,
   shouldAggregateChartByMonth,
-  ymdToDmy,
 } from "../lib/dashboardDateUtils.js";
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields } from "../lib/dashboardKpi.js";
@@ -5845,10 +5844,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     prefetchActiveScopeCurrency,
   ]);
 
-  const kpiComparePeriodLabel = useMemo(() => {
-    const { from, to } = previousMonthEquivalentRange(dateFrom, dateTo);
-    return `${ymdToDmy(from)} – ${ymdToDmy(to)}`;
-  }, [dateFrom, dateTo]);
+  const kpiCompareLabel = i18n.thanLastMonth;
 
   const kpi = useMemo(() => {
     const empty = {
@@ -7093,7 +7089,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     loading: kpiLoading,
     dashboardData,
     kpi,
-    kpiComparePeriodLabel,
+    kpiCompareLabel,
     kpiFooter,
     chartRows,
     chartSeries,

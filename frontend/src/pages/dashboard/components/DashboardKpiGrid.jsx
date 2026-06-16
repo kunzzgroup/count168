@@ -1,14 +1,6 @@
 import { DashboardKpiCard } from "./DashboardKpiCard.jsx";
 
-export function DashboardKpiGrid({
-  i18n,
-  kpi,
-  kpiComparePeriodLabel,
-  kpiFooter,
-  loading,
-}) {
-  const compareVsTemplate = i18n.kpiCompareVs;
-
+export function DashboardKpiGrid({ i18n, kpi, kpiCompareLabel, kpiFooter, loading }) {
   return (
     <div
       className={`dashboard-kpi-grid${kpi.showEarnings ? " dashboard-kpi-grid--with-earnings" : ""}`}
@@ -18,8 +10,7 @@ export function DashboardKpiGrid({
         label={i18n.profit}
         value={kpi.profit}
         compare={kpi.comparisons?.profit}
-        comparePeriodLabel={kpiComparePeriodLabel}
-        compareVsTemplate={compareVsTemplate}
+        compareLabel={kpiCompareLabel}
         fallbackFoot={kpiFooter}
         loading={loading}
       />
@@ -28,8 +19,7 @@ export function DashboardKpiGrid({
         label={i18n.expenses}
         value={kpi.expenses}
         compare={kpi.comparisons?.expenses}
-        comparePeriodLabel={kpiComparePeriodLabel}
-        compareVsTemplate={compareVsTemplate}
+        compareLabel={kpiCompareLabel}
         fallbackFoot={kpiFooter}
         loading={loading}
       />
@@ -38,8 +28,7 @@ export function DashboardKpiGrid({
         label={i18n.netProfit}
         value={kpi.netProfit}
         compare={kpi.comparisons?.netProfit}
-        comparePeriodLabel={kpiComparePeriodLabel}
-        compareVsTemplate={compareVsTemplate}
+        compareLabel={kpiCompareLabel}
         fallbackFoot={kpiFooter}
         loading={loading}
       />
@@ -49,8 +38,7 @@ export function DashboardKpiGrid({
           label={i18n.earnings}
           value={kpi.kpiCardEarnings ?? kpi.earnings}
           compare={kpi.comparisons?.earnings}
-          comparePeriodLabel={kpiComparePeriodLabel}
-          compareVsTemplate={compareVsTemplate}
+          compareLabel={kpiCompareLabel}
           fallbackFoot={kpiFooter}
           loading={loading}
           id="earnings-card-wrapper"
