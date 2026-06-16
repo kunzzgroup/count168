@@ -19,7 +19,7 @@ import ProfitSharingModal from "./components/ProfitSharingModal.jsx";
 import { BankNoteModal, BankRemarkModal } from "./components/bankProcessTextModals.jsx";
 import AccountingDueModal from "./components/AccountingDueModal.jsx";
 import ResendModal from "./components/ResendModal.jsx";
-import MaintenanceCalendarPopup from "../../components/MaintenanceCalendarPopup.jsx";
+import { DashboardCalendarPopup } from "../dashboard/components/DashboardCalendarPopup.jsx";
 import { bankProcessFrequencyNormalized, normalizeBankProcessStatus, isoToDmy } from "./lib/bankProcessHelpers.js";
 import { useBankProcessListPage } from "./hooks/useBankProcessListPage.js";
 import { useBankProcessFilterCollapse } from "./hooks/useBankProcessFilterCollapse.js";
@@ -260,6 +260,29 @@ export default function BankProcessListPage() {
     remeasureDeps: [lang, isSearchCollapsed, searchExpanded, search, dateFrom, dateTo],
   });
 
+  const calendarI18n = useMemo(
+    () => ({
+      periodShortcutsAria: t("periodShortcutsAria"),
+      monthLabels: bpLocale.monthsShort,
+      weekdaysShort: bpLocale.weekdaysShort,
+    }),
+    [t, bpLocale],
+  );
+
+  const periodPresets = useMemo(
+    () => [
+      ["today", t("today")],
+      ["yesterday", t("yesterday")],
+      ["thisWeek", t("thisWeek")],
+      ["lastWeek", t("lastWeek")],
+      ["thisMonth", t("thisMonth")],
+      ["lastMonth", t("lastMonth")],
+      ["thisYear", t("thisYear")],
+      ["lastYear", t("lastYear")],
+    ],
+    [t],
+  );
+
   const filterChipsProps = useMemo(
     () => ({
       t,
@@ -401,7 +424,6 @@ export default function BankProcessListPage() {
                       id="date-range-picker"
                       role="button"
                       tabIndex={0}
-                      data-drp-hide-presets="true"
                       aria-label={t("selectDateRange")}
                     >
                       <i className="fas fa-calendar-alt" aria-hidden="true" />
@@ -856,11 +878,11 @@ export default function BankProcessListPage() {
       />
       {typeof document !== "undefined"
         ? createPortal(
-            <MaintenanceCalendarPopup
+            <DashboardCalendarPopup
               className="calendar-popup--bank-process-modal"
-              monthLabels={bpLocale.monthsShort}
-              weekdaysShort={bpLocale.weekdaysShort}
-              clearLabel={t("clearDate")}
+              i18n={calendarI18n}
+              periodPresets={periodPresets}
+              dateFrom={dateFrom}
             />,
             document.body
           )
