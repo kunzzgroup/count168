@@ -70,22 +70,21 @@ import ProcessNotificationContainer from "./components/ProcessNotificationContai
 import { useDataCaptureCategoryPermissions } from "./hooks/useDataCaptureCategoryPermissions.js";
 import { useDataCaptureFormEngine } from "./hooks/useDataCaptureFormEngine.js";
 import { useDataCaptureGrid } from "./hooks/useDataCaptureGrid.js";
-import { useDataCaptureGridInteraction } from "./hooks/useDataCaptureGridInteraction.js";
 import { useDataCapturePaste } from "./hooks/useDataCapturePaste.js";
 import { useDataCaptureCaptureType } from "./hooks/useDataCaptureCaptureType.js";
 import { useDataCaptureFormat } from "./hooks/useDataCaptureFormat.js";
 import { useDataCaptureGlobalShims } from "./hooks/useDataCaptureGlobalShims.js";
-import { useDataCaptureGridHeader } from "./hooks/useDataCaptureGridHeader.js";
-import { useDataCaptureLegacyChrome } from "./hooks/useDataCaptureLegacyChrome.js";
+import { useDataCaptureDeleteDialog } from "./hooks/useDataCaptureDeleteDialog.js";
 import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
 import { useDataCapturePageLifecycle } from "./hooks/useDataCapturePageLifecycle.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
-import { useDataCaptureSubmittedPanelHeight } from "./hooks/useDataCaptureSubmittedPanelHeight.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
-import { preloadSummaryLegacyScriptsInBackground } from "../datacapturesummary/lib/preloadSummaryLegacyScripts.js";
+import { prefetchRouteModule } from "../../utils/routing/routePrefetch.js";
 import { getDataCaptureText } from "../../translateFile/pages/dataCaptureTranslate.js";
-import { DataCaptureProvider } from "./context/DataCaptureContext.jsx";
+import { DataCaptureProvider, useDataCaptureContext } from "./context/DataCaptureContext.jsx";
+import { updateActiveContextMenuPosition } from "./lib/dataCaptureContextMenu.js";
+import { gridSetTableActive } from "./lib/dataCaptureBridge.js";
 
 class DataCaptureErrorBoundary extends Component {
   constructor(props) {
@@ -130,6 +129,7 @@ export default function DataCapturePage() {
 }
 
 function DataCapturePageContent() {
+  const { clearSelectedDescriptions, selectedDescriptions } = useDataCaptureContext();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { me, sessionReady } = useAuthSession();
@@ -322,7 +322,8 @@ function DataCapturePageContent() {
 
   const { submittedItems } = useDataCaptureSubmittedList(captureScope, form.captureDate);
 
-  const { topSectionRef, formColumnRef } = useDataCaptureSubmittedPanelHeight();
+  const topSectionRef = useRef(null);
+  const formColumnRef = useRef(null);
 
   const { permissions, selectedPermission, selectPermission, showPermissionFilter } =
     useDataCaptureCategoryPermissions(companyCode);
@@ -340,7 +341,7 @@ function DataCapturePageContent() {
     setDeleteOption,
     handleConfirmDelete,
     closeDeleteDialog,
-  } = useDataCaptureLegacyChrome();
+  } = useDataCaptureDeleteDialog();
 
   const mutationsBlocked = usePartnershipAuditReadOnlyLocked(me);
   const submitReset = useDataCaptureSubmitReset({
@@ -359,7 +360,6 @@ function DataCapturePageContent() {
     selectedGroup,
   });
   useDataCaptureGrid(scriptsReady, groupOnlyTable);
-  useDataCaptureGridInteraction(scriptsReady);
   useDataCapturePaste();
   useDataCaptureFormat();
   useDataCaptureGlobalShims();
@@ -372,9 +372,7 @@ function DataCapturePageContent() {
     }, 50);
 
     const updateMenuPosition = () => {
-      if (typeof window.updateActiveContextMenuPosition === "function") {
-        window.updateActiveContextMenuPosition();
-      }
+      updateActiveContextMenuPosition();
     };
 
     const scrollContainer = document.querySelector(".excel-table-container");
@@ -387,7 +385,6 @@ function DataCapturePageContent() {
       window.removeEventListener("resize", updateMenuPosition);
     };
   }, [scriptsReady]);
-  useDataCaptureGridHeader();
 
   useDataCapturePageLifecycle({
     engineReady: scriptsReady,
@@ -408,34 +405,20 @@ function DataCapturePageContent() {
 
   const closeDescriptionModal = useCallback(() => setDescriptionModalOpen(false), []);
 
-  const handleDescriptionsConfirmed = useCallback((names) => {
-    window.selectedDescriptions = [...names];
-    if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === "function") {
-      window.__DC_ON_DESCRIPTIONS_CONFIRMED__(names);
-    }
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
-    setDescriptionModalOpen(false);
-  }, []);
+  const handleDescriptionsConfirmed = useCallback(
+    (names) => {
+      form.confirmDescriptionsSelection(names);
+      setDescriptionModalOpen(false);
+    },
+    [form.confirmDescriptionsSelection],
+  );
 
-  useLayoutEffect(() => {
-    window.__DC_OPEN_DESCRIPTION_MODAL__ = openDescriptionModal;
-    window.__DC_CLOSE_DESCRIPTION_MODAL__ = closeDescriptionModal;
-    /** Legacy onclick / scripts expect expandDescription() */
-    window.expandDescription = openDescriptionModal;
-    return () => {
-      try {
-        delete window.__DC_OPEN_DESCRIPTION_MODAL__;
-        delete window.__DC_CLOSE_DESCRIPTION_MODAL__;
-        delete window.expandDescription;
-      } catch {
-        window.__DC_OPEN_DESCRIPTION_MODAL__ = undefined;
-        window.__DC_CLOSE_DESCRIPTION_MODAL__ = undefined;
-        window.expandDescription = undefined;
-      }
-    };
-  }, [openDescriptionModal, closeDescriptionModal]);
+  const handleDescriptionsChange = useCallback(
+    (names) => {
+      form.confirmDescriptionsSelection(names);
+    },
+    [form.confirmDescriptionsSelection],
+  );
 
   useEffect(() => {
     if (!form.processOpen) return;
@@ -718,11 +701,11 @@ function DataCapturePageContent() {
     ) {
       callDataCaptureRuntime("clearCaptureTable");
       callDataCaptureRuntime("reactFormReset");
-      window.selectedDescriptions = [];
+      clearSelectedDescriptions();
       void callDataCaptureRuntime("refreshSubmittedProcesses");
     }
     prevScopeKeyRef.current = scopeKey || null;
-  }, [captureScope]);
+  }, [captureScope, clearSelectedDescriptions]);
 
   const switchCompanySessionAndNavigate = useCallback(async (nextCompanyId) => {
     const id = Number(nextCompanyId);
@@ -842,7 +825,7 @@ function DataCapturePageContent() {
     };
 
     window.onSharedCompanyFilterChanged = (cid) => {
-      if (cid) window.switchDataCaptureCompany?.(Number(cid));
+      if (cid) void switchCompanySessionAndNavigate(Number(cid));
     };
 
     return () => {
@@ -918,7 +901,7 @@ function DataCapturePageContent() {
 
   useEffect(() => {
     if (!scriptsReady) return;
-    preloadSummaryLegacyScriptsInBackground();
+    prefetchRouteModule("/datacapturesummary");
   }, [scriptsReady]);
 
   const list = filterCompaniesWithDisplayId(companiesForPicker);
@@ -1020,7 +1003,7 @@ function DataCapturePageContent() {
                       selectProcessRow={form.selectProcessRow}
                       displayTextFromProcessRow={form.displayTextFromProcessRow}
                       onBeforeToggle={() => {
-                        if (typeof window.tableActive !== "undefined") window.tableActive = false;
+                        gridSetTableActive(false);
                       }}
                     />
                   </div>
@@ -1033,7 +1016,7 @@ function DataCapturePageContent() {
                       value={form.currencyId}
                       onChange={(e) => {
                         form.setCurrencyId(e.target.value);
-                        setTimeout(() => window.updateSubmitButtonState?.(), 0);
+                        setTimeout(() => callDataCaptureRuntime("recomputeSubmitState"), 0);
                       }}
                     >
                       <option value="">{t("selectCurrency")}</option>
@@ -1188,7 +1171,7 @@ function DataCapturePageContent() {
                         value={form.currencyId}
                         onChange={(e) => {
                           form.setCurrencyId(e.target.value);
-                          setTimeout(() => window.updateSubmitButtonState?.(), 0);
+                          setTimeout(() => callDataCaptureRuntime("recomputeSubmitState"), 0);
                         }}
                       >
                         <option value="">{t("selectCurrency")}</option>
@@ -1279,6 +1262,8 @@ function DataCapturePageContent() {
           open={descriptionModalOpen}
           onClose={closeDescriptionModal}
           companyId={companyId}
+          initialSelected={selectedDescriptions}
+          onDescriptionsChange={handleDescriptionsChange}
           onConfirm={handleDescriptionsConfirmed}
         />
       ) : null}
