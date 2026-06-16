@@ -331,6 +331,54 @@ export function getOrderedMiniGridAccounts(linkedAccounts, wlGridSelectedIds, cu
   });
 }
 
+export function computeMiniGridTotals(balanceMap, orderUpper, orderedAccounts, linkedAccountCurrenciesMap, linkedCurrenciesLoaded) {
+  const totalsByCu = new Map();
+  (orderUpper || []).forEach((cu) => totalsByCu.set(cu, normalizeNumber("0")));
+  (orderedAccounts || []).forEach((acc) => {
+    const id = Number(acc.id);
+    if (id <= 0) return;
+    orderUpper.forEach((cu) => {
+      if (
+        linkedCurrenciesLoaded &&
+        !accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, id, cu)
+      ) {
+        return;
+      }
+      const dec = balanceMap?.get(`${id}|${cu}`);
+      if (dec != null && typeof dec.plus === "function") {
+        totalsByCu.set(cu, totalsByCu.get(cu).plus(dec));
+      }
+    });
+  });
+  return totalsByCu;
+}
+
+export function listMiniGridBalanceFetchPairs(
+  orderedAccounts,
+  orderUpper,
+  linkedAccountCurrenciesMap,
+  linkedCurrenciesLoaded,
+  balanceMap,
+) {
+  const tasks = [];
+  const cached = balanceMap || new Map();
+  for (const acc of orderedAccounts || []) {
+    const id = Number(acc.id);
+    if (id <= 0) continue;
+    for (const cu of orderUpper || []) {
+      if (
+        linkedCurrenciesLoaded &&
+        !accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, id, cu)
+      ) {
+        continue;
+      }
+      if (cached.has(`${id}|${cu}`)) continue;
+      tasks.push({ id, cu });
+    }
+  }
+  return tasks;
+}
+
 export function getAvailableCurrenciesFromSummaryOnly(currencySummary, currencySortOrder, currencyDisplayOrder) {
   const codes = [];
   currencySummary.forEach((row) => {

@@ -3,16 +3,16 @@ import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { getMemberText, translateMemberApiMessage } from "../../translateFile/pages/memberTranslate.js";
 import {
   MINI_GRID_SHELL_CCY,
-  accountHoldsMiniGridCurrency,
   applyCurrencyAllToggle,
   applyCurrencyToggle,
   formatPaymentHistoryMoney,
   getAvailableCurrencies,
+  computeMiniGridTotals,
   getMemberMiniGridCurrencies,
   getOrderedMiniGridAccounts,
   groupHistoryForDisplay,
+  listMiniGridBalanceFetchPairs,
   getWlGridIncludedAccountIds,
-  normalizeNumber,
   saveWLGridSelection,
   sanitizeCurrencySelection,
 } from "./memberPageHelpers.js";
@@ -69,6 +69,8 @@ export function useMemberWinLoss({ showNotification, lang }) {
   viewGridAccountsRef.current = viewGridAccounts;
   const wlGridSelectedIdsRef = useRef(wlGridSelectedIds);
   wlGridSelectedIdsRef.current = wlGridSelectedIds;
+  const miniGridBalancesRef = useRef(miniGridBalances);
+  miniGridBalancesRef.current = miniGridBalances;
 
   const sameAccountIdList = useCallback((left, right) => {
     const a = (left || []).map(Number).filter(Boolean);
@@ -356,12 +358,106 @@ export function useMemberWinLoss({ showNotification, lang }) {
     });
   }, []);
 
+  const syncMiniGridTotalsAndHint = useCallback(
+    (gridCurrencies) => {
+      const orderUpper = (gridCurrencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
+      if (!gridAccountPool.length || !orderUpper.length) {
+        setMiniGridTotals(new Map());
+        setMiniGridHint("");
+        return;
+      }
+      const orderedAccounts = getOrderedMiniGridAccounts(
+        gridAccountPool,
+        wlGridSelectedIdsRef.current,
+        orderUpper,
+        linkedAccountCurrenciesMap,
+        linkedCurrenciesLoaded,
+      );
+      if (linkedCurrenciesLoaded && !orderedAccounts.length) {
+        setMiniGridTotals(new Map());
+        setMiniGridHint(
+          orderUpper.length > 1
+            ? t("noAccountsHoldCurrencies")
+            : t("noAccountsHoldCurrency", { currency: orderUpper[0] }),
+        );
+        return;
+      }
+      setMiniGridHint("");
+      setMiniGridTotals(
+        computeMiniGridTotals(
+          miniGridBalancesRef.current,
+          orderUpper,
+          orderedAccounts,
+          linkedAccountCurrenciesMap,
+          linkedCurrenciesLoaded,
+        ),
+      );
+    },
+    [gridAccountPool, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, t],
+  );
+
+  const fetchMissingMiniGridBalances = useCallback(
+    async (seq, gridCurrencies, fromDate, toDate, compId) => {
+      if (!gridAccountPool.length || !fromDate || !toDate || !compId) return;
+      const orderUpper = (gridCurrencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
+      if (!orderUpper.length) return;
+      const orderedAccounts = getOrderedMiniGridAccounts(
+        gridAccountPool,
+        wlGridSelectedIdsRef.current,
+        orderUpper,
+        linkedAccountCurrenciesMap,
+        linkedCurrenciesLoaded,
+      );
+      const missing = listMiniGridBalanceFetchPairs(
+        orderedAccounts,
+        orderUpper,
+        linkedAccountCurrenciesMap,
+        linkedCurrenciesLoaded,
+        miniGridBalancesRef.current,
+      );
+      if (!missing.length) return;
+
+      if (gridAbortRef.current) gridAbortRef.current.abort();
+      gridAbortRef.current = new AbortController();
+      const signal = gridAbortRef.current.signal;
+
+      try {
+        const pairs = await Promise.all(
+          missing.map(({ id, cu }) =>
+            fetchAccountHistoryClosingBalance(id, cu, fromDate, toDate, compId, signal).then((dec) => ({
+              id,
+              cu,
+              dec,
+            })),
+          ),
+        );
+        if (seq !== searchSeqRef.current) return;
+        setMiniGridBalances((prev) => {
+          const next = new Map(prev);
+          pairs.forEach(({ id, cu, dec }) => {
+            if (id <= 0 || dec == null || typeof dec.plus !== "function") return;
+            next.set(`${id}|${cu}`, dec);
+          });
+          miniGridBalancesRef.current = next;
+          return next;
+        });
+        setMiniGridShell(false);
+        syncMiniGridTotalsAndHint(gridCurrencies);
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        if (seq !== searchSeqRef.current) return;
+      }
+    },
+    [gridAccountPool, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, syncMiniGridTotalsAndHint],
+  );
+
   const refreshMiniGrid = useCallback(
     async (seq, gridCurrencies, fromDate, toDate, viewId, compId) => {
       if (seq === searchSeqRef.current) setMiniGridLoading(true);
       try {
         if (!gridAccountPool.length || !fromDate || !toDate || !viewId || !compId) {
           setMiniGridBalances(new Map());
+          miniGridBalancesRef.current = new Map();
           setMiniGridTotals(new Map());
           setMiniGridHint("");
           return;
@@ -369,6 +465,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         const orderUpper = (gridCurrencies || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
         if (!orderUpper.length) {
           setMiniGridBalances(new Map());
+          miniGridBalancesRef.current = new Map();
           setMiniGridTotals(new Map());
           setMiniGridHint("");
           return;
@@ -382,6 +479,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         );
         if (linkedCurrenciesLoaded && !orderedAccounts.length) {
           setMiniGridBalances(new Map());
+          miniGridBalancesRef.current = new Map();
           setMiniGridTotals(new Map());
           setMiniGridHint(
             orderUpper.length > 1
@@ -394,42 +492,45 @@ export function useMemberWinLoss({ showNotification, lang }) {
         if (gridAbortRef.current) gridAbortRef.current.abort();
         gridAbortRef.current = new AbortController();
         const signal = gridAbortRef.current.signal;
-        const tasks = [];
-        for (const acc of orderedAccounts) {
-          const id = Number(acc.id);
-          if (id <= 0) continue;
-          for (const cu of orderUpper) {
-            if (
-              linkedCurrenciesLoaded &&
-              !accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedCurrenciesLoaded, id, cu)
-            ) {
-              continue;
-            }
-            tasks.push(
-              (async () => {
-                const dec = await fetchAccountHistoryClosingBalance(id, cu, fromDate, toDate, compId, signal);
-                return { id, cu, dec };
-              })(),
-            );
-          }
-        }
-        const pairs = await Promise.all(tasks);
+        const missing = listMiniGridBalanceFetchPairs(
+          orderedAccounts,
+          orderUpper,
+          linkedAccountCurrenciesMap,
+          linkedCurrenciesLoaded,
+          miniGridBalancesRef.current,
+        );
+        const pairs = await Promise.all(
+          missing.map(({ id, cu }) =>
+            fetchAccountHistoryClosingBalance(id, cu, fromDate, toDate, compId, signal).then((dec) => ({
+              id,
+              cu,
+              dec,
+            })),
+          ),
+        );
         if (seq !== searchSeqRef.current) return;
-        const balanceMap = new Map();
-        const totalsByCu = new Map();
-        orderUpper.forEach((cu) => totalsByCu.set(cu, normalizeNumber("0")));
+        const balanceMap = new Map(miniGridBalancesRef.current);
         pairs.forEach(({ id, cu, dec }) => {
           if (id <= 0 || dec == null || typeof dec.plus !== "function") return;
           balanceMap.set(`${id}|${cu}`, dec);
-          totalsByCu.set(cu, totalsByCu.get(cu).plus(dec));
         });
+        miniGridBalancesRef.current = balanceMap;
         setMiniGridBalances(balanceMap);
-        setMiniGridTotals(totalsByCu);
+        setMiniGridTotals(
+          computeMiniGridTotals(
+            balanceMap,
+            orderUpper,
+            orderedAccounts,
+            linkedAccountCurrenciesMap,
+            linkedCurrenciesLoaded,
+          ),
+        );
         setMiniGridShell(false);
       } catch (e) {
         if (e?.name === "AbortError") return;
         if (seq !== searchSeqRef.current) return;
         setMiniGridBalances(new Map());
+        miniGridBalancesRef.current = new Map();
         setMiniGridTotals(new Map());
         setMiniGridHint(translateMemberApiMessage(lang, e?.message, "couldNotLoadGrid"));
       } finally {
@@ -632,7 +733,9 @@ export function useMemberWinLoss({ showNotification, lang }) {
     const seq = searchSeqRef.current;
     setLoadingTable(true);
     setMiniGridLoading(true);
-    setMiniGridBalances(new Map());
+    const emptyBalances = new Map();
+    miniGridBalancesRef.current = emptyBalances;
+    setMiniGridBalances(emptyBalances);
     setMiniGridTotals(new Map());
     setMiniGridHint("");
     try {
@@ -774,7 +877,8 @@ export function useMemberWinLoss({ showNotification, lang }) {
         sanitized.isAllSelected,
         sanitized.selectedCurrencies,
       );
-      void refreshMiniGrid(searchSeqRef.current, gridCur, dateFrom, dateTo, viewAccountId, companyId);
+      syncMiniGridTotalsAndHint(gridCur);
+      void fetchMissingMiniGridBalances(searchSeqRef.current, gridCur, dateFrom, dateTo, companyId);
     },
     [
       companyId,
@@ -788,8 +892,8 @@ export function useMemberWinLoss({ showNotification, lang }) {
       selectedCurrencies,
       dateFrom,
       dateTo,
-      viewAccountId,
-      refreshMiniGrid,
+      syncMiniGridTotalsAndHint,
+      fetchMissingMiniGridBalances,
     ],
   );
 
