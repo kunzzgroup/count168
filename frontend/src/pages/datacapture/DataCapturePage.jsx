@@ -1010,139 +1010,134 @@ function DataCapturePageContent() {
               )}
 
               {showCompanyProcessUi ? (
-                <>
-                  <div className="dc-form-row dc-form-row--3col dc-form-row--stacked">
-                    <div className="form-group">
-                      <label htmlFor="capture_date">{t("date")}</label>
-                      <select id="capture_date" name="capture_date" required value={form.captureDate} onChange={(e) => void form.onDateChange(e)}>
-                        {form.dateOptions.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                <div className="dc-form-company-layout">
+                  <div className="form-group dc-form-company-layout__date">
+                    <label htmlFor="capture_date">{t("date")}</label>
+                    <select id="capture_date" name="capture_date" required value={form.captureDate} onChange={(e) => void form.onDateChange(e)}>
+                      {form.dateOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                    <div className="form-group">
-                      <label htmlFor="capture_process">{t("process")}</label>
-                      <DataCaptureProcessSelect
-                        t={t}
-                        processOpen={form.processOpen}
-                        setProcessOpen={form.setProcessOpen}
-                        selectedProcess={form.selectedProcess}
-                        processFilter={form.processFilter}
-                        setProcessFilter={form.setProcessFilter}
-                        processSearchInputRef={form.processSearchInputRef}
-                        processListTruncated={form.processListTruncated}
-                        processRowsCount={form.processRowsCount}
-                        visibleProcesses={form.visibleProcesses}
-                        filteredProcesses={form.filteredProcesses}
-                        selectProcessRow={form.selectProcessRow}
-                        displayTextFromProcessRow={form.displayTextFromProcessRow}
-                        onBeforeToggle={() => {
-                          if (typeof window.tableActive !== "undefined") window.tableActive = false;
-                        }}
+                  <div className="form-group dc-form-company-layout__process">
+                    <label htmlFor="capture_process">{t("process")}</label>
+                    <DataCaptureProcessSelect
+                      t={t}
+                      processOpen={form.processOpen}
+                      setProcessOpen={form.setProcessOpen}
+                      selectedProcess={form.selectedProcess}
+                      processFilter={form.processFilter}
+                      setProcessFilter={form.setProcessFilter}
+                      processSearchInputRef={form.processSearchInputRef}
+                      processListTruncated={form.processListTruncated}
+                      processRowsCount={form.processRowsCount}
+                      visibleProcesses={form.visibleProcesses}
+                      filteredProcesses={form.filteredProcesses}
+                      selectProcessRow={form.selectProcessRow}
+                      displayTextFromProcessRow={form.displayTextFromProcessRow}
+                      onBeforeToggle={() => {
+                        if (typeof window.tableActive !== "undefined") window.tableActive = false;
+                      }}
+                    />
+                  </div>
+
+                  <div className="form-group dc-form-company-layout__currency">
+                    <label htmlFor="capture_currency">{t("currency")}</label>
+                    <select
+                      id="capture_currency"
+                      name="currency"
+                      value={form.currencyId}
+                      onChange={(e) => {
+                        form.setCurrencyId(e.target.value);
+                        setTimeout(() => window.updateSubmitButtonState?.(), 0);
+                      }}
+                    >
+                      <option value="">{t("selectCurrency")}</option>
+                      {form.currencies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.code}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group dc-form-company-layout__description">
+                    <label htmlFor="capture_description">{t("description")}</label>
+                    <div className="input-with-icon">
+                      <input
+                        type="text"
+                        id="capture_description"
+                        name="description"
+                        required
+                        readOnly
+                        placeholder={t("clickToSelectDescriptions")}
+                        value={form.descriptionDisplay}
+                      />
+                      <button
+                        type="button"
+                        className="add-icon"
+                        onClick={() => openDescriptionModal()}
+                        title={t("selectDescriptions")}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-group replace-word-group dc-replace-word-field dc-form-company-layout__replace">
+                    <label htmlFor="capture_replace_word_from">{t("replaceWord")}</label>
+                    <div className="replace-word-fields">
+                      <input
+                        type="text"
+                        id="capture_replace_word_from"
+                        name="replace_word_from"
+                        placeholder={t("oldWord")}
+                        value={form.replaceFrom}
+                        onChange={(e) => form.setReplaceFrom(toDataCaptureWordFieldCase(e.target.value))}
+                      />
+                      <span className="replace-arrow">→</span>
+                      <input
+                        type="text"
+                        id="capture_replace_word_to"
+                        name="replace_word_to"
+                        placeholder={t("newWord")}
+                        value={form.replaceTo}
+                        onChange={(e) => form.setReplaceTo(toDataCaptureWordFieldCase(e.target.value))}
                       />
                     </div>
-
-                    <div className="form-group">
-                      <label htmlFor="capture_currency">{t("currency")}</label>
-                      <select
-                        id="capture_currency"
-                        name="currency"
-                        value={form.currencyId}
-                        onChange={(e) => {
-                          form.setCurrencyId(e.target.value);
-                          setTimeout(() => window.updateSubmitButtonState?.(), 0);
-                        }}
-                      >
-                        <option value="">{t("selectCurrency")}</option>
-                        {form.currencies.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.code}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                   </div>
 
-                  <div className="dc-form-aligned-2col">
-                    <div className="form-group">
-                      <label htmlFor="capture_description">{t("description")}</label>
-                      <div className="input-with-icon">
-                        <input
-                          type="text"
-                          id="capture_description"
-                          name="description"
-                          required
-                          readOnly
-                          placeholder={t("clickToSelectDescriptions")}
-                          value={form.descriptionDisplay}
-                        />
-                        <button
-                          type="button"
-                          className="add-icon"
-                          onClick={() => openDescriptionModal()}
-                          title={t("selectDescriptions")}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="form-group replace-word-group dc-replace-word-field">
-                      <label htmlFor="capture_replace_word_from">{t("replaceWord")}</label>
-                      <div className="replace-word-fields">
-                        <input
-                          type="text"
-                          id="capture_replace_word_from"
-                          name="replace_word_from"
-                          placeholder={t("oldWord")}
-                          value={form.replaceFrom}
-                          onChange={(e) => form.setReplaceFrom(toDataCaptureWordFieldCase(e.target.value))}
-                        />
-                        <span className="replace-arrow">→</span>
-                        <input
-                          type="text"
-                          id="capture_replace_word_to"
-                          name="replace_word_to"
-                          placeholder={t("newWord")}
-                          value={form.replaceTo}
-                          onChange={(e) => form.setReplaceTo(toDataCaptureWordFieldCase(e.target.value))}
-                        />
-                      </div>
-                    </div>
-
-                    <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm">
-                      {t("removeWord")}
-                    </label>
-                    <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk">
-                      {t("remark")}
-                    </label>
-                    <input
-                      type="text"
-                      id="capture_remove_word"
-                      name="remove_word"
-                      className="dc-remove-remark__input dc-remove-remark__input--rm"
-                      placeholder={t("enterWordsToRemove")}
-                      value={form.removeWord}
-                      onChange={(e) => form.setRemoveWord(toDataCaptureWordFieldCase(e.target.value))}
-                    />
-                    <input
-                      type="text"
-                      id="capture_remark"
-                      name="remark"
-                      className="dc-remove-remark__input dc-remove-remark__input--mk"
-                      placeholder={t("enterRemark")}
-                      value={form.remark}
-                      onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
-                    />
-                    <small className="field-help dc-remove-remark__help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
-                      {t("removeWordHelp")}
-                    </small>
-                    <div className="dc-remove-remark__slot" aria-hidden="true" />
-                  </div>
-                </>
+                  <label htmlFor="capture_remove_word" className="dc-remove-remark__label dc-remove-remark__label--rm dc-form-company-layout__rm-label">
+                    {t("removeWord")}
+                  </label>
+                  <label htmlFor="capture_remark" className="dc-remove-remark__label dc-remove-remark__label--mk dc-form-company-layout__mk-label">
+                    {t("remark")}
+                  </label>
+                  <input
+                    type="text"
+                    id="capture_remove_word"
+                    name="remove_word"
+                    className="dc-remove-remark__input dc-remove-remark__input--rm dc-form-company-layout__rm-input"
+                    placeholder={t("enterWordsToRemove")}
+                    value={form.removeWord}
+                    onChange={(e) => form.setRemoveWord(toDataCaptureWordFieldCase(e.target.value))}
+                  />
+                  <input
+                    type="text"
+                    id="capture_remark"
+                    name="remark"
+                    className="dc-remove-remark__input dc-remove-remark__input--mk dc-form-company-layout__mk-input"
+                    placeholder={t("enterRemark")}
+                    value={form.remark}
+                    onChange={(e) => form.setRemark(toDataCaptureWordFieldCase(e.target.value))}
+                  />
+                  <small className="field-help dc-remove-remark__help dc-form-company-layout__rm-help" style={{ display: "block", marginTop: 0, fontStyle: "italic", color: "#666" }}>
+                    {t("removeWordHelp")}
+                  </small>
+                </div>
               ) : (
                 <>
                   <div className="dc-form-row dc-form-row--2col dc-form-row--stacked">

@@ -186,7 +186,7 @@ body.datacapture-page .top-section .submitted-column > .submitted-container {
 }
 
 body.datacapture-page .top-section .form-column > .form-container {
-    overflow: visible;
+    overflow: hidden;
 }
 
 body.datacapture-page .top-section .submitted-column > .submitted-container {
@@ -195,9 +195,11 @@ body.datacapture-page .top-section .submitted-column > .submitted-container {
 
 body.datacapture-page .form-container .process-form {
     overflow-x: hidden;
-    overflow-y: visible;
-    flex: 0 0 auto;
-    min-height: auto;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
 }
 
 body.datacapture-page .submitted-list {
@@ -231,46 +233,30 @@ body.datacapture-page .submitted-list {
         grid-template-columns: 1fr;
     }
 
-    body.datacapture-page .process-form .dc-form-aligned-2col,
-    body.datacapture-page .process-form .dc-form-remove-remark-grid {
+    body.datacapture-page .process-form .dc-form-company-layout {
         grid-template-columns: 1fr;
-        grid-template-areas:
-            "desc_grp"
-            "replace_grp"
-            "lbl_rm"
-            "inp_rm"
-            "hlp_rm"
-            "lbl_mk"
-            "inp_mk";
     }
 
-    body.datacapture-page .process-form .dc-form-aligned-2col > .form-group:first-child {
-        grid-area: desc_grp;
+    body.datacapture-page .process-form .dc-form-company-layout__date,
+    body.datacapture-page .process-form .dc-form-company-layout__process,
+    body.datacapture-page .process-form .dc-form-company-layout__currency,
+    body.datacapture-page .process-form .dc-form-company-layout__description,
+    body.datacapture-page .process-form .dc-form-company-layout__replace,
+    body.datacapture-page .process-form .dc-form-company-layout__rm-label,
+    body.datacapture-page .process-form .dc-form-company-layout__mk-label,
+    body.datacapture-page .process-form .dc-form-company-layout__rm-input,
+    body.datacapture-page .process-form .dc-form-company-layout__mk-input,
+    body.datacapture-page .process-form .dc-form-company-layout__rm-help {
+        grid-column: 1;
+        grid-row: auto;
+        margin-top: 0;
     }
 
-    body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-word-group {
-        grid-area: replace_grp;
-    }
-
-    body.datacapture-page .process-form .dc-form-remove-remark-grid {
-        grid-template-areas:
-            "lbl_rm"
-            "inp_rm"
-            "hlp_rm"
-            "lbl_mk"
-            "inp_mk";
-    }
-
-    body.datacapture-page .process-form .dc-remove-remark__label--mk {
-        grid-area: lbl_mk;
-    }
-
-    body.datacapture-page .process-form .dc-remove-remark__input--mk {
-        grid-area: inp_mk;
-    }
-
-    body.datacapture-page .process-form .dc-remove-remark__slot {
-        display: none;
+    body.datacapture-page .process-form .dc-form-company-layout__description,
+    body.datacapture-page .process-form .dc-form-company-layout__replace,
+    body.datacapture-page .process-form .dc-form-company-layout__rm-label,
+    body.datacapture-page .process-form .dc-form-company-layout__mk-label {
+        margin-top: clamp(8px, 0.7vw, 12px);
     }
 }
 
@@ -372,37 +358,84 @@ body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked > 
     font-weight: 600;
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col {
+/* Company form: single 6-col grid — row1 thirds, rows 2–3 halves (keeps fields inside container) */
+body.datacapture-page .process-form .dc-form-company-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     column-gap: clamp(12px, 1.35vw, 20px);
     row-gap: clamp(4px, 0.38vw, 6px);
-    grid-template-areas:
-        "desc_grp replace_grp"
-        "lbl_rm lbl_mk"
-        "inp_rm inp_mk"
-        "hlp_rm slot_mk";
-    align-items: stretch;
+    align-items: start;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
     margin-bottom: clamp(10px, 0.85vw, 14px);
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group:first-child {
-    grid-area: desc_grp;
+body.datacapture-page .process-form .dc-form-company-layout__date {
+    grid-column: 1 / span 2;
+    grid-row: 1;
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-word-group {
-    grid-area: replace_grp;
+body.datacapture-page .process-form .dc-form-company-layout__process {
+    grid-column: 3 / span 2;
+    grid-row: 1;
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group {
+body.datacapture-page .process-form .dc-form-company-layout__currency {
+    grid-column: 5 / span 2;
+    grid-row: 1;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__description {
+    grid-column: 1 / span 3;
+    grid-row: 2;
+    margin-top: clamp(6px, 0.55vw, 10px);
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__replace {
+    grid-column: 4 / span 3;
+    grid-row: 2;
+    margin-top: clamp(6px, 0.55vw, 10px);
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__rm-label {
+    grid-column: 1 / span 3;
+    grid-row: 3;
+    margin-top: clamp(6px, 0.55vw, 10px);
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__mk-label {
+    grid-column: 4 / span 3;
+    grid-row: 3;
+    margin-top: clamp(6px, 0.55vw, 10px);
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__rm-input {
+    grid-column: 1 / span 3;
+    grid-row: 4;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__mk-input {
+    grid-column: 4 / span 3;
+    grid-row: 4;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__rm-help {
+    grid-column: 1 / span 3;
+    grid-row: 5;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .form-group {
     margin-bottom: 0;
     flex-direction: column;
     align-items: stretch;
     align-self: stretch;
     gap: clamp(4px, 0.38vw, 6px);
+    min-width: 0;
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group > label {
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > label {
     width: auto;
     max-width: 100%;
     align-self: flex-start;
@@ -416,28 +449,43 @@ body.datacapture-page .process-form .dc-form-aligned-2col > .form-group > label 
     line-height: 1.25;
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group > .input-with-icon,
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group > .replace-word-fields {
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > select,
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > .custom-select-wrapper,
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > .input-with-icon,
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > .replace-word-fields {
     width: 100%;
     min-width: 0;
     flex: 0 0 auto;
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group .input-with-icon input {
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > input,
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > select {
     width: 100%;
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-word-group.dc-replace-word-field {
+body.datacapture-page .process-form .dc-form-company-layout > .form-group .input-with-icon input {
+    width: 100%;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .form-group.replace-word-group.dc-replace-word-field {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: clamp(4px, 0.38vw, 6px);
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-word-group .replace-word-fields input {
-    width: auto;
+body.datacapture-page .process-form .dc-form-company-layout > .form-group.replace-word-group .replace-word-fields {
+    display: flex;
+    align-items: center;
+    gap: clamp(4px, 0.42vw, 6px);
+    width: 100%;
+    min-width: 0;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .form-group.replace-word-group .replace-word-fields input {
     flex: 1;
     min-width: 0;
+    width: auto;
     min-height: 36px;
     border: 1px solid var(--dc-border, #e2e8f0);
     border-radius: 6px;
@@ -445,6 +493,36 @@ body.datacapture-page .process-form .dc-form-aligned-2col > .form-group.replace-
     font-size: clamp(10px, 0.74vw, 14px);
     font-weight: 600;
     box-sizing: border-box;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .dc-remove-remark__label {
+    width: auto;
+    max-width: 100%;
+    justify-self: start;
+    text-align: left;
+    margin-bottom: 0;
+    font-size: clamp(11px, 0.82vw, 14px);
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.01em;
+    line-height: 1.25;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .dc-remove-remark__input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
+    font-size: clamp(10px, 0.74vw, 14px);
+    font-weight: 600;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .dc-remove-remark__help {
+    margin-top: 0;
+    line-height: 1.25;
 }
 
 body.datacapture-page .process-form .dc-form-remove-remark-grid {
