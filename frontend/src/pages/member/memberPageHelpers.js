@@ -20,6 +20,37 @@ export const WINLOSS_ACCOUNT_SEGMENT_NARROW_MQ = "(max-width: 1366px)";
 /** Win/Loss Currency：每条 segment 白底带最多按钮数（含第一段的「All」占位），多出的自动再开新带 */
 export const WINLOSS_CURRENCY_SEGMENT_MAX_BUTTONS = 8;
 
+/**
+ * 按实测按钮宽度将 Account 切成多段；每段为独立 segment 白底条。
+ * 当下一项加入后会超出 containerWidth 时，自动开启新一行。
+ */
+export function splitWinLossAccountBands(accounts, segmentWidths, containerWidth) {
+  const list = Array.isArray(accounts) ? accounts : [];
+  if (!list.length) return [];
+  const widths = Array.isArray(segmentWidths) ? segmentWidths : [];
+  const maxW = Number(containerWidth) || 0;
+  if (!maxW || widths.length !== list.length) return [list];
+
+  const bands = [];
+  let band = [];
+  let bandWidth = 0;
+
+  for (let i = 0; i < list.length; i++) {
+    const w = Math.max(Number(widths[i]) || 0, 0);
+    if (band.length > 0 && bandWidth + w > maxW) {
+      bands.push(band);
+      band = [list[i]];
+      bandWidth = w;
+    } else {
+      band.push(list[i]);
+      bandWidth += w;
+    }
+  }
+
+  if (band.length) bands.push(band);
+  return bands.length ? bands : [list];
+}
+
 /** Win/Loss 矩阵：<10 列白卡随内容收缩；≥10 列单列宽=9 列参考宽并横向滚动 */
 export const WINLOSS_MATRIX_SCROLL_CCY_THRESHOLD = 10;
 /** ≥10 列时在中栏内按此列数均分得到单列参考宽 */
@@ -391,6 +422,23 @@ export function getMemberMiniGridCurrencies(availableCurrencies, isAllSelected, 
   if (!availableCurrencies.length) return [];
   if (isAllSelected) return [...availableCurrencies];
   return availableCurrencies.filter((code) => selectedCurrencies.includes(code));
+}
+
+/** 取消 All 时的默认币种 */
+export const WINLOSS_DEFAULT_CURRENCY_CODE = "MYR";
+
+/** 点击 All：已选 All 时取消并默认 MYR（无 MYR 时用列表首项）；未选 All 时切回 All。 */
+export function applyCurrencyAllToggle(available, isAllSelected) {
+  if (!available?.length) {
+    return { isAllSelected: true, selectedCurrencies: [] };
+  }
+  if (isAllSelected) {
+    const defaultCode = available.includes(WINLOSS_DEFAULT_CURRENCY_CODE)
+      ? WINLOSS_DEFAULT_CURRENCY_CODE
+      : available[0];
+    return { isAllSelected: false, selectedCurrencies: [defaultCode] };
+  }
+  return { isAllSelected: true, selectedCurrencies: [] };
 }
 
 /** 切换币种按钮：至少保留一项（无选中时回退为 All）。 */

@@ -4,6 +4,7 @@ import { getMemberText, translateMemberApiMessage } from "../../translateFile/pa
 import {
   MINI_GRID_SHELL_CCY,
   accountHoldsMiniGridCurrency,
+  applyCurrencyAllToggle,
   applyCurrencyToggle,
   formatPaymentHistoryMoney,
   getAvailableCurrencies,
@@ -41,6 +42,11 @@ export function useMemberWinLoss({ showNotification, lang }) {
   const [isAllSelected, setIsAllSelected] = useState(true);
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
   const [historyRows, setHistoryRows] = useState([]);
+  const [tableDisplayContext, setTableDisplayContext] = useState({
+    isAllSelected: true,
+    selectedCurrencies: [],
+    currencyOrder: [],
+  });
   const [loadingTable, setLoadingTable] = useState(false);
   const [linkedDataReady, setLinkedDataReady] = useState(false);
   const [miniGridShell, setMiniGridShell] = useState(true);
@@ -321,9 +327,34 @@ export function useMemberWinLoss({ showNotification, lang }) {
   );
 
   const groupedRows = useMemo(
-    () => groupHistoryForDisplay(historyRows, isAllSelected, selectedCurrencies, availableCurrencies),
-    [historyRows, isAllSelected, selectedCurrencies, availableCurrencies],
+    () =>
+      groupHistoryForDisplay(
+        historyRows,
+        tableDisplayContext.isAllSelected,
+        tableDisplayContext.selectedCurrencies,
+        tableDisplayContext.currencyOrder,
+      ),
+    [historyRows, tableDisplayContext],
   );
+
+  const commitTableDisplayContext = useCallback((useAll, useSelected, history, currencyOrderHint = []) => {
+    const orderHint = Array.isArray(currencyOrderHint) ? currencyOrderHint : [];
+    const fromHistory = [
+      ...new Set(
+        (Array.isArray(history) ? history : [])
+          .map((row) => String(row?.currency || "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    const currencyOrder = useAll
+      ? (orderHint.length ? orderHint : fromHistory)
+      : [...useSelected];
+    setTableDisplayContext({
+      isAllSelected: useAll,
+      selectedCurrencies: [...useSelected],
+      currencyOrder,
+    });
+  }, []);
 
   const refreshMiniGrid = useCallback(
     async (seq, gridCurrencies, fromDate, toDate, viewId, compId) => {
@@ -344,7 +375,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         }
         const orderedAccounts = getOrderedMiniGridAccounts(
           gridAccountPool,
-          wlGridSelectedIds,
+          wlGridSelectedIdsRef.current,
           orderUpper,
           linkedAccountCurrenciesMap,
           linkedCurrenciesLoaded,
@@ -405,7 +436,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
         if (seq === searchSeqRef.current) setMiniGridLoading(false);
       }
     },
-    [gridAccountPool, wlGridSelectedIds, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, lang, t],
+    [gridAccountPool, linkedAccountCurrenciesMap, linkedCurrenciesLoaded, lang, t],
   );
 
   const finishHistoryFetch = useCallback(
@@ -445,18 +476,21 @@ export function useMemberWinLoss({ showNotification, lang }) {
           const json = await parseJsonResponse(await res.text());
           if (seq !== searchSeqRef.current) return;
           if (!json?.success) {
-            setHistoryRows([]);
-            notifyApi(json?.error, "info", "noDataInRange");
+          setHistoryRows([]);
+          commitTableDisplayContext(useAll, useSelected, [], availableCurrencies);
+          notifyApi(json?.error, "info", "noDataInRange");
             finishHistoryFetch(seq);
             return;
           }
           setHistoryRows(Array.isArray(json.data?.history) ? json.data.history : []);
+          commitTableDisplayContext(useAll, useSelected, json.data?.history || [], availableCurrencies);
           finishHistoryFetch(seq);
           showNotification(t("queryCompleted"), "success");
         } catch (e) {
           if (e?.name === "AbortError") return;
           if (seq !== searchSeqRef.current) return;
           setHistoryRows([]);
+          commitTableDisplayContext(useAll, useSelected, [], availableCurrencies);
           notifyApi(e?.message, "info", "noDataInRange");
           finishHistoryFetch(seq);
         }
@@ -485,12 +519,14 @@ export function useMemberWinLoss({ showNotification, lang }) {
         if (!json?.success) throw new Error(json?.error || t("queryFailed"));
         const history = json.data?.history || [];
         setHistoryRows(history);
+        commitTableDisplayContext(useAll, useSelected, history, availableCurrencies);
         finishHistoryFetch(seq);
         showNotification(t("queryCompleted"), "success");
       } catch (e) {
         if (e?.name === "AbortError") return;
         if (seq !== searchSeqRef.current) return;
         setHistoryRows([]);
+        commitTableDisplayContext(useAll, useSelected, [], availableCurrencies);
         notifyApi(e?.message, "error", "queryFailed");
         finishHistoryFetch(seq);
       }
@@ -509,6 +545,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
       finishHistoryFetch,
       showNotification,
       notifyApi,
+      commitTableDisplayContext,
       t,
     ],
   );
@@ -705,40 +742,63 @@ export function useMemberWinLoss({ showNotification, lang }) {
 
   const applyWlGridSelection = useCallback(
     (ids) => {
+      wlGridSelectedIdsRef.current = ids;
       setWlGridSelectedIds(ids);
       saveWLGridSelection(ids, companyId, loginRootAccountId);
+      const pool = viewGridAccountsRef.current.length
+        ? viewGridAccountsRef.current
+        : linkedAccountsRef.current;
+      const nextAvailable = getAvailableCurrencies({
+        linkedCurrenciesLoaded,
+        linkedAccountCurrenciesMap,
+        wlGridSelectedIds: ids,
+        linkedAccounts: pool,
+        ownedCurrencies,
+        currencySummary,
+        currencySortOrder: currencySortOrderRef.current,
+        currencyDisplayOrder: currencyOrder,
+      });
       const sanitized = sanitizeCurrencySelection(
-        availableCurrencies,
+        nextAvailable,
         isAllSelected,
         selectedCurrencies,
         linkedCurrenciesLoaded,
         linkedAccountCurrenciesMap,
         ids,
-        gridAccountPool,
+        pool,
       );
       setIsAllSelected(sanitized.isAllSelected);
       setSelectedCurrencies(sanitized.selectedCurrencies);
-      performMemberSearch();
+      const gridCur = getMemberMiniGridCurrencies(
+        nextAvailable,
+        sanitized.isAllSelected,
+        sanitized.selectedCurrencies,
+      );
+      void refreshMiniGrid(searchSeqRef.current, gridCur, dateFrom, dateTo, viewAccountId, companyId);
     },
     [
       companyId,
       loginRootAccountId,
-      availableCurrencies,
-      isAllSelected,
-      selectedCurrencies,
       linkedCurrenciesLoaded,
       linkedAccountCurrenciesMap,
-      gridAccountPool,
-      performMemberSearch,
+      ownedCurrencies,
+      currencySummary,
+      currencyOrder,
+      isAllSelected,
+      selectedCurrencies,
+      dateFrom,
+      dateTo,
+      viewAccountId,
+      refreshMiniGrid,
     ],
   );
 
   const onCurrencyAll = useCallback(() => {
-    if (isAllSelected) return;
-    setIsAllSelected(true);
-    setSelectedCurrencies([]);
-    fetchMemberHistory(searchSeqRef.current, { isAllSelected: true, selectedCurrencies: [] });
-  }, [isAllSelected, fetchMemberHistory]);
+    const next = applyCurrencyAllToggle(availableCurrencies, isAllSelected);
+    setIsAllSelected(next.isAllSelected);
+    setSelectedCurrencies(next.selectedCurrencies);
+    fetchMemberHistory(searchSeqRef.current, next);
+  }, [availableCurrencies, isAllSelected, fetchMemberHistory]);
 
   const onCurrencyToggle = useCallback(
     (code) => {
