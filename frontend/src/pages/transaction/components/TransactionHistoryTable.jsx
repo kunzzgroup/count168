@@ -40,7 +40,8 @@ function historyHeadLabel(m, fullKey, compactKey, compactHeaders) {
   return m[fullKey];
 }
 
-export default function TransactionHistoryTable({ rows, histMoney, showDescriptionColumn, m, compactHeaders = false }) {
+export default function TransactionHistoryTable({ rows, histMoney, histBalanceMoney, showDescriptionColumn, m, compactHeaders = false }) {
+  const balanceMoney = histBalanceMoney || histMoney;
   const tableClass = showDescriptionColumn
     ? "transaction-history-table--with-desc"
     : "transaction-history-table--no-desc";
@@ -120,7 +121,7 @@ export default function TransactionHistoryTable({ rows, histMoney, showDescripti
                   <TransactionWinLossCell value={r.cr_dr} formatMoney={histMoney} />
                 </td>
                 <td className="transaction-history-col-balance">
-                  <TransactionWinLossCell value={r.balance} formatMoney={histMoney} />
+                  <TransactionWinLossCell value={r.balance} formatMoney={balanceMoney} />
                 </td>
                 {showDescriptionColumn ? (
                   <td className="transaction-history-col-description text-uppercase">

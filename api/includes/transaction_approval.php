@@ -193,3 +193,35 @@ if (!function_exists('tx_apply_transaction_approval_fields')) {
         return $fields;
     }
 }
+
+if (!function_exists('tx_sql_transaction_approval_where')) {
+    /**
+     * SQL AND fragment: exclude PENDING approval transactions from balances / history.
+     * CLEAR has no approval workflow; legacy rows may have NULL approval_status and must still count.
+     */
+    function tx_sql_transaction_approval_where(PDO $pdo, string $alias = 't'): string
+    {
+        static $hasColumn = null;
+        if ($hasColumn === null) {
+            try {
+                $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'approval_status'");
+                $hasColumn = $stmt && $stmt->rowCount() > 0;
+            } catch (Throwable $e) {
+                $hasColumn = false;
+            }
+        }
+        if (!$hasColumn) {
+            return '';
+        }
+        $a = $alias !== '' ? $alias . '.' : '';
+        $needsApproval = "'CONTRA','PAYMENT','RECEIVE','CLAIM','ADJUSTMENT','WIN','LOSE','PROFIT'";
+        $allTyped = $needsApproval . ",'CLEAR'";
+        return " AND ((
+            {$a}transaction_type IN ({$needsApproval})
+            AND {$a}approval_status = 'APPROVED'
+        ) OR (
+            {$a}transaction_type = 'CLEAR'
+            AND ({$a}approval_status IS NULL OR {$a}approval_status = '' OR {$a}approval_status = 'APPROVED')
+        ) OR {$a}transaction_type NOT IN ({$allTyped}))";
+    }
+}

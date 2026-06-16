@@ -22,6 +22,7 @@ require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/bank_process_bill_display.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
+require_once __DIR__ . '/../includes/transaction_approval.php';
 
 /**
  * 审批过滤：过滤未批准的审批交易（向后兼容：若无字段则不过滤）
@@ -38,14 +39,7 @@ function historyHasContraApprovalColumns(PDO $pdo): bool
 
 function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
 {
-    if (!historyHasContraApprovalColumns($pdo)) {
-        return '';
-    }
-    $a = $alias !== '' ? $alias . '.' : '';
-    return " AND ((
-                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT')
-                AND {$a}approval_status = 'APPROVED'
-            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT'))";
+    return tx_sql_transaction_approval_where($pdo, $alias);
 }
 
 /** Set by main handler after tx_resolve_transaction_list_scope. */

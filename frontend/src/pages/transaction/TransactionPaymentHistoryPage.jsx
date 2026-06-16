@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import TransactionHistoryTable from "./components/TransactionHistoryTable.jsx";
-import { formatHistoryMoney } from "./lib/transactionFormat.js";
+import { formatHistoryMoney, formatHistoryBalanceMoney } from "./lib/transactionFormat.js";
 import { getHistory, transactionQueryKeys } from "./lib/transactionApi.js";
 import {
   paymentHistoryParamsReady,
@@ -180,6 +180,7 @@ export default function TransactionPaymentHistoryPage() {
               <TransactionHistoryTable
                 rows={rows}
                 histMoney={formatHistoryMoney}
+                histBalanceMoney={formatHistoryBalanceMoney}
                 showDescriptionColumn={TRANSACTION_SHOW_DESCRIPTION_COLUMN}
                 m={m}
                 compactHeaders={compactHeaders}

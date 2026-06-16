@@ -21,6 +21,7 @@ require_once __DIR__ . '/../c168/c168_domain_access.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/../includes/member_linked_closure.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
+require_once __DIR__ . '/../includes/transaction_approval.php';
 
 /**
  * WIN/LOSE/ADJUSTMENT 行对 Win/Loss 的贡献：与 data_capture processed_amount 相同，
@@ -126,15 +127,7 @@ function searchApiDcdBulkLedgerWhere(PDO $pdo, bool $isGroupLedger, array $listS
 
 function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
 {
-    if (!hasContraApprovalColumns($pdo)) {
-        return '';
-    }
-    $a = $alias !== '' ? $alias . '.' : '';
-    // 指定 type 生效：CONTRA/PAYMENT/RECEIVE/CLAIM/CLEAR/ADJUSTMENT/PROFIT(落库为 WIN/LOSE) 的 PENDING 不计入
-    return " AND ((
-                {$a}transaction_type IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT')
-                AND {$a}approval_status = 'APPROVED'
-            ) OR {$a}transaction_type NOT IN ('CONTRA','PAYMENT','RECEIVE','CLAIM','CLEAR','ADJUSTMENT','WIN','LOSE','PROFIT'))";
+    return tx_sql_transaction_approval_where($pdo, $alias);
 }
 
 function searchApiAccountHasCreatedSourceColumn(PDO $pdo): bool
@@ -1619,7 +1612,7 @@ try {
                   AND {$bulk_txn_scope_sql}
                   AND t.currency_id IS NOT NULL
                   AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','ADJUSTMENT','RATE')
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','WIN','LOSE','ADJUSTMENT','RATE')
                 UNION
                 SELECT DISTINCT t.from_account_id AS acc_id, t.currency_id, UPPER(c.code) AS currency_code
                 FROM transactions t
@@ -1629,7 +1622,7 @@ try {
                   AND {$bulk_txn_scope_sql}
                   AND t.currency_id IS NOT NULL
                   AND t.transaction_date BETWEEN ? AND ?
-                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE','ADJUSTMENT','RATE')
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLEAR','CLAIM','WIN','LOSE','ADJUSTMENT','RATE')
             ");
             $st->execute(array_merge(
                 [$bulk_cur_company_id],
