@@ -43,11 +43,11 @@ body.maintenance-page .maintenance-outlined-field .date-range-picker {
     min-width: 0;
 }
 
-/* captureDateStyle trigger text — never inherit transaction-page 700 */
+/* captureDateStyle trigger text — match transaction date bar (700) */
 body.dashboard-page.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group #date-range-display {
-    font-weight: 500;
+    font-weight: 700;
     font-family: var(--font-heading-page);
-    color: #374151;
+    color: #1f2937;
 }
 
 body.maintenance-page .maintenance-outlined-field .custom-select-wrapper {

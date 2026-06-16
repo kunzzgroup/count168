@@ -84,7 +84,8 @@ body.dashboard-page.report-page .customer-report-quick-and-showall {
 }
 
 body.dashboard-page.report-page .customer-report-filters .customer-report-filter-group.report-date-range-picker-container,
-body.dashboard-page.report-page .domain-report-filters .customer-report-filter-group.report-date-range-picker-container {
+body.dashboard-page.report-page .domain-report-filters .customer-report-filter-group.report-date-range-picker-container,
+body.maintenance-page .customer-report-filters .customer-report-filter-group.report-date-range-picker-container {
     min-width: var(--drp-popup-width, clamp(316px, 22vw, 336px));
 }
 
@@ -96,7 +97,8 @@ body.dashboard-page.report-page .domain-report-filters .customer-report-filter-g
 }
 
 /* Date range — same bar + label offset as Transaction search */
-body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group {
+body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group,
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group {
     min-width: 0 !important;
     width: 100%;
 }
@@ -106,7 +108,8 @@ body.dashboard-page.report-page .customer-report-filters .report-outlined-inner 
     min-height: clamp(32px, 2.25vw, 36px);
 }
 
-body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker {
+body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker,
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker {
     min-width: 0 !important;
     width: 100%;
     max-width: 100%;
@@ -117,24 +120,41 @@ body.dashboard-page.report-page .customer-report-filters .report-outlined-inner 
     box-shadow: none !important;
 }
 
-body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker:hover {
+body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker:hover,
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker:hover {
     background: #ffffff !important;
     box-shadow: none !important;
 }
 
-body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker:focus-visible {
+body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker:focus-visible,
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker:focus-visible {
     box-shadow: none !important;
 }
 
-body.dashboard-page.report-page .customer-report-filters .report-outlined-label--txn-capture-date {
+body.dashboard-page.report-page .customer-report-filters .report-outlined-label--txn-capture-date,
+body.maintenance-page .customer-report-filters .report-outlined-label--txn-capture-date {
     left: clamp(46px, 3.35vw, 58px);
 }
 
-body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+body.dashboard-page.report-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt,
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
     position: relative;
     z-index: 5;
-    border-radius: clamp(5px, 0.42vw, 7px) 0 0 clamp(5px, 0.42vw, 7px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    width: auto;
+    height: auto;
+    margin: 0 0 0 clamp(8px, 0.6vw, 12px);
+    padding: 0;
+    border-radius: 0;
+    color: #3b82f6 !important;
+    background: transparent !important;
+    background-clip: border-box !important;
     box-shadow: none !important;
+    font-size: var(--drp-trigger-icon, var(--text-medium));
+    flex: 0 0 auto;
 }
 
 /* Match Transaction Capture Date: `date-range-picker.css` `.calendar-month-year select` */
