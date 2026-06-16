@@ -224,8 +224,7 @@ body.dashboard-page {
     .dashboard-alert-modal-icon-wrap--critical,
     .expiration-reminder-modal-box.dashboard-alert-modal-box--critical,
     .dashboard-summary-pie-chart-shell.is-enter,
-    .dashboard-summary-pie-center.is-enter,
-    .dashboard-panel-chart-body.is-enter {
+    .dashboard-summary-pie-center.is-enter {
         animation: none;
     }
 }
@@ -1184,26 +1183,17 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     min-height: inherit;
 }
 
-.dashboard-panel-chart-body.is-enter {
-    animation: dashboard-trend-chart-in 0.35s ease-out both;
-}
-
 .dashboard-panel-chart-body.is-scope-morph {
     transition: opacity 0.28s ease;
 }
 
-.dashboard-panel-chart-body.is-enter .dashboard-trend-area .recharts-area-curve {
+.dashboard-panel-chart-body .dashboard-trend-area .recharts-area-curve {
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
-@keyframes dashboard-trend-chart-in {
-    0% {
-        opacity: 0;
-    }
-    100% {
-        opacity: 1;
-    }
+.dashboard-chart-zero-line {
+    stroke: #cbd5e1;
 }
 
 .dashboard-panel-card--chart {

@@ -1,10 +1,10 @@
-/** Static area gradients + zero-baseline enter draw (kunzzgroup KPI / Chart.js style). */
+/** Kunzzgroup KPI chart: static area gradients + zero-baseline draw helpers. */
 
-export const DASHBOARD_TREND_DRAW_BEGIN_MS = 0;
 export const DASHBOARD_TREND_DRAW_DURATION_MS = 1000;
 
 const TREND_CHART_METRIC_KEYS = ["profit", "expenses", "netProfit", "earnings"];
 
+/** Palette matches dashboard series colors. */
 const TREND_AREA_SERIES = [
   { id: "Profit", color: "#3b82f6" },
   { id: "Exp", color: "#ef4444" },
@@ -12,7 +12,6 @@ const TREND_AREA_SERIES = [
   { id: "Earn", color: "#f59e0b" },
 ];
 
-/** Vertical fade matching kunzzgroup KPI canvas gradient stops. */
 export function DashboardTrendAreaDefs() {
   return (
     <defs>
@@ -39,7 +38,24 @@ export function resolveTrendAreaFill(dataKey) {
   return AREA_FILL_BY_DATA_KEY[dataKey] || null;
 }
 
-/** Flatten all series to 0.00 for the first paint; Recharts then interpolates to targets. */
+/** Y domain always spans 0 so positives grow up and negatives grow down from the zero line. */
+export function computeTrendYDomain(rows, dataKeys) {
+  if (!rows?.length || !dataKeys?.length) return [0, 1];
+  let min = 0;
+  let max = 0;
+  rows.forEach((row) => {
+    dataKeys.forEach((key) => {
+      const value = Number(row[key]) || 0;
+      if (value < min) min = value;
+      if (value > max) max = value;
+    });
+  });
+  if (min === 0 && max === 0) return [-1, 1];
+  const span = max - min || Math.max(Math.abs(max), Math.abs(min), 1);
+  const pad = span * 0.08;
+  return [min < 0 ? min - pad : 0, max > 0 ? max + pad : 0];
+}
+
 export function zeroTrendChartRows(rows) {
   if (!rows?.length) return [];
   return rows.map((row) => {

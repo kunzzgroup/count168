@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -12,8 +12,8 @@ import {
 import { DashboardChartBaseline } from "../lib/dashboardChart.jsx";
 import {
   DashboardTrendAreaDefs,
-  DASHBOARD_TREND_DRAW_BEGIN_MS,
   DASHBOARD_TREND_DRAW_DURATION_MS,
+  computeTrendYDomain,
   resolveTrendAreaFill,
   zeroTrendChartRows,
 } from "../lib/dashboardChartFx.jsx";
@@ -31,53 +31,65 @@ export function DashboardTrendChart({
   chartDataStable = false,
 }) {
   const [chartVisitKey] = useState(() => Date.now());
-  const [chartAnimArmed, setChartAnimArmed] = useState(false);
+  const [chartReady, setChartReady] = useState(false);
   const [displayRows, setDisplayRows] = useState(null);
+  const [drawAnimate, setDrawAnimate] = useState(false);
   const chartRowsRef = useRef(chartRows);
   chartRowsRef.current = chartRows;
 
   const hasChartData = chartRows.length > 0;
   const chartSessionKey = `${chartVisitKey}-${chartDateRangeText}`;
-  const chartAnimKey = `${chartSessionKey}-${chartAnimArmed ? "play" : "hold"}`;
+
+  const activeDataKeys = useMemo(
+    () => chartSeries.filter((s) => chartVisible[s.idx]).map((s) => s.dataKey),
+    [chartSeries, chartVisible]
+  );
+
+  const yDomain = useMemo(
+    () => computeTrendYDomain(chartRows, activeDataKeys),
+    [chartRows, activeDataKeys]
+  );
 
   useEffect(() => {
-    setChartAnimArmed(false);
+    setChartReady(false);
     setDisplayRows(null);
+    setDrawAnimate(false);
   }, [chartSessionKey]);
 
   useEffect(() => {
     if (!hasChartData || !chartDataStable) {
-      setChartAnimArmed(false);
+      setChartReady(false);
       setDisplayRows(null);
+      setDrawAnimate(false);
       return undefined;
     }
 
     let cancelled = false;
-    let rafId = 0;
+    let raf1 = 0;
+    let raf2 = 0;
     const targetRows = chartRowsRef.current;
 
-    setChartAnimArmed(true);
+    setChartReady(true);
     setDisplayRows(zeroTrendChartRows(targetRows));
+    setDrawAnimate(false);
 
-    rafId = window.requestAnimationFrame(() => {
-      if (cancelled) return;
-      setDisplayRows(targetRows);
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        setDisplayRows(targetRows);
+        setDrawAnimate(true);
+      });
     });
 
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(rafId);
-      setChartAnimArmed(false);
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+      setChartReady(false);
       setDisplayRows(null);
+      setDrawAnimate(false);
     };
   }, [chartSessionKey, hasChartData, chartDataStable]);
-
-  const chartBodyClassName = [
-    "dashboard-panel-chart-body",
-    chartAnimArmed ? "is-enter" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
 
   return (
     <div className="dashboard-panel-card dashboard-panel-card--chart">
@@ -101,17 +113,17 @@ export function DashboardTrendChart({
           {chartDateRangeText}
         </div>
       </div>
-      <div className={chartBodyClassName}>
-        {chartAnimArmed && displayRows ? (
+      <div className="dashboard-panel-chart-body">
+        {chartReady && displayRows ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              key={chartAnimKey}
+              key={chartSessionKey}
               data={displayRows}
               baseValue={0}
               margin={{ top: 8, right: 16, left: 0, bottom: chartXAxisLayout.marginBottom }}
             >
               <DashboardTrendAreaDefs />
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
               <Customized component={DashboardChartBaseline} />
               <XAxis
                 dataKey="label"
@@ -123,7 +135,13 @@ export function DashboardTrendChart({
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" tickFormatter={(v) => formatCurrency(v)} width={72} />
+              <YAxis
+                domain={yDomain}
+                tick={{ fontSize: 11 }}
+                stroke="#94a3b8"
+                tickFormatter={(v) => formatCurrency(v)}
+                width={72}
+              />
               <Tooltip
                 formatter={(value) => formatCurrency(value)}
                 labelFormatter={(_, items) => {
@@ -136,7 +154,7 @@ export function DashboardTrendChart({
                 const areaFill = resolveTrendAreaFill(s.dataKey) || s.fill;
                 return (
                   <Area
-                    key={`${s.dataKey}-${chartAnimKey}`}
+                    key={s.dataKey}
                     type="monotone"
                     dataKey={s.dataKey}
                     name={s.label}
@@ -146,8 +164,8 @@ export function DashboardTrendChart({
                     baseValue={0}
                     dot={false}
                     activeDot={{ r: 8, strokeWidth: 2, stroke: s.color, fill: "#fff" }}
-                    isAnimationActive
-                    animationBegin={DASHBOARD_TREND_DRAW_BEGIN_MS}
+                    isAnimationActive={drawAnimate}
+                    animationBegin={0}
                     animationDuration={DASHBOARD_TREND_DRAW_DURATION_MS}
                     animationEasing="ease-out"
                     className="dashboard-trend-area"
