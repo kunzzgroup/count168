@@ -1,5 +1,5 @@
 import { recalculateRowAmounts } from "../table/summaryRowAmount.js";
-import { summaryRefreshStorageKeys, RATE_BY_PRODUCT_KEY } from "./summaryRefreshStorageKeys.js";
+import { summaryRefreshStorageKeys, RATE_BY_PRODUCT_KEY } from "./summaryStorage.js";
 import { SUMMARY_RATE_VALUES_KEY } from "./summaryStorage.js";
 import { buildSummaryRowStableKey } from "./summaryRefreshStatePure.js";
 

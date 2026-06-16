@@ -15,7 +15,23 @@ import {
   updateBridgeCell,
 } from "../lib/dataCaptureBridge.js";
 import { MAX_GRID_ROWS } from "./dataCaptureGridMeta.js";
-import { peekPendingGridCellFocus, requestGridCellFocus, takePendingGridCellFocus } from "../lib/gridFocusQueue.js";
+
+/** Pending cell focus after grid row/column append (applied on next grid render). */
+let pendingGridCellFocus = null;
+
+function requestGridCellFocus(rowIndex, colIndex) {
+  pendingGridCellFocus = { rowIndex, colIndex };
+}
+
+function peekPendingGridCellFocus() {
+  return pendingGridCellFocus;
+}
+
+function takePendingGridCellFocus() {
+  const next = pendingGridCellFocus;
+  pendingGridCellFocus = null;
+  return next;
+}
 
 function cellPosition(cell) {
   if (!cell?.parentNode?.parentNode) return null;
@@ -353,7 +369,7 @@ export function scrollGridCellIntoView(cell) {
   cell.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
-/** Apply pending focus after React grid re-render (see gridFocusQueue). */
+/** Apply pending focus after React grid re-render. */
 export function applyPendingGridCellFocus() {
   const pending = peekPendingGridCellFocus();
   if (!pending) return false;

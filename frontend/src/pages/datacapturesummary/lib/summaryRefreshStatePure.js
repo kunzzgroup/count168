@@ -1,6 +1,6 @@
 import { dataCaptureScopeCacheCompanyKey } from "../../datacapture/lib/dataCaptureScope.js";
 import { normalizeSummaryIdProductText } from "./summaryIdProductUtils.js";
-import { summaryRefreshStorageKeys, RATE_BY_PRODUCT_KEY } from "./summaryRefreshStorageKeys.js";
+import { summaryRefreshStorageKeys, RATE_BY_PRODUCT_KEY } from "./summaryStorage.js";
 import {
   SUMMARY_FORMULA_SOURCE_KEY,
   SUMMARY_RATE_VALUES_KEY,
