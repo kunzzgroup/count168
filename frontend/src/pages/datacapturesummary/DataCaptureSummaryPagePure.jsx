@@ -151,6 +151,10 @@ function DataCaptureSummaryPureInner() {
 
     serverState: capture.serverState,
 
+    serverStateLoading: capture.serverStateLoading,
+
+    serverStateQueryEnabled: capture.serverStateQueryEnabled,
+
     searchParams,
 
     t,

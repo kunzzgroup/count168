@@ -8,6 +8,18 @@ import {
 
 const SNAPSHOT_PREFIX = "summaryRowsSnapshot";
 
+/** True when at least one row has template/account/formula data (not id-product skeleton). */
+export function summaryRowsLookPopulated(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return false;
+  return rows.some((row) => {
+    if (row?.templateApplied) return true;
+    if (String(row?.account || "").trim()) return true;
+    if (String(row?.formulaOperators || "").trim()) return true;
+    if (String(row?.formulaDisplay || "").trim()) return true;
+    return false;
+  });
+}
+
 function summaryAccountIdentity(row) {
   const accountId = row?.accountId != null ? String(row.accountId).trim() : "";
   const account = String(row?.account || "").trim().replace(/\s+/g, " ");
@@ -80,6 +92,7 @@ function summarySessionSnapshotKey(captureScope, processMeta) {
 /** Persist full row models for same-tab F5 (sessionStorage). */
 export function saveSummarySessionSnapshot(rows, processMeta, captureScope = null) {
   if (!Array.isArray(rows) || rows.length === 0) return;
+  if (!summaryRowsLookPopulated(rows)) return;
   try {
     const payload = {
       processId: processMeta?.processId ?? null,
@@ -94,12 +107,12 @@ export function saveSummarySessionSnapshot(rows, processMeta, captureScope = nul
 }
 
 /** Load session snapshot when process matches. */
-export function loadSummarySessionSnapshot(captureScope, processMeta = null) {
+function parseSummarySessionSnapshot(raw, processMeta = null) {
+  if (!raw) return null;
   try {
-    const raw = sessionStorage.getItem(summarySessionSnapshotKey(captureScope, processMeta));
-    if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.rows) || parsed.rows.length === 0) return null;
+    if (!summaryRowsLookPopulated(parsed.rows)) return null;
     if (processMeta?.processId != null && parsed.processId != null) {
       if (String(parsed.processId) !== String(processMeta.processId)) return null;
     }
@@ -115,6 +128,33 @@ export function loadSummarySessionSnapshot(captureScope, processMeta = null) {
   } catch {
     return null;
   }
+}
+
+export function loadSummarySessionSnapshot(captureScope, processMeta = null) {
+  try {
+    const raw = sessionStorage.getItem(summarySessionSnapshotKey(captureScope, processMeta));
+    return parseSummarySessionSnapshot(raw, processMeta);
+  } catch {
+    return null;
+  }
+}
+
+/** Try primary scope key, then alternate capture scopes (F5 before scope settles). */
+export function loadSummarySessionSnapshotWithFallback(captureScope, processMeta = null, scopeCandidates = []) {
+  const seen = new Set();
+  const scopes = [captureScope, ...scopeCandidates].filter((scope) => {
+    const tag = dataCaptureScopeCacheCompanyKey(scope) ?? "global";
+    if (seen.has(tag)) return false;
+    seen.add(tag);
+    return true;
+  });
+
+  for (const scope of scopes) {
+    const snapshot = loadSummarySessionSnapshot(scope, processMeta);
+    if (snapshot?.rows?.length) return snapshot;
+  }
+
+  return null;
 }
 
 export function clearSummarySessionSnapshot(captureScope, processMeta = null) {
