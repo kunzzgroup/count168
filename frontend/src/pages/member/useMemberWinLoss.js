@@ -61,6 +61,8 @@ export function useMemberWinLoss({ showNotification, lang }) {
   const gridAbortRef = useRef(null);
   const searchSeqRef = useRef(0);
   const viewCacheRef = useRef(new Map());
+  const accountSwitchSeqRef = useRef(0);
+  const accountSwitchHandledSeqRef = useRef(0);
   const linkedAccountsRef = useRef(linkedAccounts);
   linkedAccountsRef.current = linkedAccounts;
   const performMemberSearchRef = useRef(null);
@@ -764,7 +766,18 @@ export function useMemberWinLoss({ showNotification, lang }) {
     if (!viewAccountId || !companyId || !dateFrom || !dateTo) return;
     searchSeqRef.current += 1;
     const seq = searchSeqRef.current;
-    const preKey = buildViewCacheKey(viewAccountId, companyId, dateFrom, dateTo, isAllSelected, selectedCurrencies);
+    const isAccountSwitch = accountSwitchSeqRef.current !== accountSwitchHandledSeqRef.current;
+    const selectionOverride = isAccountSwitch ? { isAllSelected: true, selectedCurrencies: [] } : null;
+    if (isAccountSwitch) accountSwitchHandledSeqRef.current = accountSwitchSeqRef.current;
+
+    const preKey = buildViewCacheKey(
+      viewAccountId,
+      companyId,
+      dateFrom,
+      dateTo,
+      selectionOverride?.isAllSelected ?? isAllSelected,
+      selectionOverride?.selectedCurrencies ?? selectedCurrencies,
+    );
     const cached = viewCacheRef.current.get(preKey);
     if (cached?.historyRows) {
       setHistoryRows(cached.historyRows);
@@ -789,7 +802,7 @@ export function useMemberWinLoss({ showNotification, lang }) {
       if (summaryOk) {
         await loadCurrencyOrder();
       }
-      await fetchMemberHistory(seq);
+      await fetchMemberHistory(seq, selectionOverride);
     } finally {
       if (seq === searchSeqRef.current) {
         setLoadingTable(false);
@@ -862,6 +875,9 @@ export function useMemberWinLoss({ showNotification, lang }) {
         if (!json?.success) throw new Error(json?.message || t("switchFailed"));
         const payload = json.data || json;
         const newId = Number(payload.account_id) || Number(nextAccountId);
+        accountSwitchSeqRef.current += 1;
+        setIsAllSelected(true);
+        setSelectedCurrencies([]);
         setViewAccountId(newId);
         showNotification(
           t("switchedToAccount", { label: payload.account_code || code || name || newId }),
