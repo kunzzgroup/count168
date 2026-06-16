@@ -223,13 +223,12 @@ body.datacapture-page .submitted-list {
         max-height: min(42dvh, 400px);
     }
 
-    body.datacapture-page .process-form .dc-form-row--3col,
-    body.datacapture-page .process-form .dc-form-row--2col {
+    body.datacapture-page .process-form .dc-form-row--3col {
         grid-template-columns: 1fr;
     }
 
-    body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked:last-child > .form-group:only-child {
-        grid-column: 1;
+    body.datacapture-page .process-form .dc-form-row--2col {
+        grid-template-columns: 1fr;
     }
 
     body.datacapture-page .process-form .dc-form-aligned-2col,
@@ -360,11 +359,7 @@ body.datacapture-page .process-form .dc-form-row.dc-form-row--stacked .form-grou
     width: 100%;
 }
 
-/* Group-only: Remark aligns to right column (same track as company Remark) */
-body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked:last-child > .form-group:only-child {
-    grid-column: 2;
-}
-
+/* Group-only: Currency | Remark on same row */
 body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked > .form-group > input#capture_remark {
     width: 100%;
     min-width: 0;
