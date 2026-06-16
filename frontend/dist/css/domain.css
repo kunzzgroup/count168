@@ -94,9 +94,9 @@ body.domain-page .domain-react-page .table-container {
  * 并重置 label 为块级（Tailwind preflight 关闭时 label 默认为 inline，易与输入框挤在同一行/重叠）。
  */
 body.ec-auth-shell .domain-form-modal-backdrop {
-    --dfm-selected-item-height: 46px;
+    --dfm-selected-item-height: 34px;
     --dfm-selected-item-gap: 6px;
-    --dfm-selected-action-height: 32px;
+    --dfm-selected-action-height: 20px;
     --dfm-row1-control-height: 34px;
     --dfm-selected-visible-rows: 9;
     --dfm-selected-list-inset-y: 16px;
@@ -426,7 +426,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .exp-date-display {
-    font-size: var(--text-tiny) !important;
+    font-size: var(--text-small) !important;
     line-height: 1.2 !important;
 }
 
