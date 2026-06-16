@@ -1140,6 +1140,7 @@ export default function TransactionMaintenancePage() {
             showTopLoading={showTopLoadingBar}
             topLoadingLabel={listStatusMessage || t("loading")}
             listSyncing={listSyncing}
+            dataIncomplete={!maintenanceDataComplete && listRowCount > 0}
             scrollResetKey={searchQueryKey}
             m={m}
           />

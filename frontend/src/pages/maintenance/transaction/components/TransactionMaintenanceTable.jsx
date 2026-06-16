@@ -114,6 +114,7 @@ function VirtualDataRow({ row, index }) {
  * @param {boolean} props.showEmptyState
  * @param {string} props.statusMessage
  * @param {boolean} props.listSyncing
+ * @param {boolean} props.dataIncomplete
  * @param {string} props.scrollResetKey
  * @param {object} props.m
  */
@@ -125,6 +126,7 @@ export default function TransactionMaintenanceTable({
   showTopLoading = false,
   topLoadingLabel = "",
   listSyncing = false,
+  dataIncomplete = false,
   scrollResetKey = "",
   m,
 }) {
@@ -176,6 +178,7 @@ export default function TransactionMaintenanceTable({
     rowHeightEstimate: ROW_HEIGHT,
     scrollResetKey,
     listSyncing,
+    dataIncomplete,
   });
 
   if (rows.length === 0 && (showSkeleton || statusMessage)) {

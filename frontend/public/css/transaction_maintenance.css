@@ -953,7 +953,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     box-sizing: border-box;
 }
 
-.transaction-maintenance-page-root .maintenance-list-container {
+.transaction-maintenance-page-root .maintenance-list-container:not(.maintenance-virtual-table) {
     margin-bottom: clamp(20px, 1.67vw, 32px);
     margin-top: 10px;
     overflow-x: auto;
@@ -1180,6 +1180,10 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 
 .transaction-maintenance-page-root .maintenance-virtual-table-inner,
 .transaction-maintenance-page-root .transaction-virtual-table-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     min-width: 100%;
     width: 100%;
     box-sizing: border-box;
