@@ -25,7 +25,7 @@ import { useSummaryCaptureBootstrap } from "./hooks/useSummaryCaptureBootstrap.j
 
 import { useSummaryTableModel } from "./hooks/useSummaryTableModel.js";
 
-import { useSummaryRefreshPersist } from "./hooks/useSummaryRefreshPersist.js";
+import { useSummaryPageScroll, useSummaryRefreshPersist } from "./hooks/useSummaryRefreshPersist.js";
 
 import { useSummaryPageActionsPure } from "./hooks/useSummaryPageActionsPure.js";
 
@@ -330,6 +330,8 @@ function DataCaptureSummaryPureInner() {
     };
 
   }, []);
+
+  useSummaryPageScroll(capture.hasCaptureData ? rows.length : 0);
 
 
 

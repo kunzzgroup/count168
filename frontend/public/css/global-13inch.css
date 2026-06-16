@@ -634,11 +634,11 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
    Global Layout Unlock (Destroy nested scrolls, use Native Window Scroll)
    ========================================================================== */
     /* 1. Unlock the main bounding containers so they stretch infinitely downwards */
-    html:not(:has(body.datacapture-page)),
+    html:not(:has(body.datacapture-page)):not(:has(body.datacapture-summary-page)),
     body.user-page,
     body.transaction-page,
-    body.dashboard-page:not(.datacapture-page),
-    body.ec-auth-shell:not(.datacapture-page) {
+    body.dashboard-page:not(.datacapture-page):not(.datacapture-summary-page),
+    body.ec-auth-shell:not(.datacapture-page):not(.datacapture-summary-page) {
         height: auto !important;
         min-height: 100vh !important;
         max-height: none !important;
@@ -729,6 +729,8 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.ec-auth-shell .transaction-main-content,
     body.ec-auth-shell .transaction-table-wrapper,
     body.ec-auth-shell .datacapture-table-wrapper,
+    body.ec-auth-shell .summary-table-x-scroll,
+    body.ec-auth-shell.datacapture-summary-page .summary-table-container,
     body.ec-auth-shell .own-container,
     body.ec-auth-shell #companyCardsContainer,
     body.ec-auth-shell #groupEarningsContainer {
@@ -1175,4 +1177,38 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
 .chip-more:hover {
     background-color: #bae6fd;
     color: #0369a1;
+}
+
+/* Data Capture Summary — body scroll only (all viewport widths) */
+html:has(body.datacapture-summary-page) {
+    height: auto !important;
+    overflow: visible !important;
+}
+
+body.dashboard-page.datacapture-summary-page,
+body.ec-auth-shell.dashboard-page.datacapture-summary-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+body.dashboard-page.datacapture-summary-page #root,
+body.dashboard-page.datacapture-summary-page .ec-page-shell,
+body.dashboard-page.datacapture-summary-page .ec-page-shell__content,
+body.dashboard-page.datacapture-summary-page .container,
+body.dashboard-page.datacapture-summary-page #summaryTableContainer,
+body.dashboard-page.datacapture-summary-page .summary-table-container {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body.dashboard-page.datacapture-summary-page .summary-table-x-scroll {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    max-height: none !important;
+    height: auto !important;
 }

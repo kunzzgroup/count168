@@ -1,35 +1,22 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect } from "react";
 import { unsetWindowProperty } from "../../../utils/core/unsetWindowProperty.js";
-import { initDataCaptureSpaPage } from "../lib/dataCaptureSpaInit.js";
+import { callDataCaptureRuntime } from "../lib/dataCaptureRuntime.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 
-/**
- * Global shims so migrated paste/CRUD code works without js/datacapture.js.
- * Includes SPA page init bridge (formerly useDataCaptureSpaInit).
- */
+/** Minimal global shims for grid modules that still call `window.showNotification`. */
 export function useDataCaptureGlobalShims() {
-  const initRef = useRef(initDataCaptureSpaPage);
-  initRef.current = initDataCaptureSpaPage;
-
   useLayoutEffect(() => {
-    const resetForm = () => {
-      window.__DC_RESET__?.();
-    };
-
-    const submitDataCaptureForm = () => {
-      window.__DC_SUBMIT__?.();
-    };
+    const resetForm = () => callDataCaptureRuntime("reset");
+    const submitDataCaptureForm = () => callDataCaptureRuntime("submit");
 
     window.showNotification = pushDataCaptureNotification;
     window.resetForm = resetForm;
     window.submitDataCaptureForm = submitDataCaptureForm;
-    window.__DC_SPA_INIT_PAGE__ = () => initRef.current();
 
     return () => {
       unsetWindowProperty("showNotification", pushDataCaptureNotification);
       unsetWindowProperty("resetForm", resetForm);
       unsetWindowProperty("submitDataCaptureForm", submitDataCaptureForm);
-      delete window.__DC_SPA_INIT_PAGE__;
     };
   }, []);
 }

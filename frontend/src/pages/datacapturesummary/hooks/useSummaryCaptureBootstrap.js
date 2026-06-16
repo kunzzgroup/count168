@@ -24,14 +24,6 @@ export function useSummaryCaptureBootstrap({ captureScope, companyId, searchPara
   }
   const isFreshCaptureRound = freshPinnedRef.current;
 
-  useEffect(() => {
-    if (isFreshCaptureRound) {
-      clearStaleCaptureIdForFreshRound();
-      clearSuppressedRowKeys();
-      clearSummaryRefreshDraftStorage(captureScope);
-    }
-  }, [isFreshCaptureRound, captureScope]);
-
   const captureSession = useMemo(() => {
     if (!enabled) return null;
     const session = loadSummaryCaptureSession(captureScope);
@@ -57,6 +49,14 @@ export function useSummaryCaptureBootstrap({ captureScope, companyId, searchPara
     () => parseSummaryProcessMeta(captureSession?.processData ?? null),
     [captureSession]
   );
+
+  useEffect(() => {
+    if (isFreshCaptureRound) {
+      clearStaleCaptureIdForFreshRound();
+      clearSuppressedRowKeys();
+      clearSummaryRefreshDraftStorage(captureScope, { processId, processCode });
+    }
+  }, [isFreshCaptureRound, captureScope, processId, processCode]);
 
   const serverStateQueryEnabled =
     enabled &&
