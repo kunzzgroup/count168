@@ -419,7 +419,7 @@ body.datacapture-page .process-form .dc-form-company-layout__remove {
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__remark {
-    grid-column: 3 / span 2;
+    grid-column: 3 / span 4;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
