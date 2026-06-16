@@ -114,14 +114,6 @@ export function useSummaryEditFormulaPure({
   const saveInFlightRef = useRef(false);
   const [saving, setSaving] = useState(false);
 
-  const usedAccountIds = useMemo(
-    () =>
-      rows
-        .filter((r) => r.accountId && r.account?.trim())
-        .map((r) => String(r.accountId)),
-    [rows]
-  );
-
   const idProductSelectOptions = useMemo(
     () => buildIdProductSelectOptions(tableData),
     [tableData]
@@ -441,7 +433,6 @@ export function useSummaryEditFormulaPure({
     form,
     accounts,
     currencies,
-    usedAccountIds,
     idProductOptions: idProductSelectOptions,
     rowDataOptions,
     formulaDataGridItems,
