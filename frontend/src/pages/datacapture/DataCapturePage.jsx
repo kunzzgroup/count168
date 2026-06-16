@@ -1103,14 +1103,19 @@ function DataCapturePageContent() {
                     <label htmlFor="capture_replace_word_to" className="dc-form-company-layout__label-spacer" aria-hidden="true">
                       &#8203;
                     </label>
-                    <input
-                      type="text"
-                      id="capture_replace_word_to"
-                      name="replace_word_to"
-                      placeholder={t("newWord")}
-                      value={form.replaceTo}
-                      onChange={(e) => form.setReplaceTo(toDataCaptureWordFieldCase(e.target.value))}
-                    />
+                    <div className="dc-form-company-layout__replace-new-field">
+                      <span className="replace-arrow dc-form-company-layout__replace-arrow" aria-hidden="true">
+                        →
+                      </span>
+                      <input
+                        type="text"
+                        id="capture_replace_word_to"
+                        name="replace_word_to"
+                        placeholder={t("newWord")}
+                        value={form.replaceTo}
+                        onChange={(e) => form.setReplaceTo(toDataCaptureWordFieldCase(e.target.value))}
+                      />
+                    </div>
                   </div>
 
                   <div className="form-group dc-form-company-layout__remove">
