@@ -1188,15 +1188,16 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     overflow: hidden;
 }
 
-.maintenance-virtual-table--refreshing .maintenance-virtual-scroll--body {
+.maintenance-virtual-table--refreshing .maintenance-virtual-scroll {
     opacity: 0.92;
     transition: opacity 0.15s ease;
 }
 
 .transaction-maintenance-page-root .maintenance-virtual-thead {
-    position: relative;
-    top: auto;
+    position: sticky;
+    top: 0;
     z-index: 3;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .maintenance-virtual-stale-hint {
@@ -1275,8 +1276,14 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     border-top-left-radius: 8px;
 }
 
-.transaction-maintenance-page-root .maintenance-virtual-scroll--body {
+.transaction-maintenance-page-root .maintenance-virtual-scroll {
+    border-radius: 8px;
     background: #fff;
+}
+
+.transaction-maintenance-page-root .maintenance-list-container--syncing .maintenance-virtual-scroll {
+    opacity: 0.92;
+    transition: opacity 0.15s ease;
 }
 
 .transaction-maintenance-page-root .maintenance-virtual-row-wrap {
@@ -1398,7 +1405,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
         --transaction-list-cell-min-height: clamp(32px, 2.2vw, 42px);
     }
 
-    .transaction-maintenance-page-root .maintenance-virtual-scroll--body {
+    .transaction-maintenance-page-root .maintenance-virtual-scroll {
         max-height: min(68vh, 820px);
     }
 

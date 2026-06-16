@@ -1141,7 +1141,6 @@ export default function TransactionMaintenancePage() {
             topLoadingLabel={listStatusMessage || t("loading")}
             listSyncing={listSyncing}
             scrollResetKey={searchQueryKey}
-            dataIncomplete={!maintenanceDataComplete && listRowCount > 0}
             m={m}
           />
         </div>

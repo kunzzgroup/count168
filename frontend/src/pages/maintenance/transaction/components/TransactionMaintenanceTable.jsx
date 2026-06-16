@@ -114,7 +114,6 @@ function VirtualDataRow({ row, index }) {
  * @param {boolean} props.showEmptyState
  * @param {string} props.statusMessage
  * @param {boolean} props.listSyncing
- * @param {boolean} props.dataIncomplete
  * @param {string} props.scrollResetKey
  * @param {object} props.m
  */
@@ -126,7 +125,6 @@ export default function TransactionMaintenanceTable({
   showTopLoading = false,
   topLoadingLabel = "",
   listSyncing = false,
-  dataIncomplete = false,
   scrollResetKey = "",
   m,
 }) {
@@ -178,7 +176,6 @@ export default function TransactionMaintenanceTable({
     rowHeightEstimate: ROW_HEIGHT,
     scrollResetKey,
     listSyncing,
-    dataIncomplete,
   });
 
   if (rows.length === 0 && (showSkeleton || statusMessage)) {
@@ -187,8 +184,8 @@ export default function TransactionMaintenanceTable({
       <div className="maintenance-list-container maintenance-virtual-table transaction-virtual-table">
         <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
           <TopLoadingBar label={label} />
-          <VirtualTableHeader m={m} />
-          <div className="maintenance-virtual-scroll maintenance-virtual-scroll--body" tabIndex={0}>
+          <div className="maintenance-virtual-scroll" tabIndex={0}>
+            <VirtualTableHeader m={m} />
             <div className="maintenance-virtual-empty-loading" aria-hidden />
           </div>
         </div>
@@ -217,8 +214,8 @@ export default function TransactionMaintenanceTable({
     >
       <div className="maintenance-virtual-table-inner transaction-virtual-table-inner" role="table" aria-label={m.pageTitleTransaction}>
         {showBlueBar ? <TopLoadingBar label={topLabel} /> : null}
-        <VirtualTableHeader m={m} />
-        <div ref={scrollRef} className="maintenance-virtual-scroll maintenance-virtual-scroll--body" tabIndex={0}>
+        <div ref={scrollRef} className="maintenance-virtual-scroll" tabIndex={0}>
+          <VirtualTableHeader m={m} />
           {rows.length > 0 ? (
             <div className="maintenance-virtual-spacer" style={{ height: displayTotalH, position: "relative", width: "100%" }}>
               {vItems.map((virtualRow) => {
