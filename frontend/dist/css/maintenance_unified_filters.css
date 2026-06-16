@@ -597,7 +597,8 @@ body.dashboard-page.maintenance-page .maintenance-virtual-head-row {
     padding-top: var(--report-list-header-padding-block-start) !important;
     padding-bottom: var(--report-list-header-padding-block-end) !important;
     padding-left: var(--report-list-row-padding-inline) !important;
-    padding-right: var(--report-list-row-padding-inline) !important;
+    /* Match body scrollbar-gutter: stable so header columns line up with data rows */
+    padding-right: calc(var(--report-list-row-padding-inline) + var(--dash-scrollbar-size, 12px)) !important;
     min-height: var(--report-list-header-min-height) !important;
     box-sizing: border-box !important;
     background: transparent !important;

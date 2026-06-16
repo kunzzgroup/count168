@@ -32,8 +32,12 @@ function VirtualTableHeader({ m }) {
   return (
     <div className="maintenance-virtual-thead" role="rowgroup">
       <div className="maintenance-virtual-head-row transaction-virtual-head-row" role="row">
-        {HEADER_LABELS(m).map((label) => (
-          <div key={label} role="columnheader" className="maintenance-virtual-th">
+        {HEADER_LABELS(m).map((label, i) => (
+          <div
+            key={label}
+            role="columnheader"
+            className={`maintenance-virtual-th transaction-virtual-th--left${i === 0 ? " transaction-virtual-th--no" : ""}`}
+          >
             {label}
           </div>
         ))}

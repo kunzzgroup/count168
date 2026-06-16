@@ -1247,17 +1247,22 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     color: #ffffff;
     font-weight: bold;
     font-size: var(--text-base);
-    padding: clamp(5px, 0.55vw, 9px) clamp(10px, 1vw, 18px);
-    text-align: center;
-    min-height: clamp(30px, 2.1vw, 38px);
+    padding: 0;
+    text-align: left;
+    min-height: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     box-sizing: border-box;
     white-space: nowrap;
     line-height: 1.25;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.transaction-maintenance-page-root .transaction-virtual-th--left {
+    justify-content: flex-start;
+    text-align: left;
 }
 
 .transaction-maintenance-page-root .maintenance-virtual-th:last-child {
@@ -1305,7 +1310,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     font-weight: bold;
     color: #374151;
     line-height: var(--transaction-list-cell-line-height);
-    padding: var(--transaction-list-cell-padding-y) var(--transaction-list-cell-padding-x);
+    padding: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1314,7 +1319,7 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
     box-sizing: border-box;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     align-self: stretch;
 }
 
@@ -1360,8 +1365,8 @@ body.maintenance-page .maintenance-modal .btn-delete:hover {
 }
 
 .transaction-maintenance-page-root .maintenance-virtual-data-row .maintenance-cell-currency {
-    text-align: center;
-    justify-content: center;
+    text-align: left;
+    justify-content: flex-start;
 }
 
 /* Laptop: tighter padding, smaller header text */
