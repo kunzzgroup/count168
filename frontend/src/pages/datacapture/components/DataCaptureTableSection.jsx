@@ -68,7 +68,7 @@ export default function DataCaptureTableSection({
 
   return (
     <div className="bottom-section">
-      <div className={containerClass} ref={groupOnlyTable ? null : tableAreaRef}>
+      <div className={containerClass}>
         <div
           className={`excel-table-header dc-table-header-bar${hideCaptureTypeSelector ? " dc-table-header-bar--group-only" : ""}`.trim()}
         >
@@ -119,13 +119,9 @@ export default function DataCaptureTableSection({
             <GroupOnlyTableSizeControl t={t} engineReady={engineReady} />
           ) : null}
         </div>
-        {groupOnlyTable ? (
-          <div className="excel-table-scroll-body" ref={tableAreaRef}>
-            {gridBody}
-          </div>
-        ) : (
-          gridBody
-        )}
+        <div className="excel-table-scroll-body" ref={tableAreaRef}>
+          {gridBody}
+        </div>
       </div>
 
       <div className="form-actions">

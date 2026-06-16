@@ -26,6 +26,36 @@ body.datacapture-page {
     --dc-layout-gap: clamp(12px, 1.15vw, 18px);
     --dc-top-col-left: minmax(0, 1.8fr);
     --dc-top-col-right: minmax(0, 1fr);
+    --dc-input-focus-border: #3b82f6;
+    --dc-input-focus-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+
+/* Unified focus ring — overrides global-13inch ec-auth-shell input:focus */
+body.ec-auth-shell.datacapture-page .process-form input:not(.dc-remove-word-chip-input__field):focus,
+body.ec-auth-shell.datacapture-page .process-form input:not(.dc-remove-word-chip-input__field):focus-visible,
+body.ec-auth-shell.datacapture-page .process-form select:focus,
+body.ec-auth-shell.datacapture-page .process-form select:focus-visible,
+body.ec-auth-shell.datacapture-page .process-form textarea:focus,
+body.ec-auth-shell.datacapture-page .process-form textarea:focus-visible,
+body.ec-auth-shell.datacapture-page .dc-remove-word-chip-input:focus-within,
+body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap:hover,
+body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap:focus-within,
+body.ec-auth-shell.datacapture-page .custom-select-button:focus,
+body.ec-auth-shell.datacapture-page .custom-select-button:focus-visible,
+body.ec-auth-shell.datacapture-page .custom-select-button.open {
+    outline: none !important;
+    border-color: var(--dc-input-focus-border) !important;
+    box-shadow: var(--dc-input-focus-shadow) !important;
+}
+
+body.ec-auth-shell.datacapture-page .dc-remove-word-chip-input .dc-remove-word-chip-input__field:focus,
+body.ec-auth-shell.datacapture-page .dc-remove-word-chip-input .dc-remove-word-chip-input__field:focus-visible,
+body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap input:focus,
+body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap input:focus-visible {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 
 body.datacapture-page {
@@ -505,6 +535,8 @@ body.datacapture-page .process-form .dc-form-company-layout > .form-group > sele
     font-size: clamp(10px, 0.74vw, 14px);
     font-weight: 600;
     line-height: 1.25;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout > .form-group .input-with-icon {
@@ -690,8 +722,9 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     flex: 1 1 auto;
     min-height: 0;
     margin: 0;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-content: stretch;
     gap: var(--dc-layout-gap);
     overflow: hidden;
 }
@@ -852,8 +885,8 @@ body.datacapture-page .dc-remove-word-chip-input {
 }
 
 body.datacapture-page .dc-remove-word-chip-input:focus-within {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+    border-color: var(--dc-input-focus-border, #3b82f6);
+    box-shadow: var(--dc-input-focus-shadow, 0 0 0 2px rgba(59, 130, 246, 0.12));
 }
 
 body.datacapture-page .dc-remove-word-chip {
@@ -993,8 +1026,8 @@ body.datacapture-page .custom-select-button:focus,
 body.datacapture-page .custom-select-button:focus-visible,
 body.datacapture-page .custom-select-button.open {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+    border-color: var(--dc-input-focus-border, #3b82f6);
+    box-shadow: var(--dc-input-focus-shadow, 0 0 0 2px rgba(59, 130, 246, 0.12));
 }
 
 .custom-select-button::after {
@@ -1303,8 +1336,8 @@ body.datacapture-page .process-form .dc-description-input-wrap {
 
 body.datacapture-page .process-form .dc-description-input-wrap:hover,
 body.datacapture-page .process-form .dc-description-input-wrap:focus-within {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+    border-color: var(--dc-input-focus-border, #3b82f6);
+    box-shadow: var(--dc-input-focus-shadow, 0 0 0 2px rgba(59, 130, 246, 0.12));
 }
 
 body.datacapture-page .process-form .dc-description-input-wrap input {
@@ -1828,15 +1861,18 @@ body.datacapture-page .process-form .dc-description-add-tile:focus-visible {
     margin: 0;
     border: 1px solid var(--dc-border, #e2e8f0);
     border-radius: 10px;
-    overflow: auto;
+    overflow: hidden;
     background: white;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
     max-width: 100%;
     width: 100%;
     flex: 1 1 auto;
-    min-height: 140px;
     min-height: 0;
-    height: auto;
+    height: 100%;
+    align-self: stretch;
+    justify-self: stretch;
+    display: flex;
+    flex-direction: column;
     scrollbar-gutter: stable;
     position: relative;
 }
@@ -1845,6 +1881,46 @@ body.datacapture-page .excel-table-container {
     flex: 1 1 auto;
     min-height: 0;
     max-height: 100%;
+}
+
+body.datacapture-page .excel-table-container .excel-table-header {
+    flex-shrink: 0;
+}
+
+body.datacapture-page .excel-table-scroll-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+}
+
+body.datacapture-page .excel-table-scroll-body .excel-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: #f6f8fa;
+}
+
+body.datacapture-page .excel-table-scroll-body .excel-table td.row-header {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: #f6f8fa;
+}
+
+body.datacapture-page .excel-table-scroll-body .excel-table thead th:first-child {
+    left: 0;
+    z-index: 3;
+}
+
+body.datacapture-page .excel-table-scroll-body .excel-table tbody tr {
+    box-sizing: border-box;
+}
+
+body.datacapture-page .excel-table-scroll-body .excel-table tbody td {
+    box-sizing: border-box;
+    vertical-align: middle;
 }
 
 .text-input-format {
@@ -2110,16 +2186,7 @@ body.datacapture-page .excel-table-container {
     white-space: nowrap;
 }
 
-/* Group-only: table card fills remaining height; Submit fixed at bottom; scroll inside scroll-body */
-body.datacapture-page .bottom-section:has(.excel-table-container--group-only) {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
-    align-content: stretch;
-}
-
+/* Group-only: same flex fill as company; extra class only for layout tweaks */
 body.datacapture-page .excel-table-container--group-only {
     align-self: stretch;
     justify-self: stretch;
@@ -2127,40 +2194,6 @@ body.datacapture-page .excel-table-container--group-only {
     height: 100%;
     min-height: 0;
     max-height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-body.datacapture-page .excel-table-container--group-only .excel-table-header {
-    flex-shrink: 0;
-}
-
-body.datacapture-page .excel-table-container--group-only .excel-table-scroll-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: stable;
-}
-
-body.datacapture-page .excel-table-container--group-only .excel-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background-color: #f6f8fa;
-}
-
-body.datacapture-page .excel-table-container--group-only .excel-table td.row-header {
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    background-color: #f6f8fa;
-}
-
-body.datacapture-page .excel-table-container--group-only .excel-table thead th:first-child {
-    left: 0;
-    z-index: 3;
 }
 
 .dc-table-size {
