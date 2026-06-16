@@ -4,6 +4,7 @@ import { fetchSummaryFormCatalog } from "../lib/summaryApi.js";
 import {
   addSelectedDescriptionToForm,
   applyCalculatorToForm,
+  formatSummaryAccountDisplay,
   buildFormulaDataGridItems,
   buildFormulaSavePatchFromForm,
   buildIdProductSelectOptions,
@@ -21,7 +22,6 @@ import {
   syncSubOrderTemplates,
 } from "../table/summarySubOrderResequence.js";
 import { pushSummaryNotification } from "../lib/summaryNotify.js";
-import { formatSummaryAccountDisplay } from "../lib/summaryAccountDisplay.js";
 import { removeSuppressedRow } from "../lib/summarySuppressedRows.js";
 import {
   applyTenantLedgerToParams,
