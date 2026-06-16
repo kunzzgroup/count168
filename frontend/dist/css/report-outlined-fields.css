@@ -42,13 +42,52 @@ body.maintenance-page .customer-report-filters .report-outlined-inner .transacti
     width: 100%;
     max-width: 100%;
     min-height: clamp(32px, 2.25vw, 36px) !important;
+    padding: clamp(4px, 0.3vw, 6px) clamp(8px, 0.75vw, 12px) clamp(4px, 0.3vw, 6px) 0;
+    border-radius: clamp(5px, 0.42vw, 7px);
+    background: #ffffff !important;
+    box-shadow: none !important;
+    gap: clamp(8px, 0.7vw, 12px);
 }
 
-body.maintenance-page .customer-report-filters .report-outlined-inner .date-range-picker span {
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker:hover,
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker:focus-visible {
+    background: #ffffff !important;
+    box-shadow: none !important;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    width: clamp(34px, 2.45vw, 42px);
+    height: auto;
+    margin: 0;
+    border-radius: clamp(5px, 0.42vw, 7px) 0 0 clamp(5px, 0.42vw, 7px);
+    color: #ffffff;
+    background: #3b82f6;
+    font-size: var(--drp-trigger-icon, var(--text-medium));
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 5;
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-label--txn-capture-date {
+    left: clamp(46px, 3.35vw, 58px);
+}
+
+body.maintenance-page .customer-report-filters .report-outlined-inner .transaction-date-range-group #date-range-display,
+body.maintenance-page .customer-report-filters .report-outlined-inner .date-range-picker #date-range-display {
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: var(--drp-trigger-text, var(--text-medium));
     font-weight: 500;
     font-family: var(--font-heading-page);
     color: #374151;
+    letter-spacing: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 body.maintenance-page .report-outlined-shell,

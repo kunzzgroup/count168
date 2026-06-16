@@ -633,9 +633,9 @@ body.transaction-page .transaction-date-range-group .date-range-picker i.fa-cale
     z-index: 1;
 }
 
-body.transaction-page .transaction-date-range-group #date-range-display,
-body.transaction-page .transaction-date-range-group #add-tx-date-range-display,
-body.transaction-page .transaction-date-range-group #rate-tx-date-range-display {
+body.transaction-page:not(.maintenance-page) .transaction-date-range-group #date-range-display,
+body.transaction-page:not(.maintenance-page) .transaction-date-range-group #add-tx-date-range-display,
+body.transaction-page:not(.maintenance-page) .transaction-date-range-group #rate-tx-date-range-display {
     flex: 1 1 auto;
     min-width: 0;
     color: #1f2937;
