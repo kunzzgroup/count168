@@ -17,8 +17,8 @@ import {
   DASHBOARD_TREND_DRAW_BEGIN_MS,
   DASHBOARD_TREND_DRAW_DURATION_MS,
   DASHBOARD_TREND_IDLE_DELAY_MS,
-  interpolateTrendChartRows,
   resolveTrendFlowFill,
+  zeroTrendChartRows,
 } from "../lib/dashboardChartFx.jsx";
 import { formatChartTooltipLabel } from "../lib/dashboardDateUtils.js";
 import { formatCurrency } from "../lib/dashboardFormat.js";
@@ -44,7 +44,7 @@ export function DashboardTrendChart({
 }) {
   const [chartVisitKey] = useState(() => Date.now());
   const [chartAnimArmed, setChartAnimArmed] = useState(false);
-  const [animChartRows, setAnimChartRows] = useState(null);
+  const [displayRows, setDisplayRows] = useState(null);
   const [flowIdle, setFlowIdle] = useState(false);
   const chartRowsRef = useRef(chartRows);
   chartRowsRef.current = chartRows;
@@ -55,48 +55,35 @@ export function DashboardTrendChart({
 
   useEffect(() => {
     setChartAnimArmed(false);
-    setAnimChartRows(null);
+    setDisplayRows(null);
     setFlowIdle(false);
   }, [chartSessionKey]);
 
   useEffect(() => {
     if (!hasChartData || !chartDataStable) {
       setChartAnimArmed(false);
-      setAnimChartRows(null);
+      setDisplayRows(null);
       setFlowIdle(false);
       return undefined;
     }
 
     let cancelled = false;
     let rafId = 0;
-    let beginTimer = 0;
     const targetRows = chartRowsRef.current;
 
     setChartAnimArmed(true);
-    setAnimChartRows(interpolateTrendChartRows(targetRows, 0));
+    setDisplayRows(zeroTrendChartRows(targetRows));
 
-    const tick = (now, startTime) => {
+    rafId = window.requestAnimationFrame(() => {
       if (cancelled) return;
-      const elapsed = now - startTime;
-      const progress = Math.max(0, Math.min(1, elapsed / DASHBOARD_TREND_DRAW_DURATION_MS));
-      setAnimChartRows(interpolateTrendChartRows(targetRows, progress));
-      if (progress < 1) {
-        rafId = window.requestAnimationFrame((t) => tick(t, startTime));
-      }
-    };
-
-    beginTimer = window.setTimeout(() => {
-      if (cancelled) return;
-      const startTime = performance.now();
-      rafId = window.requestAnimationFrame((t) => tick(t, startTime));
-    }, DASHBOARD_TREND_DRAW_BEGIN_MS);
+      setDisplayRows(targetRows);
+    });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(beginTimer);
       window.cancelAnimationFrame(rafId);
       setChartAnimArmed(false);
-      setAnimChartRows(null);
+      setDisplayRows(null);
       setFlowIdle(false);
     };
   }, [chartSessionKey, hasChartData, chartDataStable]);
@@ -141,11 +128,11 @@ export function DashboardTrendChart({
         </div>
       </div>
       <div className={chartBodyClassName}>
-        {chartAnimArmed && animChartRows ? (
+        {chartAnimArmed && displayRows ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               key={chartAnimKey}
-              data={animChartRows}
+              data={displayRows}
               baseValue={0}
               margin={{ top: 8, right: 16, left: 0, bottom: chartXAxisLayout.marginBottom }}
             >
@@ -186,12 +173,15 @@ export function DashboardTrendChart({
                     fill={baseFill}
                     strokeWidth={2.5}
                     baseValue={0}
-                    isAnimationActive={false}
+                    isAnimationActive
+                    animationBegin={DASHBOARD_TREND_DRAW_BEGIN_MS + s.idx * 70}
+                    animationDuration={DASHBOARD_TREND_DRAW_DURATION_MS}
+                    animationEasing="ease-out"
                     className="dashboard-trend-area-base"
                   />,
                 ];
 
-                if (flowFill?.flow) {
+                if (flowIdle && flowFill?.flow) {
                   layers.push(
                     <Area
                       key={`${seriesKey}-flow`}
@@ -211,15 +201,17 @@ export function DashboardTrendChart({
 
                 return layers;
               })}
-              <Customized
-                component={(props) => (
-                  <DashboardTrendFlowLayers
-                    {...props}
-                    flowActive={chartAnimArmed}
-                    chartAnimKey={chartAnimKey}
-                  />
-                )}
-              />
+              {flowIdle ? (
+                <Customized
+                  component={(props) => (
+                    <DashboardTrendFlowLayers
+                      {...props}
+                      flowActive
+                      chartAnimKey={chartAnimKey}
+                    />
+                  )}
+                />
+              ) : null}
             </AreaChart>
           </ResponsiveContainer>
         ) : (
