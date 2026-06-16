@@ -84,6 +84,7 @@ export default function TransactionDashboardPage() {
               chartDateRangeText={page.chartDateRangeText}
               chartXAxisLayout={page.chartXAxisLayout}
               chartDataStable={page.chartDataStable}
+              chartScopeKey={page.dashboardScopeKey}
             />
             <DashboardEarningsSummary
               i18n={i18n}

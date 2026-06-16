@@ -29,6 +29,7 @@ export function DashboardTrendChart({
   chartDateRangeText,
   chartXAxisLayout,
   chartDataStable = false,
+  chartScopeKey = "",
 }) {
   const [chartVisitKey] = useState(() => Date.now());
   const [chartReady, setChartReady] = useState(false);
@@ -38,7 +39,7 @@ export function DashboardTrendChart({
   chartRowsRef.current = chartRows;
 
   const hasChartData = chartRows.length > 0;
-  const chartSessionKey = `${chartVisitKey}-${chartDateRangeText}`;
+  const chartSessionKey = `${chartVisitKey}-${chartScopeKey || "scope"}-${chartDateRangeText}`;
 
   const activeDataKeys = useMemo(
     () => chartSeries.filter((s) => chartVisible[s.idx]).map((s) => s.dataKey),
@@ -89,7 +90,7 @@ export function DashboardTrendChart({
       setDisplayRows(null);
       setDrawAnimate(false);
     };
-  }, [chartSessionKey, hasChartData, chartDataStable]);
+  }, [chartSessionKey, chartScopeKey, hasChartData, chartDataStable]);
 
   return (
     <div className="dashboard-panel-card dashboard-panel-card--chart">

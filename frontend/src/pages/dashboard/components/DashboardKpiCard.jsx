@@ -1,6 +1,5 @@
-import { DashboardAnimatedValue } from "./DashboardAnimatedValue.jsx";
 import { KPI_CARD_ICONS } from "../lib/dashboardConstants.js";
-import { formatSignedChange } from "../lib/dashboardFormat.js";
+import { formatCurrency, formatSignedChange } from "../lib/dashboardFormat.js";
 
 export function DashboardKpiCard({
   variant,
@@ -29,7 +28,7 @@ export function DashboardKpiCard({
       </div>
       <div className="kpi-card-main">
         <div className="kpi-card-value">
-          <DashboardAnimatedValue value={value} />
+          {formatCurrency(value)}
         </div>
         {showCompare && (
           <span className={`kpi-card-badge${badgeUp ? " is-up" : " is-down"}`}>
