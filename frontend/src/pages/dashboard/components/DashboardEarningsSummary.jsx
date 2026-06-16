@@ -291,15 +291,11 @@ export function DashboardEarningsSummary({
         {currencyCode ? ` · ${currencyCode}` : ""}
       </span>
       <div className="dashboard-summary-hero-value">
-        {summaryEarningsLoading ? (
-          "…"
-        ) : (
-          <DashboardAnimatedValue
-            value={heroValue}
-            active={!summaryEarningsLoading}
-            className="dashboard-summary-hero-value-anim"
-          />
-        )}
+        <DashboardAnimatedValue
+          value={heroValue}
+          active={!summaryEarningsLoading}
+          className="dashboard-summary-hero-value-anim"
+        />
       </div>
       {!isCompanyBreakdownView && summaryConversionNote && (
         <span className="dashboard-summary-hero-conversion-note">{summaryConversionNote}</span>

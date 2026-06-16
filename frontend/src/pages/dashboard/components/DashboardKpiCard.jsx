@@ -29,7 +29,7 @@ export function DashboardKpiCard({
       </div>
       <div className="kpi-card-main">
         <div className="kpi-card-value">
-          {loading ? "…" : <DashboardAnimatedValue value={value} active={!loading} />}
+          <DashboardAnimatedValue value={value} active={!loading} />
         </div>
         {showCompare && (
           <span className={`kpi-card-badge${badgeUp ? " is-up" : " is-down"}`}>
