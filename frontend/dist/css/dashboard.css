@@ -225,9 +225,7 @@ body.dashboard-page {
     .expiration-reminder-modal-box.dashboard-alert-modal-box--critical,
     .dashboard-summary-pie-chart-shell.is-enter,
     .dashboard-summary-pie-center.is-enter,
-    .dashboard-panel-chart-body.is-enter,
-    .dashboard-summary-pie-chart-shell.is-enter::after,
-    .dashboard-summary-pie-wrap.is-flow-idle .dashboard-summary-pie-chart-shell {
+    .dashboard-panel-chart-body.is-enter {
         animation: none;
     }
 }
@@ -1187,33 +1185,16 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-panel-chart-body.is-enter {
-    animation: dashboard-trend-chart-in 0.4s ease-out both;
+    animation: dashboard-trend-chart-in 0.35s ease-out both;
 }
 
 .dashboard-panel-chart-body.is-scope-morph {
     transition: opacity 0.28s ease;
 }
 
-.dashboard-panel-chart-body.is-flow-active .dashboard-trend-area-base .recharts-area-curve {
+.dashboard-panel-chart-body.is-enter .dashboard-trend-area .recharts-area-curve {
     stroke-linecap: round;
     stroke-linejoin: round;
-}
-
-.dashboard-panel-chart-body.is-flow-idle .dashboard-trend-area-base .recharts-area-curve {
-    filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.28));
-}
-
-.dashboard-panel-chart-body.is-flow-idle .dashboard-trend-area-flow .recharts-area-area {
-    mix-blend-mode: soft-light;
-    opacity: 0.55;
-}
-
-.dashboard-chart-flow-pulses .dashboard-chart-flow-pulse-group {
-    filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.35));
-}
-
-.dashboard-chart-flow-travelers circle {
-    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.85));
 }
 
 @keyframes dashboard-trend-chart-in {
@@ -1418,53 +1399,17 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-pie-chart-shell.is-enter {
-    animation: dashboard-pie-shell-in 0.78s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: dashboard-pie-shell-in 0.5s ease-out both;
 }
 
-.dashboard-summary-pie-chart-shell.is-enter::after {
-    content: "";
-    position: absolute;
-    inset: 6%;
-    border-radius: 50%;
-    background: conic-gradient(
-        from 200deg,
-        transparent 0deg,
-        rgba(255, 255, 255, 0.72) 24deg,
-        rgba(147, 197, 253, 0.45) 42deg,
-        transparent 68deg,
-        transparent 360deg
-    );
-    pointer-events: none;
-    z-index: 7;
-    mix-blend-mode: soft-light;
-    animation: dashboard-pie-shine-orbit 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.dashboard-summary-pie-wrap.is-flow-idle .dashboard-summary-pie-chart-shell {
-    animation: dashboard-pie-idle-glow 2.8s ease-in-out infinite;
-}
-
-@keyframes dashboard-pie-idle-glow {
-    0%,
-    100% {
-        filter: drop-shadow(0 4px 14px rgba(59, 130, 246, 0.08));
-    }
-    50% {
-        filter: drop-shadow(0 6px 22px rgba(96, 165, 250, 0.28));
-    }
-}
-
-@keyframes dashboard-pie-shine-orbit {
+@keyframes dashboard-pie-shell-in {
     0% {
         opacity: 0;
-        transform: rotate(-130deg) scale(0.82);
-    }
-    35% {
-        opacity: 1;
+        transform: scale(0.96);
     }
     100% {
-        opacity: 0;
-        transform: rotate(250deg) scale(1.02);
+        opacity: 1;
+        transform: scale(1);
     }
 }
 
@@ -1579,39 +1524,17 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
 }
 
 .dashboard-summary-pie-center.is-enter {
-    animation: dashboard-pie-center-in 0.68s cubic-bezier(0.34, 1.35, 0.64, 1) 0.28s both;
-}
-
-@keyframes dashboard-pie-shell-in {
-    0% {
-        opacity: 0;
-        transform: scale(0.78) rotate(-14deg);
-        filter: drop-shadow(0 0 0 rgba(59, 130, 246, 0));
-    }
-    70% {
-        opacity: 1;
-        transform: scale(1.04) rotate(2deg);
-        filter: drop-shadow(0 10px 28px rgba(59, 130, 246, 0.22));
-    }
-    100% {
-        opacity: 1;
-        transform: scale(1) rotate(0deg);
-        filter: drop-shadow(0 6px 18px rgba(59, 130, 246, 0.12));
-    }
+    animation: dashboard-pie-center-in 0.45s ease-out 0.12s both;
 }
 
 @keyframes dashboard-pie-center-in {
     0% {
         opacity: 0;
-        transform: scale(0.62) rotate(-6deg);
-    }
-    65% {
-        opacity: 1;
-        transform: scale(1.08) rotate(2deg);
+        transform: scale(0.92);
     }
     100% {
         opacity: 1;
-        transform: scale(1) rotate(0deg);
+        transform: scale(1);
     }
 }
 

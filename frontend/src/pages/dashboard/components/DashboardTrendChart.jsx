@@ -11,26 +11,14 @@ import {
 } from "recharts";
 import { DashboardChartBaseline } from "../lib/dashboardChart.jsx";
 import {
-  DashboardChartFlowTravelers,
-  DashboardChartSeriesPulse,
-  DashboardTrendFlowDefs,
+  DashboardTrendAreaDefs,
   DASHBOARD_TREND_DRAW_BEGIN_MS,
   DASHBOARD_TREND_DRAW_DURATION_MS,
-  DASHBOARD_TREND_IDLE_DELAY_MS,
-  resolveTrendFlowFill,
+  resolveTrendAreaFill,
   zeroTrendChartRows,
 } from "../lib/dashboardChartFx.jsx";
 import { formatChartTooltipLabel } from "../lib/dashboardDateUtils.js";
 import { formatCurrency } from "../lib/dashboardFormat.js";
-
-function DashboardTrendFlowLayers(props) {
-  return (
-    <>
-      <DashboardChartSeriesPulse {...props} />
-      <DashboardChartFlowTravelers {...props} />
-    </>
-  );
-}
 
 export function DashboardTrendChart({
   i18n,
@@ -45,7 +33,6 @@ export function DashboardTrendChart({
   const [chartVisitKey] = useState(() => Date.now());
   const [chartAnimArmed, setChartAnimArmed] = useState(false);
   const [displayRows, setDisplayRows] = useState(null);
-  const [flowIdle, setFlowIdle] = useState(false);
   const chartRowsRef = useRef(chartRows);
   chartRowsRef.current = chartRows;
 
@@ -56,14 +43,12 @@ export function DashboardTrendChart({
   useEffect(() => {
     setChartAnimArmed(false);
     setDisplayRows(null);
-    setFlowIdle(false);
   }, [chartSessionKey]);
 
   useEffect(() => {
     if (!hasChartData || !chartDataStable) {
       setChartAnimArmed(false);
       setDisplayRows(null);
-      setFlowIdle(false);
       return undefined;
     }
 
@@ -84,23 +69,12 @@ export function DashboardTrendChart({
       window.cancelAnimationFrame(rafId);
       setChartAnimArmed(false);
       setDisplayRows(null);
-      setFlowIdle(false);
     };
   }, [chartSessionKey, hasChartData, chartDataStable]);
 
-  useEffect(() => {
-    if (!chartAnimArmed) {
-      setFlowIdle(false);
-      return undefined;
-    }
-    const timer = window.setTimeout(() => setFlowIdle(true), DASHBOARD_TREND_IDLE_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [chartAnimKey, chartAnimArmed]);
-
   const chartBodyClassName = [
     "dashboard-panel-chart-body",
-    chartAnimArmed ? "is-enter is-flow-active" : "",
-    flowIdle ? "is-flow-idle" : "",
+    chartAnimArmed ? "is-enter" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -136,7 +110,7 @@ export function DashboardTrendChart({
               baseValue={0}
               margin={{ top: 8, right: 16, left: 0, bottom: chartXAxisLayout.marginBottom }}
             >
-              <DashboardTrendFlowDefs />
+              <DashboardTrendAreaDefs />
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <Customized component={DashboardChartBaseline} />
               <XAxis
@@ -157,61 +131,29 @@ export function DashboardTrendChart({
                   return formatChartTooltipLabel(d, i18n.locale);
                 }}
               />
-              {chartSeries.flatMap((s) => {
-                if (!chartVisible[s.idx]) return [];
-                const flowFill = resolveTrendFlowFill(s.dataKey);
-                const baseFill = flowFill?.base || s.fill;
-                const seriesKey = `${s.dataKey}-${chartAnimKey}`;
-
-                const layers = [
+              {chartSeries.map((s) => {
+                if (!chartVisible[s.idx]) return null;
+                const areaFill = resolveTrendAreaFill(s.dataKey) || s.fill;
+                return (
                   <Area
-                    key={`${seriesKey}-base`}
+                    key={`${s.dataKey}-${chartAnimKey}`}
                     type="monotone"
                     dataKey={s.dataKey}
                     name={s.label}
                     stroke={s.color}
-                    fill={baseFill}
-                    strokeWidth={2.5}
+                    fill={areaFill}
+                    strokeWidth={2}
                     baseValue={0}
+                    dot={false}
+                    activeDot={{ r: 8, strokeWidth: 2, stroke: s.color, fill: "#fff" }}
                     isAnimationActive
-                    animationBegin={DASHBOARD_TREND_DRAW_BEGIN_MS + s.idx * 70}
+                    animationBegin={DASHBOARD_TREND_DRAW_BEGIN_MS}
                     animationDuration={DASHBOARD_TREND_DRAW_DURATION_MS}
                     animationEasing="ease-out"
-                    className="dashboard-trend-area-base"
-                  />,
-                ];
-
-                if (flowIdle && flowFill?.flow) {
-                  layers.push(
-                    <Area
-                      key={`${seriesKey}-flow`}
-                      type="monotone"
-                      dataKey={s.dataKey}
-                      legendType="none"
-                      tooltipType="none"
-                      stroke="none"
-                      fill={flowFill.flow}
-                      fillOpacity={0.38}
-                      baseValue={0}
-                      isAnimationActive={false}
-                      className="dashboard-trend-area-flow"
-                    />
-                  );
-                }
-
-                return layers;
+                    className="dashboard-trend-area"
+                  />
+                );
               })}
-              {flowIdle ? (
-                <Customized
-                  component={(props) => (
-                    <DashboardTrendFlowLayers
-                      {...props}
-                      flowActive
-                      chartAnimKey={chartAnimKey}
-                    />
-                  )}
-                />
-              ) : null}
             </AreaChart>
           </ResponsiveContainer>
         ) : (
