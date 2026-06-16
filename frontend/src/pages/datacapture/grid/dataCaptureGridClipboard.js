@@ -3,6 +3,10 @@
  */
 import { hideContextMenu } from "../lib/dataCaptureContextMenu.js";
 import {
+  gridHandleCellPaste,
+  gridRecomputeSubmitState,
+} from "../lib/dataCaptureBridge.js";
+import {
   clearAllSelections,
   getSelectedCellCount,
   getSelectedCells,
@@ -10,7 +14,7 @@ import {
 } from "./dataCaptureGridSelection.js";
 
 function recomputeSubmitState() {
-  window.__DC_RECOMPUTE_SUBMIT_STATE__?.();
+  gridRecomputeSubmitState();
 }
 
 export function copySelectedCells() {
@@ -43,9 +47,7 @@ export function copySelectedCells() {
 
   const textData = dataMatrix.map((row) => row.join("\t")).join("\n");
 
-  navigator.clipboard.writeText(textData).then(() => {
-    window.__DC_SET_COPIED_DATA__?.({ data: dataMatrix, minRow, maxRow, minCol, maxCol });
-  }).catch((err) => {
+  navigator.clipboard.writeText(textData).catch((err) => {
     console.error("Failed to copy to clipboard:", err);
   });
 }
@@ -60,7 +62,7 @@ export function pasteToSelectedCells() {
       clipboardData: { getData: () => text },
       target: firstCell,
     };
-    window.__DC_HANDLE_CELL_PASTE__?.(mockEvent);
+    gridHandleCellPaste(mockEvent);
   }).catch((err) => {
     console.error("Failed to read from clipboard:", err);
     window.showNotification?.("Failed to access clipboard", "danger");

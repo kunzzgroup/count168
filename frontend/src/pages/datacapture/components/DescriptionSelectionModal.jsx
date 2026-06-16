@@ -15,7 +15,15 @@ function normalizeCatalog(json) {
     .filter((d) => d.name && d.id != null);
 }
 
-export default function DescriptionSelectionModal({ t, open, onClose, companyId, onConfirm }) {
+export default function DescriptionSelectionModal({
+  t,
+  open,
+  onClose,
+  companyId,
+  onConfirm,
+  initialSelected = [],
+  onDescriptionsChange,
+}) {
   const [catalog, setCatalog] = useState([]);
   const [pendingNames, setPendingNames] = useState([]);
   const [search, setSearch] = useState("");
@@ -50,14 +58,14 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
   useEffect(() => {
     if (!open) return;
     setPendingNames(
-      (Array.isArray(window.selectedDescriptions) ? window.selectedDescriptions : []).map((n) =>
+      (Array.isArray(initialSelected) ? initialSelected : []).map((n) =>
         String(n).trim().toUpperCase(),
       ),
     );
     setSearch("");
     setNewName("");
     void loadCatalog();
-  }, [open, loadCatalog]);
+  }, [open, loadCatalog, initialSelected]);
 
   const filteredCatalog = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -128,13 +136,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         setCatalog((prev) => prev.filter((d) => String(d.id) !== String(id)));
         setPendingNames((prev) => {
           const next = prev.filter((n) => n !== name);
-          window.selectedDescriptions = [...next];
-          if (typeof window.__DC_ON_DESCRIPTIONS_CONFIRMED__ === "function") {
-            window.__DC_ON_DESCRIPTIONS_CONFIRMED__(next);
-          }
-          setTimeout(() => {
-            if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-          }, 0);
+          onDescriptionsChange?.(next);
           return next;
         });
         notify("Description deleted successfully", "success");
@@ -142,7 +144,7 @@ export default function DescriptionSelectionModal({ t, open, onClose, companyId,
         notify("Failed to delete description");
       }
     },
-    [t, notify],
+    [t, notify, onDescriptionsChange],
   );
 
   const handleConfirm = useCallback(() => {

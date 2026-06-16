@@ -28,7 +28,14 @@ import {
   getDataCaptureState,
   registerDataCaptureRuntime,
   unregisterDataCaptureRuntime,
+  callDataCaptureRuntime,
 } from "../lib/dataCaptureRuntime.js";
+import { getBridgeCaptureType } from "../lib/dataCaptureBridge.js";
+import { useDataCaptureContext } from "../context/DataCaptureContext.jsx";
+
+function scheduleRecomputeSubmitState() {
+  setTimeout(() => callDataCaptureRuntime("recomputeSubmitState"), 0);
+}
 
 function normalizeRemoveWordValue(value) {
   return serializeRemoveWordChips(parseRemoveWordChips(value));
@@ -85,6 +92,7 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
     setReplaceTo,
     setRemark,
     setDescriptionDisplay,
+    setSelectedDescriptions,
   } = setters;
 
   const pd = data || {};
@@ -96,7 +104,7 @@ function applyProcessDetailToFields(data, setters, currenciesSnapshot, applyComp
 
     if (pd.description_names) {
       const arr = Array.isArray(pd.description_names) ? pd.description_names : [pd.description_names];
-      window.selectedDescriptions = [...arr];
+      setSelectedDescriptions?.(arr);
       setDescriptionDisplay(arr.join(", "));
     }
   }
@@ -136,6 +144,7 @@ export function useDataCaptureFormEngine(
     scriptsReady = false,
   } = {},
 ) {
+  const { setSelectedDescriptions, clearSelectedDescriptions } = useDataCaptureContext();
   const dateOptions = useMemo(() => buildDateOptions(), []);
   const defaultDate = useMemo(() => getLocalDateString(), []);
   const restoredProcessData = useMemo(() => readRestoredProcessData(), []);
@@ -213,10 +222,10 @@ export function useDataCaptureFormEngine(
     if (url.get("restore") === "1") {
       getDataCaptureState().isRestoring = true;
       if (Array.isArray(restoredProcessData?.descriptions)) {
-        window.selectedDescriptions = [...restoredProcessData.descriptions];
+        setSelectedDescriptions(restoredProcessData.descriptions);
       }
     }
-  }, [restoredProcessData]);
+  }, [restoredProcessData, setSelectedDescriptions]);
 
   const reloadProcessesForDate = useCallback(async (dateStr, options = {}) => {
     const { preserveSelection = false } = options;
@@ -228,9 +237,6 @@ export function useDataCaptureFormEngine(
     if (!result.success) return;
     const rows = Array.isArray(result.data) ? result.data : [];
     setProcessRows(rows);
-    if (typeof window.syncProcessDataMapFromApiData === "function") {
-      window.syncProcessDataMapFromApiData(rows);
-    }
     const restoring = getDataCaptureState().isRestoring === true;
     if (!preserveSelection && !restoring) {
       setSelectedProcess(null);
@@ -239,15 +245,13 @@ export function useDataCaptureFormEngine(
         setRemoveWord("");
         setReplaceFrom("");
         setReplaceTo("");
-        window.selectedDescriptions = [];
+        clearSelectedDescriptions();
         setDescriptionDisplay("");
       }
       setRemark("");
     }
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
-  }, []);
+    scheduleRecomputeSubmitState();
+  }, [clearSelectedDescriptions]);
 
   const loadInitialForm = useCallback(async () => {
     if (!usesCompanyCurrencies()) return;
@@ -352,10 +356,7 @@ export function useDataCaptureFormEngine(
     };
     const prev = selectedProcessRef.current;
     if (prev?.id && prev.id !== next.id) {
-      const activeCaptureType =
-        typeof window.__DC_GET_CAPTURE_TYPE__ === "function"
-          ? window.__DC_GET_CAPTURE_TYPE__() || "1.Text"
-          : "1.Text";
+      const activeCaptureType = getBridgeCaptureType("1.Text");
       saveGroupOnlyTableDraft(
         payrollPrefsKeyRef.current,
         prev.id,
@@ -383,9 +384,7 @@ export function useDataCaptureFormEngine(
         serverSync: payrollDraftServerSync,
       });
     }
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
+    scheduleRecomputeSubmitState();
   }, [currencyId, captureDate]);
 
   const selectProcessRow = useCallback(async (row) => {
@@ -412,26 +411,23 @@ export function useDataCaptureFormEngine(
           setReplaceTo,
           setRemark,
           setDescriptionDisplay,
+          setSelectedDescriptions,
         },
         currenciesRef.current,
         applyCompanyOnlyFieldsRef.current
       );
     }
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
-  }, []);
+    scheduleRecomputeSubmitState();
+  }, [setSelectedDescriptions]);
 
   const clearCompanyOnlyFields = useCallback(() => {
     setRemoveWord("");
     setReplaceFrom("");
     setReplaceTo("");
-    window.selectedDescriptions = [];
+    clearSelectedDescriptions();
     setDescriptionDisplay("");
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
-  }, []);
+    scheduleRecomputeSubmitState();
+  }, [clearSelectedDescriptions]);
 
   const applyGroupOnlyPrefsForGroup = useCallback((prefsKey) => {
     if (applyCompanyOnlyFieldsRef.current) return;
@@ -447,10 +443,8 @@ export function useDataCaptureFormEngine(
         serverSync: payrollDraftServerSync,
       });
     }
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
-  }, []);
+    scheduleRecomputeSubmitState();
+  }, [payrollDraftServerSync]);
 
   const clearProcessSelection = useCallback(() => {
     setSelectedProcess(null);
@@ -459,14 +453,12 @@ export function useDataCaptureFormEngine(
       setRemoveWord("");
       setReplaceFrom("");
       setReplaceTo("");
-      window.selectedDescriptions = [];
+      clearSelectedDescriptions();
       setDescriptionDisplay("");
     }
     setRemark("");
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
-  }, []);
+    scheduleRecomputeSubmitState();
+  }, [clearSelectedDescriptions]);
 
   const applyReactFormDefaults = useCallback(() => {
     const today = getLocalDateString();
@@ -490,7 +482,7 @@ export function useDataCaptureFormEngine(
     if (processData.replaceWordTo != null) setReplaceTo(toDataCaptureWordFieldCase(processData.replaceWordTo));
     if (processData.remark != null) setRemark(toDataCaptureWordFieldCase(processData.remark));
     if (processData.descriptions && Array.isArray(processData.descriptions)) {
-      window.selectedDescriptions = [...processData.descriptions];
+      setSelectedDescriptions(processData.descriptions);
       setDescriptionDisplay(processData.descriptions.join(", "));
     }
 
@@ -540,10 +532,18 @@ export function useDataCaptureFormEngine(
       }
     }
 
-    setTimeout(() => {
-      if (typeof window.updateSubmitButtonState === "function") window.updateSubmitButtonState();
-    }, 0);
-  }, []);
+    scheduleRecomputeSubmitState();
+  }, [setSelectedDescriptions, payrollDraftServerSync]);
+
+  const confirmDescriptionsSelection = useCallback(
+    (names) => {
+      const arr = Array.isArray(names) ? names : [];
+      setSelectedDescriptions(arr);
+      setDescriptionDisplay(arr.join(", "));
+      scheduleRecomputeSubmitState();
+    },
+    [setSelectedDescriptions],
+  );
 
   const reloadProcesses = useCallback(async () => {
     const restoring = getDataCaptureState().isRestoring === true;
@@ -580,58 +580,21 @@ export function useDataCaptureFormEngine(
       clearGroupOnlyProcessForTableReset: () =>
         formRuntimeRef.current.clearGroupOnlyProcessForTableReset(),
       applyGroupOnlyPersistedForm: () => formRuntimeRef.current.applyGroupOnlyPersistedForm(),
+      setProcessList: (rows) => {
+        startTransition(() => {
+          setProcessRows(Array.isArray(rows) ? rows : []);
+        });
+      },
+      onDescriptionsConfirmed: (descriptions) => {
+        const arr = Array.isArray(descriptions) ? descriptions : [];
+        setSelectedDescriptions(arr);
+        setDescriptionDisplay(arr.join(", "));
+        scheduleRecomputeSubmitState();
+      },
     };
     registerDataCaptureRuntime(api);
     return () => unregisterDataCaptureRuntime(Object.keys(api));
-  }, []);
-
-  const windowHooksRef = useRef({});
-  windowHooksRef.current = {
-    reloadProcessesForDate,
-    applyReactFormDefaults,
-    syncRestoreFormFromProcessData,
-  };
-
-  useLayoutEffect(() => {
-    if (!Array.isArray(window.selectedDescriptions)) {
-      window.selectedDescriptions = [];
-    }
-    window.__DATA_CAPTURE_REACT_FORM__ = true;
-
-    window.__DC_SET_PROCESS_LIST__ = (rows) => {
-      startTransition(() => {
-        setProcessRows(Array.isArray(rows) ? rows : []);
-      });
-    };
-
-    window.__DC_RELOAD_PROCESSES__ = async () => {
-      const el = document.getElementById("capture_date");
-      const d = el?.value || getLocalDateString();
-      await windowHooksRef.current.reloadProcessesForDate(d, { preserveSelection: true });
-    };
-
-    window.__DC_REACT_FORM_RESET__ = () => {
-      windowHooksRef.current.applyReactFormDefaults();
-    };
-
-    window.__DC_ON_DESCRIPTIONS_CONFIRMED__ = (descriptions) => {
-      const arr = Array.isArray(descriptions) ? descriptions : [];
-      setDescriptionDisplay(arr.join(", "));
-    };
-
-    window.__DC_POST_LEGACY_RESTORE_SYNC__ = async (processData) => {
-      await windowHooksRef.current.syncRestoreFormFromProcessData(processData);
-    };
-
-    return () => {
-      delete window.__DATA_CAPTURE_REACT_FORM__;
-      delete window.__DC_SET_PROCESS_LIST__;
-      delete window.__DC_RELOAD_PROCESSES__;
-      delete window.__DC_REACT_FORM_RESET__;
-      delete window.__DC_ON_DESCRIPTIONS_CONFIRMED__;
-      delete window.__DC_POST_LEGACY_RESTORE_SYNC__;
-    };
-  }, []);
+  }, [setSelectedDescriptions]);
 
   const filteredProcesses = useMemo(() => {
     const q = processFilter.trim().toLowerCase();
@@ -720,5 +683,6 @@ export function useDataCaptureFormEngine(
     clearProcessSelection,
     displayTextFromProcessRow,
     clearCompanyOnlyFields,
+    confirmDescriptionsSelection,
   };
 }
