@@ -66,6 +66,8 @@ export function useProgressiveScrollExtent({
   minRows = DEFAULT_PROGRESSIVE_MIN_ROWS,
   initialViewportMultiplier = DEFAULT_INITIAL_VIEWPORT_MULTIPLIER,
   enableCyclicRebound = false,
+  /** While true, spacer matches all loaded rows (streaming / background sync). */
+  forceFullExtent = false,
   /** Shared with virtualizer observeElementOffset when cyclic rebound is enabled. */
   contentOffsetRef: externalContentOffsetRef,
 }) {
@@ -139,6 +141,16 @@ export function useProgressiveScrollExtent({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resetDeps are caller-provided reset triggers
   }, [computeInitialExtent, actualTotalH, rowCount, resetCyclicState, enableCyclicRebound, enabled, measureCycleSpacer, ...resetDeps]);
+
+  /** Grow scroll range as loaded rows increase — do not wait for user scroll. */
+  useLayoutEffect(() => {
+    if (!enabled || enableCyclicRebound || forceFullExtent) return;
+    setExtentH((prev) => {
+      const initial = computeInitialExtent();
+      if (prev <= 0) return initial;
+      return Math.min(actualTotalH, Math.max(prev, initial));
+    });
+  }, [actualTotalH, enabled, enableCyclicRebound, forceFullExtent, computeInitialExtent]);
 
   useLayoutEffect(() => {
     if (!enabled || !enableCyclicRebound) return undefined;
@@ -372,6 +384,7 @@ export function useProgressiveScrollExtent({
   }, [scrollRef, enabled, enableCyclicRebound, computeInitialExtent, actualTotalH]);
 
   const displayTotalH = (() => {
+    if (forceFullExtent && actualTotalH > 0) return actualTotalH;
     if (!enabled) return actualTotalH;
     if (enableCyclicRebound) {
       if (isTerminalPhase()) return actualTotalH;

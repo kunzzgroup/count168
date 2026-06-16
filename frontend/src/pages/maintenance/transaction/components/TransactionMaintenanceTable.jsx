@@ -1,9 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  useMaintenanceCyclicScrollExtent,
-  useMaintenanceCyclicScrollObserver,
-} from "../../shared/useMaintenanceCyclicVirtualScroll.js";
+import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 import { MAINTENANCE_REPORT_ROW_HEIGHT } from "../../shared/maintenanceReportRowMetrics.js";
@@ -12,9 +9,10 @@ import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVir
 const ROW_HEIGHT = MAINTENANCE_REPORT_ROW_HEIGHT;
 
 function pickOverscan(count) {
-  if (count > 2000) return 2;
-  if (count > 800) return 3;
-  return 4;
+  if (count > 5000) return 10;
+  if (count > 2000) return 12;
+  if (count > 800) return 14;
+  return 16;
 }
 
 const HEADER_LABELS = (m) => [
@@ -115,6 +113,7 @@ function VirtualDataRow({ row, index }) {
  * @param {boolean} props.showEmptyState
  * @param {string} props.statusMessage
  * @param {boolean} props.listSyncing
+ * @param {string} props.scrollResetKey
  * @param {object} props.m
  */
 export default function TransactionMaintenanceTable({
@@ -125,18 +124,13 @@ export default function TransactionMaintenanceTable({
   showTopLoading = false,
   topLoadingLabel = "",
   listSyncing = false,
+  scrollResetKey = "",
   m,
 }) {
   const scrollRef = useRef(null);
-  const { contentOffsetRef, observeElementOffset } = useMaintenanceCyclicScrollObserver();
   const sizeCacheRef = useRef(new Map());
-  const rowsRef = useRef([]);
+  const scrollResetKeyRef = useRef(scrollResetKey);
   const rows = Array.isArray(data) ? data : [];
-
-  if (rowsRef.current !== rows) {
-    sizeCacheRef.current.clear();
-    rowsRef.current = rows;
-  }
 
   const getItemKey = useCallback(
     (index) => {
@@ -164,25 +158,25 @@ export default function TransactionMaintenanceTable({
     overscan: pickOverscan(rows.length),
     getItemKey,
     measureElement,
-    observeElementOffset,
   });
 
   useLayoutEffect(() => {
-    contentOffsetRef.current = 0;
+    if (scrollResetKeyRef.current === scrollResetKey) return;
+    scrollResetKeyRef.current = scrollResetKey;
     scrollRef.current?.scrollTo(0, 0);
     sizeCacheRef.current.clear();
     rowVirtualizer.measure();
-  }, [rows, rowVirtualizer]);
+  }, [scrollResetKey, rowVirtualizer]);
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceCyclicScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: ROW_HEIGHT,
-    resetDeps: [rows],
-    contentOffsetRef,
+    resetDeps: [scrollResetKey],
+    forceFullExtent: rows.length > 0,
   });
 
   if (rows.length === 0 && (showSkeleton || statusMessage)) {

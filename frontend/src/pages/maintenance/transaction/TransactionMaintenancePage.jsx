@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
+import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { canAccessTransactionFormulaMaintenance } from "../../../utils/auth/sidebarPermissions.js";
@@ -145,6 +146,7 @@ export default function TransactionMaintenancePage() {
   /** Boot finished with scope/permission — trigger one explicit search before auto-effect. */
   const pendingBootSearchRef = useRef(null);
   const searchDebounceRef = useRef(null);
+  const firstProgressPaintRef = useRef(true);
 
   const [transactionData, setTransactionData] = useState([]);
   const [maintenanceDataComplete, setMaintenanceDataComplete] = useState(false);
@@ -315,6 +317,7 @@ export default function TransactionMaintenancePage() {
       maintenanceAbortRef.current = ac;
       const seq = ++maintenanceSeqRef.current;
       const quietRefresh = initialSearchDoneRef.current;
+      firstProgressPaintRef.current = true;
       if (filtersChanged || overrides.scope) {
         if (!quietRefresh) {
           setTransactionData([]);
@@ -343,8 +346,19 @@ export default function TransactionMaintenancePage() {
           onProgress: (progressRows) => {
             if (seq !== maintenanceSeqRef.current) return;
             if (searchScopeKey !== scopeKeyRef.current) return;
-            setTransactionData(progressRows);
-            setMaintenanceDataComplete(false);
+            const applyProgress = () => {
+              setTransactionData(progressRows);
+              setMaintenanceDataComplete(false);
+              if (!quietRefresh) {
+                setListLoading(false);
+              }
+            };
+            if (firstProgressPaintRef.current) {
+              firstProgressPaintRef.current = false;
+              flushSync(applyProgress);
+            } else {
+              startTransition(applyProgress);
+            }
           },
         });
         if (seq !== maintenanceSeqRef.current) return;
@@ -408,6 +422,7 @@ export default function TransactionMaintenancePage() {
     const seq = ++maintenanceSeqRef.current;
     const searchScopeKey = transactionMaintenanceScopeCacheKey(pending.scope);
     scopeKeyRef.current = searchScopeKey;
+    firstProgressPaintRef.current = true;
     setListLoading(true);
     setSearchError(null);
     try {
@@ -418,6 +433,20 @@ export default function TransactionMaintenancePage() {
         category,
         scope: pending.scope,
         signal: ac.signal,
+        onProgress: (progressRows) => {
+          if (seq !== maintenanceSeqRef.current) return;
+          const applyProgress = () => {
+            setTransactionData(progressRows);
+            setMaintenanceDataComplete(false);
+            setListLoading(false);
+          };
+          if (firstProgressPaintRef.current) {
+            firstProgressPaintRef.current = false;
+            flushSync(applyProgress);
+          } else {
+            startTransition(applyProgress);
+          }
+        },
       });
       if (seq !== maintenanceSeqRef.current) return false;
       setTransactionData(rows);
@@ -486,7 +515,7 @@ export default function TransactionMaintenancePage() {
     searchDebounceRef.current = window.setTimeout(() => {
       searchDebounceRef.current = null;
       void performMaintenanceSearch();
-    }, 280);
+    }, 180);
     return () => {
       if (searchDebounceRef.current) {
         window.clearTimeout(searchDebounceRef.current);
@@ -1111,6 +1140,7 @@ export default function TransactionMaintenancePage() {
             showTopLoading={showTopLoadingBar}
             topLoadingLabel={listStatusMessage || t("loading")}
             listSyncing={listSyncing}
+            scrollResetKey={searchQueryKey}
             m={m}
           />
         </div>

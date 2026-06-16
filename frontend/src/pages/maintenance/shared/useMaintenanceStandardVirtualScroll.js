@@ -14,6 +14,7 @@ export function useMaintenanceStandardVirtualScrollExtent({
   rowCount,
   rowHeightEstimate,
   resetDeps = [],
+  forceFullExtent = false,
 }) {
   const extent = useProgressiveScrollExtent({
     scrollRef,
@@ -24,6 +25,7 @@ export function useMaintenanceStandardVirtualScrollExtent({
     minRows: STANDARD_MIN_ROWS,
     initialViewportMultiplier: STANDARD_INITIAL_VIEWPORT_MULTIPLIER,
     enableCyclicRebound: false,
+    forceFullExtent,
   });
 
   return {

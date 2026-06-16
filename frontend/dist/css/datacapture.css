@@ -241,12 +241,7 @@ body.datacapture-page .submitted-list {
     body.datacapture-page .process-form .dc-form-company-layout__process,
     body.datacapture-page .process-form .dc-form-company-layout__currency,
     body.datacapture-page .process-form .dc-form-company-layout__description,
-    body.datacapture-page .process-form .dc-form-company-layout__replace,
-    body.datacapture-page .process-form .dc-form-company-layout__rm-label,
-    body.datacapture-page .process-form .dc-form-company-layout__mk-label,
-    body.datacapture-page .process-form .dc-form-company-layout__rm-input,
-    body.datacapture-page .process-form .dc-form-company-layout__mk-input,
-    body.datacapture-page .process-form .dc-form-company-layout__rm-help {
+    body.datacapture-page .process-form .dc-form-company-layout__replace {
         grid-column: 1;
         grid-row: auto;
         margin-top: 0;
@@ -254,9 +249,22 @@ body.datacapture-page .submitted-list {
 
     body.datacapture-page .process-form .dc-form-company-layout__description,
     body.datacapture-page .process-form .dc-form-company-layout__replace,
-    body.datacapture-page .process-form .dc-form-company-layout__rm-label,
-    body.datacapture-page .process-form .dc-form-company-layout__mk-label {
+    body.datacapture-page .process-form .dc-form-company-layout__row3 {
         margin-top: clamp(8px, 0.7vw, 12px);
+    }
+
+    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "lbl_rm"
+            "inp_rm"
+            "hlp_rm"
+            "lbl_mk"
+            "inp_mk";
+    }
+
+    body.datacapture-page .process-form .dc-form-company-layout__row3 .dc-remove-remark__slot {
+        display: none;
     }
 }
 
@@ -399,31 +407,11 @@ body.datacapture-page .process-form .dc-form-company-layout__replace {
     margin-top: clamp(6px, 0.55vw, 10px);
 }
 
-body.datacapture-page .process-form .dc-form-company-layout__rm-label {
-    grid-column: 1 / span 3;
+body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid {
+    grid-column: 1 / -1;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__mk-label {
-    grid-column: 4 / span 3;
-    grid-row: 3;
-    margin-top: clamp(6px, 0.55vw, 10px);
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__rm-input {
-    grid-column: 1 / span 3;
-    grid-row: 4;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__mk-input {
-    grid-column: 4 / span 3;
-    grid-row: 4;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__rm-help {
-    grid-column: 1 / span 3;
-    grid-row: 5;
+    margin-bottom: 0;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout > .form-group {
@@ -495,36 +483,6 @@ body.datacapture-page .process-form .dc-form-company-layout > .form-group.replac
     box-sizing: border-box;
 }
 
-body.datacapture-page .process-form .dc-form-company-layout > .dc-remove-remark__label {
-    width: auto;
-    max-width: 100%;
-    justify-self: start;
-    text-align: left;
-    margin-bottom: 0;
-    font-size: clamp(11px, 0.82vw, 14px);
-    font-weight: 700;
-    color: #475569;
-    letter-spacing: 0.01em;
-    line-height: 1.25;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout > .dc-remove-remark__input {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    min-height: 36px;
-    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
-    border: 1px solid var(--dc-border, #e2e8f0);
-    border-radius: 6px;
-    font-size: clamp(10px, 0.74vw, 14px);
-    font-weight: 600;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout > .dc-remove-remark__help {
-    margin-top: 0;
-    line-height: 1.25;
-}
-
 body.datacapture-page .process-form .dc-form-remove-remark-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -538,19 +496,19 @@ body.datacapture-page .process-form .dc-form-remove-remark-grid {
     margin-bottom: clamp(10px, 0.85vw, 14px);
 }
 
-body.datacapture-page .process-form .dc-remove-remark__help {
+body.datacapture-page .process-form .dc-form-remove-remark-grid .dc-remove-remark__help {
     grid-area: hlp_rm;
     margin-top: 0;
     line-height: 1.25;
 }
 
-body.datacapture-page .process-form .dc-remove-remark__slot {
+body.datacapture-page .process-form .dc-form-remove-remark-grid .dc-remove-remark__slot {
     grid-area: slot_mk;
     min-height: 0;
     pointer-events: none;
 }
 
-body.datacapture-page .process-form .dc-remove-remark__label {
+body.datacapture-page .process-form .dc-form-remove-remark-grid .dc-remove-remark__label {
     width: auto;
     max-width: 100%;
     justify-self: start;
@@ -563,16 +521,15 @@ body.datacapture-page .process-form .dc-remove-remark__label {
     line-height: 1.25;
 }
 
-body.datacapture-page .process-form .dc-form-aligned-2col > .dc-remove-remark__label--rm {
+body.datacapture-page .process-form .dc-form-remove-remark-grid .dc-remove-remark__label--rm {
     grid-area: lbl_rm;
-    margin-top: clamp(6px, 0.55vw, 10px);
 }
 
-body.datacapture-page .process-form .dc-remove-remark__label--mk {
+body.datacapture-page .process-form .dc-form-remove-remark-grid .dc-remove-remark__label--mk {
     grid-area: lbl_mk;
 }
 
-body.datacapture-page .process-form .dc-remove-remark__input {
+body.datacapture-page .process-form .dc-form-remove-remark-grid .dc-remove-remark__input {
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
@@ -584,11 +541,11 @@ body.datacapture-page .process-form .dc-remove-remark__input {
     font-weight: 600;
 }
 
-body.datacapture-page .process-form .dc-remove-remark__input--rm {
+body.datacapture-page .process-form .dc-form-remove-remark-grid .dc-remove-remark__input--rm {
     grid-area: inp_rm;
 }
 
-body.datacapture-page .process-form .dc-remove-remark__input--mk {
+body.datacapture-page .process-form .dc-form-remove-remark-grid .dc-remove-remark__input--mk {
     grid-area: inp_mk;
 }
 
