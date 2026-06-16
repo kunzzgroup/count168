@@ -1,11 +1,11 @@
 ﻿import { useCallback, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
-import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
 import {
   pickMaintenanceVirtualOverscan,
+  useMaintenanceTableScrollExtent,
   useMaintenanceVirtualScrollReset,
 } from "../../shared/maintenanceVirtualScroll.js";
+import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
 import BankprocessVirtualDataRow from "./BankprocessVirtualDataRow.jsx";
 
 function isRowDeleted(row) {
@@ -61,6 +61,7 @@ export default function BankprocessVirtualRows({
   rowHeight,
   rowKeyPrefix,
   scrollResetKey = "",
+  listSyncing = false,
   selectedSet,
   onToggleRow,
   alreadyDeletedTitle,
@@ -114,12 +115,13 @@ export default function BankprocessVirtualRows({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceTableScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
-    resetDeps: [scrollResetKey],
+    scrollResetKey,
+    listSyncing,
   });
 
   return (

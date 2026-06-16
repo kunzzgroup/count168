@@ -1,8 +1,8 @@
 import { useCallback, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import {
   pickMaintenanceVirtualOverscan,
+  useMaintenanceTableScrollExtent,
   useMaintenanceVirtualScrollReset,
 } from "../../shared/maintenanceVirtualScroll.js";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
@@ -114,6 +114,7 @@ function VirtualDataRow({ row, index }) {
  * @param {boolean} props.showEmptyState
  * @param {string} props.statusMessage
  * @param {boolean} props.listSyncing
+ * @param {boolean} props.dataIncomplete
  * @param {string} props.scrollResetKey
  * @param {object} props.m
  */
@@ -125,6 +126,7 @@ export default function TransactionMaintenanceTable({
   showTopLoading = false,
   topLoadingLabel = "",
   listSyncing = false,
+  dataIncomplete = false,
   scrollResetKey = "",
   m,
 }) {
@@ -169,14 +171,14 @@ export default function TransactionMaintenanceTable({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceTableScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: ROW_HEIGHT,
-    resetDeps: [scrollResetKey],
-    /** 流式追加时滑块随已加载行数从长到短收缩（Facebook Feed 效果） */
-    expandWithLoadedContent: listSyncing,
+    scrollResetKey,
+    listSyncing,
+    dataIncomplete,
   });
 
   if (rows.length === 0 && (showSkeleton || statusMessage)) {

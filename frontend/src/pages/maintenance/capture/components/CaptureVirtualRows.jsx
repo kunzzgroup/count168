@@ -1,9 +1,9 @@
 import { useCallback, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
 import {
   pickMaintenanceVirtualOverscan,
+  useMaintenanceTableScrollExtent,
   useMaintenanceVirtualScrollReset,
 } from "../../shared/maintenanceVirtualScroll.js";
 import CaptureVirtualDataRow from "./CaptureVirtualDataRow.jsx";
@@ -63,6 +63,7 @@ export default function CaptureVirtualRows({
   rowHeight,
   rowKeyPrefix,
   scrollResetKey = "",
+  listSyncing = false,
   selectedSet,
   onToggleRow,
   alreadyDeletedTitle,
@@ -116,12 +117,13 @@ export default function CaptureVirtualRows({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceTableScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
-    resetDeps: [scrollResetKey],
+    scrollResetKey,
+    listSyncing,
   });
 
   return (

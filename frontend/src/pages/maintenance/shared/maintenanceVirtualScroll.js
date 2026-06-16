@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
+import { useMaintenanceStandardVirtualScrollExtent } from "./useMaintenanceStandardVirtualScroll.js";
 
 /** Pre-render extra rows above/below the viewport for smoother fast scrolling. */
 export function pickMaintenanceVirtualOverscan(count) {
@@ -24,4 +25,29 @@ export function useMaintenanceVirtualScrollReset({
     sizeCacheRef?.current?.clear?.();
     rowVirtualizer.measure();
   }, [scrollResetKey, scrollRef, rowVirtualizer, sizeCacheRef]);
+}
+
+/**
+ * Facebook-style scrollbar for all Maintenance tables:
+ * - Long thumb at first → shortens as you scroll (progressive extent)
+ * - While syncing / streaming: thumb tracks loaded row height
+ */
+export function useMaintenanceTableScrollExtent({
+  scrollRef,
+  actualTotalH,
+  rowCount,
+  rowHeightEstimate,
+  scrollResetKey = "",
+  listSyncing = false,
+  /** Transaction 等流式分页：未拉完前滑块随批次变短 */
+  dataIncomplete = false,
+}) {
+  return useMaintenanceStandardVirtualScrollExtent({
+    scrollRef,
+    actualTotalH,
+    rowCount,
+    rowHeightEstimate,
+    resetDeps: [scrollResetKey],
+    expandWithLoadedContent: listSyncing || dataIncomplete,
+  });
 }

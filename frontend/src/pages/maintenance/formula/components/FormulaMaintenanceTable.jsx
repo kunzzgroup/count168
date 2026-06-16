@@ -308,6 +308,7 @@ export default function FormulaMaintenanceTable({
             scrollRestoreRowId={scrollRestoreRowId}
             onScrollRestoreComplete={onScrollRestoreComplete}
             scrollResetKey={scrollResetKey}
+            listSyncing={listSyncing}
             listHydrating={listHydrating}
             selectAllRef={selectAllRef}
             selectAllChecked={selectAllChecked}

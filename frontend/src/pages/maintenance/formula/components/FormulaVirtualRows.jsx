@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
+import {
+  pickMaintenanceVirtualOverscan,
+  useMaintenanceTableScrollExtent,
+  useMaintenanceVirtualScrollReset,
+} from "../../shared/maintenanceVirtualScroll.js";
 import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
-import { pickMaintenanceVirtualOverscan } from "../../shared/maintenanceVirtualScroll.js";
 import { formulaRowIdsMatch } from "../formulaMaintenanceLogic.js";
 import FormulaVirtualDataRow from "./FormulaVirtualDataRow.jsx";
 
@@ -71,6 +74,7 @@ export default function FormulaVirtualRows({
   scrollRestoreRowId = null,
   onScrollRestoreComplete,
   scrollResetKey = "",
+  listSyncing = false,
   listHydrating = false,
   selectAllRef,
   selectAllChecked,
@@ -127,12 +131,13 @@ export default function FormulaVirtualRows({
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
-  const { displayTotalH, cyclicRowOffset } = useMaintenanceStandardVirtualScrollExtent({
+  const { displayTotalH, cyclicRowOffset } = useMaintenanceTableScrollExtent({
     scrollRef,
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
-    resetDeps: [scrollResetKey],
+    scrollResetKey,
+    listSyncing,
   });
 
   const scrollToRowId = useCallback(
