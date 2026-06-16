@@ -413,13 +413,13 @@ body.datacapture-page .process-form .dc-form-company-layout__replace-new {
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__remove {
-    grid-column: 1 / span 3;
+    grid-column: 1 / span 2;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout__remark {
-    grid-column: 4 / span 3;
+    grid-column: 3 / span 4;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
 }
