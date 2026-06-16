@@ -53,6 +53,41 @@ export function saveSummaryRefreshStatePure(rows, processMeta, captureScope = nu
   }
 }
 
+/** Clear formula/rate refresh draft (fresh capture — avoid stale F5 restore). */
+export function clearSummaryRefreshDraftStorage(captureScope = null) {
+  try {
+    const keys = summaryRefreshStorageKeys(captureScope);
+    localStorage.removeItem(keys.formulaSource);
+    localStorage.removeItem(keys.rateValues);
+    localStorage.removeItem(keys.rateByProduct);
+    localStorage.removeItem(SUMMARY_FORMULA_SOURCE_KEY);
+    localStorage.removeItem(SUMMARY_RATE_VALUES_KEY);
+    localStorage.removeItem(RATE_BY_PRODUCT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Resolve refresh payload for repopulate: localStorage first (pure React writes `.rows`),
+ * then server state only when it uses the same array shape.
+ */
+export function resolveSummaryRefreshSavedState(serverState, captureScope, processMeta = null) {
+  const fromLocal = loadSummaryRefreshFormulaState(captureScope, processMeta);
+  if (fromLocal?.rows?.length) return fromLocal;
+
+  if (
+    serverState &&
+    typeof serverState === "object" &&
+    Array.isArray(serverState.rows) &&
+    serverState.rows.length > 0
+  ) {
+    return serverState;
+  }
+
+  return null;
+}
+
 /** Read refresh formula payload; prefers scoped key, falls back to legacy global key. */
 export function loadSummaryRefreshFormulaState(captureScope, processMeta = null) {
   const keys = summaryRefreshStorageKeys(captureScope);

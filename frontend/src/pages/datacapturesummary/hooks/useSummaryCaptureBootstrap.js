@@ -12,6 +12,7 @@ import {
   loadSummaryCaptureSession,
 } from "../lib/summaryStorage.js";
 import { clearSuppressedRowKeys } from "../lib/summarySuppressedRows.js";
+import { clearSummaryRefreshDraftStorage } from "../lib/summaryRefreshStatePure.js";
 
 /** Capture session read + optional server state prefetch for pure React Summary. */
 export function useSummaryCaptureBootstrap({ captureScope, companyId, searchParams, enabled }) {
@@ -27,8 +28,9 @@ export function useSummaryCaptureBootstrap({ captureScope, companyId, searchPara
     if (isFreshCaptureRound) {
       clearStaleCaptureIdForFreshRound();
       clearSuppressedRowKeys();
+      clearSummaryRefreshDraftStorage(captureScope);
     }
-  }, [isFreshCaptureRound]);
+  }, [isFreshCaptureRound, captureScope]);
 
   const captureSession = useMemo(() => {
     if (!enabled) return null;

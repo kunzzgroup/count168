@@ -94,9 +94,9 @@ body.domain-page .domain-react-page .table-container {
  * 并重置 label 为块级（Tailwind preflight 关闭时 label 默认为 inline，易与输入框挤在同一行/重叠）。
  */
 body.ec-auth-shell .domain-form-modal-backdrop {
-    --dfm-selected-item-height: 40px;
+    --dfm-selected-item-height: 34px;
     --dfm-selected-item-gap: 6px;
-    --dfm-selected-action-height: 22px;
+    --dfm-selected-action-height: 20px;
     --dfm-row1-control-height: 34px;
     --dfm-selected-visible-rows: 9;
     --dfm-selected-list-inset-y: 16px;
@@ -109,6 +109,8 @@ body.ec-auth-shell .domain-form-modal-backdrop {
 
 body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel {
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     width: min(98vw, 1400px);
     max-width: 1400px;
     background-color: var(--color-surface);
@@ -128,6 +130,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-form {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    overflow: hidden;
     background-color: var(--color-surface);
 }
 
@@ -142,6 +145,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-body {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    overflow: hidden;
     padding: 20px 36px !important;
     background-color: var(--color-surface);
 }
@@ -167,6 +171,10 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-block {
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-block--company {
     margin-top: 10px !important;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-block .dfm-section-heading {
@@ -235,6 +243,10 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field input
 }
 
 /* COMPANY INFORMATION — row1: group id / company id / group；row2: selected groups / selected companies */
+body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-block:not(.dfm-section-block--company) {
+    flex-shrink: 0;
+}
+
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 {
     display: grid;
     width: 100%;
@@ -310,14 +322,14 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 {
     display: grid;
     width: 100%;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto;
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
         "headGroups headCompanies"
         "selectedGroups selectedCompanies";
     gap: 4px 12px;
-    flex: 0 0 auto;
-    margin-top: auto;
-    align-items: start;
+    flex: 1 1 auto;
+    margin-top: 0;
+    align-items: stretch;
     align-content: start;
     min-height: 0;
 }
@@ -355,13 +367,14 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list {
     box-sizing: border-box;
     width: 100%;
-    height: var(--dfm-selected-list-cap-height);
-    min-height: var(--dfm-selected-list-cap-height);
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
     max-height: var(--dfm-selected-list-cap-height);
-    flex: 0 0 auto;
     margin-top: 0 !important;
     overflow-x: hidden;
     overflow-y: auto;
+    scroll-padding-bottom: 6px;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-groups,
@@ -369,17 +382,19 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field
     display: flex !important;
     flex-direction: column !important;
     min-height: 0;
+    height: 100%;
     align-self: stretch;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-groups .dfm-selected-list,
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-companies .dfm-selected-list {
-    flex: 0 0 auto;
-    height: var(--dfm-selected-list-cap-height);
-    min-height: var(--dfm-selected-list-cap-height);
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
     max-height: var(--dfm-selected-list-cap-height);
     padding: 8px 10px !important;
     overflow-y: auto !important;
+    scroll-padding-bottom: 6px;
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list--mc-mode {
@@ -411,7 +426,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .exp-date-display {
-    font-size: var(--text-tiny) !important;
+    font-size: var(--text-small) !important;
     line-height: 1.2 !important;
 }
 
@@ -419,10 +434,10 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .company-remove-btn {
     height: var(--dfm-selected-action-height) !important;
     min-height: var(--dfm-selected-action-height) !important;
-    padding: 0 10px !important;
-    min-width: 42px !important;
+    padding: 0 12px !important;
+    min-width: 48px !important;
     border-radius: 4px !important;
-    font-size: var(--text-tiny) !important;
+    font-size: var(--text-small) !important;
     line-height: 1 !important;
 }
 
@@ -601,12 +616,12 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item 
     flex-shrink: 0 !important;
     margin: 0 !important;
     justify-self: end !important;
-    padding: 4px 14px !important;
-    min-width: 46px !important;
-    height: 28px !important;
-    min-height: 28px !important;
+    padding: 5px 16px !important;
+    min-width: 50px !important;
+    height: var(--dfm-selected-action-height) !important;
+    min-height: var(--dfm-selected-action-height) !important;
     font-family: var(--font-ui) !important;
-    font-size: var(--text-tiny) !important;
+    font-size: var(--text-small) !important;
     font-weight: 600 !important;
     line-height: 1 !important;
     color: var(--color-text-inverse) !important;
@@ -622,11 +637,12 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .company-item 
     flex-shrink: 0 !important;
     margin: 0 !important;
     justify-self: end !important;
-    padding: 4px 12px !important;
-    min-height: 28px !important;
-    height: 28px !important;
+    padding: 5px 14px !important;
+    min-width: 50px !important;
+    min-height: var(--dfm-selected-action-height) !important;
+    height: var(--dfm-selected-action-height) !important;
     font-family: var(--font-ui) !important;
-    font-size: var(--text-tiny) !important;
+    font-size: var(--text-small) !important;
     font-weight: 600 !important;
     line-height: 1 !important;
     color: var(--color-text-inverse) !important;
@@ -918,9 +934,9 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-assign-mc-list > .company-it
     align-items: center !important;
     box-sizing: border-box !important;
     width: 100% !important;
-    min-height: 42px !important;
+    min-height: var(--dfm-selected-item-height) !important;
     margin: 0 !important;
-    padding: 7px 10px !important;
+    padding: 8px 12px !important;
     column-gap: 8px !important;
     row-gap: 4px !important;
     border: 1px solid var(--color-border) !important;
@@ -975,11 +991,11 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .dfm-assign-mc
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-selected-list .dfm-assign-mc-list > .company-item.dfm-assign-mc-row .company-reset-btn {
     grid-column: 4 !important;
     justify-self: end !important;
-    padding: 2px 8px !important;
-    min-width: 40px !important;
-    height: 24px !important;
-    min-height: 24px !important;
-    font-size: var(--text-tiny, 11px) !important;
+    padding: 4px 10px !important;
+    min-width: 48px !important;
+    height: var(--dfm-selected-action-height) !important;
+    min-height: var(--dfm-selected-action-height) !important;
+    font-size: var(--text-small) !important;
 }
 
 /* 多选区勾选：统一 16px 槽位，避免原生 checkbox 与文字基线不齐 */
@@ -1256,7 +1272,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions .btn-cancel {
     padding: 8px 20px;
     margin: 0 !important;
     font-family: var(--font-heading-page);
-    font-size: var(--text-medium);
+    font-size: var(--text-base);
     font-weight: 700;
     line-height: 1;
     border: none;
@@ -1389,7 +1405,7 @@ body.domain-page .domain-react-page .domain-fee-price-chips {
 
 body.domain-page .domain-react-page .domain-fee-price-chip {
     font-family: var(--font-heading-page);
-    font-size: clamp(11px, 0.78vw, 13px);
+    font-size: var(--text-small);
     font-weight: var(--font-weight-semibold);
     line-height: 1.2;
     white-space: nowrap;
@@ -1526,9 +1542,9 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--periods.modal-c
     border: none;
     background: transparent;
     color: var(--color-ink-muted);
-    font-size: var(--domain-text-24);
+    font-size: var(--text-page-title);    
     font-weight: 700;
-    letter-spacing: 2px;
+    letter-spacing: 0;
 }
 
 .domain-fee-react-modal .modal-header.domain-fee-modal-header .account-close {
@@ -1610,7 +1626,7 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--periods.modal-c
 .domain-fee-react-modal .domain-fee-edit-hint {
     margin: 0 0 12px 0;
     color: var(--color-text-caption);
-    font-size: var(--domain-text-13);
+    font-size: var(--text-tiny);
 }
 
 .domain-fee-react-modal .form-group {
@@ -1658,7 +1674,7 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--periods.modal-c
     min-height: 35.5px;
     padding: 8px 20px;
     font-family: var(--font-heading-page);
-    font-size: var(--domain-text-legacy-15936);
+    font-size: var(--text-base);
     font-weight: 600;
     line-height: 1;
     border: none;
@@ -1750,7 +1766,7 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--split.modal-con
     border-radius: 10px;
     background: rgba(59, 130, 246, 0.08);
     border: 1px solid rgba(59, 130, 246, 0.18);
-    font-size: var(--text-base, 0.9375rem);
+    font-size: var(--text-base);
     line-height: 1.45;
 }
 
@@ -1792,7 +1808,7 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--split.modal-con
     gap: 8px;
     margin-bottom: 12px;
     font-weight: 600;
-    font-size: var(--text-base, 0.9375rem);
+    font-size: var(--text-base);
 }
 
 .domain-fee-col-icon {
@@ -1822,7 +1838,7 @@ body.domain-page .domain-fee-react-modal.domain-fee-react-modal--split.modal-con
 }
 
 .domain-fee-split-label {
-    font-size: var(--text-base, 0.9375rem);
+    font-size: var(--text-base);
     color: var(--color-text-secondary, #64748b);
 }
 
@@ -2333,10 +2349,10 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     width: auto;
     background: transparent;
     border: none;
-    font-size: var(--domain-fluid-14-125-24);
+    font-size: var(--text-page-title);
     font-weight: bold;
     color: var(--color-ink-muted);
-    letter-spacing: 2px;
+    letter-spacing: 0;
 }
 
 .company-settings-modal-body {
@@ -2391,7 +2407,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
     margin: 0 0 8px 0;
     padding-bottom: 6px;
     border-bottom: 2px solid var(--color-border-slate);
-    font-size: var(--domain-fluid-13-1-16);
+    font-size: var(--text-base);
     font-weight: 700;
     color: var(--color-ink);
     letter-spacing: -0.02em;
@@ -2423,7 +2439,7 @@ body.ec-auth-shell .company-expiration-react-modal.modal-content {
 }
 
 .company-share-charge-on-save__state {
-    font-size: var(--domain-fluid-11-085-13);
+    font-size: var(--text-medium);
     font-weight: 700;
     color: var(--color-text-caption);
     min-width: 1.75em;
@@ -2659,7 +2675,7 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     box-sizing: border-box;
     border: 1px solid var(--color-border-strong);
     border-radius: 6px;
-    font-size: var(--domain-text-13);
+    font-size: var(--text-small);
     font-family: var(--font-ui);
     line-height: 1.25;
     color: var(--color-text-label);
@@ -2848,8 +2864,8 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
 .company-settings-react-modal .cs-company-field-label {
     display: block;
     margin: 0 0 8px 0;
-    font-size: var(--domain-text-13);
-    font-weight: 600;
+    font-size: var(--text-medium);
+    font-weight: 700;
     color: var(--color-text-label);
     line-height: 1.25;
 }
@@ -2859,7 +2875,7 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     width: 100%;
     padding: 8px;
     text-align: center;
-    font-size: var(--domain-text-14);
+    font-size: var(--text-medium);
     font-weight: 600;
     line-height: 1.35;
     color: var(--color-ink-muted);
@@ -2922,7 +2938,7 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     min-height: 35.5px;
     padding: 8px 20px;
     font-family: var(--font-heading-page);
-    font-size: var(--domain-text-legacy-15936);
+    font-size: var(--text-base);
     font-weight: 600;
     line-height: 1;
     border: none;
@@ -3057,7 +3073,7 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
 }
 
 .company-share-account-count-display {
-    font-size: var(--domain-fluid-10-072-12);
+    font-size: var(--text-tiny);
     font-weight: 500;
     color: var(--color-text-placeholder);
     line-height: 1.2;
@@ -3078,11 +3094,11 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
 }
 
 .company-share-role-alloc-label {
-    font-size: var(--domain-fluid-9-065-11);
+    font-size: var(--text-small);
     font-weight: 700;
     color: var(--color-page-fg);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0;
 }
 
 .company-share-role-header-middle .company-share-card-sum {
@@ -3135,7 +3151,7 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     color: var(--color-primary-strong);
     background: transparent;
     border-radius: 8px;
-    font-size: var(--domain-fluid-11-078-13);
+    font-size: var(--text-medium);
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease;
@@ -3189,9 +3205,9 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     align-items: center;
     padding: 4px 12px;
     border-radius: 999px;
-    font-size: var(--domain-fluid-11-083-14);
+    font-size: var(--text-small);
     font-weight: 700;
-    letter-spacing: 0.02em;
+    letter-spacing: 0;
 }
 
 .company-share-role-badge--sales {
@@ -3248,11 +3264,11 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     grid-template-columns: minmax(180px, 1.45fr) minmax(110px, 0.9fr) minmax(110px, 0.9fr) 2.25rem;
     gap: 8px;
     align-items: center;
-    font-size: var(--domain-fluid-10-073-12);
+    font-size: var(--text-tiny);
     font-weight: 600;
     color: var(--color-text-placeholder);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
     margin-bottom: 6px;
     padding: 0 2px;
 }
@@ -3311,7 +3327,7 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     height: 36px;
     box-sizing: border-box;
     padding: 8px 10px;
-    font-size: var(--domain-fluid-11-083-14);
+    font-size: var(--text-medium);
     border: 1px solid var(--account-select-card-border);
     border-radius: 8px;
     background: var(--color-surface);
@@ -3405,7 +3421,7 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     border-radius: 8px;
     background: var(--color-surface-slate-200);
     color: var(--color-page-fg);
-    font-size: var(--domain-fluid-11-083-14);
+    font-size: var(--text-medium);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     text-align: right;
@@ -3445,7 +3461,7 @@ body.auto-renew-page-body .company-settings-react-modal.modal-content .company-s
     color: var(--color-domain-info-text);
     border: 2px dashed var(--color-border-dashed-info);
     border-radius: 12px;
-    font-size: var(--domain-fluid-13-095-15);
+    font-size: var(--text-base);
     font-weight: 700;
     text-align: center;
     cursor: pointer;
@@ -3781,7 +3797,7 @@ body.domain-page #account-addModal.account-modal {
 }
 
 body.domain-page #account-addModal .account-modal-header h2 {
-    letter-spacing: 2px;
+    letter-spacing: 0;
 }
 
 /* Company picker from Add Account — above #account-addModal (2147483002) */
@@ -4319,7 +4335,7 @@ body.domain-page .domain-react-page .domain-action-cell {
     border: 1px solid var(--color-border-strong);
     background: var(--color-surface-gray-soft);
     color: var(--color-text-label);
-    font-size: var(--domain-text-13);
+    font-size: var(--text-small);
     font-weight: 600;
     font-family: inherit;
     line-height: 1.2;
