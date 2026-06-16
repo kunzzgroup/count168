@@ -153,7 +153,7 @@
    * Add Process — Multi-Process 三列勾选列表（.process-checkboxes）
    * 字号走 --text-small（与表单控件一致）；间距仍用 --desc-modal-list-*。
    */
-  --process-form-modal-multi-list-text: var(--process-form-modal-control-size);
+  --process-form-modal-multi-list-text: var(--text-small);
   /* 嵌入 Add Process 左栏：固定上限，仅列表内滚动，不撑高 modal（勿用 --desc-modal-list-min-h） */
   --process-form-modal-multi-list-max-h: clamp(6.5rem, 14vh, 9.5rem);
   --process-form-modal-multi-list-pad: var(--desc-modal-list-pad);
