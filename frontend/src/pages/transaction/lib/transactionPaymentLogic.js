@@ -149,9 +149,43 @@ export function rowHasNonZeroBalance(row) {
   }
 }
 
+/** True when the row had B/F, period W/L, Cr/Dr, or transaction flags (not a dormant account shell). */
+export function rowHasPeriodActivity(row) {
+  const eps = "0.00001";
+  const flagToBool = (v) => {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v !== 0;
+    return parseInt(String(v || "0"), 10) !== 0;
+  };
+  if (
+    flagToBool(row?.has_crdr_transactions) ||
+    flagToBool(row?.has_win_loss_transactions) ||
+    flagToBool(row?.has_win_loss_history) ||
+    flagToBool(row?.has_period_id_product_rows) ||
+    flagToBool(row?.is_rate_middleman)
+  ) {
+    return true;
+  }
+  for (const field of ["bf", "win_loss", "win_loss_full", "cr_dr"]) {
+    const v = parseBalanceValue(row?.[field]);
+    if (v === null) continue;
+    try {
+      if (MoneyDecimal.toDecimal(v, 0).abs().gt(eps)) return true;
+    } catch {
+      if (Math.abs(v) > 1e-5) return true;
+    }
+  }
+  return false;
+}
+
+/** Row visible when Show 0 balance is on: non-zero balance, or zero balance with period activity. */
+export function rowPassesShowZeroBalanceFilter(row) {
+  return rowHasNonZeroBalance(row) || rowHasPeriodActivity(row);
+}
+
 /** @deprecated Prefer {@link applyZeroBalanceFilter} — kept for legacy callers. */
 export function rowPassesHideZeroBalanceFilter(showZero, row) {
-  if (showZero) return true;
+  if (showZero) return rowPassesShowZeroBalanceFilter(row);
   return rowHasNonZeroBalance(row);
 }
 
@@ -258,15 +292,17 @@ export function applyPaymentWinLossFilters(rawLeft, rawRight, { showPaymentOnly,
     return winLossAmountNonZero(row);
   };
 
+  const zeroBalanceWithActivity = (row) => isZeroBalance(row) && rowHasPeriodActivity(row);
+
   let shouldShow = () => true;
   if (showPaymentOnly && showCaptureOnly) {
     shouldShow = showZeroBalance
-      ? (row) => isZeroBalance(row) || hasCrdr(row) || hasWinLoss(row)
+      ? (row) => hasCrdr(row) || hasWinLoss(row) || zeroBalanceWithActivity(row)
       : (row) => hasCrdr(row) || hasWinLoss(row);
   } else if (showPaymentOnly) {
-    shouldShow = showZeroBalance ? (row) => isZeroBalance(row) || hasCrdr(row) : hasCrdr;
+    shouldShow = showZeroBalance ? (row) => hasCrdr(row) || zeroBalanceWithActivity(row) : hasCrdr;
   } else if (showCaptureOnly) {
-    shouldShow = showZeroBalance ? (row) => isZeroBalance(row) || hasWinLoss(row) : hasWinLoss;
+    shouldShow = showZeroBalance ? (row) => hasWinLoss(row) || zeroBalanceWithActivity(row) : hasWinLoss;
   }
 
   return {
@@ -281,9 +317,15 @@ export function applyZeroBalanceFilter(
   showZeroBalance,
   { showCaptureOnly = false, showPaymentOnly = false } = {},
 ) {
-  // Any visibility toggle: keep upstream rows (incl. balance 0.00 when W/L or Payment filter matched).
-  if (showZeroBalance || showCaptureOnly || showPaymentOnly) {
+  if (showCaptureOnly || showPaymentOnly) {
     return { left: filteredLeft, right: filteredRight };
+  }
+  if (showZeroBalance) {
+    const keep = rowPassesShowZeroBalanceFilter;
+    return {
+      left: filteredLeft.filter(keep),
+      right: filteredRight.filter(keep),
+    };
   }
   // Default: hide rows whose ending balance is 0.00.
   return {

@@ -2300,10 +2300,27 @@ try {
             $dispAccountId = (string) ($account['account_id'] ?? '');
         }
 
-        // Default list: omit balance 0.00 unless Show Payment Only (show_inactive) is on.
-        // Show Win/Loss Only / Show 0 balance are applied on the client; hide_zero_balance=0 skips this.
-        if ($hide_zero_balance && !$show_inactive && !searchMoneyNonZero($balance)) {
-            continue;
+        // Default: hide balance 0.00.
+        // Show 0 balance: include zero-balance rows only when the account had activity in range
+        // (e.g. month-end CLEAR), not dormant Account List shells with no transactions.
+        $balance_nonzero = searchMoneyNonZero($balance);
+        $has_period_activity = searchApiRowHasPeriodActivity(
+            $bf_stat,
+            $win_loss_stat,
+            $cr_dr_stat,
+            $has_crdr_transactions,
+            $has_win_loss_transactions,
+            $has_win_loss_history,
+            $has_period_id_product_rows,
+            $is_rate_middleman
+        );
+        if (!$balance_nonzero) {
+            if ($hide_zero_balance && !$show_inactive) {
+                continue;
+            }
+            if (!$hide_zero_balance && !$has_period_activity) {
+                continue;
+            }
         }
 
         $results[] = [
@@ -2448,6 +2465,41 @@ try {
 }
 
 // ==================== 辅助函数 ====================
+
+/**
+ * Whether account×currency had any ledger activity in the search window (or B/F carry-in).
+ * Used by Show 0 balance to exclude dormant accounts that never transacted.
+ */
+function searchApiRowHasPeriodActivity(
+    $bf_stat,
+    $win_loss_stat,
+    $cr_dr_stat,
+    $has_crdr_transactions,
+    $has_win_loss_transactions,
+    $has_win_loss_history,
+    $has_period_id_product_rows,
+    $is_rate_middleman = false
+): bool {
+    if (
+        $has_crdr_transactions
+        || $has_win_loss_transactions
+        || $has_win_loss_history
+        || $has_period_id_product_rows
+        || $is_rate_middleman
+    ) {
+        return true;
+    }
+    if (searchMoneyNonZero(trunc2((string) $bf_stat))) {
+        return true;
+    }
+    if (searchMoneyNonZero(trunc2((string) $win_loss_stat))) {
+        return true;
+    }
+    if (searchMoneyNonZero(trunc2((string) $cr_dr_stat))) {
+        return true;
+    }
+    return false;
+}
 
 /**
  * 计算 B/F (Balance Forward)
