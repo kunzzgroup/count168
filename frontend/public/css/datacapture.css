@@ -849,6 +849,18 @@ body.datacapture-page .process-form .dc-form-row-full .form-group {
     text-overflow: ellipsis;
     white-space: nowrap;
     position: relative;
+    box-sizing: border-box;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body.datacapture-page .custom-select-button:focus,
+body.datacapture-page .custom-select-button:focus-visible,
+body.datacapture-page .custom-select-button.open {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
 }
 
 .custom-select-button::after {
@@ -944,11 +956,6 @@ body.datacapture-page .custom-select-dropdown.custom-select-dropdown-portal .cus
     min-height: 0;
     max-height: none !important;
     overflow-y: auto;
-}
-
-body.datacapture-page.dc-process-dropdown-open .form-container .process-form,
-body.datacapture-page.dc-process-dropdown-open .form-container {
-    overflow: visible !important;
 }
 
 .custom-select-option {

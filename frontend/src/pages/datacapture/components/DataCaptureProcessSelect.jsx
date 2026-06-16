@@ -86,16 +86,13 @@ export default function DataCaptureProcessSelect({
   useLayoutEffect(() => {
     if (!processOpen) {
       setMenuStyle(null);
-      document.body.classList.remove("dc-process-dropdown-open");
       return undefined;
     }
-    document.body.classList.add("dc-process-dropdown-open");
     positionMenu();
     const onReflow = () => positionMenu();
     window.addEventListener("resize", onReflow);
     window.addEventListener("scroll", onReflow, true);
     return () => {
-      document.body.classList.remove("dc-process-dropdown-open");
       window.removeEventListener("resize", onReflow);
       window.removeEventListener("scroll", onReflow, true);
     };
@@ -104,7 +101,13 @@ export default function DataCaptureProcessSelect({
   const handleToggle = (e) => {
     e.stopPropagation();
     onBeforeToggle?.();
-    setProcessOpen((open) => !open);
+    const willOpen = !processOpen;
+    if (willOpen) {
+      positionMenu();
+    } else {
+      setMenuStyle(null);
+    }
+    setProcessOpen(willOpen);
   };
 
   const dropdownNode =
