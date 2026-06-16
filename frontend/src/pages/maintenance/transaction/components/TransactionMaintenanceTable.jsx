@@ -1,19 +1,16 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
+import {
+  pickMaintenanceVirtualOverscan,
+  useMaintenanceVirtualScrollReset,
+} from "../../shared/maintenanceVirtualScroll.js";
 import { formatAmount } from "../transactionMaintenanceLogic.js";
 import MaintenanceCreatedAtDisplay from "../../shared/MaintenanceCreatedAtDisplay.jsx";
 import { MAINTENANCE_REPORT_ROW_HEIGHT } from "../../shared/maintenanceReportRowMetrics.js";
 import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
 
 const ROW_HEIGHT = MAINTENANCE_REPORT_ROW_HEIGHT;
-
-function pickOverscan(count) {
-  if (count > 5000) return 10;
-  if (count > 2000) return 12;
-  if (count > 800) return 14;
-  return 16;
-}
 
 const HEADER_LABELS = (m) => [
   m.tblNo,
@@ -129,7 +126,6 @@ export default function TransactionMaintenanceTable({
 }) {
   const scrollRef = useRef(null);
   const sizeCacheRef = useRef(new Map());
-  const scrollResetKeyRef = useRef(scrollResetKey);
   const rows = Array.isArray(data) ? data : [];
 
   const getItemKey = useCallback(
@@ -155,18 +151,17 @@ export default function TransactionMaintenanceTable({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: (index) => sizeCacheRef.current.get(index) ?? ROW_HEIGHT,
-    overscan: pickOverscan(rows.length),
+    overscan: pickMaintenanceVirtualOverscan(rows.length),
     getItemKey,
     measureElement,
   });
 
-  useLayoutEffect(() => {
-    if (scrollResetKeyRef.current === scrollResetKey) return;
-    scrollResetKeyRef.current = scrollResetKey;
-    scrollRef.current?.scrollTo(0, 0);
-    sizeCacheRef.current.clear();
-    rowVirtualizer.measure();
-  }, [scrollResetKey, rowVirtualizer]);
+  useMaintenanceVirtualScrollReset({
+    scrollRef,
+    scrollResetKey,
+    rowVirtualizer,
+    sizeCacheRef,
+  });
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();

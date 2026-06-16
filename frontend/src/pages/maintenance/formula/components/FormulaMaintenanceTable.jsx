@@ -22,6 +22,7 @@ export default function FormulaMaintenanceTable({
   onListScrolling,
   scrollRestoreRowId = null,
   onScrollRestoreComplete,
+  scrollResetKey = "",
   accounts,
   m,
   inputMethodOptions,
@@ -306,6 +307,7 @@ export default function FormulaMaintenanceTable({
             onScrollingChange={onListScrolling}
             scrollRestoreRowId={scrollRestoreRowId}
             onScrollRestoreComplete={onScrollRestoreComplete}
+            scrollResetKey={scrollResetKey}
             listHydrating={listHydrating}
             selectAllRef={selectAllRef}
             selectAllChecked={selectAllChecked}

@@ -1078,6 +1078,7 @@ export default function FormulaMaintenancePage() {
         onListScrolling={handleListScrolling}
         scrollRestoreRowId={scrollRestoreRowId}
         onScrollRestoreComplete={handleScrollRestoreComplete}
+        scrollResetKey={formulaSearchQueryKey}
         accounts={accounts}
         m={m}
         inputMethodOptions={inputMethodOptions}

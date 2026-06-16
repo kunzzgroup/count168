@@ -88,6 +88,7 @@ export default function PaymentMaintenanceTable({
           rows={data}
           rowHeight={ROW_HEIGHT}
           rowKeyPrefix={rowKeyPrefix}
+          scrollResetKey={rowKeyPrefix}
           selectedSet={selectedSet}
           onToggleRow={toggleSelect}
           selectAllRef={selectAllRef}

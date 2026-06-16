@@ -1,14 +1,12 @@
-﻿import { useCallback, useLayoutEffect, useRef } from "react";
+﻿import { useCallback, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMaintenanceStandardVirtualScrollExtent } from "../../shared/useMaintenanceStandardVirtualScroll.js";
 import { measureMaintenanceVirtualRow } from "../../shared/measureMaintenanceVirtualRow.js";
+import {
+  pickMaintenanceVirtualOverscan,
+  useMaintenanceVirtualScrollReset,
+} from "../../shared/maintenanceVirtualScroll.js";
 import BankprocessVirtualDataRow from "./BankprocessVirtualDataRow.jsx";
-
-function pickOverscan(count) {
-  if (count > 2000) return 2;
-  if (count > 800) return 3;
-  return 4;
-}
 
 function isRowDeleted(row) {
   return row.is_deleted === 1 || row.is_deleted === "1" || row.is_deleted === true;
@@ -62,6 +60,7 @@ export default function BankprocessVirtualRows({
   rows,
   rowHeight,
   rowKeyPrefix,
+  scrollResetKey = "",
   selectedSet,
   onToggleRow,
   alreadyDeletedTitle,
@@ -73,12 +72,6 @@ export default function BankprocessVirtualRows({
 }) {
   const scrollRef = useRef(null);
   const sizeCacheRef = useRef(new Map());
-  const rowsRef = useRef(rows);
-
-  if (rowsRef.current !== rows) {
-    sizeCacheRef.current.clear();
-    rowsRef.current = rows;
-  }
 
   const getItemKey = useCallback(
     (index) => {
@@ -107,16 +100,17 @@ export default function BankprocessVirtualRows({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: (index) => sizeCacheRef.current.get(index) ?? rowHeight,
-    overscan: pickOverscan(rows.length),
+    overscan: pickMaintenanceVirtualOverscan(rows.length),
     getItemKey,
     measureElement,
   });
 
-  useLayoutEffect(() => {
-    scrollRef.current?.scrollTo(0, 0);
-    sizeCacheRef.current.clear();
-    rowVirtualizer.measure();
-  }, [rows, rowVirtualizer]);
+  useMaintenanceVirtualScrollReset({
+    scrollRef,
+    scrollResetKey,
+    rowVirtualizer,
+    sizeCacheRef,
+  });
 
   const vItems = rowVirtualizer.getVirtualItems();
   const totalH = rowVirtualizer.getTotalSize();
@@ -125,7 +119,8 @@ export default function BankprocessVirtualRows({
     actualTotalH: totalH,
     rowCount: rows.length,
     rowHeightEstimate: rowHeight,
-    resetDeps: [rows],
+    resetDeps: [scrollResetKey],
+    forceFullExtent: rows.length > 0,
   });
 
   return (

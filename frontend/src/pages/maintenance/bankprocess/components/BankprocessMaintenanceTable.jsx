@@ -89,6 +89,7 @@ export default function BankprocessMaintenanceTable({
           rows={data}
           rowHeight={ROW_HEIGHT}
           rowKeyPrefix={rowKeyPrefix}
+          scrollResetKey={rowKeyPrefix}
           selectedSet={selectedSet}
           onToggleRow={onToggleRow}
           alreadyDeletedTitle={m.alreadyDeleted}

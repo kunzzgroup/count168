@@ -88,6 +88,7 @@ export default function CaptureMaintenanceTable({
           rows={data}
           rowHeight={ROW_HEIGHT}
           rowKeyPrefix={rowKeyPrefix}
+          scrollResetKey={rowKeyPrefix}
           selectedSet={selectedSet}
           onToggleRow={toggleSelect}
           alreadyDeletedTitle={m.alreadyDeleted}
