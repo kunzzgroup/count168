@@ -241,52 +241,29 @@ body.datacapture-page .submitted-list {
     body.datacapture-page .process-form .dc-form-company-layout__process,
     body.datacapture-page .process-form .dc-form-company-layout__currency,
     body.datacapture-page .process-form .dc-form-company-layout__description,
-    body.datacapture-page .process-form .dc-form-company-layout__replace {
+    body.datacapture-page .process-form .dc-form-company-layout__replace-old,
+    body.datacapture-page .process-form .dc-form-company-layout__replace-new,
+    body.datacapture-page .process-form .dc-form-company-layout__remove,
+    body.datacapture-page .process-form .dc-form-company-layout__remark {
         grid-column: 1;
         grid-row: auto;
         margin-top: 0;
     }
 
     body.datacapture-page .process-form .dc-form-company-layout__description,
-    body.datacapture-page .process-form .dc-form-company-layout__replace,
-    body.datacapture-page .process-form .dc-form-company-layout__row3 {
+    body.datacapture-page .process-form .dc-form-company-layout__replace-old,
+    body.datacapture-page .process-form .dc-form-company-layout__replace-new,
+    body.datacapture-page .process-form .dc-form-company-layout__remove,
+    body.datacapture-page .process-form .dc-form-company-layout__remark {
         margin-top: clamp(8px, 0.7vw, 12px);
     }
 
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid {
-        grid-template-columns: 1fr;
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__label--rm,
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__label--mk,
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__input--rm,
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__input--mk,
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__help {
-        grid-column: 1;
-        grid-row: auto;
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__replace {
-        display: flex;
-        flex-direction: column;
-        gap: clamp(4px, 0.38vw, 6px);
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields {
-        display: flex;
-        flex-direction: column;
-        gap: clamp(6px, 0.55vw, 10px);
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields input#capture_replace_word_from,
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields .replace-arrow,
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields input#capture_replace_word_to {
-        grid-column: auto;
-        width: 100%;
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields .replace-arrow {
+    body.datacapture-page .process-form .dc-form-company-layout > .form-group > label.dc-form-company-layout__label-spacer {
         display: none;
+    }
+
+    body.datacapture-page .process-form .dc-form-company-layout__replace-new-field .replace-arrow {
+        margin-left: 0;
     }
 }
 
@@ -388,7 +365,7 @@ body.datacapture-page .process-form.dc-form--group-only .dc-form-row--stacked > 
     font-weight: 600;
 }
 
-/* Company form: single 6-col grid — row1 thirds, rows 2–3 halves (keeps fields inside container) */
+/* Company form: 6-col grid — Date/Description/Remove = cols 1–2, Process/Old/Remark = 3–4, Currency/New = 5–6 */
 body.datacapture-page .process-form .dc-form-company-layout {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -423,64 +400,50 @@ body.datacapture-page .process-form .dc-form-company-layout__description {
     margin-top: clamp(6px, 0.55vw, 10px);
 }
 
-body.datacapture-page .process-form .dc-form-company-layout__replace {
-    grid-column: 3 / span 4;
+body.datacapture-page .process-form .dc-form-company-layout__replace-old {
+    grid-column: 3 / span 2;
     grid-row: 2;
     margin-top: clamp(6px, 0.55vw, 10px);
-    display: grid;
-    grid-template-columns: subgrid;
-    grid-template-rows: auto auto;
-    row-gap: clamp(4px, 0.38vw, 6px);
-    min-width: 0;
 }
 
-body.datacapture-page .process-form .dc-form-company-layout__replace > label {
-    grid-column: 1 / -1;
-    grid-row: 1;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields {
-    grid-column: 1 / -1;
+body.datacapture-page .process-form .dc-form-company-layout__replace-new {
+    grid-column: 5 / span 2;
     grid-row: 2;
-    display: grid;
-    grid-template-columns: subgrid;
-    align-items: center;
-    min-width: 0;
+    margin-top: clamp(6px, 0.55vw, 10px);
 }
 
-body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields input#capture_replace_word_from {
-    grid-column: 1 / 3;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields .replace-arrow {
-    grid-column: 2 / 4;
-    justify-self: center;
-    z-index: 1;
-    pointer-events: none;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields input#capture_replace_word_to {
-    grid-column: 3 / 5;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid {
-    grid-column: 1 / -1;
+body.datacapture-page .process-form .dc-form-company-layout__remove {
+    grid-column: 1 / span 2;
     grid-row: 3;
     margin-top: clamp(6px, 0.55vw, 10px);
-    margin-bottom: 0;
-    display: grid;
-    grid-template-columns: subgrid;
-    grid-template-areas: none;
-    row-gap: clamp(4px, 0.38vw, 6px);
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__remark {
+    grid-column: 3 / span 2;
+    grid-row: 3;
+    margin-top: clamp(6px, 0.55vw, 10px);
 }
 
 body.datacapture-page .process-form .dc-form-company-layout > .form-group {
     margin-bottom: 0;
+    display: flex;
     flex-direction: column;
     align-items: stretch;
     align-self: stretch;
     gap: clamp(4px, 0.38vw, 6px);
     min-width: 0;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .form-group:has(> .field-help) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    grid-template-columns: none;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout > .form-group:has(> .field-help) > .field-help {
+    grid-column: auto;
+    width: 100%;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > label {
@@ -497,10 +460,15 @@ body.datacapture-page .process-form .dc-form-company-layout > .form-group > labe
     line-height: 1.25;
 }
 
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > label.dc-form-company-layout__label-spacer {
+    visibility: hidden;
+    user-select: none;
+}
+
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > select,
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > .custom-select-wrapper,
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > .input-with-icon,
-body.datacapture-page .process-form .dc-form-company-layout > .form-group > .replace-word-fields {
+body.datacapture-page .process-form .dc-form-company-layout > .form-group > .dc-form-company-layout__replace-new-field {
     width: 100%;
     min-width: 0;
     flex: 0 0 auto;
@@ -509,102 +477,51 @@ body.datacapture-page .process-form .dc-form-company-layout > .form-group > .rep
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > input,
 body.datacapture-page .process-form .dc-form-company-layout > .form-group > select {
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 36px;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
+    border: 1px solid var(--dc-border, #e2e8f0);
+    border-radius: 6px;
+    font-size: clamp(10px, 0.74vw, 14px);
+    font-weight: 600;
 }
 
 body.datacapture-page .process-form .dc-form-company-layout > .form-group .input-with-icon input {
     width: 100%;
 }
 
-body.datacapture-page .process-form .dc-form-company-layout > .form-group.replace-word-group.dc-replace-word-field {
-    display: grid;
-    align-items: stretch;
-    gap: 0;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout > .form-group.replace-word-group .replace-word-fields {
-    gap: 0;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout > .form-group.replace-word-group .replace-word-fields input {
-    flex: none;
-    width: 100%;
+body.datacapture-page .process-form .dc-form-company-layout__replace-new-field {
+    display: flex;
+    align-items: center;
+    gap: clamp(4px, 0.42vw, 6px);
     min-width: 0;
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__replace-new-field .replace-arrow {
+    flex-shrink: 0;
+    color: #666;
+    font-weight: bold;
+    font-size: clamp(12px, 0.83vw, 16px);
+    margin-left: clamp(-10px, -0.8vw, -6px);
+}
+
+body.datacapture-page .process-form .dc-form-company-layout__replace-new-field input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
     min-height: 36px;
+    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
     border: 1px solid var(--dc-border, #e2e8f0);
     border-radius: 6px;
-    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
     font-size: clamp(10px, 0.74vw, 14px);
     font-weight: 600;
     box-sizing: border-box;
 }
 
-body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__label--rm {
-    grid-column: 1 / 3;
-    grid-row: 1;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__label--mk {
-    grid-column: 3 / 7;
-    grid-row: 1;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__input--rm {
-    grid-column: 1 / 3;
-    grid-row: 2;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__input--mk {
-    grid-column: 3 / 7;
-    grid-row: 2;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__help {
-    grid-column: 1 / 3;
-    grid-row: 3;
-}
-
-body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__slot {
-    display: none;
-}
-
-@supports not (grid-template-columns: subgrid) {
-    body.datacapture-page .process-form .dc-form-company-layout__replace {
-        display: flex;
-        flex-direction: column;
-        gap: clamp(4px, 0.38vw, 6px);
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-        column-gap: clamp(12px, 1.35vw, 20px);
-        align-items: center;
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields input#capture_replace_word_from,
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields input#capture_replace_word_to {
-        grid-column: auto;
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__replace .replace-word-fields .replace-arrow {
-        grid-column: auto;
-        justify-self: center;
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__label--rm,
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__input--rm,
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__help {
-        grid-column: 1 / 3;
-    }
-
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__label--mk,
-    body.datacapture-page .process-form .dc-form-company-layout__row3.dc-form-remove-remark-grid .dc-remove-remark__input--mk {
-        grid-column: 3 / 7;
-    }
+body.datacapture-page .process-form .dc-form-company-layout__remove-help {
+    margin-top: 0;
+    line-height: 1.25;
 }
 
 body.datacapture-page .process-form .dc-form-remove-remark-grid {
