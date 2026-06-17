@@ -2284,7 +2284,7 @@ function dashboardResolveRoleScopeCompanyIds(
     bool $subsidiaryOnly = false
 ): array {
     $scopes = [$companyId];
-    if ($subsidiaryOnly || $role !== 'EXPENSES') {
+    if ($role !== 'EXPENSES') {
         return $scopes;
     }
 
@@ -2465,6 +2465,24 @@ function dashboardEntryCurrencyFilterSql(?string $filterCurrencyCode): array
     ];
 }
 
+/** Strict account.role match for Dashboard EXPENSES (aligned with Transaction List category=EXPENSES). */
+function dashboardSqlExpensesRoleMatch(string $alias = 'a'): string
+{
+    $roleExpr = dashboardSqlUnicodeCi(
+        'UPPER(TRIM(COALESCE(' . ($alias !== '' ? $alias . '.' : '') . "role, '')))"
+    );
+
+    return "{$roleExpr} IN ('EXPENSES', 'EXPENSE')";
+}
+
+/** @param array<string, mixed> $row */
+function dashboardAccountRowIsExpensesRole(array $row): bool
+{
+    $role = strtoupper(trim((string) ($row['role'] ?? '')));
+
+    return $role === 'EXPENSES' || $role === 'EXPENSE';
+}
+
 /**
  * Discover EXPENSES pool accounts (aligned with Transaction List category=EXPENSES).
  * Accounts may live on group-entity company while transactions post on subsidiary ledger.
@@ -2493,9 +2511,7 @@ function dashboardDiscoverExpenseAccounts(
         $subsidiaryOnly
     ): array {
     $byId = [];
-    $roleExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.role, '')))");
-    $acctCodeExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.account_id, '')))");
-    $nameExpr = dashboardSqlUnicodeCi("UPPER(TRIM(COALESCE(a.name, '')))");
+    $roleMatchSql = dashboardSqlExpensesRoleMatch('a');
     $acSubSql = $subsidiaryOnly ? dashboard_sql_account_company_subsidiary_only($pdo, 'ac') : '';
     $txnSubSql = $subsidiaryOnly ? dashboard_sql_txn_subsidiary_only($pdo, 't') : '';
     if ($subsidiaryOnly && $txnSubSql === '' && tx_table_has_scope_column($pdo, 'transactions')) {
@@ -2507,16 +2523,14 @@ function dashboardDiscoverExpenseAccounts(
             INNER JOIN account_company ac ON a.id = ac.account_id
             WHERE ac.company_id = ?
               {$acSubSql}
-              AND (
-                {$roleExpr} IN ('EXPENSES', 'EXPENSE')
-                OR {$roleExpr} LIKE 'EXPENSE%'
-                OR {$acctCodeExpr} LIKE '%EXPENSE%'
-                OR {$nameExpr} LIKE '%EXPENSE%'
-              )
+              AND {$roleMatchSql}
             ORDER BY a.account_id";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$scopeCompanyId]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (!dashboardAccountRowIsExpensesRole($row)) {
+            continue;
+        }
         $byId[(int) $row['id']] = $row;
     }
 
@@ -2524,7 +2538,7 @@ function dashboardDiscoverExpenseAccounts(
     $contra = dashboardContraApprovedWhere($pdo, 't');
     $txnSql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
                FROM account a
-               WHERE {$roleExpr} IN ('EXPENSES', 'EXPENSE')
+               WHERE {$roleMatchSql}
                  AND a.id IN (
                    SELECT DISTINCT t.from_account_id
                    FROM transactions t
@@ -2545,32 +2559,13 @@ function dashboardDiscoverExpenseAccounts(
     $txnStmt = $pdo->prepare($txnSql);
     $txnStmt->execute([$ledgerCompanyId, $dateCap, $ledgerCompanyId, $dateCap]);
     foreach ($txnStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (!dashboardAccountRowIsExpensesRole($row)) {
+            continue;
+        }
         $byId[(int) $row['id']] = $row;
     }
 
-    if (!empty($byId)) {
-        return array_values($byId);
-    }
-
-    // Last resort: accounts with capture activity on the ledger company.
-    $dcdIdMatch = dashboardSqlUnicodeCi('CAST(dcd.account_id AS CHAR)') . ' = '
-        . dashboardSqlUnicodeCi('CAST(a.id AS CHAR)');
-    $dcdCodeMatch = dashboardSqlUnicodeCi("TRIM(COALESCE(dcd.account_id, ''))") . ' = '
-        . dashboardSqlUnicodeCi('TRIM(a.account_id)');
-    $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.role
-            FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            INNER JOIN data_capture_details dcd ON dcd.company_id = ?
-              AND ({$dcdIdMatch} OR {$dcdCodeMatch})
-            INNER JOIN data_captures dc ON dc.id = dcd.capture_id AND dc.company_id = ?
-            WHERE ac.company_id = ?
-              {$acSubSql}
-            ORDER BY a.account_id
-            LIMIT 50";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$ledgerCompanyId, $ledgerCompanyId, $scopeCompanyId]);
-
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return array_values($byId);
     });
 }
 
@@ -3535,6 +3530,9 @@ try {
             $hadAccounts = true;
             if ($isExpensesRole) {
                 foreach ($accounts as $accRow) {
+                    if (!dashboardAccountRowIsExpensesRole($accRow)) {
+                        continue;
+                    }
                     $expenseAccountRowsById[(int) ($accRow['id'] ?? 0)] = $accRow;
                 }
             }
