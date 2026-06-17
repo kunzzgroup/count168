@@ -1030,14 +1030,21 @@ export function useBankProcessListPage() {
     });
   }, [modalOpen, form.cost, form.price, form.profit_sharing]);
 
-  // Contract / Day start / Frequency 变化时自动填 Day end；Monthly 不自动填；用户手动改 Day end 不会被覆盖（不监听 day_end）
+  // Contract / Day start / Frequency 变化时自动填 Day end。
+  // 仅保留非常规频率旧逻辑；1st_of_every_month / monthly 改为允许手动填写 Day end。
   useEffect(() => {
     if (!modalOpen) {
       contractSyncKeysRef.current = { day_start: "", contract: "", frequency: "" };
       return;
     }
     const frequencyNorm = bankProcessFrequencyNormalized(form.day_start_frequency);
-    if (frequencyNorm === "once" || frequencyNorm === "week" || frequencyNorm === "day" || frequencyNorm === "monthly") return;
+    if (
+      frequencyNorm === "once" ||
+      frequencyNorm === "week" ||
+      frequencyNorm === "day" ||
+      frequencyNorm === "monthly" ||
+      frequencyNorm === "1st_of_every_month"
+    ) return;
 
     const start = String(form.day_start || "").trim();
     const contract = String(form.contract || "").trim();
