@@ -783,7 +783,7 @@ export function formatAccountingDueProcessDayStart(row) {
   return formatAccountingDueDisplayDate(row?.day_start) || "-";
 }
 
-/** Accounting Due：Billing Date 仅展示该笔账单开始日（DD/MM/YYYY）。 */
+/** Accounting Due：Billing Date 展示应付日（Monthly 先付）或服务区间开始日（其他频率）。 */
 export function formatAccountingDueBillingPeriod(row) {
   const start = String(row?.billing_period_start || "").trim();
   const end = String(row?.billing_period_end || "").trim();
