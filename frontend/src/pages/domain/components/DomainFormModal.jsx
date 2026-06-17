@@ -617,14 +617,14 @@ export default function DomainFormModal({
           WebkitBackdropFilter: "blur(4px)",
         }}
       >
-        <div className="domain-form-modal-panel relative mx-auto my-[1vh] flex w-[98%] max-w-[1400px] flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
-          <div className="dfm-header flex items-center justify-between border-b border-gray-300 bg-[#f4f5f7] px-9 py-[18px]">
+        <div className="domain-form-modal-panel relative flex flex-col overflow-hidden">
+          <div className="dfm-header flex items-center justify-between">
             <h2 className="m-0 bg-transparent p-0 text-xl font-bold text-black">{isEditMode ? t("editDomain") : t("addDomain")}</h2>
             <button type="button" className="account-close" onClick={onClose} aria-label="Close" />
           </div>
           <form className="domain-form-modal-form flex flex-col bg-white" onSubmit={guardSubmit(handleSubmit)}>
             <input type="hidden" value={isEditMode ? editingDomain?.id : ""} />
-            <div className="domain-form-modal-body px-9 py-6">
+            <div className="domain-form-modal-body dfm-main-split">
               {/* DOMAIN INFORMATION — 全宽上下布局（对齐设计图） */}
               <section className="dfm-section-block">
                 <div className="dfm-section-heading">{t("domainInformation")}</div>

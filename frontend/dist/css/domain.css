@@ -113,10 +113,13 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel {
     flex-direction: column;
     width: min(98vw, 1400px);
     max-width: 1400px;
+    margin: 1vh auto;
     background-color: var(--color-surface);
     font-family: var(--font-ui);
     min-height: min(86vh, 900px);
     max-height: 92vh;
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
 }
 
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-header h2 {
@@ -137,6 +140,8 @@ body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-form {
 /* 图二：头部左右留白更宽，标题位置下沉一点 */
 body.ec-auth-shell .domain-form-modal-backdrop .dfm-header {
     padding: 18px 36px !important;
+    border-bottom: 1px solid var(--color-border-slate);
+    background-color: #f4f5f7;
 }
 
 /* 图二：内容与按钮栏之间留白；整段白底 */
@@ -441,37 +446,68 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
     line-height: 1 !important;
 }
 
-@media (max-width: 760px) {
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid,
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1,
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 {
-        grid-template-columns: minmax(0, 1fr);
+/* 小屏 / 平板：全屏 + 图二左右半栏（Domain | Company） */
+@media (max-width: 1024px) {
+    body.ec-auth-shell .domain-form-modal-backdrop {
+        --dfm-selected-visible-rows: 4;
+        overflow: hidden !important;
+        background-color: var(--color-surface) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 {
-        grid-template-areas:
-            "groupId"
-            "companyId"
-            "groupPills";
+    body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel {
+        width: 100vw !important;
+        max-width: none !important;
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 {
-        grid-template-areas:
-            "headGroups"
-            "selectedGroups"
-            "headCompanies"
-            "selectedCompanies";
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-header {
+        flex-shrink: 0;
+        padding: 12px 16px !important;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 {
-        grid-template-columns: minmax(0, 1fr);
+    body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-body.dfm-main-split {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas: "domain company";
+        gap: 10px 14px;
+        align-items: stretch;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: 12px 14px !important;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field--group-input .dfm-input-with-btn,
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field--company-input .dfm-input-with-btn {
-        max-width: 100%;
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-main-split > .dfm-section-block:not(.dfm-section-block--company) {
+        grid-area: domain;
+        min-width: 0;
+        min-height: 0;
     }
 
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-main-split > .dfm-section-block--company {
+        grid-area: company;
+        margin-top: 0 !important;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-footer-actions {
+        flex-shrink: 0;
+        padding: 12px 16px !important;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* 左栏：Domain 字段纵向 */
     body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid,
     body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid.dfm-domain-grid--no-secondary {
         grid-template-columns: minmax(0, 1fr);
@@ -481,26 +517,100 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
             "email"
             "password"
             "secondary";
+        gap: 8px;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field--owner-code {
-        grid-area: owner;
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field {
+        margin-bottom: 0 !important;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field--name {
-        grid-area: name;
+    body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel .dfm-main-split .dfm-field {
+        margin-bottom: 10px !important;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field--email {
-        grid-area: email;
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field input[type="text"],
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field input[type="password"] {
+        min-height: 36px !important;
+        padding: 8px 10px !important;
+        font-size: var(--text-small) !important;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field--password {
-        grid-area: password;
+    /* 右栏：Group ID / Company ID 并排，下方 Group、列表纵向 */
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas:
+            "groupId companyId"
+            "groupPills groupPills";
+        gap: 6px 8px;
+        align-items: end;
     }
 
-    body.ec-auth-shell .domain-form-modal-backdrop .dfm-domain-grid .dfm-field--secondary-pwd {
-        grid-area: secondary;
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field--group-input .dfm-input-with-btn,
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field--company-input .dfm-input-with-btn {
+        max-width: none;
+        width: 100%;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row1 .dfm-field--group-pills .group-pills {
+        height: auto !important;
+        min-height: var(--dfm-row1-control-height) !important;
+        flex-wrap: wrap !important;
+        align-content: flex-start !important;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto auto auto;
+        grid-template-areas:
+            "headGroups"
+            "selectedGroups"
+            "headCompanies"
+            "selectedCompanies";
+        gap: 4px 0;
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-section {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-groups,
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-companies {
+        height: auto !important;
+        min-height: 0;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-groups .dfm-selected-list,
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-field--selected-companies .dfm-selected-list {
+        height: auto !important;
+        min-height: 88px;
+        max-height: min(180px, 22dvh);
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-section-heading {
+        font-size: var(--text-small) !important;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .domain-form-modal-panel label {
+        font-size: var(--text-small) !important;
+        margin-bottom: 4px !important;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list > .company-item {
+        grid-template-columns: auto minmax(48px, 1fr) auto auto !important;
+        padding: 4px 6px !important;
+        min-height: 30px !important;
+        height: 30px !important;
+        max-height: 30px !important;
+    }
+
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .company-reset-btn,
+    body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selected-list .company-item .company-remove-btn {
+        min-width: 36px !important;
+        padding: 0 6px !important;
+        font-size: 10px !important;
     }
 }
 
