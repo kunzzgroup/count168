@@ -486,32 +486,7 @@ function calendarMonthDueYmd(int $year, int $month, int $dueDay): string
  */
 function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYmd, string $frequency): ?string
 {
-    if (!preg_match('/^(\d{4})-(\d{1,2})$/', trim($billingMonthYn), $m)) {
-        return null;
-    }
-    $billY = (int) $m[1];
-    $billMo = (int) $m[2];
-    if ($billY < 1970 || $billMo < 1 || $billMo > 12) {
-        return null;
-    }
-    $startTs = strtotime($dayStartYmd);
-    if ($startTs === false) {
-        return null;
-    }
-    $billYm = sprintf('%04d-%d', $billY, $billMo);
-    if ($frequency === '1st_of_every_month') {
-        return sprintf('%04d-%02d-01', $billY, $billMo);
-    }
-    $startDay = (int) date('j', $startTs);
-    $dueYmd = calendarMonthDueYmd($billY, $billMo, $startDay);
-    try {
-        if ((new DateTimeImmutable($dayStartYmd))->format('Y-n') === $billYm) {
-            $dueYmd = $dayStartYmd;
-        }
-    } catch (Throwable $e) {
-        // keep $dueYmd
-    }
-    return $dueYmd;
+    return bmp_monthlyDueYmdFromBillingAnchor($billingMonthYn, $dayStartYmd, $frequency);
 }
 
 /** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / monthly_skipped */
@@ -524,6 +499,22 @@ function hasMonthlyPostedOrSkippedInCalendarMonthForTxn(PDO $pdo, int $companyId
     } catch (Throwable $e) {
         return false;
     }
+}
+
+/** Monthly 先付：按应付日判断是否已入账/跳过。 */
+function txnHasMonthlyPeriodPosted(
+    PDO $pdo,
+    int $companyId,
+    int $processId,
+    string $frequency,
+    int $year,
+    int $month,
+    string $dueYmd
+): bool {
+    if ($frequency === 'monthly') {
+        return bmp_hasMonthlyPostedOrSkippedForDueYmd($pdo, $companyId, $processId, $dueYmd);
+    }
+    return hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $year, $month);
 }
 
 /** 与 process_accounting_inbox_api 的 isWithinRecurringBillingWindow 一致 */
@@ -768,8 +759,8 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                     }
                 }
                 if (($today >= $due || $resendRelaxMonthly)
-                    && !hasMonthlyPostedOrSkippedInCalendarMonthForTxn($pdo, $companyId, $processId, $y, $mo)) {
-                    return $iter->format('Y-n');
+                    && !txnHasMonthlyPeriodPosted($pdo, $companyId, $processId, 'monthly', $y, $mo, $due)) {
+                    return $resendSinglePeriod ? $due : $iter->format('Y-n');
                 }
                 $iter = $iter->modify('+1 month');
             }
@@ -1263,11 +1254,6 @@ try {
 
         $dayStartYmd = !empty($p['day_start']) ? bankProcessDateFieldToYmd($p['day_start']) : null;
         $frequency = $p['day_start_frequency'] ?? '1st_of_every_month';
-        $createdYmd = bmp_inboxEffectiveCreatedYmd(
-            ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate),
-            $dayStartYmd,
-            $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor'])
-        );
 
         // monthly：若前端未传 billing_month（例如列表页批量 Transaction），按 Inbox 规则推断账单自然月，保证 proration 与 transaction_date 一致
         $resolvedMonthlyBm = '';
@@ -1280,7 +1266,30 @@ try {
                     $resolvedMonthlyBm = $inf;
                 }
             }
+            // Resend relax 期间：Y-n 锚点为正常流程行，应付日/proration 用库里真实 day_start。
+            if ($resolvedMonthlyBm !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $resolvedMonthlyBm)) {
+                $storedRaw = $p['bank_process_stored_day_start'] ?? null;
+                if ($storedRaw !== null && trim((string) $storedRaw) !== ''
+                    && !empty($p['accounting_resend_relax_created_floor'])) {
+                    $storedYmd = bankProcessDateFieldToYmd((string) $storedRaw);
+                    if ($storedYmd !== null) {
+                        $dayStartYmd = $storedYmd;
+                    }
+                }
+            }
         }
+
+        $relaxCreatedFloor = $has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor']);
+        if ($periodType === 'monthly' && $resolvedMonthlyBm !== ''
+            && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $resolvedMonthlyBm)
+            && !empty($p['bank_process_stored_day_start'])) {
+            $relaxCreatedFloor = false;
+        }
+        $createdYmd = bmp_inboxEffectiveCreatedYmd(
+            ymdFromNullableDateTime($p['dts_created'] ?? null, $fallbackDate),
+            $dayStartYmd,
+            $relaxCreatedFloor
+        );
 
         if ($periodType === 'resend_consolidated_range' && $dayStartYmd) {
             $dayEndRawRc = $p['day_end'] ?? null;

@@ -230,7 +230,12 @@ try {
         $skippedType = toSkippedPeriodType($periodType);
         $postDate = $today;
         if (($periodType === 'monthly' || $periodType === 'day_end_tail') && ($p['billing_month'] ?? '') !== '') {
-            $postDate = postedDateForMonthlyBillingMonth($p['billing_month'], $today);
+            $bmDismiss = trim((string) $p['billing_month']);
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $bmDismiss)) {
+                $postDate = $bmDismiss;
+            } else {
+                $postDate = postedDateForMonthlyBillingMonth($bmDismiss, $today);
+            }
         }
         if ($periodType === 'weekly' && ($p['billing_month'] ?? '') !== ''
             && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim((string) $p['billing_month']))) {
