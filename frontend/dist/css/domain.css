@@ -451,6 +451,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
 /* 小屏 / 平板：全屏 + 图二左右半栏（Domain | Company）— 由 --compact class 触发（≤1280px） */
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact {
     --dfm-selected-visible-rows: 4;
+    --dfm-compact-selected-list-height: clamp(76px, 13dvh, 104px);
     overflow: hidden !important;
     background-color: var(--color-surface) !important;
     backdrop-filter: none !important;
@@ -568,8 +569,8 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
         "selectedGroups"
         "headCompanies"
         "selectedCompanies" !important;
-    gap: 4px 0;
-    flex: 1 1 auto;
+    gap: 2px 0;
+    flex: 0 0 auto;
     min-height: 0;
 }
 
@@ -578,17 +579,60 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
     min-height: 0;
 }
 
+.domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-company-grid-row2 .dfm-row2-head {
+    min-height: 22px;
+    margin: 0;
+    padding: 4px 0 2px;
+    align-self: start;
+}
+
+.domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-company-grid-row2 .dfm-row2-head--companies {
+    margin-top: 6px;
+    padding-top: 6px;
+}
+
+.domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-selected-companies-label {
+    font-family: var(--font-ui) !important;
+    font-size: var(--text-small) !important;
+    font-weight: 700 !important;
+    color: var(--color-text-label) !important;
+    line-height: 1.3 !important;
+}
+
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-company-grid-row2 .dfm-field--selected-groups,
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-company-grid-row2 .dfm-field--selected-companies {
     height: auto !important;
-    min-height: 0;
+    min-height: 0 !important;
+    flex: 0 0 auto !important;
+    align-self: stretch;
+}
+
+/* 覆盖桌面端 min-height:220px / height:100%，两列表等高 */
+.domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-selected-list {
+    min-height: 0 !important;
+    max-height: none !important;
+    flex: 0 0 auto !important;
 }
 
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-company-grid-row2 .dfm-field--selected-groups .dfm-selected-list,
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-company-grid-row2 .dfm-field--selected-companies .dfm-selected-list {
-    height: auto !important;
-    min-height: 88px;
-    max-height: min(180px, 22dvh);
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--dfm-compact-selected-list-height) !important;
+    min-height: var(--dfm-compact-selected-list-height) !important;
+    max-height: var(--dfm-compact-selected-list-height) !important;
+    padding: 8px 10px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border: 1px solid var(--color-border-strong) !important;
+    border-radius: 8px !important;
+    background-color: var(--color-surface-muted) !important;
+}
+
+.domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-company-grid-row2 .dfm-selected-list .dfm-empty-hint {
+    display: block;
+    font-size: var(--text-tiny) !important;
+    line-height: 1.35 !important;
 }
 
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-section-heading {
