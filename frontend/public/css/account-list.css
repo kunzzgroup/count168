@@ -60,6 +60,7 @@
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
+    padding-top: clamp(0.85rem, 1.2vw, 1.1rem);
     padding-left: clamp(1.2rem, 2vw, 1.65rem);
     padding-right: clamp(1.2rem, 2vw, 1.65rem);
     padding-bottom: 12px;
