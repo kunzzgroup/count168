@@ -83,7 +83,6 @@ export default function MemberPage() {
     dateTo,
     setDateTo,
     linkedAccounts,
-    viewGridAccounts,
     wlGridSelectedIds,
     linkedAccountCurrenciesMap,
     linkedCurrenciesLoaded,
@@ -611,10 +610,10 @@ export default function MemberPage() {
               {showMiniRail && (
                 <>
                   <div className="member-dash-col member-dash-col-matrix" ref={wlMatrixColRef} aria-hidden="false">
-                    {(viewGridAccounts.length > 0 || linkedAccounts.length > 0) && (
+                    {linkedAccounts.length > 0 && (
                       <div className="member-dash-rail-toolbar member-dash-matrix-toolbar">
                         <MemberGridAccountPills
-                          linkedAccounts={viewGridAccounts.length ? viewGridAccounts : linkedAccounts}
+                          linkedAccounts={linkedAccounts}
                           selectedIds={wlGridSelectedIds}
                           onApply={applyWlGridSelection}
                           onNotify={showNotification}
