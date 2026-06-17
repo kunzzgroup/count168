@@ -982,6 +982,13 @@ export function resolveGroupCategoryFlagsForSidebar(groupCode, options = {}) {
   return { hasGambling, hasBank: includeBank ? hasBank : false };
 }
 
+/** Group-only sidebar: aggregate gambling from group row / subsidiaries; bank stays off. */
+export function resolveGroupOnlySidebarGambling(groupCode) {
+  const flags = resolveGroupCategoryFlagsForSidebar(groupCode, { includeBank: false });
+  if (!flags) return null;
+  return Boolean(flags.hasGambling);
+}
+
 /**
  * Resolve expiration_date for sidebar optimistic patch from owner-companies cache.
  * @returns {string|null|undefined} undefined when cache cannot resolve (skip patch).
@@ -1036,7 +1043,8 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
   const groupAllMode =
     Boolean(persistedFilter.groupAllMode) && cid == null && !groupOnly;
   if (groupOnly && value) {
-    // Group-only: keep login-scope gambling flags on sidebar; only bank is cleared.
+    const groupGambling = resolveGroupOnlySidebarGambling(value);
+    if (groupGambling != null) hasGambling = groupGambling;
     hasBank = false;
   } else if (groupAllMode && value) {
     const groupFlags = resolveGroupCategoryFlagsForSidebar(value, { includeBank: true });
@@ -1112,8 +1120,12 @@ export function buildDashboardSidebarNotifyOptions(companyRow, selectedGroup, ex
   }
   const g = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
   if (g) {
-    const includeBank = Boolean(persisted.groupAllMode) && !persisted.groupOnly;
-    if (!persisted.groupOnly) {
+    if (persisted.groupOnly) {
+      const groupGambling = resolveGroupOnlySidebarGambling(g);
+      if (groupGambling != null) opts.hasGambling = groupGambling;
+      opts.hasBank = false;
+    } else {
+      const includeBank = Boolean(persisted.groupAllMode);
       const groupFlags = resolveGroupCategoryFlagsForSidebar(g, { includeBank });
       if (groupFlags) {
         opts.hasGambling = groupFlags.hasGambling;
@@ -1177,6 +1189,9 @@ export function buildDashboardFilterEventDetailFromPersisted() {
       if (hasGambling == null) hasGambling = groupFlags.hasGambling;
       if (hasBank == null) hasBank = groupFlags.hasBank;
     }
+  } else if (groupOnly && value) {
+    const groupGambling = resolveGroupOnlySidebarGambling(value);
+    if (groupGambling != null) hasGambling = groupGambling;
   }
   if (groupOnly) {
     hasBank = false;

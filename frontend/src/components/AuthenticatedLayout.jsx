@@ -46,6 +46,7 @@ import {
   findOwnerCompanyById,
   resolveSidebarExpirationForFilter,
   resolveGroupCategoryFlagsForSidebar,
+  resolveGroupOnlySidebarGambling,
   stashDashboardFilterForNewTab,
 } from "../utils/company/sharedCompanyFilter.js";
 import { rememberCompanySessionFlags } from "../utils/company/companySessionFlagsCache.js";
@@ -453,10 +454,16 @@ export default function AuthenticatedLayout() {
           if (shouldApplySessionToSidebar(json.data, filterNow)) {
             appliedSessionToSidebar = true;
             if (filterNow.groupOnly && filterNow.selectedGroup) {
-              return patchMeFromCompanyContext(json.data, {
+              const groupGambling = resolveGroupOnlySidebarGambling(filterNow.selectedGroup);
+              return patchMeFromCompanyContext(prev, {
                 companyId: null,
                 companyCode: filterNow.selectedGroup,
                 hasBank: false,
+                ...(groupGambling != null
+                  ? { hasGambling: groupGambling }
+                  : prev.company_has_gambling != null
+                    ? { hasGambling: Boolean(prev.company_has_gambling) }
+                    : {}),
                 expirationDate: resolveSidebarExpirationForFilter({
                   selectedGroup: filterNow.selectedGroup,
                   companyId: null,
@@ -539,6 +546,14 @@ export default function AuthenticatedLayout() {
           : null;
         if (resolved.groupOnly) {
           patch.hasBank = false;
+          if (resolved.hasGambling != null) {
+            patch.hasGambling = Boolean(resolved.hasGambling);
+          } else if (groupFlags) {
+            patch.hasGambling = groupFlags.hasGambling;
+          } else if (resolved.selectedGroup) {
+            const groupGambling = resolveGroupOnlySidebarGambling(resolved.selectedGroup);
+            if (groupGambling != null) patch.hasGambling = groupGambling;
+          }
         } else {
           if (resolved.hasGambling != null) patch.hasGambling = Boolean(resolved.hasGambling);
           else if (groupFlags) patch.hasGambling = groupFlags.hasGambling;
@@ -618,10 +633,12 @@ export default function AuthenticatedLayout() {
             selectedGroup: filter.selectedGroup,
             companyId: null,
           });
+          const groupGambling = resolveGroupOnlySidebarGambling(filter.selectedGroup);
           applySidebarPatch({
             companyId: null,
             companyCode: filter.selectedGroup,
             hasBank: false,
+            ...(groupGambling != null ? { hasGambling: groupGambling } : {}),
             ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
           });
         }
