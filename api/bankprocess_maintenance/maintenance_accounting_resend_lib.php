@@ -257,6 +257,176 @@ if (!function_exists('bmp_maybeClearResendRelaxAfterAnchorHandled')) {
     }
 }
 
+if (!function_exists('bmp_ensureAccountingDueDismissedTable')) {
+    /** Accounting Due Delete 软移除：正常流程可 Refresh 恢复；Resend 行永久标记。 */
+    function bmp_ensureAccountingDueDismissedTable(PDO $pdo): void
+    {
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS process_accounting_due_dismissed (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                company_id INT NOT NULL,
+                process_id INT NOT NULL,
+                period_type VARCHAR(64) NOT NULL,
+                anchor_date DATE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_pad_dismissed (company_id, process_id, period_type, anchor_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+    }
+}
+
+if (!function_exists('bmp_upsertAccountingDueDismissed')) {
+    function bmp_upsertAccountingDueDismissed(PDO $pdo, int $companyId, int $processId, string $periodType, string $anchorDate): void
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorDate)) {
+            return;
+        }
+        bmp_ensureAccountingDueDismissedTable($pdo);
+        $stmt = $pdo->prepare(
+            "INSERT INTO process_accounting_due_dismissed
+             (company_id, process_id, period_type, anchor_date)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE created_at = CURRENT_TIMESTAMP"
+        );
+        $stmt->execute([$companyId, $processId, $periodType, $anchorDate]);
+    }
+}
+
+if (!function_exists('bmp_isAccountingDueSoftDismissed')) {
+    function bmp_isAccountingDueSoftDismissed(
+        PDO $pdo,
+        int $companyId,
+        int $processId,
+        string $periodType,
+        string $anchorYmd
+    ): bool {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+            return false;
+        }
+        bmp_ensureAccountingDueDismissedTable($pdo);
+        $stmt = $pdo->prepare(
+            "SELECT 1 FROM process_accounting_due_dismissed
+             WHERE company_id = ? AND process_id = ? AND period_type = ? AND anchor_date = ?
+             LIMIT 1"
+        );
+        $stmt->execute([$companyId, $processId, $periodType, $anchorYmd]);
+        return (bool) $stmt->fetch();
+    }
+}
+
+if (!function_exists('bmp_restoreNormalAccountingDueDismissals')) {
+    /**
+     * Refresh 时恢复被 Delete 的正常流程账单；Resend 账单（永久 dismiss）不恢复。
+     */
+    function bmp_restoreNormalAccountingDueDismissals(PDO $pdo, int $companyId): void
+    {
+        bmp_ensureAccountingDueDismissedTable($pdo);
+        $delSoft = $pdo->prepare(
+            "DELETE FROM process_accounting_due_dismissed
+             WHERE company_id = ?
+               AND period_type NOT IN ('resend_monthly_reopen', 'resend_consolidated_range')"
+        );
+        $delSoft->execute([$companyId]);
+        try {
+            $delLegacy = $pdo->prepare(
+                "DELETE pap FROM process_accounting_posted pap
+                 WHERE pap.company_id = ?
+                   AND pap.period_type = 'monthly_skipped'
+                   AND NOT EXISTS (
+                     SELECT 1 FROM process_accounting_due_dismissed d
+                     WHERE d.company_id = pap.company_id
+                       AND d.process_id = pap.process_id
+                       AND d.period_type IN ('resend_monthly_reopen', 'resend_consolidated_range')
+                       AND DATE(d.anchor_date) = DATE(pap.posted_date)
+                   )"
+            );
+            $delLegacy->execute([$companyId]);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+}
+
+if (!function_exists('bmp_skippedPeriodTypeForAccountingDue')) {
+    function bmp_skippedPeriodTypeForAccountingDue(string $periodType): string
+    {
+        $t = trim($periodType);
+        if ($t === 'manual_inactive') {
+            return 'manual_inactive_skipped';
+        }
+        if ($t === 'partial_first_month') {
+            return 'partial_first_month_skipped';
+        }
+        if ($t === 'day_end_tail') {
+            return 'day_end_tail_skipped';
+        }
+        if ($t === 'once_one_off') {
+            return 'once_one_off_skipped';
+        }
+        if ($t === 'weekly') {
+            return 'weekly_skipped';
+        }
+        if ($t === 'daily' || $t === 'daily_consolidated') {
+            return 'daily_skipped';
+        }
+        return 'monthly_skipped';
+    }
+}
+
+if (!function_exists('bmp_accountingDueAnchorCalendarMonthPassed')) {
+    /** 当前日期是否已越过 anchor 所在自然月（用于软删除过期转永久跳过）。 */
+    function bmp_accountingDueAnchorCalendarMonthPassed(string $anchorYmd, string $todayYmd): bool
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $todayYmd)) {
+            return false;
+        }
+        $anchorYm = (int) str_replace('-', '', substr($anchorYmd, 0, 7));
+        $todayYm = (int) str_replace('-', '', substr($todayYmd, 0, 7));
+
+        return $todayYm > $anchorYm;
+    }
+}
+
+if (!function_exists('bmp_promoteExpiredNaturalMonthlySoftDismissals')) {
+    /**
+     * 自然月账单软删除后，若整个账单月内未 Refresh，进入次月后升级为 monthly_skipped。
+     */
+    function bmp_promoteExpiredNaturalMonthlySoftDismissals(PDO $pdo, int $companyId, string $todayYmd): void
+    {
+        bmp_ensureAccountingDueDismissedTable($pdo);
+        $stmt = $pdo->prepare(
+            "SELECT id, process_id, period_type, anchor_date
+             FROM process_accounting_due_dismissed
+             WHERE company_id = ?
+               AND period_type IN ('monthly', 'day_end_tail')"
+        );
+        $stmt->execute([$companyId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (!$rows) {
+            return;
+        }
+        $insPap = $pdo->prepare(
+            "INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date, period_type)
+             VALUES (?, ?, ?, ?)"
+        );
+        $delDismiss = $pdo->prepare('DELETE FROM process_accounting_due_dismissed WHERE id = ?');
+        foreach ($rows as $row) {
+            $anchorYmd = bmp_normalizeSqlDateYmd($row['anchor_date'] ?? null);
+            if ($anchorYmd === null || !bmp_accountingDueAnchorCalendarMonthPassed($anchorYmd, $todayYmd)) {
+                continue;
+            }
+            $processId = (int) ($row['process_id'] ?? 0);
+            if ($processId <= 0) {
+                continue;
+            }
+            $periodType = trim((string) ($row['period_type'] ?? 'monthly'));
+            $skippedType = bmp_skippedPeriodTypeForAccountingDue($periodType);
+            $insPap->execute([$companyId, $processId, $anchorYmd, $skippedType]);
+            $delDismiss->execute([(int) ($row['id'] ?? 0)]);
+        }
+    }
+}
+
 /**
  * Resend 成功后 relax=1 时，用暂存列覆盖 day_start / day_end / day_start_frequency 供 Inbox 与入账推断（不改编辑表单里的持久字段）。
  *
