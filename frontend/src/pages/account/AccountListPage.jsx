@@ -3,6 +3,7 @@ import { createPortal, flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
+import { pathnameIs, spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   applyTenantLedgerToParams,
   resolveModalLedgerScope,
@@ -903,7 +904,7 @@ export default function AccountListPage() {
           window.history.replaceState({}, document.title, urlNow.toString());
         }
       } catch {
-        if (!cancelled) navigate("/login");
+        if (!cancelled) navigate(spaPath("login"));
       } finally {
         if (!cancelled) setBootLoading(false);
       }
@@ -1597,7 +1598,7 @@ export default function AccountListPage() {
 
   useEffect(() => {
     if (bootLoading) return;
-    if (location.pathname !== "/account-list" && location.pathname !== "/add-account") return;
+    if (!pathnameIs("account-list", location.pathname) && !pathnameIs("add-account", location.pathname)) return;
     if (skipInitialGcSyncRef.current) {
       skipInitialGcSyncRef.current = false;
       return;

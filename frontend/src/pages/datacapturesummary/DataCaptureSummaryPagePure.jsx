@@ -50,6 +50,7 @@ import { saveSummaryTemplatePure } from "./formula/summarySaveTemplatePure.js";
 import { recalculateRowAmounts } from "./table/summaryRowAmount.js";
 import { pushSummaryNotification } from "./lib/summaryNotify.js";
 
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 import {
 
   getDataCaptureSummaryText,
@@ -395,7 +396,7 @@ function DataCaptureSummaryPureInner() {
 
       clearSummaryCaptureRoundStorage();
 
-      navigate("/datacapture", { replace: true });
+      navigate(spaPath("datacapture"), { replace: true });
 
     }
 

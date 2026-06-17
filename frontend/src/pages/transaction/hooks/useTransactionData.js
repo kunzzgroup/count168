@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { isCancelledError, useQueryClient } from "@tanstack/react-query";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   filterCompaniesWithDisplayId,
   fetchOwnerCompaniesAll,
@@ -197,7 +198,7 @@ export function useTransactionData({
       bootOnceRef.current = false;
       bootUrlSessionSyncedRef.current = false;
       bootAsyncDoneForUserRef.current = null;
-      navigate("/login", { replace: true });
+      navigate(spaPath("login"), { replace: true });
       return;
     }
 
@@ -208,7 +209,7 @@ export function useTransactionData({
     (async () => {
       try {
         if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
+          window.location.assign(new URL(spaPath("member"), window.location.origin).href);
           return;
         }
         const perms = Array.isArray(u.permissions) ? u.permissions : [];
@@ -282,7 +283,7 @@ export function useTransactionData({
           bootAsyncDoneForUserRef.current = userId;
         }
       } catch {
-        if (!cancelled && !filterSnapshotRef.current) navigate("/login", { replace: true });
+        if (!cancelled && !filterSnapshotRef.current) navigate(spaPath("login"), { replace: true });
       } finally {
         if (!cancelled) setLoading(false);
       }

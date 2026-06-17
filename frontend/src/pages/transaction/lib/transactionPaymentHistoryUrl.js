@@ -1,3 +1,4 @@
+import { pathnameIs, spaPath } from "../../../utils/routing/pageRoutes.js";
 import { readPersistedDashboardGcFilter } from "../../../utils/company/sharedCompanyFilter.js";
 
 export function resolveHistoryAccountName({ accountName, accountMeta, accountCode }) {
@@ -102,7 +103,7 @@ export function buildPaymentHistoryUrl({ row, dateFrom, dateTo, scopeApi, opts =
   params.set("ph", "1");
 
   const qs = params.toString();
-  return `/transaction?${qs}`;
+  return `${spaPath("transaction")}?${qs}`;
 }
 
 export function isPaymentHistoryView(searchParams) {
@@ -110,8 +111,8 @@ export function isPaymentHistoryView(searchParams) {
 }
 
 export function isPaymentHistoryChromelessPath(pathname, searchParams) {
-  if (pathname === "/transaction/payment-history") return true;
-  if (pathname === "/transaction") return isPaymentHistoryView(searchParams);
+  if (pathnameIs("transaction-payment-history", pathname)) return true;
+  if (pathnameIs("transaction", pathname)) return isPaymentHistoryView(searchParams);
   return false;
 }
 

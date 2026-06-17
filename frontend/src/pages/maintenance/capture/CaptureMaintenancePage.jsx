@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 /* 与 DataCapture 相同：打进 Vite 产物，避免 dynamic import 在生产包中被拆成空 chunk、样式从未加载 */
 import "../../../../public/css/accountCSS.css";
 import "../../../../public/css/userlist.css";
@@ -245,7 +246,7 @@ export default function CaptureMaintenancePage() {
 
         // Sidebar visibility check
         if (!canMaintenance) {
-          navigate("/dashboard", { replace: true });
+          navigate(spaPath("dashboard"), { replace: true });
           return;
         }
 
@@ -353,11 +354,11 @@ export default function CaptureMaintenancePage() {
             const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
             const bankOnly = companyPerms.includes("Bank") && !hasGames;
             if (bankOnly) {
-              navigate("/dashboard", { replace: true });
+              navigate(spaPath("dashboard"), { replace: true });
               return;
             }
             if (!hasGames) {
-              navigate("/dashboard", { replace: true });
+              navigate(spaPath("dashboard"), { replace: true });
               return;
             }
           }
@@ -583,7 +584,7 @@ export default function CaptureMaintenancePage() {
     } catch (err) {
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
-        navigate("/dashboard", { replace: true });
+        navigate(spaPath("dashboard"), { replace: true });
         return;
       }
       notify(err.message || t("switchFailed"), "error");

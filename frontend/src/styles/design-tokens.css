@@ -85,7 +85,7 @@
   --user-gc-segment-padding: 4px clamp(10px, 1.2vw, 18px);
   /* Group / Company / Currency 展示间距：标签列↔胶囊、行间距、胶囊组间距（全站 4px） */
   --user-gc-inline-column-gap: 4px;
-  --user-gc-inline-row-gap: 4px;
+  --user-gc-inline-row-gap: 8px;
   --user-gc-inline-pills-gap: 4px;
 
   /* --- 语义色 --- */

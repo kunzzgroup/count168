@@ -35,6 +35,7 @@ import {
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
+import { pathnameIs, spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   canClearCompanySelection,
   canUseGroupOnlyMode,
@@ -401,7 +402,7 @@ export default function UserListPage() {
       try {
         const perms = Array.isArray(me.permissions) ? me.permissions : [];
         if (perms.length > 0 && !perms.includes("admin")) {
-          navigate("/dashboard", { replace: true });
+          navigate(spaPath("dashboard"), { replace: true });
           return;
         }
         const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);
@@ -643,7 +644,7 @@ export default function UserListPage() {
           })();
         }
       } catch {
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled) navigate(spaPath("login"), { replace: true });
       } finally {
         if (!cancelled) setBootLoading(false);
       }
@@ -1539,7 +1540,7 @@ export default function UserListPage() {
 
   useEffect(() => {
     if (bootLoading) return;
-    if (location.pathname !== "/userlist") return;
+    if (!pathnameIs("userlist", location.pathname)) return;
     syncGcFilterFromSession();
   }, [bootLoading, location.pathname, syncGcFilterFromSession]);
 

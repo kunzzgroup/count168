@@ -23,6 +23,7 @@ import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { getTransactionText, TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
 import { transactionScopeApiParams, transactionScopeCacheKey } from "./lib/transactionScope.js";
 import { clearInlineScrollLock } from "../../utils/layout/clearInlineScrollLock.js";
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 
 /** Cleared on mount so SPA navigation cannot leave stale route classes on `body` before paint (e.g. Process uses `useEffect`; this page uses `useLayoutEffect`, which runs first). */
 const ROUTE_BODY_CLASSES_TO_CLEAR = [
@@ -237,7 +238,7 @@ function TransactionPaymentPageMain() {
   );
 
   if (forbidden) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={spaPath("dashboard")} replace />;
   }
 
   const booting = loading || !filterSnapshot;

@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { injectStylesheet } from "../../utils/core/injectStylesheet.js";
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   companiesInGroupList,
   companyBelongsToGroup,
@@ -502,7 +503,7 @@ function DataCapturePageContent() {
         }
 
         if (!sessionUserHasCompanyCategoryAccess(u)) {
-          navigate("/process-list?error=no_permission", { replace: true });
+          navigate(spaPath("process-list", { search: "?error=no_permission" }), { replace: true });
           return;
         }
 
@@ -548,7 +549,7 @@ function DataCapturePageContent() {
         setCompanyId(effectiveCompany);
         setSelectedGroup(initialGroup);
       } catch {
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled) navigate(spaPath("login"), { replace: true });
       } finally {
         if (!cancelled) {
           setBootLoading(false);
@@ -586,7 +587,7 @@ function DataCapturePageContent() {
     const row = companiesNormalized.find((c) => Number(c.id) === id) || null;
     if (!row) return;
     if (selectedGroup && !companyBelongsToGroup(row, selectedGroup)) {
-      navigate("/datacapture", { replace: true });
+      navigate(spaPath("datacapture"), { replace: true });
       return;
     }
     if (
@@ -626,7 +627,7 @@ function DataCapturePageContent() {
     if (!currentCompanyRow) return;
     if (companyBelongsToGroup(currentCompanyRow, selectedGroup)) return;
     setCompanyId(null);
-    navigate("/datacapture", { replace: true });
+    navigate(spaPath("datacapture"), { replace: true });
     form.clearCompanyOnlyFields?.();
     form.clearProcessSelection?.();
   }, [companyId, selectedGroup, currentCompanyRow, navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);
@@ -739,7 +740,7 @@ function DataCapturePageContent() {
   const handleClearCompany = useCallback(() => {
     setCompanyId(null);
     groupAnchorSessionRef.current = { group: null, companyId: null };
-    navigate("/datacapture", { replace: true });
+    navigate(spaPath("datacapture"), { replace: true });
     form.clearCompanyOnlyFields?.();
     form.clearProcessSelection?.();
   }, [navigate, form.clearCompanyOnlyFields, form.clearProcessSelection]);

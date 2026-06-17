@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import TransactionHistoryTable from "./components/TransactionHistoryTable.jsx";
 import { formatHistoryMoney, formatHistoryBalanceMoney } from "./lib/transactionFormat.js";
 import { getHistory, transactionQueryKeys } from "./lib/transactionApi.js";
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   paymentHistoryParamsReady,
   paymentHistoryTitle,
@@ -39,7 +40,7 @@ export default function TransactionPaymentHistoryPage() {
     // Browsers block close() on user-opened tabs — fall back to in-app navigation.
     window.setTimeout(() => {
       if (!window.closed) {
-        navigate("/transaction", { replace: true });
+        navigate(spaPath("transaction"), { replace: true });
       }
     }, 150);
   }, [navigate]);
@@ -131,7 +132,7 @@ export default function TransactionPaymentHistoryPage() {
   }, [title]);
 
   if (!paramsReady) {
-    return <Navigate to="/transaction" replace />;
+    return <Navigate to={spaPath("transaction")} replace />;
   }
 
   return (

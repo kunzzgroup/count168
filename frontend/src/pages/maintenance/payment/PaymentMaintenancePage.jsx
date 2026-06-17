@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { removeOtherMaintenanceStylesheets, waitForStylesheet } from "../../../utils/maintenance/maintenanceStylesheets.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   runMaintenanceCompanySwitch,
   syncMaintenanceBootSidebar,
@@ -250,7 +251,7 @@ export default function PaymentMaintenancePage() {
 
         // Member check
         if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
+          window.location.assign(new URL(spaPath("member"), window.location.origin).href);
           return;
         }
 
@@ -334,7 +335,7 @@ export default function PaymentMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled) navigate(spaPath("login"), { replace: true });
       } finally {
         if (!cancelled) setBootLoading(false);
       }
@@ -662,7 +663,7 @@ export default function PaymentMaintenancePage() {
       if (redirected) return;
     } catch (err) {
       notify(err.message || t("switchFailed"), "error");
-      navigate("/dashboard", { replace: true });
+      navigate(spaPath("dashboard"), { replace: true });
     }
   };
 

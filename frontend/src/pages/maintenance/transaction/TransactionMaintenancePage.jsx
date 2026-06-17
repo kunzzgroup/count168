@@ -8,6 +8,7 @@ import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangeP
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
 import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   companiesInGroupList,
   getCachedOwnerCompanies,
@@ -607,13 +608,13 @@ export default function TransactionMaintenancePage() {
 
         // Member check
         if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
+          window.location.assign(new URL(spaPath("member"), window.location.origin).href);
           return;
         }
 
         // Permissions check
         if (!canAccessTransactionFormulaMaintenance(u)) {
-          navigate("/dashboard", { replace: true });
+          navigate(spaPath("dashboard"), { replace: true });
           return;
         }
 
@@ -728,11 +729,11 @@ export default function TransactionMaintenancePage() {
           const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
           const bankOnly = companyPerms.includes("Bank") && !hasGames;
           if (bankOnly) {
-            navigate("/dashboard", { replace: true });
+            navigate(spaPath("dashboard"), { replace: true });
             return;
           }
           if (!hasGames) {
-            navigate("/dashboard", { replace: true });
+            navigate(spaPath("dashboard"), { replace: true });
             return;
           }
 
@@ -789,7 +790,7 @@ export default function TransactionMaintenancePage() {
 
       } catch (err) {
         console.error("Boot error:", err);
-        if (!cancelled && runId === bootRunIdRef.current) navigate("/login", { replace: true });
+        if (!cancelled && runId === bootRunIdRef.current) navigate(spaPath("login"), { replace: true });
       } finally {
         if (!cancelled && runId === bootRunIdRef.current) {
           const pending = pendingBootSearchRef.current;
@@ -1057,7 +1058,7 @@ export default function TransactionMaintenancePage() {
       setListSyncing(false);
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
-        navigate("/dashboard", { replace: true });
+        navigate(spaPath("dashboard"), { replace: true });
         return;
       }
       notify(err.message || t("switchFailed"), "error");

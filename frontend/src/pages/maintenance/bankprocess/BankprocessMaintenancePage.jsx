@@ -7,6 +7,7 @@ import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangeP
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import { runMaintenanceCompanySwitch, syncMaintenanceBootSidebar } from "../shared/maintenanceCompanySwitch.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   isDashboardGroupOnlyMode,
   persistDashboardFilterState,
@@ -150,14 +151,14 @@ export default function BankprocessMaintenancePage() {
 
         const user = me;
         if (String(user.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
+          window.location.assign(new URL(spaPath("member"), window.location.origin).href);
           return;
         }
         const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
         const hasFull = userPerms.length === 0;
         const canMaintenance = hasFull || userPerms.includes("maintenance");
         if (!canMaintenance || !user.company_has_bank) {
-          navigate("/dashboard", { replace: true });
+          navigate(spaPath("dashboard"), { replace: true });
           return;
         }
 
@@ -220,7 +221,7 @@ export default function BankprocessMaintenancePage() {
           sessionStorage.removeItem("dashboard_group_filter");
         }
       } catch {
-        if (!cancelled) navigate("/login", { replace: true });
+        if (!cancelled) navigate(spaPath("login"), { replace: true });
       } finally {
         if (!cancelled) setBootLoading(false);
       }

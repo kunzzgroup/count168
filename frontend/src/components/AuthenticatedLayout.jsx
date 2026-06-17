@@ -382,20 +382,20 @@ export default function AuthenticatedLayout() {
         const json = await res.json();
         if (cancelled) return;
         if (!res.ok || !json.success || !json.data) {
-          navigate("/login", { replace: true });
+          navigate(spaPath("login"), { replace: true });
           return;
         }
         const u = json.data;
         if (u.user_type === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
+          window.location.assign(new URL(spaPath("member"), window.location.origin).href);
           return;
         }
         if (u.needs_owner_secondary) {
-          navigate("/owner-secondary-password", { replace: true });
+          navigate(spaPath("owner-secondary-password"), { replace: true });
           return;
         }
         if (u.needs_user_secondary) {
-          navigate("/user-secondary-password", { replace: true });
+          navigate(spaPath("user-secondary-password"), { replace: true });
           return;
         }
         applyLoginScopeToSessionStorageIfNeeded(u);
@@ -409,7 +409,7 @@ export default function AuthenticatedLayout() {
         clearChunkReloadFlag();
       } catch (err) {
         if (cancelled || err?.name === "AbortError") return;
-        navigate("/login", { replace: true });
+        navigate(spaPath("login"), { replace: true });
       } finally {
         if (!cancelled) {
           window.clearTimeout(timeoutId);
@@ -719,7 +719,7 @@ export default function AuthenticatedLayout() {
 
   /** Re-sync sidebar when entering dashboard so group-only bankprocess rules apply immediately. */
   useLayoutEffect(() => {
-    if (path !== "/dashboard") {
+    if (pageKey !== "dashboard") {
       dashboardSidebarSyncRef.current = { path: "", sig: "" };
       return;
     }
@@ -784,8 +784,8 @@ export default function AuthenticatedLayout() {
     }
 
     prefetchRouteModule(path);
-    if (path !== "/dashboard" && canAccessPermission(me, "home")) {
-      prefetchRouteModule("/dashboard");
+    if (pageKey !== "dashboard" && canAccessPermission(me, "home")) {
+      prefetchRouteModule(spaPath("dashboard"));
       void import("../pages/dashboard/dashboardRoutePrefetch.js").then(({ warmDashboardRouteCache }) => {
         warmDashboardRouteCache({ me });
       });
@@ -849,24 +849,25 @@ export default function AuthenticatedLayout() {
     const warmRoute = (event) => {
       const target = event.target.closest("[data-prefetch-path]");
       const routePath = target?.dataset?.prefetchPath;
+      const routePageKey = routePath ? pathnameToPageKey(routePath) : null;
       if (routePath) {
         prefetchRouteModule(routePath);
-        if (routePath === "/auto-renew") prefetchAutoRenewList();
-        if (routePath === "/ownership") prefetchOwnershipCompanies();
+        if (routePageKey === "auto-renew") prefetchAutoRenewList();
+        if (routePageKey === "ownership") prefetchOwnershipCompanies();
         if (
-          (routePath === "/process-list" || routePath === "/games-process-list") &&
+          (routePageKey === "process-list" || routePageKey === "games-process-list") &&
           me?.company_id
         ) {
           void import("../pages/processlist/processRoutePrefetch.js").then(({ warmProcessListRouteCache }) => {
             warmProcessListRouteCache(me.company_id);
           });
         }
-        if (routePath === "/bank-process-list" && me?.company_id) {
+        if (routePageKey === "bank-process-list" && me?.company_id) {
           void import("../pages/processlist/processRoutePrefetch.js").then(({ warmBankProcessListRouteCache }) => {
             warmBankProcessListRouteCache(me.company_id);
           });
         }
-        if (routePath === "/account-list") {
+        if (routePageKey === "account-list") {
           const { selectedGroup, companyId } = readPersistedDashboardGcFilter();
           const groupOnly = isDashboardGroupOnlyMode();
           void import("../pages/account/accountRoutePrefetch.js").then(({ warmAccountListRouteCache }) => {
@@ -876,7 +877,7 @@ export default function AuthenticatedLayout() {
             });
           });
         }
-        if (routePath === "/transaction" && me) {
+        if (routePageKey === "transaction" && me) {
           void import("../pages/transaction/transactionRoutePrefetch.js").then(({ warmTransactionRouteCache }) => {
             warmTransactionRouteCache({ me });
           });

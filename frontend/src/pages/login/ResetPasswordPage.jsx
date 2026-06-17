@@ -5,6 +5,7 @@ import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { useAuthBackground } from "./useAuthBackground.js";
 import { sendResetTac, submitResetPassword } from "./resetPassword.js";
 import { sanitizeEmailInput, validateEmail } from "../../utils/input/emailValidation.js";
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 
 function AlertModal({ open, title, message, confirmText, onClose }) {
   useEffect(() => {
@@ -196,7 +197,7 @@ export default function ResetPasswordPage() {
         }
         showModal(i18n.success, i18n.resetSuccess);
         setTimeout(() => {
-          navigate("/login", { replace: true });
+          navigate(spaPath("login"), { replace: true });
         }, 1500);
         return;
       }
@@ -309,7 +310,7 @@ export default function ResetPasswordPage() {
               </div>
 
               <div className="back-to-login">
-                <a href="/login" className="back-link">
+                <a href={spaPath("login")} className="back-link">
                   <i className="fas fa-arrow-left" />
                   {i18n.backToLogin}
                 </a>

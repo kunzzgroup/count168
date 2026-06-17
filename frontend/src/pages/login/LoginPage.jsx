@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LOGIN_I18N } from "../../translateFile/auth/authTranslate.js";
+import { buildSpaPath } from "../../utils/core/apiUrl.js";
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   clearDashboardFilterSession,
   seedDashboardFilterFromLogin,
@@ -87,7 +89,7 @@ export default function LoginPage() {
         next.delete("role");
       }
       const qs = next.toString();
-      navigate(qs ? `/login?${qs}` : "/login", { replace: true });
+      navigate(qs ? spaPath("login", { search: `?${qs}` }) : spaPath("login"), { replace: true });
     },
     [navigate, searchParams],
   );
@@ -174,18 +176,18 @@ export default function LoginPage() {
         const user = json.data;
         const userType = String(user.user_type || "").toLowerCase();
         if (userType === "member") {
-          navigate("/member", { replace: true });
+          navigate(spaPath("member"), { replace: true });
           return;
         }
         if (user.needs_owner_secondary) {
-          navigate("/owner-secondary-password", { replace: true });
+          navigate(spaPath("owner-secondary-password"), { replace: true });
           return;
         }
         if (user.needs_user_secondary) {
-          navigate("/user-secondary-password", { replace: true });
+          navigate(spaPath("user-secondary-password"), { replace: true });
           return;
         }
-        navigate("/dashboard", { replace: true });
+        navigate(spaPath("dashboard"), { replace: true });
       } catch (err) {
         if (err?.name === "AbortError") return;
         // stay on login page when not authenticated
@@ -326,7 +328,7 @@ export default function LoginPage() {
 
         // Smooth routing: do not follow legacy "dashboard.php -> member" chain.
         if (loginRole === "member" || userType === "member") {
-          navigate("/member", { replace: true });
+          navigate(spaPath("member"), { replace: true });
           return;
         }
 
@@ -344,7 +346,7 @@ export default function LoginPage() {
         })();
 
         if (internalPath) {
-          navigate(internalPath, { replace: true });
+          navigate(buildSpaPath(internalPath), { replace: true });
           return;
         }
 

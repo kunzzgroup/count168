@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { canAccessC168AutoRenew } from "../../utils/company/loginScope.js";
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   AUTO_RENEW_PENDING_CHANGED_EVENT,
   syncAutoRenewPendingCount,
@@ -342,7 +343,7 @@ export default function AutoRenewPage() {
 
     (async () => {
       if (!canAccessC168AutoRenew(me)) {
-        navigate("/dashboard", { replace: true });
+        navigate(spaPath("dashboard"), { replace: true });
         return;
       }
 

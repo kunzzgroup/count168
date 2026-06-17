@@ -1493,7 +1493,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   ]);
 
   useEffect(() => {
-    if (location.pathname !== "/dashboard") return;
+    if (!pathnameIs("dashboard", location.pathname)) return;
     syncGcFilterFromPersisted();
   }, [location.pathname, syncGcFilterFromPersisted]);
 

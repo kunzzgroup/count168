@@ -1,10 +1,11 @@
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { fetchCompanyPermissionsForDataCapture } from "./dataCaptureApi.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import { isGroupLedgerCapture } from "../../../utils/company/c168CaptureChannel.js";
 
 /** Home route when the active company has no Games / Gambling category. */
-export const DATA_CAPTURE_HOME_PATH = "/dashboard";
+export const DATA_CAPTURE_HOME_PATH = spaPath("dashboard");
 
 export function permissionsIncludeGames(permissions) {
   return (

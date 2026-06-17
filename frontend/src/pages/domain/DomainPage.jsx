@@ -5,6 +5,7 @@ import "../../../public/css/domain.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   ROWS_PER_PAGE,
   MAX_VISIBLE_CHIPS,
@@ -105,7 +106,7 @@ export default function DomainPage() {
           }
         }
         if (!allowed) {
-          navigate("/dashboard", { replace: true });
+          navigate(spaPath("dashboard"), { replace: true });
           return;
         }
 

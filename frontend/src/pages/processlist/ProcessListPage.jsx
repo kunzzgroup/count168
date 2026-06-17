@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { ensureCrossPageCompanySelection, syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
+import { spaPath } from "../../utils/routing/pageRoutes.js";
 import {
   clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
@@ -454,7 +455,7 @@ export default function ProcessListPage() {
 
         processListInitDoneRef.current = true;
       } catch {
-        window.location.assign(new URL("/login", window.location.origin).toString());
+        window.location.assign(new URL(spaPath("login"), window.location.origin).toString());
       } finally {
         if (!skipLoadingDone) setLoading(false);
       }

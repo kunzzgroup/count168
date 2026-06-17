@@ -10,6 +10,7 @@ import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupC
 import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
 import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
 import { useMaintenancePageScrollLock } from "../shared/useMaintenancePageScrollLock.js";
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   isMaintenanceGroupOnlyBoot,
   isMaintenanceSessionGroupEntityBoot,
@@ -337,12 +338,12 @@ export default function FormulaMaintenancePage() {
         const u = me;
 
         if (String(u.user_type || "").toLowerCase() === "member") {
-          window.location.assign(new URL("/member", window.location.origin).href);
+          window.location.assign(new URL(spaPath("member"), window.location.origin).href);
           return;
         }
 
         if (!canAccessTransactionFormulaMaintenance(u)) {
-          navigate("/dashboard", { replace: true });
+          navigate(spaPath("dashboard"), { replace: true });
           return;
         }
 
@@ -474,11 +475,11 @@ export default function FormulaMaintenancePage() {
             const hasGames = rawPerms.includes("Games") || rawPerms.includes("Gambling");
             const bankOnly = rawPerms.includes("Bank") && !hasGames;
             if (bankOnly) {
-              navigate("/dashboard", { replace: true });
+              navigate(spaPath("dashboard"), { replace: true });
               return;
             }
             if (!hasGames) {
-              navigate("/dashboard", { replace: true });
+              navigate(spaPath("dashboard"), { replace: true });
               return;
             }
           }

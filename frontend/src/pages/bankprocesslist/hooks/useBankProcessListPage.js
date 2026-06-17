@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../../utils/company/companySessionEvents.js";
 import { ensureCrossPageCompanySelection } from "../../../utils/company/companySessionSync.js";
 import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
@@ -797,7 +798,7 @@ export function useBankProcessListPage() {
         setCompanies(cs);
         const sessionUser = authMe;
         if (!sessionUser) {
-          window.location.assign(new URL("/login", window.location.origin).toString());
+          window.location.assign(new URL(spaPath("login"), window.location.origin).toString());
           return;
         }
         const url = new URL(window.location.href);

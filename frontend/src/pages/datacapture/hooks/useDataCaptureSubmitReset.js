@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   applyGroupOnlyCaptureRestoreFilter,
   captureSessionMatchesScope,
@@ -248,7 +249,7 @@ export function useDataCaptureSubmitReset({
 
       markSummaryFreshNavigation();
       if (typeof navigate === "function") {
-        navigate("/datacapturesummary?success=1");
+        navigate(spaPath("datacapturesummary", { search: "?success=1" }));
         return;
       }
       window.location.assign(buildSpaPath("datacapturesummary?success=1"));
