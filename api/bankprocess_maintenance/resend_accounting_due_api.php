@@ -179,8 +179,24 @@ try {
     $newDayEnd = null;
     $newFrequency = '1st_of_every_month';
     if ($scheduleFromClient) {
-        $newDayStart = bank_resend_normalizeOptionalYmd($payload['day_start'] ?? null);
-        $newDayEnd = bank_resend_normalizeOptionalYmd($payload['day_end'] ?? null);
+        $rawDayStart = $payload['day_start'] ?? null;
+        if ($rawDayStart === null || trim((string) $rawDayStart) === '') {
+            $newDayStart = null;
+        } else {
+            $newDayStart = bank_resend_parse_ymd_from_any_raw_or_dmy($rawDayStart);
+            if ($newDayStart === null) {
+                throw new Exception('日期格式无效（需 YYYY-MM-DD 或 DD/MM/YYYY）');
+            }
+        }
+        $rawDayEnd = $payload['day_end'] ?? null;
+        if ($rawDayEnd === null || trim((string) $rawDayEnd) === '') {
+            $newDayEnd = null;
+        } else {
+            $newDayEnd = bank_resend_parse_ymd_from_any_raw_or_dmy($rawDayEnd);
+            if ($newDayEnd === null) {
+                throw new Exception('日期格式无效（需 YYYY-MM-DD 或 DD/MM/YYYY）');
+            }
+        }
         $newFrequency = trim((string) ($payload['day_start_frequency'] ?? '1st_of_every_month'));
         if (!in_array($newFrequency, ['1st_of_every_month', 'monthly', 'week', 'day', 'once'], true)) {
             $newFrequency = '1st_of_every_month';
