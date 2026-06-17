@@ -319,7 +319,6 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-pills--segment
     gap: var(--user-gc-inline-pills-gap, 4px);
     padding-top: 2px;
     padding-bottom: 2px;
-    scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -960,7 +959,6 @@ body.transaction-page .transaction-search-section .transaction-checkboxes.userli
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
     min-width: 0;
     width: 100%;
