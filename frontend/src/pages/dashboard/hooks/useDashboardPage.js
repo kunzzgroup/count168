@@ -273,36 +273,6 @@ function mayWarmGroupLedgerCurrencies(me, groupCode, companies) {
   return canAccessGroupLedgerForGroup(me, groupCode, companies);
 }
 
-/** Union account currencies from every native subsidiary under a group tab (IG+95 style filter pills). */
-function mergeNativeGroupSubsidiaryCurrencyCodes(companies, groupKey, currenciesByCompany) {
-  const merged = new Set();
-  for (const row of companiesNativeInGroupList(companies, groupKey)) {
-    const rowCid = parseInt(row.id, 10);
-    if (!Number.isFinite(rowCid) || rowCid <= 0) continue;
-    const rowCodes = currenciesByCompany.get(rowCid);
-    if (rowCodes?.length) rowCodes.forEach((code) => merged.add(code));
-  }
-  return [...merged];
-}
-
-/** Group tab with an active company pill (subsidiary or group-entity) — show merged group currencies. */
-function isGroupTabCompanyCurrencyScope({
-  singleCid,
-  groupKey,
-  groupsAllMode,
-  groupAllMode,
-  mergedSubsetIds,
-}) {
-  return (
-    Number.isFinite(singleCid) &&
-    singleCid > 0 &&
-    Boolean(groupKey) &&
-    !groupsAllMode &&
-    !groupAllMode &&
-    !(mergedSubsetIds && mergedSubsetIds.length > 1)
-  );
-}
-
 function isCompanyOwnerWithGroupLedger(me) {
   return (
     isCompanyLogin(me) &&
@@ -975,14 +945,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const groupAllCodes = currenciesByGroupRef.current.get(`${g}:ALL`);
       if (groupAllCodes?.length > 1) return groupAllCodes;
     }
-    if (currenciesRef.current.length > 1) return currenciesRef.current;
     return (
-      (companyId != null
-        ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
-        : null) ??
-      (currenciesRef.current.length ? currenciesRef.current : null)
+      (subsidiaryDashboardScope && companyId != null
+        ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currenciesRef.current
+        : selectedGroup && currenciesRef.current.length > 0 && !subsidiaryDashboardScope
+          ? currenciesRef.current
+          : companyId != null
+            ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
+            : null) ??
+      (currenciesRef.current.length > 1 ? currenciesRef.current : null)
     );
-  }, [companyId, selectedGroup, groupAllMode]);
+  }, [subsidiaryDashboardScope, companyId, selectedGroup, groupAllMode]);
 
   const resolvePrefetchBootstrapCodes = useCallback((targetCompanyId, viewGroup, isActiveScope = false) => {
     const id = parseInt(targetCompanyId, 10);
@@ -1807,6 +1780,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           : null;
       const pickIsGroupEntity =
         Boolean(groupKey) && pickRow && companyRowIsGroupEntity(pickRow, groupKey);
+      /** IG+CX drill-down: company pills only — never group merge / group ledger fallbacks. */
       const isSubsidiaryCurrencyScope =
         Number.isFinite(singleCid) &&
         singleCid > 0 &&
@@ -1816,16 +1790,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         !pickIsGroupEntity;
 
       if (isSubsidiaryCurrencyScope) {
-        if (!cached?.length) {
-          cached = mergeNativeGroupSubsidiaryCurrencyCodes(
-            companies,
-            groupKey,
-            currenciesByCompanyRef.current
-          );
-        }
-        if (!cached?.length) {
-          cached = currenciesByGroupRef.current.get(groupKey) ?? null;
-        }
         if (!cached?.length) {
           setCurrencies([]);
           setCurrencyCode("");
@@ -2172,118 +2136,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
         if (!userCurrencyDisplayOrderRef.current?.length) {
           persistDashboardCurrencyDisplayOrder(currencyDisplayOrderByCompanyRef, orderCompanyId, codes);
-        }
-        writeDashboardGroupCurrencyCaches(currenciesByGroupRef, {
-          groupKey,
-          groupsAllMode,
-          groupAllMode,
-          codes,
-        });
-
-        commitCurrencyList(codes);
-      } catch {
-        /* Keep previous currency pills on transient errors. */
-      }
-      return;
-    }
-
-    /** Group tab + company pill: union currencies from every native subsidiary (match IG+95 breakdown). */
-    if (
-      isGroupTabCompanyCurrencyScope({
-        singleCid,
-        groupKey,
-        groupsAllMode,
-        groupAllMode,
-        mergedSubsetIds,
-      })
-    ) {
-      const mergeRows = companiesNativeInGroupList(companies, groupKey);
-      const mergeCompanyIds = mergeRows
-        .map((c) => parseInt(c.id, 10))
-        .filter((id) => Number.isFinite(id) && id > 0);
-
-      if (!mergeCompanyIds.length) {
-        commitCurrencyList([]);
-        return;
-      }
-
-      try {
-        const orderCompanyId = resolveDashboardCurrencyOrderCompanyId({
-          companyId: singleCid,
-          selectedGroup: groupKey,
-          companies,
-          me,
-          companiesForPicker,
-        });
-        const ordParams = new URLSearchParams({ _t: String(Date.now()) });
-        if (orderCompanyId) ordParams.set("company_id", String(orderCompanyId));
-
-        const currencyResults = await Promise.all(
-          mergeCompanyIds.map(async (cid) => {
-            const row = companies.find((c) => parseInt(c.id, 10) === cid);
-            const vg = groupKey;
-            const q = new URLSearchParams({ company_id: String(cid) });
-            if (vg) {
-              q.set("view_group", vg);
-              q.set("group_id", vg);
-              q.set("subsidiary_accounts_only", "1");
-            } else if (row && !companyRowIsIndependent(row, groupIds)) {
-              q.set("subsidiary_accounts_only", "1");
-            }
-            try {
-              const curRes = await fetch(
-                buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
-                { credentials: "include" }
-              );
-              const curJson = await curRes.json();
-              if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
-                return currenciesByCompanyRef.current.get(cid) ?? [];
-              }
-              const rowCodes = curJson.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
-              if (rowCodes.length && cid !== orderCompanyId) {
-                currenciesByCompanyRef.current.set(cid, rowCodes);
-              }
-              return rowCodes;
-            } catch {
-              return currenciesByCompanyRef.current.get(cid) ?? [];
-            }
-          })
-        );
-
-        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
-
-        let codes = [...new Set(currencyResults.flat())];
-        const ordRes = orderCompanyId
-          ? await fetch(
-              buildApiUrl(`api/transactions/user_currency_order_api.php?${ordParams.toString()}`),
-              { credentials: "include" }
-            ).catch(() => null)
-          : null;
-
-        if (ordRes) {
-          const ordJson = await ordRes.json();
-          codes = applyResolvedCurrencyOrder(
-            codes,
-            orderCompanyId,
-            ordJson?.data?.order,
-            currencyDisplayOrderByCompanyRef,
-            userCurrencyDisplayOrderRef,
-          );
-        } else {
-          codes = applyDashboardCurrencyDisplayOrder(
-            codes,
-            orderCompanyId,
-            currencyDisplayOrderByCompanyRef,
-            userCurrencyDisplayOrderRef,
-          );
-        }
-        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
-
-        if (!userCurrencyDisplayOrderRef.current?.length && orderCompanyId) {
-          persistDashboardCurrencyDisplayOrder(currencyDisplayOrderByCompanyRef, orderCompanyId, codes);
-        }
-        if (singleCid && codes.length) {
-          currenciesByCompanyRef.current.set(singleCid, codes);
         }
         writeDashboardGroupCurrencyCaches(currenciesByGroupRef, {
           groupKey,
@@ -3782,11 +3634,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const codesForBootstrap = currencyOverride
         ? null
         : (currencyCodesOverride ??
-          (currenciesRef.current.length > 1
-            ? currenciesRef.current
-            : companyId != null
-              ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
-              : null) ??
+          (subsidiaryDashboardScope && companyId != null
+            ? currenciesByCompanyRef.current.get(parseInt(companyId, 10)) ?? currenciesRef.current
+            : selectedGroup && currenciesRef.current.length > 0 && !subsidiaryDashboardScope
+              ? currenciesRef.current
+              : companyId != null
+                ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))
+                : null) ??
           (currenciesRef.current.length > 1 ? currenciesRef.current : null));
       if (Array.isArray(codesForBootstrap) && codesForBootstrap.length > 1) {
         q.set("currencies", codesForBootstrap.join(","));
@@ -6301,20 +6155,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /**
    * Company net profit tab: group-level views only (Group All / company All / group ledger).
-   * Hidden when a company pill is active (subsidiary or group-entity) — currency panel only, like IG+95.
+   * Hidden on subsidiary drill-down (e.g. IG + 95) — currency panel only there.
+   * Does not require has_group_ownership (admin / net-profit-only viewers still see tabs).
    */
   const showProfitChartTab = useMemo(() => {
-    if (companyId != null || !groupIds.length) return false;
+    if (subsidiaryDashboardScope) return false;
+    if (!groupIds.length) return false;
     return Boolean(
-      groupsAllMode ||
+      (groupsAllMode && companyId == null) ||
       groupAllMode ||
       usesGroupLedgerDashboard ||
       groupsAllGroupLevel
     );
   }, [
-    companyId,
+    subsidiaryDashboardScope,
     groupIds.length,
     groupsAllMode,
+    companyId,
     groupAllMode,
     usesGroupLedgerDashboard,
     groupsAllGroupLevel,
