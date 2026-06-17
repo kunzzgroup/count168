@@ -67,7 +67,7 @@ import {
   loginScopeBodyClass,
   patchMeFromCompanyContext,
 } from "../utils/company/loginScope.js";
-import { categoryFlagsFromSession } from "../utils/company/sidebarCompanySwitch.js";
+import { pathnameIs, pathnameToPageKey, spaPath } from "../utils/routing/pageRoutes.js";
 import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import "../../public/css/modal-close-unified.css";
 
@@ -187,7 +187,7 @@ export default function AuthenticatedLayout() {
   const goTo = useCallback(
     (path) => {
       startTransition(() => {
-        navigate(path);
+        navigate(buildSpaPath(path));
       });
     },
     [navigate],
@@ -195,6 +195,7 @@ export default function AuthenticatedLayout() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const path = location.pathname;
+  const pageKey = pathnameToPageKey(path);
   const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -254,11 +255,11 @@ export default function AuthenticatedLayout() {
     [me, sidebarGcTick],
   );
   const goAutoRenew = useCallback(() => {
-    navigate("/auto-renew");
+    navigate(spaPath("auto-renew"));
   }, [navigate]);
   const handleExpirationModalSecondary = useCallback(() => {
     dismissExpirationModal();
-    navigate("/auto-renew");
+    navigate(spaPath("auto-renew"));
   }, [dismissExpirationModal, navigate]);
   const sidebarIconOnly = isTabletViewport && sidebarCollapsed;
   const sidebarTabletExpanded = isTabletViewport && !sidebarCollapsed;
@@ -275,10 +276,10 @@ export default function AuthenticatedLayout() {
 
   /* Process 路由：父级 layout 阶段即挂上 body class，避免 SPA 切入时 Global Unlock 先撑出双 scrollbar */
   useLayoutEffect(() => {
-    if (location.pathname === "/bank-process-list") {
+    if (pathnameIs("bank-process-list", location.pathname)) {
       document.body.classList.remove("dashboard-page");
       document.body.classList.add("process-page", "process-page--bank");
-    } else if (location.pathname === "/process-list") {
+    } else if (pathnameIs("process-list", location.pathname)) {
       document.body.classList.remove("dashboard-page", "process-page--bank", "process-page--bank-show-all");
       document.body.classList.add("process-page");
     }
@@ -776,7 +777,7 @@ export default function AuthenticatedLayout() {
   useEffect(() => {
     if (loading || !me) return;
 
-    if (path === "/transaction") {
+    if (pathnameIs("transaction", path)) {
       void import("../pages/transaction/transactionRoutePrefetch.js").then(({ warmTransactionRouteCache }) => {
         warmTransactionRouteCache({ me });
       });
@@ -826,10 +827,10 @@ export default function AuthenticatedLayout() {
     const runIdleWarm = () => {
       runCompanies();
       runProcessListWarm();
-      if (path === "/dashboard" || path === "/account-list") {
+      if (pathnameIs("dashboard", path) || pathnameIs("account-list", path)) {
         runAccountListWarm();
       }
-      if (path === "/transaction") {
+      if (pathnameIs("transaction", path)) {
         runTransactionWarm();
       }
     };
@@ -951,7 +952,8 @@ export default function AuthenticatedLayout() {
   
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
-  const processSpaPath = me?.company_has_bank && !me?.company_has_gambling ? "/bank-process-list" : "/process-list";
+  const processSpaPath =
+    me?.company_has_bank && !me?.company_has_gambling ? spaPath("bank-process-list") : spaPath("process-list");
   const performLogout = async () => {
     if (logoutLoading) return;
     setLogoutLoading(true);
@@ -970,10 +972,10 @@ export default function AuthenticatedLayout() {
       clearOwnerCompaniesCache();
       setLogoutLoading(false);
       setShowLogoutConfirm(false);
-      window.location.assign(new URL("/login", window.location.origin).href);
+      window.location.assign(new URL(spaPath("login"), window.location.origin).href);
     }
   };
-  const isProcessPage = path === "/process-list" || path === "/bank-process-list";
+  const isProcessPage = pathnameIs("process-list", path) || pathnameIs("bank-process-list", path);
   const applyLanguage = (nextLang) => {
     const normalized = nextLang === "zh" ? "zh" : "en";
     setLang(normalized);
@@ -1006,7 +1008,7 @@ export default function AuthenticatedLayout() {
   );
 
   if (loading) return <AppBootLoading label={lang === "zh" ? "正在加载…" : "Loading…"} />;
-  if (!me) return <Navigate to="/login" replace />;
+  if (!me) return <Navigate to={spaPath("login")} replace />;
 
   return (
     <AuthSessionProvider value={sessionContextValue}>
@@ -1073,7 +1075,7 @@ export default function AuthenticatedLayout() {
                 <SidebarSectionLink
                   to="/dashboard"
                   goTo={goTo}
-                  className={`informationmenu-section-title ${path === "/dashboard" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${pageKey === "dashboard" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
@@ -1089,7 +1091,7 @@ export default function AuthenticatedLayout() {
                 <SidebarSectionLink
                   to="/domain"
                   goTo={goTo}
-                  className={`informationmenu-section-title ${path === "/domain" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${pageKey === "domain" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.93 8h-3.46c-.14-2.01-.5-3.88-1.06-5.38 2.16.76 3.76 2.62 4.52 5.38zm-6.93 0h-4.9c.13-1.78.58-3.51 1.28-4.9.53-1.04 1.16-1.79 1.78-2.21.6-.41.98-.46 1.84-.46v7.57zm0 2v7.57c-.86 0-1.24-.05-1.84-.46-.62-.43-1.25-1.17-1.78-2.21-.7-1.39-1.15-3.12-1.28-4.9h4.9zm2 7.43V12h4.9c-.13 1.78-.58 3.51-1.28 4.9-.53 1.04-1.16 1.79-1.78 2.21-.6.41-.98.46-1.84.46zm0-9.43V4.43c.86 0 1.24.05 1.84.46.62.43 1.25 1.17 1.78 2.21.7 1.39 1.15 3.12 1.28 4.9h-4.9zM5.07 12h3.46c.14 2.01.5 3.88 1.06 5.38-2.16-.76-3.76-2.62-4.52-5.38z" />
@@ -1105,7 +1107,7 @@ export default function AuthenticatedLayout() {
                 <SidebarSectionLink
                   to="/announcement"
                   goTo={goTo}
-                  className={`informationmenu-section-title ${path === "/announcement" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${pageKey === "announcement" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z" />
@@ -1121,7 +1123,7 @@ export default function AuthenticatedLayout() {
                 <SidebarSectionLink
                   to="/auto-renew"
                   goTo={goTo}
-                  className={`informationmenu-section-title ${path === "/auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`}
+                  className={`informationmenu-section-title ${pageKey === "auto-renew" ? "current-page" : "account-direct"}${me?.pending_auto_renew_count > 0 ? " has-sidebar-pending-badge" : ""}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z" />
@@ -1144,7 +1146,7 @@ export default function AuthenticatedLayout() {
                 <SidebarSectionLink
                   to="/userlist"
                   goTo={goTo}
-                  className={`informationmenu-section-title ${path === "/userlist" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${pageKey === "userlist" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
@@ -1160,7 +1162,7 @@ export default function AuthenticatedLayout() {
                 <SidebarSectionLink
                   to="/account-list"
                   goTo={goTo}
-                  className={`informationmenu-section-title ${path === "/account-list" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${pageKey === "account-list" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
@@ -1176,7 +1178,7 @@ export default function AuthenticatedLayout() {
                 <SidebarSectionLink
                   to="/ownership"
                   goTo={goTo}
-                  className={`informationmenu-section-title ${path === "/ownership" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${pageKey === "ownership" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
@@ -1210,11 +1212,11 @@ export default function AuthenticatedLayout() {
                   to="/datacapture"
                   goTo={goTo}
                   onBeforeNavigate={() => {
-                    if (path === "/datacapturesummary") {
+                    if (pageKey === "datacapturesummary") {
                       clearDataCaptureRoundLocalStorage();
                     }
                   }}
-                  className={`informationmenu-section-title ${path === "/datacapture" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${pageKey === "datacapture" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
@@ -1230,7 +1232,7 @@ export default function AuthenticatedLayout() {
                 <SidebarSectionLink
                   to="/transaction"
                   goTo={goTo}
-                  className={`informationmenu-section-title ${path === "/transaction" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${pageKey === "transaction" ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
@@ -1246,7 +1248,7 @@ export default function AuthenticatedLayout() {
                 <SidebarNavTip label={i18n.sidebarReport} enabled={sidebarIconOnly} placement="top">
                   <div
                     ref={reportTitleRef}
-                    className={`informationmenu-section-title ${(path === "/customer-report" || path === "/domain-report") ? "active" : ""}`}
+                    className={`informationmenu-section-title ${pageKey === "customer-report" || pageKey === "domain-report" ? "active" : ""}`}
                     data-section="report"
                     onMouseEnter={() => openHoverSubmenu("report", reportTitleRef.current)}
                     role="presentation"
@@ -1277,14 +1279,14 @@ export default function AuthenticatedLayout() {
                   <div className="submenu-content">
                     <a
                       {...sidebarSubmenuLinkProps("/customer-report", goTo)}
-                      className={`submenu-item ${path === "/customer-report" ? "current-page" : ""}`}
+                      className={`submenu-item ${pageKey === "customer-report" ? "current-page" : ""}`}
                       data-prefetch-path="/customer-report"
                     >
                       <span>{i18n.sidebarCustomerReport}</span>
                     </a>
                     <a
                       {...sidebarSubmenuLinkProps("/domain-report", goTo)}
-                      className={`submenu-item ${path === "/domain-report" ? "current-page" : ""}`}
+                      className={`submenu-item ${pageKey === "domain-report" ? "current-page" : ""}`}
                       data-prefetch-path="/domain-report"
                     >
                       <span>{i18n.sidebarDomainReport}</span>
@@ -1300,7 +1302,7 @@ export default function AuthenticatedLayout() {
                 <SidebarNavTip label={i18n.sidebarMaintenance} enabled={sidebarIconOnly} placement="top">
                   <div
                     ref={maintenanceTitleRef}
-                    className={`informationmenu-section-title ${(["/payment-maintenance", "/capture-maintenance", "/transaction-maintenance", "/formula-maintenance", "/bankprocess-maintenance"].includes(path)) ? "active" : ""}`}
+                    className={`informationmenu-section-title ${(["payment-maintenance", "capture-maintenance", "transaction-maintenance", "formula-maintenance", "bankprocess-maintenance"].includes(pageKey)) ? "active" : ""}`}
                     data-section="maintenance"
                     onMouseEnter={() => openHoverSubmenu("maintenance", maintenanceTitleRef.current)}
                     role="presentation"
@@ -1332,7 +1334,7 @@ export default function AuthenticatedLayout() {
                     {showFullMaintenanceMenu && me?.company_has_gambling && (
                       <a
                         {...sidebarSubmenuLinkProps("/capture-maintenance", goTo)}
-                        className={`submenu-item ${path === "/capture-maintenance" ? "current-page" : ""}`}
+                        className={`submenu-item ${pageKey === "capture-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/capture-maintenance"
                       >
                         <span>{i18n.sidebarDataCapture}</span>
@@ -1341,7 +1343,7 @@ export default function AuthenticatedLayout() {
                     {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
                         {...sidebarSubmenuLinkProps("/transaction-maintenance", goTo)}
-                        className={`submenu-item ${path === "/transaction-maintenance" ? "current-page" : ""}`}
+                        className={`submenu-item ${pageKey === "transaction-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/transaction-maintenance"
                       >
                         <span>{i18n.sidebarTransaction}</span>
@@ -1350,7 +1352,7 @@ export default function AuthenticatedLayout() {
                     {showFullMaintenanceMenu && (me?.company_has_gambling || me?.company_has_bank) && (
                       <a
                         {...sidebarSubmenuLinkProps("/payment-maintenance", goTo)}
-                        className={`submenu-item ${path === "/payment-maintenance" ? "current-page" : ""}`}
+                        className={`submenu-item ${pageKey === "payment-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/payment-maintenance"
                       >
                         <span>{i18n.sidebarPayment}</span>
@@ -1359,7 +1361,7 @@ export default function AuthenticatedLayout() {
                     {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
                         {...sidebarSubmenuLinkProps("/formula-maintenance", goTo)}
-                        className={`submenu-item ${path === "/formula-maintenance" ? "current-page" : ""}`}
+                        className={`submenu-item ${pageKey === "formula-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/formula-maintenance"
                       >
                         <span>{i18n.sidebarFormula}</span>
@@ -1368,7 +1370,7 @@ export default function AuthenticatedLayout() {
                     {showFullMaintenanceMenu && showBankprocessMaintenance && (
                       <a
                         {...sidebarSubmenuLinkProps("/bankprocess-maintenance", goTo)}
-                        className={`submenu-item ${path === "/bankprocess-maintenance" ? "current-page" : ""}`}
+                        className={`submenu-item ${pageKey === "bankprocess-maintenance" ? "current-page" : ""}`}
                         data-prefetch-path="/bankprocess-maintenance"
                       >
                         <span>{i18n.sidebarProcess}</span>

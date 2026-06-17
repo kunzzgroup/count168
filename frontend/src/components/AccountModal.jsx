@@ -205,7 +205,7 @@ export default function AccountModal({
       }}
     >
       <div className="account-modal-content">
-        <div className="account-modal-header">
+        <div className="account-modal-header account-form-modal-header">
           <h2>{title}</h2>
           <span className="account-close" onClick={onClose} role="button" tabIndex={0} aria-label="Close" onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose(); } }} />
         </div>

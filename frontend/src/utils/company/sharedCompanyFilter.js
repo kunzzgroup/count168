@@ -5,6 +5,7 @@
  * Login scope rules: see `loginScope.js` and `includes/group_company_access.php`.
  */
 import { buildApiUrl } from "../core/apiUrl.js";
+import { pathnameIs } from "../routing/pageRoutes.js";
 import {
   clearCompanySessionFlagsCache,
   peekCompanySessionFlags,
@@ -1223,9 +1224,9 @@ export function notifyDashboardGcBootstrapReady() {
  */
 export function shouldHideSidebarProcess(pathname, me = null) {
   if (
-    pathname === "/process-list" ||
-    pathname === "/bank-process-list" ||
-    pathname === "/games-process-list"
+    pathnameIs("process-list", pathname) ||
+    pathnameIs("bank-process-list", pathname) ||
+    pathnameIs("games-process-list", pathname)
   ) {
     return false;
   }

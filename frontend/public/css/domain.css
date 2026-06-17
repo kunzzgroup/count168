@@ -3796,7 +3796,8 @@ body.domain-page #account-addModal.account-modal {
     z-index: 2147483002 !important;
 }
 
-body.domain-page #account-addModal .account-modal-header h2 {
+body.domain-page #account-addModal .account-modal-header h2,
+body.domain-page #account-editModal .account-modal-header h2 {
     letter-spacing: 0;
 }
 

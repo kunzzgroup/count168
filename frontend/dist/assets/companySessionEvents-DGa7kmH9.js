@@ -1,0 +1,1 @@
+import{bO as n}from"./index-CPv0BJ6X.js";function t(e=null){e&&typeof e=="object"&&n(e),window.dispatchEvent(new CustomEvent("eazycount:company-session-updated",{detail:e??null}))}function s(){window.dispatchEvent(new CustomEvent("eazycount:session-refresh-requested"))}export{s as a,t as n};
