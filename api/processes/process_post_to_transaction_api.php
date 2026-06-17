@@ -719,6 +719,7 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             $iter = new DateTimeImmutable($startDate);
             $iter = $iter->modify('first day of this month');
             $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+            $todayYm = (new DateTimeImmutable($today))->format('Y-n');
             if ($resendRelaxMonthly) {
                 try {
                     $startMonthFirst = (new DateTimeImmutable($startDate))->modify('first day of this month');
@@ -735,7 +736,13 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
             while ($iter <= $endCap) {
                 $y = (int) $iter->format('Y');
                 $mo = (int) $iter->format('n');
+                $billYm = $iter->format('Y-n');
                 if ($onlyAnchorYmMonthly !== null && $iter->format('Y-n') !== $onlyAnchorYmMonthly) {
+                    $iter = $iter->modify('+1 month');
+                    continue;
+                }
+                // 与 Inbox 对齐：非 Resend 不回补当月前的历史 monthly。
+                if (!$resendRelaxMonthly && !$resendSinglePeriod && $billYm !== $todayYm) {
                     $iter = $iter->modify('+1 month');
                     continue;
                 }
@@ -747,7 +754,6 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                 }
                 if (!$resendRelaxMonthly && $due < $createdYmd) {
                     try {
-                        $billYm = $iter->format('Y-n');
                         $createdYmOnly = (new DateTimeImmutable($createdYmd))->format('Y-n');
                         if ($billYm !== $createdYmOnly) {
                             $iter = $iter->modify('+1 month');
