@@ -628,7 +628,8 @@ export function useDataCaptureFormEngine(
 
   /** Restore saved group-only table draft when process/currency is set and grid is ready. */
   useEffect(() => {
-    if (applyCompanyOnlyFields || !selectedGroup || !selectedProcess?.id) return;
+    const draftBucket = payrollPrefsKeyRef.current;
+    if (applyCompanyOnlyFields || !draftBucket || !selectedProcess?.id) return;
     if (!scriptsReady) return;
     if (!normalizeGroupOnlyDraftCurrencyId(currencyId)) return;
     if (getDataCaptureState().isRestoring) return;
@@ -637,16 +638,18 @@ export function useDataCaptureFormEngine(
     } catch {
       /* ignore */
     }
-    void restoreGroupOnlyTableDraft(selectedGroup, selectedProcess.id, currencyId, {
+    void restoreGroupOnlyTableDraft(draftBucket, selectedProcess.id, currencyId, {
       captureScope,
+      serverSync: payrollDraftServerSync,
     });
   }, [
     applyCompanyOnlyFields,
-    selectedGroup,
+    payrollPrefsKey,
     selectedProcess?.id,
     currencyId,
     scriptsReady,
     captureScope,
+    payrollDraftServerSync,
   ]);
 
   applyGroupOnlyPrefsForGroupRef.current = applyGroupOnlyPrefsForGroup;

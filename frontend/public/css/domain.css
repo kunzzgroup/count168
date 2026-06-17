@@ -471,7 +471,7 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
 
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-header {
     flex-shrink: 0;
-    padding: 12px 16px !important;
+    padding: 18px 16px !important;
 }
 
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .domain-form-modal-body.dfm-main-split {
@@ -480,23 +480,20 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas: "domain company";
     gap: 10px 14px;
-    align-items: center;
-    align-content: center;
+    align-items: start;
+    align-content: start;
     flex: 1 1 auto;
     min-height: 0;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
-    padding: 12px 14px !important;
+    padding: 20px 14px !important;
 }
 
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-main-split > .dfm-section-block:not(.dfm-section-block--company) {
     grid-area: domain;
     min-width: 0;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
 }
 
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-main-split > .dfm-section-block--company {
@@ -506,7 +503,6 @@ body.ec-auth-shell .domain-form-modal-backdrop .dfm-company-grid-row2 .dfm-selec
     min-height: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
 }
 
 .domain-form-modal-backdrop.domain-form-modal-backdrop--compact .dfm-footer-actions {

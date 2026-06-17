@@ -78,6 +78,8 @@ import { useDataCaptureGlobalShims } from "./hooks/useDataCaptureGlobalShims.js"
 import { useDataCaptureDeleteDialog } from "./hooks/useDataCaptureDeleteDialog.js";
 import { useDataCaptureSubmitReset } from "./hooks/useDataCaptureSubmitReset.js";
 import { useDataCapturePageLifecycle } from "./hooks/useDataCapturePageLifecycle.js";
+import { useGroupOnlyTableDraftAutosave } from "./hooks/useGroupOnlyTableDraftAutosave.js";
+import { useGroupOnlyTableDraftFlush } from "./hooks/useGroupOnlyTableDraftFlush.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useDataCaptureSubmittedList } from "./hooks/useDataCaptureSubmittedList.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
@@ -361,6 +363,24 @@ function DataCapturePageContent() {
     selectedGroup,
   });
   useDataCaptureGrid(scriptsReady, groupOnlyTable);
+  useGroupOnlyTableDraftFlush({
+    enabled: groupPayrollUi,
+    captureScope,
+    draftBucket: payrollDraft.bucket,
+    payrollDraftServerSync: payrollDraft.serverSync,
+    selectedProcessId: form.selectedProcess?.id,
+    currencyId: form.currencyId,
+    captureType,
+  });
+  useGroupOnlyTableDraftAutosave({
+    enabled: groupPayrollUi,
+    captureScope,
+    draftBucket: payrollDraft.bucket,
+    payrollDraftServerSync: payrollDraft.serverSync,
+    selectedProcessId: form.selectedProcess?.id,
+    currencyId: form.currencyId,
+    captureType,
+  });
   useDataCapturePaste();
   useDataCaptureFormat();
   useDataCaptureGlobalShims();
