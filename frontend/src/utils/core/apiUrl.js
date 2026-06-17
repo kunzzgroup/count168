@@ -41,7 +41,7 @@ export function buildSpaPath(pathAndQuery) {
     ? spaPath(pageKey, { search, hash })
     : resolveCanonicalSpaPath(normalized, { search, hash }) || normalized;
 
-  // UUID and legacy SPA paths are site-root absolute (/p/... or /login).
+  // Readable SPA paths are site-root absolute (/dashboard, /login, etc.).
   if (canonical.startsWith("/")) {
     return canonical;
   }
