@@ -33,7 +33,7 @@ export const DATA_CAPTURE_I18N = {
     noProcessesSubmitted: "No processes submitted for this date",
     dataCaptureTable: "Data Capture Table",
     tableSize: "Add Row",
-    tableSizeResetTitle: "Reset to default size (11×11)",
+    tableSizeResetTitle: "Reset to default size (A–Z × 11 cols)",
     tableSizeAddRows: "Add Rows",
     tableSizeAddColumns: "Add Columns",
     tableSizeAddSummary:
@@ -144,7 +144,7 @@ export const DATA_CAPTURE_I18N = {
     noProcessesSubmitted: "该日期暂无已提交流程",
     dataCaptureTable: "数据采集表",
     tableSize: "新增行",
-    tableSizeResetTitle: "重置为默认大小（11×11）",
+    tableSizeResetTitle: "重置为默认大小（A–Z × 11 列）",
     tableSizeAddRows: "新增行数",
     tableSizeAddColumns: "新增列数",
     tableSizeAddSummary:
