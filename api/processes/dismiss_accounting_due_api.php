@@ -212,7 +212,8 @@ try {
     );
     foreach ($pairs as $p) {
         $processId = $p['id'];
-        $periodType = $p['period_type'];
+        $origPeriodType = $p['period_type'];
+        $periodType = $origPeriodType;
         if ($periodType === 'resend_monthly_reopen') {
             $periodType = 'monthly';
         }
@@ -374,6 +375,9 @@ try {
         if ($anchorYmd !== null) {
             bmp_clearAccountingResendDailyGuardForDayStart($pdo, $companyId, $processId, $anchorYmd);
             $processIdsForPrune[$processId] = true;
+        }
+        if ($origPeriodType === 'resend_monthly_reopen' && $anchorYmd !== null) {
+            bmp_maybeClearResendRelaxAfterAnchorHandled($pdo, $processId, $companyId, $anchorYmd);
         }
     }
 

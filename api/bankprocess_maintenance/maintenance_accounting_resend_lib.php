@@ -84,6 +84,179 @@ if (!function_exists('bmp_bankProcessHasResendScheduleColumns')) {
     }
 }
 
+if (!function_exists('bmp_ensureBankProcessAccountingResendOpenAnchorsColumn')) {
+    /** 累积多个 Resend 应付日锚点（Y-m-d JSON 数组），每次 Resend 追加而非覆盖。 */
+    function bmp_ensureBankProcessAccountingResendOpenAnchorsColumn(PDO $pdo): void
+    {
+        if (bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_open_anchors')) {
+            return;
+        }
+        try {
+            $pdo->exec(
+                "ALTER TABLE bank_process ADD COLUMN accounting_resend_open_anchors TEXT NULL
+                 COMMENT 'JSON array of Y-m-d resend due anchors while relax=1'"
+            );
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+}
+
+if (!function_exists('bmp_decodeResendOpenAnchorsJson')) {
+    /** @return string[] */
+    function bmp_decodeResendOpenAnchorsJson(?string $raw): array
+    {
+        if ($raw === null || trim($raw) === '') {
+            return [];
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        $anchors = [];
+        foreach ($decoded as $a) {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $a)) {
+                $anchors[] = (string) $a;
+            }
+        }
+        return array_values(array_unique($anchors));
+    }
+}
+
+if (!function_exists('bmp_loadResendOpenAnchorsFromDb')) {
+    /** @return string[] */
+    function bmp_loadResendOpenAnchorsFromDb(PDO $pdo, int $processId, int $companyId): array
+    {
+        bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+        if (!bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_open_anchors')) {
+            return [];
+        }
+        $stmt = $pdo->prepare(
+            'SELECT accounting_resend_open_anchors FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1'
+        );
+        $stmt->execute([$processId, $companyId]);
+        $raw = $stmt->fetchColumn();
+        return bmp_decodeResendOpenAnchorsJson(is_string($raw) ? $raw : null);
+    }
+}
+
+if (!function_exists('bmp_getResendOpenAnchorsFromRow')) {
+    /**
+     * Inbox / 入账用：读取尚未结清的 Resend 锚点列表。
+     *
+     * @param array<string,mixed> $row
+     * @return string[]
+     */
+    function bmp_getResendOpenAnchorsFromRow(array $row): array
+    {
+        $anchors = bmp_decodeResendOpenAnchorsJson(
+            isset($row['accounting_resend_open_anchors']) ? (string) $row['accounting_resend_open_anchors'] : null
+        );
+        if (!empty($anchors)) {
+            return $anchors;
+        }
+        if (empty($row['accounting_resend_relax_created_floor'])) {
+            return [];
+        }
+        // 兼容旧数据：仅有 schedule_day_start / 合并后 day_start 时当作单锚点。
+        if (!empty($row['accounting_resend_single_period_from_schedule'])) {
+            $ds = $row['accounting_resend_schedule_day_start'] ?? $row['day_start'] ?? null;
+            $ymd = bmp_bankProcessDateFieldToYmd($ds);
+            if ($ymd !== null && $ymd !== '') {
+                return [$ymd];
+            }
+        }
+        return [];
+    }
+}
+
+if (!function_exists('bmp_appendResendOpenAnchor')) {
+    function bmp_appendResendOpenAnchor(PDO $pdo, int $processId, int $companyId, string $anchorYmd): void
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+            return;
+        }
+        bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+        if (!bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_open_anchors')) {
+            return;
+        }
+        $anchors = bmp_loadResendOpenAnchorsFromDb($pdo, $processId, $companyId);
+        if (!in_array($anchorYmd, $anchors, true)) {
+            $anchors[] = $anchorYmd;
+        }
+        sort($anchors);
+        $json = json_encode(array_values($anchors), JSON_UNESCAPED_UNICODE);
+        $upd = $pdo->prepare(
+            'UPDATE bank_process SET accounting_resend_open_anchors = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?'
+        );
+        $upd->execute([$json, $processId, $companyId]);
+    }
+}
+
+if (!function_exists('bmp_removeResendOpenAnchor')) {
+    function bmp_removeResendOpenAnchor(PDO $pdo, int $processId, int $companyId, string $anchorYmd): void
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $anchorYmd)) {
+            return;
+        }
+        bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+        if (!bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_open_anchors')) {
+            return;
+        }
+        $anchors = bmp_loadResendOpenAnchorsFromDb($pdo, $processId, $companyId);
+        $anchors = array_values(array_filter($anchors, static function (string $a) use ($anchorYmd): bool {
+            return $a !== $anchorYmd;
+        }));
+        $json = empty($anchors) ? null : json_encode($anchors, JSON_UNESCAPED_UNICODE);
+        $upd = $pdo->prepare(
+            'UPDATE bank_process SET accounting_resend_open_anchors = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?'
+        );
+        $upd->execute([$json, $processId, $companyId]);
+    }
+}
+
+if (!function_exists('bmp_clearResendRelaxState')) {
+    function bmp_clearResendRelaxState(PDO $pdo, int $processId, int $companyId): void
+    {
+        bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+        $hasSched = bmp_bankProcessHasResendScheduleColumns($pdo);
+        $hasOpen = bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_open_anchors');
+        if ($hasSched) {
+            $sql = 'UPDATE bank_process SET accounting_resend_relax_created_floor = 0,
+                    accounting_resend_schedule_day_start = NULL,
+                    accounting_resend_schedule_day_end = NULL,
+                    accounting_resend_schedule_frequency = NULL';
+            if ($hasOpen) {
+                $sql .= ', accounting_resend_open_anchors = NULL';
+            }
+            $sql .= ', dts_modified = NOW() WHERE id = ? AND company_id = ?';
+            $clr = $pdo->prepare($sql);
+        } else {
+            $sql = 'UPDATE bank_process SET accounting_resend_relax_created_floor = 0, dts_modified = NOW() WHERE id = ? AND company_id = ?';
+            if ($hasOpen) {
+                $sql = 'UPDATE bank_process SET accounting_resend_relax_created_floor = 0,
+                        accounting_resend_open_anchors = NULL, dts_modified = NOW() WHERE id = ? AND company_id = ?';
+            }
+            $clr = $pdo->prepare($sql);
+        }
+        $clr->execute([$processId, $companyId]);
+    }
+}
+
+if (!function_exists('bmp_maybeClearResendRelaxAfterAnchorHandled')) {
+    /** 某 Resend 锚点入账/移除后：仅当无剩余 open anchors 时清除 relax。 */
+    function bmp_maybeClearResendRelaxAfterAnchorHandled(PDO $pdo, int $processId, int $companyId, ?string $handledAnchorYmd): void
+    {
+        if ($handledAnchorYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $handledAnchorYmd)) {
+            bmp_removeResendOpenAnchor($pdo, $processId, $companyId, $handledAnchorYmd);
+        }
+        $remaining = bmp_loadResendOpenAnchorsFromDb($pdo, $processId, $companyId);
+        if (empty($remaining)) {
+            bmp_clearResendRelaxState($pdo, $processId, $companyId);
+        }
+    }
+}
+
 /**
  * Resend 成功后 relax=1 时，用暂存列覆盖 day_start / day_end / day_start_frequency 供 Inbox 与入账推断（不改编辑表单里的持久字段）。
  *

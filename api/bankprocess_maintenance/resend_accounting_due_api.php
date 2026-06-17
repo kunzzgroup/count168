@@ -393,6 +393,12 @@ try {
         );
         $flg->execute([$bankProcessId, $company_id]);
     }
+    // Monthly / 1st_of_every_month 单期 Resend：累积锚点，保留原正常流程账单与各次 Resend 独立行。
+    if ($scheduleFromClient
+        && ($newFrequency === 'monthly' || $newFrequency === '1st_of_every_month')
+        && !($newFrequency === 'monthly' && $newDayStart !== null && $newDayEnd !== null)) {
+        bmp_appendResendOpenAnchor($pdo, $bankProcessId, $company_id, $effectiveDayStartYmd);
+    }
     $pdo->commit();
     jsonResponse(true, 'Done: This process can appear in Accounting Due again.', [
         'bank_process_id' => $bankProcessId,
