@@ -100,7 +100,7 @@ export default function ProcessFormModal({
             <div className="process-form add-grid">
             <div className="add-col">
               <div className="process-form-section">
-                <h3 className="process-form-section-title">{t("processFormSectionBasic")}</h3>
+                <h3 className="account-section-header">{t("processFormSectionBasic")}</h3>
               {!editMode && (
                 <div className="form-row">
                   <div className="form-group">
@@ -408,7 +408,7 @@ export default function ProcessFormModal({
 
               {editMode && (
                 <div className="process-form-section process-form-section--record">
-                  <h3 className="process-form-section-title">{t("processFormSectionRecord")}</h3>
+                  <h3 className="account-section-header">{t("processFormSectionRecord")}</h3>
                   <div className="form-row">
                     <div className="form-group">
                       <label>{t("dtsModified")}</label>
@@ -438,7 +438,7 @@ export default function ProcessFormModal({
 
             <div className="add-col">
               <div className="process-form-section">
-                <h3 className="process-form-section-title">{t("processFormSectionTextReplace")}</h3>
+                <h3 className="account-section-header">{t("processFormSectionTextReplace")}</h3>
               <div className="form-row">
                 <div className="form-group">
                   <label>{t("removeWords")}</label>
@@ -481,7 +481,7 @@ export default function ProcessFormModal({
               </div>
 
               <div className="process-form-section">
-                <h3 className="process-form-section-title">{t("processFormSectionScheduleNotes")}</h3>
+                <h3 className="account-section-header">{t("processFormSectionScheduleNotes")}</h3>
               <div className="form-row">
                 <div className="form-group">
                   <div className="day-use-pill-row">

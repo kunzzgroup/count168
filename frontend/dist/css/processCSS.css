@@ -7891,23 +7891,66 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
 #editModal .modal-content.process-form-modal .modal-header {
     flex-shrink: 0;
     margin: 0;
-    padding: var(--process-form-modal-pad, var(--space-card));
+    padding: 3px 20px;
     background: var(--color-surface-gray-50, #f8fafc);
-    border-bottom: none;
+    border-bottom: 1px solid #e2e8f0;
     border-radius: var(--process-form-modal-radius, 0.75rem) var(--process-form-modal-radius, 0.75rem) 0 0;
+    box-sizing: border-box;
 }
 
 .process-form-modal .process-form-modal-header h2,
 #addModal .modal-content.process-form-modal .modal-header h2,
 #editModal .modal-content.process-form-modal .modal-header h2 {
     margin: 0;
-    padding: 0;
+    padding: clamp(12px, 0.78vw, 15px) clamp(18px, 1.2vw, 23px);
+    border: none;
+    background: transparent;
     font-size: var(--process-form-modal-title-size, var(--text-page-title));
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-page-title);
     letter-spacing: var(--letter-spacing-page-title);
     color: var(--color-body-strong, #1f2937);
     line-height: 1.2;
+}
+
+/* Section headings — match Add Account .account-section-header (no left blue bar) */
+.process-form-modal .account-section-header,
+#addModal .modal-content.process-form-modal .account-section-header,
+#editModal .modal-content.process-form-modal .account-section-header {
+    font-size: var(--text-h2);
+    font-weight: 700;
+    font-family: var(--font-heading-page);
+    color: #111827;
+    margin: 0 0 0.5rem 0;
+    padding-bottom: 0.25rem;
+    border-bottom: 0.125rem solid #e2e8f0;
+    border-left: none;
+    position: relative;
+    line-height: 1.25;
+}
+
+.process-form-modal .account-section-header::after,
+#addModal .modal-content.process-form-modal .account-section-header::after,
+#editModal .modal-content.process-form-modal .account-section-header::after {
+    content: '';
+    position: absolute;
+    bottom: -0.125rem;
+    left: 0;
+    width: 2.5rem;
+    height: 0.125rem;
+    background: linear-gradient(90deg, #007AFF, #0056b3);
+}
+
+.process-form-modal .process-form-section--record .account-section-header,
+#addModal .modal-content.process-form-modal .process-form-section--record .account-section-header,
+#editModal .modal-content.process-form-modal .process-form-section--record .account-section-header {
+    color: #64748b;
+}
+
+.process-form-modal .process-form-section--record .account-section-header::after,
+#addModal .modal-content.process-form-modal .process-form-section--record .account-section-header::after,
+#editModal .modal-content.process-form-modal .process-form-section--record .account-section-header::after {
+    background: linear-gradient(90deg, #94a3b8, #64748b);
 }
 
 .process-form-modal .modal-body,
@@ -7964,15 +8007,16 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
 #addModal .modal-content.process-form-modal .process-form-section-title,
 #editModal .modal-content.process-form-modal .process-form-section-title {
     margin: 0 0 calc(var(--space-gap, 0.75rem) * 0.75) 0;
-    padding: 0 0 calc(var(--space-gap, 0.75rem) * 0.45) 0.55rem;
+    padding: 0 0 calc(var(--space-gap, 0.75rem) * 0.45) 0;
     font-size: var(--process-form-modal-section-size, var(--text-h3));
     font-weight: var(--font-weight-semibold);
     font-family: var(--font-heading-page);
     color: var(--color-body-muted, #475569);
     letter-spacing: 0.02em;
     line-height: 1.25;
-    border-left: 3px solid var(--color-primary, #0d60ff);
-    border-bottom: 1px solid var(--color-border-muted, #e2e8f0);
+    border-left: none;
+    border-bottom: 0.125rem solid var(--color-border-muted, #e2e8f0);
+    position: relative;
 }
 
 .process-form-modal .process-form .form-group > label,
