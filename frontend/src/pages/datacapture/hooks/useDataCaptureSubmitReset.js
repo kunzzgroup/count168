@@ -249,10 +249,10 @@ export function useDataCaptureSubmitReset({
 
       markSummaryFreshNavigation();
       if (typeof navigate === "function") {
-        navigate(spaPath("datacapturesummary", { search: "?success=1" }));
+        navigate(spaPath("datacapturesummary"));
         return;
       }
-      window.location.assign(buildSpaPath("datacapturesummary?success=1"));
+      window.location.assign(buildSpaPath("datacapturesummary"));
     } catch (error) {
       console.error("Error submitting data:", error);
       pushDataCaptureNotification(t("failedCaptureData"), "danger");

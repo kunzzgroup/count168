@@ -5,6 +5,7 @@
  * Login scope rules: see `loginScope.js` and `includes/group_company_access.php`.
  */
 import { buildApiUrl } from "../core/apiUrl.js";
+import { stripPrivateQueryFromBrowserUrl } from "../routing/privateBrowserUrl.js";
 import { pathnameIs } from "../routing/pageRoutes.js";
 import {
   clearCompanySessionFlagsCache,
@@ -633,18 +634,9 @@ export function shouldRefreshExpiryFromSession(sessionData, filter = readPersist
   return true;
 }
 
-/** Remove stale `company_id` from the address bar (Admin/Account bookmarked URLs). */
+/** Remove sensitive query params from the address bar (company, filters, etc.). */
 export function stripCompanyIdFromUrl() {
-  if (typeof window === "undefined") return;
-  try {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("company_id")) return;
-    url.searchParams.delete("company_id");
-    const qs = url.searchParams.toString();
-    window.history.replaceState(null, "", qs ? `${url.pathname}?${qs}` : url.pathname);
-  } catch {
-    /* ignore */
-  }
+  stripPrivateQueryFromBrowserUrl();
 }
 
 /**

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { pathnameIs, spaPath } from "../../utils/routing/pageRoutes.js";
+import { replaceBrowserPathOnly } from "../../utils/routing/privateBrowserUrl.js";
 import {
   applyTenantLedgerToParams,
   resolveModalLedgerScope,
@@ -327,17 +328,8 @@ export default function AccountListPage() {
   }, [showAll]);
 
   const syncUrl = useCallback(() => {
-    const url = new URL(window.location.href);
-    if (companyId) url.searchParams.set("company_id", String(companyId));
-    else url.searchParams.delete("company_id");
-    if (searchTerm.trim()) url.searchParams.set("search", searchTerm.trim());
-    else url.searchParams.delete("search");
-    if (showInactive) url.searchParams.set("showInactive", "1");
-    else url.searchParams.delete("showInactive");
-    if (showAll) url.searchParams.set("showAll", "1");
-    else url.searchParams.delete("showAll");
-    window.history.replaceState({}, document.title, url.toString());
-  }, [companyId, searchTerm, showInactive, showAll]);
+    replaceBrowserPathOnly();
+  }, []);
 
   const resolveGroupOnlyFetch = useCallback((gcScope) => {
     const { companyId: cid, selectedGroup: sg, groupsAllMode: gAll, groupAllMode: cAll } =
@@ -673,11 +665,7 @@ export default function AccountListPage() {
         const urlCompanySnapshot = readUrlCompanyId();
         applyLoginScopeToSessionStorageIfNeeded(sessionMe, rows);
         if (urlCompanySnapshot != null) {
-          const restored = new URL(window.location.href);
-          if (restored.searchParams.get("company_id") !== String(urlCompanySnapshot)) {
-            restored.searchParams.set("company_id", String(urlCompanySnapshot));
-            window.history.replaceState({}, document.title, restored.toString());
-          }
+          replaceBrowserPathOnly();
         }
 
         const url = new URL(window.location.href);
@@ -899,9 +887,7 @@ export default function AccountListPage() {
 
         if (cancelled) return;
         if (resolvedCompanyId != null && shouldLoadList) {
-          const urlNow = new URL(window.location.href);
-          urlNow.searchParams.set("company_id", String(resolvedCompanyId));
-          window.history.replaceState({}, document.title, urlNow.toString());
+          replaceBrowserPathOnly();
         }
       } catch {
         if (!cancelled) navigate(spaPath("login"));
@@ -1325,9 +1311,7 @@ export default function AccountListPage() {
       persistDashboardGroupFilter(g);
       persistDashboardGroupOnlyMode(false);
       persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-      const url = new URL(window.location.href);
-      url.searchParams.set("company_id", String(nextCompanyId));
-      window.history.replaceState({}, document.title, url.toString());
+      replaceBrowserPathOnly();
       void (async () => {
         try {
           await onSwitchCompanyRef.current?.(pick, { viewGroup: g });
@@ -1413,9 +1397,7 @@ export default function AccountListPage() {
         }
       });
 
-      const url = new URL(window.location.href);
-      url.searchParams.set("company_id", String(nextCompanyId));
-      window.history.replaceState({}, document.title, url.toString());
+      replaceBrowserPathOnly();
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
       else if (effectiveGroup) persistDashboardGroupFilter(effectiveGroup);

@@ -14,6 +14,7 @@ import {
   resolveDataCaptureScopeFromSessionMeta,
 } from "./dataCaptureScope.js";
 import { saveGroupOnlyProcessPrefsFromProcessData } from "./dataCaptureGroupOnlyProcessPersistence.js";
+import { replaceBrowserPathOnly } from "../../../utils/routing/privateBrowserUrl.js";
 
 export const CAPTURE_TABLE_STORAGE_KEY = "capturedTableData";
 export const CAPTURE_PROCESS_STORAGE_KEY = "capturedProcessData";
@@ -169,7 +170,7 @@ export function applyGroupOnlyCaptureRestoreFilter(processData) {
   if (group) persistDashboardGroupFilter(group);
   persistDashboardGroupOnlyMode(true);
   persistDashboardSelectedCompany(null);
-  stripSearchParamsFromUrl(["company_id", "group_only"]);
+  replaceBrowserPathOnly();
   return group;
 }
 
@@ -271,19 +272,13 @@ export function shouldRestoreFromUrl() {
 }
 
 export function stripRestoreParamFromUrl() {
-  stripSearchParamsFromUrl(["restore"]);
+  replaceBrowserPathOnly();
 }
 
+/** @deprecated Prefer replaceBrowserPathOnly — strips private query keys from the address bar. */
 export function stripSearchParamsFromUrl(keys) {
   if (!Array.isArray(keys) || keys.length === 0) return;
-  try {
-    const url = new URL(window.location.href);
-    keys.forEach((key) => url.searchParams.delete(key));
-    const qs = url.searchParams.toString();
-    window.history.replaceState({}, "", `${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`);
-  } catch {
-    /* ignore */
-  }
+  replaceBrowserPathOnly();
 }
 
 /** @deprecated legacy global meta read — prefer readCaptureSessionMeta(scope) */

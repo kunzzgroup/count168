@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { notifyCompanySessionUpdated } from "../../utils/company/companySessionEvents.js";
 import { ensureCrossPageCompanySelection, syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { spaPath } from "../../utils/routing/pageRoutes.js";
+import { replaceBrowserPathOnly } from "../../utils/routing/privateBrowserUrl.js";
 import {
   clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
@@ -378,7 +379,7 @@ export default function ProcessListPage() {
               : await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (bankCategory) {
             const warm = await prefetchBankProcessListPayload(effectiveCompany);
-            navigate(`/bank-process-list?company_id=${effectiveCompany}`, {
+            navigate(spaPath("bank-process-list"), {
               replace: true,
               state: {
                 bankProcessListPrefetch: {
@@ -462,23 +463,9 @@ export default function ProcessListPage() {
     })();
   }, [loadFormMeta, location.state, navigate, sessionReady, sessionMeFromLayout?.user_id]);
 
-  const syncUrl = useCallback(
-    (overrides = {}) => {
-      const url = new URL(window.location.href);
-      const cid = overrides.companyId != null ? overrides.companyId : companyId;
-      if (cid) url.searchParams.set("company_id", String(cid));
-      else url.searchParams.delete("company_id");
-      if (debouncedSearch.trim()) url.searchParams.set("search", debouncedSearch.trim());
-      else url.searchParams.delete("search");
-      if (showInactive) url.searchParams.set("showInactive", "1");
-      else url.searchParams.delete("showInactive");
-      if (showAll) url.searchParams.set("showAll", "1");
-      else url.searchParams.delete("showAll");
-      url.searchParams.delete("currency");
-      window.history.replaceState({}, document.title, url.toString());
-    },
-    [companyId, debouncedSearch, showInactive, showAll],
-  );
+  const syncUrl = useCallback(() => {
+    replaceBrowserPathOnly();
+  }, []);
 
   const applyProcessListCache = useCallback(
     (cid) => {
@@ -882,7 +869,7 @@ export default function ProcessListPage() {
           const bankCategory = await bankCategoryPromise;
           if (bankCategory) {
             const warm = await prefetchBankProcessListPayload(nextId);
-            navigate(`/bank-process-list?company_id=${nextId}`, {
+            navigate(spaPath("bank-process-list"), {
               replace: true,
               state: {
                 bankProcessListPrefetch: {

@@ -36,6 +36,7 @@ import {
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { pathnameIs, spaPath } from "../../utils/routing/pageRoutes.js";
+import { replaceBrowserPathOnly } from "../../utils/routing/privateBrowserUrl.js";
 import {
   canClearCompanySelection,
   canUseGroupOnlyMode,
@@ -341,16 +342,8 @@ export default function UserListPage() {
   }, [currentUserRole]);
 
   const syncUrl = useCallback(() => {
-    const url = new URL(window.location.href);
-    if (companyId) url.searchParams.set("company_id", String(companyId));
-    else url.searchParams.delete("company_id");
-    if (search.trim()) url.searchParams.set("search", search.trim()); else url.searchParams.delete("search");
-    if (showInactive) url.searchParams.set("showInactive", "1");
-    else url.searchParams.delete("showInactive");
-    if (showAll) url.searchParams.set("showAll", "1");
-    else url.searchParams.delete("showAll");
-    window.history.replaceState(null, "", url.pathname + url.search);
-  }, [companyId, search, showInactive, showAll]);
+    replaceBrowserPathOnly();
+  }, []);
 
   useEffect(() => { if (!bootLoading) syncUrl(); }, [bootLoading, syncUrl]);
 

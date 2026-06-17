@@ -5,6 +5,7 @@ import { notifyCompanySessionUpdated } from "../../../utils/company/companySessi
 import { ensureCrossPageCompanySelection } from "../../../utils/company/companySessionSync.js";
 import { fetchOwnerCompaniesAll } from "../../../utils/company/sharedCompanyFilter.js";
 import { spaPath } from "../../../utils/routing/pageRoutes.js";
+import { replaceBrowserPathOnly } from "../../../utils/routing/privateBrowserUrl.js";
 import {
   clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
@@ -824,7 +825,7 @@ export function useBankProcessListPage() {
               : await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (!bankCategory) {
             const warm = await prefetchGamesProcessListPayload(effectiveNum);
-            navigate(`/process-list?company_id=${effectiveNum}`, {
+            navigate(spaPath("process-list"), {
               replace: true,
               state: {
                 processListPrefetch: {
@@ -1113,22 +1114,8 @@ export function useBankProcessListPage() {
   }, [resendModalOpen, resendDayStart, resendDayEnd, resendTarget?.id, refreshResendConfirmLock]);
 
   const syncUrl = useCallback(() => {
-    const url = new URL(window.location.href);
-    if (companyId) url.searchParams.set("company_id", String(companyId));
-    else url.searchParams.delete("company_id");
-    if (search.trim()) url.searchParams.set("search", search.trim());
-    else url.searchParams.delete("search");
-    if (dateFrom) url.searchParams.set("date_from", dateFrom);
-    else url.searchParams.delete("date_from");
-    if (dateTo) url.searchParams.set("date_to", dateTo);
-    else url.searchParams.delete("date_to");
-    [["showAll", showAll], ["showInactive", showInactive], ["showOfficial", showOfficial], ["showEInvoice", showEInvoice], ["showBlock", showBlock]].forEach(([k, v]) => {
-      if (v) url.searchParams.set(k, "1"); else url.searchParams.delete(k);
-    });
-    if (currencyFilterCode) url.searchParams.set("currency", currencyFilterCode);
-    else url.searchParams.delete("currency");
-    window.history.replaceState({}, document.title, url.toString());
-  }, [companyId, search, dateFrom, dateTo, showAll, showInactive, showOfficial, showEInvoice, showBlock, currencyFilterCode]);
+    replaceBrowserPathOnly();
+  }, []);
 
   const applyBankProcessListCache = useCallback(
     (cid) => {
@@ -1401,7 +1388,7 @@ export function useBankProcessListPage() {
           const bankCategory = await bankCategoryPromise;
           if (!bankCategory) {
             const warm = await prefetchGamesProcessListPayload(nextId);
-            navigate(`/process-list?company_id=${nextId}`, {
+            navigate(spaPath("process-list"), {
               replace: true,
               state: {
                 processListPrefetch: {

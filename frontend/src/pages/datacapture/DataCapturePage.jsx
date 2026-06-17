@@ -503,7 +503,7 @@ function DataCapturePageContent() {
         }
 
         if (!sessionUserHasCompanyCategoryAccess(u)) {
-          navigate(spaPath("process-list", { search: "?error=no_permission" }), { replace: true });
+          navigate(spaPath("process-list"), { replace: true });
           return;
         }
 
@@ -574,10 +574,7 @@ function DataCapturePageContent() {
     if (bootLoading || companies.length === 0) return;
     if (isDashboardGroupOnlyMode()) {
       if (companyIdFromUrl) {
-        const params = new URLSearchParams(searchParams);
-        params.delete("company_id");
-        const qs = params.toString();
-        navigate(`/datacapture${qs ? `?${qs}` : ""}`, { replace: true });
+        navigate(spaPath("datacapture"), { replace: true });
       }
       return;
     }
@@ -734,7 +731,7 @@ function DataCapturePageContent() {
       companyId: id,
     };
     setCompanyId(id);
-    navigate(`/datacapture?company_id=${encodeURIComponent(id)}`, { replace: true });
+    navigate(spaPath("datacapture"), { replace: true });
   }, [navigate, selectedGroup]);
 
   const handleClearCompany = useCallback(() => {

@@ -68,6 +68,7 @@ import {
   patchMeFromCompanyContext,
 } from "../utils/company/loginScope.js";
 import { pathnameIs, pathnameToPageKey, spaPath } from "../utils/routing/pageRoutes.js";
+import { stripPrivateQueryFromBrowserUrl } from "../utils/routing/privateBrowserUrl.js";
 import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import "../../public/css/modal-close-unified.css";
 
@@ -208,6 +209,10 @@ export default function AuthenticatedLayout() {
   useLayoutEffect(() => {
     consumeDashboardFilterNewTabBootstrap();
   }, []);
+
+  useLayoutEffect(() => {
+    stripPrivateQueryFromBrowserUrl();
+  }, [location.pathname, location.search]);
 
   // --- Notification Panel State ---
   const [showNotifications, setShowNotifications] = useState(false);

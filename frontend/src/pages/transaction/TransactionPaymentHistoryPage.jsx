@@ -11,6 +11,7 @@ import {
   resolveHistoryAccountName,
   resolvePaymentHistoryScope,
   paymentHistoryScopeApiParams,
+  stripPaymentHistoryUrlQuery,
 } from "./lib/transactionPaymentHistoryUrl.js";
 import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./lib/transactionPaymentPageUtils.js";
 import "../../../public/css/transaction.css";
@@ -48,6 +49,7 @@ export default function TransactionPaymentHistoryPage() {
   const { splitScreen, compactHeaders } = usePaymentHistoryLayoutMode();
 
   useLayoutEffect(() => {
+    stripPaymentHistoryUrlQuery();
     document.body.classList.add("dashboard-page", "transaction-page", "transaction-payment-history-page");
     if (splitScreen) {
       document.body.classList.add("transaction-payment-history-page--popup");

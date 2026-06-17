@@ -6,6 +6,7 @@ import {
 } from "../../datacapture/lib/dataCaptureStorage.js";
 import { resolveDataCaptureScopeFromSessionMeta } from "../../datacapture/lib/dataCaptureScope.js";
 import { dataCaptureScopeCacheCompanyKey } from "../../datacapture/lib/dataCaptureScope.js";
+import { replaceBrowserPathOnly } from "../../../utils/routing/privateBrowserUrl.js";
 export const SUMMARY_CAPTURE_STORAGE_KEYS = [
   "capturedTableData",
   "capturedProcessData",
@@ -92,20 +93,12 @@ export function clearSummaryCaptureRoundStorage() {
 }
 
 export function isSummaryFreshFromCapture(searchParams) {
+  if (consumeSummaryFreshNavigation()) return true;
   return searchParams?.get("success") === "1";
 }
 
 export function stripSummarySuccessParamFromUrl() {
-  try {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("success") && !url.searchParams.has("error")) return;
-    url.searchParams.delete("success");
-    url.searchParams.delete("error");
-    const qs = url.searchParams.toString();
-    window.history.replaceState({}, "", `${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`);
-  } catch {
-    /* ignore */
-  }
+  replaceBrowserPathOnly();
 }
 
 /**
