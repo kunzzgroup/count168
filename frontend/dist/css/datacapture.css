@@ -1487,33 +1487,44 @@ body.datacapture-page .process-form .dc-description-add-tile:focus-visible {
     box-sizing: border-box;
 }
 
-.modal-content.description-selection-modal .modal-header {
+.modal-content.description-selection-modal .modal-header,
+.modal-content.description-selection-modal .description-selection-modal-header.modal-header {
     position: relative;
     flex-shrink: 0;
     margin: 0;
-    padding: var(--desc-modal-pad-block, 3px) var(--desc-modal-pad-inline, 20px) 0;
+    padding: 3px 20px;
+    padding-right: 3rem;
     background: #f8fafc;
-    border-bottom: none;
+    border-bottom: 1px solid #e2e8f0;
     border-radius: 12px 12px 0 0;
     box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
 }
 
 .modal-content.description-selection-modal .modal-header h2 {
     margin: 0;
-    padding: 0;
+    padding: clamp(12px, 0.78vw, 15px) clamp(18px, 1.2vw, 23px);
     background: transparent;
+    border: none;
     border-bottom: none;
-    font-size: var(--text-page-title);
+    font-size: var(--process-form-modal-title-size, var(--text-page-title));
     font-family: var(--font-heading-page);
     font-weight: var(--font-weight-page-title);
     letter-spacing: var(--letter-spacing-page-title);
     color: #1f2937;
     line-height: 1.2;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .modal-content.description-selection-modal .close {
-    right: 1.25rem;
-    top: 1.25rem;
+    position: static;
+    right: auto;
+    top: auto;
+    flex-shrink: 0;
     transform: none;
 }
 

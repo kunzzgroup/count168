@@ -103,7 +103,7 @@ export function LinkAccountModal({
   return portalToDocumentBody(
     <div id="linkAccountModal" className="account-modal" style={{ display: "block", zIndex: accountModalOverlayZIndex }}>
       <div className="account-modal-content">
-        <div className="account-modal-header">
+        <div className="account-modal-header account-form-modal-header">
           <h2>{t("linkAccountTitle")}</h2>
           <span className="account-close" onClick={onClose} role="button" tabIndex={0} aria-label={t("close")} />
         </div>
