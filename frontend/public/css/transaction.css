@@ -403,6 +403,23 @@ body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .tra
     border-left: 1px solid rgba(255, 255, 255, 0.28);
 }
 
+/* Desktop: Currency pills match Group / Company segment sizing (content-width, same padding) */
+@media (min-width: 1281px) {
+    body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-pills {
+        gap: var(--user-gc-inline-pills-gap, 4px);
+    }
+
+    body.transaction-page .transaction-bottom-filters .transaction-currency-measure .user-gc-segment,
+    body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment {
+        width: auto;
+        min-width: max-content;
+        padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
+        min-height: 0;
+        overflow: visible;
+        text-overflow: clip;
+    }
+}
+
 body.transaction-page .transaction-bottom-filters .user-gc-segment-group {
     display: inline-flex;
     flex-direction: row;
