@@ -280,7 +280,7 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-panel {
     display: grid;
     grid-template-columns: auto 1fr;
     column-gap: var(--user-gc-inline-column-gap, 4px);
-    align-items: center;
+    align-items: start;
     border-top: none;
     padding: 0 0 4px;
     background: transparent;
@@ -321,6 +321,87 @@ body.transaction-page .transaction-bottom-filters .user-gc-inline-pills--segment
     padding-bottom: 2px;
     scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
+}
+
+body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-pills {
+    margin-left: 0;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    align-self: stretch;
+    overflow-x: hidden;
+    overflow-y: visible;
+    gap: clamp(6px, 0.55vw, 8px);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    box-sizing: border-box;
+    position: relative;
+    --transaction-currency-pill-w: clamp(4rem, 4.85vw, 5.25rem);
+    --transaction-currency-pill-pad: 5px 14px;
+    --transaction-currency-pill-h: clamp(30px, 2vw, 34px);
+}
+
+body.transaction-page .transaction-bottom-filters .transaction-currency-measure {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: -1;
+}
+
+body.transaction-page .transaction-bottom-filters .transaction-currency-measure .user-gc-segment {
+    width: var(--transaction-currency-pill-w);
+    min-width: var(--transaction-currency-pill-w);
+    padding: var(--transaction-currency-pill-pad, 5px 14px);
+    box-sizing: border-box;
+    min-height: var(--transaction-currency-pill-h, clamp(30px, 2vw, 34px));
+    font-size: var(--text-medium) !important;
+    line-height: 1.25;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments {
+    margin-inline-start: 0;
+    align-self: flex-start;
+    max-width: 100%;
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: auto;
+    align-items: stretch;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment {
+    width: var(--transaction-currency-pill-w);
+    min-width: var(--transaction-currency-pill-w);
+    padding: var(--transaction-currency-pill-pad, 5px 14px);
+    box-sizing: border-box;
+    min-height: var(--transaction-currency-pill-h, clamp(30px, 2vw, 34px));
+    font-size: var(--text-medium) !important;
+    line-height: 1.25;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment.is-on {
+    overflow: hidden;
+}
+
+body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment.is-on + .user-gc-segment.is-on {
+    border-left: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 body.transaction-page .transaction-bottom-filters .user-gc-segment-group {
