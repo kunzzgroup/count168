@@ -61,12 +61,19 @@ npm run build
 ## 六、验证
 
 ```bash
-curl -I http://127.0.0.1/login
+curl -I http://127.0.0.1/p/05659e0a-5121-427b-b5f2-7bbc43e14b23
 ls /var/www/count168/frontend/dist/index.html
 sudo systemctl status nginx php-fpm
 ```
 
-浏览器：`http://count168.site/login` — 应看到登录页，**不是** Welcome to nginx。
+浏览器：`https://count168.site/p/05659e0a-5121-427b-b5f2-7bbc43e14b23` — 应看到登录页，**不是** Welcome to nginx / 404。
+
+**UUID 路由更新后**（git pull 含 nginx 变更）：
+
+```bash
+sudo cp /var/www/count168/deploy/nginx/count168.site.amazon-linux.conf /etc/nginx/conf.d/count168.site.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 ## 七、HTTPS
 
