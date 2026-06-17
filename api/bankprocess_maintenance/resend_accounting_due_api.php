@@ -236,6 +236,8 @@ try {
     bmp_ensureMaintenanceResendPendingTable($pdo);
     bmp_ensureBankProcessAccountingResendRelaxColumn($pdo);
     bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
+    bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+    bmp_ensureAccountingDueDismissedTable($pdo);
     bmp_ensureAccountingResendDailyGuardTable($pdo);
     // 若 Maintenance 已删除对应账单，guard 可能已无交易凭证，需先清理否则会误拦。
     bmp_pruneStaleAccountingResendDailyGuardsForProcess($pdo, $company_id, $bankProcessId);
@@ -409,11 +411,11 @@ try {
         );
         $flg->execute([$bankProcessId, $company_id]);
     }
-    // Monthly / 1st_of_every_month 单期 Resend：累积锚点，保留原正常流程账单与各次 Resend 独立行。
+    // Monthly / 1st_of_every_month 单期 Resend：覆盖为唯一锚点；自然月账单逻辑不受影响。
     if ($scheduleFromClient
         && ($newFrequency === 'monthly' || $newFrequency === '1st_of_every_month')
         && !($newFrequency === 'monthly' && $newDayStart !== null && $newDayEnd !== null)) {
-        bmp_appendResendOpenAnchor($pdo, $bankProcessId, $company_id, $effectiveDayStartYmd);
+        bmp_setResendOpenAnchor($pdo, $bankProcessId, $company_id, $effectiveDayStartYmd);
     }
     $pdo->commit();
     jsonResponse(true, 'Done: This process can appear in Accounting Due again.', [

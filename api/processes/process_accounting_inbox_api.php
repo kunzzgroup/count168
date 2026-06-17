@@ -1123,7 +1123,7 @@ function inboxCollectMonthlyPrepaidBillingAnchors(
 }
 
 /**
- * Resend relax 单期：为每个 open anchor 追加独立 resend_monthly_reopen 行（金额按 Resend 锚点日计算；Start 列仍显示库里真实 day_start）。
+ * Resend relax 单期：为当前唯一 open anchor 追加 resend_monthly_reopen 行（金额按 Resend 锚点日计算；Start 列仍显示库里真实 day_start）。
  *
  * @param '1st_of_every_month'|'monthly' $frequency
  */
