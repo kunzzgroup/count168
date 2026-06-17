@@ -589,7 +589,7 @@ export default function MemberPage() {
                             type="button"
                             draggable
                             data-currency={cell.code}
-                            className={`user-gc-segment user-gc-segment--draggable-pill${isAllSelected || selectedCurrencies.includes(cell.code) ? " is-on" : ""}`}
+                            className={`user-gc-segment user-gc-segment--draggable-pill${!isAllSelected && selectedCurrencies.includes(cell.code) ? " is-on" : ""}`}
                             onDragStart={(e) => {
                               e.dataTransfer.setData("text/plain", cell.code);
                               e.dataTransfer.effectAllowed = "move";
