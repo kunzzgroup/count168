@@ -100,12 +100,14 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
                 $row['accounting_resend_schedule_frequency'],
                 $row['accounting_resend_single_period_from_schedule'],
                 $row['accounting_resend_consolidated_range'],
-                $row['bank_process_stored_day_start']
+                $row['bank_process_stored_day_start'],
+                $row['bank_process_stored_day_end']
             );
             return $row;
         }
-        // 入账 API 在清除 Resend 覆盖前可比对「编辑里持久化的 day_start」与弹窗锚点，避免补历史整月后仍排队真实锚点的首月 partial。
+        // 入账 API 在清除 Resend 覆盖前可比对「编辑里持久化的 day_start / day_end」与弹窗锚点。
         $row['bank_process_stored_day_start'] = $row['day_start'] ?? null;
+        $row['bank_process_stored_day_end'] = $row['day_end'] ?? null;
         $ds = $row['accounting_resend_schedule_day_start'] ?? null;
         $hadScheduleStart = $ds !== null && trim((string) $ds) !== '';
         if ($hadScheduleStart) {
@@ -120,11 +122,12 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
         if ($hadScheduleEnd) {
             $row['day_end'] = preg_match('/^(\d{4}-\d{2}-\d{2})/', (string) $de, $m) ? $m[1] : $de;
         }
-        // Resend 弹窗同时填 day_start + day_end：按自然月切段合并为一笔（仅 relax 期间；不入库为独立列）
-        if ($hadScheduleStart && $hadScheduleEnd) {
+        $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
+        // 仅 Monthly 在同时填 day_start + day_end 时走 consolidated 合并账单。
+        // 1st_of_every_month 的 day_end 仅作合同窗口，须保留单期 resend + 正常流程并存。
+        if ($hadScheduleStart && $hadScheduleEnd && $fq === 'monthly') {
             $row['accounting_resend_consolidated_range'] = 1;
         }
-        $fq = isset($row['accounting_resend_schedule_frequency']) ? strtolower(trim((string) $row['accounting_resend_schedule_frequency'])) : '';
         if ($fq === 'monthly' || $fq === '1st_of_every_month' || $fq === 'week' || $fq === 'day' || $fq === 'once') {
             $row['day_start_frequency'] = $fq;
         }
@@ -138,7 +141,7 @@ if (!function_exists('bmp_mergeResendScheduleIntoBankProcessRowForAccounting')) 
             $row['accounting_resend_schedule_day_end'],
             $row['accounting_resend_schedule_frequency']
         );
-        // bank_process_stored_day_start 仅内存字段，供入账 API 使用，不入库
+        // bank_process_stored_day_start / day_end 仅内存字段，供入账 API 使用，不入库
         return $row;
     }
 }

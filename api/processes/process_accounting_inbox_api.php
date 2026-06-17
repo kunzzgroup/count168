@@ -577,11 +577,12 @@ function inboxAppendMonthlyNeedToday(
         'is_partial_first_month' => false,
         'is_manual_inactive' => false,
         'is_resend_monthly_reopen' => (
-            $frequency === 'monthly'
-            && !empty($r['accounting_resend_relax_created_floor'])
+            !empty($r['accounting_resend_relax_created_floor'])
             && !empty($r['accounting_resend_single_period_from_schedule'])
+            && ($frequency === 'monthly' || $frequency === '1st_of_every_month')
             && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $monthlyBillingMonth)
         ),
+        'frequency' => $frequency,
         'monthly_billing_month' => $monthlyBillingMonth,
     ];
 }
@@ -1069,6 +1070,100 @@ function inboxCollectMonthlyPrepaidBillingAnchors(
     return inboxUniqueSortedBillingMonths($anchors);
 }
 
+/**
+ * 1st_of_every_month 账期入列：Resend 单期用 schedule day_start (Y-m-d) 作锚点，与正常流程 Y-n 区分。
+ *
+ * @return string[] billing anchors (Y-n 或 Y-m-d)
+ */
+function inboxCollectFirstOfMonthBillingAnchors(
+    PDO $pdo,
+    int $companyId,
+    array $r,
+    string $today,
+    string $startDate,
+    int $startTs,
+    string $createdYmd,
+    ?string $contract,
+    ?string $dayEnd,
+    bool $resendRelax,
+    bool $resendSinglePeriod
+): array {
+    if (!isWithinRecurringBillingWindow($today, $r['day_start'] ?? null, $contract, $dayEnd, '1st_of_every_month', $resendRelax, $resendSinglePeriod)) {
+        return [];
+    }
+    $processId = (int) ($r['id'] ?? 0);
+    if ($processId <= 0 || $startDate === '') {
+        return [];
+    }
+
+    if ($resendSinglePeriod) {
+        if (!$resendRelax) {
+            return [];
+        }
+        if (!bmp_hasMonthlyPostedOrSkippedForDueYmd($pdo, $companyId, $processId, $startDate)) {
+            return [$startDate];
+        }
+        return [];
+    }
+
+    $anchors = [];
+    $startDayOfMonth = (int) date('j', $startTs);
+    try {
+        $todayYm = (new DateTimeImmutable($today))->format('Y-n');
+        if ($startDayOfMonth === 1) {
+            $startYm = (new DateTimeImmutable($startDate))->format('Y-n');
+            $billYear = (int) date('Y', $startTs);
+            $billMonth = (int) date('n', $startTs);
+            if ($today >= $startDate
+                && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $companyId, $processId, $billYear, $billMonth)) {
+                $anchors[] = $startYm;
+            }
+        }
+        $firstAccountingTs = strtotime('first day of next month', $startTs);
+        $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
+        if ($firstAccountingDate === '' || (!$resendRelax && $today < $firstAccountingDate)) {
+            return inboxUniqueSortedBillingMonths($anchors);
+        }
+        $iter = new DateTimeImmutable($firstAccountingDate);
+        $iter = $iter->modify('first day of this month');
+        $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
+        if ($resendRelax && $iter > $endCap) {
+            $endCap = $iter;
+        }
+        $term = getBillingTermMonthsFromContract($contract);
+        $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdFirstOfMonth($startDate, $term) : null;
+        $anchorMonthCap = inboxAnchorMonthCapAfterPartialFirst($contract, $startDayOfMonth);
+        $anchorSlotIndex = 0;
+        while ($iter <= $endCap) {
+            if ($anchorMonthCap !== null && $anchorSlotIndex >= $anchorMonthCap) {
+                break;
+            }
+            $y = (int) $iter->format('Y');
+            $mo = (int) $iter->format('n');
+            $firstOfThis = $iter->format('Y-m-d');
+            if ($exclusiveEnd !== null && $firstOfThis >= $exclusiveEnd) {
+                break;
+            }
+            $billYm = $iter->format('Y-n');
+            if (!$resendRelax && $billYm !== $todayYm) {
+                $anchorSlotIndex++;
+                $iter = $iter->modify('+1 month');
+                continue;
+            }
+            $effectiveDue = maxYmd($firstOfThis, $createdYmd);
+            if (($today >= $effectiveDue || $resendRelax)
+                && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $companyId, $processId, $y, $mo)) {
+                $anchors[] = $billYm;
+            }
+            $anchorSlotIndex++;
+            $iter = $iter->modify('+1 month');
+        }
+    } catch (Throwable $e) {
+        return inboxUniqueSortedBillingMonths($anchors);
+    }
+    return inboxUniqueSortedBillingMonths($anchors);
+}
+
 /** Resend 单期与库里真实 day_start 不同时，额外排正常流程账单（不覆盖原流程）。 */
 function inboxAppendStoredMonthlyNormalFlowIfNeeded(
     array &$needToday,
@@ -1095,6 +1190,10 @@ function inboxAppendStoredMonthlyNormalFlowIfNeeded(
     }
     $rNormal = $r;
     $rNormal['day_start'] = $storedRaw;
+    $storedDayEnd = $r['bank_process_stored_day_end'] ?? null;
+    if ($storedDayEnd !== null && trim((string) $storedDayEnd) !== '') {
+        $rNormal['day_end'] = $storedDayEnd;
+    }
     unset($rNormal['accounting_resend_single_period_from_schedule'], $rNormal['accounting_resend_consolidated_range']);
     $rNormal['accounting_resend_relax_created_floor'] = 0;
 
@@ -1125,6 +1224,78 @@ function inboxAppendStoredMonthlyNormalFlowIfNeeded(
             $rNormal,
             $bm,
             'monthly',
+            $createdYmd,
+            $startTs,
+            $startDate,
+            $baseCost,
+            $basePrice,
+            $baseProfit,
+            $hasDayEndMonthlyCapCol
+        );
+    }
+}
+
+/** 1st_of_every_month: Resend 单期开账时，补回当前正常流程账单（与 Resend 行并存）。 */
+function inboxAppendStoredFirstOfMonthNormalFlowIfNeeded(
+    array &$needToday,
+    PDO $pdo,
+    int $companyId,
+    array $r,
+    string $today,
+    string $baseCost,
+    string $basePrice,
+    string $baseProfit,
+    bool $hasDayEndMonthlyCapCol
+): void {
+    if (empty($r['accounting_resend_relax_created_floor']) || empty($r['accounting_resend_single_period_from_schedule'])) {
+        return;
+    }
+    $storedRaw = $r['bank_process_stored_day_start'] ?? null;
+    if ($storedRaw === null || trim((string) $storedRaw) === '') {
+        return;
+    }
+    $storedYmd = inboxBankProcessDateFieldToYmd((string) $storedRaw);
+    $mergedYmd = inboxBankProcessDateFieldToYmd($r['day_start'] ?? null);
+    if ($storedYmd === null || $mergedYmd === null || $storedYmd === $mergedYmd) {
+        return;
+    }
+
+    $rNormal = $r;
+    $rNormal['day_start'] = $storedRaw;
+    $storedDayEnd = $r['bank_process_stored_day_end'] ?? null;
+    if ($storedDayEnd !== null && trim((string) $storedDayEnd) !== '') {
+        $rNormal['day_end'] = $storedDayEnd;
+    }
+    unset($rNormal['accounting_resend_single_period_from_schedule'], $rNormal['accounting_resend_consolidated_range']);
+    $rNormal['accounting_resend_relax_created_floor'] = 0;
+
+    $startDate = $storedYmd;
+    $startTs = strtotime($startDate);
+    if ($startTs === false) {
+        return;
+    }
+    $createdYmd = inboxEffectiveCreatedYmdForProcess($rNormal, $today, $startDate);
+    $contract = $rNormal['contract'] ?? null;
+    $dayEnd = $rNormal['day_end'] ?? null;
+    $anchors = inboxCollectFirstOfMonthBillingAnchors(
+        $pdo,
+        $companyId,
+        $rNormal,
+        $today,
+        $startDate,
+        $startTs,
+        $createdYmd,
+        $contract,
+        $dayEnd,
+        false,
+        false
+    );
+    foreach ($anchors as $bm) {
+        inboxAppendMonthlyNeedToday(
+            $needToday,
+            $rNormal,
+            $bm,
+            '1st_of_every_month',
             $createdYmd,
             $startTs,
             $startDate,
@@ -1407,8 +1578,12 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                     if (preg_match('/^(\d{4})-(\d{1,2})$/', $bmRaw, $m)) {
                         $dueForBm = null;
                         $dsBm = inboxBankProcessDateFieldToYmd($item['day_start'] ?? null);
+                        $freqBm = (string) ($item['frequency'] ?? 'monthly');
+                        if ($freqBm !== '1st_of_every_month') {
+                            $freqBm = 'monthly';
+                        }
                         if ($dsBm !== null) {
-                            $dueForBm = bmp_monthlyDueYmdFromBillingAnchor($bmRaw, $dsBm, 'monthly');
+                            $dueForBm = bmp_monthlyDueYmdFromBillingAnchor($bmRaw, $dsBm, $freqBm);
                         }
                         if ($dueForBm !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueForBm)) {
                             $item['already_posted_today'] = bmp_hasMonthlyPostedOrSkippedForDueYmd(
@@ -1870,85 +2045,21 @@ try {
             if ($startTs === false) {
                 continue;
             }
-            // First calendar month when day_start is on the 1st (1st_of_every_month)：自 day_start 当月起可入账，金额按 day_start 起算（与创建/提交日无关）。
-            $firstMonthOnFirst = false;
-            try {
-                $startDayOfMonth = (int) date('j', $startTs);
-                $startYm = (new DateTimeImmutable($startDate))->format('Y-n');
-                $todayYm = (new DateTimeImmutable($today))->format('Y-n');
-                $billYear = (int) date('Y', $startTs);
-                $billMonth = (int) date('n', $startTs);
-                // Resend 弹窗指定单月：day_start 在 1 号时首月整段须在「当前自然月≠锚点月」时仍可出现在 Accounting Due（否则只会从次月循环到「今天」所在月，出现 1 月补账却展示 4 月的问题）。
-                if ($startDayOfMonth === 1
-                    && $today >= $startDate
-                    && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $billYear, $billMonth)
-                    && isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax, $resendSinglePeriod)) {
-                    $firstMonthOnFirst = true;
-                    $monthlyBillingMonth = $startYm;
-                }
-            } catch (Throwable $e) {
-                // ignore
-            }
-            if ($firstMonthOnFirst) {
-                $queuedMonthlyBillingMonths[] = (string) $monthlyBillingMonth;
-            }
-            $firstAccountingTs = strtotime('first day of next month', $startTs);
-            $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
-            if ($firstAccountingDate === '' || (!$resendRelax && $today < $firstAccountingDate)) {
-                $need = false;
-            } elseif (!isWithinRecurringBillingWindow($today, $dayStart, $contract, $dayEnd, '1st_of_every_month', $resendRelax, $resendSinglePeriod)) {
-                $need = false;
-            } else {
-                try {
-                    $iter = new DateTimeImmutable($firstAccountingDate);
-                    $iter = $iter->modify('first day of this month');
-                    $endCap = (new DateTimeImmutable($today))->modify('first day of this month');
-                    if ($resendRelax && $iter > $endCap) {
-                        $endCap = $iter;
-                    }
-                    $term = getBillingTermMonthsFromContract($contract);
-                    $exclusiveEnd = ($term !== null && $term >= 1) ? billingContractExclusiveEndYmdFirstOfMonth($startDate, $term) : null;
-                    $startDayForCap = (int) date('j', $startTs);
-                    $anchorMonthCap = inboxAnchorMonthCapAfterPartialFirst($contract, $startDayForCap);
-                    $anchorSlotIndex = 0;
-                    $onlyAnchorYmFirstOfMonth = null;
-                    if ($resendSinglePeriod && $startDate !== '') {
-                        try {
-                            $onlyAnchorYmFirstOfMonth = (new DateTimeImmutable($startDate))->format('Y-n');
-                        } catch (Throwable $e) {
-                            $onlyAnchorYmFirstOfMonth = null;
-                        }
-                    }
-                    while ($iter <= $endCap) {
-                        if ($anchorMonthCap !== null && $anchorSlotIndex >= $anchorMonthCap) {
-                            break;
-                        }
-                        $y = (int) $iter->format('Y');
-                        $mo = (int) $iter->format('n');
-                        $firstOfThis = $iter->format('Y-m-d');
-                        if ($exclusiveEnd !== null && $firstOfThis >= $exclusiveEnd) {
-                            break;
-                        }
-                        $billYm = $iter->format('Y-n');
-                        if ($onlyAnchorYmFirstOfMonth !== null && $billYm !== $onlyAnchorYmFirstOfMonth) {
-                            $anchorSlotIndex++;
-                            $iter = $iter->modify('+1 month');
-                            continue;
-                        }
-                        $effectiveDue = maxYmd($firstOfThis, $createdYmd);
-                        if (($today >= $effectiveDue || $resendRelax)
-                            && !hasMonthlyPostedOrSkippedInCalendarMonth($pdo, $company_id, (int) $r['id'], $y, $mo)) {
-                            $queuedMonthlyBillingMonths[] = $billYm;
-                        }
-                        $anchorSlotIndex++;
-                        $iter = $iter->modify('+1 month');
-                    }
-                } catch (Throwable $e) {
-                    $need = false;
-                }
-            }
+            $queuedMonthlyBillingMonths = inboxCollectFirstOfMonthBillingAnchors(
+                $pdo,
+                $company_id,
+                $r,
+                $today,
+                $startDate,
+                $startTs,
+                $createdYmd,
+                $contract,
+                $dayEnd,
+                $resendRelax,
+                $resendSinglePeriod
+            );
             if (!empty($queuedMonthlyBillingMonths)) {
-                foreach (inboxUniqueSortedBillingMonths($queuedMonthlyBillingMonths) as $bm) {
+                foreach ($queuedMonthlyBillingMonths as $bm) {
                     inboxAppendMonthlyNeedToday(
                         $needToday,
                         $r,
@@ -1963,8 +2074,18 @@ try {
                         $hasDayEndMonthlyCapCol
                     );
                 }
-                continue;
             }
+            inboxAppendStoredFirstOfMonthNormalFlowIfNeeded(
+                $needToday,
+                $pdo,
+                $company_id,
+                $r,
+                $today,
+                $baseCost,
+                $basePrice,
+                $baseProfit,
+                $hasDayEndMonthlyCapCol
+            );
             continue;
         } elseif ($frequency === 'monthly') {
             // Monthly（prepaid）：每月 day_start 当天应付；逾期仍显示至该月结清
