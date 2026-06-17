@@ -330,7 +330,7 @@ body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .tra
     align-self: stretch;
     overflow-x: hidden;
     overflow-y: visible;
-    gap: clamp(6px, 0.55vw, 8px);
+    gap: var(--user-gc-inline-pills-gap, 4px);
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -338,9 +338,6 @@ body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .tra
     padding-bottom: 2px;
     box-sizing: border-box;
     position: relative;
-    --transaction-currency-pill-w: clamp(4rem, 4.85vw, 5.25rem);
-    --transaction-currency-pill-pad: 5px 14px;
-    --transaction-currency-pill-h: clamp(30px, 2vw, 34px);
 }
 
 body.transaction-page .transaction-bottom-filters .transaction-currency-measure {
@@ -353,17 +350,19 @@ body.transaction-page .transaction-bottom-filters .transaction-currency-measure 
     z-index: -1;
 }
 
-body.transaction-page .transaction-bottom-filters .transaction-currency-measure .user-gc-segment {
-    width: var(--transaction-currency-pill-w);
-    min-width: var(--transaction-currency-pill-w);
-    padding: var(--transaction-currency-pill-pad, 5px 14px);
+body.transaction-page .transaction-bottom-filters .transaction-currency-measure .user-gc-segment,
+body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment {
+    width: auto;
+    min-width: max-content;
+    padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
     box-sizing: border-box;
-    min-height: var(--transaction-currency-pill-h, clamp(30px, 2vw, 34px));
     font-size: var(--text-medium) !important;
     line-height: 1.25;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments {
@@ -381,43 +380,12 @@ body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .tra
     flex-shrink: 0;
 }
 
-body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment {
-    width: var(--transaction-currency-pill-w);
-    min-width: var(--transaction-currency-pill-w);
-    padding: var(--transaction-currency-pill-pad, 5px 14px);
-    box-sizing: border-box;
-    min-height: var(--transaction-currency-pill-h, clamp(30px, 2vw, 34px));
-    font-size: var(--text-medium) !important;
-    line-height: 1.25;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment.is-on {
     overflow: hidden;
 }
 
 body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment.is-on + .user-gc-segment.is-on {
     border-left: 1px solid rgba(255, 255, 255, 0.28);
-}
-
-/* Desktop: Currency pills match Group / Company segment sizing (content-width, same padding) */
-@media (min-width: 1281px) {
-    body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-pills {
-        gap: var(--user-gc-inline-pills-gap, 4px);
-    }
-
-    body.transaction-page .transaction-bottom-filters .transaction-currency-measure .user-gc-segment,
-    body.transaction-page .transaction-bottom-filters #currency-buttons-wrapper .transaction-currency-segments .user-gc-segment {
-        width: auto;
-        min-width: max-content;
-        padding: var(--user-gc-segment-padding, 4px clamp(10px, 1.2vw, 18px));
-        min-height: 0;
-        overflow: visible;
-        text-overflow: clip;
-    }
 }
 
 body.transaction-page .transaction-bottom-filters .user-gc-segment-group {
