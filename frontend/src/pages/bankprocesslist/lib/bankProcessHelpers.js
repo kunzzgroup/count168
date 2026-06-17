@@ -741,6 +741,7 @@ export function accountingDuePeriodType(r) {
   if (r.is_daily) return "daily";
   if (r.is_manual_inactive) return "manual_inactive";
   if (r.is_resend_consolidated_range) return "resend_consolidated_range";
+  if (r.is_resend_monthly_reopen) return "resend_monthly_reopen";
   if (r.is_partial_first_month) return "partial_first_month";
   if (r.is_day_end_tail) return "day_end_tail";
   return "monthly";

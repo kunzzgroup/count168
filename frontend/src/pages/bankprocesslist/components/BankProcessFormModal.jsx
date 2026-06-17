@@ -9,8 +9,6 @@ import {
 import {
   parseProfitSharingToRows,
   serializeProfitSharingRows,
-  parseBankContractRentalMonthsForDayEnd,
-  contractBillingEndYmdForBankForm,
   bankProcessFrequencyNormalized,
   BANK_PROCESS_CONTRACT_OPTIONS,
   formatBankProcessContractLabel,
@@ -70,14 +68,8 @@ export default function BankProcessFormModal({
     setForm((prev) => ({ ...prev, profit_sharing: serializeProfitSharingRows(next, accounts) }));
   };
 
+  // 允许 1st_of_every_month / monthly 手动填写 Day end，仅保持不得早于 Day start。
   let dayEndMin = dayStart || undefined;
-  if (!isOnce && !isWeek && !isDay && frequency !== "monthly" && dayStart && contract) {
-    const term = parseBankContractRentalMonthsForDayEnd(contract);
-    const calculated = term ? contractBillingEndYmdForBankForm(dayStart, term, frequency) : null;
-    if (calculated) {
-      dayEndMin = calculated;
-    }
-  }
 
   return (
     <ProcessModalPortal>
