@@ -1274,11 +1274,15 @@ export function useBankProcessListPage() {
 
   const loadAccountingInbox = useCallback(async (opts = {}) => {
     const silent = !!opts.silent;
+    const restoreDismissed = !!opts.restoreDismissed;
     if (!companyId) return;
     if (!silent) setAccountingLoading(true);
     try {
       const url = new URL(buildApiUrl("api/processes/process_accounting_inbox_api.php"));
       url.searchParams.set("company_id", String(companyId));
+      if (restoreDismissed) {
+        url.searchParams.set("restore_dismissed", "1");
+      }
       const res = await fetch(url.toString(), { credentials: "include", cache: "no-cache" });
       const json = await res.json();
       const list = Array.isArray(json?.data) ? json.data : [];
