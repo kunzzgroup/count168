@@ -122,6 +122,17 @@ export function pathnameIs(pageKey, pathname) {
   return pathnameToPageKey(pathname) === pageKey;
 }
 
+/** Site root for API / absolute paths — UUID routes live under /p/{uuid}, not /p/ subfolder. */
+export function getSiteBasePath() {
+  const pathname = normalizePathname(window.location.pathname || "/");
+  if (UUID_PATH_RE.test(pathname)) {
+    return "/";
+  }
+  const parent = pathname.replace(/[^/]*$/, "") || "/";
+  if (parent === "/") return "/";
+  return parent.endsWith("/") ? parent : `${parent}/`;
+}
+
 /** Resolve legacy or UUID pathname to canonical UUID SPA path. */
 export function resolveCanonicalSpaPath(pathname, { search = "", hash = "" } = {}) {
   const key = pathnameToPageKey(pathname);

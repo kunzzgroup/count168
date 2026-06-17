@@ -1,9 +1,12 @@
-import { pathnameToPageKey, resolveCanonicalSpaPath, spaPath } from "../routing/pageRoutes.js";
+import {
+  getSiteBasePath,
+  pathnameToPageKey,
+  resolveCanonicalSpaPath,
+  spaPath,
+} from "../routing/pageRoutes.js";
 
 export function buildApiUrl(pathAndQuery) {
-  const pathname = window.location.pathname || "/";
-  const basePath = pathname.replace(/[^/]*$/, "") || "/";
-  const base = window.location.origin + basePath;
+  const base = window.location.origin + getSiteBasePath();
   return new URL(pathAndQuery, base).href;
 }
 
@@ -38,9 +41,12 @@ export function buildSpaPath(pathAndQuery) {
     ? spaPath(pageKey, { search, hash })
     : resolveCanonicalSpaPath(normalized, { search, hash }) || normalized;
 
-  const pathname = window.location.pathname || "/";
-  const basePath = pathname.replace(/[^/]*$/, "") || "/";
-  const url = new URL(canonical.replace(/^\//, ""), window.location.origin + basePath);
+  // UUID and legacy SPA paths are site-root absolute (/p/... or /login).
+  if (canonical.startsWith("/")) {
+    return canonical;
+  }
+
+  const url = new URL(canonical.replace(/^\//, ""), window.location.origin + getSiteBasePath());
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
