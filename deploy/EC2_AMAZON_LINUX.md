@@ -173,3 +173,19 @@ git pull origin main
 # 若前端有改：本地 build 后只覆盖 frontend/dist/
 sudo systemctl reload nginx
 ```
+
+## 部署失败：`insufficient permission for adding an object to repository database .git/objects`
+
+原因：仓库当初用 `sudo git clone` 装过，`.git` 归 **root**，`ec2-user` 和 GitHub Actions 无法 `git fetch`。
+
+**一次性修复**（EC2 Instance Connect 粘贴）：
+
+```bash
+sudo chown -R ec2-user:nginx /var/www/count168
+bash /var/www/count168/deploy/deploy.sh
+grep index- /var/www/count168/frontend/dist/index.html
+```
+
+最后一行应显示 `index-CujfxkOl.js`（或更新的 hash），**不是** `index-Bn_oqep5.js`。
+
+也可在 GitHub → Actions → 最新失败的 **Deploy to EC2** → **Re-run all jobs**（需先把上面 chown 跑一遍，或等 `deploy.sh` 已含自动修复并 push 后再 rerun）。
