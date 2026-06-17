@@ -1161,7 +1161,7 @@ try {
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
         if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail'
-            && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off' && $pt !== 'weekly'
+            && $pt !== 'resend_consolidated_range' && $pt !== 'resend_monthly_reopen' && $pt !== 'once_one_off' && $pt !== 'weekly'
             && $pt !== 'daily' && $pt !== 'daily_consolidated') {
             $pt = 'monthly';
         }
@@ -1176,7 +1176,7 @@ try {
     $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
         $pt = $p['period_type'] ?? '';
         $bm = trim((string) ($p['billing_month'] ?? ''));
-        $key = $p['id'] . '_' . $pt . '_' . ((($pt === 'monthly' || $pt === 'weekly' || $pt === 'daily' || $pt === 'daily_consolidated') && $bm !== '') ? $bm : '');
+        $key = $p['id'] . '_' . $pt . '_' . ((($pt === 'monthly' || $pt === 'resend_monthly_reopen' || $pt === 'weekly' || $pt === 'daily' || $pt === 'daily_consolidated') && $bm !== '') ? $bm : '');
         if (isset($seen[$key])) {
             return false;
         }
@@ -1247,6 +1247,9 @@ try {
         $monthlyProrationPsRatio = null;
         $dayEndTailAnchorYmd = null;
         $periodType = trim((string) ($pair['period_type'] ?? 'monthly'));
+        if ($periodType === 'resend_monthly_reopen') {
+            $periodType = 'monthly';
+        }
         $cost = money_normalize($p['cost'] ?? '0');
         $price = money_normalize($p['price'] ?? '0');
         $profit = money_normalize($p['profit'] ?? '0');

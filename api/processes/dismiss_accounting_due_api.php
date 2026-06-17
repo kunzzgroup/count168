@@ -162,7 +162,7 @@ try {
     foreach ($ids as $i => $id) {
         $pt = isset($periodTypes[$i]) ? trim((string) $periodTypes[$i]) : 'monthly';
         if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive' && $pt !== 'day_end_tail'
-            && $pt !== 'resend_consolidated_range' && $pt !== 'once_one_off' && $pt !== 'weekly'
+            && $pt !== 'resend_consolidated_range' && $pt !== 'resend_monthly_reopen' && $pt !== 'once_one_off' && $pt !== 'weekly'
             && $pt !== 'daily' && $pt !== 'daily_consolidated') {
             $pt = 'monthly';
         }
@@ -213,6 +213,9 @@ try {
     foreach ($pairs as $p) {
         $processId = $p['id'];
         $periodType = $p['period_type'];
+        if ($periodType === 'resend_monthly_reopen') {
+            $periodType = 'monthly';
+        }
         $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1");
         $stmt->execute([$processId, $companyId]);
         if (!$stmt->fetch()) {

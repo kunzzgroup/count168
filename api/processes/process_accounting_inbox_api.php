@@ -576,6 +576,12 @@ function inboxAppendMonthlyNeedToday(
         'already_posted_today' => false,
         'is_partial_first_month' => false,
         'is_manual_inactive' => false,
+        'is_resend_monthly_reopen' => (
+            $frequency === 'monthly'
+            && !empty($r['accounting_resend_relax_created_floor'])
+            && !empty($r['accounting_resend_single_period_from_schedule'])
+            && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $monthlyBillingMonth)
+        ),
         'monthly_billing_month' => $monthlyBillingMonth,
     ];
 }
@@ -1393,13 +1399,27 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                         continue;
                     }
                     if (preg_match('/^(\d{4})-(\d{1,2})$/', $bmRaw, $m)) {
-                        $item['already_posted_today'] = hasMonthlyPostedOrSkippedInCalendarMonth(
-                            $pdo,
-                            $companyId,
-                            (int) $item['id'],
-                            (int) $m[1],
-                            (int) $m[2]
-                        );
+                        $dueForBm = null;
+                        $dsBm = inboxBankProcessDateFieldToYmd($item['day_start'] ?? null);
+                        if ($dsBm !== null) {
+                            $dueForBm = bmp_monthlyDueYmdFromBillingAnchor($bmRaw, $dsBm, 'monthly');
+                        }
+                        if ($dueForBm !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueForBm)) {
+                            $item['already_posted_today'] = bmp_hasMonthlyPostedOrSkippedForDueYmd(
+                                $pdo,
+                                $companyId,
+                                (int) $item['id'],
+                                $dueForBm
+                            );
+                        } else {
+                            $item['already_posted_today'] = hasMonthlyPostedOrSkippedInCalendarMonth(
+                                $pdo,
+                                $companyId,
+                                (int) $item['id'],
+                                (int) $m[1],
+                                (int) $m[2]
+                            );
+                        }
                         continue;
                     }
                 }
@@ -1458,6 +1478,18 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
                         $anchorYmd
                     );
                     continue;
+                }
+                if (!empty($item['is_resend_monthly_reopen'])) {
+                    $bmResend = trim((string) ($item['monthly_billing_month'] ?? ''));
+                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $bmResend)) {
+                        $item['already_posted_today'] = bmp_hasMonthlyPostedOrSkippedForDueYmd(
+                            $pdo,
+                            $companyId,
+                            (int) ($item['id'] ?? 0),
+                            $bmResend
+                        );
+                        continue;
+                    }
                 }
                 if (!empty($item['monthly_billing_month'])) {
                     $bmLegacy = trim((string) $item['monthly_billing_month']);
@@ -2139,6 +2171,7 @@ try {
         $rankOf = static function (array $item): int {
             if (!empty($item['is_once_one_off'])) return 6;
             if (!empty($item['is_resend_consolidated_range'])) return 5;
+            if (!empty($item['is_resend_monthly_reopen'])) return 5;
             if (!empty($item['is_day_end_tail'])) return 4;
             if (!empty($item['is_partial_first_month'])) return 3;
             if (!empty($item['is_manual_inactive'])) return 2;
@@ -2166,6 +2199,10 @@ try {
                 }
             }
             $bm = trim((string) ($item['monthly_billing_month'] ?? ''));
+            // Monthly Resend 单期：应付日 Y-m-d 须保留，勿回落到 day_start 自然月（否则会与未入账正常账单撞键被去重）。
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $bm)) {
+                return $bm;
+            }
             if (preg_match('/^(\d{4})-(\d{1,2})$/', $bm, $m)) {
                 return ((int) $m[1]) . '-' . ((int) $m[2]);
             }
@@ -2189,6 +2226,7 @@ try {
                 return !empty($item['is_daily_consolidated']) ? 'daily_consolidated' : 'daily';
             }
             if (!empty($item['is_resend_consolidated_range'])) return 'resend_consolidated_range';
+            if (!empty($item['is_resend_monthly_reopen'])) return 'resend_monthly_reopen';
             if (!empty($item['is_day_end_tail'])) return 'day_end_tail';
             if (!empty($item['is_partial_first_month'])) return 'partial_first_month';
             if (!empty($item['is_manual_inactive'])) return 'manual_inactive';
