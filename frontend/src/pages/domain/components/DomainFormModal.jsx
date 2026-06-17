@@ -24,6 +24,26 @@ import { getDomainText } from "../../../translateFile/pages/domainTranslate.js";
 import DomainModalPortal from "./DomainModalPortal.jsx";
 import ConfirmDeleteModal, { CONFIRM_DELETE_NESTED_Z_INDEX } from "../../../components/ConfirmDeleteModal.jsx";
 
+/** 与 AuthenticatedLayout TABLET_MEDIA_QUERY 一致 */
+const DFM_COMPACT_LAYOUT_MQ = "(max-width: 1280px)";
+
+function useDomainFormCompactLayout() {
+  const [compact, setCompact] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(DFM_COMPACT_LAYOUT_MQ).matches;
+  });
+
+  useEffect(() => {
+    const mq = window.matchMedia(DFM_COMPACT_LAYOUT_MQ);
+    const onChange = (event) => setCompact(event.matches);
+    mq.addEventListener("change", onChange);
+    setCompact(mq.matches);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return compact;
+}
+
 function normalizeDomainCode(value) {
   return String(value ?? "").trim().toUpperCase();
 }
@@ -95,6 +115,7 @@ export default function DomainFormModal({
   const [showPassword, setShowPassword] = useState(false);
   const [showSecondaryPassword, setShowSecondaryPassword] = useState(false);
   const { submitting, guardSubmit } = useSubmitGuard(true);
+  const compactLayout = useDomainFormCompactLayout();
 
   // Company / Group management
   const [tempCompanies, setTempCompanies] = useState([]);
@@ -605,16 +626,16 @@ export default function DomainFormModal({
     <DomainModalPortal>
       {/* z-index fixed inline: production Tailwind 若未抽出 arbitrary z-[50001]，弹窗可能在 #root/sidebar 下不可见 */}
       <div
-        className="domain-form-modal-backdrop"
+        className={`domain-form-modal-backdrop${compactLayout ? " domain-form-modal-backdrop--compact" : ""}`}
         style={{
           display: "block",
           position: "fixed",
           inset: 0,
           zIndex: 2147483000,
-          overflowY: "auto",
-          backgroundColor: "rgba(0, 0, 0, 0.5)",
-          backdropFilter: "blur(4px)",
-          WebkitBackdropFilter: "blur(4px)",
+          overflowY: compactLayout ? "hidden" : "auto",
+          backgroundColor: compactLayout ? "#ffffff" : "rgba(0, 0, 0, 0.5)",
+          backdropFilter: compactLayout ? "none" : "blur(4px)",
+          WebkitBackdropFilter: compactLayout ? "none" : "blur(4px)",
         }}
       >
         <div className="domain-form-modal-panel relative flex flex-col overflow-hidden">
