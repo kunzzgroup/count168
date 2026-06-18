@@ -70,8 +70,14 @@ export default function SimpleSelect({
       if (dropdownRef.current?.contains(target)) return;
       close();
     };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
+    // Defer so the opening click does not immediately close the menu.
+    const timer = window.setTimeout(() => {
+      document.addEventListener("mousedown", fn);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("mousedown", fn);
+    };
   }, [open, close]);
 
   const selected = options.find((opt) => String(opt.value) === String(value));
