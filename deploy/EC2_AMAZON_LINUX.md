@@ -186,6 +186,28 @@ bash /var/www/count168/deploy/deploy.sh
 grep index- /var/www/count168/frontend/dist/index.html
 ```
 
-最后一行应显示 `index-CujfxkOl.js`（或更新的 hash），**不是** `index-Bn_oqep5.js`。
+最后一行应显示当前 main 上的 hash（如 `index-Kdu-tZ13.js`），**不是**过期的 `index-pRYh52Hh.js`。
 
 也可在 GitHub → Actions → 最新失败的 **Deploy to EC2** → **Re-run all jobs**（需先把上面 chown 跑一遍，或等 `deploy.sh` 已含自动修复并 push 后再 rerun）。
+
+## 部署失败：Actions 一直红、但网站还能打开
+
+说明 **SSH 连上了但脚本失败**，或 **GitHub 根本 SSH 不进 EC2**。先确认线上是否落后：
+
+```bash
+curl -sS https://count168.site/frontend/dist/index.html | grep -o 'index-[A-Za-z0-9_-]*\.js' | head -1
+```
+
+与本地 `frontend/dist/index.html` 里的 hash 对比；不一致则 EC2 未拉到最新 main。
+
+**在 EC2 上手动跑一遍**（Instance Connect）：
+
+```bash
+sudo chown -R ec2-user:nginx /var/www/count168
+df -h /var/www/count168
+bash /var/www/count168/deploy/deploy.sh
+```
+
+- 若报 `git fetch` / `.git/objects`：仍是权限问题，确认 chown 成功。
+- 若报 `nginx -t`：执行 `sudo nginx -t` 看完整错误；常见是 certbot 碎片与仓库配置冲突，可 `sudo rm -f /etc/nginx/conf.d/count168.site-le-ssl.conf` 后再跑 deploy。
+- 若本地手动成功，但 Actions 仍失败：检查 GitHub Secrets 里 `EC2_HOST`（公网 IP）、`EC2_USER`（`ec2-user`）、`EC2_SSH_KEY`（完整 `.pem` 私钥，含 `BEGIN/END` 行）。Secret 被截断或改错后，从 1072 起会连续失败且网站仍显示旧版本。
