@@ -951,11 +951,12 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
     gap: clamp(0.5rem, 1vw, 0.75rem);
     justify-content: flex-start;
     align-items: center;
+    padding-bottom: 0.125rem;
 }
 
-/* Payment Alert 字段组的特殊样式 */
+/* Payment Alert 字段组：与同级 form-group 保持相同下边距 */
 .account-form-column .account-form-group:has(.account-radio-group) {
-    margin-bottom: clamp(0.5rem, 1vw, 0.75rem);
+    margin-bottom: 1.5rem;
 }
 
 .account-radio-label {
@@ -2165,6 +2166,11 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
     box-shadow: 0 3px 8px rgba(13, 96, 255, 0.3);
 }
 
+#account-addModal .account-form-column .account-form-group:has(.account-radio-group),
+#account-editModal .account-form-column .account-form-group:has(.account-radio-group) {
+    margin-bottom: 1.5rem;
+}
+
 #account-addModal .account-other-currency>div:not(.account-currency-list),
 #account-editModal .account-other-currency>div:not(.account-currency-list) {
     display: flex;
@@ -3139,6 +3145,11 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     #account-addModal .account-form-column .account-form-group,
     #account-editModal .account-form-column .account-form-group {
         margin-bottom: 0.6rem !important;
+    }
+
+    #account-addModal .account-form-column .account-form-group:has(.account-radio-group),
+    #account-editModal .account-form-column .account-form-group:has(.account-radio-group) {
+        margin-bottom: 0.85rem !important;
     }
 
     #account-addModal .account-form-group label,
