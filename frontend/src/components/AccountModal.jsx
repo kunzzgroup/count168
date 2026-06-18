@@ -340,7 +340,6 @@ export default function AccountModal({
                     rows="1"
                     value={form.remark}
                     onChange={(e) => setForm((f) => ({ ...f, remark: upper(e.target.value) }))}
-                    style={{ resize: "none", overflowY: "hidden", lineHeight: "1.5" }}
                   />
                 </div>
               </div>

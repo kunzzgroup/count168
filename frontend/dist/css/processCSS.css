@@ -4826,9 +4826,9 @@ body.process-page > .process-modal {
 .process-page .process-form.add-grid .add-col > .process-form-section:not(:last-child),
 #addModal .process-form.add-grid .add-col > .process-form-section:not(:last-child),
 #editModal .process-form.add-grid .add-col > .process-form-section:not(:last-child) {
-    margin-bottom: 1rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid #e8eef5;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0;
+    border-bottom: none;
 }
 
 .process-page .process-form.add-grid .process-form-section-title,
@@ -5722,7 +5722,7 @@ body.process-page > .process-modal {
     min-width: 0 !important;
     max-width: 100% !important;
     font-family: var(--font-ui) !important;
-    font-size: var(--text-small) !important;
+    font-size: var(--text-medium) !important;
     font-weight: 400 !important;
     line-height: var(--process-form-modal-multi-item-line-height, 1.35) !important;
     cursor: pointer;
@@ -8008,9 +8008,9 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
 .process-form-modal .process-form.add-grid .add-col > .process-form-section:not(:last-child),
 #addModal .modal-content.process-form-modal .process-form.add-grid .add-col > .process-form-section:not(:last-child),
 #editModal .modal-content.process-form-modal .process-form.add-grid .add-col > .process-form-section:not(:last-child) {
-    margin-bottom: calc(var(--space-gap, 0.75rem) * 1.1);
-    padding-bottom: calc(var(--space-gap, 0.75rem) * 0.95);
-    border-bottom: 1px solid var(--color-border, #e8eef5);
+    margin-bottom: calc(var(--space-gap, 0.75rem) * 0.5);
+    padding-bottom: 0;
+    border-bottom: none;
 }
 
 .process-form-modal .process-form-section-title,
@@ -8312,8 +8312,8 @@ body.process-page > #editModal.modal > .modal-content.process-form-modal,
     }
 
     #editModal .process-form.add-grid .add-col > .process-form-section:not(:last-child) {
-        margin-bottom: 0.45rem !important;
-        padding-bottom: 0.4rem !important;
+        margin-bottom: 0.35rem !important;
+        padding-bottom: 0 !important;
     }
 
     #editModal .process-form-section-title {
