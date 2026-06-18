@@ -1,8 +1,7 @@
 import { getProcessModalDropdownZIndex } from "./ProcessModalPortal.jsx";
 
 const PORTAL_EDGE_PAD = 16;
-const PORTAL_GAP = 0;
-const PORTAL_BORDER_OVERLAP = 1;
+const PORTAL_GAP = 1;
 
 /** Position a custom-select dropdown on document.body so modal overflow does not clip it. */
 export function layoutPortalCustomSelect(
@@ -31,8 +30,8 @@ export function layoutPortalCustomSelect(
       maxHeight: `${dropdownMaxHeight}px`,
       display: "flex",
       flexDirection: "column",
-      top: openBelow ? `${rect.bottom - PORTAL_BORDER_OVERLAP}px` : "auto",
-      bottom: openBelow ? "auto" : `${window.innerHeight - rect.top - PORTAL_BORDER_OVERLAP}px`,
+      top: openBelow ? `${rect.bottom + PORTAL_GAP}px` : "auto",
+      bottom: openBelow ? "auto" : `${window.innerHeight - rect.top + PORTAL_GAP}px`,
       zIndex: getProcessModalDropdownZIndex(wrapEl),
     },
   };
