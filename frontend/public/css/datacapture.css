@@ -1907,9 +1907,6 @@ body.datacapture-page .excel-table-scroll-body {
 }
 
 body.datacapture-page .excel-table-scroll-body .excel-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
     background-color: #f6f8fa;
 }
 
@@ -1918,11 +1915,6 @@ body.datacapture-page .excel-table-scroll-body .excel-table td.row-header {
     left: 0;
     z-index: 1;
     background-color: #f6f8fa;
-}
-
-body.datacapture-page .excel-table-scroll-body .excel-table thead th:first-child {
-    left: 0;
-    z-index: 3;
 }
 
 body.datacapture-page .excel-table-scroll-body .excel-table tbody tr {
