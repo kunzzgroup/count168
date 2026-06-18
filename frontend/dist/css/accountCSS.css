@@ -811,14 +811,19 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 }
 
 /* Add/Edit Account：按行配对字段，Name 与 Remark 等同高对齐 */
+.account-form-columns--paired-fields {
+    row-gap: 0.5rem;
+    column-gap: clamp(0.75rem, 1.2vw, 1rem);
+}
+
 .account-form-columns--paired-fields > .account-form-group,
 .account-form-columns--paired-fields > .account-form-columns__payment-extra {
     min-width: 0;
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .account-form-columns--paired-fields > .account-section-header {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
     padding-bottom: 0.25rem;
 }
 
@@ -832,7 +837,7 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 }
 
 .account-form-columns--paired-fields .account-form-group--remark-bottom {
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .account-form-columns--paired-fields .account-form-row {
@@ -845,7 +850,7 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
 }
 
 .account-form-columns--paired-fields .account-form-group:has(.account-radio-group) {
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .account-form-columns--paired-fields .account-radio-group {
@@ -1616,11 +1621,35 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
     border-bottom: 1px solid #e5e7eb;
 }
 
+#account-addModal .account-form-columns--paired-fields,
+#account-editModal .account-form-columns--paired-fields {
+    gap: 0.5rem clamp(0.75rem, 1.2vw, 1rem);
+    padding: clamp(0.65rem, 1vw, 0.9rem) clamp(1.2rem, 2vw, 1.65rem);
+}
+
 #account-addModal .account-form-columns--paired-fields > .account-section-header,
 #account-editModal .account-form-columns--paired-fields > .account-section-header {
     font-size: var(--text-h2);
     color: #111827;
     border-bottom-color: #e5e7eb;
+    margin-bottom: 0.35rem;
+}
+
+#account-addModal .account-form-columns--paired-fields > .account-form-group,
+#account-editModal .account-form-columns--paired-fields > .account-form-group,
+#account-addModal .account-form-columns--paired-fields > .account-form-columns__payment-extra,
+#account-editModal .account-form-columns--paired-fields > .account-form-columns__payment-extra {
+    margin-bottom: 0.65rem;
+}
+
+#account-addModal .account-form-columns--paired-fields > .account-form-group:has(.account-radio-group),
+#account-editModal .account-form-columns--paired-fields > .account-form-group:has(.account-radio-group) {
+    margin-bottom: 0.75rem;
+}
+
+#account-addModal .account-form-columns--paired-fields .account-form-group > label,
+#account-editModal .account-form-columns--paired-fields .account-form-group > label {
+    margin-bottom: 0.35rem;
 }
 
 #account-addModal .account-form-section,
@@ -3189,11 +3218,34 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
         padding: 0.7rem 1.15rem;
     }
 
+    #account-addModal .account-form-columns--paired-fields,
+    #account-editModal .account-form-columns--paired-fields {
+        gap: 0.4rem 0.65rem;
+        padding: 0.55rem 1.15rem;
+    }
+
     #account-addModal .account-form-columns--paired-fields > .account-section-header,
     #account-editModal .account-form-columns--paired-fields > .account-section-header {
         font-size: var(--text-h3, 15px) !important;
-        margin-bottom: 0.4rem !important;
-        padding-bottom: 0.25rem !important;
+        margin-bottom: 0.3rem !important;
+        padding-bottom: 0.2rem !important;
+    }
+
+    #account-addModal .account-form-columns--paired-fields > .account-form-group,
+    #account-editModal .account-form-columns--paired-fields > .account-form-group,
+    #account-addModal .account-form-columns--paired-fields > .account-form-columns__payment-extra,
+    #account-editModal .account-form-columns--paired-fields > .account-form-columns__payment-extra {
+        margin-bottom: 0.45rem !important;
+    }
+
+    #account-addModal .account-form-columns--paired-fields > .account-form-group:has(.account-radio-group),
+    #account-editModal .account-form-columns--paired-fields > .account-form-group:has(.account-radio-group) {
+        margin-bottom: 0.55rem !important;
+    }
+
+    #account-addModal .account-form-columns--paired-fields .account-form-group > label,
+    #account-editModal .account-form-columns--paired-fields .account-form-group > label {
+        margin-bottom: 0.2rem !important;
     }
 
     #account-addModal .account-form-column .account-section-header,
@@ -3201,18 +3253,6 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
         font-size: var(--text-h3, 15px) !important;
         margin-bottom: 0.4rem !important;
         padding-bottom: 0.25rem !important;
-    }
-
-    #account-addModal .account-form-columns--paired-fields > .account-form-group,
-    #account-editModal .account-form-columns--paired-fields > .account-form-group,
-    #account-addModal .account-form-columns--paired-fields > .account-form-columns__payment-extra,
-    #account-editModal .account-form-columns--paired-fields > .account-form-columns__payment-extra {
-        margin-bottom: 0.6rem !important;
-    }
-
-    #account-addModal .account-form-columns--paired-fields > .account-form-group:has(.account-radio-group),
-    #account-editModal .account-form-columns--paired-fields > .account-form-group:has(.account-radio-group) {
-        margin-bottom: 0.85rem !important;
     }
 
     #account-addModal .account-form-column .account-form-group,
