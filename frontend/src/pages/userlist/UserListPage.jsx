@@ -36,6 +36,7 @@ import {
   fetchOwnerCompaniesAll,
 } from "../../utils/company/sharedCompanyFilter.js";
 import { pathnameIs, spaPath } from "../../utils/routing/pageRoutes.js";
+import { resolveDefaultLandingPath } from "../../utils/auth/sidebarPermissions.js";
 import { replaceBrowserPathOnly } from "../../utils/routing/privateBrowserUrl.js";
 import {
   canClearCompanySelection,
@@ -396,7 +397,8 @@ export default function UserListPage() {
       try {
         const perms = Array.isArray(me.permissions) ? me.permissions : [];
         if (perms.length > 0 && !perms.includes("admin")) {
-          navigate(spaPath("dashboard"), { replace: true });
+          const landing = resolveDefaultLandingPath(me);
+          navigate(landing || spaPath("login"), { replace: true });
           return;
         }
         const rows = (await fetchOwnerCompaniesAll()).map(normalizeCompanyRow);

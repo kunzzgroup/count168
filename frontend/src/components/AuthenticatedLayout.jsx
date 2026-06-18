@@ -19,9 +19,11 @@ import {
 import { useExpirationReminder } from "../hooks/useExpirationReminder.js";
 import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
 import {
+  canAccessDashboard,
   canAccessFullMaintenance,
   canAccessLimitedMaintenance,
   canAccessPermission,
+  resolveDefaultLandingPath,
   showMaintenanceInSidebar,
 } from "../utils/auth/sidebarPermissions.js";
 import {
@@ -1034,6 +1036,11 @@ export default function AuthenticatedLayout() {
 
   if (loading) return <AppBootLoading label={lang === "zh" ? "正在加载…" : "Loading…"} />;
   if (!me) return <Navigate to={spaPath("login")} replace />;
+
+  if (pageKey === "dashboard" && !canAccessDashboard(me)) {
+    const fallback = resolveDefaultLandingPath(me);
+    if (fallback) return <Navigate to={fallback} replace />;
+  }
 
   return (
     <AuthSessionProvider value={sessionContextValue}>
