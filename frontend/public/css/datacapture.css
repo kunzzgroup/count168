@@ -1018,6 +1018,16 @@ body.datacapture-page .custom-select-dropdown.custom-select-dropdown-portal .cus
     overflow-y: auto;
 }
 
+body.datacapture-page .custom-select-dropdown.custom-select-dropdown-portal .custom-select-option,
+.custom-select-dropdown.dc-process-select-portal .custom-select-option {
+    font-size: var(--text-small) !important;
+    font-family: var(--font-ui) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 700;
+}
+
 .custom-select-option {
     padding: 8px 12px;
     cursor: pointer;
@@ -2577,27 +2587,20 @@ body.ec-auth-shell.datacapture-page .process-form .custom-select-button {
     height: 36px !important;
     max-height: 36px !important;
     padding: clamp(6px, 0.35vw, 9px) clamp(28px, 2vw, 36px) clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px) !important;
-    font-size: clamp(10px, 0.74vw, 14px) !important;
-    font-weight: 600 !important;
+    font-size: var(--text-small);
+    font-weight: 700 !important;
     line-height: 1.25 !important;
     border: 1px solid var(--dc-border, #e2e8f0) !important;
     border-radius: 6px !important;
 }
 
 body.ec-auth-shell.datacapture-page .process-form .custom-select-option {
-    font-size: clamp(9px, 0.73vw, 14px) !important;
+    font-size: var(--text-small) !important;
+    font-weight: 700;
     line-height: 1.35 !important;
 }
 
 body.ec-auth-shell.datacapture-page .process-form .custom-select-search input {
-    font-size: clamp(10px, 0.74vw, 14px) !important;
-}
-
-@media (max-width: 1200px) {
-    body.ec-auth-shell.datacapture-page .process-form select:not([multiple]):not([size]),
-    body.ec-auth-shell.datacapture-page .process-form .custom-select-button,
-    body.ec-auth-shell.datacapture-page .process-form .custom-select-option {
-        font-size: clamp(9px, 0.85vw, 14px) !important;
-    }
+    font-size: var(--text-small) !important;
 }
 
