@@ -3879,7 +3879,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       rangeTo,
       currencyOverride,
       viewGroupFallback = null,
-      useActiveScopeAbort = true
+      useActiveScopeAbort = true,
+      { earningsOnly = false } = {}
     ) => {
       const accessible = filterCompaniesForDashboardApiAccess(
         meRef.current,
@@ -3890,35 +3891,49 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!accessible.length) {
         throw new Error(i18n.failedToLoadDashboard);
       }
-      const settled = await Promise.allSettled(
-        accessible.map((c) => {
-          const cid = parseInt(c.id, 10);
-          const viewGroup = resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup);
-          return fetchDashboardPayload(
-            cid,
-            rangeFrom,
-            rangeTo,
-            currencyOverride,
-            viewGroup,
-            useActiveScopeAbort
-          ).then((data) => ({ company: c, data, viewGroup }));
-        })
-      );
-      const pairs = settled
-        .filter((entry) => entry.status === "fulfilled" && entry.value?.data)
-        .map((entry) => entry.value);
+      const fetchOne = async (c) => {
+        const cid = parseInt(c.id, 10);
+        const viewGroup = resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup);
+        const data = await fetchDashboardPayload(
+          cid,
+          rangeFrom,
+          rangeTo,
+          currencyOverride,
+          viewGroup,
+          useActiveScopeAbort,
+          { earningsOnly }
+        );
+        return { company: c, data, viewGroup };
+      };
+
+      let pairs;
+      if (earningsOnly && accessible.length > 1) {
+        pairs = [];
+        for (const c of accessible) {
+          pairs.push(await fetchOne(c));
+        }
+      } else {
+        const settled = await Promise.allSettled(accessible.map((c) => fetchOne(c)));
+        pairs = settled
+          .filter((entry) => entry.status === "fulfilled" && entry.value?.data)
+          .map((entry) => entry.value);
+        if (!pairs.length) {
+          const rejected = settled.find(
+            (entry) => entry.status === "rejected" && !isBenignFetchError(entry.reason)
+          );
+          if (rejected) {
+            throw rejected.reason ?? new Error(i18n.failedToLoadDashboard);
+          }
+          const abortedOnly = settled.find((entry) => entry.status === "rejected");
+          if (abortedOnly) {
+            throw abortedOnly.reason ?? new DOMException("Aborted", "AbortError");
+          }
+          throw new Error(i18n.failedToLoadDashboard);
+        }
+      }
+
       const results = pairs.map((pair) => pair.data);
       if (!results.length) {
-        const rejected = settled.find(
-          (entry) => entry.status === "rejected" && !isBenignFetchError(entry.reason)
-        );
-        if (rejected) {
-          throw rejected.reason ?? new Error(i18n.failedToLoadDashboard);
-        }
-        const abortedOnly = settled.find((entry) => entry.status === "rejected");
-        if (abortedOnly) {
-          throw abortedOnly.reason ?? new DOMException("Aborted", "AbortError");
-        }
         throw new Error(i18n.failedToLoadDashboard);
       }
       const merged = mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo });
@@ -3939,7 +3954,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       rangeFrom,
       rangeTo,
       currencyOverride,
-      { groupKey = null, groupsAllMerge = false, useActiveScopeAbort = true } = {}
+      { groupKey = null, groupsAllMerge = false, useActiveScopeAbort = true, earningsOnly = false } = {}
     ) => {
       const companyList = groupsAllMerge
         ? resolveGroupsAllMergeCompanyList(companies, groupIds)
@@ -3950,7 +3965,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         rangeTo,
         currencyOverride,
         groupKey ?? selectedGroup,
-        useActiveScopeAbort
+        useActiveScopeAbort,
+        { earningsOnly }
       );
     },
     [companies, groupIds, selectedGroup, fetchMergedCompanyDashboards]
@@ -3993,12 +4009,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           return fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
             groupsAllMerge: true,
             useActiveScopeAbort: mergeAbort,
+            earningsOnly,
           });
         }
         if (selectedGroup) {
           const merged = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
             groupKey: selectedGroup,
             useActiveScopeAbort: mergeAbort,
+            earningsOnly,
           });
           if (earningsOnly) return merged;
           return enrichGroupAllMergedDashboard(
@@ -4024,11 +4042,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (!gids.length) {
           throw new Error(i18n.failedToLoadDashboard);
         }
-        const results = await Promise.all(
-          gids.map((gid) =>
-            fetchGroupDashboardPayload(rangeFrom, rangeTo, currencyOverride, gid)
-          )
-        );
+        const results = [];
+        for (const gid of gids) {
+          results.push(
+            await fetchGroupDashboardPayload(
+              rangeFrom,
+              rangeTo,
+              currencyOverride,
+              gid,
+              mergeAbort,
+              earningsOpts
+            )
+          );
+        }
         const merged = finalizeMergedGroupLedgerDashboard(
           mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo }),
           results
@@ -4123,7 +4149,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   const fetchSingleCurrencyEarnings = useCallback(
     async (code, gen, { retries = 1 } = {}) => {
-      const maxRetries = groupAllMode ? 0 : retries;
+      const maxRetries = groupAllMode ? 1 : retries;
       for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
         if (gen !== earningsFetchGenRef.current) return null;
         try {
@@ -4164,7 +4190,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       for (let idx = 0; idx < list.length; idx += 1) {
         const code = list[idx];
-        if (gen !== earningsFetchGenRef.current) return [];
+        if (gen !== earningsFetchGenRef.current) return rows;
         const codeUpper = String(code).trim().toUpperCase();
 
         if (reuseMainPayload && codeUpper === primaryUpper) {
@@ -4407,7 +4433,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         for (let idx = 0; idx < currencies.length; idx += 1) {
           const code = currencies[idx];
           const row = await fetchOne(code);
-          if (gen !== earningsFetchGenRef.current) return [];
+          if (gen !== earningsFetchGenRef.current) return rows;
           rows.push(row ?? { code, earnings: null });
           if (idx < currencies.length - 1 && gen === earningsFetchGenRef.current) {
             await new Promise((resolve) =>
@@ -4529,6 +4555,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const primaryEarnings = dashboardDataRef.current
       ? computeEarningsFromPayload(dashboardDataRef.current)
       : null;
+    const prevCompleteCount = (earningsByCurrencyRef.current || []).filter(
+      (row) => row?.earnings != null
+    ).length;
 
     setEarningsByCurrency(currentRows);
     setEarningsByCurrencyLoading(false);
@@ -4546,6 +4575,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !dashboardEarningsRowsComplete(currentRows, currencies, primary, primaryEarnings)
     ) {
       scheduleIncompleteEarningsRetry(400);
+    } else {
+      earningsIncompleteRetryRef.current = 0;
+      earningsScopeUpgradeRef.current = { scopeKey: upgradeKey, attempts: 0 };
+    }
+
+    const newCompleteCount = currentRows.filter((row) => row?.earnings != null).length;
+    if (newCompleteCount > prevCompleteCount) {
+      earningsScopeUpgradeRef.current.attempts = Math.max(
+        0,
+        earningsScopeUpgradeRef.current.attempts - 1
+      );
     }
 
     if (!groupAllMode) {
@@ -5338,6 +5378,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             null;
           setEarningsByCurrency(buildSeededEarningsRows(codes, primary, primaryEarnings));
           setEarningsByCurrencyLoading(true);
+          void loadEarningsByCurrency();
         }
 
         patchDashboardCache(cacheKey, cachePatch);
@@ -5435,6 +5476,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     loadDashboardChartDaily,
     ensureDeferredDashboardLoads,
     upgradeActiveScopeEarnings,
+    loadEarningsByCurrency,
+    buildSeededEarningsRows,
+    computeKpiMetrics,
+    resolveKpiOwnershipOpts,
   ]);
 
   const loadDashboardTriggerKey = useMemo(
