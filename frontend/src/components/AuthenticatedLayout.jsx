@@ -73,6 +73,7 @@ import { pathnameIs, pathnameToPageKey, spaPath } from "../utils/routing/pageRou
 import { stripPrivateQueryFromBrowserUrl } from "../utils/routing/privateBrowserUrl.js";
 import { resetDashboardSessionCaches } from "../utils/dashboard/dashboardCache.js";
 import "../../public/css/modal-close-unified.css";
+import "../../public/css/select-unified.css";
 
 function formatSidebarExpirationHint(hint, i18n) {
   if (!hint || hint === "-") return "-";
