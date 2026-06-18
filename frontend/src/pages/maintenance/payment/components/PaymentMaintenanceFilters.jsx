@@ -31,6 +31,7 @@ export default function PaymentMaintenanceFilters({
   currencies,
   selectedCurrency,
   setSelectedCurrency,
+  onCurrencySelectAll,
   onDelete,
   confirmDelete,
   setConfirmDelete,
@@ -124,11 +125,13 @@ export default function PaymentMaintenanceFilters({
             currencyList={currencies}
             showAllCurrencies={!selectedCurrency}
             selectedCurrencies={selectedCurrency ? [selectedCurrency] : []}
+            toggleAllCurrencies={onCurrencySelectAll}
             toggleCurrency={(code) => setSelectedCurrency(code)}
             t={(key) => {
               if (key === "groupId") return m.groupId;
               if (key === "company") return m.company;
               if (key === "currency") return m.currency;
+              if (key === "currencyAll") return m.currencyAll;
               if (key === "groupFilterAll") return m.all || "All";
               return m[key] || key;
             }}
