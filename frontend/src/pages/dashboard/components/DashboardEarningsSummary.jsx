@@ -276,15 +276,13 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = !isCompanyBreakdownView && currencies.length > 1;
-  const isSingleCurrencyView =
-    showProfitChartTab && !isCompanyBreakdownView && currencies.length <= 1;
   const heroLabel = isNetProfitCompanyView
     ? i18n.netProfitCompanyCaption
     : summaryPanelLabel || i18n.earnings;
   const heroValue = isNetProfitCompanyView ? companyNetProfitTotal : summaryEarningsValue;
   const showPieCenterBadge = isCompanyBreakdownView
     ? companyBreakdownRows.length > 0
-    : showMultiCurrencyBreakdown;
+    : earningsPieSlices.length > 0;
 
   const summaryHero = (
     <div className="dashboard-summary-hero dashboard-summary-hero--compact">
@@ -336,13 +334,9 @@ export function DashboardEarningsSummary({
     <div
       className={`dashboard-panel-card dashboard-panel-card--summary${
         showProfitChartTab ? " dashboard-panel-card--summary-has-tabs" : ""
-      }${isSingleCurrencyView ? " dashboard-panel-card--summary-single-currency" : ""}`}
+      }`}
     >
-      <div
-        className={`dashboard-summary-layout${
-          isSingleCurrencyView ? " is-single-currency" : ""
-        }`}
-      >
+      <div className="dashboard-summary-layout">
         <div className="dashboard-summary-top-row">
           {summaryViewTabs}
           {summaryHero}
@@ -518,6 +512,7 @@ export function DashboardEarningsSummary({
               earningsCurrencyRows.map((row, index) => {
               const rowAmountLoading = isRowAmountLoading(row.code);
               const rowRateLoading = isRowRateLoading();
+              const sharePct = computeCurrencySharePct(row, earningsShareByCode);
               const { primary, native } = resolveEarningsRowDisplayAmounts(
                 row,
                 currencyCode,
@@ -590,7 +585,9 @@ export function DashboardEarningsSummary({
                         ? unitRateLabel && unitRateLabel !== "—"
                           ? unitRateLabel
                           : "—"
-                        : ""}
+                        : sharePct != null
+                          ? `${Number(sharePct).toFixed(1)}%`
+                          : "—"}
                   </span>
                 </div>
               );

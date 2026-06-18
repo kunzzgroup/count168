@@ -6259,17 +6259,23 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !dashboardPayloadNeedsChartDaily(dashboardData),
     [scopeDataPending, dashboardData, chartRows.length]
   );
-  const summaryEarningsLoading =
-    scopeDataPending ||
-    (loading && !dashboardData) ||
+  const companyNetProfitPanelActive =
+    showProfitChartTab && earningsPanelView === "netProfit";
+  const summaryScopeLoading = scopeDataPending || (loading && !dashboardData);
+  const summaryCurrencyPanelLoading =
+    summaryScopeLoading ||
     (currencies.length > 1 &&
       (exchangeRatesLoading ||
         earningsByCurrencyLoading ||
         !allCurrencyEarningsReady ||
         (useConvertedEarnings && convertedEarningsTotal == null)));
-  const earningsPanelStable =
-    currencies.length <= 1 ||
-    (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
+  const summaryEarningsLoading = companyNetProfitPanelActive
+    ? summaryScopeLoading
+    : summaryCurrencyPanelLoading;
+  const earningsPanelStable = companyNetProfitPanelActive
+    ? !summaryScopeLoading && companyBreakdownRows.length > 0
+    : currencies.length <= 1 ||
+      (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
   const kpiLoading = loading && !dashboardData;
 
   useLayoutEffect(() => {
