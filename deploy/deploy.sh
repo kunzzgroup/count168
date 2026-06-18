@@ -43,19 +43,13 @@ if command -v chcon >/dev/null 2>&1; then
 fi
 
 # 同步 Nginx 站点配置（git pull 不会自动更新 /etc/nginx/）
-# 同机有 .org / certbot HTTPS 时跳过，避免 default_server 冲突或覆盖 le-ssl
+# certbot 已上 HTTPS 时跳过，避免覆盖 le-ssl
 NGINX_SRC="$APP_ROOT/deploy/nginx/count168.site.amazon-linux.conf"
 NGINX_DST="/etc/nginx/conf.d/count168.site.conf"
 NGINX_SSL="/etc/nginx/conf.d/count168.site-le-ssl.conf"
 LE_CERT="/etc/letsencrypt/live/count168.site/fullchain.pem"
-SKIP_NGINX_SYNC=0
 if [[ -f "$LE_CERT" ]] || [[ -f "$NGINX_SSL" ]]; then
-  SKIP_NGINX_SYNC=1
-elif compgen -G "/etc/nginx/conf.d/*org*.conf" >/dev/null 2>&1; then
-  SKIP_NGINX_SYNC=1
-fi
-if [[ "$SKIP_NGINX_SYNC" -eq 1 ]]; then
-  echo "==> skip nginx config sync (certbot HTTPS or multi-site EC2 with .org)"
+  echo "==> skip nginx config sync (certbot HTTPS active for count168.site)"
 elif [[ -f "$NGINX_SRC" ]]; then
   echo "==> sync nginx site config"
   NGINX_BAK="$(mktemp)"

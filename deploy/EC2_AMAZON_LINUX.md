@@ -50,10 +50,10 @@ sudo sed -i 's/ default_server//g' /etc/nginx/conf.d/count168.site.conf
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**`.org` 日常更新**（GitHub Actions 只自动部署 `.site`，`.org` 需手动或另配 workflow）：
+**`.org` 首次 clone 后**，日常与 `.site` 一样 **push 即自动部署**（见下方「日常更新」）。手动更新可跑：
 
 ```bash
-bash /var/www/count168.org/deploy/deploy-org.sh
+bash /var/www/count168/deploy/deploy-org.sh
 ```
 
 HTTPS（**先确保 `nginx -t` 通过**，再分别申请）：
@@ -202,7 +202,12 @@ git commit -m "你的说明"
 git push origin main
 ```
 
-push 后 GitHub Actions 会自动 SSH 到 EC2 执行 `deploy/deploy.sh`（`git pull` + reload nginx），**不必再手动 SSH**。
+push 后 GitHub Actions 会自动 SSH 到 EC2，依次执行：
+
+1. `/var/www/count168` → `deploy/deploy.sh`（count168.site）
+2. `/var/www/count168.org` → `deploy/deploy-org.sh`（count168.org）
+
+**EC2 上两个目录都要先 clone 好**（见「二点五」），否则 Actions 会失败。
 
 ### 一次性配置（GitHub → Settings → Secrets and variables → Actions）
 
@@ -212,7 +217,12 @@ push 后 GitHub Actions 会自动 SSH 到 EC2 执行 `deploy/deploy.sh`（`git p
 | `EC2_USER` | `ec2-user` |
 | `EC2_SSH_KEY` | 登录 EC2 用的 **私钥** 全文（`.pem` 文件内容） |
 
-EC2 上需已 `git clone` 到 `/var/www/count168`，且能 `git pull`（公开仓库即可；私有仓库要在 EC2 配 deploy key 或 PAT）。
+EC2 上需已 clone：
+
+- `/var/www/count168`（count168.site）
+- `/var/www/count168.org`（count168.org）
+
+且两个目录都能 `git pull`（公开仓库即可；私有仓库要在 EC2 配 deploy key 或 PAT）。
 
 手动部署（备用）：
 

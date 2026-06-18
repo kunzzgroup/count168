@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EC2 上执行：拉取 main 到 /var/www/count168.org 并生效（手动运行）
+# EC2 上执行：拉取 main 到 /var/www/count168.org 并生效（GitHub Actions / 手动）
 set -euo pipefail
 
 APP_ROOT="${APP_ROOT:-/var/www/count168.org}"
