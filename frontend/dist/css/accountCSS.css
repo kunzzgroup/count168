@@ -835,29 +835,6 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
     margin-bottom: 1.5rem;
 }
 
-/* Payment Alert = Yes：右列独立堆叠，避免 paired grid 占位留白 */
-.account-form-columns--payment-expanded {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-}
-
-.account-form-columns--payment-expanded > .account-form-column {
-    min-width: 0;
-}
-
-.account-form-column--payment-stack .account-form-row {
-    margin-bottom: 0;
-}
-
-.account-form-column--payment-stack .account-form-row .account-form-group {
-    margin-bottom: 1.5rem;
-}
-
-.account-form-column--payment-stack .account-form-group--remark-bottom {
-    margin-bottom: 0;
-}
-
 .account-form-columns--paired-fields .account-form-row {
     margin-bottom: 0;
 }

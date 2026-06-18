@@ -831,13 +831,6 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
     min-height: 0;
 }
 
-.account-form-columns--paired-fields > .account-form-columns__grid-spacer {
-    margin: 0;
-    padding: 0;
-    min-height: 0;
-    visibility: hidden;
-}
-
 .account-form-columns--paired-fields .account-form-group--remark-bottom {
     margin-bottom: 1.5rem;
 }
