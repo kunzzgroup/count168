@@ -1597,14 +1597,6 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
-#account-addModal .account-form-group textarea,
-#account-editModal .account-form-group textarea {
-    height: 2.55rem;
-    line-height: 1.25;
-    resize: none;
-    overflow-y: hidden;
-}
-
 /* Start Date：整框可点展开（WebKit 扩大日历触发区；配合 JS showPicker） */
 #account-addModal .account-form-group input[type="date"],
 #account-editModal .account-form-group input[type="date"] {
@@ -3165,14 +3157,6 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
         padding: 0.4rem 0.65rem !important;
         font-size: 13px !important;
         border-radius: 0.5rem;
-    }
-
-    #account-addModal .account-form-group textarea,
-    #account-editModal .account-form-group textarea {
-        min-height: 2.15rem !important;
-        height: 2.15rem !important;
-        max-height: 2.15rem;
-        line-height: 1.35 !important;
     }
 
     #account-addModal .account-radio-label,

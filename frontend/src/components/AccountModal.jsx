@@ -336,8 +336,9 @@ export default function AccountModal({
 
                 <div className="account-form-group">
                   <label>{text("remark")}</label>
-                  <textarea
-                    rows="1"
+                  <input
+                    type="text"
+                    id={isEditMode ? "edit_remark" : "add_remark"}
                     value={form.remark}
                     onChange={(e) => setForm((f) => ({ ...f, remark: upper(e.target.value) }))}
                   />
