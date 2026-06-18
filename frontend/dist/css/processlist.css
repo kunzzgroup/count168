@@ -1390,6 +1390,7 @@
 .accounting-due-inbox-grid-cell--no,
 .accounting-due-inbox-grid-cell--date,
 .accounting-due-inbox-grid-cell--period,
+.accounting-due-inbox-grid-cell--frequency,
 .accounting-due-inbox-grid-cell--bank,
 .accounting-due-inbox-grid-cell--contract {
     justify-content: center;
@@ -1413,7 +1414,8 @@
 }
 
 .accounting-due-inbox-grid-cell--date,
-.accounting-due-inbox-grid-cell--period {
+.accounting-due-inbox-grid-cell--period,
+.accounting-due-inbox-grid-cell--frequency {
     white-space: nowrap;
 }
 
