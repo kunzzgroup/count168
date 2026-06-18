@@ -316,47 +316,72 @@ body.bg .login-container .input-group input::placeholder {
     font-weight: 400;
 }
 
-/* TAC Container */
+/* TAC Container — input + SEND as one pill control */
 .tac-container {
     display: flex;
-    align-items: center;
+    align-items: stretch;
+    width: 100%;
+    border: 2px solid var(--login-bg-end);
+    border-radius: var(--login-radius-pill);
+    background: var(--login-surface);
+    overflow: hidden;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.tac-container:focus-within {
+    border-color: var(--login-bg-start);
+    box-shadow: 0 0 0 3px rgba(0, 79, 249, 0.1);
 }
 
 .tac-container .input-group {
     flex: 1;
+    min-width: 0;
 }
 
 .tac-container input {
-    border-radius: 50px 0 0 50px;
-    border-right: none;
-    padding: 12px 25px 12px 46px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 46.5px;
+    background: transparent;
+}
+
+.tac-container input:focus {
+    animation: none;
+    border: none;
+    box-shadow: none;
 }
 
 .tac-btn {
+    flex-shrink: 0;
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: linear-gradient(135deg, #004ff9, #56ccf2);
     color: white;
-    border: 2px solid #004ff9;
-    padding: clamp(9px, 2.5vw, 13px) clamp(20px, 6vw, 30px);
-    border-radius: 0 50px 50px 0;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 0 clamp(18px, 5vw, 28px);
+    border-radius: 0;
     cursor: pointer;
     font-size: clamp(12px, 3vw, 14px);
     font-weight: 600;
-    transition: all 0.3s ease;
+    line-height: 1;
+    transition: background 0.3s ease, filter 0.2s ease;
     white-space: nowrap;
     text-transform: uppercase;
 }
 
-.tac-btn:hover {
+.tac-btn:hover:not(:disabled) {
     background: linear-gradient(135deg, #56ccf2, #004ff9);
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 79, 249, 0.3);
+    filter: brightness(1.05);
 }
 
 .tac-btn:disabled {
     background: #ccc;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+    filter: none;
 }
 
 /* Form Options */
@@ -552,6 +577,10 @@ body.bg .login-container .input-group input::placeholder {
 /* Input focus effects — 二级密码 / reset（pulse 定义见下方 @keyframes） */
 body.bg .login-container .input-group input:focus {
     animation: pulse 0.3s ease-out;
+}
+
+body.bg .login-container .tac-container .input-group input:focus {
+    animation: none;
 }
 
 @keyframes pulse {
