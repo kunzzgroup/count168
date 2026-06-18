@@ -2186,9 +2186,9 @@ label.user-modal-col-title.acc-proc-label {
     font-size: 14px;
 }
 
-/* Add/Edit User — Login ID 字段标题 */
+/* Add/Edit User — Login ID 标签与其它字段一致 */
 #userModal label[for="login_id"] {
-    font-size: var(--text-medium);
+    font-size: 14px;
 }
 
 .user-page .form-group input,
@@ -3973,8 +3973,12 @@ body.datacapture-summary-page .btn-delete:disabled:hover {
     line-height: 1.25;
 }
 
+/* Login ID / Password / Name / Role — 输入框与下拉统一高度 */
+#userModal .user-info-grid > .form-group.user-info-field input#login_id,
+#userModal .user-info-grid > .form-group.user-info-field input#password,
+#userModal .password-row-container .password-field-wrapper input,
 #userModal .user-info-field-row input#name,
-#userModal .user-info-field-row select#role {
+#userModal .user-info-field-row .custom-select-button#role {
     min-height: 32px !important;
     height: 32px !important;
     padding: 0 12px !important;
@@ -3987,21 +3991,20 @@ body.datacapture-summary-page .btn-delete:disabled:hover {
     color: #0f172a !important;
 }
 
-#userModal .user-info-field-row select#role {
+#userModal .user-info-field-row .custom-select-button#role {
     padding-right: 30px !important;
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    background-image: var(--select-chevron) !important;
-    background-repeat: no-repeat !important;
-    background-position: right 10px center !important;
-    background-size: 12px !important;
-    cursor: pointer !important;
 }
 
 #userModal .user-info-field-row input#name:focus,
-#userModal .user-info-field-row select#role:focus,
 #userModal .user-info-field-row input#name:focus-visible,
-#userModal .user-info-field-row select#role:focus-visible {
+#userModal .user-info-grid > .form-group.user-info-field input#login_id:focus,
+#userModal .user-info-grid > .form-group.user-info-field input#login_id:focus-visible,
+#userModal .user-info-grid > .form-group.user-info-field input#password:focus,
+#userModal .user-info-grid > .form-group.user-info-field input#password:focus-visible,
+#userModal .password-row-container .password-field-wrapper input:focus,
+#userModal .password-row-container .password-field-wrapper input:focus-visible,
+#userModal .user-info-field-row .custom-select-button#role:focus-visible,
+#userModal .user-info-field-row .custom-select-button#role.open {
     outline: none !important;
     border-color: #3b82f6 !important;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12) !important;

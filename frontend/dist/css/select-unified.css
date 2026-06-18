@@ -216,6 +216,32 @@ body.ec-auth-shell .custom-select-no-results {
   font-size: inherit !important;
 }
 
+body.ec-auth-shell .custom-select-button.simple-select-button--placeholder {
+  color: var(--select-muted) !important;
+}
+
+body.ec-auth-shell .custom-select-option--disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Outlined filter shell: border on shell, not trigger */
+body.ec-auth-shell .report-outlined-inner .custom-select-button {
+  margin: 0 !important;
+  border: none !important;
+  border-radius: inherit !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  min-height: clamp(32px, 2.25vw, 36px) !important;
+}
+
+body.ec-auth-shell .report-outlined-inner .custom-select-button:focus-visible,
+body.ec-auth-shell .report-outlined-inner .custom-select-button.open {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body.ec-auth-shell select:not([multiple]):not([size]),
   body.ec-auth-shell .custom-select-button {
