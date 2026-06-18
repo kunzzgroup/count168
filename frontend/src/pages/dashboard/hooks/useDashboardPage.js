@@ -69,6 +69,7 @@ import {
   canAccessGroupLedgerForGroup,
   canPrefetchCompanyScope,
   canUseGroupOnlyMode,
+  companyLoginCanUseGroupsAllLedger,
   companyLoginHasGroupLedgerPrivilege,
   filterCompaniesForDashboardApiAccess,
   companyLoginRequiresSubsidiaryWithGroup,
@@ -273,23 +274,14 @@ function mayWarmGroupLedgerCurrencies(me, groupCode, companies) {
   return canAccessGroupLedgerForGroup(me, groupCode, companies);
 }
 
-function isCompanyOwnerWithGroupLedger(me) {
-  return (
-    isCompanyLogin(me) &&
-    !isGroupLogin(me) &&
-    companyLoginHasGroupLedgerPrivilege(me) &&
-    canUseGroupOnlyMode(me)
-  );
-}
-
-/** Group All + no company pill: AP+IG group-ledger KPI/currency scope (group login or company owner). */
+/** Group All + no company pill: AP+IG group-ledger KPI/currency scope (group login or privileged company login). */
 function isGroupsAllLedgerDataScope({ groupsAllMode, groupAllMode, companyId, me }) {
   const singleCid = companyId != null && companyId !== "" ? parseInt(companyId, 10) : Number.NaN;
   if (!groupsAllMode || groupAllMode || !me || (Number.isFinite(singleCid) && singleCid > 0)) {
     return false;
   }
   if (isGroupLogin(me) && canUseGroupOnlyMode(me)) return true;
-  return isCompanyOwnerWithGroupLedger(me);
+  return companyLoginCanUseGroupsAllLedger(me);
 }
 
 /** Group ID "All" with no active company: union AP+IG group-ledger currencies. */
@@ -759,7 +751,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     companyId == null &&
     !groupAllMode &&
     canUseGroupOnlyMode(me) &&
-    (isGroupLogin(me) || isCompanyOwnerWithGroupLedger(me));
+    (isGroupLogin(me) || companyLoginCanUseGroupsAllLedger(me));
   const groupAggregateMode =
     groupAllMode || groupOnlyDashboard || groupsAllGroupLevel || usesGroupLedgerDashboard;
   /** All-currency merge: any scope with 2+ currencies (single company or group aggregate). */
@@ -1189,7 +1181,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (bootGroupAllMode) {
         bootCid = null;
       } else if (bootGroupsAllMode) {
-        if (isCompanyOwnerWithGroupLedger(u)) {
+        if (companyLoginCanUseGroupsAllLedger(u)) {
           bootCid = null;
         } else {
           const persistedCompany = persisted.companyId;
@@ -1844,7 +1836,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           gAll &&
           !(Number.isFinite(singleCid) && singleCid > 0) &&
           (!(scope.groupAllMode ?? groupAllMode) ||
-            isCompanyOwnerWithGroupLedger(meRef.current))
+            companyLoginCanUseGroupsAllLedger(meRef.current))
         ) {
           const merged = new Set();
           for (const gid of groupIds) {
@@ -2567,7 +2559,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             companyId: null,
             selectedGroup: null,
             groupsAllMode: true,
-            groupAllMode: isCompanyOwnerWithGroupLedger(me) ? false : groupAllMode,
+            groupAllMode: companyLoginCanUseGroupsAllLedger(me) ? false : groupAllMode,
           });
         }
         return;
@@ -6479,15 +6471,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         (groupsAllMode || !gid || gid === selectedGroup);
       if (isActive) {
         if (groupsAllMode) {
-          const ownerGroupsAllLedger = isCompanyOwnerWithGroupLedger(me);
+          const groupsAllLedgerLogin = companyLoginCanUseGroupsAllLedger(me);
           scopeInteractionGenRef.current += 1;
           persistDashboardGroupsAllMode(true);
           persistDashboardGroupOnlyMode(false);
-          persistDashboardGroupAllMode(!ownerGroupsAllLedger);
+          persistDashboardGroupAllMode(!groupsAllLedgerLogin);
           persistDashboardSelectedCompany(null);
           flushSync(() => {
             setCompanyId(null);
-            setGroupAllMode(!ownerGroupsAllLedger);
+            setGroupAllMode(!groupsAllLedgerLogin);
             setMergedSubsetIds(null);
           });
           notifyDashboardGroupFilterChanged(
@@ -6499,14 +6491,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             companyId: null,
             selectedGroup: null,
             groupsAllMode: true,
-            groupAllMode: !ownerGroupsAllLedger,
+            groupAllMode: !groupsAllLedgerLogin,
             clearOnMiss: true,
           });
           primeDashboardFromCache({
             companyId: null,
             selectedGroup: null,
             groupsAllMode: true,
-            groupAllMode: !ownerGroupsAllLedger,
+            groupAllMode: !groupsAllLedgerLogin,
             mergedSubsetIds: null,
           });
           return;
@@ -6726,9 +6718,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   ]);
 
   const handlePickAllGroups = useCallback(() => {
-    const companyOwnerGroupsAll = isCompanyOwnerWithGroupLedger(me);
+    const companyGroupsAllLedger = companyLoginCanUseGroupsAllLedger(me);
     const companyLoginGroupsAll =
-      isCompanyLogin(me) && !isGroupLogin(me) && !companyOwnerGroupsAll;
+      isCompanyLogin(me) && !isGroupLogin(me) && !companyGroupsAllLedger;
     const preserveCompanyId = (() => {
       if (!companyLoginGroupsAll) return null;
       const fromState = companyId != null ? parseInt(companyId, 10) : Number.NaN;
@@ -6744,7 +6736,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       groupsAllMode &&
       companyId == null &&
       !groupAllMode &&
-      !companyOwnerGroupsAll &&
+      !companyGroupsAllLedger &&
       !(companyLoginGroupsAll && preserveCompanyId) &&
       !useCompanyAllAggregate
     ) {
@@ -6758,9 +6750,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (sidebarAnchorGroup) persistGroupsAllSidebarGroup(sidebarAnchorGroup);
     persistDashboardGroupsAllMode(true);
     persistDashboardGroupOnlyMode(false);
-    const nextGroupAllMode = companyOwnerGroupsAll ? false : useCompanyAllAggregate;
+    const nextGroupAllMode = companyGroupsAllLedger ? false : useCompanyAllAggregate;
     persistDashboardGroupAllMode(nextGroupAllMode);
-    if (companyOwnerGroupsAll) {
+    if (companyGroupsAllLedger) {
       persistDashboardSelectedCompany(null);
     } else if (preserveCompanyId && !useCompanyAllAggregate) {
       persistDashboardFilterState(null, preserveCompanyId, {
@@ -6773,7 +6765,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (typeof sessionStorage !== "undefined") {
       sessionStorage.removeItem("dashboard_group_filter");
     }
-    const nextCompanyId = companyOwnerGroupsAll
+    const nextCompanyId = companyGroupsAllLedger
       ? null
       : companyLoginGroupsAll && !useCompanyAllAggregate
         ? preserveCompanyId
