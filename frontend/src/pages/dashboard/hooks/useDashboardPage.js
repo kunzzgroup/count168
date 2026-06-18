@@ -631,6 +631,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const earningsIncompleteRetryRef = useRef(0);
   const earningsLoadInFlightRef = useRef("");
   const earningsScopeUpgradeRef = useRef({ scopeKey: "", attempts: 0 });
+  const earningsScopeUpgradeTimerRef = useRef(null);
+  const scheduleEarningsScopeUpgrade = useCallback(() => {
+    if (earningsScopeUpgradeTimerRef.current) {
+      window.clearTimeout(earningsScopeUpgradeTimerRef.current);
+    }
+    earningsScopeUpgradeTimerRef.current = window.setTimeout(() => {
+      earningsScopeUpgradeTimerRef.current = null;
+      upgradeActiveScopeEarningsRef.current?.();
+    }, 0);
+  }, []);
   /** Aborts in-flight dashboard API calls when scope changes again. */
   const dashboardFetchAbortRef = useRef(null);
   /** Last scope key passed to loadDashboard — abort when currency/mode slice changes. */
@@ -4013,6 +4023,44 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       if (groupAllMode) {
         if (groupsAllMode) {
+          const gids = groupIds.filter((g) => String(g || "").trim());
+          if (gids.length > 1) {
+            const groupResults = [];
+            for (const gid of gids) {
+              let merged = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
+                groupKey: gid,
+                useActiveScopeAbort: mergeAbort,
+                earningsOnly,
+              });
+              if (!earningsOnly) {
+                merged = await enrichGroupAllMergedDashboard(
+                  merged,
+                  rangeFrom,
+                  rangeTo,
+                  currencyOverride,
+                  gid,
+                  mergeAbort
+                );
+              }
+              groupResults.push(merged);
+            }
+            const mergedBase = mergeGroupData(groupResults, {
+              startDate: rangeFrom,
+              endDate: rangeTo,
+            });
+            const merged = earningsOnly
+              ? mergedBase
+              : finalizeMergedGroupLedgerDashboard(mergedBase, groupResults);
+            const byCompany = mergeCompanyBreakdownRowLists(
+              groupResults.map((r) =>
+                normalizeSubsidiaryEarningsByCompany(r?.subsidiary_earnings_by_company)
+              )
+            );
+            if (byCompany.length) {
+              merged.subsidiary_earnings_by_company = byCompany;
+            }
+            return merged;
+          }
           return fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
             groupsAllMerge: true,
             useActiveScopeAbort: mergeAbort,
@@ -4490,7 +4538,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     const cacheKey = dashboardScopeKey;
     if (!cacheKey) return;
-    if (earningsLoadInFlightRef.current === cacheKey) return;
+    const primary = currencyCodeRef.current;
+    const primaryEarnings = dashboardDataRef.current
+      ? computeEarningsFromPayload(dashboardDataRef.current)
+      : null;
+    const rowsIncomplete = !dashboardEarningsRowsComplete(
+      earningsByCurrencyRef.current,
+      currencies,
+      primary,
+      primaryEarnings
+    );
+    if (earningsLoadInFlightRef.current === cacheKey && !rowsIncomplete) return;
     const curSig =
       currencies.length > 1 ? [...currencies].sort().join(",") : String(currencies.length);
     const upgradeKey = `${cacheKey}|${curSig}`;
@@ -4581,7 +4639,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           })
       : () => fetchEarningsRowsForRange(dateFrom, dateTo, gen);
     const currentRows = await fetchCurrentRows();
-    if (gen !== earningsFetchGenRef.current) return;
+    if (gen !== earningsFetchGenRef.current) {
+      scheduleIncompleteEarningsRetry(250);
+      return;
+    }
 
     const primary = currencyCodeRef.current;
     const primaryEarnings = dashboardDataRef.current
@@ -4733,7 +4794,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return buildSeededEarningsRows(currencies, primary, primaryEarnings);
       });
       setEarningsByCurrencyLoading(true);
-      queueMicrotask(() => upgradeActiveScopeEarningsRef.current?.());
+      scheduleEarningsScopeUpgrade();
       return;
     }
     setEarningsByCurrency(currencies.map((code) => ({ code, earnings: null })));
@@ -5413,7 +5474,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             null;
           setEarningsByCurrency(buildSeededEarningsRows(codes, primary, primaryEarnings));
           setEarningsByCurrencyLoading(true);
-          queueMicrotask(() => upgradeActiveScopeEarningsRef.current?.());
+          scheduleEarningsScopeUpgrade();
         }
 
         patchDashboardCache(cacheKey, cachePatch);
@@ -5865,7 +5926,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       earningsRows.every((row) => row.earnings != null);
     if (allReady) return undefined;
     if (dashboardBootstrapInFlightRef.current === dashboardScopeKey) return undefined;
-    if (earningsLoadInFlightRef.current === dashboardScopeKey) return undefined;
+    const primary = currencyCodeRef.current;
+    const primaryEarnings = dashboardDataRef.current
+      ? computeEarningsFromPayload(dashboardDataRef.current)
+      : null;
+    const rowsIncomplete = !dashboardEarningsRowsComplete(
+      earningsByCurrencyRef.current,
+      currencies,
+      primary,
+      primaryEarnings
+    );
+    if (earningsLoadInFlightRef.current === dashboardScopeKey && !rowsIncomplete) return undefined;
     const upgradeKey = `${dashboardScopeKey}|${currenciesScopeSig || currencies.length}`;
     if (
       earningsScopeUpgradeRef.current.scopeKey === upgradeKey &&
@@ -5884,7 +5955,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       void upgradeActiveScopeEarnings();
       return undefined;
     }
-    void loadEarningsByCurrency();
+    void loadEarningsByCurrency({ resetAttempts: groupAllMode || groupsAllMode });
     return undefined;
   }, [
     loading,
@@ -5892,6 +5963,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     currenciesScopeSig,
     currencies.length,
     loadEarningsByCurrency,
+    groupsAllMode,
+    groupAllMode,
     upgradeActiveScopeEarnings,
     dashboardScopeKey,
     getCompleteCachedEarnings,
