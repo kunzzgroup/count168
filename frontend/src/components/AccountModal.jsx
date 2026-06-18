@@ -211,80 +211,79 @@ export default function AccountModal({
         </div>
         <div className="account-modal-body">
           <form className="account-form" onSubmit={handleFormSubmit}>
-            <div className="account-form-columns">
-              <div className="account-form-column">
-                <h3 className="account-section-header">{text("personalInformation")}</h3>
-                <div className="account-form-group">
-                  <label>{text("accountIdRequired")}</label>
-                  <input
-                    type="text"
-                    value={form.account_id}
-                    onChange={(e) => setForm((f) => ({ ...f, account_id: upper(e.target.value) }))}
-                    disabled={!!isEditMode}
-                    required
-                  />
-                </div>
-                <div className="account-form-group">
-                  <label>{text("nameRequired")}</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: upper(e.target.value) }))}
-                    required
-                  />
-                </div>
-                <div className="account-form-group">
-                  <label>{text("roleRequired")}</label>
-                  <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} required>
-                    <option value="">{text("selectRole")}</option>
-                    {(orderedRoles || []).map((r) => (
-                      <option key={r} value={r}>
-                        {upper(r) === "UPLINE" ? text("supplier") : r}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="account-form-group">
-                  <label>{text("passwordRequired")}</label>
-                  <input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                    required
-                  />
+            <div className="account-form-columns account-form-columns--paired-fields">
+              <h3 className="account-section-header">{text("personalInformation")}</h3>
+              <h3 className="account-section-header">{text("payment")}</h3>
+
+              <div className="account-form-group">
+                <label>{text("accountIdRequired")}</label>
+                <input
+                  type="text"
+                  value={form.account_id}
+                  onChange={(e) => setForm((f) => ({ ...f, account_id: upper(e.target.value) }))}
+                  disabled={!!isEditMode}
+                  required
+                />
+              </div>
+              <div className="account-form-group">
+                <label>{text("paymentAlert")}</label>
+                <div className="account-radio-group">
+                  <label className="account-radio-label">
+                    <input
+                      type="radio"
+                      name="payment_alert"
+                      value="1"
+                      checked={form.payment_alert === "1"}
+                      onChange={() => setForm((f) => ({ ...f, payment_alert: "1" }))}
+                    />
+                    {text("yes")}
+                  </label>
+                  <label className="account-radio-label">
+                    <input
+                      type="radio"
+                      name="payment_alert"
+                      value="0"
+                      checked={form.payment_alert === "0"}
+                      onChange={() =>
+                        setForm((f) => ({ ...f, payment_alert: "0", alert_type: "", alert_start_date: "", alert_amount: "" }))
+                      }
+                    />
+                    {text("noWord")}
+                  </label>
                 </div>
               </div>
 
-              <div className="account-form-column">
-                <h3 className="account-section-header">{text("payment")}</h3>
-                <div className="account-form-group">
-                  <label>{text("paymentAlert")}</label>
-                  <div className="account-radio-group">
-                    <label className="account-radio-label">
-                      <input
-                        type="radio"
-                        name="payment_alert"
-                        value="1"
-                        checked={form.payment_alert === "1"}
-                        onChange={() => setForm((f) => ({ ...f, payment_alert: "1" }))}
-                      />
-                      {text("yes")}
-                    </label>
-                    <label className="account-radio-label">
-                      <input
-                        type="radio"
-                        name="payment_alert"
-                        value="0"
-                        checked={form.payment_alert === "0"}
-                        onChange={() =>
-                          setForm((f) => ({ ...f, payment_alert: "0", alert_type: "", alert_start_date: "", alert_amount: "" }))
-                        }
-                      />
-                      {text("noWord")}
-                    </label>
-                  </div>
-                </div>
+              <div className="account-form-group">
+                <label>{text("nameRequired")}</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: upper(e.target.value) }))}
+                  required
+                />
+              </div>
+              <div className="account-form-group">
+                <label>{text("remark")}</label>
+                <input
+                  type="text"
+                  id={isEditMode ? "edit_remark" : "add_remark"}
+                  value={form.remark}
+                  onChange={(e) => setForm((f) => ({ ...f, remark: upper(e.target.value) }))}
+                />
+              </div>
 
+              <div className="account-form-group">
+                <label>{text("roleRequired")}</label>
+                <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} required>
+                  <option value="">{text("selectRole")}</option>
+                  {(orderedRoles || []).map((r) => (
+                    <option key={r} value={r}>
+                      {upper(r) === "UPLINE" ? text("supplier") : r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="account-form-columns__payment-extra">
                 {form.payment_alert === "1" && (
                   <div className="account-form-row">
                     <div className="account-form-group">
@@ -320,7 +319,18 @@ export default function AccountModal({
                     </div>
                   </div>
                 )}
+              </div>
 
+              <div className="account-form-group">
+                <label>{text("passwordRequired")}</label>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="account-form-columns__payment-extra">
                 {form.payment_alert === "1" && (
                   <div className="account-form-group">
                     <label>{text("alertAmount")}</label>
@@ -333,16 +343,6 @@ export default function AccountModal({
                     />
                   </div>
                 )}
-
-                <div className="account-form-group">
-                  <label>{text("remark")}</label>
-                  <input
-                    type="text"
-                    id={isEditMode ? "edit_remark" : "add_remark"}
-                    value={form.remark}
-                    onChange={(e) => setForm((f) => ({ ...f, remark: upper(e.target.value) }))}
-                  />
-                </div>
               </div>
             </div>
 

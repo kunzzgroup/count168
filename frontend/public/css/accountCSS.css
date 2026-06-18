@@ -810,6 +810,48 @@ body.ec-auth-shell.account-page .account-cards.account-cards--show-all > .accoun
     align-items: start;
 }
 
+/* Add/Edit Account：按行配对字段，Name 与 Remark 等同高对齐 */
+.account-form-columns--paired-fields > .account-form-group,
+.account-form-columns--paired-fields > .account-form-columns__payment-extra {
+    min-width: 0;
+    margin-bottom: 1.5rem;
+}
+
+.account-form-columns--paired-fields > .account-section-header {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+}
+
+.account-form-columns--paired-fields > .account-form-columns__payment-extra {
+    align-self: stretch;
+}
+
+.account-form-columns--paired-fields > .account-form-columns__payment-extra:empty {
+    margin-bottom: 0;
+    min-height: 0;
+}
+
+.account-form-columns--paired-fields .account-form-row {
+    margin-bottom: 0;
+}
+
+.account-form-columns--paired-fields .account-form-row .account-form-group {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+.account-form-columns--paired-fields .account-form-group:has(.account-radio-group) {
+    margin-bottom: 1.5rem;
+}
+
+.account-form-columns--paired-fields .account-radio-group {
+    flex-direction: row;
+    gap: clamp(0.5rem, 1vw, 0.75rem);
+    justify-content: flex-start;
+    align-items: center;
+    padding-bottom: 0.125rem;
+}
+
 /* 个人信息和支付列 */
 .account-form-column {
     min-width: 0;
@@ -1568,6 +1610,13 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
     gap: clamp(0.95rem, 1.4vw, 1.25rem);
     padding: clamp(0.85rem, 1.2vw, 1.1rem) clamp(1.2rem, 2vw, 1.65rem);
     border-bottom: 1px solid #e5e7eb;
+}
+
+#account-addModal .account-form-columns--paired-fields > .account-section-header,
+#account-editModal .account-form-columns--paired-fields > .account-section-header {
+    font-size: var(--text-h2);
+    color: #111827;
+    border-bottom-color: #e5e7eb;
 }
 
 #account-addModal .account-form-section,
@@ -3135,11 +3184,30 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
         padding: 0.7rem 1.15rem;
     }
 
+    #account-addModal .account-form-columns--paired-fields > .account-section-header,
+    #account-editModal .account-form-columns--paired-fields > .account-section-header {
+        font-size: var(--text-h3, 15px) !important;
+        margin-bottom: 0.4rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+
     #account-addModal .account-form-column .account-section-header,
     #account-editModal .account-form-column .account-section-header {
         font-size: var(--text-h3, 15px) !important;
         margin-bottom: 0.4rem !important;
         padding-bottom: 0.25rem !important;
+    }
+
+    #account-addModal .account-form-columns--paired-fields > .account-form-group,
+    #account-editModal .account-form-columns--paired-fields > .account-form-group,
+    #account-addModal .account-form-columns--paired-fields > .account-form-columns__payment-extra,
+    #account-editModal .account-form-columns--paired-fields > .account-form-columns__payment-extra {
+        margin-bottom: 0.6rem !important;
+    }
+
+    #account-addModal .account-form-columns--paired-fields > .account-form-group:has(.account-radio-group),
+    #account-editModal .account-form-columns--paired-fields > .account-form-group:has(.account-radio-group) {
+        margin-bottom: 0.85rem !important;
     }
 
     #account-addModal .account-form-column .account-form-group,
