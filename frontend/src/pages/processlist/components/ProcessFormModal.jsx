@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import ProcessModalPortal, { processModalBackdropStyle } from "../../../components/ProcessModalPortal.jsx";
+import RemoveWordChipInput from "../../../components/RemoveWordChipInput.jsx";
 import { toProcessFormUpperInput } from "../processListHelpers.js";
 import { useSubmitGuard } from "../../../hooks/useSubmitGuard.js";
 import ProcessFormPortalSelect from "./ProcessFormPortalSelect.jsx";
@@ -50,6 +51,7 @@ export default function ProcessFormModal({
   editMode,
   form,
   setForm,
+  scopeCompanyId = null,
   currencies,
   days,
   readOnly = false,
@@ -451,13 +453,17 @@ export default function ProcessFormModal({
                 <h3 className="account-section-header">{t("processFormSectionTextReplace")}</h3>
               <div className="form-row">
                 <div className="form-group">
-                  <label>{t("removeWords")}</label>
-                  <input
+                  <label htmlFor={editMode ? "edit_remove_words" : "add_remove_words"}>{t("removeWords")}</label>
+                  <RemoveWordChipInput
+                    id={editMode ? "edit_remove_words" : "add_remove_words"}
+                    name="remove_word"
                     value={form.remove_word}
-                    disabled={ro}
-                    onChange={(e) => setForm((prev) => ({ ...prev, remove_word: toProcessFormUpperInput(e.target.value) }))}
+                    onChange={(next) => setForm((prev) => ({ ...prev, remove_word: next }))}
+                    processId={editMode && form.id ? form.id : null}
+                    scopeCompanyId={scopeCompanyId}
                     placeholder={t("enterWordsToRemove")}
-                    style={{ textTransform: "uppercase" }}
+                    removeChipAriaLabel={t("removeWordChipRemove")}
+                    disabled={ro}
                   />
                   <small className="field-help">{t("removeWordsHelp")}</small>
                 </div>

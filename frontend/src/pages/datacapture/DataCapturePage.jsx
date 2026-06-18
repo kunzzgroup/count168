@@ -37,6 +37,7 @@ import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
 import "../../../public/css/datacapture.css";
+import "../../../public/css/remove-word-chip.css";
 import "../../../public/css/description-input.css";
 
 import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";

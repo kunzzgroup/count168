@@ -25,6 +25,7 @@ import { isBankCategoryCompany, resolveBankOnlyCategoryHint } from "../bankproce
 import "../../../public/css/processCSS.css";
 import "../../../public/css/description-input.css";
 import "../../../public/css/processlist.css";
+import "../../../public/css/remove-word-chip.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
 import {
@@ -48,6 +49,7 @@ import {
   warmProcessListRouteCache,
 } from "./processRoutePrefetch.js";
 import ProcessTable from "./components/ProcessTable.jsx";
+import { parseRemoveWordChips, serializeRemoveWordChips } from "../../lib/removeWordChips.js";
 import ProcessFormModal from "./components/ProcessFormModal.jsx";
 import DescriptionPickerModal from "./components/DescriptionPickerModal.jsx";
 import ProcessDeleteConfirmModal from "./components/ProcessDeleteConfirmModal.jsx";
@@ -1190,7 +1192,7 @@ export default function ProcessListPage() {
           .split(",")
           .map((v) => v.trim())
           .filter(Boolean),
-        remove_word: p.remove_word || "",
+        remove_word: serializeRemoveWordChips(parseRemoveWordChips(p.remove_word || "")),
         replace_word_from: p.replace_word_from || "",
         replace_word_to: p.replace_word_to || "",
         remark: parseRemarkForForm(p.remarks),
@@ -1585,6 +1587,7 @@ export default function ProcessListPage() {
           editMode={editMode}
           form={form}
           setForm={setForm}
+          scopeCompanyId={companyId}
           currencies={currencies}
           days={days}
           readOnly={processMutationsBlocked}
