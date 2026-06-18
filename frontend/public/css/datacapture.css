@@ -2560,3 +2560,34 @@ body.datacapture-page .excel-table-container--group-only {
 
 }
 
+/* Restore Data Capture form field sizing after global select-unified.css */
+body.ec-auth-shell.datacapture-page .process-form select:not([multiple]):not([size]),
+body.ec-auth-shell.datacapture-page .process-form .custom-select-button {
+    min-height: 36px !important;
+    height: 36px !important;
+    max-height: 36px !important;
+    padding: clamp(6px, 0.35vw, 9px) clamp(28px, 2vw, 36px) clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px) !important;
+    font-size: clamp(10px, 0.74vw, 14px) !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+    border: 1px solid var(--dc-border, #e2e8f0) !important;
+    border-radius: 6px !important;
+}
+
+body.ec-auth-shell.datacapture-page .process-form .custom-select-option {
+    font-size: clamp(9px, 0.73vw, 14px) !important;
+    line-height: 1.35 !important;
+}
+
+body.ec-auth-shell.datacapture-page .process-form .custom-select-search input {
+    font-size: clamp(10px, 0.74vw, 14px) !important;
+}
+
+@media (max-width: 1200px) {
+    body.ec-auth-shell.datacapture-page .process-form select:not([multiple]):not([size]),
+    body.ec-auth-shell.datacapture-page .process-form .custom-select-button,
+    body.ec-auth-shell.datacapture-page .process-form .custom-select-option {
+        font-size: clamp(9px, 0.85vw, 14px) !important;
+    }
+}
+
