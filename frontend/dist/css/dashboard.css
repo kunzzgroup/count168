@@ -1282,6 +1282,31 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     overflow: visible;
 }
 
+/* Single-currency scope (e.g. AP group ledger): shrink panel — avoid empty stretch vs trend chart */
+.dashboard-panels-row > .dashboard-panel-card--summary-single-currency {
+    align-self: start;
+    height: auto;
+}
+
+.dashboard-panel-card--summary-single-currency {
+    --summary-pie-size: clamp(108px, 14vh, 148px);
+    --summary-pie-col: minmax(96px, 42%);
+    --summary-size-hero: clamp(20px, 1.55vw, 28px);
+}
+
+.dashboard-summary-layout.is-single-currency {
+    grid-template-rows: auto;
+    flex: 0 0 auto;
+}
+
+.dashboard-panel-card--summary-single-currency .dashboard-summary-top-row {
+    grid-template-rows: min(var(--summary-pie-size));
+}
+
+.dashboard-panel-card--summary-single-currency .dashboard-summary-currency-list {
+    flex: 0 0 auto;
+}
+
 .dashboard-panel-card--summary .dashboard-summary-layout,
 .dashboard-panel-card--summary .dashboard-summary-rate-footnote {
     font-family: var(--summary-font);
@@ -3078,6 +3103,19 @@ body.dashboard-home-page .dashboard-panel-chart-body {
 body.dashboard-home-page .dashboard-panel-card--summary {
     --summary-pie-size: clamp(195px, 22vh, 240px);
     --summary-currency-max: clamp(120px, 20vh, 175px);
+}
+
+body.dashboard-home-page .dashboard-panel-card--summary-single-currency {
+    --summary-pie-size: clamp(100px, 13vh, 136px);
+    --summary-pie-col: minmax(88px, 40%);
+}
+
+body.dashboard-home-page .dashboard-panels-row > .dashboard-panel-card--summary-single-currency {
+    align-self: start;
+}
+
+body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card--summary-single-currency .dashboard-summary-layout {
+    flex: 0 0 auto;
 }
 
 body.dashboard-home-page .dashboard-summary-top-row {

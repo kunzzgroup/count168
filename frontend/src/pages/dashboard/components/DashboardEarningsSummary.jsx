@@ -276,6 +276,8 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = !isCompanyBreakdownView && currencies.length > 1;
+  const isSingleCurrencyView = !isCompanyBreakdownView && currencies.length <= 1;
+  const showCurrencyBreakdownList = showMultiCurrencyBreakdown || isCompanyBreakdownView;
   const heroLabel = isNetProfitCompanyView
     ? i18n.netProfitCompanyCaption
     : summaryPanelLabel || i18n.earnings;
@@ -334,9 +336,13 @@ export function DashboardEarningsSummary({
     <div
       className={`dashboard-panel-card dashboard-panel-card--summary${
         showProfitChartTab ? " dashboard-panel-card--summary-has-tabs" : ""
-      }`}
+      }${isSingleCurrencyView ? " dashboard-panel-card--summary-single-currency" : ""}`}
     >
-      <div className="dashboard-summary-layout">
+      <div
+        className={`dashboard-summary-layout${
+          isSingleCurrencyView ? " is-single-currency" : ""
+        }`}
+      >
         <div className="dashboard-summary-top-row">
           {summaryViewTabs}
           {summaryHero}
@@ -429,6 +435,7 @@ export function DashboardEarningsSummary({
             )}
           </div>
         </div>
+        {showCurrencyBreakdownList && (
         <div
           className={`dashboard-summary-currency-list${
             showMultiCurrencyBreakdown ? " is-multi-currency" : ""
@@ -591,6 +598,7 @@ export function DashboardEarningsSummary({
             })}
           </div>
         </div>
+        )}
       </div>
       {!isCompanyBreakdownView && showMultiCurrencyBreakdown && rateFootnoteText && (
         <p
