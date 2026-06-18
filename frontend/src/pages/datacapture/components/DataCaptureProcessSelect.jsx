@@ -2,7 +2,8 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const CONTAINER_EDGE_PAD = 8;
-const PORTAL_GAP = 2;
+const PORTAL_GAP = 0;
+const PORTAL_BORDER_OVERLAP = 1;
 const PROCESS_SEARCH_RESERVE = 52;
 const PORTAL_DROPDOWN_CAP = 280;
 const MIN_DROPDOWN_HEIGHT = 120;
@@ -43,8 +44,8 @@ function layoutProcessPortalDropdown(
       maxHeight: `${dropdownMaxHeight}px`,
       display: "flex",
       flexDirection: "column",
-      top: openBelow ? `${btnRect.bottom + PORTAL_GAP}px` : "auto",
-      bottom: openBelow ? "auto" : `${window.innerHeight - btnRect.top + PORTAL_GAP}px`,
+      top: openBelow ? `${btnRect.bottom - PORTAL_BORDER_OVERLAP}px` : "auto",
+      bottom: openBelow ? "auto" : `${window.innerHeight - btnRect.top - PORTAL_BORDER_OVERLAP}px`,
       zIndex: 9000,
     },
   };

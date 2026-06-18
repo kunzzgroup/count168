@@ -8,7 +8,8 @@ import { filterBankPickAccounts, formatBankAccountDisplay } from "../lib/bankPro
 const PORTAL_MIN_WIDTH = 180;
 const ACCOUNT_PICK_MIN_WIDTH = 220;
 const PORTAL_EDGE_PAD = 16;
-const PORTAL_GAP = 2;
+const PORTAL_GAP = 0;
+const PORTAL_BORDER_OVERLAP = 1;
 const ACCOUNT_SEARCH_RESERVE = 52;
 const PORTAL_DROPDOWN_CAP_ACCOUNT = 280;
 
@@ -33,8 +34,8 @@ function layoutPortalDropdown(buttonEl, wrapEl, { minWidth, searchReserve = 0, m
       maxHeight: `${dropdownMaxHeight}px`,
       display: "flex",
       flexDirection: "column",
-      top: openBelow ? `${rect.bottom + PORTAL_GAP}px` : "auto",
-      bottom: openBelow ? "auto" : `${window.innerHeight - rect.top + PORTAL_GAP}px`,
+      top: openBelow ? `${rect.bottom - PORTAL_BORDER_OVERLAP}px` : "auto",
+      bottom: openBelow ? "auto" : `${window.innerHeight - rect.top - PORTAL_BORDER_OVERLAP}px`,
       zIndex: getProcessModalDropdownZIndex(wrapEl),
     },
   };

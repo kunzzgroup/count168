@@ -959,7 +959,7 @@ body.datacapture-page .custom-select-button.open {
     display: none;
     max-height: 300px;
     overflow: hidden;
-    margin-top: 2px;
+    margin-top: 0;
 }
 
 .custom-select-dropdown.show {

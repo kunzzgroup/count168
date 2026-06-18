@@ -149,6 +149,10 @@ body.ec-auth-shell .custom-select-dropdown {
   box-shadow: var(--select-shadow) !important;
 }
 
+body.ec-auth-shell .custom-select-dropdown.show {
+  display: block;
+}
+
 body.ec-auth-shell .custom-select-dropdown.show.custom-select-dropdown-below {
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
