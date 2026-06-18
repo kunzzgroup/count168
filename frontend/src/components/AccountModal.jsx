@@ -112,6 +112,7 @@ export default function AccountModal({
 
   const text = (key, params) => (typeof t === "function" ? t(key, params) : key);
   const modalId = isEditMode ? "account-editModal" : "account-addModal";
+  const paymentAlertOn = form.payment_alert === "1";
   const currencyPlaceholder = text("newCurrencyPlaceholder");
   /** HTML size ≈ placeholder width (ch); CJK glyphs render wider → slight bump */
   const hasCjk = /[\u4e00-\u9fff\u3000-\u303f\u3040-\u30ff]/.test(currencyPlaceholder);
@@ -262,15 +263,19 @@ export default function AccountModal({
                   required
                 />
               </div>
-              <div className="account-form-group">
-                <label>{text("remark")}</label>
-                <input
-                  type="text"
-                  id={isEditMode ? "edit_remark" : "add_remark"}
-                  value={form.remark}
-                  onChange={(e) => setForm((f) => ({ ...f, remark: upper(e.target.value) }))}
-                />
-              </div>
+              {paymentAlertOn ? (
+                <div className="account-form-columns__grid-spacer" aria-hidden="true" />
+              ) : (
+                <div className="account-form-group account-form-group--remark">
+                  <label>{text("remark")}</label>
+                  <input
+                    type="text"
+                    id={isEditMode ? "edit_remark" : "add_remark"}
+                    value={form.remark}
+                    onChange={(e) => setForm((f) => ({ ...f, remark: upper(e.target.value) }))}
+                  />
+                </div>
+              )}
 
               <div className="account-form-group">
                 <label>{text("roleRequired")}</label>
@@ -284,7 +289,7 @@ export default function AccountModal({
                 </select>
               </div>
               <div className="account-form-columns__payment-extra">
-                {form.payment_alert === "1" && (
+                {paymentAlertOn && (
                   <div className="account-form-row">
                     <div className="account-form-group">
                       <label>{text("alertType")}</label>
@@ -331,7 +336,7 @@ export default function AccountModal({
                 />
               </div>
               <div className="account-form-columns__payment-extra">
-                {form.payment_alert === "1" && (
+                {paymentAlertOn && (
                   <div className="account-form-group">
                     <label>{text("alertAmount")}</label>
                     <input
@@ -344,6 +349,21 @@ export default function AccountModal({
                   </div>
                 )}
               </div>
+
+              {paymentAlertOn && (
+                <>
+                  <div className="account-form-columns__grid-spacer" aria-hidden="true" />
+                  <div className="account-form-group account-form-group--remark account-form-group--remark-bottom">
+                    <label>{text("remark")}</label>
+                    <input
+                      type="text"
+                      id={isEditMode ? "edit_remark" : "add_remark"}
+                      value={form.remark}
+                      onChange={(e) => setForm((f) => ({ ...f, remark: upper(e.target.value) }))}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="account-form-section">
