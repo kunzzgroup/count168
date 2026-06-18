@@ -5,6 +5,7 @@ import { saveGroupOnlyProcessPrefsFromProcessData } from "../../datacapture/lib/
 import { isGroupLedgerCapture } from "../../../utils/company/c168CaptureChannel.js";
 import { clearSummaryCaptureRoundStorage } from "../lib/summaryStorage.js";
 import { saveSummaryRefreshStatePure } from "../lib/summaryRefreshStatePure.js";
+import { mergeRowsWithSummaryDomDraft } from "../lib/summaryRefreshDomSync.js";
 import { deleteSummaryTemplate } from "../lib/summaryApi.js";
 import { useSummaryContext } from "../context/SummaryContext.jsx";
 import { useSummarySubmitPure } from "./useSummarySubmitPure.js";
@@ -187,8 +188,9 @@ export function useSummaryPageActionsPure({
 
 
   const navigateBack = useCallback(() => {
-
-    saveSummaryRefreshStatePure(rows, { processId, processCode }, captureScope);
+    const { rows: syncedRows } = mergeRowsWithSummaryDomDraft(rows);
+    replaceRows?.(syncedRows);
+    saveSummaryRefreshStatePure(syncedRows, { processId, processCode }, captureScope);
 
     window.isNavigatingAwayByBackOrSubmit = true;
 
@@ -208,28 +210,21 @@ export function useSummaryPageActionsPure({
     });
 
     navigate(buildSummaryRestoreCapturePath(companyId, { groupOnly, groupId }), { replace: true });
-
-  }, [navigate, companyId, rows, processId, processCode, captureScope]);
+  }, [navigate, companyId, rows, processId, processCode, captureScope, replaceRows]);
 
 
 
   const handleRefresh = useCallback(async () => {
-
     setRefreshing(true);
-
     try {
-
-      saveSummaryRefreshStatePure(rows, { processId, processCode }, captureScope);
-
+      const { rows: syncedRows } = mergeRowsWithSummaryDomDraft(rows);
+      replaceRows?.(syncedRows);
+      saveSummaryRefreshStatePure(syncedRows, { processId, processCode }, captureScope);
       await runPopulate?.();
-
     } finally {
-
       setRefreshing(false);
-
     }
-
-  }, [rows, processId, processCode, runPopulate, captureScope]);
+  }, [rows, processId, processCode, runPopulate, captureScope, replaceRows]);
 
 
 
