@@ -50,10 +50,10 @@ sudo sed -i 's/ default_server//g' /etc/nginx/conf.d/count168.site.conf
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**`.org` 首次 clone 后**，日常与 `.site` 一样 **push 即自动部署**（见下方「日常更新」）。手动更新可跑：
+**`.org` 首次 clone 后**，与 `.site` 一样随 **push main 自动部署**。仅更新 org 时可手动跑：
 
 ```bash
-bash /var/www/count168/deploy/deploy-org.sh
+bash /var/www/count168.org/deploy/deploy-org.sh
 ```
 
 HTTPS（**先确保 `nginx -t` 通过**，再分别申请）：
@@ -190,24 +190,21 @@ curl -sS -X POST https://count168.site/api/session/login_api.php \
 
 应返回 JSON（如 `Database connection failed` 或 `Username or password is incorrect`），而不是空白的 HTTP 500。
 
-## 日常更新（推荐：只 push，EC2 自动部署）
-
-**本地一次配置 GitHub Secrets 后**，日常只需：
+## 日常更新（push 自动部署 site + org）
 
 ```bash
-# 若改了 frontend 源码，先 build 并一起 commit dist/
-cd frontend && npm run build && cd ..
-git add -A
-git commit -m "你的说明"
-git push origin main
+cd frontend && npm run build && cd ..   # 若改了前端
+git add -A && git commit -m "说明" && git push origin main
 ```
 
-push 后 GitHub Actions 会自动 SSH 到 EC2，依次执行：
+push 到 **`main`** 后，GitHub Actions **Deploy to EC2** 会**并行**跑两个 job：
 
-1. `/var/www/count168` → `deploy/deploy.sh`（count168.site）
-2. `/var/www/count168.org` → `deploy/deploy-org.sh`（count168.org）
+| Job | EC2 目录 | 域名 |
+|-----|----------|------|
+| `count168.site` | `/var/www/count168` | count168.site |
+| `count168.org` | `/var/www/count168.org` | count168.org |
 
-**EC2 上两个目录都要先 clone 好**（见「二点五」），否则 Actions 会失败。
+**EC2 上两个目录都要先 clone 好**（见「二点五」）。仅想单独重部署 org：Actions → **Deploy org to EC2** → Run workflow。
 
 ### 一次性配置（GitHub → Settings → Secrets and variables → Actions）
 
