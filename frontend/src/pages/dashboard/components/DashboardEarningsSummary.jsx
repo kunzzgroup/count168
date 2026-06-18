@@ -276,6 +276,8 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = !isCompanyBreakdownView && currencies.length > 1;
+  /** Few currencies / company rows: stack table directly under pie — no flex gap. */
+  const isCompactBreakdown = !showMultiCurrencyBreakdown;
   const heroLabel = isNetProfitCompanyView
     ? i18n.netProfitCompanyCaption
     : summaryPanelLabel || i18n.earnings;
@@ -334,9 +336,13 @@ export function DashboardEarningsSummary({
     <div
       className={`dashboard-panel-card dashboard-panel-card--summary${
         showProfitChartTab ? " dashboard-panel-card--summary-has-tabs" : ""
-      }`}
+      }${isCompactBreakdown ? " dashboard-panel-card--summary-compact" : ""}`}
     >
-      <div className="dashboard-summary-layout">
+      <div
+        className={`dashboard-summary-layout${
+          isCompactBreakdown ? " is-compact-breakdown" : ""
+        }`}
+      >
         <div className="dashboard-summary-top-row">
           {summaryViewTabs}
           {summaryHero}
@@ -432,9 +438,9 @@ export function DashboardEarningsSummary({
         <div
           className={`dashboard-summary-currency-list${
             showMultiCurrencyBreakdown ? " is-multi-currency" : ""
-          }${earningsBreakdownShowsRate ? " is-with-original" : ""}${
-            isCompanyBreakdownView ? " is-company-profit" : ""
-          }`}
+          }${isCompactBreakdown ? " is-compact-breakdown" : ""}${
+            earningsBreakdownShowsRate ? " is-with-original" : ""
+          }${isCompanyBreakdownView ? " is-company-profit" : ""}`}
           aria-label={isCompanyBreakdownView ? i18n.companyBreakdown : i18n.currencyBreakdown}
         >
           <div className="dashboard-summary-currency-list-head" aria-hidden="true">
