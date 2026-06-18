@@ -17,6 +17,10 @@ export default function TransactionDashboardPage() {
   const { dateFrom, setDateFrom, dateTo, setDateTo } = useDashboardDateRangeState();
 
   const page = useDashboardPage({ i18n, dateFrom, dateTo, setDateFrom, setDateTo });
+  /** One currency + no group tabs: KPI row already shows earnings — chart uses full width. */
+  const hideEarningsSidebar = page.currencies.length <= 1 && !page.showProfitChartTab;
+  const singleCurrencySummaryTabs =
+    page.currencies.length <= 1 && page.showProfitChartTab;
   const { effectiveDateRangeText, periodPresets } = useDashboardDateRange({
     me: page.me,
     i18n,
@@ -73,6 +77,8 @@ export default function TransactionDashboardPage() {
           <div
             className={`dashboard-panels-row${
               page.showProfitChartTab ? " dashboard-panels-row--with-summary-tabs" : ""
+            }${hideEarningsSidebar ? " dashboard-panels-row--chart-full" : ""}${
+              singleCurrencySummaryTabs ? " dashboard-panels-row--single-currency-summary" : ""
             }`}
           >
             <DashboardTrendChart
@@ -86,31 +92,33 @@ export default function TransactionDashboardPage() {
               chartDataStable={page.chartDataStable}
               chartScopeKey={page.dashboardScopeKey}
             />
-            <DashboardEarningsSummary
-              i18n={i18n}
-              currencyCode={page.currencyCode}
-              currencies={page.currencies}
-              earningsCurrencyRows={page.earningsCurrencyRows}
-              useConvertedEarnings={page.useConvertedEarnings}
-              earningsBreakdownShowsRate={page.earningsBreakdownShowsRate}
-              summaryPanelLabel={page.summaryPanelLabel}
-              summaryEarningsValue={page.summaryEarningsValue}
-              summaryConversionNote={page.summaryConversionNote}
-              summaryEarningsLoading={page.summaryEarningsLoading}
-              earningsPanelStable={page.earningsPanelStable}
-              earningsByCurrencyLoading={page.earningsByCurrencyLoading}
-              exchangeRates={page.exchangeRates}
-              exchangeRatesError={page.exchangeRatesError}
-              exchangeRatesLoading={page.exchangeRatesLoading}
-              exchangeRateScopeKey={page.exchangeRateScopeKey}
-              rateFootnoteText={page.rateFootnoteText}
-              convertedEarningsTotal={page.convertedEarningsTotal}
-              showProfitChartTab={page.showProfitChartTab}
-              earningsPanelView={page.earningsPanelView}
-              onEarningsPanelViewChange={page.setEarningsPanelView}
-              companyBreakdownRows={page.companyBreakdownRows}
-              companyNetProfitTotal={page.companyNetProfitTotal}
-            />
+            {!hideEarningsSidebar && (
+              <DashboardEarningsSummary
+                i18n={i18n}
+                currencyCode={page.currencyCode}
+                currencies={page.currencies}
+                earningsCurrencyRows={page.earningsCurrencyRows}
+                useConvertedEarnings={page.useConvertedEarnings}
+                earningsBreakdownShowsRate={page.earningsBreakdownShowsRate}
+                summaryPanelLabel={page.summaryPanelLabel}
+                summaryEarningsValue={page.summaryEarningsValue}
+                summaryConversionNote={page.summaryConversionNote}
+                summaryEarningsLoading={page.summaryEarningsLoading}
+                earningsPanelStable={page.earningsPanelStable}
+                earningsByCurrencyLoading={page.earningsByCurrencyLoading}
+                exchangeRates={page.exchangeRates}
+                exchangeRatesError={page.exchangeRatesError}
+                exchangeRatesLoading={page.exchangeRatesLoading}
+                exchangeRateScopeKey={page.exchangeRateScopeKey}
+                rateFootnoteText={page.rateFootnoteText}
+                convertedEarningsTotal={page.convertedEarningsTotal}
+                showProfitChartTab={page.showProfitChartTab}
+                earningsPanelView={page.earningsPanelView}
+                onEarningsPanelViewChange={page.setEarningsPanelView}
+                companyBreakdownRows={page.companyBreakdownRows}
+                companyNetProfitTotal={page.companyNetProfitTotal}
+              />
+            )}
           </div>
         </div>
       </div>

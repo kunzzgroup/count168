@@ -276,8 +276,8 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = !isCompanyBreakdownView && currencies.length > 1;
-  const isSingleCurrencyView = !isCompanyBreakdownView && currencies.length <= 1;
-  const showCurrencyBreakdownList = showMultiCurrencyBreakdown || isCompanyBreakdownView;
+  const isSingleCurrencyView =
+    showProfitChartTab && !isCompanyBreakdownView && currencies.length <= 1;
   const heroLabel = isNetProfitCompanyView
     ? i18n.netProfitCompanyCaption
     : summaryPanelLabel || i18n.earnings;
@@ -435,7 +435,6 @@ export function DashboardEarningsSummary({
             )}
           </div>
         </div>
-        {showCurrencyBreakdownList && (
         <div
           className={`dashboard-summary-currency-list${
             showMultiCurrencyBreakdown ? " is-multi-currency" : ""
@@ -598,7 +597,6 @@ export function DashboardEarningsSummary({
             })}
           </div>
         </div>
-        )}
       </div>
       {!isCompanyBreakdownView && showMultiCurrencyBreakdown && rateFootnoteText && (
         <p

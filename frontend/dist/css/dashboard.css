@@ -1282,29 +1282,34 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     overflow: visible;
 }
 
-/* Single-currency scope (e.g. AP group ledger): shrink panel — avoid empty stretch vs trend chart */
-.dashboard-panels-row > .dashboard-panel-card--summary-single-currency {
-    align-self: start;
-    height: auto;
+/* Single currency + group tabs: compact right panel, content top-aligned */
+.dashboard-panels-row--single-currency-summary {
+    grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.5fr);
 }
 
 .dashboard-panel-card--summary-single-currency {
-    --summary-pie-size: clamp(108px, 14vh, 148px);
-    --summary-pie-col: minmax(96px, 42%);
+    --summary-pie-size: clamp(120px, 15vh, 160px);
+    --summary-pie-col: minmax(100px, 44%);
     --summary-size-hero: clamp(20px, 1.55vw, 28px);
 }
 
 .dashboard-summary-layout.is-single-currency {
-    grid-template-rows: auto;
-    flex: 0 0 auto;
-}
-
-.dashboard-panel-card--summary-single-currency .dashboard-summary-top-row {
-    grid-template-rows: min(var(--summary-pie-size));
+    grid-template-rows: auto auto;
+    align-content: start;
 }
 
 .dashboard-panel-card--summary-single-currency .dashboard-summary-currency-list {
     flex: 0 0 auto;
+}
+
+.dashboard-panel-card--summary-single-currency .dashboard-summary-currency-list-body {
+    flex: 0 0 auto;
+    overflow: visible;
+}
+
+/* Single currency, no group tabs: chart spans full row (earnings already in KPI cards) */
+.dashboard-panels-row--chart-full {
+    grid-template-columns: 1fr;
 }
 
 .dashboard-panel-card--summary .dashboard-summary-layout,
@@ -3106,16 +3111,20 @@ body.dashboard-home-page .dashboard-panel-card--summary {
 }
 
 body.dashboard-home-page .dashboard-panel-card--summary-single-currency {
-    --summary-pie-size: clamp(100px, 13vh, 136px);
-    --summary-pie-col: minmax(88px, 40%);
+    --summary-pie-size: clamp(108px, 13vh, 140px);
+    --summary-pie-col: minmax(92px, 42%);
 }
 
-body.dashboard-home-page .dashboard-panels-row > .dashboard-panel-card--summary-single-currency {
-    align-self: start;
+body.dashboard-home-page .dashboard-panels-row--chart-full {
+    grid-template-columns: 1fr;
+}
+
+body.dashboard-home-page .dashboard-panels-row--single-currency-summary {
+    grid-template-columns: minmax(0, 1.55fr) minmax(200px, 0.45fr);
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card--summary-single-currency .dashboard-summary-layout {
-    flex: 0 0 auto;
+    align-content: start;
 }
 
 body.dashboard-home-page .dashboard-summary-top-row {
