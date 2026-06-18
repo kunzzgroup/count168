@@ -8137,20 +8137,6 @@ body.process-page > #editModal.modal.show > .modal-content.process-form-modal,
     font-weight: var(--font-weight-semibold);
 }
 
-.process-form-modal .add-icon,
-#addModal .modal-content.process-form-modal .add-icon {
-    width: clamp(2rem, 2.2vw, 2.35rem);
-    height: clamp(2rem, 2.2vw, 2.35rem);
-    font-size: var(--text-h3);
-    background: var(--btn-add-gradient);
-    box-shadow: var(--shadow-btn-add-page);
-}
-
-.process-form-modal .add-icon:hover:not(:disabled),
-#addModal .modal-content.process-form-modal .add-icon:hover:not(:disabled) {
-    background: var(--btn-add-gradient-hover);
-}
-
 .process-form-modal .process-form-modal-footer.add-actions,
 #addModal .modal-content.process-form-modal .process-form-modal-footer,
 #editModal .modal-content.process-form-modal .process-form-modal-footer {

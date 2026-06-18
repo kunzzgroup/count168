@@ -40,6 +40,8 @@ body.ec-auth-shell.datacapture-page .process-form textarea:focus-visible,
 body.ec-auth-shell.datacapture-page .dc-remove-word-chip-input:focus-within,
 body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap:hover,
 body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap:focus-within,
+body.ec-auth-shell.datacapture-page .process-form .description-input-wrap:hover,
+body.ec-auth-shell.datacapture-page .process-form .description-input-wrap:focus-within,
 body.ec-auth-shell.datacapture-page .custom-select-button:focus,
 body.ec-auth-shell.datacapture-page .custom-select-button:focus-visible,
 body.ec-auth-shell.datacapture-page .custom-select-button.open {
@@ -51,7 +53,9 @@ body.ec-auth-shell.datacapture-page .custom-select-button.open {
 body.ec-auth-shell.datacapture-page .dc-remove-word-chip-input .dc-remove-word-chip-input__field:focus,
 body.ec-auth-shell.datacapture-page .dc-remove-word-chip-input .dc-remove-word-chip-input__field:focus-visible,
 body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap input:focus,
-body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap input:focus-visible {
+body.ec-auth-shell.datacapture-page .process-form .dc-description-input-wrap input:focus-visible,
+body.ec-auth-shell.datacapture-page .process-form .description-input-wrap input:focus,
+body.ec-auth-shell.datacapture-page .process-form .description-input-wrap input:focus-visible {
     outline: none !important;
     border: none !important;
     box-shadow: none !important;
@@ -1318,73 +1322,6 @@ body.datacapture-page .bottom-section:has(.excel-table-container--group-only) .f
     position: relative;
     flex: 1;
     min-width: 0;
-}
-
-body.datacapture-page .process-form .dc-description-input-wrap {
-    display: flex;
-    align-items: stretch;
-    height: 36px;
-    min-height: 36px;
-    max-height: 36px;
-    border: 1px solid var(--dc-border, #e2e8f0);
-    border-radius: 6px;
-    overflow: hidden;
-    cursor: pointer;
-    box-sizing: border-box;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-body.datacapture-page .process-form .dc-description-input-wrap:hover,
-body.datacapture-page .process-form .dc-description-input-wrap:focus-within {
-    border-color: var(--dc-input-focus-border, #3b82f6);
-    box-shadow: var(--dc-input-focus-shadow, 0 0 0 2px rgba(59, 130, 246, 0.12));
-}
-
-body.datacapture-page .process-form .dc-description-input-wrap input {
-    flex: 1 1 auto;
-    min-width: 0;
-    width: auto;
-    height: 100%;
-    min-height: 0;
-    max-height: none;
-    padding: clamp(6px, 0.35vw, 9px) clamp(8px, 0.63vw, 12px);
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-    outline: none;
-    background: #ffffff;
-    cursor: pointer;
-}
-
-body.datacapture-page .process-form .dc-description-add-tile {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 clamp(34px, 2.45vw, 40px);
-    width: clamp(34px, 2.45vw, 40px);
-    align-self: stretch;
-    margin: 0;
-    padding: 0;
-    border: none;
-    border-radius: 0;
-    background: #3b82f6;
-    color: #ffffff;
-    font-size: clamp(14px, 0.95vw, 18px);
-    font-weight: 700;
-    line-height: 1;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    -webkit-tap-highlight-color: transparent;
-}
-
-body.datacapture-page .process-form .dc-description-add-tile:hover {
-    background: #2563eb;
-}
-
-body.datacapture-page .process-form .dc-description-add-tile:focus,
-body.datacapture-page .process-form .dc-description-add-tile:focus-visible {
-    outline: none;
-    background: #2563eb;
 }
 
 /* Modal Styles */

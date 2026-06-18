@@ -23,6 +23,7 @@ import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipA
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { isBankCategoryCompany, resolveBankOnlyCategoryHint } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
+import "../../../public/css/description-input.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";

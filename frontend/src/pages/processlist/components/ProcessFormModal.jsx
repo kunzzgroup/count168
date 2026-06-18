@@ -306,19 +306,29 @@ export default function ProcessFormModal({
                     {editMode ? t("description") : t("descriptionRequired")}
                   </label>
                   <div
-                    className={`input-with-icon${ro ? "" : " input-with-icon--opens-picker"}`}
+                    className={`description-input-wrap dc-description-input-wrap${ro ? "" : " description-input-wrap--interactive"}`}
+                    role={ro ? undefined : "button"}
+                    tabIndex={ro ? undefined : 0}
+                    title={t("chooseDescription")}
                     onClick={() => !ro && onOpenDescriptionPicker()}
+                    onKeyDown={(e) => {
+                      if (!ro && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        onOpenDescriptionPicker();
+                      }
+                    }}
                   >
                     <input
                       id={editMode ? "edit_description" : "add_description"}
                       readOnly
                       required={!editMode}
+                      tabIndex={-1}
                       value={descSummary}
                       placeholder={t("clickToSelectDescriptions")}
                     />
                     <button
                       type="button"
-                      className="add-icon"
+                      className="description-add-tile dc-description-add-tile"
                       aria-label={t("chooseDescription")}
                       disabled={ro}
                       onClick={(e) => {

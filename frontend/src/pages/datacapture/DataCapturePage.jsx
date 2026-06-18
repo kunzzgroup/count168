@@ -37,6 +37,7 @@ import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
 import "../../../public/css/datacapture.css";
+import "../../../public/css/description-input.css";
 
 import { formatSubmittedProcessDateTime } from "./lib/dataCaptureApi.js";
 import { readCaptureSessionMeta, shouldRestoreFromUrl, loadCaptureSession, captureSessionMatchesScope, loadActiveCaptureSession, readCaptureRestoreBoot } from "./lib/dataCaptureStorage.js";
@@ -1075,7 +1076,7 @@ function DataCapturePageContent() {
                   <div className="form-group dc-form-company-layout__description">
                     <label htmlFor="capture_description">{t("description")}</label>
                     <div
-                      className="input-with-icon dc-description-input-wrap"
+                      className="description-input-wrap dc-description-input-wrap description-input-wrap--interactive"
                       role="button"
                       tabIndex={0}
                       title={t("selectDescriptions")}
@@ -1099,7 +1100,7 @@ function DataCapturePageContent() {
                       />
                       <button
                         type="button"
-                        className="dc-description-add-tile"
+                        className="description-add-tile dc-description-add-tile"
                         title={t("selectDescriptions")}
                         aria-label={t("selectDescriptions")}
                         onClick={(e) => {
