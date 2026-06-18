@@ -1361,13 +1361,13 @@ label.user-modal-col-title.acc-proc-label {
 
 /* User modal — 基本信息：Login 独占一行，Name|Role 两列 */
 #userModal .user-info-field-row {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     width: 100%;
     min-width: 0;
     margin: 0 0 12px 0;
-    align-items: flex-start;
+    align-items: end;
 }
 
 #userModal .user-info-field-row > .form-group.user-info-field,
@@ -1378,6 +1378,10 @@ label.user-modal-col-title.acc-proc-label {
 }
 
 @media (max-width: 440px) {
+    #userModal .user-info-field-row {
+        grid-template-columns: 1fr;
+    }
+
     #userModal .user-info-field-row > .form-group.user-info-field,
     #userModal .user-info-field-row > .form-group.password-row-container {
         flex-basis: 100%;
@@ -2185,10 +2189,6 @@ label.user-modal-col-title.acc-proc-label {
 /* Add/Edit User — Login ID 字段标题 */
 #userModal label[for="login_id"] {
     font-size: var(--text-medium);
-}
-
-#userModal select#role {
-    font-size: var(--text-tiny);
 }
 
 .user-page .form-group input,
@@ -3957,4 +3957,52 @@ body.datacapture-summary-page .btn-delete:disabled:hover {
     transform: none !important;
     cursor: not-allowed;
     opacity: 0.9;
+}
+
+/* User modal — Name / Role 同行：控件等高、底边对齐 */
+#userModal .user-info-field-row > .form-group.user-info-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+    margin-bottom: 0;
+}
+
+#userModal .user-info-field-row > .form-group.user-info-field label {
+    margin-bottom: 0;
+    line-height: 1.25;
+}
+
+#userModal .user-info-field-row input#name,
+#userModal .user-info-field-row select#role {
+    min-height: 32px !important;
+    height: 32px !important;
+    padding: 0 12px !important;
+    font-size: 14px !important;
+    line-height: 1.25 !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    box-sizing: border-box !important;
+    background-color: #fff !important;
+    color: #0f172a !important;
+}
+
+#userModal .user-info-field-row select#role {
+    padding-right: 30px !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background-image: var(--select-chevron) !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 12px !important;
+    cursor: pointer !important;
+}
+
+#userModal .user-info-field-row input#name:focus,
+#userModal .user-info-field-row select#role:focus,
+#userModal .user-info-field-row input#name:focus-visible,
+#userModal .user-info-field-row select#role:focus-visible {
+    outline: none !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12) !important;
 }
