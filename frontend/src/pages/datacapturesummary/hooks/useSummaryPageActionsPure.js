@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadActiveCaptureSession } from "../../datacapture/lib/dataCaptureStorage.js";
+import { loadActiveCaptureSession, markCaptureRestorePending } from "../../datacapture/lib/dataCaptureStorage.js";
 import { saveGroupOnlyProcessPrefsFromProcessData } from "../../datacapture/lib/dataCaptureGroupOnlyProcessPersistence.js";
 import { isGroupLedgerCapture } from "../../../utils/company/c168CaptureChannel.js";
 import { clearSummaryCaptureRoundStorage } from "../lib/summaryStorage.js";
@@ -26,6 +26,10 @@ function buildSummaryRestoreCapturePath(companyId, options = {}) {
     params.set("group_only", "1");
   } else if (companyId != null && String(companyId).trim() !== "") {
     params.set("company_id", String(companyId));
+  }
+  const groupId = options.groupId ? String(options.groupId).trim().toUpperCase() : "";
+  if (groupId) {
+    params.set("group_id", groupId);
   }
   return `/datacapture?${params.toString()}`;
 }
@@ -192,7 +196,18 @@ export function useSummaryPageActionsPure({
 
     const groupOnly = isGroupLedgerCapture(captureScope, session?.processData);
 
-    navigate(buildSummaryRestoreCapturePath(companyId, { groupOnly }), { replace: true });
+    const groupId =
+      session?.processData?.captureSelectedGroup ||
+      captureScope?.groupId ||
+      captureScope?.viewGroup;
+
+    markCaptureRestorePending({
+      companyId: groupOnly ? null : companyId,
+      groupId,
+      groupOnly,
+    });
+
+    navigate(buildSummaryRestoreCapturePath(companyId, { groupOnly, groupId }), { replace: true });
 
   }, [navigate, companyId, rows, processId, processCode, captureScope]);
 

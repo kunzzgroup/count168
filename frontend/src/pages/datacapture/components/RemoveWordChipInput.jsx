@@ -120,7 +120,7 @@ export default function RemoveWordChipInput({
         value={draft}
         placeholder={chips.length ? "" : placeholder}
         style={{ width: `${inputWidthCh}ch` }}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => setDraft(toDataCaptureWordFieldCase(event.target.value))}
         onKeyDown={handleKeyDown}
         autoComplete="off"
       />
