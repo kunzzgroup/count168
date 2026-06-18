@@ -4383,24 +4383,56 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         rangeTo === activeTo &&
         dashboardDataRef.current != null;
 
-      const settled = await Promise.all(
-        currencies.map(async (code) => {
-          if (gen !== earningsFetchGenRef.current) return null;
-          if (reuseMainPayload && code === activeCurrency) {
-            return {
-              code,
-              earnings: computeEarningsFromPayload(dashboardDataRef.current),
-            };
+      /** Group All ledger: serial per-currency fetches (parallel AP+IG×N overwhelms browser/server). */
+      const useSerialFetch = isGroupsAllLedgerDataScope({
+        groupsAllMode,
+        groupAllMode,
+        companyId,
+        me,
+      });
+
+      const fetchOne = async (code) => {
+        if (gen !== earningsFetchGenRef.current) return null;
+        if (reuseMainPayload && code === activeCurrency) {
+          return {
+            code,
+            earnings: computeEarningsFromPayload(dashboardDataRef.current),
+          };
+        }
+        return fetchSingleCurrencyEarnings(code, gen, { retries: useSerialFetch ? 0 : 1 });
+      };
+
+      if (useSerialFetch) {
+        const rows = [];
+        for (let idx = 0; idx < currencies.length; idx += 1) {
+          const code = currencies[idx];
+          const row = await fetchOne(code);
+          if (gen !== earningsFetchGenRef.current) return [];
+          rows.push(row ?? { code, earnings: null });
+          if (idx < currencies.length - 1 && gen === earningsFetchGenRef.current) {
+            await new Promise((resolve) =>
+              window.setTimeout(resolve, GROUP_ALL_EARNINGS_CURRENCY_DELAY_MS)
+            );
           }
-          return fetchSingleCurrencyEarnings(code, gen);
-        })
-      );
+        }
+        return rows;
+      }
+
+      const settled = await Promise.all(currencies.map((code) => fetchOne(code)));
 
       if (gen !== earningsFetchGenRef.current) return [];
 
       return settled.filter(Boolean);
     },
-    [currencies, computeEarningsFromPayload, fetchSingleCurrencyEarnings]
+    [
+      currencies,
+      computeEarningsFromPayload,
+      fetchSingleCurrencyEarnings,
+      groupsAllMode,
+      groupAllMode,
+      companyId,
+      me,
+    ]
   );
 
   const loadEarningsByCurrency = useCallback(async () => {
@@ -4493,14 +4525,27 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const currentRows = await fetchCurrentRows();
     if (gen !== earningsFetchGenRef.current) return;
 
+    const primary = currencyCodeRef.current;
+    const primaryEarnings = dashboardDataRef.current
+      ? computeEarningsFromPayload(dashboardDataRef.current)
+      : null;
+
     setEarningsByCurrency(currentRows);
     setEarningsByCurrencyLoading(false);
     if (cacheKey && currentRows.length) {
       mirrorDashboardEarningsAcrossCurrencies(
         currentRows,
         currencies,
-        resolveDashboardScopeKey
+        resolveDashboardScopeKey,
+        primary,
+        primaryEarnings
       );
+    }
+
+    if (
+      !dashboardEarningsRowsComplete(currentRows, currencies, primary, primaryEarnings)
+    ) {
+      scheduleIncompleteEarningsRetry(400);
     }
 
     if (!groupAllMode) {
@@ -4533,6 +4578,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     dashboardScopeKey,
     resolveDashboardScopeKey,
     resolveScopeDashboardEarnings,
+    scheduleIncompleteEarningsRetry,
+    computeEarningsFromPayload,
     showAllCurrencies,
     canShowAllCurrencies,
     groupsAllMode,
@@ -4804,7 +4851,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !groupAllMode &&
       !(mergedSubsetIds && mergedSubsetIds.length > 1) &&
       (companyId != null || groupAggregateMode);
-    if (!canUseBootstrap) return;
+    if (!canUseBootstrap) {
+      void loadEarningsByCurrency();
+      return;
+    }
     if (dashboardBootstrapInFlightRef.current === cacheKey) return;
 
     const gen = ++earningsFetchGenRef.current;
@@ -4877,6 +4927,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     getCompleteCachedEarnings,
     resolveScopeDashboardEarnings,
     loadDashboardViaBootstrap,
+    loadEarningsByCurrency,
     loadEarningsProgressive,
     resolveDashboardScopeKey,
     scheduleIncompleteEarningsRetry,
