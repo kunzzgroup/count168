@@ -56,7 +56,7 @@ import {
   shouldAggregateChartByMonth,
 } from "../lib/dashboardDateUtils.js";
 import { formatI18nTemplate } from "../lib/dashboardFormat.js";
-import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields } from "../lib/dashboardKpi.js";
+import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields, viewerHasEarningsConfig } from "../lib/dashboardKpi.js";
 import {
   applySingleSubsidiaryGroupEarningsRows,
   mergeCompanyBreakdownRowLists,
@@ -630,6 +630,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const dashboardStaleRetryRef = useRef({ scopeKey: "", attempts: 0 });
   const earningsIncompleteRetryRef = useRef(0);
   const earningsLoadInFlightRef = useRef("");
+  /** Group IDs (AP/IG) that returned viewer earnings config on the last Group All load. */
+  const earningsEnabledGroupIdsRef = useRef([]);
   const earningsScopeUpgradeRef = useRef({ scopeKey: "", attempts: 0 });
   /** Aborts in-flight dashboard API calls when scope changes again. */
   const dashboardFetchAbortRef = useRef(null);
@@ -2911,13 +2913,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const to = overrides.dateTo ?? dateTo;
       const codes = overrides.codes ?? currenciesRef.current;
 
+      const enabledGids =
+        gAll && earningsEnabledGroupIdsRef.current.length
+          ? earningsEnabledGroupIdsRef.current
+          : [];
+      const mergeCompanyRows = gAll
+        ? enabledGids.length
+          ? enabledGids.flatMap((g) => resolveGroupAllMergeCompanyList(companies, g, groupIds))
+          : resolveGroupsAllMergeCompanyList(companies, groupIds)
+        : selGroup
+          ? resolveGroupAllMergeCompanyList(companies, selGroup, groupIds)
+          : [];
+
       const mergeRows = filterCompaniesForDashboardApiAccess(
         meRef.current,
-        gAll
-          ? resolveGroupsAllMergeCompanyList(companies, groupIds)
-          : selGroup
-            ? resolveGroupAllMergeCompanyList(companies, selGroup, groupIds)
-            : [],
+        mergeCompanyRows,
         companies,
         gAll ? null : selGroup
       );
@@ -3879,7 +3889,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       rangeTo,
       currencyOverride,
       viewGroupFallback = null,
-      useActiveScopeAbort = true
+      useActiveScopeAbort = true,
+      { earningsOnly = false } = {}
     ) => {
       const accessible = filterCompaniesForDashboardApiAccess(
         meRef.current,
@@ -3900,7 +3911,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             rangeTo,
             currencyOverride,
             viewGroup,
-            useActiveScopeAbort
+            useActiveScopeAbort,
+            { earningsOnly }
           ).then((data) => ({ company: c, data, viewGroup }));
         })
       );
@@ -3939,18 +3951,37 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       rangeFrom,
       rangeTo,
       currencyOverride,
-      { groupKey = null, groupsAllMerge = false, useActiveScopeAbort = true } = {}
+      {
+        groupKey = null,
+        groupsAllMerge = false,
+        useActiveScopeAbort = true,
+        earningsOnly = false,
+        earningsGroupsOnly = false,
+      } = {}
     ) => {
-      const companyList = groupsAllMerge
-        ? resolveGroupsAllMergeCompanyList(companies, groupIds)
-        : resolveGroupAllMergeCompanyList(companies, groupKey ?? selectedGroup, groupIds);
+      let companyList;
+      if (groupsAllMerge) {
+        const enabled = earningsGroupsOnly
+          ? earningsEnabledGroupIdsRef.current.filter((g) => String(g || "").trim())
+          : [];
+        if (enabled.length) {
+          companyList = enabled.flatMap((g) =>
+            resolveGroupAllMergeCompanyList(companies, g, groupIds)
+          );
+        } else {
+          companyList = resolveGroupsAllMergeCompanyList(companies, groupIds);
+        }
+      } else {
+        companyList = resolveGroupAllMergeCompanyList(companies, groupKey ?? selectedGroup, groupIds);
+      }
       return fetchMergedCompanyDashboards(
         companyList,
         rangeFrom,
         rangeTo,
         currencyOverride,
         groupKey ?? selectedGroup,
-        useActiveScopeAbort
+        useActiveScopeAbort,
+        { earningsOnly }
       );
     },
     [companies, groupIds, selectedGroup, fetchMergedCompanyDashboards]
@@ -3990,9 +4021,66 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       if (groupAllMode) {
         if (groupsAllMode) {
+          const gids = groupIds.filter((g) => String(g || "").trim());
+          if (gids.length > 1) {
+            const groupPayloads = [];
+            for (const gid of gids) {
+              let merged = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
+                groupKey: gid,
+                useActiveScopeAbort: mergeAbort,
+                earningsOnly,
+              });
+              if (!earningsOnly) {
+                merged = await enrichGroupAllMergedDashboard(
+                  merged,
+                  rangeFrom,
+                  rangeTo,
+                  currencyOverride,
+                  gid,
+                  mergeAbort
+                );
+              }
+              groupPayloads.push({ gid, merged });
+            }
+
+            earningsEnabledGroupIdsRef.current = groupPayloads
+              .filter(({ merged }) => viewerHasEarningsConfig(merged))
+              .map(({ gid }) => String(gid).trim().toUpperCase());
+
+            const earningsPayloads = groupPayloads
+              .filter(({ merged }) => viewerHasEarningsConfig(merged))
+              .map(({ merged }) => merged);
+
+            if (earningsOnly) {
+              if (!earningsPayloads.length) {
+                throw new Error(i18n.failedToLoadDashboard);
+              }
+              return mergeGroupData(earningsPayloads, {
+                startDate: rangeFrom,
+                endDate: rangeTo,
+              });
+            }
+
+            const allMerged = mergeGroupData(
+              groupPayloads.map(({ merged }) => merged),
+              { startDate: rangeFrom, endDate: rangeTo }
+            );
+            const merged = finalizeMergedGroupLedgerDashboard(allMerged, earningsPayloads);
+            const byCompany = mergeCompanyBreakdownRowLists(
+              groupPayloads.map(({ merged: row }) =>
+                normalizeSubsidiaryEarningsByCompany(row?.subsidiary_earnings_by_company)
+              )
+            );
+            if (byCompany.length) {
+              merged.subsidiary_earnings_by_company = byCompany;
+            }
+            return merged;
+          }
           return fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
             groupsAllMerge: true,
             useActiveScopeAbort: mergeAbort,
+            earningsOnly,
+            earningsGroupsOnly: earningsOnly,
           });
         }
         if (selectedGroup) {
@@ -4026,12 +4114,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         }
         const results = await Promise.all(
           gids.map((gid) =>
-            fetchGroupDashboardPayload(rangeFrom, rangeTo, currencyOverride, gid)
+            fetchGroupDashboardPayload(rangeFrom, rangeTo, currencyOverride, gid, mergeAbort, earningsOpts)
           )
         );
+        earningsEnabledGroupIdsRef.current = gids
+          .map((gid, idx) => ({ gid, payload: results[idx] }))
+          .filter(({ payload }) => viewerHasEarningsConfig(payload))
+          .map(({ gid }) => String(gid).trim().toUpperCase());
+        const earningsResults = results.filter((row) => viewerHasEarningsConfig(row));
         const merged = finalizeMergedGroupLedgerDashboard(
           mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo }),
-          results
+          earningsResults
         );
         const byCompany = mergeCompanyBreakdownRowLists(
           results.map((r) => normalizeSubsidiaryEarningsByCompany(r?.subsidiary_earnings_by_company))
@@ -4544,6 +4637,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useEffect(() => {
     earningsFetchGenRef.current += 1;
     earningsIncompleteRetryRef.current = 0;
+    earningsEnabledGroupIdsRef.current = [];
     earningsScopeUpgradeRef.current = { scopeKey: "", attempts: 0 };
     dashboardFetchFailedScopeRef.current = "";
     dashboardStaleRetryRef.current = { scopeKey: "", attempts: 0 };
