@@ -452,7 +452,7 @@ export default function ProcessFormModal({
               <div className="process-form-section">
                 <h3 className="account-section-header">{t("processFormSectionTextReplace")}</h3>
               <div className="form-row">
-                <div className="form-group">
+                <div className="form-group process-form-remove-word-group">
                   <label htmlFor={editMode ? "edit_remove_words" : "add_remove_words"}>{t("removeWords")}</label>
                   <RemoveWordChipInput
                     id={editMode ? "edit_remove_words" : "add_remove_words"}

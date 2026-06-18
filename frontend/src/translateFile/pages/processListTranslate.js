@@ -95,7 +95,7 @@ export const PROCESS_LIST_I18N = {
     selectCurrency: "Select Currency",
     dtsModified: "DTS Modified:",
     dtsCreated: "DTS Created:",
-    removeWords: "Remove Words",
+    removeWords: "Remove Word",
     enterWordsToRemove: "Enter words to remove",
     removeWordsHelp: "Press Enter to add a word chip; saved for this process for next time.",
     removeWordChipRemove: "Remove",
