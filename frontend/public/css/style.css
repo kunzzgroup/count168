@@ -316,21 +316,11 @@ body.bg .login-container .input-group input::placeholder {
     font-weight: 400;
 }
 
-/* TAC Container — input + SEND as one pill control */
+/* TAC Container — input + SEND split pill (matches other fields) */
 .tac-container {
     display: flex;
     align-items: stretch;
     width: 100%;
-    border: 2px solid var(--login-bg-end);
-    border-radius: var(--login-radius-pill);
-    background: var(--login-surface);
-    overflow: hidden;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.tac-container:focus-within {
-    border-color: var(--login-bg-start);
-    box-shadow: 0 0 0 3px rgba(0, 79, 249, 0.1);
 }
 
 .tac-container .input-group {
@@ -338,18 +328,20 @@ body.bg .login-container .input-group input::placeholder {
     min-width: 0;
 }
 
-.tac-container input {
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
+body.bg .login-container .tac-container .input-group input {
+    border-radius: var(--login-radius-pill) 0 0 var(--login-radius-pill);
+    border-right-width: 0;
     min-height: 46.5px;
-    background: transparent;
+    box-shadow: none;
 }
 
-.tac-container input:focus {
-    animation: none;
-    border: none;
-    box-shadow: none;
+body.bg .login-container .tac-container .input-group input:focus {
+    border-right-width: 0;
+    animation: pulse 0.3s ease-out;
+}
+
+body.bg .login-container .tac-container:focus-within .tac-btn {
+    border-color: var(--login-bg-start);
 }
 
 .tac-btn {
@@ -358,30 +350,33 @@ body.bg .login-container .input-group input::placeholder {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    margin-left: -2px;
+    min-height: 46.5px;
+    padding: 0 clamp(20px, 5vw, 30px);
     background: linear-gradient(135deg, #004ff9, #56ccf2);
     color: white;
-    border: none;
-    border-left: 1px solid rgba(255, 255, 255, 0.35);
-    padding: 0 clamp(18px, 5vw, 28px);
-    border-radius: 0;
+    border: 2px solid var(--login-bg-end);
+    border-left: none;
+    border-radius: 0 var(--login-radius-pill) var(--login-radius-pill) 0;
     cursor: pointer;
     font-size: clamp(12px, 3vw, 14px);
     font-weight: 600;
     line-height: 1;
-    transition: background 0.3s ease, filter 0.2s ease;
+    transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     white-space: nowrap;
     text-transform: uppercase;
 }
 
 .tac-btn:hover:not(:disabled) {
     background: linear-gradient(135deg, #56ccf2, #004ff9);
-    filter: brightness(1.05);
+    box-shadow: 0 4px 12px rgba(0, 79, 249, 0.25);
 }
 
 .tac-btn:disabled {
     background: #ccc;
+    border-color: #ccc;
     cursor: not-allowed;
-    filter: none;
+    box-shadow: none;
 }
 
 /* Form Options */
@@ -577,10 +572,6 @@ body.bg .login-container .input-group input::placeholder {
 /* Input focus effects — 二级密码 / reset（pulse 定义见下方 @keyframes） */
 body.bg .login-container .input-group input:focus {
     animation: pulse 0.3s ease-out;
-}
-
-body.bg .login-container .tac-container .input-group input:focus {
-    animation: none;
 }
 
 @keyframes pulse {

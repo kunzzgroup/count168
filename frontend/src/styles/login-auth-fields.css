@@ -64,16 +64,18 @@ body.bg .login-container .input-group input::placeholder {
 }
 
 body.bg .login-container .tac-container .input-group input {
-  border: none;
-  border-radius: 0;
-  background: transparent;
+  border-radius: var(--login-radius-pill) 0 0 var(--login-radius-pill);
+  border-right-width: 0;
   box-shadow: none;
 }
 
 body.bg .login-container .tac-container .input-group input:focus {
-  border: none;
-  box-shadow: none;
-  animation: none;
+  border-right-width: 0;
+  animation: pulse 0.3s ease-out;
+}
+
+body.bg .login-container .tac-container:focus-within .tac-btn {
+  border-color: var(--login-bg-start);
 }
 
 body.bg .login-container .input-group input.input--mismatch {
