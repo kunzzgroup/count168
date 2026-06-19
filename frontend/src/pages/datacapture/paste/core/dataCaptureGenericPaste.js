@@ -18,6 +18,7 @@ import { parsePastedData } from "./dataCaptureParsePastedData.js";
 
 import { applyParsedMatrixToGrid, parseGenericHtmlTable } from "./dataCapturePasteApply.js";
 import { notifyPasteUser, recomputeSubmitStateAfterPaste, runConvertTableOnSubmit } from "../../lib/dataCaptureBridge.js";
+import { alignTotalRowsInMatrix } from "./dataCaptureTotalRowAlign.js";
 
 /** @returns {boolean} */
 export function handleGenericPaste(e, pastedData) {
@@ -2563,9 +2564,9 @@ export function handleGenericPaste(e, pastedData) {
     console.log('First 3 rows of final matrix:', dataMatrix.slice(0, 3));
     console.log('=== PASTE DEBUG END ===');
 
-    const matrixToApply = isDownlinePaymentFinal
-        ? dataMatrix.map((row) => row.slice(0, 11))
-        : dataMatrix;
+    const matrixToApply = alignTotalRowsInMatrix(
+      isDownlinePaymentFinal ? dataMatrix.map((row) => row.slice(0, 11)) : dataMatrix,
+    );
     const fillMaxCols = isDownlinePaymentFinal ? Math.min(maxCols, 11) : maxCols;
 
     const { successCount } = applyParsedMatrixToGrid(matrixToApply, e.target, {
