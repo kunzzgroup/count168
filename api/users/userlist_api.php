@@ -1995,7 +1995,7 @@ try {
             }
             
             // Hash password
-            $hashedPassword = password_hash($input['password'], PASSWORD_DEFAULT);
+            $hashedPassword = ec_password_hash($input['password']);
             if ($hashedPassword === false) {
                 sendResponse(false, 'Failed to hash password');
             }
@@ -2007,7 +2007,7 @@ try {
                 if (!preg_match('/^\d{6}$/', $input['secondary_password'])) {
                     sendResponse(false, 'Secondary password must be exactly 6 digits');
                 }
-                $hashedSecondaryPassword = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
+                $hashedSecondaryPassword = ec_password_hash($input['secondary_password']);
                 if ($hashedSecondaryPassword === false) {
                     sendResponse(false, 'Failed to hash secondary password');
                 }
@@ -2222,7 +2222,7 @@ try {
                 // Only update password if provided
                 if (isset($input['password']) && trim($input['password']) !== '') {
                     $updateFields[] = "password = ?";
-                    $updateValues[] = password_hash($input['password'], PASSWORD_DEFAULT);
+                    $updateValues[] = ec_password_hash($input['password']);
                 }
                 
                 // Only update secondary_password if provided (for c168 company)
@@ -2232,7 +2232,7 @@ try {
                         sendResponse(false, 'Secondary password must be exactly 6 digits');
                     }
                     $updateFields[] = "secondary_password = ?";
-                    $updateValues[] = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
+                    $updateValues[] = ec_password_hash($input['secondary_password']);
                 }
                 
                 if (empty($updateFields)) {
@@ -2388,7 +2388,7 @@ try {
             $userPasswordWasUpdated = false;
             if (isset($input['password']) && trim($input['password']) !== '') {
                 $updateFields[] = "password = ?";
-                $updateValues[] = password_hash($input['password'], PASSWORD_DEFAULT);
+                $updateValues[] = ec_password_hash($input['password']);
                 $userPasswordWasUpdated = true;
             }
             
@@ -2399,7 +2399,7 @@ try {
                     sendResponse(false, 'Secondary password must be exactly 6 digits');
                 }
                 $updateFields[] = "secondary_password = ?";
-                $updateValues[] = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
+                $updateValues[] = ec_password_hash($input['secondary_password']);
             }
             
             // 添加 WHERE 条件的参数

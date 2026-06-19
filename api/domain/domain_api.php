@@ -3384,8 +3384,8 @@ try {
             }
             
             // Hash passwords
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $hashed_secondary_password = password_hash($secondary_password, PASSWORD_DEFAULT);
+            $hashed_password = ec_password_hash($password);
+            $hashed_secondary_password = ec_password_hash($secondary_password);
             
             // DDL 在 MySQL 中会隐式提交并结束当前事务，须在 beginTransaction 之前执行
             ensureCompanyFeeShareColumn($pdo);
@@ -3562,14 +3562,14 @@ try {
                 $updateValues[] = $email;
                 
                 if (!empty($password)) {
-                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                    $hashed_password = ec_password_hash($password);
                     $updateFields[] = "password = ?";
                     $updateValues[] = $hashed_password;
                 }
                 
                 // 只有C168的owner/admin可以修改二级密码
                 if (!empty($secondary_password) && $hasC168Context && $isOwnerOrAdmin) {
-                    $hashed_secondary_password = password_hash($secondary_password, PASSWORD_DEFAULT);
+                    $hashed_secondary_password = ec_password_hash($secondary_password);
                     $updateFields[] = "secondary_password = ?";
                     $updateValues[] = $hashed_secondary_password;
                 }

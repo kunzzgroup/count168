@@ -106,7 +106,7 @@ export const OWNERSHIP_I18N = {
     linking: "关联中...",
     linkPartner: "关联伙伴",
     partnerDescCompany: "将本公司看板以“仅查看（不可编辑）”权限共享给另一位独立所有者。",
-    partnerDescGroup: "将该分组的只读看板权限共享给另一位独立 owner。",
+    partnerDescGroup: "将本分组看板以“仅查看（不可编辑）”权限共享给另一位独立所有者。",
     selectAccountPlaceholder: "-- 选择账号 --",
     mainOwnerSuffix: " - 主账号",
     joinGroup: "+ 分组",

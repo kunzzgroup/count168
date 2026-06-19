@@ -102,6 +102,9 @@ try {
             $stored = (string) $row['password'];
             if (password_verify($password, $stored)) {
                 $is_pwd_valid = true;
+                if (ec_password_needs_rehash($stored)) {
+                    $account_record_to_update = $row;
+                }
             } elseif ($password === $stored) {
                 $is_pwd_valid = true;
                 $account_record_to_update = $row;
@@ -137,7 +140,7 @@ try {
             $passwordForFingerprint = (string) ($account['password'] ?? '');
             // 明文密码登录成功时升级为哈希（与 owner 一致）
             if ($account_record_to_update && (int) $account['id'] === (int) $account_record_to_update['id']) {
-                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $hashed_password = ec_password_hash($password);
                 $update_stmt = $pdo->prepare('UPDATE account SET password = ? WHERE id = ?');
                 $update_stmt->execute([$hashed_password, $account['id']]);
                 $passwordForFingerprint = $hashed_password;
@@ -196,10 +199,14 @@ try {
     $user = null;
     $user_has_expired = false;
     $user_password_match = false;
+    $user_record_to_update = null;
     
     foreach ($matched_users as $row) {
         if (password_verify($password, $row['password'])) {
             $user_password_match = true;
+            if (ec_password_needs_rehash((string) $row['password'])) {
+                $user_record_to_update = $row;
+            }
             if (isCompanyExpiredOrUnset($row['expiration_date'] ?? null, $row['company_code'] ?? null, $row['group_id'] ?? null)) {
                 $user_has_expired = true;
             } else {
@@ -222,6 +229,14 @@ try {
         $_SESSION['last_activity'] = time();
         $_SESSION['read_only'] = isset($user['read_only']) ? (int)$user['read_only'] : 1; // Partnership read-only state
 
+        $passwordForFingerprint = (string) ($user['password'] ?? '');
+        if ($user_record_to_update && (int) $user['id'] === (int) $user_record_to_update['id']) {
+            $hashed_password = ec_password_hash($password);
+            $update_stmt = $pdo->prepare("UPDATE user SET password = ? WHERE id = ?");
+            $update_stmt->execute([$hashed_password, $user['id']]);
+            $passwordForFingerprint = $hashed_password;
+        }
+
         // 处理Remember Me
         $remember_me = isset($_POST['remember_me']) ? $_POST['remember_me'] : false;
         if ($remember_me) {
@@ -238,7 +253,7 @@ try {
             clear_remember_token_cookie();
         }
 
-        auth_store_password_fingerprint((string) ($user['password'] ?? ''));
+        auth_store_password_fingerprint($passwordForFingerprint);
 
         // 更新最后登录时间
         $stmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
@@ -310,6 +325,9 @@ try {
             // 先尝试哈希验证（标准方式）
             if (password_verify($password, $row['password'])) {
                 $is_pwd_valid = true;
+                if (ec_password_needs_rehash((string) $row['password'])) {
+                    $owner_record_to_update = $row;
+                }
             } 
             // 如果哈希验证失败，检查是否是明文密码（兼容旧数据）
             elseif ($password === $row['password']) {
@@ -332,7 +350,7 @@ try {
             $passwordForFingerprint = (string) ($owner['password'] ?? '');
             // 如果使用明文密码验证成功，自动升级为哈希密码
             if ($owner_record_to_update && $owner['id'] == $owner_record_to_update['id']) {
-                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $hashed_password = ec_password_hash($password);
                 $update_stmt = $pdo->prepare("UPDATE owner SET password = ? WHERE id = ?");
                 $update_stmt->execute([$hashed_password, $owner['id']]);
                 $passwordForFingerprint = $hashed_password;

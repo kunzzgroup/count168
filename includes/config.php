@@ -15,6 +15,52 @@ if (is_readable($configLocal)) {
 // 设置PHP时区为马来西亚时间
 date_default_timezone_set('Asia/Kuala_Lumpur');
 
+if (!function_exists('ec_password_hash_options')) {
+    /**
+     * Prefer Argon2id on supported runtime; fallback to bcrypt(12).
+     */
+    function ec_password_hash_options(): array
+    {
+        if (defined('PASSWORD_ARGON2ID')) {
+            return [
+                'algo' => PASSWORD_ARGON2ID,
+                'options' => [
+                    'memory_cost' => 65536,
+                    'time_cost' => 4,
+                    'threads' => 1,
+                ],
+            ];
+        }
+
+        return [
+            'algo' => PASSWORD_BCRYPT,
+            'options' => ['cost' => 12],
+        ];
+    }
+}
+
+if (!function_exists('ec_password_hash')) {
+    /**
+     * Hash password with project standard algorithm/options.
+     */
+    function ec_password_hash(string $password): string
+    {
+        $config = ec_password_hash_options();
+        return password_hash($password, $config['algo'], $config['options']);
+    }
+}
+
+if (!function_exists('ec_password_needs_rehash')) {
+    /**
+     * Check whether a stored hash should be upgraded.
+     */
+    function ec_password_needs_rehash(string $hash): bool
+    {
+        $config = ec_password_hash_options();
+        return password_needs_rehash($hash, $config['algo'], $config['options']);
+    }
+}
+
 
 // 全局禁用任何 PHP 接口和表单页面的浏览器缓存 (防止各模块出现显示同步遗漏问题)
 
