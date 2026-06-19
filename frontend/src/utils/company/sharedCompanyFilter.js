@@ -1904,39 +1904,19 @@ function isExcludedFromGroupAggregate(companyRow, groupIds = null, options = {})
 }
 
 /** Subsidiaries to merge when Company row "All" is active under a group tab (IG/AP). */
-export function resolveGroupAllMergeCompanyList(
-  companies,
-  selectedGroup,
-  groupIds = null,
-  { allowC168 = false } = {}
-) {
+export function resolveGroupAllMergeCompanyList(companies, selectedGroup, groupIds = null) {
   const g = String(selectedGroup || "").trim().toUpperCase();
   if (!g) return [];
   const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
   return companiesForCompanyPicker(companies, g, gids).filter(
-    (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168 }),
+    (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168: false }),
   );
 }
 
 /** Subsidiaries to merge when GroupID "All" + Company "All" aggregate every visible group. */
 export function resolveGroupsAllMergeCompanyList(companies, groupIds = null) {
   const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
-  const primary = allGroupedCompaniesForPicker(companies, gids).filter(
-    (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168: true }),
-  );
-  if (primary.length) return primary;
-
-  const seen = new Set();
-  const merged = [];
-  for (const gid of gids) {
-    for (const row of companiesInGroupList(companies, gid)) {
-      const id = Number(row?.id);
-      if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
-      seen.add(id);
-      merged.push(row);
-    }
-  }
-  return excludeGroupLabelsFromCompanyPicker(merged, gids).filter(
+  return allGroupedCompaniesForPicker(companies, gids).filter(
     (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168: true }),
   );
 }

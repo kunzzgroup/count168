@@ -103,20 +103,15 @@ export function buildCompanyNetProfitRowFromPayload(companyRow, data, viewGroup 
   const groupId = (viewGroup || linkG || nativeG || "").toUpperCase();
   const companyId = String(companyRow?.company_id || companyRow?.id || "").trim();
   if (!companyId) return null;
-  const earningsRow = buildCompanyBreakdownRowFromPayload(companyRow, data, viewGroup);
-  const grpPct = parseFloat(data.group_equity_percentage) || 0;
-  const groupShare = earningsRow
-    ? parseFloat(earningsRow.group_share) || computeCompanyGroupShare(netProfit, grpPct)
-    : netProfit;
   return {
     company_pk: parseInt(companyRow?.id, 10) || null,
     company_id: companyId,
     group_id: groupId,
     net_profit: netProfit,
-    group_equity_pct: grpPct,
+    group_equity_pct: parseFloat(data.group_equity_percentage) || 0,
     account_pct: parseFloat(data.group_account_percentage) || 0,
-    group_share: groupShare,
-    my_earning: earningsRow?.my_earning ?? 0,
+    group_share: netProfit,
+    my_earning: 0,
   };
 }
 
