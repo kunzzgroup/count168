@@ -424,6 +424,14 @@ export function resolveVisibleGroupIds(groupIds, me, companies = []) {
   return ids;
 }
 
+/** Group ledger API calls (dashboard group-only / currency warm) — skip pills the user cannot access. */
+export function filterGroupIdsForLedgerAccess(me, groupIds, companies = []) {
+  if (!me || !Array.isArray(groupIds)) return [];
+  return groupIds
+    .map((g) => String(g || "").trim().toUpperCase())
+    .filter((g) => g && canAccessGroupLedgerForGroup(me, g, companies));
+}
+
 export function loginScopeBodyClass(me) {
   if (isGroupLogin(me)) return "ec-login-scope-group";
   if (isCompanyLogin(me)) return "ec-login-scope-company";

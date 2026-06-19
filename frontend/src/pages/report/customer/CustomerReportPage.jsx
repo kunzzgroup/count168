@@ -20,7 +20,6 @@ import {
   notifyDashboardCurrencyFilterChanged,
   resolveCrossPageCurrencyPreference,
   buildDashboardCurrencyScopeKey,
-  pickDefaultSubsidiaryForGroup,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   resolveReportCompanyWhenClosingGroup,
@@ -410,9 +409,8 @@ export default function CustomerReportPage() {
         companyId,
         groupsAllMode,
         groupAllMode,
-        me,
       }),
-    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, me],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
   );
 
   const reportCurrencyCodes = useMemo(
@@ -601,7 +599,6 @@ export default function CustomerReportPage() {
         companies,
         selectedGroup,
         companyId: prev,
-        me,
       });
       persistCurrencyPrefs(
         prevScope,
@@ -609,7 +606,7 @@ export default function CustomerReportPage() {
         showAllCurrenciesRef.current,
       );
       const savedKey = customerReportScopeCacheCompanyKey(
-        resolveCustomerReportScope({ companies, selectedGroup, companyId, me }),
+        resolveCustomerReportScope({ companies, selectedGroup, companyId }),
       );
       const saved = savedKey != null ? currencyPrefsByCompanyRef.current[savedKey] : null;
       if (saved?.showAllCurrencies) {

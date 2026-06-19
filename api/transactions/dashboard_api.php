@@ -5,11 +5,11 @@
  */
 
 session_start();
+session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config.php';
 
 if (!$pdo instanceof PDO) {
-    session_write_close();
     http_response_code(503);
     echo json_encode([
         'success' => false,
@@ -25,10 +25,6 @@ require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../reports/report_scope_common.php';
 require_once __DIR__ . '/dcd_processed_quant.php';
-
-gc_hydrate_company_login_group_id($pdo);
-gc_ensure_session_accessible_group_ids_hydrated($pdo);
-session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 function dashboard_ensure_tenant_scope_loaded(): void
 {
@@ -2137,8 +2133,7 @@ function dashboardCollectGroupOnlyAccountIds(PDO $pdo, string $viewGroup): array
     }
 
     $groupScopeId = dashboardResolveGroupScopeId($pdo, $viewGroup);
-    if ($groupScopeId > 0) {
-        dashboardAssertGroupLedgerAccess($pdo, $viewGroup, $groupScopeId);
+    if ($groupScopeId > 0 && gc_session_can_access_group_ledger($pdo, $viewGroup)) {
         $accountIds = array_merge(
             $accountIds,
             dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId)
@@ -3508,6 +3503,9 @@ try {
                     . ($dbName !== '' ? ', database=' . $dbName : '')
                     . '). Confirm migration 20260528_dual_tenant_company_group.sql on this database.'
                 );
+            }
+            if (!gc_session_can_access_group_ledger($pdo, $groupLedgerCode)) {
+                throw new Exception('无权访问该 Group Ledger');
             }
             dashboardAssertGroupLedgerAccess($pdo, $groupLedgerCode, $groupScopeId);
         }

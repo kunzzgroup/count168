@@ -844,42 +844,6 @@ function gc_session_can_access_group_code(PDO $pdo, string $groupCode): bool
     return gc_resolve_group_pk_by_code($pdo, $g) > 0;
 }
 
-/**
- * When session accessible_group_ids is empty (e.g. companies API hydrated after session_write_close),
- * load the user's company list and persist linked group pills (AP+IG) before group-ledger APIs run.
- */
-function gc_ensure_session_accessible_group_ids_hydrated(PDO $pdo): void
-{
-    if (gc_session_login_scope() === null || gc_session_accessible_group_ids() !== []) {
-        return;
-    }
-
-    require_once __DIR__ . '/../api/get_companies_helper.php';
-
-    $userId = (int) ($_SESSION['user_id'] ?? 0);
-    if ($userId <= 0) {
-        return;
-    }
-
-    $userRole = isset($_SESSION['role']) ? strtolower((string) $_SESSION['role']) : '';
-    if ($userRole !== 'owner') {
-        $companies = getCompaniesByUser($pdo, $userId, true, true);
-    } else {
-        $ownerId = (int) ($_SESSION['real_owner_id'] ?? $_SESSION['owner_id'] ?? $_SESSION['user_id']);
-        $companies = getCompaniesByOwner($pdo, $ownerId, true, true);
-    }
-
-    $active = [];
-    foreach ($companies as $c) {
-        if (!empty($c['expiration_date']) && strtotime((string) $c['expiration_date']) < strtotime(date('Y-m-d'))) {
-            continue;
-        }
-        $active[] = $c;
-    }
-
-    gc_hydrate_accessible_group_ids($pdo, $active);
-}
-
 function gc_hydrate_accessible_group_ids(PDO $pdo, array $companies): void
 {
     if (gc_session_login_scope() === null) {

@@ -17,7 +17,6 @@ import {
   resolveInitialSelectedGroupFromSession,
   sortedUniqueGroupIds,
   fetchOwnerCompaniesAll,
-  pickDefaultSubsidiaryForGroup,
 } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   resolveReportCompanyWhenClosingGroup,
@@ -384,9 +383,8 @@ export default function DomainReportPage() {
         companyId,
         groupsAllMode,
         groupAllMode,
-        me,
       }),
-    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode, me],
+    [companies, selectedGroup, companyId, groupsAllMode, groupAllMode],
   );
 
   const isGroupScope = domainReportUsesSalaryBonusProcesses(reportScope);
