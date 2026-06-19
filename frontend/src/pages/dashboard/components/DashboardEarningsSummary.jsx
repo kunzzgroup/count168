@@ -274,8 +274,10 @@ export function DashboardEarningsSummary({
   ]);
 
   const showMultiCurrencyBreakdown = !isCompanyBreakdownView && currencies.length > 1;
-  /** Few currencies / company rows: stack table directly under pie — no flex gap. */
-  const isCompactBreakdown = !showMultiCurrencyBreakdown;
+  /** Pie + table stack at top of panel (same as group-level layout). */
+  const isStackedLayout = true;
+  /** Single-currency / company rows: table hugs content; multi-currency fills remaining card height. */
+  const isCompactTable = !showMultiCurrencyBreakdown;
   const heroLabel = isNetProfitCompanyView
     ? i18n.netProfitCompanyCaption
     : summaryPanelLabel || i18n.earnings;
@@ -334,12 +336,12 @@ export function DashboardEarningsSummary({
     <div
       className={`dashboard-panel-card dashboard-panel-card--summary${
         showProfitChartTab ? " dashboard-panel-card--summary-has-tabs" : ""
-      }${isCompactBreakdown ? " dashboard-panel-card--summary-compact" : ""}`}
+      }${isStackedLayout ? " dashboard-panel-card--summary-compact" : ""}`}
     >
       <div
         className={`dashboard-summary-layout${
-          isCompactBreakdown ? " is-compact-breakdown" : ""
-        }`}
+          isStackedLayout ? " is-compact-breakdown" : ""
+        }${showMultiCurrencyBreakdown ? " is-multi-currency-layout" : ""}`}
       >
         <div className="dashboard-summary-top-row">
           {summaryViewTabs}
@@ -436,7 +438,7 @@ export function DashboardEarningsSummary({
         <div
           className={`dashboard-summary-currency-list${
             showMultiCurrencyBreakdown ? " is-multi-currency" : ""
-          }${isCompactBreakdown ? " is-compact-breakdown" : ""}${
+          }${isCompactTable ? " is-compact-breakdown" : ""}${
             earningsBreakdownShowsRate ? " is-with-original" : ""
           }${isCompanyBreakdownView ? " is-company-profit" : ""}`}
           aria-label={isCompanyBreakdownView ? i18n.companyBreakdown : i18n.currencyBreakdown}
