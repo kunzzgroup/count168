@@ -2133,8 +2133,7 @@ function dashboardCollectGroupOnlyAccountIds(PDO $pdo, string $viewGroup): array
     }
 
     $groupScopeId = dashboardResolveGroupScopeId($pdo, $viewGroup);
-    if ($groupScopeId > 0) {
-        dashboardAssertGroupLedgerAccess($pdo, $viewGroup, $groupScopeId);
+    if ($groupScopeId > 0 && gc_session_can_access_group_ledger($pdo, $viewGroup)) {
         $accountIds = array_merge(
             $accountIds,
             dashboardCollectScopeAccountIds($pdo, 0, null, $groupScopeId)
@@ -3504,6 +3503,9 @@ try {
                     . ($dbName !== '' ? ', database=' . $dbName : '')
                     . '). Confirm migration 20260528_dual_tenant_company_group.sql on this database.'
                 );
+            }
+            if (!gc_session_can_access_group_ledger($pdo, $groupLedgerCode)) {
+                throw new Exception('无权访问该 Group Ledger');
             }
             dashboardAssertGroupLedgerAccess($pdo, $groupLedgerCode, $groupScopeId);
         }
