@@ -12,7 +12,7 @@ import {
   setBridgeTableActive,
   updateBridgeCell,
 } from "../lib/dataCaptureBridge.js";
-import { undoLastPaste } from "./dataCaptureGridPasteHistory.js";
+import { hasPasteHistory, undoLastPaste } from "./dataCaptureGridPasteHistory.js";
 import { MAX_GRID_COLS, MAX_GRID_ROWS } from "./dataCaptureGridMeta.js";
 
 /** Pending cell focus after grid row/column append (applied on next grid render). */
@@ -395,9 +395,12 @@ export function handleCellKeydown(e) {
 
   const key = (e.key || "").toLowerCase();
   if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey) {
-    e.preventDefault();
-    e.stopPropagation();
-    undoLastPasteFromHistory();
+    if (hasPasteHistory()) {
+      e.preventDefault();
+      e.stopPropagation();
+      undoLastPasteFromHistory();
+      return;
+    }
     return;
   }
 

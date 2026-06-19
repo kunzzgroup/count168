@@ -2,7 +2,7 @@
  * Document-level grid keyboard shortcuts — extracted from js/datacapture.js.
  * Re-run: node frontend/scripts/extract-grid-document-keyboard.mjs
  */
-import { undoLastPaste } from "./dataCaptureGridPasteHistory.js";
+import { hasPasteHistory, undoLastPaste } from "./dataCaptureGridPasteHistory.js";
 import {
   gridClearAllSelections,
   gridCopySelectedCells,
@@ -18,6 +18,7 @@ import {
 } from "../lib/dataCaptureBridge.js";
 
 function undoLastPasteAction() {
+  if (!hasPasteHistory()) return;
   undoLastPaste();
 }
 
@@ -77,8 +78,10 @@ const key = (e.key || '').toLowerCase();
     if (!isTableActive() && !isEditingCell) {
         // Allow Ctrl+Z undo even when table is not active (for paste history)
         if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
-            e.preventDefault();
-            undoLastPasteAction();
+            if (hasPasteHistory()) {
+                e.preventDefault();
+                undoLastPasteAction();
+            }
             return;
         }
         // Ignore all other table-related keyboard events when table is not active
@@ -87,6 +90,10 @@ const key = (e.key || '').toLowerCase();
 
     // Ctrl+Z undo (case-insensitive, compatible with Caps Lock)
     if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
+        // In-cell typing undo — let the browser handle contentEditable undo.
+        if (isEditingCell) {
+            return;
+        }
         // 获取事件目标元素（支持文本节点和元素节点）
         const targetElement = e.target.nodeType === Node.TEXT_NODE ? e.target.parentElement : e.target;
 
@@ -110,14 +117,49 @@ const key = (e.key || '').toLowerCase();
 
         // 如果满足任何一个条件，说明在表格内
         if (activeElInTable || targetInTable || hasSelectedCellsInTable || isEditingCell) {
-            e.preventDefault();
-            e.stopPropagation();
-            undoLastPasteAction();
+            if (hasPasteHistory()) {
+                e.preventDefault();
+                e.stopPropagation();
+                undoLastPasteAction();
+                return;
+            }
+
+            if (hasSelectedCellsInTable && !activeElInTable && !isEditingCell) {
+                const firstSelectedCell = getSelectedCells()[0];
+                if (firstSelectedCell && firstSelectedCell.contentEditable === 'true') {
+                    firstSelectedCell.focus();
+                    try {
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+                        range.selectNodeContents(firstSelectedCell);
+                        range.collapse(false);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    } catch {
+                        /* ignore */
+                    }
+
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    setTimeout(() => {
+                        try {
+                            document.execCommand('undo', false, null);
+                        } catch {
+                            /* ignore */
+                        }
+                    }, 0);
+                    return;
+                }
+            }
+
             return;
         }
 
-        e.preventDefault();
-        undoLastPasteAction();
+        if (hasPasteHistory()) {
+            e.preventDefault();
+            undoLastPasteAction();
+        }
         return;
     }
 
