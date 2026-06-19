@@ -5,7 +5,6 @@ import {
 } from "../../grid/dataCaptureGridMeta.js";
 import {
   applyMatrixPatch,
-  cloneGrid,
   findLastFilledGridRowIndex,
   gridRowHasEditableData,
   resizeGrid,
@@ -17,9 +16,9 @@ import {
   getFirstSelectedGridCell,
   getPasteGridModel,
   notifyPasteUser,
-  recordPasteHistory,
   replacePasteGridModel,
   recomputeSubmitStateAfterPaste,
+  commitPasteGridCheckpoint,
 } from "../../lib/dataCaptureBridge.js";
 import { getDataCaptureState } from "../../lib/dataCaptureRuntime.js";
 import { alignTotalRowsInMatrix, alignTotalRowArray } from "./dataCaptureTotalRowAlign.js";
@@ -255,6 +254,7 @@ export function applyParsedMatrixToGrid(dataMatrix, anchorCell, options = {}) {
     successMessage,
     emptyMessage,
     dangerOnEmpty = true,
+    deferUndoCheckpoint = false,
     ...gridOptions
   } = options;
 
@@ -285,7 +285,12 @@ export function applyParsedMatrixToGrid(dataMatrix, anchorCell, options = {}) {
  * @returns {{ successCount: number, changes: Array }}
  */
 export function applyDataMatrixToGrid(dataMatrix, anchorCell, options = {}) {
-  return applyDataMatrixToGridModel(dataMatrix, anchorCell, options);
+  const { deferUndoCheckpoint = false, ...gridOptions } = options;
+  const result = applyDataMatrixToGridModel(dataMatrix, anchorCell, gridOptions);
+  if (result.successCount > 0 && !deferUndoCheckpoint) {
+    commitPasteGridCheckpoint();
+  }
+  return result;
 }
 
 function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
@@ -302,7 +307,6 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
   const gridBefore = getPasteGridModel();
   if (!gridBefore) return { successCount: 0, changes: [] };
 
-  const pasteSnapshot = cloneGrid(gridBefore);
   const grid = ensureGridFits(startRow, startCol, sourceMatrix.length, maxCols) || gridBefore;
 
   const matrixForPatch = sourceMatrix.map((rowData, rowIndex) =>
@@ -337,9 +341,6 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
     updatedGrid = alignTotalRowsInGrid(updatedGrid, startRow, sourceMatrix.length);
   }
   replacePasteGridModel(updatedGrid);
-  if (pasteSnapshot) {
-    recordPasteHistory({ type: "grid", snapshot: pasteSnapshot });
-  }
   recomputeSubmitStateAfterPaste();
 
   const successCount = changes.filter((c) => String(c.newValue || "").trim() !== "").length;

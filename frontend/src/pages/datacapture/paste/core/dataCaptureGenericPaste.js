@@ -17,7 +17,11 @@ import { parsePastedData } from "./dataCaptureParsePastedData.js";
 
 
 import { applyParsedMatrixToGrid, parseGenericHtmlTable } from "./dataCapturePasteApply.js";
-import { notifyPasteUser, recomputeSubmitStateAfterPaste, runConvertTableOnSubmit } from "../../lib/dataCaptureBridge.js";
+import {
+  finalizePasteWithOptionalConvert,
+  notifyPasteUser,
+  recomputeSubmitStateAfterPaste,
+} from "../../lib/dataCaptureBridge.js";
 import { alignTotalRowsInMatrix } from "./dataCaptureTotalRowAlign.js";
 
 /** @returns {boolean} */
@@ -111,7 +115,10 @@ export function handleGenericPaste(e, pastedData) {
     const excelFormatParsed = parseExcelFormatPaymentReport(pastedData);
     if (excelFormatParsed) {
         const { dataMatrix, maxRows, maxCols } = excelFormatParsed;
-        const { successCount } = applyParsedMatrixToGrid(dataMatrix, e.target, { uppercaseValues: true });
+        const { successCount } = applyParsedMatrixToGrid(dataMatrix, e.target, {
+          uppercaseValues: true,
+          deferUndoCheckpoint: true,
+        });
 
         if (successCount > 0) {
             notifyPasteUser(`Successfully pasted Excel format (${successCount} cells, ${maxRows} rows x ${maxCols} cols)!`, 'success');
@@ -121,11 +128,7 @@ export function handleGenericPaste(e, pastedData) {
 
         recomputeSubmitStateAfterPaste();
 
-        if (successCount > 0) {
-            setTimeout(() => {
-                runConvertTableOnSubmit();
-            }, 100);
-        }
+        finalizePasteWithOptionalConvert(successCount, { runConvert: true });
 
         return;
     }
@@ -134,7 +137,10 @@ export function handleGenericPaste(e, pastedData) {
     const fullPayment = parseFullPaymentReport(pastedData);
     if (fullPayment) {
         const { dataMatrix, maxRows, maxCols } = fullPayment;
-        const { successCount } = applyParsedMatrixToGrid(dataMatrix, e.target, { uppercaseValues: true });
+        const { successCount } = applyParsedMatrixToGrid(dataMatrix, e.target, {
+          uppercaseValues: true,
+          deferUndoCheckpoint: true,
+        });
 
         if (successCount > 0) {
             notifyPasteUser(`Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
@@ -144,11 +150,7 @@ export function handleGenericPaste(e, pastedData) {
 
         recomputeSubmitStateAfterPaste();
 
-        if (successCount > 0) {
-            setTimeout(() => {
-                runConvertTableOnSubmit();
-            }, 100);
-        }
+        finalizePasteWithOptionalConvert(successCount, { runConvert: true });
 
         console.log('=== PASTE DEBUG END (full payment parser) ===');
         return;
@@ -158,7 +160,10 @@ export function handleGenericPaste(e, pastedData) {
     const simplePayment = parseSimplePaymentReport(pastedData);
     if (simplePayment) {
         const { dataMatrix, maxRows, maxCols } = simplePayment;
-        const { successCount } = applyParsedMatrixToGrid(dataMatrix, e.target, { uppercaseValues: true });
+        const { successCount } = applyParsedMatrixToGrid(dataMatrix, e.target, {
+          uppercaseValues: true,
+          deferUndoCheckpoint: true,
+        });
 
         if (successCount > 0) {
             notifyPasteUser(`Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
@@ -168,11 +173,7 @@ export function handleGenericPaste(e, pastedData) {
 
         recomputeSubmitStateAfterPaste();
 
-        if (successCount > 0) {
-            setTimeout(() => {
-                runConvertTableOnSubmit();
-            }, 100);
-        }
+        finalizePasteWithOptionalConvert(successCount, { runConvert: true });
 
         console.log('=== PASTE DEBUG END (simple payment parser) ===');
         return;
@@ -317,6 +318,7 @@ export function handleGenericPaste(e, pastedData) {
             const { successCount } = applyParsedMatrixToGrid([finalSplit], e.target, {
                 trimValues: true,
                 uppercaseValues: true,
+                deferUndoCheckpoint: true,
             });
 
             if (successCount > 0) {
@@ -325,11 +327,7 @@ export function handleGenericPaste(e, pastedData) {
 
             recomputeSubmitStateAfterPaste();
 
-            if (successCount > 0) {
-                setTimeout(() => {
-                    runConvertTableOnSubmit();
-                }, 100);
-            }
+            finalizePasteWithOptionalConvert(successCount, { runConvert: true });
 
             console.log('=== PASTE DEBUG END (single-line space-separated parser) ===');
             return;
@@ -2578,6 +2576,7 @@ export function handleGenericPaste(e, pastedData) {
     const { successCount } = applyParsedMatrixToGrid(matrixToApply, e.target, {
         trimValues: true,
         uppercaseValues: true,
+        deferUndoCheckpoint: true,
     });
 
     console.log(`Paste completed: ${successCount} cells filled`);
@@ -2592,10 +2591,6 @@ export function handleGenericPaste(e, pastedData) {
 
     recomputeSubmitStateAfterPaste();
 
-    if (successCount > 0) {
-        setTimeout(() => {
-            runConvertTableOnSubmit();
-        }, 100);
-    }
+    finalizePasteWithOptionalConvert(successCount, { runConvert: true });
   return successCount > 0;
 }

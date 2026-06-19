@@ -103,6 +103,18 @@ export function recordPasteHistory(entry) {
   }
 }
 
+export function commitPasteGridCheckpoint() {
+  callDataCaptureRuntime("commitPasteGridCheckpoint");
+}
+
+export function finalizePasteWithOptionalConvert(successCount, options) {
+  callDataCaptureRuntime("finalizePasteWithOptionalConvert", successCount, options);
+}
+
+export function resetPasteUndoCheckpoints(grid) {
+  callDataCaptureRuntime("resetPasteUndoCheckpoints", grid);
+}
+
 export function recomputeSubmitStateAfterPaste() {
   callDataCaptureRuntime("recomputeSubmitState");
 }

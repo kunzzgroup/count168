@@ -26,6 +26,7 @@ import {
   unregisterDataCaptureRuntime,
 } from "../lib/dataCaptureRuntime.js";
 import { useDataCaptureGridWindowBridges } from "./useDataCaptureGridWindowBridges.js";
+import { resetPasteUndoCheckpoints } from "../grid/dataCaptureGridPasteHistory.js";
 
 /** Minimum rows/cols to consider the grid already built. */
 function gridLooksInitialized(dims) {
@@ -54,6 +55,7 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
       const c = Math.max(1, Number(cols) || DEFAULT_GRID_COLS);
       dimensionsRef.current = { rows: r, cols: c };
       replaceGrid(createEmptyGrid(r, c));
+      resetPasteUndoCheckpoints(gridRef.current);
       toggleBridgeFormatDisplay();
       callDataCaptureRuntime("recomputeSubmitState");
       return dimensionsRef.current;
@@ -92,6 +94,7 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
         tableData,
       );
       replaceGrid(snapshotToGrid(tableData, requiredRows, requiredCols));
+      resetPasteUndoCheckpoints(gridRef.current);
       return true;
     },
     [replaceGrid],
@@ -101,6 +104,7 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
     const current = gridRef.current;
     if (!current) return;
     replaceGrid(clearGridCells(current));
+    resetPasteUndoCheckpoints(gridRef.current);
   }, [gridRef, replaceGrid]);
 
   const readGridDimensionsBridge = useCallback(() => {
