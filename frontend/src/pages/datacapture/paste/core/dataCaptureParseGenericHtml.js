@@ -5,7 +5,8 @@
 import { pushDataCaptureNotification } from "../../lib/dataCaptureNotify.js";
 import { formatMoneyDisplay } from "./dataCapturePasteMoneyUtils.js";
 import { applyParsedMatrixToGrid } from "./dataCapturePasteApply.js";
-import { getActiveCaptureType, finalizePasteWithOptionalConvert } from "../../lib/dataCaptureBridge.js";
+import { finalizePasteWithOptionalConvert } from "../../grid/dataCaptureGridPasteHistory.js";
+import { getActiveCaptureType, notifyPasteUser, recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
 
 function getCaptureType() {
   return getActiveCaptureType();

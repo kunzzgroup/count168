@@ -1,11 +1,5 @@
-import {
-  getPasteGridModel,
-  gridClearAllSelections,
-  gridRecomputeSubmitState,
-  notifyPasteUser,
-  replacePasteGridModel,
-  runConvertTableOnSubmit,
-} from "../lib/dataCaptureBridge.js";
+import { getDataCaptureRuntime } from "../lib/dataCaptureRuntime.js";
+import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
 import { cloneGrid, setCell } from "./gridModel.js";
 
 const MAX_HISTORY_SIZE = 50;
@@ -18,6 +12,43 @@ let checkpointCursor = -1;
 
 /** Bumps on undo to cancel in-flight post-paste convert + checkpoint commits. */
 let pasteFinalizeGeneration = 0;
+
+function getLiveGridModel() {
+  const fn = getDataCaptureRuntime().getGridModel;
+  return typeof fn === "function" ? fn() : null;
+}
+
+function replaceLiveGridModel(grid) {
+  const fn = getDataCaptureRuntime().replaceGrid;
+  if (typeof fn === "function") {
+    fn(grid);
+  }
+}
+
+function runLiveConvertTableOnSubmit() {
+  const fn = getDataCaptureRuntime().convertTableOnSubmit;
+  if (typeof fn === "function") {
+    fn();
+  }
+}
+
+function clearLiveSelections() {
+  const fn = getDataCaptureRuntime().clearAllSelections;
+  if (typeof fn === "function") {
+    fn();
+  }
+}
+
+function recomputeLiveSubmitState() {
+  const fn = getDataCaptureRuntime().recomputeSubmitState;
+  if (typeof fn === "function") {
+    fn();
+  }
+}
+
+function notifyUndoUser(message, level = "success") {
+  pushDataCaptureNotification(message, level);
+}
 
 function isGridSnapshotEntry(entry) {
   return entry?.type === "grid" && entry.snapshot;
@@ -47,14 +78,14 @@ export function resetPasteUndoCheckpoints(grid) {
   pasteFinalizeGeneration += 1;
   pasteHistory.length = 0;
   checkpointCursor = -1;
-  const snapshot = cloneGrid(grid ?? getPasteGridModel());
+  const snapshot = cloneGrid(grid ?? getLiveGridModel());
   if (snapshot) {
     pushCheckpointSnapshot(snapshot);
   }
 }
 
 /** Record grid state after a successful paste (and optional convert). */
-export function commitPasteGridCheckpoint(grid = getPasteGridModel()) {
+export function commitPasteGridCheckpoint(grid = getLiveGridModel()) {
   const snapshot = cloneGrid(grid);
   if (!snapshot) return;
   pushCheckpointSnapshot(snapshot);
@@ -89,7 +120,7 @@ export function pushPasteGridSnapshot(grid) {
 export function finalizePasteWithOptionalConvert(successCount, options = {}) {
   if (!(successCount > 0)) return;
 
-  const { runConvert = false, convertDelay = 100, beforeCommit = null } = options;
+  const { runConvert = false, convertDelay = 0, beforeCommit = null } = options;
   const generation = ++pasteFinalizeGeneration;
 
   const finish = () => {
@@ -98,7 +129,7 @@ export function finalizePasteWithOptionalConvert(successCount, options = {}) {
       beforeCommit();
     }
     commitPasteGridCheckpoint();
-    gridRecomputeSubmitState();
+    recomputeLiveSubmitState();
   };
 
   if (!runConvert) {
@@ -108,7 +139,7 @@ export function finalizePasteWithOptionalConvert(successCount, options = {}) {
 
   const run = () => {
     if (generation !== pasteFinalizeGeneration) return;
-    runConvertTableOnSubmit();
+    runLiveConvertTableOnSubmit();
     finish();
   };
 
@@ -120,7 +151,7 @@ export function finalizePasteWithOptionalConvert(successCount, options = {}) {
 }
 
 export function clearPasteHistory() {
-  resetPasteUndoCheckpoints(getPasteGridModel());
+  resetPasteUndoCheckpoints(getLiveGridModel());
 }
 
 export function hasPasteHistory() {
@@ -153,37 +184,40 @@ export function undoLastPaste() {
   pasteFinalizeGeneration += 1;
 
   if (checkpointCursor <= 0) {
-    notifyPasteUser("No paste operation to undo", "danger");
+    notifyUndoUser("No paste operation to undo", "danger");
     return;
   }
 
-  const current = getPasteGridModel();
-  if (!current) return;
+  const current = getLiveGridModel();
+  if (!current) {
+    notifyUndoUser("No paste operation to undo", "danger");
+    return;
+  }
 
   checkpointCursor -= 1;
   const target = pasteHistory[checkpointCursor];
 
   if (Array.isArray(target)) {
     const { next, undoCount } = restoreLegacyCellChanges(target, current);
-    replacePasteGridModel(next);
-    gridClearAllSelections();
-    gridRecomputeSubmitState();
-    notifyPasteUser(`Undo completed: ${undoCount} cells restored`, "success");
+    replaceLiveGridModel(next);
+    clearLiveSelections();
+    recomputeLiveSubmitState();
+    notifyUndoUser(`Undo completed: ${undoCount} cells restored`, "success");
     return;
   }
 
   if (!isGridSnapshotEntry(target)) {
     checkpointCursor += 1;
-    notifyPasteUser("No paste operation to undo", "danger");
+    notifyUndoUser("No paste operation to undo", "danger");
     return;
   }
 
-  replacePasteGridModel(cloneGrid(target.snapshot));
-  gridClearAllSelections();
-  gridRecomputeSubmitState();
+  replaceLiveGridModel(cloneGrid(target.snapshot));
+  clearLiveSelections();
+  recomputeLiveSubmitState();
 
   const remaining = checkpointCursor;
-  notifyPasteUser(
+  notifyUndoUser(
     remaining > 0
       ? `Undo completed (${remaining} more paste step${remaining === 1 ? "" : "s"} can be undone)`
       : "Undo completed: restored initial table state",

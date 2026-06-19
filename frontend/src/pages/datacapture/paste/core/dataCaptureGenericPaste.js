@@ -17,11 +17,8 @@ import { parsePastedData } from "./dataCaptureParsePastedData.js";
 
 
 import { applyParsedMatrixToGrid, parseGenericHtmlTable } from "./dataCapturePasteApply.js";
-import {
-  finalizePasteWithOptionalConvert,
-  notifyPasteUser,
-  recomputeSubmitStateAfterPaste,
-} from "../../lib/dataCaptureBridge.js";
+import { finalizePasteWithOptionalConvert } from "../../grid/dataCaptureGridPasteHistory.js";
+import { notifyPasteUser, recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
 import { alignTotalRowsInMatrix } from "./dataCaptureTotalRowAlign.js";
 
 /** @returns {boolean} */

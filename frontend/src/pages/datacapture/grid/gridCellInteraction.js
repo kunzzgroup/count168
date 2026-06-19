@@ -6,14 +6,13 @@ import {
   gridAddNewRow,
   gridClearAllSelections,
   gridGetSelectedCells,
-  gridHasPasteHistory,
   gridRegisterSelectedCell,
   gridRecomputeSubmitState,
-  gridUndoLastPaste,
   getPasteGridModel,
   setBridgeTableActive,
   updateBridgeCell,
 } from "../lib/dataCaptureBridge.js";
+import { undoLastPaste } from "./dataCaptureGridPasteHistory.js";
 import { MAX_GRID_COLS, MAX_GRID_ROWS } from "./dataCaptureGridMeta.js";
 
 /** Pending cell focus after grid row/column append (applied on next grid render). */
@@ -344,12 +343,8 @@ export function handleCellClick(e, cellEl) {
   moveCaretToClickPosition(cell, e);
 }
 
-function hasPasteHistory() {
-  return gridHasPasteHistory();
-}
-
-function undoLastPaste() {
-  gridUndoLastPaste();
+function undoLastPasteFromHistory() {
+  undoLastPaste();
 }
 
 function getSelectedCells() {
@@ -400,12 +395,9 @@ export function handleCellKeydown(e) {
 
   const key = (e.key || "").toLowerCase();
   if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey) {
-    if (hasPasteHistory()) {
-      e.preventDefault();
-      e.stopPropagation();
-      undoLastPaste();
-      return;
-    }
+    e.preventDefault();
+    e.stopPropagation();
+    undoLastPasteFromHistory();
     return;
   }
 

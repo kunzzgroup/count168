@@ -11,6 +11,7 @@ import {
   setCell,
 } from "../../grid/gridModel.js";
 import { parseAndFillHTMLTable } from "./dataCaptureParseGenericHtml.js";
+import { commitPasteGridCheckpoint } from "../../grid/dataCaptureGridPasteHistory.js";
 import {
   ensurePasteTableInitialized,
   getFirstSelectedGridCell,
@@ -18,7 +19,6 @@ import {
   notifyPasteUser,
   replacePasteGridModel,
   recomputeSubmitStateAfterPaste,
-  commitPasteGridCheckpoint,
 } from "../../lib/dataCaptureBridge.js";
 import { getDataCaptureState } from "../../lib/dataCaptureRuntime.js";
 import { alignTotalRowsInMatrix, alignTotalRowArray } from "./dataCaptureTotalRowAlign.js";
@@ -288,7 +288,7 @@ export function applyDataMatrixToGrid(dataMatrix, anchorCell, options = {}) {
   const { deferUndoCheckpoint = false, ...gridOptions } = options;
   const result = applyDataMatrixToGridModel(dataMatrix, anchorCell, gridOptions);
   if (result.successCount > 0 && !deferUndoCheckpoint) {
-    commitPasteGridCheckpoint();
+    commitPasteGridCheckpoint(result.updatedGrid ?? getPasteGridModel());
   }
   return result;
 }
@@ -344,7 +344,7 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
   recomputeSubmitStateAfterPaste();
 
   const successCount = changes.filter((c) => String(c.newValue || "").trim() !== "").length;
-  return { successCount, changes, maxRows: sourceMatrix.length, maxCols };
+  return { successCount, changes, maxRows: sourceMatrix.length, maxCols, updatedGrid };
 }
 
 export function notifyPasteSuccess(message, level = "success") {

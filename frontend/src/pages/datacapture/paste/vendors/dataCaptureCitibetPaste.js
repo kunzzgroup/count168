@@ -1,10 +1,8 @@
 import { isCitibetCaptureType } from "../../lib/dataCaptureFormRules.js";
 import { parseCitibetPasteData } from "../core/dataCapturePasteDetect.js";
 import { applyDataMatrixToGrid, notifyPasteSuccess } from "../core/dataCapturePasteApply.js";
-import {
-  finalizePasteWithOptionalConvert,
-  recomputeSubmitStateAfterPaste,
-} from "../../lib/dataCaptureBridge.js";
+import { finalizePasteWithOptionalConvert } from "../../grid/dataCaptureGridPasteHistory.js";
+import { recomputeSubmitStateAfterPaste } from "../../lib/dataCaptureBridge.js";
 
 export function handleCitibetPaste(e, pastedData, anchorCell, captureType, preParsed = null) {
   const parsed = preParsed || parseCitibetPasteData(pastedData, captureType);

@@ -168,6 +168,11 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
   useEffect(() => {
     if (!engineReady) return;
     if (shouldRestoreFromUrl() || getDataCaptureState().isRestoring) return;
+    const current = handlersRef.current.gridRef.current;
+    if (current && gridLooksInitialized(gridDimsFromModel(current))) {
+      resetPasteUndoCheckpoints(current);
+      return;
+    }
     const { rows, cols } = resolveDataCaptureGridDimensions(groupOnly);
     handlersRef.current.initializeGrid(rows, cols);
   }, [engineReady, groupOnly]);
