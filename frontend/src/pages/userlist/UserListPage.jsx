@@ -2044,6 +2044,7 @@ export default function UserListPage() {
     if (!isEditMode && !form.password.trim()) { notify(t("passwordRequired"), "danger"); return; }
     if (
       useDualTenantUserPicker &&
+      !editingRow?.is_owner_shadow &&
       selectedGroupIds.length === 0 &&
       selectedCompanyIds.length === 0
     ) {
@@ -2054,6 +2055,7 @@ export default function UserListPage() {
       !useDualTenantUserPicker &&
       groupOnlyUserList &&
       (currentUserRole === "admin" || currentUserRole === "owner") &&
+      !editingRow?.is_owner_shadow &&
       selectedCompanyIds.length === 0
     ) {
       notify(t("groupNoneSelected"), "danger");
