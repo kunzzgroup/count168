@@ -1,6 +1,6 @@
 import { getDataCaptureRuntime } from "../lib/dataCaptureRuntime.js";
 import { pushDataCaptureNotification } from "../lib/dataCaptureNotify.js";
-import { cloneGrid, setCell } from "./gridModel.js";
+import { cloneGrid, gridModelHasEditableData, setCell } from "./gridModel.js";
 
 const MAX_HISTORY_SIZE = 50;
 
@@ -73,13 +73,25 @@ function pushCheckpointSnapshot(snapshot) {
   }
 }
 
-/** Establish baseline checkpoint after grid init / clear / restore. */
-export function resetPasteUndoCheckpoints(grid) {
+/**
+ * Reset undo stack. Empty grids do NOT get a baseline — undo never restores blank.
+ * @param {import("./gridModel.js").DataCaptureGridModel | null | undefined} grid
+ * @param {{ recordBaseline?: boolean | "auto" }} [options]
+ */
+export function resetPasteUndoCheckpoints(grid, options = {}) {
+  const { recordBaseline = "auto" } = options;
   pasteFinalizeGeneration += 1;
   pasteHistory.length = 0;
   checkpointCursor = -1;
+
   const snapshot = cloneGrid(grid ?? getLiveGridModel());
-  if (snapshot) {
+  if (!snapshot) return;
+
+  const shouldRecord =
+    recordBaseline === true
+    || (recordBaseline === "auto" && gridModelHasEditableData(snapshot));
+
+  if (shouldRecord) {
     pushCheckpointSnapshot(snapshot);
   }
 }
@@ -225,7 +237,7 @@ export function undoLastPaste() {
   notifyUndoUser(
     remaining > 0
       ? `撤销完成（还可撤销 ${remaining} 步）`
-      : "撤销完成：已恢复初始空白表格",
+      : "撤销完成：已恢复删除前的数据",
     "success",
   );
 }

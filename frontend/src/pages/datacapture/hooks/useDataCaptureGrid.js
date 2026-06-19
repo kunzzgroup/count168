@@ -55,7 +55,7 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
       const c = Math.max(1, Number(cols) || DEFAULT_GRID_COLS);
       dimensionsRef.current = { rows: r, cols: c };
       replaceGrid(createEmptyGrid(r, c));
-      resetPasteUndoCheckpoints(gridRef.current);
+      resetPasteUndoCheckpoints(gridRef.current, { recordBaseline: false });
       toggleBridgeFormatDisplay();
       callDataCaptureRuntime("recomputeSubmitState");
       return dimensionsRef.current;
@@ -104,7 +104,7 @@ export function useDataCaptureGrid(engineReady, groupOnly = false) {
     const current = gridRef.current;
     if (!current) return;
     replaceGrid(clearGridCells(current));
-    resetPasteUndoCheckpoints(gridRef.current);
+    resetPasteUndoCheckpoints(gridRef.current, { recordBaseline: false });
   }, [gridRef, replaceGrid]);
 
   const readGridDimensionsBridge = useCallback(() => {
