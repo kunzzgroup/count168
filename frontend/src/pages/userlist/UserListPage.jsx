@@ -2073,7 +2073,7 @@ export default function UserListPage() {
     let saveCompanyIds = selectedCompanyIds;
     let saveGroupCodes = [];
     const shouldForceGroupScope = !useDualTenantUserPicker && groupOnlyUserList;
-    if (useDualTenantUserPicker) {
+    if (useDualTenantUserPicker && !editingRow?.is_owner_shadow) {
       saveGroupCodes = resolveSelectedGroupCodesFromPicker(modalGroupCompanies, selectedGroupIds);
       saveCompanyIds = selectedCompanyIds;
       payload.mixed_tenant_assign = 1;
