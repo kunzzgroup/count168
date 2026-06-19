@@ -108,6 +108,7 @@ export default function TransactionDashboardPage() {
               earningsPanelView={page.earningsPanelView}
               onEarningsPanelViewChange={page.setEarningsPanelView}
               companyBreakdownRows={page.companyBreakdownRows}
+              companyEarningsBreakdownRows={page.companyEarningsBreakdownRows}
               companyNetProfitTotal={page.companyNetProfitTotal}
               companyEarningsTotal={page.companyEarningsTotal}
             />

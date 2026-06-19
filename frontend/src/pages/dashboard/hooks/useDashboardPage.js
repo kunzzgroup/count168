@@ -59,6 +59,7 @@ import { formatI18nTemplate } from "../lib/dashboardFormat.js";
 import { buildKpiCompare, computeKpiMetrics, mergeDashboardOwnershipFields, viewerHasEarningsConfig } from "../lib/dashboardKpi.js";
 import {
   applySingleSubsidiaryGroupEarningsRows,
+  filterCompanyBreakdownRowsForEarningsGroups,
   mergeCompanyBreakdownRowLists,
   normalizeSubsidiaryEarningsByCompany,
   sortCompanyBreakdownRowsByPicker,
@@ -4066,6 +4067,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
               { startDate: rangeFrom, endDate: rangeTo }
             );
             const merged = finalizeMergedGroupLedgerDashboard(allMerged, earningsPayloads);
+            const earningsGroupIds = groupPayloads
+              .filter(({ merged: row }) => viewerHasEarningsConfig(row))
+              .map(({ gid }) => String(gid || "").trim().toUpperCase())
+              .filter(Boolean);
+            merged._earnings_enabled_group_ids = earningsGroupIds;
             const byCompany = mergeCompanyBreakdownRowLists(
               groupPayloads.map(({ merged: row }) =>
                 normalizeSubsidiaryEarningsByCompany(row?.subsidiary_earnings_by_company)
@@ -4126,6 +4132,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           mergeGroupData(results, { startDate: rangeFrom, endDate: rangeTo }),
           earningsResults
         );
+        merged._earnings_enabled_group_ids = gids
+          .map((gid, idx) => ({ gid, payload: results[idx] }))
+          .filter(({ payload }) => viewerHasEarningsConfig(payload))
+          .map(({ gid }) => String(gid || "").trim().toUpperCase())
+          .filter(Boolean);
         const byCompany = mergeCompanyBreakdownRowLists(
           results.map((r) => normalizeSubsidiaryEarningsByCompany(r?.subsidiary_earnings_by_company))
         );
@@ -6277,15 +6288,36 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     resolveKpiOwnershipOpts,
   ]);
 
+  const companyEarningsBreakdownRows = useMemo(() => {
+    if (!showProfitChartTab) return [];
+    const enabledGroupIds = dashboardData?._earnings_enabled_group_ids;
+    const filtered = filterCompanyBreakdownRowsForEarningsGroups(
+      companyBreakdownRows,
+      enabledGroupIds
+    );
+    return applySingleSubsidiaryGroupEarningsRows(
+      filtered,
+      dashboardData,
+      resolveKpiOwnershipOpts()
+    );
+  }, [
+    showProfitChartTab,
+    companyBreakdownRows,
+    dashboardData,
+    resolveKpiOwnershipOpts,
+  ]);
+
   const companyNetProfitTotal = useMemo(
     () => sumCompanyBreakdownAmount(companyBreakdownRows, "netProfit"),
     [companyBreakdownRows]
   );
 
-  const companyEarningsTotal = useMemo(
-    () => sumCompanyBreakdownAmount(companyBreakdownRows, "earnings"),
-    [companyBreakdownRows]
-  );
+  const companyEarningsTotal = useMemo(() => {
+    if (kpi.showEarnings) {
+      return kpi.kpiCardEarnings ?? kpi.earnings ?? 0;
+    }
+    return sumCompanyBreakdownAmount(companyEarningsBreakdownRows, "earnings");
+  }, [kpi.showEarnings, kpi.kpiCardEarnings, kpi.earnings, companyEarningsBreakdownRows]);
 
   const showEarningsCompanyTab = kpi.showEarnings;
 
@@ -6340,7 +6372,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     ? summaryScopeLoading
     : summaryCurrencyPanelLoading;
   const earningsPanelStable = companyBreakdownPanelActive
-    ? !summaryScopeLoading && companyBreakdownRows.length > 0
+    ? !summaryScopeLoading &&
+      (earningsPanelView === "earning"
+        ? companyEarningsBreakdownRows.length > 0
+        : companyBreakdownRows.length > 0)
     : currencies.length <= 1 ||
       (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
   const kpiLoading = loading && !dashboardData;
@@ -7184,6 +7219,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     earningsPanelView,
     setEarningsPanelView,
     companyBreakdownRows,
+    companyEarningsBreakdownRows,
     companyNetProfitTotal,
     companyEarningsTotal,
     handlePickGroup,
