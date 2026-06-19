@@ -4065,6 +4065,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           if (gids.length > 1) {
             const groupPayloads = [];
             for (const gid of gids) {
+              const sliceRows = resolveGroupAllMergeCompanyList(companies, gid, groupIds);
+              if (!sliceRows.length) continue;
               let merged = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
                 groupKey: gid,
                 useActiveScopeAbort: mergeAbort,
@@ -4081,6 +4083,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
                 );
               }
               groupPayloads.push({ gid, merged });
+            }
+
+            if (!groupPayloads.length) {
+              return fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
+                groupsAllMerge: true,
+                useActiveScopeAbort: mergeAbort,
+                earningsOnly,
+                earningsGroupsOnly: earningsOnly,
+              });
             }
 
             earningsEnabledGroupIdsRef.current = groupPayloads
@@ -4153,9 +4164,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           me,
         })
       ) {
-        const gids = groupIds.filter((g) => String(g || "").trim());
+        let gids = groupIds.filter((g) => String(g || "").trim());
         if (!gids.length) {
-          throw new Error(i18n.failedToLoadDashboard);
+          gids = sortedUniqueGroupIds(companies).filter((g) => String(g || "").trim());
+        }
+        if (!gids.length) {
+          return fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
+            groupsAllMerge: true,
+            useActiveScopeAbort: mergeAbort,
+            earningsOnly,
+            earningsGroupsOnly: earningsOnly,
+          });
         }
         const results = await Promise.all(
           gids.map((gid) =>
@@ -4203,6 +4222,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           .filter(Boolean);
         return fetchMergedCompanyDashboards(rows, rangeFrom, rangeTo, currencyOverride);
       }
+
+      if (groupsAllMode && companyId == null) {
+        return fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
+          groupsAllMerge: true,
+          useActiveScopeAbort: mergeAbort,
+          earningsOnly,
+          earningsGroupsOnly: earningsOnly,
+        });
+      }
+
       throw new Error(i18n.failedToLoadDashboard);
     },
     [

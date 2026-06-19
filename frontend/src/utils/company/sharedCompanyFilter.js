@@ -1916,7 +1916,22 @@ export function resolveGroupAllMergeCompanyList(companies, selectedGroup, groupI
 /** Subsidiaries to merge when GroupID "All" + Company "All" aggregate every visible group. */
 export function resolveGroupsAllMergeCompanyList(companies, groupIds = null) {
   const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
-  return allGroupedCompaniesForPicker(companies, gids).filter(
+  const primary = allGroupedCompaniesForPicker(companies, gids).filter(
+    (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168: true }),
+  );
+  if (primary.length) return primary;
+
+  const seen = new Set();
+  const merged = [];
+  for (const gid of gids) {
+    for (const row of companiesInGroupList(companies, gid)) {
+      const id = Number(row?.id);
+      if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      merged.push(row);
+    }
+  }
+  return excludeGroupLabelsFromCompanyPicker(merged, gids).filter(
     (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168: true }),
   );
 }
