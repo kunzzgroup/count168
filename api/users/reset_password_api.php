@@ -74,7 +74,7 @@ try {
             exit;
         }
 
-        $hashed = ec_password_hash($new_password);
+        $hashed = password_hash($new_password, PASSWORD_DEFAULT);
         $pdo->prepare("UPDATE user SET password = ? WHERE id = ?")->execute([$hashed, $user_id]);
         invalidate_user_remember_token($pdo, (int) $user_id);
         $pdo->prepare("DELETE FROM password_reset_tac WHERE email = ? AND company_id = ?")->execute([$email, $company_numeric_id]);
@@ -108,7 +108,7 @@ try {
         exit;
     }
 
-    $hashed = ec_password_hash($new_password);
+    $hashed = password_hash($new_password, PASSWORD_DEFAULT);
     $pdo->prepare("UPDATE owner SET password = ? WHERE id = ?")->execute([$hashed, $owner_id]);
     $pdo->prepare("DELETE FROM password_reset_tac_owner WHERE email = ? AND owner_id = ?")->execute([$email_lower, $owner_id]);
     echo json_encode(['success' => true, 'message' => 'Password reset successful']);
