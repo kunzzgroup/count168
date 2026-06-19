@@ -89,7 +89,7 @@ import {
 import UserModal from "./components/UserModal.jsx";
 import UserConfirmModal from "./components/UserConfirmModal.jsx";
 import { processNotificationAboveAccountZIndex, processNotificationZIndex } from "../../components/ProcessModalPortal.jsx";
-import { getUserListText, translateUserListApiMessage } from "../../translateFile/pages/userListTranslate.js";
+import { formatUserRoleDisplay, formatUserStatusDisplay, getUserListText, translateUserListApiMessage } from "../../translateFile/pages/userListTranslate.js";
 import { validateEmail } from "../../utils/input/emailValidation.js";
 
 function roleBadgeClass(role) {
@@ -2456,8 +2456,8 @@ export default function UserListPage() {
                     <div className="card-item">{r.login_id}</div>
                     <div className="card-item">{r.name}</div>
                     <div className="card-item">{r.email || "-"}</div>
-                    <div className="card-item"><span className={`role-badge ${roleBadgeClass(r.role)}`}>{String(r.role || "").toUpperCase()}</span></div>
-                    <div className="card-item"><span className={`role-badge ${normRole(r.status) === "active" ? "status-active" : "status-inactive"} ${caps.canToggleStatus && !userMutationsBlocked ? "status-clickable" : ""}`} onClick={() => !userMutationsBlocked && caps.canToggleStatus && toggleUserStatus(r)}>{String(r.status || "").toUpperCase()}</span></div>
+                    <div className="card-item"><span className={`role-badge ${roleBadgeClass(r.role)}`}>{formatUserRoleDisplay(t, r.role)}</span></div>
+                    <div className="card-item"><span className={`role-badge ${normRole(r.status) === "active" ? "status-active" : "status-inactive"} ${caps.canToggleStatus && !userMutationsBlocked ? "status-clickable" : ""}`} onClick={() => !userMutationsBlocked && caps.canToggleStatus && toggleUserStatus(r)}>{formatUserStatusDisplay(t, r.status)}</span></div>
                     <div className="card-item">{formatLastLogin(r.last_login)}</div>
                     <div className="card-item">{String(r.created_by || "-").toUpperCase()}</div>
                     <div className="card-item card-item--action">

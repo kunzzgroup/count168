@@ -1904,12 +1904,17 @@ function isExcludedFromGroupAggregate(companyRow, groupIds = null, options = {})
 }
 
 /** Subsidiaries to merge when Company row "All" is active under a group tab (IG/AP). */
-export function resolveGroupAllMergeCompanyList(companies, selectedGroup, groupIds = null) {
+export function resolveGroupAllMergeCompanyList(
+  companies,
+  selectedGroup,
+  groupIds = null,
+  { allowC168 = false } = {}
+) {
   const g = String(selectedGroup || "").trim().toUpperCase();
   if (!g) return [];
   const gids = groupIds?.length ? groupIds : sortedUniqueGroupIds(companies);
   return companiesForCompanyPicker(companies, g, gids).filter(
-    (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168: false }),
+    (c) => !isExcludedFromGroupAggregate(c, gids, { allowC168 }),
   );
 }
 

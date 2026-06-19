@@ -2098,39 +2098,47 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         const ordParams = new URLSearchParams({ _t: String(Date.now()) });
         if (orderCompanyId) ordParams.set("company_id", String(orderCompanyId));
 
+        const fetchCompanyCurrencyCodes = async (cid) => {
+          const row = companies.find((c) => parseInt(c.id, 10) === cid);
+          const vg = groupsAllMode
+            ? resolveViewGroupForCompany(row, selectedGroup)
+            : groupKey;
+          const q = new URLSearchParams({ company_id: String(cid) });
+          if (vg) {
+            q.set("view_group", vg);
+            q.set("group_id", vg);
+            q.set("subsidiary_accounts_only", "1");
+          } else if (row && !companyRowIsIndependent(row, groupIds)) {
+            q.set("subsidiary_accounts_only", "1");
+          }
+          try {
+            const curRes = await fetch(
+              buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
+              { credentials: "include" }
+            );
+            const curJson = await curRes.json();
+            if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
+              return currenciesByCompanyRef.current.get(cid) ?? [];
+            }
+            const rowCodes = curJson.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
+            if (rowCodes.length && cid !== orderCompanyId) {
+              currenciesByCompanyRef.current.set(cid, rowCodes);
+            }
+            return rowCodes;
+          } catch {
+            return currenciesByCompanyRef.current.get(cid) ?? [];
+          }
+        };
+
         const [currencyResults, ordRes] = await Promise.all([
-          Promise.all(
-            mergeCompanyIds.map(async (cid) => {
-              const row = companies.find((c) => parseInt(c.id, 10) === cid);
-              const vg = groupsAllMode
-                ? resolveViewGroupForCompany(row, selectedGroup)
-                : groupKey;
-              const q = new URLSearchParams({ company_id: String(cid) });
-              if (vg) {
-                q.set("view_group", vg);
-                q.set("group_id", vg);
-                q.set("subsidiary_accounts_only", "1");
-              } else if (row && !companyRowIsIndependent(row, groupIds)) {
-                q.set("subsidiary_accounts_only", "1");
-              }
-              try {
-                const curRes = await fetch(
-                  buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
-                  { credentials: "include" }
-                );
-                const curJson = await curRes.json();
-                if (!curRes.ok || !curJson.success || !Array.isArray(curJson.data)) {
-                  return currenciesByCompanyRef.current.get(cid) ?? [];
-                }
-                const rowCodes = curJson.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
-                if (rowCodes.length && cid !== orderCompanyId) {
-                  currenciesByCompanyRef.current.set(cid, rowCodes);
-                }
-                return rowCodes;
-              } catch {
-                return currenciesByCompanyRef.current.get(cid) ?? [];
-              }
-            })
+          runTasksInBatchesSettled(
+            mergeCompanyIds,
+            MERGE_DASHBOARD_PARALLEL_BATCH,
+            fetchCompanyCurrencyCodes
+          ).then((settled) =>
+            settled
+              .filter((entry) => entry.status === "fulfilled")
+              .map((entry) => entry.value)
           ),
           orderCompanyId
             ? fetch(
@@ -2143,6 +2151,14 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
 
         let codes = [...new Set(currencyResults.flat())];
+        if (!codes.length) {
+          const fallback = new Set();
+          for (const cid of mergeCompanyIds) {
+            const cached = currenciesByCompanyRef.current.get(cid);
+            if (cached?.length) cached.forEach((c) => fallback.add(c));
+          }
+          codes = [...fallback];
+        }
         if (ordRes) {
           const ordJson = await ordRes.json();
           codes = applyResolvedCurrencyOrder(
@@ -2459,7 +2475,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   useLayoutEffect(() => {
     void loadCurrenciesRef.current?.();
-  }, [buildScopeCurrencyKey, groupIds.length, companies.length]);
+  }, [buildScopeCurrencyKey, groupIds.length, companies.length, companiesSig]);
 
   useEffect(() => {
     currencyPrefetchFailedRef.current.clear();
@@ -2953,7 +2969,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           : [];
       const mergeCompanyRows = gAll
         ? enabledGids.length
-          ? enabledGids.flatMap((g) => resolveGroupAllMergeCompanyList(companies, g, groupIds))
+          ? enabledGids.flatMap((g) =>
+              resolveGroupAllMergeCompanyList(companies, g, groupIds, { allowC168: true })
+            )
           : resolveGroupsAllMergeCompanyList(companies, groupIds)
         : selGroup
           ? resolveGroupAllMergeCompanyList(companies, selGroup, groupIds)
@@ -3990,25 +4008,32 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       {
         groupKey = null,
         groupsAllMerge = false,
+        allowC168Merge = false,
         useActiveScopeAbort = true,
         earningsOnly = false,
         earningsGroupsOnly = false,
       } = {}
     ) => {
       let companyList;
+      const includeC168 = allowC168Merge || groupsAllMerge;
       if (groupsAllMerge) {
         const enabled = earningsGroupsOnly
           ? earningsEnabledGroupIdsRef.current.filter((g) => String(g || "").trim())
           : [];
         if (enabled.length) {
           companyList = enabled.flatMap((g) =>
-            resolveGroupAllMergeCompanyList(companies, g, groupIds)
+            resolveGroupAllMergeCompanyList(companies, g, groupIds, { allowC168: true })
           );
         } else {
           companyList = resolveGroupsAllMergeCompanyList(companies, groupIds);
         }
       } else {
-        companyList = resolveGroupAllMergeCompanyList(companies, groupKey ?? selectedGroup, groupIds);
+        companyList = resolveGroupAllMergeCompanyList(
+          companies,
+          groupKey ?? selectedGroup,
+          groupIds,
+          { allowC168: includeC168 }
+        );
       }
       return fetchMergedCompanyDashboards(
         companyList,
@@ -4065,10 +4090,13 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           if (gids.length > 1) {
             const groupPayloads = [];
             for (const gid of gids) {
-              const sliceRows = resolveGroupAllMergeCompanyList(companies, gid, groupIds);
+              const sliceRows = resolveGroupAllMergeCompanyList(companies, gid, groupIds, {
+                allowC168: true,
+              });
               if (!sliceRows.length) continue;
               let merged = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
                 groupKey: gid,
+                allowC168Merge: true,
                 useActiveScopeAbort: mergeAbort,
                 earningsOnly,
               });
