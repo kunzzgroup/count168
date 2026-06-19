@@ -752,6 +752,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   /** KPI earnings: group aggregate or subsidiary drill-down ownership multipliers. */
   const resolveKpiOwnershipOpts = useCallback(
     (cid = companyId, grp = selectedGroup) => {
+      if (groupsAllMode && groupAllMode && (cid == null || cid === "")) {
+        return { groupsAllCompaniesAggregate: true };
+      }
       if (groupAllMode && grp) return { groupAggregateEarnings: true };
       if (groupsAllMode && !groupAllMode && (cid == null || cid === "")) {
         return { groupAggregateEarnings: true };
@@ -4043,71 +4046,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       if (groupAllMode) {
         if (groupsAllMode) {
-          const gids = groupIds.filter((g) => String(g || "").trim());
-          if (gids.length > 1) {
-            const groupPayloads = [];
-            for (const gid of gids) {
-              let merged = await fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
-                groupKey: gid,
-                useActiveScopeAbort: mergeAbort,
-                earningsOnly,
-              });
-              if (!earningsOnly) {
-                merged = await enrichGroupAllMergedDashboard(
-                  merged,
-                  rangeFrom,
-                  rangeTo,
-                  currencyOverride,
-                  gid,
-                  mergeAbort
-                );
-              }
-              groupPayloads.push({ gid, merged });
-            }
-
-            earningsEnabledGroupIdsRef.current = groupPayloads
-              .filter(({ merged }) => viewerHasEarningsConfig(merged))
-              .map(({ gid }) => String(gid).trim().toUpperCase());
-
-            const earningsPayloads = groupPayloads
-              .filter(({ merged }) => viewerHasEarningsConfig(merged))
-              .map(({ merged }) => merged);
-
-            if (earningsOnly) {
-              if (!earningsPayloads.length) {
-                throw new Error(i18n.failedToLoadDashboard);
-              }
-              return mergeGroupData(earningsPayloads, {
-                startDate: rangeFrom,
-                endDate: rangeTo,
-              });
-            }
-
-            const allMerged = mergeGroupData(
-              groupPayloads.map(({ merged }) => merged),
-              { startDate: rangeFrom, endDate: rangeTo }
-            );
-            const merged = finalizeMergedGroupLedgerDashboard(allMerged, earningsPayloads);
-            const earningsGroupIds = groupPayloads
-              .filter(({ merged: row }) => viewerHasEarningsConfig(row))
-              .map(({ gid }) => String(gid || "").trim().toUpperCase())
-              .filter(Boolean);
-            merged._earnings_enabled_group_ids = earningsGroupIds;
-            const byCompany = mergeCompanyBreakdownRowLists(
-              groupPayloads.map(({ merged: row }) =>
-                normalizeSubsidiaryEarningsByCompany(row?.subsidiary_earnings_by_company)
-              )
-            );
-            if (byCompany.length) {
-              merged.subsidiary_earnings_by_company = byCompany;
-            }
-            return merged;
-          }
           return fetchGroupAllMergedDashboard(rangeFrom, rangeTo, currencyOverride, {
             groupsAllMerge: true,
             useActiveScopeAbort: mergeAbort,
             earningsOnly,
-            earningsGroupsOnly: earningsOnly,
+            earningsGroupsOnly: false,
           });
         }
         if (selectedGroup) {

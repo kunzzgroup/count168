@@ -45,6 +45,7 @@ export function viewerHasEarningsConfig(dashboardData, options = {}) {
   const linkMul = parseFloat(dashboardData._link_multiplier || 0) || 0;
   if (linkMul > 0 && linkMul !== 1) return true;
   if (options.subsidiaryGroupDrillDown) return false;
+  if (options.groupsAllCompaniesAggregate) return false;
   if (dashboardData.has_group_ownership) return true;
   return false;
 }
@@ -168,7 +169,9 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const displayProfitNum = rawProfit;
   const displayExpensesNum = rawExpenses > 0 ? -rawExpenses : rawExpenses;
   const netProfitDisplay = displayProfitNum + displayExpensesNum;
-  const showEarnings = viewerHasEarningsConfig(dashboardData, options);
+  const showEarnings = options.groupsAllCompaniesAggregate
+    ? false
+    : viewerHasEarningsConfig(dashboardData, options);
   const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const panelMultiplier = resolvePanelEarningsPct(dashboardData, selectedGroup, options);
   const kpiMultiplier = resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);
