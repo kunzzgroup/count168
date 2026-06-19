@@ -225,6 +225,58 @@ async function fetchGroupLedgerCurrencyCodes(companies, groupKey) {
   }
 }
 
+/** Currencies from company Currency Setting table (reliable for group-all merge). */
+async function fetchCompanyCurrencySettingCodes(companyId, companyRow, viewGroup, groupIds) {
+  const cid = parseInt(companyId, 10);
+  if (!Number.isFinite(cid) || cid <= 0) return [];
+
+  const vg = viewGroup ? normalizeDashboardViewGroup(viewGroup) : "";
+  const queries = [];
+  if (vg) {
+    const subQ = new URLSearchParams({ company_id: String(cid) });
+    appendDashboardSubsidiaryScopeParams(subQ, vg);
+    queries.push(subQ);
+  }
+  if (!vg || (companyRow && companyRowIsIndependent(companyRow, groupIds))) {
+    queries.push(new URLSearchParams({ company_id: String(cid) }));
+  }
+
+  for (const q of queries) {
+    try {
+      const res = await fetch(
+        buildApiUrl(`api/transactions/get_company_currencies_api.php?${q.toString()}`),
+        { credentials: "include" }
+      );
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data) && json.data.length) {
+        return json.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
+      }
+    } catch {
+      /* try next query shape */
+    }
+  }
+
+  if (vg) {
+    const subQ = buildSubsidiaryCompanyCurrencyQuery(cid, vg);
+    if (subQ) {
+      try {
+        const curRes = await fetch(
+          buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${subQ}`),
+          { credentials: "include" }
+        );
+        const curJson = await curRes.json();
+        if (curRes.ok && curJson.success && Array.isArray(curJson.data) && curJson.data.length) {
+          return curJson.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  return [];
+}
+
 /** Union currencies for Company "All" (single group or Group "All" + Company "All"). */
 async function fetchGroupAllMergeCurrencyCodes(
   companies,
@@ -236,24 +288,6 @@ async function fetchGroupAllMergeCurrencyCodes(
 
   const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
 
-  try {
-    const bulkQ = new URLSearchParams({
-      company_ids: ids.join(","),
-      company_id: String(ids[0]),
-    });
-    const bulkRes = await fetch(
-      buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${bulkQ.toString()}`),
-      { credentials: "include" }
-    );
-    const bulkJson = await bulkRes.json();
-    if (bulkRes.ok && bulkJson.success && Array.isArray(bulkJson.data) && bulkJson.data.length) {
-      const bulkCodes = bulkJson.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
-      if (bulkCodes.length) return bulkCodes;
-    }
-  } catch {
-    /* fall through to per-company queries */
-  }
-
   const results = await Promise.all(
     ids.map(async (cid) => {
       const cached = cacheRef?.get?.(cid);
@@ -261,48 +295,9 @@ async function fetchGroupAllMergeCurrencyCodes(
 
       const row = companies.find((c) => parseInt(c.id, 10) === cid);
       const vg = groupsAllMode ? resolveViewGroupForCompany(row, selectedGroup) : groupKey;
-
-      if (vg) {
-        const subQ = buildSubsidiaryCompanyCurrencyQuery(cid, vg);
-        if (subQ) {
-          try {
-            const curRes = await fetch(
-              buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${subQ}`),
-              { credentials: "include" }
-            );
-            const curJson = await curRes.json();
-            if (curRes.ok && curJson.success && Array.isArray(curJson.data) && curJson.data.length) {
-              const rowCodes = curJson.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
-              if (rowCodes.length && cacheRef) cacheRef.set(cid, rowCodes);
-              return rowCodes;
-            }
-          } catch {
-            /* try company-only query below */
-          }
-        }
-      }
-
-      const q = new URLSearchParams({ company_id: String(cid) });
-      if (vg) {
-        appendDashboardSubsidiaryScopeParams(q, vg);
-      } else if (row && !companyRowIsIndependent(row, groupIds)) {
-        q.set("subsidiary_accounts_only", "1");
-      }
-      try {
-        const curRes = await fetch(
-          buildApiUrl(`api/transactions/get_scope_account_currencies_api.php?${q.toString()}`),
-          { credentials: "include" }
-        );
-        const curJson = await curRes.json();
-        if (curRes.ok && curJson.success && Array.isArray(curJson.data) && curJson.data.length) {
-          const rowCodes = curJson.data.map((r) => String(r.code).toUpperCase()).filter(Boolean);
-          if (rowCodes.length && cacheRef) cacheRef.set(cid, rowCodes);
-          return rowCodes;
-        }
-      } catch {
-        /* ignore */
-      }
-      return cacheRef?.get?.(cid) ?? [];
+      const rowCodes = await fetchCompanyCurrencySettingCodes(cid, row, vg, groupIds);
+      if (rowCodes.length && cacheRef) cacheRef.set(cid, rowCodes);
+      return rowCodes;
     })
   );
 
@@ -1396,6 +1391,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           null,
           buildDashboardSidebarNotifyOptions(null, readGroupsAllSidebarGroup()),
         );
+        window.setTimeout(() => {
+          void loadCurrenciesRef.current?.();
+        }, 0);
       }
     } catch (err) {
       if (err?.name === "AbortError") return;
@@ -2165,7 +2163,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     /** Company "All": union currencies from every merged subsidiary (deduped). */
     if (groupAllMode && !(Number.isFinite(singleCid) && singleCid > 0)) {
-      const mergeRows = resolveMergeCompanyList();
+      let mergeRows = resolveMergeCompanyList();
+      if (!mergeRows.length && groupsAllMode && companiesForPicker?.length) {
+        mergeRows = companiesForPicker;
+      }
       const mergeCompanyIds = mergeRows
         .map((c) => parseInt(c.id, 10))
         .filter((id) => Number.isFinite(id) && id > 0);
@@ -2245,7 +2246,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           codes,
         });
 
-        commitCurrencyList(codes);
+        if (codes.length) {
+          commitCurrencyList(codes);
+        }
       } catch {
         /* Keep previous currency pills on transient errors. */
       }
@@ -2793,12 +2796,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       }
 
       if (Number.isFinite(activeId) && activeId > 0 && !currenciesByCompanyRef.current.has(activeId)) {
-        const q = buildCompanyCurrencyQuery(
-          activeId,
-          groupsAllMode ? null : activeGroup
-        );
-        if (q) {
-          const codes = await fetchScopeCurrenciesDeduped(q);
+        const row = companies.find((c) => parseInt(c.id, 10) === activeId);
+        const vg = groupsAllMode ? null : activeGroup;
+        if (row && shouldPrefetchCompanyScope(activeId, vg)) {
+          const codes = await fetchCompanyCurrencySettingCodes(activeId, row, vg, groupIds);
           if (!cancelled && codes?.length) {
             const savedOrder = resolvePreferredCurrencyDisplayOrder(activeId, {
               displayOrderByCompanyRef: currencyDisplayOrderByCompanyRef,
@@ -2870,9 +2871,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!Number.isFinite(id) || id <= 0 || id === activeId || currenciesByCompanyRef.current.has(id)) {
         return;
       }
-      const q = buildCompanyCurrencyQuery(cid, viewGroup);
-      if (!q) return;
-      const codes = await fetchScopeCurrenciesDeduped(q);
+      if (!shouldPrefetchCompanyScope(id, viewGroup)) return;
+      const row = companies.find((c) => parseInt(c.id, 10) === id);
+      if (!row || isVirtualGroupLinkCompanyRow(row)) return;
+      const vg = viewGroup ? String(viewGroup).trim().toUpperCase() : "";
+      if (vg && companyRowIsGroupEntity(row, vg)) return;
+      const codes = await fetchCompanyCurrencySettingCodes(id, row, vg || null, groupIds);
       if (!cancelled && codes?.length) {
         const savedOrder = resolvePreferredCurrencyDisplayOrder(id, {
           displayOrderByCompanyRef: currencyDisplayOrderByCompanyRef,
