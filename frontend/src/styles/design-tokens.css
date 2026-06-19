@@ -499,6 +499,9 @@
   --login-danger: #dc3545;
   --login-radius-xl: 28px;
   --login-radius-pill: 999px;
+  /* 登录列宽：≥480px 固定宽度，避免中英切换 / 滚动条导致百分比抖动 */
+  --login-shell-width: 380px;
+  --login-shell-max-width: 388px;
   /* 主提交钮：固定为英文 Login 规格，中英 / 登录中 只换字、高度不变 */
   --login-submit-height: 46px;
   --login-submit-pad-x: 15px;
