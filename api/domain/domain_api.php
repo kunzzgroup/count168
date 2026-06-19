@@ -3007,7 +3007,7 @@ function domainApiResolveProvisionedMemberAccountCode(PDO $pdo, int $c168Company
 }
 
 /**
- * Domain 同步策略：强制 name = Owner 姓名、role = MEMBER、password = 默认口令哈希。
+ * Domain 同步策略：强制 name = Owner 姓名、role = MEMBER、password = 111（明文，与 member 登录一致）
  */
 function domainApiForceMemberDefaultsFromDomain(PDO $pdo, int $accountDbId, string $ownerDisplayName): void {
     if ($accountDbId <= 0) {
@@ -3016,10 +3016,10 @@ function domainApiForceMemberDefaultsFromDomain(PDO $pdo, int $accountDbId, stri
     try {
         $hasCreatedSource = domainApiHasAccountCreatedSourceColumn($pdo);
         $sql = $hasCreatedSource
-            ? "UPDATE account SET name = ?, role = 'MEMBER', password = ?, created_source = 'domain_auto' WHERE id = ?"
-            : "UPDATE account SET name = ?, role = 'MEMBER', password = ? WHERE id = ?";
+            ? "UPDATE account SET name = ?, role = 'MEMBER', password = '111', created_source = 'domain_auto' WHERE id = ?"
+            : "UPDATE account SET name = ?, role = 'MEMBER', password = '111' WHERE id = ?";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$ownerDisplayName, ec_password_hash('111'), $accountDbId]);
+        $stmt->execute([$ownerDisplayName, $accountDbId]);
     } catch (PDOException $e) {
         error_log('domainApiForceMemberDefaultsFromDomain: ' . $e->getMessage());
         throw $e;
@@ -3162,12 +3162,11 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         LIMIT 1
     ");
     $hasCreatedSource = domainApiHasAccountCreatedSourceColumn($pdo);
-    $defaultMemberPasswordHash = ec_password_hash('111');
     $insertSql = $hasCreatedSource
         ? "INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, created_source, last_login)
-           VALUES (?, ?, 'MEMBER', ?, 0, NULL, NULL, NULL, NULL, 'active', 'domain_auto', NULL)"
+           VALUES (?, ?, 'MEMBER', '111', 0, NULL, NULL, NULL, NULL, 'active', 'domain_auto', NULL)"
         : "INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, last_login)
-           VALUES (?, ?, 'MEMBER', ?, 0, NULL, NULL, NULL, NULL, 'active', NULL)";
+           VALUES (?, ?, 'MEMBER', '111', 0, NULL, NULL, NULL, NULL, 'active', NULL)";
     $insertStmt = $pdo->prepare($insertSql);
     $linkCoStmt = $pdo->prepare('INSERT INTO account_company (account_id, company_id) VALUES (?, ?)');
 
@@ -3199,7 +3198,7 @@ function domainApiAutoCreateMemberAccountsUnderC168Company(PDO $pdo, int $c168Nu
         }
 
         try {
-            $insertStmt->execute([$useAccountId, $ownerDisplayName, $defaultMemberPasswordHash]);
+            $insertStmt->execute([$useAccountId, $ownerDisplayName]);
             $newAccId = (int) $pdo->lastInsertId();
             if ($newAccId <= 0) {
                 continue;

@@ -287,13 +287,12 @@ function releaseAccountCreateLock(PDO $pdo, string $lockKey): void {
 }
 
 function insertAccount(PDO $pdo, array $row): int {
-    $hashedPassword = ec_password_hash((string) ($row['password'] ?? ''));
     $stmt = $pdo->prepare("
         INSERT INTO account (account_id, name, role, password, payment_alert, alert_day, alert_specific_date, alert_amount, remark, status, last_login)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL)
     ");
     $stmt->execute([
-        $row['account_id'], $row['name'], $row['role'], $hashedPassword,
+        $row['account_id'], $row['name'], $row['role'], $row['password'],
         $row['payment_alert'], $row['alert_day'], $row['alert_specific_date'], $row['alert_amount'], $row['remark']
     ]);
     return (int) $pdo->lastInsertId();
