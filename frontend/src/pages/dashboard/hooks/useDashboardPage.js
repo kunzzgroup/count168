@@ -503,6 +503,8 @@ const COMPANY_SWITCH_PREFETCH_DELAY_MS = 3000;
 const SESSION_DASHBOARD_WARM_DELAY_MS = 6000;
 /** Parallel kpi bootstrap requests when filling multi-currency earnings sidebar. */
 const EARNINGS_KPI_PARALLEL_BATCH = 3;
+/** Group All merge: cap parallel company dashboard fetches (avoids ERR_INSUFFICIENT_RESOURCES). */
+const MERGE_DASHBOARD_PARALLEL_BATCH = 3;
 /** Defer trend-chart daily fetch so MoM previous can use DB first. */
 const CHART_DAILY_DEFER_MS = 250;
 
@@ -519,6 +521,16 @@ async function runTasksInBatches(items, batchSize, runTask) {
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     const settled = await Promise.all(batch.map((item) => runTask(item)));
+    results.push(...settled);
+  }
+  return results;
+}
+
+async function runTasksInBatchesSettled(items, batchSize, runTask) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const settled = await Promise.allSettled(batch.map((item) => runTask(item)));
     results.push(...settled);
   }
   return results;
@@ -3923,8 +3935,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!accessible.length) {
         throw new Error(i18n.failedToLoadDashboard);
       }
-      const settled = await Promise.allSettled(
-        accessible.map((c) => {
+      const settled = await runTasksInBatchesSettled(
+        accessible,
+        MERGE_DASHBOARD_PARALLEL_BATCH,
+        (c) => {
           const cid = parseInt(c.id, 10);
           const viewGroup = resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup);
           return fetchDashboardPayload(
@@ -3936,7 +3950,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             useActiveScopeAbort,
             { earningsOnly }
           ).then((data) => ({ company: c, data, viewGroup }));
-        })
+        }
       );
       const pairs = settled
         .filter((entry) => entry.status === "fulfilled" && entry.value?.data)
@@ -4012,15 +4026,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const enrichGroupAllMergedDashboard = useCallback(
     async (merged, rangeFrom, rangeTo, currencyOverride, groupKey, useActiveScopeAbort = true) => {
       if (!merged || !groupKey) return merged;
-      const ledger = await fetchGroupDashboardPayload(
-        rangeFrom,
-        rangeTo,
-        currencyOverride,
-        groupKey,
-        useActiveScopeAbort,
-        { earningsOnly: true }
-      );
-      return attachGroupAggregateEarningsFields(merged, ledger);
+      try {
+        const ledger = await fetchGroupDashboardPayload(
+          rangeFrom,
+          rangeTo,
+          currencyOverride,
+          groupKey,
+          useActiveScopeAbort,
+          { earningsOnly: true }
+        );
+        return attachGroupAggregateEarningsFields(merged, ledger);
+      } catch {
+        return merged;
+      }
     },
     [fetchGroupDashboardPayload]
   );
@@ -5045,6 +5063,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       setMultiCurrencyKpiPrev(null);
       return;
     }
+    if (groupAllMode && !companies.length) {
+      setLoading(true);
+      return;
+    }
     const cacheKey = dashboardScopeKey;
     const structuralKey = dashboardStructuralScopeKey;
     if (dashboardStaleRetryRef.current.scopeKey !== cacheKey) {
@@ -5516,6 +5538,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     loadDashboardChartDaily,
     ensureDeferredDashboardLoads,
     upgradeActiveScopeEarnings,
+    companies.length,
   ]);
 
   const loadDashboardTriggerKey = useMemo(
@@ -5530,6 +5553,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         groupAllMode ? "1" : "0",
         mergedSubsetIds?.join(",") ?? "",
         showAllCurrencies && canShowAllCurrencies ? "1" : "0",
+        groupAllMode ? companiesSig : "",
       ].join("|"),
     [
       dashboardScopeKey,
@@ -5542,6 +5566,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       mergedSubsetIds,
       showAllCurrencies,
       canShowAllCurrencies,
+      companiesSig,
     ]
   );
 
@@ -6043,7 +6068,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   );
 
   const chartRows = useMemo(() => {
-    if (!dashboardData) return [];
+    if (!dashboardData) {
+      if (dateFrom && dateTo) {
+        return buildSkeletonChartRows(dateFrom, dateTo, i18n.locale);
+      }
+      return [];
+    }
     const rows = buildChartRows(
       dashboardData,
       dateFrom,
@@ -6376,8 +6406,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const scopeDataPending =
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
   const chartDataStable = useMemo(
-    () => !scopeDataPending && Boolean(dashboardData),
-    [scopeDataPending, dashboardData]
+    () => !scopeDataPending && (!loading || Boolean(dashboardData)),
+    [scopeDataPending, dashboardData, loading]
   );
   const companyBreakdownPanelActive =
     showProfitChartTab &&
