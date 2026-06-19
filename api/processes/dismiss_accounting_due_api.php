@@ -387,6 +387,12 @@ try {
             }
         }
         $permanentResendDismiss = isPermanentAccountingDueDismiss($origPeriodType, $periodType);
+        if (!$permanentResendDismiss && $anchorYmd !== null) {
+            bmp_ensureBankProcessAccountingResendOpenAnchorsColumn($pdo);
+            if (bmp_resendOpenAnchorAlreadyExists($pdo, $processId, $companyId, $anchorYmd)) {
+                $permanentResendDismiss = true;
+            }
+        }
 
         if (!$permanentResendDismiss) {
             $softDismissPt = accountingDueDismissPeriodTypeForSoftDismiss($origPeriodType, $periodType);
