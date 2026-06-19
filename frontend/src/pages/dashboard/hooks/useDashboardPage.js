@@ -1243,6 +1243,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             groupAllMode: true,
           });
         }
+        primeDashboardFromCacheRef.current?.({
+          companyId:
+            persistedRefresh.groupOnly || persistedRefresh.groupAllMode
+              ? null
+              : persistedRefresh.companyId,
+          selectedGroup: persistedRefresh.groupsAllMode
+            ? null
+            : persistedRefresh.selectedGroup,
+          groupsAllMode: persistedRefresh.groupsAllMode,
+          groupAllMode: persistedRefresh.groupAllMode,
+          mergedSubsetIds: null,
+        });
         window.setTimeout(() => {
           void scheduleLoadCurrenciesRef.current?.(true);
         }, 0);
@@ -1554,8 +1566,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useLayoutEffect(() => {
     if (!sessionReady || !me || !bootstrapSessionKey) return undefined;
     bindDashboardSessionCache(bootstrapSessionKey);
-    if (isDashboardSessionBootstrapped(bootstrapSessionKey) && !bootstrapGcOnceRef.current) {
-      bootstrapGcOnceRef.current = true;
+    if (isDashboardSessionBootstrapped(bootstrapSessionKey)) {
       setGcBootstrapReady(true);
     }
     return undefined;
@@ -2799,10 +2810,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   /** Dashboard KPI can load before currency pills settle — retry after merge data is ready. */
   useEffect(() => {
-    if (!gcBootstrapReady || !sessionReady || !meRef.current || !dashboardData) return;
+    if (!gcBootstrapReady || !sessionReady || !meRef.current) return;
     if (companyId != null) return;
     if (!groupAllMode && !(groupsAllMode && !groupAllMode)) return;
     if (currencies.length > 1) return;
+    primeCurrenciesFromCache({
+      companyId: null,
+      selectedGroup: groupsAllMode ? null : selectedGroup,
+      groupsAllMode,
+      groupAllMode,
+    });
     void scheduleLoadCurrenciesRef.current?.(true);
   }, [
     gcBootstrapReady,
@@ -2811,9 +2828,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     groupAllMode,
     groupsAllMode,
     companyId,
+    selectedGroup,
     companiesSig,
     currencies.length,
     me?.user_id,
+    primeCurrenciesFromCache,
   ]);
 
   useEffect(() => {
