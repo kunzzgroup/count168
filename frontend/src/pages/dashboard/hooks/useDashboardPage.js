@@ -6282,11 +6282,27 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [companyBreakdownRows]
   );
 
+  const companyEarningsTotal = useMemo(
+    () => sumCompanyBreakdownAmount(companyBreakdownRows, "earnings"),
+    [companyBreakdownRows]
+  );
+
+  const showEarningsCompanyTab = kpi.showEarnings;
+
   useEffect(() => {
-    if (!showProfitChartTab && earningsPanelView === "netProfit") {
+    if (
+      !showProfitChartTab &&
+      (earningsPanelView === "netProfit" || earningsPanelView === "earning")
+    ) {
       setEarningsPanelView("currency");
     }
   }, [showProfitChartTab, earningsPanelView]);
+
+  useEffect(() => {
+    if (!showEarningsCompanyTab && earningsPanelView === "earning") {
+      setEarningsPanelView("currency");
+    }
+  }, [showEarningsCompanyTab, earningsPanelView]);
 
   const exchangeRateScopeKey = useMemo(
     () =>
@@ -6309,8 +6325,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       !dashboardPayloadNeedsChartDaily(dashboardData),
     [scopeDataPending, dashboardData, chartRows.length]
   );
-  const companyNetProfitPanelActive =
-    showProfitChartTab && earningsPanelView === "netProfit";
+  const companyBreakdownPanelActive =
+    showProfitChartTab &&
+    (earningsPanelView === "netProfit" || earningsPanelView === "earning");
   const summaryScopeLoading = scopeDataPending || (loading && !dashboardData);
   const summaryCurrencyPanelLoading =
     summaryScopeLoading ||
@@ -6319,10 +6336,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         earningsByCurrencyLoading ||
         !allCurrencyEarningsReady ||
         (useConvertedEarnings && convertedEarningsTotal == null)));
-  const summaryEarningsLoading = companyNetProfitPanelActive
+  const summaryEarningsLoading = companyBreakdownPanelActive
     ? summaryScopeLoading
     : summaryCurrencyPanelLoading;
-  const earningsPanelStable = companyNetProfitPanelActive
+  const earningsPanelStable = companyBreakdownPanelActive
     ? !summaryScopeLoading && companyBreakdownRows.length > 0
     : currencies.length <= 1 ||
       (allCurrencyEarningsReady && !earningsByCurrencyLoading && !exchangeRatesLoading);
@@ -7163,10 +7180,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     exchangeRateScopeKey,
     convertedEarningsTotal,
     showProfitChartTab,
+    showEarningsCompanyTab,
     earningsPanelView,
     setEarningsPanelView,
     companyBreakdownRows,
     companyNetProfitTotal,
+    companyEarningsTotal,
     handlePickGroup,
     handlePickAllGroups,
     handlePickCompany,

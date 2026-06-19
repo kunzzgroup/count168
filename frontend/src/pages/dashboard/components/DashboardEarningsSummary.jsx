@@ -41,14 +41,17 @@ export function DashboardEarningsSummary({
   exchangeRatesLoading,
   exchangeRateScopeKey = "",
   showProfitChartTab = false,
+  showEarningsCompanyTab = false,
   earningsPanelView = "currency",
   onEarningsPanelViewChange,
   companyBreakdownRows = [],
   companyNetProfitTotal = 0,
+  companyEarningsTotal = 0,
 }) {
   const isNetProfitCompanyView = showProfitChartTab && earningsPanelView === "netProfit";
-  const isCompanyBreakdownView = isNetProfitCompanyView;
-  const companyBreakdownView = "netProfit";
+  const isCompanyEarningView = showProfitChartTab && earningsPanelView === "earning";
+  const isCompanyBreakdownView = isNetProfitCompanyView || isCompanyEarningView;
+  const companyBreakdownView = isCompanyEarningView ? "earnings" : "netProfit";
   const pieAreaRef = useRef(null);
   const pieShellRef = useRef(null);
   const [pieShellLayout, setPieShellLayout] = useState({
@@ -280,8 +283,14 @@ export function DashboardEarningsSummary({
   const isCompactTable = !showMultiCurrencyBreakdown;
   const heroLabel = isNetProfitCompanyView
     ? i18n.netProfitCompanyCaption
-    : summaryPanelLabel || i18n.earnings;
-  const heroValue = isNetProfitCompanyView ? companyNetProfitTotal : summaryEarningsValue;
+    : isCompanyEarningView
+      ? i18n.earningsCompanyCaption
+      : summaryPanelLabel || i18n.earnings;
+  const heroValue = isNetProfitCompanyView
+    ? companyNetProfitTotal
+    : isCompanyEarningView
+      ? companyEarningsTotal
+      : summaryEarningsValue;
   const showPieCenterBadge = isCompanyBreakdownView
     ? companyBreakdownRows.length > 0
     : earningsPieSlices.length > 0;
@@ -306,7 +315,13 @@ export function DashboardEarningsSummary({
   );
 
   const summaryViewTabs = showProfitChartTab ? (
-    <div className="dashboard-summary-view-tabs" role="tablist" aria-label={i18n.statistics}>
+    <div
+      className={`dashboard-summary-view-tabs${
+        showEarningsCompanyTab ? " is-three-tabs" : ""
+      }`}
+      role="tablist"
+      aria-label={i18n.statistics}
+    >
       <button
         type="button"
         role="tab"
@@ -329,6 +344,19 @@ export function DashboardEarningsSummary({
       >
         {i18n.netProfitChartTab}
       </button>
+      {showEarningsCompanyTab && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={earningsPanelView === "earning"}
+          className={`dashboard-summary-view-tab${
+            earningsPanelView === "earning" ? " is-active" : ""
+          }`}
+          onClick={() => onEarningsPanelViewChange?.("earning")}
+        >
+          {i18n.earningChartTab}
+        </button>
+      )}
     </div>
   ) : null;
 
@@ -336,7 +364,9 @@ export function DashboardEarningsSummary({
     <div
       className={`dashboard-panel-card dashboard-panel-card--summary${
         showProfitChartTab ? " dashboard-panel-card--summary-has-tabs" : ""
-      }${isStackedLayout ? " dashboard-panel-card--summary-compact" : ""}`}
+      }${showEarningsCompanyTab ? " dashboard-panel-card--summary-has-earning-tab" : ""}${
+        isStackedLayout ? " dashboard-panel-card--summary-compact" : ""
+      }`}
     >
       <div
         className={`dashboard-summary-layout${

@@ -1250,6 +1250,11 @@ body.dashboard-page.transaction-page .dashboard-filter-panel .user-gc-inline-pan
     color: #334155;
 }
 
+.dashboard-summary-view-tabs.is-three-tabs .dashboard-summary-view-tab {
+    padding: 6px 10px;
+    font-size: clamp(10px, 0.72vw, 11px);
+}
+
 .dashboard-summary-currency-list.is-company-profit .dashboard-summary-currency-list-head,
 .dashboard-summary-currency-list.is-company-profit .dashboard-summary-currency-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3234,6 +3239,14 @@ body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-sum
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-summary-view-tab {
     padding: 4px 10px;
     font-size: clamp(10px, 0.72vw, 11px);
+}
+
+body.dashboard-home-page
+    .dashboard-panels-row--with-summary-tabs
+    .dashboard-summary-view-tabs.is-three-tabs
+    .dashboard-summary-view-tab {
+    padding: 4px 8px;
+    font-size: clamp(9px, 0.68vw, 10px);
 }
 
 body.dashboard-home-page .dashboard-panels-row--with-summary-tabs .dashboard-panel-card--summary {
