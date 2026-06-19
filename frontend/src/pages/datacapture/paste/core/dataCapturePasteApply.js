@@ -15,9 +15,47 @@ import {
   recomputeSubmitStateAfterPaste,
 } from "../../lib/dataCaptureBridge.js";
 import { getDataCaptureState } from "../../lib/dataCaptureRuntime.js";
+import { alignTotalRowsInMatrix, alignTotalRowArray } from "./dataCaptureTotalRowAlign.js";
+import { setCell } from "../../grid/gridModel.js";
 
 export function parseGenericHtmlTable(htmlString, startCell) {
   return parseAndFillHTMLTable(htmlString, startCell);
+}
+
+function alignTotalRowsInGrid(grid, startRow = 0, rowCount = null) {
+  if (!grid?.cells?.length) return grid;
+
+  const endRow = rowCount != null ? Math.min(grid.rows, startRow + rowCount) : grid.rows;
+  let next = grid;
+  let changed = false;
+
+  for (let r = startRow; r < endRow; r += 1) {
+    const row = grid.cells[r];
+    if (!row?.length) continue;
+
+    const values = row.map((cell) => String(cell?.value ?? ""));
+    const alignedValues = alignTotalRowArray(values);
+    if (alignedValues === values) continue;
+
+    for (let c = 0; c < grid.cols; c += 1) {
+      const value = alignedValues[c] ?? "";
+      const prev = row[c];
+      if (String(prev?.value ?? "") === value) continue;
+      next = setCell(next, r, c, {
+        value,
+        html: undefined,
+        ...(prev?.style ? { style: prev.style } : {}),
+        ...(prev?.className ? { className: prev.className } : {}),
+      });
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    console.log("Grid model: aligned TOTAL row columns to match PHP.");
+  }
+
+  return next;
 }
 
 function pasteGridCaps() {
@@ -245,11 +283,12 @@ export function applyDataMatrixToGrid(dataMatrix, anchorCell, options = {}) {
 }
 
 function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
-  const { startColOverride = null, startRowOverride = null } = options;
+  const { startColOverride = null, startRowOverride = null, alignTotalRows = true } = options;
 
   if (!dataMatrix?.length) return { successCount: 0, changes: [] };
 
-  const maxCols = Math.max(...dataMatrix.map((row) => row.length));
+  const sourceMatrix = alignTotalRows ? alignTotalRowsInMatrix(dataMatrix) : dataMatrix;
+  const maxCols = Math.max(...sourceMatrix.map((row) => row.length));
   const { startRow: anchorRow, startCol: anchorCol } = resolvePasteAnchor(anchorCell);
   const startRow = startRowOverride != null ? startRowOverride : anchorRow;
   const startCol = startColOverride != null ? startColOverride : anchorCol;
@@ -257,7 +296,7 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
   const grid = ensureGridFits(startRow, startCol, dataMatrix.length, maxCols) || getPasteGridModel();
   if (!grid) return { successCount: 0, changes: [] };
 
-  const matrixForPatch = dataMatrix.map((rowData, rowIndex) =>
+  const matrixForPatch = sourceMatrix.map((rowData, rowIndex) =>
     rowData.map((cellData, colIndex) =>
       resolvePasteCellPatch(cellData, rowIndex, colIndex, options),
     ),
@@ -273,13 +312,16 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
     });
   });
 
-  const updatedGrid = applyMatrixPatch(grid, startRow, startCol, matrixForPatch);
+  let updatedGrid = applyMatrixPatch(grid, startRow, startCol, matrixForPatch);
+  if (alignTotalRows) {
+    updatedGrid = alignTotalRowsInGrid(updatedGrid, startRow, sourceMatrix.length);
+  }
   replacePasteGridModel(updatedGrid);
   recordPasteHistory(changes);
   recomputeSubmitStateAfterPaste();
 
   const successCount = changes.filter((c) => String(c.newValue || "").trim() !== "").length;
-  return { successCount, changes, maxRows: dataMatrix.length, maxCols };
+  return { successCount, changes, maxRows: sourceMatrix.length, maxCols };
 }
 
 export function notifyPasteSuccess(message, level = "success") {

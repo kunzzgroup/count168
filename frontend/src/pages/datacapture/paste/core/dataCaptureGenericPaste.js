@@ -2282,6 +2282,12 @@ export function handleGenericPaste(e, pastedData) {
             const row = dataMatrix[rowIndex];
             if (!row || row.length === 0) continue;
 
+            const rowUpper = row.map((cell) => String(cell ?? '').trim().toUpperCase());
+            if (rowUpper.some((cell) => cell === 'TOTAL' || cell === 'SUB TOTAL' || cell === 'GRAND TOTAL')) {
+                console.log(`  Row ${rowIndex + 1}: TOTAL row, skipping identifier shift`);
+                continue;
+            }
+
             const firstColValue = (row[0] || '').trim();
             const isEmpty = firstColValue === '';
             const isFirstColIdentifier = isIdentifier(firstColValue);
