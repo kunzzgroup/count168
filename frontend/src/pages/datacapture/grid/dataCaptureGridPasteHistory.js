@@ -84,11 +84,16 @@ export function resetPasteUndoCheckpoints(grid) {
   }
 }
 
-/** Record grid state after a successful paste (and optional convert). */
+/** Record grid state after a successful mutation (paste, delete, clear, shift, …). */
 export function commitPasteGridCheckpoint(grid = getLiveGridModel()) {
   const snapshot = cloneGrid(grid);
   if (!snapshot) return;
   pushCheckpointSnapshot(snapshot);
+}
+
+/** @alias commitPasteGridCheckpoint */
+export function commitGridUndoCheckpoint(grid = getLiveGridModel()) {
+  commitPasteGridCheckpoint(grid);
 }
 
 export function pushPasteHistory(entry) {
@@ -184,13 +189,13 @@ export function undoLastPaste() {
   pasteFinalizeGeneration += 1;
 
   if (checkpointCursor <= 0) {
-    notifyUndoUser("No paste operation to undo", "danger");
+    notifyUndoUser("没有可撤销的操作", "danger");
     return;
   }
 
   const current = getLiveGridModel();
   if (!current) {
-    notifyUndoUser("No paste operation to undo", "danger");
+    notifyUndoUser("没有可撤销的操作", "danger");
     return;
   }
 
@@ -202,13 +207,13 @@ export function undoLastPaste() {
     replaceLiveGridModel(next);
     clearLiveSelections();
     recomputeLiveSubmitState();
-    notifyUndoUser(`Undo completed: ${undoCount} cells restored`, "success");
+    notifyUndoUser(`撤销完成：已恢复 ${undoCount} 个单元格`, "success");
     return;
   }
 
   if (!isGridSnapshotEntry(target)) {
     checkpointCursor += 1;
-    notifyUndoUser("No paste operation to undo", "danger");
+    notifyUndoUser("没有可撤销的操作", "danger");
     return;
   }
 
@@ -219,8 +224,8 @@ export function undoLastPaste() {
   const remaining = checkpointCursor;
   notifyUndoUser(
     remaining > 0
-      ? `Undo completed (${remaining} more paste step${remaining === 1 ? "" : "s"} can be undone)`
-      : "Undo completed: restored initial table state",
+      ? `撤销完成（还可撤销 ${remaining} 步）`
+      : "撤销完成：已恢复初始空白表格",
     "success",
   );
 }

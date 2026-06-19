@@ -20,7 +20,7 @@ import {
   clearAllSelections,
   getSelectedCellPositions,
 } from "../grid/dataCaptureGridSelection.js";
-import { undoLastPaste as undoPasteFromHistory } from "../grid/dataCaptureGridPasteHistory.js";
+import { undoLastPaste as undoPasteFromHistory, commitGridUndoCheckpoint } from "../grid/dataCaptureGridPasteHistory.js";
 import {
   appendColumnInGrid,
   appendRowInGrid,
@@ -135,6 +135,11 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
     const resolveSelectionBounds = (selectionOverride = null) =>
       resolveSelectionBoundsFromOverride(selectionOverride, getGrid());
 
+    const applyGridChange = (nextGrid) => {
+      apiRef.current.replaceGrid(nextGrid);
+      commitGridUndoCheckpoint(nextGrid);
+    };
+
     const insertColumnLeft = () => {
       if (isGroupOnlyFixedColumns()) return;
       const col = getContextMenuColumnIndex();
@@ -174,7 +179,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
         hideContextMenu();
         return;
       }
-      apiRef.current.replaceGrid(deleteColumnsInGrid(grid, indices));
+      applyGridChange(deleteColumnsInGrid(grid, indices));
       hideContextMenu();
       clearAllSelections();
       recomputeSubmitState();
@@ -185,7 +190,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       if (!grid) return;
       const indices = getSelectedColumnIndices();
       if (!indices.length) return;
-      apiRef.current.replaceGrid(clearColumnsInGrid(grid, indices));
+      applyGridChange(clearColumnsInGrid(grid, indices));
       hideContextMenu();
       recomputeSubmitState();
     };
@@ -236,7 +241,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
         hideContextMenu();
         return;
       }
-      apiRef.current.replaceGrid(deleteRowsInGrid(grid, indices));
+      applyGridChange(deleteRowsInGrid(grid, indices));
       hideContextMenu();
       clearAllSelections();
       recomputeSubmitState();
@@ -247,7 +252,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       if (!grid) return;
       const indices = getSelectedRowIndices();
       if (!indices.length) return;
-      apiRef.current.replaceGrid(clearRowsInGrid(grid, indices));
+      applyGridChange(clearRowsInGrid(grid, indices));
       hideContextMenu();
       recomputeSubmitState();
     };
@@ -269,7 +274,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       if (colIndices.length) {
         nextGrid = clearColumnsInGrid(nextGrid, colIndices);
       }
-      apiRef.current.replaceGrid(nextGrid);
+      applyGridChange(nextGrid);
       hideContextMenu();
       clearAllSelections();
       recomputeSubmitState();
@@ -330,7 +335,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
         );
       }
 
-      apiRef.current.replaceGrid(nextGrid);
+      applyGridChange(nextGrid);
       hideContextMenu();
       recomputeSubmitState();
     };
@@ -343,7 +348,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
         pushDataCaptureNotification("Select cells to delete", "danger");
         return;
       }
-      apiRef.current.replaceGrid(
+      applyGridChange(
         shiftCellsLeftInGrid(grid, bounds.minRow, bounds.maxRow, bounds.minCol, bounds.maxCol),
       );
       hideContextMenu();
@@ -359,7 +364,7 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
         pushDataCaptureNotification("Select cells to delete", "danger");
         return;
       }
-      apiRef.current.replaceGrid(
+      applyGridChange(
         shiftCellsUpInGrid(grid, bounds.minRow, bounds.maxRow, bounds.minCol, bounds.maxCol),
       );
       hideContextMenu();
