@@ -3,7 +3,14 @@ import {
   MAX_GRID_COLS,
   MAX_GRID_ROWS,
 } from "../../grid/dataCaptureGridMeta.js";
-import { applyMatrixPatch, findLastFilledGridRowIndex, gridRowHasEditableData, resizeGrid } from "../../grid/gridModel.js";
+import {
+  applyMatrixPatch,
+  cloneGrid,
+  findLastFilledGridRowIndex,
+  gridRowHasEditableData,
+  resizeGrid,
+  setCell,
+} from "../../grid/gridModel.js";
 import { parseAndFillHTMLTable } from "./dataCaptureParseGenericHtml.js";
 import {
   ensurePasteTableInitialized,
@@ -16,7 +23,6 @@ import {
 } from "../../lib/dataCaptureBridge.js";
 import { getDataCaptureState } from "../../lib/dataCaptureRuntime.js";
 import { alignTotalRowsInMatrix, alignTotalRowArray } from "./dataCaptureTotalRowAlign.js";
-import { setCell } from "../../grid/gridModel.js";
 
 export function parseGenericHtmlTable(htmlString, startCell) {
   return parseAndFillHTMLTable(htmlString, startCell);
@@ -293,8 +299,11 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
   const startRow = startRowOverride != null ? startRowOverride : anchorRow;
   const startCol = startColOverride != null ? startColOverride : anchorCol;
 
-  const grid = ensureGridFits(startRow, startCol, dataMatrix.length, maxCols) || getPasteGridModel();
-  if (!grid) return { successCount: 0, changes: [] };
+  const gridBefore = getPasteGridModel();
+  if (!gridBefore) return { successCount: 0, changes: [] };
+
+  const pasteSnapshot = cloneGrid(gridBefore);
+  const grid = ensureGridFits(startRow, startCol, sourceMatrix.length, maxCols) || gridBefore;
 
   const matrixForPatch = sourceMatrix.map((rowData, rowIndex) =>
     rowData.map((cellData, colIndex) =>
@@ -307,8 +316,19 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
     rowData.forEach((patch, colIndex) => {
       const r = startRow + rowIndex;
       const c = startCol + colIndex;
-      const oldValue = grid.cells[r]?.[c]?.value ?? "";
-      changes.push({ row: r, col: c, oldValue, newValue: patch.value ?? "" });
+      const oldCell = grid.cells[r]?.[c] ?? {};
+      changes.push({
+        row: r,
+        col: c,
+        oldValue: oldCell.value ?? "",
+        newValue: patch.value ?? "",
+        oldHtml: oldCell.html,
+        oldStyle: oldCell.style,
+        oldStyleCssText: oldCell.styleCssText,
+        oldClassName: oldCell.className,
+        oldColspan: oldCell.colspan,
+        oldHidden: oldCell.hidden,
+      });
     });
   });
 
@@ -317,7 +337,9 @@ function applyDataMatrixToGridModel(dataMatrix, anchorCell, options = {}) {
     updatedGrid = alignTotalRowsInGrid(updatedGrid, startRow, sourceMatrix.length);
   }
   replacePasteGridModel(updatedGrid);
-  recordPasteHistory(changes);
+  if (pasteSnapshot) {
+    recordPasteHistory({ type: "grid", snapshot: pasteSnapshot });
+  }
   recomputeSubmitStateAfterPaste();
 
   const successCount = changes.filter((c) => String(c.newValue || "").trim() !== "").length;

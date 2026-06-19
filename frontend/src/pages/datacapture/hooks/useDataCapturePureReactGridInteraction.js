@@ -18,7 +18,6 @@ import {
 } from "../grid/dataCaptureGridMouseSelection.js";
 import {
   clearAllSelections,
-  getSelectedCellBounds,
   getSelectedCellPositions,
 } from "../grid/dataCaptureGridSelection.js";
 import { undoLastPaste as undoPasteFromHistory } from "../grid/dataCaptureGridPasteHistory.js";
@@ -35,6 +34,11 @@ import {
   shiftCellsLeftInGrid,
   shiftCellsUpInGrid,
 } from "../grid/gridRowColumnModel.js";
+import {
+  getSelectedColumnIndicesFromDom,
+  getSelectedRowIndicesFromDom,
+  resolveDeleteSelectionBounds,
+} from "../grid/dataCaptureDeleteSelection.js";
 import {
   getContextMenuColumnIndex,
   getContextMenuRowIndex,
@@ -78,8 +82,10 @@ function recomputeSubmitState() {
 }
 
 function handleDocumentGridOutsideClick(e) {
-  const dataTable = document.getElementById("dataTable");
   const clickedElement = e.target;
+  if (clickedElement?.closest?.("#deleteDialog")) return;
+
+  const dataTable = document.getElementById("dataTable");
 
   if (dataTable && !dataTable.contains(clickedElement)) {
     const activeElement = document.activeElement;
@@ -103,29 +109,16 @@ function handleDocumentGridOutsideClick(e) {
 }
 
 function getSelectedColumnIndices() {
-  const bounds = getSelectedCellBounds();
-  if (bounds?.colIndices?.length) return bounds.colIndices;
-
-  const headerRow = document.querySelector("#tableHeader tr");
-  if (!headerRow) return [];
-  const selected = Array.from(headerRow.querySelectorAll("th.column-selected"));
-  if (selected.length) {
-    return selected.map((h) => getColumnIndexFromHeader(h)).filter((i) => i >= 0);
-  }
-  const col = getContextMenuColumnIndex();
-  return col !== null && col >= 0 ? [col] : [];
+  return getSelectedColumnIndicesFromDom();
 }
 
 function getSelectedRowIndices() {
-  const bounds = getSelectedCellBounds();
-  if (bounds?.rowIndices?.length) return bounds.rowIndices;
+  return getSelectedRowIndicesFromDom();
+}
 
-  const selectedHeaders = Array.from(document.querySelectorAll(".row-header.row-selected"));
-  if (selectedHeaders.length) {
-    return selectedHeaders.map((h) => getRowIndexFromHeader(h)).filter((i) => i >= 0);
-  }
-  const row = getContextMenuRowIndex();
-  return row !== null && row >= 0 ? [row] : [];
+function resolveSelectionBoundsFromOverride(selectionOverride, grid) {
+  if (selectionOverride) return selectionOverride;
+  return resolveDeleteSelectionBounds(grid);
 }
 
 /**
@@ -139,47 +132,8 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
   useLayoutEffect(() => {
     const getGrid = () => apiRef.current.gridRef.current;
 
-    const resolveSelectionBounds = () => {
-      const bounds = getSelectedCellBounds();
-      if (bounds) return bounds;
-
-      const rowIndices = getSelectedRowIndices();
-      const colIndices = getSelectedColumnIndices();
-      const grid = getGrid();
-      if (rowIndices.length && colIndices.length) {
-        return {
-          minRow: Math.min(...rowIndices),
-          maxRow: Math.max(...rowIndices),
-          minCol: Math.min(...colIndices),
-          maxCol: Math.max(...colIndices),
-          rowIndices,
-          colIndices,
-        };
-      }
-      if (rowIndices.length) {
-        const maxCol = Math.max(0, (grid?.cols ?? 1) - 1);
-        return {
-          minRow: Math.min(...rowIndices),
-          maxRow: Math.max(...rowIndices),
-          minCol: 0,
-          maxCol,
-          rowIndices,
-          colIndices: [],
-        };
-      }
-      if (colIndices.length) {
-        const maxRow = Math.max(0, (grid?.rows ?? 1) - 1);
-        return {
-          minRow: 0,
-          maxRow,
-          minCol: Math.min(...colIndices),
-          maxCol: Math.max(...colIndices),
-          rowIndices: [],
-          colIndices,
-        };
-      }
-      return null;
-    };
+    const resolveSelectionBounds = (selectionOverride = null) =>
+      resolveSelectionBoundsFromOverride(selectionOverride, getGrid());
 
     const insertColumnLeft = () => {
       if (isGroupOnlyFixedColumns()) return;
@@ -203,12 +157,18 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       recomputeSubmitState();
     };
 
-    const deleteColumn = () => {
+    const deleteColumn = (selectionOverride = null) => {
       if (isGroupOnlyFixedColumns()) return;
       const grid = getGrid();
       if (!grid) return;
-      const indices = getSelectedColumnIndices();
-      if (!indices.length) return;
+      const bounds = resolveSelectionBounds(selectionOverride);
+      const indices = bounds?.colIndices?.length
+        ? bounds.colIndices
+        : getSelectedColumnIndices();
+      if (!indices.length) {
+        pushDataCaptureNotification("Select a column to delete", "danger");
+        return;
+      }
       if (grid.cols - indices.length < 1) {
         pushDataCaptureNotification("Cannot delete the last column", "danger");
         hideContextMenu();
@@ -260,11 +220,17 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       recomputeSubmitState();
     };
 
-    const deleteRow = () => {
+    const deleteRow = (selectionOverride = null) => {
       const grid = getGrid();
       if (!grid) return;
-      const indices = getSelectedRowIndices();
-      if (!indices.length) return;
+      const bounds = resolveSelectionBounds(selectionOverride);
+      const indices = bounds?.rowIndices?.length
+        ? bounds.rowIndices
+        : getSelectedRowIndices();
+      if (!indices.length) {
+        pushDataCaptureNotification("Select a row to delete", "danger");
+        return;
+      }
       if (grid.rows - indices.length < 1) {
         pushDataCaptureNotification("Cannot delete the last row", "danger");
         hideContextMenu();
@@ -369,10 +335,10 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       recomputeSubmitState();
     };
 
-    const shiftSelectedCellsLeft = () => {
+    const shiftSelectedCellsLeft = (selectionOverride = null) => {
       const grid = getGrid();
       if (!grid) return;
-      const bounds = resolveSelectionBounds();
+      const bounds = resolveSelectionBounds(selectionOverride);
       if (!bounds) {
         pushDataCaptureNotification("Select cells to delete", "danger");
         return;
@@ -385,10 +351,10 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       recomputeSubmitState();
     };
 
-    const shiftSelectedCellsUp = () => {
+    const shiftSelectedCellsUp = (selectionOverride = null) => {
       const grid = getGrid();
       if (!grid) return;
-      const bounds = resolveSelectionBounds();
+      const bounds = resolveSelectionBounds(selectionOverride);
       if (!bounds) {
         pushDataCaptureNotification("Select cells to delete", "danger");
         return;
