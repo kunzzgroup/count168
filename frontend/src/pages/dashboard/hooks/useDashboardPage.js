@@ -1935,6 +1935,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     const singleCid = companyId != null ? parseInt(companyId, 10) : null;
     const groupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : null;
 
+    if (!meRef.current) return;
+
     const companySubsidiaryScopeIdle =
       companyLoginRequiresSubsidiaryWithGroup(me) &&
       !groupsAllMode &&
@@ -2078,6 +2080,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         .filter((id) => Number.isFinite(id) && id > 0);
 
       if (!mergeCompanyIds.length) {
+        if (!companies.length) return;
         commitCurrencyList([]);
         return;
       }
@@ -2453,8 +2456,36 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   loadCurrenciesRef.current = loadCurrencies;
 
   useLayoutEffect(() => {
+    if (!sessionReady || !meRef.current) return;
     void loadCurrenciesRef.current?.();
-  }, [buildScopeCurrencyKey, groupIds.length, companies.length]);
+  }, [
+    buildScopeCurrencyKey,
+    groupIds.length,
+    companies.length,
+    sessionReady,
+    gcBootstrapReady,
+    me?.user_id,
+    me?.id,
+  ]);
+
+  useEffect(() => {
+    if (!gcBootstrapReady || !sessionReady || !meRef.current) return;
+    if (!groupsAllMode || !groupAllMode || companyId != null) return;
+    primeCurrenciesFromCache({
+      companyId: null,
+      selectedGroup: null,
+      groupsAllMode: true,
+      groupAllMode: true,
+    });
+    void loadCurrenciesRef.current?.();
+  }, [
+    gcBootstrapReady,
+    sessionReady,
+    groupsAllMode,
+    groupAllMode,
+    companyId,
+    primeCurrenciesFromCache,
+  ]);
 
   useEffect(() => {
     currencyPrefetchFailedRef.current.clear();
@@ -5569,6 +5600,12 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   useLayoutEffect(() => {
     if (!sessionReady || !me) return undefined;
     const persisted = readPersistedDashboardGcFilter();
+    primeCurrenciesFromCache({
+      companyId: persisted.groupOnly || persisted.groupAllMode ? null : persisted.companyId,
+      selectedGroup: persisted.groupsAllMode ? null : persisted.selectedGroup,
+      groupsAllMode: persisted.groupsAllMode,
+      groupAllMode: persisted.groupAllMode,
+    });
     primeDashboardFromCacheRef.current({
       companyId: persisted.groupOnly || persisted.groupAllMode ? null : persisted.companyId,
       selectedGroup: persisted.groupsAllMode ? null : persisted.selectedGroup,
@@ -5576,8 +5613,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       groupAllMode: persisted.groupAllMode,
       mergedSubsetIds: null,
     });
+    void loadCurrenciesRef.current?.();
     return undefined;
-  }, [sessionReady, me?.user_id, me?.id]);
+  }, [sessionReady, me?.user_id, me?.id, primeCurrenciesFromCache]);
 
   /** On scope change after bootstrap, hydrate from cache before network. */
   useEffect(() => {
