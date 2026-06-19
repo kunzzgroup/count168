@@ -650,8 +650,12 @@ const PREFETCH_WAIT_MAX_ROUNDS = 40;
 const COMPANY_SWITCH_PREFETCH_DELAY_MS = 3000;
 /** Coalesce rapid filter switches into one currency reload. */
 const LOAD_CURRENCIES_COALESCE_MS = 32;
+/** Defer session sync so dashboard fetch gets connection priority on company pick. */
+const COMPANY_SESSION_DEFER_MS = 500;
+/** Defer group-all currency refresh while dashboard merge is in flight. */
+const CURRENCY_REFRESH_DEFER_MS = 600;
 /** Parallel company dashboard fetches when merging Group/Company "All". */
-const MERGE_DASHBOARD_PARALLEL_BATCH = 8;
+const MERGE_DASHBOARD_PARALLEL_BATCH = 12;
 /** Idle delay before one-time session warm of picker companies (current currency only). */
 const SESSION_DASHBOARD_WARM_DELAY_MS = 6000;
 /** Parallel kpi bootstrap requests when filling multi-currency earnings sidebar. */
@@ -823,6 +827,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const currencyLoadGenRef = useRef(0);
   const loadCurrenciesRef = useRef(null);
   const loadCurrenciesCoalesceTimerRef = useRef(null);
+  /** Skip redundant currency network reloads for the same filter scope. */
+  const currencyScopeLoadedRef = useRef({ key: "", count: 0 });
   const primeCurrenciesFromCacheRef = useRef(null);
   const skipNextCurrencyClickRef = useRef(false);
   /** After company pill change, next currency resolve picks the first pill (MYR). */
@@ -975,6 +981,11 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const subset =
         overrides.mergedSubsetIds !== undefined ? overrides.mergedSubsetIds : mergedSubsetIds;
       const cur = overrides.currencyCode !== undefined ? overrides.currencyCode : currencyCode;
+      let effectiveCur = cur ? String(cur).trim().toUpperCase() : "";
+      if (!effectiveCur && gaMode && cid == null) {
+        const list = currenciesRef.current.length ? currenciesRef.current : currencies;
+        effectiveCur = list[0] ? String(list[0]).trim().toUpperCase() : "";
+      }
       const from = overrides.dateFrom ?? dateFrom;
       const to = overrides.dateTo ?? dateTo;
       const showAll =
@@ -1014,7 +1025,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         companyId: scopeCompanyKey,
         dateFrom: from,
         dateTo: to,
-        currencyCode: cur,
+        currencyCode: effectiveCur,
         selectedGroup: selGroup,
         groupsAllMode: gAll,
         groupAllMode: gaMode,
@@ -1032,6 +1043,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       dateFrom,
       dateTo,
       currencyCode,
+      currencies,
       showAllCurrencies,
       canShowAllCurrencies,
       conversionBaseCurrency,
@@ -2200,6 +2212,16 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     if (!meRef.current) return;
 
+    if (
+      currencyScopeLoadedRef.current.key === scopeKey &&
+      currencyScopeLoadedRef.current.count > 1 &&
+      currenciesRef.current.length > 1 &&
+      !groupAllMode &&
+      !groupsAllMode
+    ) {
+      return;
+    }
+
     const companySubsidiaryScopeIdle =
       companyLoginRequiresSubsidiaryWithGroup(me) &&
       !groupsAllMode &&
@@ -2262,6 +2284,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           codes: list,
         });
       }
+      currencyScopeLoadedRef.current = { key: scopeKey, count: list.length };
+    };
+
+    const deferGroupAllCurrencyNetworkRefresh = (refreshFn) => {
+      const wait = () => {
+        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
+        if (dashboardFetchInFlightScopeRef.current) {
+          window.setTimeout(wait, 250);
+          return;
+        }
+        void refreshFn();
+      };
+      window.setTimeout(wait, CURRENCY_REFRESH_DEFER_MS);
     };
 
     /** Group "All" aggregate: union group-ledger currencies from every visible group (AP + IG). */
@@ -2468,7 +2503,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       const cachedGroupAllCodes = readCachedGroupAllCurrencyCodes();
       if (cachedGroupAllCodes?.length > 1) {
         commitCurrencyList(cachedGroupAllCodes);
-        void loadGroupAllCurrenciesFromNetwork();
+        deferGroupAllCurrencyNetworkRefresh(loadGroupAllCurrenciesFromNetwork);
       } else {
         await loadGroupAllCurrenciesFromNetwork();
       }
@@ -3634,9 +3669,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           setLoading(true);
           return false;
         }
-        setDisplayScopeKey("");
-        setDashboardData(null);
-        setDashboardDataPrev(null);
         setLoading(true);
         return false;
       }
@@ -7232,7 +7264,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           applyCompanySelection(prevId);
         }
         });
-      }, 80);
+      }, COMPANY_SESSION_DEFER_MS);
     },
     [
       companyId,

@@ -381,7 +381,7 @@ const C168_DOMAIN_PAGE_ROLES = new Set([
 ]);
 
 /** Mirrors c168AutoRenewAllowedRoles */
-const C168_AUTO_RENEW_ROLES = new Set(["owner", "admin"]);
+const C168_AUTO_RENEW_ROLES = new Set(["owner", "admin", "partnership"]);
 
 export function userRoleAllowsC168Domain(role) {
   const r = String(role || "").trim().toLowerCase();
