@@ -1135,6 +1135,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (groupsAllMode && groupAllMode) {
       const groupsAllCodes = currenciesByGroupRef.current.get("GROUPS:ALL");
       if (groupsAllCodes?.length > 1) return groupsAllCodes;
+      const persistedAll = readPersistedGroupsAllCurrencyCodes();
+      if (persistedAll?.length > 1) return persistedAll;
     }
     if (groupAllMode && selectedGroup) {
       const g = String(selectedGroup).trim().toUpperCase();
@@ -1217,6 +1219,21 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         bootstrapGcOnceRef.current = true;
         setGcBootstrapReady(true);
         setLoading(false);
+        if (persistedRefresh.groupsAllMode && persistedRefresh.groupAllMode) {
+          primeCurrenciesFromCacheRef.current?.({
+            companyId: null,
+            selectedGroup: null,
+            groupsAllMode: true,
+            groupAllMode: true,
+          });
+        } else if (persistedRefresh.groupAllMode && persistedRefresh.selectedGroup) {
+          primeCurrenciesFromCacheRef.current?.({
+            companyId: null,
+            selectedGroup: persistedRefresh.selectedGroup,
+            groupsAllMode: false,
+            groupAllMode: true,
+          });
+        }
         window.setTimeout(() => {
           void loadCurrenciesRef.current?.();
         }, 0);
@@ -2304,13 +2321,35 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!mergeRows.length && groupsAllMode && companiesForPicker?.length) {
         mergeRows = companiesForPicker;
       }
-      const mergeCompanyIds = mergeRows
+      if (!mergeRows.length && groupsAllMode) {
+        mergeRows = resolveGroupsAllMergeCompanyList(companies, groupIds);
+      } else if (!mergeRows.length && groupKey) {
+        mergeRows = resolveGroupAllMergeCompanyList(companies, groupKey, groupIds);
+      }
+      let mergeCompanyIds = mergeRows
         .map((c) => parseInt(c.id, 10))
         .filter((id) => Number.isFinite(id) && id > 0);
 
       if (!mergeCompanyIds.length) {
         if (!companies.length) return;
-        commitCurrencyList([]);
+        const cachedFallback = groupsAllMode
+          ? currenciesByGroupRef.current.get("GROUPS:ALL") ??
+            readPersistedGroupsAllCurrencyCodes()
+          : groupKey
+            ? currenciesByGroupRef.current.get(`${groupKey}:ALL`) ??
+              readPersistedGroupAllCurrencyCodes(groupKey)
+            : null;
+        if (cachedFallback?.length) {
+          commitCurrencyList(cachedFallback);
+          writeDashboardGroupCurrencyCaches(currenciesByGroupRef, {
+            groupKey,
+            groupsAllMode,
+            groupAllMode,
+            codes: cachedFallback,
+          });
+          return;
+        }
+        if (currenciesRef.current.length > 0) return;
         return;
       }
 
@@ -2681,6 +2720,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     companiesSig,
     sessionReady,
     gcBootstrapReady,
+    groupsAllMode,
+    groupAllMode,
+    companyId,
     me?.user_id,
     me?.id,
   ]);
