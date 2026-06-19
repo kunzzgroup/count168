@@ -503,6 +503,26 @@ const COMPANY_SWITCH_PREFETCH_DELAY_MS = 3000;
 const SESSION_DASHBOARD_WARM_DELAY_MS = 6000;
 /** Parallel kpi bootstrap requests when filling multi-currency earnings sidebar. */
 const EARNINGS_KPI_PARALLEL_BATCH = 3;
+/** Defer trend-chart daily fetch so MoM previous can use DB first. */
+const CHART_DAILY_DEFER_MS = 250;
+
+function scheduleChartDailyLoad(cacheKey, resolveScopeKey, loadChartDaily) {
+  window.setTimeout(() => {
+    if (resolveScopeKey() === cacheKey) {
+      void loadChartDaily(cacheKey);
+    }
+  }, CHART_DAILY_DEFER_MS);
+}
+
+async function runTasksInBatches(items, batchSize, runTask) {
+  const results = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const settled = await Promise.all(batch.map((item) => runTask(item)));
+    results.push(...settled);
+  }
+  return results;
+}
 
 
 function dashboardFetchInit(signal) {
@@ -4343,8 +4363,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       );
 
       try {
-        const settled = await Promise.all(
-          others.map((code) => fetchSingleCurrencyEarnings(code, gen))
+        const settled = await runTasksInBatches(
+          others,
+          EARNINGS_KPI_PARALLEL_BATCH,
+          (code) => fetchSingleCurrencyEarnings(code, gen)
         );
 
         if (gen !== earningsFetchGenRef.current) {
@@ -4947,21 +4969,15 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     };
 
     try {
+      setEarningsByCurrencyLoading(true);
+      const ok = await runBootstrapEarningsFallback();
+      if (gen !== earningsFetchGenRef.current) return;
+      if (ok) return;
+
       const rows = await loadEarningsProgressive(gen, { cacheKey });
       if (gen !== earningsFetchGenRef.current) return;
       if (dashboardEarningsRowsComplete(rows, codes)) return;
-    } catch {
-      if (gen !== earningsFetchGenRef.current) return;
-    }
-
-    if (gen !== earningsFetchGenRef.current) return;
-    if (dashboardBootstrapInFlightRef.current === cacheKey) return;
-
-    setEarningsByCurrencyLoading(true);
-    try {
-      const ok = await runBootstrapEarningsFallback();
-      if (gen !== earningsFetchGenRef.current) return;
-      if (!ok) scheduleIncompleteEarningsRetry(400);
+      scheduleIncompleteEarningsRetry(400);
     } catch {
       if (gen !== earningsFetchGenRef.current) return;
       scheduleIncompleteEarningsRetry(400);
@@ -4997,7 +5013,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         void loadDashboardPreviousPeriod(cacheKey);
       }
       if (dashboardPayloadNeedsChartDaily(cached.current)) {
-        void loadDashboardChartDaily(cacheKey);
+        scheduleChartDailyLoad(cacheKey, resolveDashboardScopeKey, loadDashboardChartDaily);
       }
 
       const needsMultiCurrencyEarnings =
@@ -5235,10 +5251,17 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       groupsAllMode,
       mergedSubsetIds,
     });
+    const provisionalCurrency =
+      currencyCode ||
+      (companyId != null
+        ? currenciesByCompanyRef.current.get(parseInt(companyId, 10))?.[0]
+        : null) ||
+      currenciesRef.current[0] ||
+      "";
     if (
       needsDashboardFetch &&
       scopeNeedsCurrency &&
-      !currencyCode &&
+      !provisionalCurrency &&
       !latestCached?.current &&
       !hydratedFromPayload
     ) {
@@ -5273,7 +5296,10 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       if (canUseDashboardBootstrap) {
         try {
-          const boot = await loadDashboardViaBootstrap({ scope: "kpi" });
+          const boot = await loadDashboardViaBootstrap({
+            scope: "kpi",
+            currencyOverride: provisionalCurrency || undefined,
+          });
           if (gen !== dashboardFetchGenRef.current) return;
 
           current = boot.current;
@@ -5320,7 +5346,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             void loadDashboardPreviousPeriod(cacheKey);
           }
           if (dashboardPayloadNeedsChartDaily(boot.current)) {
-            void loadDashboardChartDaily(cacheKey);
+            scheduleChartDailyLoad(cacheKey, resolveDashboardScopeKey, loadDashboardChartDaily);
           }
           return;
         } catch {
