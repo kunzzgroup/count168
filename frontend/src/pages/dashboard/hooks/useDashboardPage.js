@@ -643,10 +643,12 @@ const LOAD_DASHBOARD_DEBOUNCE_MS = 0;
 const DASHBOARD_STALE_RETRY_MAX = 3;
 const EARNINGS_INCOMPLETE_RETRY_MAX = 5;
 const PREFETCH_WAIT_MAX_ROUNDS = 40;
-/** Serial gap between group-all per-currency earnings fetches (avoids browser ERR_INSUFFICIENT_RESOURCES). */
-const GROUP_ALL_EARNINGS_CURRENCY_DELAY_MS = 150;
 /** Wait before low-priority sibling prefetches after a company pick. */
 const COMPANY_SWITCH_PREFETCH_DELAY_MS = 3000;
+/** Coalesce rapid filter switches into one currency reload. */
+const LOAD_CURRENCIES_COALESCE_MS = 32;
+/** Parallel company dashboard fetches when merging Group/Company "All". */
+const MERGE_DASHBOARD_PARALLEL_BATCH = 8;
 /** Idle delay before one-time session warm of picker companies (current currency only). */
 const SESSION_DASHBOARD_WARM_DELAY_MS = 6000;
 /** Parallel kpi bootstrap requests when filling multi-currency earnings sidebar. */
@@ -817,6 +819,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const companySwitchGenRef = useRef(0);
   const currencyLoadGenRef = useRef(0);
   const loadCurrenciesRef = useRef(null);
+  const loadCurrenciesCoalesceTimerRef = useRef(null);
   const primeCurrenciesFromCacheRef = useRef(null);
   const skipNextCurrencyClickRef = useRef(false);
   /** After company pill change, next currency resolve picks the first pill (MYR). */
@@ -1176,6 +1179,9 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (earningsRetryTimerRef.current) {
         window.clearTimeout(earningsRetryTimerRef.current);
       }
+      if (loadCurrenciesCoalesceTimerRef.current) {
+        window.clearTimeout(loadCurrenciesCoalesceTimerRef.current);
+      }
     },
     []
   );
@@ -1235,7 +1241,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           });
         }
         window.setTimeout(() => {
-          void loadCurrenciesRef.current?.();
+          void scheduleLoadCurrenciesRef.current?.(true);
         }, 0);
         return;
       }
@@ -1512,7 +1518,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           buildDashboardSidebarNotifyOptions(null, readGroupsAllSidebarGroup()),
         );
         window.setTimeout(() => {
-          void loadCurrenciesRef.current?.();
+          void scheduleLoadCurrenciesRef.current?.(true);
         }, 0);
       }
     } catch (err) {
@@ -1613,7 +1619,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
               groupsAllMode: true,
               groupAllMode: true,
             });
-            void loadCurrenciesRef.current?.();
+            void scheduleLoadCurrenciesRef.current?.(true);
           }
           return;
         }
@@ -1628,7 +1634,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           groupsAllMode: true,
           groupAllMode: targetGroupAllMode,
         });
-        void loadCurrenciesRef.current?.();
+        void scheduleLoadCurrenciesRef.current?.(true);
         return;
       }
 
@@ -2353,82 +2359,104 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         return;
       }
 
-      try {
-        const orderCompanyId = resolveDashboardCurrencyOrderCompanyId({
-          companyId: null,
-          selectedGroup: groupKey,
-          companies,
-          me,
-          companiesForPicker,
-        });
-        const ordParams = new URLSearchParams({ _t: String(Date.now()) });
-        if (orderCompanyId) ordParams.set("company_id", String(orderCompanyId));
+      const readCachedGroupAllCurrencyCodes = () =>
+        groupsAllMode
+          ? currenciesByGroupRef.current.get("GROUPS:ALL") ??
+            readPersistedGroupsAllCurrencyCodes()
+          : groupKey
+            ? currenciesByGroupRef.current.get(`${groupKey}:ALL`) ??
+              readPersistedGroupAllCurrencyCodes(groupKey)
+            : null;
 
-        const [rawCodes, ordRes] = await Promise.all([
-          fetchGroupAllMergeCurrencyCodes(companies, mergeCompanyIds, {
-            groupsAllMode,
-            selectedGroup,
-            groupIds,
-            cacheRef: currenciesByCompanyRef.current,
-          }),
-          orderCompanyId
-            ? fetch(
-                buildApiUrl(`api/transactions/user_currency_order_api.php?${ordParams.toString()}`),
-                { credentials: "include" }
-              ).catch(() => null)
-            : Promise.resolve(null),
-        ]);
+      const loadGroupAllCurrenciesFromNetwork = async () => {
+        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) {
+          return;
+        }
+        try {
+          const orderCompanyId = resolveDashboardCurrencyOrderCompanyId({
+            companyId: null,
+            selectedGroup: groupKey,
+            companies,
+            me,
+            companiesForPicker,
+          });
+          const ordParams = new URLSearchParams({ _t: String(Date.now()) });
+          if (orderCompanyId) ordParams.set("company_id", String(orderCompanyId));
 
-        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
+          const [rawCodes, ordRes] = await Promise.all([
+            fetchGroupAllMergeCurrencyCodes(companies, mergeCompanyIds, {
+              groupsAllMode,
+              selectedGroup,
+              groupIds,
+              cacheRef: currenciesByCompanyRef.current,
+            }),
+            orderCompanyId
+              ? fetch(
+                  buildApiUrl(`api/transactions/user_currency_order_api.php?${ordParams.toString()}`),
+                  { credentials: "include" }
+                ).catch(() => null)
+              : Promise.resolve(null),
+          ]);
 
-        let codes = [...new Set(rawCodes)];
-        if (!codes.length) {
-          const cachedUnion = new Set();
-          const persistedAll = readPersistedGroupsAllCurrencyCodes();
-          if (persistedAll?.length) persistedAll.forEach((c) => cachedUnion.add(c));
-          for (const gid of groupIds) {
-            const g = String(gid).trim().toUpperCase();
-            const gc = currenciesByGroupRef.current.get(g);
-            if (gc?.length) gc.forEach((c) => cachedUnion.add(c));
+          if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
+
+          let codes = [...new Set(rawCodes)];
+          if (!codes.length) {
+            const cachedUnion = new Set();
+            const persistedAll = readPersistedGroupsAllCurrencyCodes();
+            if (persistedAll?.length) persistedAll.forEach((c) => cachedUnion.add(c));
+            for (const gid of groupIds) {
+              const g = String(gid).trim().toUpperCase();
+              const gc = currenciesByGroupRef.current.get(g);
+              if (gc?.length) gc.forEach((c) => cachedUnion.add(c));
+            }
+            const groupsAllCached = currenciesByGroupRef.current.get("GROUPS:ALL");
+            if (groupsAllCached?.length) groupsAllCached.forEach((c) => cachedUnion.add(c));
+            codes = [...cachedUnion];
           }
-          const groupsAllCached = currenciesByGroupRef.current.get("GROUPS:ALL");
-          if (groupsAllCached?.length) groupsAllCached.forEach((c) => cachedUnion.add(c));
-          codes = [...cachedUnion];
-        }
-        if (ordRes) {
-          const ordJson = await ordRes.json();
-          codes = applyResolvedCurrencyOrder(
-            codes,
-            orderCompanyId,
-            ordJson?.data?.order,
-            currencyDisplayOrderByCompanyRef,
-            userCurrencyDisplayOrderRef,
-          );
-        } else {
-          codes = applyDashboardCurrencyDisplayOrder(
-            codes,
-            orderCompanyId,
-            currencyDisplayOrderByCompanyRef,
-            userCurrencyDisplayOrderRef,
-          );
-        }
-        if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
+          if (ordRes) {
+            const ordJson = await ordRes.json();
+            codes = applyResolvedCurrencyOrder(
+              codes,
+              orderCompanyId,
+              ordJson?.data?.order,
+              currencyDisplayOrderByCompanyRef,
+              userCurrencyDisplayOrderRef,
+            );
+          } else {
+            codes = applyDashboardCurrencyDisplayOrder(
+              codes,
+              orderCompanyId,
+              currencyDisplayOrderByCompanyRef,
+              userCurrencyDisplayOrderRef,
+            );
+          }
+          if (gen !== currencyLoadGenRef.current || scopeCurrencyKeyRef.current !== scopeKey) return;
 
-        if (!userCurrencyDisplayOrderRef.current?.length) {
-          persistDashboardCurrencyDisplayOrder(currencyDisplayOrderByCompanyRef, orderCompanyId, codes);
-        }
-        writeDashboardGroupCurrencyCaches(currenciesByGroupRef, {
-          groupKey,
-          groupsAllMode,
-          groupAllMode,
-          codes,
-        });
+          if (!userCurrencyDisplayOrderRef.current?.length) {
+            persistDashboardCurrencyDisplayOrder(currencyDisplayOrderByCompanyRef, orderCompanyId, codes);
+          }
+          writeDashboardGroupCurrencyCaches(currenciesByGroupRef, {
+            groupKey,
+            groupsAllMode,
+            groupAllMode,
+            codes,
+          });
 
-        if (codes.length) {
-          commitCurrencyList(codes);
+          if (codes.length) {
+            commitCurrencyList(codes);
+          }
+        } catch {
+          /* Keep previous currency pills on transient errors. */
         }
-      } catch {
-        /* Keep previous currency pills on transient errors. */
+      };
+
+      const cachedGroupAllCodes = readCachedGroupAllCurrencyCodes();
+      if (cachedGroupAllCodes?.length > 1) {
+        commitCurrencyList(cachedGroupAllCodes);
+        void loadGroupAllCurrenciesFromNetwork();
+      } else {
+        await loadGroupAllCurrenciesFromNetwork();
       }
       return;
     }
@@ -2711,9 +2739,29 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
   loadCurrenciesRef.current = loadCurrencies;
 
+  const scheduleLoadCurrencies = useCallback(
+    (immediate = false) => {
+      if (loadCurrenciesCoalesceTimerRef.current) {
+        window.clearTimeout(loadCurrenciesCoalesceTimerRef.current);
+        loadCurrenciesCoalesceTimerRef.current = null;
+      }
+      if (immediate) {
+        void loadCurrencies();
+        return;
+      }
+      loadCurrenciesCoalesceTimerRef.current = window.setTimeout(() => {
+        loadCurrenciesCoalesceTimerRef.current = null;
+        void loadCurrencies();
+      }, LOAD_CURRENCIES_COALESCE_MS);
+    },
+    [loadCurrencies]
+  );
+  const scheduleLoadCurrenciesRef = useRef(scheduleLoadCurrencies);
+  scheduleLoadCurrenciesRef.current = scheduleLoadCurrencies;
+
   useLayoutEffect(() => {
     if (!sessionReady || !meRef.current || !gcBootstrapReady || !companies.length) return;
-    void loadCurrenciesRef.current?.();
+    scheduleLoadCurrenciesRef.current();
   }, [
     buildScopeCurrencyKey,
     groupIds.length,
@@ -2736,7 +2784,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       groupsAllMode: true,
       groupAllMode: true,
     });
-    void loadCurrenciesRef.current?.();
+    scheduleLoadCurrenciesRef.current();
   }, [
     gcBootstrapReady,
     sessionReady,
@@ -2752,7 +2800,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     if (companyId != null) return;
     if (!groupAllMode && !(groupsAllMode && !groupAllMode)) return;
     if (currencies.length > 1) return;
-    void loadCurrenciesRef.current?.();
+    void scheduleLoadCurrenciesRef.current?.(true);
   }, [
     gcBootstrapReady,
     sessionReady,
@@ -2939,7 +2987,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
               groupsAllMode: true,
               groupAllMode: true,
             });
-            void loadCurrenciesRef.current?.();
+            void scheduleLoadCurrenciesRef.current?.(true);
           }
         }
         return;
@@ -4282,20 +4330,27 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!accessible.length) {
         throw new Error(i18n.failedToLoadDashboard);
       }
-      const settled = await Promise.allSettled(
-        accessible.map((c) => {
+      const settled = await runTasksInBatches(
+        accessible,
+        MERGE_DASHBOARD_PARALLEL_BATCH,
+        async (c) => {
           const cid = parseInt(c.id, 10);
           const viewGroup = resolveViewGroupForCompany(c, viewGroupFallback ?? selectedGroup);
-          return fetchDashboardPayload(
-            cid,
-            rangeFrom,
-            rangeTo,
-            currencyOverride,
-            viewGroup,
-            useActiveScopeAbort,
-            { earningsOnly }
-          ).then((data) => ({ company: c, data, viewGroup }));
-        })
+          try {
+            const data = await fetchDashboardPayload(
+              cid,
+              rangeFrom,
+              rangeTo,
+              currencyOverride,
+              viewGroup,
+              useActiveScopeAbort,
+              { earningsOnly }
+            );
+            return { status: "fulfilled", value: { company: c, data, viewGroup } };
+          } catch (reason) {
+            return { status: "rejected", reason };
+          }
+        }
       );
       const pairs = settled
         .filter((entry) => entry.status === "fulfilled" && entry.value?.data)
@@ -4600,23 +4655,20 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
       const primary = currencyCodeRef.current;
       const primaryUpper = String(primary || "").trim().toUpperCase();
-      const rows = [];
       const reuseMainPayload =
         rangeFrom === dateFromRef.current &&
         rangeTo === dateToRef.current &&
         dashboardDataRef.current != null;
 
-      for (let idx = 0; idx < list.length; idx += 1) {
-        const code = list[idx];
-        if (gen !== earningsFetchGenRef.current) return [];
+      const resolveCodeEarnings = async (code) => {
+        if (gen !== earningsFetchGenRef.current) return null;
         const codeUpper = String(code).trim().toUpperCase();
 
         if (reuseMainPayload && codeUpper === primaryUpper) {
-          rows.push({
+          return {
             code,
             earnings: computePanelMetricFromPayload(dashboardDataRef.current),
-          });
-          continue;
+          };
         }
 
         const cached = tryBuildGroupAllDashboardFromCompanyCaches({
@@ -4630,28 +4682,43 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             (row) => String(row?.code || "").trim().toUpperCase() === codeUpper
           );
           if (hit?.earnings != null) {
-            rows.push({ code, earnings: hit.earnings });
-            continue;
+            return { code, earnings: hit.earnings };
           }
         }
         if (cached?.current) {
-          rows.push({
+          return {
             code,
             earnings: computePanelMetricFromPayload(cached.current),
-          });
-          continue;
+          };
         }
 
         const fetched = await fetchSingleCurrencyEarnings(code, gen, { retries: 0 });
-        rows.push(fetched ?? { code, earnings: null });
+        return fetched ?? { code, earnings: null };
+      };
 
-        if (idx < list.length - 1 && gen === earningsFetchGenRef.current) {
-          await new Promise((resolve) =>
-            window.setTimeout(resolve, GROUP_ALL_EARNINGS_CURRENCY_DELAY_MS)
-          );
+      const primaryCode =
+        list.find((code) => String(code).trim().toUpperCase() === primaryUpper) ?? list[0];
+      const otherCodes = list.filter(
+        (code) =>
+          String(code).trim().toUpperCase() !== String(primaryCode).trim().toUpperCase()
+      );
+
+      const rows = [];
+      const primaryRow = await resolveCodeEarnings(primaryCode);
+      if (primaryRow) rows.push(primaryRow);
+
+      if (otherCodes.length) {
+        const settled = await runTasksInBatches(
+          otherCodes,
+          EARNINGS_KPI_PARALLEL_BATCH,
+          (code) => resolveCodeEarnings(code)
+        );
+        for (const row of settled) {
+          if (row) rows.push(row);
         }
       }
 
+      if (gen !== earningsFetchGenRef.current) return [];
       return rows;
     },
     [
