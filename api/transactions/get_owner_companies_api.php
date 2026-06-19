@@ -6,7 +6,6 @@
  */
 
 session_start();
-session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../api_response.php';
 
@@ -50,6 +49,7 @@ try {
         $active_companies = gc_filter_companies_for_login_scope($active_companies);
 
         if (gc_is_company_login() || gc_is_group_login()) {
+            session_write_close();
             echo json_encode([
                 'success' => true,
                 'message' => '',
@@ -60,6 +60,7 @@ try {
         }
 
         api_success($active_companies);
+        session_write_close();
         exit;
     }
 
@@ -79,6 +80,7 @@ try {
     $active_companies = gc_filter_companies_for_login_scope($active_companies);
 
     if (gc_is_company_login() || gc_is_group_login()) {
+        session_write_close();
         echo json_encode([
             'success' => true,
             'message' => '',
@@ -88,6 +90,7 @@ try {
         exit;
     }
 
+    session_write_close();
     api_success($active_companies);
 } catch (PDOException $e) {
     api_error('数据库错误: ' . $e->getMessage(), 500);

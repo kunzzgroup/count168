@@ -5,12 +5,15 @@
  */
 
 session_start();
-session_write_close();
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/transaction_scope.php';
 require_once __DIR__ . '/../reports/report_scope_common.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../api_response.php';
+
+gc_hydrate_company_login_group_id($pdo);
+gc_ensure_session_accessible_group_ids_hydrated($pdo);
+session_write_close();
 
 define('DASHBOARD_API_SKIP_MAIN', true);
 require_once __DIR__ . '/dashboard_api.php';

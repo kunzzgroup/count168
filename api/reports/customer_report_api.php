@@ -10,6 +10,8 @@ require_once __DIR__ . '/../includes/money_decimal.php';
 require_once __DIR__ . '/report_scope_common.php';
 require_once __DIR__ . '/../../includes/tenant_scope.php';
 session_start();
+gc_hydrate_company_login_group_id($pdo);
+gc_ensure_session_accessible_group_ids_hydrated($pdo);
 session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执行
 
 function reportMoneyOut($value): string {

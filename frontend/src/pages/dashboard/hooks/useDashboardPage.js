@@ -79,7 +79,6 @@ import {
   isGroupLogin,
   isCompanyLogin,
   resolveVisibleGroupIds,
-  filterGroupIdsForLedgerAccess,
 } from "../../../utils/company/loginScope.js";
 import { sortIds } from "../lib/dashboardEarnings.js";
 import {
@@ -210,10 +209,8 @@ function buildGroupOnlyScopeCurrencyQuery(companies, groupKey) {
 }
 
 /** Group-ledger account currencies for one group tab (AP / IG). */
-async function fetchGroupLedgerCurrencyCodes(companies, groupKey, me) {
-  const g = String(groupKey || "").trim().toUpperCase();
-  if (!g || (me && !canAccessGroupLedgerForGroup(me, g, companies))) return [];
-  const q = buildGroupOnlyScopeCurrencyQuery(companies, g);
+async function fetchGroupLedgerCurrencyCodes(companies, groupKey) {
+  const q = buildGroupOnlyScopeCurrencyQuery(companies, groupKey);
   if (!q.get("company_id") && !q.get("group_id")) return [];
   try {
     const curRes = await fetch(
@@ -2255,7 +2252,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
 
     /** Group "All" aggregate: union group-ledger currencies from every visible group (AP + IG). */
     if (groupsAllLedgerCurrencyScope) {
-      const gids = filterGroupIdsForLedgerAccess(me, groupIds, companies);
+      const gids = groupIds.filter((g) => String(g || "").trim());
       if (!gids.length) {
         commitCurrencyList([]);
         return;
@@ -2277,7 +2274,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
             const g = String(gid).trim().toUpperCase();
             const cached = currenciesByGroupRef.current.get(g);
             if (cached?.length) return cached;
-            const rowCodes = await fetchGroupLedgerCurrencyCodes(companies, g, me);
+            const rowCodes = await fetchGroupLedgerCurrencyCodes(companies, g);
             if (rowCodes.length) {
               currenciesByGroupRef.current.set(g, rowCodes);
             }
@@ -3213,9 +3210,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         (selectedGroup ? String(selectedGroup).trim().toUpperCase() : null);
       const row = companies.find((c) => parseInt(c.id, 10) === parseInt(cid, 10));
       const subsidiaryOnly =
-        Boolean(viewGroup) &&
-        (!(row && companyRowIsGroupEntity(row, viewGroup)) ||
-          !canAccessGroupLedgerForGroup(meRef.current, viewGroup, companies));
+        Boolean(viewGroup) && !(row && companyRowIsGroupEntity(row, viewGroup));
       appendDashboardGroupTabParams(q, viewGroup, { subsidiaryOnly });
       const cacheKey = q.toString();
       const cachedPayload = getDashboardPayloadCache(cacheKey);
@@ -4293,9 +4288,6 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
       if (!vg) {
         throw new Error(i18n.failedToLoadDashboard);
       }
-      if (!canAccessGroupLedgerForGroup(meRef.current, vg, companies)) {
-        throw new Error(i18n.failedToLoadDashboard);
-      }
       q.append("view_group", vg);
       q.append("group_id", vg);
       const cacheKey = q.toString();
@@ -4497,25 +4489,18 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           me,
         })
       ) {
-        const gids = filterGroupIdsForLedgerAccess(me, groupIds, companies);
+        const gids = groupIds.filter((g) => String(g || "").trim());
         if (!gids.length) {
           throw new Error(i18n.failedToLoadDashboard);
         }
-        const settled = await Promise.allSettled(
+        const results = await Promise.all(
           gids.map((gid) =>
             fetchGroupDashboardPayload(rangeFrom, rangeTo, currencyOverride, gid, mergeAbort, earningsOpts)
           )
         );
-        const results = settled
-          .filter((entry) => entry.status === "fulfilled")
-          .map((entry) => entry.value);
-        if (!results.length) {
-          const rejected = settled.find((entry) => entry.status === "rejected");
-          throw rejected?.reason ?? new Error(i18n.failedToLoadDashboard);
-        }
         earningsEnabledGroupIdsRef.current = gids
-          .map((gid, idx) => ({ gid, payload: settled[idx]?.status === "fulfilled" ? settled[idx].value : null }))
-          .filter(({ payload }) => payload && viewerHasEarningsConfig(payload))
+          .map((gid, idx) => ({ gid, payload: results[idx] }))
+          .filter(({ payload }) => viewerHasEarningsConfig(payload))
           .map(({ gid }) => String(gid).trim().toUpperCase());
         const earningsResults = results.filter((row) => viewerHasEarningsConfig(row));
         const merged = finalizeMergedGroupLedgerDashboard(
@@ -4525,7 +4510,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
         merged._earnings_enabled_group_ids = gids
           .map((gid, idx) => ({
             gid,
-            payload: settled[idx]?.status === "fulfilled" ? settled[idx].value : null,
+            payload: results[idx],
           }))
           .filter(({ payload }) => payload && viewerHasEarningsConfig(payload))
           .map(({ gid }) => String(gid || "").trim().toUpperCase())
