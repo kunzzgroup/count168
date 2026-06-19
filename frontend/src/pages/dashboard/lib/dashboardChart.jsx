@@ -113,9 +113,9 @@ export function buildChartRows(
 ) {
   if (!data?.daily_data) return [];
   const dailyData = data.daily_data;
-  const earningsMultiplier = viewerHasEarningsConfig(data)
+  const earningsMultiplier = viewerHasEarningsConfig(data, options)
     ? resolvePanelEarningsPct(data, selectedGroup, options)
-    : 1;
+    : 0;
   const rangeStart = parseYmd(startYmd);
   const rangeEnd = parseYmd(endYmd);
 
