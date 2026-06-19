@@ -451,6 +451,7 @@ try {
         && !($newFrequency === 'monthly' && $newDayStart !== null && $newDayEnd !== null)) {
         bmp_appendResendOpenAnchor($pdo, $bankProcessId, $company_id, $effectiveDayStartYmd, $newFrequency);
     }
+    bmp_clearResendAnchorAccountingDueSideEffects($pdo, $bankProcessId, $company_id, $effectiveDayStartYmd);
     $pdo->commit();
     jsonResponse(true, 'Done: This process can appear in Accounting Due again.', [
         'bank_process_id' => $bankProcessId,
