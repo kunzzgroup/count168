@@ -5,6 +5,7 @@
 import { hasPasteHistory, undoLastPaste } from "./dataCaptureGridPasteHistory.js";
 import {
   gridClearAllSelections,
+  gridClearSelectedCells,
   gridCopySelectedCells,
   gridGetSelectedCellCount,
   gridGetSelectedCells,
@@ -18,7 +19,6 @@ import {
 } from "../lib/dataCaptureBridge.js";
 
 function undoLastPasteAction() {
-  if (!hasPasteHistory()) return;
   undoLastPaste();
 }
 
@@ -78,10 +78,8 @@ const key = (e.key || '').toLowerCase();
     if (!isTableActive() && !isEditingCell) {
         // Allow Ctrl+Z undo even when table is not active (for paste history)
         if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
-            if (hasPasteHistory()) {
-                e.preventDefault();
-                undoLastPasteAction();
-            }
+            e.preventDefault();
+            undoLastPasteAction();
             return;
         }
         // Ignore all other table-related keyboard events when table is not active
@@ -90,6 +88,12 @@ const key = (e.key || '').toLowerCase();
 
     // Ctrl+Z undo (case-insensitive, compatible with Caps Lock)
     if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
+        if (hasPasteHistory()) {
+            e.preventDefault();
+            e.stopPropagation();
+            undoLastPasteAction();
+            return;
+        }
         // In-cell typing undo — let the browser handle contentEditable undo.
         if (isEditingCell) {
             return;
@@ -276,19 +280,13 @@ const key = (e.key || '').toLowerCase();
     } else if (e.key === 'Delete') {
         if (getSelectedCellCount() > 0) {
             e.preventDefault();
-            getSelectedCells().forEach((cell) => {
-                if (cell?.contentEditable === 'true') {
-                    cell.textContent = '';
-                }
-            });
+            gridClearSelectedCells();
             recomputeSubmitState();
         }
     } else if (e.key === 'Backspace') {
         if (!isEditingCell && getSelectedCellCount() > 0) {
             e.preventDefault();
-            getSelectedCells().forEach(cell => {
-                cell.textContent = '';
-            });
+            gridClearSelectedCells();
             recomputeSubmitState();
         }
     } else if (e.ctrlKey && key === 'a') {

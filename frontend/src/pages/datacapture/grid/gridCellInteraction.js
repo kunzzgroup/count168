@@ -5,14 +5,16 @@ import {
   gridAddNewColumn,
   gridAddNewRow,
   gridClearAllSelections,
+  gridClearSelectedCells,
   gridGetSelectedCells,
   gridRegisterSelectedCell,
   gridRecomputeSubmitState,
   getPasteGridModel,
+  replacePasteGridModel,
   setBridgeTableActive,
-  updateBridgeCell,
 } from "../lib/dataCaptureBridge.js";
-import { hasPasteHistory, undoLastPaste } from "./dataCaptureGridPasteHistory.js";
+import { commitGridUndoCheckpoint, undoLastPaste } from "./dataCaptureGridPasteHistory.js";
+import { clearCellsInGrid } from "./gridModel.js";
 import { MAX_GRID_COLS, MAX_GRID_ROWS } from "./dataCaptureGridMeta.js";
 
 /** Pending cell focus after grid row/column append (applied on next grid render). */
@@ -40,16 +42,26 @@ function cellPosition(cell) {
   return { rowIndex, colIndex };
 }
 
+function clearCellsWithUndo(positions) {
+  if (!positions?.length) return;
+  const grid = getPasteGridModel();
+  if (!grid) return;
+  const nextGrid = clearCellsInGrid(grid, positions);
+  replacePasteGridModel(nextGrid);
+  commitGridUndoCheckpoint(nextGrid);
+}
+
 function clearCellModel(cell) {
+  const selected = getSelectedCells().filter((c) => c?.contentEditable === "true");
+  if (selected.length > 1) {
+    const positions = selected.map(cellPosition).filter(Boolean);
+    clearCellsWithUndo(positions);
+    return;
+  }
+
   const pos = cellPosition(cell);
   if (!pos) return;
-  updateBridgeCell(pos.rowIndex, pos.colIndex, {
-    value: "",
-    html: undefined,
-    style: undefined,
-    styleCssText: undefined,
-    className: undefined,
-  });
+  clearCellsWithUndo([pos]);
 }
 
 function clearAllSelections() {
@@ -395,12 +407,9 @@ export function handleCellKeydown(e) {
 
   const key = (e.key || "").toLowerCase();
   if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey) {
-    if (hasPasteHistory()) {
-      e.preventDefault();
-      e.stopPropagation();
-      undoLastPasteFromHistory();
-      return;
-    }
+    e.preventDefault();
+    e.stopPropagation();
+    undoLastPasteFromHistory();
     return;
   }
 
