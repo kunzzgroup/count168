@@ -291,7 +291,7 @@ try {
     $updateValues = [$name, $role, $payment_alert, $alert_day, $alert_specific_date, $alert_amount, $remark, $status];
     if (!empty($password)) {
         $updateFields[] = 'password = ?';
-        $updateValues[] = $password;
+        $updateValues[] = ec_password_hash($password);
     }
     $updateValues[] = $id;
     $sql = "UPDATE account SET " . implode(', ', $updateFields) . " WHERE id = ?";
