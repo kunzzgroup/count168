@@ -45,6 +45,7 @@ import {
 import { DASHBOARD_API, DASHBOARD_BOOTSTRAP_API, DASHBOARD_PROFIT_COLOR, isDashboardHistoricalOwnershipMonth } from "../lib/dashboardConstants.js";
 import {
   buildChartRows,
+  buildSkeletonChartRows,
   makeDashboardChartXTick,
   resolveDailyChartXAxisTicks,
 } from "../lib/dashboardChart.jsx";
@@ -6015,20 +6016,19 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     [dateFrom, dateTo]
   );
 
-  const chartRows = useMemo(
-    () =>
-      dashboardData
-        ? buildChartRows(
-            dashboardData,
-            dateFrom,
-            dateTo,
-            i18n.locale,
-            selectedGroup,
-            resolveKpiOwnershipOpts()
-          )
-        : [],
-    [dashboardData, dateFrom, dateTo, i18n.locale, selectedGroup, resolveKpiOwnershipOpts]
-  );
+  const chartRows = useMemo(() => {
+    if (!dashboardData) return [];
+    const rows = buildChartRows(
+      dashboardData,
+      dateFrom,
+      dateTo,
+      i18n.locale,
+      selectedGroup,
+      resolveKpiOwnershipOpts()
+    );
+    if (rows.length > 0) return rows;
+    return buildSkeletonChartRows(dateFrom, dateTo, i18n.locale);
+  }, [dashboardData, dateFrom, dateTo, i18n.locale, selectedGroup, resolveKpiOwnershipOpts]);
 
   const chartMonthSpanCount = useMemo(
     () => chartMonthSpan(dateFrom, dateTo),
@@ -6350,12 +6350,8 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
   const scopeDataPending =
     Boolean(dashboardScopeKey) && displayScopeKey !== dashboardScopeKey;
   const chartDataStable = useMemo(
-    () =>
-      !scopeDataPending &&
-      Boolean(dashboardData) &&
-      chartRows.length > 0 &&
-      !dashboardPayloadNeedsChartDaily(dashboardData),
-    [scopeDataPending, dashboardData, chartRows.length]
+    () => !scopeDataPending && Boolean(dashboardData),
+    [scopeDataPending, dashboardData]
   );
   const companyBreakdownPanelActive =
     showProfitChartTab &&
