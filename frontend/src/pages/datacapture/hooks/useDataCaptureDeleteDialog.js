@@ -27,9 +27,11 @@ export function useDataCaptureDeleteDialog() {
         callDataCaptureRuntime("deleteColumn");
         break;
       case "shiftUp":
+        callDataCaptureRuntime("shiftSelectedCellsUp");
+        break;
       case "shiftLeft":
       default:
-        callDataCaptureRuntime("clearSelectedCells");
+        callDataCaptureRuntime("shiftSelectedCellsLeft");
         break;
     }
     setDeleteOpen(false);

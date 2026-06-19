@@ -34,19 +34,23 @@ function takePendingGridCellFocus() {
 }
 
 function cellPosition(cell) {
-  if (!cell?.parentNode?.parentNode) return null;
-  const row = cell.parentNode;
-  const table = row.parentNode;
-  const rowIndex = Array.from(table.children).indexOf(row);
+  if (!cell?.dataset) return null;
+  const rowIndex = Number.parseInt(cell.dataset.row, 10);
   const colIndex = Number.parseInt(cell.dataset.col, 10);
-  if (rowIndex < 0 || !Number.isFinite(colIndex)) return null;
+  if (!Number.isFinite(rowIndex) || !Number.isFinite(colIndex)) return null;
   return { rowIndex, colIndex };
 }
 
 function clearCellModel(cell) {
   const pos = cellPosition(cell);
   if (!pos) return;
-  updateBridgeCell(pos.rowIndex, pos.colIndex, { value: "" });
+  updateBridgeCell(pos.rowIndex, pos.colIndex, {
+    value: "",
+    html: undefined,
+    style: undefined,
+    styleCssText: undefined,
+    className: undefined,
+  });
 }
 
 function clearAllSelections() {

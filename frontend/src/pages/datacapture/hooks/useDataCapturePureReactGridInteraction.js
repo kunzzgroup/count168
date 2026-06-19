@@ -16,17 +16,24 @@ import {
   handleRowHeaderMousedown,
   handleRowHeaderMouseover,
 } from "../grid/dataCaptureGridMouseSelection.js";
-import { clearAllSelections } from "../grid/dataCaptureGridSelection.js";
+import {
+  clearAllSelections,
+  getSelectedCellBounds,
+  getSelectedCellPositions,
+} from "../grid/dataCaptureGridSelection.js";
 import { undoLastPaste as undoPasteFromHistory } from "../grid/dataCaptureGridPasteHistory.js";
 import {
   appendColumnInGrid,
   appendRowInGrid,
+  clearCellRangeInGrid,
   clearColumnsInGrid,
   clearRowsInGrid,
   deleteColumnsInGrid,
   deleteRowsInGrid,
   insertColumnInGrid,
   insertRowInGrid,
+  shiftCellsLeftInGrid,
+  shiftCellsUpInGrid,
 } from "../grid/gridRowColumnModel.js";
 import {
   getContextMenuColumnIndex,
@@ -96,6 +103,9 @@ function handleDocumentGridOutsideClick(e) {
 }
 
 function getSelectedColumnIndices() {
+  const bounds = getSelectedCellBounds();
+  if (bounds?.colIndices?.length) return bounds.colIndices;
+
   const headerRow = document.querySelector("#tableHeader tr");
   if (!headerRow) return [];
   const selected = Array.from(headerRow.querySelectorAll("th.column-selected"));
@@ -107,6 +117,9 @@ function getSelectedColumnIndices() {
 }
 
 function getSelectedRowIndices() {
+  const bounds = getSelectedCellBounds();
+  if (bounds?.rowIndices?.length) return bounds.rowIndices;
+
   const selectedHeaders = Array.from(document.querySelectorAll(".row-header.row-selected"));
   if (selectedHeaders.length) {
     return selectedHeaders.map((h) => getRowIndexFromHeader(h)).filter((i) => i >= 0);
@@ -125,6 +138,48 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
 
   useLayoutEffect(() => {
     const getGrid = () => apiRef.current.gridRef.current;
+
+    const resolveSelectionBounds = () => {
+      const bounds = getSelectedCellBounds();
+      if (bounds) return bounds;
+
+      const rowIndices = getSelectedRowIndices();
+      const colIndices = getSelectedColumnIndices();
+      const grid = getGrid();
+      if (rowIndices.length && colIndices.length) {
+        return {
+          minRow: Math.min(...rowIndices),
+          maxRow: Math.max(...rowIndices),
+          minCol: Math.min(...colIndices),
+          maxCol: Math.max(...colIndices),
+          rowIndices,
+          colIndices,
+        };
+      }
+      if (rowIndices.length) {
+        const maxCol = Math.max(0, (grid?.cols ?? 1) - 1);
+        return {
+          minRow: Math.min(...rowIndices),
+          maxRow: Math.max(...rowIndices),
+          minCol: 0,
+          maxCol,
+          rowIndices,
+          colIndices: [],
+        };
+      }
+      if (colIndices.length) {
+        const maxRow = Math.max(0, (grid?.rows ?? 1) - 1);
+        return {
+          minRow: 0,
+          maxRow,
+          minCol: Math.min(...colIndices),
+          maxCol: Math.max(...colIndices),
+          rowIndices: [],
+          colIndices,
+        };
+      }
+      return null;
+    };
 
     const insertColumnLeft = () => {
       if (isGroupOnlyFixedColumns()) return;
@@ -282,6 +337,70 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       return next.cols - 1;
     };
 
+    const clearSelectedCellsInGrid = () => {
+      const grid = getGrid();
+      if (!grid) return;
+
+      const bounds = resolveSelectionBounds();
+      let nextGrid = grid;
+
+      if (bounds) {
+        nextGrid = clearCellRangeInGrid(
+          nextGrid,
+          bounds.minRow,
+          bounds.maxRow,
+          bounds.minCol,
+          bounds.maxCol,
+        );
+      } else {
+        const positions = getSelectedCellPositions();
+        if (!positions.length) return;
+        nextGrid = clearCellRangeInGrid(
+          nextGrid,
+          Math.min(...positions.map((p) => p.rowIndex)),
+          Math.max(...positions.map((p) => p.rowIndex)),
+          Math.min(...positions.map((p) => p.colIndex)),
+          Math.max(...positions.map((p) => p.colIndex)),
+        );
+      }
+
+      apiRef.current.replaceGrid(nextGrid);
+      hideContextMenu();
+      recomputeSubmitState();
+    };
+
+    const shiftSelectedCellsLeft = () => {
+      const grid = getGrid();
+      if (!grid) return;
+      const bounds = resolveSelectionBounds();
+      if (!bounds) {
+        pushDataCaptureNotification("Select cells to delete", "danger");
+        return;
+      }
+      apiRef.current.replaceGrid(
+        shiftCellsLeftInGrid(grid, bounds.minRow, bounds.maxRow, bounds.minCol, bounds.maxCol),
+      );
+      hideContextMenu();
+      clearAllSelections();
+      recomputeSubmitState();
+    };
+
+    const shiftSelectedCellsUp = () => {
+      const grid = getGrid();
+      if (!grid) return;
+      const bounds = resolveSelectionBounds();
+      if (!bounds) {
+        pushDataCaptureNotification("Select cells to delete", "danger");
+        return;
+      }
+      apiRef.current.replaceGrid(
+        shiftCellsUpInGrid(grid, bounds.minRow, bounds.maxRow, bounds.minCol, bounds.maxCol),
+      );
+      hideContextMenu();
+      clearAllSelections();
+      recomputeSubmitState();
+    };
+
     const handleUndoLastPaste = () => {
       undoPasteFromHistory();
       recomputeSubmitState();
@@ -297,6 +416,9 @@ export function useDataCapturePureReactGridInteraction(engineReady) {
       deleteRow,
       clearRow,
       deleteSelectedRowData,
+      clearSelectedCellsInGrid,
+      shiftSelectedCellsLeft,
+      shiftSelectedCellsUp,
       addNewRow: appendGridRow,
       addNewColumn: appendGridColumn,
       undoLastPaste: handleUndoLastPaste,
