@@ -166,15 +166,26 @@ export function computeKpiMetrics(dashboardData, selectedGroup, options = {}) {
   const groupAggregate = isGroupAggregateEarningsPayload(dashboardData, options);
   const panelMultiplier = resolvePanelEarningsPct(dashboardData, selectedGroup, options);
   const kpiMultiplier = resolveEffectiveOwnershipPct(dashboardData, selectedGroup, options);
+  const subsidiaryEarningsTotal =
+    parseFloat(
+      dashboardData?.subsidiary_earnings_total ?? dashboardData?._subsidiary_earnings_total
+    ) || 0;
+  const hasMergedSubsidiaryEarnings =
+    dashboardData?.subsidiary_earnings_total != null ||
+    dashboardData?._subsidiary_earnings_total != null;
   const earningsDisplay = !showEarnings
     ? netProfitDisplay
     : groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: false })
-      : netProfitDisplay * panelMultiplier;
+      : hasMergedSubsidiaryEarnings
+        ? subsidiaryEarningsTotal
+        : netProfitDisplay * panelMultiplier;
   const kpiCardEarnings = showEarnings
     ? groupAggregate
       ? computeGroupAggregateEarningsAmount(dashboardData, { requireViewerConfig: true })
-      : netProfitDisplay * kpiMultiplier
+      : hasMergedSubsidiaryEarnings
+        ? subsidiaryEarningsTotal
+        : netProfitDisplay * kpiMultiplier
     : 0;
   return {
     profit: displayProfitNum,
