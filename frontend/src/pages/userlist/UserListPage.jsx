@@ -318,9 +318,15 @@ export default function UserListPage() {
   );
   const pickerCompanyId = companyId;
   const filteredSorted = useMemo(() => {
-    const f = applyUserFilters(usersRaw, { search, showInactive, showAll, viewerRole: currentUserRole });
+    const f = applyUserFilters(usersRaw, {
+      search,
+      showInactive,
+      showAll,
+      viewerRole: currentUserRole,
+      viewerUserId: currentUserId,
+    });
     return sortUsers(f, sortColumn, sortDirection);
-  }, [usersRaw, search, showInactive, showAll, currentUserRole, sortColumn, sortDirection]);
+  }, [usersRaw, search, showInactive, showAll, currentUserRole, currentUserId, sortColumn, sortDirection]);
 
   const canCreateUser = useMemo(() => getAvailableRolesForCreation(currentUserRole).length > 0, [currentUserRole]);
   const userMutationsBlocked = useMemo(() => isPartnershipAuditReadOnlyLocked(me), [me]);
