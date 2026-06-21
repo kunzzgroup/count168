@@ -10,7 +10,7 @@
  * - 非1号 day_start：首月按比例从 day_start 起算；若创建日晚于该自然月末则整段跳过（旧数据不拿）；出现日 max(day_start, 创建日)。
  * - 合同 N 个月（N MONTHS，active）：起租自然月单独首段/首月不计入 N；N 个月从「次月」起计——1st 为次月起连续 N 个自然月 1 号锚点，monthly 为次月起首应付日起连续 N 期；与入账、process_post 合同边界一致。
  * - Bank 表单 Day end 仅由前端 contractBillingEndYmdForBankForm 自动填（1 号起租=起租+N 月；非 1 号=起租+N 月再减一天）；入账与 isWithinRecurringBillingWindow 仍以本文件 PHP 为准。
- * - Monthly = 每月 day_start 日为应付日；一期金额为「上一应付日到本期应付前一日」按日历天比例（例如 3/13 应付则服务 2/13–3/12），不按自然月末截断。
+ * - Monthly = 首期应付 day_start，其后各期应付为 day_start 日号减 1 日（例 5/22 起 → 6/21、7/21）；区间为 [应付日, 应付日+1月-1日]。
  * - 逾期未入账：若仅在「算账日当天」才显示，用户错过后列表会空白；改为「已过应付日且该自然月尚未 monthly 入账/跳过」则一直显示到该月结清。
  * - day_end_tail（1st + cap ON）：day_end 落在 exclusive 前最后一月时，以 day_end 月 1 号～day_end 入 Due（例 day_end=16/6 → 1/6 出现）；day_end 延长超过合同时也从 day_end 月首起。
  * - day_end 延长且 today 已过合同 regular 结束：补列尚未入账的 regular monthly（不再只限「当月」），避免隔年 tail 窗口与前置 monthly 死锁。
@@ -220,10 +220,10 @@ function billingContractExclusiveEndYmdMonthlyAfterPartialFirst(string $dayStart
         $nextMo = $start->modify('first day of next month');
         $y = (int) $nextMo->format('Y');
         $mo = (int) $nextMo->format('n');
-        $dueDay = (int) $start->format('j');
-        $last = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
-        $d = min(max(1, $dueDay), $last);
-        $firstContractDue = sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        $firstContractDue = billingMonthlyDueYmdForBillingMonth($dayStartYmd, $y, $mo);
+        if ($firstContractDue === null) {
+            return null;
+        }
 
         return (new DateTimeImmutable($firstContractDue))->modify("+{$termMonths} months")->format('Y-m-d');
     } catch (Throwable $e) {
@@ -772,9 +772,8 @@ function inboxAppendMonthlyNeedToday(
             $createdYm = $createdDt->format('Y-n');
             $billYm = sprintf('%04d-%d', $billY, $billMo);
             if ($frequency === 'monthly' && $startTs !== false && $startDate !== '') {
-                $startDay = (int) date('j', $startTs);
-                $dueYmd = billingCalendarMonthDueYmd($billY, $billMo, $startDay);
-                if ((new DateTimeImmutable($startDate))->format('Y-n') === $billYm) {
+                $dueYmd = billingMonthlyDueYmdForBillingMonth($startDate, $billY, $billMo);
+                if ($dueYmd === null) {
                     $dueYmd = $startDate;
                 }
                 [$p0, $p1] = billingMonthlyAnniversaryInclusiveRangeFromDue($dueYmd, $startDate);
@@ -1776,9 +1775,11 @@ try {
                             $iter = $iter->modify('+1 month');
                             continue;
                         }
-                        $due = ($iter->format('Y-m') === $startYm)
-                            ? $startDate
-                            : calendarMonthDueYmd($y, $mo, $startDayOfMonth);
+                        $due = billingMonthlyDueYmdForBillingMonth($startDate, $y, $mo);
+                        if ($due === null) {
+                            $iter = $iter->modify('+1 month');
+                            continue;
+                        }
                         if (!$resendSinglePeriod && $exclusiveEnd !== null && $due >= $exclusiveEnd) {
                             break;
                         }

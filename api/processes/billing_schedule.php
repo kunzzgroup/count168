@@ -72,10 +72,15 @@ function billingContractExclusiveEndYmdMonthlyAfterPartialFirst(string $dayStart
         $nextMo = $start->modify('first day of next month');
         $y = (int) $nextMo->format('Y');
         $mo = (int) $nextMo->format('n');
-        $dueDay = (int) $start->format('j');
-        $last = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
-        $d = min(max(1, $dueDay), $last);
-        $firstContractDue = sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        $startDay = (int) $start->format('j');
+        if ($startDay === 1) {
+            $firstContractDue = sprintf('%04d-%02d-01', $y, $mo);
+        } else {
+            $last = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
+            $d = min(max(1, $startDay), $last);
+            $onStartDay = sprintf('%04d-%02d-%02d', $y, $mo, $d);
+            $firstContractDue = (new DateTimeImmutable($onStartDay))->modify('-1 day')->format('Y-m-d');
+        }
 
         return (new DateTimeImmutable($firstContractDue))->modify("+{$termMonths} months")->format('Y-m-d');
     } catch (Throwable $e) {

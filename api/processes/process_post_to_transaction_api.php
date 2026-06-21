@@ -346,10 +346,10 @@ function billingContractExclusiveEndYmdMonthlyAfterPartialFirst(string $dayStart
         $nextMo = $start->modify('first day of next month');
         $y = (int) $nextMo->format('Y');
         $mo = (int) $nextMo->format('n');
-        $dueDay = (int) $start->format('j');
-        $last = (int) date('t', mktime(0, 0, 0, $mo, 1, $y));
-        $d = min(max(1, $dueDay), $last);
-        $firstContractDue = sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        $firstContractDue = billingMonthlyDueYmdForBillingMonth($dayStartYmd, $y, $mo);
+        if ($firstContractDue === null) {
+            return null;
+        }
 
         return (new DateTimeImmutable($firstContractDue))->modify("+{$termMonths} months")->format('Y-m-d');
     } catch (Throwable $e) {
@@ -474,24 +474,11 @@ function monthlyDueYmdForBillingMonth(string $billingMonthYn, string $dayStartYm
     if ($billY < 1970 || $billMo < 1 || $billMo > 12) {
         return null;
     }
-    $startTs = strtotime($dayStartYmd);
-    if ($startTs === false) {
-        return null;
-    }
-    $billYm = sprintf('%04d-%d', $billY, $billMo);
     if ($frequency === '1st_of_every_month') {
         return sprintf('%04d-%02d-01', $billY, $billMo);
     }
-    $startDay = (int) date('j', $startTs);
-    $dueYmd = calendarMonthDueYmd($billY, $billMo, $startDay);
-    try {
-        if ((new DateTimeImmutable($dayStartYmd))->format('Y-n') === $billYm) {
-            $dueYmd = $dayStartYmd;
-        }
-    } catch (Throwable $e) {
-        // keep $dueYmd
-    }
-    return $dueYmd;
+
+    return billingMonthlyDueYmdForBillingMonth($dayStartYmd, $billY, $billMo);
 }
 
 /** 与 process_accounting_inbox_api 一致：某自然月是否已有 monthly / 合法 monthly_skipped */
@@ -721,9 +708,11 @@ function inferOpenMonthlyBillingMonthYn(PDO $pdo, int $companyId, array $r, stri
                     $iter = $iter->modify('+1 month');
                     continue;
                 }
-                $due = ($iter->format('Y-m') === $startYm)
-                    ? $startDate
-                    : calendarMonthDueYmd($y, $mo, $startDayOfMonth);
+                $due = billingMonthlyDueYmdForBillingMonth($startDate, $y, $mo);
+                if ($due === null) {
+                    $iter = $iter->modify('+1 month');
+                    continue;
+                }
                 if (!$resendSinglePeriod && $exclusiveEnd !== null && $due >= $exclusiveEnd) {
                     break;
                 }
