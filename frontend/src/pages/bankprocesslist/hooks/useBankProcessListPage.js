@@ -1907,6 +1907,8 @@ export function useBankProcessListPage() {
       if (!res.ok || !json.success) return notify(apiMsg(json, "transactionPostFailed"), "danger");
       notify(apiMsg(json, "postedToTransaction"));
       notifyTransactionDataChanged("bank-process-list-react");
+      setAccountingOpen(false);
+      setAccountingSelected(new Set());
       loadAccountingInbox(); fetchRows();
     } catch { notify(t("transactionPostFailed"), "danger"); }
   };
