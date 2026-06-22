@@ -194,7 +194,7 @@ export const DOMAIN_I18N = {
     saveFailed: "Save failed",
     priceDescription: "Set default amounts for each period (saved for C168 admin use).",
     priceDescriptionDual:
-      "分别为公司与集团设置默认金额。公司价格用于公司设置；集团价格用于集团设置。",
+      "Set default amounts for the company and group respectively. Company prices apply to company settings; group prices apply to group settings.",
     displayPrices: "Display prices",
     editPeriodHint: "Enter amounts for each period (up to 2 decimal places).",
     editFieldHint: "Edit fields below support up to 2 decimal places.",
