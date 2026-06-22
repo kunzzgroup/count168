@@ -2810,10 +2810,8 @@
         // 填充金额（使用原始 balance 值，去除格式化）
         let amountSet = false;
         if (amountInput && balance) {
-            // 确保 balance 是数字格式（去除逗号等格式化字符）
-            const numericBalance = parseBalanceValue(balance);
-            if (numericBalance !== null) {
-                const absBalance = MoneyDecimal.abs(numericBalance).toString();
+            if (parsedBalanceForSide !== null) {
+                const absBalance = MoneyDecimal.abs(parsedBalanceForSide).toString();
                 // 展示按 2 位；算法/提交保留点击行的原始金额
                 amountInput.value = MoneyDecimal.formatFixedHalfUp(absBalance, 2);
                 amountInput.setAttribute('data-raw-amount', absBalance);
@@ -2854,7 +2852,7 @@
             accountId,
             accountCode,
             balance,
-            numericBalance,
+            parsedBalanceForSide,
             currency,
             accountCurrency,
             type: currentType,
