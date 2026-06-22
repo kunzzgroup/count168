@@ -857,12 +857,14 @@ export default function AuthenticatedLayout() {
     };
 
     const runProcessListWarm = () => {
-      if (!me?.company_id) return;
+      const filter = readPersistedDashboardGcFilter();
+      const warmId = filter.companyId ?? me?.company_id;
+      if (!warmId) return;
       void import("../pages/processlist/processRoutePrefetch.js").then((mod) => {
-        if (me.company_has_bank && !me.company_has_gambling) {
-          mod.warmBankProcessListRouteCache(me.company_id);
+        if (pathnameIs("bank-process-list", resolveSidebarProcessSpaPath(me))) {
+          mod.warmBankProcessListRouteCache(warmId);
         } else {
-          mod.warmProcessListRouteCache(me.company_id);
+          mod.warmProcessListRouteCache(warmId);
         }
       });
     };

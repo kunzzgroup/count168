@@ -1255,6 +1255,10 @@ export function resolveSidebarProcessSpaPath(me = null) {
       if (row && companyMatchesBankOnlyPillScope(row)) {
         return spaPath("bank-process-list");
       }
+      const cached = peekCompanySessionFlags(filter.companyId);
+      if (cached?.has_bank && !cached?.has_gambling) {
+        return spaPath("bank-process-list");
+      }
     }
   }
   if (me?.company_has_bank && !me?.company_has_gambling) {
