@@ -3,6 +3,10 @@ import { appendDataCaptureScopeParams } from "../../datacapture/lib/dataCaptureA
 
 /** Canonical Summary submit endpoint. Legacy: summary_api.php?action=submit */
 const SUMMARY_SUBMIT_API = "api/datacapture_summary/summary_submit_api.php";
+/** Templates CRUD. Legacy: summary_api.php?action=save_template|delete_template|templates */
+const SUMMARY_TEMPLATES_API = "api/datacapture_summary/summary_templates_api.php";
+/** Server row/formula state. Legacy: summary_api.php?action=get_summary_state|save_summary_state */
+const SUMMARY_STATE_API = "api/datacapture_summary/summary_state_api.php";
 
 function withCaptureScope(url, captureScope) {
   if (!captureScope) return url;
@@ -48,7 +52,7 @@ export async function fetchSummaryServerState({ captureScope, processId, process
   if (processId != null && processId !== "") params.set("process_id", String(processId));
   if (processCode != null && processCode !== "") params.set("process_code", String(processCode));
   appendDataCaptureScopeParams(params, captureScope);
-  const url = buildApiUrl(`api/datacapture_summary/summary_api.php?${params.toString()}`);
+  const url = buildApiUrl(`${SUMMARY_STATE_API}?${params.toString()}`);
   const response = await fetch(url, { credentials: "include", signal });
   const json = await response.json();
   if (json?.success === true && json.data && typeof json.data === "object") {
@@ -123,7 +127,7 @@ export async function fetchSummaryTemplates({
 }) {
   const params = new URLSearchParams({ action: "templates" });
   const base = withCaptureScope(
-    withCompany(buildApiUrl("api/datacapture_summary/summary_api.php"), companyId),
+    withCompany(buildApiUrl(SUMMARY_TEMPLATES_API), companyId),
     captureScope,
   );
   const url = base.includes("?") ? `${base}&${params}` : `${base}?${params}`;
@@ -172,7 +176,7 @@ export async function deleteSummaryTemplate({
   }
 
   const url = withCaptureScope(
-    withCompany(buildApiUrl("api/datacapture_summary/summary_api.php?action=delete_template"), companyId),
+    withCompany(buildApiUrl(`${SUMMARY_TEMPLATES_API}?action=delete_template`), companyId),
     captureScope,
   );
 
