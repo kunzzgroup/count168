@@ -3027,8 +3027,19 @@
         return byFlag || byValue;
     }
 
-    /** 当期是否有非零 Win/Loss 金额 */
+    /** 当期是否有 Win/Loss 动账（含轧差为 0 但本期有 DCD / WIN-LOSE 明细的情况） */
     function rowHasPeriodWinLoss(row) {
+        const byFlagTxn = (typeof row.has_win_loss_transactions === 'boolean')
+            ? row.has_win_loss_transactions
+            : ((typeof row.has_win_loss_transactions === 'number')
+                ? row.has_win_loss_transactions !== 0
+                : parseInt(row.has_win_loss_transactions || '0', 10) !== 0);
+        const byFlagIdProduct = (typeof row.has_period_id_product_rows === 'boolean')
+            ? row.has_period_id_product_rows
+            : ((typeof row.has_period_id_product_rows === 'number')
+                ? row.has_period_id_product_rows !== 0
+                : parseInt(row.has_period_id_product_rows || '0', 10) !== 0);
+        if (byFlagTxn || byFlagIdProduct) return true;
         const rawWinLoss = (row.win_loss_full !== undefined && row.win_loss_full !== null && String(row.win_loss_full).trim() !== '')
             ? String(row.win_loss_full).replace(/,/g, '').trim()
             : row.win_loss;
