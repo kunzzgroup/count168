@@ -259,9 +259,11 @@ export function saveWLGridSelection(ids, companyId, loginRootId) {
 
 export function getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds) {
   const allow = new Set(linkedAccounts.map((a) => Number(a.id)).filter(Boolean));
-  let sel = wlGridSelectedIds.map(Number).filter((id) => allow.has(id));
-  if (!sel.length) sel = [...allow];
-  return sel;
+  return wlGridSelectedIds.map(Number).filter((id) => allow.has(id));
+}
+
+export function hasWlGridSelectedAccounts(linkedAccounts, wlGridSelectedIds) {
+  return getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds).length > 0;
 }
 
 export function isWlGridAllSelected(linkedAccounts, wlGridSelectedIds) {
@@ -280,20 +282,17 @@ export function applyWlGridAccountToggle(linkedAccounts, wlGridSelectedIds, acco
   const id = Number(accountId);
   if (!allow.includes(id)) return getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds);
 
-  let sel = wlGridSelectedIds.map(Number).filter((x) => allow.includes(x));
-  if (!sel.length) sel = [...allow];
+  const sel = getWlGridIncludedAccountIds(linkedAccounts, wlGridSelectedIds);
 
   if (sel.length === allow.length) {
     return [id];
   }
 
   if (sel.includes(id)) {
-    const next = sel.filter((x) => x !== id);
-    return next.length ? next : [...allow];
+    return sel.filter((x) => x !== id);
   }
 
-  const next = [...sel, id];
-  return next.length === allow.length ? [...allow] : next;
+  return [...sel, id];
 }
 
 export function collectLinkedUnionCurrencyCodes(linkedAccountCurrenciesMap, includedIds) {
@@ -323,7 +322,7 @@ export function accountHoldsMiniGridCurrency(linkedAccountCurrenciesMap, linkedC
 export function getOrderedMiniGridAccounts(linkedAccounts, wlGridSelectedIds, currenciesUpper, linkedAccountCurrenciesMap, linkedCurrenciesLoaded) {
   const allowIds = new Set(linkedAccounts.map((a) => Number(a.id)));
   const sel = new Set(wlGridSelectedIds.map(Number).filter((id) => allowIds.has(id)));
-  if (!sel.size) allowIds.forEach((id) => sel.add(id));
+  if (!sel.size) return [];
   const uppers = (currenciesUpper || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
   return linkedAccounts.filter((a) => {
     if (!sel.has(Number(a.id))) return false;

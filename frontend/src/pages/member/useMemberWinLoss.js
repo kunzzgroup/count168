@@ -14,6 +14,7 @@ import {
   listMiniGridBalanceFetchPairs,
   applyDefaultWLGridSelection,
   getWlGridIncludedAccountIds,
+  hasWlGridSelectedAccounts,
   saveWLGridSelection,
   sanitizeCurrencySelection,
 } from "./memberPageHelpers.js";
@@ -305,6 +306,11 @@ export function useMemberWinLoss({ showNotification, lang }) {
         setMiniGridHint("");
         return;
       }
+      if (!hasWlGridSelectedAccounts(linkedAccounts, wlGridSelectedIdsRef.current)) {
+        setMiniGridTotals(new Map());
+        setMiniGridHint("");
+        return;
+      }
       const orderedAccounts = getOrderedMiniGridAccounts(
         linkedAccounts,
         wlGridSelectedIdsRef.current,
@@ -407,6 +413,14 @@ export function useMemberWinLoss({ showNotification, lang }) {
           miniGridBalancesRef.current = new Map();
           setMiniGridTotals(new Map());
           setMiniGridHint("");
+          return;
+        }
+        if (!hasWlGridSelectedAccounts(linkedAccounts, wlGridSelectedIdsRef.current)) {
+          setMiniGridBalances(new Map());
+          miniGridBalancesRef.current = new Map();
+          setMiniGridTotals(new Map());
+          setMiniGridHint("");
+          setMiniGridShell(false);
           return;
         }
         const orderedAccounts = getOrderedMiniGridAccounts(
@@ -830,6 +844,13 @@ export function useMemberWinLoss({ showNotification, lang }) {
       wlGridSelectedIdsRef.current = ids;
       setWlGridSelectedIds(ids);
       saveWLGridSelection(ids, companyId, loginRootAccountId);
+      if (!ids.length) {
+        setMiniGridBalances(new Map());
+        miniGridBalancesRef.current = new Map();
+        setMiniGridTotals(new Map());
+        setMiniGridHint("");
+        setMiniGridShell(false);
+      }
       const pool = linkedAccountsRef.current;
       const nextAvailable = getAvailableCurrencies({
         linkedCurrenciesLoaded,

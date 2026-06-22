@@ -616,7 +616,6 @@ export default function MemberPage() {
                           linkedAccounts={linkedAccounts}
                           selectedIds={wlGridSelectedIds}
                           onApply={applyWlGridSelection}
-                          onNotify={showNotification}
                           t={t}
                         />
                       </div>
