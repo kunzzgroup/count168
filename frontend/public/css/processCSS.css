@@ -796,7 +796,8 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
     margin-top: 4px;
 }
 
-.process-page .bank-status-option:hover {
+.process-page .bank-status-option:hover,
+.process-page .bank-status-option.keyboard-focus {
     background: rgba(59, 130, 246, 0.1);
     transform: translateY(-1px);
 }

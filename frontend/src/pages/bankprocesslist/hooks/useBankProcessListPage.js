@@ -744,7 +744,11 @@ export function useBankProcessListPage() {
     });
   }, [loading, companyId, companies, selectedGroup, groupFilterKind, authMe?.company_id]);
 
+  const bankPageBootOnceRef = useRef(false);
+
   useEffect(() => {
+    if (bankPageBootOnceRef.current || !authMe) return;
+    bankPageBootOnceRef.current = true;
     (async () => {
       let skipLoadingDone = false;
       try {
@@ -911,7 +915,7 @@ export function useBankProcessListPage() {
         if (!skipLoadingDone) setLoading(false);
       }
     })();
-  }, [navigate, location.state, authMe?.company_id]);
+  }, [navigate, location.state, authMe]);
 
   useEffect(() => {
     if (!companyId || loading) return;
@@ -1159,7 +1163,7 @@ export function useBankProcessListPage() {
       if (!Number.isFinite(id) || id <= 0) return false;
       const cacheKey = resolveBankProcessListCacheKey(id, search);
       const cached = bankProcessListCacheRef.current.get(cacheKey);
-      if (!Array.isArray(cached?.rows)) return false;
+      if (!Array.isArray(cached?.rows) || cached.rows.length === 0) return false;
       setRows((prev) =>
         bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
@@ -1236,6 +1240,8 @@ export function useBankProcessListPage() {
         if (Number(companyIdRef.current) !== cid) return;
         if (!slice.rows) {
           if (!silent) notify(t("failedLoadBankProcesses"), "danger");
+          setRows([]);
+          setRowsCompanyId(cid);
           return;
         }
         const nextRows = slice.rows;
@@ -1270,6 +1276,10 @@ export function useBankProcessListPage() {
         }
       } catch {
         if (ac.signal.aborted || fetchGen !== listFetchGenRef.current) return;
+        if (Number(companyIdRef.current) === cid) {
+          setRows([]);
+          setRowsCompanyId(cid);
+        }
         if (!silent) notify(t("failedLoadBankProcesses"), "danger");
       } finally {
         if (fetchGen === listFetchGenRef.current) {
@@ -1543,6 +1553,7 @@ export function useBankProcessListPage() {
         setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
         if (nextGroup) setSelectedGroup(nextGroup);
         setCompanyId(nextId);
+        companyIdRef.current = nextId;
         cacheApplied = applyBankProcessListCache(nextId);
         if (!cacheApplied) {
           setRowsCompanyId(null);
@@ -2226,6 +2237,7 @@ export function useBankProcessListPage() {
         let cacheApplied = false;
         flushSync(() => {
           setCompanyId(nextCompanyId);
+          companyIdRef.current = nextCompanyId;
           cacheApplied = applyBankProcessListCache(nextCompanyId);
           if (!cacheApplied) {
             setRowsCompanyId(null);
@@ -2271,7 +2283,7 @@ export function useBankProcessListPage() {
 
   const scopedRows = rowsCompanyId === companyId ? rows : [];
   const tableLoadingForUi =
-    tableLoading || (companyId != null && rowsCompanyId !== companyId);
+    tableLoading && (rowsCompanyId !== companyId || scopedRows.length === 0);
 
   const sortedRows = useMemo(
     () => sortBankProcessTableRows(scopedRows, sortColumn, sortDirection),

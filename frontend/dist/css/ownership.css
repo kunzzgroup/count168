@@ -641,7 +641,8 @@ body.dashboard-page.ownership-page .own-tab-panel {
     border-bottom: none;
 }
 
-.own-account-select-option:hover {
+.own-account-select-option:hover,
+.own-account-select-option.keyboard-focus {
     background: var(--own-gray-bg);
 }
 

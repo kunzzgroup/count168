@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { getProcessModalDropdownZIndex } from "../../../components/ProcessModalPortal.jsx";
 import SimpleSelect from "../../../components/SimpleSelect.jsx";
 import FormDateField from "../../../components/FormDateField.jsx";
+import { useListboxKeyboard } from "../../../components/useListboxKeyboard.js";
 import { filterBankPickAccounts, formatBankAccountDisplay } from "../lib/bankProcessHelpers.js";
 
 const PORTAL_MIN_WIDTH = 180;
@@ -142,6 +143,14 @@ export function BankSearchableAccountPick({ value, onChange, accounts, disabled,
     return rows.slice().sort((a, b) => accountLabel(a).localeCompare(accountLabel(b), undefined, { sensitivity: "base" }));
   }, [pickableAccounts, q]);
 
+  const listItemCount = filtered.length > 0 ? filtered.length + 1 : 1;
+
+  const { highlightIdx, setHighlightIdx, listRef, handleListKeyDown, highlightClass } = useListboxKeyboard({
+    open,
+    itemCount: listItemCount,
+    resetToken: q,
+  });
+
   const selected = pickableAccounts.find((a) => String(a.id) === String(value));
   const placeholder = t("selectAccount");
 
@@ -175,36 +184,51 @@ export function BankSearchableAccountPick({ value, onChange, accounts, disabled,
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Escape") close();
+            handleListKeyDown(e, {
+              len: listItemCount,
+              onSelectIndex: (idx) => {
+                if (idx === 0) pick("");
+                else if (filtered[idx - 1]) pick(filtered[idx - 1].id);
+              },
+              onClose: close,
+            });
           }}
         />
       </div>
       <div
+        ref={listRef}
         className="custom-select-options"
         style={usePortal ? { flex: "1 1 auto", minHeight: 0 } : { maxHeight: optionsMaxHeight }}
       >
         <div
-          className={`custom-select-option${!value ? " selected" : ""}`}
+          className={`custom-select-option${!value ? " selected" : ""}${highlightClass(0)}`}
           role="option"
           aria-selected={!value}
+          data-kb-idx={0}
           onClick={() => pick("")}
+          onMouseEnter={() => setHighlightIdx(0)}
         >
           {placeholder}
         </div>
         {filtered.length === 0 ? (
           <div className="custom-select-no-results">{t("noAccountsFound")}</div>
         ) : (
-          filtered.map((a) => (
+          filtered.map((a, idx) => {
+            const kbIdx = idx + 1;
+            return (
             <div
               key={a.id}
-              className={`custom-select-option${String(value) === String(a.id) ? " selected" : ""}`}
+              className={`custom-select-option${String(value) === String(a.id) ? " selected" : ""}${highlightClass(kbIdx)}`}
               role="option"
               aria-selected={String(value) === String(a.id)}
+              data-kb-idx={kbIdx}
               onClick={() => pick(a.id)}
+              onMouseEnter={() => setHighlightIdx(kbIdx)}
             >
               {accountLabel(a)}
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
