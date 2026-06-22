@@ -7173,7 +7173,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
           });
           return;
         }
-        if (!canUseGroupOnlyMode(me)) return;
+        if (!canUseGroupOnlyMode(me, selectedGroup, companies)) return;
         const g = selectedGroup;
         clearCompanySelection(g);
         primeCurrenciesFromCache({

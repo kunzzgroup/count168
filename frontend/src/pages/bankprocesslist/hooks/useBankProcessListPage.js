@@ -2134,7 +2134,7 @@ export function useBankProcessListPage() {
         return;
       }
 
-      if (canUseGroupOnlyMode(authMe)) {
+      if (canUseGroupOnlyMode(authMe, g, companies)) {
         setGroupFilterKind("follow");
         setSelectedGroup(g);
         persistDashboardGroupFilter(g);
@@ -2190,6 +2190,7 @@ export function useBankProcessListPage() {
     },
     [
       applyBankProcessListCache,
+      authMe,
       companies,
       companyId,
       groupFilterKind,
