@@ -3026,8 +3026,8 @@ body.process-page .custom-select-dropdown.custom-select-dropdown-portal .custom-
 }
 
 .custom-select-option.keyboard-focus {
-    background: var(--btn-add-gradient, #0d60ff);
-    color: #ffffff;
+    background-color: var(--select-option-keyboard-focus-bg, #e7f0ff);
+    color: var(--select-option-keyboard-focus-text, #0d60ff);
     font-weight: 600;
 }
 

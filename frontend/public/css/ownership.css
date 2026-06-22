@@ -646,8 +646,8 @@ body.dashboard-page.ownership-page .own-tab-panel {
 }
 
 .own-account-select-option.keyboard-focus {
-    background: var(--btn-add-gradient, #0d60ff);
-    color: #fff;
+    background-color: var(--select-option-keyboard-focus-bg, #e7f0ff);
+    color: var(--select-option-keyboard-focus-text, #0d60ff);
     font-weight: 600;
 }
 

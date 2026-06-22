@@ -802,10 +802,9 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
 }
 
 .process-page .bank-status-option.keyboard-focus {
-    background: var(--btn-add-gradient, #0d60ff);
-    color: #ffffff;
+    background-color: var(--select-option-keyboard-focus-bg, #e7f0ff);
+    color: var(--select-option-keyboard-focus-text, #0d60ff);
     font-weight: 600;
-    transform: translateY(-1px);
 }
 
 .process-page .bank-status-option.selected {
