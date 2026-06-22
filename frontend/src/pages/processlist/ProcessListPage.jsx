@@ -801,7 +801,8 @@ export default function ProcessListPage() {
       groupFilterKind === "follow" ? companyId : null,
       { skipSessionRefresh: true },
     );
-  }, [loading, groupFilterKind, selectedGroup, companyId]);
+    // companyId changes are handled by onPickCompanyPill (avoids double sidebar patch).
+  }, [loading, groupFilterKind, selectedGroup]);
 
   // Process routes always require a company when a group pill is active.
   useLayoutEffect(() => {

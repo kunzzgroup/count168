@@ -2092,7 +2092,8 @@ export function useBankProcessListPage() {
       groupFilterKind === "follow" ? companyId : null,
       { skipSessionRefresh: true },
     );
-  }, [loading, groupFilterKind, selectedGroup, companyId]);
+    // companyId changes are handled by onPickCompanyPill (avoids double sidebar patch).
+  }, [loading, groupFilterKind, selectedGroup]);
   const companyButtons = useMemo(() => {
     if (groupFilterKind === "all") {
       const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));

@@ -11,6 +11,7 @@ import {
   resolveViewGroupForCompany,
 } from "./sharedCompanyFilter.js";
 import { peekCompanySessionFlags } from "./companySessionFlagsCache.js";
+import { resolveCompanyCategoryFlags } from "./companyCategoryFlags.js";
 import { buildSidebarExpirationFields } from "../expiration/expirationReminder.js";
 
 export const LOGIN_SCOPE_GROUP = "group";
@@ -543,21 +544,28 @@ export function patchMeFromCompanyContext(me, ctx = {}) {
     next.has_c168_domain_page_access = false;
     next.has_c168_auto_renew_access = false;
   }
+  let resolvedFlags = null;
+  if (companyChanged && ctx.hasGambling == null && ctx.hasBank == null) {
+    resolvedFlags = resolveCompanyCategoryFlags(findOwnerCompanyById(id));
+    if (!resolvedFlags) {
+      const cached = peekCompanySessionFlags(id);
+      if (cached) {
+        resolvedFlags = {
+          hasGambling: Boolean(cached.has_gambling),
+          hasBank: Boolean(cached.has_bank),
+        };
+      }
+    }
+  }
   if (ctx.hasGambling != null) {
     next.company_has_gambling = Boolean(ctx.hasGambling);
-  } else if (companyChanged) {
-    const cached = peekCompanySessionFlags(id);
-    if (cached) {
-      next.company_has_gambling = Boolean(cached.has_gambling);
-    }
+  } else if (resolvedFlags) {
+    next.company_has_gambling = Boolean(resolvedFlags.hasGambling);
   }
   if (ctx.hasBank != null) {
     next.company_has_bank = Boolean(ctx.hasBank);
-  } else if (companyChanged) {
-    const cached = peekCompanySessionFlags(id);
-    if (cached) {
-      next.company_has_bank = Boolean(cached.has_bank);
-    }
+  } else if (resolvedFlags) {
+    next.company_has_bank = Boolean(resolvedFlags.hasBank);
   }
   if (ctx.expirationDate !== undefined) {
     Object.assign(next, buildSidebarExpirationFields(ctx.expirationDate));

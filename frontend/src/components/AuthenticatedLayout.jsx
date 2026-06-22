@@ -47,6 +47,7 @@ import {
   fetchOwnerGroupsAll,
   findOwnerCompanyById,
   resolveSidebarExpirationForFilter,
+  resolveSidebarCategoryFlagsForCompany,
   resolveGroupCategoryFlagsForSidebar,
   resolveGroupOnlySidebarGambling,
   stashDashboardFilterForNewTab,
@@ -452,14 +453,13 @@ export default function AuthenticatedLayout() {
           has_gambling: json.data.company_has_gambling,
           has_bank: json.data.company_has_bank,
         });
-        let appliedSessionToSidebar = false;
+        let sidebarChanged = false;
         setMe((prev) => {
           if (!prev) return json.data;
           if (shouldApplySessionToSidebar(json.data, filterNow)) {
-            appliedSessionToSidebar = true;
             if (filterNow.groupOnly && filterNow.selectedGroup) {
               const groupGambling = resolveGroupOnlySidebarGambling(filterNow.selectedGroup);
-              return patchMeFromCompanyContext(prev, {
+              const next = patchMeFromCompanyContext(prev, {
                 companyId: null,
                 companyCode: filterNow.selectedGroup,
                 hasBank: false,
@@ -473,10 +473,31 @@ export default function AuthenticatedLayout() {
                   companyId: null,
                 }),
               });
+              if (next !== prev) sidebarChanged = true;
+              return next;
             }
-            return json.data;
+            const next = patchMeFromCompanyContext(prev, {
+              companyId: json.data.company_id,
+              companyCode: json.data.company_code,
+              hasGambling: json.data.company_has_gambling,
+              hasBank: json.data.company_has_bank,
+              expirationDate: json.data.expiration_date,
+            });
+            const merged =
+              next === prev
+                ? prev
+                : {
+                    ...next,
+                    expiration_hint: json.data.expiration_hint,
+                    expiration_status: json.data.expiration_status,
+                    expiration_date: json.data.expiration_date,
+                    days_until_expiration: json.data.days_until_expiration,
+                    pending_auto_renew_count: Number(json.data.pending_auto_renew_count) || 0,
+                  };
+            if (merged !== prev) sidebarChanged = true;
+            return merged;
           }
-          return {
+          const expiryOnly = {
             ...prev,
             expiration_hint: json.data.expiration_hint,
             expiration_status: json.data.expiration_status,
@@ -484,8 +505,9 @@ export default function AuthenticatedLayout() {
             days_until_expiration: json.data.days_until_expiration,
             pending_auto_renew_count: Number(json.data.pending_auto_renew_count) || 0,
           };
+          return expiryOnly === prev ? prev : expiryOnly;
         });
-        if (appliedSessionToSidebar) {
+        if (sidebarChanged) {
           setSidebarGcTick((n) => n + 1);
         }
         return json.data;
@@ -608,7 +630,10 @@ export default function AuthenticatedLayout() {
               hasGambling: Boolean(resolved.hasGambling),
               hasBank: Boolean(resolved.hasBank),
             }
-          : categoryFlagsFromSession(null, cid);
+          : resolveSidebarCategoryFlagsForCompany(cid, {
+              hasGambling: resolved.hasGambling,
+              hasBank: resolved.hasBank,
+            }) ?? categoryFlagsFromSession(null, cid);
       const expirationDate = resolveSidebarExpirationForFilter(resolved);
       if (
         applySidebarPatch({
