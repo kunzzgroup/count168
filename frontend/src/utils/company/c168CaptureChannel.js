@@ -38,27 +38,34 @@ export function syncDataIsBankOnlyPayrollCompany(syncData) {
 }
 
 /**
+ * C168-only: hide Process List entry (C168 uses Data Capture payroll UI instead).
+ * Bank-only companies use bank-process-list — do not redirect them here.
+ */
+export function isC168GroupCaptureChannel(me, companyRow = null) {
+  if (isDashboardGroupOnlyMode()) return false;
+  if (companyRow && isC168CompanyRow(companyRow)) return true;
+  if (me?.is_current_company_c168) return true;
+  const filter = readPersistedDashboardGcFilter();
+  if (filter.groupOnly || filter.companyId == null) return false;
+  const cached = findOwnerCompanyById(filter.companyId);
+  if (cached && isC168CompanyRow(cached)) return true;
+  return isC168CompanyCode(me?.company_code);
+}
+
+/**
  * Active dashboard/Data Capture context uses company payroll UI (C168 or bank-only).
  * Not group-only AP/IG ledger.
  */
 export function isCompanyPayrollCaptureChannel(me, companyRow = null) {
+  if (isC168GroupCaptureChannel(me, companyRow)) return true;
   if (isDashboardGroupOnlyMode()) return false;
-  if (companyRow && (isC168CompanyRow(companyRow) || isBankOnlyCompanyRow(companyRow))) {
-    return true;
-  }
-  if (me?.is_current_company_c168) return true;
+  if (companyRow && isBankOnlyCompanyRow(companyRow)) return true;
   if (isBankOnlySessionUser(me)) return true;
   const filter = readPersistedDashboardGcFilter();
   if (filter.groupOnly || filter.companyId == null) return false;
   const cached = findOwnerCompanyById(filter.companyId);
-  if (cached && (isC168CompanyRow(cached) || isBankOnlyCompanyRow(cached))) return true;
-  if (isC168CompanyCode(me?.company_code)) return true;
+  if (cached && isBankOnlyCompanyRow(cached)) return true;
   return false;
-}
-
-/** @deprecated alias — use isCompanyPayrollCaptureChannel */
-export function isC168GroupCaptureChannel(me, companyRow = null) {
-  return isCompanyPayrollCaptureChannel(me, companyRow);
 }
 
 /** Group payroll UI — includes true group-only (AP/IG) and company payroll channel. */
