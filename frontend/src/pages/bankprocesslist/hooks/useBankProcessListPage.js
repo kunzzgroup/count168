@@ -9,7 +9,6 @@ import { replaceBrowserPathOnly } from "../../../utils/routing/privateBrowserUrl
 import {
   clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
-  buildDashboardSidebarNotifyOptions,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
   pickDefaultSubsidiaryForGroup,
@@ -110,8 +109,6 @@ function resolveBankProcessListCurrencyAfterFetch(prev, ordered, userSelectedAll
 }
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-
-const COMPANY_SESSION_DEFER_MS = 500;
 
 export function useBankProcessListPage() {
   const navigate = useNavigate();
@@ -283,7 +280,6 @@ export function useBankProcessListPage() {
   const bankProcessListWarmInflightRef = useRef(new Map());
   const suppressCrossPageSyncRef = useRef(false);
   const onSwitchCompanyRef = useRef(null);
-  const companySwitchGenRef = useRef(0);
   const companySessionAbortRef = useRef(null);
   const rowsRef = useRef([]);
   const bankDatePickerInitRef = useRef(false);
@@ -1515,24 +1511,11 @@ export function useBankProcessListPage() {
       const cacheKey = resolveBankProcessListCacheKey(nextId, search);
       const cached = bankProcessListCacheRef.current.get(cacheKey);
       const hadCache = Array.isArray(cached?.rows) && cached.rows.length > 0;
-      const switchGen = ++companySwitchGenRef.current;
 
       skipCompanyFetchEffectRef.current = hadCache;
       suppressCrossPageSyncRef.current = true;
       userSelectedAllCurrenciesRef.current = false;
       listAbortRef.current?.abort();
-
-      if (nextGroup) persistDashboardGroupFilter(nextGroup);
-      persistDashboardFilterState(nextGroup, nextId);
-      notifyDashboardGroupFilterChanged(
-        nextGroup,
-        nextId,
-        {
-          ...buildDashboardSidebarNotifyOptions(c, nextGroup, { ignoreGroupOnly: true }),
-          skipSessionRefresh: true,
-        },
-      );
-
       flushSync(() => {
         setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
         if (nextGroup) setSelectedGroup(nextGroup);
@@ -1547,10 +1530,11 @@ export function useBankProcessListPage() {
         }
       });
 
-      window.setTimeout(() => {
-        if (switchGen !== companySwitchGenRef.current) return;
-        void onSwitchCompanyRef.current?.(c, { layoutSilent: true, backgroundRefresh: hadCache });
-      }, COMPANY_SESSION_DEFER_MS);
+      if (nextGroup) persistDashboardGroupFilter(nextGroup);
+      persistDashboardFilterState(nextGroup, nextId);
+      notifyDashboardGroupFilterChanged(nextGroup, nextId);
+
+      void onSwitchCompanyRef.current?.(c, { layoutSilent: true, backgroundRefresh: hadCache });
     },
     [applyBankProcessListCache, companyId, search],
   );
@@ -2100,11 +2084,9 @@ export function useBankProcessListPage() {
     if (loading) return;
     notifyDashboardGroupFilterChanged(
       groupFilterKind === "follow" ? selectedGroup : null,
-      groupFilterKind === "follow" ? companyId : null,
-      { skipSessionRefresh: true },
+      groupFilterKind === "follow" ? companyId : null
     );
-    // companyId changes are handled by onPickCompanyPill (avoids double sidebar patch).
-  }, [loading, groupFilterKind, selectedGroup]);
+  }, [loading, groupFilterKind, selectedGroup, companyId]);
   const companyButtons = useMemo(() => {
     if (groupFilterKind === "all") {
       const groupOrder = new Map(groupIds.map((gid, idx) => [gid, idx]));
@@ -2156,11 +2138,6 @@ export function useBankProcessListPage() {
         setGroupFilterKind("follow");
         setSelectedGroup(g);
         persistDashboardGroupFilter(g);
-        persistDashboardFilterState(g, null, { allowGroupOnly: true });
-        notifyDashboardGroupFilterChanged(g, null, {
-          ...buildDashboardSidebarNotifyOptions(null, g),
-          skipSessionRefresh: true,
-        });
         flushSync(() => {
           setCompanyId(null);
           setRows([]);
@@ -2168,6 +2145,8 @@ export function useBankProcessListPage() {
           setCurrencyListOrdered([]);
           setCurrencyPillDisplayOrder(null);
         });
+        persistDashboardFilterState(g, null, { allowGroupOnly: true });
+        notifyDashboardGroupFilterChanged(g, null);
         return;
       }
 
@@ -2183,19 +2162,8 @@ export function useBankProcessListPage() {
         const hadCache =
           Array.isArray(bankProcessListCacheRef.current.get(cacheKey)?.rows) &&
           bankProcessListCacheRef.current.get(cacheKey).rows.length > 0;
-        const switchGen = ++companySwitchGenRef.current;
         skipCompanyFetchEffectRef.current = hadCache;
         suppressCrossPageSyncRef.current = true;
-        listAbortRef.current?.abort();
-        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(
-          g,
-          nextCompanyId,
-          {
-            ...buildDashboardSidebarNotifyOptions(pick, g, { ignoreGroupOnly: true }),
-            skipSessionRefresh: true,
-          },
-        );
         flushSync(() => {
           setCompanyId(nextCompanyId);
           if (hadCache) applyBankProcessListCache(nextCompanyId);
@@ -2207,10 +2175,11 @@ export function useBankProcessListPage() {
             setCurrencyPillDisplayOrder(null);
           }
         });
-        window.setTimeout(() => {
-          if (switchGen !== companySwitchGenRef.current) return;
-          void onSwitchCompanyRef.current?.(pick, { layoutSilent: true, backgroundRefresh: hadCache });
-        }, COMPANY_SESSION_DEFER_MS);
+        persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
+        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
+          companyCode: pick.company_id,
+        });
+        void onSwitchCompanyRef.current?.(pick, { layoutSilent: true, backgroundRefresh: hadCache });
         return;
       }
 

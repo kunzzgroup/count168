@@ -47,7 +47,6 @@ import {
   fetchOwnerGroupsAll,
   findOwnerCompanyById,
   resolveSidebarExpirationForFilter,
-  resolveSidebarCategoryFlagsForCompany,
   resolveGroupCategoryFlagsForSidebar,
   resolveGroupOnlySidebarGambling,
   stashDashboardFilterForNewTab,
@@ -453,13 +452,14 @@ export default function AuthenticatedLayout() {
           has_gambling: json.data.company_has_gambling,
           has_bank: json.data.company_has_bank,
         });
-        let sidebarChanged = false;
+        let appliedSessionToSidebar = false;
         setMe((prev) => {
           if (!prev) return json.data;
           if (shouldApplySessionToSidebar(json.data, filterNow)) {
+            appliedSessionToSidebar = true;
             if (filterNow.groupOnly && filterNow.selectedGroup) {
               const groupGambling = resolveGroupOnlySidebarGambling(filterNow.selectedGroup);
-              const next = patchMeFromCompanyContext(prev, {
+              return patchMeFromCompanyContext(prev, {
                 companyId: null,
                 companyCode: filterNow.selectedGroup,
                 hasBank: false,
@@ -473,31 +473,10 @@ export default function AuthenticatedLayout() {
                   companyId: null,
                 }),
               });
-              if (next !== prev) sidebarChanged = true;
-              return next;
             }
-            const next = patchMeFromCompanyContext(prev, {
-              companyId: json.data.company_id,
-              companyCode: json.data.company_code,
-              hasGambling: json.data.company_has_gambling,
-              hasBank: json.data.company_has_bank,
-              expirationDate: json.data.expiration_date,
-            });
-            const merged =
-              next === prev
-                ? prev
-                : {
-                    ...next,
-                    expiration_hint: json.data.expiration_hint,
-                    expiration_status: json.data.expiration_status,
-                    expiration_date: json.data.expiration_date,
-                    days_until_expiration: json.data.days_until_expiration,
-                    pending_auto_renew_count: Number(json.data.pending_auto_renew_count) || 0,
-                  };
-            if (merged !== prev) sidebarChanged = true;
-            return merged;
+            return json.data;
           }
-          const expiryOnly = {
+          return {
             ...prev,
             expiration_hint: json.data.expiration_hint,
             expiration_status: json.data.expiration_status,
@@ -505,9 +484,8 @@ export default function AuthenticatedLayout() {
             days_until_expiration: json.data.days_until_expiration,
             pending_auto_renew_count: Number(json.data.pending_auto_renew_count) || 0,
           };
-          return expiryOnly === prev ? prev : expiryOnly;
         });
-        if (sidebarChanged) {
+        if (appliedSessionToSidebar) {
           setSidebarGcTick((n) => n + 1);
         }
         return json.data;
@@ -525,7 +503,7 @@ export default function AuthenticatedLayout() {
     refreshSessionDebouncedRef.current = window.setTimeout(() => {
       refreshSessionDebouncedRef.current = null;
       void refreshSession();
-    }, 280);
+    }, 0);
   }, [refreshSession]);
 
   useEffect(
@@ -538,15 +516,11 @@ export default function AuthenticatedLayout() {
   );
 
   const applySidebarPatch = useCallback((patch) => {
-    if (!patch) return false;
-    let changed = false;
+    if (!patch) return;
     setMe((prev) => {
       if (!prev) return prev;
-      const next = patchMeFromCompanyContext(prev, patch);
-      if (next !== prev) changed = true;
-      return next;
+      return patchMeFromCompanyContext(prev, patch);
     });
-    return changed;
   }, []);
 
   const lastSidebarFilterSigRef = useRef("");
@@ -554,8 +528,9 @@ export default function AuthenticatedLayout() {
   const applySidebarFromFilterDetail = useCallback(
     (detail, options = {}) => {
       if (!detail) {
-        if (applySidebarPatch(null)) setSidebarGcTick((n) => n + 1);
-        if (!options.skipSessionRefresh) scheduleRefreshSession();
+        applySidebarPatch(null);
+        setSidebarGcTick((n) => n + 1);
+        scheduleRefreshSession();
         return;
       }
       if (!options.force && !dashboardFilterEventMatchesPersisted(detail)) return;
@@ -588,10 +563,7 @@ export default function AuthenticatedLayout() {
       lastSidebarFilterSigRef.current = sig;
 
       const cid = resolved.companyId;
-      const skipRefresh =
-        options.skipSessionRefresh === true ||
-        detail?.skipSessionRefresh === true ||
-        resolved.groupOnly;
+      const skipRefresh = options.skipSessionRefresh === true || resolved.groupOnly;
       if (cid == null) {
         const patch = { companyId: null, companyCode: resolved.companyCode ?? "" };
         const includeBank = Boolean(resolved.groupAllMode) && !resolved.groupOnly;
@@ -616,7 +588,8 @@ export default function AuthenticatedLayout() {
         }
         const expirationDate = resolveSidebarExpirationForFilter(resolved);
         patch.expirationDate = expirationDate !== undefined ? expirationDate : null;
-        if (applySidebarPatch(patch)) setSidebarGcTick((n) => n + 1);
+        applySidebarPatch(patch);
+        setSidebarGcTick((n) => n + 1);
         if (!skipRefresh) scheduleRefreshSession();
         return;
       }
@@ -630,26 +603,20 @@ export default function AuthenticatedLayout() {
               hasGambling: Boolean(resolved.hasGambling),
               hasBank: Boolean(resolved.hasBank),
             }
-          : resolveSidebarCategoryFlagsForCompany(cid, {
-              hasGambling: resolved.hasGambling,
-              hasBank: resolved.hasBank,
-            }) ?? categoryFlagsFromSession(null, cid);
+          : categoryFlagsFromSession(null, cid);
       const expirationDate = resolveSidebarExpirationForFilter(resolved);
-      if (
-        applySidebarPatch({
-          companyId: cid,
-          companyCode,
-          ...(flags
-            ? {
-                hasGambling: Boolean(flags.hasGambling),
-                hasBank: Boolean(flags.hasBank),
-              }
-            : {}),
-          expirationDate: expirationDate !== undefined ? expirationDate : null,
-        })
-      ) {
-        setSidebarGcTick((n) => n + 1);
-      }
+      applySidebarPatch({
+        companyId: cid,
+        companyCode,
+        ...(flags
+          ? {
+              hasGambling: Boolean(flags.hasGambling),
+              hasBank: Boolean(flags.hasBank),
+            }
+          : {}),
+        expirationDate: expirationDate !== undefined ? expirationDate : null,
+      });
+      setSidebarGcTick((n) => n + 1);
       if (!skipRefresh) scheduleRefreshSession();
     },
     [applySidebarPatch, scheduleRefreshSession],
@@ -686,7 +653,6 @@ export default function AuthenticatedLayout() {
       const data = e?.detail;
       const filter = readPersistedDashboardGcFilter();
 
-      let sidebarChanged = false;
       if (filter.groupOnly && filter.selectedGroup) {
         if (data && typeof data === "object" && shouldApplySessionToSidebar(data, filter)) {
           const groupOnlyExp = resolveSidebarExpirationForFilter({
@@ -694,7 +660,7 @@ export default function AuthenticatedLayout() {
             companyId: null,
           });
           const groupGambling = resolveGroupOnlySidebarGambling(filter.selectedGroup);
-          sidebarChanged = applySidebarPatch({
+          applySidebarPatch({
             companyId: null,
             companyCode: filter.selectedGroup,
             hasBank: false,
@@ -702,7 +668,6 @@ export default function AuthenticatedLayout() {
             ...(groupOnlyExp !== undefined ? { expirationDate: groupOnlyExp } : {}),
           });
         }
-        if (sidebarChanged) setSidebarGcTick((n) => n + 1);
         return;
       }
 
@@ -711,7 +676,7 @@ export default function AuthenticatedLayout() {
         const row = Number.isFinite(sid) && sid > 0 ? findOwnerCompanyById(sid) : null;
         const expirationDate = row ? row.expiration_date ?? null : undefined;
         if (shouldApplySessionToSidebar(data, filter)) {
-          sidebarChanged = applySidebarPatch({
+          applySidebarPatch({
             companyId: data.company_id,
             companyCode: data.company_code,
             hasGambling: data.has_gambling,
@@ -724,11 +689,11 @@ export default function AuthenticatedLayout() {
               ? Number(filter.companyId)
               : null;
           if (expectedId === sid) {
-            sidebarChanged = applySidebarPatch({ companyId: sid, expirationDate });
+            applySidebarPatch({ companyId: sid, expirationDate });
           }
         }
       }
-      if (sidebarChanged) setSidebarGcTick((n) => n + 1);
+      scheduleRefreshSession();
     };
     const onSessionRefresh = () => {
       scheduleRefreshSession();

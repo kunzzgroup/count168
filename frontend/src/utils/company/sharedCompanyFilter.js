@@ -1040,14 +1040,6 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
   });
   let hasGambling = options.hasGambling ?? cachedFlags?.has_gambling;
   let hasBank = options.hasBank ?? cachedFlags?.has_bank;
-  if (cid != null && (hasGambling == null || hasBank == null)) {
-    const row = findOwnerCompanyById(cid);
-    const fromRow = resolveCompanyCategoryFlags(row);
-    if (fromRow) {
-      if (hasGambling == null) hasGambling = fromRow.hasGambling;
-      if (hasBank == null) hasBank = fromRow.hasBank;
-    }
-  }
   const persistedFilter = readPersistedDashboardGcFilter();
   const groupAllMode =
     Boolean(persistedFilter.groupAllMode) && cid == null && !groupOnly;
@@ -1079,43 +1071,9 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
         ...(hasGambling != null ? { hasGambling: Boolean(hasGambling) } : {}),
         ...(hasBank != null ? { hasBank: Boolean(hasBank) } : {}),
         expirationDate: expirationDate !== undefined ? expirationDate : null,
-        ...(options.skipSessionRefresh === true ? { skipSessionRefresh: true } : {}),
       },
     })
   );
-}
-
-/** Optimistic sidebar notify when picking a company pill (stable flags, no redundant current_user fetch). */
-export function buildDashboardCompanyFilterNotifyOptions(companyRow, options = {}) {
-  const flags = resolveCompanyCategoryFlags(companyRow);
-  const id = Number(companyRow?.id);
-  if (Number.isFinite(id) && id > 0 && flags) {
-    rememberCompanySessionFlags({
-      company_id: id,
-      company_code: companyRow?.company_id,
-      has_gambling: flags.hasGambling,
-      has_bank: flags.hasBank,
-    });
-  }
-  return {
-    companyCode: companyRow?.company_id,
-    ...(flags ? { hasGambling: flags.hasGambling, hasBank: flags.hasBank } : {}),
-    skipSessionRefresh: true,
-    ...options,
-  };
-}
-
-/** Resolve sidebar Games/Bank flags for a company id (options → row permissions → session cache). */
-export function resolveSidebarCategoryFlagsForCompany(companyId, options = {}) {
-  if (options.hasGambling != null || options.hasBank != null) {
-    return {
-      hasGambling: Boolean(options.hasGambling),
-      hasBank: Boolean(options.hasBank),
-    };
-  }
-  const cid = Number(companyId);
-  if (!Number.isFinite(cid) || cid <= 0) return null;
-  return resolveCompanyCategoryFlags(findOwnerCompanyById(cid));
 }
 
 /** Sidebar category flags for a concrete company row (cache → permissions). */
