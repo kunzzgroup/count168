@@ -1,6 +1,9 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { appendDataCaptureScopeParams } from "../../datacapture/lib/dataCaptureApi.js";
 
+/** Canonical Summary submit endpoint. Legacy: summary_api.php?action=submit */
+const SUMMARY_SUBMIT_API = "api/datacapture_summary/summary_submit_api.php";
+
 function withCaptureScope(url, captureScope) {
   if (!captureScope) return url;
   const sep = url.includes("?") ? "&" : "?";
@@ -56,10 +59,7 @@ export async function fetchSummaryServerState({ captureScope, processId, process
 
 /** POST ?action=submit — returns parsed JSON or throws with { status, message, isSizeError }. */
 export async function submitSummaryPayload(captureScope, payload) {
-  const url = withCaptureScope(
-    buildApiUrl("api/datacapture_summary/summary_api.php?action=submit"),
-    captureScope,
-  );
+  const url = withCaptureScope(buildApiUrl(SUMMARY_SUBMIT_API), captureScope);
   const response = await fetch(url, {
     method: "POST",
     credentials: "include",
