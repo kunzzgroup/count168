@@ -3084,6 +3084,12 @@ body:not(.maintenance-page) .quick-select-dropdown-toggle .dropdown-item:hover {
     background-color: #f0f0f0;
 }
 
+.custom-select-option.keyboard-focus {
+    background: var(--btn-add-gradient, #0d60ff);
+    color: #ffffff;
+    font-weight: 600;
+}
+
 .custom-select-option.selected {
     background-color: #e3f2fd;
     font-weight: bold;

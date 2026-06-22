@@ -641,9 +641,14 @@ body.dashboard-page.ownership-page .own-tab-panel {
     border-bottom: none;
 }
 
-.own-account-select-option:hover,
-.own-account-select-option.keyboard-focus {
+.own-account-select-option:hover {
     background: var(--own-gray-bg);
+}
+
+.own-account-select-option.keyboard-focus {
+    background: var(--btn-add-gradient, #0d60ff);
+    color: #fff;
+    font-weight: 600;
 }
 
 .own-account-select-option.is-selected {
