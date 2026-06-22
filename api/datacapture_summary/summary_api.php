@@ -2243,6 +2243,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null, ?array &$r
 }
 
 require_once __DIR__ . '/../datacapture/data_capture_scope_common.php';
+require_once __DIR__ . '/../datacapture/submitted_process_lib.php';
 
 // 检查用户是否登录
 if (!isset($_SESSION['user_id'])) {
@@ -3542,6 +3543,26 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Commit transaction
             $pdo->commit();
+
+            // Company scope: write submitted_processes in same request as data_captures (avoids second POST + scope drift).
+            if (!$isBatchAppend && $userId) {
+                $submittedResult = dcSaveSubmittedProcessRecord(
+                    $pdo,
+                    (int) $userId,
+                    $user_type,
+                    (int) $data['processId'],
+                    (string) $data['captureDate'],
+                    is_array($capture_scope_ctx) ? $capture_scope_ctx : [],
+                    $companyId,
+                    (bool) $capture_scope_group
+                );
+                if (!$submittedResult['success'] && empty($submittedResult['skipped'])) {
+                    error_log(
+                        'submit: submitted_processes save failed: '
+                        . ($submittedResult['error'] ?? 'unknown')
+                    );
+                }
+            }
             
             // Log success
             error_log("Data capture submitted successfully - Capture ID: $captureId, Rows: " . count($data['summaryRows']));

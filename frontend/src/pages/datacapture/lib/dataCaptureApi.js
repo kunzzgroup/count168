@@ -1,6 +1,9 @@
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { dataCaptureScopeApiParams, dataCaptureScopeCacheKey } from "./dataCaptureScope.js";
 
+/** Data Capture submissions + process picker (canonical). Legacy: api/processes/submitted_processes_api.php */
+const DATA_CAPTURE_SUBMISSIONS_API = "api/datacapture/submissions_api.php";
+
 /** One option per currency code (subsidiary + group rows can share company_id). */
 export function dedupeCaptureCurrenciesByCode(rows) {
   const byCode = new Map();
@@ -245,7 +248,7 @@ export async function fetchProcessesByDay(selectedDate, scope) {
     date: selectedDate,
   });
   appendDataCaptureScopeParams(params, scope);
-  const url = buildApiUrl(`api/processes/submitted_processes_api.php?${params.toString()}`);
+  const url = buildApiUrl(`${DATA_CAPTURE_SUBMISSIONS_API}?${params.toString()}`);
   const response = await fetch(url, { credentials: "include" });
   return response.json();
 }
@@ -274,7 +277,7 @@ export async function fetchGroupProcessIdByCode(scope, processCode, currencyId =
     params.set("currency_id", String(cid));
   }
   appendDataCaptureScopeParams(params, scope);
-  const url = buildApiUrl(`api/processes/submitted_processes_api.php?${params.toString()}`);
+  const url = buildApiUrl(`${DATA_CAPTURE_SUBMISSIONS_API}?${params.toString()}`);
   const response = await fetch(url, { credentials: "include" });
   const json = await response.json();
   if (!json?.success) {
@@ -298,7 +301,7 @@ export async function fetchSubmissionsByCaptureDate(captureDate, scope) {
     capture_date: captureDate,
   });
   appendDataCaptureScopeParams(params, scope);
-  const url = buildApiUrl(`api/processes/submitted_processes_api.php?${params.toString()}`);
+  const url = buildApiUrl(`${DATA_CAPTURE_SUBMISSIONS_API}?${params.toString()}`);
   const response = await fetch(url, { credentials: "include" });
   return response.json();
 }

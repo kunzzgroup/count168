@@ -349,7 +349,10 @@ function DataCapturePageContent() {
     portalDropdownClassName: "dc-process-select-portal",
   };
 
-  const { submittedItems } = useDataCaptureSubmittedList(captureScope, form.captureDate);
+  const { submittedItems, submissionsError, refreshSubmitted } = useDataCaptureSubmittedList(
+    captureScope,
+    form.captureDate,
+  );
 
   const topSectionRef = useRef(null);
   const formColumnRef = useRef(null);
@@ -1268,7 +1271,18 @@ function DataCapturePageContent() {
               {/* Legacy `renderSubmittedProcesses` sets innerHTML on `#submittedProcessesList` — decoy only. */}
               <div id="submittedProcessesList" className="dc-legacy-submitted-host" aria-hidden="true" style={{ display: "none" }} />
               <div className="dc-react-submitted-list">
-              {submittedItems.length === 0 ? (
+              {submissionsError ? (
+                <div className="no-data" role="alert">
+                  {t("failedLoadSubmittedProcesses") || submissionsError.message}
+                  <button
+                    type="button"
+                    className="dc-submitted-retry"
+                    onClick={() => void refreshSubmitted()}
+                  >
+                    {t("retry") || "Retry"}
+                  </button>
+                </div>
+              ) : submittedItems.length === 0 ? (
                 <div className="no-data">{t("noProcessesSubmitted")}</div>
               ) : (
                 submittedItems.map((process, index) => (
