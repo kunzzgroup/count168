@@ -96,6 +96,7 @@ export default function MemberPage() {
     miniGridTotals,
     miniGridHint,
     miniGridAccounts,
+    miniGridHasSelection,
     showMiniRail,
     groupedRows,
     loadingTable,
@@ -609,7 +610,11 @@ export default function MemberPage() {
               </div>
               {showMiniRail && (
                 <>
-                  <div className="member-dash-col member-dash-col-matrix" ref={wlMatrixColRef} aria-hidden="false">
+                  <div
+                    className={`member-dash-col member-dash-col-matrix${miniGridHasSelection || miniGridLoading || miniGridShell ? "" : " member-dash-col-matrix--empty"}`}
+                    ref={wlMatrixColRef}
+                    aria-hidden="false"
+                  >
                     {linkedAccounts.length > 0 && (
                       <div className="member-dash-rail-toolbar member-dash-matrix-toolbar">
                         <MemberGridAccountPills
@@ -620,6 +625,7 @@ export default function MemberPage() {
                         />
                       </div>
                     )}
+                    {(miniGridHasSelection || miniGridLoading || miniGridShell) && (
                     <div className="member-dash-matrix-center-wrap">
                       <div className="member-dash-rail-matrix">
                         {miniGridLoading ? (
@@ -641,6 +647,7 @@ export default function MemberPage() {
                         )}
                       </div>
                     </div>
+                    )}
                   </div>
                 </>
               )}

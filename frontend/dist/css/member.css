@@ -1765,6 +1765,14 @@ body.transaction-page.member-winloss-page .member-dash-col-filters .member-winlo
     align-self: start;
 }
 
+.member-winloss-page .member-dash-col-matrix--empty {
+    align-self: flex-start;
+}
+
+.member-winloss-page .member-dash-col-matrix--empty .member-dash-rail-toolbar {
+    padding-bottom: 0;
+}
+
 /* 矩阵区域默认随内容；≥10 列时再铺满中栏 */
 .member-winloss-page .member-dash-matrix-center-wrap {
     flex: 0 1 auto;
