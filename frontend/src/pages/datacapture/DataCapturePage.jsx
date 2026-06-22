@@ -27,6 +27,7 @@ import {
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
 import {
+  isCompanyPayrollCaptureChannel,
   isGroupPayrollUi,
   resolvePayrollDraftBucket,
 } from "../../utils/company/c168CaptureChannel.js";
