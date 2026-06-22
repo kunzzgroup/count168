@@ -262,7 +262,7 @@ export async function fetchProcessDetail(processId, scope) {
   return response.json();
 }
 
-/** Resolve numeric process.id for SALARY/COMMISSION/BONUS under group entity company. */
+/** Resolve numeric process.id for group payroll codes (SALARY/COMMISSION/BONUS/PROFIT) under scoped company. */
 export async function fetchGroupProcessIdByCode(scope, processCode, currencyId = null) {
   const params = new URLSearchParams({
     action: "get_group_process_id",
