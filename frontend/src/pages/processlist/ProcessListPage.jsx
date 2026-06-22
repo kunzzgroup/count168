@@ -21,8 +21,7 @@ import { findOwnerCompanyById } from "../../utils/company/sharedCompanyFilter.js
 import { useGroupAnchorSessionSync } from "../../utils/company/useGroupAnchorSessionSync.js";
 import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
-import { resolveBankOnlyCompany } from "../bankprocesslist/lib/bankProcessHelpers.js";
-import { filterCompaniesForGamesPills } from "../../utils/company/companyCategoryFlags.js";
+import { isBankCategoryCompany, resolveBankOnlyCategoryHint } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
 import "../../../public/css/description-input.css";
 import "../../../public/css/processlist.css";
@@ -293,29 +292,6 @@ export default function ProcessListPage() {
                 groupIds: prefetchGroupIds,
               })
             : resolvedPrefetchId;
-          const prefetchResolvedRow = prefetchedCompanies.find(
-            (c) => Number(c.id) === Number(resolvedCompanyId),
-          );
-          if (prefetchResolvedRow?.company_id && resolvedCompanyId != null) {
-            const bankCategory = await resolveBankOnlyCompany(prefetchResolvedRow, layoutMe, buildApiUrl);
-            if (bankCategory) {
-              const warm = await prefetchBankProcessListPayload(resolvedCompanyId);
-              navigate(spaPath("bank-process-list"), {
-                replace: true,
-                state: {
-                  bankProcessListPrefetch: {
-                    companyId: resolvedCompanyId,
-                    companies: prefetchedCompanies,
-                    groupFilterKind: ungroupedBoot ? "ungrouped" : "follow",
-                    rows: warm.rows,
-                    currencyCodes: warm.currencyCodes,
-                  },
-                },
-              });
-              skipLoadingDone = true;
-              return;
-            }
-          }
           setCompanyId(resolvedCompanyId);
           setGroupFilterKind(ungroupedBoot ? "ungrouped" : "follow");
           if (ungroupedBoot) setSelectedGroup(null);
@@ -400,7 +376,11 @@ export default function ProcessListPage() {
 
         const currentCompanyRow = cs.find((c) => Number(c.id) === Number(effectiveCompany));
         if (currentCompanyRow?.company_id) {
-          const bankCategory = await resolveBankOnlyCompany(currentCompanyRow, layoutMe, buildApiUrl);
+          const bankOnlyHint = resolveBankOnlyCategoryHint(layoutMe, effectiveCompany);
+          const bankCategory =
+            bankOnlyHint !== null
+              ? bankOnlyHint
+              : await isBankCategoryCompany(currentCompanyRow.company_id, buildApiUrl);
           if (bankCategory) {
             const warm = await prefetchBankProcessListPayload(effectiveCompany);
             navigate(spaPath("bank-process-list"), {
@@ -751,11 +731,7 @@ export default function ProcessListPage() {
   const pickerCompanyId = companyId;
 
   const allCompanyButtons = useMemo(
-    () =>
-      filterCompaniesForGamesPills(
-        dedupeCompanyRowsForSwitcher(companies, pickerCompanyId),
-        pickerCompanyId,
-      ),
+    () => dedupeCompanyRowsForSwitcher(companies, pickerCompanyId),
     [companies, pickerCompanyId]
   );
   const groupIds = useMemo(
@@ -914,10 +890,11 @@ export default function ProcessListPage() {
         const sessionCompanyId =
           sessionMeFromLayout?.company_id != null ? Number(sessionMeFromLayout.company_id) : null;
 
-        const bankCategory = await resolveBankOnlyCompany(company, sessionMeFromLayout, buildApiUrl);
+        const bankCategoryPromise = isBankCategoryCompany(company.company_id, buildApiUrl);
         void loadFormMeta(nextId);
 
         try {
+          const bankCategory = await bankCategoryPromise;
           if (bankCategory) {
             const warm = await prefetchBankProcessListPayload(nextId);
             navigate(spaPath("bank-process-list"), {

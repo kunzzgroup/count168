@@ -42,7 +42,6 @@ import {
   shouldApplySessionToSidebar,
   shouldRefreshExpiryFromSession,
   shouldHideSidebarProcess,
-  resolveSidebarProcessSpaPath,
   shouldShowBankprocessMaintenanceInSidebar,
   fetchOwnerCompaniesAll,
   fetchOwnerGroupsAll,
@@ -857,14 +856,12 @@ export default function AuthenticatedLayout() {
     };
 
     const runProcessListWarm = () => {
-      const filter = readPersistedDashboardGcFilter();
-      const warmId = filter.companyId ?? me?.company_id;
-      if (!warmId) return;
+      if (!me?.company_id) return;
       void import("../pages/processlist/processRoutePrefetch.js").then((mod) => {
-        if (pathnameIs("bank-process-list", resolveSidebarProcessSpaPath(me))) {
-          mod.warmBankProcessListRouteCache(warmId);
+        if (me.company_has_bank && !me.company_has_gambling) {
+          mod.warmBankProcessListRouteCache(me.company_id);
         } else {
-          mod.warmProcessListRouteCache(warmId);
+          mod.warmProcessListRouteCache(me.company_id);
         }
       });
     };
@@ -1004,10 +1001,8 @@ export default function AuthenticatedLayout() {
   
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
-  const processSpaPath = useMemo(
-    () => resolveSidebarProcessSpaPath(me),
-    [me, sidebarGcTick],
-  );
+  const processSpaPath =
+    me?.company_has_bank && !me?.company_has_gambling ? spaPath("bank-process-list") : spaPath("process-list");
   const performLogout = async () => {
     if (logoutLoading) return;
     setLogoutLoading(true);

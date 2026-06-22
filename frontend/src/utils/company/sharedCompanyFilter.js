@@ -6,14 +6,13 @@
  */
 import { buildApiUrl } from "../core/apiUrl.js";
 import { stripPrivateQueryFromBrowserUrl } from "../routing/privateBrowserUrl.js";
-import { pathnameIs, spaPath } from "../routing/pageRoutes.js";
+import { pathnameIs } from "../routing/pageRoutes.js";
 import {
   clearCompanySessionFlagsCache,
   peekCompanySessionFlags,
   rememberCompanySessionFlags,
 } from "./companySessionFlagsCache.js";
 import {
-  companyMatchesBankOnlyPillScope,
   permissionsIncludeBank,
   permissionsIncludeGames,
   resolveCompanyCategoryFlags,
@@ -1241,30 +1240,6 @@ export function replayPersistedDashboardFilterToSidebar() {
 export function notifyDashboardGcBootstrapReady() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(DASHBOARD_GC_BOOTSTRAP_READY_EVENT));
-}
-
-/**
- * Sidebar Process link: bank-only filter company (e.g. CX) → Bank Process List;
- * otherwise follow session category flags.
- */
-export function resolveSidebarProcessSpaPath(me = null) {
-  if (!isDashboardGroupOnlyMode()) {
-    const filter = readPersistedDashboardGcFilter();
-    if (filter.companyId != null) {
-      const row = findOwnerCompanyById(filter.companyId);
-      if (row && companyMatchesBankOnlyPillScope(row)) {
-        return spaPath("bank-process-list");
-      }
-      const cached = peekCompanySessionFlags(filter.companyId);
-      if (cached?.has_bank && !cached?.has_gambling) {
-        return spaPath("bank-process-list");
-      }
-    }
-  }
-  if (me?.company_has_bank && !me?.company_has_gambling) {
-    return spaPath("bank-process-list");
-  }
-  return spaPath("process-list");
 }
 
 /**

@@ -1,7 +1,6 @@
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
 import { buildApiUrl } from "../../../utils/core/apiUrl.js";
 import { formatDmy, parseDdMmYyyyToYmd, parseYmd } from "../../../utils/date/dateUtils.js";
-import { companyMatchesBankOnlyPillScope } from "../../../utils/company/companyCategoryFlags.js";
 
 /** Auto page size bounds (actual count from useAutoListPageSize). */
 export const PAGE_SIZE_MIN = 4;
@@ -490,21 +489,6 @@ export async function isBankCategoryCompany(companyCode, buildApiUrl) {
   } catch {
     return false;
   }
-}
-
-/**
- * Bank-only company (e.g. CX): owner-companies permissions first, then session hint, then domain API.
- */
-export async function resolveBankOnlyCompany(companyRow, sessionMe, buildApiUrlFn = buildApiUrl) {
-  if (!companyRow || typeof companyRow !== "object") return false;
-  if (companyMatchesBankOnlyPillScope(companyRow)) return true;
-  const numericId = Number(companyRow.id);
-  const hint = resolveBankOnlyCategoryHint(sessionMe, numericId);
-  if (hint === true) return true;
-  if (hint === false) return false;
-  const code = companyRow.company_id != null ? String(companyRow.company_id).trim() : "";
-  if (!code) return false;
-  return isBankCategoryCompany(code, buildApiUrlFn);
 }
 
 export function profitSharingTotalFromString(s) {
