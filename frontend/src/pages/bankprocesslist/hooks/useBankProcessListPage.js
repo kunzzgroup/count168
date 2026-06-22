@@ -182,6 +182,7 @@ export function useBankProcessListPage() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupFilterKind, setGroupFilterKind] = useState("follow");
   const [rows, setRows] = useState([]);
+  const [rowsCompanyId, setRowsCompanyId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [search, setSearch] = useState("");
@@ -790,6 +791,7 @@ export function useBankProcessListPage() {
           if (Array.isArray(routePrefetch.rows)) {
             const prefRows = normalizeRows(routePrefetch.rows);
             setRows(prefRows);
+            setRowsCompanyId(prefetchCompanyId);
             skipNextBankFetchRef.current = true;
             setTableLoading(false);
             const cacheKey = resolveBankProcessListCacheKey(prefetchCompanyId, currentUrl.searchParams.get("search") || "");
@@ -894,6 +896,7 @@ export function useBankProcessListPage() {
               currencyCodes: slice.currencyCodes,
             });
             setRows(slice.rows);
+            setRowsCompanyId(effectiveNum);
             skipNextBankFetchRef.current = true;
             setTableLoading(false);
             if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
@@ -1160,6 +1163,7 @@ export function useBankProcessListPage() {
       setRows((prev) =>
         bankProcessRowsFingerprint(prev) === bankProcessRowsFingerprint(cached.rows) ? prev : cached.rows,
       );
+      setRowsCompanyId(id);
       setTableLoading(false);
       if (cached.rows.length > 0) {
         window.requestAnimationFrame(() => notifyBankListLayoutChanged());
@@ -1246,6 +1250,7 @@ export function useBankProcessListPage() {
           }
           return nextRows;
         });
+        setRowsCompanyId(cid);
         if (Array.isArray(slice.currencyCodes) && slice.currencyCodes.length) {
           const ordered = mergeCurrencyCodesWithSavedOrder(
             slice.currencyCodes,
@@ -1429,33 +1434,34 @@ export function useBankProcessListPage() {
       suppressCrossPageSyncRef.current = true;
       try {
         const sessionCompanyId = authMe?.company_id != null ? Number(authMe.company_id) : null;
-        const bankCategoryPromise = isBankCategoryCompany(c.company_id, buildApiUrl);
         if (backgroundRefresh) {
           void fetchRows({ companyId: nextId, silent: true, preservePage: true, preserveSelection: true });
         }
         if (accountingOpen) void loadAccountingInbox({ silent: true });
 
-        try {
-          const bankCategory = await bankCategoryPromise;
-          if (!bankCategory) {
-            const warm = await prefetchGamesProcessListPayload(nextId);
-            navigate(spaPath("process-list"), {
-              replace: true,
-              state: {
-                processListPrefetch: {
-                  companyId: nextId,
-                  companies,
-                  groupFilterKind: "follow",
-                  rows: warm.rows,
-                  meta: warm.meta,
-                  currencyCodes: warm.currencyCodes,
+        if (!layoutSilent) {
+          try {
+            const bankCategory = await isBankCategoryCompany(c.company_id, buildApiUrl);
+            if (!bankCategory) {
+              const warm = await prefetchGamesProcessListPayload(nextId);
+              navigate(spaPath("process-list"), {
+                replace: true,
+                state: {
+                  processListPrefetch: {
+                    companyId: nextId,
+                    companies,
+                    groupFilterKind: "follow",
+                    rows: warm.rows,
+                    meta: warm.meta,
+                    currencyCodes: warm.currencyCodes,
+                  },
                 },
-              },
-            });
-            return;
+              });
+              return;
+            }
+          } catch {
+            /* fall through to session sync */
           }
-        } catch {
-          /* fall through to session sync */
         }
 
         if (sessionCompanyId === nextId) return;
@@ -1513,16 +1519,13 @@ export function useBankProcessListPage() {
 
       const gid = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
       const nextGroup = gid || null;
-      const cacheKey = resolveBankProcessListCacheKey(nextId, search);
-      const cached = bankProcessListCacheRef.current.get(cacheKey);
-      const hadCache = Array.isArray(cached?.rows) && cached.rows.length > 0;
       const switchGen = ++companySwitchGenRef.current;
 
-      skipCompanyFetchEffectRef.current = hadCache;
       suppressCrossPageSyncRef.current = true;
       userSelectedAllCurrenciesRef.current = false;
       listAbortRef.current?.abort();
       skipSidebarLayoutNotifyRef.current = true;
+      skipCompanyFetchEffectRef.current = true;
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
       persistDashboardFilterState(nextGroup, nextId);
@@ -1535,13 +1538,14 @@ export function useBankProcessListPage() {
         },
       );
 
+      let cacheApplied = false;
       flushSync(() => {
         setGroupFilterKind((prev) => (prev === "all" || prev === "ungrouped" ? prev : "follow"));
         if (nextGroup) setSelectedGroup(nextGroup);
         setCompanyId(nextId);
-        if (hadCache) {
-          applyBankProcessListCache(nextId);
-        } else {
+        cacheApplied = applyBankProcessListCache(nextId);
+        if (!cacheApplied) {
+          setRowsCompanyId(null);
           setRows([]);
           setTableLoading(true);
           setCurrencyListOrdered([]);
@@ -1549,12 +1553,19 @@ export function useBankProcessListPage() {
         }
       });
 
+      if (!cacheApplied) {
+        void fetchRows({ companyId: nextId, silent: false, preservePage: false, preserveSelection: false });
+      }
+
       window.setTimeout(() => {
         if (switchGen !== companySwitchGenRef.current) return;
-        void onSwitchCompanyRef.current?.(c, { layoutSilent: true, backgroundRefresh: hadCache });
+        void onSwitchCompanyRef.current?.(c, {
+          layoutSilent: true,
+          backgroundRefresh: cacheApplied,
+        });
       }, COMPANY_SESSION_DEFER_MS);
     },
-    [applyBankProcessListCache, companyId, search],
+    [applyBankProcessListCache, companyId, fetchRows, search],
   );
 
   const openAdd = () => {
@@ -2135,6 +2146,13 @@ export function useBankProcessListPage() {
     });
   }, [allCompanyButtons, groupIds, selectedGroupKey, groupFilterKind]);
 
+  useEffect(() => {
+    if (loading) return;
+    for (const c of companyButtons) {
+      warmBankProcessListCompanyCache(c.id);
+    }
+  }, [loading, companyButtons, warmBankProcessListCompanyCache]);
+
   const handlePickGroup = useCallback(
     (gid) => {
       const g = String(gid || "").trim().toUpperCase();
@@ -2170,6 +2188,7 @@ export function useBankProcessListPage() {
         skipSidebarLayoutNotifyRef.current = true;
         flushSync(() => {
           setCompanyId(null);
+          setRowsCompanyId(null);
           setRows([]);
           setCurrencyFilterCode("");
           setCurrencyListOrdered([]);
@@ -2191,10 +2210,10 @@ export function useBankProcessListPage() {
           Array.isArray(bankProcessListCacheRef.current.get(cacheKey)?.rows) &&
           bankProcessListCacheRef.current.get(cacheKey).rows.length > 0;
         const switchGen = ++companySwitchGenRef.current;
-        skipCompanyFetchEffectRef.current = hadCache;
         suppressCrossPageSyncRef.current = true;
         listAbortRef.current?.abort();
         skipSidebarLayoutNotifyRef.current = true;
+        skipCompanyFetchEffectRef.current = true;
         persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
         notifyDashboardGroupFilterChanged(
           g,
@@ -2204,10 +2223,12 @@ export function useBankProcessListPage() {
             skipSessionRefresh: true,
           },
         );
+        let cacheApplied = false;
         flushSync(() => {
           setCompanyId(nextCompanyId);
-          if (hadCache) applyBankProcessListCache(nextCompanyId);
-          else {
+          cacheApplied = applyBankProcessListCache(nextCompanyId);
+          if (!cacheApplied) {
+            setRowsCompanyId(null);
             setRows([]);
             setTableLoading(true);
             setCurrencyFilterCode("");
@@ -2215,9 +2236,15 @@ export function useBankProcessListPage() {
             setCurrencyPillDisplayOrder(null);
           }
         });
+        if (!cacheApplied) {
+          void fetchRows({ companyId: nextCompanyId, silent: false, preservePage: false, preserveSelection: false });
+        }
         window.setTimeout(() => {
           if (switchGen !== companySwitchGenRef.current) return;
-          void onSwitchCompanyRef.current?.(pick, { layoutSilent: true, backgroundRefresh: hadCache });
+          void onSwitchCompanyRef.current?.(pick, {
+            layoutSilent: true,
+            backgroundRefresh: cacheApplied,
+          });
         }, COMPANY_SESSION_DEFER_MS);
         return;
       }
@@ -2231,6 +2258,7 @@ export function useBankProcessListPage() {
       applyBankProcessListCache,
       companies,
       companyId,
+      fetchRows,
       groupFilterKind,
       search,
       selectedGroupKey,
@@ -2241,9 +2269,13 @@ export function useBankProcessListPage() {
     setGroupFilterKind((k) => (k === "all" ? "ungrouped" : "all"));
   }, []);
 
+  const scopedRows = rowsCompanyId === companyId ? rows : [];
+  const tableLoadingForUi =
+    tableLoading || (companyId != null && rowsCompanyId !== companyId);
+
   const sortedRows = useMemo(
-    () => sortBankProcessTableRows(rows, sortColumn, sortDirection),
-    [rows, sortColumn, sortDirection]
+    () => sortBankProcessTableRows(scopedRows, sortColumn, sortDirection),
+    [scopedRows, sortColumn, sortDirection],
   );
 
   const handleBankTableSort = useCallback(
@@ -2257,12 +2289,12 @@ export function useBankProcessListPage() {
 
   const rowCountryCodes = useMemo(() => {
     const s = new Set();
-    for (const r of rows) {
+    for (const r of scopedRows) {
       const c = String(r.country || "").trim().toUpperCase();
       if (c) s.add(c);
     }
     return [...s].sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+  }, [scopedRows]);
 
   const baseCurrencyPills = useMemo(() => {
     if (!currencyListOrdered.length) return [];
@@ -2413,7 +2445,7 @@ export function useBankProcessListPage() {
     maxRows: PAGE_SIZE_MAX,
     remeasureDeps: [
       visibleRows.length,
-      tableLoading,
+      tableLoadingForUi,
       lang,
       cssReady,
       currentPage,
@@ -2456,7 +2488,7 @@ export function useBankProcessListPage() {
     cssReady,
     loading,
     setLoading,
-    tableLoading,
+    tableLoading: tableLoadingForUi,
     setTableLoading,
     companies,
     setCompanies,
