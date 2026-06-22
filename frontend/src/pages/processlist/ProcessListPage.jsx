@@ -8,6 +8,7 @@ import { replaceBrowserPathOnly } from "../../utils/routing/privateBrowserUrl.js
 import {
   clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
+  buildDashboardCompanyFilterNotifyOptions,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
   pickDefaultSubsidiaryForGroup,
@@ -797,7 +798,8 @@ export default function ProcessListPage() {
     if (loading) return;
     notifyDashboardGroupFilterChanged(
       groupFilterKind === "follow" ? selectedGroup : null,
-      groupFilterKind === "follow" ? companyId : null
+      groupFilterKind === "follow" ? companyId : null,
+      { skipSessionRefresh: true },
     );
   }, [loading, groupFilterKind, selectedGroup, companyId]);
 
@@ -814,7 +816,7 @@ export default function ProcessListPage() {
     suppressCrossPageSyncRef.current = true;
     flushSync(() => setCompanyId(nextId));
     persistDashboardFilterState(selectedGroup, nextId, { allowGroupOnly: false });
-    notifyDashboardGroupFilterChanged(selectedGroup, nextId, { companyCode: pick.company_id });
+    notifyDashboardGroupFilterChanged(selectedGroup, nextId, buildDashboardCompanyFilterNotifyOptions(pick));
     void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
   }, [
     loading,
@@ -1028,9 +1030,11 @@ export default function ProcessListPage() {
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
       persistDashboardFilterState(nextGroup, nextId);
-      notifyDashboardGroupFilterChanged(nextGroup, nextId, {
-        companyCode: c.company_id,
-      });
+      notifyDashboardGroupFilterChanged(
+        nextGroup,
+        nextId,
+        buildDashboardCompanyFilterNotifyOptions(c),
+      );
 
       void onSwitchCompanyRef.current?.(c, { layoutSilent: true });
     },
@@ -1089,9 +1093,11 @@ export default function ProcessListPage() {
           resetPaginationForCompany(nextCompanyId, { force: true });
         });
         persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
-          companyCode: pick.company_id,
-        });
+        notifyDashboardGroupFilterChanged(
+          g,
+          nextCompanyId,
+          buildDashboardCompanyFilterNotifyOptions(pick),
+        );
         void onSwitchCompanyRef.current?.(pick, { layoutSilent: true });
         return;
       }
@@ -1099,9 +1105,11 @@ export default function ProcessListPage() {
       if (companyId != null) {
         persistDashboardFilterState(g, companyId, { allowGroupOnly: false });
         const row = findOwnerCompanyById(companyId);
-        notifyDashboardGroupFilterChanged(g, companyId, {
-          companyCode: row?.company_id,
-        });
+        notifyDashboardGroupFilterChanged(
+          g,
+          companyId,
+          row ? buildDashboardCompanyFilterNotifyOptions(row) : { skipSessionRefresh: true },
+        );
       }
     },
     [

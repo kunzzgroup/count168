@@ -1071,9 +1071,21 @@ export function notifyDashboardGroupFilterChanged(selectedGroup, companyId, opti
         ...(hasGambling != null ? { hasGambling: Boolean(hasGambling) } : {}),
         ...(hasBank != null ? { hasBank: Boolean(hasBank) } : {}),
         expirationDate: expirationDate !== undefined ? expirationDate : null,
+        ...(options.skipSessionRefresh === true ? { skipSessionRefresh: true } : {}),
       },
     })
   );
+}
+
+/** Optimistic sidebar notify when picking a company pill (stable flags, no redundant current_user fetch). */
+export function buildDashboardCompanyFilterNotifyOptions(companyRow, options = {}) {
+  const flags = resolveCompanyCategoryFlags(companyRow);
+  return {
+    companyCode: companyRow?.company_id,
+    ...(flags ? { hasGambling: flags.hasGambling, hasBank: flags.hasBank } : {}),
+    skipSessionRefresh: true,
+    ...options,
+  };
 }
 
 /** Sidebar category flags for a concrete company row (cache → permissions). */

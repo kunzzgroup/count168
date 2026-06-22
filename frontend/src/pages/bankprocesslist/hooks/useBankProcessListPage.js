@@ -9,6 +9,7 @@ import { replaceBrowserPathOnly } from "../../../utils/routing/privateBrowserUrl
 import {
   clearDashboardGroupFilterKeepCompany,
   notifyDashboardGroupFilterChanged,
+  buildDashboardCompanyFilterNotifyOptions,
   persistDashboardFilterState,
   persistDashboardGroupFilter,
   pickDefaultSubsidiaryForGroup,
@@ -1532,7 +1533,11 @@ export function useBankProcessListPage() {
 
       if (nextGroup) persistDashboardGroupFilter(nextGroup);
       persistDashboardFilterState(nextGroup, nextId);
-      notifyDashboardGroupFilterChanged(nextGroup, nextId);
+      notifyDashboardGroupFilterChanged(
+        nextGroup,
+        nextId,
+        buildDashboardCompanyFilterNotifyOptions(c),
+      );
 
       void onSwitchCompanyRef.current?.(c, { layoutSilent: true, backgroundRefresh: hadCache });
     },
@@ -2084,7 +2089,8 @@ export function useBankProcessListPage() {
     if (loading) return;
     notifyDashboardGroupFilterChanged(
       groupFilterKind === "follow" ? selectedGroup : null,
-      groupFilterKind === "follow" ? companyId : null
+      groupFilterKind === "follow" ? companyId : null,
+      { skipSessionRefresh: true },
     );
   }, [loading, groupFilterKind, selectedGroup, companyId]);
   const companyButtons = useMemo(() => {
@@ -2176,9 +2182,11 @@ export function useBankProcessListPage() {
           }
         });
         persistDashboardFilterState(g, nextCompanyId, { allowGroupOnly: false });
-        notifyDashboardGroupFilterChanged(g, nextCompanyId, {
-          companyCode: pick.company_id,
-        });
+        notifyDashboardGroupFilterChanged(
+          g,
+          nextCompanyId,
+          buildDashboardCompanyFilterNotifyOptions(pick),
+        );
         void onSwitchCompanyRef.current?.(pick, { layoutSilent: true, backgroundRefresh: hadCache });
         return;
       }
