@@ -546,7 +546,8 @@ export function groupHistoryForDisplay(historyRows, isAllSelected, selectedCurre
   }
   if (isAllSelected) {
     const order = availableCurrencies.length > 0 ? availableCurrencies : Array.from(map.keys());
-    return order.map((c) => [c, map.get(c) || []]);
+    // ALL：只展示当前 view 账户 history 里真有数据的币别，避免 MAXBET 无 USD 却出现空 USD 表
+    return order.map((c) => [c, map.get(c) || []]).filter(([, rows]) => rows.length > 0);
   }
   if (!selectedCurrencies.length) return [];
   return selectedCurrencies.map((c) => [c, map.get(c) || []]);
