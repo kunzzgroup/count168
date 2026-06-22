@@ -42,6 +42,7 @@ import {
   shouldApplySessionToSidebar,
   shouldRefreshExpiryFromSession,
   shouldHideSidebarProcess,
+  resolveSidebarProcessSpaPath,
   shouldShowBankprocessMaintenanceInSidebar,
   fetchOwnerCompaniesAll,
   fetchOwnerGroupsAll,
@@ -1001,8 +1002,10 @@ export default function AuthenticatedLayout() {
   
   const avatarSrc = useMemo(() => AVATAR_MAP[selectedAvatarId] || AVATAR_MAP.male1, [selectedAvatarId]);
   const roleLabel = me?.role ? me.role.charAt(0).toUpperCase() + me.role.slice(1).toLowerCase() : "";
-  const processSpaPath =
-    me?.company_has_bank && !me?.company_has_gambling ? spaPath("bank-process-list") : spaPath("process-list");
+  const processSpaPath = useMemo(
+    () => resolveSidebarProcessSpaPath(me),
+    [me, sidebarGcTick],
+  );
   const performLogout = async () => {
     if (logoutLoading) return;
     setLogoutLoading(true);
