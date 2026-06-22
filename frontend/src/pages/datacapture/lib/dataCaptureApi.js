@@ -3,6 +3,8 @@ import { dataCaptureScopeApiParams, dataCaptureScopeCacheKey } from "./dataCaptu
 
 /** Data Capture submissions + process picker (canonical). Legacy: api/processes/submitted_processes_api.php */
 const DATA_CAPTURE_SUBMISSIONS_API = "api/datacapture/submissions_api.php";
+/** Form catalog + descriptions for capture page. Legacy: api/processes/addprocess_api.php */
+const DATA_CAPTURE_CATALOG_API = "api/datacapture/catalog_api.php";
 
 /** One option per currency code (subsidiary + group rows can share company_id). */
 export function dedupeCaptureCurrenciesByCode(rows) {
@@ -130,7 +132,7 @@ function withCompany(url, companyId) {
   return `${url}${sep}company_id=${encodeURIComponent(String(cid))}`;
 }
 
-/** Same as legacy loadFormData: GET api/processes/addprocess_api.php */
+/** Same as legacy loadFormData: GET api/datacapture/catalog_api.php */
 export async function fetchAddProcessFormData(scopeOrCompanyId) {
   const scope =
     scopeOrCompanyId != null && typeof scopeOrCompanyId === "object"
@@ -138,7 +140,7 @@ export async function fetchAddProcessFormData(scopeOrCompanyId) {
       : scopeOrCompanyId
         ? { mode: "company", scopeCompanyId: Number(scopeOrCompanyId) }
         : null;
-  let url = buildApiUrl("api/processes/addprocess_api.php");
+  let url = buildApiUrl(DATA_CAPTURE_CATALOG_API);
   url = scope ? withScope(url, scope) : url;
   if (!scope && scopeOrCompanyId) url = withCompany(url, scopeOrCompanyId);
   const response = await fetch(url, { credentials: "include" });
@@ -369,7 +371,7 @@ export function formatGroupSubmittedProcessLabel(process) {
   return code;
 }
 
-/** GET addprocess_api.php — returns `descriptions` at top level (and under `data`). */
+/** GET catalog_api.php — returns `descriptions` at top level (and under `data`). */
 export async function fetchDescriptionCatalog(scopeOrCompanyId) {
   const scope =
     scopeOrCompanyId != null && typeof scopeOrCompanyId === "object"
@@ -377,7 +379,7 @@ export async function fetchDescriptionCatalog(scopeOrCompanyId) {
       : scopeOrCompanyId
         ? { mode: "company", scopeCompanyId: Number(scopeOrCompanyId) }
         : null;
-  let url = buildApiUrl("api/processes/addprocess_api.php");
+  let url = buildApiUrl(DATA_CAPTURE_CATALOG_API);
   url = scope ? withScope(url, scope) : withCompany(url, scopeOrCompanyId);
   const response = await fetch(url, { credentials: "include" });
   return response.json();
@@ -400,7 +402,7 @@ export async function postAddDescription(scopeOrCompanyId, descriptionName) {
   } else if (scopeOrCompanyId) {
     formData.append("company_id", String(scopeOrCompanyId));
   }
-  const response = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
+  const response = await fetch(buildApiUrl(DATA_CAPTURE_CATALOG_API), {
     method: "POST",
     body: formData,
     credentials: "include",
@@ -413,7 +415,7 @@ export async function postDeleteDescription(descriptionId) {
   const formData = new FormData();
   formData.append("action", "delete_description");
   formData.append("description_id", String(descriptionId));
-  const response = await fetch(buildApiUrl("api/processes/addprocess_api.php"), {
+  const response = await fetch(buildApiUrl(DATA_CAPTURE_CATALOG_API), {
     method: "POST",
     body: formData,
     credentials: "include",
