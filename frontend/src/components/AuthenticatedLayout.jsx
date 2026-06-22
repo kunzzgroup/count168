@@ -1259,7 +1259,9 @@ export default function AuthenticatedLayout() {
               </SidebarNavTip>
             </div>
           )}
-          {canAccess("datacapture") && me?.company_has_gambling && (
+          {(canAccess("datacapture") &&
+            (me?.company_has_gambling ||
+              (me?.company_has_bank && !me?.company_has_gambling))) && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarDataCapture} enabled={sidebarIconOnly}>
                 <SidebarSectionLink

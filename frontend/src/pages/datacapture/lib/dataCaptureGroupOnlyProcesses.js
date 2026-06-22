@@ -1,4 +1,4 @@
-/** Group payroll UI process choices (Data Capture group-only / C168 channel). */
+/** Group payroll UI process choices (Data Capture group-only / company payroll channel). */
 
 export const GROUP_PAYROLL_PROCESS_CODES = ["SALARY", "COMMISSION", "BONUS", "PROFIT"];
 

@@ -27,7 +27,6 @@ import {
 import { syncCompanySessionApi } from "../../utils/company/companySessionSync.js";
 import { canUseGroupOnlyMode, isGroupLogin } from "../../utils/company/loginScope.js";
 import {
-  isC168GroupCaptureChannel,
   isGroupPayrollUi,
   resolvePayrollDraftBucket,
 } from "../../utils/company/c168CaptureChannel.js";
@@ -54,7 +53,9 @@ import {
   DATA_CAPTURE_HOME_PATH,
   resolveCompanyGamesAccess,
   sessionUserHasCompanyCategoryAccess,
+  sessionUserHasDataCapturePageAccess,
   sessionUserHasGamblingAccess,
+  syncDataAllowsDataCaptureAccess,
   syncDataCaptureCompanySession,
 } from "./lib/dataCaptureCompanyAccess.js";
 import {
@@ -216,23 +217,23 @@ function DataCapturePageContent() {
     return inGroup[0] ?? null;
   }, [isCompanySelected, currentCompanyRow, companiesDeduped, selectedGroup]);
 
-  const c168Channel = useMemo(
-    () => isCompanySelected && isC168GroupCaptureChannel(me, currentCompanyRow),
+  const companyPayrollChannel = useMemo(
+    () => isCompanySelected && isCompanyPayrollCaptureChannel(me, currentCompanyRow),
     [isCompanySelected, me, currentCompanyRow],
   );
 
   const groupLedgerScope = !isCompanySelected && canUseGroupOnlyMode(me);
-  const groupPayrollUi = isGroupPayrollUi(groupLedgerScope, c168Channel);
+  const groupPayrollUi = isGroupPayrollUi(groupLedgerScope, companyPayrollChannel);
   const payrollDraft = useMemo(
     () =>
       resolvePayrollDraftBucket({
-        c168Channel,
+        companyPayrollChannel,
         companyId,
         selectedGroup,
       }),
-    [c168Channel, companyId, selectedGroup],
+    [companyPayrollChannel, companyId, selectedGroup],
   );
-  const showCompanyProcessUi = isCompanySelected && !c168Channel;
+  const showCompanyProcessUi = isCompanySelected && !companyPayrollChannel;
 
   const groupOnlyTable = groupPayrollUi;
 
@@ -323,7 +324,7 @@ function DataCapturePageContent() {
 
   const form = useDataCaptureFormEngine(captureScope, {
     applyCompanyOnlyFields: showCompanyProcessUi,
-    companyPayrollUi: c168Channel,
+    companyPayrollUi: companyPayrollChannel,
     payrollPrefsKey: payrollDraft.prefsKey,
     payrollDraftServerSync: payrollDraft.serverSync,
     selectedGroup,
@@ -382,7 +383,7 @@ function DataCapturePageContent() {
     requireDescriptions: showCompanyProcessUi,
     groupPayrollUi,
     groupLedgerCapture: groupLedgerScope,
-    groupPayrollCapture: c168Channel,
+    groupPayrollCapture: companyPayrollChannel,
     payrollDraftBucket: payrollDraft.bucket,
     payrollDraftServerSync: payrollDraft.serverSync,
     selectedGroup,
@@ -534,7 +535,7 @@ function DataCapturePageContent() {
         if (cancelled) return;
 
         if (groupOnlyBoot) {
-          if (!sessionUserHasGamblingAccess(u)) {
+          if (!sessionUserHasDataCapturePageAccess(u)) {
             navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
             return;
           }
@@ -587,6 +588,7 @@ function DataCapturePageContent() {
           companyId: effectiveCompany,
           companyCode: pickCode,
           sessionUser: u,
+          companyRow: rowForPick,
         });
         if (cancelled) return;
         if (!hasGamesAccess) {
@@ -665,7 +667,7 @@ function DataCapturePageContent() {
       try {
         const syncJson = await syncDataCaptureCompanySession(id);
         if (!syncJson.success) return;
-        if (syncJson.data?.has_gambling === false) {
+        if (syncJson.data?.has_gambling === false && !syncDataAllowsDataCaptureAccess(syncJson.data)) {
           navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
           return;
         }
@@ -728,7 +730,8 @@ function DataCapturePageContent() {
         if (!syncJson.success || cancelled) return;
         if (
           syncJson.data?.has_gambling === false &&
-          !sessionUserHasGamblingAccess(me)
+          !sessionUserHasDataCapturePageAccess(me) &&
+          !syncDataAllowsDataCaptureAccess(syncJson.data)
         ) {
           navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
           return;
@@ -779,7 +782,7 @@ function DataCapturePageContent() {
 
       notifyCompanySessionUpdated(syncJson.data ?? null);
 
-      if (syncJson.data?.has_gambling === false) {
+      if (syncJson.data?.has_gambling === false && !syncDataAllowsDataCaptureAccess(syncJson.data)) {
         navigate(DATA_CAPTURE_HOME_PATH, { replace: true });
         return;
       }
@@ -836,7 +839,7 @@ function DataCapturePageContent() {
     if (shouldRestoreFromUrl()) return;
     const id = form.selectedProcess?.id;
     if (!id) return;
-    if (!isCompanySelected && !c168Channel && !isGroupOnlyProcessId(id)) {
+    if (!isCompanySelected && !companyPayrollChannel && !isGroupOnlyProcessId(id)) {
       form.clearProcessSelection();
     } else if (showCompanyProcessUi && isGroupOnlyProcessId(id)) {
       form.clearProcessSelection();
@@ -1279,7 +1282,7 @@ function DataCapturePageContent() {
                     <div className="submitted-details">
                       <div className="detail-row">
                         <strong>
-                          {captureScope?.mode === "group" || c168Channel
+                          {captureScope?.mode === "group" || companyPayrollChannel
                             ? process.process_code
                             : `${process.process_code}${process.description_name ? ` (${process.description_name})` : ""}`}
                         </strong>
