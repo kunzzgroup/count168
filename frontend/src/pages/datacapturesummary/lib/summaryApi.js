@@ -7,6 +7,8 @@ const SUMMARY_SUBMIT_API = "api/datacapture_summary/summary_submit_api.php";
 const SUMMARY_TEMPLATES_API = "api/datacapture_summary/summary_templates_api.php";
 /** Server row/formula state. Legacy: summary_api.php?action=get_summary_state|save_summary_state */
 const SUMMARY_STATE_API = "api/datacapture_summary/summary_state_api.php";
+/** Form catalog (currencies + accounts). Legacy: summary_api.php (default load) */
+const SUMMARY_CATALOG_API = "api/datacapture_summary/summary_catalog_api.php";
 
 function withCaptureScope(url, captureScope) {
   if (!captureScope) return url;
@@ -34,7 +36,7 @@ async function parseJsonResponse(response) {
 
 /** Default load: currencies + accounts for Edit Formula / Add Account */
 export async function fetchSummaryFormCatalog(captureScope) {
-  const url = withCaptureScope(buildApiUrl("api/datacapture_summary/summary_api.php"), captureScope);
+  const url = withCaptureScope(buildApiUrl(SUMMARY_CATALOG_API), captureScope);
   const response = await fetch(url, { credentials: "include" });
   const json = await parseJsonResponse(response);
   if (!json.success) {
