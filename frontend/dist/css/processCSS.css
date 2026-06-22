@@ -2822,6 +2822,36 @@ body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .b
     overflow-wrap: normal;
 }
 
+body.process-page.process-page--bank .bank-process-table-region .bank-process-cell-text,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-process-cell-text {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-col-owner .portal-tooltip-anchor,
+body.process-page.process-page--bank .bank-process-table-region .bank-col-supplier .portal-tooltip-anchor,
+body.process-page.process-page--bank .bank-process-table-region .bank-col-bank .portal-tooltip-anchor,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-owner .portal-tooltip-anchor,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-supplier .portal-tooltip-anchor,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-bank .portal-tooltip-anchor {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    flex: 1 1 auto;
+}
+
+body.process-page.process-page--bank .bank-process-table-region .bank-col-bank .portal-tooltip-anchor .bank-cell-display--typed,
+body.ec-auth-shell.process-page.process-page--bank .bank-process-table-region .bank-col-bank .portal-tooltip-anchor .bank-cell-display--typed {
+    width: 100%;
+    min-width: 0;
+}
+
 /* Card Owner：列宽与内边距 */
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-th,
 body.process-page.process-page--bank .bank-process-table-region .bank-col-owner.bank-virtual-cell {
