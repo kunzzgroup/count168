@@ -802,8 +802,8 @@ body.process-page:not(.process-page--bank):not(.process-page--show-all) .content
 }
 
 .process-page .bank-status-option.keyboard-focus {
-    background-color: var(--select-option-keyboard-focus-bg, #e7f0ff);
-    color: var(--select-option-keyboard-focus-text, #0d60ff);
+    background-color: var(--select-option-keyboard-focus-bg, #e3f2fd);
+    color: var(--select-option-keyboard-focus-text, #2563eb);
     font-weight: 600;
 }
 
@@ -4819,9 +4819,10 @@ body.process-page > .process-modal {
     font-family: var(--font-ui) !important;
 }
 
-.process-page .modal .custom-select-option.selected {
-    background-color: #e7f0ff;
-    color: #0D60FF;
+.process-page .modal .custom-select-option.selected,
+.process-page .modal .custom-select-option.keyboard-focus {
+    background-color: #e3f2fd;
+    color: #2563eb;
     font-weight: 600;
 }
 
