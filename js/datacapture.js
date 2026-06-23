@@ -11,19 +11,6 @@ function buildApiUrl(pathAndQuery) {
     return new URL(pathAndQuery, base).href;
 }
 
-function redirectToDashboardIfUnauthorizedCategory(errorMessage) {
-    if (typeof errorMessage !== 'string') return false;
-    const normalized = errorMessage.toLowerCase();
-    const isUnauthorizedCategory = normalized.includes('unauthorized category permission') || normalized.includes('games required');
-    if (!isUnauthorizedCategory) return false;
-    const currentRole = String(window.DATACAPTURE_USER_ROLE || '').toLowerCase();
-    const canGoDashboard = currentRole === 'admin' || currentRole === 'owner';
-    window.location.href = canGoDashboard
-        ? buildApiUrl('dashboard.php')
-        : buildApiUrl('processlist.php');
-    return true;
-}
-
 // 统一钱数格式：.xx 点后面2位为一组（逗号小数→点、.50→0.50、0.→0.00、千分位逗号保留）
 function formatNumberToTwoDecimals(value) {
     if (value === null || value === undefined) return value;
@@ -1034,7 +1021,6 @@ async function loadSubmittedProcesses() {
             renderSubmittedProcesses();
         } else {
             console.error('Failed to load submitted processes:', result.error);
-            if (redirectToDashboardIfUnauthorizedCategory(result.error)) return;
         }
     } catch (error) {
         console.error('Error loading submitted processes:', error);
@@ -2768,7 +2754,6 @@ async function loadFormData() {
             // Load processes based on selected date
             await loadProcessesByDate();
         } else {
-            if (redirectToDashboardIfUnauthorizedCategory(result.error)) return;
             showNotification('Failed to load form data: ' + result.error, 'danger');
         }
     } catch (error) {
@@ -2884,7 +2869,6 @@ async function loadProcessesByDate() {
             updateSubmitButtonState();
         } else {
             console.error('Failed to load processes by date:', result.error);
-            if (redirectToDashboardIfUnauthorizedCategory(result.error)) return;
             showNotification('Failed to load processes: ' + result.error, 'danger');
         }
     } catch (error) {

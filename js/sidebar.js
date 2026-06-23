@@ -337,7 +337,7 @@
         var isBankCategory = isMaintenanceCategoryBankFromStorage();
 
         var dcSection = document.getElementById('sidebar-datacapture-section');
-        if (dcSection) dcSection.style.display = hasGambling ? '' : 'none';
+        if (dcSection) dcSection.style.display = (hasGambling || bankPerm) ? '' : 'none';
 
         var maintCapture = document.getElementById('maintenance-capture-link');
         if (maintCapture) {

@@ -441,9 +441,9 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                 </div>
             <?php endif; ?>
 
-            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
+            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 或 Bank 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
             <?php if (userHasSidebarMenuPermission('datacapture', $permissions, $isLegacySidebarFullAccess)): ?>
-                <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
+                <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo ($companyHasGambling || $companyHasBank) ? '' : ' style="display:none;"'; ?>>
                     <div class="informationmenu-section-title" data-page="datacapture.php"
                         onclick="window.location.href='datacapture.php'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">

@@ -72,10 +72,12 @@ if ($current_user_role === 'owner') {
 $user_id = $_SESSION['user_id'];
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-// Enforce Data-Level Category Permission for Data Capture (Currently inherently 'Games')
-if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
+// Data Capture: Games 或 Bank 公司均可访问；Bank-only 时 process 列表由 Games 表查询自然为空
+$hasGames = checkCompanyCategoryPermission($pdo, $company_id, 'Games');
+$hasBank = checkCompanyCategoryPermission($pdo, $company_id, 'Bank');
+if (!$hasGames && !$hasBank) {
     http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Unauthorized category permission (Games required)']);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized category permission']);
     exit;
 }
 
