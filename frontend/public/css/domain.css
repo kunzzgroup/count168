@@ -4064,38 +4064,16 @@ body.domain-page .user-modal-company-picker-root--above-modals {
     transform: translateY(-1px);
 }
 
-/* Checkbox styles — 删除多选；勿在 var() 后误加 ff，否则边框/底色无效会“看不见” */
+/* Checkbox styles — 与 User List / Process List 一致（16px 原生勾选框） */
 body.domain-page .domain-react-page .domain-checkbox {
-    appearance: none;
-    -webkit-appearance: none;
-    display: inline-block;
-    flex-shrink: 0;
-    margin-left: 0;
-    width: clamp(16px, 1.04vw, 20px);
-    height: clamp(16px, 1.04vw, 20px);
+    width: 16px;
+    height: 16px;
     min-width: 16px;
     min-height: 16px;
-    border: 2px solid var(--color-dfm-assign-ref-grid);
-    border-radius: 3px;
-    cursor: pointer;
-    position: relative;
-    background-color: #fff;
+    margin: 0;
+    flex-shrink: 0;
     vertical-align: middle;
-}
-
-body.domain-page .domain-react-page .domain-checkbox:checked {
-    background-color: var(--color-dfm-assign-ref-grid);
-}
-
-body.domain-page .domain-react-page .domain-checkbox:checked::after {
-    content: '✓';
-    position: absolute;
-    color: white;
-    font-size: var(--domain-fluid-8-073-14);
-    font-weight: bold;
-    top: 40%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    cursor: pointer;
 }
 
 body.domain-page .domain-react-page .domain-action-cell {
@@ -4124,8 +4102,8 @@ body.domain-page .domain-react-page .domain-action-cell__check {
 
 body.domain-page .domain-react-page .domain-action-cell__check--empty {
     display: block;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     pointer-events: none;
 }
 
@@ -5627,15 +5605,6 @@ body.domain-page .domain-react-page .domain-renew-badge--approved {
 
     body.domain-page .domain-react-page .domain-action-cell {
         min-width: 92px;
-    }
-
-    body.domain-page .domain-react-page .domain-checkbox {
-        width: 20px;
-        height: 20px;
-        min-width: 20px;
-        min-height: 20px;
-        margin-left: 0;
-        flex-shrink: 0;
     }
 
     body.domain-page .domain-react-page .domain-company-chip,
