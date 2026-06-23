@@ -11,6 +11,66 @@ function buildApiUrl(pathAndQuery) {
     return new URL(pathAndQuery, base).href;
 }
 
+// Bank-only 公司：简化 Data Capture（仅 Date/Process/Currency/Remark + 1.Text 表格）
+function isDataCaptureBankCategoryMode() {
+    return !!(window.SIDEBAR_COMPANY_HAS_BANK && !window.SIDEBAR_COMPANY_HAS_GAMBLING);
+}
+
+function captureTableHasData() {
+    try {
+        const tableData = captureTableData();
+        if (!tableData.rows || tableData.rows.length === 0) return false;
+        return tableData.rows.some(row => {
+            return row.some(cell => {
+                return cell.type === 'data' && cell.value && cell.value.trim() !== '';
+            });
+        });
+    } catch (_) {
+        return false;
+    }
+}
+
+function applyDataCaptureBankCategoryUI() {
+    const bankMode = isDataCaptureBankCategoryMode();
+    document.body.classList.toggle('datacapture-bank-category-mode', bankMode);
+
+    [
+        document.getElementById('capture_description')?.closest('.form-group'),
+        document.getElementById('capture_remove_word')?.closest('.form-group'),
+        document.querySelector('.replace-word-group')
+    ].forEach(el => {
+        if (el) el.style.display = bankMode ? 'none' : '';
+    });
+
+    const descInput = document.getElementById('capture_description');
+    if (descInput) {
+        if (bankMode) descInput.removeAttribute('required');
+        else descInput.setAttribute('required', '');
+    }
+
+    const typeSelect = document.getElementById('dataCaptureTypeSelector');
+    if (typeSelect) {
+        typeSelect.style.display = bankMode ? 'none' : '';
+        if (bankMode) typeSelect.value = '1.Text';
+    }
+
+    if (bankMode) {
+        currentDataCaptureType = '1.Text';
+        isFormatGridReady = false;
+        const excelTableContainer = document.querySelector('.excel-table-container');
+        if (excelTableContainer) excelTableContainer.classList.remove('citibet-mode');
+        ['pasteAreaFormat', 'tablePreviewFormat'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        const dataTable = document.getElementById('dataTable');
+        if (dataTable) dataTable.style.display = 'table';
+        if (typeof toggleTableDisplayForFormat === 'function') {
+            toggleTableDisplayForFormat();
+        }
+    }
+}
+
 // 统一钱数格式：.xx 点后面2位为一组（逗号小数→点、.50→0.50、0.→0.00、千分位逗号保留）
 function formatNumberToTwoDecimals(value) {
     if (value === null || value === undefined) return value;
@@ -22796,8 +22856,10 @@ function validateForm() {
         return false;
     }
 
-    // Check if descriptions are selected
-    if (descriptions.length === 0) {
+    const bankMode = isDataCaptureBankCategoryMode();
+
+    // Check if descriptions are selected (Games 模式)
+    if (!bankMode && descriptions.length === 0) {
         showNotification('Please select at least one description', 'danger');
         return false;
     }
@@ -22809,19 +22871,12 @@ function validateForm() {
     }
 
     // Check if table has data
-    // 目前的表格判定格式仅在选择 CITIBET / CITIBET MAJOR 时强制生效
-    if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
-        const tableData = captureTableData();
-        const hasTableData = tableData.rows.some(row => {
-            return row.some(cell => {
-                return cell.type === 'data' && cell.value && cell.value.trim() !== '';
-            });
-        });
-
-        if (!hasTableData) {
-            showNotification('Please enter data in the table', 'danger');
-            return false;
-        }
+    const requireTableData = bankMode ||
+        currentDataCaptureType === 'CITIBET' ||
+        currentDataCaptureType === 'CITIBET_MAJOR';
+    if (requireTableData && !captureTableHasData()) {
+        showNotification('Please enter data in the table', 'danger');
+        return false;
     }
 
     return true;
@@ -22836,31 +22891,28 @@ function updateSubmitButtonState() {
     const currencySelect = document.getElementById('capture_currency');
     const descriptions = window.selectedDescriptions || [];
 
-    // Check if table has data - more thorough check
-    // 目前的表格判定格式仅在选择 CITIBET / CITIBET MAJOR 时强制生效
-    let hasTableData = false;
-    if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
-        const tableData = captureTableData();
-        if (tableData.rows && tableData.rows.length > 0) {
-            hasTableData = tableData.rows.some(row => {
-                return row.some(cell => {
-                    return cell.type === 'data' && cell.value && cell.value.trim() !== '';
-                });
-            });
-        }
-    } else {
-        // 其它类型下，不强制要求表格必须有数据
-        hasTableData = true;
-    }
+    const bankMode = isDataCaptureBankCategoryMode();
+
+    // Check if table has data
+    const requireTableData = bankMode ||
+        currentDataCaptureType === 'CITIBET' ||
+        currentDataCaptureType === 'CITIBET_MAJOR';
+    const hasTableData = requireTableData ? captureTableHasData() : true;
 
     // Enable submit button only if all validations pass
     const processId = getProcessId(processInput);
-    const isValid = processId &&
-        processInput.getAttribute('data-value') &&
-        descriptions.length > 0 &&
-        currencySelect.value &&
-        currencySelect.value !== '' &&
-        hasTableData;
+    const isValid = bankMode
+        ? (processId &&
+            processInput.getAttribute('data-value') &&
+            currencySelect.value &&
+            currencySelect.value !== '' &&
+            hasTableData)
+        : (processId &&
+            processInput.getAttribute('data-value') &&
+            descriptions.length > 0 &&
+            currencySelect.value &&
+            currencySelect.value !== '' &&
+            hasTableData);
 
     if (isValid) {
         submitBtn.disabled = false;
@@ -24631,6 +24683,8 @@ async function restoreFromLocalStorage() {
             }, 100);
         }
 
+        applyDataCaptureBankCategoryUI();
+
         // Update submit button state
         updateSubmitButtonState();
 
@@ -24722,6 +24776,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             updateSubmitButtonState();
         });
     }
+
+    applyDataCaptureBankCategoryUI();
 
     // 初始化 Process 输入框事件
     initProcessInput();
