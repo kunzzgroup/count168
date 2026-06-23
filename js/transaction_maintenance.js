@@ -250,6 +250,7 @@
         if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
             window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
         }
+        loadProcesses().catch(function () {});
         if (hasSearched) {
             searchData();
         }
@@ -335,6 +336,13 @@
     }
 
     function loadProcesses() {
+        if (typeof window.isBankMaintenanceProcessMode === 'function'
+            && window.isBankMaintenanceProcessMode(selectedPermission)
+            && typeof window.renderBankMaintenanceProcessSelect === 'function') {
+            window.renderBankMaintenanceProcessSelect();
+            return Promise.resolve();
+        }
+
         const params = [];
         if (currentCompanyId) {
             params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);

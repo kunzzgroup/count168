@@ -261,6 +261,7 @@ if (!empty($session_company_id)) {
 
     <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>; window.currentCompanyCode = <?php echo json_encode($session_company_code); ?>;</script>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
+    <script src="js/maintenance_bank_process.js?v=<?php echo time(); ?>"></script>
     <script src="js/capture_maintenance.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

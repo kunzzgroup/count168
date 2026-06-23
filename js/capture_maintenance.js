@@ -177,6 +177,7 @@ let ownerCompanies = [];
             if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
                 window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
             }
+            loadProcesses().catch(function () {});
         }
 
         async function switchCompany(companyId, companyCode) {
@@ -237,6 +238,13 @@ let ownerCompanies = [];
 
         // Load Process list
         function loadProcesses() {
+            if (typeof window.isBankMaintenanceProcessMode === 'function'
+                && window.isBankMaintenanceProcessMode(selectedPermission)
+                && typeof window.renderBankMaintenanceProcessSelect === 'function') {
+                window.renderBankMaintenanceProcessSelect();
+                return Promise.resolve();
+            }
+
             const params = [];
             if (currentCompanyId) {
                 params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
@@ -767,15 +775,13 @@ let ownerCompanies = [];
             initAutoSearchFilters();
 
             Promise.resolve()
-                .then(() => {
-                    loadPermissionButtons();
-                    return loadProcesses()
-                        .catch(() => {})
-                        .finally(() => {
-                            // Initialize custom select
-                            initProcessSelect();
-                            searchData();
-                        });
+                .then(() => loadPermissionButtons())
+                .catch(() => {})
+                .then(() => loadProcesses().catch(() => {}))
+                .finally(() => {
+                    // Initialize custom select
+                    initProcessSelect();
+                    searchData();
                 });
             
             // Initialize delete button state

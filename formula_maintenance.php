@@ -209,6 +209,7 @@ if (!empty($session_company_id)) {
         window.FORMULA_MAINTENANCE_COMPANY_ID = <?php echo json_encode($session_company_id); ?>;
         window.currentCompanyCode = <?php echo json_encode($session_company_code); ?>;
     </script>
+    <script src="js/maintenance_bank_process.js?v=<?php echo time(); ?>"></script>
     <script src="js/formula_maintenance_v2.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
