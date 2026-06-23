@@ -488,7 +488,7 @@ export default function DomainPage() {
                   <div className="card-item domain-action-cell">
                     <button
                       type="button"
-                      className="btn-edit"
+                      className="btn-edit domain-action-cell__edit"
                       onClick={() => openEditModal(domain)}
                       aria-label={t("edit")}
                     >
@@ -497,13 +497,15 @@ export default function DomainPage() {
                     {!isProtected ? (
                       <input
                         type="checkbox"
-                        className="domain-checkbox"
+                        className="domain-checkbox domain-action-cell__check"
                         value={domain.id}
                         checked={checkedIds.has(domain.id)}
                         aria-label={t("selectOwnerForDelete")}
                         onChange={(e) => handleCheckbox(domain.id, e.target.checked)}
                       />
-                    ) : null}
+                    ) : (
+                      <span className="domain-action-cell__check domain-action-cell__check--empty" aria-hidden="true" />
+                    )}
                   </div>
                 </div>
               );
