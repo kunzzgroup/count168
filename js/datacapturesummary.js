@@ -232,7 +232,51 @@ function applyTransformationsToTableData(tableData, removeWord, replaceWordFrom,
     return transformedData;
 }
 
+const SUMMARY_BANK_DATA_CAPTURE_PROCESSES = ['PROFIT', 'SALARY', 'COMMISSION', 'BONUS'];
+
+function isBankDataCaptureProcessData(processData) {
+    if (!processData || typeof processData !== 'object') return false;
+    if (processData.isBankDataCapture === true) return true;
+    const code = String(
+        processData.bankProcessType ||
+        processData.processCode ||
+        processData.process_code ||
+        processData.process ||
+        ''
+    ).trim().toUpperCase();
+    return SUMMARY_BANK_DATA_CAPTURE_PROCESSES.includes(code);
+}
+
+function isSummaryBankDataCaptureMode() {
+    return isBankDataCaptureProcessData(window.capturedProcessData);
+}
+
+function getCurrentProcessCode() {
+    if (typeof window.currentProcessCode === 'string' && window.currentProcessCode.trim() !== '') {
+        return window.currentProcessCode.trim().toUpperCase();
+    }
+    const data = window.capturedProcessData;
+    if (!data) return '';
+    const raw = data.bankProcessType ?? data.processCode ?? data.process_code ?? '';
+    if (typeof raw === 'string' && raw.trim() !== '') {
+        return raw.trim().toUpperCase();
+    }
+    if (isBankDataCaptureProcessData(data) && data.process != null && String(data.process).trim() !== '') {
+        return String(data.process).trim().toUpperCase();
+    }
+    return '';
+}
+
+function getCurrentBankProcessType() {
+    return getCurrentProcessCode();
+}
+
 function getCurrentProcessId() {
+    // Bank Data Capture（PROFIT/SALARY 等）不走 Games process.id
+    if (isSummaryBankDataCaptureMode()) {
+        return null;
+    }
+
     // 返回数值型的 process.id（process 表的主键，整数）
     // 因为 data_capture_templates.process_id 是 INT(11)，存储的是 process.id（整数）
     if (typeof window.currentProcessId === 'number' && Number.isFinite(window.currentProcessId)) {
@@ -637,7 +681,7 @@ function saveFormulaSourceForRefresh(opts) {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const processId = getCurrentProcessId();
-    const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+    const processCode = typeof getCurrentProcessCode === 'function' ? getCurrentProcessCode() : ((typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim());
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
     const byStableKey = {};
@@ -971,8 +1015,10 @@ function restoreFormulaSourceFromRefresh() {
     const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const savedId = saved.processId != null ? saved.processId : null;
     const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
-    const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
-    const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+    const idMatch = isSummaryBankDataCaptureMode()
+        ? true
+        : ((currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null));
+    const codeMatch = (currentCode && savedCode && currentCode.toUpperCase() === savedCode.toUpperCase()) || (!currentCode && !savedCode);
     if (!idMatch || !codeMatch) {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
         return;
@@ -1245,8 +1291,10 @@ function restoreRateValuesFromRefresh() {
         const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
         const savedId = savedByProduct.processId != null ? savedByProduct.processId : null;
         const savedCode = (typeof savedByProduct.processCode === 'string' ? savedByProduct.processCode : '').trim();
-        const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
-        const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+        const idMatch = isSummaryBankDataCaptureMode()
+            ? true
+            : ((currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null));
+        const codeMatch = (currentCode && savedCode && currentCode.toUpperCase() === savedCode.toUpperCase()) || (!currentCode && !savedCode);
         if (!idMatch || !codeMatch) {
             try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
             if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
@@ -1348,29 +1396,53 @@ async function loadAndRenderCapturedTable() {
             console.log('Loaded table data:', parsedTableData);
             console.log('Loaded process data:', parsedProcessData);
 
-            // Store process data globally for later use
-            window.capturedProcessData = parsedProcessData;
-            const processCodeRaw = parsedProcessData.processCode ?? parsedProcessData.process_code ?? '';
-            const storedProcessCode = typeof processCodeRaw === 'string' ? processCodeRaw.trim() : '';
-            if (storedProcessCode) {
-                window.currentProcessCode = storedProcessCode;
-            } else {
-                window.currentProcessCode = null;
-            }
-
-            const detectedProcessId = parsedProcessData && parsedProcessData.process !== undefined && parsedProcessData.process !== null
-                ? parseInt(parsedProcessData.process, 10)
-                : NaN;
-            if (!Number.isNaN(detectedProcessId)) {
-                parsedProcessData.process = detectedProcessId;
-                window.currentProcessId = detectedProcessId;
-            } else {
+            const isBankCapture = isBankDataCaptureProcessData(parsedProcessData);
+            if (isBankCapture) {
+                const bankType = String(
+                    parsedProcessData.bankProcessType ||
+                    parsedProcessData.processCode ||
+                    parsedProcessData.process_code ||
+                    parsedProcessData.process ||
+                    ''
+                ).trim().toUpperCase();
+                parsedProcessData.isBankDataCapture = true;
+                parsedProcessData.bankProcessType = bankType;
+                parsedProcessData.processCode = bankType;
+                parsedProcessData.processName = bankType || parsedProcessData.processName;
+                parsedProcessData.process = bankType;
+                parsedProcessData.dataCaptureType = parsedProcessData.dataCaptureType || '1.Text';
+                window.capturedProcessData = parsedProcessData;
+                window.currentProcessCode = bankType;
                 window.currentProcessId = null;
+                window.__summaryBankDataCapture = true;
+            } else {
+                window.__summaryBankDataCapture = false;
+                window.capturedProcessData = parsedProcessData;
+                const processCodeRaw = parsedProcessData.processCode ?? parsedProcessData.process_code ?? '';
+                const storedProcessCode = typeof processCodeRaw === 'string' ? processCodeRaw.trim() : '';
+                if (storedProcessCode) {
+                    window.currentProcessCode = storedProcessCode;
+                } else {
+                    window.currentProcessCode = null;
+                }
+
+                const detectedProcessId = parsedProcessData && parsedProcessData.process !== undefined && parsedProcessData.process !== null
+                    ? parseInt(parsedProcessData.process, 10)
+                    : NaN;
+                if (!Number.isNaN(detectedProcessId) && detectedProcessId > 0) {
+                    parsedProcessData.process = detectedProcessId;
+                    window.currentProcessId = detectedProcessId;
+                } else {
+                    window.currentProcessId = null;
+                }
             }
 
-            // 先从服务端拉取已保存的 Summary 状态（行顺序 + 公式/Rate），供 skipRowIndexReorder 与 restore 使用，避免仅依赖 localStorage
+            // 先从服务端拉取已保存的 Summary 状态（Bank 用 process_code，Games 用 process_id）
             try {
-                window._summaryStateFromServer = await fetchSummaryStateFromServer(window.currentProcessId, window.currentProcessCode || '');
+                window._summaryStateFromServer = await fetchSummaryStateFromServer(
+                    window.currentProcessId,
+                    isBankCapture ? getCurrentBankProcessType() : (window.currentProcessCode || '')
+                );
             } catch (e) {
                 window._summaryStateFromServer = null;
             }
@@ -1430,19 +1502,30 @@ function displayProcessInfo(processData) {
         dateEl.textContent = processData.date || '-';
     }
 
-    // Display process name
+    // Display process name（Bank：PROFIT/SALARY 等；Games：processName / process.id）
     const processEl = document.getElementById('processInfoProcess');
     if (processEl) {
-        processEl.textContent = processData.processName || processData.process || '-';
+        if (isBankDataCaptureProcessData(processData)) {
+            processEl.textContent = processData.bankProcessType || processData.processCode || processData.processName || processData.process || '-';
+        } else {
+            processEl.textContent = processData.processName || processData.process || '-';
+        }
     }
 
     // Display descriptions (join array if exists)
     const descriptionEl = document.getElementById('processInfoDescription');
     if (descriptionEl) {
-        if (processData.descriptions && Array.isArray(processData.descriptions) && processData.descriptions.length > 0) {
-            descriptionEl.textContent = processData.descriptions.join(', ');
-        } else {
+        const descriptionItem = descriptionEl.closest('.process-info-item');
+        if (isBankDataCaptureProcessData(processData)) {
+            if (descriptionItem) descriptionItem.style.display = 'none';
             descriptionEl.textContent = '-';
+        } else {
+            if (descriptionItem) descriptionItem.style.display = '';
+            if (processData.descriptions && Array.isArray(processData.descriptions) && processData.descriptions.length > 0) {
+                descriptionEl.textContent = processData.descriptions.join(', ');
+            } else {
+                descriptionEl.textContent = '-';
+            }
         }
     }
 
@@ -15949,6 +16032,12 @@ window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__ = function () {
 
 async function autoPopulateSummaryRowsFromTemplates(idProducts) {
     try {
+        if (isSummaryBankDataCaptureMode()) {
+            console.info('[Summary] Bank Data Capture — skip Games template auto-population for', getCurrentBankProcessType() || 'bank process');
+            window.currentProcessHadTemplates = false;
+            return;
+        }
+
         if (!Array.isArray(idProducts)) {
             return;
         }
@@ -16267,8 +16356,10 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
                 const savedId = saved.processId != null ? saved.processId : null;
                 const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
-                const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
-                const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+                const idMatch = isSummaryBankDataCaptureMode()
+                    ? true
+                    : ((currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null));
+                const codeMatch = (currentCode && savedCode && currentCode.toUpperCase() === savedCode.toUpperCase()) || (!currentCode && !savedCode);
                 if (idMatch && codeMatch) skipRowIndexReorder = true;
             }
 
@@ -20693,11 +20784,19 @@ async function submitSummaryData() {
 
         console.log('Summary rows to submit:', summaryRows);
 
+        const isBankCaptureSubmit = isBankDataCaptureProcessData(parsedProcessData);
+        const bankProcessType = isBankCaptureSubmit
+            ? String(parsedProcessData.bankProcessType || parsedProcessData.processCode || parsedProcessData.process || '').trim().toUpperCase()
+            : '';
+
         // Prepare data to send
         const submitData = {
             captureDate: parsedProcessData.date,
-            processId: parsedProcessData.process,
-            processName: parsedProcessData.processName,
+            processId: isBankCaptureSubmit ? null : parsedProcessData.process,
+            processName: isBankCaptureSubmit ? bankProcessType : parsedProcessData.processName,
+            processCode: isBankCaptureSubmit ? bankProcessType : (parsedProcessData.processCode || ''),
+            isBankDataCapture: isBankCaptureSubmit,
+            bankProcessType: isBankCaptureSubmit ? bankProcessType : '',
             currencyId: parsedProcessData.currency,
             currencyName: parsedProcessData.currencyName,
             remark: parsedProcessData.remark || '',
@@ -21008,9 +21107,9 @@ async function submitSummaryData() {
             const totalRowsSubmitted = summaryRows.length;
             showNotification('Success', `All data submitted successfully! Capture ID: ${finalCaptureId}, total ${totalRowsSubmitted} rows`, 'success');
 
-            // After successful final submission, record the submitted process in DB
+            // After successful final submission, record the submitted process in DB（仅 Games；Bank 固定 process 不写入 submitted_processes）
             try {
-                if (parsedProcessData && parsedProcessData.process) {
+                if (!isBankDataCaptureProcessData(parsedProcessData) && parsedProcessData && parsedProcessData.process) {
                     const formData = new FormData();
                     formData.append('action', 'save_submission');
                     formData.append('process_id', parsedProcessData.process);

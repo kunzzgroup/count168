@@ -23515,13 +23515,21 @@ async function submitDataCaptureForm() {
     const processCode = processInput ? (processInput.getAttribute('data-process-code') || '').trim() : '';
     const processDisplayText = processInput ? processInput.textContent.trim() : '';
     const typeSelectEl = document.getElementById('dataCaptureTypeSelector');
-    const selectedDataCaptureType = typeSelectEl ? String(typeSelectEl.value || '').trim() : '';
+    const bankMode = isDataCaptureBankCategoryMode();
+    const selectedDataCaptureType = bankMode
+        ? '1.Text'
+        : (typeSelectEl ? String(typeSelectEl.value || '').trim() : '');
+    const bankProcessType = bankMode
+        ? String(processCode || processId || processDisplayText || '').trim().toUpperCase()
+        : '';
 
     const processData = {
         date: formData.get('capture_date'),
-        process: processId,
-        processName: processDisplayText,
-        processCode: processCode,
+        process: bankMode ? bankProcessType : processId,
+        processName: bankMode ? bankProcessType : processDisplayText,
+        processCode: bankMode ? bankProcessType : processCode,
+        bankProcessType: bankMode ? bankProcessType : '',
+        isBankDataCapture: bankMode,
         dataCaptureType: selectedDataCaptureType,
         descriptions: window.selectedDescriptions || [],
         currency: formData.get('currency'),
@@ -23537,8 +23545,8 @@ async function submitDataCaptureForm() {
         formData.append('selected_descriptions', JSON.stringify(window.selectedDescriptions));
     }
 
-    if (processCode) {
-        formData.append('process_code', processCode);
+    if (processCode || bankProcessType) {
+        formData.append('process_code', bankMode ? bankProcessType : processCode);
     }
 
     try {
