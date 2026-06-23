@@ -302,6 +302,39 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
     ];
 }
 
+/**
+ * Attach currency combos for an account row.
+ * - Default (hide zero balance): only when list is still empty, attach filter currencies.
+ * - Show all 0 balance: always attach filter currencies (or all company currencies when no filter)
+ *   so every scoped account appears even with no txn / DCD / account_currency in the period.
+ */
+function searchApiFillFallbackAccountCurrencies(
+    array &$account_currencies,
+    array &$account_currency_ids,
+    array $filter_currency_codes,
+    array $currency_map,
+    bool $hide_zero_balance
+): void {
+    if ($hide_zero_balance) {
+        if (!empty($account_currencies)) {
+            return;
+        }
+        $codesToAdd = $filter_currency_codes;
+    } else {
+        $codesToAdd = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
+    }
+    if (empty($codesToAdd)) {
+        return;
+    }
+    foreach ($codesToAdd as $fcc) {
+        $code = strtoupper((string) $fcc);
+        if ($code === '' || !isset($currency_map[$code])) {
+            continue;
+        }
+        addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
+    }
+}
+
 /** @return string|null 客户公司代码，如 LGA */
 function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
 {
@@ -1572,6 +1605,12 @@ try {
     } catch (PDOException $e) {
         $has_account_currency_table = false;
     }
+    if (!$hide_zero_balance && !empty($filter_currency_codes)) {
+        $active_currency_codes = array_values(array_unique(array_merge(
+            $active_currency_codes,
+            $filter_currency_codes
+        )));
+    }
 
     // ====== BULK PRE-LOAD 账户货币组合（避免每个账户在循环内单独查询，消除 N+1） ======
     $bulk_ac = []; // [account_id][currency_id] => currency_code  (来自 account_currency 表)
@@ -1745,15 +1784,13 @@ try {
                     $account_currency_ids[(int) $ac['currency_id']] = true;
                 }
             }
-            // 兜底：仍无币别但有 currency 筛选时，直接挂上筛选的币别
-            if (empty($account_currencies) && !empty($filter_currency_codes)) {
-                foreach ($filter_currency_codes as $fcc) {
-                    $code = strtoupper($fcc);
-                    if (!isset($currency_map[$code]))
-                        continue;
-                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
-                }
-            }
+            searchApiFillFallbackAccountCurrencies(
+                $account_currencies,
+                $account_currency_ids,
+                $filter_currency_codes,
+                $currency_map,
+                $hide_zero_balance
+            );
         } else {
             // === Legacy 路径：从 bulk_dcd_cur 批量数据读取 ===
             foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
@@ -1802,6 +1839,36 @@ try {
                 'currency_id' => $currency_id,
                 'currency_code' => $currency_code
             ];
+        }
+    }
+
+    // Show all 0 balance: guarantee every scoped account appears (even with no txn/DCD/account_currency).
+    if (!$hide_zero_balance && !empty($accounts)) {
+        $comboAccountIds = [];
+        foreach ($account_currency_combos as $combo) {
+            $aid = (int) ($combo['account']['id'] ?? 0);
+            if ($aid > 0) {
+                $comboAccountIds[$aid] = true;
+            }
+        }
+        $ensureCodes = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
+        foreach ($accounts as $account) {
+            $aid = (int) ($account['id'] ?? 0);
+            if ($aid <= 0 || isset($comboAccountIds[$aid])) {
+                continue;
+            }
+            foreach ($ensureCodes as $fcc) {
+                $code = strtoupper((string) $fcc);
+                if ($code === '' || !isset($currency_map[$code])) {
+                    continue;
+                }
+                $account_currency_combos[] = [
+                    'account' => $account,
+                    'currency_id' => (int) $currency_map[$code],
+                    'currency_code' => $code,
+                ];
+            }
+            $comboAccountIds[$aid] = true;
         }
     }
 
