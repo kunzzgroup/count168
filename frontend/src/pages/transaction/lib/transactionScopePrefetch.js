@@ -35,6 +35,7 @@ export function buildTransactionSearchRequestKey({
   showInactive = false,
   showCaptureOnly = false,
   hideZeroBalance = true,
+  zeroBalanceOnly = false,
 }) {
   const cur =
     !showAllCurrencies && selectedCurrencies?.length
@@ -51,6 +52,7 @@ export function buildTransactionSearchRequestKey({
     showInactive: showInactive ? "1" : "0",
     showCaptureOnly: showCaptureOnly ? "1" : "0",
     hideZero: hideZeroBalance ? "0" : "1",
+    zeroBalanceOnly: zeroBalanceOnly ? "1" : "0",
     companyId: String(scopeCacheCompanyKey || ""),
     showAllCurrencies: !!showAllCurrencies,
     currencies: cur,

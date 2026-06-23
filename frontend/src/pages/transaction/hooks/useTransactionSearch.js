@@ -494,6 +494,7 @@ export function useTransactionSearch({
         showInactive: showInactiveForQuery ? "1" : "0",
         showCaptureOnly: showCaptureOnlyForQuery ? "1" : "0",
         hideZero: searchState.showZeroBalance ? "0" : "1",
+        zeroBalanceOnly: searchState.showZeroBalance ? "1" : "0",
         companyId: cid || "",
         showAllCurrencies: !!showAllCurrencies,
         currencies: [...selectedCurrencies].sort().join(","),
@@ -559,6 +560,7 @@ export function useTransactionSearch({
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
         hideZeroBalance: !searchState.showZeroBalance,
+        zeroBalanceOnly: searchState.showZeroBalance,
         categories: selectedCategories.length > 0 ? selectedCategories : undefined,
         currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
       };
@@ -740,7 +742,6 @@ export function useTransactionSearch({
     const pf = applyPaymentWinLossFilters(baseRowsPresentation.baseLeft, baseRowsPresentation.baseRight, {
       showPaymentOnly: searchState.showPaymentOnly,
       showCaptureOnly: searchState.showCaptureOnly,
-      showZeroBalance: searchState.showZeroBalance,
     });
     const z = applyZeroBalanceFilter(pf.filteredLeft, pf.filteredRight, searchState.showZeroBalance, {
       showCaptureOnly: searchState.showCaptureOnly,

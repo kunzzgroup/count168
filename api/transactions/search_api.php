@@ -953,6 +953,10 @@ try {
     $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1';
     $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
     $hide_zero_balance = isset($_GET['hide_zero_balance']) && $_GET['hide_zero_balance'] === '1';
+    $zero_balance_only = isset($_GET['zero_balance_only']) && $_GET['zero_balance_only'] === '1';
+    if ($zero_balance_only) {
+        $hide_zero_balance = false;
+    }
     /** 诊断用：附带 Win/Loss 按来源桶汇总与非零明细（与列表Σ win_loss_full 对齐）；不传或!=1 则无此字段且不写入缓存键 */
     $debug_wl_total = isset($_GET['debug_wl_total']) && (string) $_GET['debug_wl_total'] === '1';
 
@@ -1077,6 +1081,7 @@ try {
             'show_inactive' => (int) $show_inactive,
             'show_capture_only' => (int) $show_capture_only,
             'hide_zero_balance' => (int) $hide_zero_balance,
+            'zero_balance_only' => (int) $zero_balance_only,
             'categories' => array_values($category_filters),
             'currencies' => array_values($currency_filters),
             'target_account_ids' => array_values($target_account_ids),
@@ -1144,7 +1149,10 @@ try {
     // 账目准确性要求：transaction 列表必须包含 active 和 inactive 账户，
     // 因为 inactive 账户可能仍有历史交易数据，排除它们会造成账目对不上。
     // account-list.php 有独立的 inactive 过滤逻辑，不受此影响。
-    // （show_inactive 参数对应前端 "Show Payment Only" 复选框，与账户状态过滤无关）
+    // 「仅显示 0 余额」模式与 Account 页对齐：只枚举 active 账户。
+    if ($zero_balance_only) {
+        $where_conditions[] = "a.status = 'active'";
+    }
 
     // 添加条件：Show Win/Loss Only 和/或 Show Payment Only
     // 过滤逻辑分两层：
@@ -1786,6 +1794,18 @@ try {
             }
         }
 
+        // 仅显示 0 余额：与 Account 页 active 账户对齐，无货币配置时也挂上筛选币别/公司币别以便算出 0.00 行。
+        if ($zero_balance_only && empty($account_currencies)) {
+            $currenciesToAdd = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
+            foreach ($currenciesToAdd as $fcc) {
+                $code = strtoupper((string) $fcc);
+                if ($code === '' || !isset($currency_map[$code])) {
+                    continue;
+                }
+                addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
+            }
+        }
+
         if (empty($account_currencies)) {
             continue;
         }
@@ -2307,7 +2327,11 @@ try {
         $has_period_activity = $has_win_loss_transactions
             || $has_period_id_product_rows
             || $has_crdr_transactions;
-        if ($hide_zero_balance && !$show_inactive && !searchMoneyNonZero($balance) && !$has_period_activity) {
+        if ($zero_balance_only) {
+            if (searchMoneyNonZero($balance)) {
+                continue;
+            }
+        } elseif ($hide_zero_balance && !$show_inactive && !searchMoneyNonZero($balance) && !$has_period_activity) {
             continue;
         }
 
