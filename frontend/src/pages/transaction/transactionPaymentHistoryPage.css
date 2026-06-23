@@ -3,8 +3,10 @@
 :root {
   --transaction-history-report-max-width: 1320px;
   --transaction-history-report-border: #e2e8f0;
-  --transaction-history-report-grid: #cbd5e1;
-  --transaction-history-report-head-bg: #eff6ff;
+  /* Align with member balance mini grid (.member-balance-matrix-*) */
+  --transaction-history-report-grid: #e8eef5;
+  --transaction-history-report-head-grid: #b8cfe8;
+  --transaction-history-report-head-bg: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%);
   --transaction-history-report-head-text: #1e3a5f;
   --transaction-history-report-accent: #2563eb;
   --transaction-history-page-bg: var(--color-page-bg, #e9f1ff);
@@ -339,7 +341,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   position: sticky;
   top: 0;
   z-index: 10;
-  background-color: var(--transaction-history-report-head-bg) !important;
+  background: var(--transaction-history-report-head-bg) !important;
   color: var(--transaction-history-report-head-text);
   font-weight: 700;
   font-size: var(--txn-history-text-table-head) !important;
@@ -347,7 +349,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   white-space: nowrap !important;
   overflow: visible !important;
   text-overflow: clip !important;
-  border: 1px solid var(--transaction-history-report-grid) !important;
+  border: 1px solid var(--transaction-history-report-head-grid) !important;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody td,
@@ -509,9 +511,9 @@ body.transaction-payment-history-page .transaction-payment-history-page-root .tr
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody .transaction-bf-row td,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody .transaction-history-bf-row td,
 body.ec-payment-history-chromeless .transaction-payment-history-page-root .transaction-history-report-table tbody .transaction-bf-row td {
-  background-color: #eff6ff !important;
+  background-color: #ffffff !important;
   font-weight: 700;
-  color: #1e3a5f;
+  color: #1e293b;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody tr:hover td,
