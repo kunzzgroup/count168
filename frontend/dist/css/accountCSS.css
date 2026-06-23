@@ -228,6 +228,39 @@ body.account-page .account-table-wrapper {
     justify-content: center;
 }
 
+/* Action 列：Edit | Link | Delete 勾选（与 Domain / User List 对齐） */
+body.account-page .account-action-cell {
+    display: grid;
+    grid-template-columns: 20px 20px 16px;
+    column-gap: 6px;
+    align-items: center;
+    justify-content: end;
+    justify-items: center;
+    overflow: visible;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 0;
+    width: 100%;
+}
+
+body.account-page .account-row-checkbox {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+body.account-page .account-action-cell__check--empty {
+    display: block;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+}
+
 body.account-page:not(.account-page--show-all) .account-cards {
     flex: 1;
     width: 100%;

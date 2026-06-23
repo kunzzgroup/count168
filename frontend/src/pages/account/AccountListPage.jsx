@@ -2855,14 +2855,45 @@ export default function AccountListPage() {
                     <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{formatAccountStatusDisplay(t, a.status)}</span></div>
                     <div className="account-card-item">{toUpper(a.last_login)}</div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
-                    <div className="account-card-item">
-                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)}><img src={assetUrl("images/edit.svg")} alt={t("edit")} /></button>
-                      <button type="button" className="account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openLink(a.id)} style={{ marginLeft: 5 }} title={t("linkAccountTitle")}>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <div className="account-card-item account-action-cell">
+                      <button
+                        type="button"
+                        className="account-edit-btn account-action-cell__edit"
+                        disabled={accountMutationsBlocked}
+                        onClick={() => openEdit(a.id)}
+                      >
+                        <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
+                      </button>
+                      <button
+                        type="button"
+                        className="account-edit-btn account-action-cell__link"
+                        disabled={accountMutationsBlocked}
+                        onClick={() => openLink(a.id)}
+                        title={t("linkAccountTitle")}
+                      >
+                        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                           <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         </svg>
                       </button>
-                      {isInactive && <input type="checkbox" style={{ marginLeft: 10 }} disabled={accountMutationsBlocked} checked={selectedDeleteIds.has(Number(a.id))} onChange={(e) => setSelectedDeleteIds(prev => { const n = new Set(prev); if (e.target.checked) n.add(Number(a.id)); else n.delete(Number(a.id)); return n; })} />}
+                      {isInactive ? (
+                        <input
+                          type="checkbox"
+                          className="account-row-checkbox account-action-cell__check"
+                          disabled={accountMutationsBlocked}
+                          checked={selectedDeleteIds.has(Number(a.id))}
+                          aria-label={t("delete")}
+                          onChange={(e) =>
+                            setSelectedDeleteIds((prev) => {
+                              const n = new Set(prev);
+                              if (e.target.checked) n.add(Number(a.id));
+                              else n.delete(Number(a.id));
+                              return n;
+                            })
+                          }
+                        />
+                      ) : (
+                        <span className="account-action-cell__check account-action-cell__check--empty" aria-hidden="true" />
+                      )}
                     </div>
                   </div>
                 );
