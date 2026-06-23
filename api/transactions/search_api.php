@@ -384,6 +384,41 @@ function searchApiMergeGroupScopeAccountRows(
 }
 
 /**
+ * Show all 0 balance: build account×currency rows from scoped accounts only (no txn/DCD lookup).
+ * Keeps last-year and this-year lists identical when the toggle is on.
+ *
+ * @param array<int, array<string, mixed>> $accounts
+ * @param array<string, int> $currency_map
+ * @return array<int, array{account: array, currency_id: int, currency_code: string}>
+ */
+function searchApiBuildForcedZeroBalanceCombos(
+    array $accounts,
+    array $filter_currency_codes,
+    array $currency_map
+): array {
+    if ($accounts === [] || $currency_map === []) {
+        return [];
+    }
+    $ensureCodes = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
+    $combos = [];
+    foreach ($accounts as $account) {
+        foreach ($ensureCodes as $fcc) {
+            $code = strtoupper((string) $fcc);
+            if (!isset($currency_map[$code])) {
+                continue;
+            }
+            $combos[] = [
+                'account' => $account,
+                'currency_id' => (int) $currency_map[$code],
+                'currency_code' => $code,
+            ];
+        }
+    }
+
+    return $combos;
+}
+
+/**
  * Attach currency combos for an account row.
  * - Default (hide zero balance): only when list is still empty, attach filter currencies.
  * - Show all 0 balance: always attach filter currencies (or all company currencies) so every
@@ -1268,7 +1303,8 @@ try {
     //   Layer 2（foreach 循环内）：(账户 + 货币) 组合级别过滤，精确到每行
     // 两层设计对称，Win/Loss Only 与 Payment Only 处理方式完全一致。
     // Group ledger: account list already scoped; skip company-scoped EXISTS (uses scope_type=group in bulk loop).
-    $skipLayer1CompanyExists = (($search_list_scope['mode'] ?? '') === 'group');
+    // Show all 0 balance: never shrink account list by period activity — year range must not change which accounts appear.
+    $skipLayer1CompanyExists = (($search_list_scope['mode'] ?? '') === 'group') || !$hide_zero_balance;
     if (!$skipLayer1CompanyExists && $show_capture_only && $show_inactive) {
         // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture / WIN/LOSE / RATE_MIDDLEMAN）或有 Payment（Cr/Dr）即显示
         // Bug修复：
@@ -1708,6 +1744,16 @@ try {
         )));
     }
 
+    $dcd_ledger_where = searchApiDcdBulkLedgerWhere($pdo, $search_is_group_ledger, $search_list_scope);
+
+    // Show all 0 balance: account×currency rows from scoped accounts only — not from period txn/DCD.
+    if (!$hide_zero_balance) {
+        $account_currency_combos = searchApiBuildForcedZeroBalanceCombos(
+            $accounts,
+            $filter_currency_codes,
+            $currency_map
+        );
+    } else {
     // ====== BULK PRE-LOAD 账户货币组合（避免每个账户在循环内单独查询，消除 N+1） ======
     $bulk_ac = []; // [account_id][currency_id] => currency_code  (来自 account_currency 表)
     $bulk_txn_cur_prd = []; // [account_id][currency_id] => currency_code  (本期 transactions)
@@ -1718,7 +1764,6 @@ try {
         $all_ids = array_column($accounts, 'id');
         $all_ph = implode(',', array_fill(0, count($all_ids), '?'));
         $bulk_cur_company_id = searchApiDcdCompanyId();
-        $dcd_ledger_where = searchApiDcdBulkLedgerWhere($pdo, $search_is_group_ledger, $search_list_scope);
         $bulk_txn_scope_sql = $search_txn_where;
         $bulk_txn_scope_bind = $search_txn_bind;
 
@@ -1945,35 +1990,7 @@ try {
             ];
         }
     }
-
-    // Show all 0 balance: guarantee every scoped account appears (even with no txn/DCD/account_currency).
-    if (!$hide_zero_balance && !empty($accounts)) {
-        $comboAccountIds = [];
-        foreach ($account_currency_combos as $combo) {
-            $aid = (int) ($combo['account']['id'] ?? 0);
-            if ($aid > 0) {
-                $comboAccountIds[$aid] = true;
-            }
-        }
-        $ensureCodes = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
-        foreach ($accounts as $account) {
-            $aid = (int) ($account['id'] ?? 0);
-            if ($aid <= 0 || !empty($comboAccountIds[$aid])) {
-                continue;
-            }
-            foreach ($ensureCodes as $fcc) {
-                $code = strtoupper((string) $fcc);
-                if (!isset($currency_map[$code])) {
-                    continue;
-                }
-                $account_currency_combos[] = [
-                    'account' => $account,
-                    'currency_id' => (int) $currency_map[$code],
-                    'currency_code' => $code,
-                ];
-            }
-        }
-    }
+    } // end hide_zero_balance combo discovery (default path)
 
     // 计算每个 account + currency 组合的数据
     $results = [];
