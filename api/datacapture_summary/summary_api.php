@@ -191,9 +191,18 @@ function summaryApiEnsureBankDataCaptureProcessRecord(PDO $pdo, int $companyId, 
         throw new Exception('Unable to create description for Bank process: ' . $processCode);
     }
 
-    $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
-    $userType = (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner') ? 'owner' : 'user';
-    $ownerId = ($userType === 'owner' && isset($_SESSION['owner_id'])) ? (int)$_SESSION['owner_id'] : null;
+    // 与 addprocess_api 一致：Owner 的 id 不能写入 created_by（FK 仅指向 user.id）
+    $createdBy = null;
+    $createdByType = 'user';
+    $createdByOwnerId = null;
+    if (!empty($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner') {
+        $createdByType = 'owner';
+        $createdByOwnerId = isset($_SESSION['owner_id'])
+            ? (int)$_SESSION['owner_id']
+            : (isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null);
+    } elseif (isset($_SESSION['user_id']) && $_SESSION['user_id'] !== '') {
+        $createdBy = (int)$_SESSION['user_id'];
+    }
 
     $ins = $pdo->prepare("
         INSERT INTO process (
@@ -205,9 +214,9 @@ function summaryApiEnsureBankDataCaptureProcessRecord(PDO $pdo, int $companyId, 
         $processCode,
         $descId,
         $resolvedCurrencyId,
-        $userId,
-        $userType,
-        $ownerId,
+        $createdBy,
+        $createdByType,
+        $createdByOwnerId,
         $companyId,
     ]);
     $newId = (int)$pdo->lastInsertId();
