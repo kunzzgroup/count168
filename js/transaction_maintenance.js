@@ -256,6 +256,12 @@
         }
     }
 
+    function canAccessTransactionMaintenancePage() {
+        const hasGambling = typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING;
+        const hasBank = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' && window.SIDEBAR_COMPANY_HAS_BANK;
+        return hasGambling || hasBank;
+    }
+
     async function switchCompany(companyId) {
         if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
         let hasGamblingFromSession = undefined;
@@ -290,16 +296,13 @@
         if (typeof window !== 'undefined') {
             window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
         }
-        if (hasGamblingFromSession === false) {
-            if (typeof window.redirectAfterCompanySwitch === 'function') {
-                window.redirectAfterCompanySwitch(companyId);
-            } else {
-                window.location.href = 'dashboard.php';
-            }
-            return;
-        }
-        const permissions = await fetchCompanyPermissions(currentCompanyCode);
-        if (isBankOnlyCategoryCompany(permissions)) {
+        const hasGambling = hasGamblingFromSession !== undefined
+            ? hasGamblingFromSession
+            : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
+        const hasBank = hasBankFromSession !== undefined
+            ? hasBankFromSession
+            : (typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_BANK : false);
+        if (!hasGambling && !hasBank) {
             if (typeof window.redirectAfterCompanySwitch === 'function') {
                 window.redirectAfterCompanySwitch(companyId);
             } else {
@@ -308,10 +311,7 @@
             return;
         }
         if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
-            const hg = hasGamblingFromSession !== undefined
-                ? hasGamblingFromSession
-                : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
-            window.updateSidebarDataCaptureVisibility(hg, hasBankFromSession);
+            window.updateSidebarDataCaptureVisibility(hasGambling, hasBank);
         }
         if (window.TRANSACTION_MAINTENANCE) {
             window.TRANSACTION_MAINTENANCE.currentCompanyId = currentCompanyId;
@@ -721,7 +721,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
+        if (!canAccessTransactionMaintenancePage()) {
             if (typeof window.redirectAfterCompanySwitch === 'function') {
                 window.redirectAfterCompanySwitch(currentCompanyId);
             } else {

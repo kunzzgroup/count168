@@ -2,7 +2,7 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
-// 仅当公司具有 Games category 权限时才可访问此页（Bank-only 自动跳转 Process List）
+// Games 或 Bank category 公司可访问（与侧边栏 Maintenance 可见性一致）
 $session_company_id = $_SESSION['company_id'] ?? null;
 if ($session_company_id) {
     try {
@@ -11,12 +11,8 @@ if ($session_company_id) {
         $permsJson = $stmt->fetchColumn();
         $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
         $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
-        $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
-        if ($isBankOnlyCategory) {
-            header('Location: processlist.php');
-            exit;
-        }
-        if (!$hasGamesPermission) {
+        $hasBankPermission = is_array($companyPerms) && in_array('Bank', $companyPerms);
+        if (!$hasGamesPermission && !$hasBankPermission) {
             header('Location: processlist.php?error=no_gambling_permission');
             exit;
         }
@@ -377,19 +373,29 @@ if (!empty($session_company_id)) {
 
 
 
+        function canAccessTransactionMaintenancePage() {
+            const hasGambling = typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING;
+            const hasBank = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' && window.SIDEBAR_COMPANY_HAS_BANK;
+            return hasGambling || hasBank;
+        }
+
         async function switchCompany(companyId, companyCode) {
             if (parseInt(currentCompanyId, 10) === parseInt(companyId, 10)) return;
             
             // 先更新 session
             let hasGamblingFromSession = undefined;
+            let hasBankFromSession = undefined;
             try {
                 const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
                 const result = await response.json();
                 if (!result.success) {
                     console.error('更新 session 失败:', result.error);
-                } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data) {
+                } else if (result.data) {
                     if (result.data.has_gambling !== undefined) hasGamblingFromSession = result.data.has_gambling;
-                    window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
+                    if (result.data.has_bank !== undefined) hasBankFromSession = result.data.has_bank;
+                    if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
+                        window.updateSidebarDataCaptureVisibility(result.data.has_gambling, result.data.has_bank);
+                    }
                 }
             } catch (error) {
                 console.error('更新 session 时出错:', error);
@@ -400,14 +406,18 @@ if (!empty($session_company_id)) {
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
-            if (hasGamblingFromSession === false) {
+            const hasGambling = hasGamblingFromSession !== undefined
+                ? hasGamblingFromSession
+                : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
+            const hasBank = hasBankFromSession !== undefined
+                ? hasBankFromSession
+                : (typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_BANK : false);
+            if (!hasGambling && !hasBank) {
                 window.location.href = 'processlist.php';
                 return;
             }
-            const permissions = await fetchCompanyPermissions(currentCompanyCode);
-            if (isBankOnlyCategoryCompany(permissions)) {
-                window.location.href = 'processlist.php';
-                return;
+            if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
+                window.updateSidebarDataCaptureVisibility(hasGambling, hasBank);
             }
             loadProcesses();
             if (hasSearched) {
@@ -419,6 +429,14 @@ if (!empty($session_company_id)) {
 
         // Load Process list
         function loadProcesses() {
+            const categoryForBank = typeof selectedPermission !== 'undefined' ? selectedPermission : null;
+            if (typeof window.isBankMaintenanceProcessMode === 'function'
+                && window.isBankMaintenanceProcessMode(categoryForBank)
+                && typeof window.renderBankMaintenanceProcessSelect === 'function') {
+                window.renderBankMaintenanceProcessSelect();
+                return Promise.resolve();
+            }
+
             const params = [];
             if (currentCompanyId) {
                 params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
@@ -802,7 +820,7 @@ if (!empty($session_company_id)) {
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
+            if (!canAccessTransactionMaintenancePage()) {
                 window.location.href = 'dashboard.php';
                 return;
             }

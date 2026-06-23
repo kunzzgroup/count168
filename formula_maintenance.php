@@ -2,7 +2,7 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
-// 仅当公司具有 Games category 权限时才可访问此页（与侧边栏 Maintenance > Formula 可见性一致）
+// Games 或 Bank category 公司可访问（与侧边栏 Maintenance 可见性一致）
 $session_company_id = $_SESSION['company_id'] ?? null;
 if ($session_company_id) {
     try {
@@ -11,12 +11,8 @@ if ($session_company_id) {
         $permsJson = $stmt->fetchColumn();
         $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
         $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
-        $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
-        if ($isBankOnlyCategory) {
-            header('Location: processlist.php');
-            exit;
-        }
-        if (!$hasGamesPermission) {
+        $hasBankPermission = is_array($companyPerms) && in_array('Bank', $companyPerms);
+        if (!$hasGamesPermission && !$hasBankPermission) {
             header('Location: processlist.php?error=no_gambling_permission');
             exit;
         }
