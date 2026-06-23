@@ -1232,6 +1232,33 @@ function tenant_account_company_list_where(PDO $pdo, int $companyId, string $ali
     ];
 }
 
+/**
+ * Inclusive company scope: ac.company_id = subsidiary OR scope_id points at subsidiary.
+ * Safe for dual-tenant rows where company_id is anchor FK and scope_id is the subsidiary key.
+ * Does NOT replace company_id-only rows (unlike COALESCE-only WHERE which broke C168 lists).
+ *
+ * @return array{sql: string, params: array<int>}
+ */
+function tenant_account_company_list_where_inclusive(PDO $pdo, int $companyId, string $alias = 'ac'): array
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $alias) ?: 'ac';
+    if ($companyId <= 0) {
+        return ['sql' => '1=0', 'params' => []];
+    }
+    $subOnly = tenant_sql_account_company_subsidiary_only($pdo, $a);
+    if (!tenant_table_has_scope_columns($pdo, 'account_company')) {
+        return [
+            'sql' => "{$a}.company_id = ?{$subOnly}",
+            'params' => [$companyId],
+        ];
+    }
+
+    return [
+        'sql' => "({$a}.company_id = ? OR (COALESCE(NULLIF({$a}.scope_id, 0), 0) = ? AND ({$a}.scope_type IS NULL OR TRIM({$a}.scope_type) = '' OR {$a}.scope_type = 'company'))){$subOnly}",
+        'params' => [$companyId, $companyId],
+    ];
+}
+
 function tenant_link_account_group_scope(PDO $pdo, int $accountId, int $groupPk, int $anchorCompanyId): void
 {
     if ($groupPk <= 0 || $anchorCompanyId <= 0) {

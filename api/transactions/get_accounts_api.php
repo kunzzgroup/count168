@@ -64,7 +64,7 @@ try {
             $params = array_merge($params, $accountIds);
         }
     } else {
-        $acListWhere = tenant_account_company_list_where($pdo, $company_id, 'ac');
+        $acListWhere = tenant_account_company_list_where_inclusive($pdo, $company_id, 'ac');
         $where_conditions[] = $acListWhere['sql'];
         $params = array_merge($params, $acListWhere['params']);
     }

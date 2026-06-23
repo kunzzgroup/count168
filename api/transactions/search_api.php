@@ -303,6 +303,87 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
 }
 
 /**
+ * Show all 0 balance: merge group-ledger accounts (scope_type=group) not linked via company_id FK.
+ */
+function searchApiMergeGroupScopeAccountRows(
+    PDO $pdo,
+    array &$accounts,
+    int $groupScopePk,
+    array $categoryFilters,
+    int $permCompanyId
+): void {
+    if ($groupScopePk <= 0) {
+        return;
+    }
+
+    $existingIds = [];
+    foreach ($accounts as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id > 0) {
+            $existingIds[$id] = true;
+        }
+    }
+
+    $groupIds = array_keys(tenant_collect_group_account_ids($pdo, $groupScopePk));
+    $missingIds = array_values(array_filter($groupIds, static function (int $id) use ($existingIds): bool {
+        return $id > 0 && empty($existingIds[$id]);
+    }));
+    if ($missingIds === []) {
+        return;
+    }
+
+    $extraBits = [];
+    $extraParams = $missingIds;
+    if (!empty($categoryFilters)) {
+        if (count($categoryFilters) === 1) {
+            $extraBits[] = 'a.role = ?';
+            $extraParams[] = $categoryFilters[0];
+        } else {
+            $extraBits[] = 'a.role IN (' . str_repeat('?,', count($categoryFilters) - 1) . '?)';
+            $extraParams = array_merge($extraParams, $categoryFilters);
+        }
+    }
+
+    $createdSourceSelect = searchApiAccountHasCreatedSourceColumn($pdo)
+        ? ", COALESCE(a.created_source, '') AS created_source"
+        : '';
+    $ph = implode(',', array_fill(0, count($missingIds), '?'));
+    $extraSql = "SELECT DISTINCT
+            a.id,
+            a.account_id,
+            a.name,
+            a.role,
+            a.status,
+            COALESCE(a.payment_alert, 0) AS payment_alert,
+            a.alert_day,
+            a.alert_specific_date,
+            a.alert_amount
+            {$createdSourceSelect}
+        FROM account a
+        WHERE a.id IN ($ph)";
+    if (!empty($extraBits)) {
+        $extraSql .= ' AND ' . implode(' AND ', $extraBits);
+    }
+    $extraSql .= ' ORDER BY a.account_id';
+
+    list($extraSql, $extraParams) = filterAccountsByPermissions($pdo, $extraSql, $extraParams, $permCompanyId);
+    $extraSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $extraSql);
+    $extraSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $extraSql);
+
+    $exSt = $pdo->prepare($extraSql);
+    $exSt->execute($extraParams);
+    $extraAcc = $exSt->fetchAll(PDO::FETCH_ASSOC);
+    if ($extraAcc === []) {
+        return;
+    }
+
+    $accounts = array_merge($accounts, $extraAcc);
+    usort($accounts, static function ($x, $y): int {
+        return strcmp((string) ($x['account_id'] ?? ''), (string) ($y['account_id'] ?? ''));
+    });
+}
+
+/**
  * Attach currency combos for an account row.
  * - Default (hide zero balance): only when list is still empty, attach filter currencies.
  * - Show all 0 balance: always attach filter currencies (or all company currencies) so every
@@ -1151,7 +1232,9 @@ try {
             $params = array_merge($params, $groupAccountIds);
         }
     } else {
-        $acListWhere = tenant_account_company_list_where($pdo, $company_id, 'ac');
+        $acListWhere = !$hide_zero_balance
+            ? tenant_account_company_list_where_inclusive($pdo, $company_id, 'ac')
+            : tenant_account_company_list_where($pdo, $company_id, 'ac');
         $where_conditions[] = $acListWhere['sql'];
         $params = array_merge($params, $acListWhere['params']);
     }
@@ -1370,6 +1453,19 @@ try {
     $stmt = $pdo->prepare($baseSql);
     $stmt->execute($params);
     $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (
+        !$hide_zero_balance
+        && ($search_list_scope['mode'] ?? '') !== 'group'
+    ) {
+        searchApiMergeGroupScopeAccountRows(
+            $pdo,
+            $accounts,
+            (int) ($search_list_scope['group_scope_id'] ?? 0),
+            $category_filters,
+            $search_perm_company_id
+        );
+    }
 
     if (empty($accounts)) {
         echo json_encode([
@@ -1604,6 +1700,12 @@ try {
         }
     } catch (PDOException $e) {
         $has_account_currency_table = false;
+    }
+    if (!$hide_zero_balance && !empty($filter_currency_codes)) {
+        $active_currency_codes = array_values(array_unique(array_merge(
+            $active_currency_codes,
+            $filter_currency_codes
+        )));
     }
 
     // ====== BULK PRE-LOAD 账户货币组合（避免每个账户在循环内单独查询，消除 N+1） ======
