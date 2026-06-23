@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../../includes/group_scope_resolve.php';
 require_once __DIR__ . '/../../includes/tenant_scope.php';
+require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 session_start();
@@ -35,7 +36,7 @@ function getCurrentUserAccountPermissions(PDO $pdo, int $company_id): array {
  */
 function getAccountPermissionFilterForCompany(PDO $pdo, int $company_id, string $current_user_role): ?array {
     $currentUserId = $_SESSION['user_id'] ?? null;
-    if (!$currentUserId || $current_user_role === 'owner') {
+    if (!$currentUserId || permissions_user_sees_all_accounts($current_user_role)) {
         return null;
     }
     $stmt = $pdo->prepare("SELECT account_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
@@ -384,6 +385,7 @@ function shouldFormatAsCompanyId(string $rawAccountId): bool {
 function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, bool $showInactive, bool $showAll, ?array $accountIdFilter, ?array $rolesFilter = null): array {
     $hasCreatedSource = hasAccountCreatedSourceColumn($pdo);
     $selectCreatedSource = $hasCreatedSource ? ", a.created_source" : ", NULL AS created_source";
+    $acSubsidiaryWhere = tenant_account_company_subsidiary_where($pdo, $company_id, 'ac');
     $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.status, a.last_login, a.role,
             COALESCE(a.payment_alert, 0) AS payment_alert,
             a.alert_day, a.alert_day AS alert_type, a.alert_specific_date, a.alert_specific_date AS alert_start_date,
@@ -391,8 +393,8 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
             {$selectCreatedSource}
             FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE ac.company_id = ?" . tenant_sql_account_company_subsidiary_only($pdo, 'ac');
-    $params = [$company_id];
+            WHERE {$acSubsidiaryWhere['sql']}";
+    $params = $acSubsidiaryWhere['params'];
 
     if ($rolesFilter !== null && !empty($rolesFilter)) {
         $placeholders = implode(',', array_fill(0, count($rolesFilter), '?'));
