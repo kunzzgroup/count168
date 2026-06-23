@@ -3782,9 +3782,9 @@ body.user-page .pagination-container {
         flex: 0 0 auto;
     }
 
-    /* Tablet：Account / Process 两栏格，卡片更易读 */
+    /* Tablet：Account / Process 三栏格，卡片更易读 */
     #userModal .account-grid--four {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         grid-auto-rows: minmax(46px, auto);
         gap: 6px;
         padding: 4px 0;
@@ -3812,12 +3812,12 @@ body.user-page .pagination-container {
     }
 }
 
-/* Tablet / 13-inch (≤1440px): Account & Process 两栏格；Select All · Clear All 并排紧凑 */
+/* Tablet / 13-inch (≤1440px): Account & Process 三栏格；Select All · Clear All 并排紧凑 */
 @media screen and (max-width: 1440px) {
     #userModal .account-grid--four,
     #userModal .account-grid.account-grid--four,
     body.user-page #userModal .account-grid.account-grid--four {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         grid-auto-rows: minmax(46px, auto);
         gap: 6px;
         padding: 4px 0;
@@ -3860,6 +3860,16 @@ body.user-page .pagination-container {
     body.ec-auth-shell.user-page #userModal .btn-clearall {
         width: auto !important;
         min-width: clamp(68px, 12vw, 88px) !important;
+    }
+}
+
+/* <16-inch / <1700px: Add User Account & Process 三栏格（≥1700px 维持四栏） */
+@media screen and (max-width: 1699px) {
+    #userModal .account-grid--four,
+    #userModal .account-grid.account-grid--four,
+    body.user-page #userModal .account-grid.account-grid--four,
+    #userModal .account-process-col .account-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     }
 }
 
