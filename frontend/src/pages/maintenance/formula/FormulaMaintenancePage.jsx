@@ -64,6 +64,7 @@ import {
   formulaMaintenanceUsesGroupProcesses,
   resolveFormulaMaintenanceScope,
 } from "./formulaMaintenanceScope.js";
+import { normalizeMaintenanceSearchInput } from "../shared/maintenanceSearchInput.js";
 
 // Components
 import FormulaMaintenanceFilters from "./components/FormulaMaintenanceFilters.jsx";
@@ -902,6 +903,25 @@ export default function FormulaMaintenancePage() {
     handleSetSelectedProcess(null);
   }, [handleSetSelectedProcess]);
 
+  const handleTextSearchChange = useCallback(
+    (value) => {
+      const next = normalizeMaintenanceSearchInput(value);
+      setTextSearch(next);
+      if (
+        selectedProcess === null &&
+        next.trim() &&
+        filtersReady &&
+        formulaMaintenanceScopeIsReady(formulaScope)
+      ) {
+        suppressNextSearchEffectRef.current = true;
+        lastSearchQueryKeyRef.current = "";
+        setSelectedProcess("");
+        void performSearchRef.current({ process: "" });
+      }
+    },
+    [selectedProcess, filtersReady, formulaScope],
+  );
+
   const isRowSelected = useCallback(
     (id) => {
       if (selectAllActive) return !deselectedIds.has(id);
@@ -1064,7 +1084,7 @@ export default function FormulaMaintenancePage() {
         selectedProcess={selectedProcess}
         setSelectedProcess={handleSetSelectedProcess}
         textSearch={textSearch}
-        setTextSearch={setTextSearch}
+        onTextSearchChange={handleTextSearchChange}
         companyId={companyId}
         snapGroupIds={snapGroupIds}
         visibleCompanies={visibleCompanies}
@@ -1111,7 +1131,7 @@ export default function FormulaMaintenancePage() {
         accounts={accounts}
         m={m}
         inputMethodOptions={inputMethodOptions}
-        awaitingProcessSelection={selectedProcess === null}
+        awaitingProcessSelection={selectedProcess === null && !textSearch.trim()}
         bootPending={bootPending}
       />
       </div>
