@@ -62,6 +62,7 @@ import {
   formatBankMoneyFixed2,
   formatProfitSharingStringFixed2,
   EMPTY_BANK_FORM,
+  buildBankDtsFormFields,
   parseBankContractRentalMonthsForDayEnd,
   contractBillingEndYmdForBankForm,
   matchesCurrentBankFilters,
@@ -1845,6 +1846,7 @@ export function useBankProcessListPage() {
             String(d.day_end_monthly_cap_enabled) === "1"),
         day_start_frequency: bankProcessFrequencyNormalized(d.day_start_frequency),
         status: d.status || "active", remark: d.remark || "", sop: d.sop || "",
+        ...buildBankDtsFormFields(d),
       };
       seedContractSyncKeys(nextForm);
       setEditMode(true);
