@@ -303,7 +303,10 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
 }
 
 /**
- * When an account has no account_currency / txn / DCD rows, attach filter currencies or (Show all 0 balance) all company currencies.
+ * Attach currency combos for an account row.
+ * - Default (hide zero balance): only when list is still empty, attach filter currencies.
+ * - Show all 0 balance: always attach filter currencies (or all company currencies) so every
+ *   account from Account page appears even with no txn / DCD / account_currency in the period.
  */
 function searchApiFillFallbackAccountCurrencies(
     array &$account_currencies,
@@ -312,14 +315,16 @@ function searchApiFillFallbackAccountCurrencies(
     array $currency_map,
     bool $hide_zero_balance
 ): void {
-    if (!empty($account_currencies)) {
-        return;
+    if ($hide_zero_balance) {
+        if (!empty($account_currencies)) {
+            return;
+        }
+        $codesToAdd = !empty($filter_currency_codes) ? $filter_currency_codes : [];
+    } else {
+        $codesToAdd = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
     }
-    $codesToAdd = [];
-    if (!empty($filter_currency_codes)) {
-        $codesToAdd = $filter_currency_codes;
-    } elseif (!$hide_zero_balance) {
-        $codesToAdd = array_keys($currency_map);
+    if ($codesToAdd === []) {
+        return;
     }
     foreach ($codesToAdd as $fcc) {
         $code = strtoupper((string) $fcc);
@@ -1836,6 +1841,35 @@ try {
                 'currency_id' => $currency_id,
                 'currency_code' => $currency_code
             ];
+        }
+    }
+
+    // Show all 0 balance: guarantee every scoped account appears (even with no txn/DCD/account_currency).
+    if (!$hide_zero_balance && !empty($accounts)) {
+        $comboAccountIds = [];
+        foreach ($account_currency_combos as $combo) {
+            $aid = (int) ($combo['account']['id'] ?? 0);
+            if ($aid > 0) {
+                $comboAccountIds[$aid] = true;
+            }
+        }
+        $ensureCodes = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
+        foreach ($accounts as $account) {
+            $aid = (int) ($account['id'] ?? 0);
+            if ($aid <= 0 || !empty($comboAccountIds[$aid])) {
+                continue;
+            }
+            foreach ($ensureCodes as $fcc) {
+                $code = strtoupper((string) $fcc);
+                if (!isset($currency_map[$code])) {
+                    continue;
+                }
+                $account_currency_combos[] = [
+                    'account' => $account,
+                    'currency_id' => (int) $currency_map[$code],
+                    'currency_code' => $code,
+                ];
+            }
         }
     }
 
