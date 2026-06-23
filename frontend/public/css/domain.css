@@ -4851,12 +4851,12 @@ body.ec-auth-shell.domain-page .domain-react-page .search-container.userlist-sea
 body.domain-page .domain-react-page .domain-list-table {
     --domain-list-grid-cols:
         40px
-        minmax(0, 0.95fr)
-        minmax(0, 1.1fr)
-        minmax(0, 1.45fr)
-        minmax(0, 1fr)
-        minmax(0, 1.5fr)
         minmax(0, 0.9fr)
+        minmax(0, 0.6fr)
+        minmax(0, 1.35fr)
+        minmax(0, 0.95fr)
+        minmax(0, 1.4fr)
+        minmax(0, 0.85fr)
         92px;
     width: 100%;
     min-width: 0;
