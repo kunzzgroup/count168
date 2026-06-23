@@ -7,7 +7,6 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/group_company_access.php';
 require_once __DIR__ . '/../../includes/group_scope_resolve.php';
 require_once __DIR__ . '/../../includes/tenant_scope.php';
-require_once __DIR__ . '/../../includes/permissions.php';
 require_once __DIR__ . '/../get_companies_helper.php';
 require_once __DIR__ . '/../includes/money_decimal.php';
 session_start();
@@ -32,11 +31,25 @@ function getCurrentUserAccountPermissions(PDO $pdo, int $company_id): array {
 }
 
 /**
+ * Owner / member / partnership / audit bypass account_permissions whitelist (same rules as permissions.php).
+ */
+function accountlist_user_sees_all_accounts(string $current_user_role): bool
+{
+    $role = strtolower(trim($current_user_role));
+    $userType = strtolower(trim((string) ($_SESSION['user_type'] ?? '')));
+    if ($role === 'owner' || $userType === 'member') {
+        return true;
+    }
+
+    return in_array($role, ['partnership', 'audit'], true);
+}
+
+/**
  * 返回账户 ID 过滤：null = 不限制，[] = 不显示任何账户，[id,...] = 只显示这些账户。
  */
 function getAccountPermissionFilterForCompany(PDO $pdo, int $company_id, string $current_user_role): ?array {
     $currentUserId = $_SESSION['user_id'] ?? null;
-    if (!$currentUserId || permissions_user_sees_all_accounts($current_user_role)) {
+    if (!$currentUserId || accountlist_user_sees_all_accounts($current_user_role)) {
         return null;
     }
     $stmt = $pdo->prepare("SELECT account_permissions FROM user_company_permissions WHERE user_id = ? AND company_id = ?");
