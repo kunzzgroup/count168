@@ -226,10 +226,11 @@ function summaryApiEnsureBankDataCaptureProcessRecord(PDO $pdo, int $companyId, 
 }
 
 /**
- * Summary Submit 成功后写入 submitted_processes（Games / Bank 一致），供 Data Capture 右侧 Submitted Processes 展示。
+ * Summary Submit 成功后写入 submitted_processes，供 Data Capture 右侧 Submitted Processes 展示。
+ * Games：同 process + 账务日去重（仅一条）；Bank：每次 Submit 均写入（列表按 data_captures 逐条展示）。
  * 仅在首包提交时调用（非 batch append）。
  */
-function summaryApiRecordSubmittedProcess(PDO $pdo, int $companyId, int $processDbId, string $captureDateYmd, $userId, string $userType): void
+function summaryApiRecordSubmittedProcess(PDO $pdo, int $companyId, int $processDbId, string $captureDateYmd, $userId, string $userType, bool $isBankCapture = false): void
 {
     if ($processDbId <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $captureDateYmd)) {
         return;
@@ -251,24 +252,27 @@ function summaryApiRecordSubmittedProcess(PDO $pdo, int $companyId, int $process
     }
 
     try {
-        if ($hasCaptureDateCol) {
-            $check = $pdo->prepare("
-                SELECT id FROM submitted_processes
-                WHERE company_id = ? AND user_id = ? AND user_type = ? AND process_id = ?
-                  AND DATE(COALESCE(capture_date, date_submitted)) = ?
-                LIMIT 1
-            ");
-            $check->execute([$companyId, $uid, $userType, $processDbId, $captureDateYmd]);
-        } else {
-            $check = $pdo->prepare("
-                SELECT id FROM submitted_processes
-                WHERE company_id = ? AND user_id = ? AND user_type = ? AND process_id = ? AND date_submitted = ?
-                LIMIT 1
-            ");
-            $check->execute([$companyId, $uid, $userType, $processDbId, $captureDateYmd]);
-        }
-        if ($check->fetchColumn()) {
-            return;
+        // Games：同公司 + 用户 + process + 账务日仅记一条；Bank 允许多次提交，不去重
+        if (!$isBankCapture) {
+            if ($hasCaptureDateCol) {
+                $check = $pdo->prepare("
+                    SELECT id FROM submitted_processes
+                    WHERE company_id = ? AND user_id = ? AND user_type = ? AND process_id = ?
+                      AND DATE(COALESCE(capture_date, date_submitted)) = ?
+                    LIMIT 1
+                ");
+                $check->execute([$companyId, $uid, $userType, $processDbId, $captureDateYmd]);
+            } else {
+                $check = $pdo->prepare("
+                    SELECT id FROM submitted_processes
+                    WHERE company_id = ? AND user_id = ? AND user_type = ? AND process_id = ? AND date_submitted = ?
+                    LIMIT 1
+                ");
+                $check->execute([$companyId, $uid, $userType, $processDbId, $captureDateYmd]);
+            }
+            if ($check->fetchColumn()) {
+                return;
+            }
         }
 
         if ($hasCaptureDateCol) {
@@ -3461,7 +3465,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     $resolvedProcessDbId,
                     (string)$data['captureDate'],
                     $userId,
-                    $user_type
+                    $user_type,
+                    !empty($data['isBankDataCapture'])
                 );
             }
             
