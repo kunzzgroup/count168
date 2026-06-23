@@ -75,6 +75,147 @@ function resolveCompanyCurrencyId(PDO $pdo, int $companyId, $currencyId = null, 
     return null;
 }
 
+/** Bank Data Capture 固定 process 代码（与 datacapture.js / datacapturesummary.js 一致） */
+function summaryApiBankDataCaptureProcessCodes(): array
+{
+    return ['PROFIT', 'SALARY', 'COMMISSION', 'BONUS'];
+}
+
+function summaryApiIsBankDataCaptureProcessCode(string $code): bool
+{
+    $code = strtoupper(trim($code));
+    return $code !== '' && in_array($code, summaryApiBankDataCaptureProcessCodes(), true);
+}
+
+/**
+ * 解析 Summary Submit / 模板保存用的 process.id（整型主键）。
+ * Games：前端传 process.id；Bank：传 processCode / bankProcessType（PROFIT 等）。
+ */
+function summaryApiResolveProcessDbId(PDO $pdo, int $companyId, array $data): int
+{
+    $isBank = !empty($data['isBankDataCapture']);
+    if ($isBank) {
+        $code = strtoupper(trim((string)($data['bankProcessType'] ?? $data['processCode'] ?? $data['processName'] ?? '')));
+        if ($code === '' && isset($data['processId']) && is_string($data['processId']) && trim($data['processId']) !== '') {
+            $code = strtoupper(trim($data['processId']));
+        }
+        if (!summaryApiIsBankDataCaptureProcessCode($code)) {
+            throw new Exception('Invalid Bank Data Capture process: ' . ($code !== '' ? $code : '(empty)'));
+        }
+        return summaryApiEnsureBankDataCaptureProcessRecord($pdo, $companyId, $code, $data['currencyId'] ?? null);
+    }
+
+    $raw = $data['processId'] ?? null;
+    if ($raw === null || $raw === '') {
+        throw new Exception('Missing required field: processId');
+    }
+    if (is_numeric($raw)) {
+        $pid = (int)$raw;
+        if ($pid <= 0) {
+            throw new Exception('Invalid processId');
+        }
+        $stmt = $pdo->prepare("SELECT id FROM process WHERE id = ? AND company_id = ? LIMIT 1");
+        $stmt->execute([$pid, $companyId]);
+        if (!$stmt->fetchColumn()) {
+            throw new Exception('Process not found for this company');
+        }
+        return $pid;
+    }
+    $code = strtoupper(trim((string)$raw));
+    $stmt = $pdo->prepare("SELECT id FROM process WHERE company_id = ? AND UPPER(TRIM(process_id)) = ? LIMIT 1");
+    $stmt->execute([$companyId, $code]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        throw new Exception('Process not found: ' . $code);
+    }
+    return (int)$row['id'];
+}
+
+/**
+ * Bank Data Capture：确保 process 表存在 PROFIT/SALARY 等记录（Capture / Formula Maintenance 依赖 JOIN process）。
+ */
+function summaryApiEnsureBankDataCaptureProcessRecord(PDO $pdo, int $companyId, string $processCode, $currencyId = null): int
+{
+    $processCode = strtoupper(trim($processCode));
+    if (!summaryApiIsBankDataCaptureProcessCode($processCode)) {
+        throw new Exception('Unsupported Bank Data Capture process: ' . $processCode);
+    }
+
+    static $cache = [];
+    $cacheKey = $companyId . ':' . $processCode;
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+
+    $stmt = $pdo->prepare("
+        SELECT id FROM process
+        WHERE company_id = ? AND UPPER(TRIM(process_id)) = ?
+          AND status IN ('active', 'inactive')
+        LIMIT 1
+    ");
+    $stmt->execute([$companyId, $processCode]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($existing) {
+        $cache[$cacheKey] = (int)$existing['id'];
+        return $cache[$cacheKey];
+    }
+
+    $resolvedCurrencyId = null;
+    if ($currencyId !== null && $currencyId !== '') {
+        $resolvedCurrencyId = resolveCompanyCurrencyId($pdo, $companyId, $currencyId, null);
+    }
+    if ($resolvedCurrencyId === null) {
+        $curStmt = $pdo->prepare("SELECT id FROM currency WHERE company_id = ? ORDER BY id ASC LIMIT 1");
+        $curStmt->execute([$companyId]);
+        $resolvedCurrencyId = $curStmt->fetchColumn();
+        $resolvedCurrencyId = $resolvedCurrencyId !== false ? (int)$resolvedCurrencyId : null;
+    }
+
+    $descId = null;
+    try {
+        $descStmt = $pdo->prepare("SELECT id FROM description WHERE company_id = ? AND UPPER(TRIM(name)) = ? LIMIT 1");
+        $descStmt->execute([$companyId, $processCode]);
+        $descRow = $descStmt->fetch(PDO::FETCH_ASSOC);
+        if ($descRow) {
+            $descId = (int)$descRow['id'];
+        } else {
+            $insDesc = $pdo->prepare("INSERT INTO description (name, company_id) VALUES (?, ?)");
+            $insDesc->execute([$processCode, $companyId]);
+            $descId = (int)$pdo->lastInsertId();
+        }
+    } catch (Throwable $e) {
+        error_log('summaryApiEnsureBankDataCaptureProcessRecord description: ' . $e->getMessage());
+    }
+
+    if ($descId === null || $descId <= 0) {
+        throw new Exception('Unable to create description for Bank process: ' . $processCode);
+    }
+
+    $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+    $userType = (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner') ? 'owner' : 'user';
+    $ownerId = ($userType === 'owner' && isset($_SESSION['owner_id'])) ? (int)$_SESSION['owner_id'] : null;
+
+    $ins = $pdo->prepare("
+        INSERT INTO process (
+            process_id, description_id, currency_id, remove_word, replace_word_from, replace_word_to, remark,
+            status, created_by, created_by_type, created_by_owner_id, dts_created, company_id, sync_source_process_id
+        ) VALUES (?, ?, ?, '', '', '', 'Bank Data Capture', 'active', ?, ?, ?, NOW(), ?, NULL)
+    ");
+    $ins->execute([
+        $processCode,
+        $descId,
+        $resolvedCurrencyId,
+        $userId,
+        $userType,
+        $ownerId,
+        $companyId,
+    ]);
+    $newId = (int)$pdo->lastInsertId();
+    $cache[$cacheKey] = $newId;
+    error_log("Created Bank Data Capture process record: company=$companyId code=$processCode id=$newId");
+    return $newId;
+}
+
 /** data_capture_details.display_order 是否存在（请求内只查一次） */
 function summaryApiHasDisplayOrder(PDO $pdo): bool
 {
@@ -2185,6 +2326,23 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($row['id_product']) || empty($row['account_id'])) {
             throw new Exception('Missing required fields: id_product or account_id');
         }
+
+        // Bank Data Capture：允许 process_code / 字符串 process_id（PROFIT 等），解析为 process.id
+        $bankTemplateCode = '';
+        if (!empty($row['isBankDataCapture']) || !empty($row['process_code']) || !empty($row['bankProcessType'])) {
+            $bankTemplateCode = strtoupper(trim((string)($row['bankProcessType'] ?? $row['process_code'] ?? '')));
+        } elseif (isset($row['process_id']) && is_string($row['process_id']) && trim($row['process_id']) !== '' && !is_numeric($row['process_id'])) {
+            $bankTemplateCode = strtoupper(trim($row['process_id']));
+        }
+        if ($bankTemplateCode !== '' && summaryApiIsBankDataCaptureProcessCode($bankTemplateCode)) {
+            $resolvePayload = [
+                'isBankDataCapture' => true,
+                'bankProcessType' => $bankTemplateCode,
+                'processCode' => $bankTemplateCode,
+                'currencyId' => $row['currency_id'] ?? null,
+            ];
+            $row['process_id'] = summaryApiResolveProcessDbId($pdo, $company_id, $resolvePayload);
+        }
         
         // Prepare template payload
         $templatePayload = [
@@ -2722,8 +2880,18 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Validate required fields
-        if (!isset($data['captureDate']) || !isset($data['processId']) || !isset($data['currencyId'])) {
-            throw new Exception('Missing required fields: captureDate, processId, or currencyId');
+        if (!isset($data['captureDate']) || !isset($data['currencyId'])) {
+            throw new Exception('Missing required fields: captureDate or currencyId');
+        }
+        $isBankSubmit = !empty($data['isBankDataCapture']);
+        if (!$isBankSubmit && (!isset($data['processId']) || $data['processId'] === '' || $data['processId'] === null)) {
+            throw new Exception('Missing required field: processId');
+        }
+        if ($isBankSubmit) {
+            $bankCode = strtoupper(trim((string)($data['bankProcessType'] ?? $data['processCode'] ?? '')));
+            if ($bankCode === '') {
+                throw new Exception('Missing required field: bankProcessType / processCode for Bank Data Capture');
+            }
         }
         
         if (!isset($data['summaryRows']) || !is_array($data['summaryRows']) || count($data['summaryRows']) === 0) {
@@ -2771,6 +2939,9 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('所选币别不属于当前公司，请重新选择正确的币别后再提交');
         }
         $data['currencyId'] = $resolvedCurrencyId;
+
+        $resolvedProcessDbId = summaryApiResolveProcessDbId($pdo, $companyId, $data);
+        $data['processId'] = $resolvedProcessDbId;
         
         // Get user ID from session (if available)
         $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;

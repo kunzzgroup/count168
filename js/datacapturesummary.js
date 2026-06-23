@@ -303,6 +303,34 @@ function getCurrentProcessId() {
     return null;
 }
 
+/** 模板保存用：Bank 返回 process 代码字符串（后端解析为 process.id），Games 返回数值 process.id */
+function getCurrentProcessIdForTemplate() {
+    if (isSummaryBankDataCaptureMode()) {
+        const code = getCurrentBankProcessType();
+        return code ? String(code).trim().toUpperCase() : null;
+    }
+    return getCurrentProcessId();
+}
+
+/** Summary Submit 统一载荷（Bank / Games 共用，分批与 quick submit 必须一致） */
+function buildSummarySubmitBasePayload(parsedProcessData) {
+    const isBankCaptureSubmit = isBankDataCaptureProcessData(parsedProcessData);
+    const bankProcessType = isBankCaptureSubmit
+        ? String(parsedProcessData.bankProcessType || parsedProcessData.processCode || parsedProcessData.process || '').trim().toUpperCase()
+        : '';
+    return {
+        captureDate: parsedProcessData.date,
+        processId: isBankCaptureSubmit ? null : parsedProcessData.process,
+        processName: isBankCaptureSubmit ? bankProcessType : parsedProcessData.processName,
+        processCode: isBankCaptureSubmit ? bankProcessType : (parsedProcessData.processCode || ''),
+        isBankDataCapture: isBankCaptureSubmit,
+        bankProcessType: isBankCaptureSubmit ? bankProcessType : '',
+        currencyId: parsedProcessData.currency,
+        currencyName: parsedProcessData.currencyName,
+        remark: parsedProcessData.remark || ''
+    };
+}
+
 // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
 window.isNavigatingAwayByBackOrSubmit = false;
 
@@ -7939,9 +7967,14 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
             return { success: false, message: 'Formula is required for sub rows.' };
         }
 
-        const processId = getCurrentProcessId();
+        const processId = getCurrentProcessIdForTemplate();
         if (processId !== null) {
             rowData.process_id = processId;
+            if (isSummaryBankDataCaptureMode()) {
+                rowData.isBankDataCapture = true;
+                rowData.process_code = String(processId);
+                rowData.bankProcessType = String(processId);
+            }
         } else {
             console.warn('Process ID missing while saving template.');
         }
@@ -20784,22 +20817,11 @@ async function submitSummaryData() {
 
         console.log('Summary rows to submit:', summaryRows);
 
-        const isBankCaptureSubmit = isBankDataCaptureProcessData(parsedProcessData);
-        const bankProcessType = isBankCaptureSubmit
-            ? String(parsedProcessData.bankProcessType || parsedProcessData.processCode || parsedProcessData.process || '').trim().toUpperCase()
-            : '';
+        const submitBase = buildSummarySubmitBasePayload(parsedProcessData);
 
         // Prepare data to send
         const submitData = {
-            captureDate: parsedProcessData.date,
-            processId: isBankCaptureSubmit ? null : parsedProcessData.process,
-            processName: isBankCaptureSubmit ? bankProcessType : parsedProcessData.processName,
-            processCode: isBankCaptureSubmit ? bankProcessType : (parsedProcessData.processCode || ''),
-            isBankDataCapture: isBankCaptureSubmit,
-            bankProcessType: isBankCaptureSubmit ? bankProcessType : '',
-            currencyId: parsedProcessData.currency,
-            currencyName: parsedProcessData.currencyName,
-            remark: parsedProcessData.remark || '',
+            ...submitBase,
             summaryRows: summaryRows
         };
 
@@ -20943,12 +20965,7 @@ async function submitSummaryData() {
         // Use this first to make submit feel instant; fallback to legacy batching if it fails.
         try {
             const quickSubmitData = {
-                captureDate: parsedProcessData.date,
-                processId: parsedProcessData.process,
-                processName: parsedProcessData.processName,
-                currencyId: parsedProcessData.currency,
-                currencyName: parsedProcessData.currencyName,
-                remark: parsedProcessData.remark || '',
+                ...submitBase,
                 summaryRows: summaryRows
             };
             const quickResult = await submitBatch(quickSubmitData, null, 1, 1, { immediateAck: true });
@@ -21036,12 +21053,7 @@ async function submitSummaryData() {
             const batchNumber = Math.floor(i / batchSize) + 1;
 
             const batchData = {
-                captureDate: parsedProcessData.date,
-                processId: parsedProcessData.process,
-                processName: parsedProcessData.processName,
-                currencyId: parsedProcessData.currency,
-                currencyName: parsedProcessData.currencyName,
-                remark: parsedProcessData.remark || '',
+                ...submitBase,
                 summaryRows: batchRows
             };
 
