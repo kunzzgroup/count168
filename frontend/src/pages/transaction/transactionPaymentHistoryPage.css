@@ -3,7 +3,7 @@
 :root {
   --transaction-history-report-max-width: 1320px;
   --transaction-history-report-border: #e2e8f0;
-  --transaction-history-report-grid: #e2e8f0;
+  --transaction-history-report-grid: #cbd5e1;
   --transaction-history-report-head-bg: #eff6ff;
   --transaction-history-report-head-text: #1e3a5f;
   --transaction-history-report-accent: #2563eb;
@@ -330,8 +330,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   width: auto;
   padding: 0 var(--txn-history-cell-pad-inline-full) !important;
   height: var(--txn-history-row-height-full);
-  border: none !important;
-  border-bottom: 1px solid var(--transaction-history-report-grid) !important;
+  border: 1px solid var(--transaction-history-report-grid) !important;
   vertical-align: middle;
 }
 
@@ -348,7 +347,7 @@ body.ec-payment-history-chromeless .transaction-payment-history-page-root .trans
   white-space: nowrap !important;
   overflow: visible !important;
   text-overflow: clip !important;
-  border-bottom: 1px solid #dbeafe !important;
+  border: 1px solid var(--transaction-history-report-grid) !important;
 }
 
 body.transaction-payment-history-page .transaction-payment-history-page-root .transaction-history-report-table tbody td,
