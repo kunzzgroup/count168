@@ -5730,7 +5730,7 @@ body.domain-page .domain-react-page .domain-renew-badge--approved {
             minmax(0, 1.35fr)
             minmax(0, 0.95fr)
             minmax(0, 1.4fr)
-            minmax(0, 0.85fr)
+            minmax(0, 0.6fr)
             92px;
         overflow-x: hidden;
     }
