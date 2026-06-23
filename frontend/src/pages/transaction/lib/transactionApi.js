@@ -11,7 +11,6 @@ export const transactionQueryKeys = {
     showInactive,
     showCaptureOnly,
     hideZeroBalance,
-    zeroBalanceOnly,
     categories,
     currencyCodes,
   }) => [
@@ -25,7 +24,6 @@ export const transactionQueryKeys = {
       showInactive: !!showInactive,
       showCaptureOnly: !!showCaptureOnly,
       hideZeroBalance: !!hideZeroBalance,
-      zeroBalanceOnly: !!zeroBalanceOnly,
       categories: Array.isArray(categories) ? [...categories].sort() : [],
       currencyCodes: Array.isArray(currencyCodes) ? [...currencyCodes].sort() : [],
     },
@@ -225,7 +223,6 @@ export async function searchTransactions({
   showInactive,
   showCaptureOnly,
   hideZeroBalance,
-  zeroBalanceOnly,
   currencyCodes,
   categories,
   signal,
@@ -243,7 +240,6 @@ export async function searchTransactions({
   params.set("show_inactive", showInactive ? "1" : "0");
   params.set("show_capture_only", showCaptureOnly ? "1" : "0");
   params.set("hide_zero_balance", hideZeroBalance ? "1" : "0");
-  if (zeroBalanceOnly) params.set("zero_balance_only", "1");
   if (Array.isArray(currencyCodes) && currencyCodes.length > 0) params.set("currency", currencyCodes.join(","));
   if (Array.isArray(categories) && categories.length > 0) params.set("category", categories.join(","));
 
