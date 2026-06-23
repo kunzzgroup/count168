@@ -302,6 +302,34 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
     ];
 }
 
+/**
+ * When an account has no account_currency / txn / DCD rows, attach filter currencies or (Show all 0 balance) all company currencies.
+ */
+function searchApiFillFallbackAccountCurrencies(
+    array &$account_currencies,
+    array &$account_currency_ids,
+    array $filter_currency_codes,
+    array $currency_map,
+    bool $hide_zero_balance
+): void {
+    if (!empty($account_currencies)) {
+        return;
+    }
+    $codesToAdd = [];
+    if (!empty($filter_currency_codes)) {
+        $codesToAdd = $filter_currency_codes;
+    } elseif (!$hide_zero_balance) {
+        $codesToAdd = array_keys($currency_map);
+    }
+    foreach ($codesToAdd as $fcc) {
+        $code = strtoupper((string) $fcc);
+        if (!isset($currency_map[$code])) {
+            continue;
+        }
+        addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $currency_map[$code], $code);
+    }
+}
+
 /** @return string|null 客户公司代码，如 LGA */
 function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
 {
@@ -1118,9 +1146,9 @@ try {
             $params = array_merge($params, $groupAccountIds);
         }
     } else {
-        $acSubsidiaryWhere = tenant_account_company_subsidiary_where($pdo, $company_id, 'ac');
-        $where_conditions[] = $acSubsidiaryWhere['sql'];
-        $params = array_merge($params, $acSubsidiaryWhere['params']);
+        $acListWhere = tenant_account_company_list_where($pdo, $company_id, 'ac');
+        $where_conditions[] = $acListWhere['sql'];
+        $params = array_merge($params, $acListWhere['params']);
     }
 
     if (!empty($target_account_ids)) {
@@ -1745,15 +1773,14 @@ try {
                     $account_currency_ids[(int) $ac['currency_id']] = true;
                 }
             }
-            // 兜底：仍无币别但有 currency 筛选时，直接挂上筛选的币别
-            if (empty($account_currencies) && !empty($filter_currency_codes)) {
-                foreach ($filter_currency_codes as $fcc) {
-                    $code = strtoupper($fcc);
-                    if (!isset($currency_map[$code]))
-                        continue;
-                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
-                }
-            }
+            // 兜底：无 account_currency / 交易 / DCD 时挂筛选币别；Show all 0 balance 且无筛选时挂公司全部币别
+            searchApiFillFallbackAccountCurrencies(
+                $account_currencies,
+                $account_currency_ids,
+                $filter_currency_codes,
+                $currency_map,
+                $hide_zero_balance
+            );
         } else {
             // === Legacy 路径：从 bulk_dcd_cur 批量数据读取 ===
             foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
@@ -1784,6 +1811,13 @@ try {
                     }
                 }
             }
+            searchApiFillFallbackAccountCurrencies(
+                $account_currencies,
+                $account_currency_ids,
+                $filter_currency_codes,
+                $currency_map,
+                $hide_zero_balance
+            );
         }
 
         if (empty($account_currencies)) {

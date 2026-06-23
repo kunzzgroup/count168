@@ -1212,6 +1212,26 @@ function tenant_account_company_subsidiary_where(PDO $pdo, int $companyId, strin
     ];
 }
 
+/**
+ * WHERE fragment aligned with accountlistapi fetchAccountsForCompany (ac.company_id = anchor/subsidiary FK).
+ * Use for Transaction Payment account lists so they match the Account page for the same company pill.
+ *
+ * @return array{sql: string, params: array<int>}
+ */
+function tenant_account_company_list_where(PDO $pdo, int $companyId, string $alias = 'ac'): array
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $alias) ?: 'ac';
+    if ($companyId <= 0) {
+        return ['sql' => '1=0', 'params' => []];
+    }
+    $subOnly = tenant_sql_account_company_subsidiary_only($pdo, $a);
+
+    return [
+        'sql' => "{$a}.company_id = ?{$subOnly}",
+        'params' => [$companyId],
+    ];
+}
+
 function tenant_link_account_group_scope(PDO $pdo, int $accountId, int $groupPk, int $anchorCompanyId): void
 {
     if ($groupPk <= 0 || $anchorCompanyId <= 0) {
