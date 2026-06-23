@@ -13,6 +13,133 @@ function buildApiUrl(pathAndQuery) {
 
 // Bank-only 公司：简化 Data Capture（仅 Date/Process/Currency/Remark + 1.Text 表格）
 const BANK_DATA_CAPTURE_PROCESSES = ['PROFIT','SALARY', 'COMMISSION', 'BONUS'];
+const BANK_DRAFT_SAVE_PROCESSES = ['SALARY', 'COMMISSION', 'BONUS'];
+let bankDraftLoadSeq = 0;
+
+function isBankDraftSaveProcess(processIdOrCode) {
+    if (processIdOrCode == null || processIdOrCode === '') return false;
+    return BANK_DRAFT_SAVE_PROCESSES.includes(String(processIdOrCode).trim().toUpperCase());
+}
+
+function getBankDraftProcessKey(processInput) {
+    if (!processInput) return '';
+    const code = processInput.getAttribute('data-process-code') || '';
+    const id = getProcessId(processInput);
+    return String(code || id || processInput.textContent || '').trim().toUpperCase();
+}
+
+function clearCaptureTableCellsOnly() {
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) return;
+    tableBody.querySelectorAll('td[contenteditable="true"]').forEach(cell => {
+        cell.textContent = '';
+        cell.innerHTML = '';
+        cell.removeAttribute('style');
+        cell.removeAttribute('colspan');
+        cell.style.display = '';
+        cell.className = '';
+    });
+}
+
+async function applyCapturedTableDataToGrid(tableData) {
+    if (!tableData || !tableData.rows || tableData.rows.length === 0) {
+        clearCaptureTableCellsOnly();
+        return;
+    }
+
+    const requiredRows = tableData.rowCount || tableData.rows.length;
+    const requiredCols = Math.max(tableData.colCount || (tableData.headers ? tableData.headers.length - 1 : 15), 15);
+    initializeTable(requiredRows, requiredCols);
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) return;
+
+    tableData.rows.forEach((rowData, rowIndex) => {
+        const tableRow = tableBody.children[rowIndex];
+        if (!tableRow) return;
+        rowData.forEach((cellData, colIndex) => {
+            if (cellData.type === 'data' && colIndex > 0) {
+                const cell = tableRow.children[colIndex];
+                if (cell && cell.contentEditable === 'true') {
+                    cell.removeAttribute('colspan');
+                    cell.style.display = '';
+                    if (cellData.colspan && cellData.colspan > 1) {
+                        cell.setAttribute('colspan', cellData.colspan.toString());
+                        for (let i = 1; i < cellData.colspan; i++) {
+                            const hiddenCellIndex = colIndex + i;
+                            if (tableRow.children[hiddenCellIndex]) {
+                                tableRow.children[hiddenCellIndex].style.display = 'none';
+                            }
+                        }
+                    }
+                    cell.textContent = cellData.value || '';
+                }
+            }
+        });
+    });
+}
+
+async function saveBankCompanyDraft(tableData, processKey, currencyId) {
+    if (!isDataCaptureBankCategoryMode() || !isBankDraftSaveProcess(processKey)) return;
+    if (!tableData || !currencyId) return;
+    try {
+        const url = buildApiUrl('api/datacapture/company_draft_api.php?action=save');
+        await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                process_key: String(processKey).trim().toUpperCase(),
+                currency_id: parseInt(currencyId, 10),
+                draft_json: tableData
+            })
+        });
+    } catch (e) {
+        console.warn('saveBankCompanyDraft failed:', e);
+    }
+}
+
+async function tryLoadBankCompanyDraft() {
+    if (!isDataCaptureBankCategoryMode() || isRestoringData) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('restore') === '1') return;
+
+    const processInput = document.getElementById('capture_process');
+    const currencySelect = document.getElementById('capture_currency');
+    if (!processInput || !currencySelect) return;
+
+    const processKey = getBankDraftProcessKey(processInput);
+    const currencyId = currencySelect.value;
+    const loadSeq = ++bankDraftLoadSeq;
+
+    clearCaptureTableCellsOnly();
+
+    if (!processKey || !currencyId || !isBankDraftSaveProcess(processKey)) {
+        updateSubmitButtonState();
+        return;
+    }
+
+    try {
+        const url = buildApiUrl(
+            `api/datacapture/company_draft_api.php?action=get&process_key=${encodeURIComponent(processKey)}&currency_id=${encodeURIComponent(currencyId)}`
+        );
+        const response = await fetch(url, { credentials: 'same-origin' });
+        const result = await response.json();
+        if (loadSeq !== bankDraftLoadSeq) return;
+
+        if (result.success && result.data) {
+            await applyCapturedTableDataToGrid(result.data);
+        }
+    } catch (e) {
+        console.warn('tryLoadBankCompanyDraft failed:', e);
+    }
+
+    if (loadSeq === bankDraftLoadSeq) {
+        updateSubmitButtonState();
+    }
+}
 
 function isDataCaptureBankCategoryMode() {
     return !!(window.SIDEBAR_COMPANY_HAS_BANK && !window.SIDEBAR_COMPANY_HAS_GAMBLING);
@@ -2583,6 +2710,7 @@ function initProcessInput() {
         console.log('Process selection changed to:', this.textContent);
         updateSubmitButtonState();
         if (isDataCaptureBankCategoryMode()) {
+            tryLoadBankCompanyDraft();
             return;
         }
         const processId = getProcessId(this);
@@ -23588,6 +23716,10 @@ async function submitDataCaptureForm() {
         // Capture the entire table data (after format conversion)
         const tableData = captureTableData();
 
+        if (bankMode && isBankDraftSaveProcess(bankProcessType)) {
+            await saveBankCompanyDraft(tableData, bankProcessType, currencySelect.value);
+        }
+
         // Save table data to localStorage
         localStorage.setItem('capturedTableData', JSON.stringify(tableData));
         localStorage.setItem('capturedProcessData', JSON.stringify(processData));
@@ -25025,6 +25157,9 @@ function setupFormValidationListeners() {
                     processInput.removeAttribute('data-description-name');
                 }
                 clearProcessData();
+                if (isDataCaptureBankCategoryMode()) {
+                    clearCaptureTableCellsOnly();
+                }
             }
         });
     }
@@ -25034,7 +25169,12 @@ function setupFormValidationListeners() {
     // Listen for currency selection changes
     const currencySelect = document.getElementById('capture_currency');
     if (currencySelect) {
-        currencySelect.addEventListener('change', updateSubmitButtonState);
+        currencySelect.addEventListener('change', function () {
+            updateSubmitButtonState();
+            if (isDataCaptureBankCategoryMode()) {
+                tryLoadBankCompanyDraft();
+            }
+        });
     }
 
     // Listen for table cell changes
