@@ -642,6 +642,7 @@ function saveSubmission($user_id)
     try {
         // 获取POST数据
         $process_id = $_POST['process_id'] ?? '';
+        $process_code = isset($_POST['process_code']) ? strtoupper(trim((string)$_POST['process_code'])) : '';
         $date_submitted = $_POST['date_submitted'] ?? date('Y-m-d');
         $capture_date = $_POST['capture_date'] ?? $date_submitted; // Default to date_submitted if not provided
 
@@ -649,7 +650,26 @@ function saveSubmission($user_id)
         $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
 
         // 添加调试日志
-        error_log("Save submission - User ID: $user_id, User Type: $user_type, Process ID: $process_id, Date: $date_submitted");
+        error_log("Save submission - User ID: $user_id, User Type: $user_type, Process ID: $process_id, Process Code: $process_code, Date: $date_submitted");
+
+        // Bank Data Capture：允许 process_code（PROFIT / COMMISSION 等）代替数值 process_id
+        $bankCaptureCodes = ['PROFIT', 'SALARY', 'COMMISSION', 'BONUS'];
+        if ((empty($process_id) || (int)$process_id <= 0) && $process_code !== '' && in_array($process_code, $bankCaptureCodes, true)) {
+            $currentCompanyId = $company_id;
+            if (!$currentCompanyId) {
+                echo json_encode(['success' => false, 'error' => '缺少公司信息']);
+                return;
+            }
+            $lookup = $pdo->prepare("SELECT id FROM process WHERE company_id = ? AND UPPER(TRIM(process_id)) = ? LIMIT 1");
+            $lookup->execute([$currentCompanyId, $process_code]);
+            $found = $lookup->fetch(PDO::FETCH_ASSOC);
+            if (!$found) {
+                error_log("Bank process_code not found in process table: $process_code company=$currentCompanyId");
+                echo json_encode(['success' => false, 'error' => 'Process not found: ' . $process_code]);
+                return;
+            }
+            $process_id = (int)$found['id'];
+        }
 
         // 验证必需字段
         if (empty($process_id)) {

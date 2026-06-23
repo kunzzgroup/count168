@@ -20344,6 +20344,59 @@ function extractOperatorsSequence(expression) {
 // Submit summary data
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
+function getSummaryCaptureDateYmd(parsedProcessData) {
+    if (parsedProcessData && parsedProcessData.date) {
+        return String(parsedProcessData.date).trim();
+    }
+    const now = new Date();
+    return now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0');
+}
+
+function buildDatacaptureReturnUrlAfterSummarySubmit(parsedProcessData) {
+    const capDate = getSummaryCaptureDateYmd(parsedProcessData);
+    return 'datacapture.php?submitted=1&capture_date=' + encodeURIComponent(capDate);
+}
+
+/** Games / Bank：Summary 成功后写入 submitted_processes（后端也会写；此处作前端兜底） */
+async function recordSubmittedProcessAfterSummary(parsedProcessData, processDbIdOverride) {
+    if (!parsedProcessData) {
+        return;
+    }
+    const selectedDate = getSummaryCaptureDateYmd(parsedProcessData);
+    const formData = new FormData();
+    formData.append('action', 'save_submission');
+    formData.append('date_submitted', selectedDate);
+    formData.append('capture_date', selectedDate);
+
+    if (processDbIdOverride != null && String(processDbIdOverride).trim() !== '') {
+        formData.append('process_id', String(processDbIdOverride));
+    } else if (isBankDataCaptureProcessData(parsedProcessData)) {
+        const code = String(
+            parsedProcessData.bankProcessType ||
+            parsedProcessData.processCode ||
+            parsedProcessData.process ||
+            ''
+        ).trim().toUpperCase();
+        if (!code) {
+            return;
+        }
+        formData.append('process_code', code);
+    } else if (parsedProcessData.process) {
+        formData.append('process_id', parsedProcessData.process);
+    } else {
+        return;
+    }
+
+    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
+    if (currentCompanyId) {
+        formData.append('company_id', currentCompanyId);
+    }
+
+    await fetch('api/processes/submitted_processes_api.php', { method: 'POST', body: formData });
+}
+
 async function submitSummaryData() {
     // Prevent duplicate submissions
     if (isSubmitting) {
@@ -20971,6 +21024,7 @@ async function submitSummaryData() {
             const quickResult = await submitBatch(quickSubmitData, null, 1, 1, { immediateAck: true });
             if (quickResult && quickResult.success && quickResult.queued) {
                 showNotification('Success', 'Data received by server. Processing in background...', 'success');
+                const returnUrl = buildDatacaptureReturnUrlAfterSummarySubmit(parsedProcessData);
                 setTimeout(() => {
                     window.isNavigatingAwayByBackOrSubmit = true;
                     try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
@@ -20979,7 +21033,7 @@ async function submitSummaryData() {
                     try { localStorage.removeItem('capturedCaptureId'); } catch (e) { }
                     localStorage.removeItem('capturedTableData');
                     localStorage.removeItem('capturedProcessData');
-                    window.location.href = 'datacapture.php?submitted=1';
+                    window.location.href = returnUrl;
                 }, 600);
                 return;
             }
@@ -20993,6 +21047,7 @@ async function submitSummaryData() {
         const MAX_ROWS_PER_BATCH = 20; // 每批最多行数（可以根据需要调整）
 
         let finalCaptureId = null;
+        let lastSubmitResult = null;
         let allSubmitted = false;
         const failedProblemRows = []; // 保存最终无法提交的行
 
@@ -21010,6 +21065,7 @@ async function submitSummaryData() {
                     try {
                         const result = await submitBatch(singleData, finalCaptureId, batchNumber, totalBatches);
                         finalCaptureId = result.captureId;
+                        lastSubmitResult = result;
                     } catch (err) {
                         // 单行仍然 403 或其他错误，则放入失败列表，不再重试
                         failedProblemRows.push(subRows[0]);
@@ -21029,6 +21085,7 @@ async function submitSummaryData() {
                 try {
                     const result = await submitBatch(tryData, finalCaptureId, batchNumber, totalBatches);
                     finalCaptureId = result.captureId;
+                    lastSubmitResult = result;
                     return;
                 } catch (err) {
                     // 无论是不是 sizeError，这里统一继续拆分，直到定位到具体出问题的行
@@ -21060,6 +21117,7 @@ async function submitSummaryData() {
             try {
                 const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
                 finalCaptureId = result.captureId;
+                lastSubmitResult = result;
 
                 if (batchNumber < totalBatches) {
                     // 等待一小段时间再提交下一批，避免服务器压力
@@ -21080,6 +21138,7 @@ async function submitSummaryData() {
                         };
                         const result = await submitBatch(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
                         finalCaptureId = result.captureId;
+                        lastSubmitResult = result;
                         if (j + smallerBatchSize < batchRows.length) {
                             await new Promise(resolve => setTimeout(resolve, 300));
                         }
@@ -21119,28 +21178,10 @@ async function submitSummaryData() {
             const totalRowsSubmitted = summaryRows.length;
             showNotification('Success', `All data submitted successfully! Capture ID: ${finalCaptureId}, total ${totalRowsSubmitted} rows`, 'success');
 
-            // After successful final submission, record the submitted process in DB（仅 Games；Bank 固定 process 不写入 submitted_processes）
+            // Summary 成功后记录 submitted_processes（Games / Bank；后端 submit 亦会写入，此处兜底）
             try {
-                if (!isBankDataCaptureProcessData(parsedProcessData) && parsedProcessData && parsedProcessData.process) {
-                    const formData = new FormData();
-                    formData.append('action', 'save_submission');
-                    formData.append('process_id', parsedProcessData.process);
-                    // 使用表单中选择的日期（parsedProcessData.date）作为 date_submitted，使记录显示在选择的日期下
-                    const selectedDate = parsedProcessData.date || (new Date().getFullYear() + '-' +
-                        String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
-                        String(new Date().getDate()).padStart(2, '0'));
-                    formData.append('date_submitted', selectedDate);
-                    // capture_date 也使用相同的日期
-                    formData.append('capture_date', selectedDate);
-
-                    // 添加当前选择的 company_id
-                    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-                    if (currentCompanyId) {
-                        formData.append('company_id', currentCompanyId);
-                    }
-
-                    await fetch('api/processes/submitted_processes_api.php', { method: 'POST', body: formData });
-                }
+                const processDbId = lastSubmitResult && lastSubmitResult.processDbId ? lastSubmitResult.processDbId : null;
+                await recordSubmittedProcessAfterSummary(parsedProcessData, processDbId);
             } catch (e) {
                 console.warn('Failed to record submitted process:', e);
             }
@@ -21150,6 +21191,7 @@ async function submitSummaryData() {
             if (typeof window.DATACAPTURESUMMARY_CAPTURE_ID !== 'undefined') {
                 window.DATACAPTURESUMMARY_CAPTURE_ID = null;
             }
+            const returnUrlAfterSubmit = buildDatacaptureReturnUrlAfterSummarySubmit(parsedProcessData);
             // Clear localStorage after successful submission (redirect 前再清表数据，避免重复进入看到旧表)
             setTimeout(() => {
                 window.isNavigatingAwayByBackOrSubmit = true;
@@ -21160,8 +21202,7 @@ async function submitSummaryData() {
                 localStorage.removeItem('capturedTableData');
                 localStorage.removeItem('capturedProcessData');
 
-                // Redirect to data capture page
-                window.location.href = 'datacapture.php?submitted=1';
+                window.location.href = returnUrlAfterSubmit;
             }, 2000);
         }
 

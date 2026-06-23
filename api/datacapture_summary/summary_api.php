@@ -216,6 +216,70 @@ function summaryApiEnsureBankDataCaptureProcessRecord(PDO $pdo, int $companyId, 
     return $newId;
 }
 
+/**
+ * Summary Submit 成功后写入 submitted_processes（Games / Bank 一致），供 Data Capture 右侧 Submitted Processes 展示。
+ * 仅在首包提交时调用（非 batch append）。
+ */
+function summaryApiRecordSubmittedProcess(PDO $pdo, int $companyId, int $processDbId, string $captureDateYmd, $userId, string $userType): void
+{
+    if ($processDbId <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $captureDateYmd)) {
+        return;
+    }
+    $uid = $userId !== null && $userId !== '' ? (int)$userId : 0;
+    if ($uid <= 0) {
+        return;
+    }
+    $userType = ($userType === 'owner') ? 'owner' : 'user';
+
+    static $hasCaptureDateCol = null;
+    if ($hasCaptureDateCol === null) {
+        try {
+            $t = $pdo->query("SHOW COLUMNS FROM submitted_processes LIKE 'capture_date'");
+            $hasCaptureDateCol = $t && $t->rowCount() > 0;
+        } catch (Throwable $e) {
+            $hasCaptureDateCol = false;
+        }
+    }
+
+    try {
+        if ($hasCaptureDateCol) {
+            $check = $pdo->prepare("
+                SELECT id FROM submitted_processes
+                WHERE company_id = ? AND user_id = ? AND user_type = ? AND process_id = ?
+                  AND DATE(COALESCE(capture_date, date_submitted)) = ?
+                LIMIT 1
+            ");
+            $check->execute([$companyId, $uid, $userType, $processDbId, $captureDateYmd]);
+        } else {
+            $check = $pdo->prepare("
+                SELECT id FROM submitted_processes
+                WHERE company_id = ? AND user_id = ? AND user_type = ? AND process_id = ? AND date_submitted = ?
+                LIMIT 1
+            ");
+            $check->execute([$companyId, $uid, $userType, $processDbId, $captureDateYmd]);
+        }
+        if ($check->fetchColumn()) {
+            return;
+        }
+
+        if ($hasCaptureDateCol) {
+            $ins = $pdo->prepare("
+                INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted, capture_date)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $ins->execute([$companyId, $uid, $userType, $processDbId, $captureDateYmd, $captureDateYmd]);
+        } else {
+            $ins = $pdo->prepare("
+                INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $ins->execute([$companyId, $uid, $userType, $processDbId, $captureDateYmd]);
+        }
+    } catch (Throwable $e) {
+        error_log('summaryApiRecordSubmittedProcess: ' . $e->getMessage());
+    }
+}
+
 /** data_capture_details.display_order 是否存在（请求内只查一次） */
 function summaryApiHasDisplayOrder(PDO $pdo): bool
 {
@@ -3380,6 +3444,17 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Commit transaction
             $pdo->commit();
+
+            if (!$isBatchAppend) {
+                summaryApiRecordSubmittedProcess(
+                    $pdo,
+                    $companyId,
+                    $resolvedProcessDbId,
+                    (string)$data['captureDate'],
+                    $userId,
+                    $user_type
+                );
+            }
             
             // Log success
             error_log("Data capture submitted successfully - Capture ID: $captureId, Rows: " . count($data['summaryRows']));
@@ -3398,6 +3473,7 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 echo json_encode([
                     'success' => true,
                     'captureId' => $captureId,
+                    'processDbId' => $resolvedProcessDbId,
                     'message' => 'Data submitted successfully',
                     'rowsInserted' => count($data['summaryRows'])
                 ]);

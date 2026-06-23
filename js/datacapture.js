@@ -1068,7 +1068,27 @@ function getLocalDateString(date = null) {
     return `${year}-${month}-${day}`;
 }
 
-// Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交时刻 created_at（含日期）
+/** 若账务日不在下拉列表（±6 天）内，补一条 option 并选中 */
+function ensureCaptureDateInSelect(dateYmd) {
+    const dateSelect = document.getElementById('capture_date');
+    if (!dateSelect || !dateYmd || !/^\d{4}-\d{2}-\d{2}$/.test(dateYmd)) {
+        return;
+    }
+    const exists = Array.from(dateSelect.options).some(function (o) { return o.value === dateYmd; });
+    if (!exists) {
+        const parts = dateYmd.split('-');
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const weekday = weekdayNames[d.getDay()];
+        const opt = document.createElement('option');
+        opt.value = dateYmd;
+        opt.textContent = dateYmd + ' (' + weekday + ')';
+        dateSelect.insertBefore(opt, dateSelect.firstChild);
+    }
+    dateSelect.value = dateYmd;
+}
+
+// Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交 moment created_at（含日期）
 async function loadSubmittedProcesses() {
     try {
         const dateInput = document.getElementById('capture_date');
@@ -24829,10 +24849,20 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Check for URL parameters first
     const urlParams = new URLSearchParams(window.location.search);
     const shouldRestore = urlParams.get('restore') === '1';
+    const justSubmitted = urlParams.get('submitted') === '1';
+    const submittedCaptureDate = urlParams.get('capture_date');
 
     if (!shouldRestore) {
+        if (justSubmitted && submittedCaptureDate && /^\d{4}-\d{2}-\d{2}$/.test(submittedCaptureDate)) {
+            ensureCaptureDateInSelect(submittedCaptureDate);
+        }
         // Submitted Processes：按左侧 Date（capture_date）加载
         loadSubmittedProcesses();
+        if (justSubmitted) {
+            setTimeout(loadSubmittedProcesses, 1500);
+            setTimeout(loadSubmittedProcesses, 3500);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
         // Initialize table with default 26 rows (A-Z) and 20 columns
         initializeTable(26, 20);
     }
