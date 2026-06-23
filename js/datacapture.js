@@ -12,6 +12,8 @@ function buildApiUrl(pathAndQuery) {
 }
 
 // Bank-only 公司：简化 Data Capture（仅 Date/Process/Currency/Remark + 1.Text 表格）
+const BANK_DATA_CAPTURE_PROCESSES = ['SALARY', 'COMMISSION', 'BONUS', 'PROFIT'];
+
 function isDataCaptureBankCategoryMode() {
     return !!(window.SIDEBAR_COMPANY_HAS_BANK && !window.SIDEBAR_COMPANY_HAS_GAMBLING);
 }
@@ -2549,6 +2551,9 @@ function initProcessInput() {
     processButton.addEventListener('change', function () {
         console.log('Process selection changed to:', this.textContent);
         updateSubmitButtonState();
+        if (isDataCaptureBankCategoryMode()) {
+            return;
+        }
         const processId = getProcessId(this);
         if (processId) {
             loadProcessData(processId);
@@ -2822,9 +2827,105 @@ async function loadFormData() {
     }
 }
 
+// 填充 Process 自定义下拉（Games API 数据与 Bank 固定项共用）
+function renderCaptureProcessSelectOptions(processes) {
+    const processButton = document.getElementById('capture_process');
+    const processDropdown = document.getElementById('capture_process_dropdown');
+    const optionsContainer = processDropdown?.querySelector('.custom-select-options');
+
+    if (!processButton || !processDropdown || !optionsContainer) return;
+
+    processDataMap.clear();
+    optionsContainer.innerHTML = '';
+
+    const previousValue = processButton.getAttribute('data-value') || '';
+
+    if (processes && processes.length > 0) {
+        processes.forEach(process => {
+            const displayText = (process.process_display != null && String(process.process_display).trim() !== '')
+                ? String(process.process_display).trim()
+                : (process.description_name ? `${process.process_id} (${process.description_name})` : process.process_id);
+
+            const option = document.createElement('div');
+            option.className = 'custom-select-option';
+            option.textContent = displayText;
+            option.setAttribute('data-value', process.id);
+            option.setAttribute('data-process-code', process.process_id);
+            if (process.description_name) {
+                option.setAttribute('data-description-name', process.description_name);
+            }
+            optionsContainer.appendChild(option);
+
+            processDataMap.set(displayText, {
+                id: process.id,
+                process_id: process.process_id,
+                description_name: process.description_name || null
+            });
+        });
+
+        if (previousValue) {
+            let foundDisplayText = null;
+            for (let [displayText, data] of processDataMap.entries()) {
+                if (String(data.id) === String(previousValue)) {
+                    foundDisplayText = displayText;
+                    break;
+                }
+            }
+            if (foundDisplayText && processDataMap.has(foundDisplayText)) {
+                const processData = processDataMap.get(foundDisplayText);
+                processButton.textContent = foundDisplayText;
+                processButton.setAttribute('data-value', processData.id);
+                processButton.setAttribute('data-process-code', processData.process_id);
+                if (processData.description_name) {
+                    processButton.setAttribute('data-description-name', processData.description_name);
+                } else {
+                    processButton.removeAttribute('data-description-name');
+                }
+                optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                    if (opt.getAttribute('data-value') === String(previousValue)) {
+                        opt.classList.add('selected');
+                    }
+                });
+            } else {
+                processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
+                processButton.removeAttribute('data-value');
+                processButton.removeAttribute('data-process-code');
+                processButton.removeAttribute('data-description-name');
+            }
+        } else {
+            processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
+            processButton.removeAttribute('data-value');
+            processButton.removeAttribute('data-process-code');
+            processButton.removeAttribute('data-description-name');
+        }
+    } else {
+        processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
+        processButton.removeAttribute('data-value');
+        processButton.removeAttribute('data-process-code');
+        processButton.removeAttribute('data-description-name');
+    }
+
+    updateSubmitButtonState();
+}
+
+function populateBankCaptureProcessOptions() {
+    const processes = BANK_DATA_CAPTURE_PROCESSES.map(code => ({
+        id: code,
+        process_id: code,
+        process_display: code
+    }));
+    renderCaptureProcessSelectOptions(processes);
+}
+
 // Load processes based on selected date
 async function loadProcessesByDate() {
     try {
+        if (isDataCaptureBankCategoryMode()) {
+            populateBankCaptureProcessOptions();
+            return;
+        }
+
         const dateInput = document.getElementById('capture_date');
         const selectedDate = dateInput.value || getLocalDateString();
 
@@ -2837,96 +2938,12 @@ async function loadProcessesByDate() {
         const result = await response.json();
 
         if (result.success) {
-            // Fill process custom select
-            const processButton = document.getElementById('capture_process');
-            const processDropdown = document.getElementById('capture_process_dropdown');
-            const optionsContainer = processDropdown?.querySelector('.custom-select-options');
-
-            if (!processButton || !processDropdown || !optionsContainer) return;
-
-            // 清空数据映射和选项
-            processDataMap.clear();
-            optionsContainer.innerHTML = '';
-
-            // 保存之前的值
-            const previousValue = processButton.getAttribute('data-value') || '';
-
             if (result.data && result.data.length > 0) {
                 console.log('Loading processes for date:', selectedDate, 'Day of week:', result.day_of_week);
-                result.data.forEach(process => {
-                    // 抓取 Process 全部读取：使用 API 返回的 process_display，例如 F9EJMSUB (JOKER API)
-                    const displayText = (process.process_display != null && String(process.process_display).trim() !== '')
-                        ? String(process.process_display).trim()
-                        : (process.description_name ? `${process.process_id} (${process.description_name})` : process.process_id);
-
-                    // 创建选项
-                    const option = document.createElement('div');
-                    option.className = 'custom-select-option';
-                    option.textContent = displayText;
-                    option.setAttribute('data-value', process.id);
-                    option.setAttribute('data-process-code', process.process_id);
-                    if (process.description_name) {
-                        option.setAttribute('data-description-name', process.description_name);
-                    }
-                    optionsContainer.appendChild(option);
-
-                    // 存储映射：display_text -> {id, process_id, description_name}
-                    processDataMap.set(displayText, {
-                        id: process.id,
-                        process_id: process.process_id,
-                        description_name: process.description_name || null
-                    });
-                });
-
-                // 恢复之前的值（如果仍然存在）
-                if (previousValue) {
-                    // 查找对应的 displayText
-                    let foundDisplayText = null;
-                    for (let [displayText, data] of processDataMap.entries()) {
-                        if (String(data.id) === String(previousValue)) {
-                            foundDisplayText = displayText;
-                            break;
-                        }
-                    }
-                    if (foundDisplayText && processDataMap.has(foundDisplayText)) {
-                        const processData = processDataMap.get(foundDisplayText);
-                        processButton.textContent = foundDisplayText;
-                        processButton.setAttribute('data-value', processData.id);
-                        processButton.setAttribute('data-process-code', processData.process_id);
-                        if (processData.description_name) {
-                            processButton.setAttribute('data-description-name', processData.description_name);
-                        }
-                        // 标记为选中
-                        optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
-                            opt.classList.remove('selected');
-                            if (opt.getAttribute('data-value') === String(previousValue)) {
-                                opt.classList.add('selected');
-                            }
-                        });
-                    } else {
-                        processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
-                        processButton.removeAttribute('data-value');
-                        processButton.removeAttribute('data-process-code');
-                        processButton.removeAttribute('data-description-name');
-                    }
-                } else {
-                    processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
-                    processButton.removeAttribute('data-value');
-                    processButton.removeAttribute('data-process-code');
-                    processButton.removeAttribute('data-description-name');
-                }
-
-                console.log('Process custom select populated with', result.data.length, 'options for', selectedDate);
             } else {
                 console.log('No processes found for selected date:', selectedDate);
-                processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
-                processButton.removeAttribute('data-value');
-                processButton.removeAttribute('data-process-code');
-                processButton.removeAttribute('data-description-name');
             }
-
-            // Update submit button state
-            updateSubmitButtonState();
+            renderCaptureProcessSelectOptions(result.data || []);
         } else {
             console.error('Failed to load processes by date:', result.error);
             showNotification('Failed to load processes: ' + result.error, 'danger');
