@@ -517,12 +517,12 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         </div>
                         <div class="submenu" id="maintenance-submenu">
                             <div class="submenu-content">
-                                <?php if ($companyHasGambling && $hasMaintenance): ?>
+                                <?php if (($companyHasGambling || $companyHasBank) && $hasMaintenance): ?>
                                     <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
                                         <span>Data Capture</span>
                                     </a>
                                 <?php endif; ?>
-                                <?php if ($companyHasGambling): ?>
+                                <?php if ($companyHasGambling || $companyHasBank): ?>
                                     <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
                                         <span>Transaction</span>
                                     </a>
@@ -532,7 +532,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                                         <span>Payment</span>
                                     </a>
                                 <?php endif; ?>
-                                <?php if ($companyHasGambling): ?>
+                                <?php if ($companyHasGambling || $companyHasBank): ?>
                                     <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
                                         <span>Formula</span>
                                     </a>

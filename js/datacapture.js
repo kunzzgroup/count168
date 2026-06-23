@@ -12,7 +12,7 @@ function buildApiUrl(pathAndQuery) {
 }
 
 // Bank-only 公司：简化 Data Capture（仅 Date/Process/Currency/Remark + 1.Text 表格）
-const BANK_DATA_CAPTURE_PROCESSES = ['SALARY', 'COMMISSION', 'BONUS', 'PROFIT'];
+const BANK_DATA_CAPTURE_PROCESSES = ['PROFIT','SALARY', 'COMMISSION', 'BONUS'];
 
 function isDataCaptureBankCategoryMode() {
     return !!(window.SIDEBAR_COMPANY_HAS_BANK && !window.SIDEBAR_COMPANY_HAS_GAMBLING);
