@@ -5542,27 +5542,31 @@ body.domain-page .domain-react-page .domain-renew-badge--approved {
     }
 
     body.domain-page .domain-react-page .btn-add,
-    body.domain-page .domain-react-page .btn-fee-settings,
-    body.domain-page .domain-react-page .domain-fee-price-chips,
-    body.domain-page .domain-react-page .domain-fee-price-chip {
+    body.domain-page .domain-react-page .btn-fee-settings {
         flex-shrink: 0;
     }
 
+    /* Tablet：隐藏 C/G 价格标签，顶栏留给搜索与按钮 */
     body.domain-page .domain-react-page .domain-fee-price-chips {
-        flex-wrap: nowrap;
+        display: none !important;
     }
 
     body.domain-page .domain-react-page .domain-list-table {
         --domain-list-grid-cols:
             36px
-            minmax(0, 0.9fr)
-            minmax(0, 0.6fr)
-            minmax(0, 1.35fr)
-            minmax(0, 0.95fr)
-            minmax(0, 1.4fr)
-            minmax(0, 0.6fr)
+            minmax(0, 1fr)
+            minmax(0, 0.85fr)
+            minmax(0, 1fr)
+            minmax(0, 1.65fr)
+            minmax(0, 0.75fr)
             92px;
         overflow-x: hidden;
+    }
+
+    /* Tablet：隐藏 Email 列，空间让给 Group / Companies 等 */
+    body.domain-page .domain-react-page .domain-list-table-header > :nth-child(4),
+    body.domain-page .domain-react-page .domain-list-row .card-item--email {
+        display: none !important;
     }
 
     body.domain-page .domain-react-page .domain-list-table-inner {
@@ -5589,8 +5593,7 @@ body.domain-page .domain-react-page .domain-renew-badge--approved {
         align-items: center;
     }
 
-    body.domain-page .domain-react-page .domain-card .card-item.card-item--name,
-    body.domain-page .domain-react-page .domain-card .card-item.card-item--email {
+    body.domain-page .domain-react-page .domain-card .card-item.card-item--name {
         white-space: normal;
         overflow-wrap: anywhere;
         word-break: break-word;
