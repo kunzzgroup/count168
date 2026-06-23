@@ -39,14 +39,14 @@ body.domain-page .domain-react-page .action-buttons {
     margin-bottom: clamp(10px, 1.04vw, 16px);
     display: flex;
     justify-content: space-between;
-    align-items: start;
-    flex-wrap: wrap;
+    align-items: center;
+    flex-wrap: nowrap;
     gap: 12px;
 }
 
 body.domain-page .domain-react-page .domain-toolbar-left {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 12px;
     flex: 1 1 auto;
@@ -1604,6 +1604,7 @@ body.domain-page .domain-react-page .domain-fee-price-chips {
     align-items: center;
     gap: clamp(6px, 0.5vw, 10px);
     flex-shrink: 0;
+    flex-wrap: nowrap;
 }
 
 body.domain-page .domain-react-page .domain-fee-price-chip {
@@ -4732,9 +4733,10 @@ body.domain-page .domain-react-page .search-container.userlist-search-bar {
     display: flex;
     flex-direction: row;
     align-items: center;
-    flex-shrink: 0;
-    width: clamp(200px, 28vw, 320px);
-    max-width: clamp(200px, 28vw, 320px);
+    flex: 1 1 auto;
+    min-width: clamp(140px, 18vw, 200px);
+    width: auto;
+    max-width: clamp(200px, 28vw, 360px);
     min-height: calc(18px + 12px + 2px);
     height: auto;
     border-radius: 999px;
@@ -5643,32 +5645,42 @@ body.domain-page .domain-react-page .domain-renew-badge--approved {
         transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    /* 顶栏单行：Add | Search | Price | C/G | Delete（与 tablet 设计稿一致） */
     body.domain-page .domain-react-page .action-buttons {
-        align-items: stretch;
+        flex-wrap: nowrap;
+        align-items: center;
         gap: 10px;
     }
 
     body.domain-page .domain-react-page .domain-toolbar-left {
-        width: 100%;
-        row-gap: 10px;
-        padding-bottom: 8px;
-    }
-
-    body.domain-page .domain-react-page .domain-toolbar-right {
-        width: 100%;
-        margin-left: 0;
-        justify-content: flex-end;
-    }
-
-    body.domain-page .domain-react-page .search-container.userlist-search-bar {
-        flex: 1 1 100%;
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
         width: auto;
-        max-width: none;
         min-width: 0;
     }
 
+    body.domain-page .domain-react-page .domain-toolbar-right {
+        flex: 0 0 auto;
+        width: auto;
+        margin-left: 0;
+    }
+
+    body.domain-page .domain-react-page .search-container.userlist-search-bar {
+        flex: 1 1 auto;
+        min-width: clamp(100px, 14vw, 160px);
+        max-width: none;
+        width: auto;
+    }
+
+    body.domain-page .domain-react-page .btn-add,
+    body.domain-page .domain-react-page .btn-fee-settings,
+    body.domain-page .domain-react-page .domain-fee-price-chips,
+    body.domain-page .domain-react-page .domain-fee-price-chip {
+        flex-shrink: 0;
+    }
+
     body.domain-page .domain-react-page .domain-fee-price-chips {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
     }
 
     body.domain-page .domain-react-page .domain-list-table {
