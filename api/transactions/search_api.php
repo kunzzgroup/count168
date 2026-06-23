@@ -302,155 +302,6 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
     ];
 }
 
-/**
- * Show all 0 balance: merge group-ledger accounts (scope_type=group) not linked via company_id FK.
- */
-function searchApiMergeGroupScopeAccountRows(
-    PDO $pdo,
-    array &$accounts,
-    int $groupScopePk,
-    array $categoryFilters,
-    int $permCompanyId
-): void {
-    if ($groupScopePk <= 0) {
-        return;
-    }
-
-    $existingIds = [];
-    foreach ($accounts as $row) {
-        $id = (int) ($row['id'] ?? 0);
-        if ($id > 0) {
-            $existingIds[$id] = true;
-        }
-    }
-
-    $groupIds = array_keys(tenant_collect_group_account_ids($pdo, $groupScopePk));
-    $missingIds = array_values(array_filter($groupIds, static function (int $id) use ($existingIds): bool {
-        return $id > 0 && empty($existingIds[$id]);
-    }));
-    if ($missingIds === []) {
-        return;
-    }
-
-    $extraBits = [];
-    $extraParams = $missingIds;
-    if (!empty($categoryFilters)) {
-        if (count($categoryFilters) === 1) {
-            $extraBits[] = 'a.role = ?';
-            $extraParams[] = $categoryFilters[0];
-        } else {
-            $extraBits[] = 'a.role IN (' . str_repeat('?,', count($categoryFilters) - 1) . '?)';
-            $extraParams = array_merge($extraParams, $categoryFilters);
-        }
-    }
-
-    $createdSourceSelect = searchApiAccountHasCreatedSourceColumn($pdo)
-        ? ", COALESCE(a.created_source, '') AS created_source"
-        : '';
-    $ph = implode(',', array_fill(0, count($missingIds), '?'));
-    $extraSql = "SELECT DISTINCT
-            a.id,
-            a.account_id,
-            a.name,
-            a.role,
-            a.status,
-            COALESCE(a.payment_alert, 0) AS payment_alert,
-            a.alert_day,
-            a.alert_specific_date,
-            a.alert_amount
-            {$createdSourceSelect}
-        FROM account a
-        WHERE a.id IN ($ph)";
-    if (!empty($extraBits)) {
-        $extraSql .= ' AND ' . implode(' AND ', $extraBits);
-    }
-    $extraSql .= ' ORDER BY a.account_id';
-
-    list($extraSql, $extraParams) = filterAccountsByPermissions($pdo, $extraSql, $extraParams, $permCompanyId);
-    $extraSql = preg_replace('/\bAND id IN\b/i', 'AND a.id IN', $extraSql);
-    $extraSql = preg_replace('/\bWHERE id IN\b/i', 'WHERE a.id IN', $extraSql);
-
-    $exSt = $pdo->prepare($extraSql);
-    $exSt->execute($extraParams);
-    $extraAcc = $exSt->fetchAll(PDO::FETCH_ASSOC);
-    if ($extraAcc === []) {
-        return;
-    }
-
-    $accounts = array_merge($accounts, $extraAcc);
-    usort($accounts, static function ($x, $y): int {
-        return strcmp((string) ($x['account_id'] ?? ''), (string) ($y['account_id'] ?? ''));
-    });
-}
-
-/**
- * Show all 0 balance: build account×currency rows from scoped accounts only (no txn/DCD lookup).
- * Keeps last-year and this-year lists identical when the toggle is on.
- *
- * @param array<int, array<string, mixed>> $accounts
- * @param array<string, int> $currency_map
- * @return array<int, array{account: array, currency_id: int, currency_code: string}>
- */
-function searchApiBuildForcedZeroBalanceCombos(
-    array $accounts,
-    array $filter_currency_codes,
-    array $currency_map
-): array {
-    if ($accounts === [] || $currency_map === []) {
-        return [];
-    }
-    $ensureCodes = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
-    $combos = [];
-    foreach ($accounts as $account) {
-        foreach ($ensureCodes as $fcc) {
-            $code = strtoupper((string) $fcc);
-            if (!isset($currency_map[$code])) {
-                continue;
-            }
-            $combos[] = [
-                'account' => $account,
-                'currency_id' => (int) $currency_map[$code],
-                'currency_code' => $code,
-            ];
-        }
-    }
-
-    return $combos;
-}
-
-/**
- * Attach currency combos for an account row.
- * - Default (hide zero balance): only when list is still empty, attach filter currencies.
- * - Show all 0 balance: always attach filter currencies (or all company currencies) so every
- *   account from Account page appears even with no txn / DCD / account_currency in the period.
- */
-function searchApiFillFallbackAccountCurrencies(
-    array &$account_currencies,
-    array &$account_currency_ids,
-    array $filter_currency_codes,
-    array $currency_map,
-    bool $hide_zero_balance
-): void {
-    if ($hide_zero_balance) {
-        if (!empty($account_currencies)) {
-            return;
-        }
-        $codesToAdd = !empty($filter_currency_codes) ? $filter_currency_codes : [];
-    } else {
-        $codesToAdd = !empty($filter_currency_codes) ? $filter_currency_codes : array_keys($currency_map);
-    }
-    if ($codesToAdd === []) {
-        return;
-    }
-    foreach ($codesToAdd as $fcc) {
-        $code = strtoupper((string) $fcc);
-        if (!isset($currency_map[$code])) {
-            continue;
-        }
-        addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $currency_map[$code], $code);
-    }
-}
-
 /** @return string|null 客户公司代码，如 LGA */
 function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
 {
@@ -1267,11 +1118,9 @@ try {
             $params = array_merge($params, $groupAccountIds);
         }
     } else {
-        $acListWhere = !$hide_zero_balance
-            ? tenant_account_company_list_where_inclusive($pdo, $company_id, 'ac')
-            : tenant_account_company_list_where($pdo, $company_id, 'ac');
-        $where_conditions[] = $acListWhere['sql'];
-        $params = array_merge($params, $acListWhere['params']);
+        $acSubsidiaryWhere = tenant_account_company_subsidiary_where($pdo, $company_id, 'ac');
+        $where_conditions[] = $acSubsidiaryWhere['sql'];
+        $params = array_merge($params, $acSubsidiaryWhere['params']);
     }
 
     if (!empty($target_account_ids)) {
@@ -1303,8 +1152,7 @@ try {
     //   Layer 2（foreach 循环内）：(账户 + 货币) 组合级别过滤，精确到每行
     // 两层设计对称，Win/Loss Only 与 Payment Only 处理方式完全一致。
     // Group ledger: account list already scoped; skip company-scoped EXISTS (uses scope_type=group in bulk loop).
-    // Show all 0 balance: never shrink account list by period activity — year range must not change which accounts appear.
-    $skipLayer1CompanyExists = (($search_list_scope['mode'] ?? '') === 'group') || !$hide_zero_balance;
+    $skipLayer1CompanyExists = (($search_list_scope['mode'] ?? '') === 'group');
     if (!$skipLayer1CompanyExists && $show_capture_only && $show_inactive) {
         // 两者都勾选：账户在日期范围内有 Win/Loss（Data Capture / WIN/LOSE / RATE_MIDDLEMAN）或有 Payment（Cr/Dr）即显示
         // Bug修复：
@@ -1489,19 +1337,6 @@ try {
     $stmt = $pdo->prepare($baseSql);
     $stmt->execute($params);
     $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    if (
-        !$hide_zero_balance
-        && ($search_list_scope['mode'] ?? '') !== 'group'
-    ) {
-        searchApiMergeGroupScopeAccountRows(
-            $pdo,
-            $accounts,
-            (int) ($search_list_scope['group_scope_id'] ?? 0),
-            $category_filters,
-            $search_perm_company_id
-        );
-    }
 
     if (empty($accounts)) {
         echo json_encode([
@@ -1737,23 +1572,7 @@ try {
     } catch (PDOException $e) {
         $has_account_currency_table = false;
     }
-    if (!$hide_zero_balance && !empty($filter_currency_codes)) {
-        $active_currency_codes = array_values(array_unique(array_merge(
-            $active_currency_codes,
-            $filter_currency_codes
-        )));
-    }
 
-    $dcd_ledger_where = searchApiDcdBulkLedgerWhere($pdo, $search_is_group_ledger, $search_list_scope);
-
-    // Show all 0 balance: account×currency rows from scoped accounts only — not from period txn/DCD.
-    if (!$hide_zero_balance) {
-        $account_currency_combos = searchApiBuildForcedZeroBalanceCombos(
-            $accounts,
-            $filter_currency_codes,
-            $currency_map
-        );
-    } else {
     // ====== BULK PRE-LOAD 账户货币组合（避免每个账户在循环内单独查询，消除 N+1） ======
     $bulk_ac = []; // [account_id][currency_id] => currency_code  (来自 account_currency 表)
     $bulk_txn_cur_prd = []; // [account_id][currency_id] => currency_code  (本期 transactions)
@@ -1764,6 +1583,7 @@ try {
         $all_ids = array_column($accounts, 'id');
         $all_ph = implode(',', array_fill(0, count($all_ids), '?'));
         $bulk_cur_company_id = searchApiDcdCompanyId();
+        $dcd_ledger_where = searchApiDcdBulkLedgerWhere($pdo, $search_is_group_ledger, $search_list_scope);
         $bulk_txn_scope_sql = $search_txn_where;
         $bulk_txn_scope_bind = $search_txn_bind;
 
@@ -1925,14 +1745,15 @@ try {
                     $account_currency_ids[(int) $ac['currency_id']] = true;
                 }
             }
-            // 兜底：无 account_currency / 交易 / DCD 时挂筛选币别；Show all 0 balance 且无筛选时挂公司全部币别
-            searchApiFillFallbackAccountCurrencies(
-                $account_currencies,
-                $account_currency_ids,
-                $filter_currency_codes,
-                $currency_map,
-                $hide_zero_balance
-            );
+            // 兜底：仍无币别但有 currency 筛选时，直接挂上筛选的币别
+            if (empty($account_currencies) && !empty($filter_currency_codes)) {
+                foreach ($filter_currency_codes as $fcc) {
+                    $code = strtoupper($fcc);
+                    if (!isset($currency_map[$code]))
+                        continue;
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
+                }
+            }
         } else {
             // === Legacy 路径：从 bulk_dcd_cur 批量数据读取 ===
             foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
@@ -1963,13 +1784,6 @@ try {
                     }
                 }
             }
-            searchApiFillFallbackAccountCurrencies(
-                $account_currencies,
-                $account_currency_ids,
-                $filter_currency_codes,
-                $currency_map,
-                $hide_zero_balance
-            );
         }
 
         if (empty($account_currencies)) {
@@ -1990,7 +1804,6 @@ try {
             ];
         }
     }
-    } // end hide_zero_balance combo discovery (default path)
 
     // 计算每个 account + currency 组合的数据
     $results = [];

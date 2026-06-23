@@ -64,9 +64,9 @@ try {
             $params = array_merge($params, $accountIds);
         }
     } else {
-        $acListWhere = tenant_account_company_list_where_inclusive($pdo, $company_id, 'ac');
-        $where_conditions[] = $acListWhere['sql'];
-        $params = array_merge($params, $acListWhere['params']);
+        $acSubsidiaryWhere = tenant_account_company_subsidiary_where($pdo, $company_id, 'ac');
+        $where_conditions[] = $acSubsidiaryWhere['sql'];
+        $params = array_merge($params, $acSubsidiaryWhere['params']);
     }
     if ($role) {
         $where_conditions[] = "a.role = ?";
