@@ -4818,10 +4818,33 @@ body.ec-auth-shell.domain-page .domain-react-page .search-container.userlist-sea
 }
 
 /* 新的卡片式表格样式 */
+body.domain-page .domain-react-page .domain-list-table {
+    --domain-list-grid-cols:
+        minmax(40px, 0.5fr)
+        minmax(76px, 1fr)
+        minmax(108px, 1.2fr)
+        minmax(148px, 1.55fr)
+        minmax(88px, 1fr)
+        minmax(128px, 1.65fr)
+        minmax(76px, 0.95fr)
+        minmax(68px, 0.75fr);
+    width: 100%;
+    min-width: 0;
+}
+
+body.domain-page .domain-react-page .domain-list-table-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
+}
+
 body.domain-page .domain-react-page .table-header {
     display: grid;
-    grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
-    gap: 15px;
+    grid-template-columns: var(--domain-list-grid-cols);
+    gap: 10px;
     padding: 14.75px 20px 15px !important;
     background: transparent !important;
     background-image: none !important;
@@ -4857,8 +4880,8 @@ body.domain-page .domain-react-page .domain-cards {
 
 body.domain-page .domain-react-page .domain-card {
     display: none;
-    grid-template-columns: 1fr 2fr 3fr 3fr 2fr 4fr 2fr 2fr;
-    gap: 15px;
+    grid-template-columns: var(--domain-list-grid-cols);
+    gap: 10px;
     padding: clamp(4px, 0.52vw, 6px) 22px;
     background: white;
     border: 1px solid var(--color-border);
@@ -4897,9 +4920,30 @@ body.domain-page .domain-react-page .card-item {
     /* 防止文本换行 */
 }
 
-body.domain-page .domain-react-page .card-item.companies-column {
+body.domain-page .domain-react-page .card-item.card-item--name,
+body.domain-page .domain-react-page .card-item.card-item--email {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    align-items: flex-start;
+    line-height: 1.35;
+}
+
+body.domain-page .domain-react-page .card-item.companies-column,
+body.domain-page .domain-react-page .card-item.groups-column {
     overflow: visible;
-    /* 确保 tooltip 可以显示 */
+    white-space: normal;
+    align-items: flex-start;
+}
+
+body.domain-page .domain-react-page .card-item.companies-column > div,
+body.domain-page .domain-react-page .card-item.groups-column > div,
+body.domain-page .domain-react-page .domain-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
 }
 
 /* Force uppercase for specific columns */
@@ -5589,3 +5633,139 @@ body.domain-page .domain-react-page .domain-renew-badge--approved {
     color: #047857;
 }
 
+/* ================================================================
+   Domain List — Tablet / 小屏本（≤1366px）：保持表格，横向滚动 + 列宽保底
+   ================================================================ */
+@media (max-width: 1366px) {
+    body.ec-auth-shell.domain-page .domain-react-page {
+        padding-left: var(--layout-main-offset);
+        padding-right: clamp(14px, 2vw, 24px);
+        transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body.domain-page .domain-react-page .action-buttons {
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    body.domain-page .domain-react-page .domain-toolbar-left {
+        width: 100%;
+        row-gap: 10px;
+        padding-bottom: 8px;
+    }
+
+    body.domain-page .domain-react-page .domain-toolbar-right {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
+    }
+
+    body.domain-page .domain-react-page .search-container.userlist-search-bar {
+        flex: 1 1 100%;
+        width: auto;
+        max-width: none;
+        min-width: 0;
+    }
+
+    body.domain-page .domain-react-page .domain-fee-price-chips {
+        flex-wrap: wrap;
+    }
+
+    body.domain-page .domain-react-page .domain-list-table {
+        --domain-list-grid-cols:
+            44px
+            minmax(84px, 0.95fr)
+            minmax(108px, 1.15fr)
+            minmax(200px, 2.1fr)
+            minmax(108px, 1.1fr)
+            minmax(148px, 1.55fr)
+            minmax(84px, 0.95fr)
+            minmax(76px, 0.75fr);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable;
+    }
+
+    body.domain-page .domain-react-page .domain-list-table-inner {
+        min-width: max(100%, 1180px);
+    }
+
+    body.domain-page .domain-react-page .table-header,
+    body.domain-page .domain-react-page .domain-card.domain-list-row.show-card {
+        gap: 12px;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    body.domain-page .domain-react-page .domain-card.domain-list-row.show-card {
+        align-items: start;
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+
+    body.domain-page .domain-react-page .domain-card .card-item {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    body.domain-page .domain-react-page .domain-card .card-item.card-item--name,
+    body.domain-page .domain-react-page .domain-card .card-item.card-item--email {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.35;
+    }
+
+    body.domain-page .domain-react-page .domain-cards {
+        overflow-x: visible;
+        max-height: calc(100dvh - var(--layout-page-top-inset) - clamp(180px, 20vw, 250px));
+        padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    }
+
+    body.domain-page .domain-react-page .btn-edit {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 40px;
+        min-height: 40px;
+        padding: 6px;
+        border-radius: 8px;
+    }
+
+    body.domain-page .domain-react-page .btn-edit img {
+        width: 18px;
+        height: 18px;
+    }
+
+    body.domain-page .domain-react-page .domain-checkbox {
+        width: 22px;
+        height: 22px;
+        min-width: 22px;
+        min-height: 22px;
+    }
+
+    body.domain-page .domain-react-page .domain-company-chip,
+    body.domain-page .domain-react-page .domain-company-more {
+        min-height: 26px;
+        height: auto;
+        padding: 3px 8px;
+    }
+
+    body.domain-page .domain-react-page .pagination-container {
+        right: clamp(16px, 2vw, 28px);
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    }
+
+    body.domain-page .domain-react-page .pagination-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    body.domain-page .domain-react-page .pagination-info {
+        font-size: 14px;
+        width: auto;
+        min-width: 72px;
+    }
+}
