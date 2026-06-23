@@ -18,6 +18,17 @@ function isDataCaptureBankCategoryMode() {
     return !!(window.SIDEBAR_COMPANY_HAS_BANK && !window.SIDEBAR_COMPANY_HAS_GAMBLING);
 }
 
+function isBankCaptureProcessCode(processIdOrCode) {
+    if (processIdOrCode == null || processIdOrCode === '') return false;
+    return BANK_DATA_CAPTURE_PROCESSES.includes(String(processIdOrCode).trim().toUpperCase());
+}
+
+function shouldSkipLoadProcessData(processIdOrCode, savedProcessData) {
+    if (isDataCaptureBankCategoryMode()) return true;
+    if (savedProcessData && savedProcessData.isBankDataCapture === true) return true;
+    return isBankCaptureProcessCode(processIdOrCode);
+}
+
 function captureTableHasData() {
     try {
         const tableData = captureTableData();
@@ -2563,8 +2574,12 @@ function initProcessInput() {
     });
 }
 
-// Load process data when a process is selected
+// Load process data when a process is selected (Games only; Bank 固定 process 不走 processlist_api)
 async function loadProcessData(processId) {
+    if (shouldSkipLoadProcessData(processId)) {
+        console.log('Skipping Games loadProcessData for Bank capture process:', processId);
+        return;
+    }
     console.log('Loading process data for ID:', processId);
     try {
         // Ensure currency dropdown is loaded
@@ -24539,8 +24554,10 @@ async function restoreFromLocalStorage() {
                     });
                 }
                 console.log('Process restored:', processDisplayText);
-                // Load process data (this will populate currency, descriptions, etc.)
-                await loadProcessData(processDataObj.id);
+                // Games：拉 process 详情；Bank：currency/remark 等由下方 localStorage 恢复，不调 Games API
+                if (!shouldSkipLoadProcessData(processDataObj.id, processData)) {
+                    await loadProcessData(processDataObj.id);
+                }
             } else {
                 console.warn('Process not found. Saved process:', processData.process, 'processCode:', processData.processCode);
                 console.warn('Available options:', Array.from(processDataMap.entries()).map(([text, data]) => ({
