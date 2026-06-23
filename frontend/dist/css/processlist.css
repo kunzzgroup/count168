@@ -1829,7 +1829,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
 }
 
 .bank-form-row+.bank-form-row {
-    margin-top: 20px;
+    margin-top: 10px;
 }
 
 .bank-form-row-last {
@@ -1916,6 +1916,10 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     flex: 0 0 auto;
     margin-top: 12px;
     width: 100%;
+}
+
+.bank-form-row-last .bank-form-cell-right .bank-form-dts-wrap .bank-section-title {
+    margin-bottom: 10px;
 }
 
 .bank-form-dts-row {

@@ -460,6 +460,7 @@ export default function BankProcessFormModal({
                   </div>
                   {editMode ? (
                     <div className="bank-form-dts-wrap">
+                      <h3 className="bank-section-title">{t("recordSection")}</h3>
                       <div className="form-row bank-row-two-cols bank-form-dts-row">
                         <div className="form-group">
                           <label htmlFor="bank_dts_modified">{t("dtsModified")}</label>
