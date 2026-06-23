@@ -998,127 +998,57 @@ body.account-page .search-container.userlist-search-bar .userlist-search-input {
 }
 
 /* ================================================================
-   Account List — Tablet（≤1366px，与 Domain 列表一致：表格铺满、无横向滚动）
+   Account List + Currency Setting — Tablet（≤1200px，含 iPad 横屏）
    ================================================================ */
-@media (max-width: 1366px) {
+@media (max-width: 1200px) {
     body.ec-auth-shell.account-page .container {
         padding-left: var(--layout-main-offset);
-        padding-right: clamp(14px, 2vw, 24px);
         transition: padding-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    /* 主列表：窄屏横向滚动，表头/行共用 inner 宽度 */
     body.account-page .account-table-wrapper {
-        overflow-x: hidden;
-    }
-
-    body.account-page .account-list-table {
-        --account-list-grid-cols:
-            36px
-            minmax(0, 1fr)
-            minmax(0, 1fr)
-            minmax(0, 0.75fr)
-            minmax(0, 0.45fr)
-            minmax(0, 0.6fr)
-            minmax(0, 0.95fr)
-            minmax(0, 0.5fr)
-            minmax(88px, 100px);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     body.account-page .account-list-table-inner {
-        min-width: 0;
+        min-width: max(100%, 980px);
         width: 100%;
         box-sizing: border-box;
     }
 
     body.account-page:not(.account-page--show-all) .account-cards {
-        overflow-x: hidden !important;
+        overflow-x: visible !important;
+        overflow-y: auto !important;
     }
 
-    /* 顶栏单行：Add | 搜索 | 筛选 | Currency | Delete */
     body.account-page .account-toolbar-top-row {
-        flex-wrap: nowrap;
-        gap: 10px;
+        flex-wrap: wrap;
+        row-gap: 10px;
     }
 
     body.account-page .account-toolbar-primary {
-        flex: 1 1 auto;
-        flex-wrap: nowrap;
-        min-width: 0;
+        flex: 1 1 240px;
+        flex-wrap: wrap;
+        row-gap: 8px;
     }
 
-    body.account-page .account-toolbar-primary .action-controls-row {
-        flex-wrap: nowrap;
-        gap: 10px;
-        min-width: 0;
-    }
-
-    body.account-page .account-toolbar-primary .search-container.userlist-search-bar {
-        flex: 1 1 auto;
-        min-width: clamp(100px, 14vw, 160px);
-        max-width: none;
-        width: auto;
+    body.account-page .action-buttons {
+        row-gap: 0;
     }
 
     body.account-page .user-toolbar-actions-right {
-        flex-wrap: nowrap;
-        flex-shrink: 0;
+        flex-wrap: wrap;
+        justify-content: flex-end;
         gap: 8px;
     }
 
     body.account-page .action-buttons-container .user-gc-inline-panel {
-        padding: 8px 16px 10px;
+        row-gap: var(--user-gc-inline-row-gap, 4px);
     }
 
-    body.account-page .account-list-table .account-list-table-header,
-    body.account-page .account-list-table .account-list-row {
-        gap: 6px;
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-
-    body.account-page .account-list-table .account-list-row {
-        padding-top: 5px;
-        padding-bottom: 5px;
-    }
-
-    body.account-page .account-list-table .account-card-item {
-        font-size: var(--text-small);
-        white-space: normal;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        line-height: 1.3;
-        align-items: center;
-    }
-
-    body.account-page .account-list-table .account-card-item:nth-child(2),
-    body.account-page .account-list-table .account-card-item:nth-child(3),
-    body.account-page .account-list-table .account-card-item:nth-child(7),
-    body.account-page .account-list-table .account-card-item:nth-child(8) {
-        white-space: normal;
-    }
-
-    body.account-page .account-list-table .account-card-item:nth-child(4),
-    body.account-page .account-list-table .account-card-item:nth-child(5),
-    body.account-page .account-list-table .account-card-item:nth-child(6) {
-        white-space: nowrap;
-    }
-
-    body.account-page .account-action-cell {
-        min-width: 88px;
-    }
-
-    body.account-page .account-edit-btn img,
-    body.account-page .account-edit-btn svg {
-        width: 16px;
-        height: 16px;
-    }
-}
-
-/* ================================================================
-   Account List + Currency Setting — Tablet（≤1200px）
-   ================================================================ */
-@media (max-width: 1200px) {
-    /* Currency Setting 等模态 — 列表 tablet 规则见上方 1366px */
+    /* —— Currency Setting 全屏 —— */
     .currency-left-panel {
         flex: 0 0 clamp(200px, 26vw, 260px);
         max-width: clamp(200px, 26vw, 260px);
