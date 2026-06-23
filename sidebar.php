@@ -502,7 +502,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             $roleLower = strtolower((string) $role);
             $hasImplicitGamesMaintenance = in_array($roleLower, $rolesWithImplicitGamesMaintenance, true);
             // Supervisor / Accountant / Audit / Customer Service：Games 公司下即使未勾选 maintenance，也保留 Maintenance（仅 Transaction、Formula）
-            $showMaintenanceSection = $hasMaintenance || ($hasImplicitGamesMaintenance && $companyHasGambling);
+            // Bank 公司：有 Bank category 时也显示 Maintenance（Capture / Transaction / Formula）
+            $showMaintenanceSection = $hasMaintenance || ($hasImplicitGamesMaintenance && $companyHasGambling) || $companyHasBank;
             ?>
             <?php if ($showMaintenanceSection): ?>
                 <div class="informationmenu-section">

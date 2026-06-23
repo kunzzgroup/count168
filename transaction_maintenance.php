@@ -4,6 +4,8 @@ require_once 'session_check.php';
 
 // Games 或 Bank category 公司可访问（与侧边栏 Maintenance 可见性一致）
 $session_company_id = $_SESSION['company_id'] ?? null;
+$hasGamesPermission = false;
+$hasBankPermission = false;
 if ($session_company_id) {
     try {
         $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
@@ -76,6 +78,10 @@ if (!empty($session_company_id)) {
     <link rel="stylesheet" href="css/sidebar.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <script>
+        window.MAINTENANCE_COMPANY_HAS_GAMES = <?php echo $hasGamesPermission ? 'true' : 'false'; ?>;
+        window.MAINTENANCE_COMPANY_HAS_BANK = <?php echo $hasBankPermission ? 'true' : 'false'; ?>;
+    </script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
@@ -374,6 +380,9 @@ if (!empty($session_company_id)) {
 
 
         function canAccessTransactionMaintenancePage() {
+            if (typeof window.canAccessMaintenancePage === 'function') {
+                return window.canAccessMaintenancePage();
+            }
             const hasGambling = typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING;
             const hasBank = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' && window.SIDEBAR_COMPANY_HAS_BANK;
             return hasGambling || hasBank;
@@ -406,18 +415,18 @@ if (!empty($session_company_id)) {
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
-            const hasGambling = hasGamblingFromSession !== undefined
-                ? hasGamblingFromSession
-                : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
-            const hasBank = hasBankFromSession !== undefined
-                ? hasBankFromSession
-                : (typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_BANK : false);
-            if (!hasGambling && !hasBank) {
+            const flags = typeof window.resolveMaintenanceCompanyFlags === 'function'
+                ? window.resolveMaintenanceCompanyFlags(hasGamblingFromSession, hasBankFromSession)
+                : {
+                    hasGambling: hasGamblingFromSession !== undefined ? hasGamblingFromSession : !!window.SIDEBAR_COMPANY_HAS_GAMBLING,
+                    hasBank: hasBankFromSession !== undefined ? hasBankFromSession : !!window.SIDEBAR_COMPANY_HAS_BANK
+                };
+            if (!flags.hasGambling && !flags.hasBank) {
                 window.location.href = 'processlist.php';
                 return;
             }
             if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
-                window.updateSidebarDataCaptureVisibility(hasGambling, hasBank);
+                window.updateSidebarDataCaptureVisibility(flags.hasGambling, flags.hasBank);
             }
             loadProcesses();
             if (hasSearched) {
@@ -820,10 +829,7 @@ if (!empty($session_company_id)) {
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            if (!canAccessTransactionMaintenancePage()) {
-                window.location.href = 'dashboard.php';
-                return;
-            }
+            // PHP 已校验 Games/Bank 权限；此处不再 redirect
             // Initialize date pickers
             initDatePickers();
             initMaintenanceDropdownHover();

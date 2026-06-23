@@ -20,6 +20,20 @@
         return '';
     }
 
+    function companyHasMaintenanceGamesFlag() {
+        if (global.MAINTENANCE_COMPANY_HAS_GAMES === true) return true;
+        return typeof global.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && !!global.SIDEBAR_COMPANY_HAS_GAMBLING;
+    }
+
+    function companyHasMaintenanceBankFlag() {
+        if (global.MAINTENANCE_COMPANY_HAS_BANK === true) return true;
+        return typeof global.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' && !!global.SIDEBAR_COMPANY_HAS_BANK;
+    }
+
+    function canAccessMaintenancePage() {
+        return companyHasMaintenanceGamesFlag() || companyHasMaintenanceBankFlag();
+    }
+
     function isMaintenanceCategoryBankFromStorage() {
         var code = getMaintenanceCompanyCode();
         if (!code) return false;
@@ -33,8 +47,8 @@
      */
     function isBankMaintenanceProcessMode(selectedPermission) {
         if (selectedPermission === 'Bank') return true;
-        var bankPerm = !!global.SIDEBAR_COMPANY_HAS_BANK;
-        var hasGambling = !!global.SIDEBAR_COMPANY_HAS_GAMBLING;
+        var bankPerm = companyHasMaintenanceBankFlag();
+        var hasGambling = companyHasMaintenanceGamesFlag();
         if (bankPerm && !hasGambling) return true;
         return isMaintenanceCategoryBankFromStorage();
     }
@@ -81,7 +95,19 @@
         return true;
     }
 
+    function resolveMaintenanceCompanyFlags(hasGamblingFromSession, hasBankFromSession) {
+        var hasGambling = hasGamblingFromSession !== undefined
+            ? hasGamblingFromSession
+            : companyHasMaintenanceGamesFlag();
+        var hasBank = hasBankFromSession !== undefined
+            ? hasBankFromSession
+            : companyHasMaintenanceBankFlag();
+        return { hasGambling: !!hasGambling, hasBank: !!hasBank };
+    }
+
     global.BANK_MAINTENANCE_PROCESSES = BANK_MAINTENANCE_PROCESSES;
+    global.canAccessMaintenancePage = canAccessMaintenancePage;
+    global.resolveMaintenanceCompanyFlags = resolveMaintenanceCompanyFlags;
     global.isBankMaintenanceProcessMode = isBankMaintenanceProcessMode;
     global.renderBankMaintenanceProcessSelect = renderBankMaintenanceProcessSelect;
 })(typeof window !== 'undefined' ? window : this);

@@ -181,6 +181,9 @@ let ownerCompanies = [];
         }
 
         function canAccessCaptureMaintenancePage() {
+            if (typeof window.canAccessMaintenancePage === 'function') {
+                return window.canAccessMaintenancePage();
+            }
             const hasGambling = typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING;
             const hasBank = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' && window.SIDEBAR_COMPANY_HAS_BANK;
             return hasGambling || hasBank;
@@ -219,13 +222,13 @@ let ownerCompanies = [];
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
-            const hasGambling = hasGamblingFromSession !== undefined
-                ? hasGamblingFromSession
-                : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
-            const hasBank = hasBankFromSession !== undefined
-                ? hasBankFromSession
-                : (typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_BANK : false);
-            if (!hasGambling && !hasBank) {
+            const flags = typeof window.resolveMaintenanceCompanyFlags === 'function'
+                ? window.resolveMaintenanceCompanyFlags(hasGamblingFromSession, hasBankFromSession)
+                : {
+                    hasGambling: hasGamblingFromSession !== undefined ? hasGamblingFromSession : !!window.SIDEBAR_COMPANY_HAS_GAMBLING,
+                    hasBank: hasBankFromSession !== undefined ? hasBankFromSession : !!window.SIDEBAR_COMPANY_HAS_BANK
+                };
+            if (!flags.hasGambling && !flags.hasBank) {
                 if (typeof window.redirectAfterCompanySwitch === 'function') {
                     window.redirectAfterCompanySwitch(companyId);
                 } else {
@@ -234,7 +237,7 @@ let ownerCompanies = [];
                 return;
             }
             if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
-                window.updateSidebarDataCaptureVisibility(hasGambling, hasBank);
+                window.updateSidebarDataCaptureVisibility(flags.hasGambling, flags.hasBank);
             }
             loadPermissionButtons();
             loadProcesses();
@@ -769,14 +772,7 @@ let ownerCompanies = [];
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            if (!canAccessCaptureMaintenancePage()) {
-                if (typeof window.redirectAfterCompanySwitch === 'function') {
-                    window.redirectAfterCompanySwitch(currentCompanyId);
-                } else {
-                    window.location.href = 'dashboard.php';
-                }
-                return;
-            }
+            // PHP 已校验 Games/Bank 权限；此处不再 redirect，避免 SIDEBAR 变量未就绪误踢
             // Initialize date pickers
             initDatePickers();
             initMaintenanceDropdownHover();
