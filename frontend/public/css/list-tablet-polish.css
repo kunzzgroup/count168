@@ -46,15 +46,6 @@
     opacity: 0.92 !important;
   }
 
-  /* Account alert pills */
-  body.ec-auth-shell.account-page .account-alert-on,
-  body.ec-auth-shell.account-page .account-alert-off {
-    font-size: 8px !important;
-    padding: 1px 5px !important;
-    border-radius: 4px !important;
-    line-height: 1.2 !important;
-  }
-
   /* ── Group / Company 筛选药丸 ── */
   body.ec-auth-shell .user-gc-segment {
     min-height: 26px !important;
