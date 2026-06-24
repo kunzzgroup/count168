@@ -92,8 +92,6 @@ const SIDEBAR_COLLAPSED_STORAGE_KEY = "ec_sidebar_collapsed";
 /** iPad Air 11" (M2) landscape Safari ≈ 1180px; use 1200px to include that viewport. */
 /** Galaxy Tab S7 横屏约 1280px，需纳入平板侧栏逻辑 */
 const TABLET_MEDIA_QUERY = "(max-width: 1280px)";
-/** iPad / Galaxy Tab landscape + touch — list badge & filter compact density */
-const LIST_COMPACT_MEDIA_QUERY = "(max-width: 1366px), (max-width: 1440px) and (pointer: coarse)";
 /** Icon-only sidebar: portal tooltip to the right of each nav item. */
 function SidebarNavTip({ label, enabled, children, placement = "right" }) {
   return (
@@ -337,19 +335,6 @@ export default function AuthenticatedLayout() {
     onChange();
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  useEffect(() => {
-    const mq = window.matchMedia(LIST_COMPACT_MEDIA_QUERY);
-    const syncListCompact = () => {
-      document.body.classList.toggle("ec-list-compact", mq.matches);
-    };
-    syncListCompact();
-    mq.addEventListener("change", syncListCompact);
-    return () => {
-      mq.removeEventListener("change", syncListCompact);
-      document.body.classList.remove("ec-list-compact");
-    };
   }, []);
 
   useEffect(() => {

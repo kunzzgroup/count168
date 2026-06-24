@@ -3,7 +3,8 @@
    Smart Density & Readability Enhancements for the Entire System
    ========================================================================== */
 
-@media screen and (max-width: 1440px) {
+/* Touch tablets (iPad, Galaxy Tab) keep desktop tokens; laptop 13" uses fine pointer. */
+@media screen and (max-width: 1440px) and (pointer: fine) {
 
     /* ----------------------------------------------------
        1. Base Typography & Hierarchy
