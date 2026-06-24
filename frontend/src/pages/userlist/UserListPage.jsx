@@ -50,7 +50,7 @@ import {
 } from "../../utils/company/loginScope.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
-import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
+import { isPartnershipAuditReadOnlyLocked, isPartnershipAuditReadOnlyBlockingUserEdit } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import "../../../public/css/accountCSS.css";
@@ -333,6 +333,10 @@ export default function UserListPage() {
 
   const canCreateUser = useMemo(() => getAvailableRolesForCreation(currentUserRole).length > 0, [currentUserRole]);
   const userMutationsBlocked = useMemo(() => isPartnershipAuditReadOnlyLocked(me), [me]);
+  const isUserEditBlockedByReadOnly = useCallback(
+    (row) => isPartnershipAuditReadOnlyBlockingUserEdit(me, row?.id, currentUserId),
+    [me, currentUserId],
+  );
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE)), [filteredSorted.length]);
 
@@ -1935,7 +1939,7 @@ export default function UserListPage() {
   };
 
   const openEdit = async (row) => {
-    if (userMutationsBlocked) {
+    if (isUserEditBlockedByReadOnly(row)) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
@@ -2060,7 +2064,7 @@ export default function UserListPage() {
 
   const saveUser = async (e) => {
     e.preventDefault();
-    if (userMutationsBlocked) {
+    if (isUserEditBlockedByReadOnly(editingRow)) {
       notify(t("readOnlyActionBlocked"), "danger");
       return;
     }
@@ -2492,10 +2496,10 @@ export default function UserListPage() {
                         type="button"
                         className="btn btn-edit"
                         onClick={() => openEdit(r)}
-                        disabled={!editReady || userMutationsBlocked}
+                        disabled={!editReady || isUserEditBlockedByReadOnly(r)}
                         aria-label={t("edit")}
                         title={t("edit")}
-                        style={{ opacity: editReady && !userMutationsBlocked ? 1 : 0.3 }}
+                        style={{ opacity: editReady && !isUserEditBlockedByReadOnly(r) ? 1 : 0.3 }}
                       >
                         <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
                       </button>
@@ -2549,7 +2553,7 @@ export default function UserListPage() {
             document.body
           )
         : null}
-      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} currentUserId={currentUserId} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} visiblePermissionKeys={visiblePermissionKeys} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} groupPickerMode={!useDualTenantUserPicker && groupOnlyUserList} dualTenantPicker={useDualTenantUserPicker} modalGroupCompanies={modalGroupCompanies} modalSubsidiaryCompanies={modalSubsidiaryCompanies} selectedGroupIds={selectedGroupIds} setSelectedGroupIds={setSelectedGroupIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={userMutationsBlocked} t={t} />
+      <UserModal open={modalOpen} onClose={closeModal} isEditMode={isEditMode} editingRow={editingRow} form={form} setForm={setForm} isC168Company={isC168Company} currentUserRole={currentUserRole} currentUserId={currentUserId} roleSelectDisabled={roleSelectDisabled} loginDisabled={loginDisabled} fieldLocks={fieldLocks} permDisabledMap={permDisabledMap} visiblePermissionKeys={visiblePermissionKeys} permSelected={permSelected} setPermSelected={setPermSelected} modalCompanies={modalCompanies} selectedCompanyIds={selectedCompanyIds} setSelectedCompanyIds={setSelectedCompanyIds} groupPickerMode={!useDualTenantUserPicker && groupOnlyUserList} dualTenantPicker={useDualTenantUserPicker} modalGroupCompanies={modalGroupCompanies} modalSubsidiaryCompanies={modalSubsidiaryCompanies} selectedGroupIds={selectedGroupIds} setSelectedGroupIds={setSelectedGroupIds} modalAccounts={modalAccounts} selectedAccountIds={selectedAccountIds} setSelectedAccountIds={setSelectedAccountIds} modalProcesses={modalProcesses} selectedProcessIds={selectedProcessIds} setSelectedProcessIds={setSelectedProcessIds} applyPermTemplate={applyPermTemplate} onSave={saveUser} sessionMutationsBlocked={isUserEditBlockedByReadOnly(editingRow)} t={t} />
       <UserConfirmModal open={confirmOpen} message={confirmMessage} onConfirm={confirmDelete} onClose={() => setConfirmOpen(false)} confirmDisabled={userMutationsBlocked} t={t} />
     </>
   );
