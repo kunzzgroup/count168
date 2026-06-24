@@ -659,9 +659,9 @@ const MERGE_DASHBOARD_PARALLEL_BATCH = 12;
 /** Idle delay before one-time session warm of picker companies (current currency only). */
 const SESSION_DASHBOARD_WARM_DELAY_MS = 6000;
 /** Parallel kpi bootstrap requests when filling multi-currency earnings sidebar. */
-const EARNINGS_KPI_PARALLEL_BATCH = 3;
+const EARNINGS_KPI_PARALLEL_BATCH = 5;
 /** Defer trend-chart daily fetch so MoM previous can use DB first. */
-const CHART_DAILY_DEFER_MS = 250;
+const CHART_DAILY_DEFER_MS = 0;
 
 function scheduleChartDailyLoad(cacheKey, resolveScopeKey, loadChartDaily) {
   window.setTimeout(() => {
@@ -7812,6 +7812,7 @@ export function useDashboardPage({ i18n, dateFrom, dateTo }) {
     summaryEarningsValue,
     summaryConversionNote,
     summaryEarningsLoading,
+    summaryScopeLoading,
     earningsPanelStable,
     earningsByCurrencyLoading,
     exchangeRates,

@@ -83,6 +83,7 @@ export default function TransactionDashboardPage() {
               onToggleSeries={page.toggleChartSeries}
               chartDateRangeText={page.chartDateRangeText}
               chartXAxisLayout={page.chartXAxisLayout}
+              chartDataStable={page.chartDataStable}
               chartScopeKey={page.dashboardScopeKey}
               panelAnimActive={page.panelsAnimReady}
               panelAnimEpoch={page.panelAnimEpoch}
@@ -99,6 +100,7 @@ export default function TransactionDashboardPage() {
               summaryEarningsValue={page.summaryEarningsValue}
               summaryConversionNote={page.summaryConversionNote}
               summaryEarningsLoading={page.summaryEarningsLoading}
+              summaryScopeLoading={page.summaryScopeLoading}
               earningsPanelStable={page.earningsPanelStable}
               earningsByCurrencyLoading={page.earningsByCurrencyLoading}
               exchangeRates={page.exchangeRates}
