@@ -2840,7 +2840,8 @@ export default function AccountListPage() {
               <div className="account-header-item account-header-item--action">{t("action")}</div>
             </div>
             <div
-              className={`account-cards${showAll ? " account-cards--show-all" : ""}${!showAll && pageRows.length === PAGE_SIZE ? " account-cards--paged-fill" : ""}`}
+              className={`account-cards${showAll ? " account-cards--show-all" : ""}${!showAll && pageRows.length > 0 ? " account-cards--paged-fill" : ""}`}
+              style={!showAll && pageRows.length > 0 ? { "--list-paged-rows": String(pageRows.length) } : undefined}
             >
               {pageRows.map((a, idx) => {
                 const alertOn = String(a.payment_alert) === "1";

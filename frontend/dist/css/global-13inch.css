@@ -745,7 +745,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.user-page:not(.user-page--show-all) .user-cards.user-cards--paged-fill {
         display: grid !important;
         grid-template-columns: 1fr !important;
-        grid-template-rows: repeat(25, minmax(0, 1fr)) !important;
+        grid-template-rows: repeat(var(--list-paged-rows, 25), minmax(0, 1fr)) !important;
         flex: 1 1 auto !important;
         align-content: stretch !important;
     }
@@ -931,7 +931,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     body.account-page:not(.account-page--show-all) .account-cards.account-cards--paged-fill {
         display: grid !important;
         grid-template-columns: 1fr !important;
-        grid-template-rows: repeat(25, minmax(0, 1fr)) !important;
+        grid-template-rows: repeat(var(--list-paged-rows, 25), minmax(0, 1fr)) !important;
         flex: 1 1 auto !important;
         align-content: stretch !important;
     }
