@@ -251,9 +251,41 @@ body.account-page:not(.account-page--show-all) .account-table-header.account-lis
     justify-content: left;
 }
 
-.account-list-table .account-list-table-header .account-header-item:last-child,
-.account-list-table .account-list-row .account-card-item:last-child {
+.account-list-table .account-list-table-header .account-header-item:last-child:not(.account-header-item--action),
+.account-list-table .account-list-row .account-card-item:last-child:not(.account-card-item--action) {
     justify-content: center;
+}
+
+.account-list-table .account-list-table-header .account-header-item--action,
+.account-list-table .account-list-row .account-card-item--action {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.account-list-table .account-list-row .account-card-item--action .account-action-tools {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    vertical-align: middle;
+}
+
+.account-list-table .account-list-row .account-card-item--action .btn.btn-edit.account-edit-btn,
+.account-list-table .account-list-row .account-card-item--action .account-edit-btn {
+    background: transparent;
+    border: transparent;
+    box-shadow: none;
+}
+
+.account-list-table .account-list-row .account-card-item--action .btn.btn-edit.account-edit-btn:hover,
+.account-list-table .account-list-row .account-card-item--action .account-edit-btn:hover {
+    background: transparent;
+    box-shadow: none;
+    transform: none;
 }
 
 body.account-page:not(.account-page--show-all) .account-cards {
@@ -329,34 +361,6 @@ body.account-page:not(.account-page--show-all) .account-list-row .account-card-i
     text-overflow: clip;
     flex-shrink: 0;
     min-width: min-content;
-}
-
-body.account-page:not(.account-page--show-all) .account-list-row .account-card-item--action {
-    justify-content: center;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-}
-
-body.account-page:not(.account-page--show-all) .account-list-row .account-card-item--action .account-action-tools {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    vertical-align: middle;
-}
-
-body.account-page:not(.account-page--show-all) .account-list-row .account-card-item--action .btn.btn-edit.account-edit-btn,
-body.account-page:not(.account-page--show-all) .account-list-row .account-card-item--action .account-edit-btn {
-    background: transparent;
-    border: transparent;
-    box-shadow: none;
-}
-
-body.account-page:not(.account-page--show-all) .account-list-row .account-card-item--action .btn.btn-edit.account-edit-btn:hover,
-body.account-page:not(.account-page--show-all) .account-list-row .account-card-item--action .account-edit-btn:hover {
-    background: transparent;
-    box-shadow: none;
-    transform: none;
 }
 
 /* 分页：固定右下角（与 User List 一致），避免 25 行时流内分页被挤出视口 */

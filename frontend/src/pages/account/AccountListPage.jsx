@@ -2836,7 +2836,7 @@ export default function AccountListPage() {
               {renderSortableHeader(t("status"), "status")}
               {renderSortableHeader(t("lastLogin"), "lastLogin")}
               {renderSortableHeader(t("remark"), "remark")}
-              <div className="account-header-item">{t("action")}</div>
+              <div className="account-header-item account-header-item--action">{t("action")}</div>
             </div>
             <div
               className={`account-cards${showAll ? " account-cards--show-all" : ""}${!showAll && pageRows.length === PAGE_SIZE ? " account-cards--paged-fill" : ""}`}
