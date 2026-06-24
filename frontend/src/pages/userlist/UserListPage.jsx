@@ -2324,7 +2324,6 @@ export default function UserListPage() {
             />
           </div>
           <div className={`user-table-wrapper user-list-table${showBulkDeleteColumn ? " user-table-wrapper--bulk-delete-col" : ""}`}>
-            <div className="user-list-table-inner">
             <div className="table-header user-list-table-header">
               <div
                 className="header-item header-item--with-sort-icon header-sortable"
@@ -2446,7 +2445,7 @@ export default function UserListPage() {
                 <span className="header-item__label">{t("createdBy")}</span>
                 {renderUserListHeaderSortIcon("createdBy")}
               </div>
-              <div className="header-item">
+              <div className="header-item header-item--action">
                 <span className="header-item__label">{t("action")}</span>
               </div>
               {showBulkDeleteColumn && (
@@ -2471,7 +2470,9 @@ export default function UserListPage() {
                 </div>
               )}
             </div>
-            <div className="user-cards">
+            <div
+              className={`user-cards${!showAll && pageRows.length === PAGE_SIZE ? " user-cards--paged-fill" : ""}`}
+            >
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
                 const del = getDeleteCheckboxState(r, caps);
@@ -2487,7 +2488,17 @@ export default function UserListPage() {
                     <div className="card-item">{formatLastLogin(r.last_login)}</div>
                     <div className="card-item">{String(r.created_by || "-").toUpperCase()}</div>
                     <div className="card-item card-item--action">
-                      <button className="btn btn-edit" onClick={() => openEdit(r)} disabled={!editReady || userMutationsBlocked} style={{ opacity: editReady && !userMutationsBlocked ? 1 : 0.3 }}><img src={assetUrl("images/edit.svg")} alt="Edit" /></button>
+                      <button
+                        type="button"
+                        className="btn btn-edit"
+                        onClick={() => openEdit(r)}
+                        disabled={!editReady || userMutationsBlocked}
+                        aria-label={t("edit")}
+                        title={t("edit")}
+                        style={{ opacity: editReady && !userMutationsBlocked ? 1 : 0.3 }}
+                      >
+                        <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
+                      </button>
                     </div>
                     {showBulkDeleteColumn && (
                       <div className="card-item card-item--select">
@@ -2513,7 +2524,6 @@ export default function UserListPage() {
                   </div>
                 );
               })}
-            </div>
             </div>
           </div>
           {!showAll && (

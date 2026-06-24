@@ -45,22 +45,17 @@
 
   /* 表格：横向滚动在 inner 上，表头与数据行同宽同步 */
   body.user-page .user-table-wrapper {
-    overflow-x: hidden;
-    overflow-y: hidden;
-  }
-
-  body.user-page .user-list-table-inner {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: stable;
   }
 
+  body.user-page:not(.user-page--show-all) .user-list-table .user-cards {
+    overflow-x: visible !important;
+    overflow-y: hidden !important;
+  }
+
+  body.user-page .user-list-table .user-list-table-header,
   body.user-page .user-list-table .user-cards {
-    overflow-x: visible;
-    overflow-y: visible;
-  }
-
-  body.user-page .user-list-table-inner {
     min-width: max(100%, 980px);
     width: 100%;
     box-sizing: border-box;

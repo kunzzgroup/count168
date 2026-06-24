@@ -10,7 +10,7 @@ import {
   normalizeCompanyGroupId,
 } from "../../utils/company/sharedCompanyFilter.js";
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 25;
 
 export const ROLE_HIERARCHY = {
   owner: 0,
