@@ -52,6 +52,70 @@
         return base + '/' + raw;
     }
 
+    function parseTransactionsApiJsonText(text) {
+        const t = String(text || '').trim();
+        if (!t) {
+            throw new Error('Empty response from server');
+        }
+        try {
+            return JSON.parse(t);
+        } catch (e) {
+            if (t.startsWith('<') || t.toLowerCase().includes('<!doctype')) {
+                throw new Error('Session may have expired. Please refresh the page and try again.');
+            }
+            throw new Error('Invalid server response. Please refresh and try again.');
+        }
+    }
+
+    function transactionsApiFetchMessage(response, data, fallback) {
+        if (data && (data.error || data.message)) {
+            return data.error || data.message;
+        }
+        if (response && (response.status === 401 || response.status === 403)) {
+            return 'Access denied. Please refresh the page and try again.';
+        }
+        if (response && response.status >= 500) {
+            return 'Server error. Please try again later.';
+        }
+        return fallback || (response ? `Request failed (${response.status})` : 'Request failed');
+    }
+
+    function fetchTransactionsApiGet(url) {
+        return fetch(url, {
+            method: 'GET',
+            cache: 'no-store',
+            credentials: 'same-origin',
+            headers: {
+                'Cache-Control': 'no-store',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(response => response.text().then(text => {
+            let data = null;
+            try {
+                data = parseTransactionsApiJsonText(text);
+            } catch (parseErr) {
+                const err = new Error(transactionsApiFetchMessage(response, null, parseErr.message));
+                err.response = response;
+                throw err;
+            }
+            if (!response.ok || data.success === false) {
+                const err = new Error(transactionsApiFetchMessage(response, data, 'Request failed'));
+                err.response = response;
+                err.data = data;
+                throw err;
+            }
+            return data;
+        }));
+    }
+
+    function isHistoryApiRetriableError(err) {
+        if (!err) return false;
+        const status = err.response && err.response.status;
+        if (status === 401 || status === 403) return true;
+        const msg = String(err.message || err.data?.error || err.data?.message || '');
+        return /无权|permission|denied|login|session|company|未登录|expired/i.test(msg);
+    }
+
     function syncSubmitButtonState() {
         const confirmCheckbox = document.getElementById('confirm_submit');
         const submitBtn = document.getElementById('submit_btn');
@@ -1538,6 +1602,20 @@
         searchTransactions(false, { silent: true });
     }
 
+    function clearCurrentTxListSessionCache() {
+        const key = buildTxListSessionKey();
+        if (!key) return;
+        try {
+            sessionStorage.removeItem(key);
+        } catch (e) { /* ignore */ }
+    }
+
+    function retrySearchAfterSessionCacheFailure(isInitialLoad) {
+        clearCurrentTxListSessionCache();
+        lastSearchData = null;
+        searchTransactions(isInitialLoad, { silent: false, retryAfterCacheFail: true });
+    }
+
     function buildTxListSessionKey() {
         const dateFrom = document.getElementById('date_from') && document.getElementById('date_from').value;
         const dateTo = document.getElementById('date_to') && document.getElementById('date_to').value;
@@ -1995,9 +2073,11 @@
     // isInitialLoad: 首次进入页面自动搜当天数据时传 true（预留）
     // opts.silent: 为 true 时不盖掉已有表格、不显示全屏 Loading，且不弹出「搜索完成」类提示（用于 session 回放后的后台刷新）
     // opts.forceRefresh: 为 true 时跳过「同条件 1200ms 内不重复搜 / 同条件 in-flight 不重发」，用于提交成功后必须见库内最新余额
+    // opts.retryAfterCacheFail: session 回放后后台搜索失败时的单次重试，避免无限循环
     function searchTransactions(isInitialLoad, opts) {
         opts = opts || {};
         const silent = opts.silent === true;
+        const retryAfterCacheFail = opts.retryAfterCacheFail === true;
         // 提交成功后必须拉最新列表：否则与「同条件 1200ms 内不重复搜」冲突，主表会停在某次旧数据
         const forceRefresh = opts.forceRefresh === true;
         const dateFrom = document.getElementById('date_from').value;
@@ -2313,6 +2393,10 @@
                 } else {
                     if (loadingEl) loadingEl.style.display = 'none';
                     console.error('❌ 搜索失败:', data.error);
+                    if (silent && !retryAfterCacheFail) {
+                        retrySearchAfterSessionCacheFailure(isInitialLoad);
+                        return;
+                    }
                     if (!silent && tablesSection) tablesSection.style.display = 'none';
                     showNotification(data.error || 'Search failed', 'error');
                 }
@@ -2320,6 +2404,11 @@
             .catch(error => {
                 if (error && error.name === 'AbortError') return;
                 if (loadingEl) loadingEl.style.display = 'none';
+                if (silent && !retryAfterCacheFail) {
+                    console.warn('❌ 后台搜索失败，清除 session 缓存并重试:', error);
+                    retrySearchAfterSessionCacheFailure(isInitialLoad);
+                    return;
+                }
                 if (!silent && tablesSection) tablesSection.style.display = 'none';
                 console.error('❌ 搜索失败:', error);
                 showNotification('Search failed: ' + error.message, 'error');
@@ -3680,73 +3769,71 @@
             return;
         }
 
-        // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
-        let url = `${transactionsApiUrl('api/transactions/history_api.php')}?account_id=${aid}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
-        if (isVirtualCompanyRow) {
-            url += `&virtual_company_code=${encodeURIComponent(virtualCompanyCode)}`;
-        }
-        // 优先使用该行的 currency
-        if (rowCurrency) {
-            url += `&currency=${rowCurrency}`;
-        } else if (selectedCurrencies.length > 0) {
-            url += `&currency=${selectedCurrencies.join(',')}`;
-        }
-        if (currentCompanyId) {
-            url += `&company_id=${currentCompanyId}`;
+        function buildHistoryApiUrl(includeCompanyId) {
+            let historyUrl = `${transactionsApiUrl('api/transactions/history_api.php')}?account_id=${aid}&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+            if (isVirtualCompanyRow) {
+                historyUrl += `&virtual_company_code=${encodeURIComponent(virtualCompanyCode)}`;
+            }
+            if (rowCurrency) {
+                historyUrl += `&currency=${rowCurrency}`;
+            } else if (selectedCurrencies.length > 0) {
+                historyUrl += `&currency=${selectedCurrencies.join(',')}`;
+            }
+            if (includeCompanyId && currentCompanyId) {
+                historyUrl += `&company_id=${currentCompanyId}`;
+            }
+            historyUrl += '&_t=' + Date.now();
+            return historyUrl;
         }
 
-        // 添加时间戳防止缓存
-        url += '&_t=' + Date.now();
+        function requestHistory(includeCompanyId) {
+            return fetchTransactionsApiGet(buildHistoryApiUrl(includeCompanyId));
+        }
 
         console.log('📜 打开历史记录:', { accountId, accountCode, accountName, rowCurrency, currencies: selectedCurrencies });
 
-        fetch(url, {
-            method: 'GET',
-            cache: 'no-store',
-            headers: {
-                'Cache-Control': 'no-store'
-            }
-        })
-            .then(response => response.json())
+        requestHistory(true)
+            .catch(err => {
+                if (!currentCompanyId || !isHistoryApiRetriableError(err)) {
+                    throw err;
+                }
+                console.warn('⚠️ history_api 带 company_id 失败，改用 session 公司重试:', err.message);
+                return requestHistory(false);
+            })
             .then(data => {
-                if (data.success) {
-                    console.log('✅ 历史记录加载成功:', data.data);
-                    // 标题使用 API 返回的账户信息，确保与表格数据一致（避免单向连接时显示错误账户）
-                    const acc = data.data && data.data.account;
-                    const titleCode = acc ? (acc.account_id || accountCode) : accountCode;
-                    const titleName = acc ? (acc.name || accountName) : accountName;
-                    document.getElementById('modal_title').textContent =
-                        `Payment History - ${titleCode} (${titleName})`;
+                console.log('✅ 历史记录加载成功:', data.data);
+                const acc = data.data && data.data.account;
+                const titleCode = acc ? (acc.account_id || accountCode) : accountCode;
+                const titleName = acc ? (acc.name || accountName) : accountName;
+                document.getElementById('modal_title').textContent =
+                    `Payment History - ${titleCode} (${titleName})`;
 
-                    // 填充表格
-                    const tbody = document.getElementById('modal_tbody');
-                    tbody.innerHTML = '';
+                const tbody = document.getElementById('modal_tbody');
+                tbody.innerHTML = '';
 
-                    data.data.history.forEach(row => {
-                        const tr = document.createElement('tr');
-                        tr.className = row.row_type === 'bf' ? 'transaction-bf-row' : 'transaction-table-row';
-                        if (row.row_type === 'bf') {
-                            tr.style.fontWeight = 'bold';
-                            tr.style.backgroundColor = '#f0f0f0';
-                        }
+                data.data.history.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.className = row.row_type === 'bf' ? 'transaction-bf-row' : 'transaction-table-row';
+                    if (row.row_type === 'bf') {
+                        tr.style.fontWeight = 'bold';
+                        tr.style.backgroundColor = '#f0f0f0';
+                    }
 
-                        // 格式化数字列（如果不是 '-'）；展示使用四舍五入到 2 位（HALF_UP），但不改变后端原始值与统计口径
-                        const winLoss = row.win_loss === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.win_loss);
-                        const crDr = row.cr_dr === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.cr_dr);
-                        const balance = row.balance === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.balance);
-                        const remarkValue = getHistoryRemark(row);
-                        const descriptionDisplay = toUpperDisplay(row.description);
-                        const descriptionCells = showDescriptionColumn
-                            ? `<td class="transaction-history-col-description text-uppercase">${descriptionDisplay}</td>
+                    const winLoss = row.win_loss === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.win_loss);
+                    const crDr = row.cr_dr === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.cr_dr);
+                    const balance = row.balance === '-' ? '-' : formatPaymentHistoryMoneyHalfUp(row.balance);
+                    const remarkValue = getHistoryRemark(row);
+                    const descriptionDisplay = toUpperDisplay(row.description);
+                    const descriptionCells = showDescriptionColumn
+                        ? `<td class="transaction-history-col-description text-uppercase">${descriptionDisplay}</td>
                            <td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`
-                            : `<td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`;
-                        // Id Product 列：仅 bank process 交易显示 Card Owner；datacapturesummary 提交及其他均显示 id product
-                        const idProductDisplay = row.is_bank_process_transaction ? (row.card_owner || '-') : (row.product || '-');
+                        : `<td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`;
+                    const idProductDisplay = row.is_bank_process_transaction ? (row.card_owner || '-') : (row.product || '-');
 
-                        const createdByDisplay = (row.created_by === null || row.created_by === undefined || String(row.created_by).trim() === '' || String(row.created_by).toLowerCase() === 'null')
-                            ? '-'
-                            : String(row.created_by);
-                        tr.innerHTML = `
+                    const createdByDisplay = (row.created_by === null || row.created_by === undefined || String(row.created_by).trim() === '' || String(row.created_by).toLowerCase() === 'null')
+                        ? '-'
+                        : String(row.created_by);
+                    tr.innerHTML = `
                         <td class="transaction-history-col-date">${row.date}</td>
                         <td class="transaction-history-col-product">${String(idProductDisplay).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</td>
                         <td class="transaction-history-col-currency">${row.currency || '-'}</td>
@@ -3757,14 +3844,10 @@
                         ${descriptionCells}
                         <td class="transaction-history-col-created">${createdByDisplay}</td>
                     `;
-                        tbody.appendChild(tr);
-                    });
+                    tbody.appendChild(tr);
+                });
 
-                    // 显示弹窗
-                    document.getElementById('historyModal').style.display = 'flex';
-                } else {
-                    showNotification(data.error || 'Failed to load history', 'error');
-                }
+                document.getElementById('historyModal').style.display = 'flex';
             })
             .catch(error => {
                 console.error('❌ 加载历史记录失败:', error);
