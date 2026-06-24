@@ -2727,8 +2727,7 @@ export default function AccountListPage() {
         <div className="content">
           <div className="action-buttons-container">
             <div className="action-buttons">
-              <div className="account-toolbar-top-row">
-                <div className="action-controls-row account-toolbar-primary">
+                <div className="action-controls-row account-toolbar-primary" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="btn btn-add"
@@ -2788,7 +2787,7 @@ export default function AccountListPage() {
                   </button>
                 </div>
                 </div>
-                <div className="user-toolbar-actions-right">
+                <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                   <button
                     type="button"
                     className="btn btn-currency-setting"
@@ -2806,7 +2805,6 @@ export default function AccountListPage() {
                     {t("deleteWithCount", { count: selectedDeleteIds.size })}
                   </button>
                 </div>
-              </div>
             </div>
             <GcInlineFilterPanel
               t={t}
@@ -2829,7 +2827,6 @@ export default function AccountListPage() {
           </div>
 
           <div className="account-table-wrapper account-list-table">
-            <div className="account-list-table-inner">
             <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
               {renderSortableHeader(t("account"), "account")}
@@ -2841,7 +2838,9 @@ export default function AccountListPage() {
               {renderSortableHeader(t("remark"), "remark")}
               <div className="account-header-item">{t("action")}</div>
             </div>
-            <div className={`account-cards${showAll ? " account-cards--show-all" : ""}`}>
+            <div
+              className={`account-cards${showAll ? " account-cards--show-all" : ""}${!showAll && pageRows.length === PAGE_SIZE ? " account-cards--paged-fill" : ""}`}
+            >
               {pageRows.map((a, idx) => {
                 const alertOn = String(a.payment_alert) === "1";
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
@@ -2867,7 +2866,6 @@ export default function AccountListPage() {
                   </div>
                 );
               })}
-            </div>
             </div>
           </div>
           {!showAll && (

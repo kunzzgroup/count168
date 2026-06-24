@@ -97,9 +97,9 @@ body.account-page .action-buttons-container {
 body.account-page .action-buttons {
     padding: 10px 20px;
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
     flex: 0 0 auto;
 }
 
@@ -267,6 +267,23 @@ body.account-page:not(.account-page--show-all) .account-cards {
     justify-content: flex-start;
 }
 
+/* 满页 25 条：grid 均分剩余高度，与 Process 贴底效果一致 */
+body.account-page:not(.account-page--show-all) .account-cards.account-cards--paged-fill {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(25, minmax(0, 1fr));
+    flex: 1 1 auto;
+    align-content: stretch;
+}
+
+body.account-page:not(.account-page--show-all) .account-cards.account-cards--paged-fill .account-list-row {
+    flex: unset;
+    min-height: 0;
+    height: auto;
+    align-items: center;
+    align-self: stretch;
+}
+
 body.account-page:not(.account-page--show-all) .account-list-table .account-list-row {
     flex: 0 0 auto;
     width: 100%;
@@ -295,10 +312,12 @@ body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .
 }
 
 body.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
-body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-role-badge {
-    padding: 0 clamp(4px, 0.35vw, 6px);
-    line-height: 1.1;
-    font-size: var(--text-tiny);
+body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
+body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row span.account-role-badge {
+    padding: 0 clamp(4px, 0.35vw, 6px) !important;
+    line-height: 1 !important;
+    font-size: var(--text-tiny) !important;
+    min-width: 0 !important;
 }
 
 body.account-page:not(.account-page--show-all) .account-list-row .account-card-item:has(.account-role-badge) {
@@ -306,6 +325,14 @@ body.account-page:not(.account-page--show-all) .account-list-row .account-card-i
     text-overflow: clip;
     flex-shrink: 0;
     min-width: min-content;
+}
+
+body.account-page:not(.account-page--show-all) .account-list-row .account-edit-btn svg,
+body.account-page:not(.account-page--show-all) .account-list-row .account-edit-btn img,
+body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-edit-btn svg,
+body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-edit-btn img {
+    width: 14px !important;
+    height: 14px !important;
 }
 
 /* 分页：固定右下角（与 User List 一致），避免 25 行时流内分页被挤出视口 */

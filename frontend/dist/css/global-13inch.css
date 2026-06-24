@@ -722,7 +722,7 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         box-sizing: border-box !important;
     }
 
-    body.account-page:not(.account-page--show-all) .account-list-table-inner {
+    body.account-page:not(.account-page--show-all) .account-table-wrapper.account-list-table {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         display: flex !important;
@@ -829,8 +829,33 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
     }
 
     body.account-page:not(.account-page--show-all) .account-cards {
-        overflow: hidden !important;
+        flex: 1 1 auto !important;
         min-height: 0 !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .account-cards.account-cards--paged-fill {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        grid-template-rows: repeat(25, minmax(0, 1fr)) !important;
+        flex: 1 1 auto !important;
+        align-content: stretch !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .account-cards.account-cards--paged-fill .account-list-row {
+        flex: unset !important;
+        min-height: 0 !important;
+        align-self: stretch !important;
+    }
+
+    body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
+    body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row span.account-role-badge {
+        padding: 0 6px !important;
+        line-height: 1 !important;
+        min-width: 0 !important;
     }
 
     body.account-page:not(.account-page--show-all) .account-table-wrapper {
