@@ -851,11 +851,14 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         align-self: stretch !important;
     }
 
+    body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row .role-badge,
     body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
     body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row span.account-role-badge {
-        padding: 0 6px !important;
-        line-height: 1 !important;
-        min-width: 0 !important;
+        padding: 4px 10px !important;
+        letter-spacing: 0.025em !important;
+        min-width: max-content !important;
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 
     body.account-page:not(.account-page--show-all) .account-table-wrapper {
