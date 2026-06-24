@@ -219,6 +219,11 @@
         letter-spacing: 0.015em !important;
     }
 
+    body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-card-item {
+        line-height: 1.1 !important;
+        letter-spacing: 0 !important;
+    }
+
 
 
     /* SPECIFIC FIX: Bank Process List (14 columns) MUST be ultra-dense */

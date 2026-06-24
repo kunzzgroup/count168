@@ -74,6 +74,11 @@ body.account-page:not(.account-page--show-all) .content {
 
 body.account-page:not(.account-page--show-all) .action-buttons-container {
     flex-shrink: 0;
+    margin-top: clamp(12px, 1.04vw, 20px) !important;
+}
+
+body.account-page:not(.account-page--show-all) .action-buttons-container .user-gc-inline-panel {
+    padding: 12px 18px 14px 18px;
 }
 
 body.account-page .action-buttons-container {
@@ -166,6 +171,11 @@ body.account-page .account-table-wrapper {
     width: 100%;
     box-sizing: border-box;
     font-family: inherit;
+}
+
+body.account-page:not(.account-page--show-all) .account-list-table .account-list-table-header,
+body.account-page:not(.account-page--show-all) .account-table-header.account-list-table-header {
+    margin-top: 0;
 }
 
 /*
@@ -275,16 +285,19 @@ body.account-page:not(.account-page--show-all) .account-card {
     box-sizing: border-box;
 }
 
-/* 分页模式：行高密度与 Games Process List 对齐，保证 25 行可顶在分页器上方 */
-body.account-page:not(.account-page--show-all) .account-list-row .account-card-item {
-    font-size: var(--text-small) !important;
-    font-weight: var(--font-weight-semibold) !important;
-    line-height: 1.35 !important;
+/* 分页模式：行高密度与 Games Process .card-item（line-height: 1.1）对齐，保证 25 行完整可见 */
+body.account-page:not(.account-page--show-all) .account-list-row .account-card-item,
+body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-card-item {
+    font-size: var(--text-medium) !important;
+    font-weight: bold !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0 !important;
 }
 
-body.account-page:not(.account-page--show-all) .account-list-row .account-role-badge {
-    padding: 0 clamp(3px, 0.35vw, 6px);
-    line-height: 1.2;
+body.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
+body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-role-badge {
+    padding: 0 clamp(4px, 0.35vw, 6px);
+    line-height: 1.1;
     font-size: var(--text-tiny);
 }
 
