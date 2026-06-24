@@ -23,12 +23,12 @@ import { isPartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipA
 import { buildApiUrl } from "../../utils/core/apiUrl.js";
 import { isBankCategoryCompany, resolveBankOnlyCategoryHint } from "../bankprocesslist/lib/bankProcessHelpers.js";
 import "../../../public/css/processCSS.css";
-import "../../../public/css/process-responsive.css";
 import "../../../public/css/description-input.css";
 import "../../../public/css/processlist.css";
 import "../../../public/css/remove-word-chip.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
+import "../../../public/css/process-responsive.css";
 import {
   PAGE_SIZE,
   EMPTY_FORM,
@@ -64,6 +64,8 @@ function filterSearchInput(raw) {
     .replace(/[^A-Z0-9 ]/gi, "")
     .toUpperCase();
 }
+
+const PROCESS_TABLET_LAYOUT_MQ = "(max-width: 1366px), (max-width: 1440px) and (pointer: coarse)";
 
 function resolveProcessListCacheKey(companyId, debouncedSearch, showInactive, showAll) {
   return `company:${Number(companyId)}|${String(debouncedSearch || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
@@ -165,8 +167,21 @@ export default function ProcessListPage() {
     document.body.classList.remove("bg", "dashboard-page", "account-page", "announcement-page");
     document.body.classList.add("process-page");
     return () => {
-      document.body.classList.remove("process-page", "process-page--show-all");
+      document.body.classList.remove("process-page", "process-page--show-all", "process-page--tablet-layout");
       document.body.classList.add("dashboard-page");
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const mq = window.matchMedia(PROCESS_TABLET_LAYOUT_MQ);
+    const syncTabletLayout = () => {
+      document.body.classList.toggle("process-page--tablet-layout", mq.matches);
+    };
+    syncTabletLayout();
+    mq.addEventListener("change", syncTabletLayout);
+    return () => {
+      mq.removeEventListener("change", syncTabletLayout);
+      document.body.classList.remove("process-page--tablet-layout");
     };
   }, []);
 
