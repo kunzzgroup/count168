@@ -55,6 +55,7 @@ import {
   useGcFilterWithAllModes,
 } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
+import { useAutoListPageSize } from "../../hooks/useAutoListPageSize.js";
 import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
@@ -267,6 +268,7 @@ export default function AccountListPage() {
   const syncGcFilterInFlightRef = useRef(false);
   const syncGcFilterFromSessionRef = useRef(() => {});
   const lastAccountsFetchKeyRef = useRef("");
+  const listRegionRef = useRef(null);
   const skipInitialGcSyncRef = useRef(false);
   const bootInitializedRef = useRef(false);
   const bootForUserRef = useRef(null);
@@ -1853,15 +1855,35 @@ export default function AccountListPage() {
 
   const accountMutationsBlocked = usePartnershipAuditReadOnlyLocked(sessionMe);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
+  const pageSize = useAutoListPageSize({
+    listRegionRef,
+    enabled: !showAll,
+    rowSelector: ".account-list-row",
+    headerSelector: ".account-list-table-header",
+    paginationSelector: ".account-pagination-container",
+    maxRows: PAGE_SIZE,
+    remeasureDeps: [
+      filteredForMode.length,
+      showAll,
+      showInactive,
+      currentPage,
+      companyId,
+      selectedGroup,
+    ],
+  });
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredForMode.length / pageSize)),
+    [filteredForMode, pageSize],
+  );
   const effectivePage = useMemo(
     () => Math.min(Math.max(1, currentPage), totalPages),
     [currentPage, totalPages],
   );
   const pageRows = useMemo(() => {
     if (showAll) return filteredForMode;
-    return filteredForMode.slice((effectivePage - 1) * PAGE_SIZE, effectivePage * PAGE_SIZE);
-  }, [filteredForMode, showAll, effectivePage]);
+    return filteredForMode.slice((effectivePage - 1) * pageSize, effectivePage * pageSize);
+  }, [filteredForMode, showAll, effectivePage, pageSize]);
 
   /** React scope (instant on pill click) — do not wait for sessionStorage group-only flag. */
   const isGroupOnlyScope = useMemo(
@@ -2828,7 +2850,7 @@ export default function AccountListPage() {
             />
           </div>
 
-          <div className="account-table-wrapper account-list-table">
+          <div ref={listRegionRef} className="account-table-wrapper account-list-table">
             <div className="account-list-table-inner">
             <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
@@ -2847,7 +2869,7 @@ export default function AccountListPage() {
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
                 return (
                   <div className="account-card account-list-row" key={a.id}>
-                    <div className="account-card-item">{showAll ? idx + 1 : (effectivePage - 1) * PAGE_SIZE + idx + 1}</div>
+                    <div className="account-card-item">{showAll ? idx + 1 : (effectivePage - 1) * pageSize + idx + 1}</div>
                     <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
                     <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{formatAccountRoleDisplay(t, a.role)}</span></div>

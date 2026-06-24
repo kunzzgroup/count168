@@ -40,23 +40,40 @@ body.account-page {
     font-size: var(--text-medium) !important;
 }
 
+/* 非 Show All：全视口一屏，禁止整页纵向滚动（与 Games Process List 一致） */
+html:has(body.account-page:not(.account-page--show-all)) {
+    height: 100%;
+    overflow: hidden;
+}
+
 body.account-page:not(.account-page--show-all) {
     overflow-x: hidden !important;
     overflow-y: hidden !important;
     height: 100vh !important;
+    max-height: 100vh !important;
 }
 
 body.account-page:not(.account-page--show-all) .container {
     height: 100vh !important;
+    max-height: 100vh !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
 }
 
 body.account-page:not(.account-page--show-all) .content {
-    height: calc(100vh - var(--layout-page-top-inset)) !important;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-height: 0;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+body.account-page:not(.account-page--show-all) .action-buttons-container {
+    flex-shrink: 0;
 }
 
 body.account-page .action-buttons-container {
@@ -157,6 +174,7 @@ body.account-page .account-table-wrapper {
  */
 .account-list-table {
     width: 100%;
+    --account-list-row-min-height: 26px;
     --account-list-grid-cols:
         38px
         minmax(120px, 1.5fr)

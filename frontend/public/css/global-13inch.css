@@ -668,17 +668,65 @@ body.ec-auth-shell .datacapture-table tbody tr:hover td {
         max-height: 100vh !important;
     }
 
-    body.user-page:not(.user-page--show-all) .container,
-    body.account-page:not(.account-page--show-all) .container {
+    body.user-page:not(.user-page--show-all) .container {
         height: 100vh !important;
         overflow: hidden !important;
     }
 
-    body.user-page:not(.user-page--show-all) .content,
-    body.account-page:not(.account-page--show-all) .content {
+    body.user-page:not(.user-page--show-all) .content {
         height: calc(100vh - var(--layout-page-top-inset)) !important;
         min-height: 0 !important;
         overflow: hidden !important;
+    }
+
+    /* Account List（非 Show All）：与 Games Process List 一屏 flex 布局 */
+    body.account-page:not(.account-page--show-all) .container {
+        height: 100vh !important;
+        min-height: 0 !important;
+        max-height: 100vh !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding-bottom: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding-bottom: 0 !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .action-buttons-container {
+        flex-shrink: 0 !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .account-table-wrapper {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding-bottom: 52px !important;
+        box-sizing: border-box !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .account-list-table-inner {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body.account-page:not(.account-page--show-all) .account-list-table-header,
+    body.account-page:not(.account-page--show-all) .account-table-header.account-list-table-header {
+        flex-shrink: 0 !important;
     }
 
     /* Bank Process（非 Show All）：覆盖下方 Global Unlock，桌面一屏无整页滚动 */
