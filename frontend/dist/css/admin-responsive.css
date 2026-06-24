@@ -3,8 +3,8 @@
    Desktop / laptop: design-tokens + global-13inch. Tablet: ≤1024. No phone UX.
    ========================================================================== */
 
-/* --- Tablet (768–1024)：对齐宽屏布局（图二）— 顶栏右置按钮 + 表格可横滑且表头完整 --- */
-@media (max-width: 1024px) {
+/* --- Tablet (≤1366 / touch)：顶栏右置按钮 + 表格可横滑且表头完整 --- */
+@media (max-width: 1366px), (max-width: 1440px) and (pointer: coarse) {
   body.user-page .container {
     padding-right: clamp(12px, 1.5vw, 24px);
   }
@@ -112,9 +112,20 @@
 
   body.user-page .user-card .role-badge,
   body.user-page .role-badge {
-    font-size: 9px !important;
-    padding: 2px 6px !important;
+    font-size: 8px !important;
+    padding: 1px 5px !important;
     line-height: 1.2;
+    border-radius: 4px !important;
+  }
+
+  body.user-page .user-gc-segment {
+    min-height: 26px !important;
+    padding: 3px 10px !important;
+  }
+
+  body.user-page .user-filter-chip {
+    min-height: 26px;
+    padding: 3px 8px;
   }
 }
 
