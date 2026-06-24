@@ -19,8 +19,8 @@
   body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
   body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row span.account-role-badge,
   body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .role-badge {
-    font-size: 9px !important;
-    padding: 2px 7px !important;
+    font-size: 8px !important;
+    padding: 1px 6px !important;
     border-radius: 20px !important;
     line-height: 1.15 !important;
     letter-spacing: 0.02em !important;
@@ -29,16 +29,17 @@
     border-width: 1px !important;
   }
 
-  /* Account：badge 列不要被 text-medium 撑高 */
-  body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-card-item:has(> .account-role-badge) {
-    font-size: 9px !important;
+  body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-card-item:has(> .account-role-badge),
+  body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .card-item:nth-child(5),
+  body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .card-item:nth-child(6) {
+    font-size: 8px !important;
     font-weight: 400 !important;
     line-height: 1.15 !important;
   }
 
   body.ec-auth-shell.process-page:not(.process-page--bank) .games-process-row .card-item:has(> .role-badge),
   body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .card-item:has(> .role-badge) {
-    font-size: 9px !important;
+    font-size: 8px !important;
     font-weight: 400 !important;
     line-height: 1.15 !important;
   }
