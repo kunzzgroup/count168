@@ -43,15 +43,45 @@
     flex-shrink: 0;
   }
 
-  /* 表格：横向滚动在 inner 上，表头与数据行同宽同步 */
-  body.user-page .user-table-wrapper {
-    overflow-x: auto;
+  /* 表格：表头固定，数据区纵向滚动；宽表横向滑动 */
+  body.user-page:not(.user-page--show-all) .user-table-wrapper.user-list-table {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
     -webkit-overflow-scrolling: touch;
   }
 
+  body.user-page:not(.user-page--show-all) .user-table-wrapper.user-list-table .user-list-table-header {
+    flex-shrink: 0 !important;
+  }
+
   body.user-page:not(.user-page--show-all) .user-list-table .user-cards {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
     overflow-x: visible !important;
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* 满页 25 条：平板不用 grid 均分行高，改自然行高 + 表内滚动 */
+  body.user-page:not(.user-page--show-all) .user-cards.user-cards--paged-fill {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-rows: unset !important;
+    grid-template-columns: unset !important;
+  }
+
+  body.user-page:not(.user-page--show-all) .user-cards.user-cards--paged-fill .user-list-row {
+    flex: 0 0 auto !important;
+    min-height: 28px !important;
+    height: auto !important;
+    align-self: stretch !important;
   }
 
   body.user-page .user-list-table .user-list-table-header,
@@ -61,6 +91,13 @@
     box-sizing: border-box;
   }
 
+  body.user-page .user-list-table .user-list-row .card-item:nth-child(3),
+  body.user-page .user-list-table .user-list-row .card-item:nth-child(4) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
 
   body.user-page .informationmenu .informationmenu-section-title {
     font-size: 1.15rem !important;
