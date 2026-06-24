@@ -59,6 +59,7 @@ import { assetUrl, buildApiUrl } from "../../utils/core/apiUrl.js";
 import "../../../public/css/account-list.css";
 import "../../../public/css/accountCSS.css";
 import "../../../public/css/userlist.css";
+import "../../../public/css/list-badge-scale.css";
 
 // Logic & Constants..
 import {
