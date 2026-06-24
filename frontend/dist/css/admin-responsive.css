@@ -43,7 +43,7 @@
     flex-shrink: 0;
   }
 
-  /* 表格：表头固定，数据区纵向滚动；宽表横向滑动 */
+  /* 表格：一屏展示最多 25 条（grid 均分），无表内纵向滚动；宽表可横滑 */
   body.user-page:not(.user-page--show-all) .user-table-wrapper.user-list-table {
     display: flex !important;
     flex-direction: column !important;
@@ -56,32 +56,48 @@
 
   body.user-page:not(.user-page--show-all) .user-table-wrapper.user-list-table .user-list-table-header {
     flex-shrink: 0 !important;
+    margin-top: 6px !important;
   }
 
   body.user-page:not(.user-page--show-all) .user-list-table .user-cards {
     flex: 1 1 auto !important;
     min-height: 0 !important;
-    overflow-x: visible !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    max-height: none !important;
+    overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
   }
 
-  /* 满页 25 条：平板不用 grid 均分行高，改自然行高 + 表内滚动 */
+  /* 满页 25 条：grid 均分剩余高度，整页一屏展示 */
   body.user-page:not(.user-page--show-all) .user-cards.user-cards--paged-fill {
-    display: flex !important;
-    flex-direction: column !important;
-    grid-template-rows: unset !important;
-    grid-template-columns: unset !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: repeat(25, minmax(0, 1fr)) !important;
+    flex: 1 1 auto !important;
+    align-content: stretch !important;
   }
 
   body.user-page:not(.user-page--show-all) .user-cards.user-cards--paged-fill .user-list-row {
-    flex: 0 0 auto !important;
-    min-height: 28px !important;
+    flex: unset !important;
+    min-height: 0 !important;
     height: auto !important;
     align-self: stretch !important;
+    overflow: hidden !important;
+  }
+
+  body.user-page:not(.user-page--show-all) .user-list-table .user-list-row {
+    min-height: 0 !important;
+    align-items: center !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  body.user-page:not(.user-page--show-all) .action-buttons-container {
+    margin-top: 8px !important;
+  }
+
+  body.user-page:not(.user-page--show-all) .action-buttons-container .user-gc-inline-panel {
+    padding: 8px 12px 10px !important;
   }
 
   body.user-page .user-list-table .user-list-table-header,
@@ -140,11 +156,13 @@
   }
 
   body.user-page .user-list-table .user-list-table-header .header-item,
-  body.user-page .user-list-table .user-list-row .card-item {
+  body.user-page .user-list-table .user-list-row .card-item,
+  body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .card-item {
     font-size: 10px !important;
+    font-weight: 600 !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
-    line-height: 1.35;
+    line-height: 1.1 !important;
   }
 
   body.ec-auth-shell.user-page:not(.user-page--show-all) .user-list-row .card-item:nth-child(5),
