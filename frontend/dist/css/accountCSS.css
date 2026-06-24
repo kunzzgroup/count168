@@ -175,7 +175,7 @@ body.account-page .account-table-wrapper {
 
 body.account-page:not(.account-page--show-all) .account-list-table .account-list-table-header,
 body.account-page:not(.account-page--show-all) .account-table-header.account-list-table-header {
-    margin-top: 0;
+    margin-top: 12px;
 }
 
 /*
