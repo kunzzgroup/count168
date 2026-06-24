@@ -29,7 +29,6 @@ export function DashboardTrendChart({
   onToggleSeries,
   chartDateRangeText,
   chartXAxisLayout,
-  chartDataStable = false,
   chartScopeKey = "",
   panelAnimActive = false,
   panelAnimEpoch = 0,
@@ -43,8 +42,7 @@ export function DashboardTrendChart({
   chartRowsRef.current = chartRows;
 
   const hasChartData = chartRows.length > 0;
-  const chartDisplayKey = `${chartVisitKey}-${chartScopeKey || "scope"}-${chartDateRangeText}`;
-  const chartAnimKey = `${chartDisplayKey}-${panelAnimEpoch}`;
+  const chartSessionKey = `${chartVisitKey}-${chartScopeKey || "scope"}-${chartDateRangeText}-${panelAnimEpoch}`;
   const chartRowsDigest = useMemo(
     () =>
       chartRows
@@ -67,18 +65,15 @@ export function DashboardTrendChart({
   );
 
   useEffect(() => {
-    if (!hasChartData || !chartDataStable) {
+    setChartReady(false);
+    setDisplayRows(null);
+    setDrawAnimate(false);
+  }, [chartSessionKey]);
+
+  useEffect(() => {
+    if (!hasChartData || !panelAnimActive) {
       setChartReady(false);
       setDisplayRows(null);
-      setDrawAnimate(false);
-      return undefined;
-    }
-
-    const targetRows = chartRowsRef.current;
-
-    if (!panelAnimActive) {
-      setChartReady(true);
-      setDisplayRows(targetRows);
       setDrawAnimate(false);
       return undefined;
     }
@@ -86,6 +81,7 @@ export function DashboardTrendChart({
     let cancelled = false;
     let raf1 = 0;
     let raf2 = 0;
+    const targetRows = chartRowsRef.current;
 
     setChartReady(true);
     setDisplayRows(zeroTrendChartRows(targetRows));
@@ -103,17 +99,11 @@ export function DashboardTrendChart({
       cancelled = true;
       window.cancelAnimationFrame(raf1);
       window.cancelAnimationFrame(raf2);
+      setChartReady(false);
+      setDisplayRows(null);
       setDrawAnimate(false);
     };
-  }, [
-    chartDisplayKey,
-    chartScopeKey,
-    hasChartData,
-    chartDataStable,
-    panelAnimActive,
-    panelAnimEpoch,
-    chartRowsDigest,
-  ]);
+  }, [chartSessionKey, chartScopeKey, hasChartData, panelAnimActive, chartRowsDigest]);
 
   return (
     <div className="dashboard-panel-card dashboard-panel-card--chart">
@@ -141,7 +131,7 @@ export function DashboardTrendChart({
         {chartReady && displayRows ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              key={panelAnimActive ? chartAnimKey : chartDisplayKey}
+              key={chartSessionKey}
               data={displayRows}
               baseValue={0}
               margin={{ top: 8, right: 16, left: 0, bottom: chartXAxisLayout.marginBottom }}
