@@ -29,19 +29,51 @@ function draftApiEnsureTable(PDO $pdo): void
     }
     $checked = true;
     $pdo->exec("
-        CREATE TABLE IF NOT EXISTS data_capture_company_draft (
+        CREATE TABLE IF NOT EXISTS data_capture_draft (
             id INT NOT NULL AUTO_INCREMENT,
-            company_id INT NOT NULL,
+            scope_type ENUM('group', 'company') NOT NULL,
+            group_id VARCHAR(50) NULL,
+            company_id INT NULL,
             process_key VARCHAR(64) NOT NULL,
             currency_id INT NOT NULL,
             draft_json LONGTEXT NOT NULL,
             updated_by INT NULL,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
+            UNIQUE KEY uk_group_process_currency (group_id, process_key, currency_id),
             UNIQUE KEY uk_company_process_currency (company_id, process_key, currency_id),
+            KEY idx_scope_type (scope_type),
+            KEY idx_group_id (group_id),
             KEY idx_company_id (company_id),
             KEY idx_updated_at (updated_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    draftApiMigrateLegacyCompanyDraft($pdo);
+}
+
+function draftApiMigrateLegacyCompanyDraft(PDO $pdo): void
+{
+    static $migrated = false;
+    if ($migrated) {
+        return;
+    }
+    $migrated = true;
+
+    $stmt = $pdo->query("SHOW TABLES LIKE 'data_capture_company_draft'");
+    if ($stmt->rowCount() === 0) {
+        return;
+    }
+
+    $pdo->exec("
+        INSERT INTO data_capture_draft
+            (scope_type, group_id, company_id, process_key, currency_id, draft_json, updated_by, updated_at)
+        SELECT
+            'company', NULL, company_id, UPPER(TRIM(process_key)), currency_id, draft_json, updated_by, updated_at
+        FROM data_capture_company_draft
+        ON DUPLICATE KEY UPDATE
+            draft_json = VALUES(draft_json),
+            updated_by = VALUES(updated_by),
+            updated_at = VALUES(updated_at)
     ");
 }
 
@@ -162,8 +194,11 @@ try {
 
         $stmt = $pdo->prepare('
             SELECT draft_json, updated_at
-            FROM data_capture_company_draft
-            WHERE company_id = ? AND process_key = ? AND currency_id = ?
+            FROM data_capture_draft
+            WHERE scope_type = \'company\'
+              AND company_id = ?
+              AND process_key = ?
+              AND currency_id = ?
             LIMIT 1
         ');
         $stmt->execute([$companyId, $processKey, $currencyId]);
@@ -218,9 +253,9 @@ try {
 
         $updatedBy = draftApiUpdatedBy();
         $stmt = $pdo->prepare('
-            INSERT INTO data_capture_company_draft
-                (company_id, process_key, currency_id, draft_json, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, NOW())
+            INSERT INTO data_capture_draft
+                (scope_type, group_id, company_id, process_key, currency_id, draft_json, updated_by, updated_at)
+            VALUES (\'company\', NULL, ?, ?, ?, ?, ?, NOW())
             ON DUPLICATE KEY UPDATE
                 draft_json = VALUES(draft_json),
                 updated_by = VALUES(updated_by),
