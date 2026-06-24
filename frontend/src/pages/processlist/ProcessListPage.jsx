@@ -1448,68 +1448,70 @@ export default function ProcessListPage() {
       <div className="content">
         <div className="action-buttons-container">
           <div className="action-buttons">
-            <div className="action-controls-row" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-add" disabled={processMutationsBlocked || !activeCompanyId} onClick={openAdd}>
-                <AddProcessIcon />
-                {t("addProcess")}
-              </button>
-              <div className="search-container userlist-search-bar">
-                <span className="userlist-search-bar__icon" aria-hidden="true">
-                  <svg fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                  </svg>
-                </span>
-                <input
-                  type="text"
-                  className="search-input userlist-search-input"
-                  placeholder={t("search")}
-                  value={search}
-                  onChange={onSearchChange}
-                />
+            <div className="games-process-toolbar-top-row">
+              <div className="action-controls-row games-process-toolbar-primary">
+                <button type="button" className="btn btn-add" disabled={processMutationsBlocked || !activeCompanyId} onClick={openAdd}>
+                  <AddProcessIcon />
+                  {t("addProcess")}
+                </button>
+                <div className="search-container userlist-search-bar">
+                  <span className="userlist-search-bar__icon" aria-hidden="true">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    className="search-input userlist-search-input"
+                    placeholder={t("search")}
+                    value={search}
+                    onChange={onSearchChange}
+                  />
+                </div>
+                <div className="userlist-filter-chips" role="group">
+                  <button
+                    type="button"
+                    className={`user-filter-chip${showInactive ? " is-selected" : ""}`}
+                    aria-pressed={showInactive}
+                    onClick={() => setShowInactive((prev) => !prev)}
+                  >
+                    <span className="user-filter-chip__dot" aria-hidden>
+                      {showInactive ? (
+                        <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 12l4 4 8-8" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="user-filter-chip__label">{t("showInactive")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`user-filter-chip${showAll ? " is-selected" : ""}`}
+                    aria-pressed={showAll}
+                    onClick={() => setShowAll((prev) => !prev)}
+                  >
+                    <span className="user-filter-chip__dot" aria-hidden>
+                      {showAll ? (
+                        <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 12l4 4 8-8" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="user-filter-chip__label">{t("showAll")}</span>
+                  </button>
+                </div>
               </div>
-              <div className="userlist-filter-chips" role="group">
+              <div className="user-toolbar-actions-right games-process-toolbar-actions">
                 <button
                   type="button"
-                  className={`user-filter-chip${showInactive ? " is-selected" : ""}`}
-                  aria-pressed={showInactive}
-                  onClick={() => setShowInactive((prev) => !prev)}
+                  className="btn btn-delete"
+                  id="processDeleteSelectedBtn"
+                  disabled={!selectedIds.size || processMutationsBlocked}
+                  onClick={deleteSelected}
                 >
-                  <span className="user-filter-chip__dot" aria-hidden>
-                    {showInactive ? (
-                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 12l4 4 8-8" />
-                      </svg>
-                    ) : null}
-                  </span>
-                  <span className="user-filter-chip__label">{t("showInactive")}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`user-filter-chip${showAll ? " is-selected" : ""}`}
-                  aria-pressed={showAll}
-                  onClick={() => setShowAll((prev) => !prev)}
-                >
-                  <span className="user-filter-chip__dot" aria-hidden>
-                    {showAll ? (
-                      <svg className="user-filter-chip__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 12l4 4 8-8" />
-                      </svg>
-                    ) : null}
-                  </span>
-                  <span className="user-filter-chip__label">{t("showAll")}</span>
+                  {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
                 </button>
               </div>
-            </div>
-            <div className="user-toolbar-actions-right" style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-              <button
-                type="button"
-                className="btn btn-delete"
-                id="processDeleteSelectedBtn"
-                disabled={!selectedIds.size || processMutationsBlocked}
-                onClick={deleteSelected}
-              >
-                {selectedIds.size ? t("deleteWithCount", { count: selectedIds.size }) : t("delete")}
-              </button>
             </div>
           </div>
           <div className="user-gc-inline-panel">
@@ -1559,6 +1561,7 @@ export default function ProcessListPage() {
           </div>
         </div>
 
+        <div className="games-process-table-region">
         <ProcessTable
           showAll={showAll}
           showSelectColumn={showInactive || showAll}
@@ -1596,6 +1599,7 @@ export default function ProcessListPage() {
             </button>
           </div>
         )}
+        </div>
       </div>
 
       {modalOpen && (
