@@ -2,8 +2,10 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
-// 仅当公司具有 Games category 权限时才可访问此页（与侧边栏 Maintenance > Data Capture 可见性一致）
+// Games 或 Bank category 公司可访问（与侧边栏 Maintenance 可见性一致）
 $session_company_id = $_SESSION['company_id'] ?? null;
+$hasGamesPermission = false;
+$hasBankPermission = false;
 if ($session_company_id) {
     try {
         $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
@@ -11,12 +13,8 @@ if ($session_company_id) {
         $permsJson = $stmt->fetchColumn();
         $companyPerms = ($permsJson ? json_decode($permsJson, true) : null);
         $hasGamesPermission = is_array($companyPerms) && (in_array('Games', $companyPerms) || in_array('Gambling', $companyPerms));
-        $isBankOnlyCategory = is_array($companyPerms) && in_array('Bank', $companyPerms) && !$hasGamesPermission;
-        if ($isBankOnlyCategory) {
-            header('Location: dashboard.php');
-            exit;
-        }
-        if (!$hasGamesPermission) {
+        $hasBankPermission = is_array($companyPerms) && in_array('Bank', $companyPerms);
+        if (!$hasGamesPermission && !$hasBankPermission) {
             header('Location: processlist.php?error=no_gambling_permission');
             exit;
         }
@@ -79,6 +77,10 @@ if (!empty($session_company_id)) {
     <link rel="stylesheet" href="css/sidebar.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
+    <script>
+        window.MAINTENANCE_COMPANY_HAS_GAMES = <?php echo $hasGamesPermission ? 'true' : 'false'; ?>;
+        window.MAINTENANCE_COMPANY_HAS_BANK = <?php echo $hasBankPermission ? 'true' : 'false'; ?>;
+    </script>
     <?php include 'sidebar.php'; ?>
     <link rel="stylesheet" href="css/global-13inch.css?v=<?php echo file_exists('css/global-13inch.css') ? filemtime('css/global-13inch.css') : time(); ?>">
 </head>
@@ -259,8 +261,12 @@ if (!empty($session_company_id)) {
         <div class="calendar-days" id="calendar-days"></div>
     </div>
 
-    <script>window.currentCompanyId = <?php echo json_encode($session_company_id); ?>; window.currentCompanyCode = <?php echo json_encode($session_company_code); ?>;</script>
+    <script>
+        window.currentCompanyId = <?php echo json_encode($session_company_id); ?>;
+        window.currentCompanyCode = <?php echo json_encode($session_company_code); ?>;
+    </script>
     <script src="js/date-range-picker.js?v=<?php echo time(); ?>"></script>
+    <script src="js/maintenance_bank_process.js?v=<?php echo time(); ?>"></script>
     <script src="js/capture_maintenance.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

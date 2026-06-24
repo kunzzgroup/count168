@@ -232,7 +232,51 @@ function applyTransformationsToTableData(tableData, removeWord, replaceWordFrom,
     return transformedData;
 }
 
+const SUMMARY_BANK_DATA_CAPTURE_PROCESSES = ['PROFIT', 'SALARY', 'COMMISSION', 'BONUS'];
+
+function isBankDataCaptureProcessData(processData) {
+    if (!processData || typeof processData !== 'object') return false;
+    if (processData.isBankDataCapture === true) return true;
+    const code = String(
+        processData.bankProcessType ||
+        processData.processCode ||
+        processData.process_code ||
+        processData.process ||
+        ''
+    ).trim().toUpperCase();
+    return SUMMARY_BANK_DATA_CAPTURE_PROCESSES.includes(code);
+}
+
+function isSummaryBankDataCaptureMode() {
+    return isBankDataCaptureProcessData(window.capturedProcessData);
+}
+
+function getCurrentProcessCode() {
+    if (typeof window.currentProcessCode === 'string' && window.currentProcessCode.trim() !== '') {
+        return window.currentProcessCode.trim().toUpperCase();
+    }
+    const data = window.capturedProcessData;
+    if (!data) return '';
+    const raw = data.bankProcessType ?? data.processCode ?? data.process_code ?? '';
+    if (typeof raw === 'string' && raw.trim() !== '') {
+        return raw.trim().toUpperCase();
+    }
+    if (isBankDataCaptureProcessData(data) && data.process != null && String(data.process).trim() !== '') {
+        return String(data.process).trim().toUpperCase();
+    }
+    return '';
+}
+
+function getCurrentBankProcessType() {
+    return getCurrentProcessCode();
+}
+
 function getCurrentProcessId() {
+    // Bank Data Capture（PROFIT/SALARY 等）不走 Games process.id
+    if (isSummaryBankDataCaptureMode()) {
+        return null;
+    }
+
     // 返回数值型的 process.id（process 表的主键，整数）
     // 因为 data_capture_templates.process_id 是 INT(11)，存储的是 process.id（整数）
     if (typeof window.currentProcessId === 'number' && Number.isFinite(window.currentProcessId)) {
@@ -257,6 +301,34 @@ function getCurrentProcessId() {
     }
 
     return null;
+}
+
+/** 模板保存用：Bank 返回 process 代码字符串（后端解析为 process.id），Games 返回数值 process.id */
+function getCurrentProcessIdForTemplate() {
+    if (isSummaryBankDataCaptureMode()) {
+        const code = getCurrentBankProcessType();
+        return code ? String(code).trim().toUpperCase() : null;
+    }
+    return getCurrentProcessId();
+}
+
+/** Summary Submit 统一载荷（Bank / Games 共用，分批与 quick submit 必须一致） */
+function buildSummarySubmitBasePayload(parsedProcessData) {
+    const isBankCaptureSubmit = isBankDataCaptureProcessData(parsedProcessData);
+    const bankProcessType = isBankCaptureSubmit
+        ? String(parsedProcessData.bankProcessType || parsedProcessData.processCode || parsedProcessData.process || '').trim().toUpperCase()
+        : '';
+    return {
+        captureDate: parsedProcessData.date,
+        processId: isBankCaptureSubmit ? null : parsedProcessData.process,
+        processName: isBankCaptureSubmit ? bankProcessType : parsedProcessData.processName,
+        processCode: isBankCaptureSubmit ? bankProcessType : (parsedProcessData.processCode || ''),
+        isBankDataCapture: isBankCaptureSubmit,
+        bankProcessType: isBankCaptureSubmit ? bankProcessType : '',
+        currencyId: parsedProcessData.currency,
+        currencyName: parsedProcessData.currencyName,
+        remark: parsedProcessData.remark || ''
+    };
 }
 
 // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
@@ -306,7 +378,7 @@ function summaryCapturedParentIsExact(parentId, capturedIds) {
     );
 }
 
-/** sub 模板：parent 精确在 Capture 中；sub.id_product 须在 Capture 中或与 parent 相同 */
+/** sub 模板：parent 精确在 Capture 中；sub.id_product 须在 Capture 中、与 parent 相同、或为 parent 的说明后缀（如 IK-SPORT (红股)） */
 function summarySubTemplateAllowedForCapture(sub, capturedIds, parentId) {
     const captured = Array.isArray(capturedIds)
         ? capturedIds
@@ -315,6 +387,10 @@ function summarySubTemplateAllowedForCapture(sub, capturedIds, parentId) {
     const subId = (sub?.id_product || '').trim();
     if (!parent || !summaryCapturedParentIsExact(parent, captured)) return false;
     if (!subId || subId.toLowerCase() === parent.toLowerCase()) return true;
+    const subBase = typeof normalizeIdProductForKey === 'function'
+        ? normalizeIdProductForKey(subId)
+        : subId;
+    if (subBase && subBase.toLowerCase() === parent.toLowerCase()) return true;
     return summaryIdMatchesAnyCapture(subId, captured);
 }
 
@@ -633,7 +709,7 @@ function saveFormulaSourceForRefresh(opts) {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) return;
     const processId = getCurrentProcessId();
-    const processCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
+    const processCode = typeof getCurrentProcessCode === 'function' ? getCurrentProcessCode() : ((typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim());
     const rows = summaryTableBody.querySelectorAll('tr');
     const byKey = {};
     const byStableKey = {};
@@ -967,8 +1043,10 @@ function restoreFormulaSourceFromRefresh() {
     const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
     const savedId = saved.processId != null ? saved.processId : null;
     const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
-    const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
-    const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+    const idMatch = isSummaryBankDataCaptureMode()
+        ? true
+        : ((currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null));
+    const codeMatch = (currentCode && savedCode && currentCode.toUpperCase() === savedCode.toUpperCase()) || (!currentCode && !savedCode);
     if (!idMatch || !codeMatch) {
         try { localStorage.removeItem('capturedTableFormulaSourceForRefresh'); } catch (e) { }
         return;
@@ -1241,8 +1319,10 @@ function restoreRateValuesFromRefresh() {
         const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
         const savedId = savedByProduct.processId != null ? savedByProduct.processId : null;
         const savedCode = (typeof savedByProduct.processCode === 'string' ? savedByProduct.processCode : '').trim();
-        const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
-        const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+        const idMatch = isSummaryBankDataCaptureMode()
+            ? true
+            : ((currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null));
+        const codeMatch = (currentCode && savedCode && currentCode.toUpperCase() === savedCode.toUpperCase()) || (!currentCode && !savedCode);
         if (!idMatch || !codeMatch) {
             try { localStorage.removeItem('capturedTableRateValuesByProductId'); } catch (e) { }
             if (typeof updateProcessedAmountTotal === 'function') updateProcessedAmountTotal();
@@ -1344,29 +1424,53 @@ async function loadAndRenderCapturedTable() {
             console.log('Loaded table data:', parsedTableData);
             console.log('Loaded process data:', parsedProcessData);
 
-            // Store process data globally for later use
-            window.capturedProcessData = parsedProcessData;
-            const processCodeRaw = parsedProcessData.processCode ?? parsedProcessData.process_code ?? '';
-            const storedProcessCode = typeof processCodeRaw === 'string' ? processCodeRaw.trim() : '';
-            if (storedProcessCode) {
-                window.currentProcessCode = storedProcessCode;
-            } else {
-                window.currentProcessCode = null;
-            }
-
-            const detectedProcessId = parsedProcessData && parsedProcessData.process !== undefined && parsedProcessData.process !== null
-                ? parseInt(parsedProcessData.process, 10)
-                : NaN;
-            if (!Number.isNaN(detectedProcessId)) {
-                parsedProcessData.process = detectedProcessId;
-                window.currentProcessId = detectedProcessId;
-            } else {
+            const isBankCapture = isBankDataCaptureProcessData(parsedProcessData);
+            if (isBankCapture) {
+                const bankType = String(
+                    parsedProcessData.bankProcessType ||
+                    parsedProcessData.processCode ||
+                    parsedProcessData.process_code ||
+                    parsedProcessData.process ||
+                    ''
+                ).trim().toUpperCase();
+                parsedProcessData.isBankDataCapture = true;
+                parsedProcessData.bankProcessType = bankType;
+                parsedProcessData.processCode = bankType;
+                parsedProcessData.processName = bankType || parsedProcessData.processName;
+                parsedProcessData.process = bankType;
+                parsedProcessData.dataCaptureType = parsedProcessData.dataCaptureType || '1.Text';
+                window.capturedProcessData = parsedProcessData;
+                window.currentProcessCode = bankType;
                 window.currentProcessId = null;
+                window.__summaryBankDataCapture = true;
+            } else {
+                window.__summaryBankDataCapture = false;
+                window.capturedProcessData = parsedProcessData;
+                const processCodeRaw = parsedProcessData.processCode ?? parsedProcessData.process_code ?? '';
+                const storedProcessCode = typeof processCodeRaw === 'string' ? processCodeRaw.trim() : '';
+                if (storedProcessCode) {
+                    window.currentProcessCode = storedProcessCode;
+                } else {
+                    window.currentProcessCode = null;
+                }
+
+                const detectedProcessId = parsedProcessData && parsedProcessData.process !== undefined && parsedProcessData.process !== null
+                    ? parseInt(parsedProcessData.process, 10)
+                    : NaN;
+                if (!Number.isNaN(detectedProcessId) && detectedProcessId > 0) {
+                    parsedProcessData.process = detectedProcessId;
+                    window.currentProcessId = detectedProcessId;
+                } else {
+                    window.currentProcessId = null;
+                }
             }
 
-            // 先从服务端拉取已保存的 Summary 状态（行顺序 + 公式/Rate），供 skipRowIndexReorder 与 restore 使用，避免仅依赖 localStorage
+            // 先从服务端拉取已保存的 Summary 状态（Bank 用 process_code，Games 用 process_id）
             try {
-                window._summaryStateFromServer = await fetchSummaryStateFromServer(window.currentProcessId, window.currentProcessCode || '');
+                window._summaryStateFromServer = await fetchSummaryStateFromServer(
+                    window.currentProcessId,
+                    isBankCapture ? getCurrentBankProcessType() : (window.currentProcessCode || '')
+                );
             } catch (e) {
                 window._summaryStateFromServer = null;
             }
@@ -1426,19 +1530,30 @@ function displayProcessInfo(processData) {
         dateEl.textContent = processData.date || '-';
     }
 
-    // Display process name
+    // Display process name（Bank：PROFIT/SALARY 等；Games：processName / process.id）
     const processEl = document.getElementById('processInfoProcess');
     if (processEl) {
-        processEl.textContent = processData.processName || processData.process || '-';
+        if (isBankDataCaptureProcessData(processData)) {
+            processEl.textContent = processData.bankProcessType || processData.processCode || processData.processName || processData.process || '-';
+        } else {
+            processEl.textContent = processData.processName || processData.process || '-';
+        }
     }
 
     // Display descriptions (join array if exists)
     const descriptionEl = document.getElementById('processInfoDescription');
     if (descriptionEl) {
-        if (processData.descriptions && Array.isArray(processData.descriptions) && processData.descriptions.length > 0) {
-            descriptionEl.textContent = processData.descriptions.join(', ');
-        } else {
+        const descriptionItem = descriptionEl.closest('.process-info-item');
+        if (isBankDataCaptureProcessData(processData)) {
+            if (descriptionItem) descriptionItem.style.display = 'none';
             descriptionEl.textContent = '-';
+        } else {
+            if (descriptionItem) descriptionItem.style.display = '';
+            if (processData.descriptions && Array.isArray(processData.descriptions) && processData.descriptions.length > 0) {
+                descriptionEl.textContent = processData.descriptions.join(', ');
+            } else {
+                descriptionEl.textContent = '-';
+            }
         }
     }
 
@@ -7852,9 +7967,14 @@ async function saveTemplateAsync(rowData, rowElement = null, options = {}) {
             return { success: false, message: 'Formula is required for sub rows.' };
         }
 
-        const processId = getCurrentProcessId();
+        const processId = getCurrentProcessIdForTemplate();
         if (processId !== null) {
             rowData.process_id = processId;
+            if (isSummaryBankDataCaptureMode()) {
+                rowData.isBankDataCapture = true;
+                rowData.process_code = String(processId);
+                rowData.bankProcessType = String(processId);
+            }
         } else {
             console.warn('Process ID missing while saving template.');
         }
@@ -15808,11 +15928,16 @@ function isInheritedAccountLinkMainTemplate(mainTemplate) {
 }
 
 function summarySubTemplateFingerprint(sub, parentExact) {
+    const templateId = sub?.id != null && sub?.id !== '' ? String(sub.id) : '';
+    if (templateId) {
+        return `id:${templateId}`;
+    }
     const parent = (sub?.parent_id_product || parentExact || '').trim();
     const accountId = sub?.account_id != null ? String(sub.account_id) : '';
     const subOrder = sub?.sub_order != null && sub?.sub_order !== '' ? String(Number(sub.sub_order)) : '0';
     const variant = sub?.formula_variant != null ? String(sub.formula_variant) : '1';
-    return `${parent}|${accountId}|${subOrder}|${variant}`;
+    const desc = (sub?.description || '').trim().toLowerCase();
+    return `${parent}|${accountId}|${subOrder}|${variant}|${desc}`;
 }
 
 function summaryCollectMainRowsForParent(parentIdProduct) {
@@ -15841,15 +15966,47 @@ function summaryFindMainRowForSubTemplate(parentIdProduct, subTemplate) {
     let mains = summaryCollectMainRowsForParent(parentExact);
     if (mains.length === 0) return null;
     if (mains.length === 1) return mains[0].row;
+
+    const templateAccountId = subTemplate?.account_id != null && String(subTemplate.account_id).trim() !== ''
+        ? String(subTemplate.account_id).trim()
+        : '';
+    if (templateAccountId) {
+        const normCode = (s) => {
+            const t = (s || '').trim();
+            const m = t.match(/^([A-Za-z0-9]+)/);
+            return m ? m[1].toUpperCase() : t.toUpperCase();
+        };
+        const templateDisplay = (subTemplate?.account_display || '').trim();
+        const templateCode = normCode(templateDisplay);
+        for (const info of mains) {
+            const accountCell = info.row.querySelector('td:nth-child(2)');
+            if (!accountCell) continue;
+            const rowAccountId = accountCell.getAttribute('data-account-id');
+            if (rowAccountId && rowAccountId === templateAccountId) {
+                return info.row;
+            }
+            const rowDisplay = (accountCell.textContent || '').trim();
+            if (templateDisplay && rowDisplay && rowDisplay.toUpperCase().indexOf(templateDisplay.toUpperCase()) >= 0) {
+                return info.row;
+            }
+            if (templateCode && normCode(rowDisplay) === templateCode) {
+                return info.row;
+            }
+        }
+    }
+
     const sortedMains = [...mains].sort((a, b) => a.rowIndex - b.rowIndex);
     const subRowIndex = subTemplate?.row_index != null && subTemplate?.row_index !== ''
         ? Number(subTemplate.row_index) : null;
     if (subRowIndex != null && !Number.isNaN(subRowIndex)) {
-        for (let i = 0; i < sortedMains.length; i++) {
-            const mainRowIndex = sortedMains[i].rowIndex;
-            const nextMainRowIndex = i < sortedMains.length - 1 ? sortedMains[i + 1].rowIndex : Number.POSITIVE_INFINITY;
-            if (subRowIndex >= mainRowIndex && subRowIndex < nextMainRowIndex) {
-                return sortedMains[i].row;
+        const distinctIndexes = [...new Set(sortedMains.map((m) => m.rowIndex))];
+        if (distinctIndexes.length > 1) {
+            for (let i = 0; i < sortedMains.length; i++) {
+                const mainRowIndex = sortedMains[i].rowIndex;
+                const nextMainRowIndex = i < sortedMains.length - 1 ? sortedMains[i + 1].rowIndex : Number.POSITIVE_INFINITY;
+                if (subRowIndex >= mainRowIndex && subRowIndex < nextMainRowIndex) {
+                    return sortedMains[i].row;
+                }
             }
         }
     }
@@ -15908,6 +16065,12 @@ window.__SUMMARY_RESET_GLOBAL_APPLIED_TEMPLATE_IDS__ = function () {
 
 async function autoPopulateSummaryRowsFromTemplates(idProducts) {
     try {
+        if (isSummaryBankDataCaptureMode()) {
+            console.info('[Summary] Bank Data Capture — skip Games template auto-population for', getCurrentBankProcessType() || 'bank process');
+            window.currentProcessHadTemplates = false;
+            return;
+        }
+
         if (!Array.isArray(idProducts)) {
             return;
         }
@@ -16226,8 +16389,10 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 const currentCode = (typeof window.currentProcessCode === 'string' ? window.currentProcessCode : '').trim();
                 const savedId = saved.processId != null ? saved.processId : null;
                 const savedCode = (typeof saved.processCode === 'string' ? saved.processCode : '').trim();
-                const idMatch = (currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null);
-                const codeMatch = (currentCode && savedCode && currentCode === savedCode) || (!currentCode && !savedCode);
+                const idMatch = isSummaryBankDataCaptureMode()
+                    ? true
+                    : ((currentId != null && savedId != null && currentId === savedId) || (currentId == null && savedId == null));
+                const codeMatch = (currentCode && savedCode && currentCode.toUpperCase() === savedCode.toUpperCase()) || (!currentCode && !savedCode);
                 if (idMatch && codeMatch) skipRowIndexReorder = true;
             }
 
@@ -18444,6 +18609,10 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 const rowSubOrderRaw = row.getAttribute('data-sub-order');
                 const rowSubOrder = (rowSubOrderRaw !== null && rowSubOrderRaw !== '') ? Number(rowSubOrderRaw) : null;
                 const subOrderMatch = (templateSubOrder === null && rowSubOrder === null) || (templateSubOrder !== null && rowSubOrder !== null && templateSubOrder === rowSubOrder);
+                const templateAccountId = template.account_id != null ? String(template.account_id) : '';
+                const rowAccountCell = row.querySelector('td:nth-child(2)');
+                const rowAccountDbId = rowAccountCell?.getAttribute('data-account-id') || '';
+                const accountMatch = !templateAccountId || !rowAccountDbId || rowAccountDbId === templateAccountId;
 
                 // Match by template_id (most precise)
                 if (parentRowMatch && templateId && rowTemplateId && rowTemplateId === String(templateId)) {
@@ -18454,7 +18623,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
                 // Match by template_key + formula_variant (if template_id not available)
                 // IMPORTANT: Also require sub_order to match so that first sub row is not overwritten by second sub template on refresh
-                if (!targetRow && parentRowMatch && templateKey && formulaVariant &&
+                if (!targetRow && parentRowMatch && accountMatch && templateKey && formulaVariant &&
                     rowTemplateKey === templateKey &&
                     rowFormulaVariant === String(formulaVariant) &&
                     subOrderMatch) {
@@ -18466,7 +18635,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 // Match by template_key only (fallback, less precise)
                 // Only use this if formula_variant is not available (for backward compatibility)
                 // Also require sub_order match to avoid collapsing multiple sub rows
-                if (!targetRow && parentRowMatch && templateKey && !formulaVariant && rowTemplateKey === templateKey && subOrderMatch) {
+                if (!targetRow && parentRowMatch && accountMatch && templateKey && !formulaVariant && rowTemplateKey === templateKey && subOrderMatch) {
                     targetRow = row;
                     console.log('Found existing sub row by template_key (no formula_variant):', templateKey);
                     break;
@@ -20175,6 +20344,59 @@ function extractOperatorsSequence(expression) {
 // Submit summary data
 let isSubmitting = false; // Flag to prevent duplicate submissions
 
+function getSummaryCaptureDateYmd(parsedProcessData) {
+    if (parsedProcessData && parsedProcessData.date) {
+        return String(parsedProcessData.date).trim();
+    }
+    const now = new Date();
+    return now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0');
+}
+
+function buildDatacaptureReturnUrlAfterSummarySubmit(parsedProcessData) {
+    const capDate = getSummaryCaptureDateYmd(parsedProcessData);
+    return 'datacapture.php?submitted=1&capture_date=' + encodeURIComponent(capDate);
+}
+
+/** Games / Bank：Summary 成功后写入 submitted_processes（后端也会写；此处作前端兜底） */
+async function recordSubmittedProcessAfterSummary(parsedProcessData, processDbIdOverride) {
+    if (!parsedProcessData) {
+        return;
+    }
+    const selectedDate = getSummaryCaptureDateYmd(parsedProcessData);
+    const formData = new FormData();
+    formData.append('action', 'save_submission');
+    formData.append('date_submitted', selectedDate);
+    formData.append('capture_date', selectedDate);
+
+    if (processDbIdOverride != null && String(processDbIdOverride).trim() !== '') {
+        formData.append('process_id', String(processDbIdOverride));
+    } else if (isBankDataCaptureProcessData(parsedProcessData)) {
+        const code = String(
+            parsedProcessData.bankProcessType ||
+            parsedProcessData.processCode ||
+            parsedProcessData.process ||
+            ''
+        ).trim().toUpperCase();
+        if (!code) {
+            return;
+        }
+        formData.append('process_code', code);
+    } else if (parsedProcessData.process) {
+        formData.append('process_id', parsedProcessData.process);
+    } else {
+        return;
+    }
+
+    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
+    if (currentCompanyId) {
+        formData.append('company_id', currentCompanyId);
+    }
+
+    await fetch('api/processes/submitted_processes_api.php', { method: 'POST', body: formData });
+}
+
 async function submitSummaryData() {
     // Prevent duplicate submissions
     if (isSubmitting) {
@@ -20648,14 +20870,11 @@ async function submitSummaryData() {
 
         console.log('Summary rows to submit:', summaryRows);
 
+        const submitBase = buildSummarySubmitBasePayload(parsedProcessData);
+
         // Prepare data to send
         const submitData = {
-            captureDate: parsedProcessData.date,
-            processId: parsedProcessData.process,
-            processName: parsedProcessData.processName,
-            currencyId: parsedProcessData.currency,
-            currencyName: parsedProcessData.currencyName,
-            remark: parsedProcessData.remark || '',
+            ...submitBase,
             summaryRows: summaryRows
         };
 
@@ -20799,17 +21018,13 @@ async function submitSummaryData() {
         // Use this first to make submit feel instant; fallback to legacy batching if it fails.
         try {
             const quickSubmitData = {
-                captureDate: parsedProcessData.date,
-                processId: parsedProcessData.process,
-                processName: parsedProcessData.processName,
-                currencyId: parsedProcessData.currency,
-                currencyName: parsedProcessData.currencyName,
-                remark: parsedProcessData.remark || '',
+                ...submitBase,
                 summaryRows: summaryRows
             };
             const quickResult = await submitBatch(quickSubmitData, null, 1, 1, { immediateAck: true });
             if (quickResult && quickResult.success && quickResult.queued) {
                 showNotification('Success', 'Data received by server. Processing in background...', 'success');
+                const returnUrl = buildDatacaptureReturnUrlAfterSummarySubmit(parsedProcessData);
                 setTimeout(() => {
                     window.isNavigatingAwayByBackOrSubmit = true;
                     try { localStorage.removeItem('capturedTableRateValues'); } catch (e) { }
@@ -20818,7 +21033,7 @@ async function submitSummaryData() {
                     try { localStorage.removeItem('capturedCaptureId'); } catch (e) { }
                     localStorage.removeItem('capturedTableData');
                     localStorage.removeItem('capturedProcessData');
-                    window.location.href = 'datacapture.php?submitted=1';
+                    window.location.href = returnUrl;
                 }, 600);
                 return;
             }
@@ -20832,6 +21047,7 @@ async function submitSummaryData() {
         const MAX_ROWS_PER_BATCH = 20; // 每批最多行数（可以根据需要调整）
 
         let finalCaptureId = null;
+        let lastSubmitResult = null;
         let allSubmitted = false;
         const failedProblemRows = []; // 保存最终无法提交的行
 
@@ -20849,6 +21065,7 @@ async function submitSummaryData() {
                     try {
                         const result = await submitBatch(singleData, finalCaptureId, batchNumber, totalBatches);
                         finalCaptureId = result.captureId;
+                        lastSubmitResult = result;
                     } catch (err) {
                         // 单行仍然 403 或其他错误，则放入失败列表，不再重试
                         failedProblemRows.push(subRows[0]);
@@ -20868,6 +21085,7 @@ async function submitSummaryData() {
                 try {
                     const result = await submitBatch(tryData, finalCaptureId, batchNumber, totalBatches);
                     finalCaptureId = result.captureId;
+                    lastSubmitResult = result;
                     return;
                 } catch (err) {
                     // 无论是不是 sizeError，这里统一继续拆分，直到定位到具体出问题的行
@@ -20892,18 +21110,14 @@ async function submitSummaryData() {
             const batchNumber = Math.floor(i / batchSize) + 1;
 
             const batchData = {
-                captureDate: parsedProcessData.date,
-                processId: parsedProcessData.process,
-                processName: parsedProcessData.processName,
-                currencyId: parsedProcessData.currency,
-                currencyName: parsedProcessData.currencyName,
-                remark: parsedProcessData.remark || '',
+                ...submitBase,
                 summaryRows: batchRows
             };
 
             try {
                 const result = await submitBatch(batchData, finalCaptureId, batchNumber, totalBatches);
                 finalCaptureId = result.captureId;
+                lastSubmitResult = result;
 
                 if (batchNumber < totalBatches) {
                     // 等待一小段时间再提交下一批，避免服务器压力
@@ -20924,6 +21138,7 @@ async function submitSummaryData() {
                         };
                         const result = await submitBatch(smallerBatchData, finalCaptureId, batchNumber, totalBatches);
                         finalCaptureId = result.captureId;
+                        lastSubmitResult = result;
                         if (j + smallerBatchSize < batchRows.length) {
                             await new Promise(resolve => setTimeout(resolve, 300));
                         }
@@ -20963,28 +21178,10 @@ async function submitSummaryData() {
             const totalRowsSubmitted = summaryRows.length;
             showNotification('Success', `All data submitted successfully! Capture ID: ${finalCaptureId}, total ${totalRowsSubmitted} rows`, 'success');
 
-            // After successful final submission, record the submitted process in DB
+            // Summary 成功后记录 submitted_processes（Games / Bank；后端 submit 亦会写入，此处兜底）
             try {
-                if (parsedProcessData && parsedProcessData.process) {
-                    const formData = new FormData();
-                    formData.append('action', 'save_submission');
-                    formData.append('process_id', parsedProcessData.process);
-                    // 使用表单中选择的日期（parsedProcessData.date）作为 date_submitted，使记录显示在选择的日期下
-                    const selectedDate = parsedProcessData.date || (new Date().getFullYear() + '-' +
-                        String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
-                        String(new Date().getDate()).padStart(2, '0'));
-                    formData.append('date_submitted', selectedDate);
-                    // capture_date 也使用相同的日期
-                    formData.append('capture_date', selectedDate);
-
-                    // 添加当前选择的 company_id
-                    const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
-                    if (currentCompanyId) {
-                        formData.append('company_id', currentCompanyId);
-                    }
-
-                    await fetch('api/processes/submitted_processes_api.php', { method: 'POST', body: formData });
-                }
+                const processDbId = lastSubmitResult && lastSubmitResult.processDbId ? lastSubmitResult.processDbId : null;
+                await recordSubmittedProcessAfterSummary(parsedProcessData, processDbId);
             } catch (e) {
                 console.warn('Failed to record submitted process:', e);
             }
@@ -20994,6 +21191,7 @@ async function submitSummaryData() {
             if (typeof window.DATACAPTURESUMMARY_CAPTURE_ID !== 'undefined') {
                 window.DATACAPTURESUMMARY_CAPTURE_ID = null;
             }
+            const returnUrlAfterSubmit = buildDatacaptureReturnUrlAfterSummarySubmit(parsedProcessData);
             // Clear localStorage after successful submission (redirect 前再清表数据，避免重复进入看到旧表)
             setTimeout(() => {
                 window.isNavigatingAwayByBackOrSubmit = true;
@@ -21004,8 +21202,7 @@ async function submitSummaryData() {
                 localStorage.removeItem('capturedTableData');
                 localStorage.removeItem('capturedProcessData');
 
-                // Redirect to data capture page
-                window.location.href = 'datacapture.php?submitted=1';
+                window.location.href = returnUrlAfterSubmit;
             }, 2000);
         }
 

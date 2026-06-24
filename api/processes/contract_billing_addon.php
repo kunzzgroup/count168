@@ -83,22 +83,45 @@ function billingCalendarMonthDueYmd(int $year, int $month, int $dueDay): string
 }
 
 /**
- * Frequency=monthly（按同一日对月）：一期服务区间为「上一应付日到本期应付前一日」，
- * 不使用「从应付日到自然月末」的算法。首期应付若等于合同 day_start，区间为 [day_start, day_start+1月-1日]。
+ * Monthly 应付日（按 billing 自然月 Y-m）：
+ * - 起租当月：day_start；
+ * - day_start 非 1 号时其后各月：该月 day_start 日号减 1 日（上期结束日，例 5/22 起 → 6 月应付 6/21）；
+ * - day_start 为 1 号时：仍为每月 1 号。
+ */
+function billingMonthlyDueYmdForBillingMonth(string $dayStartYmd, int $billYear, int $billMonth): ?string
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dayStartYmd) || $billYear < 1970 || $billMonth < 1 || $billMonth > 12) {
+        return null;
+    }
+    try {
+        $start = new DateTimeImmutable($dayStartYmd);
+    } catch (Throwable $e) {
+        return null;
+    }
+    $billYm = sprintf('%04d-%02d', $billYear, $billMonth);
+    if ($billYm === $start->format('Y-m')) {
+        return $dayStartYmd;
+    }
+    $startDay = (int) $start->format('j');
+    if ($startDay === 1) {
+        return billingCalendarMonthDueYmd($billYear, $billMonth, 1);
+    }
+    $onStartDay = billingCalendarMonthDueYmd($billYear, $billMonth, $startDay);
+
+    return (new DateTimeImmutable($onStartDay))->modify('-1 day')->format('Y-m-d');
+}
+
+/**
+ * Frequency=monthly（按同一日对月）：应付日 = 本期起始日，区间为 [due, due+1月-1日]。
  *
  * @return array{0:string,1:string}
  */
 function billingMonthlyAnniversaryInclusiveRangeFromDue(string $dueYmd, string $contractStartYmd): array
 {
     try {
-        if ($dueYmd === $contractStartYmd) {
-            $s = new DateTimeImmutable($contractStartYmd);
-
-            return [$contractStartYmd, $s->modify('+1 month')->modify('-1 day')->format('Y-m-d')];
-        }
         $due = new DateTimeImmutable($dueYmd);
 
-        return [$due->modify('-1 month')->format('Y-m-d'), $due->modify('-1 day')->format('Y-m-d')];
+        return [$dueYmd, $due->modify('+1 month')->modify('-1 day')->format('Y-m-d')];
     } catch (Throwable $e) {
         return [$dueYmd, $dueYmd];
     }
@@ -215,7 +238,7 @@ function sumMonthlyAnniversaryInclusiveRangeAmounts(
         $p0 = $anchor->format('Y-m-d');
         $p1 = $anchor->modify('+1 month')->modify('-1 day')->format('Y-m-d');
         if ($p1 < $rangeFromYmd) {
-            $anchor = (new DateTimeImmutable($p1))->modify('+1 day');
+            $anchor = new DateTimeImmutable($p1);
             continue;
         }
         if ($p0 > $rangeToYmd) {
@@ -236,7 +259,7 @@ function sumMonthlyAnniversaryInclusiveRangeAmounts(
         if ($p1 >= $rangeToYmd) {
             break;
         }
-        $anchor = (new DateTimeImmutable($p1))->modify('+1 day');
+        $anchor = new DateTimeImmutable($p1);
     }
 
     return [
@@ -284,7 +307,7 @@ function billingMonthlyResendRangeComplete(string $dayStartYmd, string $dayEndYm
         if ($dayEndYmd < $periodEnd) {
             return false;
         }
-        $anchor = (new DateTimeImmutable($periodEnd))->modify('+1 day');
+        $anchor = new DateTimeImmutable($periodEnd);
     }
 
     return false;

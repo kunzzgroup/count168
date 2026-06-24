@@ -1524,21 +1524,42 @@ try {
                     $account_currency_ids[(int) $ac['currency_id']] = true;
                 }
             }
-            // 补充：本期有交易的货币（确保有 PROFIT 的账户能显示）以及全历史交易货币（确保不活跃账号的历史 B/F 能显示）
+            // 补充：本期有交易的货币（确保有 PROFIT / 仅 DCD 的账户能显示）以及全历史交易货币（确保不活跃账号的历史 B/F 能显示）
             if (searchApiTxnHasCurrencyId($pdo)) {
+                foreach ($bulk_txn_cur_prd[$account_id] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                }
                 foreach ($bulk_txn_cur_all[$account_id] ?? [] as $cid => $code) {
                     addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                 }
-            } elseif (!empty($filter_currency_codes)) {
-                // 旧环境：从 DCD 本期数据补充
-                foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
-                    if (in_array($code, $filter_currency_codes)) {
-                        addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
-                    }
+            }
+            // 补充：DCD 历史/本期曾出现过的币别（account_id 可能存数字 id 或 account_code）
+            $acc_code_str = trim((string) ($account['account_id'] ?? ''));
+            foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+                addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+            }
+            if ($acc_code_str !== '' && $acc_code_str !== $acc_str) {
+                foreach ($bulk_dcd_cur[$acc_code_str] ?? [] as $cid => $code) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
                 }
             }
-            // 再次过滤
-            if (!empty($filter_currency_codes)) {
+            if (!searchApiTxnHasCurrencyId($pdo)) {
+                // 旧环境：从 DCD 本期数据补充
+                if (!empty($filter_currency_codes)) {
+                    foreach ($bulk_dcd_cur[$acc_str] ?? [] as $cid => $code) {
+                        if (in_array($code, $filter_currency_codes)) {
+                            addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                        }
+                    }
+                    if ($acc_code_str !== '' && $acc_code_str !== $acc_str) {
+                        foreach ($bulk_dcd_cur[$acc_code_str] ?? [] as $cid => $code) {
+                            if (in_array($code, $filter_currency_codes)) {
+                                addAccountCurrencyCombo($account_currencies, $account_currency_ids, $cid, $code);
+                            }
+                        }
+                    }
+                }
+            } elseif (!empty($filter_currency_codes)) {
                 $account_currencies = array_values(array_filter($account_currencies, function ($ac) use ($filter_currency_codes) {
                     return in_array(strtoupper($ac['currency_code'] ?? ''), $filter_currency_codes);
                 }));
@@ -1952,7 +1973,8 @@ try {
         // 勾选 Show 0 balance（hide_zero_balance=0）时不做此处裁剪：否则与前端「展示零余额」冲突，
         // 典型如 RATE 轧差后 cr_dr/has_crdr 均为 0 的组合行会被误删。
         if ($hide_zero_balance && $show_capture_only && !$show_inactive) {
-            if (!$has_win_loss_transactions) {
+            $hasAnyPeriodWinLoss = $has_win_loss_transactions || $has_period_id_product_rows;
+            if (!$hasAnyPeriodWinLoss) {
                 $bf_near = trunc2($bf);
                 $cr_near = trunc2($cr_dr);
                 $wl_full_chk = $wlPack['win_loss_full'] ?? '0';
@@ -2952,8 +2974,9 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
         $has_rate_mm = ($bulk['entry'][$account_id][$currency_id]['wl_mm_count'] ?? 0) > 0;
         $has_rate_mm_up_to = ($bulk['entry'][$account_id][$currency_id]['wl_mm_up_to_count'] ?? 0) > 0;
-        $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm;
-        $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to;
+        // 本期有 id_product 明细也算 Win/Loss 动账，即使轧差后 win_loss 合计为 0
+        $has_win_loss_transactions = $wl_row_count > 0 || $has_rate_mm || $id_product_rows_period > 0;
+        $has_win_loss_history = $wl_up_to_count > 0 || $has_rate_mm_up_to || $id_product_rows_period > 0;
         $win_loss_full = money_normalize($win_loss, 8);
         return [
             'win_loss' => searchMoneyHalfUp2($win_loss_full),
@@ -3113,8 +3136,8 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
         'win_loss' => searchMoneyHalfUp2($win_loss_full),
         'win_loss_full' => $win_loss_full,
         'has_rate_middleman' => $has_rate_middleman,
-        'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman),
-        'has_win_loss_history' => ($wl_row_count > 0 || $has_rate_middleman),
+        'has_win_loss_transactions' => ($wl_row_count > 0 || $has_rate_middleman || $has_period_id_product_rows),
+        'has_win_loss_history' => ($wl_row_count > 0 || $has_rate_middleman || $has_period_id_product_rows),
         'has_period_id_product_rows' => $has_period_id_product_rows,
     ];
 }

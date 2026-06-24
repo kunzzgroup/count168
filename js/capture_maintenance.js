@@ -177,6 +177,16 @@ let ownerCompanies = [];
             if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
                 window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
             }
+            loadProcesses().catch(function () {});
+        }
+
+        function canAccessCaptureMaintenancePage() {
+            if (typeof window.canAccessMaintenancePage === 'function') {
+                return window.canAccessMaintenancePage();
+            }
+            const hasGambling = typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING;
+            const hasBank = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' && window.SIDEBAR_COMPANY_HAS_BANK;
+            return hasGambling || hasBank;
         }
 
         async function switchCompany(companyId, companyCode) {
@@ -212,7 +222,13 @@ let ownerCompanies = [];
             if (typeof window !== 'undefined') {
                 window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
             }
-            if (hasGamblingFromSession === false) {
+            const flags = typeof window.resolveMaintenanceCompanyFlags === 'function'
+                ? window.resolveMaintenanceCompanyFlags(hasGamblingFromSession, hasBankFromSession)
+                : {
+                    hasGambling: hasGamblingFromSession !== undefined ? hasGamblingFromSession : !!window.SIDEBAR_COMPANY_HAS_GAMBLING,
+                    hasBank: hasBankFromSession !== undefined ? hasBankFromSession : !!window.SIDEBAR_COMPANY_HAS_BANK
+                };
+            if (!flags.hasGambling && !flags.hasBank) {
                 if (typeof window.redirectAfterCompanySwitch === 'function') {
                     window.redirectAfterCompanySwitch(companyId);
                 } else {
@@ -221,10 +237,7 @@ let ownerCompanies = [];
                 return;
             }
             if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
-                const hg = hasGamblingFromSession !== undefined
-                    ? hasGamblingFromSession
-                    : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
-                window.updateSidebarDataCaptureVisibility(hg, hasBankFromSession);
+                window.updateSidebarDataCaptureVisibility(flags.hasGambling, flags.hasBank);
             }
             loadPermissionButtons();
             loadProcesses();
@@ -237,6 +250,13 @@ let ownerCompanies = [];
 
         // Load Process list
         function loadProcesses() {
+            if (typeof window.isBankMaintenanceProcessMode === 'function'
+                && window.isBankMaintenanceProcessMode(selectedPermission)
+                && typeof window.renderBankMaintenanceProcessSelect === 'function') {
+                window.renderBankMaintenanceProcessSelect();
+                return Promise.resolve();
+            }
+
             const params = [];
             if (currentCompanyId) {
                 params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
@@ -752,14 +772,7 @@ let ownerCompanies = [];
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
-                if (typeof window.redirectAfterCompanySwitch === 'function') {
-                    window.redirectAfterCompanySwitch(currentCompanyId);
-                } else {
-                    window.location.href = 'dashboard.php';
-                }
-                return;
-            }
+            // PHP 已校验 Games/Bank 权限；此处不再 redirect，避免 SIDEBAR 变量未就绪误踢
             // Initialize date pickers
             initDatePickers();
             initMaintenanceDropdownHover();
@@ -767,15 +780,13 @@ let ownerCompanies = [];
             initAutoSearchFilters();
 
             Promise.resolve()
-                .then(() => {
-                    loadPermissionButtons();
-                    return loadProcesses()
-                        .catch(() => {})
-                        .finally(() => {
-                            // Initialize custom select
-                            initProcessSelect();
-                            searchData();
-                        });
+                .then(() => loadPermissionButtons())
+                .catch(() => {})
+                .then(() => loadProcesses().catch(() => {}))
+                .finally(() => {
+                    // Initialize custom select
+                    initProcessSelect();
+                    searchData();
                 });
             
             // Initialize delete button state
