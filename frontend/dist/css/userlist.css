@@ -3303,7 +3303,7 @@ body.user-page:not(.user-page--show-all) .user-cards {
 body.user-page:not(.user-page--show-all) .user-cards.user-cards--paged-fill {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(var(--list-paged-rows, 25), minmax(0, 1fr));
+    grid-template-rows: repeat(25, minmax(0, 1fr));
     flex: 1 1 auto;
     align-content: stretch;
 }

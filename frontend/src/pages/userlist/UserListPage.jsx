@@ -2477,7 +2477,6 @@ export default function UserListPage() {
             </div>
             <div
               className={`user-cards${!showAll && pageRows.length > 0 ? " user-cards--paged-fill" : ""}`}
-              style={!showAll && pageRows.length > 0 ? { "--list-paged-rows": String(pageRows.length) } : undefined}
             >
               {pageRows.map((r, idx) => {
                 const caps = computeRowCapabilities(r, currentUserId, currentUserRole);
