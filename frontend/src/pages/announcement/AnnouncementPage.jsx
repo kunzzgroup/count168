@@ -9,6 +9,7 @@ import { spaPath } from "../../utils/routing/pageRoutes.js";
 import { AnnouncementToast, AnnouncementConfirmModal } from "./components/AnnouncementCommon.jsx";
 import { EditAnnouncementModal, EditMaintenanceModal } from "./components/AnnouncementModals.jsx";
 import { AnnouncementPanel, MaintenancePanel } from "./components/AnnouncementPanels.jsx";
+import PagePillTabSwitch from "../../components/PagePillTabSwitch.jsx";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
 import { canAccessC168DomainPages } from "../../utils/company/loginScope.js";
 
@@ -180,10 +181,14 @@ export default function AnnouncementPage() {
     <>
       <div className="container announcement-page-container">
         <div className="page-header">
-          <div className="page-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={activeTab === "announcement"} className={`page-tab${activeTab === "announcement" ? " active" : ""}`} onClick={() => setActiveTab("announcement")}>{t("announcementTab")}</button>
-            <button type="button" role="tab" aria-selected={activeTab === "maintenance"} className={`page-tab${activeTab === "maintenance" ? " active" : ""}`} onClick={() => setActiveTab("maintenance")}>{t("maintenanceTab")}</button>
-          </div>
+          <PagePillTabSwitch
+            value={activeTab}
+            onChange={setActiveTab}
+            options={[
+              { value: "announcement", label: t("announcementTab") },
+              { value: "maintenance", label: t("maintenanceTab") },
+            ]}
+          />
         </div>
         {activeTab === "announcement" && <AnnouncementPanel t={t} announcements={announcements} onEdit={handleAnnouncementEdit} onDelete={handleAnnouncementDelete} />}
         {activeTab === "maintenance" && <MaintenancePanel t={t} maintenanceList={maintenanceList} onEdit={handleMaintenanceEdit} onDelete={handleMaintenanceDelete} />}
