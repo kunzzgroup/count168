@@ -59,6 +59,7 @@ import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
+import { resolveMaintenancePickerCompanyId } from "../shared/maintenancePickerCompanyId.js";
 
 function readInitialMaintenanceSelectedGroup() {
   try {
@@ -639,10 +640,14 @@ export default function CaptureMaintenancePage() {
   useEffect(() => {
     if (bootLoading || !companies.length || companyId == null) return;
     if (visibleCompanies.length === 0) return;
-    const cid = Number(companyId);
-    const activeOk = visibleCompanies.some((c) => Number(c.id) === cid);
-    if (!activeOk) void handlePickCompany(visibleCompanies[0]);
-  }, [bootLoading, companies.length, visibleCompanies, companyId, handlePickCompany]);
+    const resolved = resolveMaintenancePickerCompanyId(
+      companyId,
+      companyCode,
+      visibleCompanies,
+    );
+    if (resolved != null) return;
+    void handlePickCompany(visibleCompanies[0]);
+  }, [bootLoading, companies.length, visibleCompanies, companyId, companyCode, handlePickCompany]);
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => 
@@ -708,6 +713,11 @@ export default function CaptureMaintenancePage() {
 
   const tableLoading = loading || bootLoading;
 
+  const pickerCompanyId = useMemo(
+    () => resolveMaintenancePickerCompanyId(companyId, companyCode, visibleCompanies),
+    [companyId, companyCode, visibleCompanies],
+  );
+
   return (
     <div className="container">
       <div className="capture-maintenance-page-root">
@@ -720,7 +730,8 @@ export default function CaptureMaintenancePage() {
           setDateFrom={setDateFrom}
           setDateTo={setDateTo}
           today={todayDmy}
-          companyId={companyId}
+          companyId={pickerCompanyId}
+          companyCode={companyCode}
           snapGroupIds={snapGroupIds}
           visibleCompanies={visibleCompanies}
           selectedGroup={selectedGroup}

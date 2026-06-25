@@ -62,6 +62,7 @@ import { resolveTransactionMaintenanceCategory } from "./transactionMaintenanceL
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { formatDmyFromYmd } from "../shared/maintenanceDateHelpers.js";
+import { resolveMaintenancePickerCompanyId } from "../shared/maintenancePickerCompanyId.js";
 
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
@@ -1096,10 +1097,26 @@ export default function TransactionMaintenancePage() {
   useEffect(() => {
     if (!filtersReady || !companies.length || companyId == null) return;
     if (visibleCompanies.length === 0) return;
-    const cid = Number(companyId);
-    const activeOk = visibleCompanies.some((c) => Number(c.id) === cid);
-    if (!activeOk) void handlePickCompany(visibleCompanies[0]);
-  }, [filtersReady, companies.length, visibleCompanies, companyId, handlePickCompany]);
+    const resolved = resolveMaintenancePickerCompanyId(
+      companyId,
+      companyCode,
+      visibleCompanies,
+    );
+    if (resolved != null) return;
+    void handlePickCompany(visibleCompanies[0]);
+  }, [
+    filtersReady,
+    companies.length,
+    visibleCompanies,
+    companyId,
+    companyCode,
+    handlePickCompany,
+  ]);
+
+  const pickerCompanyId = useMemo(
+    () => resolveMaintenancePickerCompanyId(companyId, companyCode, visibleCompanies),
+    [companyId, companyCode, visibleCompanies],
+  );
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
@@ -1142,7 +1159,8 @@ export default function TransactionMaintenancePage() {
           dateTo={dateTo}
           onDateRangeChange={handleDateRangeChange}
           today={todayDmy}
-          companyId={companyId}
+          companyId={pickerCompanyId}
+          companyCode={companyCode}
           companies={companies}
           snapGroupIds={snapGroupIds}
           visibleCompanies={visibleCompanies}
