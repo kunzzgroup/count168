@@ -533,7 +533,6 @@ export function useTransactionSearch({
       }
 
       const runToken = ++latestRunTokenRef.current;
-      await queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
 
       if (instantData) {
         setRawSearchData(instantData);
@@ -978,9 +977,6 @@ export function useTransactionSearch({
       selectedCategoriesKey,
       effectiveDateFrom,
       effectiveDateTo,
-      searchState.showPaymentOnly ? "1" : "0",
-      searchState.showCaptureOnly ? "1" : "0",
-      searchState.showZeroBalance ? "1" : "0",
     ].join("|");
 
     if (lastInitialSearchKeyRef.current === initSearchKey) return;
@@ -1026,9 +1022,6 @@ export function useTransactionSearch({
     effectiveDateFrom,
     effectiveDateTo,
     selectedCategoriesKey,
-    searchState.showPaymentOnly,
-    searchState.showCaptureOnly,
-    searchState.showZeroBalance,
   ]);
 
   useEffect(() => {
@@ -1044,12 +1037,19 @@ export function useTransactionSearch({
     }
     if (prevCaptureDateRangeKeyRef.current === key) return;
     prevCaptureDateRangeKeyRef.current = key;
-    void runSearchRef.current?.({
-      silent: true,
-      notifyErrors: true,
-      showBlockingOverlay: true,
+    scheduleAutoSearch({
+      delayMs: 120,
+      forceRefresh: searchState.showZeroBalance,
     });
-  }, [effectiveDateFrom, effectiveDateTo, scopeReady, showAllCurrencies, selectedCurrenciesKey]);
+  }, [
+    effectiveDateFrom,
+    effectiveDateTo,
+    scopeReady,
+    showAllCurrencies,
+    selectedCurrenciesKey,
+    searchState.showZeroBalance,
+    scheduleAutoSearch,
+  ]);
 
   return {
     dateFrom,
