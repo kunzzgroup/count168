@@ -212,7 +212,7 @@ function TransactionPaymentPageMain() {
   );
 
   const onSearch = useCallback(() => {
-    search.runSearch({ silent: false });
+    search.runSearch({ silent: false, forceRefresh: true });
   }, [search.runSearch]);
 
   const toggleContraInbox = useCallback(() => {

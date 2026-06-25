@@ -1788,13 +1788,19 @@ try {
 
         // Show all 0 balance：每个 scope 内账户都必须出现在所选币别下（与 period 无关），
         // 避免仅有其它币别 active 行、或完全无 DCD/交易 的 domain MEMBER 漏行。
-        if (!$hide_zero_balance && !empty($filter_currency_codes)) {
-            foreach ($filter_currency_codes as $fcc) {
-                $code = strtoupper(trim((string) $fcc));
-                if ($code === '' || !isset($currency_map[$code])) {
-                    continue;
+        if (!$hide_zero_balance) {
+            if (!empty($filter_currency_codes)) {
+                foreach ($filter_currency_codes as $fcc) {
+                    $code = strtoupper(trim((string) $fcc));
+                    if ($code === '' || !isset($currency_map[$code])) {
+                        continue;
+                    }
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
                 }
-                addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
+            } elseif (empty($account_currencies)) {
+                foreach ($currency_map as $code => $cid) {
+                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $cid, (string) $code);
+                }
             }
         }
 

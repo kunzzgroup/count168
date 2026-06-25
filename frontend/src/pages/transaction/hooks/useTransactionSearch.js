@@ -22,7 +22,7 @@ import {
   saveUserCurrencyOrder,
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
-import { getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
+import { clearTxSearchCache, getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
 import { buildDefaultSearchApiParams } from "../lib/transactionScopePrefetch.js";
 import {
   buildDashboardCurrencyScopeKey,
@@ -404,7 +404,11 @@ export function useTransactionSearch({
 
     if (!zeroBalanceChanged && !paymentTurnedOff && !captureTurnedOff) return;
 
-    scheduleAutoSearch({ delayMs: 80, forceRefresh: zeroBalanceChanged });
+    if (zeroBalanceChanged && current.showZeroBalance) {
+      clearTxSearchCache();
+    }
+
+    scheduleAutoSearch({ delayMs: 80, forceRefresh: zeroBalanceChanged || current.showZeroBalance });
   }, [
     searchState.showPaymentOnly,
     searchState.showCaptureOnly,
@@ -488,6 +492,9 @@ export function useTransactionSearch({
       // 后端仍返回「本期有 W/L/Payment 动账但 Balance=0」的组合行（search_api Layer 末段），供前端勾选 W/L 或 Payment 时使用。
       const showCaptureOnlyForQuery = false;
 
+      // Show all 0 balance must always hit the API — never replay prefetch/session rows that hid zero balances.
+      const effectiveForceRefresh = forceRefresh || searchState.showZeroBalance;
+
       const requestKey = JSON.stringify({
         dateFrom: effectiveDateFrom,
         dateTo: effectiveDateTo,
@@ -500,7 +507,7 @@ export function useTransactionSearch({
         currencies: [...selectedCurrencies].sort().join(","),
       });
 
-      if (!isInitialLoad && !forceRefresh && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
+      if (!isInitialLoad && !effectiveForceRefresh && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
         return;
       }
 
@@ -517,7 +524,7 @@ export function useTransactionSearch({
       });
 
       let instantData = null;
-      if (!forceRefresh) {
+      if (!effectiveForceRefresh) {
         instantData =
           getTxSearchCache(requestKey) ?? (sessionKey ? readTxListFromSessionStorage(sessionKey) : null);
       }
@@ -568,7 +575,7 @@ export function useTransactionSearch({
         queryClient.fetchQuery({
           queryKey: transactionQueryKeys.search(params),
           queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
-          staleTime: 5 * 60_000,
+          staleTime: searchState.showZeroBalance ? 0 : 5 * 60_000,
           gcTime: 15 * 60_000,
         });
 
@@ -983,23 +990,25 @@ export function useTransactionSearch({
 
     let hadReplay = false;
     try {
-      const key = buildTxListSessionKey({
-        companyId: scopeCacheCompanyKey,
-        dateFrom: effectiveDateFrom,
-        dateTo: effectiveDateTo,
-        selectedCategories,
-        showInactive: searchState.showPaymentOnly,
-        showCaptureOnly: searchState.showCaptureOnly,
-        hideZeroBalance: !searchState.showZeroBalance,
-        showAllCurrencies,
-        selectedCurrencies,
-      });
-      const replay = key ? readTxListFromSessionStorage(key) : null;
-      if (replay) {
-        setRawSearchData(replay);
-        setTablesVisible(true);
-        lastSearchCommitMsRef.current = Date.now();
-        hadReplay = true;
+      if (!searchState.showZeroBalance) {
+        const key = buildTxListSessionKey({
+          companyId: scopeCacheCompanyKey,
+          dateFrom: effectiveDateFrom,
+          dateTo: effectiveDateTo,
+          selectedCategories,
+          showInactive: searchState.showPaymentOnly,
+          showCaptureOnly: searchState.showCaptureOnly,
+          hideZeroBalance: !searchState.showZeroBalance,
+          showAllCurrencies,
+          selectedCurrencies,
+        });
+        const replay = key ? readTxListFromSessionStorage(key) : null;
+        if (replay) {
+          setRawSearchData(replay);
+          setTablesVisible(true);
+          lastSearchCommitMsRef.current = Date.now();
+          hadReplay = true;
+        }
       }
     } catch {
       /* ignore */
@@ -1012,6 +1021,7 @@ export function useTransactionSearch({
       silent: hadReplay,
       notifyErrors: !hadReplay,
       showBlockingOverlay: false,
+      forceRefresh: searchState.showZeroBalance,
     });
   }, [
     scopeKey,
