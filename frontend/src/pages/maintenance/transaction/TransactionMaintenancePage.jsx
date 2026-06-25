@@ -1118,6 +1118,13 @@ export default function TransactionMaintenancePage() {
     [companyId, companyCode, visibleCompanies],
   );
 
+  useEffect(() => {
+    if (companyId == null || companyCode) return;
+    const row = companies.find((c) => Number(c.id) === Number(companyId));
+    const code = row?.company_id ? String(row.company_id).trim() : "";
+    if (code) setCompanyCode(code);
+  }, [companyId, companyCode, companies]);
+
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
@@ -1159,7 +1166,8 @@ export default function TransactionMaintenancePage() {
           dateTo={dateTo}
           onDateRangeChange={handleDateRangeChange}
           today={todayDmy}
-          companyId={pickerCompanyId}
+          companyId={companyId}
+          pickerCompanyId={pickerCompanyId}
           companyCode={companyCode}
           companies={companies}
           snapGroupIds={snapGroupIds}

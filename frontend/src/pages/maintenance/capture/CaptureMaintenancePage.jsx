@@ -740,6 +740,14 @@ export default function CaptureMaintenancePage() {
     [companyId, companyCode, visibleCompanies],
   );
 
+  // Session / boot may set numeric id before code — pills highlight by code.
+  useEffect(() => {
+    if (companyId == null || companyCode) return;
+    const row = companies.find((c) => Number(c.id) === Number(companyId));
+    const code = row?.company_id ? String(row.company_id).trim() : "";
+    if (code) setCompanyCode(code);
+  }, [companyId, companyCode, companies]);
+
   return (
     <div className="container">
       <div className="capture-maintenance-page-root">
@@ -752,7 +760,8 @@ export default function CaptureMaintenancePage() {
           setDateFrom={setDateFrom}
           setDateTo={setDateTo}
           today={todayDmy}
-          companyId={pickerCompanyId}
+          companyId={companyId}
+          pickerCompanyId={pickerCompanyId}
           companyCode={companyCode}
           snapGroupIds={snapGroupIds}
           visibleCompanies={visibleCompanies}
