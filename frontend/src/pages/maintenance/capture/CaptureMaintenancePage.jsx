@@ -413,9 +413,16 @@ export default function CaptureMaintenancePage() {
           groupsAllMode,
           groupAllMode,
         });
-      if (!captureMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) return;
+      if (!captureMaintenanceScopeIsReady(effectiveScope) || !dateFrom || !dateTo) {
+        setLoading(false);
+        setListSyncing(false);
+        return;
+      }
 
       const searchScopeKey = captureMaintenanceScopeCacheKey(effectiveScope);
+      if (overrides.scope) {
+        scopeKeyRef.current = searchScopeKey;
+      }
       captureAbortRef.current?.abort();
       const ac = new AbortController();
       captureAbortRef.current = ac;
@@ -531,21 +538,19 @@ export default function CaptureMaintenancePage() {
       const nextId = Number(c.id);
       const nextCode = c.company_id || "";
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-      const nextScope = resolveCaptureMaintenanceScope({
-        companies,
-        selectedGroup: newGroup,
-        companyId: nextId,
-        groupsAllMode,
-        groupAllMode,
-      });
       suppressNextSearchEffectRef.current = true;
+      if (initialCaptureSearchDoneRef.current) {
+        setLoading(false);
+        setListSyncing(true);
+      }
       setCompanyId(nextId);
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
+      setSelectedProcess("");
+      setSelectedIds([]);
       persistDashboardFilterState(newGroup, nextId);
-      void performSearch({ scope: nextScope });
     },
-    [companies, performSearch, groupsAllMode, groupAllMode],
+    [],
   );
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
@@ -553,28 +558,49 @@ export default function CaptureMaintenancePage() {
   const handleSwitchCompany = async (c) => {
     if (!c?.id) return;
     const nextCode = c.company_id || "";
+    const nextCompanyId = Number(c.id);
+    const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+
+    if (initialCaptureSearchDoneRef.current) {
+      setLoading(false);
+      setListSyncing(true);
+    }
 
     try {
       const { redirected } = await runMaintenanceCompanySwitch({
         companyRow: c,
-        viewGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : null,
+        viewGroup: newGroup,
         currentPath: location.pathname,
         navigate,
         updateSessionCompany,
         onStay: async () => {
           const switchedScope = resolveCaptureMaintenanceScope({
             companies,
-            selectedGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : null,
-            companyId: Number(c.id),
+            selectedGroup: newGroup,
+            companyId: nextCompanyId,
             groupsAllMode,
             groupAllMode,
           });
-          await performSearch({ scope: switchedScope });
+          try {
+            const procList = await fetchProcesses(nextCompanyId, switchedScope);
+            setProcesses(procList);
+            setSelectedProcess("");
+            suppressNextSearchEffectRef.current = true;
+            await performSearch({ scope: switchedScope });
+          } catch (err) {
+            console.error("Process list load error:", err);
+            setListSyncing(false);
+            notify(err.message || t("failedLoadProcesses"), "error");
+          }
           notify(t("switchedTo", { company: nextCode }), "success");
         },
       });
-      if (redirected) return;
+      if (redirected) {
+        setListSyncing(false);
+        return;
+      }
     } catch (err) {
+      setListSyncing(false);
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
         navigate(spaPath("dashboard"), { replace: true });
