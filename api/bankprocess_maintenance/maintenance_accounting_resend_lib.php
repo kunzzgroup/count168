@@ -421,45 +421,6 @@ if (!function_exists('bmp_monthlyBillingCalendarMonthIsHandled')) {
     }
 }
 
-/**
- * 结束 Resend relax 会话（入账成功或 Accounting Due Dismiss 后调用），恢复常规 monthly 排期。
- *
- * @return bool true if relax was active and cleared
- */
-if (!function_exists('bmp_clearBankProcessAccountingResendRelaxState')) {
-    function bmp_clearBankProcessAccountingResendRelaxState(PDO $pdo, int $companyId, int $bankProcessId): bool
-    {
-        if (!bmp_resend_tableHasColumn($pdo, 'bank_process', 'accounting_resend_relax_created_floor')) {
-            return false;
-        }
-        $stmt = $pdo->prepare(
-            'SELECT accounting_resend_relax_created_floor FROM bank_process WHERE id = ? AND company_id = ? LIMIT 1'
-        );
-        $stmt->execute([$bankProcessId, $companyId]);
-        if ((int) $stmt->fetchColumn() !== 1) {
-            return false;
-        }
-        bmp_ensureBankProcessAccountingResendScheduleColumns($pdo);
-        if (bmp_bankProcessHasResendScheduleColumns($pdo)) {
-            $clr = $pdo->prepare(
-                'UPDATE bank_process SET accounting_resend_relax_created_floor = 0,
-                    accounting_resend_schedule_day_start = NULL,
-                    accounting_resend_schedule_day_end = NULL,
-                    accounting_resend_schedule_frequency = NULL,
-                    dts_modified = NOW() WHERE id = ? AND company_id = ?'
-            );
-        } else {
-            $clr = $pdo->prepare(
-                'UPDATE bank_process SET accounting_resend_relax_created_floor = 0, dts_modified = NOW() WHERE id = ? AND company_id = ?'
-            );
-        }
-        $clr->execute([$bankProcessId, $companyId]);
-        bmp_purgeStaleMonthlySkippedRows($pdo, $companyId, $bankProcessId);
-
-        return true;
-    }
-}
-
 /** Resend 结束后清理：删除不在 consolidated 覆盖内、且非用户显式 Delete 的 stale monthly_skipped。 */
 if (!function_exists('bmp_purgeStaleMonthlySkippedRows')) {
     function bmp_purgeStaleMonthlySkippedRows(PDO $pdo, int $companyId, int $processId): void
