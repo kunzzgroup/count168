@@ -156,7 +156,7 @@ export function useTransactionSearch({
     categoryChangedByUserRef.current = true;
   }, []);
 
-  const scheduleAutoSearch = useCallback(({ isInitialLoad = false, delayMs = 260 } = {}) => {
+  const scheduleAutoSearch = useCallback(({ isInitialLoad = false, delayMs = 260, forceRefresh = false } = {}) => {
     if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
     autoSearchTimerRef.current = setTimeout(() => {
       autoSearchTimerRef.current = null;
@@ -165,6 +165,7 @@ export function useTransactionSearch({
         notifyErrors: true,
         showBlockingOverlay: false,
         isInitialLoad,
+        forceRefresh,
       });
     }, delayMs);
   }, []);
@@ -403,7 +404,7 @@ export function useTransactionSearch({
 
     if (!zeroBalanceChanged && !paymentTurnedOff && !captureTurnedOff) return;
 
-    scheduleAutoSearch({ delayMs: 80 });
+    scheduleAutoSearch({ delayMs: 80, forceRefresh: zeroBalanceChanged });
   }, [
     searchState.showPaymentOnly,
     searchState.showCaptureOnly,
