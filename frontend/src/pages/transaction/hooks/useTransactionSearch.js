@@ -1006,6 +1006,11 @@ export function useTransactionSearch({
     }
 
     lastInitialSearchKeyRef.current = initSearchKey;
+    prevServerSideFiltersRef.current = {
+      showPaymentOnly: searchState.showPaymentOnly,
+      showCaptureOnly: searchState.showCaptureOnly,
+      showZeroBalance: searchState.showZeroBalance,
+    };
     initialSearchDoneRef.current = true;
     void runSearchRef.current?.({
       isInitialLoad: true,
