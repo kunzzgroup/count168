@@ -324,10 +324,9 @@
 
     // 切换公司后由各页调用，即时显示/隐藏：
     // - 侧边栏 Data Capture
-    // - Maintenance 子菜单里 Games 才能用的项
-    // - Category 为 Bank（localStorage）时隐藏 Maintenance > Data Capture / Transaction / Formula
+    // - Maintenance 子菜单：Bank 视图（Bank-only 或 localStorage Category=Bank）展示全部子项
+    // - Games category：Capture/Transaction/Formula 按 hasGambling；Process 仅 Bank category 时显示
     // - 侧边栏 Report 区块（仅 Games 可见）
-    // - Maintenance > Process：公司需含 Bank 权限；无 Games 时始终显示（若 has_bank）；有 Games 时仅 Category=Bank（localStorage）显示
     // hasBank 由 session 切换 API 或 sidebar.php 注入；未传第二参时不覆盖 window.SIDEBAR_COMPANY_HAS_BANK
     function updateSidebarDataCaptureVisibility(hasGambling, hasBank) {
         if (typeof hasBank === 'boolean') {
@@ -335,14 +334,15 @@
         }
         var bankPerm = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' ? !!window.SIDEBAR_COMPANY_HAS_BANK : false;
         var isBankCategory = isMaintenanceCategoryBankFromStorage();
+        var isBankMaintenanceView = isBankCategory || (bankPerm && !hasGambling);
 
         var dcSection = document.getElementById('sidebar-datacapture-section');
-        if (dcSection) dcSection.style.display = hasGambling ? '' : 'none';
+        if (dcSection) dcSection.style.display = (hasGambling || bankPerm) ? '' : 'none';
 
         var maintCapture = document.getElementById('maintenance-capture-link');
         if (maintCapture) {
-            if (isBankCategory) {
-                maintCapture.style.display = 'none';
+            if (isBankMaintenanceView) {
+                maintCapture.style.display = '';
             } else {
                 maintCapture.style.display = hasGambling ? '' : 'none';
             }
@@ -350,8 +350,8 @@
 
         var maintTransaction = document.getElementById('maintenance-transaction-link');
         if (maintTransaction) {
-            if (isBankCategory) {
-                maintTransaction.style.display = 'none';
+            if (isBankMaintenanceView) {
+                maintTransaction.style.display = '';
             } else {
                 maintTransaction.style.display = hasGambling ? '' : 'none';
             }
@@ -359,8 +359,8 @@
 
         var maintFormula = document.getElementById('maintenance-formula-link');
         if (maintFormula) {
-            if (isBankCategory) {
-                maintFormula.style.display = 'none';
+            if (isBankMaintenanceView) {
+                maintFormula.style.display = '';
             } else {
                 maintFormula.style.display = hasGambling ? '' : 'none';
             }
@@ -370,6 +370,8 @@
         if (maintProcess) {
             if (!bankPerm) {
                 maintProcess.style.display = 'none';
+            } else if (isBankMaintenanceView) {
+                maintProcess.style.display = '';
             } else if (hasGambling) {
                 maintProcess.style.display = isBankCategory ? '' : 'none';
             } else {

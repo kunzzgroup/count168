@@ -103,6 +103,13 @@ document.addEventListener('click', function(event) {
 
 // Load Process list
 function loadProcesses() {
+    if (typeof window.isBankMaintenanceProcessMode === 'function'
+        && window.isBankMaintenanceProcessMode(selectedPermission)
+        && typeof window.renderBankMaintenanceProcessSelect === 'function') {
+        window.renderBankMaintenanceProcessSelect();
+        return Promise.resolve();
+    }
+
     const params = [];
     if (currentCompanyId) {
         params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
@@ -392,9 +399,7 @@ async function loadPermissionButtons() {
         const result = await response.json();
         let permissions = result.success && result.data && result.data.permissions
             ? result.data.permissions
-            : ['Games', 'Loan', 'Rate', 'Money'];
-        // Formula 页不显示 Bank category
-        permissions = permissions.filter(p => p !== 'Bank');
+            : ['Games', 'Bank', 'Loan', 'Rate', 'Money'];
         containerEl.innerHTML = '';
         if (permissions.length > 0) {
             filterEl.style.display = (permissions.length <= 1) ? 'none' : 'flex';
@@ -463,9 +468,19 @@ function switchPermission(permission, skipLoad) {
     if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
         window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
     }
+    loadProcesses().catch(function () {});
     if (!skipLoad) {
         searchData();
     }
+}
+
+function canAccessFormulaMaintenancePage() {
+    if (typeof window.canAccessMaintenancePage === 'function') {
+        return window.canAccessMaintenancePage();
+    }
+    const hasGambling = typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING;
+    const hasBank = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' && window.SIDEBAR_COMPANY_HAS_BANK;
+    return hasGambling || hasBank;
 }
 
 async function switchCompany(companyId, companyCode) {
@@ -489,8 +504,13 @@ async function switchCompany(companyId, companyCode) {
     if (typeof window !== 'undefined') {
         window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
     }
-    const permissions = await fetchCompanyPermissions(currentCompanyCode);
-    if (isBankOnlyCategoryCompany(permissions)) {
+    const flags = typeof window.resolveMaintenanceCompanyFlags === 'function'
+        ? window.resolveMaintenanceCompanyFlags(hasGamblingFromSession, hasBankFromSession)
+        : {
+            hasGambling: hasGamblingFromSession !== undefined ? hasGamblingFromSession : !!window.SIDEBAR_COMPANY_HAS_GAMBLING,
+            hasBank: hasBankFromSession !== undefined ? hasBankFromSession : !!window.SIDEBAR_COMPANY_HAS_BANK
+        };
+    if (!flags.hasGambling && !flags.hasBank) {
         if (typeof window.redirectAfterCompanySwitch === 'function') {
             window.redirectAfterCompanySwitch(companyId, { preferDashboard: false });
         } else {
@@ -499,13 +519,8 @@ async function switchCompany(companyId, companyCode) {
         return;
     }
     if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
-        const hg = hasGamblingFromSession !== undefined
-            ? hasGamblingFromSession
-            : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
-        window.updateSidebarDataCaptureVisibility(hg, hasBankFromSession);
+        window.updateSidebarDataCaptureVisibility(flags.hasGambling, flags.hasBank);
     }
-
-    // Clear filters when switching company
     const searchFilter = document.getElementById('search_filter');
     if (searchFilter) searchFilter.value = '';
     const processButton = document.getElementById('filter_process');
@@ -1471,6 +1486,7 @@ function confirmDelete() {
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
+    // PHP 已校验 Games/Bank 权限；此处不再 redirect
     initMaintenanceDropdownHover();
     initAutoSearchFilters();
 

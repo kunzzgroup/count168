@@ -11,17 +11,204 @@ function buildApiUrl(pathAndQuery) {
     return new URL(pathAndQuery, base).href;
 }
 
-function redirectToDashboardIfUnauthorizedCategory(errorMessage) {
-    if (typeof errorMessage !== 'string') return false;
-    const normalized = errorMessage.toLowerCase();
-    const isUnauthorizedCategory = normalized.includes('unauthorized category permission') || normalized.includes('games required');
-    if (!isUnauthorizedCategory) return false;
-    const currentRole = String(window.DATACAPTURE_USER_ROLE || '').toLowerCase();
-    const canGoDashboard = currentRole === 'admin' || currentRole === 'owner';
-    window.location.href = canGoDashboard
-        ? buildApiUrl('dashboard.php')
-        : buildApiUrl('processlist.php');
-    return true;
+// Bank-only 公司：简化 Data Capture（仅 Date/Process/Currency/Remark + 1.Text 表格）
+const BANK_DATA_CAPTURE_PROCESSES = ['PROFIT','SALARY', 'COMMISSION', 'BONUS'];
+const BANK_DRAFT_SAVE_PROCESSES = ['SALARY', 'COMMISSION', 'BONUS'];
+let bankDraftLoadSeq = 0;
+
+function isBankDraftSaveProcess(processIdOrCode) {
+    if (processIdOrCode == null || processIdOrCode === '') return false;
+    return BANK_DRAFT_SAVE_PROCESSES.includes(String(processIdOrCode).trim().toUpperCase());
+}
+
+function getBankDraftProcessKey(processInput) {
+    if (!processInput) return '';
+    const code = processInput.getAttribute('data-process-code') || '';
+    const id = getProcessId(processInput);
+    return String(code || id || processInput.textContent || '').trim().toUpperCase();
+}
+
+function clearCaptureTableCellsOnly() {
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) return;
+    tableBody.querySelectorAll('td[contenteditable="true"]').forEach(cell => {
+        cell.textContent = '';
+        cell.innerHTML = '';
+        cell.removeAttribute('style');
+        cell.removeAttribute('colspan');
+        cell.style.display = '';
+        cell.className = '';
+    });
+}
+
+async function applyCapturedTableDataToGrid(tableData) {
+    if (!tableData || !tableData.rows || tableData.rows.length === 0) {
+        clearCaptureTableCellsOnly();
+        return;
+    }
+
+    const requiredRows = tableData.rowCount || tableData.rows.length;
+    const requiredCols = Math.max(tableData.colCount || (tableData.headers ? tableData.headers.length - 1 : 15), 15);
+    initializeTable(requiredRows, requiredCols);
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const tableBody = document.getElementById('tableBody');
+    if (!tableBody) return;
+
+    tableData.rows.forEach((rowData, rowIndex) => {
+        const tableRow = tableBody.children[rowIndex];
+        if (!tableRow) return;
+        rowData.forEach((cellData, colIndex) => {
+            if (cellData.type === 'data' && colIndex > 0) {
+                const cell = tableRow.children[colIndex];
+                if (cell && cell.contentEditable === 'true') {
+                    cell.removeAttribute('colspan');
+                    cell.style.display = '';
+                    if (cellData.colspan && cellData.colspan > 1) {
+                        cell.setAttribute('colspan', cellData.colspan.toString());
+                        for (let i = 1; i < cellData.colspan; i++) {
+                            const hiddenCellIndex = colIndex + i;
+                            if (tableRow.children[hiddenCellIndex]) {
+                                tableRow.children[hiddenCellIndex].style.display = 'none';
+                            }
+                        }
+                    }
+                    cell.textContent = cellData.value || '';
+                }
+            }
+        });
+    });
+}
+
+async function saveBankCompanyDraft(tableData, processKey, currencyId) {
+    if (!isDataCaptureBankCategoryMode() || !isBankDraftSaveProcess(processKey)) return;
+    if (!tableData || !currencyId) return;
+    try {
+        const url = buildApiUrl('api/datacapture/company_draft_api.php?action=save');
+        await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                process_key: String(processKey).trim().toUpperCase(),
+                currency_id: parseInt(currencyId, 10),
+                draft_json: tableData
+            })
+        });
+    } catch (e) {
+        console.warn('saveBankCompanyDraft failed:', e);
+    }
+}
+
+async function tryLoadBankCompanyDraft() {
+    if (!isDataCaptureBankCategoryMode() || isRestoringData) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('restore') === '1') return;
+
+    const processInput = document.getElementById('capture_process');
+    const currencySelect = document.getElementById('capture_currency');
+    if (!processInput || !currencySelect) return;
+
+    const processKey = getBankDraftProcessKey(processInput);
+    const currencyId = currencySelect.value;
+    const loadSeq = ++bankDraftLoadSeq;
+
+    clearCaptureTableCellsOnly();
+
+    if (!processKey || !currencyId || !isBankDraftSaveProcess(processKey)) {
+        updateSubmitButtonState();
+        return;
+    }
+
+    try {
+        const url = buildApiUrl(
+            `api/datacapture/company_draft_api.php?action=get&process_key=${encodeURIComponent(processKey)}&currency_id=${encodeURIComponent(currencyId)}`
+        );
+        const response = await fetch(url, { credentials: 'same-origin' });
+        const result = await response.json();
+        if (loadSeq !== bankDraftLoadSeq) return;
+
+        if (result.success && result.data) {
+            await applyCapturedTableDataToGrid(result.data);
+        }
+    } catch (e) {
+        console.warn('tryLoadBankCompanyDraft failed:', e);
+    }
+
+    if (loadSeq === bankDraftLoadSeq) {
+        updateSubmitButtonState();
+    }
+}
+
+function isDataCaptureBankCategoryMode() {
+    return !!(window.SIDEBAR_COMPANY_HAS_BANK && !window.SIDEBAR_COMPANY_HAS_GAMBLING);
+}
+
+function isBankCaptureProcessCode(processIdOrCode) {
+    if (processIdOrCode == null || processIdOrCode === '') return false;
+    return BANK_DATA_CAPTURE_PROCESSES.includes(String(processIdOrCode).trim().toUpperCase());
+}
+
+function shouldSkipLoadProcessData(processIdOrCode, savedProcessData) {
+    if (isDataCaptureBankCategoryMode()) return true;
+    if (savedProcessData && savedProcessData.isBankDataCapture === true) return true;
+    return isBankCaptureProcessCode(processIdOrCode);
+}
+
+function captureTableHasData() {
+    try {
+        const tableData = captureTableData();
+        if (!tableData.rows || tableData.rows.length === 0) return false;
+        return tableData.rows.some(row => {
+            return row.some(cell => {
+                return cell.type === 'data' && cell.value && cell.value.trim() !== '';
+            });
+        });
+    } catch (_) {
+        return false;
+    }
+}
+
+function applyDataCaptureBankCategoryUI() {
+    const bankMode = isDataCaptureBankCategoryMode();
+    document.body.classList.toggle('datacapture-bank-category-mode', bankMode);
+
+    [
+        document.getElementById('capture_description')?.closest('.form-group'),
+        document.getElementById('capture_remove_word')?.closest('.form-group'),
+        document.querySelector('.replace-word-group')
+    ].forEach(el => {
+        if (el) el.style.display = bankMode ? 'none' : '';
+    });
+
+    const descInput = document.getElementById('capture_description');
+    if (descInput) {
+        if (bankMode) descInput.removeAttribute('required');
+        else descInput.setAttribute('required', '');
+    }
+
+    const typeSelect = document.getElementById('dataCaptureTypeSelector');
+    if (typeSelect) {
+        typeSelect.style.display = bankMode ? 'none' : '';
+        if (bankMode) typeSelect.value = '1.Text';
+    }
+
+    if (bankMode) {
+        currentDataCaptureType = '1.Text';
+        isFormatGridReady = false;
+        const excelTableContainer = document.querySelector('.excel-table-container');
+        if (excelTableContainer) excelTableContainer.classList.remove('citibet-mode');
+        ['pasteAreaFormat', 'tablePreviewFormat'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        const dataTable = document.getElementById('dataTable');
+        if (dataTable) dataTable.style.display = 'table';
+        if (typeof toggleTableDisplayForFormat === 'function') {
+            toggleTableDisplayForFormat();
+        }
+    }
 }
 
 // 统一钱数格式：.xx 点后面2位为一组（逗号小数→点、.50→0.50、0.→0.00、千分位逗号保留）
@@ -1008,7 +1195,27 @@ function getLocalDateString(date = null) {
     return `${year}-${month}-${day}`;
 }
 
-// Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交时刻 created_at（含日期）
+/** 若账务日不在下拉列表（±6 天）内，补一条 option 并选中 */
+function ensureCaptureDateInSelect(dateYmd) {
+    const dateSelect = document.getElementById('capture_date');
+    if (!dateSelect || !dateYmd || !/^\d{4}-\d{2}-\d{2}$/.test(dateYmd)) {
+        return;
+    }
+    const exists = Array.from(dateSelect.options).some(function (o) { return o.value === dateYmd; });
+    if (!exists) {
+        const parts = dateYmd.split('-');
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const weekday = weekdayNames[d.getDay()];
+        const opt = document.createElement('option');
+        opt.value = dateYmd;
+        opt.textContent = dateYmd + ' (' + weekday + ')';
+        dateSelect.insertBefore(opt, dateSelect.firstChild);
+    }
+    dateSelect.value = dateYmd;
+}
+
+// Load submitted processes：随左侧 Date（capture_date）筛选列表；行内展示时间为物理提交 moment created_at（含日期）
 async function loadSubmittedProcesses() {
     try {
         const dateInput = document.getElementById('capture_date');
@@ -1034,7 +1241,6 @@ async function loadSubmittedProcesses() {
             renderSubmittedProcesses();
         } else {
             console.error('Failed to load submitted processes:', result.error);
-            if (redirectToDashboardIfUnauthorizedCategory(result.error)) return;
         }
     } catch (error) {
         console.error('Error loading submitted processes:', error);
@@ -2503,6 +2709,10 @@ function initProcessInput() {
     processButton.addEventListener('change', function () {
         console.log('Process selection changed to:', this.textContent);
         updateSubmitButtonState();
+        if (isDataCaptureBankCategoryMode()) {
+            tryLoadBankCompanyDraft();
+            return;
+        }
         const processId = getProcessId(this);
         if (processId) {
             loadProcessData(processId);
@@ -2512,8 +2722,12 @@ function initProcessInput() {
     });
 }
 
-// Load process data when a process is selected
+// Load process data when a process is selected (Games only; Bank 固定 process 不走 processlist_api)
 async function loadProcessData(processId) {
+    if (shouldSkipLoadProcessData(processId)) {
+        console.log('Skipping Games loadProcessData for Bank capture process:', processId);
+        return;
+    }
     console.log('Loading process data for ID:', processId);
     try {
         // Ensure currency dropdown is loaded
@@ -2768,7 +2982,6 @@ async function loadFormData() {
             // Load processes based on selected date
             await loadProcessesByDate();
         } else {
-            if (redirectToDashboardIfUnauthorizedCategory(result.error)) return;
             showNotification('Failed to load form data: ' + result.error, 'danger');
         }
     } catch (error) {
@@ -2777,9 +2990,105 @@ async function loadFormData() {
     }
 }
 
+// 填充 Process 自定义下拉（Games API 数据与 Bank 固定项共用）
+function renderCaptureProcessSelectOptions(processes) {
+    const processButton = document.getElementById('capture_process');
+    const processDropdown = document.getElementById('capture_process_dropdown');
+    const optionsContainer = processDropdown?.querySelector('.custom-select-options');
+
+    if (!processButton || !processDropdown || !optionsContainer) return;
+
+    processDataMap.clear();
+    optionsContainer.innerHTML = '';
+
+    const previousValue = processButton.getAttribute('data-value') || '';
+
+    if (processes && processes.length > 0) {
+        processes.forEach(process => {
+            const displayText = (process.process_display != null && String(process.process_display).trim() !== '')
+                ? String(process.process_display).trim()
+                : (process.description_name ? `${process.process_id} (${process.description_name})` : process.process_id);
+
+            const option = document.createElement('div');
+            option.className = 'custom-select-option';
+            option.textContent = displayText;
+            option.setAttribute('data-value', process.id);
+            option.setAttribute('data-process-code', process.process_id);
+            if (process.description_name) {
+                option.setAttribute('data-description-name', process.description_name);
+            }
+            optionsContainer.appendChild(option);
+
+            processDataMap.set(displayText, {
+                id: process.id,
+                process_id: process.process_id,
+                description_name: process.description_name || null
+            });
+        });
+
+        if (previousValue) {
+            let foundDisplayText = null;
+            for (let [displayText, data] of processDataMap.entries()) {
+                if (String(data.id) === String(previousValue)) {
+                    foundDisplayText = displayText;
+                    break;
+                }
+            }
+            if (foundDisplayText && processDataMap.has(foundDisplayText)) {
+                const processData = processDataMap.get(foundDisplayText);
+                processButton.textContent = foundDisplayText;
+                processButton.setAttribute('data-value', processData.id);
+                processButton.setAttribute('data-process-code', processData.process_id);
+                if (processData.description_name) {
+                    processButton.setAttribute('data-description-name', processData.description_name);
+                } else {
+                    processButton.removeAttribute('data-description-name');
+                }
+                optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                    if (opt.getAttribute('data-value') === String(previousValue)) {
+                        opt.classList.add('selected');
+                    }
+                });
+            } else {
+                processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
+                processButton.removeAttribute('data-value');
+                processButton.removeAttribute('data-process-code');
+                processButton.removeAttribute('data-description-name');
+            }
+        } else {
+            processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
+            processButton.removeAttribute('data-value');
+            processButton.removeAttribute('data-process-code');
+            processButton.removeAttribute('data-description-name');
+        }
+    } else {
+        processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
+        processButton.removeAttribute('data-value');
+        processButton.removeAttribute('data-process-code');
+        processButton.removeAttribute('data-description-name');
+    }
+
+    updateSubmitButtonState();
+}
+
+function populateBankCaptureProcessOptions() {
+    const processes = BANK_DATA_CAPTURE_PROCESSES.map(code => ({
+        id: code,
+        process_id: code,
+        process_display: code
+    }));
+    renderCaptureProcessSelectOptions(processes);
+}
+
 // Load processes based on selected date
 async function loadProcessesByDate() {
     try {
+        if (isDataCaptureBankCategoryMode()) {
+            populateBankCaptureProcessOptions();
+            return;
+        }
+
         const dateInput = document.getElementById('capture_date');
         const selectedDate = dateInput.value || getLocalDateString();
 
@@ -2792,99 +3101,14 @@ async function loadProcessesByDate() {
         const result = await response.json();
 
         if (result.success) {
-            // Fill process custom select
-            const processButton = document.getElementById('capture_process');
-            const processDropdown = document.getElementById('capture_process_dropdown');
-            const optionsContainer = processDropdown?.querySelector('.custom-select-options');
-
-            if (!processButton || !processDropdown || !optionsContainer) return;
-
-            // 清空数据映射和选项
-            processDataMap.clear();
-            optionsContainer.innerHTML = '';
-
-            // 保存之前的值
-            const previousValue = processButton.getAttribute('data-value') || '';
-
             if (result.data && result.data.length > 0) {
                 console.log('Loading processes for date:', selectedDate, 'Day of week:', result.day_of_week);
-                result.data.forEach(process => {
-                    // 抓取 Process 全部读取：使用 API 返回的 process_display，例如 F9EJMSUB (JOKER API)
-                    const displayText = (process.process_display != null && String(process.process_display).trim() !== '')
-                        ? String(process.process_display).trim()
-                        : (process.description_name ? `${process.process_id} (${process.description_name})` : process.process_id);
-
-                    // 创建选项
-                    const option = document.createElement('div');
-                    option.className = 'custom-select-option';
-                    option.textContent = displayText;
-                    option.setAttribute('data-value', process.id);
-                    option.setAttribute('data-process-code', process.process_id);
-                    if (process.description_name) {
-                        option.setAttribute('data-description-name', process.description_name);
-                    }
-                    optionsContainer.appendChild(option);
-
-                    // 存储映射：display_text -> {id, process_id, description_name}
-                    processDataMap.set(displayText, {
-                        id: process.id,
-                        process_id: process.process_id,
-                        description_name: process.description_name || null
-                    });
-                });
-
-                // 恢复之前的值（如果仍然存在）
-                if (previousValue) {
-                    // 查找对应的 displayText
-                    let foundDisplayText = null;
-                    for (let [displayText, data] of processDataMap.entries()) {
-                        if (String(data.id) === String(previousValue)) {
-                            foundDisplayText = displayText;
-                            break;
-                        }
-                    }
-                    if (foundDisplayText && processDataMap.has(foundDisplayText)) {
-                        const processData = processDataMap.get(foundDisplayText);
-                        processButton.textContent = foundDisplayText;
-                        processButton.setAttribute('data-value', processData.id);
-                        processButton.setAttribute('data-process-code', processData.process_id);
-                        if (processData.description_name) {
-                            processButton.setAttribute('data-description-name', processData.description_name);
-                        }
-                        // 标记为选中
-                        optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
-                            opt.classList.remove('selected');
-                            if (opt.getAttribute('data-value') === String(previousValue)) {
-                                opt.classList.add('selected');
-                            }
-                        });
-                    } else {
-                        processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
-                        processButton.removeAttribute('data-value');
-                        processButton.removeAttribute('data-process-code');
-                        processButton.removeAttribute('data-description-name');
-                    }
-                } else {
-                    processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
-                    processButton.removeAttribute('data-value');
-                    processButton.removeAttribute('data-process-code');
-                    processButton.removeAttribute('data-description-name');
-                }
-
-                console.log('Process custom select populated with', result.data.length, 'options for', selectedDate);
             } else {
                 console.log('No processes found for selected date:', selectedDate);
-                processButton.textContent = processButton.getAttribute('data-placeholder') || 'Select Process';
-                processButton.removeAttribute('data-value');
-                processButton.removeAttribute('data-process-code');
-                processButton.removeAttribute('data-description-name');
             }
-
-            // Update submit button state
-            updateSubmitButtonState();
+            renderCaptureProcessSelectOptions(result.data || []);
         } else {
             console.error('Failed to load processes by date:', result.error);
-            if (redirectToDashboardIfUnauthorizedCategory(result.error)) return;
             showNotification('Failed to load processes: ' + result.error, 'danger');
         }
     } catch (error) {
@@ -22812,8 +23036,10 @@ function validateForm() {
         return false;
     }
 
-    // Check if descriptions are selected
-    if (descriptions.length === 0) {
+    const bankMode = isDataCaptureBankCategoryMode();
+
+    // Check if descriptions are selected (Games 模式)
+    if (!bankMode && descriptions.length === 0) {
         showNotification('Please select at least one description', 'danger');
         return false;
     }
@@ -22825,19 +23051,12 @@ function validateForm() {
     }
 
     // Check if table has data
-    // 目前的表格判定格式仅在选择 CITIBET / CITIBET MAJOR 时强制生效
-    if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
-        const tableData = captureTableData();
-        const hasTableData = tableData.rows.some(row => {
-            return row.some(cell => {
-                return cell.type === 'data' && cell.value && cell.value.trim() !== '';
-            });
-        });
-
-        if (!hasTableData) {
-            showNotification('Please enter data in the table', 'danger');
-            return false;
-        }
+    const requireTableData = bankMode ||
+        currentDataCaptureType === 'CITIBET' ||
+        currentDataCaptureType === 'CITIBET_MAJOR';
+    if (requireTableData && !captureTableHasData()) {
+        showNotification('Please enter data in the table', 'danger');
+        return false;
     }
 
     return true;
@@ -22852,31 +23071,28 @@ function updateSubmitButtonState() {
     const currencySelect = document.getElementById('capture_currency');
     const descriptions = window.selectedDescriptions || [];
 
-    // Check if table has data - more thorough check
-    // 目前的表格判定格式仅在选择 CITIBET / CITIBET MAJOR 时强制生效
-    let hasTableData = false;
-    if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
-        const tableData = captureTableData();
-        if (tableData.rows && tableData.rows.length > 0) {
-            hasTableData = tableData.rows.some(row => {
-                return row.some(cell => {
-                    return cell.type === 'data' && cell.value && cell.value.trim() !== '';
-                });
-            });
-        }
-    } else {
-        // 其它类型下，不强制要求表格必须有数据
-        hasTableData = true;
-    }
+    const bankMode = isDataCaptureBankCategoryMode();
+
+    // Check if table has data
+    const requireTableData = bankMode ||
+        currentDataCaptureType === 'CITIBET' ||
+        currentDataCaptureType === 'CITIBET_MAJOR';
+    const hasTableData = requireTableData ? captureTableHasData() : true;
 
     // Enable submit button only if all validations pass
     const processId = getProcessId(processInput);
-    const isValid = processId &&
-        processInput.getAttribute('data-value') &&
-        descriptions.length > 0 &&
-        currencySelect.value &&
-        currencySelect.value !== '' &&
-        hasTableData;
+    const isValid = bankMode
+        ? (processId &&
+            processInput.getAttribute('data-value') &&
+            currencySelect.value &&
+            currencySelect.value !== '' &&
+            hasTableData)
+        : (processId &&
+            processInput.getAttribute('data-value') &&
+            descriptions.length > 0 &&
+            currencySelect.value &&
+            currencySelect.value !== '' &&
+            hasTableData);
 
     if (isValid) {
         submitBtn.disabled = false;
@@ -23462,13 +23678,21 @@ async function submitDataCaptureForm() {
     const processCode = processInput ? (processInput.getAttribute('data-process-code') || '').trim() : '';
     const processDisplayText = processInput ? processInput.textContent.trim() : '';
     const typeSelectEl = document.getElementById('dataCaptureTypeSelector');
-    const selectedDataCaptureType = typeSelectEl ? String(typeSelectEl.value || '').trim() : '';
+    const bankMode = isDataCaptureBankCategoryMode();
+    const selectedDataCaptureType = bankMode
+        ? '1.Text'
+        : (typeSelectEl ? String(typeSelectEl.value || '').trim() : '');
+    const bankProcessType = bankMode
+        ? String(processCode || processId || processDisplayText || '').trim().toUpperCase()
+        : '';
 
     const processData = {
         date: formData.get('capture_date'),
-        process: processId,
-        processName: processDisplayText,
-        processCode: processCode,
+        process: bankMode ? bankProcessType : processId,
+        processName: bankMode ? bankProcessType : processDisplayText,
+        processCode: bankMode ? bankProcessType : processCode,
+        bankProcessType: bankMode ? bankProcessType : '',
+        isBankDataCapture: bankMode,
         dataCaptureType: selectedDataCaptureType,
         descriptions: window.selectedDescriptions || [],
         currency: formData.get('currency'),
@@ -23484,13 +23708,17 @@ async function submitDataCaptureForm() {
         formData.append('selected_descriptions', JSON.stringify(window.selectedDescriptions));
     }
 
-    if (processCode) {
-        formData.append('process_code', processCode);
+    if (processCode || bankProcessType) {
+        formData.append('process_code', bankMode ? bankProcessType : processCode);
     }
 
     try {
         // Capture the entire table data (after format conversion)
         const tableData = captureTableData();
+
+        if (bankMode && isBankDraftSaveProcess(bankProcessType)) {
+            await saveBankCompanyDraft(tableData, bankProcessType, currencySelect.value);
+        }
 
         // Save table data to localStorage
         localStorage.setItem('capturedTableData', JSON.stringify(tableData));
@@ -24478,8 +24706,10 @@ async function restoreFromLocalStorage() {
                     });
                 }
                 console.log('Process restored:', processDisplayText);
-                // Load process data (this will populate currency, descriptions, etc.)
-                await loadProcessData(processDataObj.id);
+                // Games：拉 process 详情；Bank：currency/remark 等由下方 localStorage 恢复，不调 Games API
+                if (!shouldSkipLoadProcessData(processDataObj.id, processData)) {
+                    await loadProcessData(processDataObj.id);
+                }
             } else {
                 console.warn('Process not found. Saved process:', processData.process, 'processCode:', processData.processCode);
                 console.warn('Available options:', Array.from(processDataMap.entries()).map(([text, data]) => ({
@@ -24647,6 +24877,8 @@ async function restoreFromLocalStorage() {
             }, 100);
         }
 
+        applyDataCaptureBankCategoryUI();
+
         // Update submit button state
         updateSubmitButtonState();
 
@@ -24739,6 +24971,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
     }
 
+    applyDataCaptureBankCategoryUI();
+
     // 初始化 Process 输入框事件
     initProcessInput();
 
@@ -24747,10 +24981,20 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Check for URL parameters first
     const urlParams = new URLSearchParams(window.location.search);
     const shouldRestore = urlParams.get('restore') === '1';
+    const justSubmitted = urlParams.get('submitted') === '1';
+    const submittedCaptureDate = urlParams.get('capture_date');
 
     if (!shouldRestore) {
+        if (justSubmitted && submittedCaptureDate && /^\d{4}-\d{2}-\d{2}$/.test(submittedCaptureDate)) {
+            ensureCaptureDateInSelect(submittedCaptureDate);
+        }
         // Submitted Processes：按左侧 Date（capture_date）加载
         loadSubmittedProcesses();
+        if (justSubmitted) {
+            setTimeout(loadSubmittedProcesses, 1500);
+            setTimeout(loadSubmittedProcesses, 3500);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
         // Initialize table with default 26 rows (A-Z) and 20 columns
         initializeTable(26, 20);
     }
@@ -24913,6 +25157,9 @@ function setupFormValidationListeners() {
                     processInput.removeAttribute('data-description-name');
                 }
                 clearProcessData();
+                if (isDataCaptureBankCategoryMode()) {
+                    clearCaptureTableCellsOnly();
+                }
             }
         });
     }
@@ -24922,7 +25169,12 @@ function setupFormValidationListeners() {
     // Listen for currency selection changes
     const currencySelect = document.getElementById('capture_currency');
     if (currencySelect) {
-        currencySelect.addEventListener('change', updateSubmitButtonState);
+        currencySelect.addEventListener('change', function () {
+            updateSubmitButtonState();
+            if (isDataCaptureBankCategoryMode()) {
+                tryLoadBankCompanyDraft();
+            }
+        });
     }
 
     // Listen for table cell changes

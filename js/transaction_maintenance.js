@@ -250,9 +250,19 @@
         if (typeof window.updateSidebarDataCaptureVisibility === 'function' && typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined') {
             window.updateSidebarDataCaptureVisibility(window.SIDEBAR_COMPANY_HAS_GAMBLING);
         }
+        loadProcesses().catch(function () {});
         if (hasSearched) {
             searchData();
         }
+    }
+
+    function canAccessTransactionMaintenancePage() {
+        if (typeof window.canAccessMaintenancePage === 'function') {
+            return window.canAccessMaintenancePage();
+        }
+        const hasGambling = typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING;
+        const hasBank = typeof window.SIDEBAR_COMPANY_HAS_BANK !== 'undefined' && window.SIDEBAR_COMPANY_HAS_BANK;
+        return hasGambling || hasBank;
     }
 
     async function switchCompany(companyId) {
@@ -289,16 +299,13 @@
         if (typeof window !== 'undefined') {
             window.SIDEBAR_COMPANY_CODE = currentCompanyCode;
         }
-        if (hasGamblingFromSession === false) {
-            if (typeof window.redirectAfterCompanySwitch === 'function') {
-                window.redirectAfterCompanySwitch(companyId);
-            } else {
-                window.location.href = 'dashboard.php';
-            }
-            return;
-        }
-        const permissions = await fetchCompanyPermissions(currentCompanyCode);
-        if (isBankOnlyCategoryCompany(permissions)) {
+        const flags = typeof window.resolveMaintenanceCompanyFlags === 'function'
+            ? window.resolveMaintenanceCompanyFlags(hasGamblingFromSession, hasBankFromSession)
+            : {
+                hasGambling: hasGamblingFromSession !== undefined ? hasGamblingFromSession : !!window.SIDEBAR_COMPANY_HAS_GAMBLING,
+                hasBank: hasBankFromSession !== undefined ? hasBankFromSession : !!window.SIDEBAR_COMPANY_HAS_BANK
+            };
+        if (!flags.hasGambling && !flags.hasBank) {
             if (typeof window.redirectAfterCompanySwitch === 'function') {
                 window.redirectAfterCompanySwitch(companyId);
             } else {
@@ -307,10 +314,7 @@
             return;
         }
         if (typeof window.updateSidebarDataCaptureVisibility === 'function') {
-            const hg = hasGamblingFromSession !== undefined
-                ? hasGamblingFromSession
-                : (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' ? window.SIDEBAR_COMPANY_HAS_GAMBLING : false);
-            window.updateSidebarDataCaptureVisibility(hg, hasBankFromSession);
+            window.updateSidebarDataCaptureVisibility(flags.hasGambling, flags.hasBank);
         }
         if (window.TRANSACTION_MAINTENANCE) {
             window.TRANSACTION_MAINTENANCE.currentCompanyId = currentCompanyId;
@@ -335,6 +339,13 @@
     }
 
     function loadProcesses() {
+        if (typeof window.isBankMaintenanceProcessMode === 'function'
+            && window.isBankMaintenanceProcessMode(selectedPermission)
+            && typeof window.renderBankMaintenanceProcessSelect === 'function') {
+            window.renderBankMaintenanceProcessSelect();
+            return Promise.resolve();
+        }
+
         const params = [];
         if (currentCompanyId) {
             params.push(`company_id=${encodeURIComponent(currentCompanyId)}`);
@@ -713,14 +724,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        if (typeof window.SIDEBAR_COMPANY_HAS_GAMBLING !== 'undefined' && window.SIDEBAR_COMPANY_HAS_GAMBLING === false) {
-            if (typeof window.redirectAfterCompanySwitch === 'function') {
-                window.redirectAfterCompanySwitch(currentCompanyId);
-            } else {
-                window.location.href = 'dashboard.php';
-            }
-            return;
-        }
+        // PHP 已校验 Games/Bank 权限；此处不再 redirect
         initDatePickers();
         initMaintenanceDropdownHover();
 

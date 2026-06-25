@@ -321,8 +321,14 @@ try {
     }
     } // end if (empty($process)) — 指定 Process 时不返回未关联 process 的 Transaction
 
-    // ========== 2. 查询 Data Capture 数据（Bank category 不包含 Data Capture，仅 Transaction）==========
-    if (!$is_bank_category) {
+    // ========== 2. 查询 Data Capture 数据 ==========
+    // Games：全部 Data Capture；Bank category：仅 Bank Data Capture（PROFIT/SALARY/COMMISSION/BONUS），与 Games process 区分
+    $bank_data_capture_codes = ['PROFIT', 'SALARY', 'COMMISSION', 'BONUS'];
+    $include_datacapture_rows = !$is_bank_category;
+    if ($is_bank_category) {
+        $include_datacapture_rows = true;
+    }
+    if ($include_datacapture_rows) {
     try {
         $captureWhere = [];
         $captureParams = [];
@@ -336,6 +342,14 @@ try {
         $captureWhere[] = "dc.capture_date BETWEEN ? AND ?";
         $captureParams[] = $date_from_db;
         $captureParams[] = $date_to_db;
+
+        if ($is_bank_category) {
+            $bankPlaceholders = implode(',', array_fill(0, count($bank_data_capture_codes), '?'));
+            $captureWhere[] = "UPPER(TRIM(p.process_id)) IN ($bankPlaceholders)";
+            foreach ($bank_data_capture_codes as $bc) {
+                $captureParams[] = $bc;
+            }
+        }
 
         // Process 过滤（如果指定）
         if ($process) {

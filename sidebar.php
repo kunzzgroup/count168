@@ -441,9 +441,9 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                 </div>
             <?php endif; ?>
 
-            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
+            <!-- Data Capture Section：用户有 datacapture 权限时输出，显隐由当前公司 Games 或 Bank 权限控制（含切换公司时即时更新）；C168 同样显示顶层入口 -->
             <?php if (userHasSidebarMenuPermission('datacapture', $permissions, $isLegacySidebarFullAccess)): ?>
-                <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo $companyHasGambling ? '' : ' style="display:none;"'; ?>>
+                <div class="informationmenu-section" id="sidebar-datacapture-section" <?php echo ($companyHasGambling || $companyHasBank) ? '' : ' style="display:none;"'; ?>>
                     <div class="informationmenu-section-title" data-page="datacapture.php"
                         onclick="window.location.href='datacapture.php'">
                         <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
@@ -502,7 +502,8 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
             $roleLower = strtolower((string) $role);
             $hasImplicitGamesMaintenance = in_array($roleLower, $rolesWithImplicitGamesMaintenance, true);
             // Supervisor / Accountant / Audit / Customer Service：Games 公司下即使未勾选 maintenance，也保留 Maintenance（仅 Transaction、Formula）
-            $showMaintenanceSection = $hasMaintenance || ($hasImplicitGamesMaintenance && $companyHasGambling);
+            // Bank 公司：有 Bank category 时也显示 Maintenance（Capture / Transaction / Formula）
+            $showMaintenanceSection = $hasMaintenance || ($hasImplicitGamesMaintenance && $companyHasGambling) || $companyHasBank;
             ?>
             <?php if ($showMaintenanceSection): ?>
                 <div class="informationmenu-section">
@@ -517,12 +518,12 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                         </div>
                         <div class="submenu" id="maintenance-submenu">
                             <div class="submenu-content">
-                                <?php if ($companyHasGambling && $hasMaintenance): ?>
+                                <?php if (($companyHasGambling || $companyHasBank) && $hasMaintenance): ?>
                                     <a href="capture_maintenance.php" class="submenu-item" id="maintenance-capture-link">
                                         <span>Data Capture</span>
                                     </a>
                                 <?php endif; ?>
-                                <?php if ($companyHasGambling): ?>
+                                <?php if ($companyHasGambling || $companyHasBank): ?>
                                     <a href="transaction_maintenance.php" class="submenu-item" id="maintenance-transaction-link">
                                         <span>Transaction</span>
                                     </a>
@@ -532,7 +533,7 @@ $companyHasBank = !empty($companyCategories) && in_array('Bank', $companyCategor
                                         <span>Payment</span>
                                     </a>
                                 <?php endif; ?>
-                                <?php if ($companyHasGambling): ?>
+                                <?php if ($companyHasGambling || $companyHasBank): ?>
                                     <a href="formula_maintenance.php" class="submenu-item" id="maintenance-formula-link">
                                         <span>Formula</span>
                                     </a>

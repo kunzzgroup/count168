@@ -10,6 +10,20 @@ session_write_close(); // 释放 session 锁，允许并发 AJAX 请求并行执
 
 header('Content-Type: application/json');
 
+/** Bank Data Capture 固定 process 代码（与 datacapture.js / summary_api 一致） */
+function submittedProcessesBankCaptureCodes(): array
+{
+    return ['PROFIT', 'SALARY', 'COMMISSION', 'BONUS'];
+}
+
+function submittedProcessesIsBankCaptureCode(?string $code): bool
+{
+    if ($code === null || $code === '') {
+        return false;
+    }
+    return in_array(strtoupper(trim($code)), submittedProcessesBankCaptureCodes(), true);
+}
+
 // 检查用户是否已登录
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -72,10 +86,12 @@ if ($current_user_role === 'owner') {
 $user_id = $_SESSION['user_id'];
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-// Enforce Data-Level Category Permission for Data Capture (Currently inherently 'Games')
-if (!checkCompanyCategoryPermission($pdo, $company_id, 'Games')) {
+// Data Capture: Games 或 Bank 公司均可访问；Bank-only 时 process 列表由 Games 表查询自然为空
+$hasGames = checkCompanyCategoryPermission($pdo, $company_id, 'Games');
+$hasBank = checkCompanyCategoryPermission($pdo, $company_id, 'Bank');
+if (!$hasGames && !$hasBank) {
     http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Unauthorized category permission (Games required)']);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized category permission']);
     exit;
 }
 
@@ -452,7 +468,13 @@ function getSubmissionsByCaptureDate($user_id)
             ? "DATE(COALESCE(spx.capture_date, spx.date_submitted)) = DATE(dc.capture_date)"
             : "DATE(spx.date_submitted) = DATE(dc.capture_date)";
 
-        // 合并 submitted_processes 与已有 data_captures（Summary 成功但 save_submission 未写入时仍能显示/去重）
+        $bankCodes = submittedProcessesBankCaptureCodes();
+        $bankCodePlaceholders = implode(',', array_fill(0, count($bankCodes), '?'));
+        $gamesProcessExclude = "AND UPPER(TRIM(p.process_id)) NOT IN ($bankCodePlaceholders)";
+        $bankProcessOnly = "AND UPPER(TRIM(p.process_id)) IN ($bankCodePlaceholders)";
+
+        // Games：submitted_processes + data_captures 兜底（同 process + 账务日去重）
+        // Bank：每次 Submit 一条 data_captures，列表逐条展示（不去重）
         $stmt = $pdo->prepare("
             SELECT * FROM (
                 SELECT 
@@ -472,6 +494,7 @@ function getSubmissionsByCaptureDate($user_id)
                 WHERE sp.company_id = ?
                   AND $spDateFilter
                   AND p.company_id = ?
+                  $gamesProcessExclude
                 $permissionCondition
 
                 UNION ALL
@@ -493,6 +516,7 @@ function getSubmissionsByCaptureDate($user_id)
                 WHERE dc.company_id = ?
                   AND DATE(dc.capture_date) = ?
                   AND p.company_id = ?
+                  $gamesProcessExclude
                   AND NOT EXISTS (
                       SELECT 1 FROM submitted_processes spx
                       WHERE spx.process_id = dc.process_id
@@ -500,15 +524,47 @@ function getSubmissionsByCaptureDate($user_id)
                         AND $notExistsSpDateClause
                   )
                   $permissionCondition
+
+                UNION ALL
+
+                SELECT 
+                    dc.id,
+                    dc.process_id,
+                    DATE_FORMAT(dc.capture_date, '%Y-%m-%d') AS date_submitted,
+                    dc.created_at,
+                    dc.user_type,
+                    p.process_id as process_code,
+                    d.name as description_name,
+                    COALESCE(u.login_id, o.owner_code) as submitted_by
+                FROM data_captures dc
+                JOIN process p ON dc.process_id = p.id
+                LEFT JOIN description d ON p.description_id = d.id
+                LEFT JOIN user u ON dc.created_by = u.id AND dc.user_type = 'user'
+                LEFT JOIN owner o ON dc.created_by = o.id AND dc.user_type = 'owner'
+                WHERE dc.company_id = ?
+                  AND DATE(dc.capture_date) = ?
+                  AND p.company_id = ?
+                  $bankProcessOnly
+                  $permissionCondition
             ) AS merged
             ORDER BY merged.created_at DESC
         ");
 
-        $paramsSegment = array_merge(
+        $permParams = !empty($processIds) ? $processIds : [];
+        $paramsSegmentGames = array_merge(
             [$currentCompanyId, $dateParam, $currentCompanyId],
-            !empty($processIds) ? $processIds : []
+            $bankCodes,
+            $permParams
         );
-        $params = array_merge($paramsSegment, $paramsSegment);
+        $params = array_merge(
+            $paramsSegmentGames,
+            $paramsSegmentGames,
+            array_merge(
+                [$currentCompanyId, $dateParam, $currentCompanyId],
+                $bankCodes,
+                $permParams
+            )
+        );
 
         $stmt->execute($params);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -640,6 +696,7 @@ function saveSubmission($user_id)
     try {
         // 获取POST数据
         $process_id = $_POST['process_id'] ?? '';
+        $process_code = isset($_POST['process_code']) ? strtoupper(trim((string)$_POST['process_code'])) : '';
         $date_submitted = $_POST['date_submitted'] ?? date('Y-m-d');
         $capture_date = $_POST['capture_date'] ?? $date_submitted; // Default to date_submitted if not provided
 
@@ -647,7 +704,26 @@ function saveSubmission($user_id)
         $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
 
         // 添加调试日志
-        error_log("Save submission - User ID: $user_id, User Type: $user_type, Process ID: $process_id, Date: $date_submitted");
+        error_log("Save submission - User ID: $user_id, User Type: $user_type, Process ID: $process_id, Process Code: $process_code, Date: $date_submitted");
+
+        // Bank Data Capture：允许 process_code（PROFIT / COMMISSION 等）代替数值 process_id
+        $bankCaptureCodes = submittedProcessesBankCaptureCodes();
+        if ((empty($process_id) || (int)$process_id <= 0) && $process_code !== '' && in_array($process_code, $bankCaptureCodes, true)) {
+            $currentCompanyId = $company_id;
+            if (!$currentCompanyId) {
+                echo json_encode(['success' => false, 'error' => '缺少公司信息']);
+                return;
+            }
+            $lookup = $pdo->prepare("SELECT id FROM process WHERE company_id = ? AND UPPER(TRIM(process_id)) = ? LIMIT 1");
+            $lookup->execute([$currentCompanyId, $process_code]);
+            $found = $lookup->fetch(PDO::FETCH_ASSOC);
+            if (!$found) {
+                error_log("Bank process_code not found in process table: $process_code company=$currentCompanyId");
+                echo json_encode(['success' => false, 'error' => 'Process not found: ' . $process_code]);
+                return;
+            }
+            $process_id = (int)$found['id'];
+        }
 
         // 验证必需字段
         if (empty($process_id)) {
@@ -705,28 +781,37 @@ function saveSubmission($user_id)
             return;
         }
 
-        // 检查是否已经存在相同的提交记录（避免重复）
-        $checkStmt = $pdo->prepare("
-            SELECT id FROM submitted_processes 
-            WHERE company_id = ? 
-              AND user_id = ? 
-              AND user_type = ? 
-              AND process_id = ? 
-              AND date_submitted = ?
-            LIMIT 1
-        ");
-        $checkStmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
-        $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        $processCodeStmt = $pdo->prepare("SELECT UPPER(TRIM(process_id)) AS code FROM process WHERE id = ? LIMIT 1");
+        $processCodeStmt->execute([$process_id]);
+        $resolvedProcessCode = $processCodeStmt->fetchColumn();
+        $isBankCaptureSubmit = submittedProcessesIsBankCaptureCode(
+            $process_code !== '' ? $process_code : ($resolvedProcessCode !== false ? (string)$resolvedProcessCode : '')
+        );
 
-        if ($existing) {
-            error_log("Submission already exists with ID: " . $existing['id']);
-            echo json_encode([
-                'success' => true,
-                'submission_id' => $existing['id'],
-                'message' => 'Submission already exists',
-                'already_exists' => true
-            ]);
-            return;
+        // Games：同 process + 账务日去重；Bank：每次 Submit 均写入
+        if (!$isBankCaptureSubmit) {
+            $checkStmt = $pdo->prepare("
+                SELECT id FROM submitted_processes 
+                WHERE company_id = ? 
+                  AND user_id = ? 
+                  AND user_type = ? 
+                  AND process_id = ? 
+                  AND date_submitted = ?
+                LIMIT 1
+            ");
+            $checkStmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($existing) {
+                error_log("Submission already exists with ID: " . $existing['id']);
+                echo json_encode([
+                    'success' => true,
+                    'submission_id' => $existing['id'],
+                    'message' => 'Submission already exists',
+                    'already_exists' => true
+                ]);
+                return;
+            }
         }
 
         // Try to insert with capture_date field (if it exists in the table)
