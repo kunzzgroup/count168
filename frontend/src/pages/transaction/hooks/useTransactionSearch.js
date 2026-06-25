@@ -23,7 +23,10 @@ import {
   transactionQueryKeys,
 } from "../lib/transactionApi.js";
 import { getTxSearchCache, setTxSearchCache } from "../../../utils/transaction/transactionSearchCache.js";
-import { buildDefaultSearchApiParams } from "../lib/transactionScopePrefetch.js";
+import {
+  buildDefaultSearchApiParams,
+  buildTransactionSearchRequestKey,
+} from "../lib/transactionScopePrefetch.js";
 import {
   buildDashboardCurrencyScopeKey,
   notifyDashboardCurrencyFilterChanged,
@@ -156,7 +159,7 @@ export function useTransactionSearch({
     categoryChangedByUserRef.current = true;
   }, []);
 
-  const scheduleAutoSearch = useCallback(({ isInitialLoad = false, delayMs = 260 } = {}) => {
+  const scheduleAutoSearch = useCallback(({ isInitialLoad = false, delayMs = 260, forceRefresh = false } = {}) => {
     if (autoSearchTimerRef.current) clearTimeout(autoSearchTimerRef.current);
     autoSearchTimerRef.current = setTimeout(() => {
       autoSearchTimerRef.current = null;
@@ -165,6 +168,7 @@ export function useTransactionSearch({
         notifyErrors: true,
         showBlockingOverlay: false,
         isInitialLoad,
+        forceRefresh,
       });
     }, delayMs);
   }, []);
@@ -403,7 +407,7 @@ export function useTransactionSearch({
 
     if (!zeroBalanceChanged && !paymentTurnedOff && !captureTurnedOff) return;
 
-    scheduleAutoSearch({ delayMs: 80 });
+    scheduleAutoSearch({ delayMs: 80, forceRefresh: zeroBalanceChanged });
   }, [
     searchState.showPaymentOnly,
     searchState.showCaptureOnly,
@@ -487,16 +491,17 @@ export function useTransactionSearch({
       // 后端仍返回「本期有 W/L/Payment 动账但 Balance=0」的组合行（search_api Layer 末段），供前端勾选 W/L 或 Payment 时使用。
       const showCaptureOnlyForQuery = false;
 
-      const requestKey = JSON.stringify({
+      const hideZeroBalanceForQuery = !searchState.showZeroBalance;
+      const requestKey = buildTransactionSearchRequestKey({
+        scopeCacheCompanyKey: cid,
         dateFrom: effectiveDateFrom,
         dateTo: effectiveDateTo,
         categoryParam,
-        showInactive: showInactiveForQuery ? "1" : "0",
-        showCaptureOnly: showCaptureOnlyForQuery ? "1" : "0",
-        hideZero: searchState.showZeroBalance ? "0" : "1",
-        companyId: cid || "",
-        showAllCurrencies: !!showAllCurrencies,
-        currencies: [...selectedCurrencies].sort().join(","),
+        showInactive: showInactiveForQuery,
+        showCaptureOnly: showCaptureOnlyForQuery,
+        hideZeroBalance: hideZeroBalanceForQuery,
+        showAllCurrencies,
+        selectedCurrencies,
       });
 
       if (!isInitialLoad && !forceRefresh && lastCompletedSearchKeyRef.current === requestKey && Date.now() - lastCompletedSearchTsRef.current < 1200) {
@@ -510,7 +515,7 @@ export function useTransactionSearch({
         selectedCategories,
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
-        hideZeroBalance: !searchState.showZeroBalance,
+        hideZeroBalance: hideZeroBalanceForQuery,
         showAllCurrencies,
         selectedCurrencies,
       });
@@ -558,7 +563,7 @@ export function useTransactionSearch({
         dateTo: effectiveDateTo,
         showInactive: showInactiveForQuery,
         showCaptureOnly: showCaptureOnlyForQuery,
-        hideZeroBalance: !searchState.showZeroBalance,
+        hideZeroBalance: hideZeroBalanceForQuery,
         categories: selectedCategories.length > 0 ? selectedCategories : undefined,
         currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
       };

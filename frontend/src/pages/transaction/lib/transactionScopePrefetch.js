@@ -50,7 +50,8 @@ export function buildTransactionSearchRequestKey({
     categoryParam,
     showInactive: showInactive ? "1" : "0",
     showCaptureOnly: showCaptureOnly ? "1" : "0",
-    hideZero: hideZeroBalance ? "0" : "1",
+    // Align with search_api.php hide_zero_balance (1=hide, 0=show all 0 balance).
+    hide_zero_balance: hideZeroBalance ? "1" : "0",
     companyId: String(scopeCacheCompanyKey || ""),
     showAllCurrencies: !!showAllCurrencies,
     currencies: cur,
