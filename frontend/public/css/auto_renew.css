@@ -67,7 +67,7 @@ body.auto-renew-page-body .auto-renew-tab-pending-badge {
   background: #ef4444;
   color: #fff;
   font-size: var(--auto-renew-text-tab-badge);
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-badge);
   font-variant-numeric: tabular-nums;
   line-height: 1;
   pointer-events: none;
@@ -162,7 +162,7 @@ body.auto-renew-page-body .auto-renew-date-range-group #date-range-display {
   min-width: 0;
   color: #64748b;
   font-size: var(--drp-trigger-text);
-  font-weight: 500;
+  font-weight: var(--auto-renew-weight-toolbar-date);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -171,7 +171,7 @@ body.auto-renew-page-body .auto-renew-date-range-group #date-range-display {
 
 body.auto-renew-page-body .auto-renew-date-range-group .date-range-picker:has(#date-range-display:not(:empty)) #date-range-display {
   color: #1f2937;
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-toolbar-date-active);
 }
 
 body.auto-renew-page-body .auto-renew-date-range-group .transaction-date-range-chevron {
@@ -361,12 +361,14 @@ body.auto-renew-page-body .auto-renew-col-control > .auto-renew-cell-readonly {
 
 body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header.auto-renew-table-header {
   font-size: var(--auto-renew-text-table-head);
+  font-weight: var(--auto-renew-weight-table-head);
   font-family: inherit;
 }
 
 body.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header .header-item,
 body.auto-renew-page-body .auto-renew-table-row .card-item {
   font-size: var(--auto-renew-text-table-cell);
+  font-weight: var(--auto-renew-weight-table-cell);
   line-height: var(--auto-renew-line-height);
   font-family: inherit;
 }
@@ -400,7 +402,7 @@ body.auto-renew-page-body .auto-renew-period-badge {
   background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%);
   color: #5b21b6;
   font-size: var(--auto-renew-text-badge);
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-badge);
   line-height: 1;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -507,7 +509,7 @@ body.auto-renew-page-body .auto-renew-empty-state__icon svg {
 body.auto-renew-page-body .auto-renew-empty-state__title {
   margin: 0 0 8px;
   font-size: var(--auto-renew-text-empty-title);
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-badge);
   color: #334155;
 }
 
@@ -551,7 +553,7 @@ body.auto-renew-page-body .auto-renew-cell-readonly {
   white-space: nowrap;
   color: #475569;
   font-size: var(--auto-renew-text-control);
-  font-weight: 500;
+  font-weight: var(--auto-renew-weight-muted);
 }
 
 body.auto-renew-page-body .auto-renew-table-row.show-card:last-child {
@@ -559,7 +561,7 @@ body.auto-renew-page-body .auto-renew-table-row.show-card:last-child {
 }
 
 body.auto-renew-page-body .card-item--strong {
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-table-cell-strong);
   color: #0f172a;
 }
 
@@ -578,7 +580,7 @@ body.auto-renew-page-body .auto-renew-status-badge {
   border-radius: var(--auto-renew-pill-radius);
   border: 1px solid transparent;
   font-size: var(--auto-renew-text-badge);
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-badge);
   line-height: 1;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -630,7 +632,7 @@ body.auto-renew-page-body .auto-renew-approval-badge {
   border-radius: var(--auto-renew-pill-radius);
   border: 1px solid transparent;
   font-size: var(--auto-renew-text-badge);
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-badge);
   line-height: 1;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -671,7 +673,7 @@ body.auto-renew-page-body .auto-renew-inline-select {
   border: 1px solid #e2e8f0;
   border-radius: var(--auto-renew-pill-radius);
   font-size: var(--auto-renew-text-control);
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-control);
   line-height: 1.2;
   background-color: #ffffff;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -691,7 +693,7 @@ body.auto-renew-page-body .auto-renew-inline-select--empty {
   border: 1.5px dashed rgba(124, 58, 237, 0.45);
   background-color: #faf5ff;
   color: #7c3aed;
-  font-weight: 600;
+  font-weight: var(--auto-renew-weight-control);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237c3aed' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
@@ -754,7 +756,7 @@ body.auto-renew-page-body .auto-renew-btn {
   padding: 0 12px;
   border-radius: var(--auto-renew-pill-radius);
   font-size: var(--auto-renew-text-control);
-  font-weight: 600;
+  font-weight: var(--auto-renew-weight-control);
   line-height: 1;
   cursor: pointer;
   border: none;
@@ -869,7 +871,7 @@ body.auto-renew-page-body .auto-renew-chip-count {
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.08);
   font-size: var(--auto-renew-text-badge);
-  font-weight: 700;
+  font-weight: var(--auto-renew-weight-badge);
 }
 
 body.auto-renew-page-body .user-filter-chip.is-selected .auto-renew-chip-count {
@@ -905,7 +907,7 @@ body.auto-renew-page-body .auto-renew-toast {
   padding: 10px 16px;
   border-radius: 8px;
   font-size: var(--auto-renew-text-toast);
-  font-weight: 500;
+  font-weight: var(--auto-renew-weight-muted);
   color: #fff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -1247,7 +1249,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
   }
 
   body.auto-renew-page-body .auto-renew-period-badge {
-    font-weight: 700;
+    font-weight: var(--auto-renew-weight-badge);
   }
 }
 
@@ -1266,6 +1268,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
   body.auto-renew-page-body .user-list-table.auto-renew-table .table-header.user-list-table-header.auto-renew-table-header,
   body.ec-auth-shell.user-page.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header {
     font-size: var(--auto-renew-text-table-head) !important;
+    font-weight: var(--auto-renew-weight-table-head) !important;
     font-family: inherit;
   }
 
@@ -1273,14 +1276,14 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
   body.auto-renew-page-body .user-list-table.auto-renew-table .auto-renew-table-row .card-item,
   body.ec-auth-shell.user-page.auto-renew-page-body:not(.user-page--show-all) .auto-renew-table-row .card-item {
     font-size: var(--auto-renew-text-table-cell) !important;
-    font-weight: inherit !important;
+    font-weight: var(--auto-renew-weight-table-cell) !important;
     font-family: inherit;
     line-height: var(--auto-renew-line-height) !important;
     letter-spacing: normal !important;
   }
 
   body.auto-renew-page-body .auto-renew-table-row .card-item--strong {
-    font-weight: 700 !important;
+    font-weight: var(--auto-renew-weight-table-cell-strong) !important;
   }
 
   body.ec-auth-shell.user-page.auto-renew-page-body:not(.user-page--show-all) .auto-renew-table-row .card-item:nth-child(5),
@@ -1288,7 +1291,7 @@ body.auto-renew-page-body .auto-renew-filter-chips .user-filter-chip:active:not(
   body.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header .header-item:nth-child(5),
   body.auto-renew-page-body .user-list-table.auto-renew-table .user-list-table-header .header-item:nth-child(6) {
     font-size: var(--auto-renew-text-table-cell) !important;
-    font-weight: inherit !important;
+    font-weight: var(--auto-renew-weight-table-cell) !important;
     line-height: var(--auto-renew-line-height) !important;
   }
 

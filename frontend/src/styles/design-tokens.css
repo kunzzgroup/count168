@@ -144,6 +144,19 @@
   --userlist-btn-add-width: clamp(80px, 7.25vw, 120px);
   --userlist-btn-delete-width: clamp(90px, 7.25vw, 120px);
 
+  /*
+   * User List — 表头/行/徽章字阶（desktop 与 tablet 共用；改 --text-* 阶梯即连带缩放）
+   */
+  --userlist-text-table-head: var(--text-base);
+  --userlist-text-table-cell: var(--text-medium);
+  --userlist-text-toolbar: var(--text-medium);
+  --userlist-text-badge: var(--text-tiny);
+  --userlist-weight-table-head: var(--font-weight-bold);
+  --userlist-weight-table-cell: var(--font-weight-bold);
+  --userlist-weight-badge: var(--font-weight-bold);
+  --userlist-weight-toolbar: var(--font-weight-semibold);
+  --userlist-line-height-cell: 1.1;
+
   /* --- 列表页主标题（对应 clamp(26px, 2.08vw, 40px)）--- */
   --text-page-title: clamp(2.6rem, 2.08vw, 4rem);
   --text-page-title-mt: var(--layout-page-first-block-mt);
@@ -303,6 +316,14 @@
   --auto-renew-text-notice: var(--text-medium);
   --auto-renew-text-toast: var(--text-medium);
   --auto-renew-line-height: 1.35;
+  --auto-renew-weight-table-head: var(--font-weight-bold);
+  --auto-renew-weight-table-cell: 400;
+  --auto-renew-weight-table-cell-strong: var(--font-weight-bold);
+  --auto-renew-weight-control: var(--font-weight-semibold);
+  --auto-renew-weight-badge: var(--font-weight-bold);
+  --auto-renew-weight-muted: 500;
+  --auto-renew-weight-toolbar-date: 500;
+  --auto-renew-weight-toolbar-date-active: var(--font-weight-bold);
 
   /*
    * Accounting Due inbox (Bank Process List) — grid + spacing aligned with Contra Inbox
