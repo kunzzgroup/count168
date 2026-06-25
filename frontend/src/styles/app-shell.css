@@ -137,14 +137,14 @@ body.datacapture-summary-page .summary-table-x-scroll {
   height: auto !important;
 }
 
-/* Transaction Payment: single scrollbar — lock html, scroll body only (loaded before lazy route chunk). */
+/* Transaction Payment: single page scroll on body (html stays visible — avoids dead scroll when body height is auto). */
 html:has(
     body.dashboard-page.transaction-page:not(.member-winloss-page):not(.dashboard-home-page):not(
         .transaction-payment-history-page
       )
   ) {
   height: auto !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 body.dashboard-page.transaction-page:not(.member-winloss-page):not(.dashboard-home-page):not(

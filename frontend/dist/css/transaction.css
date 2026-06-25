@@ -609,30 +609,47 @@ body.transaction-page .transaction-search-section .transaction-category-date-row
     width: 100%;
 }
 
+body.transaction-page .transaction-search-section .transaction-category-date-row .transaction-category-multiselect {
+    min-width: 0;
+    width: 100%;
+}
+
 body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button {
-    flex: 1 1 auto;
+    position: relative;
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
     min-height: clamp(38px, 2.45vw, 40px);
-    height: 100%;
+    height: auto;
     max-height: none;
     overflow: hidden;
-    padding: 4px 10px;
+    padding: 4px clamp(26px, 2vw, 30px) 4px 10px;
     box-sizing: border-box;
+    display: flex;
     align-items: center;
+    justify-content: flex-start;
 }
 
 body.transaction-page .transaction-search-section .report-outlined-inner .category-dropdown-button > .fas.fa-chevron-down {
-    align-self: center;
+    position: absolute;
+    right: clamp(8px, 0.65vw, 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 0;
     flex-shrink: 0;
-    margin-left: 6px;
+    pointer-events: none;
+    color: #64748b;
+    font-size: var(--drp-trigger-chevron, var(--text-medium));
 }
 
 body.transaction-page .transaction-search-section .report-outlined-inner .category-selected-tags {
     display: flex;
     flex: 1 1 auto;
-    align-self: stretch;
+    align-self: center;
     min-width: 0;
+    width: 100%;
     min-height: 0;
-    height: 100%;
+    height: auto;
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-gutter: auto;
@@ -3636,14 +3653,14 @@ body.transaction-page .transaction-add-section .transaction-account-inputs--to-o
 }
 
 /* Unlock native page scroll — dashboard-page sets body overflow:hidden + height:100vh.
-   Scroll on body only; html overflow hidden (see app-shell.css + process show-all pattern). */
+   Scroll on body only; html overflow visible (same as datacapture-summary-page). */
 html:has(
     body.dashboard-page.transaction-page:not(.member-winloss-page):not(.dashboard-home-page):not(
         .transaction-payment-history-page
       )
   ) {
-    height: auto;
-    overflow: hidden !important;
+    height: auto !important;
+    overflow: visible !important;
 }
 
 body.dashboard-page.transaction-page:not(.member-winloss-page):not(.dashboard-home-page):not(
