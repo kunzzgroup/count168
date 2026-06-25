@@ -1826,7 +1826,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
 }
 
 .bank-form-row-last {
-    align-items: start;
+    align-items: stretch;
     min-height: 0;
 }
 
@@ -1834,7 +1834,6 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    align-self: start;
 }
 
 .bank-form-row-last .bank-form-cell-left .bank-day-start-frequency-wrap {
@@ -1843,15 +1842,34 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
 }
 
 .bank-form-row-last .bank-form-cell-left .bank-profit-sharing-container {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     margin-top: 0;
 }
 
-/* 右侧 Remark 区域拉伸至与左侧 Selected Profit Sharing 底部对齐 */
+#addBankModal .bank-form-row-last .bank-profit-sharing-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+}
+
+#addBankModal .bank-form-row-last .bank-profit-sharing-list:has(.no-profit-sharing) {
+    display: flex;
+    flex-direction: column;
+}
+
+#addBankModal .bank-form-row-last .no-profit-sharing {
+    flex: 1 1 auto;
+    justify-content: center;
+}
+
+/* 左侧 Selected Profit Sharing 拉伸至与右侧 Record（DTS Created）底部对齐 */
 .bank-form-row-last .bank-form-cell-right {
     display: flex;
     flex-direction: column;
-    align-self: start;
 }
 
 .bank-form-row-last .bank-form-cell-right .bank-remark-wrap {
@@ -1991,6 +2009,26 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
 
     #addBankModal .bank-form-row-last {
         min-height: 0;
+        align-items: start;
+    }
+
+    #addBankModal .bank-form-row-last .bank-form-cell-left .bank-profit-sharing-container {
+        flex: 0 0 auto;
+        display: block;
+    }
+
+    #addBankModal .bank-form-row-last .bank-profit-sharing-list {
+        flex: 0 0 auto;
+        max-height: 180px;
+    }
+
+    #addBankModal .bank-form-row-last .bank-profit-sharing-list:has(.no-profit-sharing) {
+        display: block;
+    }
+
+    #addBankModal .bank-form-row-last .no-profit-sharing {
+        flex: 0 0 auto;
+        justify-content: flex-start;
     }
 
     #addBankModal .bank-form-row-last .bank-form-cell-right .bank-remark-wrap {
