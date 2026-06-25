@@ -1836,7 +1836,7 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
 }
 
 .bank-form-row-last .bank-form-cell-right .bank-remark-wrap {
-    flex: 1;
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -1905,11 +1905,9 @@ body.ec-auth-shell .process-page #addBankModal .bank-remark-actions .bank-note-o
     min-height: 2.5em;
 }
 
-.bank-form-record-row {
-    display: block;
-}
-
-.bank-form-record-row .bank-form-section--record {
+.bank-form-row-last .bank-form-cell-right .bank-form-section--record {
+    flex: 0 0 auto;
+    margin-top: 12px;
     width: 100%;
 }
 
