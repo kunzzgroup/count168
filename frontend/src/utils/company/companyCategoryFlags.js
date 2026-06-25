@@ -78,7 +78,7 @@ function filterCompaniesByPillCategory(companies, matchesScope, preferredCompany
   const pref = Number(preferredCompanyId);
   return companies.filter((c) => {
     if (Number.isFinite(pref) && pref > 0 && Number(c.id) === pref) {
-      return matchesScope(c);
+      return true;
     }
     return matchesScope(c);
   });

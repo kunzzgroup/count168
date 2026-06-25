@@ -12,6 +12,7 @@ import {
   shouldSkipMaintenanceCategoryGuard,
   maintenanceCompanyCategoryAllowed,
 } from "../shared/maintenanceGroupBoot.js";
+import { isBankOnlyCompanyRow, isC168CompanyRow } from "../../../utils/company/c168CaptureChannel.js";
 import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   companiesInGroupList,
@@ -21,7 +22,6 @@ import {
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
   readPersistedDashboardGcFilter,
-  readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   fetchOwnerCompaniesAll,
@@ -79,10 +79,7 @@ function readInitialMaintenanceSelectedGroup() {
 function readInitialMaintenanceCompanyId() {
   const persisted = readPersistedDashboardGcFilter();
   if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
-  const saved = readDashboardSelectedCompanyId();
-  if (saved != null) return saved;
-  // Group selected with no saved company → group-only UI on refresh.
-  if (persisted.selectedGroup) return null;
+  if (persisted.companyId != null) return persisted.companyId;
   return null;
 }
 
@@ -650,11 +647,18 @@ export default function TransactionMaintenancePage() {
         const persistedGc = readPersistedDashboardGcFilter();
         const initialUiCompanyId = readInitialMaintenanceCompanyId();
         const sessionGroup = readInitialMaintenanceSelectedGroup();
-        const groupOnlyBoot =
+        let groupOnlyBoot =
           isDashboardGroupOnlyMode() ||
           persistedGc.groupOnly ||
           (bootGroup != null && initialUiCompanyId == null) ||
           (sessionGroup != null && initialUiCompanyId == null);
+        if (
+          currentComp &&
+          (isC168CompanyRow(currentComp) || isBankOnlyCompanyRow(currentComp)) &&
+          initialUiCompanyId != null
+        ) {
+          groupOnlyBoot = false;
+        }
 
         const runGroupOnlyBoot = async () => {
           persistDashboardGroupOnlyMode(true);
@@ -990,19 +994,31 @@ export default function TransactionMaintenancePage() {
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const nextScope = resolveTransactionMaintenanceScope({
+      companies,
+      selectedGroup: newGroup,
+      companyId: nextCompanyId,
+      groupsAllMode,
+      groupAllMode,
+    });
     switchPermsCacheRef.current = null;
     resetAnchorSessionRef();
     suppressNextSearchEffectRef.current = true;
+    scopeKeyRef.current = transactionMaintenanceScopeCacheKey(nextScope);
+    lastSearchQueryKeyRef.current = "";
     if (initialSearchDoneRef.current) {
       setListLoading(false);
       setListSyncing(true);
     }
+    setTransactionData([]);
+    setMaintenanceDataComplete(false);
     setSelectedGroup(newGroup);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
+    persistDashboardGroupOnlyMode(false);
     persistDashboardFilterState(newGroup, nextCompanyId);
-  }, [resetAnchorSessionRef]);
+  }, [companies, groupsAllMode, groupAllMode, resetAnchorSessionRef]);
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
 
@@ -1074,6 +1090,14 @@ export default function TransactionMaintenancePage() {
   onClearCompanyRef.current = handleClearCompany;
 
   followGroupRef.current = () => {};
+
+  useEffect(() => {
+    if (!filtersReady || !companies.length || companyId == null) return;
+    if (visibleCompanies.length === 0) return;
+    const cid = Number(companyId);
+    const activeOk = visibleCompanies.some((c) => Number(c.id) === cid);
+    if (!activeOk) void handlePickCompany(visibleCompanies[0]);
+  }, [filtersReady, companies.length, visibleCompanies, companyId, handlePickCompany]);
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);

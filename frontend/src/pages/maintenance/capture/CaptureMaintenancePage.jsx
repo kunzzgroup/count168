@@ -24,6 +24,7 @@ import {
   shouldSkipMaintenanceCategoryGuard,
   maintenanceCompanyCategoryAllowed,
 } from "../shared/maintenanceGroupBoot.js";
+import { isBankOnlyCompanyRow, isC168CompanyRow } from "../../../utils/company/c168CaptureChannel.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import {
   isDashboardGroupOnlyMode,
@@ -31,7 +32,6 @@ import {
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
   readPersistedDashboardGcFilter,
-  readDashboardSelectedCompanyId,
   DASHBOARD_GROUP_FILTER_KEY,
   DASHBOARD_GROUP_FILTER_OPT_OUT_KEY,
   resolveBootCompanyId,
@@ -72,9 +72,7 @@ function readInitialMaintenanceSelectedGroup() {
 function readInitialMaintenanceCompanyId() {
   const persisted = readPersistedDashboardGcFilter();
   if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
-  const saved = readDashboardSelectedCompanyId();
-  if (saved != null) return saved;
-  if (persisted.selectedGroup) return null;
+  if (persisted.companyId != null) return persisted.companyId;
   return null;
 }
 
@@ -291,9 +289,13 @@ export default function CaptureMaintenancePage() {
           initialUiCompanyId,
           persistedGc,
         });
+        const bootPayrollCompany =
+          currentComp &&
+          (isC168CompanyRow(currentComp) || isBankOnlyCompanyRow(currentComp));
         if (
           !groupOnlyBoot &&
           !groupFilterOptOut &&
+          !bootPayrollCompany &&
           (isMaintenanceSessionGroupEntityBoot(currentComp, u) ||
             (bootGroup && initialUiCompanyId == null && canUseGroupOnlyMode(u, bootGroup)))
         ) {
@@ -326,10 +328,19 @@ export default function CaptureMaintenancePage() {
           return;
         }
         setCompanyId(initialCompanyId);
+        persistDashboardGroupOnlyMode(false);
+        persistDashboardFilterState(bootGroup, initialCompanyId);
 
         if (currentComp) {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
+
+          try {
+            await updateSessionCompany(initialCompanyId);
+          } catch (err) {
+            console.error("Session company sync error:", err);
+          }
+          if (cancelled) return;
 
           const bootScope = resolveCaptureMaintenanceScope({
             companies: rows,
@@ -538,19 +549,30 @@ export default function CaptureMaintenancePage() {
       const nextId = Number(c.id);
       const nextCode = c.company_id || "";
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      const nextScope = resolveCaptureMaintenanceScope({
+        companies,
+        selectedGroup: newGroup,
+        companyId: nextId,
+        groupsAllMode,
+        groupAllMode,
+      });
       suppressNextSearchEffectRef.current = true;
+      scopeKeyRef.current = captureMaintenanceScopeCacheKey(nextScope);
       if (initialCaptureSearchDoneRef.current) {
         setLoading(false);
         setListSyncing(true);
       }
+      setCaptureData([]);
+      setCaptureDataSourceCompanyId(null);
       setCompanyId(nextId);
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
       setSelectedProcess("");
       setSelectedIds([]);
+      persistDashboardGroupOnlyMode(false);
       persistDashboardFilterState(newGroup, nextId);
     },
-    [],
+    [companies, groupsAllMode, groupAllMode],
   );
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
@@ -612,6 +634,15 @@ export default function CaptureMaintenancePage() {
 
   switchCompanyRef.current = handleSwitchCompany;
   onClearCompanyRef.current = handleClearCompany;
+
+  // Bank-only / payroll company must stay in pill list; realign if filter scope drifted.
+  useEffect(() => {
+    if (bootLoading || !companies.length || companyId == null) return;
+    if (visibleCompanies.length === 0) return;
+    const cid = Number(companyId);
+    const activeOk = visibleCompanies.some((c) => Number(c.id) === cid);
+    if (!activeOk) void handlePickCompany(visibleCompanies[0]);
+  }, [bootLoading, companies.length, visibleCompanies, companyId, handlePickCompany]);
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => 
