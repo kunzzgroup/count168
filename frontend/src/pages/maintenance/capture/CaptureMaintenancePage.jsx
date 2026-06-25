@@ -59,7 +59,7 @@ import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { usePartnershipAuditWriteGuard } from "../../../utils/audit/usePartnershipAuditWriteGuard.js";
 import { useAuthSession } from "../../../context/AuthSessionContext.jsx";
-import { resolveMaintenancePickerCompanyId } from "../shared/maintenancePickerCompanyId.js";
+import { resolveMaintenancePickerCompanyId, resolvePickerCompanyCode } from "../shared/maintenancePickerCompanyId.js";
 
 function readInitialMaintenanceSelectedGroup() {
   try {
@@ -743,10 +743,9 @@ export default function CaptureMaintenancePage() {
   // Session / boot may set numeric id before code — pills highlight by code.
   useEffect(() => {
     if (companyId == null || companyCode) return;
-    const row = companies.find((c) => Number(c.id) === Number(companyId));
-    const code = row?.company_id ? String(row.company_id).trim() : "";
+    const code = resolvePickerCompanyCode(companyId, companies, me);
     if (code) setCompanyCode(code);
-  }, [companyId, companyCode, companies]);
+  }, [companyId, companyCode, companies, me]);
 
   return (
     <div className="container">

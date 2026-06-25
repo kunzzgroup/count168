@@ -90,9 +90,7 @@ export default function GcInlineFilterPanel({
                     : Number.NaN;
                 const activeById = Number.isFinite(pickId) && pickId > 0 && pickId === Number(c.id);
                 const activeByCode = highlightCode !== "" && rowCode === highlightCode;
-                // Prefer company code — pill list ids may differ from session id after dedupe.
-                const active =
-                  highlightCode !== "" ? activeByCode : activeById;
+                const active = activeByCode || activeById;
                 const pending = switchingCompany && active;
                 const label = String(c.company_id || "").toUpperCase();
                 return (

@@ -62,7 +62,7 @@ import { resolveTransactionMaintenanceCategory } from "./transactionMaintenanceL
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { formatDmyFromYmd } from "../shared/maintenanceDateHelpers.js";
-import { resolveMaintenancePickerCompanyId } from "../shared/maintenancePickerCompanyId.js";
+import { resolveMaintenancePickerCompanyId, resolvePickerCompanyCode } from "../shared/maintenancePickerCompanyId.js";
 
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
@@ -1120,10 +1120,9 @@ export default function TransactionMaintenancePage() {
 
   useEffect(() => {
     if (companyId == null || companyCode) return;
-    const row = companies.find((c) => Number(c.id) === Number(companyId));
-    const code = row?.company_id ? String(row.company_id).trim() : "";
+    const code = resolvePickerCompanyCode(companyId, companies, me);
     if (code) setCompanyCode(code);
-  }, [companyId, companyCode, companies]);
+  }, [companyId, companyCode, companies, me]);
 
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
