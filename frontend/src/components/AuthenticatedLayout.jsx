@@ -204,6 +204,11 @@ export default function AuthenticatedLayout() {
   const [searchParams] = useSearchParams();
   const path = location.pathname;
   const pageKey = pathnameToPageKey(path);
+  const isDataCaptureSidebarActive =
+    pageKey === "datacapture" ||
+    pageKey === "datacapturesummary" ||
+    pageKey === "capture-maintenance" ||
+    pageKey === "transaction-maintenance";
   const chromelessPaymentHistory = isPaymentHistoryChromelessPath(path, searchParams);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1283,7 +1288,7 @@ export default function AuthenticatedLayout() {
                       clearDataCaptureRoundLocalStorage();
                     }
                   }}
-                  className={`informationmenu-section-title ${pageKey === "datacapture" ? "current-page" : "account-direct"}`}
+                  className={`informationmenu-section-title ${isDataCaptureSidebarActive ? "current-page" : "account-direct"}`}
                 >
                   <svg className="section-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
