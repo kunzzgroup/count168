@@ -14,7 +14,6 @@ body.transaction-page {
     background-blend-mode: screen, screen, multiply, screen, normal;
     color: #334155;
     overflow-x: hidden;
-    overflow-y: auto;
 }
 
 /* Short result sets leave a tall empty canvas — paint the workspace shell too (not only body). */
@@ -3631,10 +3630,11 @@ body.transaction-page .transaction-add-section .transaction-account-inputs--to-o
     max-width: none;
 }
 
-/* Unlock native page scroll — dashboard-page sets body overflow:hidden + height:100vh */
+/* Unlock native page scroll — dashboard-page sets body overflow:hidden + height:100vh.
+   Scroll on body only (html overflow:visible) — same pattern as datacapture-summary-page. */
 html:has(body.dashboard-page.transaction-page:not(.member-winloss-page)) {
     height: auto;
-    overflow-y: auto;
+    overflow: visible;
 }
 
 body.dashboard-page.transaction-page:not(.member-winloss-page),
