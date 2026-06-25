@@ -23,7 +23,6 @@ import {
 } from "../../../utils/company/sharedCompanyFilter.js";
 import {
   filterCompaniesForBankOnlyPills,
-  filterCompaniesForGamesOrBankOnlyPills,
   filterCompaniesForGamesPills,
 } from "../../../utils/company/companyCategoryFlags.js";
 import { useGcFilterWithAllModes } from "../../../utils/company/useGcFilterWithAllModes.js";
@@ -49,7 +48,7 @@ export function useMaintenanceGroupCompanyFilter({
   onClearCompany,
   switchingCompany = false,
   enableGroupAnchorSession = true,
-  /** "games" — hide bank-only (CX); "gamesOrBankOnly" — capture/transaction maintenance; "bank" — hide games-only. */
+  /** "games" — hide bank-only (CX); "bank" — hide games-only; payment/process list omit this. */
   pillCategory = null,
 }) {
   const { me } = useAuthSession();
@@ -139,9 +138,6 @@ export function useMaintenanceGroupCompanyFilter({
   const categoryScopedCompanies = useMemo(() => {
     if (pillCategory === "games") {
       return filterCompaniesForGamesPills(visibleCompanies, companyId);
-    }
-    if (pillCategory === "gamesOrBankOnly") {
-      return filterCompaniesForGamesOrBankOnlyPills(visibleCompanies, companyId);
     }
     if (pillCategory === "bank") {
       return filterCompaniesForBankOnlyPills(visibleCompanies, companyId);

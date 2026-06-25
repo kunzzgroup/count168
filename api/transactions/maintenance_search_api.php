@@ -1066,7 +1066,7 @@ try {
         ]);
         $scopeProcessFilter = $maintenance_scope_group
             ? dcSqlGroupProcessFilter('p')
-            : dcSqlDataCaptureCompanyProcessFilter($pdo, $company_id, 'p');
+            : dcSqlCompanyProcessFilter('p');
         $scopeCompanySql = $maintenance_scope_group
             ? ''
             : dcSqlCaptureOnSubsidiaryCompany('dc');
@@ -1222,16 +1222,6 @@ try {
 
     $catUpper = strtoupper($category);
     $is_bank_category = ($catUpper === 'BANK');
-    // Bank-only payroll (CX, TEST02): Data Capture (PROFIT/SALARY/…) is queried on Games path, not Bank.
-    if ($is_bank_category && (int) $company_id > 0) {
-        require_once __DIR__ . '/../../includes/group_company_access.php';
-        $payrollCatFlags = gc_resolve_company_category_flags($pdo, (int) $company_id);
-        if (!empty($payrollCatFlags['has_bank']) && empty($payrollCatFlags['has_gambling'])) {
-            $category = 'Games';
-            $catUpper = 'GAMES';
-            $is_bank_category = false;
-        }
-    }
     $is_loan_rate_money = in_array($catUpper, ['LOAN', 'RATE', 'MONEY'], true);
     // Loan/Rate/Money 无独立流水；与其它维护页共用 localStorage 时可能误传，按 Games 查询
     if ($is_loan_rate_money) {

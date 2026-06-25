@@ -153,7 +153,7 @@ try {
             'dual_tenant' => tenant_table_has_scope_columns($pdo, 'data_captures'),
             'submitted_dual_tenant' => dcSubmittedProcessesDualTenantEnabled($pdo),
         ];
-        $scopeProcessFilter = dcSqlDataCaptureCompanyProcessFilter($pdo, $company_id, 'p');
+        $scopeProcessFilter = dcSqlCompanyProcessFilter('p');
     }
 
     if ($capture_scope_group) {

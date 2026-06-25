@@ -318,18 +318,6 @@ if (!function_exists('checkCompanyCategoryPermission')) {
     }
 }
 
-if (!function_exists('checkCompanyGamesOrBankPayrollAccess')) {
-    /**
-     * Games process table access: Games/Gambling subsidiaries or bank-only payroll (e.g. CX).
-     * Distinct from permission=Bank which reads bank_process.
-     */
-    function checkCompanyGamesOrBankPayrollAccess(PDO $pdo, $companyId): bool
-    {
-        return checkCompanyCategoryPermission($pdo, $companyId, 'Games')
-            || checkCompanyCategoryPermission($pdo, $companyId, 'Bank');
-    }
-}
-
 if (!function_exists('user_sidebar_permissions_list')) {
     /**
      * Sidebar permission keys from user.permissions JSON.

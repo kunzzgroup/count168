@@ -244,10 +244,10 @@ try {
             'anchor_company_id' => $company_id,
             'is_group_scope' => false,
             'dual_tenant' => tenant_table_has_scope_columns($pdo, 'data_captures'),
-            'scope_process_sql' => dcSqlDataCaptureCompanyProcessFilter($pdo, $company_id, 'p'),
+            'scope_process_sql' => dcSqlCompanyProcessFilter('p'),
             'scope_company_sql_deleted' => dcSqlCaptureOnSubsidiaryCompany('dcd'),
         ];
-        $scopeProcessFilter = dcSqlDataCaptureCompanyProcessFilter($pdo, $company_id, 'p');
+        $scopeProcessFilter = dcSqlCompanyProcessFilter('p');
         $scopeCompanySqlDeleted = dcSqlCaptureOnSubsidiaryCompany('dcd');
     }
 

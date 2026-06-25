@@ -73,20 +73,15 @@ export function applySidebarForCompanySwitch(viewGroup, companyRow, apiData) {
   notifyDashboardGroupFilterChanged(vg, cid, opts);
 }
 
-/** Bank-only companies (e.g. CX): payment, process, data capture, and transaction maintenance. */
+/** Bank-only companies may use payment-maintenance and bankprocess-maintenance. */
 export function isBankOnlyAllowedMaintenancePath(path) {
   const pageKey = pathnameToPageKey(path);
-  return (
-    pageKey === "bankprocess-maintenance" ||
-    pageKey === "payment-maintenance" ||
-    pageKey === "capture-maintenance" ||
-    pageKey === "transaction-maintenance"
-  );
+  return pageKey === "bankprocess-maintenance" || pageKey === "payment-maintenance";
 }
 
 /**
  * When company category does not match the current maintenance route, return redirect path.
- * Bank-only (e.g. CX): leave formula maintenance → payment-maintenance; may stay on capture/transaction/payment/bankprocess maintenance.
+ * Bank-only (e.g. CX): leave games maintenance → dashboard; may stay on payment/bankprocess maintenance.
  * Always call applySidebarForCompanySwitch before navigating.
  */
 export function resolveMaintenanceRedirectForSession(sessionData, currentPath) {
@@ -96,7 +91,11 @@ export function resolveMaintenanceRedirectForSession(sessionData, currentPath) {
 
   if (isBankOnlyCategoryFlags(flags)) {
     if (isBankOnlyAllowedMaintenancePath(currentPath)) return null;
-    if (pageKey === "formula-maintenance") {
+    if (
+      pageKey === "transaction-maintenance" ||
+      pageKey === "capture-maintenance" ||
+      pageKey === "formula-maintenance"
+    ) {
       return spaPath("payment-maintenance");
     }
     if (pageKey === "dashboard") return null;

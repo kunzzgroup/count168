@@ -12,8 +12,6 @@ export default function GcInlineFilterPanel({
   companiesForPicker = [],
   groupAllMode = false,
   pickerCompanyId = null,
-  /** When pill list row id differs from session id, match highlight by company code. */
-  pickerCompanyCode = null,
   onPickAllInGroup,
   onPickCompany,
   /** Optional hover/focus warm-up (Process List cache prefetch, etc.). */
@@ -30,7 +28,6 @@ export default function GcInlineFilterPanel({
   children = null,
 }) {
   const selectedGroupKey = selectedGroup ? String(selectedGroup).trim().toUpperCase() : "";
-  const highlightCode = normalizePickerCompanyCode(pickerCompanyCode);
   const allLabelRaw = typeof t === "function" ? t(allLabelKey) : allLabelKey;
   const allLabel =
     allLabelRaw && allLabelRaw !== allLabelKey ? allLabelRaw : "ALL";
@@ -83,14 +80,7 @@ export default function GcInlineFilterPanel({
                 </button>
               ) : null}
               {companiesForPicker.map((c) => {
-                const rowCode = normalizePickerCompanyCode(c.company_id);
-                const pickId =
-                  pickerCompanyId != null && pickerCompanyId !== ""
-                    ? Number(pickerCompanyId)
-                    : Number.NaN;
-                const activeById = Number.isFinite(pickId) && pickId > 0 && pickId === Number(c.id);
-                const activeByCode = highlightCode !== "" && rowCode === highlightCode;
-                const active = activeByCode || activeById;
+                const active = !groupAllMode && Number(pickerCompanyId) === Number(c.id);
                 const pending = switchingCompany && active;
                 const label = String(c.company_id || "").toUpperCase();
                 return (
@@ -123,8 +113,4 @@ export default function GcInlineFilterPanel({
   if (embedded) return rows;
 
   return <div className="user-gc-inline-panel">{rows}</div>;
-}
-
-function normalizePickerCompanyCode(code) {
-  return String(code ?? "").trim().toUpperCase();
 }

@@ -16,8 +16,6 @@ export default function TransactionMaintenanceFilters({
   onDateRangeChange,
   today,
   companyId,
-  pickerCompanyId = null,
-  companyCode = "",
   snapGroupIds,
   visibleCompanies,
   selectedGroup,
@@ -91,8 +89,7 @@ export default function TransactionMaintenanceFilters({
             groupAllMode={groupAllMode}
             companyButtons={visibleCompanies}
             companyId={companyId}
-            companyCode={companyCode}
-            highlightCompanyId={pickerCompanyId ?? companyId}
+            highlightCompanyId={companyId}
             onSwitchCompany={onPickCompany}
             onClearCompany={onClearCompany}
             allowClearCompany={allowClearCompany}

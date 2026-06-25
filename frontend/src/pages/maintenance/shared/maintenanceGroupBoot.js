@@ -45,7 +45,7 @@ export function shouldSkipMaintenanceCategoryGuard({
 } = {}) {
   if (groupOnlyBoot) return true;
   if (companyRow && (isC168CompanyRow(companyRow) || isBankOnlyCompanyRow(companyRow))) return true;
-  if (scope?.c168Channel || scope?.companyPayrollChannel) return true;
+  if (scope?.c168Channel) return true;
   if (scope?.mode === "group") {
     const g = String(selectedGroup || scope?.groupId || scope?.viewGroup || "").trim();
     return g ? canUseGroupOnlyMode(me, g) : false;
@@ -65,12 +65,4 @@ export function shouldSkipMaintenanceCategoryGuard({
     return true;
   }
   return false;
-}
-
-/** Capture / Transaction maintenance: allow Games/Gambling or bank-only payroll (CX). */
-export function maintenanceCompanyCategoryAllowed(companyPerms) {
-  const perms = Array.isArray(companyPerms) ? companyPerms : [];
-  const hasGames = perms.includes("Games") || perms.includes("Gambling");
-  const bankOnly = perms.includes("Bank") && !hasGames;
-  return hasGames || bankOnly;
 }

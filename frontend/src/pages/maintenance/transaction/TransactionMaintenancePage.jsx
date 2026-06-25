@@ -8,11 +8,6 @@ import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangeP
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
 import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
-import {
-  shouldSkipMaintenanceCategoryGuard,
-  maintenanceCompanyCategoryAllowed,
-} from "../shared/maintenanceGroupBoot.js";
-import { isBankOnlyCompanyRow, isC168CompanyRow } from "../../../utils/company/c168CaptureChannel.js";
 import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   companiesInGroupList,
@@ -22,6 +17,7 @@ import {
   persistDashboardGroupOnlyMode,
   persistDashboardSelectedCompany,
   readPersistedDashboardGcFilter,
+  readDashboardSelectedCompanyId,
   resolveBootCompanyId,
   resolveInitialSelectedGroupFromSession,
   fetchOwnerCompaniesAll,
@@ -58,11 +54,9 @@ import {
   transactionMaintenanceScopeIsReady,
   transactionMaintenanceUsesGroupProcesses,
 } from "./transactionMaintenanceScope.js";
-import { resolveTransactionMaintenanceCategory } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { formatDmyFromYmd } from "../shared/maintenanceDateHelpers.js";
-import { resolveMaintenancePickerCompanyId, resolvePickerCompanyCode } from "../shared/maintenancePickerCompanyId.js";
 
 // Components
 import TransactionMaintenanceFilters from "./components/TransactionMaintenanceFilters.jsx";
@@ -81,7 +75,10 @@ function readInitialMaintenanceSelectedGroup() {
 function readInitialMaintenanceCompanyId() {
   const persisted = readPersistedDashboardGcFilter();
   if (isDashboardGroupOnlyMode() || persisted.groupOnly) return null;
-  if (persisted.companyId != null) return persisted.companyId;
+  const saved = readDashboardSelectedCompanyId();
+  if (saved != null) return saved;
+  // Group selected with no saved company → group-only UI on refresh.
+  if (persisted.selectedGroup) return null;
   return null;
 }
 
@@ -103,7 +100,7 @@ export default function TransactionMaintenancePage() {
 
   // -- Filter State --
   const [companyId, setCompanyId] = useState(readInitialMaintenanceCompanyId);
-  useMaintenanceBankOnlyGuard(companyId, { allowBankOnly: true });
+  useMaintenanceBankOnlyGuard(companyId);
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(readInitialMaintenanceSelectedGroup);
   const [selectedProcess, setSelectedProcess] = useState("");
@@ -191,7 +188,7 @@ export default function TransactionMaintenancePage() {
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     enableGroupAnchorSession: false,
-    pillCategory: "gamesOrBankOnly",
+    pillCategory: "games",
   });
 
   const transactionScope = useMemo(
@@ -296,7 +293,6 @@ export default function TransactionMaintenancePage() {
         (activePermission ||
           pickTransactionMaintenancePermission(permissions, null) ||
           "Games");
-      const apiCategory = resolveTransactionMaintenanceCategory(category, effectiveScope);
       if (
         !transactionMaintenanceScopeIsReady(effectiveScope) ||
         !dateFrom ||
@@ -311,7 +307,7 @@ export default function TransactionMaintenancePage() {
         dateFrom,
         dateTo,
         processFilter,
-        apiCategory,
+        category,
       ]);
       const filtersChanged = effectiveSearchKey !== lastSearchQueryKeyRef.current;
       if (overrides.scope || filtersChanged) {
@@ -345,7 +341,7 @@ export default function TransactionMaintenancePage() {
           dateFrom,
           dateTo,
           process: processFilter,
-          category: apiCategory,
+          category,
           scope: effectiveScope,
           signal: ac.signal,
           onProgress: (progressRows) => {
@@ -650,18 +646,11 @@ export default function TransactionMaintenancePage() {
         const persistedGc = readPersistedDashboardGcFilter();
         const initialUiCompanyId = readInitialMaintenanceCompanyId();
         const sessionGroup = readInitialMaintenanceSelectedGroup();
-        let groupOnlyBoot =
+        const groupOnlyBoot =
           isDashboardGroupOnlyMode() ||
           persistedGc.groupOnly ||
           (bootGroup != null && initialUiCompanyId == null) ||
           (sessionGroup != null && initialUiCompanyId == null);
-        if (
-          currentComp &&
-          (isC168CompanyRow(currentComp) || isBankOnlyCompanyRow(currentComp)) &&
-          initialUiCompanyId != null
-        ) {
-          groupOnlyBoot = false;
-        }
 
         const runGroupOnlyBoot = async () => {
           persistDashboardGroupOnlyMode(true);
@@ -734,22 +723,16 @@ export default function TransactionMaintenancePage() {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
 
+          // Fetch permissions first to pick the correct category for downstream APIs.
           const companyPerms = await fetchCompanyPermissions(code);
 
-          const bootScope = resolveTransactionMaintenanceScope({
-            companies: filtered,
-            selectedGroup: bootGroup,
-            companyId: initialCompanyId,
-          });
-          const skipCategoryGuard = shouldSkipMaintenanceCategoryGuard({
-            groupOnlyBoot,
-            scope: bootScope,
-            me: u,
-            selectedGroup: bootGroup,
-            companyRow: currentComp,
-            companyId: initialCompanyId,
-          });
-          if (!skipCategoryGuard && !maintenanceCompanyCategoryAllowed(companyPerms)) {
+          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
+          const bankOnly = companyPerms.includes("Bank") && !hasGames;
+          if (bankOnly) {
+            navigate(spaPath("dashboard"), { replace: true });
+            return;
+          }
+          if (!hasGames) {
             navigate(spaPath("dashboard"), { replace: true });
             return;
           }
@@ -767,6 +750,11 @@ export default function TransactionMaintenancePage() {
           const initialActive = pickTransactionMaintenancePermission(companyPerms, savedPerm);
           setActivePermission(initialActive);
 
+          const bootScope = resolveTransactionMaintenanceScope({
+            companies: filtered,
+            selectedGroup: bootGroup,
+            companyId: initialCompanyId,
+          });
           pendingBootSearchRef.current = { scope: bootScope, category: initialActive };
           try {
             const procList = await fetchProcessesForPermission(
@@ -997,31 +985,19 @@ export default function TransactionMaintenancePage() {
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-    const nextScope = resolveTransactionMaintenanceScope({
-      companies,
-      selectedGroup: newGroup,
-      companyId: nextCompanyId,
-      groupsAllMode,
-      groupAllMode,
-    });
     switchPermsCacheRef.current = null;
     resetAnchorSessionRef();
     suppressNextSearchEffectRef.current = true;
-    scopeKeyRef.current = transactionMaintenanceScopeCacheKey(nextScope);
-    lastSearchQueryKeyRef.current = "";
     if (initialSearchDoneRef.current) {
       setListLoading(false);
       setListSyncing(true);
     }
-    setTransactionData([]);
-    setMaintenanceDataComplete(false);
     setSelectedGroup(newGroup);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
-    persistDashboardGroupOnlyMode(false);
     persistDashboardFilterState(newGroup, nextCompanyId);
-  }, [companies, groupsAllMode, groupAllMode, resetAnchorSessionRef]);
+  }, [resetAnchorSessionRef]);
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
 
@@ -1094,36 +1070,6 @@ export default function TransactionMaintenancePage() {
 
   followGroupRef.current = () => {};
 
-  useEffect(() => {
-    if (!filtersReady || !companies.length || companyId == null) return;
-    if (visibleCompanies.length === 0) return;
-    const resolved = resolveMaintenancePickerCompanyId(
-      companyId,
-      companyCode,
-      visibleCompanies,
-    );
-    if (resolved != null) return;
-    void handlePickCompany(visibleCompanies[0]);
-  }, [
-    filtersReady,
-    companies.length,
-    visibleCompanies,
-    companyId,
-    companyCode,
-    handlePickCompany,
-  ]);
-
-  const pickerCompanyId = useMemo(
-    () => resolveMaintenancePickerCompanyId(companyId, companyCode, visibleCompanies),
-    [companyId, companyCode, visibleCompanies],
-  );
-
-  useEffect(() => {
-    if (companyId == null || companyCode) return;
-    const code = resolvePickerCompanyCode(companyId, companies, me);
-    if (code) setCompanyCode(code);
-  }, [companyId, companyCode, companies, me]);
-
   const handlePermissionSwitch = (p) => {
     setActivePermission(p);
     localStorage.setItem(`selectedPermission_${companyCode}`, p);
@@ -1166,8 +1112,6 @@ export default function TransactionMaintenancePage() {
           onDateRangeChange={handleDateRangeChange}
           today={todayDmy}
           companyId={companyId}
-          pickerCompanyId={pickerCompanyId}
-          companyCode={companyCode}
           companies={companies}
           snapGroupIds={snapGroupIds}
           visibleCompanies={visibleCompanies}

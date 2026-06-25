@@ -55,7 +55,7 @@ try {
 
     $scopeProcessFilter = $maintenance_scope_group
         ? dcSqlGroupProcessFilter('p')
-        : dcSqlDataCaptureCompanyProcessFilter($pdo, $company_id, 'p');
+        : dcSqlCompanyProcessFilter('p');
 
     $date_from = $payload['date_from'] ?? null;
     $date_to   = $payload['date_to']   ?? null;

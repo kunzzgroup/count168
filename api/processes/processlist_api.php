@@ -264,11 +264,7 @@ if ($req_company_id) {
         }
     }
 
-    $categoryOk = $requiredCategory === 'Bank'
-        ? checkCompanyCategoryPermission($pdo, $req_company_id, 'Bank')
-        : checkCompanyGamesOrBankPayrollAccess($pdo, $req_company_id);
-
-    if (!$categoryOk) {
+    if (!checkCompanyCategoryPermission($pdo, $req_company_id, $requiredCategory)) {
         jsonResponse(false, 'Unauthorized permission category');
         exit;
     }

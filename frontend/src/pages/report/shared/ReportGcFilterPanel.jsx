@@ -12,8 +12,6 @@ export default function ReportGcFilterPanel({
   onPickGroup,
   companyButtons,
   companyId,
-  /** Company code (TEST01) — fallback pill highlight when row id differs from session id. */
-  companyCode = "",
   /** 乐观高亮：切换会话未返回前显示为已选 */
   highlightCompanyId,
   onSwitchCompany,
@@ -35,7 +33,6 @@ export default function ReportGcFilterPanel({
   t,
 }) {
   const activeCompanyId = highlightCompanyId != null ? highlightCompanyId : companyId;
-  const activeCompanyCode = String(companyCode ?? "").trim().toUpperCase();
   const isDashboardLayout = layout === "dashboard";
   const hasGroup = Array.isArray(groupIds) && groupIds.length > 0;
   const hasCompanies = Array.isArray(companyButtons) && companyButtons.length > 0;
@@ -58,7 +55,6 @@ export default function ReportGcFilterPanel({
             companiesForPicker={companyButtons}
             groupAllMode={groupAllMode}
             pickerCompanyId={activeCompanyId}
-            pickerCompanyCode={activeCompanyCode}
             onPickAllInGroup={onPickAllInGroup}
             onPickCompany={onSwitchCompany}
             allowCompanyDeselect={allowClearCompany}
@@ -157,15 +153,7 @@ export default function ReportGcFilterPanel({
           <div className="user-gc-inline-pills user-gc-inline-pills--segment-scroll">
             <div className="user-gc-segment-group" role="group" aria-label={t("company")}>
               {companyButtons.map((c) => {
-                const rowCode = String(c.company_id || "").trim().toUpperCase();
-                const pickId =
-                  activeCompanyId != null && activeCompanyId !== ""
-                    ? Number(activeCompanyId)
-                    : Number.NaN;
-                const activeById = Number.isFinite(pickId) && pickId > 0 && pickId === Number(c.id);
-                const activeByCode =
-                  activeCompanyCode !== "" && rowCode === activeCompanyCode;
-                const active = activeById || activeByCode;
+                const active = Number(c.id) === Number(activeCompanyId);
                 return (
                   <button
                     key={c.id}

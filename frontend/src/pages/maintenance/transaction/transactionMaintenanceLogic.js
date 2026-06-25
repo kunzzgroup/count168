@@ -14,7 +14,6 @@ import {
 } from "../shared/maintenanceCompanyApi.js";
 import { fetchProcesses as fetchDomainReportProcesses } from "../../report/domain/domainReportApi.js";
 import { mapDomainGroupProcesses } from "../../report/domain/domainReportGroupProcesses.js";
-import { GROUP_ONLY_PROCESS_CODES } from "../../datacapture/lib/dataCaptureGroupOnlyProcesses.js";
 import {
   transactionMaintenanceScopeApiParams,
   transactionMaintenanceScopeCacheKey,
@@ -130,8 +129,7 @@ export async function fetchProcessesForPermission(companyId, permission, scope =
 }
 
 export async function fetchProcessesForMaintenance(companyId, permission, scope = null) {
-  const payrollChannel = Boolean(scope?.c168Channel || scope?.companyPayrollChannel);
-  if (scope && transactionMaintenanceUsesGroupProcesses(scope) && !payrollChannel) {
+  if (scope && transactionMaintenanceUsesGroupProcesses(scope)) {
     const apiList = await fetchDomainReportProcesses(scope, { credentials: "include" });
     return mapProcessesForMaintenanceSelect(mapDomainGroupProcesses(apiList));
   }
@@ -140,14 +138,7 @@ export async function fetchProcessesForMaintenance(companyId, permission, scope 
     credentials: true,
     permission,
   });
-  let mapped = mapProcessesForMaintenanceSelect(rows);
-  if (payrollChannel) {
-    const payrollCodes = new Set(GROUP_ONLY_PROCESS_CODES);
-    mapped = mapped.filter((p) =>
-      payrollCodes.has(String(p.process_name ?? "").trim().toUpperCase()),
-    );
-  }
-  return mapped;
+  return mapProcessesForMaintenanceSelect(rows);
 }
 
 /**
@@ -210,16 +201,8 @@ export function pickTransactionMaintenancePermission(permissions, saved) {
   );
 }
 
-/** Payroll channel (C168 / bank-only TEST02): Data Capture rows use Games search path, not Bank. */
-export function isPayrollChannelMaintenanceScope(scope) {
-  return Boolean(scope?.companyPayrollChannel || scope?.c168Channel);
-}
-
 /** 传给 maintenance_search_api 的 category（Loan/Rate/Money → Games）。 */
-export function resolveTransactionMaintenanceCategory(permission, scope = null) {
-  if (isPayrollChannelMaintenanceScope(scope)) {
-    return "Games";
-  }
+export function resolveTransactionMaintenanceCategory(permission) {
   const raw = String(permission ?? "").trim();
   if (!raw) return "";
   const lower = raw.toLowerCase();
@@ -298,7 +281,7 @@ export async function searchTransactionData({
   onProgress,
 }) {
   const processFilter = normalizeMaintenanceProcessFilter(process);
-  const categoryFilter = resolveTransactionMaintenanceCategory(category, scope);
+  const categoryFilter = resolveTransactionMaintenanceCategory(category);
   const emitProgress = (rows) => {
     if (!rows.length) return;
     const snapshot = renumberMaintenanceRows([...rows]);

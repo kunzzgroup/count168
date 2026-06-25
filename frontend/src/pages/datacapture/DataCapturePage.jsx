@@ -33,10 +33,6 @@ import {
 } from "../../utils/company/c168CaptureChannel.js";
 import { useGcFilterWithAllModes } from "../../utils/company/useGcFilterWithAllModes.js";
 import GcInlineFilterPanel from "../../components/GcInlineFilterPanel.jsx";
-import {
-  resolveMaintenancePickerCompanyId,
-  resolvePickerCompanyCode,
-} from "../maintenance/shared/maintenancePickerCompanyId.js";
 
 import "../../../public/css/userlist.css";
 import "../../../public/css/global-13inch.css";
@@ -979,22 +975,6 @@ function DataCapturePageContent() {
   }, [scriptsReady]);
 
   const list = filterCompaniesWithDisplayId(companiesForPicker);
-
-  const pickerCompanyCode = useMemo(() => {
-    if (companyId == null) return "";
-    const fromRow = resolvePickerCompanyCode(companyId, companiesNormalized, me);
-    if (fromRow) return fromRow;
-    const inList = list.find((c) => Number(c.id) === Number(companyId));
-    return inList?.company_id != null && String(inList.company_id).trim() !== ""
-      ? String(inList.company_id).trim()
-      : "";
-  }, [companyId, companiesNormalized, me, list]);
-
-  const pickerCompanyId = useMemo(
-    () => resolveMaintenancePickerCompanyId(companyId, pickerCompanyCode, list),
-    [companyId, pickerCompanyCode, list],
-  );
-
   const pageShellKey = dataCaptureScopeCacheKey(captureScope) || "pending";
 
   return (
@@ -1056,8 +1036,7 @@ function DataCapturePageContent() {
                     onPickGroup={handlePickGroup}
                     companiesForPicker={list}
                     groupAllMode={groupAllMode}
-                    pickerCompanyId={pickerCompanyId}
-                    pickerCompanyCode={pickerCompanyCode}
+                    pickerCompanyId={companyId}
                     onPickAllInGroup={handlePickAllInGroup}
                     onPickCompany={handlePickCompany}
                   />
