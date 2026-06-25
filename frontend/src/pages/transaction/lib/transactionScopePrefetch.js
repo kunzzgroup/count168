@@ -50,8 +50,7 @@ export function buildTransactionSearchRequestKey({
     categoryParam,
     showInactive: showInactive ? "1" : "0",
     showCaptureOnly: showCaptureOnly ? "1" : "0",
-    // Align with useTransactionSearch requestKey: "0" = show all 0 balance (hide_zero_balance=0).
-    hideZero: hideZeroBalance ? "1" : "0",
+    hideZero: hideZeroBalance ? "0" : "1",
     companyId: String(scopeCacheCompanyKey || ""),
     showAllCurrencies: !!showAllCurrencies,
     currencies: cur,

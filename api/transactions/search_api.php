@@ -302,115 +302,6 @@ function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $cu
     ];
 }
 
-/**
- * Show all 0 balance：补全 scope 内账户×币别行（与 period 无关）。
- * 主循环因 account_currency / DCD 漏枚举而未生成的组合在此按同一公式补算并追加。
- */
-function searchApiEnsureShowZeroBalanceScopeRows(
-    array &$results,
-    array $accounts,
-    array $filter_currency_codes,
-    array $currency_map,
-    PDO $pdo,
-    string $date_from_db,
-    string $date_to_db,
-    int $company_id,
-    $bulk
-): void {
-    if (empty($accounts)) {
-        return;
-    }
-
-    $existing = [];
-    foreach ($results as $row) {
-        $dbId = (int) ($row['account_db_id'] ?? 0);
-        $cur = strtoupper(trim((string) ($row['currency'] ?? '')));
-        if ($dbId > 0 && $cur !== '') {
-            $existing[$dbId . '_' . $cur] = true;
-        }
-    }
-
-    $currenciesToEnsure = [];
-    if (!empty($filter_currency_codes)) {
-        foreach ($filter_currency_codes as $fcc) {
-            $code = strtoupper(trim((string) $fcc));
-            if ($code !== '' && isset($currency_map[$code])) {
-                $currenciesToEnsure[$code] = (int) $currency_map[$code];
-            }
-        }
-    } else {
-        foreach ($currency_map as $code => $cid) {
-            $currenciesToEnsure[strtoupper((string) $code)] = (int) $cid;
-        }
-    }
-    if (empty($currenciesToEnsure)) {
-        return;
-    }
-
-    foreach ($accounts as $account) {
-        $account_id = (int) ($account['id'] ?? 0);
-        if ($account_id <= 0) {
-            continue;
-        }
-        foreach ($currenciesToEnsure as $currency_code => $currency_id) {
-            $comboKey = $account_id . '_' . $currency_code;
-            if (isset($existing[$comboKey])) {
-                continue;
-            }
-
-            $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $account['account_id'] ?? '', $bulk);
-            $wlPack = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $account['account_id'] ?? '', $bulk);
-            $win_loss = $wlPack['win_loss'];
-            $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $bulk);
-            $cr_dr = $cr_dr_result['value'];
-
-            $bf_stat = trunc2($bf);
-            $win_loss_stat = trunc2($wlPack['win_loss_full'] ?? $win_loss);
-            $cr_dr_stat = trunc2($cr_dr);
-            $balance_full = trunc2(money_add(money_add($bf_stat, $win_loss_stat, 8), $cr_dr_stat, 8));
-            $bf_display = searchMoneyHalfUp2($bf_stat);
-            $win_loss_display = searchMoneyHalfUp2($win_loss_stat);
-            $cr_dr_display = searchMoneyHalfUp2($cr_dr_stat);
-            $balance = searchMoneyHalfUp2($balance_full);
-
-            $dispAccountId = domainProvisionedMemberAccountIdForDisplay(
-                (string) ($account['account_id'] ?? ''),
-                (string) ($account['role'] ?? ''),
-                isset($account['created_source']) ? (string) $account['created_source'] : null
-            );
-            if ($dispAccountId === '') {
-                $dispAccountId = (string) ($account['account_id'] ?? '');
-            }
-
-            $has_win_loss_transactions = !empty($wlPack['has_win_loss_transactions'])
-                || !empty($wlPack['has_period_id_product_rows']);
-            $has_crdr_transactions = !empty($cr_dr_result['has_transactions']);
-
-            $results[] = [
-                'account_id' => $dispAccountId,
-                'account_name' => $account['name'] ?? '',
-                'account_db_id' => $account_id,
-                'role' => $account['role'] ?? '',
-                'currency' => $currency_code,
-                'currency_id_debug' => $currency_id,
-                'bf' => $bf_display,
-                'win_loss' => $win_loss_display,
-                'win_loss_full' => $wlPack['win_loss_full'] ?? $win_loss_display,
-                'cr_dr' => $cr_dr_display,
-                'balance' => $balance,
-                'balance_full' => $balance_full,
-                'has_crdr_transactions' => $has_crdr_transactions ? 1 : 0,
-                'has_win_loss_transactions' => $has_win_loss_transactions ? 1 : 0,
-                'has_win_loss_history' => !empty($wlPack['has_win_loss_history']) ? 1 : 0,
-                'has_period_id_product_rows' => !empty($wlPack['has_period_id_product_rows']) ? 1 : 0,
-                'is_alert' => 0,
-                'is_rate_middleman' => !empty($wlPack['has_rate_middleman']) ? 1 : 0,
-            ];
-            $existing[$comboKey] = true;
-        }
-    }
-}
-
 /** @return string|null 客户公司代码，如 LGA */
 function searchApiParseDomainListFeeCompanyCode(string $sms): ?string
 {
@@ -1895,24 +1786,6 @@ try {
             }
         }
 
-        // Show all 0 balance：每个 scope 内账户都必须出现在所选币别下（与 period 无关），
-        // 避免仅有其它币别 active 行、或完全无 DCD/交易 的 domain MEMBER 漏行。
-        if (!$hide_zero_balance) {
-            if (!empty($filter_currency_codes)) {
-                foreach ($filter_currency_codes as $fcc) {
-                    $code = strtoupper(trim((string) $fcc));
-                    if ($code === '' || !isset($currency_map[$code])) {
-                        continue;
-                    }
-                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, $currency_map[$code], $code);
-                }
-            } elseif (empty($account_currencies)) {
-                foreach ($currency_map as $code => $cid) {
-                    addAccountCurrencyCombo($account_currencies, $account_currency_ids, (int) $cid, (string) $code);
-                }
-            }
-        }
-
         if (empty($account_currencies)) {
             continue;
         }
@@ -2459,21 +2332,6 @@ try {
             'is_alert' => $is_alert ? 1 : 0,
             'is_rate_middleman' => $is_rate_middleman ? 1 : 0
         ];
-    }
-
-    // Show all 0 balance：补全 scope 内所有 account×currency 行（单日/整年一致，不依赖 DCD 枚举）。
-    if (!$hide_zero_balance) {
-        searchApiEnsureShowZeroBalanceScopeRows(
-            $results,
-            $accounts,
-            $filter_currency_codes,
-            $currency_map,
-            $pdo,
-            $date_from_db,
-            $date_to_db,
-            $company_id,
-            $bulk
-        );
     }
 
     // 去重：按 account_id + currency 组合去重（防止重复）
