@@ -557,7 +557,8 @@ export function buildTxListSessionKey({
     cur = [...selectedCurrencies].sort().join(",");
   }
   const cid = companyId != null ? String(companyId) : "";
-  const hideZero = hideZeroBalance ? "0" : "1";
+  // Align with useTransactionSearch requestKey: "0" = show all 0 balance (hide_zero_balance=0).
+  const hideZero = hideZeroBalance ? "1" : "0";
   return (
     TX_LIST_SESSION_PREFIX +
     [cid, dateFrom, dateTo, cat, showInactive ? "1" : "0", showCaptureOnly ? "1" : "0", hideZero, cur, showAllCurrencies ? "1" : "0"].join("|")

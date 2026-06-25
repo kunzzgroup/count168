@@ -1044,8 +1044,10 @@ export function useTransactionSearch({
       silent: true,
       notifyErrors: true,
       showBlockingOverlay: true,
+      // Avoid replaying prefetch/stale cache keyed with wrong hideZero when Show 0 balance is on.
+      forceRefresh: searchState.showZeroBalance,
     });
-  }, [effectiveDateFrom, effectiveDateTo, scopeReady, showAllCurrencies, selectedCurrenciesKey]);
+  }, [effectiveDateFrom, effectiveDateTo, scopeReady, showAllCurrencies, selectedCurrenciesKey, searchState.showZeroBalance]);
 
   return {
     dateFrom,
