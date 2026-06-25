@@ -58,6 +58,7 @@ import {
   transactionMaintenanceScopeIsReady,
   transactionMaintenanceUsesGroupProcesses,
 } from "./transactionMaintenanceScope.js";
+import { resolveTransactionMaintenanceCategory } from "./transactionMaintenanceLogic.js";
 import { useLoginLang } from "../../../utils/i18n/useLoginLang.js";
 import { getMaintenanceText, MAINTENANCE_I18N } from "../../../translateFile/pages/maintenanceTranslate.js";
 import { formatDmyFromYmd } from "../shared/maintenanceDateHelpers.js";
@@ -294,6 +295,7 @@ export default function TransactionMaintenancePage() {
         (activePermission ||
           pickTransactionMaintenancePermission(permissions, null) ||
           "Games");
+      const apiCategory = resolveTransactionMaintenanceCategory(category, effectiveScope);
       if (
         !transactionMaintenanceScopeIsReady(effectiveScope) ||
         !dateFrom ||
@@ -308,7 +310,7 @@ export default function TransactionMaintenancePage() {
         dateFrom,
         dateTo,
         processFilter,
-        category,
+        apiCategory,
       ]);
       const filtersChanged = effectiveSearchKey !== lastSearchQueryKeyRef.current;
       if (overrides.scope || filtersChanged) {
@@ -342,7 +344,7 @@ export default function TransactionMaintenancePage() {
           dateFrom,
           dateTo,
           process: processFilter,
-          category,
+          category: apiCategory,
           scope: effectiveScope,
           signal: ac.signal,
           onProgress: (progressRows) => {

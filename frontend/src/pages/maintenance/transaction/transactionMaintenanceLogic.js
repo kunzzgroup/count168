@@ -210,8 +210,16 @@ export function pickTransactionMaintenancePermission(permissions, saved) {
   );
 }
 
+/** Payroll channel (C168 / bank-only TEST02): Data Capture rows use Games search path, not Bank. */
+export function isPayrollChannelMaintenanceScope(scope) {
+  return Boolean(scope?.companyPayrollChannel || scope?.c168Channel);
+}
+
 /** 传给 maintenance_search_api 的 category（Loan/Rate/Money → Games）。 */
-export function resolveTransactionMaintenanceCategory(permission) {
+export function resolveTransactionMaintenanceCategory(permission, scope = null) {
+  if (isPayrollChannelMaintenanceScope(scope)) {
+    return "Games";
+  }
   const raw = String(permission ?? "").trim();
   if (!raw) return "";
   const lower = raw.toLowerCase();
@@ -290,7 +298,7 @@ export async function searchTransactionData({
   onProgress,
 }) {
   const processFilter = normalizeMaintenanceProcessFilter(process);
-  const categoryFilter = resolveTransactionMaintenanceCategory(category);
+  const categoryFilter = resolveTransactionMaintenanceCategory(category, scope);
   const emitProgress = (rows) => {
     if (!rows.length) return;
     const snapshot = renumberMaintenanceRows([...rows]);
