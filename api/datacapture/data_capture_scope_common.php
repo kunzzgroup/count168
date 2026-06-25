@@ -309,7 +309,7 @@ function dcFinalizeDualTenantCaptureScope(PDO $pdo, array $scopeResolved, array 
         'scope_id' => $companyId,
         'group_id' => $groupId,
         'group_scope_id' => $groupId !== '' ? gc_resolve_group_pk_by_code($pdo, $groupId) : 0,
-        'scope_process_sql' => dcSqlCompanyProcessFilter('p'),
+        'scope_process_sql' => dcSqlDataCaptureCompanyProcessFilter($pdo, $companyId, 'p'),
         'scope_company_sql' => dcSqlCaptureOnSubsidiaryCompany('dc'),
         'scope_company_sql_deleted' => dcSqlCaptureOnSubsidiaryCompany('dcd'),
         'dual_tenant' => false,
