@@ -6,13 +6,15 @@ import { isDashboardGroupOnlyMode } from "../../../utils/company/sharedCompanyFi
 import { spaPath } from "../../../utils/routing/pageRoutes.js";
 
 /**
- * Games maintenance pages (capture / transaction / formula): redirect when active company is bank-only.
+ * Games-only maintenance (formula): redirect when active company is bank-only.
+ * Capture / transaction maintenance allow bank-only payroll companies (e.g. CX).
  */
-export function useMaintenanceBankOnlyGuard(companyId) {
+export function useMaintenanceBankOnlyGuard(companyId, { allowBankOnly = false } = {}) {
   const navigate = useNavigate();
   const { me } = useAuthSession();
 
   useEffect(() => {
+    if (allowBankOnly) return;
     if (isDashboardGroupOnlyMode()) return;
     if (companyId == null || Number(companyId) <= 0) return;
     const flags = {
@@ -21,5 +23,5 @@ export function useMaintenanceBankOnlyGuard(companyId) {
     };
     if (!isBankOnlyCategoryFlags(flags)) return;
     navigate(spaPath("dashboard"), { replace: true });
-  }, [companyId, me?.company_has_gambling, me?.company_has_bank, navigate]);
+  }, [allowBankOnly, companyId, me?.company_has_gambling, me?.company_has_bank, navigate]);
 }

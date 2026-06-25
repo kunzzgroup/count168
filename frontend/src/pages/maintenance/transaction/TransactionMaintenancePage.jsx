@@ -100,7 +100,7 @@ export default function TransactionMaintenancePage() {
 
   // -- Filter State --
   const [companyId, setCompanyId] = useState(readInitialMaintenanceCompanyId);
-  useMaintenanceBankOnlyGuard(companyId);
+  useMaintenanceBankOnlyGuard(companyId, { allowBankOnly: true });
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(readInitialMaintenanceSelectedGroup);
   const [selectedProcess, setSelectedProcess] = useState("");

@@ -54,6 +54,7 @@ import {
 } from "../utils/company/sharedCompanyFilter.js";
 import { rememberCompanySessionFlags } from "../utils/company/companySessionFlagsCache.js";
 import { categoryFlagsFromSession } from "../utils/company/sidebarCompanySwitch.js";
+import { isBankOnlySessionUser } from "../utils/company/c168CaptureChannel.js";
 import SidebarExpirationCountdown from "./SidebarExpirationCountdown.jsx";
 import SidebarMenuTooltip from "./SidebarMenuTooltip.jsx";
 import AnimatedOutlet from "./AnimatedOutlet.jsx";
@@ -1002,6 +1003,8 @@ export default function AuthenticatedLayout() {
   const showFullMaintenanceMenu = canAccessFullMaintenance(me);
   const showLimitedMaintenanceMenu = canAccessLimitedMaintenance(me);
   const showMaintenanceMenu = showMaintenanceInSidebar(me);
+  const showBankOnlyPayrollMaintenance =
+    showFullMaintenanceMenu && isBankOnlySessionUser(me);
   const showBankprocessMaintenance = useMemo(() => {
     void sidebarGcTick;
     return shouldShowBankprocessMaintenanceInSidebar(me);
@@ -1399,7 +1402,7 @@ export default function AuthenticatedLayout() {
                   onMouseLeave={() => setHoverSection(null)}
                 >
                   <div className="submenu-content">
-                    {showFullMaintenanceMenu && me?.company_has_gambling && (
+                    {showFullMaintenanceMenu && (me?.company_has_gambling || showBankOnlyPayrollMaintenance) && (
                       <a
                         {...sidebarSubmenuLinkProps("/capture-maintenance", goTo)}
                         className={`submenu-item ${pageKey === "capture-maintenance" ? "current-page" : ""}`}
@@ -1408,7 +1411,8 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarDataCapture}</span>
                       </a>
                     )}
-                    {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
+                    {((me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu)) ||
+                      showBankOnlyPayrollMaintenance) && (
                       <a
                         {...sidebarSubmenuLinkProps("/transaction-maintenance", goTo)}
                         className={`submenu-item ${pageKey === "transaction-maintenance" ? "current-page" : ""}`}

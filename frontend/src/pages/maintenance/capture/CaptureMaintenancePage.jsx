@@ -201,7 +201,7 @@ export default function CaptureMaintenancePage() {
   }, []);
 
   const { guardWrite } = usePartnershipAuditWriteGuard(me, notify);
-  useMaintenanceBankOnlyGuard(companyId);
+  useMaintenanceBankOnlyGuard(companyId, { allowBankOnly: true });
   useMaintenancePageScrollLock();
 
   // -- Initialization --
