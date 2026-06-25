@@ -188,6 +188,7 @@ export default function TransactionMaintenancePage() {
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     enableGroupAnchorSession: false,
     pillCategory: "datacapture",
+    switchingCompany: listSyncing,
   });
 
   const transactionScope = useMemo(
@@ -343,7 +344,9 @@ export default function TransactionMaintenancePage() {
           category,
           scope: effectiveScope,
           signal: ac.signal,
-          onProgress: (progressRows) => {
+          onProgress: quietRefresh
+            ? undefined
+            : (progressRows) => {
             if (seq !== maintenanceSeqRef.current) return;
             if (searchScopeKey !== scopeKeyRef.current) return;
             const applyProgress = () => {
@@ -978,9 +981,22 @@ export default function TransactionMaintenancePage() {
     const nextCompanyId = Number(c.id);
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+    const nextScope = resolveTransactionMaintenanceScope({
+      companies,
+      selectedGroup: newGroup,
+      companyId: nextCompanyId,
+      groupsAllMode,
+      groupAllMode,
+    });
     switchPermsCacheRef.current = null;
     resetAnchorSessionRef();
     suppressNextSearchEffectRef.current = true;
+    handledMetaScopeKeyRef.current = buildMaintenanceMetaEffectKey(
+      transactionMaintenanceScopeCacheKey(nextScope),
+      nextCompanyId,
+      code,
+      newGroup,
+    );
     if (initialSearchDoneRef.current) {
       setListLoading(false);
       setListSyncing(true);
@@ -990,7 +1006,7 @@ export default function TransactionMaintenancePage() {
     setCompanyId(nextCompanyId);
     setSelectedProcess("");
     persistDashboardFilterState(newGroup, nextCompanyId);
-  }, [resetAnchorSessionRef]);
+  }, [companies, groupsAllMode, groupAllMode, resetAnchorSessionRef]);
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
 
@@ -1014,6 +1030,7 @@ export default function TransactionMaintenancePage() {
         navigate,
         updateSessionCompany,
         onStay: async () => {
+          suppressNextSearchEffectRef.current = true;
           const perms = await fetchCompanyPermissions(code);
           if (!companyPermsAllowDataCaptureMaintenance(perms)) {
             navigate(spaPath("dashboard"), { replace: true });
@@ -1023,16 +1040,22 @@ export default function TransactionMaintenancePage() {
           switchPermsCacheRef.current = { companyCode: code, perms };
           setActivePermission(nextActive);
           setPermissions(perms);
-          handledMetaScopeKeyRef.current = "";
+
+          const nextScope = resolveTransactionMaintenanceScope({
+            companies,
+            selectedGroup: newGroup,
+            companyId: nextCompanyId,
+            groupsAllMode,
+            groupAllMode,
+          });
+          handledMetaScopeKeyRef.current = buildMaintenanceMetaEffectKey(
+            transactionMaintenanceScopeCacheKey(nextScope),
+            nextCompanyId,
+            code,
+            newGroup,
+          );
 
           try {
-            const nextScope = resolveTransactionMaintenanceScope({
-              companies,
-              selectedGroup: newGroup,
-              companyId: nextCompanyId,
-              groupsAllMode,
-              groupAllMode,
-            });
             const procList = await fetchProcessesForPermission(nextCompanyId, nextActive, nextScope);
             setProcesses(procList);
             setSelectedProcess("");
@@ -1139,7 +1162,7 @@ export default function TransactionMaintenancePage() {
             topLoadingLabel={listStatusMessage || t("loading")}
             listSyncing={listSyncing}
             dataIncomplete={!maintenanceDataComplete && listRowCount > 0}
-            scrollResetKey={searchQueryKey}
+            scrollResetKey={transactionScopeKey}
             m={m}
           />
         </div>

@@ -157,6 +157,7 @@ export default function CaptureMaintenancePage() {
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     pillCategory: "datacapture",
+    switchingCompany: listSyncing,
   });
 
   const captureScope = useMemo(
@@ -527,21 +528,18 @@ export default function CaptureMaintenancePage() {
       const nextId = Number(c.id);
       const nextCode = c.company_id || "";
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
-      const nextScope = resolveCaptureMaintenanceScope({
-        companies,
-        selectedGroup: newGroup,
-        companyId: nextId,
-        groupsAllMode,
-        groupAllMode,
-      });
       suppressNextSearchEffectRef.current = true;
+      if (initialCaptureSearchDoneRef.current) {
+        setLoading(false);
+        setListSyncing(true);
+      }
       setCompanyId(nextId);
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
+      setSelectedProcess("");
       persistDashboardFilterState(newGroup, nextId);
-      void performSearch({ scope: nextScope });
     },
-    [companies, performSearch, groupsAllMode, groupAllMode],
+    [],
   );
 
   onPrepareCompanySelectRef.current = onPrepareCompanySelect;
@@ -558,6 +556,7 @@ export default function CaptureMaintenancePage() {
         navigate,
         updateSessionCompany,
         onStay: async () => {
+          suppressNextSearchEffectRef.current = true;
           const perms = await fetchCompanyPermissions(nextCode);
           if (!companyPermsAllowDataCaptureMaintenance(perms)) {
             navigate(spaPath("dashboard"), { replace: true });
@@ -574,8 +573,12 @@ export default function CaptureMaintenancePage() {
           notify(t("switchedTo", { company: nextCode }), "success");
         },
       });
-      if (redirected) return;
+      if (redirected) {
+        setListSyncing(false);
+        return;
+      }
     } catch (err) {
+      setListSyncing(false);
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
         navigate(spaPath("dashboard"), { replace: true });
