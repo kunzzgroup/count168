@@ -335,7 +335,7 @@ export default function BankProcessFormModal({
               </div>
               <div className="bank-form-row bank-form-row-last">
                 <div className="bank-form-cell bank-form-cell-left">
-                  <div className="form-group bank-day-start-frequency-wrap" style={{ marginBottom: 20 }}>
+                  <div className="form-group bank-day-start-frequency-wrap">
                     <label htmlFor="bank_day_start_frequency">{t("frequency")}</label>
                     <BankSimpleSelect
                       id="bank_day_start_frequency"

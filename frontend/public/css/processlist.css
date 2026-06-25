@@ -1826,13 +1826,32 @@ body.ec-auth-shell .process-page #addBankModal .bank-actions .btn-cancel:hover {
 }
 
 .bank-form-row-last {
-    min-height: 160px;
+    align-items: start;
+    min-height: 0;
+}
+
+.bank-form-row-last .bank-form-cell-left {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    align-self: start;
+}
+
+.bank-form-row-last .bank-form-cell-left .bank-day-start-frequency-wrap {
+    flex: 0 0 auto;
+    margin-bottom: 12px !important;
+}
+
+.bank-form-row-last .bank-form-cell-left .bank-profit-sharing-container {
+    flex: 0 0 auto;
+    margin-top: 0;
 }
 
 /* 右侧 Remark 区域拉伸至与左侧 Selected Profit Sharing 底部对齐 */
 .bank-form-row-last .bank-form-cell-right {
     display: flex;
     flex-direction: column;
+    align-self: start;
 }
 
 .bank-form-row-last .bank-form-cell-right .bank-remark-wrap {
