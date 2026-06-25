@@ -21,6 +21,7 @@ import { useExpirationReminder } from "../hooks/useExpirationReminder.js";
 import { applyLoginLang } from "../utils/i18n/useLoginLang.js";
 import {
   canAccessDashboard,
+  canAccessCaptureMaintenance,
   canAccessFullMaintenance,
   canAccessLimitedMaintenance,
   canAccessPermission,
@@ -1271,9 +1272,7 @@ export default function AuthenticatedLayout() {
               </SidebarNavTip>
             </div>
           )}
-          {(canAccess("datacapture") &&
-            (me?.company_has_gambling ||
-              (me?.company_has_bank && !me?.company_has_gambling))) && (
+          {canAccess("datacapture") && (me?.company_has_gambling || me?.company_has_bank) && (
             <div className="informationmenu-section">
               <SidebarNavTip label={i18n.sidebarDataCapture} enabled={sidebarIconOnly}>
                 <SidebarSectionLink
@@ -1399,7 +1398,8 @@ export default function AuthenticatedLayout() {
                   onMouseLeave={() => setHoverSection(null)}
                 >
                   <div className="submenu-content">
-                    {showFullMaintenanceMenu && me?.company_has_gambling && (
+                    {(showFullMaintenanceMenu || (showLimitedMaintenanceMenu && me?.company_has_bank)) &&
+                      (me?.company_has_gambling || me?.company_has_bank) && (
                       <a
                         {...sidebarSubmenuLinkProps("/capture-maintenance", goTo)}
                         className={`submenu-item ${pageKey === "capture-maintenance" ? "current-page" : ""}`}
@@ -1408,7 +1408,8 @@ export default function AuthenticatedLayout() {
                         <span>{i18n.sidebarDataCapture}</span>
                       </a>
                     )}
-                    {me?.company_has_gambling && (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
+                    {(me?.company_has_gambling || me?.company_has_bank) &&
+                      (showFullMaintenanceMenu || showLimitedMaintenanceMenu) && (
                       <a
                         {...sidebarSubmenuLinkProps("/transaction-maintenance", goTo)}
                         className={`submenu-item ${pageKey === "transaction-maintenance" ? "current-page" : ""}`}

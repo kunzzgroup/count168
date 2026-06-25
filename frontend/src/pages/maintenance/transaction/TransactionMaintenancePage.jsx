@@ -7,7 +7,7 @@ import { removeOtherMaintenanceStylesheets } from "../../../utils/maintenance/ma
 import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangePicker.js";
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
-import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
+import { companyPermsAllowDataCaptureMaintenance } from "../shared/maintenanceCompanyApi.js";
 import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   companiesInGroupList,
@@ -100,7 +100,6 @@ export default function TransactionMaintenancePage() {
 
   // -- Filter State --
   const [companyId, setCompanyId] = useState(readInitialMaintenanceCompanyId);
-  useMaintenanceBankOnlyGuard(companyId);
   const [companyCode, setCompanyCode] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(readInitialMaintenanceSelectedGroup);
   const [selectedProcess, setSelectedProcess] = useState("");
@@ -188,7 +187,7 @@ export default function TransactionMaintenancePage() {
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     enableGroupAnchorSession: false,
-    pillCategory: "games",
+    pillCategory: "datacapture",
   });
 
   const transactionScope = useMemo(
@@ -726,13 +725,7 @@ export default function TransactionMaintenancePage() {
           // Fetch permissions first to pick the correct category for downstream APIs.
           const companyPerms = await fetchCompanyPermissions(code);
 
-          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
-          const bankOnly = companyPerms.includes("Bank") && !hasGames;
-          if (bankOnly) {
-            navigate(spaPath("dashboard"), { replace: true });
-            return;
-          }
-          if (!hasGames) {
+          if (!companyPermsAllowDataCaptureMaintenance(companyPerms)) {
             navigate(spaPath("dashboard"), { replace: true });
             return;
           }
@@ -1022,6 +1015,10 @@ export default function TransactionMaintenancePage() {
         updateSessionCompany,
         onStay: async () => {
           const perms = await fetchCompanyPermissions(code);
+          if (!companyPermsAllowDataCaptureMaintenance(perms)) {
+            navigate(spaPath("dashboard"), { replace: true });
+            return;
+          }
           const nextActive = pickTransactionMaintenancePermission(perms, savedPerm);
           switchPermsCacheRef.current = { companyCode: code, perms };
           setActivePermission(nextActive);
