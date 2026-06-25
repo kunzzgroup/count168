@@ -82,6 +82,10 @@ function resolveDefaultSearchCurrencies(scopeCacheCompanyKey) {
   if (prefs.currencies.length > 0) {
     return { showAll: false, currencies: prefs.currencies };
   }
+  // Group-only: never pre-select MYR — wait for scoped account currencies from API.
+  if (String(scopeCacheCompanyKey || "").startsWith("group:")) {
+    return { showAll: false, currencies: [] };
+  }
   const code = pickTransactionDefaultCurrency(["MYR"]);
   return { showAll: false, currencies: code ? [code] : ["MYR"] };
 }

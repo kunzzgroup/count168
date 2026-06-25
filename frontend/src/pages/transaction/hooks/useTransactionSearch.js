@@ -849,13 +849,16 @@ export function useTransactionSearch({
     earlyCurrencyScopeRef.current = scopeKey;
 
     if (coldBootCurrencyAppliedRef.current) return;
+    // Group-only ledger: wait for scoped account currencies — do not default MYR.
+    if (transactionScope?.mode === "group") return;
+
     coldBootCurrencyAppliedRef.current = true;
 
     const defaultCode = pickTransactionDefaultCurrency(["MYR"]);
     if (!defaultCode) return;
     setShowAllCurrencies(false);
     setSelectedCurrencies([defaultCode]);
-  }, [scopeReady, scopeCacheCompanyKey, scopeKey]);
+  }, [scopeReady, scopeCacheCompanyKey, scopeKey, transactionScope?.mode]);
 
   useEffect(() => {
     const prev = prevScopeKeyForSearchRef.current;
