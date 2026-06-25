@@ -296,6 +296,13 @@ export default function AuthenticatedLayout() {
     }
   }, [location.pathname]);
 
+  /* Transaction Payment：layout 阶段即挂 transaction-page，避免 lazy chunk 加载前 Global Unlock 双 scrollbar */
+  useLayoutEffect(() => {
+    const onTransactionPayment =
+      pathnameIs("transaction", location.pathname) && !chromelessPaymentHistory;
+    document.body.classList.toggle("transaction-page", onTransactionPayment);
+  }, [location.pathname, chromelessPaymentHistory]);
+
   useLayoutEffect(() => {
     document.body.classList.toggle("ec-payment-history-chromeless", chromelessPaymentHistory);
     return () => {
