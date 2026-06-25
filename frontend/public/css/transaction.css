@@ -3476,6 +3476,12 @@ body.transaction-page .transaction-add-section .rate-fields .transaction-account
     background-color: #f9fafb;
 }
 
+body.transaction-page .category-option.keyboard-focus,
+body.transaction-page .category-option.keyboard-focus .category-checkbox-label {
+    background-color: var(--select-option-keyboard-focus-bg, #0d60ff);
+    color: var(--select-option-keyboard-focus-text, #ffffff);
+}
+
 /* Protect Transaction route layout from Member page CSS collisions in SPA bundles. */
 body.transaction-page:not(.member-winloss-page) .transaction-main-content {
     display: flex;
