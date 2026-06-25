@@ -5,13 +5,30 @@ import {
   customerReportScopeIsReady,
   resolveCustomerReportScope,
 } from "../../report/shared/reportScope.js";
+import { enrichMaintenancePayrollScope } from "../shared/maintenancePayrollScope.js";
 
 export {
   customerReportScopeIsReady as captureMaintenanceScopeIsReady,
   customerReportScopeCacheCompanyKey as captureMaintenanceScopeCacheCompanyKey,
   customerReportScopeCacheKey as captureMaintenanceScopeCacheKey,
-  resolveCustomerReportScope as resolveCaptureMaintenanceScope,
 };
+
+export function resolveCaptureMaintenanceScope({
+  companies,
+  selectedGroup,
+  companyId,
+  groupsAllMode = false,
+  groupAllMode = false,
+}) {
+  const base = resolveCustomerReportScope({
+    companies,
+    selectedGroup,
+    companyId,
+    groupsAllMode,
+    groupAllMode,
+  });
+  return enrichMaintenancePayrollScope(base, companies, companyId);
+}
 
 /** Group entity, C168, or bank-only company payroll: SALARY / BONUS / COMMISSION / PROFIT process list. */
 export function captureMaintenanceUsesGroupProcesses(scope) {

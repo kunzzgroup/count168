@@ -68,6 +68,11 @@ export function companyMatchesBankOnlyPillScope(companyRow) {
   return flags.hasBank && !flags.hasGambling;
 }
 
+/** Games maintenance + bank-only payroll (CX): show gambling subsidiaries and bank-only companies. */
+export function companyMatchesGamesOrBankOnlyPillScope(companyRow) {
+  return companyMatchesGamesPillScope(companyRow) || companyMatchesBankOnlyPillScope(companyRow);
+}
+
 function filterCompaniesByPillCategory(companies, matchesScope, preferredCompanyId = null) {
   if (!Array.isArray(companies)) return [];
   const pref = Number(preferredCompanyId);
@@ -92,4 +97,9 @@ export function filterCompaniesForBankPills(companies, preferredCompanyId = null
 /** Bank-only companies (CX): hide pure Games and Games+Bank hybrids on bank process maintenance. */
 export function filterCompaniesForBankOnlyPills(companies, preferredCompanyId = null) {
   return filterCompaniesByPillCategory(companies, companyMatchesBankOnlyPillScope, preferredCompanyId);
+}
+
+/** Capture / Transaction maintenance: Games subsidiaries + bank-only payroll companies (CX). */
+export function filterCompaniesForGamesOrBankOnlyPills(companies, preferredCompanyId = null) {
+  return filterCompaniesByPillCategory(companies, companyMatchesGamesOrBankOnlyPillScope, preferredCompanyId);
 }

@@ -22,6 +22,7 @@ import {
   isMaintenanceGroupOnlyBoot,
   isMaintenanceSessionGroupEntityBoot,
   shouldSkipMaintenanceCategoryGuard,
+  maintenanceCompanyCategoryAllowed,
 } from "../shared/maintenanceGroupBoot.js";
 import { canUseGroupOnlyMode } from "../../../utils/company/loginScope.js";
 import {
@@ -155,7 +156,7 @@ export default function CaptureMaintenancePage() {
     switchCompany: (c) => switchCompanyRef.current(c),
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
-    pillCategory: "games",
+    pillCategory: "gamesOrBankOnly",
   });
 
   const captureScope = useMemo(
@@ -350,17 +351,9 @@ export default function CaptureMaintenancePage() {
             companyRow: currentComp,
             companyId: initialCompanyId,
           });
-          if (!skipCategoryGuard) {
-            const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
-            const bankOnly = companyPerms.includes("Bank") && !hasGames;
-            if (bankOnly) {
-              navigate(spaPath("dashboard"), { replace: true });
-              return;
-            }
-            if (!hasGames) {
-              navigate(spaPath("dashboard"), { replace: true });
-              return;
-            }
+          if (!skipCategoryGuard && !maintenanceCompanyCategoryAllowed(companyPerms)) {
+            navigate(spaPath("dashboard"), { replace: true });
+            return;
           }
 
           setProcesses(procList);

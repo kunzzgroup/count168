@@ -8,6 +8,10 @@ import { ensureMaintenanceDateRangePicker } from "../../../utils/date/dateRangeP
 import { useMaintenanceGroupCompanyFilter } from "../shared/useMaintenanceGroupCompanyFilter.js";
 import { runMaintenanceCompanySwitch } from "../shared/maintenanceCompanySwitch.js";
 import { useMaintenanceBankOnlyGuard } from "../shared/useMaintenanceBankOnlyGuard.js";
+import {
+  shouldSkipMaintenanceCategoryGuard,
+  maintenanceCompanyCategoryAllowed,
+} from "../shared/maintenanceGroupBoot.js";
 import { spaPath } from "../../../utils/routing/pageRoutes.js";
 import {
   companiesInGroupList,
@@ -188,7 +192,7 @@ export default function TransactionMaintenancePage() {
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     enableGroupAnchorSession: false,
-    pillCategory: "games",
+    pillCategory: "gamesOrBankOnly",
   });
 
   const transactionScope = useMemo(
@@ -723,16 +727,22 @@ export default function TransactionMaintenancePage() {
           const code = currentComp.company_id || "";
           setCompanyCode(code);
 
-          // Fetch permissions first to pick the correct category for downstream APIs.
           const companyPerms = await fetchCompanyPermissions(code);
 
-          const hasGames = companyPerms.includes("Games") || companyPerms.includes("Gambling");
-          const bankOnly = companyPerms.includes("Bank") && !hasGames;
-          if (bankOnly) {
-            navigate(spaPath("dashboard"), { replace: true });
-            return;
-          }
-          if (!hasGames) {
+          const bootScope = resolveTransactionMaintenanceScope({
+            companies: filtered,
+            selectedGroup: bootGroup,
+            companyId: initialCompanyId,
+          });
+          const skipCategoryGuard = shouldSkipMaintenanceCategoryGuard({
+            groupOnlyBoot,
+            scope: bootScope,
+            me: u,
+            selectedGroup: bootGroup,
+            companyRow: currentComp,
+            companyId: initialCompanyId,
+          });
+          if (!skipCategoryGuard && !maintenanceCompanyCategoryAllowed(companyPerms)) {
             navigate(spaPath("dashboard"), { replace: true });
             return;
           }
@@ -750,11 +760,6 @@ export default function TransactionMaintenancePage() {
           const initialActive = pickTransactionMaintenancePermission(companyPerms, savedPerm);
           setActivePermission(initialActive);
 
-          const bootScope = resolveTransactionMaintenanceScope({
-            companies: filtered,
-            selectedGroup: bootGroup,
-            companyId: initialCompanyId,
-          });
           pendingBootSearchRef.current = { scope: bootScope, category: initialActive };
           try {
             const procList = await fetchProcessesForPermission(
