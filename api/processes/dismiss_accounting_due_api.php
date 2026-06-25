@@ -3,6 +3,8 @@
  * Dismiss Accounting Due API
  * 仅从「待入账」列表移除选中的行，不生成 Transaction，不删除 Bank Process。
  * 用户表示「不进行这笔入账」，该行从 Accounting Due 消失，Process 数据不变。
+ * 若 process 处于 Resend（accounting_resend_relax_created_floor=1），Dismiss 后须结束 relax 会话，
+ * 否则单期 Resend 会一直挡住后续 regular monthly（与入账成功后的清理一致）。
  */
 
 session_start();
@@ -203,6 +205,7 @@ try {
          (company_id, bank_process_id, process_accounting_posted_id, period_type, transaction_date)
          VALUES (?, ?, ?, ?, ?)"
     );
+    $affectedProcessIds = [];
     foreach ($pairs as $p) {
         $processId = $p['id'];
         $periodType = $p['period_type'];
@@ -211,6 +214,7 @@ try {
         if (!$stmt->fetch()) {
             continue;
         }
+        $affectedProcessIds[$processId] = true;
         // 强制按前端当前账期类型删除（正常出账模式）：不再自动改写为 resend_consolidated_range。
         $skippedType = toSkippedPeriodType($periodType);
         $postDate = $today;
@@ -328,7 +332,17 @@ try {
         }
     }
 
-    jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', ['dismissed' => $inserted]);
+    $relaxClearedProcessIds = [];
+    foreach (array_keys($affectedProcessIds) as $pid) {
+        if (bmp_clearBankProcessAccountingResendRelaxState($pdo, $companyId, (int) $pid)) {
+            $relaxClearedProcessIds[] = (int) $pid;
+        }
+    }
+
+    jsonResponse(true, $inserted === 1 ? '已从待入账列表移除 1 条' : '已从待入账列表移除 ' . $inserted . ' 条', [
+        'dismissed' => $inserted,
+        'resend_relax_cleared_process_ids' => $relaxClearedProcessIds,
+    ]);
 } catch (Exception $e) {
     http_response_code(400);
     jsonResponse(false, $e->getMessage(), null);

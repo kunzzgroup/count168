@@ -1868,20 +1868,9 @@ try {
         }
 
         if ($has_resend_relax_col && !empty($p['accounting_resend_relax_created_floor'])) {
-            if (bmp_bankProcessHasResendScheduleColumns($pdo)) {
-                $clr = $pdo->prepare(
-                    'UPDATE bank_process SET accounting_resend_relax_created_floor = 0,
-                        accounting_resend_schedule_day_start = NULL,
-                        accounting_resend_schedule_day_end = NULL,
-                        accounting_resend_schedule_frequency = NULL,
-                        dts_modified = NOW() WHERE id = ? AND company_id = ?'
-                );
-            } else {
-                $clr = $pdo->prepare('UPDATE bank_process SET accounting_resend_relax_created_floor = 0, dts_modified = NOW() WHERE id = ? AND company_id = ?');
+            if (bmp_clearBankProcessAccountingResendRelaxState($pdo, $companyId, (int) $p['id'])) {
+                $p['accounting_resend_relax_created_floor'] = 0;
             }
-            $clr->execute([(int) $p['id'], $companyId]);
-            $p['accounting_resend_relax_created_floor'] = 0;
-            bmp_purgeStaleMonthlySkippedRows($pdo, $companyId, (int) $p['id']);
         }
 
         // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
