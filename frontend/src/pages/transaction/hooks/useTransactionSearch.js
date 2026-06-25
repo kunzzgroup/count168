@@ -538,7 +538,9 @@ export function useTransactionSearch({
       const runToken = ++latestRunTokenRef.current;
       await queryClient.cancelQueries({ queryKey: transactionQueryKeys.searchRoot() });
 
-      if (instantData) {
+      if (effectiveForceRefresh && searchState.showZeroBalance) {
+        setRawSearchData(null);
+      } else if (instantData) {
         setRawSearchData(instantData);
         setTablesVisible(true);
       }
@@ -571,13 +573,18 @@ export function useTransactionSearch({
         currencyCodes: !showAllCurrencies && selectedCurrencies.length > 0 ? selectedCurrencies : undefined,
       };
 
-      const fetchSearch = (params) =>
-        queryClient.fetchQuery({
-          queryKey: transactionQueryKeys.search(params),
+      const fetchSearch = async (params) => {
+        const qk = transactionQueryKeys.search(params);
+        if (searchState.showZeroBalance) {
+          queryClient.removeQueries({ queryKey: qk, exact: true });
+        }
+        return queryClient.fetchQuery({
+          queryKey: qk,
           queryFn: ({ signal }) => searchTransactionsApi({ ...params, signal }),
           staleTime: searchState.showZeroBalance ? 0 : 5 * 60_000,
-          gcTime: 15 * 60_000,
+          gcTime: searchState.showZeroBalance ? 0 : 15 * 60_000,
         });
+      };
 
       const commitQuiet = (data) => {
         const cleaned = sanitizeSearchApiData(data);
