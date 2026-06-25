@@ -317,7 +317,7 @@
   --auto-renew-text-toast: var(--text-medium);
   --auto-renew-line-height: 1.35;
   --auto-renew-weight-table-head: var(--font-weight-bold);
-  --auto-renew-weight-table-cell: 400;
+  --auto-renew-weight-table-cell: var(--font-weight-bold);
   --auto-renew-weight-table-cell-strong: var(--font-weight-bold);
   --auto-renew-weight-control: var(--font-weight-semibold);
   --auto-renew-weight-badge: var(--font-weight-bold);
