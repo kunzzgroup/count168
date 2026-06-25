@@ -152,6 +152,8 @@ export default function TransactionMaintenancePage() {
   const [maintenanceDataComplete, setMaintenanceDataComplete] = useState(false);
   const [listLoading, setListLoading] = useState(false);
   const [listSyncing, setListSyncing] = useState(false);
+  /** 仅 session 切换期间防抖；勿与 listSyncing 混用，否则拉数时无法点其它公司 */
+  const [companySwitchInFlight, setCompanySwitchInFlight] = useState(false);
   const [searchError, setSearchError] = useState(null);
 
   const processFilter = useMemo(
@@ -188,7 +190,7 @@ export default function TransactionMaintenancePage() {
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     enableGroupAnchorSession: false,
     pillCategory: "datacapture",
-    switchingCompany: listSyncing,
+    switchingCompany: companySwitchInFlight,
   });
 
   const transactionScope = useMemo(
@@ -990,6 +992,7 @@ export default function TransactionMaintenancePage() {
     });
     switchPermsCacheRef.current = null;
     resetAnchorSessionRef();
+    setCompanySwitchInFlight(true);
     suppressNextSearchEffectRef.current = true;
     handledMetaScopeKeyRef.current = buildMaintenanceMetaEffectKey(
       transactionMaintenanceScopeCacheKey(nextScope),
@@ -997,10 +1000,6 @@ export default function TransactionMaintenancePage() {
       code,
       newGroup,
     );
-    if (initialSearchDoneRef.current) {
-      setListLoading(false);
-      setListSyncing(true);
-    }
     setSelectedGroup(newGroup);
     setCompanyCode(code);
     setCompanyId(nextCompanyId);
@@ -1016,11 +1015,6 @@ export default function TransactionMaintenancePage() {
     const code = c.company_id || "";
     const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
     const savedPerm = localStorage.getItem(`selectedPermission_${code}`);
-
-    if (initialSearchDoneRef.current) {
-      setListLoading(false);
-      setListSyncing(true);
-    }
 
     try {
       const { redirected } = await runMaintenanceCompanySwitch({
@@ -1070,18 +1064,16 @@ export default function TransactionMaintenancePage() {
           notify(t("switchedTo", { company: c.company_id }), "success");
         },
       });
-      if (redirected) {
-        setListSyncing(false);
-        return;
-      }
+      if (redirected) return;
     } catch (err) {
-      setListSyncing(false);
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
         navigate(spaPath("dashboard"), { replace: true });
         return;
       }
       notify(err.message || t("switchFailed"), "error");
+    } finally {
+      setCompanySwitchInFlight(false);
     }
   }, [companies, groupsAllMode, groupAllMode, location.pathname, navigate, notify, performMaintenanceSearch, t]);
 

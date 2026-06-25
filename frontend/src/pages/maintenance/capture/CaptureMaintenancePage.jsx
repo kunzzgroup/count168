@@ -119,6 +119,8 @@ export default function CaptureMaintenancePage() {
   const [loading, setLoading] = useState(false);
   /** 与 Report 页一致：非首次拉数时用细条 + 保留旧表，避免切换公司整表 Loading 卡顿感 */
   const [listSyncing, setListSyncing] = useState(false);
+  /** 仅 session 切换期间防抖；勿与 listSyncing 混用，否则拉数时无法点其它公司 */
+  const [companySwitchInFlight, setCompanySwitchInFlight] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   
@@ -157,7 +159,7 @@ export default function CaptureMaintenancePage() {
     onPrepareCompanySelect: (c) => onPrepareCompanySelectRef.current(c),
     onClearCompany: (...args) => onClearCompanyRef.current(...args),
     pillCategory: "datacapture",
-    switchingCompany: listSyncing,
+    switchingCompany: companySwitchInFlight,
   });
 
   const captureScope = useMemo(
@@ -424,6 +426,7 @@ export default function CaptureMaintenancePage() {
         setListSyncing(true);
       }
       setSelectedIds([]);
+      scopeKeyRef.current = searchScopeKey;
       try {
         const data = await searchCaptureData(
           {
@@ -528,11 +531,8 @@ export default function CaptureMaintenancePage() {
       const nextId = Number(c.id);
       const nextCode = c.company_id || "";
       const newGroup = c.group_id ? String(c.group_id).toUpperCase().trim() : null;
+      setCompanySwitchInFlight(true);
       suppressNextSearchEffectRef.current = true;
-      if (initialCaptureSearchDoneRef.current) {
-        setLoading(false);
-        setListSyncing(true);
-      }
       setCompanyId(nextId);
       setCompanyCode(nextCode);
       setSelectedGroup(newGroup);
@@ -557,34 +557,38 @@ export default function CaptureMaintenancePage() {
         updateSessionCompany,
         onStay: async () => {
           suppressNextSearchEffectRef.current = true;
-          const perms = await fetchCompanyPermissions(nextCode);
-          if (!companyPermsAllowDataCaptureMaintenance(perms)) {
-            navigate(spaPath("dashboard"), { replace: true });
-            return;
+          try {
+            const perms = await fetchCompanyPermissions(nextCode);
+            if (!companyPermsAllowDataCaptureMaintenance(perms)) {
+              navigate(spaPath("dashboard"), { replace: true });
+              return;
+            }
+            const switchedScope = resolveCaptureMaintenanceScope({
+              companies,
+              selectedGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : null,
+              companyId: Number(c.id),
+              groupsAllMode,
+              groupAllMode,
+            });
+            await performSearch({ scope: switchedScope });
+            notify(t("switchedTo", { company: nextCode }), "success");
+          } catch (stayErr) {
+            console.error("Company switch search error:", stayErr);
+            notify(stayErr?.message || t("switchFailed"), "error");
           }
-          const switchedScope = resolveCaptureMaintenanceScope({
-            companies,
-            selectedGroup: c.group_id ? String(c.group_id).toUpperCase().trim() : null,
-            companyId: Number(c.id),
-            groupsAllMode,
-            groupAllMode,
-          });
-          await performSearch({ scope: switchedScope });
-          notify(t("switchedTo", { company: nextCode }), "success");
         },
       });
-      if (redirected) {
-        setListSyncing(false);
-        return;
-      }
+      if (redirected) return;
     } catch (err) {
-      setListSyncing(false);
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("unauthorized permission category")) {
         navigate(spaPath("dashboard"), { replace: true });
         return;
       }
       notify(err.message || t("switchFailed"), "error");
+    } finally {
+      setCompanySwitchInFlight(false);
+      setListSyncing(false);
     }
   };
 
@@ -675,6 +679,7 @@ export default function CaptureMaintenancePage() {
           onPickCompany={handlePickCompany}
           onClearCompany={handleClearCompany}
           allowClearCompany={allowClearCompany}
+          switchingCompany={companySwitchInFlight}
           onPickAllGroups={handlePickAllGroups}
           onPickAllInGroup={handlePickAllInGroup}
           groupsAllMode={groupsAllMode}
