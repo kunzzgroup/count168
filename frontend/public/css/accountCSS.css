@@ -345,20 +345,22 @@ body.account-page:not(.account-page--show-all) .account-card {
 /* 分页模式：行高密度与 Games Process .card-item（line-height: 1.1）对齐，保证 25 行完整可见 */
 body.account-page:not(.account-page--show-all) .account-list-row .account-card-item,
 body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-card-item {
-    font-size: var(--text-medium) !important;
+    font-size: 1.4rem !important;
     font-weight: bold !important;
     line-height: 1.1 !important;
     letter-spacing: 0 !important;
 }
 
-/* 分页列表：Role / Alert / Status 药丸与 Games Process .role-badge 一致 */
+/* 分页列表：Role / Alert / Status 药丸（固定字号，小屏/125% 不缩小） */
 body.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
 body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row .account-role-badge,
 body.ec-auth-shell.account-page:not(.account-page--show-all) .account-list-row span.account-role-badge {
-    padding: clamp(0px, 0.1vw, 2px) clamp(4px, 0.42vw, 8px);
-    line-height: inherit;
-    font-size: var(--text-tiny);
-    letter-spacing: 0.025em;
+    padding: 4px 8px;
+    line-height: 1.15;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border-radius: 6px;
     flex-shrink: 0;
     white-space: nowrap;
     min-width: max-content;
@@ -637,7 +639,7 @@ body.account-page .page-header {
     margin-top: 0;
     font-weight: bold;
     color: white;
-    font-size: var(--text-base);
+    font-size: 1.6rem;
     min-width: 0;
 }
 
@@ -2676,12 +2678,13 @@ body.account-page #forceDeleteCurrencyModal .confirm-delete {
 .account-role-badge {
     display: inline-flex;
     align-items: center;
-    padding: clamp(0px, 0.1vw, 2px) clamp(4px, 0.42vw, 8px);
-    border-radius: 20px;
-    font-size: var(--text-tiny);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 1.1rem;
     font-weight: bold;
     text-transform: capitalize;
-    letter-spacing: 0.025em;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
 }
 
 .account-status-active {
