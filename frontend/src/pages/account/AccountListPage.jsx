@@ -2861,8 +2861,7 @@ export default function AccountListPage() {
             />
           </div>
 
-          <div ref={listRegionRef} className="account-list-scroll-region" role="region" aria-label={t("account")}>
-          <div className="account-table-wrapper account-list-table">
+          <div ref={listRegionRef} className="account-table-wrapper account-list-table">
             <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
               {renderSortableHeader(t("account"), "account")}
@@ -2915,7 +2914,6 @@ export default function AccountListPage() {
                 );
               })}
             </div>
-          </div>
           </div>
           {!showAll && (
             <div className="account-pagination-container">
