@@ -15,6 +15,7 @@ import {
   fetchPaymentHistoryExportCurrencies,
   openReportPrintWindow,
   renderReportToWindow,
+  resolveMemberReportAccountId,
   resolveExportCurrencyDefault,
   ymdRangeToDmy,
 } from "../lib/paymentHistoryMemberReportExport.js";
@@ -31,6 +32,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
   const [dateFromYmd, setDateFromYmd] = useState(initialFromYmd);
   const [dateToYmd, setDateToYmd] = useState(initialToYmd);
   const [currencies, setCurrencies] = useState([]);
+  const [memberAccountId, setMemberAccountId] = useState(0);
   const [selectedCurrency, setSelectedCurrency] = useState("");
   const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -46,10 +48,10 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
 
   useEffect(() => {
     if (!open) return undefined;
-    const accountId = scope?.accountDbId;
     const companyId = scope?.companyId;
-    if (!accountId || !companyId) {
+    if (!scope?.accountCode || !companyId) {
       setCurrencies([]);
+      setMemberAccountId(0);
       setSelectedCurrency("");
       return undefined;
     }
@@ -58,7 +60,16 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
     abortRef.current = controller;
     setLoadingCurrencies(true);
     setError("");
-    void fetchPaymentHistoryExportCurrencies(accountId, companyId, controller.signal)
+    void (async () => {
+      const resolvedAccountId = await resolveMemberReportAccountId({
+        accountCode: scope.accountCode,
+        fallbackAccountId: scope.accountDbId,
+        companyId,
+        signal: controller.signal,
+      });
+      setMemberAccountId(resolvedAccountId);
+      return fetchPaymentHistoryExportCurrencies(resolvedAccountId, companyId, controller.signal);
+    })()
       .then((list) => {
         if (controller.signal.aborted) return;
         setCurrencies(list);
@@ -74,7 +85,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
         if (!controller.signal.aborted) setLoadingCurrencies(false);
       });
     return () => controller.abort();
-  }, [open, scope?.accountDbId, scope?.companyId, scope?.currency, m.exportPdfLoadCurrenciesFailed]);
+  }, [open, scope?.accountCode, scope?.accountDbId, scope?.companyId, scope?.currency, m.exportPdfLoadCurrenciesFailed]);
 
   const handleRangeChange = useCallback((fromYmd, toYmd) => {
     setDateFromYmd(fromYmd || "");
@@ -83,7 +94,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
   }, []);
 
   const handleExport = useCallback(async () => {
-    const accountId = scope?.accountDbId;
+    const accountId = memberAccountId || 0;
     const { dateFrom, dateTo } = ymdRangeToDmy(dateFromYmd, dateToYmd);
     const currency = String(selectedCurrency || "")
       .trim()
@@ -110,7 +121,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
     setError("");
     try {
       const rows = await fetchMemberReportHistory({
-        accountId: scope.accountDbId,
+        accountId,
         companyId: scope.companyId,
         dateFrom,
         dateTo,
@@ -147,6 +158,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
     }
   }, [
     scope,
+    memberAccountId,
     dateFromYmd,
     dateToYmd,
     selectedCurrency,
