@@ -2875,7 +2875,7 @@ export default function AccountListPage() {
             </div>
             <div
               className={`account-cards${showAll ? " account-cards--show-all" : ""}${!showAll && pageRows.length > 0 ? " account-cards--paged-fill" : ""}`}
-              style={!showAll && pageRows.length > 0 ? { "--account-list-page-size": pageSize } : undefined}
+              style={!showAll && pageRows.length > 0 ? { "--account-list-page-size": pageRows.length } : undefined}
             >
               {pageRows.map((a, idx) => {
                 const alertOn = String(a.payment_alert) === "1";

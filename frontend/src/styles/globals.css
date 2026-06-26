@@ -118,7 +118,7 @@ body.ec-auth-shell.account-page .account-table-wrapper {
 
 body.ec-auth-shell.account-page .account-list-table-header,
 body.ec-auth-shell.account-page .account-cards {
-  min-width: var(--list-table-min-width, 900px);
+  min-width: var(--list-table-min-width, 980px);
 }
 
 body.account-page:not(.account-page--show-all) .account-cards {
