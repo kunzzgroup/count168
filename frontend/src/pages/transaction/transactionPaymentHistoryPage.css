@@ -1075,6 +1075,13 @@ body.ec-payment-history-chromeless .transaction-payment-history-export-btn:focus
   width: 100%;
   min-width: 0;
   min-height: clamp(38px, 2.8vw, 44px);
+  overflow: hidden;
+}
+
+/* Blue calendar tile fills the rounded left edge cleanly (no white corner) */
+.transaction-payment-history-export-modal .transaction-date-range-group .date-range-picker i.fa-calendar-alt {
+  align-self: stretch;
+  border-radius: 11px 0 0 11px;
 }
 
 .transaction-payment-history-export-modal .transaction-date-range-group #date-range-display {
