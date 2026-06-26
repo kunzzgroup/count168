@@ -15,7 +15,7 @@ import {
 import { buildRatePayload, toNumberLike } from "../lib/transactionSubmitHelpers.js";
 import { submitTransaction, transactionQueryKeys } from "../lib/transactionApi.js";
 import { MoneyDecimal } from "../../../utils/money/moneyDecimal.js";
-import { resolveGridRowToAccountOption } from "../lib/transactionPaymentLogic.js";
+import { resolveGridRowToAccountOption, notifyTransactionDataChanged } from "../lib/transactionPaymentLogic.js";
 
 export function useTransactionForm({
   todayDmy,
@@ -86,7 +86,10 @@ export function useTransactionForm({
       submitTransaction({ ...scopeApi, payload, clientRequestId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.historyRoot() });
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInboxRoot() });
+      // Notify separate windows (e.g. the Payment History popup) to refetch immediately.
+      notifyTransactionDataChanged("transaction_submit");
     },
   });
 

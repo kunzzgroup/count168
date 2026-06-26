@@ -15,6 +15,7 @@ import {
   stripPaymentHistoryUrlQuery,
 } from "./lib/transactionPaymentHistoryUrl.js";
 import { TRANSACTION_SHOW_DESCRIPTION_COLUMN } from "./lib/transactionPaymentPageUtils.js";
+import { TX_LIST_INVALIDATE_LS_KEY, TX_DATA_CHANGED_EVENT } from "./lib/transactionPaymentLogic.js";
 import "../../../public/css/transaction.css";
 import "../../../public/css/portal-tooltip.css";
 import "../../../public/css/date-range-picker.css";
@@ -86,7 +87,7 @@ export default function TransactionPaymentHistoryPage() {
 
   const scopeApi = useMemo(() => paymentHistoryScopeApiParams(scope), [scope]);
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: transactionQueryKeys.history({
       companyId: scopeApi.companyId,
       viewGroup: scopeApi.viewGroup,
@@ -113,6 +114,31 @@ export default function TransactionPaymentHistoryPage() {
     staleTime: 30_000,
     gcTime: 5 * 60_000,
   });
+
+  // This popup is a separate window with its own React Query cache, so the opener's
+  // submit/approve invalidation can't reach it. Refetch on the cross-window data-changed
+  // signal (and when the window regains focus) to keep it in sync without a manual refresh.
+  useEffect(() => {
+    if (!paymentHistoryParamsReady(scope)) return undefined;
+    const onStorage = (e) => {
+      if (!e || e.key !== TX_LIST_INVALIDATE_LS_KEY) return;
+      void refetch();
+    };
+    const onDataChanged = () => {
+      void refetch();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refetch();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(TX_DATA_CHANGED_EVENT, onDataChanged);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(TX_DATA_CHANGED_EVENT, onDataChanged);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [scope, refetch]);
 
   const paramsReady = paymentHistoryParamsReady(scope);
   const rows = data?.success && Array.isArray(data.data) ? data.data : [];

@@ -8,6 +8,7 @@ import {
 } from "../lib/transactionApi.js";
 import { buildPaymentHistoryUrl } from "../lib/transactionPaymentHistoryUrl.js";
 import { buildPaymentHistoryPopupFeatures } from "../lib/transactionPaymentHistoryPopup.js";
+import { notifyTransactionDataChanged } from "../lib/transactionPaymentLogic.js";
 
 function scopeApiReady(scopeApi) {
   if (!scopeApi) return false;
@@ -77,7 +78,9 @@ export function useTransactionUI() {
     mutationFn: ({ id, scopeApi }) => approveContraApi({ transactionId: id, ...scopeApi }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.historyRoot() });
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInboxRoot() });
+      notifyTransactionDataChanged("contra_approve");
     },
   });
 
@@ -85,7 +88,9 @@ export function useTransactionUI() {
     mutationFn: ({ id, scopeApi }) => rejectContraApi({ transactionId: id, ...scopeApi }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.searchRoot() });
+      queryClient.invalidateQueries({ queryKey: transactionQueryKeys.historyRoot() });
       queryClient.invalidateQueries({ queryKey: transactionQueryKeys.contraInboxRoot() });
+      notifyTransactionDataChanged("contra_reject");
     },
   });
 
