@@ -82,6 +82,8 @@ import {
   resolveAccountListGroupOnlyFetch,
   resolveAccountListInlinePickerCompanies,
   shouldLoadAccountListData,
+  formatAccountLastLoginDate,
+  formatAccountLastLoginTimeTitle,
 } from "./accountLogic.js";
 
 // Components
@@ -2889,7 +2891,12 @@ export default function AccountListPage() {
                     <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{formatAccountRoleDisplay(t, a.role)}</span></div>
                     <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{formatAccountAlertDisplay(t, a.payment_alert)}</span></div>
                     <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{formatAccountStatusDisplay(t, a.status)}</span></div>
-                    <div className="account-card-item">{toUpper(a.last_login)}</div>
+                    <div
+                      className="account-card-item"
+                      title={formatAccountLastLoginTimeTitle(a.last_login) || undefined}
+                    >
+                      {formatAccountLastLoginDate(a.last_login)}
+                    </div>
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item account-card-item--action">
                       <div className="account-action-tools">
