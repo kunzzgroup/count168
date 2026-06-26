@@ -2892,7 +2892,6 @@ export default function AccountListPage() {
                     <div className="account-card-item">
                       <label
                         className={`account-alert-toggle${accountMutationsBlocked ? " is-disabled" : ""}`}
-                        title={formatAccountAlertDisplay(t, a.payment_alert)}
                         onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : undefined}
                       >
                         <input
@@ -2900,9 +2899,14 @@ export default function AccountListPage() {
                           className="account-alert-toggle__input"
                           checked={alertOn}
                           disabled={accountMutationsBlocked}
+                          aria-label={formatAccountAlertDisplay(t, a.payment_alert)}
                           onChange={() => togglePaymentAlert(a.id)}
                         />
-                        <span className="account-alert-toggle__slider" aria-hidden="true" />
+                        <span className="account-alert-toggle__track" aria-hidden="true">
+                          <span className="account-alert-toggle__label account-alert-toggle__label--on">{t("alertOn")}</span>
+                          <span className="account-alert-toggle__label account-alert-toggle__label--off">{t("alertOff")}</span>
+                          <span className="account-alert-toggle__thumb" />
+                        </span>
                       </label>
                     </div>
                     <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{formatAccountStatusDisplay(t, a.status)}</span></div>
