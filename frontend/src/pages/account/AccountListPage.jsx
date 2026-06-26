@@ -2889,7 +2889,22 @@ export default function AccountListPage() {
                     <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
                     <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{formatAccountRoleDisplay(t, a.role)}</span></div>
-                    <div className="account-card-item"><span className={`account-role-badge ${alertOn ? "account-status-active" : "account-status-inactive"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => togglePaymentAlert(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{formatAccountAlertDisplay(t, a.payment_alert)}</span></div>
+                    <div className="account-card-item">
+                      <label
+                        className={`account-alert-toggle${accountMutationsBlocked ? " is-disabled" : ""}`}
+                        title={formatAccountAlertDisplay(t, a.payment_alert)}
+                        onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          className="account-alert-toggle__input"
+                          checked={alertOn}
+                          disabled={accountMutationsBlocked}
+                          onChange={() => togglePaymentAlert(a.id)}
+                        />
+                        <span className="account-alert-toggle__slider" aria-hidden="true" />
+                      </label>
+                    </div>
                     <div className="account-card-item"><span className={`account-role-badge ${isInactive ? "account-status-inactive" : "account-status-active"}${accountMutationsBlocked ? "" : " status-clickable"}`} onClick={accountMutationsBlocked ? () => notify(t("readOnlyActionBlocked"), "danger") : () => toggleAccountStatus(a.id)} style={accountMutationsBlocked ? { cursor: "not-allowed" } : undefined}>{formatAccountStatusDisplay(t, a.status)}</span></div>
                     <div
                       className="account-card-item"
