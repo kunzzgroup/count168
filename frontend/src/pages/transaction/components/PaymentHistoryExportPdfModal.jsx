@@ -84,7 +84,6 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
 
   const handleExport = useCallback(async () => {
     const accountId = scope?.accountDbId;
-    const companyId = scope?.companyId;
     const { dateFrom, dateTo } = ymdRangeToDmy(dateFromYmd, dateToYmd);
     const currency = String(selectedCurrency || "")
       .trim()
@@ -97,7 +96,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
       setError(m.pleaseSelectCurrency);
       return;
     }
-    if (!accountId || !companyId) {
+    if (!accountId && !scope?.virtualCompanyCode) {
       setError(m.exportPdfMissingAccount);
       return;
     }
@@ -111,8 +110,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
     setError("");
     try {
       const rows = await fetchMemberReportHistory({
-        accountId,
-        companyId,
+        scope,
         dateFrom,
         dateTo,
         currency,

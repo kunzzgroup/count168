@@ -3,6 +3,7 @@ import { formatDmyFromYmd } from "../../maintenance/shared/maintenanceDateHelper
 import { computeTableTotals, formatPaymentHistoryMoney } from "../../member/memberPageHelpers.js";
 import { parseJsonResponse } from "../../member/memberWinLossApi.js";
 import { formatMemberRowDescription, getMemberText } from "../../../translateFile/pages/memberTranslate.js";
+import { getHistory } from "./transactionApi.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -44,27 +45,31 @@ export async function fetchPaymentHistoryExportCurrencies(accountId, companyId, 
     .filter(Boolean);
 }
 
-/** Member page report rows — same API as Win/Loss history table. */
-export async function fetchMemberReportHistory({ accountId, companyId, dateFrom, dateTo, currency, signal }) {
-  const params = new URLSearchParams({
-    account_id: String(accountId),
-    date_from: String(dateFrom),
-    date_to: String(dateTo),
-    company_id: String(companyId),
+/**
+ * Member-style report rows. Reuses the SAME endpoint + full scope as the Payment
+ * History page (`getHistory`), so the exported data matches what the user sees —
+ * including group / subsidiary scope. Only the date range and currency are overridden.
+ */
+export async function fetchMemberReportHistory({ scope, dateFrom, dateTo, currency, signal }) {
+  const result = await getHistory({
+    companyId: scope?.companyId,
+    viewGroup: scope?.viewGroup,
+    groupId: scope?.groupId,
+    groupAggregate: scope?.groupAggregate,
+    subsidiaryAccountsOnly: scope?.subsidiaryAccountsOnly,
+    accountId: scope?.accountDbId,
+    virtualCompanyCode: scope?.virtualCompanyCode,
+    dateFrom: String(dateFrom),
+    dateTo: String(dateTo),
     currency: String(currency || "")
       .trim()
       .toUpperCase(),
-  });
-  const res = await fetch(buildApiUrl(`api/transactions/history_api.php?${params}&_t=${Date.now()}`), {
-    credentials: "include",
-    cache: "no-store",
     signal,
   });
-  const json = await parseJsonResponse(await res.text());
-  if (!json?.success) {
-    throw new Error(json?.error || json?.message || "History request failed");
+  if (result?.success === false) {
+    throw new Error(result?.message || result?.error || "History request failed");
   }
-  return Array.isArray(json.data?.history) ? json.data.history : [];
+  return Array.isArray(result?.data) ? result.data : [];
 }
 
 export function resolveExportCurrencyDefault(scopeCurrency, currencies) {
