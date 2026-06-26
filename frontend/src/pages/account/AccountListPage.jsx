@@ -1864,6 +1864,7 @@ export default function AccountListPage() {
     paginationSelector: ".account-pagination-container",
     minRows: PAGE_SIZE_MIN,
     maxRows: PAGE_SIZE_MAX,
+    stableRowHeight: true,
     remeasureDeps: [
       filteredForMode.length,
       showAll,
