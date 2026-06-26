@@ -153,6 +153,23 @@ body.account-page .action-buttons-container .user-gc-inline-panel {
     row-gap: var(--user-gc-inline-row-gap, 4px);
 }
 
+/* 工具栏字号 / 药丸内边距（Account 页，覆盖小屏 list-badge-scale 缩放） */
+body.ec-auth-shell.account-page .action-buttons .btn {
+    font-size: 1.4rem !important;
+}
+
+body.ec-auth-shell.account-page .user-gc-segment {
+    padding: 4px 18px !important;
+}
+
+body.ec-auth-shell.account-page .user-filter-chip {
+    font-size: 1.2rem !important;
+}
+
+body.ec-auth-shell.account-page .search-container.userlist-search-bar .userlist-search-input {
+    font-size: 1.2rem !important;
+}
+
 
 body.account-page .account-table-wrapper {
     flex: 1 1 auto;
