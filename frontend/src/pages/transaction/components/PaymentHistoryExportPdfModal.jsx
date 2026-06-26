@@ -19,6 +19,29 @@ import {
   ymdRangeToDmy,
 } from "../lib/paymentHistoryMemberReportExport.js";
 
+function ExportPdfIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+      <path d="M14 2v6h6M8 13h8M8 17h5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75" />
+      <path d="M12 10v6M12 7.5v.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function PaymentHistoryExportPdfModal({ open, onClose, scope, accountTitle }) {
   const lang = useLoginLang();
   const m = useMemo(() => TRANSACTION_I18N[lang] || TRANSACTION_I18N.en, [lang]);
@@ -28,6 +51,17 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
   const initialFromYmd = useMemo(() => parseDmy(scope?.dateFrom || ""), [scope?.dateFrom]);
   const initialToYmd = useMemo(() => parseDmy(scope?.dateTo || ""), [scope?.dateTo]);
 
+  const accountCode = String(scope?.accountCode || "").trim();
+  const accountName = String(scope?.accountName || "").trim();
+  const accountContextLabel = useMemo(() => {
+    if (accountCode && accountName && accountName !== accountCode) {
+      return { code: accountCode, name: accountName };
+    }
+    if (accountCode) return { code: accountCode, name: "" };
+    const fallback = String(accountTitle || "").trim();
+    return fallback ? { code: fallback, name: "" } : null;
+  }, [accountCode, accountName, accountTitle]);
+
   const [dateFromYmd, setDateFromYmd] = useState(initialFromYmd);
   const [dateToYmd, setDateToYmd] = useState(initialToYmd);
   const [currencies, setCurrencies] = useState([]);
@@ -36,6 +70,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const abortRef = useRef(null);
+  const singleCurrency = currencies.length === 1;
 
   useEffect(() => {
     if (!open) return;
@@ -100,7 +135,6 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
       setError(m.exportPdfMissingAccount);
       return;
     }
-    // Open the print window synchronously so it keeps the user-gesture context.
     const printWin = openReportPrintWindow(m.exportPdfExporting);
     if (!printWin) {
       setError(m.exportPdfPopupBlocked);
@@ -116,8 +150,6 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
         dateTo,
         currency,
       });
-      const accountCode = String(scope?.accountCode || "").trim();
-      const accountName = String(scope?.accountName || "").trim();
       const html = buildMemberReportPrintHtml({
         rows,
         currency,
@@ -150,6 +182,8 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
     dateFromYmd,
     dateToYmd,
     selectedCurrency,
+    accountCode,
+    accountName,
     lang,
     m,
     onClose,
@@ -169,11 +203,11 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
     >
       <div className="transaction-payment-history-export-modal">
         <div className="transaction-payment-history-export-modal__header">
-          <div className="transaction-payment-history-export-modal__heading">
+          <div className="transaction-payment-history-export-modal__title-row">
+            <span className="transaction-payment-history-export-modal__title-icon" aria-hidden="true">
+              <ExportPdfIcon />
+            </span>
             <h3 id="payment-history-export-title">{m.exportPdfTitle}</h3>
-            {accountTitle ? (
-              <p className="transaction-payment-history-export-modal__subtitle">{accountTitle}</p>
-            ) : null}
           </div>
           <button
             type="button"
@@ -185,10 +219,30 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
             &times;
           </button>
         </div>
+
+        {accountContextLabel ? (
+          <div className="transaction-payment-history-export-modal__account">
+            <span className="transaction-payment-history-export-modal__account-code">
+              {accountContextLabel.code}
+            </span>
+            {accountContextLabel.name ? (
+              <span className="transaction-payment-history-export-modal__account-name">
+                {accountContextLabel.name}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="transaction-payment-history-export-modal__body">
-          <p className="transaction-payment-history-export-modal__hint">{m.exportPdfHint}</p>
+          <p className="transaction-payment-history-export-modal__hint">
+            <span className="transaction-payment-history-export-modal__hint-icon" aria-hidden="true">
+              <InfoIcon />
+            </span>
+            <span>{m.exportPdfHint}</span>
+          </p>
+
           <div className="transaction-payment-history-export-modal__form">
-            <div className="transaction-payment-history-export-modal__field">
+            <div className="transaction-payment-history-export-modal__field transaction-payment-history-export-modal__field--date">
               <ReportDatePicker
                 dateFrom={dateFromYmd}
                 dateTo={dateToYmd}
@@ -205,14 +259,17 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
                 weekdaysShort={m.weekdaysShort}
               />
             </div>
-            <div className="transaction-payment-history-export-modal__field">
-              <span className="transaction-payment-history-export-modal__label">{m.currency}</span>
+
+            <div className="transaction-payment-history-export-modal__field transaction-payment-history-export-modal__field--currency">
+              <span className="transaction-payment-history-export-modal__label">{m.exportPdfCurrency}</span>
               {loadingCurrencies ? (
                 <p className="transaction-payment-history-export-modal__loading">{m.loading}</p>
               ) : currencies.length === 0 ? (
                 <p className="transaction-payment-history-export-modal__empty">{m.exportPdfNoCurrencies}</p>
+              ) : singleCurrency ? (
+                <span className="transaction-payment-history-export-currency-badge">{selectedCurrency}</span>
               ) : (
-                <div className="transaction-payment-history-export-chips" role="group" aria-label={m.currency}>
+                <div className="transaction-payment-history-export-chips" role="group" aria-label={m.exportPdfCurrency}>
                   {currencies.map((code) => (
                     <button
                       key={code}
@@ -230,12 +287,14 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
               )}
             </div>
           </div>
+
           {error ? (
             <p className="transaction-payment-history-export-modal__error" role="alert">
               {error}
             </p>
           ) : null}
         </div>
+
         <div className="transaction-payment-history-export-modal__actions">
           <button
             type="button"
@@ -251,7 +310,8 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
             disabled={exporting || loadingCurrencies || !selectedCurrency}
             onClick={() => void handleExport()}
           >
-            {exporting ? m.exportPdfExporting : m.exportPdf}
+            <ExportPdfIcon />
+            <span>{exporting ? m.exportPdfExporting : m.exportPdf}</span>
           </button>
         </div>
       </div>
