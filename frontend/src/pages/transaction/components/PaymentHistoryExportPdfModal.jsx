@@ -96,7 +96,7 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
       setError(m.pleaseSelectCurrency);
       return;
     }
-    if (!accountId && !scope?.virtualCompanyCode) {
+    if (!accountId || !scope?.companyId) {
       setError(m.exportPdfMissingAccount);
       return;
     }
@@ -110,7 +110,8 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
     setError("");
     try {
       const rows = await fetchMemberReportHistory({
-        scope,
+        accountId: scope.accountDbId,
+        companyId: scope.companyId,
         dateFrom,
         dateTo,
         currency,
