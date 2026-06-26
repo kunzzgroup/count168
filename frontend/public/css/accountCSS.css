@@ -185,7 +185,7 @@ body.account-page:not(.account-page--show-all) .account-table-header.account-lis
 .account-list-table {
     width: 100%;
     --list-table-min-width: 980px;
-    --account-list-row-min-height: 26px;
+    --account-list-row-min-height: clamp(22px, 1.65vw, 26px);
     --account-list-grid-cols:
         38px
         minmax(120px, 1.5fr)
@@ -369,6 +369,25 @@ body.account-page:not(.account-page--show-all) .account-list-row .account-card-i
     text-overflow: clip;
     flex-shrink: 0;
     min-width: min-content;
+}
+
+/* 125% 缩放常见等效宽度 / 矮屏：提高一屏数据密度 */
+@media (max-width: 1600px), (max-height: 820px) {
+    body.account-page .account-list-table {
+        --account-list-row-min-height: 22px;
+    }
+
+    body.account-page .action-buttons {
+        padding: 7px 16px;
+    }
+
+    body.account-page .action-buttons-container .user-gc-inline-panel {
+        padding: 8px 18px 10px;
+    }
+
+    body.account-page .account-table-header {
+        margin-top: 8px;
+    }
 }
 
 /* 分页：固定右下角（与 User List 一致），避免 25 行时流内分页被挤出视口 */
