@@ -210,9 +210,9 @@ body.account-page:not(.account-page--show-all) .account-table-header.account-lis
         minmax(84px, 0.7fr)
         minmax(52px, 0.42fr)
         minmax(72px, 0.55fr)
-        minmax(130px, 1fr)
+        minmax(131px, 1fr)
         minmax(60px, 1.2fr)
-        minmax(92px, 0.55fr);
+        minmax(64px, 0.25fr);
 }
 
 .account-list-table-inner {
@@ -297,7 +297,7 @@ body.account-page:not(.account-page--show-all) .account-table-header.account-lis
 .account-list-table .account-list-row .account-card-item--action .account-action-tools-bar {
     display: inline-flex;
     align-items: center;
-    gap: 14px;
+    gap: 2px;
 }
 
 .account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn {
