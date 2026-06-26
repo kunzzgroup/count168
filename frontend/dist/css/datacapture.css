@@ -167,6 +167,21 @@ body.datacapture-page .container {
         overflow: visible;
     }
 
+    /* Short viewport scrolls the whole page: let the form show in full and
+       drop the absolute-fill on the submitted card. */
+    body.datacapture-page .top-section .form-column > .form-container {
+        max-height: none;
+    }
+
+    body.datacapture-page .top-section .submitted-column {
+        position: static;
+    }
+
+    body.datacapture-page .top-section .submitted-column > .submitted-container {
+        position: static;
+        inset: auto;
+    }
+
     body.datacapture-page .form-container .process-form {
         overflow-x: hidden;
         overflow-y: visible;
@@ -211,20 +226,32 @@ body.datacapture-page .top-section .submitted-column {
     align-self: stretch;
 }
 
-body.datacapture-page .top-section .form-column > .form-container,
-body.datacapture-page .top-section .submitted-column > .submitted-container {
+body.datacapture-page .top-section .form-column > .form-container {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
+    /* Pin the form card height to ~the bottom of the Description / Replace
+       Word row; the remaining fields (Remove Word, Remark, help) scroll
+       inside the form. The submitted card follows this height. */
+    max-height: clamp(212px, 16vw, 250px);
     margin: 0;
     box-sizing: border-box;
-}
-
-body.datacapture-page .top-section .form-column > .form-container {
     overflow: hidden;
 }
 
+/* Form card drives the top band height; the submitted card fills the same
+   height via absolute positioning and scrolls internally instead of
+   growing the band when it has many entries. */
+body.datacapture-page .top-section .submitted-column {
+    position: relative;
+}
+
 body.datacapture-page .top-section .submitted-column > .submitted-container {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    margin: 0;
+    box-sizing: border-box;
     overflow: hidden;
 }
 
@@ -254,6 +281,21 @@ body.datacapture-page .submitted-list {
     body.datacapture-page .top-section .form-column > .form-container,
     body.datacapture-page .top-section .submitted-column > .submitted-container {
         height: auto;
+    }
+
+    /* Stacked layout: drop the desktop fixed height / absolute-fill so cards
+       flow normally and show their full content. */
+    body.datacapture-page .top-section .form-column > .form-container {
+        max-height: none;
+    }
+
+    body.datacapture-page .top-section .submitted-column {
+        position: static;
+    }
+
+    body.datacapture-page .top-section .submitted-column > .submitted-container {
+        position: static;
+        inset: auto;
     }
 
     body.datacapture-page .submitted-list {
