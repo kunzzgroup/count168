@@ -158,7 +158,12 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
     >
       <div className="transaction-payment-history-export-modal">
         <div className="transaction-payment-history-export-modal__header">
-          <h3 id="payment-history-export-title">{m.exportPdfTitle}</h3>
+          <div className="transaction-payment-history-export-modal__heading">
+            <h3 id="payment-history-export-title">{m.exportPdfTitle}</h3>
+            {accountTitle ? (
+              <p className="transaction-payment-history-export-modal__subtitle">{accountTitle}</p>
+            ) : null}
+          </div>
           <button
             type="button"
             className="transaction-modal-close transaction-payment-history-export-modal__close"
@@ -171,40 +176,37 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
         </div>
         <div className="transaction-payment-history-export-modal__body">
           <p className="transaction-payment-history-export-modal__hint">{m.exportPdfHint}</p>
-          {accountTitle ? (
-            <p className="transaction-payment-history-export-modal__account">{accountTitle}</p>
-          ) : null}
-          <div className="transaction-payment-history-export-modal__field">
-            <ReportDatePicker
-              dateFrom={dateFromYmd}
-              dateTo={dateToYmd}
-              onRangeChange={handleRangeChange}
-              containerClass="customer-report-filter-group transaction-payment-history-export-date"
-              label={m.exportPdfDateRange}
-              placeholder={m.exportPdfSelectDateRange}
-              selectEndDateHint={m.exportPdfSelectEndDate}
-              outlinedFloatingLabel
-              captureDateStyle
-              periodPresets={periodPresets}
-              periodShortcutsAria={m.exportPdfPeriod}
-              monthLabels={m.monthsShort}
-              weekdaysShort={m.weekdaysShort}
-            />
-          </div>
-          <div className="transaction-payment-history-export-modal__field">
-            <span className="transaction-payment-history-export-modal__label">{m.currency}</span>
-            {loadingCurrencies ? (
-              <p className="transaction-payment-history-export-modal__loading">{m.loading}</p>
-            ) : currencies.length === 0 ? (
-              <p className="transaction-payment-history-export-modal__empty">{m.exportPdfNoCurrencies}</p>
-            ) : (
-              <div className="user-gc-inline-pills transaction-payment-history-export-currencies" role="group" aria-label={m.currency}>
-                <div className="user-gc-segment-group transaction-payment-history-export-currency-group">
+          <div className="transaction-payment-history-export-modal__form">
+            <div className="transaction-payment-history-export-modal__field">
+              <ReportDatePicker
+                dateFrom={dateFromYmd}
+                dateTo={dateToYmd}
+                onRangeChange={handleRangeChange}
+                containerClass="transaction-payment-history-export-date"
+                label={m.exportPdfDateRange}
+                placeholder={m.exportPdfSelectDateRange}
+                selectEndDateHint={m.exportPdfSelectEndDate}
+                outlinedFloatingLabel
+                captureDateStyle={false}
+                periodPresets={periodPresets}
+                periodShortcutsAria={m.exportPdfPeriod}
+                monthLabels={m.monthsShort}
+                weekdaysShort={m.weekdaysShort}
+              />
+            </div>
+            <div className="transaction-payment-history-export-modal__field">
+              <span className="transaction-payment-history-export-modal__label">{m.currency}</span>
+              {loadingCurrencies ? (
+                <p className="transaction-payment-history-export-modal__loading">{m.loading}</p>
+              ) : currencies.length === 0 ? (
+                <p className="transaction-payment-history-export-modal__empty">{m.exportPdfNoCurrencies}</p>
+              ) : (
+                <div className="transaction-payment-history-export-chips" role="group" aria-label={m.currency}>
                   {currencies.map((code) => (
                     <button
                       key={code}
                       type="button"
-                      className={`user-gc-segment${selectedCurrency === code ? " is-on" : ""}`}
+                      className={`transaction-payment-history-export-chip${selectedCurrency === code ? " is-on" : ""}`}
                       onClick={() => {
                         setSelectedCurrency(code);
                         setError("");
@@ -214,8 +216,8 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           {error ? (
             <p className="transaction-payment-history-export-modal__error" role="alert">
@@ -224,12 +226,17 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
           ) : null}
         </div>
         <div className="transaction-payment-history-export-modal__actions">
-          <button type="button" className="btn btn-cancel" disabled={exporting} onClick={onClose}>
+          <button
+            type="button"
+            className="transaction-payment-history-export-modal__btn transaction-payment-history-export-modal__btn--ghost"
+            disabled={exporting}
+            onClick={onClose}
+          >
             {m.exportPdfCancel}
           </button>
           <button
             type="button"
-            className="btn btn-add transaction-payment-history-export-modal__submit"
+            className="transaction-payment-history-export-modal__btn transaction-payment-history-export-modal__btn--primary"
             disabled={exporting || loadingCurrencies || !selectedCurrency}
             onClick={() => void handleExport()}
           >

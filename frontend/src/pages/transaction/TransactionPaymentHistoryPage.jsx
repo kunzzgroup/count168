@@ -19,7 +19,6 @@ import "../../../public/css/transaction.css";
 import "../../../public/css/portal-tooltip.css";
 import "../../../public/css/date-range-picker.css";
 import "../../../public/css/report-outlined-fields.css";
-import "../../../public/css/userlist.css";
 import "./transactionPaymentHistoryPage.css";
 import { useLoginLang } from "../../utils/i18n/useLoginLang.js";
 import { TRANSACTION_I18N } from "../../translateFile/pages/transactionTranslate.js";
