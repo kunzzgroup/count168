@@ -7,25 +7,6 @@ export const TX_LIST_SESSION_PREFIX = "count168_txlist_v1_";
 export const TX_LIST_INVALIDATE_LS_KEY = "count168_tx_invalidate_ts";
 export const TX_DATA_CHANGED_EVENT = "tx-data-changed";
 
-/**
- * Broadcast a transaction-data-changed signal across windows/tabs.
- * Writing localStorage fires a `storage` event in OTHER windows (e.g. the Payment History
- * popup opened via window.open), so they can refetch without a manual page refresh.
- */
-export function notifyTransactionDataChanged(source = "transaction") {
-  const ts = Date.now();
-  try {
-    localStorage.setItem(TX_LIST_INVALIDATE_LS_KEY, String(ts));
-  } catch {
-    /* ignore */
-  }
-  try {
-    window.dispatchEvent(new CustomEvent(TX_DATA_CHANGED_EVENT, { detail: { ts, source } }));
-  } catch {
-    /* ignore */
-  }
-}
-
 /** @param {string|null|undefined} role */
 export function getRoleClass(role) {
   if (!role) return "";

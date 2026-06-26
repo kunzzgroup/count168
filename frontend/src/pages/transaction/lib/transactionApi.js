@@ -33,7 +33,6 @@ export const transactionQueryKeys = {
   accounts: (scopeKey) => ["tx-accounts", String(scopeKey || "")],
   companyCurrencies: (scopeKey) => ["tx-company-currencies", String(scopeKey || "")],
   userCurrencyOrder: () => ["tx-user-currency-order"],
-  historyRoot: () => ["tx-history"],
   history: ({ companyId, viewGroup, groupId, groupAggregate, accountDbId, dateFrom, dateTo, currency, virtualCompanyCode }) => [
     "tx-history",
     Number(companyId ?? 0),
