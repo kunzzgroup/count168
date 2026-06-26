@@ -199,19 +199,21 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
               <p className="transaction-payment-history-export-modal__empty">{m.exportPdfNoCurrencies}</p>
             ) : (
               <div className="user-gc-inline-pills transaction-payment-history-export-currencies" role="group" aria-label={m.currency}>
-                {currencies.map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    className={`user-gc-segment${selectedCurrency === code ? " is-on" : ""}`}
-                    onClick={() => {
-                      setSelectedCurrency(code);
-                      setError("");
-                    }}
-                  >
-                    {code}
-                  </button>
-                ))}
+                <div className="user-gc-segment-group transaction-payment-history-export-currency-group">
+                  {currencies.map((code) => (
+                    <button
+                      key={code}
+                      type="button"
+                      className={`user-gc-segment${selectedCurrency === code ? " is-on" : ""}`}
+                      onClick={() => {
+                        setSelectedCurrency(code);
+                        setError("");
+                      }}
+                    >
+                      {code}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
