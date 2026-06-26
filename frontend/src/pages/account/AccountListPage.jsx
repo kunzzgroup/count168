@@ -66,7 +66,6 @@ import {
   toUpper,
   normalizeAlertAmount,
   roleSortOrder,
-  PAGE_SIZE,
   DEFAULT_FORM,
   getAccountModalOrderedRoles,
   getOrderedRoles,
@@ -105,6 +104,8 @@ import {
 } from "../../translateFile/pages/accountTranslate.js";
 import { usePartnershipAuditReadOnlyLocked } from "../../utils/audit/partnershipAuditReadOnly.js";
 import { useAuthSession } from "../../context/AuthSessionContext.jsx";
+import { useAutoListPageSize } from "../../hooks/useAutoListPageSize.js";
+import { PAGE_SIZE_MAX, PAGE_SIZE_MIN } from "../../constants/listPageSize.js";
 
 function resolveAccountListCacheKey(scopeKey, searchTerm, showInactive, showAll) {
   return `${scopeKey}|${String(searchTerm || "").trim()}|${showInactive ? "1" : "0"}|${showAll ? "1" : "0"}`;
@@ -215,6 +216,7 @@ export default function AccountListPage() {
   const [sortColumn, setSortColumn] = useState("account");
   const [sortDirection, setSortDirection] = useState("asc");
   const [currentPage, setCurrentPage] = useState(1);
+  const listRegionRef = useRef(null);
   const [selectedGroup, setSelectedGroup] = useState(() => initialBootGc.selectedGroup);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState(new Set());
 
@@ -1854,15 +1856,47 @@ export default function AccountListPage() {
 
   const accountMutationsBlocked = usePartnershipAuditReadOnlyLocked(sessionMe);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredForMode.length / PAGE_SIZE)), [filteredForMode]);
+  const pageSize = useAutoListPageSize({
+    listRegionRef,
+    enabled: !showAll,
+    rowSelector: ".account-list-row",
+    headerSelector: ".account-list-table-header",
+    paginationSelector: ".account-pagination-container",
+    minRows: PAGE_SIZE_MIN,
+    maxRows: PAGE_SIZE_MAX,
+    remeasureDeps: [
+      filteredForMode.length,
+      showAll,
+      showInactive,
+      searchTerm,
+      lang,
+      currentPage,
+      bootLoading,
+      companyId,
+      selectedGroup,
+      groupAllMode,
+      groupsAllMode,
+    ],
+  });
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredForMode.length / pageSize)),
+    [filteredForMode.length, pageSize],
+  );
   const effectivePage = useMemo(
     () => Math.min(Math.max(1, currentPage), totalPages),
     [currentPage, totalPages],
   );
+
+  useEffect(() => {
+    if (showAll) return;
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [showAll, totalPages, pageSize]);
+
   const pageRows = useMemo(() => {
     if (showAll) return filteredForMode;
-    return filteredForMode.slice((effectivePage - 1) * PAGE_SIZE, effectivePage * PAGE_SIZE);
-  }, [filteredForMode, showAll, effectivePage]);
+    return filteredForMode.slice((effectivePage - 1) * pageSize, effectivePage * pageSize);
+  }, [filteredForMode, showAll, effectivePage, pageSize]);
 
   /** React scope (instant on pill click) — do not wait for sessionStorage group-only flag. */
   const isGroupOnlyScope = useMemo(
@@ -2827,6 +2861,7 @@ export default function AccountListPage() {
             />
           </div>
 
+          <div ref={listRegionRef} className="account-list-scroll-region" role="region" aria-label={t("account")}>
           <div className="account-table-wrapper account-list-table">
             <div className="account-table-header account-list-table-header">
               <div className="account-header-item">{t("no")}</div>
@@ -2841,13 +2876,14 @@ export default function AccountListPage() {
             </div>
             <div
               className={`account-cards${showAll ? " account-cards--show-all" : ""}${!showAll && pageRows.length > 0 ? " account-cards--paged-fill" : ""}`}
+              style={!showAll && pageRows.length > 0 ? { "--account-list-page-size": pageSize } : undefined}
             >
               {pageRows.map((a, idx) => {
                 const alertOn = String(a.payment_alert) === "1";
                 const isInactive = String(a.status || "").toLowerCase() === "inactive";
                 return (
                   <div className="account-card account-list-row" key={a.id}>
-                    <div className="account-card-item">{showAll ? idx + 1 : (effectivePage - 1) * PAGE_SIZE + idx + 1}</div>
+                    <div className="account-card-item">{showAll ? idx + 1 : (effectivePage - 1) * pageSize + idx + 1}</div>
                     <div className="account-card-item">{toUpper(a.account_id)}</div>
                     <div className="account-card-item">{toUpper(a.name)}</div>
                     <div className="account-card-item"><span className={`account-role-badge account-role-${String(a.role || "").toLowerCase().replace(/\s+/g, "-")}`}>{formatAccountRoleDisplay(t, a.role)}</span></div>
@@ -2879,6 +2915,7 @@ export default function AccountListPage() {
                 );
               })}
             </div>
+          </div>
           </div>
           {!showAll && (
             <div className="account-pagination-container">

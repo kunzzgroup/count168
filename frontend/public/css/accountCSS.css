@@ -154,6 +154,14 @@ body.account-page .action-buttons-container .user-gc-inline-panel {
 }
 
 
+body.account-page:not(.account-page--show-all) .account-list-scroll-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 body.account-page .account-table-wrapper {
     flex: 1 1 auto;
     width: 100%;
@@ -184,6 +192,7 @@ body.account-page:not(.account-page--show-all) .account-table-header.account-lis
  */
 .account-list-table {
     width: 100%;
+    --list-table-min-width: 900px;
     --account-list-row-min-height: 26px;
     --account-list-grid-cols:
         38px
@@ -299,11 +308,11 @@ body.account-page:not(.account-page--show-all) .account-cards {
     justify-content: flex-start;
 }
 
-/* 满页 25 条：grid 均分剩余高度，与 Process 贴底效果一致 */
+/* 满页：grid 均分剩余高度（行数由 --account-list-page-size / useAutoListPageSize 驱动） */
 body.account-page:not(.account-page--show-all) .account-cards.account-cards--paged-fill {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: repeat(25, minmax(0, 1fr));
+    grid-template-rows: repeat(var(--account-list-page-size, 15), minmax(0, 1fr));
     flex: 1 1 auto;
     align-content: stretch;
 }
