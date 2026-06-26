@@ -186,6 +186,7 @@ function searchApiBulkLoadContraClearPeriodCounts(
     string $dateFromDb,
     string $dateToDb
 ): void {
+    $txnWhere = $searchTxnWhere !== '' ? $searchTxnWhere : searchApiTxnWhereSql('t');
     $inTypes = searchApiSqlInContraClearTypes();
     $queries = [
         [
@@ -193,7 +194,7 @@ function searchApiBulkLoadContraClearPeriodCounts(
             'sql' => 'SELECT t.account_id, t.currency_id,
                        SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS period_count
                 FROM transactions t
-                WHERE ' . $searchTxnWhere . '
+                WHERE ' . $txnWhere . '
                   AND t.transaction_type IN (' . $inTypes . ')
                   AND t.currency_id IS NOT NULL
                 GROUP BY t.account_id, t.currency_id',
@@ -203,7 +204,7 @@ function searchApiBulkLoadContraClearPeriodCounts(
             'sql' => 'SELECT t.from_account_id AS account_id, t.currency_id,
                        SUM(CASE WHEN t.transaction_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS period_count
                 FROM transactions t
-                WHERE ' . $searchTxnWhere . '
+                WHERE ' . $txnWhere . '
                   AND t.from_account_id IS NOT NULL
                   AND t.transaction_type IN (' . $inTypes . ')
                   AND t.currency_id IS NOT NULL
