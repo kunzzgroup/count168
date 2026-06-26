@@ -233,7 +233,7 @@ body.datacapture-page .top-section .form-column > .form-container {
     /* Pin the form card height to ~the bottom of the Description / Replace
        Word row; the remaining fields (Remove Word, Remark, help) scroll
        inside the form. The submitted card follows this height. */
-    max-height: clamp(280px, 16vw, 280px);
+    max-height: 274px;
     margin: 0;
     box-sizing: border-box;
     overflow: hidden;
