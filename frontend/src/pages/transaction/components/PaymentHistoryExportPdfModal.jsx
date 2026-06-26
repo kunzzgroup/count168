@@ -13,7 +13,8 @@ import {
   buildMemberReportPrintHtml,
   fetchMemberReportHistory,
   fetchPaymentHistoryExportCurrencies,
-  printMemberReportPdf,
+  openReportPrintWindow,
+  renderReportToWindow,
   resolveExportCurrencyDefault,
   ymdRangeToDmy,
 } from "../lib/paymentHistoryMemberReportExport.js";
@@ -100,6 +101,12 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
       setError(m.exportPdfMissingAccount);
       return;
     }
+    // Open the print window synchronously so it keeps the user-gesture context.
+    const printWin = openReportPrintWindow(m.exportPdfExporting);
+    if (!printWin) {
+      setError(m.exportPdfPopupBlocked);
+      return;
+    }
     setExporting(true);
     setError("");
     try {
@@ -122,9 +129,14 @@ export default function PaymentHistoryExportPdfModal({ open, onClose, scope, acc
         lang,
       });
       const filename = buildMemberReportFilename({ accountCode, currency, dateFrom, dateTo });
-      printMemberReportPdf({ html, documentTitle: filename });
+      renderReportToWindow(printWin, { html, documentTitle: filename });
       onClose?.();
     } catch (err) {
+      try {
+        if (printWin && !printWin.closed) printWin.close();
+      } catch {
+        /* ignore */
+      }
       if (err?.name === "AbortError") return;
       if (err?.message === "Popup blocked") {
         setError(m.exportPdfPopupBlocked);

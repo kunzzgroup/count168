@@ -180,24 +180,42 @@ export function buildMemberReportPrintHtml({
   return buildPrintDocumentHtml({ title, subtitle, headers, bodyRows, footerRow });
 }
 
-/** Opens print dialog (Save as PDF) with member-style report layout. */
-export function printMemberReportPdf({ html, documentTitle }) {
-  const win = window.open("", "_blank", "noopener,noreferrer");
-  if (!win) {
-    throw new Error("Popup blocked");
-  }
+/**
+ * Open the print window synchronously (must run inside the click handler so the
+ * browser keeps the user-gesture context — otherwise it becomes a blocked/blank tab).
+ */
+export function openReportPrintWindow(loadingLabel = "Loading…") {
+  const win = window.open("", "_blank");
+  if (!win) return null;
+  win.document.open();
+  win.document.write(
+    `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${escapeHtml(loadingLabel)}</title>` +
+      `<style>body{font-family:"Segoe UI",Arial,sans-serif;color:#475569;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style>` +
+      `</head><body>${escapeHtml(loadingLabel)}</body></html>`,
+  );
+  win.document.close();
+  return win;
+}
+
+/** Render report HTML into an already-opened window and trigger the print dialog. */
+export function renderReportToWindow(win, { html, documentTitle }) {
+  if (!win || win.closed) throw new Error("Popup blocked");
   win.document.open();
   win.document.write(html);
   win.document.close();
-  win.document.title = documentTitle;
+  try {
+    win.document.title = documentTitle;
+  } catch {
+    /* ignore */
+  }
   const triggerPrint = () => {
     win.focus();
     win.print();
   };
   if (win.document.readyState === "complete") {
-    window.setTimeout(triggerPrint, 250);
+    window.setTimeout(triggerPrint, 300);
   } else {
-    win.addEventListener("load", () => window.setTimeout(triggerPrint, 250));
+    win.addEventListener("load", () => window.setTimeout(triggerPrint, 300));
   }
 }
 
