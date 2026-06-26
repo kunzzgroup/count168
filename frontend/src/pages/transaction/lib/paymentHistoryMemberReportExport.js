@@ -109,13 +109,21 @@ function buildPrintDocumentHtml({ title, subtitle, headers, bodyRows, footerRow 
   <meta charset="utf-8" />
   <title>${escapeHtml(title)}</title>
   <style>
-    @page { size: A4 landscape; margin: 10mm; }
+    @page { size: A4 portrait; margin: 10mm; }
     * { box-sizing: border-box; }
-    body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; margin: 0; padding: 16px; }
-    h1 { margin: 0 0 4px; font-size: 18px; }
-    .sub { margin: 0 0 16px; color: #475569; font-size: 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 10px; }
-    th, td { border: 1px solid #b8cfe8; padding: 6px 8px; text-align: left; vertical-align: top; }
+    html, body { width: 210mm; min-height: 297mm; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #0f172a;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    h1 { margin: 0 0 4px; font-size: 15px; }
+    .sub { margin: 0 0 10px; color: #475569; font-size: 10px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8.5px; }
+    th, td { border: 1px solid #b8cfe8; padding: 4px 5px; text-align: left; vertical-align: top; word-break: break-word; }
     th { background: linear-gradient(180deg, #dce9f8 0%, #c5daf2 100%); color: #1e3a5f; font-weight: 700; }
     tr:nth-child(even) td { background: #f8fafc; }
     tr.total td { font-weight: 700; background: #eff6ff; }
