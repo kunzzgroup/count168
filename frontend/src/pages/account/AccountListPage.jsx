@@ -2919,6 +2919,7 @@ export default function AccountListPage() {
                     <div className="account-card-item">{toUpper(a.remark)}</div>
                     <div className="account-card-item account-card-item--action">
                       <div className="account-action-tools">
+                        <div className="account-action-tools-bar">
                         <button type="button" className="btn btn-edit account-edit-btn" disabled={accountMutationsBlocked} onClick={() => openEdit(a.id)} aria-label={t("edit")} title={t("edit")}>
                           <img src={assetUrl("images/edit.svg")} alt={t("edit")} />
                         </button>
@@ -2927,6 +2928,7 @@ export default function AccountListPage() {
                             <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                           </svg>
                         </button>
+                        </div>
                         {isInactive && (
                           <input
                             type="checkbox"

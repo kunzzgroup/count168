@@ -288,22 +288,92 @@ body.account-page:not(.account-page--show-all) .account-table-header.account-lis
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 5px;
+    gap: 8px;
     vertical-align: middle;
 }
 
-.account-list-table .account-list-row .account-card-item--action .btn.btn-edit.account-edit-btn,
-.account-list-table .account-list-row .account-card-item--action .account-edit-btn {
-    background: transparent;
-    border: transparent;
-    box-shadow: none;
+/* Action 列：新拟态圆钮条（编辑 + 链接） */
+.account-list-table .account-list-row .account-card-item--action .account-action-tools-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    padding: 3px 5px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ffffff 0%, #f3f6fa 100%);
+    box-shadow:
+        0 2px 7px rgba(15, 23, 42, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
-.account-list-table .account-list-row .account-card-item--action .btn.btn-edit.account-edit-btn:hover,
-.account-list-table .account-list-row .account-card-item--action .account-edit-btn:hover {
-    background: transparent;
-    box-shadow: none;
+.account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn {
+    position: relative;
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 50%;
+    background: #eef2f6;
+    color: #334155;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+        2px 2px 5px rgba(148, 163, 184, 0.35),
+        -1px -1px 4px rgba(255, 255, 255, 0.95),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.65);
+    flex-shrink: 0;
+}
+
+.account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn + .account-edit-btn {
+    margin-left: 5px;
+    padding-left: 5px;
+}
+
+.account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn + .account-edit-btn::before {
+    content: "";
+    position: absolute;
+    left: -3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 14px;
+    background: #d5dde8;
+}
+
+.account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn:hover:not(:disabled) {
+    background: #f8fafc;
+    box-shadow:
+        1px 1px 3px rgba(148, 163, 184, 0.3),
+        -1px -1px 3px rgba(255, 255, 255, 0.95),
+        inset 1px 1px 2px rgba(255, 255, 255, 0.7);
     transform: none;
+}
+
+.account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn:active:not(:disabled) {
+    box-shadow:
+        inset 2px 2px 4px rgba(148, 163, 184, 0.35),
+        inset -1px -1px 3px rgba(255, 255, 255, 0.8);
+    transform: none;
+}
+
+.account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+body.ec-auth-shell.account-page .account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn img,
+body.ec-auth-shell.account-page .account-list-table .account-list-row .account-card-item--action .account-action-tools-bar .account-edit-btn svg {
+    width: 14px !important;
+    height: 14px !important;
+    display: block;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: none;
 }
 
 body.account-page:not(.account-page--show-all) .account-cards {
